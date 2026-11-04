@@ -103,49 +103,59 @@ export function lineInScript(sceneText: string, proposed: string): string {
   return line;
 }
 
-/** Spoken lines already written in the scene. The shot copies the same characters. */
-export function scriptDialogue(sceneText: string): { speaker: string; line: string }[] {
+function spokenLine(raw: string): string {
+  return raw.trim().replace(/[」”"'。！？…]+$/u, "");
+}
+
+/** Lines from a scene's dialogue list: 已知人名：台词, or 人名说/道/问/喊/叫：台词.
+ *  A quote or a caption such as 纸条： is not a line. */
+export function scriptDialogue(
+  sceneText: string,
+  known: readonly string[] = [],
+): { speaker: string; line: string }[] {
   const found: { speaker: string; line: string }[] = [];
   const seen = new Set<string>();
-  const add = (speaker: string, raw: string) => {
-    const line = raw
-      .replace(/\s+/g, "")
-      .replace(/^[「“"']+/, "")
-      .replace(/[」”"'。！？…]+$/, "");
-    if (line.length < 2 || line.length > 40 || seen.has(line) || !sceneText.includes(line)) return;
-    seen.add(line);
-    found.push({ speaker: speaker.trim(), line });
+  const names = [...known.map((name) => name.trim()).filter((name) => name.length >= 2)].sort(
+    (a, b) => b.length - a.length,
+  );
+  const push = (speaker: string, raw: string) => {
+    const line = spokenLine(raw);
+    if (!speaker || line.length < 2 || line.length > 80 || seen.has(`${speaker}\0${line}`)) return;
+    if (!sceneText.includes(line)) return;
+    if (names.length > 0 && !names.includes(speaker)) return;
+    seen.add(`${speaker}\0${line}`);
+    found.push({ speaker, line });
   };
-  for (const match of sceneText.matchAll(
-    /([\u4e00-\u9fffA-Za-z]{1,12})(?:说|道|问|喊|叫)?[：:]\s*[「“"']?([^「」“”"'\n。！？]{1,40})/g,
-  )) {
-    const speaker = (match[1] ?? "").replace(/(?:说|道|问|喊|叫)$/, "");
-    add(speaker, match[2] ?? "");
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const match of sceneText.matchAll(new RegExp(`${escaped}[：:]\\s*([^\\n]{1,80})`, "g"))) {
+      push(name, match[1] ?? "");
+    }
   }
-  for (const match of sceneText.matchAll(/[「“"]([^「」“”"]{1,40})[」”"]/g))
-    add("", match[1] ?? "");
+  for (const match of sceneText.matchAll(
+    /([\u4e00-\u9fff]{2,4})(?:说|道|问|喊|叫)[：:]\s*[「“"']?([^「」“”"'\n]{1,80})/gu,
+  )) {
+    push((match[1] ?? "").trim(), match[2] ?? "");
+  }
   return found;
 }
 
 export function attachScriptLines<
   T extends { line: string; characters: string[]; picture: string; speaker?: string },
->(shots: T[], sceneText: string): T[] {
+>(shots: T[], sceneText: string, known: readonly string[] = []): T[] {
+  const names = new Set(
+    [...known, ...shots.flatMap((shot) => shot.characters)]
+      .map((name) => name.trim())
+      .filter(Boolean),
+  );
   const next = shots.map((shot) => ({ ...shot, characters: [...shot.characters] }));
-  for (const spoken of scriptDialogue(sceneText)) {
+  for (const spoken of scriptDialogue(sceneText, [...names])) {
+    if (!names.has(spoken.speaker)) continue;
     if (next.some((shot) => shot.line.includes(spoken.line))) continue;
-    const host =
-      next.find(
-        (shot) =>
-          !shot.line.trim() &&
-          (!spoken.speaker ||
-            shot.characters.includes(spoken.speaker) ||
-            shot.picture.includes(spoken.speaker)),
-      ) ?? next.find((shot) => !shot.line.trim());
+    const host = next.find((shot) => !shot.line.trim() && shot.characters.includes(spoken.speaker));
     if (!host) continue;
     host.line = spoken.line;
-    if (spoken.speaker) host.speaker = spoken.speaker;
-    if (spoken.speaker && !host.characters.includes(spoken.speaker))
-      host.characters.push(spoken.speaker);
+    host.speaker = spoken.speaker;
   }
   return next;
 }
@@ -310,10 +320,23 @@ export function actionFromModel(value: unknown): ActionRow[] | null {
     }
   }
   const beats = (value as { beats?: unknown }).beats;
-  if (Array.isArray(beats)) {
+  if (Array.isArray(beats) && beats.length > 0) {
+    const onlyBeats: ActionRow[] = [];
     for (const item of beats) {
-      if (item && typeof item === "object") push(item as Record<string, unknown>);
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const text = actionText(row);
+      if (!text) continue;
+      const feasibility =
+        row.feasibility === "难" || row.feasibility === "看运气" ? row.feasibility : "稳";
+      onlyBeats.push({
+        text,
+        feasibility,
+        workaround: typeof row.workaround === "string" ? row.workaround.trim() : "",
+        at: typeof row.at_seconds === "number" ? row.at_seconds : onlyBeats.length,
+      });
     }
+    return onlyBeats.length > 0 ? onlyBeats : null;
   }
   return rows.length > 0 ? rows : null;
 }

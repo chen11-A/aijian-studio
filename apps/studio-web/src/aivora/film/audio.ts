@@ -24,6 +24,42 @@ export const AUDIO_LANE_GAIN_DB: Record<AudioLaneId, number> = {
   score: -14,
 };
 
+/** 0–100 on the sound panel. 100 is full, 70 is −3 dB, 50 is −6 dB, 20 is −14 dB. */
+const VOLUME_STOPS = [
+  { percent: 100, db: 0 },
+  { percent: 70, db: -3 },
+  { percent: 50, db: -6 },
+  { percent: 20, db: -14 },
+  { percent: 0, db: -40 },
+];
+
+export function volumePercentToDb(percent: number): number {
+  const value = Math.max(0, Math.min(100, percent));
+  for (let index = 0; index < VOLUME_STOPS.length - 1; index += 1) {
+    const high = VOLUME_STOPS[index]!;
+    const low = VOLUME_STOPS[index + 1]!;
+    if (value <= high.percent && value >= low.percent) {
+      const span = high.percent - low.percent;
+      const ratio = span === 0 ? 0 : (high.percent - value) / span;
+      return Math.round((high.db + (low.db - high.db) * ratio) * 10) / 10;
+    }
+  }
+  return -40;
+}
+
+export function dbToVolumePercent(db: number): number {
+  for (let index = 0; index < VOLUME_STOPS.length - 1; index += 1) {
+    const high = VOLUME_STOPS[index]!;
+    const low = VOLUME_STOPS[index + 1]!;
+    if (db <= high.db && db >= low.db) {
+      const span = high.db - low.db;
+      const ratio = span === 0 ? 0 : (high.db - db) / span;
+      return Math.round(high.percent - (high.percent - low.percent) * ratio);
+    }
+  }
+  return db >= 0 ? 100 : 0;
+}
+
 export type DialogueClipLabel = "原声" | "配音" | "旁白";
 
 export type AudioClip = {

@@ -71,7 +71,7 @@ describe("film project", () => {
     expect(prompt).toContain("雨夜巷战");
     expect(prompt).toContain("这一场怎么写");
     expect(prompt).toContain("不要改作品");
-    expect(agentRequest("director", "画风", "拆开")).toContain("你是短剧导演");
+    expect(agentRequest("director", "画风", "拆开")).toContain("你是 AIVORA 的导演");
     expect(assistantPrompt("   ", null)).toContain("短剧助手");
     const novel = "雨夜旧书店。林晚说：“我叫沈砚。”".padEnd(2075, "雨");
     const request = agentRequest("director", novel, "把这一场拆成镜头");
@@ -130,7 +130,7 @@ describe("film project", () => {
     expect(episode.characters[0]?.portraits[0]?.url).toBe("data:image/png;base64,aa");
     expect(episode.characters[0]?.portraits[0]).not.toBe(prefixed.characters[0]?.portraits[0]);
     const parsed = parseDirectorShots(
-      '说明 {"shots":[{"picture":"抬眼","seconds":99,"performance":"皱眉","purpose":"情绪","size":"中景","characters":["林骁",1]}]}',
+      '说明 {"shots":[{"picture":"抬眼","seconds":99,"performance":"皱眉","purpose":"情绪","emotion":"哭，泪，怒","size":"中景","characters":["林骁",1]}]}',
       "02",
     );
     expect(parsed?.[0]?.seconds).toBe(15);
@@ -206,7 +206,7 @@ describe("film project", () => {
     writeFilm(window.localStorage, film);
     expect(readFilm(window.localStorage)?.aspectRatio).toBe("16:9");
     expect(parsed?.[0]?.performance).toBe("皱眉");
-    expect(parsed?.[0]?.size).toBe("近景");
+    expect(parsed?.[0]?.size).toBe("中景");
     expect(parsed?.[0]?.sound.source).toBe("native");
     expect(parsed?.[0]?.characters).toEqual(["林骁"]);
     expect(restored?.audioClips).toEqual([]);

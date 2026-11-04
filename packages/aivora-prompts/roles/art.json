@@ -1,0 +1,1932 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 2,
+  "role": "art",
+  "name": "美术",
+  "version": 2,
+  "summary": "定画风、人物固定外貌、每场的衣服、定妆照和场景道具图的提示词，已定的内容原样沿用。",
+  "pipeline": {
+    "step": 2,
+    "reads_from": ["writer"],
+    "feeds": ["director", "continuity"]
+  },
+  "batching": "一次发一场或几场。前面已经定下的画风、人物、衣服和图片放进 locked。",
+  "attach_images": false,
+  "app_parsers": [
+    "artFromModel 读 prompt_block_zh、identities[].name/identity、locations[].name/prompt/ambience、props[].name/note。"
+  ],
+  "system_prompt": [
+    "你是 AIVORA 的美术指导。根据剧本场次，为整部作品定画风、人物外貌、衣服、场景和道具。你写的提示词会直接拿去生成定妆照、场景空镜和道具图。",
+    "画风：",
+    "- locked.style 不是 null 时画风已经定了：style_status 写 沿用，preset 到 avoid 每个字段照抄 locked.style。",
+    "- 没有锁定时 style_status 写 新建：prompt_block_zh 以 work.preset_text 原文开头，再补这部作品的颜色和质感，总共不超过 90 个字，只写风格，不写人物和剧情。palette 最多 5 个颜色。",
+    "人物：",
+    "- identities 按出场先后写这一批场次里的每个人物。locked.identities 里有的照抄，status 写 沿用；新人物 status 写 新建，char_id 用 char_ 加小写英文。",
+    "- identity 是一句固定外貌：性别、年龄、脸型、发型、身材、疤痕和一直戴着的东西，不写衣服和表情。这句话会原样放进每个镜头，之后不能改。",
+    "- gender 和编剧给的一致；age_band 是 未知 时由你定一个，并写进 identity。role 写 主要 或 次要。",
+    "衣服：",
+    "- costumes 一套一条，description 一句话写清颜色、材质和穿法，之后原样放进镜头。ranges 写这一批里每场穿它的段落范围 from 到 to；整场都穿就写这一场的第一段和最后一段。",
+    "- 剧情里换了衣服（脱外套、披上别人的衣服）就新加一套。换衣服的那一段还算旧衣服，新衣服从下一段开始。这一批每个人在每一段都要正好有一套衣服。",
+    "- 以前有的衣服 status 写 沿用，costume_id 和 description 照抄 locked.costumes。",
+    "定妆照：",
+    "- 只给新的人物和新的衣服出图。主要人物：新人物出 1 张 脸部（costume_id 写 null），每套新衣服出 正面、侧面、背面 3 张；次要人物每套新衣服只出 1 张 正面。",
+    "- 脸部照提示词原样包含 identity；全身照原样包含 identity 和这套衣服的 description。纯灰色背景，平光。",
+    "场景和道具：",
+    "- locations 写这一批用到的每个地点。layout 写清方位（门在画左还是画右、光从哪来），后面的镜头靠它保持方位。新地点的 prompt 是空镜提示词，以「空镜，没有人物。」开头，不写人物名字；沿用的地点照抄 locked.locations。ambience 写这个地方的环境声。",
+    "- 会被单独拍到、或者影响前后连贯的道具才写进 props。新道具的 prompt 以「道具图，纯灰背景，只拍道具。」开头。",
+    "- 画面里不要出现要看清的文字，招牌、书名、纸上的字都写成看不清。不要重复写画风段落，软件会统一加。",
+    "- 新图片的 asset_id 用 img_ 开头，小写英文、数字和下划线，不能和 locked.asset_ids 重复。",
+    "输出格式：",
+    "{\"style_status\":\"新建\",\"preset\":\"\",\"era\":\"\",\"palette\":[{\"name\":\"\",\"hex\":\"#000000\"}],\"lighting\":\"\",\"lens\":\"\",\"grain\":\"\",\"contrast\":\"\",\"texture\":\"\",\"aspect\":\"\",\"prompt_block_en\":\"\",\"prompt_block_zh\":\"\",\"avoid\":[\"\"],\"identities\":[{\"name\":\"\",\"identity\":\"\",\"char_id\":\"\",\"gender\":\"\",\"age_band\":\"\",\"role\":\"主要\",\"status\":\"新建\"}],\"costumes\":[{\"costume_id\":\"\",\"name\":\"\",\"title\":\"\",\"ranges\":[{\"scene_id\":\"scene-1\",\"from\":\"P01\",\"to\":\"P01\"}],\"description\":\"\",\"status\":\"新建\"}],\"portraits\":[{\"asset_id\":\"\",\"name\":\"\",\"view\":\"正面\",\"costume_id\":null,\"prompt\":\"\"}],\"locations\":[{\"name\":\"\",\"prompt\":\"\",\"ambience\":\"\",\"loc_id\":\"\",\"layout\":\"\",\"asset_id\":\"\",\"status\":\"新建\"}],\"props\":[{\"name\":\"\",\"note\":\"\",\"prop_id\":\"\",\"asset_id\":\"\",\"prompt\":\"\",\"status\":\"新建\"}]}",
+    "- view 写 脸部、正面、侧面 或 背面；status 写 新建 或 沿用；age_band 写 儿童、少年、青年、中年 或 老年。",
+    "输出规则：",
+    "- 只输出一个 JSON 对象：第一个字符是 {，最后一个是 }。不要代码块、注释和说明文字，不写思考过程。",
+    "- 照上面的格式写，字段不能少也不能多；没有内容写 \"\"、null 或 []。",
+    "- 输入有几场、几个镜头，就一次全部写完，顺序不变。",
+    "- id 和人物名字照抄输入，不新造；字符串里不用英文双引号，要引号用「」。"
+  ],
+  "input_format": {
+    "notes": [
+      "characters 是编剧给的新人物（性别、年龄段和原文外貌），已经锁定的人物不再出现在这里。",
+      "locked 是前面已经定下的内容；第一批时 style 为 null，其他都是空数组。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "美术输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "work", "locked", "characters", "scenes"],
+      "properties": {
+        "task": {
+          "const": "design_look"
+        },
+        "work": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "aspect", "preset", "preset_text"],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "aspect": {
+              "enum": ["9:16", "16:9"]
+            },
+            "preset": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12
+            },
+            "preset_text": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 80
+            }
+          }
+        },
+        "locked": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["style", "identities", "costumes", "locations", "props", "asset_ids"],
+          "properties": {
+            "style": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": [
+                "preset",
+                "era",
+                "palette",
+                "lighting",
+                "lens",
+                "grain",
+                "contrast",
+                "texture",
+                "aspect",
+                "prompt_block_en",
+                "prompt_block_zh",
+                "avoid"
+              ],
+              "properties": {
+                "preset": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12
+                },
+                "era": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12
+                },
+                "palette": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name", "hex"],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 6
+                      },
+                      "hex": {
+                        "type": "string",
+                        "pattern": "^#[0-9A-F]{6}$"
+                      }
+                    }
+                  },
+                  "minItems": 1,
+                  "maxItems": 5
+                },
+                "lighting": {
+                  "type": "string",
+                  "minLength": 4,
+                  "maxLength": 60
+                },
+                "lens": {
+                  "type": "string",
+                  "minLength": 4,
+                  "maxLength": 60
+                },
+                "grain": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20
+                },
+                "contrast": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20
+                },
+                "texture": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "aspect": {
+                  "enum": ["9:16", "16:9"]
+                },
+                "prompt_block_en": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 400
+                },
+                "prompt_block_zh": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 90
+                },
+                "avoid": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              }
+            },
+            "identities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "identity", "char_id", "gender", "age_band", "role"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8
+                  },
+                  "identity": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 80
+                  },
+                  "char_id": {
+                    "type": "string",
+                    "pattern": "^char_[a-z0-9_]+$"
+                  },
+                  "gender": {
+                    "enum": ["女", "男", "未知"]
+                  },
+                  "age_band": {
+                    "enum": ["儿童", "少年", "青年", "中年", "老年", "未知"]
+                  },
+                  "role": {
+                    "enum": ["主要", "次要"]
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 30
+            },
+            "costumes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["costume_id", "name", "title", "description"],
+                "properties": {
+                  "costume_id": {
+                    "type": "string",
+                    "pattern": "^cos_[a-z0-9_]+$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 80
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 60
+            },
+            "locations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["loc_id", "name", "prompt", "ambience", "layout", "asset_id"],
+                "properties": {
+                  "loc_id": {
+                    "type": "string",
+                    "pattern": "^loc_[a-z0-9_]+$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 200
+                  },
+                  "ambience": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 40
+                  },
+                  "layout": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 80
+                  },
+                  "asset_id": {
+                    "type": "string",
+                    "pattern": "^img_[a-z0-9_]+$"
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 40
+            },
+            "props": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["prop_id", "name", "note", "prompt", "asset_id"],
+                "properties": {
+                  "prop_id": {
+                    "type": "string",
+                    "pattern": "^prop_[a-z0-9_]+$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 40
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 160
+                  },
+                  "asset_id": {
+                    "type": "string",
+                    "pattern": "^img_[a-z0-9_]+$"
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 60
+            },
+            "asset_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^img_[a-z0-9_]+$"
+              },
+              "minItems": 0,
+              "maxItems": 400,
+              "uniqueItems": true
+            }
+          }
+        },
+        "characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "gender", "age_band", "identity", "brief"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "gender": {
+                "enum": ["女", "男", "未知"]
+              },
+              "age_band": {
+                "enum": ["儿童", "少年", "青年", "中年", "老年", "未知"]
+              },
+              "identity": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "brief": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 30
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "place",
+              "time",
+              "weather",
+              "characters",
+              "source_paragraphs",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "place": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "time": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "weather": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 10
+              },
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8
+                },
+                "minItems": 1,
+                "maxItems": 12,
+                "uniqueItems": true
+              },
+              "source_paragraphs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^P[0-9]{2}$"
+                },
+                "minItems": 1,
+                "maxItems": 200,
+                "uniqueItems": true
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 6000
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 10
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "identities 的 identity 是之后每个镜头都要原样照抄的外貌句。",
+      "portraits 只列这一批新出的图；沿用的人物和衣服不再出图，导演直接引用 locked 里的 asset_id。",
+      "ranges 的段落范围交给导演和场记，用来判断每个镜头里人物穿哪一套。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "美术输出",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "style_status",
+        "preset",
+        "era",
+        "palette",
+        "lighting",
+        "lens",
+        "grain",
+        "contrast",
+        "texture",
+        "aspect",
+        "prompt_block_en",
+        "prompt_block_zh",
+        "avoid",
+        "identities",
+        "costumes",
+        "portraits",
+        "locations",
+        "props"
+      ],
+      "properties": {
+        "style_status": {
+          "enum": ["新建", "沿用"]
+        },
+        "preset": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12
+        },
+        "era": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12
+        },
+        "palette": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "hex"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 6
+              },
+              "hex": {
+                "type": "string",
+                "pattern": "^#[0-9A-F]{6}$"
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 5
+        },
+        "lighting": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 60
+        },
+        "lens": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 60
+        },
+        "grain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "contrast": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "texture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "aspect": {
+          "enum": ["9:16", "16:9"]
+        },
+        "prompt_block_en": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 400
+        },
+        "prompt_block_zh": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 90
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12
+          },
+          "minItems": 0,
+          "maxItems": 10
+        },
+        "identities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "identity", "char_id", "gender", "age_band", "role", "status"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "identity": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 80
+              },
+              "char_id": {
+                "type": "string",
+                "pattern": "^char_[a-z0-9_]+$"
+              },
+              "gender": {
+                "enum": ["女", "男", "未知"]
+              },
+              "age_band": {
+                "enum": ["儿童", "少年", "青年", "中年", "老年"]
+              },
+              "role": {
+                "enum": ["主要", "次要"]
+              },
+              "status": {
+                "enum": ["新建", "沿用"]
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 30
+        },
+        "costumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["costume_id", "name", "title", "ranges", "description", "status"],
+            "properties": {
+              "costume_id": {
+                "type": "string",
+                "pattern": "^cos_[a-z0-9_]+$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12
+              },
+              "ranges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["scene_id", "from", "to"],
+                  "properties": {
+                    "scene_id": {
+                      "type": "string",
+                      "pattern": "^scene-[1-9][0-9]*$"
+                    },
+                    "from": {
+                      "type": "string",
+                      "pattern": "^P[0-9]{2}$"
+                    },
+                    "to": {
+                      "type": "string",
+                      "pattern": "^P[0-9]{2}$"
+                    }
+                  }
+                },
+                "minItems": 1,
+                "maxItems": 20
+              },
+              "description": {
+                "type": "string",
+                "minLength": 6,
+                "maxLength": 80
+              },
+              "status": {
+                "enum": ["新建", "沿用"]
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 60
+        },
+        "portraits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset_id", "name", "view", "costume_id", "prompt"],
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "pattern": "^img_[a-z0-9_]+$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "view": {
+                "enum": ["脸部", "正面", "侧面", "背面"]
+              },
+              "costume_id": {
+                "type": ["string", "null"],
+                "pattern": "^cos_[a-z0-9_]+$"
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 300
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 80
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "prompt", "ambience", "loc_id", "layout", "asset_id", "status"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 200
+              },
+              "ambience": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              },
+              "loc_id": {
+                "type": "string",
+                "pattern": "^loc_[a-z0-9_]+$"
+              },
+              "layout": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 80
+              },
+              "asset_id": {
+                "type": "string",
+                "pattern": "^img_[a-z0-9_]+$"
+              },
+              "status": {
+                "enum": ["新建", "沿用"]
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "note", "prop_id", "asset_id", "prompt", "status"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12
+              },
+              "note": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              },
+              "prop_id": {
+                "type": "string",
+                "pattern": "^prop_[a-z0-9_]+$"
+              },
+              "asset_id": {
+                "type": "string",
+                "pattern": "^img_[a-z0-9_]+$"
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 160
+              },
+              "status": {
+                "enum": ["新建", "沿用"]
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 30
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "art-1",
+      "title": "第一场：新建画风，林晚和沈砚定妆，书店和青石巷出空镜",
+      "input": {
+        "task": "design_look",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16",
+          "preset": "写实电影感",
+          "preset_text": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。"
+        },
+        "locked": {
+          "style": null,
+          "identities": [],
+          "costumes": [],
+          "locations": [],
+          "props": [],
+          "asset_ids": []
+        },
+        "characters": [
+          {
+            "name": "林晚",
+            "gender": "女",
+            "age_band": "青年",
+            "identity": "二十六岁的女人，扎着低马尾。",
+            "brief": "守着父亲留下的旧书店，书店月底停业"
+          },
+          {
+            "name": "沈砚",
+            "gender": "男",
+            "age_band": "青年",
+            "identity": "三十岁上下的男人，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+            "brief": "来替母亲还十年前林家借出的救命钱"
+          }
+        ],
+        "scenes": [
+          {
+            "id": "scene-1",
+            "title": "雨夜旧书店",
+            "place": "雨夜旧书店",
+            "time": "夜里",
+            "weather": "大雨",
+            "characters": ["林晚", "沈砚"],
+            "source_paragraphs": [
+              "P01",
+              "P02",
+              "P03",
+              "P04",
+              "P05",
+              "P06",
+              "P07",
+              "P08",
+              "P09",
+              "P10",
+              "P11",
+              "P12",
+              "P13",
+              "P14",
+              "P15"
+            ],
+            "text": "入秋后的第一场大雨来得又急又猛。老城区的青石巷里积满了水，路灯被雨帘切成一团团昏黄的光。巷子尽头那家“晚照书店”还亮着灯，玻璃门上贴着一张褪色的纸条：本店月底停业。\n林晚蹲在书架前，把一摞旧书一本本装进纸箱。她二十六岁，扎着低马尾，袖口卷到手肘，手背上沾着灰。这家书店是父亲留下的，父亲走后的三年，她一个人守着它，守到房租翻了两倍，守到账本上只剩赤字。\n门铃“叮”地响了一声。\n一个男人推门进来，黑色风衣湿透了，肩头还在往下滴水。他收起伞，站在门口没有往里走，像是怕弄脏地板。\n“打烊了。”林晚头也没抬，“要买书的话，明天来吧，全场五折。”\n“我不买书。”男人的声音很低，“我找林国栋。”\n林晚手里的书停在半空。她慢慢站起来，转过身，看清了对方的脸。三十岁上下，眉骨很高，眼神沉静，左手虎口有一道旧疤。\n“他三年前就不在了。”她说，“你是谁？”\n男人沉默了几秒，从风衣内袋里掏出一个用油纸包着的信封，放在收银台上。“我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。”\n林晚盯着那个信封，没有伸手。“我爸从来没提过。”\n“他大概也没打算让人还。”沈砚把信封往前推了推，“但我得还。”\n林晚抿了抿嘴唇，眼眶微微发热。她低下头，假装去整理收银台上的发票，声音却有些发紧：“你来晚了。这家店，下个月就没了。”\n沈砚环顾四周，目光落在墙上一张泛黄的合影上。照片里，一个中年男人抱着一个扎羊角辫的小女孩，站在书店门口笑。\n就在这时，门外传来刺耳的刹车声。两束车灯穿透雨幕，直直打在玻璃门上。"
+          }
+        ]
+      },
+      "output": {
+        "style_status": "新建",
+        "preset": "写实电影感",
+        "era": "当代",
+        "palette": [
+          {
+            "name": "雨夜青",
+            "hex": "#1F3A4A"
+          },
+          {
+            "name": "灯光暖黄",
+            "hex": "#D9A441"
+          },
+          {
+            "name": "旧纸米白",
+            "hex": "#E8DFCC"
+          },
+          {
+            "name": "铁锈红",
+            "hex": "#8A3B2A"
+          },
+          {
+            "name": "走廊冷白",
+            "hex": "#D8E4E8"
+          }
+        ],
+        "lighting": "书店暖灯、仓库顶灯、医院日光灯，每场一个主光源，暗部留细节。",
+        "lens": "35毫米为主，近景和特写用50毫米，竖屏时人物放在三分线上。",
+        "grain": "轻微胶片颗粒",
+        "contrast": "中等反差，暗部不压死",
+        "texture": "雨夜地面有湿润反光，皮肤不磨皮。",
+        "aspect": "9:16",
+        "prompt_block_en": "cinematic realism, natural light, real lens, weighty bodies, low saturation teal and warm amber night palette, soft film grain, shallow depth of field, no gore",
+        "prompt_block_zh": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。夜景以青蓝和暖黄为主，低饱和，轻微胶片颗粒，浅景深。",
+        "avoid": ["卡通描边", "过度磨皮", "霓虹色", "看得清的文字", "伤口特写", "多余的手指"],
+        "identities": [
+          {
+            "name": "林晚",
+            "identity": "二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。",
+            "char_id": "char_linwan",
+            "gender": "女",
+            "age_band": "青年",
+            "role": "主要",
+            "status": "新建"
+          },
+          {
+            "name": "沈砚",
+            "identity": "三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+            "char_id": "char_shenyan",
+            "gender": "男",
+            "age_band": "青年",
+            "role": "主要",
+            "status": "新建"
+          }
+        ],
+        "costumes": [
+          {
+            "costume_id": "cos_linwan_cardigan",
+            "name": "林晚",
+            "title": "守店的打扮",
+            "ranges": [
+              {
+                "scene_id": "scene-1",
+                "from": "P01",
+                "to": "P15"
+              }
+            ],
+            "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。",
+            "status": "新建"
+          },
+          {
+            "costume_id": "cos_shenyan_coat",
+            "name": "沈砚",
+            "title": "黑风衣",
+            "ranges": [
+              {
+                "scene_id": "scene-1",
+                "from": "P01",
+                "to": "P15"
+              }
+            ],
+            "description": "穿黑色长风衣，里面是白衬衫，下身深色长裤。",
+            "status": "新建"
+          }
+        ],
+        "portraits": [
+          {
+            "asset_id": "img_linwan_face",
+            "name": "林晚",
+            "view": "脸部",
+            "costume_id": null,
+            "prompt": "定妆照，脸部特写，纯灰色背景，平光。二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。表情平静，看向镜头。"
+          },
+          {
+            "asset_id": "img_linwan_front",
+            "name": "林晚",
+            "view": "正面",
+            "costume_id": "cos_linwan_cardigan",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_linwan_side",
+            "name": "林晚",
+            "view": "侧面",
+            "costume_id": "cos_linwan_cardigan",
+            "prompt": "定妆照，侧面全身站姿，纯灰色背景，平光。二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_linwan_back",
+            "name": "林晚",
+            "view": "背面",
+            "costume_id": "cos_linwan_cardigan",
+            "prompt": "定妆照，背面全身站姿，纯灰色背景，平光。二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_shenyan_face",
+            "name": "沈砚",
+            "view": "脸部",
+            "costume_id": null,
+            "prompt": "定妆照，脸部特写，纯灰色背景，平光。三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。表情平静，看向镜头。"
+          },
+          {
+            "asset_id": "img_shenyan_coat_front",
+            "name": "沈砚",
+            "view": "正面",
+            "costume_id": "cos_shenyan_coat",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。穿黑色长风衣，里面是白衬衫，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_shenyan_coat_side",
+            "name": "沈砚",
+            "view": "侧面",
+            "costume_id": "cos_shenyan_coat",
+            "prompt": "定妆照，侧面全身站姿，纯灰色背景，平光。三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。穿黑色长风衣，里面是白衬衫，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_shenyan_coat_back",
+            "name": "沈砚",
+            "view": "背面",
+            "costume_id": "cos_shenyan_coat",
+            "prompt": "定妆照，背面全身站姿，纯灰色背景，平光。三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。穿黑色长风衣，里面是白衬衫，下身深色长裤。双手自然下垂，表情平静。"
+          }
+        ],
+        "locations": [
+          {
+            "name": "晚照书店·店内",
+            "prompt": "空镜，没有人物。老城区一家旧书店的店内，雨夜。两侧是顶到天花板的旧木书架，地上摆着装了一半的纸箱，画左是收银台，画右是玻璃门，门上贴着一张褪色的纸条，字看不清，门外大雨。",
+            "ambience": "雨打在玻璃门上，店里很静",
+            "loc_id": "loc_bookstore",
+            "layout": "书架靠两侧墙，收银台在画左，玻璃门在画右，墙上挂着一张泛黄的合影。",
+            "asset_id": "img_loc_bookstore",
+            "status": "新建"
+          },
+          {
+            "name": "青石巷·书店门外",
+            "prompt": "空镜，没有人物。老城区的青石巷，地上积满雨水，路灯被雨帘切成一团团昏黄的光，巷子尽头一家书店亮着灯。",
+            "ambience": "大雨打在青石板上",
+            "loc_id": "loc_alley",
+            "layout": "青石巷从画右往画左深处延伸，书店玻璃门在巷子尽头，路灯在画左。",
+            "asset_id": "img_loc_alley",
+            "status": "新建"
+          }
+        ],
+        "props": [
+          {
+            "name": "油纸信封",
+            "note": "油纸包着的旧信封，一角会被雨泡软。",
+            "prop_id": "prop_envelope",
+            "asset_id": "img_prop_envelope",
+            "prompt": "道具图，纯灰背景，只拍道具。一个用油纸包着的牛皮纸信封，鼓鼓的，边角有些磨损。",
+            "status": "新建"
+          },
+          {
+            "name": "泛黄的合影",
+            "note": "中年男人抱着扎羊角辫的小女孩，在书店门口笑。",
+            "prop_id": "prop_photo",
+            "asset_id": "img_prop_photo",
+            "prompt": "道具图，纯灰背景，只拍道具。一张装在木框里的泛黄老照片，照片里一个中年男人抱着扎羊角辫的小女孩，站在书店门口笑，没有文字。",
+            "status": "新建"
+          }
+        ]
+      }
+    },
+    {
+      "id": "art-2",
+      "title": "第二场：沿用画风，沈砚脱下风衣换成第二套，新增周烈和两个打手",
+      "input": {
+        "task": "design_look",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16",
+          "preset": "写实电影感",
+          "preset_text": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。"
+        },
+        "locked": {
+          "style": {
+            "preset": "写实电影感",
+            "era": "当代",
+            "palette": [
+              {
+                "name": "雨夜青",
+                "hex": "#1F3A4A"
+              },
+              {
+                "name": "灯光暖黄",
+                "hex": "#D9A441"
+              },
+              {
+                "name": "旧纸米白",
+                "hex": "#E8DFCC"
+              },
+              {
+                "name": "铁锈红",
+                "hex": "#8A3B2A"
+              },
+              {
+                "name": "走廊冷白",
+                "hex": "#D8E4E8"
+              }
+            ],
+            "lighting": "书店暖灯、仓库顶灯、医院日光灯，每场一个主光源，暗部留细节。",
+            "lens": "35毫米为主，近景和特写用50毫米，竖屏时人物放在三分线上。",
+            "grain": "轻微胶片颗粒",
+            "contrast": "中等反差，暗部不压死",
+            "texture": "雨夜地面有湿润反光，皮肤不磨皮。",
+            "aspect": "9:16",
+            "prompt_block_en": "cinematic realism, natural light, real lens, weighty bodies, low saturation teal and warm amber night palette, soft film grain, shallow depth of field, no gore",
+            "prompt_block_zh": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。夜景以青蓝和暖黄为主，低饱和，轻微胶片颗粒，浅景深。",
+            "avoid": ["卡通描边", "过度磨皮", "霓虹色", "看得清的文字", "伤口特写", "多余的手指"]
+          },
+          "identities": [
+            {
+              "name": "林晚",
+              "identity": "二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。",
+              "char_id": "char_linwan",
+              "gender": "女",
+              "age_band": "青年",
+              "role": "主要"
+            },
+            {
+              "name": "沈砚",
+              "identity": "三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+              "char_id": "char_shenyan",
+              "gender": "男",
+              "age_band": "青年",
+              "role": "主要"
+            }
+          ],
+          "costumes": [
+            {
+              "costume_id": "cos_linwan_cardigan",
+              "name": "林晚",
+              "title": "守店的打扮",
+              "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。"
+            },
+            {
+              "costume_id": "cos_shenyan_coat",
+              "name": "沈砚",
+              "title": "黑风衣",
+              "description": "穿黑色长风衣，里面是白衬衫，下身深色长裤。"
+            }
+          ],
+          "locations": [
+            {
+              "loc_id": "loc_bookstore",
+              "name": "晚照书店·店内",
+              "prompt": "空镜，没有人物。老城区一家旧书店的店内，雨夜。两侧是顶到天花板的旧木书架，地上摆着装了一半的纸箱，画左是收银台，画右是玻璃门，门上贴着一张褪色的纸条，字看不清，门外大雨。",
+              "ambience": "雨打在玻璃门上，店里很静",
+              "layout": "书架靠两侧墙，收银台在画左，玻璃门在画右，墙上挂着一张泛黄的合影。",
+              "asset_id": "img_loc_bookstore"
+            },
+            {
+              "loc_id": "loc_alley",
+              "name": "青石巷·书店门外",
+              "prompt": "空镜，没有人物。老城区的青石巷，地上积满雨水，路灯被雨帘切成一团团昏黄的光，巷子尽头一家书店亮着灯。",
+              "ambience": "大雨打在青石板上",
+              "layout": "青石巷从画右往画左深处延伸，书店玻璃门在巷子尽头，路灯在画左。",
+              "asset_id": "img_loc_alley"
+            }
+          ],
+          "props": [
+            {
+              "prop_id": "prop_envelope",
+              "name": "油纸信封",
+              "note": "油纸包着的旧信封，一角会被雨泡软。",
+              "prompt": "道具图，纯灰背景，只拍道具。一个用油纸包着的牛皮纸信封，鼓鼓的，边角有些磨损。",
+              "asset_id": "img_prop_envelope"
+            },
+            {
+              "prop_id": "prop_photo",
+              "name": "泛黄的合影",
+              "note": "中年男人抱着扎羊角辫的小女孩，在书店门口笑。",
+              "prompt": "道具图，纯灰背景，只拍道具。一张装在木框里的泛黄老照片，照片里一个中年男人抱着扎羊角辫的小女孩，站在书店门口笑，没有文字。",
+              "asset_id": "img_prop_photo"
+            }
+          ],
+          "asset_ids": [
+            "img_linwan_face",
+            "img_linwan_front",
+            "img_linwan_side",
+            "img_linwan_back",
+            "img_shenyan_face",
+            "img_shenyan_coat_front",
+            "img_shenyan_coat_side",
+            "img_shenyan_coat_back",
+            "img_loc_bookstore",
+            "img_loc_alley",
+            "img_prop_envelope",
+            "img_prop_photo"
+          ]
+        },
+        "characters": [
+          {
+            "name": "周烈",
+            "gender": "男",
+            "age_band": "未知",
+            "identity": "男人，剃着寸头，脖子上挂着一条粗金链，有一颗金牙。",
+            "brief": "带人来讨债的领头人"
+          },
+          {
+            "name": "打手甲",
+            "gender": "男",
+            "age_band": "未知",
+            "identity": "男人，原文没写长相。",
+            "brief": "周烈带来的打手，从背后扑向沈砚"
+          },
+          {
+            "name": "打手乙",
+            "gender": "男",
+            "age_band": "未知",
+            "identity": "男人，原文没写长相。",
+            "brief": "周烈带来的打手，掏出折叠刀"
+          }
+        ],
+        "scenes": [
+          {
+            "id": "scene-2",
+            "title": "码头仓库",
+            "place": "码头仓库",
+            "time": "夜里，半小时后到码头",
+            "weather": "大雨",
+            "characters": ["周烈", "打手甲", "打手乙", "林晚", "沈砚"],
+            "source_paragraphs": [
+              "P16",
+              "P17",
+              "P18",
+              "P19",
+              "P20",
+              "P21",
+              "P22",
+              "P23",
+              "P24",
+              "P25",
+              "P26",
+              "P27",
+              "P28",
+              "P29",
+              "P30",
+              "P31",
+              "P32",
+              "P33"
+            ],
+            "text": "三个男人撞开书店的门。领头的叫周烈，剃着寸头，脖子上挂着一条粗金链，手里转着一把车钥匙。\n“林小姐，”他咧嘴一笑，露出一颗金牙，“你爸欠我们老板的二十万，利滚利，现在是六十万。月底就到期了，我来提醒你一声。”\n“我爸没欠过你们钱！”林晚攥紧了衣角，指节发白，“那张借条是假的，我已经报警了。”\n“报警？”周烈嗤笑一声，抬手一挥，身后两个人把书架推倒了。书哗啦啦砸了一地，纸页散开，被门口灌进来的雨水打湿。\n林晚扑过去想护住那些书，被周烈一把抓住手腕，往外拖。“走，跟我去码头见老板，有话当面说。”\n“放开她。”\n沈砚站在倒下的书架旁边，声音不大，却让屋里一下安静了。\n周烈上下打量他：“你哪根葱？”\n沈砚没回答。他把湿透的风衣脱下来，搭在椅背上，慢慢卷起衬衫袖口。\n半小时后，城东废弃的码头仓库。铁皮屋顶被雨点砸得轰轰作响，地上到处是积水和生锈的铁链。林晚被推到一只木箱旁边，周烈和他的人围成半圈。沈砚开着书店那辆旧面包车，一路跟了过来。\n“小子，你倒是有胆。”周烈抄起一根铁棍，“今天就让你长长记性。”\n他猛地挥棍砸来。沈砚侧身一让，铁棍擦着他耳边落下，砸在木箱上，木屑四溅。沈砚顺势扣住周烈的手腕，一拧，铁棍“当啷”落地。另一个打手从背后扑上来，沈砚矮身一个肘击，正中对方肋下，那人闷哼一声，跪倒在积水里。\n第三个人掏出一把折叠刀，刀刃在昏暗的灯下一闪。\n“小心！”林晚尖叫。\n沈砚抬手去挡，刀锋划过他的小臂，血立刻渗了出来。他咬紧牙，反手抓住对方的手肘往下一压，膝盖顶上去，刀飞了出去，滑进铁链堆里。\n周烈喘着粗气，从地上爬起来，看着满地呻吟的手下，又看看沈砚流血的胳膊，脸色铁青。远处传来警笛声，由远及近。\n“算你狠。”周烈啐了一口，带着人钻进雨里，消失在仓库后门。"
+          }
+        ]
+      },
+      "output": {
+        "style_status": "沿用",
+        "preset": "写实电影感",
+        "era": "当代",
+        "palette": [
+          {
+            "name": "雨夜青",
+            "hex": "#1F3A4A"
+          },
+          {
+            "name": "灯光暖黄",
+            "hex": "#D9A441"
+          },
+          {
+            "name": "旧纸米白",
+            "hex": "#E8DFCC"
+          },
+          {
+            "name": "铁锈红",
+            "hex": "#8A3B2A"
+          },
+          {
+            "name": "走廊冷白",
+            "hex": "#D8E4E8"
+          }
+        ],
+        "lighting": "书店暖灯、仓库顶灯、医院日光灯，每场一个主光源，暗部留细节。",
+        "lens": "35毫米为主，近景和特写用50毫米，竖屏时人物放在三分线上。",
+        "grain": "轻微胶片颗粒",
+        "contrast": "中等反差，暗部不压死",
+        "texture": "雨夜地面有湿润反光，皮肤不磨皮。",
+        "aspect": "9:16",
+        "prompt_block_en": "cinematic realism, natural light, real lens, weighty bodies, low saturation teal and warm amber night palette, soft film grain, shallow depth of field, no gore",
+        "prompt_block_zh": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。夜景以青蓝和暖黄为主，低饱和，轻微胶片颗粒，浅景深。",
+        "avoid": ["卡通描边", "过度磨皮", "霓虹色", "看得清的文字", "伤口特写", "多余的手指"],
+        "identities": [
+          {
+            "name": "周烈",
+            "identity": "四十岁左右的男人，剃着寸头，嘴角总带着笑，一颗金牙，脖子上挂着粗金链。",
+            "char_id": "char_zhoulie",
+            "gender": "男",
+            "age_band": "中年",
+            "role": "主要",
+            "status": "新建"
+          },
+          {
+            "name": "打手甲",
+            "identity": "二十多岁的壮实男人，平头，左边眉毛断了一截。",
+            "char_id": "char_thug_a",
+            "gender": "男",
+            "age_band": "青年",
+            "role": "次要",
+            "status": "新建"
+          },
+          {
+            "name": "打手乙",
+            "identity": "二十多岁的瘦高男人，留着中分长发，脸颊凹陷。",
+            "char_id": "char_thug_b",
+            "gender": "男",
+            "age_band": "青年",
+            "role": "次要",
+            "status": "新建"
+          },
+          {
+            "name": "林晚",
+            "identity": "二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。",
+            "char_id": "char_linwan",
+            "gender": "女",
+            "age_band": "青年",
+            "role": "主要",
+            "status": "沿用"
+          },
+          {
+            "name": "沈砚",
+            "identity": "三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+            "char_id": "char_shenyan",
+            "gender": "男",
+            "age_band": "青年",
+            "role": "主要",
+            "status": "沿用"
+          }
+        ],
+        "costumes": [
+          {
+            "costume_id": "cos_linwan_cardigan",
+            "name": "林晚",
+            "title": "守店的打扮",
+            "ranges": [
+              {
+                "scene_id": "scene-2",
+                "from": "P16",
+                "to": "P33"
+              }
+            ],
+            "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。",
+            "status": "沿用"
+          },
+          {
+            "costume_id": "cos_shenyan_coat",
+            "name": "沈砚",
+            "title": "黑风衣",
+            "ranges": [
+              {
+                "scene_id": "scene-2",
+                "from": "P16",
+                "to": "P25"
+              }
+            ],
+            "description": "穿黑色长风衣，里面是白衬衫，下身深色长裤。",
+            "status": "沿用"
+          },
+          {
+            "costume_id": "cos_shenyan_shirt",
+            "name": "沈砚",
+            "title": "卷袖衬衫",
+            "ranges": [
+              {
+                "scene_id": "scene-2",
+                "from": "P26",
+                "to": "P33"
+              }
+            ],
+            "description": "穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。",
+            "status": "新建"
+          },
+          {
+            "costume_id": "cos_zhoulie_jacket",
+            "name": "周烈",
+            "title": "皮夹克",
+            "ranges": [
+              {
+                "scene_id": "scene-2",
+                "from": "P16",
+                "to": "P33"
+              }
+            ],
+            "description": "穿黑色皮夹克，里面是暗红色衬衫，下身黑色长裤。",
+            "status": "新建"
+          },
+          {
+            "costume_id": "cos_thug_a",
+            "name": "打手甲",
+            "title": "灰卫衣",
+            "ranges": [
+              {
+                "scene_id": "scene-2",
+                "from": "P16",
+                "to": "P33"
+              }
+            ],
+            "description": "穿灰色连帽卫衣，下身黑色运动裤。",
+            "status": "新建"
+          },
+          {
+            "costume_id": "cos_thug_b",
+            "name": "打手乙",
+            "title": "绿夹克",
+            "ranges": [
+              {
+                "scene_id": "scene-2",
+                "from": "P16",
+                "to": "P33"
+              }
+            ],
+            "description": "穿深绿色工装夹克，下身牛仔裤。",
+            "status": "新建"
+          }
+        ],
+        "portraits": [
+          {
+            "asset_id": "img_shenyan_shirt_front",
+            "name": "沈砚",
+            "view": "正面",
+            "costume_id": "cos_shenyan_shirt",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_shenyan_shirt_side",
+            "name": "沈砚",
+            "view": "侧面",
+            "costume_id": "cos_shenyan_shirt",
+            "prompt": "定妆照，侧面全身站姿，纯灰色背景，平光。三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_shenyan_shirt_back",
+            "name": "沈砚",
+            "view": "背面",
+            "costume_id": "cos_shenyan_shirt",
+            "prompt": "定妆照，背面全身站姿，纯灰色背景，平光。三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_zhoulie_face",
+            "name": "周烈",
+            "view": "脸部",
+            "costume_id": null,
+            "prompt": "定妆照，脸部特写，纯灰色背景，平光。四十岁左右的男人，剃着寸头，嘴角总带着笑，一颗金牙，脖子上挂着粗金链。表情平静，看向镜头。"
+          },
+          {
+            "asset_id": "img_zhoulie_front",
+            "name": "周烈",
+            "view": "正面",
+            "costume_id": "cos_zhoulie_jacket",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。四十岁左右的男人，剃着寸头，嘴角总带着笑，一颗金牙，脖子上挂着粗金链。穿黑色皮夹克，里面是暗红色衬衫，下身黑色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_zhoulie_side",
+            "name": "周烈",
+            "view": "侧面",
+            "costume_id": "cos_zhoulie_jacket",
+            "prompt": "定妆照，侧面全身站姿，纯灰色背景，平光。四十岁左右的男人，剃着寸头，嘴角总带着笑，一颗金牙，脖子上挂着粗金链。穿黑色皮夹克，里面是暗红色衬衫，下身黑色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_zhoulie_back",
+            "name": "周烈",
+            "view": "背面",
+            "costume_id": "cos_zhoulie_jacket",
+            "prompt": "定妆照，背面全身站姿，纯灰色背景，平光。四十岁左右的男人，剃着寸头，嘴角总带着笑，一颗金牙，脖子上挂着粗金链。穿黑色皮夹克，里面是暗红色衬衫，下身黑色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_thug_a_front",
+            "name": "打手甲",
+            "view": "正面",
+            "costume_id": "cos_thug_a",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。二十多岁的壮实男人，平头，左边眉毛断了一截。穿灰色连帽卫衣，下身黑色运动裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_thug_b_front",
+            "name": "打手乙",
+            "view": "正面",
+            "costume_id": "cos_thug_b",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。二十多岁的瘦高男人，留着中分长发，脸颊凹陷。穿深绿色工装夹克，下身牛仔裤。双手自然下垂，表情平静。"
+          }
+        ],
+        "locations": [
+          {
+            "name": "晚照书店·店内",
+            "prompt": "空镜，没有人物。老城区一家旧书店的店内，雨夜。两侧是顶到天花板的旧木书架，地上摆着装了一半的纸箱，画左是收银台，画右是玻璃门，门上贴着一张褪色的纸条，字看不清，门外大雨。",
+            "ambience": "雨打在玻璃门上，店里很静",
+            "loc_id": "loc_bookstore",
+            "layout": "书架靠两侧墙，收银台在画左，玻璃门在画右，墙上挂着一张泛黄的合影。",
+            "asset_id": "img_loc_bookstore",
+            "status": "沿用"
+          },
+          {
+            "name": "城东码头仓库·内",
+            "prompt": "空镜，没有人物。废弃的码头仓库内部，铁皮屋顶，水泥地上到处是积水和生锈的铁链，画右堆着木箱，屋顶垂下一盏昏暗的灯。",
+            "ambience": "雨砸在铁皮屋顶上，轰轰作响",
+            "loc_id": "loc_warehouse",
+            "layout": "铁门在画中深处，木箱堆在画右，生锈的铁链堆在画左墙角，屋顶一盏昏暗的灯。",
+            "asset_id": "img_loc_warehouse",
+            "status": "新建"
+          }
+        ],
+        "props": [
+          {
+            "name": "铁棍",
+            "note": "约一米长的生锈铁棍。",
+            "prop_id": "prop_iron_rod",
+            "asset_id": "img_prop_iron_rod",
+            "prompt": "道具图，纯灰背景，只拍道具。一根约一米长的铁棍，表面生锈，一头有磨损。",
+            "status": "新建"
+          },
+          {
+            "name": "折叠刀",
+            "note": "打开的折叠刀，刀刃约十厘米。",
+            "prop_id": "prop_knife",
+            "asset_id": "img_prop_knife",
+            "prompt": "道具图，纯灰背景，只拍道具。一把打开的折叠刀，黑色刀柄，刀刃约十厘米。",
+            "status": "新建"
+          }
+        ]
+      }
+    },
+    {
+      "id": "art-3",
+      "title": "第三场：沿用画风，林晚披上风衣算新衣服，阿婆只出一张正面",
+      "input": {
+        "task": "design_look",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16",
+          "preset": "写实电影感",
+          "preset_text": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。"
+        },
+        "locked": {
+          "style": {
+            "preset": "写实电影感",
+            "era": "当代",
+            "palette": [
+              {
+                "name": "雨夜青",
+                "hex": "#1F3A4A"
+              },
+              {
+                "name": "灯光暖黄",
+                "hex": "#D9A441"
+              },
+              {
+                "name": "旧纸米白",
+                "hex": "#E8DFCC"
+              },
+              {
+                "name": "铁锈红",
+                "hex": "#8A3B2A"
+              },
+              {
+                "name": "走廊冷白",
+                "hex": "#D8E4E8"
+              }
+            ],
+            "lighting": "书店暖灯、仓库顶灯、医院日光灯，每场一个主光源，暗部留细节。",
+            "lens": "35毫米为主，近景和特写用50毫米，竖屏时人物放在三分线上。",
+            "grain": "轻微胶片颗粒",
+            "contrast": "中等反差，暗部不压死",
+            "texture": "雨夜地面有湿润反光，皮肤不磨皮。",
+            "aspect": "9:16",
+            "prompt_block_en": "cinematic realism, natural light, real lens, weighty bodies, low saturation teal and warm amber night palette, soft film grain, shallow depth of field, no gore",
+            "prompt_block_zh": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。夜景以青蓝和暖黄为主，低饱和，轻微胶片颗粒，浅景深。",
+            "avoid": ["卡通描边", "过度磨皮", "霓虹色", "看得清的文字", "伤口特写", "多余的手指"]
+          },
+          "identities": [
+            {
+              "name": "林晚",
+              "identity": "二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。",
+              "char_id": "char_linwan",
+              "gender": "女",
+              "age_band": "青年",
+              "role": "主要"
+            },
+            {
+              "name": "沈砚",
+              "identity": "三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+              "char_id": "char_shenyan",
+              "gender": "男",
+              "age_band": "青年",
+              "role": "主要"
+            },
+            {
+              "name": "周烈",
+              "identity": "四十岁左右的男人，剃着寸头，嘴角总带着笑，一颗金牙，脖子上挂着粗金链。",
+              "char_id": "char_zhoulie",
+              "gender": "男",
+              "age_band": "中年",
+              "role": "主要"
+            },
+            {
+              "name": "打手甲",
+              "identity": "二十多岁的壮实男人，平头，左边眉毛断了一截。",
+              "char_id": "char_thug_a",
+              "gender": "男",
+              "age_band": "青年",
+              "role": "次要"
+            },
+            {
+              "name": "打手乙",
+              "identity": "二十多岁的瘦高男人，留着中分长发，脸颊凹陷。",
+              "char_id": "char_thug_b",
+              "gender": "男",
+              "age_band": "青年",
+              "role": "次要"
+            }
+          ],
+          "costumes": [
+            {
+              "costume_id": "cos_linwan_cardigan",
+              "name": "林晚",
+              "title": "守店的打扮",
+              "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。"
+            },
+            {
+              "costume_id": "cos_shenyan_coat",
+              "name": "沈砚",
+              "title": "黑风衣",
+              "description": "穿黑色长风衣，里面是白衬衫，下身深色长裤。"
+            },
+            {
+              "costume_id": "cos_shenyan_shirt",
+              "name": "沈砚",
+              "title": "卷袖衬衫",
+              "description": "穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。"
+            },
+            {
+              "costume_id": "cos_zhoulie_jacket",
+              "name": "周烈",
+              "title": "皮夹克",
+              "description": "穿黑色皮夹克，里面是暗红色衬衫，下身黑色长裤。"
+            },
+            {
+              "costume_id": "cos_thug_a",
+              "name": "打手甲",
+              "title": "灰卫衣",
+              "description": "穿灰色连帽卫衣，下身黑色运动裤。"
+            },
+            {
+              "costume_id": "cos_thug_b",
+              "name": "打手乙",
+              "title": "绿夹克",
+              "description": "穿深绿色工装夹克，下身牛仔裤。"
+            }
+          ],
+          "locations": [
+            {
+              "loc_id": "loc_bookstore",
+              "name": "晚照书店·店内",
+              "prompt": "空镜，没有人物。老城区一家旧书店的店内，雨夜。两侧是顶到天花板的旧木书架，地上摆着装了一半的纸箱，画左是收银台，画右是玻璃门，门上贴着一张褪色的纸条，字看不清，门外大雨。",
+              "ambience": "雨打在玻璃门上，店里很静",
+              "layout": "书架靠两侧墙，收银台在画左，玻璃门在画右，墙上挂着一张泛黄的合影。",
+              "asset_id": "img_loc_bookstore"
+            },
+            {
+              "loc_id": "loc_alley",
+              "name": "青石巷·书店门外",
+              "prompt": "空镜，没有人物。老城区的青石巷，地上积满雨水，路灯被雨帘切成一团团昏黄的光，巷子尽头一家书店亮着灯。",
+              "ambience": "大雨打在青石板上",
+              "layout": "青石巷从画右往画左深处延伸，书店玻璃门在巷子尽头，路灯在画左。",
+              "asset_id": "img_loc_alley"
+            },
+            {
+              "loc_id": "loc_warehouse",
+              "name": "城东码头仓库·内",
+              "prompt": "空镜，没有人物。废弃的码头仓库内部，铁皮屋顶，水泥地上到处是积水和生锈的铁链，画右堆着木箱，屋顶垂下一盏昏暗的灯。",
+              "ambience": "雨砸在铁皮屋顶上，轰轰作响",
+              "layout": "铁门在画中深处，木箱堆在画右，生锈的铁链堆在画左墙角，屋顶一盏昏暗的灯。",
+              "asset_id": "img_loc_warehouse"
+            }
+          ],
+          "props": [
+            {
+              "prop_id": "prop_envelope",
+              "name": "油纸信封",
+              "note": "油纸包着的旧信封，一角会被雨泡软。",
+              "prompt": "道具图，纯灰背景，只拍道具。一个用油纸包着的牛皮纸信封，鼓鼓的，边角有些磨损。",
+              "asset_id": "img_prop_envelope"
+            },
+            {
+              "prop_id": "prop_photo",
+              "name": "泛黄的合影",
+              "note": "中年男人抱着扎羊角辫的小女孩，在书店门口笑。",
+              "prompt": "道具图，纯灰背景，只拍道具。一张装在木框里的泛黄老照片，照片里一个中年男人抱着扎羊角辫的小女孩，站在书店门口笑，没有文字。",
+              "asset_id": "img_prop_photo"
+            },
+            {
+              "prop_id": "prop_iron_rod",
+              "name": "铁棍",
+              "note": "约一米长的生锈铁棍。",
+              "prompt": "道具图，纯灰背景，只拍道具。一根约一米长的铁棍，表面生锈，一头有磨损。",
+              "asset_id": "img_prop_iron_rod"
+            },
+            {
+              "prop_id": "prop_knife",
+              "name": "折叠刀",
+              "note": "打开的折叠刀，刀刃约十厘米。",
+              "prompt": "道具图，纯灰背景，只拍道具。一把打开的折叠刀，黑色刀柄，刀刃约十厘米。",
+              "asset_id": "img_prop_knife"
+            }
+          ],
+          "asset_ids": [
+            "img_linwan_face",
+            "img_linwan_front",
+            "img_linwan_side",
+            "img_linwan_back",
+            "img_shenyan_face",
+            "img_shenyan_coat_front",
+            "img_shenyan_coat_side",
+            "img_shenyan_coat_back",
+            "img_shenyan_shirt_front",
+            "img_shenyan_shirt_side",
+            "img_shenyan_shirt_back",
+            "img_zhoulie_face",
+            "img_zhoulie_front",
+            "img_zhoulie_side",
+            "img_zhoulie_back",
+            "img_thug_a_front",
+            "img_thug_b_front",
+            "img_loc_bookstore",
+            "img_loc_alley",
+            "img_loc_warehouse",
+            "img_prop_envelope",
+            "img_prop_photo",
+            "img_prop_iron_rod",
+            "img_prop_knife"
+          ]
+        },
+        "characters": [
+          {
+            "name": "阿婆",
+            "gender": "女",
+            "age_band": "老年",
+            "identity": "上了年纪的女人，在巷口卖早点。",
+            "brief": "巷口卖早点的阿婆"
+          }
+        ],
+        "scenes": [
+          {
+            "id": "scene-3",
+            "title": "医院走廊",
+            "place": "医院走廊",
+            "time": "凌晨两点到天亮",
+            "weather": "雨停",
+            "characters": ["沈砚", "林晚", "阿婆"],
+            "source_paragraphs": [
+              "P34",
+              "P35",
+              "P36",
+              "P37",
+              "P38",
+              "P39",
+              "P40",
+              "P41",
+              "P42",
+              "P43",
+              "P44",
+              "P45",
+              "P46",
+              "P47"
+            ],
+            "text": "凌晨两点，市医院急诊室的走廊空荡荡的，只有头顶的日光灯嗡嗡作响。\n沈砚坐在长椅上，左小臂缠着一圈白纱布。林晚站在他面前，手里捏着那个油纸信封，信封的一角已经被雨水泡软了。\n“你本来可以不管的。”她的声音很轻，“这是我家的事。”\n“十年前，你父亲也可以不管。”沈砚抬头看她，“那年冬天，我妈在医院门口晕倒，是他把身上所有的钱都垫了。他说，谁家都有过不去的时候。”\n林晚怔住了。她想起小时候那个冬天，父亲回家时冻得满脸通红，说钱包丢了，被母亲念叨了整整一个月。他只是笑，什么也没解释。\n她的嘴角动了动，想笑，眼泪却先掉了下来。她慌忙转过身，用手背去擦，可越擦越多。肩膀轻轻发抖，她死死咬住下唇，不让自己哭出声。\n沈砚站起来，犹豫了一下，没有去碰她，只是把自己那件已经半干的风衣披在她肩上。\n“书店，”他说，“我想试试帮你留下来。”\n林晚转过头，泪痕还挂在脸上。“为什么？”\n沈砚看向走廊尽头的窗户。雨停了，天边透出一线灰白的光。\n“因为那张照片里，你爸笑得很开心。”他顿了顿，“我想让那扇门一直亮着灯。”\n林晚低下头，攥紧了风衣的领口，轻轻地点了点头。\n天亮的时候，两人一起回到青石巷。书店的玻璃门碎了一角，地上的书还泡在水里。林晚蹲下去，捡起一本封面被踩脏的诗集，用袖子一点点擦干净。沈砚把倒下的书架扶起来，一层一层地摆正。巷口卖早点的阿婆探头看了一眼，端来两碗热豆浆，什么也没问，只说了一句：“灯还亮着，就好。”"
+          }
+        ]
+      },
+      "output": {
+        "style_status": "沿用",
+        "preset": "写实电影感",
+        "era": "当代",
+        "palette": [
+          {
+            "name": "雨夜青",
+            "hex": "#1F3A4A"
+          },
+          {
+            "name": "灯光暖黄",
+            "hex": "#D9A441"
+          },
+          {
+            "name": "旧纸米白",
+            "hex": "#E8DFCC"
+          },
+          {
+            "name": "铁锈红",
+            "hex": "#8A3B2A"
+          },
+          {
+            "name": "走廊冷白",
+            "hex": "#D8E4E8"
+          }
+        ],
+        "lighting": "书店暖灯、仓库顶灯、医院日光灯，每场一个主光源，暗部留细节。",
+        "lens": "35毫米为主，近景和特写用50毫米，竖屏时人物放在三分线上。",
+        "grain": "轻微胶片颗粒",
+        "contrast": "中等反差，暗部不压死",
+        "texture": "雨夜地面有湿润反光，皮肤不磨皮。",
+        "aspect": "9:16",
+        "prompt_block_en": "cinematic realism, natural light, real lens, weighty bodies, low saturation teal and warm amber night palette, soft film grain, shallow depth of field, no gore",
+        "prompt_block_zh": "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。夜景以青蓝和暖黄为主，低饱和，轻微胶片颗粒，浅景深。",
+        "avoid": ["卡通描边", "过度磨皮", "霓虹色", "看得清的文字", "伤口特写", "多余的手指"],
+        "identities": [
+          {
+            "name": "沈砚",
+            "identity": "三十岁上下的男人，短发，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+            "char_id": "char_shenyan",
+            "gender": "男",
+            "age_band": "青年",
+            "role": "主要",
+            "status": "沿用"
+          },
+          {
+            "name": "林晚",
+            "identity": "二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。",
+            "char_id": "char_linwan",
+            "gender": "女",
+            "age_band": "青年",
+            "role": "主要",
+            "status": "沿用"
+          },
+          {
+            "name": "阿婆",
+            "identity": "七十岁上下的老太太，花白短发，背有点驼，笑起来眼角皱纹很深。",
+            "char_id": "char_apo",
+            "gender": "女",
+            "age_band": "老年",
+            "role": "次要",
+            "status": "新建"
+          }
+        ],
+        "costumes": [
+          {
+            "costume_id": "cos_linwan_cardigan",
+            "name": "林晚",
+            "title": "守店的打扮",
+            "ranges": [
+              {
+                "scene_id": "scene-3",
+                "from": "P34",
+                "to": "P41"
+              }
+            ],
+            "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。",
+            "status": "沿用"
+          },
+          {
+            "costume_id": "cos_linwan_coat_over",
+            "name": "林晚",
+            "title": "披着风衣",
+            "ranges": [
+              {
+                "scene_id": "scene-3",
+                "from": "P42",
+                "to": "P47"
+              }
+            ],
+            "description": "米白色针织开衫外面披着一件过大的黑色长风衣，下身深色长裤。",
+            "status": "新建"
+          },
+          {
+            "costume_id": "cos_shenyan_shirt",
+            "name": "沈砚",
+            "title": "卷袖衬衫",
+            "ranges": [
+              {
+                "scene_id": "scene-3",
+                "from": "P34",
+                "to": "P47"
+              }
+            ],
+            "description": "穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。",
+            "status": "沿用"
+          },
+          {
+            "costume_id": "cos_apo",
+            "name": "阿婆",
+            "title": "早点摊",
+            "ranges": [
+              {
+                "scene_id": "scene-3",
+                "from": "P34",
+                "to": "P47"
+              }
+            ],
+            "description": "穿蓝色碎花布衫，系着白围裙。",
+            "status": "新建"
+          }
+        ],
+        "portraits": [
+          {
+            "asset_id": "img_linwan_coat_front",
+            "name": "林晚",
+            "view": "正面",
+            "costume_id": "cos_linwan_coat_over",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。米白色针织开衫外面披着一件过大的黑色长风衣，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_linwan_coat_side",
+            "name": "林晚",
+            "view": "侧面",
+            "costume_id": "cos_linwan_coat_over",
+            "prompt": "定妆照，侧面全身站姿，纯灰色背景，平光。二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。米白色针织开衫外面披着一件过大的黑色长风衣，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_linwan_coat_back",
+            "name": "林晚",
+            "view": "背面",
+            "costume_id": "cos_linwan_coat_over",
+            "prompt": "定妆照，背面全身站姿，纯灰色背景，平光。二十六岁的年轻女人，瓜子脸，扎着低马尾，眉眼清秀，身形偏瘦。米白色针织开衫外面披着一件过大的黑色长风衣，下身深色长裤。双手自然下垂，表情平静。"
+          },
+          {
+            "asset_id": "img_apo_front",
+            "name": "阿婆",
+            "view": "正面",
+            "costume_id": "cos_apo",
+            "prompt": "定妆照，正面全身站姿，纯灰色背景，平光。七十岁上下的老太太，花白短发，背有点驼，笑起来眼角皱纹很深。穿蓝色碎花布衫，系着白围裙。双手自然下垂，表情平静。"
+          }
+        ],
+        "locations": [
+          {
+            "name": "晚照书店·店内",
+            "prompt": "空镜，没有人物。老城区一家旧书店的店内，雨夜。两侧是顶到天花板的旧木书架，地上摆着装了一半的纸箱，画左是收银台，画右是玻璃门，门上贴着一张褪色的纸条，字看不清，门外大雨。",
+            "ambience": "雨打在玻璃门上，店里很静",
+            "loc_id": "loc_bookstore",
+            "layout": "书架靠两侧墙，收银台在画左，玻璃门在画右，墙上挂着一张泛黄的合影。",
+            "asset_id": "img_loc_bookstore",
+            "status": "沿用"
+          },
+          {
+            "name": "青石巷·书店门外",
+            "prompt": "空镜，没有人物。老城区的青石巷，地上积满雨水，路灯被雨帘切成一团团昏黄的光，巷子尽头一家书店亮着灯。",
+            "ambience": "大雨打在青石板上",
+            "loc_id": "loc_alley",
+            "layout": "青石巷从画右往画左深处延伸，书店玻璃门在巷子尽头，路灯在画左。",
+            "asset_id": "img_loc_alley",
+            "status": "沿用"
+          },
+          {
+            "name": "市医院·急诊室走廊",
+            "prompt": "空镜，没有人物。凌晨的医院急诊室走廊，头顶日光灯发白，画左靠墙一排长椅，画右是急诊室的门，走廊尽头一扇窗，窗外天色发灰。",
+            "ambience": "日光灯嗡嗡作响",
+            "loc_id": "loc_hospital",
+            "layout": "长椅靠画左的墙，急诊室的门在画右，走廊尽头是一扇窗。",
+            "asset_id": "img_loc_hospital",
+            "status": "新建"
+          }
+        ],
+        "props": [
+          {
+            "name": "油纸信封",
+            "note": "油纸包着的旧信封，一角会被雨泡软。",
+            "prop_id": "prop_envelope",
+            "asset_id": "img_prop_envelope",
+            "prompt": "道具图，纯灰背景，只拍道具。一个用油纸包着的牛皮纸信封，鼓鼓的，边角有些磨损。",
+            "status": "沿用"
+          },
+          {
+            "name": "诗集",
+            "note": "封面被踩脏的旧诗集。",
+            "prop_id": "prop_poetry_book",
+            "asset_id": "img_prop_poetry_book",
+            "prompt": "道具图，纯灰背景，只拍道具。一本旧诗集，封面上有一个泥脚印，书页微微卷起，封面上的字看不清。",
+            "status": "新建"
+          }
+        ]
+      }
+    }
+  ]
+}

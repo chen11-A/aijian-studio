@@ -265,9 +265,16 @@ export function sliceNovel(source: string, markers: string[]): string[] {
     .filter((item) => item.at >= 0)
     .sort((a, b) => a.at - b.at);
   if (found.length < markers.filter((item) => item.trim()).length) return slices;
+  const cutAt = (at: number) => {
+    const lineStart = text.lastIndexOf("\n", Math.max(0, at - 1)) + 1;
+    const prefix = text.slice(lineStart, at);
+    return /第[0-9０-９一二三四五六七八九十百千零两]+场[ \t\u3000]*$/u.test(prefix)
+      ? lineStart
+      : at;
+  };
   for (let cursor = 0; cursor < found.length; cursor += 1) {
-    const start = found[cursor]!.at;
-    const end = cursor + 1 < found.length ? found[cursor + 1]!.at : text.length;
+    const start = cutAt(found[cursor]!.at);
+    const end = cursor + 1 < found.length ? cutAt(found[cursor + 1]!.at) : text.length;
     slices[found[cursor]!.index] = text.slice(start, end).trim();
   }
   return slices;
@@ -295,10 +302,13 @@ export function numberParagraphs(source: string): SourceParagraph[] {
     .split(/\n+/)
     .map((item) => item.trim())
     .filter(Boolean)
-    .map((text, index) => ({
-      id: `P${String(index + 1).padStart(2, "0")}`,
-      text: text.replace(/^\[P\d{2}\]\s*/, ""),
-    }));
+    .map((text, index) => {
+      const labeled = /^\[(P\d{2})\]\s*([\s\S]*)$/u.exec(text);
+      return {
+        id: labeled?.[1] ?? `P${String(index + 1).padStart(2, "0")}`,
+        text: (labeled?.[2] ?? text).replace(/^\[P\d{2}\]\s*/u, ""),
+      };
+    });
 }
 
 export function numberedScript(source: string): string {
@@ -357,28 +367,34 @@ export function rebuildFromParagraphs(
   if (paragraphs.length === 0 || scenes.length === 0) return scenes;
   const groups = scenes.map(() => [] as string[]);
   const explicit = records.map(listedParagraphs);
+  const present = new Set(paragraphs.map((item) => item.id));
+  const claimed = explicit.some((ids) => ids.length > 0 && ids.every((id) => present.has(id)));
   const owner = new Map<string, number>();
-  explicit.forEach((ids, index) => {
-    for (const id of ids) if (!owner.has(id)) owner.set(id, index);
-  });
+  if (claimed) {
+    explicit.forEach((ids, index) => {
+      for (const id of ids) if (!owner.has(id)) owner.set(id, index);
+    });
+  }
   let cursor = 0;
   for (const paragraph of paragraphs) {
     const listed = owner.get(paragraph.id);
     if (listed !== undefined) {
       cursor = listed;
-    } else if (!explicit.some((ids) => ids.length > 0)) {
-      const needle = paragraph.text.slice(0, Math.min(18, paragraph.text.length));
-      const hits = scenes
-        .map((scene, index) => ({
-          index,
-          length: scene.text.length,
-          lines: elementLines(records[index] ?? {}).some((line) => paragraph.text.includes(line)),
-          hit: scene.text.includes(needle) && scene.text.length < source.length * 0.75,
-        }))
-        .filter((item) => item.lines || item.hit);
-      hits.sort((a, b) => Number(b.lines) - Number(a.lines) || a.length - b.length);
-      if (hits[0]) cursor = hits[0].index;
+      groups[cursor]?.push(paragraph.id);
+      continue;
     }
+    if (claimed) continue;
+    const needle = paragraph.text.slice(0, Math.min(18, paragraph.text.length));
+    const hits = scenes
+      .map((scene, index) => ({
+        index,
+        length: scene.text.length,
+        lines: elementLines(records[index] ?? {}).some((line) => paragraph.text.includes(line)),
+        hit: scene.text.includes(needle) && scene.text.length < source.length * 0.75,
+      }))
+      .filter((item) => item.lines || item.hit);
+    hits.sort((a, b) => Number(b.lines) - Number(a.lines) || a.length - b.length);
+    if (hits[0]) cursor = hits[0].index;
     groups[cursor]?.push(paragraph.id);
   }
   const byId = new Map(paragraphs.map((item) => [item.id, item.text]));
@@ -484,9 +500,19 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
     const dialogue = elementLines(record).filter((line) => !body.includes(line));
     const withLines = [body.trim(), ...dialogue].filter(Boolean).join("\n");
     if (!withLines) return;
+    const explicit = typeof record.id === "string" ? record.id.trim() : "";
+    const fromId = /^scene-(\d+)$/.exec(explicit)?.[1];
+    const no = typeof record.no === "number" ? record.no : fromId ? Number(fromId) : index + 1;
+    const tags = Array.isArray(record.tags)
+      ? record.tags.filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0,
+        )
+      : [];
     scenes.push({
-      ...scene(index + 1, title, withLines, where),
+      ...scene(no, title, withLines, where),
+      id: /^scene-\d+$/.test(explicit) ? explicit : `scene-${no}`,
       source: "agent:writer",
+      ...(tags.length > 0 ? { tags } : {}),
     });
     kept.push(record);
   });
@@ -503,8 +529,10 @@ export function sceneNeedsSource(text: string): boolean {
   return !(line || action) && body.length < 80;
 }
 
-export function isFightScene(text: string): boolean {
-  return /打斗|打架|挥棍|铁棍|钢条|钢管|折叠刀|刀|拳|砍|踢|肘击|小臂/.test(text);
+export function isFightScene(text: string, kind = ""): boolean {
+  if (/打斗|动作戏|武打|fight/i.test(kind)) return true;
+  const body = text.replace(/打烊/g, "");
+  return /打斗|打架|挥棍|铁棍|钢条|钢管|折叠刀|肘击|小臂/.test(body);
 }
 
 const FIGHT_WORDS = [
@@ -642,21 +670,23 @@ export function parseCastReply(text: string): ExtractedCast | null {
       }[];
       locations?: { name?: unknown; prompt?: unknown }[];
     };
-    const characters = (value.characters ?? [])
-      .map((item) => ({
-        name: typeof item.name === "string" ? item.name.trim() : "",
-        identity:
-          (typeof item.identity === "string" && item.identity.trim()) ||
-          (typeof item.identity_lock === "string" && item.identity_lock.trim()) ||
-          "",
-        ...(typeof item.gender === "string" && item.gender.trim()
-          ? { gender: item.gender.trim() }
-          : {}),
-        ...(typeof item.age_band === "string" && item.age_band.trim()
-          ? { ageBand: item.age_band.trim() }
-          : {}),
-      }))
-      .filter((item) => item.name);
+    const characters = (value.characters ?? []).flatMap((item) => {
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      const identity =
+        (typeof item.identity === "string" && item.identity.trim()) ||
+        (typeof item.identity_lock === "string" && item.identity_lock.trim()) ||
+        "";
+      if (!name) return [];
+      const person: { name: string; identity: string; gender?: string; ageBand?: string } = {
+        name,
+        identity,
+      };
+      const gender = typeof item.gender === "string" ? item.gender.trim() : "";
+      const ageBand = typeof item.age_band === "string" ? item.age_band.trim() : "";
+      if (gender) Object.defineProperty(person, "gender", { value: gender, enumerable: false });
+      if (ageBand) Object.defineProperty(person, "ageBand", { value: ageBand, enumerable: false });
+      return [person];
+    });
     const locations = (value.locations ?? [])
       .map((item) => ({
         name: typeof item.name === "string" ? item.name.trim() : "",

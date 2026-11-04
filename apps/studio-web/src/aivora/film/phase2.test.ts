@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   actionFromModel,
@@ -227,14 +229,48 @@ describe("phase 2 shot language", () => {
     const script = "雨夜巷口。刀疤说：东西交出来。";
     expect(scriptDialogue(script)).toEqual([{ speaker: "刀疤", line: "东西交出来" }]);
     const shots = attachScriptLines(
-      [{ line: "", characters: ["林骁"], picture: "刀疤开口" }],
+      [{ line: "", characters: ["刀疤"], picture: "刀疤开口" }],
       script,
+      ["刀疤", "林骁"],
     );
     expect(shots[0]).toMatchObject({
       line: "东西交出来",
-      characters: ["林骁", "刀疤"],
+      characters: ["刀疤"],
       speaker: "刀疤",
     });
+    const novel = readFileSync(
+      resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),
+      "utf8",
+    );
+    const bookstore = novel.slice(0, novel.indexOf("第二场"));
+    const warehouse = novel.slice(novel.indexOf("第二场"), novel.indexOf("第三场"));
+    const cast = ["林晚", "沈砚", "周烈", "阿婆"];
+    const bookstoreShots = attachScriptLines(
+      [
+        { line: "", speaker: "", characters: ["林晚"], picture: "纸条贴在玻璃门上" },
+        { line: "", speaker: "", characters: ["林晚"], picture: "晚照书店还亮着灯" },
+      ],
+      bookstore,
+      cast,
+    );
+    expect(bookstoreShots.map((shot) => shot.line)).toEqual(["", ""]);
+    expect(bookstoreShots.map((shot) => shot.speaker)).toEqual(["", ""]);
+    const warehouseShots = attachScriptLines(
+      [{ line: "", speaker: "", characters: ["周烈"], picture: "铁棍落地" }],
+      warehouse,
+      cast,
+    );
+    expect(warehouseShots[0]?.line).toBe("");
+    const listed = attachScriptLines(
+      [
+        { line: "", speaker: "", characters: ["林晚"], picture: "书店门口" },
+        { line: "", speaker: "", characters: ["沈砚"], picture: "柜台" },
+      ],
+      "林晚：打烊了。\n纸条：本店月底停业\n沈砚：我不买书。\n“晚照书店”\n铁棍“当啷”落地。周烈啐了一口。",
+      cast,
+    );
+    expect(listed.map((shot) => shot.line)).toEqual(["打烊了", "我不买书"]);
+    expect(listed.map((shot) => shot.speaker)).toEqual(["林晚", "沈砚"]);
     expect(
       scenesEchoRequest(
         [{ text: "请把现有剧本分成。" }, { text: "请把现有剧本分成。还没完。" }],

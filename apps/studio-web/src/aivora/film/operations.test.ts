@@ -1,4 +1,6 @@
 import { deflateRawSync } from "node:zlib";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { blankFilm, sampleFilm } from "./project";
 import {
@@ -24,6 +26,7 @@ import {
   numberedScript,
   parseWriterScenes,
   sceneNeedsSource,
+  sliceNovel,
   performanceLine,
   planVideoJobs,
   filmFileName,
@@ -618,6 +621,69 @@ describe("film operations", () => {
     expect(["naksh", "ursa"]).toContain(
       voiced.characters.find((item) => item.name === "阿婆")?.voiceId,
     );
+  });
+
+  it("keeps the test novel's scenes, headings, and fight tag apart", () => {
+    const novel = readFileSync(
+      resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),
+      "utf8",
+    );
+    const slices = sliceNovel(novel, ["雨夜旧书店", "码头仓库", "医院走廊"]);
+    expect(slices[0]).toContain("本店月底停业");
+    expect(slices[0]).not.toMatch(/第二场\s*$/);
+    expect(slices[0]).not.toContain("小心");
+    expect(slices[1]).toContain("第二场");
+    expect(slices[1]).toContain("小心");
+    expect(slices[1]).not.toMatch(/第三场\s*$/);
+    expect(slices[2]).toContain("第三场");
+    expect(slices[2]).toContain("你本来可以不管的");
+    expect(isFightScene(slices[0] ?? "")).toBe(false);
+    expect(isFightScene("“打烊了。”林晚头也没抬。")).toBe(false);
+    expect(isFightScene(slices[1] ?? "")).toBe(true);
+    expect(isFightScene(slices[1] ?? "", "打斗")).toBe(true);
+    expect(isFightScene("下雨。", "打斗")).toBe(true);
+    const parsed = parseWriterScenes(
+      JSON.stringify({
+        scenes: [
+          {
+            id: "scene-2",
+            no: 2,
+            title: "码头仓库",
+            place: "码头仓库",
+            time: "夜",
+            text: "小心",
+            tags: ["打斗", "换地点"],
+            source_paragraphs: [
+              "P16",
+              "P17",
+              "P18",
+              "P19",
+              "P20",
+              "P21",
+              "P22",
+              "P23",
+              "P24",
+              "P25",
+              "P26",
+              "P27",
+              "P28",
+              "P29",
+              "P30",
+              "P31",
+            ],
+          },
+        ],
+      }),
+      novel,
+    );
+    expect(parsed).toHaveLength(1);
+    expect(parsed?.[0]?.id).toBe("scene-2");
+    expect(parsed?.[0]?.no).toBe(2);
+    expect(parsed?.[0]?.tags).toEqual(["打斗", "换地点"]);
+    expect(parsed?.[0]?.text).toContain("铁棍");
+    expect(parsed?.[0]?.text).toContain("小心");
+    expect(parsed?.[0]?.text).not.toContain("本店月底停业");
+    expect(parsed?.[0]?.text).not.toContain("你本来可以不管的");
   });
 
   it("describes every voice in plain words", () => {

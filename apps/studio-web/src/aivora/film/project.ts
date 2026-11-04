@@ -121,6 +121,8 @@ export type FilmScene = {
   ambience: string;
   source: string;
   userFields: string[];
+  /** Writer tags such as 打斗 or 哭戏. Empty when the scene was typed in by hand. */
+  tags?: string[];
 };
 
 export type FilmShot = {
@@ -604,11 +606,7 @@ export function parseDirectorShots(
     const proposed =
       typeof record.line === "string" && record.line.trim() ? record.line : (spoken?.line ?? "");
     const performance = typeof record.performance === "string" ? record.performance.trim() : "";
-    const purpose = typeof record.purpose === "string" ? record.purpose : "";
-    const emotion = typeof record.emotion === "string" ? record.emotion : "";
-    const emotional = /情绪|哭|泪|怒|发抖|心碎|质问/.test(`${purpose}${emotion}${performance}`);
-    const size =
-      emotional && ["大远景", "远景", "全景", "中景"].includes(sized.size) ? "近景" : sized.size;
+    const size = sized.size;
     const characters = Array.isArray(record.characters)
       ? record.characters.filter((item): item is string => typeof item === "string")
       : [];
@@ -621,7 +619,10 @@ export function parseDirectorShots(
           : "";
     const speaker = named || (line && characters.length === 1 ? characters[0]!.trim() : "");
     shots.push({
-      id: `${sceneId}-shot-${index + 1}`,
+      id:
+        typeof record.id === "string" && /^scene-\d+-shot-\d+$/.test(record.id.trim())
+          ? record.id.trim()
+          : `${sceneId}-shot-${index + 1}`,
       sceneId,
       no: index + 1,
       size,
@@ -674,10 +675,8 @@ export function parseDirectorShots(
           seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
         }))
       : shots;
-  const length = sceneText.trim().length;
-  const budget = length >= 80 ? Math.max(4, Math.min(16, Math.round(length / 50))) : varied.length;
-  const capped = varied.length > budget ? varied.slice(0, budget) : varied;
-  return capped.length > 0 ? attachScriptLines(capped, sceneText) : null;
+  const known = varied.flatMap((shot) => shot.characters);
+  return varied.length > 0 ? attachScriptLines(varied, sceneText, known) : null;
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {

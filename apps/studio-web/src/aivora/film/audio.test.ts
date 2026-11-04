@@ -7,9 +7,23 @@ import {
   normalizeSoundPlan,
   shotSecondsForLine,
   storedShotSeconds,
+  dbToVolumePercent,
+  volumePercentToDb,
 } from "./audio";
 
 describe("audio reservation", () => {
+  it("maps the sound panel 0–100 onto the current decibel defaults", () => {
+    expect(volumePercentToDb(100)).toBe(0);
+    expect(volumePercentToDb(70)).toBe(-3);
+    expect(volumePercentToDb(50)).toBe(-6);
+    expect(volumePercentToDb(20)).toBe(-14);
+    expect(dbToVolumePercent(0)).toBe(100);
+    expect(dbToVolumePercent(-3)).toBe(70);
+    expect(dbToVolumePercent(-6)).toBe(50);
+    expect(dbToVolumePercent(-14)).toBe(20);
+    expect(dbToVolumePercent(AUDIO_LANE_GAIN_DB.score)).toBe(20);
+    expect(dbToVolumePercent(AUDIO_LANE_GAIN_DB.dialogue)).toBe(100);
+  });
   it("keeps a shot long enough for a line, up to 15 seconds", () => {
     expect(storedShotSeconds(12)).toBe(12);
     expect(storedShotSeconds(99)).toBe(15);

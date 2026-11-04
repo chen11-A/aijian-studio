@@ -47,6 +47,7 @@ import {
   subtitleCues,
   updateShot,
 } from "../film/operations";
+import { dbToVolumePercent, volumePercentToDb } from "../film/audio";
 import {
   activeFilmId,
   BROWSER_DIRECTORY,
@@ -923,7 +924,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           const note = notes.find((item) => item.id === shot.id);
           if (!note || (!note.performance && !note.delivery)) return shot;
           const visual = note.performance;
-          const emotional = /情绪|哭|泪|怒|发抖/.test(visual);
           return {
             ...shot,
             performance: visual
@@ -932,10 +932,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 : `${visual}（来自表演指导）`
               : shot.performance,
             delivery: note.delivery || shot.delivery,
-            size:
-              emotional && ["中景", "全景", "远景", "大远景"].includes(shot.size)
-                ? "近景"
-                : shot.size,
           };
         });
       } catch {
@@ -951,7 +947,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     for (const sceneId of sceneIds) {
       const sceneRow = base.scenes.find((item) => item.id === sceneId);
       const story = `${sceneRow?.title ?? ""}\n${sceneRow?.where ?? ""}\n${sceneRow?.text ?? ""}`;
-      if (!sceneRow || !isFightScene(story)) continue;
+      if (!sceneRow || !isFightScene(story, (sceneRow.tags ?? []).join(" "))) continue;
       try {
         const reply = await completeAgent(
           "action",
@@ -6198,10 +6194,12 @@ function EditPage({
                 <input
                   aria-label="音乐音量"
                   type="range"
-                  min={-40}
-                  max={0}
-                  value={Math.max(-40, Math.min(0, musicGain))}
-                  onChange={(event) => onLane?.("score", Number(event.target.value))}
+                  min={0}
+                  max={100}
+                  value={dbToVolumePercent(musicGain)}
+                  onChange={(event) =>
+                    onLane?.("score", volumePercentToDb(Number(event.target.value)))
+                  }
                 />
               </span>
             </div>

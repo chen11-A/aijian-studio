@@ -1098,7 +1098,7 @@ it("keeps a separate review card and confirms the shots before video", async () 
     if (String(text).includes("只审文字") || String(text).includes("你是审片")) {
       return { kind: "OK", text: JSON.stringify({ verdict: "可以拍", issues: ["雨声太满"] }) };
     }
-    if (String(text).includes("你是影视动作指导")) {
+    if (String(text).includes("你是 AIVORA 的动作指导")) {
       return { kind: "OK", text: '{"beats":[{"text":"他抬手","feasibility":"难"}]}' };
     }
     return { kind: "OK", text: "好", model: "grok-4.7" };
@@ -1577,7 +1577,7 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
       if (text.includes("写这一镜的表演") || text.includes("你是表演指导")) {
         return { kind: "OK", text: '[{"emotion":"冷静","face":["眼神一沉"],"eyes":"看向前方"}]' };
       }
-      if (text.includes("你是影视动作指导")) {
+      if (text.includes("你是 AIVORA 的动作指导")) {
         return { kind: "OK", text: '{"beats":[{"text":"他抬手","feasibility":"稳"}]}' };
       }
       return { kind: "OK", text: "他抬手。停住。" };
@@ -1810,7 +1810,7 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   fireEvent.click(screen.getByRole("button", { name: "静音音乐" }));
   fireEvent.click(screen.getByRole("button", { name: "单听音乐" }));
   expect(screen.getByText("只听音乐。音量没有改。")).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("音乐音量"), { target: { value: "-20" } });
+  fireEvent.change(screen.getByLabelText("音乐音量"), { target: { value: "50" } });
   expect(screen.getByText("音量已记下，导出时用这个音量。")).toBeInTheDocument();
   expect(desktop.assembleFilm).toBeDefined();
 });

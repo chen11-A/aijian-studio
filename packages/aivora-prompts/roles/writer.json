@@ -1,0 +1,1426 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 2,
+  "role": "writer",
+  "name": "编剧",
+  "version": 2,
+  "summary": "把小说拆成能拍的场次：原文对白一字不改、一句不少，并列出新人物的性别和年龄段。",
+  "pipeline": {
+    "step": 1,
+    "reads_from": ["小说原文（按段落编号）"],
+    "feeds": ["art", "director"]
+  },
+  "batching": "一次发一场或几场的全部段落，输出这些段落里的全部场次。",
+  "attach_images": false,
+  "app_parsers": [
+    "parseWriterScenes 读 scenes[].place（找不到再用 title）切原文，读 text、dialogue、beats、key_event、time。",
+    "parseCastReply 读顶层 characters[].name/identity 和 locations[].name/prompt。"
+  ],
+  "system_prompt": [
+    "你是 AIVORA 的编剧。用户发来小说的一段或全部，段落已经编号。把它改成能拍的场次剧本，交给美术和导演。",
+    "分场：",
+    "- 原文有场次标题（如「第一场　雨夜旧书店」）就按标题分场，场内换地点写进动作；没有标题时，地点或时间变了就开新的一场。",
+    "- id 写成 scene-编号，例如 scene-2；no 从 scene_no_start 开始连续往下排。",
+    "- title 照抄场次标题里的名字。place 写地点；有标题时照抄标题里的名字。软件用 place 在原文里找这一场从哪里开始，所以它必须是这一场最先出现的那几个字。",
+    "- source_paragraphs 按顺序列出这一场的段落，标题那段也算；整批段落一段不漏，每段只进一场。",
+    "- text 照抄这一场的原文（不含标题），段落之间换行，一个字都不改。",
+    "对白（最重要）：",
+    "- 原文中文双引号里有人说出口的话，每一处都是一句台词，原样写进 elements，标点也不改；同一段两处引号就是两句。",
+    "- 引号里的店名、招牌、拟声词（例如门铃声）不是台词，写进动作。",
+    "- speaker 写说话人，必须在本场 characters 里。引号外写的说话方式写进 delivery，原文没写就写 null。kind 写 对白、电话 或 画外音。",
+    "- dialogue 把本场台词按顺序写成「说话人：台词」，一句一行。dialogue_count 写这一批台词的总句数。",
+    "动作：",
+    "- 引号外的叙述改写成看得见的动作，一条只写一件事；心理活动改成表情、停顿或手上的动作。source 写来自哪一段。",
+    "- 保留后面镜头要用的细节：哪只手拿着什么、衣服湿没湿、伤在哪一侧、天气和光。",
+    "人物：",
+    "- 本场 characters 按出场先后列名字。没有名字但有戏的人，用「打手甲」「打手乙」这样的称呼；没名字也没戏的路人不算人物。",
+    "- 顶层 characters 只写这一批第一次出现、不在 known_characters 里的人物。gender 写 女、男 或 未知；age_band 写 儿童、少年、青年、中年、老年 或 未知。原文没写年龄就写 未知，不要猜。",
+    "- identity 只写原文写到的外貌，开头写明性别和年龄（年龄未知就不写）。brief 一句话写这个人和故事的关系。",
+    "- 顶层 locations 写这一批第一次出现的地点：name 和 place 一样，prompt 用一句话写这个地方看得见的样子，不写人物。",
+    "其他：",
+    "- key_event 一句话写本场最重要的事；beats 写 3 到 6 个节拍。这两项里不要用引号和冒号：软件会把它们拼进剧本，再从里面找台词。",
+    "- mood 只能选：平静、温暖、不安、悬疑、紧张、激烈、悲伤、释然。est_seconds 按台词每秒 4 个字，再加上动作的时间。",
+    "- 顶层 title 写作品名；logline 一句话写这一批的故事；hook 写开头 3 秒抓人的画面；cliffhanger 写这一批结尾留下的悬念。",
+    "输出格式：",
+    "{\"title\":\"\",\"logline\":\"\",\"hook\":\"\",\"cliffhanger\":\"\",\"scenes\":[{\"id\":\"scene-1\",\"no\":1,\"title\":\"\",\"place\":\"\",\"interior\":true,\"time\":\"\",\"weather\":null,\"characters\":[\"\"],\"mood\":\"\",\"key_event\":\"\",\"text\":\"\",\"dialogue\":\"\",\"tags\":[\"\"],\"beats\":[\"\"],\"est_seconds\":0,\"source_paragraphs\":[\"P01\"],\"elements\":[{\"type\":\"action\",\"text\":\"\",\"source\":\"P01\"},{\"type\":\"dialogue\",\"speaker\":\"\",\"kind\":\"对白\",\"line\":\"\",\"delivery\":null,\"source\":\"P01\"}]}],\"characters\":[{\"name\":\"\",\"gender\":\"\",\"age_band\":\"\",\"identity\":\"\",\"first_paragraph\":\"P01\",\"brief\":\"\"}],\"locations\":[{\"name\":\"\",\"prompt\":\"\"}],\"dialogue_count\":0}",
+    "输出规则：",
+    "- 只输出一个 JSON 对象：第一个字符是 {，最后一个是 }。不要代码块、注释和说明文字，不写思考过程。",
+    "- 照上面的格式写，字段不能少也不能多；没有内容写 \"\"、null 或 []。",
+    "- 输入有几场、几个镜头，就一次全部写完，顺序不变。",
+    "- id 和人物名字照抄输入，不新造；字符串里不用英文双引号，要引号用「」。"
+  ],
+  "input_format": {
+    "notes": [
+      "paragraphs 是要拆的全部段落，id 和原文照抄，场次标题也是一段。",
+      "known_characters 是前面已经出现过的人物，第一批为空数组。",
+      "scene_no_start 是这一批第一场的编号，接着上一批往下排。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "编剧输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "work", "scene_no_start", "known_characters", "paragraphs"],
+      "properties": {
+        "task": {
+          "const": "split_scenes"
+        },
+        "work": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "aspect"],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "aspect": {
+              "enum": ["9:16", "16:9"]
+            }
+          }
+        },
+        "scene_no_start": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99
+        },
+        "known_characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "gender", "age_band"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "gender": {
+                "enum": ["女", "男", "未知"]
+              },
+              "age_band": {
+                "enum": ["儿童", "少年", "青年", "中年", "老年", "未知"]
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 30
+        },
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^P[0-9]{2}$"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 200
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "elements 按原文顺序排列：type 为 action 是动作，type 为 dialogue 是台词。",
+      "全部 dialogue 的 line 连起来，要和原文里的台词一一对应。",
+      "text 是这一场的原文；dialogue 是「说话人：台词」，一句一行。软件拿不到原文时用这两项拼成剧本。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "编剧输出",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "logline",
+        "hook",
+        "cliffhanger",
+        "scenes",
+        "characters",
+        "locations",
+        "dialogue_count"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "logline": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 80
+        },
+        "hook": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 60
+        },
+        "cliffhanger": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 60
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scene"
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "gender", "age_band", "identity", "first_paragraph", "brief"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "gender": {
+                "enum": ["女", "男", "未知"]
+              },
+              "age_band": {
+                "enum": ["儿童", "少年", "青年", "中年", "老年", "未知"]
+              },
+              "identity": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "first_paragraph": {
+                "type": "string",
+                "pattern": "^P[0-9]{2}$"
+              },
+              "brief": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 30
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "prompt"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 80
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 20
+        },
+        "dialogue_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        }
+      },
+      "$defs": {
+        "scene": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "no",
+            "title",
+            "place",
+            "interior",
+            "time",
+            "weather",
+            "characters",
+            "mood",
+            "key_event",
+            "text",
+            "dialogue",
+            "tags",
+            "beats",
+            "est_seconds",
+            "source_paragraphs",
+            "elements"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^scene-[1-9][0-9]*$"
+            },
+            "no": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "place": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "interior": {
+              "type": "boolean"
+            },
+            "time": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "weather": {
+              "type": ["string", "null"],
+              "minLength": 1,
+              "maxLength": 10
+            },
+            "characters": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "minItems": 1,
+              "maxItems": 12,
+              "uniqueItems": true
+            },
+            "mood": {
+              "enum": ["平静", "温暖", "不安", "悬疑", "紧张", "激烈", "悲伤", "释然"]
+            },
+            "key_event": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 60
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 6000
+            },
+            "dialogue": {
+              "type": "string",
+              "maxLength": 3000
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "minItems": 0,
+              "maxItems": 6
+            },
+            "beats": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 60
+              },
+              "minItems": 1,
+              "maxItems": 8
+            },
+            "est_seconds": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 900
+            },
+            "source_paragraphs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^P[0-9]{2}$"
+              },
+              "minItems": 1,
+              "maxItems": 200,
+              "uniqueItems": true
+            },
+            "elements": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/action"
+                  },
+                  {
+                    "$ref": "#/$defs/dialogue"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 300
+            }
+          }
+        },
+        "action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "text", "source"],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 120
+            },
+            "source": {
+              "type": "string",
+              "pattern": "^P[0-9]{2}$"
+            }
+          }
+        },
+        "dialogue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "speaker", "kind", "line", "delivery", "source"],
+          "properties": {
+            "type": {
+              "const": "dialogue"
+            },
+            "speaker": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8
+            },
+            "kind": {
+              "enum": ["对白", "电话", "画外音"]
+            },
+            "line": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "delivery": {
+              "type": ["string", "null"],
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "source": {
+              "type": "string",
+              "pattern": "^P[0-9]{2}$"
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "writer-1",
+      "title": "第一场：对话戏，11 句台词，店名和门铃声不算台词",
+      "input": {
+        "task": "split_scenes",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16"
+        },
+        "scene_no_start": 1,
+        "known_characters": [],
+        "paragraphs": [
+          {
+            "id": "P01",
+            "text": "第一场　雨夜旧书店"
+          },
+          {
+            "id": "P02",
+            "text": "入秋后的第一场大雨来得又急又猛。老城区的青石巷里积满了水，路灯被雨帘切成一团团昏黄的光。巷子尽头那家“晚照书店”还亮着灯，玻璃门上贴着一张褪色的纸条：本店月底停业。"
+          },
+          {
+            "id": "P03",
+            "text": "林晚蹲在书架前，把一摞旧书一本本装进纸箱。她二十六岁，扎着低马尾，袖口卷到手肘，手背上沾着灰。这家书店是父亲留下的，父亲走后的三年，她一个人守着它，守到房租翻了两倍，守到账本上只剩赤字。"
+          },
+          {
+            "id": "P04",
+            "text": "门铃“叮”地响了一声。"
+          },
+          {
+            "id": "P05",
+            "text": "一个男人推门进来，黑色风衣湿透了，肩头还在往下滴水。他收起伞，站在门口没有往里走，像是怕弄脏地板。"
+          },
+          {
+            "id": "P06",
+            "text": "“打烊了。”林晚头也没抬，“要买书的话，明天来吧，全场五折。”"
+          },
+          {
+            "id": "P07",
+            "text": "“我不买书。”男人的声音很低，“我找林国栋。”"
+          },
+          {
+            "id": "P08",
+            "text": "林晚手里的书停在半空。她慢慢站起来，转过身，看清了对方的脸。三十岁上下，眉骨很高，眼神沉静，左手虎口有一道旧疤。"
+          },
+          {
+            "id": "P09",
+            "text": "“他三年前就不在了。”她说，“你是谁？”"
+          },
+          {
+            "id": "P10",
+            "text": "男人沉默了几秒，从风衣内袋里掏出一个用油纸包着的信封，放在收银台上。“我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。”"
+          },
+          {
+            "id": "P11",
+            "text": "林晚盯着那个信封，没有伸手。“我爸从来没提过。”"
+          },
+          {
+            "id": "P12",
+            "text": "“他大概也没打算让人还。”沈砚把信封往前推了推，“但我得还。”"
+          },
+          {
+            "id": "P13",
+            "text": "林晚抿了抿嘴唇，眼眶微微发热。她低下头，假装去整理收银台上的发票，声音却有些发紧：“你来晚了。这家店，下个月就没了。”"
+          },
+          {
+            "id": "P14",
+            "text": "沈砚环顾四周，目光落在墙上一张泛黄的合影上。照片里，一个中年男人抱着一个扎羊角辫的小女孩，站在书店门口笑。"
+          },
+          {
+            "id": "P15",
+            "text": "就在这时，门外传来刺耳的刹车声。两束车灯穿透雨幕，直直打在玻璃门上。"
+          }
+        ]
+      },
+      "output": {
+        "title": "雨夜旧书店",
+        "logline": "雨夜，一个陌生男人来旧书店替母亲还十年前的救命钱，书店却下个月就要关门。",
+        "hook": "快打烊的旧书店里，湿透的陌生男人进门，要找一个三年前就去世的人。",
+        "cliffhanger": "门外传来刺耳的刹车声，两束车灯直直打在玻璃门上。",
+        "scenes": [
+          {
+            "id": "scene-1",
+            "no": 1,
+            "title": "雨夜旧书店",
+            "place": "雨夜旧书店",
+            "interior": true,
+            "time": "夜里",
+            "weather": "大雨",
+            "characters": ["林晚", "沈砚"],
+            "mood": "不安",
+            "key_event": "沈砚冒雨来还十年前林晚父亲借出的钱，书店却下个月就要关门。",
+            "text": "入秋后的第一场大雨来得又急又猛。老城区的青石巷里积满了水，路灯被雨帘切成一团团昏黄的光。巷子尽头那家“晚照书店”还亮着灯，玻璃门上贴着一张褪色的纸条：本店月底停业。\n林晚蹲在书架前，把一摞旧书一本本装进纸箱。她二十六岁，扎着低马尾，袖口卷到手肘，手背上沾着灰。这家书店是父亲留下的，父亲走后的三年，她一个人守着它，守到房租翻了两倍，守到账本上只剩赤字。\n门铃“叮”地响了一声。\n一个男人推门进来，黑色风衣湿透了，肩头还在往下滴水。他收起伞，站在门口没有往里走，像是怕弄脏地板。\n“打烊了。”林晚头也没抬，“要买书的话，明天来吧，全场五折。”\n“我不买书。”男人的声音很低，“我找林国栋。”\n林晚手里的书停在半空。她慢慢站起来，转过身，看清了对方的脸。三十岁上下，眉骨很高，眼神沉静，左手虎口有一道旧疤。\n“他三年前就不在了。”她说，“你是谁？”\n男人沉默了几秒，从风衣内袋里掏出一个用油纸包着的信封，放在收银台上。“我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。”\n林晚盯着那个信封，没有伸手。“我爸从来没提过。”\n“他大概也没打算让人还。”沈砚把信封往前推了推，“但我得还。”\n林晚抿了抿嘴唇，眼眶微微发热。她低下头，假装去整理收银台上的发票，声音却有些发紧：“你来晚了。这家店，下个月就没了。”\n沈砚环顾四周，目光落在墙上一张泛黄的合影上。照片里，一个中年男人抱着一个扎羊角辫的小女孩，站在书店门口笑。\n就在这时，门外传来刺耳的刹车声。两束车灯穿透雨幕，直直打在玻璃门上。",
+            "dialogue": "林晚：打烊了。\n林晚：要买书的话，明天来吧，全场五折。\n沈砚：我不买书。\n沈砚：我找林国栋。\n林晚：他三年前就不在了。\n林晚：你是谁？\n沈砚：我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。\n林晚：我爸从来没提过。\n沈砚：他大概也没打算让人还。\n沈砚：但我得还。\n林晚：你来晚了。这家店，下个月就没了。",
+            "tags": ["对白", "雨夜"],
+            "beats": [
+              "雨夜，父亲留下的旧书店月底停业，林晚在装箱。",
+              "陌生男人进门找林国栋，得知他三年前已经去世。",
+              "沈砚说他来替母亲还十年前的救命钱，林晚不肯收。",
+              "墙上的合影；门外刹车声和车灯打断两人。"
+            ],
+            "est_seconds": 85,
+            "source_paragraphs": [
+              "P01",
+              "P02",
+              "P03",
+              "P04",
+              "P05",
+              "P06",
+              "P07",
+              "P08",
+              "P09",
+              "P10",
+              "P11",
+              "P12",
+              "P13",
+              "P14",
+              "P15"
+            ],
+            "elements": [
+              {
+                "type": "action",
+                "text": "大雨里的老城区青石巷积满了水，路灯被雨帘切成一团团昏黄的光。",
+                "source": "P02"
+              },
+              {
+                "type": "action",
+                "text": "巷子尽头那家晚照书店还亮着灯，玻璃门上贴着一张褪色的停业纸条。",
+                "source": "P02"
+              },
+              {
+                "type": "action",
+                "text": "林晚蹲在书架前，把一摞旧书一本本装进纸箱。她扎着低马尾，袖口卷到手肘，手背上沾着灰。",
+                "source": "P03"
+              },
+              {
+                "type": "action",
+                "text": "门铃叮地响了一声。",
+                "source": "P04"
+              },
+              {
+                "type": "action",
+                "text": "一个男人推门进来，黑色风衣湿透，肩头往下滴水。他收起伞，站在门口没有往里走。",
+                "source": "P05"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "打烊了。",
+                "delivery": "头也没抬",
+                "source": "P06"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "要买书的话，明天来吧，全场五折。",
+                "delivery": "头也没抬",
+                "source": "P06"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "我不买书。",
+                "delivery": "声音很低",
+                "source": "P07"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "我找林国栋。",
+                "delivery": "声音很低",
+                "source": "P07"
+              },
+              {
+                "type": "action",
+                "text": "林晚手里的书停在半空。她慢慢站起来，转过身，看清了男人的脸。他三十岁上下，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+                "source": "P08"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "他三年前就不在了。",
+                "delivery": null,
+                "source": "P09"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "你是谁？",
+                "delivery": null,
+                "source": "P09"
+              },
+              {
+                "type": "action",
+                "text": "男人沉默了几秒，从风衣内袋里掏出一个油纸包着的信封，放在收银台上。",
+                "source": "P10"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。",
+                "delivery": null,
+                "source": "P10"
+              },
+              {
+                "type": "action",
+                "text": "林晚盯着那个信封，没有伸手。",
+                "source": "P11"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "我爸从来没提过。",
+                "delivery": null,
+                "source": "P11"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "他大概也没打算让人还。",
+                "delivery": null,
+                "source": "P12"
+              },
+              {
+                "type": "action",
+                "text": "沈砚把信封往前推了推。",
+                "source": "P12"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "但我得还。",
+                "delivery": null,
+                "source": "P12"
+              },
+              {
+                "type": "action",
+                "text": "林晚抿了抿嘴唇，眼眶微微发红，低下头假装整理收银台上的发票。",
+                "source": "P13"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "你来晚了。这家店，下个月就没了。",
+                "delivery": "声音有些发紧",
+                "source": "P13"
+              },
+              {
+                "type": "action",
+                "text": "沈砚环顾四周，目光落在墙上一张泛黄的合影上。照片里一个中年男人抱着扎羊角辫的小女孩，站在书店门口笑。",
+                "source": "P14"
+              },
+              {
+                "type": "action",
+                "text": "门外传来刺耳的刹车声，两束车灯穿透雨幕，直直打在玻璃门上。",
+                "source": "P15"
+              }
+            ]
+          }
+        ],
+        "characters": [
+          {
+            "name": "林晚",
+            "gender": "女",
+            "age_band": "青年",
+            "identity": "二十六岁的女人，扎着低马尾。",
+            "first_paragraph": "P03",
+            "brief": "守着父亲留下的旧书店，书店月底停业"
+          },
+          {
+            "name": "沈砚",
+            "gender": "男",
+            "age_band": "青年",
+            "identity": "三十岁上下的男人，眉骨很高，眼神沉静，左手虎口有一道旧疤。",
+            "first_paragraph": "P05",
+            "brief": "来替母亲还十年前林家借出的救命钱"
+          }
+        ],
+        "locations": [
+          {
+            "name": "雨夜旧书店",
+            "prompt": "老城区青石巷尽头的一家旧书店，两侧是旧书架，玻璃门外下着大雨。"
+          }
+        ],
+        "dialogue_count": 11
+      }
+    },
+    {
+      "id": "writer-2",
+      "title": "第二场：打斗戏，12 句台词，场内从书店换到码头仓库",
+      "input": {
+        "task": "split_scenes",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16"
+        },
+        "scene_no_start": 2,
+        "known_characters": [
+          {
+            "name": "林晚",
+            "gender": "女",
+            "age_band": "青年"
+          },
+          {
+            "name": "沈砚",
+            "gender": "男",
+            "age_band": "青年"
+          }
+        ],
+        "paragraphs": [
+          {
+            "id": "P16",
+            "text": "第二场　码头仓库"
+          },
+          {
+            "id": "P17",
+            "text": "三个男人撞开书店的门。领头的叫周烈，剃着寸头，脖子上挂着一条粗金链，手里转着一把车钥匙。"
+          },
+          {
+            "id": "P18",
+            "text": "“林小姐，”他咧嘴一笑，露出一颗金牙，“你爸欠我们老板的二十万，利滚利，现在是六十万。月底就到期了，我来提醒你一声。”"
+          },
+          {
+            "id": "P19",
+            "text": "“我爸没欠过你们钱！”林晚攥紧了衣角，指节发白，“那张借条是假的，我已经报警了。”"
+          },
+          {
+            "id": "P20",
+            "text": "“报警？”周烈嗤笑一声，抬手一挥，身后两个人把书架推倒了。书哗啦啦砸了一地，纸页散开，被门口灌进来的雨水打湿。"
+          },
+          {
+            "id": "P21",
+            "text": "林晚扑过去想护住那些书，被周烈一把抓住手腕，往外拖。“走，跟我去码头见老板，有话当面说。”"
+          },
+          {
+            "id": "P22",
+            "text": "“放开她。”"
+          },
+          {
+            "id": "P23",
+            "text": "沈砚站在倒下的书架旁边，声音不大，却让屋里一下安静了。"
+          },
+          {
+            "id": "P24",
+            "text": "周烈上下打量他：“你哪根葱？”"
+          },
+          {
+            "id": "P25",
+            "text": "沈砚没回答。他把湿透的风衣脱下来，搭在椅背上，慢慢卷起衬衫袖口。"
+          },
+          {
+            "id": "P26",
+            "text": "半小时后，城东废弃的码头仓库。铁皮屋顶被雨点砸得轰轰作响，地上到处是积水和生锈的铁链。林晚被推到一只木箱旁边，周烈和他的人围成半圈。沈砚开着书店那辆旧面包车，一路跟了过来。"
+          },
+          {
+            "id": "P27",
+            "text": "“小子，你倒是有胆。”周烈抄起一根铁棍，“今天就让你长长记性。”"
+          },
+          {
+            "id": "P28",
+            "text": "他猛地挥棍砸来。沈砚侧身一让，铁棍擦着他耳边落下，砸在木箱上，木屑四溅。沈砚顺势扣住周烈的手腕，一拧，铁棍“当啷”落地。另一个打手从背后扑上来，沈砚矮身一个肘击，正中对方肋下，那人闷哼一声，跪倒在积水里。"
+          },
+          {
+            "id": "P29",
+            "text": "第三个人掏出一把折叠刀，刀刃在昏暗的灯下一闪。"
+          },
+          {
+            "id": "P30",
+            "text": "“小心！”林晚尖叫。"
+          },
+          {
+            "id": "P31",
+            "text": "沈砚抬手去挡，刀锋划过他的小臂，血立刻渗了出来。他咬紧牙，反手抓住对方的手肘往下一压，膝盖顶上去，刀飞了出去，滑进铁链堆里。"
+          },
+          {
+            "id": "P32",
+            "text": "周烈喘着粗气，从地上爬起来，看着满地呻吟的手下，又看看沈砚流血的胳膊，脸色铁青。远处传来警笛声，由远及近。"
+          },
+          {
+            "id": "P33",
+            "text": "“算你狠。”周烈啐了一口，带着人钻进雨里，消失在仓库后门。"
+          }
+        ]
+      },
+      "output": {
+        "title": "雨夜旧书店",
+        "logline": "讨债的人砸了书店、抓走林晚，沈砚追到码头仓库，带伤把他们打退。",
+        "hook": "三个男人撞开书店的门，开口就要六十万。",
+        "cliffhanger": "周烈撂下一句狠话，带着人消失在雨里。",
+        "scenes": [
+          {
+            "id": "scene-2",
+            "no": 2,
+            "title": "码头仓库",
+            "place": "码头仓库",
+            "interior": true,
+            "time": "夜里，半小时后到码头",
+            "weather": "大雨",
+            "characters": ["周烈", "打手甲", "打手乙", "林晚", "沈砚"],
+            "mood": "激烈",
+            "key_event": "周烈带人砸店抓走林晚，沈砚追到码头仓库打退他们，小臂被刀划伤。",
+            "text": "三个男人撞开书店的门。领头的叫周烈，剃着寸头，脖子上挂着一条粗金链，手里转着一把车钥匙。\n“林小姐，”他咧嘴一笑，露出一颗金牙，“你爸欠我们老板的二十万，利滚利，现在是六十万。月底就到期了，我来提醒你一声。”\n“我爸没欠过你们钱！”林晚攥紧了衣角，指节发白，“那张借条是假的，我已经报警了。”\n“报警？”周烈嗤笑一声，抬手一挥，身后两个人把书架推倒了。书哗啦啦砸了一地，纸页散开，被门口灌进来的雨水打湿。\n林晚扑过去想护住那些书，被周烈一把抓住手腕，往外拖。“走，跟我去码头见老板，有话当面说。”\n“放开她。”\n沈砚站在倒下的书架旁边，声音不大，却让屋里一下安静了。\n周烈上下打量他：“你哪根葱？”\n沈砚没回答。他把湿透的风衣脱下来，搭在椅背上，慢慢卷起衬衫袖口。\n半小时后，城东废弃的码头仓库。铁皮屋顶被雨点砸得轰轰作响，地上到处是积水和生锈的铁链。林晚被推到一只木箱旁边，周烈和他的人围成半圈。沈砚开着书店那辆旧面包车，一路跟了过来。\n“小子，你倒是有胆。”周烈抄起一根铁棍，“今天就让你长长记性。”\n他猛地挥棍砸来。沈砚侧身一让，铁棍擦着他耳边落下，砸在木箱上，木屑四溅。沈砚顺势扣住周烈的手腕，一拧，铁棍“当啷”落地。另一个打手从背后扑上来，沈砚矮身一个肘击，正中对方肋下，那人闷哼一声，跪倒在积水里。\n第三个人掏出一把折叠刀，刀刃在昏暗的灯下一闪。\n“小心！”林晚尖叫。\n沈砚抬手去挡，刀锋划过他的小臂，血立刻渗了出来。他咬紧牙，反手抓住对方的手肘往下一压，膝盖顶上去，刀飞了出去，滑进铁链堆里。\n周烈喘着粗气，从地上爬起来，看着满地呻吟的手下，又看看沈砚流血的胳膊，脸色铁青。远处传来警笛声，由远及近。\n“算你狠。”周烈啐了一口，带着人钻进雨里，消失在仓库后门。",
+            "dialogue": "周烈：林小姐，\n周烈：你爸欠我们老板的二十万，利滚利，现在是六十万。月底就到期了，我来提醒你一声。\n林晚：我爸没欠过你们钱！\n林晚：那张借条是假的，我已经报警了。\n周烈：报警？\n周烈：走，跟我去码头见老板，有话当面说。\n沈砚：放开她。\n周烈：你哪根葱？\n周烈：小子，你倒是有胆。\n周烈：今天就让你长长记性。\n林晚：小心！\n周烈：算你狠。",
+            "tags": ["打斗", "换地点"],
+            "beats": [
+              "周烈带两个打手闯进书店逼债，林晚说借条是假的。",
+              "打手推倒书架，周烈抓住林晚要带去码头；沈砚让他放人。",
+              "沈砚脱下风衣卷起袖口。半小时后到了城东废弃的码头仓库。",
+              "铁棍砸空被夺下，背后偷袭被肘击，折叠刀划伤沈砚的小臂后被打飞。",
+              "警笛逼近，周烈放下狠话带人逃走。"
+            ],
+            "est_seconds": 95,
+            "source_paragraphs": [
+              "P16",
+              "P17",
+              "P18",
+              "P19",
+              "P20",
+              "P21",
+              "P22",
+              "P23",
+              "P24",
+              "P25",
+              "P26",
+              "P27",
+              "P28",
+              "P29",
+              "P30",
+              "P31",
+              "P32",
+              "P33"
+            ],
+            "elements": [
+              {
+                "type": "action",
+                "text": "三个男人撞开书店的门。领头的周烈剃着寸头，脖子上挂着一条粗金链，手里转着一把车钥匙。",
+                "source": "P17"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "林小姐，",
+                "delivery": null,
+                "source": "P18"
+              },
+              {
+                "type": "action",
+                "text": "周烈咧嘴一笑，露出一颗金牙。",
+                "source": "P18"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "你爸欠我们老板的二十万，利滚利，现在是六十万。月底就到期了，我来提醒你一声。",
+                "delivery": null,
+                "source": "P18"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "我爸没欠过你们钱！",
+                "delivery": null,
+                "source": "P19"
+              },
+              {
+                "type": "action",
+                "text": "林晚攥紧了衣角，指节发白。",
+                "source": "P19"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "那张借条是假的，我已经报警了。",
+                "delivery": null,
+                "source": "P19"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "报警？",
+                "delivery": "嗤笑一声",
+                "source": "P20"
+              },
+              {
+                "type": "action",
+                "text": "周烈抬手一挥，身后两个打手把书架推倒，书砸了一地，纸页散开，被门口灌进来的雨水打湿。",
+                "source": "P20"
+              },
+              {
+                "type": "action",
+                "text": "林晚扑过去想护住那些书，被周烈一把抓住手腕往外拖。",
+                "source": "P21"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "走，跟我去码头见老板，有话当面说。",
+                "delivery": null,
+                "source": "P21"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "放开她。",
+                "delivery": "声音不大",
+                "source": "P22"
+              },
+              {
+                "type": "action",
+                "text": "沈砚站在倒下的书架旁边，屋里一下安静了。",
+                "source": "P23"
+              },
+              {
+                "type": "action",
+                "text": "周烈上下打量沈砚。",
+                "source": "P24"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "你哪根葱？",
+                "delivery": null,
+                "source": "P24"
+              },
+              {
+                "type": "action",
+                "text": "沈砚没回答，把湿透的风衣脱下来搭在椅背上，慢慢卷起衬衫袖口。",
+                "source": "P25"
+              },
+              {
+                "type": "action",
+                "text": "半小时后，城东废弃的码头仓库。铁皮屋顶被雨点砸得轰轰作响，地上到处是积水和生锈的铁链。",
+                "source": "P26"
+              },
+              {
+                "type": "action",
+                "text": "林晚被推到一只木箱旁边，周烈和打手围成半圈。沈砚开着书店那辆旧面包车跟了过来。",
+                "source": "P26"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "小子，你倒是有胆。",
+                "delivery": null,
+                "source": "P27"
+              },
+              {
+                "type": "action",
+                "text": "周烈抄起一根铁棍。",
+                "source": "P27"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "今天就让你长长记性。",
+                "delivery": null,
+                "source": "P27"
+              },
+              {
+                "type": "action",
+                "text": "周烈猛地挥棍砸来，沈砚侧身一让，铁棍擦着他耳边落下，砸在木箱上，木屑四溅。",
+                "source": "P28"
+              },
+              {
+                "type": "action",
+                "text": "沈砚顺势扣住周烈的手腕一拧，铁棍当啷落地。",
+                "source": "P28"
+              },
+              {
+                "type": "action",
+                "text": "打手甲从背后扑上来，沈砚矮身一记肘击正中他肋下，打手甲闷哼一声跪倒在积水里。",
+                "source": "P28"
+              },
+              {
+                "type": "action",
+                "text": "打手乙掏出一把折叠刀，刀刃在昏暗的灯下一闪。",
+                "source": "P29"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "小心！",
+                "delivery": "尖叫",
+                "source": "P30"
+              },
+              {
+                "type": "action",
+                "text": "沈砚抬手去挡，刀锋划过他的小臂，血立刻渗了出来。",
+                "source": "P31"
+              },
+              {
+                "type": "action",
+                "text": "沈砚咬紧牙，反手抓住打手乙的手肘往下一压，膝盖顶上去，刀飞了出去，滑进铁链堆里。",
+                "source": "P31"
+              },
+              {
+                "type": "action",
+                "text": "周烈喘着粗气从地上爬起来，看看满地呻吟的手下，又看看沈砚流血的胳膊，脸色铁青。远处传来警笛声，由远及近。",
+                "source": "P32"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "算你狠。",
+                "delivery": "啐了一口",
+                "source": "P33"
+              },
+              {
+                "type": "action",
+                "text": "周烈带着人钻进雨里，消失在仓库后门。",
+                "source": "P33"
+              }
+            ]
+          }
+        ],
+        "characters": [
+          {
+            "name": "周烈",
+            "gender": "男",
+            "age_band": "未知",
+            "identity": "男人，剃着寸头，脖子上挂着一条粗金链，有一颗金牙。",
+            "first_paragraph": "P17",
+            "brief": "带人来讨债的领头人"
+          },
+          {
+            "name": "打手甲",
+            "gender": "男",
+            "age_band": "未知",
+            "identity": "男人，原文没写长相。",
+            "first_paragraph": "P17",
+            "brief": "周烈带来的打手，从背后扑向沈砚"
+          },
+          {
+            "name": "打手乙",
+            "gender": "男",
+            "age_band": "未知",
+            "identity": "男人，原文没写长相。",
+            "first_paragraph": "P17",
+            "brief": "周烈带来的打手，掏出折叠刀"
+          }
+        ],
+        "locations": [
+          {
+            "name": "码头仓库",
+            "prompt": "城东废弃的码头仓库，铁皮屋顶，地上到处是积水和生锈的铁链。"
+          }
+        ],
+        "dialogue_count": 12
+      }
+    },
+    {
+      "id": "writer-3",
+      "title": "第三场：哭戏，10 句台词，阿婆第一次出场",
+      "input": {
+        "task": "split_scenes",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16"
+        },
+        "scene_no_start": 3,
+        "known_characters": [
+          {
+            "name": "林晚",
+            "gender": "女",
+            "age_band": "青年"
+          },
+          {
+            "name": "沈砚",
+            "gender": "男",
+            "age_band": "青年"
+          },
+          {
+            "name": "周烈",
+            "gender": "男",
+            "age_band": "未知"
+          },
+          {
+            "name": "打手甲",
+            "gender": "男",
+            "age_band": "未知"
+          },
+          {
+            "name": "打手乙",
+            "gender": "男",
+            "age_band": "未知"
+          }
+        ],
+        "paragraphs": [
+          {
+            "id": "P34",
+            "text": "第三场　医院走廊"
+          },
+          {
+            "id": "P35",
+            "text": "凌晨两点，市医院急诊室的走廊空荡荡的，只有头顶的日光灯嗡嗡作响。"
+          },
+          {
+            "id": "P36",
+            "text": "沈砚坐在长椅上，左小臂缠着一圈白纱布。林晚站在他面前，手里捏着那个油纸信封，信封的一角已经被雨水泡软了。"
+          },
+          {
+            "id": "P37",
+            "text": "“你本来可以不管的。”她的声音很轻，“这是我家的事。”"
+          },
+          {
+            "id": "P38",
+            "text": "“十年前，你父亲也可以不管。”沈砚抬头看她，“那年冬天，我妈在医院门口晕倒，是他把身上所有的钱都垫了。他说，谁家都有过不去的时候。”"
+          },
+          {
+            "id": "P39",
+            "text": "林晚怔住了。她想起小时候那个冬天，父亲回家时冻得满脸通红，说钱包丢了，被母亲念叨了整整一个月。他只是笑，什么也没解释。"
+          },
+          {
+            "id": "P40",
+            "text": "她的嘴角动了动，想笑，眼泪却先掉了下来。她慌忙转过身，用手背去擦，可越擦越多。肩膀轻轻发抖，她死死咬住下唇，不让自己哭出声。"
+          },
+          {
+            "id": "P41",
+            "text": "沈砚站起来，犹豫了一下，没有去碰她，只是把自己那件已经半干的风衣披在她肩上。"
+          },
+          {
+            "id": "P42",
+            "text": "“书店，”他说，“我想试试帮你留下来。”"
+          },
+          {
+            "id": "P43",
+            "text": "林晚转过头，泪痕还挂在脸上。“为什么？”"
+          },
+          {
+            "id": "P44",
+            "text": "沈砚看向走廊尽头的窗户。雨停了，天边透出一线灰白的光。"
+          },
+          {
+            "id": "P45",
+            "text": "“因为那张照片里，你爸笑得很开心。”他顿了顿，“我想让那扇门一直亮着灯。”"
+          },
+          {
+            "id": "P46",
+            "text": "林晚低下头，攥紧了风衣的领口，轻轻地点了点头。"
+          },
+          {
+            "id": "P47",
+            "text": "天亮的时候，两人一起回到青石巷。书店的玻璃门碎了一角，地上的书还泡在水里。林晚蹲下去，捡起一本封面被踩脏的诗集，用袖子一点点擦干净。沈砚把倒下的书架扶起来，一层一层地摆正。巷口卖早点的阿婆探头看了一眼，端来两碗热豆浆，什么也没问，只说了一句：“灯还亮着，就好。”"
+          }
+        ]
+      },
+      "output": {
+        "title": "雨夜旧书店",
+        "logline": "急诊室外，沈砚说出当年的恩情，答应帮林晚把书店留下来。",
+        "hook": "凌晨两点的急诊走廊，林晚捏着泡软的信封，站在缠着纱布的沈砚面前。",
+        "cliffhanger": "书店能不能留下来还不知道，但灯还亮着。",
+        "scenes": [
+          {
+            "id": "scene-3",
+            "no": 3,
+            "title": "医院走廊",
+            "place": "医院走廊",
+            "interior": true,
+            "time": "凌晨两点到天亮",
+            "weather": "雨停",
+            "characters": ["沈砚", "林晚", "阿婆"],
+            "mood": "温暖",
+            "key_event": "急诊室外沈砚说出当年的恩情，答应帮林晚留住书店，天亮后两人回到书店收拾。",
+            "text": "凌晨两点，市医院急诊室的走廊空荡荡的，只有头顶的日光灯嗡嗡作响。\n沈砚坐在长椅上，左小臂缠着一圈白纱布。林晚站在他面前，手里捏着那个油纸信封，信封的一角已经被雨水泡软了。\n“你本来可以不管的。”她的声音很轻，“这是我家的事。”\n“十年前，你父亲也可以不管。”沈砚抬头看她，“那年冬天，我妈在医院门口晕倒，是他把身上所有的钱都垫了。他说，谁家都有过不去的时候。”\n林晚怔住了。她想起小时候那个冬天，父亲回家时冻得满脸通红，说钱包丢了，被母亲念叨了整整一个月。他只是笑，什么也没解释。\n她的嘴角动了动，想笑，眼泪却先掉了下来。她慌忙转过身，用手背去擦，可越擦越多。肩膀轻轻发抖，她死死咬住下唇，不让自己哭出声。\n沈砚站起来，犹豫了一下，没有去碰她，只是把自己那件已经半干的风衣披在她肩上。\n“书店，”他说，“我想试试帮你留下来。”\n林晚转过头，泪痕还挂在脸上。“为什么？”\n沈砚看向走廊尽头的窗户。雨停了，天边透出一线灰白的光。\n“因为那张照片里，你爸笑得很开心。”他顿了顿，“我想让那扇门一直亮着灯。”\n林晚低下头，攥紧了风衣的领口，轻轻地点了点头。\n天亮的时候，两人一起回到青石巷。书店的玻璃门碎了一角，地上的书还泡在水里。林晚蹲下去，捡起一本封面被踩脏的诗集，用袖子一点点擦干净。沈砚把倒下的书架扶起来，一层一层地摆正。巷口卖早点的阿婆探头看了一眼，端来两碗热豆浆，什么也没问，只说了一句：“灯还亮着，就好。”",
+            "dialogue": "林晚：你本来可以不管的。\n林晚：这是我家的事。\n沈砚：十年前，你父亲也可以不管。\n沈砚：那年冬天，我妈在医院门口晕倒，是他把身上所有的钱都垫了。他说，谁家都有过不去的时候。\n沈砚：书店，\n沈砚：我想试试帮你留下来。\n林晚：为什么？\n沈砚：因为那张照片里，你爸笑得很开心。\n沈砚：我想让那扇门一直亮着灯。\n阿婆：灯还亮着，就好。",
+            "tags": ["哭戏", "温情"],
+            "beats": [
+              "凌晨的急诊走廊，沈砚的左小臂缠着纱布，林晚说他本可以不管。",
+              "沈砚讲出十年前冬天林国栋垫钱救人的事，林晚想起父亲说钱包丢了的那个冬天。",
+              "林晚背过身哭，沈砚把风衣披在她肩上，说想帮她留下书店。",
+              "天亮回到青石巷收拾书店，阿婆端来热豆浆。"
+            ],
+            "est_seconds": 95,
+            "source_paragraphs": [
+              "P34",
+              "P35",
+              "P36",
+              "P37",
+              "P38",
+              "P39",
+              "P40",
+              "P41",
+              "P42",
+              "P43",
+              "P44",
+              "P45",
+              "P46",
+              "P47"
+            ],
+            "elements": [
+              {
+                "type": "action",
+                "text": "凌晨两点，市医院急诊室的走廊空荡荡的，只有头顶的日光灯嗡嗡作响。",
+                "source": "P35"
+              },
+              {
+                "type": "action",
+                "text": "沈砚坐在长椅上，左小臂缠着一圈白纱布。林晚站在他面前，手里捏着那个油纸信封，信封一角已经被雨水泡软了。",
+                "source": "P36"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "你本来可以不管的。",
+                "delivery": "声音很轻",
+                "source": "P37"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "这是我家的事。",
+                "delivery": "声音很轻",
+                "source": "P37"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "十年前，你父亲也可以不管。",
+                "delivery": null,
+                "source": "P38"
+              },
+              {
+                "type": "action",
+                "text": "沈砚抬头看着林晚。",
+                "source": "P38"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "那年冬天，我妈在医院门口晕倒，是他把身上所有的钱都垫了。他说，谁家都有过不去的时候。",
+                "delivery": null,
+                "source": "P38"
+              },
+              {
+                "type": "action",
+                "text": "林晚怔住了，眼神放空，像是想起了很久以前的事。",
+                "source": "P39"
+              },
+              {
+                "type": "action",
+                "text": "林晚的嘴角动了动，想笑，眼泪却先掉了下来。她慌忙转过身，用手背去擦，越擦越多。",
+                "source": "P40"
+              },
+              {
+                "type": "action",
+                "text": "她肩膀轻轻发抖，死死咬住下唇，不让自己哭出声。",
+                "source": "P40"
+              },
+              {
+                "type": "action",
+                "text": "沈砚站起来，犹豫了一下，没有碰她，只把自己那件半干的风衣披在她肩上。",
+                "source": "P41"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "书店，",
+                "delivery": null,
+                "source": "P42"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "我想试试帮你留下来。",
+                "delivery": null,
+                "source": "P42"
+              },
+              {
+                "type": "action",
+                "text": "林晚转过头，泪痕还挂在脸上。",
+                "source": "P43"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "为什么？",
+                "delivery": null,
+                "source": "P43"
+              },
+              {
+                "type": "action",
+                "text": "沈砚看向走廊尽头的窗户。雨停了，天边透出一线灰白的光。",
+                "source": "P44"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "因为那张照片里，你爸笑得很开心。",
+                "delivery": null,
+                "source": "P45"
+              },
+              {
+                "type": "action",
+                "text": "沈砚顿了顿。",
+                "source": "P45"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "我想让那扇门一直亮着灯。",
+                "delivery": null,
+                "source": "P45"
+              },
+              {
+                "type": "action",
+                "text": "林晚低下头，攥紧了风衣的领口，轻轻地点了点头。",
+                "source": "P46"
+              },
+              {
+                "type": "action",
+                "text": "天亮的时候，两人一起回到青石巷。书店的玻璃门碎了一角，地上的书还泡在水里。",
+                "source": "P47"
+              },
+              {
+                "type": "action",
+                "text": "林晚蹲下去，捡起一本封面被踩脏的诗集，用袖子一点点擦干净。沈砚把倒下的书架扶起来，一层一层地摆正。",
+                "source": "P47"
+              },
+              {
+                "type": "action",
+                "text": "巷口卖早点的阿婆探头看了一眼，端来两碗热豆浆，什么也没问。",
+                "source": "P47"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "阿婆",
+                "kind": "对白",
+                "line": "灯还亮着，就好。",
+                "delivery": null,
+                "source": "P47"
+              }
+            ]
+          }
+        ],
+        "characters": [
+          {
+            "name": "阿婆",
+            "gender": "女",
+            "age_band": "老年",
+            "identity": "上了年纪的女人，在巷口卖早点。",
+            "first_paragraph": "P47",
+            "brief": "巷口卖早点的阿婆"
+          }
+        ],
+        "locations": [
+          {
+            "name": "医院走廊",
+            "prompt": "凌晨的市医院急诊室走廊，空荡荡的，头顶是发白的日光灯。"
+          }
+        ],
+        "dialogue_count": 10
+      }
+    }
+  ]
+}
