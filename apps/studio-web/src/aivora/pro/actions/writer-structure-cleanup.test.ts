@@ -292,3 +292,46 @@ it.each(["title", "state", "additionalScene", "source"])(
     expect(applyStoryStructureTransaction(film, tx).film).toBe(film);
   },
 );
+
+it("renumbers a retained manual scene with field CAS while keeping its shots and late content", () => {
+  const { film, scenes } = setup();
+  const retained = {
+    ...film.scenes[0]!,
+    id: "scene-7",
+    no: 7,
+    text: "独立手写场次保留",
+    source: "user",
+    userFields: ["text"],
+  };
+  film.scenes.push(retained);
+  const shot = {
+    ...film.shots[0]!,
+    id: "retained-manual-shot",
+    sceneId: retained.id,
+    source: "user",
+    userFields: ["picture"],
+    poster: "/tmp/old.png",
+  };
+  film.shots.push(shot);
+  const tx = prepareWriterTransaction(film, scenes);
+  expect(tx.unsupported).toEqual([]);
+  expect(tx.sceneNumbering).toEqual([{ id: retained.id, before: 7, after: 1 }]);
+  const live = structuredClone(film);
+  live.scenes.at(-1)!.text += "。审核期间补充";
+  live.shots.at(-1)!.poster = "/tmp/late.png";
+  const applied = applyStoryStructureTransaction(live, tx);
+  expect(applied.conflicts).toEqual([]);
+  expect(applied.film.scenes[0]).toEqual({ ...live.scenes.at(-1)!, no: 1 });
+  expect(applied.film.shots).toEqual([live.shots.at(-1)]);
+  const undone = undoStoryStructureTransaction(applied.film, applied.receipt!);
+  expect(undone.conflicts).toEqual([]);
+  expect(undone.film).toEqual(live);
+  expect(applyStoryStructureTransaction(undone.film, applied.receipt!).film).toEqual(applied.film);
+  const conflict = structuredClone(applied.film);
+  conflict.scenes[0]!.no = 9;
+  const blocked = undoStoryStructureTransaction(conflict, applied.receipt!);
+  expect(blocked.conflicts).toEqual(["SCENE_NUMBER_CHANGED"]);
+  expect(blocked.film).toBe(conflict);
+  live.scenes.at(-1)!.no = 8;
+  expect(applyStoryStructureTransaction(live, tx).conflicts).toEqual(["SCENE_NUMBER_CHANGED"]);
+});

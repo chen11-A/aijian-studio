@@ -39,6 +39,7 @@ export type StoryStructureTransaction = {
   }[];
   /** Explicit splitting shifts only subsequent labels, without replacing their live shot content. */
   numbering?: { id: string; before: number; after: number }[];
+  sceneNumbering?: { id: string; before: number; after: number }[];
   unsupported: string[];
 };
 const same = (a: unknown, b: unknown): boolean => {
@@ -264,9 +265,20 @@ export function prepareWriterTransaction(
     (!base.sourceText || base.sourceText === initial.text);
   // The initial text box is the writer's manuscript input, not an existing authored scene.
   // Keep its exact text in the same receipt, including whitespace omitted by scene splitting.
-  const proposed = initialManuscript
+  let proposed = initialManuscript
     ? { ...base, scenes: scenes.map((scene, index) => ({ ...scene, no: index + 1 })) }
     : applyScenes(base, scenes);
+  const sceneNumbering: NonNullable<StoryStructureTransaction["sceneNumbering"]> = [];
+  proposed = {
+    ...proposed,
+    scenes: proposed.scenes.map((scene) => {
+      const old = base.scenes.find((row) => row.id === scene.id);
+      if (!old || old.no === scene.no || !same(old, { ...scene, no: old.no })) return scene;
+      sceneNumbering.push({ id: scene.id, before: old.no, after: scene.no });
+      // Keep preserved rows outside the structural CAS; only their labels are being changed.
+      return { ...scene, no: old.no };
+    }),
+  };
   const affected = base.scenes.filter(
     (scene) =>
       !same(
@@ -322,6 +334,7 @@ export function prepareWriterTransaction(
     "writer",
     base.scenes[0]?.id ?? "",
   );
+  if (sceneNumbering.length) tx.sceneNumbering = sceneNumbering;
   if (initialManuscript) tx.sourceAfter = initial.text;
   tx.unsupported.push(...unsupported);
   if (shotChanges.length) tx.shotChanges = structuredClone(shotChanges);
@@ -410,6 +423,14 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
   )
     return reject(["SHOT_NUMBER_CHANGED"]);
   if (
+    tx.sceneNumbering?.some(
+      (change) =>
+        current.scenes.find((scene) => scene.id === change.id)?.no !==
+        (inverse ? change.after : change.before),
+    )
+  )
+    return reject(["SCENE_NUMBER_CHANGED"]);
+  if (
     !same(
       source(current, tx.kind, tx.sceneId),
       inverse ? (tx.sourceAfter ?? tx.sourceBefore) : tx.sourceBefore,
@@ -434,7 +455,13 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     !tx.structure.before.length &&
     !tx.structure.after.length &&
     same(tx.structure.beforeOrder, tx.structure.afterOrder);
-  if (noStructure && !tx.coverage && !tx.beats && !tx.shotChanges?.length)
+  if (
+    noStructure &&
+    !tx.coverage &&
+    !tx.beats &&
+    !tx.shotChanges?.length &&
+    !tx.sceneNumbering?.length
+  )
     return { film: current, receipt: null, conflicts: [] as string[], code: "NO_CHANGES" as const };
   let prepared = current;
   if (!inverse) {
@@ -453,6 +480,17 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
   let film = changed.film;
   if (tx.sourceAfter !== undefined)
     film = { ...film, sourceText: inverse ? (tx.sourceBefore as string) : tx.sourceAfter };
+  if (tx.sceneNumbering?.length) {
+    const numbers = new Map(
+      tx.sceneNumbering.map((change) => [change.id, inverse ? change.before : change.after]),
+    );
+    film = {
+      ...film,
+      scenes: film.scenes.map((scene) =>
+        numbers.has(scene.id) ? { ...scene, no: numbers.get(scene.id)! } : scene,
+      ),
+    };
+  }
   if (tx.numbering?.length) {
     const numbers = new Map(
       tx.numbering.map((change) => [change.id, inverse ? change.before : change.after]),
