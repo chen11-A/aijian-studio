@@ -16,6 +16,7 @@
  *
  *   AIVORA_CHROMIUM=/path/to/chrome node docs/design/tools/check-layout.mjs --shots
  */
+import { existsSync, statSync } from "node:fs";
 import { mkdir, readdir } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 import { join, resolve } from "node:path";
@@ -170,8 +171,17 @@ function inspect() {
   return problems;
 }
 
+/** AIVORA_PLAYWRIGHT may name the playwright-core folder or its index.js. */
+function playwrightEntry() {
+  const where = process.env.AIVORA_PLAYWRIGHT;
+  if (!where) return "playwright-core";
+  const path = resolve(where);
+  const file = existsSync(path) && statSync(path).isDirectory() ? join(path, "index.js") : path;
+  return pathToFileURL(file).href;
+}
+
 async function loadChromium() {
-  const module = await import(process.env.AIVORA_PLAYWRIGHT ?? "playwright-core");
+  const module = await import(playwrightEntry());
   const chromium = module.chromium ?? module.default.chromium;
   return chromium.launch({ executablePath: process.env.AIVORA_CHROMIUM || undefined });
 }

@@ -1,0 +1,226 @@
+{
+  "source": "test-novel-2000.txt",
+  "about": "校验用的标准答案：原文每一处中文双引号是不是台词、是谁说的，以及原文写到的人物性别和年龄段。段落编号按非空行从 P01 起算，场次标题也算一段。",
+  "not_dialogue": [
+    {
+      "paragraph": "P02",
+      "text": "晚照书店",
+      "why": "店名"
+    },
+    {
+      "paragraph": "P04",
+      "text": "叮",
+      "why": "门铃声"
+    },
+    {
+      "paragraph": "P28",
+      "text": "当啷",
+      "why": "铁棍落地声"
+    }
+  ],
+  "speakers": [
+    {
+      "paragraph": "P06",
+      "line": "打烊了。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P06",
+      "line": "要买书的话，明天来吧，全场五折。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P07",
+      "line": "我不买书。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P07",
+      "line": "我找林国栋。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P09",
+      "line": "他三年前就不在了。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P09",
+      "line": "你是谁？",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P10",
+      "line": "我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P11",
+      "line": "我爸从来没提过。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P12",
+      "line": "他大概也没打算让人还。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P12",
+      "line": "但我得还。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P13",
+      "line": "你来晚了。这家店，下个月就没了。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P18",
+      "line": "林小姐，",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P18",
+      "line": "你爸欠我们老板的二十万，利滚利，现在是六十万。月底就到期了，我来提醒你一声。",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P19",
+      "line": "我爸没欠过你们钱！",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P19",
+      "line": "那张借条是假的，我已经报警了。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P20",
+      "line": "报警？",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P21",
+      "line": "走，跟我去码头见老板，有话当面说。",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P22",
+      "line": "放开她。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P24",
+      "line": "你哪根葱？",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P27",
+      "line": "小子，你倒是有胆。",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P27",
+      "line": "今天就让你长长记性。",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P30",
+      "line": "小心！",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P33",
+      "line": "算你狠。",
+      "speaker": "周烈"
+    },
+    {
+      "paragraph": "P37",
+      "line": "你本来可以不管的。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P37",
+      "line": "这是我家的事。",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P38",
+      "line": "十年前，你父亲也可以不管。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P38",
+      "line": "那年冬天，我妈在医院门口晕倒，是他把身上所有的钱都垫了。他说，谁家都有过不去的时候。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P42",
+      "line": "书店，",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P42",
+      "line": "我想试试帮你留下来。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P43",
+      "line": "为什么？",
+      "speaker": "林晚"
+    },
+    {
+      "paragraph": "P45",
+      "line": "因为那张照片里，你爸笑得很开心。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P45",
+      "line": "我想让那扇门一直亮着灯。",
+      "speaker": "沈砚"
+    },
+    {
+      "paragraph": "P47",
+      "line": "灯还亮着，就好。",
+      "speaker": "阿婆"
+    }
+  ],
+  "cast": [
+    {
+      "name": "林晚",
+      "gender": "女",
+      "age_band": "青年",
+      "why": "P03 写她二十六岁"
+    },
+    {
+      "name": "沈砚",
+      "gender": "男",
+      "age_band": "青年",
+      "why": "P05 写一个男人，P08 写三十岁上下"
+    },
+    {
+      "name": "周烈",
+      "gender": "男",
+      "age_band": "未知",
+      "why": "P17 写三个男人，没写年龄"
+    },
+    {
+      "name": "打手甲",
+      "gender": "男",
+      "age_band": "未知",
+      "why": "P17 写三个男人，没写年龄"
+    },
+    {
+      "name": "打手乙",
+      "gender": "男",
+      "age_band": "未知",
+      "why": "P17 写三个男人，没写年龄"
+    },
+    {
+      "name": "阿婆",
+      "gender": "女",
+      "age_band": "老年",
+      "why": "P47 写巷口卖早点的阿婆"
+    }
+  ]
+}

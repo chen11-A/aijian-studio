@@ -383,14 +383,14 @@
             <svg class="ic"><use href="#i-list" /></svg>任务
           </button>
           <button
-            class="btn primary"
+            class="btn"
             disabled
             title="还没有生成好的镜头"
             data-show="normal empty login loading confirm error"
           >
             <svg class="ic"><use href="#i-export" /></svg>导出成片
           </button>
-          <button class="btn primary" data-show="done">
+          <button class="btn" data-show="done">
             <svg class="ic"><use href="#i-export" /></svg>导出成片
           </button>
           <button class="avatar" aria-label="账号">
@@ -452,10 +452,10 @@
                 ></span>
                 <div style="min-width: 0">
                   <p class="name one-line">雨夜旧书店.txt</p>
-                  <p class="muted">3 章 · 1,554 字 · 已存进作品「雨夜旧书店」</p>
+                  <p class="muted">3 场 · 1,979 字 · 已存进作品「雨夜旧书店」</p>
                   <p class="peek">
-                    第一章
-                    雨夜旧书店：雨下到第三个钟头，老街的路灯一盏接一盏晕成黄色的雾。晚上十点，林晚把门口的营业木牌翻了个面，正要锁门，玻璃门被人从外面推开，门上的风铃乱响。
+                    第一场
+                    雨夜旧书店：入秋后的第一场大雨来得又急又猛。老城区的青石巷里积满了水，路灯被雨帘切成一团团昏黄的光。巷子尽头那家“晚照书店”还亮着灯，玻璃门上贴着一张褪色的纸条。
                   </p>
                 </div>
                 <button class="btn ghost sm">换一个文件</button>
@@ -467,19 +467,6 @@
                   <div class="seg" role="group" aria-label="画面方向">
                     <button aria-pressed="true">竖屏 9:16</button
                     ><button aria-pressed="false">横屏 16:9</button>
-                  </div>
-                </div>
-                <div class="field">
-                  <span class="label">画风</span>
-                  <button class="select" style="width: 170px">
-                    写实电影感<svg class="ic sm"><use href="#i-chev" /></svg>
-                  </button>
-                </div>
-                <div class="field">
-                  <span class="label">先做</span>
-                  <div class="seg" role="group" aria-label="先做成片还是草稿">
-                    <button aria-pressed="true">成片</button
-                    ><button aria-pressed="false">草稿（更快，脸可能会变）</button>
                   </div>
                 </div>
               </div>
@@ -562,14 +549,14 @@
                     <span class="st"
                       ><svg class="ic sm"><use href="#i-check" /></svg
                     ></span>
-                    <span class="what">读小说</span><span class="detail">3 章，1,554 字</span>
+                    <span class="what">读小说</span><span class="detail">3 场，1,979 字</span>
                   </li>
                   <li class="run done">
                     <span class="st"
                       ><svg class="ic sm"><use href="#i-check" /></svg
                     ></span>
                     <span class="what">写剧本</span
-                    ><span class="detail">分成 6 场，22 句对白一句没少</span>
+                    ><span class="detail">分成 3 场，33 句台词一句没少</span>
                   </li>
                   <li class="run now">
                     <span class="st"
@@ -624,13 +611,13 @@
                     <p class="title">雨夜旧书店 · 第 1 集</p>
                     <dl>
                       <dt>时长</dt>
-                      <dd>3 分 31 秒（含 3 秒片头）</dd>
+                      <dd>4 分 34 秒（含 3 秒片头）</dd>
                       <dt>画面</dt>
                       <dd>竖屏 1080×1920，MP4</dd>
                       <dt>保存在</dt>
                       <dd class="one-line">视频 › AIVORA › 雨夜旧书店-第1集.mp4</dd>
                       <dt>内容</dt>
-                      <dd>6 场 · 39 个镜头 · 22 句配音 · 带字幕和「AI 生成」标识</dd>
+                      <dd>3 场 · 65 个镜头 · 33 句配音 · 带字幕和「AI 生成」标识</dd>
                     </dl>
                     <div class="row" style="margin-top: 18px">
                       <button class="btn primary lg">
@@ -682,19 +669,10 @@
                     ></div>
                     <div class="one-line">
                       <p class="one-line" style="font-weight: 700">雨夜旧书店 · 第 1 集</p>
-                      <p class="faint">3 分 31 秒 · 刚刚做好</p>
+                      <p class="faint">4 分 34 秒 · 刚刚做好</p>
                     </div>
                   </li>
                 </ul>
-              </div>
-            </section>
-            <section class="panel" aria-labelledby="sample-title">
-              <div class="panel-head"><h2 id="sample-title">先看看示例</h2></div>
-              <div class="panel-body">
-                <p class="muted">
-                  「雨夜巷战」是软件自带的示例，可以先看一遍完整流程，不用会员额度。
-                </p>
-                <button class="btn ghost" style="justify-self: start">打开示例</button>
               </div>
             </section>
           </aside>
@@ -703,7 +681,7 @@
 
       <footer class="statusbar">
         <span class="note" role="status" data-show="normal confirm"
-          >已读入《雨夜旧书店》：3 章，1,554 字。</span
+          >已读入《雨夜旧书店》：3 场，1,979 字。</span
         >
         <span class="note" role="status" data-show="empty"
           >还没有作品。把小说拖进来就会新建一部。</span
@@ -733,7 +711,7 @@
         <div>
           <h2 id="confirm-title">开始生成前，先看看要做多少</h2>
           <p class="muted" style="margin-top: 6px">
-            剧本和分镜已经写好：6 场 · 39 个镜头 · 共 3 分 28 秒。
+            剧本和分镜已经写好：3 场 · 65 个镜头 · 共 4 分 31 秒。
           </p>
         </div>
         <div class="confirm-table">
@@ -741,7 +719,7 @@
             <svg class="ic"><use href="#i-image" /></svg>
             <div>
               <p>定妆照、场景图、道具图</p>
-              <p class="sub">3 个人物、5 个地点、7 件道具</p>
+              <p class="sub">6 个人物、4 个地点、5 件道具</p>
             </div>
             <span class="n">30 张图</span>
           </div>
@@ -751,23 +729,23 @@
               <p>每个镜头的起始画面</p>
               <p class="sub">视频从这张图开始动</p>
             </div>
-            <span class="n">39 张图</span>
+            <span class="n">65 张图</span>
           </div>
           <div class="r">
             <svg class="ic"><use href="#i-film" /></svg>
             <div>
               <p>视频</p>
-              <p class="sub">每个镜头 2 个版本，加起来约 6 分 56 秒</p>
+              <p class="sub">每个镜头 2 个版本，加起来约 9 分 2 秒</p>
             </div>
-            <span class="n">78 段</span>
+            <span class="n">130 段</span>
           </div>
           <div class="r">
             <svg class="ic"><use href="#i-mic" /></svg>
             <div>
               <p>配音</p>
-              <p class="sub">剧本里的全部对白</p>
+              <p class="sub">剧本里的全部台词</p>
             </div>
-            <span class="n">22 句</span>
+            <span class="n">33 句</span>
           </div>
         </div>
         <div class="row">

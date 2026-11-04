@@ -219,7 +219,7 @@
           <button class="btn ghost">
             <svg class="ic"><use href="#i-list" /></svg>任务
           </button>
-          <button class="btn primary">
+          <button class="btn">
             <svg class="ic"><use href="#i-export" /></svg>导出成片
           </button>
           <button class="avatar" aria-label="账号">
@@ -263,12 +263,14 @@
           <section class="panel previews" aria-label="横屏和竖屏预览">
             <div class="line-pick" data-show="normal loading">
               <span class="faint">预览这一句</span>
-              <strong class="one-line">S01-05 沈砚：这是你爸的账本。拿好，别让任何人看见。</strong>
+              <strong class="one-line">林晚：你来晚了。这家店，下个月就没了。</strong>
+              <span class="faint" style="white-space: nowrap">第 1 场第 16 个镜头</span>
+              <span class="code">scene-1-shot-16</span>
               <span class="spacer"></span>
               <button class="icon-btn" aria-label="上一句">
                 <svg class="ic"><use href="#i-prev" /></svg>
               </button>
-              <span class="faint">7 / 22</span>
+              <span class="faint">11 / 33</span>
               <button class="icon-btn" aria-label="下一句">
                 <svg class="ic"><use href="#i-next" /></svg>
               </button>
@@ -278,18 +280,18 @@
               <div class="text">
                 <strong>有 2 句字幕和剧本对不上</strong>
                 <span class="muted"
-                  >剧本改过以后，S02-02 和 S04-03
-                  的字幕还是旧的。比如剧本是「沈警官，好久不见。」，字幕还写着「沈警官，好久没见。」</span
+                  >剧本改过以后，第 2 场第 11 个镜头和第 3 场第 14
+                  个镜头的字幕还是旧的。比如剧本是「你哪根葱？」，字幕还写着「你是哪根葱？」</span
                 >
               </div>
-              <button class="btn primary">用新对白更新字幕</button>
+              <button class="btn">用新台词更新字幕</button>
             </div>
             <div class="banner" data-show="empty">
               <svg class="ic"><use href="#i-info" /></svg>
               <div class="text">
-                <strong>这部作品还没有对白</strong>
+                <strong>这部作品还没有台词</strong>
                 <span class="muted"
-                  >字幕来自剧本里的对白。先在剧本里写对白，这里就能预览；样式可以先选好。</span
+                  >字幕来自剧本里的台词。先在剧本里写台词，这里就能预览；样式可以先选好。</span
                 >
               </div>
               <button class="btn">去剧本</button>
@@ -298,9 +300,9 @@
               <figure class="shot">
                 <div class="frame art-bookstore wide" data-art>
                   <p class="sub style-a" data-show="normal loading">
-                    这是你爸的账本。拿好，别让任何人看见。
+                    你来晚了。这家店，下个月就没了。
                   </p>
-                  <p class="sub style-a" data-show="error">沈警官，好久没见。</p>
+                  <p class="sub style-a" data-show="error">你是哪根葱？</p>
                   <span class="busy" data-show="loading">正在按新样式排字幕…</span>
                 </div>
                 <figcaption class="label">横屏 16:9 · 一行最多 20 个字</figcaption>
@@ -308,9 +310,9 @@
               <figure class="shot">
                 <div class="frame art-bookstore tall" data-art>
                   <p class="sub style-a" data-show="normal loading">
-                    这是你爸的账本。<br />拿好，别让任何人看见。
+                    你来晚了。<br />这家店，下个月就没了。
                   </p>
-                  <p class="sub style-a" data-show="error">沈警官，好久没见。</p>
+                  <p class="sub style-a" data-show="error">你是哪根葱？</p>
                   <span class="safe" data-show="normal empty error"
                     >平台的按钮和标题会挡住这里</span
                   >
@@ -375,9 +377,9 @@
               </div>
               <div class="field">
                 <span class="label">字幕从哪来</span>
-                <span data-show="normal loading">剧本里的对白，一共 22 句。</span>
-                <span data-show="empty">剧本里还没有对白。</span>
-                <span data-show="error">剧本里的对白，一共 22 句，2 句要更新。</span>
+                <span data-show="normal loading">剧本里的台词，一共 33 句。</span>
+                <span data-show="empty">剧本里还没有台词。</span>
+                <span data-show="error">剧本里的台词，一共 33 句，2 句要更新。</span>
                 <button class="link" style="justify-self: start">去剧本改字</button>
               </div>
             </div>
@@ -393,7 +395,7 @@
         <span class="note" role="status" data-show="normal"
           >正在预览「清楚白字」。点「用这个样式」后，整部作品的字幕一起换。</span
         >
-        <span class="note" role="status" data-show="empty">还没有对白，所以没有字幕。</span>
+        <span class="note" role="status" data-show="empty">还没有台词，所以没有字幕。</span>
         <span class="note" role="status" data-show="loading">正在排字幕。</span>
         <span class="note" role="alert" data-show="error">有 2 句字幕和剧本对不上。</span>
         <span class="task"

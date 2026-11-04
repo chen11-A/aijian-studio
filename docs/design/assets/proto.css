@@ -158,6 +158,16 @@ i {
   min-width: 0;
 }
 
+/* 编号和时间码只做小字，跟在「第 2 场第 17 个镜头」这样的正文后面。 */
+.code {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ---------- 外壳：顶栏、主区域、状态栏 ---------- */
 .app {
   display: grid;

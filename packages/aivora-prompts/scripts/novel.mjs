@@ -1,31 +1,35 @@
 /**
- * Reads fixtures/test-novel.md. Each "## " heading starts a chapter, numbered CH1, CH2, ...
- * in file order. Each "[P01] text" line is one paragraph of the current chapter.
+ * Reads fixtures/test-novel-2000.txt. Every non-empty line is one paragraph, numbered P01, P02, ...
+ * in file order; scene headings such as 「第一场 雨夜旧书店」 are paragraphs too and start
+ * scene-1, scene-2, ... A heading may use a normal or a full-width space before the title.
  */
-export function parseNovel(markdown) {
-  const chapters = [];
-  const seen = new Set();
-  for (const raw of markdown.split(/\r?\n/u)) {
+const SCENE_HEADING = /^第([一二三四五六七八九十百零〇两0-9０-９]+)场[\s\u3000]+(\S.*)$/u;
+
+export function parseNovel(text) {
+  const paragraphs = [];
+  const scenes = [];
+  for (const raw of text.replace(/^\uFEFF/u, "").split(/\r?\n/u)) {
     const line = raw.trim();
-    if (line.startsWith("## ")) {
-      chapters.push({
-        id: `CH${chapters.length + 1}`,
-        title: line.slice(3).trim(),
+    if (!line) continue;
+    const id = `P${String(paragraphs.length + 1).padStart(2, "0")}`;
+    const heading = SCENE_HEADING.exec(line);
+    if (heading) {
+      scenes.push({
+        id: `scene-${scenes.length + 1}`,
+        no: scenes.length + 1,
+        title: heading[2].trim(),
         paragraphs: [],
       });
-      continue;
     }
-    const match = /^\[(P[0-9]{2})\] (.+)$/u.exec(line);
-    if (!match) continue;
-    if (chapters.length === 0) throw new Error(`段落 ${match[1]} 出现在第一章标题之前`);
-    if (seen.has(match[1])) throw new Error(`段落编号 ${match[1]} 重复`);
-    seen.add(match[1]);
-    chapters[chapters.length - 1].paragraphs.push({ id: match[1], text: match[2] });
+    if (scenes.length === 0) throw new Error(`段落 ${id} 出现在第一个场次标题之前`);
+    const paragraph = { id, text: line, heading: Boolean(heading) };
+    paragraphs.push(paragraph);
+    scenes[scenes.length - 1].paragraphs.push(paragraph);
   }
-  return chapters;
+  return { paragraphs, scenes };
 }
 
-/** Spoken lines of a paragraph: the text inside each pair of Chinese double quotes, in order. */
+/** Text inside each pair of Chinese double quotes, in order. Not every quote is dialogue. */
 export function quotedLines(text) {
   return [...text.matchAll(/“([^”]*)”/gu)].map((match) => match[1]);
 }

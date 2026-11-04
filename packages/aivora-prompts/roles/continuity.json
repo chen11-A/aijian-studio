@@ -1,79 +1,110 @@
 {
   "$schema": "../schema/role-file.schema.json",
-  "format_version": 1,
+  "format_version": 2,
   "role": "continuity",
   "name": "场记",
-  "version": 1,
-  "summary": "一次检查一整批镜头前后的服装、道具、站位、伤妆和环境是否接得上，并指出改哪一镜的哪个字段。",
+  "version": 2,
+  "summary": "逐个镜头对衣服、身上的痕迹、手里的道具和站位，找出前后接不上的地方，并给出跳转位置和改法。",
   "pipeline": {
     "step": 7,
-    "reads_from": ["director", "art", "action", "performance"],
-    "feeds": ["director", "review"]
+    "reads_from": ["art", "director", "performance", "action"],
+    "feeds": ["review"]
   },
-  "batching": "一次发一章的全部镜头，连同上一批结束时的状态 carry_in。",
+  "batching": "一次发一场里连续的一批镜头，最多 12 个；carry_out 交给下一批的 carry_in。",
   "attach_images": false,
+  "app_parsers": ["软件现在没有读场记结果的解析器；issues 对应任务中心和导出检查里的「去修」。"],
   "system_prompt": [
-    "你是 AIVORA 的场记。一次拿到一批按顺序排好的镜头和每个镜头结束时的状态表，检查前后镜头的服装、道具、站位、伤妆、视线和环境是否连贯。",
-    "- 先读 carry_in：上一批结束时每个人的状态，这一批要和它接上。",
-    "- 逐个镜头往下对：衣服和身上的痕迹（湿、灰、血、纱布、眼泪）、两只手里各拿着什么、人在画左还是画右、看向哪里、天气和光。",
-    "- 状态只能因为剧情变化：镜头的 action 里写了，或者换场以后时间和地点说得通（比如隔了几个小时衣服干了、出门换了外套）。没有原因的变化就是问题。",
-    "- 站位只跟同一场里的其他人比：同一场里两个人的左右关系不能反过来。只露手的镜头 position 是 null，不比站位。",
-    "- 每个问题写一条 issues：kind、severity（必须改：观众一眼能看出来，或者和剧情矛盾；建议改：不仔细看看不出来）、from_shot（状态还对的最近一个镜头，可以是 carry_in 的镜头）、to_shot（出问题的镜头，在 from_shot 后面）、who（和人无关写 null）、expected、found，以及 fix：改 to_shot 的哪个字段、改成什么。",
-    "- jump_to 写跳过去看问题的位置：出问题的镜头和这个镜头里的秒数。",
-    "- 同一个错误只报一次，报在第一次出错的镜头上。没有问题就写 []，不要硬找。issues 按 to_shot 的先后排，issue_id 从 CI-01 开始连续编号。",
-    "- checked_shots 按顺序列出这一批检查过的全部镜头。",
-    "- carry_out 写这一批结束时每个人应有的正确状态（carry_in 里的人和这一批出现过的人都要写），交给下一批。",
-    "- summary 里的数字要和 issues 对得上。",
-    "输出要求：",
-    "- 只输出一个 JSON 对象。第一个字符必须是 {，最后一个字符必须是 }。不要用 Markdown 代码块，不要写注释，JSON 前后不要有任何文字。",
-    "- 不要输出思考过程、分析、草稿或自我检查。给用户看的理由只写进 reason 字段，一句话说完。",
-    "- 字段一个不能少，也不能多，名字和层级照下面的结构写。没有内容时写 null 或 []，不要省略字段。",
-    "- 输入里有几场、几个镜头，就一次全部处理完，按输入顺序输出。不要只做前几个，也不要让用户再问一次。",
-    "- id 和人物名字只能照抄输入，不要新造。",
-    "- 字符串里不要用英文双引号，需要引号时用「」。",
-    "- 输出必须符合下面这个 JSON Schema：",
-    "{{OUTPUT_SCHEMA}}"
+    "你是 AIVORA 的场记。一次拿到一批按顺序排好的镜头和每个镜头开头的状态表，检查前后镜头的衣服、身上的痕迹、手里的道具和站位是否连贯。",
+    "- 先读 carry_in：上一批结束时每个人的正确状态，这一批要和它接上。",
+    "- 衣服：按 costumes 的段落范围和镜头的 source，看每个人此刻该穿哪一套，costume_id 不对就是问题。换衣服那一段的镜头开头还穿旧衣服。",
+    "- 痕迹 marks（湿、血、纱布、泪痕）一直带着，除非剧情让它变了：脱掉、擦干、换了衣服。没有原因少了就是问题。",
+    "- 手里的道具 left、right 只能因为写到的动作变化：拿起、放下、递给别人。左右手对调、无故出现或消失都是问题。",
+    "- 站位只比同一场里两个人的左右关系：一个人在另一个人左边以后，不能变成在右边。画中、画外和 null 不比。",
+    "- 每个问题写一条 issues：kind、severity（必须改：观众一眼能看出来，或者和剧情矛盾；建议改：不仔细看看不出来）、from_shot（状态还对的最近一个镜头，可以是 carry_in 的镜头）、to_shot（出问题的镜头）、who（两个人的站位问题写 null）、expected、found，以及 fix：改 to_shot 的哪个字段、改成什么。jump_to 写 to_shot 和秒数。",
+    "- 同一个错误只报一次，报在第一次出错的镜头上，之后的镜头和正确状态比。没有问题写 []，不要硬找。issues 按 to_shot 的先后排，issue_id 从 CI-01 开始连续编号。",
+    "- checked_shots 按顺序列出这一批的全部镜头。carry_out 写这一批结束时每个人的正确状态：carry_in 里的人和这一批出现过的人都要写，交给下一批。summary 的数字要和 issues 对得上。",
+    "输出格式：",
+    "{\"checked_shots\":[\"scene-1-shot-1\"],\"issues\":[{\"issue_id\":\"CI-01\",\"kind\":\"\",\"severity\":\"\",\"from_shot\":\"\",\"to_shot\":\"\",\"who\":null,\"expected\":\"\",\"found\":\"\",\"fix\":{\"shot_id\":\"\",\"field\":\"\",\"change\":\"\"},\"jump_to\":{\"shot_id\":\"\",\"at_seconds\":0}}],\"carry_out\":{\"shot_id\":\"\",\"people\":[{\"name\":\"\",\"costume_id\":\"\",\"marks\":[\"\"],\"left\":null,\"right\":null}]},\"summary\":{\"checked\":0,\"must_fix\":0,\"suggest\":0}}",
+    "- kind 写 服装、道具、站位、伤妆；severity 写 必须改 或 建议改；fix.field 写 start_frame_prompt、reference_images、positions、video_prompt。",
+    "输出规则：",
+    "- 只输出一个 JSON 对象：第一个字符是 {，最后一个是 }。不要代码块、注释和说明文字，不写思考过程。",
+    "- 照上面的格式写，字段不能少也不能多；没有内容写 \"\"、null 或 []。",
+    "- 输入有几场、几个镜头，就一次全部写完，顺序不变。",
+    "- id 和人物名字照抄输入，不新造；字符串里不用英文双引号，要引号用「」。"
   ],
   "input_format": {
     "notes": [
-      "people 是每个镜头结束时的状态表，由软件根据分镜、定妆和动作汇总，用户可以手改。",
-      "carry_in 是上一批的 carry_out；第一批为 null。"
+      "state 是每个镜头开头时画面里每个人的状态，由软件从镜头的提示词和已生成的画面整理出来，里面可能有错。",
+      "只记会影响后面镜头的道具，例如雨伞、铁棍、刀、风衣、豆浆。"
     ],
     "schema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "title": "场记输入",
       "type": "object",
       "additionalProperties": false,
-      "required": ["task", "carry_in", "shots"],
+      "required": ["task", "costumes", "carry_in", "shots"],
       "properties": {
         "task": {
           "const": "check_continuity"
         },
+        "costumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["costume_id", "name", "from", "to", "description"],
+            "properties": {
+              "costume_id": {
+                "type": "string",
+                "pattern": "^cos_[a-z0-9_]+$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "from": {
+                "type": "string",
+                "pattern": "^P[0-9]{2}$"
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^P[0-9]{2}$"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 6,
+                "maxLength": 80
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 60
+        },
         "carry_in": {
-          "type": ["object", "null"],
+          "type": "object",
           "additionalProperties": false,
           "required": ["shot_id", "people"],
           "properties": {
             "shot_id": {
-              "type": "string",
-              "pattern": "^S[0-9]{2}-[0-9]{2}$"
+              "type": ["string", "null"],
+              "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
             },
             "people": {
               "type": "array",
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["name", "costume", "marks", "left", "right"],
+                "required": ["name", "costume_id", "marks", "left", "right"],
                 "properties": {
                   "name": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 8
                   },
-                  "costume": {
+                  "costume_id": {
                     "type": "string",
-                    "minLength": 2,
-                    "maxLength": 20
+                    "pattern": "^cos_[a-z0-9_]+$"
                   },
                   "marks": {
                     "type": "array",
@@ -97,7 +128,7 @@
                   }
                 }
               },
-              "minItems": 1,
+              "minItems": 0,
               "maxItems": 20
             }
           }
@@ -107,42 +138,65 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["shot_id", "scene_id", "seconds", "action", "people", "environment"],
+            "required": [
+              "shot_id",
+              "seconds",
+              "source",
+              "picture",
+              "action",
+              "characters",
+              "state"
+            ],
             "properties": {
               "shot_id": {
                 "type": "string",
-                "pattern": "^S[0-9]{2}-[0-9]{2}$"
-              },
-              "scene_id": {
-                "type": "string",
-                "pattern": "^S[0-9]{2}$"
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
               },
               "seconds": {
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 15
               },
+              "source": {
+                "type": "string",
+                "pattern": "^P[0-9]{2}$"
+              },
+              "picture": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 160
+              },
               "action": {
                 "type": "string",
                 "minLength": 4,
-                "maxLength": 120
+                "maxLength": 160
               },
-              "people": {
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8
+                },
+                "minItems": 0,
+                "maxItems": 6,
+                "uniqueItems": true
+              },
+              "state": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["name", "costume", "marks", "left", "right", "position", "facing"],
+                  "required": ["name", "costume_id", "marks", "left", "right", "position"],
                   "properties": {
                     "name": {
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 8
                     },
-                    "costume": {
+                    "costume_id": {
                       "type": "string",
-                      "minLength": 2,
-                      "maxLength": 20
+                      "pattern": "^cos_[a-z0-9_]+$"
                     },
                     "marks": {
                       "type": "array",
@@ -166,34 +220,24 @@
                     },
                     "position": {
                       "enum": ["画左", "画中", "画右", "画外", null]
-                    },
-                    "facing": {
-                      "type": ["string", "null"],
-                      "minLength": 1,
-                      "maxLength": 20
                     }
                   }
                 },
                 "minItems": 0,
                 "maxItems": 6
-              },
-              "environment": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 30
               }
             }
           },
-          "minItems": 2,
-          "maxItems": 60
+          "minItems": 1,
+          "maxItems": 12
         }
       }
     }
   },
   "output_format": {
     "notes": [
-      "fix 指向 to_shot 的状态字段，界面上点一下就能跳到 jump_to 的位置改。",
-      "carry_out 原样作为下一批的 carry_in。"
+      "jump_to 给「去修」按钮用：跳到 to_shot 这个镜头的第几秒。",
+      "carry_out 是改正以后的状态，不是状态表里写错的样子。"
     ],
     "schema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -206,10 +250,10 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^S[0-9]{2}-[0-9]{2}$"
+            "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
           },
           "minItems": 1,
-          "maxItems": 60,
+          "maxItems": 12,
           "uniqueItems": true
         },
         "issues": {
@@ -235,18 +279,18 @@
                 "pattern": "^CI-[0-9]{2}$"
               },
               "kind": {
-                "enum": ["服装", "道具", "站位", "伤妆", "视线", "环境"]
+                "enum": ["服装", "道具", "站位", "伤妆"]
               },
               "severity": {
                 "enum": ["必须改", "建议改"]
               },
               "from_shot": {
                 "type": "string",
-                "pattern": "^S[0-9]{2}-[0-9]{2}$"
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
               },
               "to_shot": {
                 "type": "string",
-                "pattern": "^S[0-9]{2}-[0-9]{2}$"
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
               },
               "who": {
                 "type": ["string", "null"],
@@ -270,24 +314,15 @@
                 "properties": {
                   "shot_id": {
                     "type": "string",
-                    "pattern": "^S[0-9]{2}-[0-9]{2}$"
+                    "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
                   },
                   "field": {
-                    "enum": [
-                      "costume",
-                      "marks",
-                      "left",
-                      "right",
-                      "position",
-                      "facing",
-                      "environment",
-                      "action"
-                    ]
+                    "enum": ["start_frame_prompt", "reference_images", "positions", "video_prompt"]
                   },
                   "change": {
                     "type": "string",
                     "minLength": 2,
-                    "maxLength": 40
+                    "maxLength": 60
                   }
                 }
               },
@@ -298,7 +333,7 @@
                 "properties": {
                   "shot_id": {
                     "type": "string",
-                    "pattern": "^S[0-9]{2}-[0-9]{2}$"
+                    "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
                   },
                   "at_seconds": {
                     "type": "number",
@@ -310,7 +345,7 @@
             }
           },
           "minItems": 0,
-          "maxItems": 40
+          "maxItems": 20
         },
         "carry_out": {
           "type": "object",
@@ -319,24 +354,23 @@
           "properties": {
             "shot_id": {
               "type": "string",
-              "pattern": "^S[0-9]{2}-[0-9]{2}$"
+              "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
             },
             "people": {
               "type": "array",
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["name", "costume", "marks", "left", "right"],
+                "required": ["name", "costume_id", "marks", "left", "right"],
                 "properties": {
                   "name": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 8
                   },
-                  "costume": {
+                  "costume_id": {
                     "type": "string",
-                    "minLength": 2,
-                    "maxLength": 20
+                    "pattern": "^cos_[a-z0-9_]+$"
                   },
                   "marks": {
                     "type": "array",
@@ -373,17 +407,17 @@
             "checked": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 60
+              "maximum": 12
             },
             "must_fix": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 40
+              "maximum": 20
             },
             "suggest": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 40
+              "maximum": 20
             }
           }
         }
@@ -393,1292 +427,1241 @@
   "examples": [
     {
       "id": "continuity-1",
-      "title": "第一章 13 个镜头：查出越轴、风衣穿早了、钥匙从手里消失",
+      "title": "第一场第 8 到 19 镜：风衣不该变干、雨伞换了手、两人左右对调",
       "input": {
         "task": "check_continuity",
-        "carry_in": null,
+        "costumes": [
+          {
+            "costume_id": "cos_linwan_cardigan",
+            "name": "林晚",
+            "from": "P01",
+            "to": "P15",
+            "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。"
+          },
+          {
+            "costume_id": "cos_shenyan_coat",
+            "name": "沈砚",
+            "from": "P01",
+            "to": "P15",
+            "description": "穿黑色长风衣，里面是白衬衫，下身深色长裤。"
+          }
+        ],
+        "carry_in": {
+          "shot_id": "scene-1-shot-7",
+          "people": [
+            {
+              "name": "林晚",
+              "costume_id": "cos_linwan_cardigan",
+              "marks": [],
+              "left": null,
+              "right": null
+            },
+            {
+              "name": "沈砚",
+              "costume_id": "cos_shenyan_coat",
+              "marks": ["风衣湿透"],
+              "left": null,
+              "right": "收起的雨伞"
+            }
+          ]
+        },
         "shots": [
           {
-            "shot_id": "S01-01",
-            "scene_id": "S01",
-            "seconds": 5,
-            "action": "林晚在画左正要锁门，画右的玻璃门被推开，风铃乱晃，浑身湿透的沈砚走进来，怀里护着塑料袋。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "米白毛衣，深蓝围裙",
-                "marks": [],
-                "left": null,
-                "right": null,
-                "position": "画左",
-                "facing": "看向画右的门口"
-              },
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": "裹着塑料袋的账本",
-                "right": "裹着塑料袋的账本",
-                "position": "画右",
-                "facing": "看向画左的林晚"
-              }
-            ],
-            "environment": "店内，琥珀色台灯，窗外大雨"
-          },
-          {
-            "shot_id": "S01-02",
-            "scene_id": "S01",
-            "seconds": 9,
-            "action": "从林晚肩后拍沈砚：沈砚滴着水发问，林晚回答时抬手指向最里面那排书架。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "米白毛衣，深蓝围裙",
-                "marks": [],
-                "left": null,
-                "right": null,
-                "position": "画左",
-                "facing": "看向画右的沈砚"
-              },
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": "裹着塑料袋的账本",
-                "right": null,
-                "position": "画右",
-                "facing": "看向画左的林晚"
-              }
-            ],
-            "environment": "店内，琥珀色台灯，窗外大雨"
-          },
-          {
-            "shot_id": "S01-03",
-            "scene_id": "S01",
-            "seconds": 4,
-            "action": "沈砚的右手从褪色蓝皮书的书脊里抽出一枚生锈的钥匙，攥进掌心。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": "裹着塑料袋的账本",
-                "right": "生锈的钥匙",
-                "position": null,
-                "facing": null
-              }
-            ],
-            "environment": "店内，琥珀色台灯，窗外大雨"
-          },
-          {
-            "shot_id": "S01-04",
-            "scene_id": "S01",
-            "seconds": 9,
-            "action": "沈砚攥着钥匙回头低声警告；画左前景是林晚虚焦的侧脸，她声音发紧地追问。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": "裹着塑料袋的账本",
-                "right": "生锈的钥匙",
-                "position": "画右",
-                "facing": "看向画左的林晚"
-              },
-              {
-                "name": "林晚",
-                "costume": "米白毛衣，深蓝围裙",
-                "marks": [],
-                "left": null,
-                "right": null,
-                "position": "画左",
-                "facing": "看向画右的沈砚"
-              }
-            ],
-            "environment": "店内，琥珀色台灯，窗外大雨"
-          },
-          {
-            "shot_id": "S01-05",
-            "scene_id": "S01",
-            "seconds": 8,
-            "action": "沈砚把裹着塑料袋的账本塞进林晚怀里。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "米白毛衣，深蓝围裙",
-                "marks": [],
-                "left": "裹着塑料袋的账本",
-                "right": "裹着塑料袋的账本",
-                "position": "画左",
-                "facing": "低头看怀里的账本"
-              },
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": null,
-                "right": "生锈的钥匙",
-                "position": "画右",
-                "facing": "看向画左的林晚"
-              }
-            ],
-            "environment": "店内，琥珀色台灯，窗外大雨"
-          },
-          {
-            "shot_id": "S01-06",
-            "scene_id": "S01",
-            "seconds": 7,
-            "action": "车灯扫过橱窗，周烈撑着黑伞站在门外台阶下，抬手用指节敲了三下玻璃门；沈砚抬手示意林晚退到柜台后面。",
-            "people": [
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": ["叼着没点着的烟"],
-                "left": "黑伞",
-                "right": null,
-                "position": "画中",
-                "facing": "隔着玻璃看向店里"
-              },
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": null,
-                "right": "生锈的钥匙",
-                "position": "画右",
-                "facing": "看向门外的周烈"
-              },
-              {
-                "name": "林晚",
-                "costume": "米白毛衣，深蓝围裙",
-                "marks": [],
-                "left": "裹着塑料袋的账本",
-                "right": "裹着塑料袋的账本",
-                "position": "画左",
-                "facing": "看向门外的周烈"
-              }
-            ],
-            "environment": "店内，琥珀色台灯，窗外大雨"
-          },
-          {
-            "shot_id": "S02-01",
-            "scene_id": "S02",
-            "seconds": 5,
-            "action": "沈砚推门走到屋檐下，檐口的雨水在他和台阶下的周烈之间挂成一道水帘。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": null,
-                "right": "生锈的钥匙",
-                "position": "画左",
-                "facing": "看向画右的周烈"
-              },
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": ["叼着没点着的烟"],
-                "left": "黑伞",
-                "right": null,
-                "position": "画右",
-                "facing": "看向画左的沈砚"
-              }
-            ],
-            "environment": "屋檐下，大雨，檐口挂着水帘"
-          },
-          {
-            "shot_id": "S02-02",
-            "scene_id": "S02",
-            "seconds": 9,
-            "action": "从沈砚肩后拍周烈：周烈撑着黑伞，笑着开口。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": null,
-                "right": "生锈的钥匙",
-                "position": "画左",
-                "facing": "看向画右的周烈"
-              },
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": ["叼着没点着的烟"],
-                "left": "黑伞",
-                "right": null,
-                "position": "画右",
-                "facing": "看向画左的沈砚"
-              }
-            ],
-            "environment": "屋檐下，大雨，檐口挂着水帘"
-          },
-          {
-            "shot_id": "S02-03",
-            "scene_id": "S02",
-            "seconds": 4,
-            "action": "沈砚盯着周烈，一字一顿地回话。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
-                "left": null,
-                "right": "生锈的钥匙",
-                "position": "画右",
-                "facing": "看向画左的周烈"
-              }
-            ],
-            "environment": "屋檐下，大雨，檐口挂着水帘"
-          },
-          {
-            "shot_id": "S02-04",
-            "scene_id": "S02",
+            "shot_id": "scene-1-shot-8",
             "seconds": 3,
-            "action": "隔着沾满雨水的玻璃门，林晚抱着塑料袋站在柜台后面，指节发白。",
-            "people": [
+            "source": "P07",
+            "picture": "林晚的手拿着一本旧书，停在半空。",
+            "action": "林晚手里的书停在半空，不动了；画外的沈砚说出一个名字。",
+            "characters": ["林晚", "沈砚"],
+            "state": [
               {
                 "name": "林晚",
-                "costume": "卡其色风衣",
+                "costume_id": "cos_linwan_cardigan",
                 "marks": [],
-                "left": "裹着塑料袋的账本",
-                "right": "裹着塑料袋的账本",
-                "position": "画中",
-                "facing": "看向门外"
-              }
-            ],
-            "environment": "屋檐下，大雨，檐口挂着水帘"
-          },
-          {
-            "shot_id": "S02-05",
-            "scene_id": "S02",
-            "seconds": 3,
-            "action": "周烈伸手去拉门把，沈砚用左手扣住他的手腕往外一推，周烈退了半步。",
-            "people": [
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": ["叼着没点着的烟"],
-                "left": "黑伞",
+                "left": null,
                 "right": null,
-                "position": "画右",
-                "facing": "看向画左的门把"
+                "position": null
               },
               {
                 "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": null,
+                "right": "收起的雨伞",
+                "position": null
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-9",
+            "seconds": 5,
+            "source": "P08",
+            "picture": "林晚站在书架前转过身，和门口的沈砚面对面。",
+            "action": "林晚慢慢站起来转过身，看清了门口的沈砚；沈砚站着没动。",
+            "characters": ["林晚", "沈砚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_cardigan",
+                "marks": [],
                 "left": null,
                 "right": null,
-                "position": "画左",
-                "facing": "看向画右的周烈"
-              }
-            ],
-            "environment": "屋檐下，大雨，檐口挂着水帘"
-          },
-          {
-            "shot_id": "S02-06",
-            "scene_id": "S02",
-            "seconds": 8,
-            "action": "周烈笑着收回手，把烟从嘴里拿下来，在伞柄上磕了磕。",
-            "people": [
+                "position": "画左"
+              },
               {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": [],
-                "left": "黑伞",
-                "right": "没点着的烟",
-                "position": "画右",
-                "facing": "看向画左的沈砚"
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": null,
+                "right": "收起的雨伞",
+                "position": "画右"
               }
-            ],
-            "environment": "屋檐下，大雨，檐口挂着水帘"
+            ]
           },
           {
-            "shot_id": "S02-07",
-            "scene_id": "S02",
+            "shot_id": "scene-1-shot-10",
+            "seconds": 4,
+            "source": "P09",
+            "picture": "林晚站在书架前，脸上没有表情。",
+            "action": "林晚看着画右的沈砚，平静地说。",
+            "characters": ["林晚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_cardigan",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-11",
+            "seconds": 3,
+            "source": "P09",
+            "picture": "从沈砚肩后拍林晚：画右前景是沈砚湿透的风衣肩头，画左是林晚。",
+            "action": "画左的林晚看着沈砚追问；画右前景的沈砚背影不动。",
+            "characters": ["林晚", "沈砚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_cardigan",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              },
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": null,
+                "right": "收起的雨伞",
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-12",
+            "seconds": 14,
+            "source": "P10",
+            "picture": "沈砚站在收银台前，手里拿着一个油纸包着的信封。",
+            "action": "沈砚沉默几秒，把油纸信封放在收银台上，然后开口。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": null,
+                "right": "收起的雨伞",
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-13",
+            "seconds": 4,
+            "source": "P11",
+            "picture": "林晚盯着收银台上的信封，没有伸手。",
+            "action": "林晚盯着信封，没有伸手，轻声开口。",
+            "characters": ["林晚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_cardigan",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-14",
+            "seconds": 4,
+            "source": "P12",
+            "picture": "沈砚站在收银台另一边，看着林晚。",
+            "action": "沈砚看着画左，语气很平。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": [],
+                "left": null,
+                "right": "收起的雨伞",
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-15",
+            "seconds": 3,
+            "source": "P12",
+            "picture": "收银台上的油纸信封，一只虎口有旧疤的左手按在信封上。",
+            "action": "那只左手把信封往前推了推。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": null,
+                "right": "收起的雨伞",
+                "position": null
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-16",
             "seconds": 6,
-            "action": "周烈转身走进雨里，黑伞很快消失在街角；沈砚站在屋檐下没动，右手攥着钥匙。",
-            "people": [
+            "source": "P13",
+            "picture": "林晚低着头，假装整理收银台上的发票，眼眶发红。",
+            "action": "林晚抿了抿嘴唇，低头整理发票，声音发紧地开口。",
+            "characters": ["林晚"],
+            "state": [
               {
-                "name": "周烈",
-                "costume": "灰色长风衣",
+                "name": "林晚",
+                "costume_id": "cos_linwan_cardigan",
                 "marks": [],
-                "left": "黑伞",
-                "right": "没点着的烟",
-                "position": "画右",
-                "facing": "走向画右的街角"
+                "left": null,
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-17",
+            "seconds": 4,
+            "source": "P14",
+            "picture": "沈砚站在书店里环顾四周。",
+            "action": "沈砚环顾四周，目光停在墙上。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": "收起的雨伞",
+                "right": null,
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-18",
+            "seconds": 3,
+            "source": "P14",
+            "picture": "墙上一张泛黄的合影：中年男人抱着扎羊角辫的小女孩，站在书店门口笑。",
+            "action": "照片里两个人一直笑着，照片本身不动。",
+            "characters": [],
+            "state": []
+          },
+          {
+            "shot_id": "scene-1-shot-19",
+            "seconds": 4,
+            "source": "P15",
+            "picture": "书店里，林晚和沈砚站在收银台两边，门外雨幕里亮起两束车灯。",
+            "action": "门外刹车声响起，两束车灯穿透雨幕直直打在玻璃门上，林晚和沈砚一起转头看向门口。",
+            "characters": ["林晚", "沈砚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_cardigan",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画右"
               },
               {
                 "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["全身湿透"],
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
                 "left": null,
-                "right": "生锈的钥匙",
-                "position": "画左",
-                "facing": "看向画右的街角"
+                "right": "收起的雨伞",
+                "position": "画左"
               }
-            ],
-            "environment": "屋檐下，大雨，檐口挂着水帘"
+            ]
           }
         ]
       },
       "output": {
         "checked_shots": [
-          "S01-01",
-          "S01-02",
-          "S01-03",
-          "S01-04",
-          "S01-05",
-          "S01-06",
-          "S02-01",
-          "S02-02",
-          "S02-03",
-          "S02-04",
-          "S02-05",
-          "S02-06",
-          "S02-07"
+          "scene-1-shot-8",
+          "scene-1-shot-9",
+          "scene-1-shot-10",
+          "scene-1-shot-11",
+          "scene-1-shot-12",
+          "scene-1-shot-13",
+          "scene-1-shot-14",
+          "scene-1-shot-15",
+          "scene-1-shot-16",
+          "scene-1-shot-17",
+          "scene-1-shot-18",
+          "scene-1-shot-19"
         ],
         "issues": [
           {
             "issue_id": "CI-01",
-            "kind": "站位",
-            "severity": "必须改",
-            "from_shot": "S02-02",
-            "to_shot": "S02-03",
+            "kind": "服装",
+            "severity": "建议改",
+            "from_shot": "scene-1-shot-12",
+            "to_shot": "scene-1-shot-14",
             "who": "沈砚",
-            "expected": "沈砚在画左、看向画右的周烈",
-            "found": "写成沈砚在画右、看向画左，越轴了",
+            "expected": "风衣湿透，肩头还在滴水",
+            "found": "风衣是干的",
             "fix": {
-              "shot_id": "S02-03",
-              "field": "position",
-              "change": "改成画左，朝向改成看向画右的周烈"
+              "shot_id": "scene-1-shot-14",
+              "field": "start_frame_prompt",
+              "change": "沈砚的衣服后面加上「风衣湿透，肩头还在滴水」"
             },
             "jump_to": {
-              "shot_id": "S02-03",
+              "shot_id": "scene-1-shot-14",
               "at_seconds": 0
             }
           },
           {
             "issue_id": "CI-02",
-            "kind": "服装",
-            "severity": "必须改",
-            "from_shot": "S01-06",
-            "to_shot": "S02-04",
-            "who": "林晚",
-            "expected": "米白毛衣，深蓝围裙，风衣到第二章才穿",
-            "found": "写成卡其色风衣",
+            "kind": "道具",
+            "severity": "建议改",
+            "from_shot": "scene-1-shot-15",
+            "to_shot": "scene-1-shot-17",
+            "who": "沈砚",
+            "expected": "收起的雨伞在右手",
+            "found": "雨伞到了左手",
             "fix": {
-              "shot_id": "S02-04",
-              "field": "costume",
-              "change": "改成米白毛衣，深蓝围裙"
+              "shot_id": "scene-1-shot-17",
+              "field": "start_frame_prompt",
+              "change": "写明沈砚右手拿着收起的雨伞"
             },
             "jump_to": {
-              "shot_id": "S02-04",
+              "shot_id": "scene-1-shot-17",
               "at_seconds": 0
             }
           },
           {
             "issue_id": "CI-03",
-            "kind": "道具",
-            "severity": "建议改",
-            "from_shot": "S02-03",
-            "to_shot": "S02-05",
-            "who": "沈砚",
-            "expected": "右手一直攥着钥匙，S02-07 还在手里",
-            "found": "右手是空的",
+            "kind": "站位",
+            "severity": "必须改",
+            "from_shot": "scene-1-shot-11",
+            "to_shot": "scene-1-shot-19",
+            "who": null,
+            "expected": "林晚在画左，沈砚在画右",
+            "found": "林晚在画右，沈砚在画左，越轴了",
             "fix": {
-              "shot_id": "S02-05",
-              "field": "right",
-              "change": "改成生锈的钥匙"
+              "shot_id": "scene-1-shot-19",
+              "field": "positions",
+              "change": "林晚改回画左，沈砚改回画右"
             },
             "jump_to": {
-              "shot_id": "S02-05",
+              "shot_id": "scene-1-shot-19",
               "at_seconds": 0
             }
           }
         ],
         "carry_out": {
-          "shot_id": "S02-07",
+          "shot_id": "scene-1-shot-19",
           "people": [
             {
               "name": "林晚",
-              "costume": "米白毛衣，深蓝围裙",
+              "costume_id": "cos_linwan_cardigan",
               "marks": [],
-              "left": "裹着塑料袋的账本",
-              "right": "裹着塑料袋的账本"
+              "left": null,
+              "right": null
             },
             {
               "name": "沈砚",
-              "costume": "黑色短夹克",
-              "marks": ["全身湿透"],
+              "costume_id": "cos_shenyan_coat",
+              "marks": ["风衣湿透"],
               "left": null,
-              "right": "生锈的钥匙"
-            },
-            {
-              "name": "周烈",
-              "costume": "灰色长风衣",
-              "marks": [],
-              "left": "黑伞",
-              "right": "没点着的烟"
+              "right": "收起的雨伞"
             }
           ]
         },
         "summary": {
-          "checked": 13,
-          "must_fix": 2,
-          "suggest": 1
+          "checked": 12,
+          "must_fix": 1,
+          "suggest": 2
         }
       }
     },
     {
       "id": "continuity-2",
-      "title": "第二章 16 个镜头：查出拿刀的手、林晚的外套、伤口左右写反，吊灯不晃算建议改",
+      "title": "第二场第 9 到 20 镜：脱下风衣那一镜不算错，后面还穿风衣才算",
       "input": {
         "task": "check_continuity",
+        "costumes": [
+          {
+            "costume_id": "cos_linwan_cardigan",
+            "name": "林晚",
+            "from": "P16",
+            "to": "P33",
+            "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。"
+          },
+          {
+            "costume_id": "cos_shenyan_coat",
+            "name": "沈砚",
+            "from": "P16",
+            "to": "P25",
+            "description": "穿黑色长风衣，里面是白衬衫，下身深色长裤。"
+          },
+          {
+            "costume_id": "cos_shenyan_shirt",
+            "name": "沈砚",
+            "from": "P26",
+            "to": "P33",
+            "description": "穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。"
+          },
+          {
+            "costume_id": "cos_zhoulie_jacket",
+            "name": "周烈",
+            "from": "P16",
+            "to": "P33",
+            "description": "穿黑色皮夹克，里面是暗红色衬衫，下身黑色长裤。"
+          },
+          {
+            "costume_id": "cos_thug_a",
+            "name": "打手甲",
+            "from": "P16",
+            "to": "P33",
+            "description": "穿灰色连帽卫衣，下身黑色运动裤。"
+          },
+          {
+            "costume_id": "cos_thug_b",
+            "name": "打手乙",
+            "from": "P16",
+            "to": "P33",
+            "description": "穿深绿色工装夹克，下身牛仔裤。"
+          }
+        ],
         "carry_in": {
-          "shot_id": "S02-07",
+          "shot_id": "scene-2-shot-8",
           "people": [
             {
-              "name": "林晚",
-              "costume": "米白毛衣，深蓝围裙",
+              "name": "周烈",
+              "costume_id": "cos_zhoulie_jacket",
               "marks": [],
-              "left": "裹着塑料袋的账本",
-              "right": "裹着塑料袋的账本"
+              "left": null,
+              "right": null
+            },
+            {
+              "name": "林晚",
+              "costume_id": "cos_linwan_cardigan",
+              "marks": [],
+              "left": null,
+              "right": null
             },
             {
               "name": "沈砚",
-              "costume": "黑色短夹克",
-              "marks": ["全身湿透"],
+              "costume_id": "cos_shenyan_coat",
+              "marks": ["风衣湿透"],
               "left": null,
-              "right": "生锈的钥匙"
+              "right": null
             },
             {
-              "name": "周烈",
-              "costume": "灰色长风衣",
+              "name": "打手甲",
+              "costume_id": "cos_thug_a",
               "marks": [],
-              "left": "黑伞",
-              "right": "没点着的烟"
+              "left": null,
+              "right": null
+            },
+            {
+              "name": "打手乙",
+              "costume_id": "cos_thug_b",
+              "marks": [],
+              "left": null,
+              "right": null
             }
           ]
         },
         "shots": [
           {
-            "shot_id": "S03-01",
-            "scene_id": "S03",
+            "shot_id": "scene-2-shot-9",
             "seconds": 5,
-            "action": "凌晨的集装箱码头下着小雨，积水被海风吹出波纹，远处七号仓库的铁门半开，漏出一线昏黄的光。",
-            "people": [],
-            "environment": "码头，小雨，积水反光"
-          },
-          {
-            "shot_id": "S03-02",
-            "scene_id": "S03",
-            "seconds": 5,
-            "action": "沈砚把钥匙揣进夹克内袋，一个人朝画左深处的仓库走去，没有回头。",
-            "people": [
+            "source": "P21",
+            "picture": "周烈攥着林晚的手腕，脸凑近；画左前景是林晚的背影。",
+            "action": "周烈攥着手腕不放，压低声音说；林晚往回挣了一下。",
+            "characters": ["周烈", "林晚"],
+            "state": [
               {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿"],
+                "name": "周烈",
+                "costume_id": "cos_zhoulie_jacket",
+                "marks": [],
                 "left": null,
                 "right": null,
-                "position": "画中",
-                "facing": "走向画左深处的仓库"
-              }
-            ],
-            "environment": "码头，小雨，积水反光"
-          },
-          {
-            "shot_id": "S03-03",
-            "scene_id": "S03",
-            "seconds": 4,
-            "action": "远处一辆出租车停下，林晚下车，躲到一排集装箱后面。",
-            "people": [
+                "position": "画右"
+              },
               {
                 "name": "林晚",
-                "costume": "卡其色风衣",
+                "costume_id": "cos_linwan_cardigan",
                 "marks": [],
                 "left": null,
-                "right": "手机",
-                "position": "画右",
-                "facing": "看向画左的仓库"
+                "right": null,
+                "position": "画左"
               }
-            ],
-            "environment": "码头，小雨，积水反光"
+            ]
           },
           {
-            "shot_id": "S03-04",
-            "scene_id": "S03",
-            "seconds": 8,
-            "action": "林晚贴着集装箱，攥着手机压低声音报警。",
-            "people": [
+            "shot_id": "scene-2-shot-10",
+            "seconds": 3,
+            "source": "P22",
+            "picture": "倒下的书架旁边，沈砚站着，风衣还在滴水。",
+            "action": "沈砚站在倒下的书架旁边，不大声地开口，屋里一下安静了。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-11",
+            "seconds": 3,
+            "source": "P24",
+            "picture": "周烈歪着头，上下打量画左。",
+            "action": "周烈上下打量画左，歪着头问。",
+            "characters": ["周烈"],
+            "state": [
+              {
+                "name": "周烈",
+                "costume_id": "cos_zhoulie_jacket",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-12",
+            "seconds": 5,
+            "source": "P25",
+            "picture": "沈砚站在椅子旁，身上的黑风衣湿透。",
+            "action": "沈砚没回答，把湿透的风衣脱下来搭在椅背上，慢慢卷起白衬衫的袖口。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-13",
+            "seconds": 4,
+            "source": "P26",
+            "picture": "城东废弃的码头仓库，雨砸在铁皮屋顶上，地上到处是积水和生锈的铁链。",
+            "action": "大雨砸在铁皮屋顶上，积水里映着仓库的灯，铁链在风里轻轻晃。",
+            "characters": [],
+            "state": []
+          },
+          {
+            "shot_id": "scene-2-shot-14",
+            "seconds": 5,
+            "source": "P26",
+            "picture": "仓库里，林晚被推到木箱旁边，周烈、打手甲和打手乙围成半圈。",
+            "action": "打手甲把林晚推到木箱旁边，周烈和打手乙围上来；门口一辆旧面包车的车灯照了进来。",
+            "characters": ["林晚", "周烈", "打手甲", "打手乙"],
+            "state": [
               {
                 "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["头发被雨打湿"],
-                "left": null,
-                "right": "手机",
-                "position": "画左",
-                "facing": "看向画左的仓库方向"
-              }
-            ],
-            "environment": "码头，小雨，积水反光"
-          },
-          {
-            "shot_id": "S04-01",
-            "scene_id": "S04",
-            "seconds": 6,
-            "action": "吊灯来回摇晃，周烈坐在画右的木箱上削苹果，沈砚从画左走进光里。",
-            "people": [
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
+                "costume_id": "cos_linwan_cardigan",
                 "marks": [],
-                "left": "苹果",
-                "right": "折叠刀",
-                "position": "画右",
-                "facing": "低头看手里的苹果"
-              },
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿"],
                 "left": null,
                 "right": null,
-                "position": "画左",
-                "facing": "看向画右的周烈"
+                "position": "画左"
+              },
+              {
+                "name": "周烈",
+                "costume_id": "cos_zhoulie_jacket",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画右"
+              },
+              {
+                "name": "打手甲",
+                "costume_id": "cos_thug_a",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              },
+              {
+                "name": "打手乙",
+                "costume_id": "cos_thug_b",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画中"
               }
-            ],
-            "environment": "仓库，吊灯来回晃"
+            ]
           },
           {
-            "shot_id": "S04-02",
-            "scene_id": "S04",
+            "shot_id": "scene-2-shot-15",
             "seconds": 4,
-            "action": "周烈把一长条苹果皮甩到地上，抬眼发问。",
-            "people": [
+            "source": "P27",
+            "picture": "仓库里，周烈握着一根铁棍，对着画左走进来的沈砚。",
+            "action": "周烈掂了掂手里的铁棍，冲着画左的沈砚笑。",
+            "characters": ["周烈", "沈砚"],
+            "state": [
               {
                 "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": [],
-                "left": "苹果",
-                "right": "折叠刀",
-                "position": "画右",
-                "facing": "看向画左的沈砚"
-              }
-            ],
-            "environment": "仓库，吊灯来回晃"
-          },
-          {
-            "shot_id": "S04-03",
-            "scene_id": "S04",
-            "seconds": 5,
-            "action": "沈砚站着不动，冷冷回话。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿"],
-                "left": null,
-                "right": null,
-                "position": "画左",
-                "facing": "看向画右的周烈"
-              }
-            ],
-            "environment": "仓库，吊灯静止不动"
-          },
-          {
-            "shot_id": "S04-04",
-            "scene_id": "S04",
-            "seconds": 5,
-            "action": "周烈笑了一声，从木箱上跳下来，折叠刀还握在右手。",
-            "people": [
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
+                "costume_id": "cos_zhoulie_jacket",
                 "marks": [],
                 "left": null,
-                "right": "折叠刀",
-                "position": "画右",
-                "facing": "看向画左的沈砚"
-              }
-            ],
-            "environment": "仓库，吊灯来回晃"
-          },
-          {
-            "shot_id": "S04-05",
-            "scene_id": "S04",
-            "seconds": 3,
-            "action": "周烈从画右扑向画左，刀尖直刺沈砚胸口，沈砚侧身躲开。",
-            "people": [
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": [],
-                "left": "折叠刀",
-                "right": null,
-                "position": "画右",
-                "facing": "看向画左的沈砚"
+                "right": "铁棍",
+                "position": "画右"
               },
               {
                 "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿"],
+                "costume_id": "cos_shenyan_coat",
+                "marks": ["风衣湿透"],
                 "left": null,
                 "right": null,
-                "position": "画左",
-                "facing": "看向画右的周烈"
+                "position": "画左"
               }
-            ],
-            "environment": "仓库，吊灯来回晃"
+            ]
           },
           {
-            "shot_id": "S04-06",
-            "scene_id": "S04",
-            "seconds": 3,
-            "action": "沈砚右手抄起墙边的锈钢管，横着格开第二刀，钢管和刀刃撞出一串火星。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿"],
-                "left": null,
-                "right": "锈钢管",
-                "position": "画左",
-                "facing": "看向画右的周烈"
-              },
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": [],
-                "left": null,
-                "right": "折叠刀",
-                "position": "画右",
-                "facing": "看向画左的沈砚"
-              }
-            ],
-            "environment": "仓库，吊灯来回晃"
-          },
-          {
-            "shot_id": "S04-07",
-            "scene_id": "S04",
-            "seconds": 3,
-            "action": "第三刀从画右斜劈下来，沈砚抬起左臂去挡，刀刃划过左前臂，夹克袖子渗出血。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿", "左前臂刀伤，左袖渗血"],
-                "left": null,
-                "right": "锈钢管",
-                "position": null,
-                "facing": null
-              },
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": [],
-                "left": null,
-                "right": "折叠刀",
-                "position": null,
-                "facing": null
-              }
-            ],
-            "environment": "仓库，吊灯来回晃"
-          },
-          {
-            "shot_id": "S04-08",
-            "scene_id": "S04",
-            "seconds": 3,
-            "action": "沈砚闷哼一声，咬紧牙，抡起钢管从画左狠狠砸在周烈的右手腕上。",
-            "people": [
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿", "左前臂刀伤，左袖渗血"],
-                "left": null,
-                "right": "锈钢管",
-                "position": "画左",
-                "facing": "看向画右的周烈"
-              },
-              {
-                "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": ["右手腕被砸伤"],
-                "left": null,
-                "right": null,
-                "position": "画右",
-                "facing": "看向画左的沈砚"
-              }
-            ],
-            "environment": "仓库，吊灯来回晃"
-          },
-          {
-            "shot_id": "S04-09",
-            "scene_id": "S04",
-            "seconds": 3,
-            "action": "折叠刀飞出去落在水泥地上，一路滑出很远。",
-            "people": [],
-            "environment": "仓库，吊灯来回晃"
-          },
-          {
-            "shot_id": "S04-10",
-            "scene_id": "S04",
+            "shot_id": "scene-2-shot-16",
             "seconds": 4,
-            "action": "周烈捂着右手腕跪倒在地，沈砚用钢管抵住他的肩膀，大口喘气。",
-            "people": [
+            "source": "P27",
+            "picture": "周烈握着铁棍，眼神发狠。",
+            "action": "周烈握紧铁棍，盯着画左放狠话。",
+            "characters": ["周烈"],
+            "state": [
               {
                 "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": ["右手腕被砸伤"],
-                "left": "捂着右手腕",
+                "costume_id": "cos_zhoulie_jacket",
+                "marks": [],
+                "left": "铁棍",
                 "right": null,
-                "position": "画右",
-                "facing": "低头看地面"
-              },
-              {
-                "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿", "左前臂刀伤，左袖渗血"],
-                "left": null,
-                "right": "锈钢管",
-                "position": "画左",
-                "facing": "看向画右的周烈"
+                "position": "画右"
               }
-            ],
-            "environment": "仓库，吊灯来回晃"
+            ]
           },
           {
-            "shot_id": "S04-11",
-            "scene_id": "S04",
-            "seconds": 5,
-            "action": "铁门被一把推开，林晚举着手机冲进来大喊，远处警笛声逼近。",
-            "people": [
+            "shot_id": "scene-2-shot-17",
+            "seconds": 3,
+            "source": "P28",
+            "picture": "仓库的木箱旁，周烈高举铁棍，沈砚站在他对面。",
+            "action": "画右的周烈猛地挥棍砸向画左，画左的沈砚侧身一让，铁棍擦着耳边落下，砸在木箱上，木屑四溅。",
+            "characters": ["周烈", "沈砚"],
+            "state": [
               {
-                "name": "林晚",
-                "costume": "米白毛衣，深蓝围裙",
-                "marks": ["头发被雨打湿"],
+                "name": "周烈",
+                "costume_id": "cos_zhoulie_jacket",
+                "marks": [],
                 "left": null,
-                "right": "手机",
-                "position": "画中",
-                "facing": "看向画面前方的沈砚"
+                "right": "铁棍",
+                "position": "画右"
               },
               {
                 "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿", "左前臂刀伤，左袖渗血"],
+                "costume_id": "cos_shenyan_shirt",
+                "marks": [],
                 "left": null,
-                "right": "锈钢管",
-                "position": "画左",
-                "facing": "看向门口的林晚"
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-18",
+            "seconds": 3,
+            "source": "P28",
+            "picture": "沈砚的右手扣住周烈握棍的右手腕。",
+            "action": "画左的沈砚顺势扣住周烈的手腕一拧，铁棍当啷落地。",
+            "characters": ["沈砚", "周烈"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_shirt",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
               },
               {
                 "name": "周烈",
-                "costume": "灰色长风衣",
-                "marks": ["右手腕被砸伤"],
-                "left": "捂着右手腕",
-                "right": null,
-                "position": "画右",
-                "facing": "低头"
+                "costume_id": "cos_zhoulie_jacket",
+                "marks": [],
+                "left": null,
+                "right": "铁棍",
+                "position": "画右"
               }
-            ],
-            "environment": "仓库，吊灯来回晃"
+            ]
           },
           {
-            "shot_id": "S04-12",
-            "scene_id": "S04",
-            "seconds": 5,
-            "action": "沈砚回头看林晚，血顺着左手的手指滴在地上。",
-            "people": [
+            "shot_id": "scene-2-shot-19",
+            "seconds": 3,
+            "source": "P28",
+            "picture": "沈砚背后，打手甲正扑上来。",
+            "action": "打手甲从画右背后扑向沈砚，沈砚矮身一记肘击正中他肋下，打手甲闷哼一声跪倒在积水里。",
+            "characters": ["沈砚", "打手甲"],
+            "state": [
               {
                 "name": "沈砚",
-                "costume": "黑色短夹克",
-                "marks": ["夹克半湿", "右前臂刀伤，右袖渗血"],
+                "costume_id": "cos_shenyan_shirt",
+                "marks": [],
                 "left": null,
-                "right": "锈钢管",
-                "position": "画左",
-                "facing": "看向画右的林晚"
+                "right": null,
+                "position": "画左"
+              },
+              {
+                "name": "打手甲",
+                "costume_id": "cos_thug_a",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画右"
               }
-            ],
-            "environment": "仓库，吊灯来回晃"
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-20",
+            "seconds": 2,
+            "source": "P29",
+            "picture": "昏暗的灯下，打手乙手里攥着一把折叠刀。",
+            "action": "打手乙弹开折叠刀，刀刃在灯下一闪。",
+            "characters": ["打手乙"],
+            "state": [
+              {
+                "name": "打手乙",
+                "costume_id": "cos_thug_b",
+                "marks": [],
+                "left": null,
+                "right": "折叠刀",
+                "position": "画右"
+              }
+            ]
           }
         ]
       },
       "output": {
         "checked_shots": [
-          "S03-01",
-          "S03-02",
-          "S03-03",
-          "S03-04",
-          "S04-01",
-          "S04-02",
-          "S04-03",
-          "S04-04",
-          "S04-05",
-          "S04-06",
-          "S04-07",
-          "S04-08",
-          "S04-09",
-          "S04-10",
-          "S04-11",
-          "S04-12"
+          "scene-2-shot-9",
+          "scene-2-shot-10",
+          "scene-2-shot-11",
+          "scene-2-shot-12",
+          "scene-2-shot-13",
+          "scene-2-shot-14",
+          "scene-2-shot-15",
+          "scene-2-shot-16",
+          "scene-2-shot-17",
+          "scene-2-shot-18",
+          "scene-2-shot-19",
+          "scene-2-shot-20"
         ],
         "issues": [
           {
             "issue_id": "CI-01",
-            "kind": "环境",
-            "severity": "建议改",
-            "from_shot": "S04-02",
-            "to_shot": "S04-03",
-            "who": null,
-            "expected": "吊灯一直来回晃，光圈在地上扫",
-            "found": "写成吊灯静止不动",
+            "kind": "服装",
+            "severity": "必须改",
+            "from_shot": "scene-2-shot-12",
+            "to_shot": "scene-2-shot-15",
+            "who": "沈砚",
+            "expected": "白衬衫卷着袖口，风衣留在书店",
+            "found": "还穿着湿透的黑风衣",
             "fix": {
-              "shot_id": "S04-03",
-              "field": "environment",
-              "change": "改成仓库，吊灯来回晃"
+              "shot_id": "scene-2-shot-15",
+              "field": "reference_images",
+              "change": "换成卷袖衬衫那一套的定妆照，起始画面的衣服也一起改"
             },
             "jump_to": {
-              "shot_id": "S04-03",
+              "shot_id": "scene-2-shot-15",
               "at_seconds": 0
             }
           },
           {
             "issue_id": "CI-02",
             "kind": "道具",
-            "severity": "必须改",
-            "from_shot": "S04-04",
-            "to_shot": "S04-05",
+            "severity": "建议改",
+            "from_shot": "scene-2-shot-15",
+            "to_shot": "scene-2-shot-16",
             "who": "周烈",
-            "expected": "折叠刀在右手，后面砸的也是右手腕",
-            "found": "写成左手拿刀",
+            "expected": "铁棍在右手",
+            "found": "铁棍到了左手",
             "fix": {
-              "shot_id": "S04-05",
-              "field": "right",
-              "change": "改成折叠刀，左手空着"
+              "shot_id": "scene-2-shot-16",
+              "field": "start_frame_prompt",
+              "change": "写明周烈右手握着铁棍"
             },
             "jump_to": {
-              "shot_id": "S04-05",
+              "shot_id": "scene-2-shot-16",
               "at_seconds": 0
-            }
-          },
-          {
-            "issue_id": "CI-03",
-            "kind": "服装",
-            "severity": "必须改",
-            "from_shot": "S03-04",
-            "to_shot": "S04-11",
-            "who": "林晚",
-            "expected": "卡其色风衣，码头那场已经穿上",
-            "found": "写成米白毛衣，深蓝围裙",
-            "fix": {
-              "shot_id": "S04-11",
-              "field": "costume",
-              "change": "改成卡其色风衣"
-            },
-            "jump_to": {
-              "shot_id": "S04-11",
-              "at_seconds": 0
-            }
-          },
-          {
-            "issue_id": "CI-04",
-            "kind": "伤妆",
-            "severity": "必须改",
-            "from_shot": "S04-11",
-            "to_shot": "S04-12",
-            "who": "沈砚",
-            "expected": "左前臂刀伤，左袖渗血，S04-07 划的是左臂",
-            "found": "写成右前臂刀伤，右袖渗血",
-            "fix": {
-              "shot_id": "S04-12",
-              "field": "marks",
-              "change": "改成左前臂刀伤，左袖渗血"
-            },
-            "jump_to": {
-              "shot_id": "S04-12",
-              "at_seconds": 2.8
             }
           }
         ],
         "carry_out": {
-          "shot_id": "S04-12",
+          "shot_id": "scene-2-shot-20",
           "people": [
             {
-              "name": "林晚",
-              "costume": "卡其色风衣",
-              "marks": ["头发被雨打湿"],
+              "name": "周烈",
+              "costume_id": "cos_zhoulie_jacket",
+              "marks": [],
               "left": null,
-              "right": "手机"
+              "right": null
+            },
+            {
+              "name": "林晚",
+              "costume_id": "cos_linwan_cardigan",
+              "marks": [],
+              "left": null,
+              "right": null
             },
             {
               "name": "沈砚",
-              "costume": "黑色短夹克",
-              "marks": ["夹克半湿", "左前臂刀伤，左袖渗血"],
+              "costume_id": "cos_shenyan_shirt",
+              "marks": [],
               "left": null,
-              "right": "锈钢管"
+              "right": null
             },
             {
-              "name": "周烈",
-              "costume": "灰色长风衣",
-              "marks": ["右手腕被砸伤"],
-              "left": "捂着右手腕",
+              "name": "打手甲",
+              "costume_id": "cos_thug_a",
+              "marks": [],
+              "left": null,
               "right": null
+            },
+            {
+              "name": "打手乙",
+              "costume_id": "cos_thug_b",
+              "marks": [],
+              "left": null,
+              "right": "折叠刀"
             }
           ]
         },
         "summary": {
-          "checked": 16,
-          "must_fix": 3,
+          "checked": 12,
+          "must_fix": 1,
           "suggest": 1
         }
       }
     },
     {
       "id": "continuity-3",
-      "title": "第三章 10 个镜头：接上一批的伤，查出用受伤的左手拍肩，换场后的合理变化不报",
+      "title": "第三场第 9 到 20 镜：林晚披上风衣以后要一直披着，纱布不能消失",
       "input": {
         "task": "check_continuity",
+        "costumes": [
+          {
+            "costume_id": "cos_linwan_cardigan",
+            "name": "林晚",
+            "from": "P34",
+            "to": "P41",
+            "description": "穿米白色针织开衫，袖口卷到手肘，里面是浅灰色T恤，下身深色长裤。"
+          },
+          {
+            "costume_id": "cos_linwan_coat_over",
+            "name": "林晚",
+            "from": "P42",
+            "to": "P47",
+            "description": "米白色针织开衫外面披着一件过大的黑色长风衣，下身深色长裤。"
+          },
+          {
+            "costume_id": "cos_shenyan_shirt",
+            "name": "沈砚",
+            "from": "P34",
+            "to": "P47",
+            "description": "穿白衬衫，袖口卷到小臂，下身深色长裤，没有穿风衣。"
+          },
+          {
+            "costume_id": "cos_apo",
+            "name": "阿婆",
+            "from": "P34",
+            "to": "P47",
+            "description": "穿蓝色碎花布衫，系着白围裙。"
+          }
+        ],
         "carry_in": {
-          "shot_id": "S04-12",
+          "shot_id": "scene-3-shot-8",
           "people": [
             {
-              "name": "林晚",
-              "costume": "卡其色风衣",
-              "marks": ["头发被雨打湿"],
-              "left": null,
-              "right": "手机"
-            },
-            {
               "name": "沈砚",
-              "costume": "黑色短夹克",
-              "marks": ["夹克半湿", "左前臂刀伤，左袖渗血"],
+              "costume_id": "cos_shenyan_shirt",
+              "marks": ["左小臂缠着白纱布"],
               "left": null,
-              "right": "锈钢管"
+              "right": null
             },
             {
-              "name": "周烈",
-              "costume": "灰色长风衣",
-              "marks": ["右手腕被砸伤"],
-              "left": "捂着右手腕",
+              "name": "林晚",
+              "costume_id": "cos_linwan_cardigan",
+              "marks": [],
+              "left": null,
               "right": null
             }
           ]
         },
         "shots": [
           {
-            "shot_id": "S05-01",
-            "scene_id": "S05",
+            "shot_id": "scene-3-shot-9",
             "seconds": 5,
-            "action": "医院走廊灯光惨白，林晚一个人坐在急诊室门外的蓝色长椅上，卡其色风衣上沾着灰。",
-            "people": [
+            "source": "P41",
+            "picture": "沈砚站在林晚身后，右手拿着那件半干的黑风衣。",
+            "action": "沈砚犹豫了一下，没有碰她，只用右手把半干的风衣披在林晚肩上。",
+            "characters": ["沈砚", "林晚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
+                "left": null,
+                "right": "半干的风衣",
+                "position": "画右"
+              },
               {
                 "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰"],
-                "left": "裹着塑料袋的账本",
-                "right": null,
-                "position": "画左",
-                "facing": "看向画右的急诊室门"
-              }
-            ],
-            "environment": "医院走廊，白色顶灯"
-          },
-          {
-            "shot_id": "S05-02",
-            "scene_id": "S05",
-            "seconds": 5,
-            "action": "林晚的手把膝盖上的塑料袋一层层打开，翻开发软的账本，第一页是歪歪扭扭的手写字。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰"],
-                "left": "摊开的账本",
-                "right": null,
-                "position": null,
-                "facing": null
-              }
-            ],
-            "environment": "医院走廊，白色顶灯"
-          },
-          {
-            "shot_id": "S05-03",
-            "scene_id": "S05",
-            "seconds": 7,
-            "action": "林晚低头看着账本小声说话，一滴眼泪落在纸页上晕开墨迹。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰", "眼眶发红"],
-                "left": "摊开的账本",
-                "right": null,
-                "position": "画左",
-                "facing": "向下看膝盖上的账本"
-              }
-            ],
-            "environment": "医院走廊，白色顶灯"
-          },
-          {
-            "shot_id": "S06-01",
-            "scene_id": "S06",
-            "seconds": 5,
-            "action": "急诊室的门开了，沈砚走出来，夹克搭在右肩，左前臂缠着白纱布；长椅上的林晚站起来。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "卡其色风衣",
+                "costume_id": "cos_linwan_cardigan",
                 "marks": [],
-                "left": "摊开的账本",
+                "left": null,
                 "right": null,
-                "position": "画左",
-                "facing": "看向画右的沈砚"
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-10",
+            "seconds": 3,
+            "source": "P42",
+            "picture": "沈砚看着画左林晚的背影。",
+            "action": "沈砚看着她的背影，开口。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
+                "left": null,
+                "right": null,
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-11",
+            "seconds": 4,
+            "source": "P42",
+            "picture": "沈砚看着画左。",
+            "action": "沈砚停了一下，接着说。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
+                "left": null,
+                "right": null,
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-12",
+            "seconds": 3,
+            "source": "P43",
+            "picture": "林晚披着黑风衣转过头，泪痕还挂在脸上。",
+            "action": "林晚转过头看向画右，问。",
+            "characters": ["林晚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_coat_over",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-13",
+            "seconds": 4,
+            "source": "P44",
+            "picture": "沈砚背对镜头，看向走廊尽头的窗户，窗外雨停了。",
+            "action": "沈砚望着走廊尽头的窗，窗外的天边慢慢透出一线灰白的光。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
+                "left": null,
+                "right": null,
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-14",
+            "seconds": 5,
+            "source": "P45",
+            "picture": "沈砚望着窗外，脸上有一点笑意。",
+            "action": "沈砚望着窗外，慢慢开口。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
+                "left": null,
+                "right": null,
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-15",
+            "seconds": 5,
+            "source": "P45",
+            "picture": "沈砚转回头看向画左。",
+            "action": "沈砚顿了顿，转回来看向画左，说。",
+            "characters": ["沈砚"],
+            "state": [
+              {
+                "name": "沈砚",
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
+                "left": null,
+                "right": null,
+                "position": "画右"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-16",
+            "seconds": 4,
+            "source": "P46",
+            "picture": "林晚披着黑风衣，低着头。",
+            "action": "林晚攥紧风衣领口，轻轻点了点头。",
+            "characters": ["林晚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_coat_over",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-17",
+            "seconds": 5,
+            "source": "P47",
+            "picture": "天亮了，青石巷里，书店的玻璃门碎了一角，地上的书泡在水里，林晚和沈砚并排走回来。",
+            "action": "林晚和沈砚并排走到书店门口停下，看着碎了一角的玻璃门。",
+            "characters": ["林晚", "沈砚"],
+            "state": [
+              {
+                "name": "林晚",
+                "costume_id": "cos_linwan_cardigan",
+                "marks": [],
+                "left": null,
+                "right": null,
+                "position": "画左"
               },
               {
                 "name": "沈砚",
-                "costume": "深灰T恤，夹克搭在右肩",
-                "marks": ["左前臂缠着白纱布"],
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
                 "left": null,
                 "right": null,
-                "position": "画右",
-                "facing": "看向画左的林晚"
+                "position": "画右"
               }
-            ],
-            "environment": "医院走廊，白色顶灯"
+            ]
           },
           {
-            "shot_id": "S06-02",
-            "scene_id": "S06",
+            "shot_id": "scene-3-shot-18",
             "seconds": 4,
-            "action": "林晚想说话，眼泪先涌出来，她用手背去擦，越擦越多。",
-            "people": [
+            "source": "P47",
+            "picture": "地上泡水的书里，一本封面被踩脏的诗集。",
+            "action": "林晚的手捡起诗集，用袖子一点点擦掉封面上的泥。",
+            "characters": ["林晚"],
+            "state": [
               {
                 "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰", "满脸泪水"],
-                "left": "摊开的账本",
+                "costume_id": "cos_linwan_coat_over",
+                "marks": [],
+                "left": null,
                 "right": null,
-                "position": "画左",
-                "facing": "看向画右的沈砚"
+                "position": null
               }
-            ],
-            "environment": "医院走廊，白色顶灯"
+            ]
           },
           {
-            "shot_id": "S06-03",
-            "scene_id": "S06",
+            "shot_id": "scene-3-shot-19",
             "seconds": 4,
-            "action": "沈砚看着林晚，故作轻松地开口。",
-            "people": [
+            "source": "P47",
+            "picture": "书店里，沈砚扶着倒下的书架。",
+            "action": "沈砚用右手把倒下的书架扶起来，一层一层摆正，缠着纱布的左小臂只轻轻扶着。",
+            "characters": ["沈砚"],
+            "state": [
               {
                 "name": "沈砚",
-                "costume": "黑色短夹克穿在身上",
-                "marks": ["左前臂缠着白纱布"],
+                "costume_id": "cos_shenyan_shirt",
+                "marks": [],
                 "left": null,
                 "right": null,
-                "position": "画右",
-                "facing": "看向画左的林晚"
+                "position": "画右"
               }
-            ],
-            "environment": "医院走廊，白色顶灯"
+            ]
           },
           {
-            "shot_id": "S06-04",
-            "scene_id": "S06",
-            "seconds": 8,
-            "action": "林晚哭着追问，声音发抖。",
-            "people": [
+            "shot_id": "scene-3-shot-20",
+            "seconds": 4,
+            "source": "P47",
+            "picture": "书店门口，阿婆端着两碗热豆浆探进头来，林晚站在门边，沈砚在后面。",
+            "action": "阿婆把两碗热豆浆递给林晚，笑着说了一句；画右的沈砚停下手看过来。",
+            "characters": ["阿婆", "林晚", "沈砚"],
+            "state": [
+              {
+                "name": "阿婆",
+                "costume_id": "cos_apo",
+                "marks": [],
+                "left": "一碗热豆浆",
+                "right": "一碗热豆浆",
+                "position": "画中"
+              },
               {
                 "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰", "满脸泪水"],
-                "left": "摊开的账本",
+                "costume_id": "cos_linwan_coat_over",
+                "marks": [],
+                "left": null,
                 "right": null,
-                "position": "画左",
-                "facing": "看向画右的沈砚"
-              }
-            ],
-            "environment": "医院走廊，白色顶灯"
-          },
-          {
-            "shot_id": "S06-05",
-            "scene_id": "S06",
-            "seconds": 9,
-            "action": "沈砚沉默一会儿，抬起没受伤的右手，笨拙地拍了拍林晚的肩膀。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰", "满脸泪水"],
-                "left": "摊开的账本",
-                "right": null,
-                "position": "画左",
-                "facing": "看向画右的沈砚"
+                "position": "画左"
               },
               {
                 "name": "沈砚",
-                "costume": "深灰T恤，夹克搭在右肩",
-                "marks": ["左前臂缠着白纱布"],
-                "left": "拍林晚的肩膀",
-                "right": null,
-                "position": "画右",
-                "facing": "看向画左的林晚"
-              }
-            ],
-            "environment": "医院走廊，白色顶灯"
-          },
-          {
-            "shot_id": "S06-06",
-            "scene_id": "S06",
-            "seconds": 6,
-            "action": "林晚把脸埋进沈砚的肩头，终于哭出声；走廊尽头，值班护士轻轻带上了门。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰", "满脸泪水"],
-                "left": "摊开的账本",
-                "right": null,
-                "position": "画左",
-                "facing": "把脸埋进沈砚的肩头"
-              },
-              {
-                "name": "沈砚",
-                "costume": "深灰T恤，夹克搭在右肩",
-                "marks": ["左前臂缠着白纱布"],
+                "costume_id": "cos_shenyan_shirt",
+                "marks": ["左小臂缠着白纱布"],
                 "left": null,
                 "right": null,
-                "position": "画右",
-                "facing": "低头看林晚"
+                "position": "画右"
               }
-            ],
-            "environment": "医院走廊，白色顶灯"
-          },
-          {
-            "shot_id": "S06-07",
-            "scene_id": "S06",
-            "seconds": 4,
-            "action": "沈砚低头看见林晚攥着的账本翻在最后一页，上面写着一个看不清的名字。",
-            "people": [
-              {
-                "name": "林晚",
-                "costume": "卡其色风衣",
-                "marks": ["风衣沾着仓库里的灰", "满脸泪水"],
-                "left": "摊开的账本",
-                "right": null,
-                "position": null,
-                "facing": null
-              }
-            ],
-            "environment": "医院走廊，白色顶灯"
+            ]
           }
         ]
       },
       "output": {
         "checked_shots": [
-          "S05-01",
-          "S05-02",
-          "S05-03",
-          "S06-01",
-          "S06-02",
-          "S06-03",
-          "S06-04",
-          "S06-05",
-          "S06-06",
-          "S06-07"
+          "scene-3-shot-9",
+          "scene-3-shot-10",
+          "scene-3-shot-11",
+          "scene-3-shot-12",
+          "scene-3-shot-13",
+          "scene-3-shot-14",
+          "scene-3-shot-15",
+          "scene-3-shot-16",
+          "scene-3-shot-17",
+          "scene-3-shot-18",
+          "scene-3-shot-19",
+          "scene-3-shot-20"
         ],
         "issues": [
           {
             "issue_id": "CI-01",
             "kind": "服装",
-            "severity": "建议改",
-            "from_shot": "S05-03",
-            "to_shot": "S06-01",
+            "severity": "必须改",
+            "from_shot": "scene-3-shot-16",
+            "to_shot": "scene-3-shot-17",
             "who": "林晚",
-            "expected": "风衣上还沾着仓库里的灰，只过了二十分钟",
-            "found": "风衣上的灰没了",
+            "expected": "开衫外面披着沈砚的黑风衣",
+            "found": "没有披风衣",
             "fix": {
-              "shot_id": "S06-01",
-              "field": "marks",
-              "change": "加上风衣沾着仓库里的灰"
+              "shot_id": "scene-3-shot-17",
+              "field": "reference_images",
+              "change": "换成林晚披着风衣的定妆照，起始画面的衣服也一起改"
             },
             "jump_to": {
-              "shot_id": "S06-01",
+              "shot_id": "scene-3-shot-17",
               "at_seconds": 0
             }
           },
           {
             "issue_id": "CI-02",
-            "kind": "服装",
-            "severity": "建议改",
-            "from_shot": "S06-01",
-            "to_shot": "S06-03",
-            "who": "沈砚",
-            "expected": "夹克搭在右肩，没有穿上",
-            "found": "写成夹克穿在身上",
-            "fix": {
-              "shot_id": "S06-03",
-              "field": "costume",
-              "change": "改成深灰T恤，夹克搭在右肩"
-            },
-            "jump_to": {
-              "shot_id": "S06-03",
-              "at_seconds": 0
-            }
-          },
-          {
-            "issue_id": "CI-03",
             "kind": "伤妆",
             "severity": "必须改",
-            "from_shot": "S06-03",
-            "to_shot": "S06-05",
+            "from_shot": "scene-3-shot-17",
+            "to_shot": "scene-3-shot-19",
             "who": "沈砚",
-            "expected": "左前臂缠着纱布，剧本写的是用没受伤的右手拍肩",
-            "found": "写成用左手拍林晚的肩膀",
+            "expected": "左小臂缠着白纱布",
+            "found": "左小臂没有纱布",
             "fix": {
-              "shot_id": "S06-05",
-              "field": "left",
-              "change": "改成空着，拍肩改用右手"
+              "shot_id": "scene-3-shot-19",
+              "field": "start_frame_prompt",
+              "change": "写明沈砚左小臂缠着白纱布"
             },
             "jump_to": {
-              "shot_id": "S06-05",
-              "at_seconds": 0.8
+              "shot_id": "scene-3-shot-19",
+              "at_seconds": 0
             }
           }
         ],
         "carry_out": {
-          "shot_id": "S06-07",
+          "shot_id": "scene-3-shot-20",
           "people": [
             {
-              "name": "林晚",
-              "costume": "卡其色风衣",
-              "marks": ["风衣沾着仓库里的灰", "满脸泪水"],
-              "left": "摊开的账本",
-              "right": null
-            },
-            {
               "name": "沈砚",
-              "costume": "深灰T恤，夹克搭在右肩",
-              "marks": ["左前臂缠着白纱布"],
+              "costume_id": "cos_shenyan_shirt",
+              "marks": ["左小臂缠着白纱布"],
               "left": null,
               "right": null
             },
             {
-              "name": "周烈",
-              "costume": "灰色长风衣",
-              "marks": ["右手腕被砸伤"],
-              "left": "捂着右手腕",
+              "name": "林晚",
+              "costume_id": "cos_linwan_coat_over",
+              "marks": [],
+              "left": "一碗热豆浆",
+              "right": "一碗热豆浆"
+            },
+            {
+              "name": "阿婆",
+              "costume_id": "cos_apo",
+              "marks": [],
+              "left": null,
               "right": null
             }
           ]
         },
         "summary": {
-          "checked": 10,
-          "must_fix": 1,
-          "suggest": 2
+          "checked": 12,
+          "must_fix": 2,
+          "suggest": 0
         }
       }
     }

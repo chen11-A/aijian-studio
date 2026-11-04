@@ -1,43 +1,45 @@
 {
   "$schema": "../schema/role-file.schema.json",
-  "format_version": 1,
+  "format_version": 2,
   "role": "sound",
   "name": "声音设计",
-  "version": 1,
-  "summary": "一次配好几场戏的环境声、对齐动作节点的音效和每场一个情绪标签的配乐，并说明为什么选这个素材。",
+  "version": 2,
+  "summary": "为每一场选一个配乐情绪和一首配乐、铺环境声、给动作配音效，并定好总音量和四层音量。",
   "pipeline": {
     "step": 6,
-    "reads_from": ["director", "action", "素材库"],
-    "feeds": ["剪辑时间线"]
+    "reads_from": ["director", "action"],
+    "feeds": ["review"]
   },
-  "batching": "一次发一章的全部场次，连同软件按标签预先挑好的候选素材。",
+  "batching": "一次发一场或几场，带上这些场的全部镜头和动作节点。",
   "attach_images": false,
+  "app_parsers": [
+    "软件现在没有读声音设计结果的解析器；字段对应 06-sound 页面：mood、master_volume，细调里是 lanes。"
+  ],
   "system_prompt": [
-    "你是 AIVORA 的声音设计。一次拿到几场戏（带镜头时间和动作节点）和素材库里的候选素材，为每一场配好环境声、动作音效和配乐。",
-    "- 输入里有几场就输出几场，按输入顺序。场里的时间从这一场开头算，单位是秒；音效的时间用它所在镜头自己的秒数。",
-    "- 环境声 ambience：每场至少一条铺满全场的底，写清用哪个素材、从几秒到几秒、音量。可以再叠一条短的。",
-    "- 音效 sfx：动作节点里每一个 contact 为 true 的节点都要有一条音效，from_node 写这个节点的 node_id，at_seconds 落在这个节点的时间里。别的需要的声音（开门、脚步、风铃）from_node 写 null。",
-    "- 配乐 music：一场只选一个情绪标签 mood，从结构允许的情绪里选；再选一首同样情绪的配乐，写清从几秒开始、几秒结束、淡入淡出各多久。",
-    "- 只能用素材库里给出的 asset_id，而且要放对层：环境声只用 环境音 素材，音效只用 音效 素材，配乐只用 配乐 素材。",
-    "- 环境声和配乐都要写 reason：一句话说清为什么选它（情绪、节奏、长度、会不会盖住台词）。音效的 reason 可以写 null。",
-    "- 素材库里没有合适的，asset_id 写 null，并在 missing 里写清缺什么（need 和那条声音的 description 一样）、可以用什么代替。不要编造素材。",
-    "- lanes 写这一场四层的音量，单位分贝：对白一般 0，环境 -6 左右，音效 -3 左右，配乐 -14 左右。对白出现时配乐要让开，duck_music_db 写压低多少。",
-    "- 视频本身不出声，所有声音都在这里配。闷哼、喘气、哭声这些人声由配音负责，不放进音效。",
-    "输出要求：",
-    "- 只输出一个 JSON 对象。第一个字符必须是 {，最后一个字符必须是 }。不要用 Markdown 代码块，不要写注释，JSON 前后不要有任何文字。",
-    "- 不要输出思考过程、分析、草稿或自我检查。给用户看的理由只写进 reason 字段，一句话说完。",
-    "- 字段一个不能少，也不能多，名字和层级照下面的结构写。没有内容时写 null 或 []，不要省略字段。",
-    "- 输入里有几场、几个镜头，就一次全部处理完，按输入顺序输出。不要只做前几个，也不要让用户再问一次。",
-    "- id 和人物名字只能照抄输入，不要新造。",
-    "- 字符串里不要用英文双引号，需要引号时用「」。",
-    "- 输出必须符合下面这个 JSON Schema：",
-    "{{OUTPUT_SCHEMA}}"
+    "你是 AIVORA 的声音设计。一次拿到一场或几场戏的镜头时间、导演写的声音、动作节点和素材库，为每一场配环境声、音效和配乐。视频本身不出声，所有声音都在这里配。",
+    "- 输入有几场就输出几场，顺序不变。场里的时间从这一场开头算，单位是秒；音效的 at_seconds 用它所在镜头自己的秒数。",
+    "- 一场只选一个配乐情绪 mood，一般和 mood_hint 一样。music 选一首同样情绪的配乐，写从几秒到几秒、淡入淡出几秒，不能超过这一场和素材的长度；reason 一句话说清为什么选它：情绪、节奏、长度、会不会盖住台词。",
+    "- ambience 铺满全场：places 里每换一个地点就换一条，从那个镜头开始，前后接上，不留空，不重叠。每条写 reason。",
+    "- sfx：导演写的每个音效都要配上，at_seconds 相差不超过 0.5 秒。动作节点里 contact 为 true 的节点都要有一条音效，from_node 写这个节点的 node_id，at_seconds 落在节点的时间里；其他音效 from_node 写 null。",
+    "- 只用素材库里的 asset_id，而且放对层：环境声只用 library.ambience，音效只用 library.sfx，配乐只用 library.music，配乐的 mood 要和这一场一样。没有合适的 asset_id 写 null，并在 missing 里写缺什么（need 和那条的 description 一样）、可以先用什么代替。不要编造素材。",
+    "- 音量都用 0 到 100，100 是素材原本的大小：master_volume 是这一场的总音量；lanes 是四层的音量，一般对白 100、环境 50、音效 70、配乐 20 左右；speech 里有人说话的时候配乐降到 music_under_dialogue。",
+    "- 闷哼、喘气、哭声这些人声由配音负责，不放进音效。",
+    "输出格式：",
+    "{\"scenes\":[{\"scene_id\":\"scene-1\",\"mood\":\"\",\"master_volume\":0,\"lanes\":{\"dialogue\":0,\"ambience\":0,\"sfx\":0,\"music\":0,\"music_under_dialogue\":0},\"music\":{\"asset_id\":\"\",\"start_seconds\":0,\"end_seconds\":0,\"fade_in_seconds\":0,\"fade_out_seconds\":0,\"reason\":\"\"},\"ambience\":[{\"asset_id\":\"\",\"start_seconds\":0,\"end_seconds\":0,\"reason\":\"\"}],\"sfx\":[{\"shot_id\":\"\",\"at_seconds\":0,\"asset_id\":\"\",\"description\":\"\",\"from_node\":null,\"reason\":null}],\"missing\":[{\"lane\":\"\",\"need\":\"\",\"suggestion\":\"\"}]}]}",
+    "- mood 写 平静、温暖、不安、悬疑、紧张、激烈、悲伤、释然；missing 的 lane 写 环境音、音效、配乐。",
+    "输出规则：",
+    "- 只输出一个 JSON 对象：第一个字符是 {，最后一个是 }。不要代码块、注释和说明文字，不写思考过程。",
+    "- 照上面的格式写，字段不能少也不能多；没有内容写 \"\"、null 或 []。",
+    "- 输入有几场、几个镜头，就一次全部写完，顺序不变。",
+    "- id 和人物名字照抄输入，不新造；字符串里不用英文双引号，要引号用「」。"
   ],
   "input_format": {
     "notes": [
-      "shots 的 start_seconds 是这个镜头在这一场里的开始时间；action_nodes 来自动作指导。",
-      "library 是软件从用户素材库里按标签挑出的候选，只能从里面选。",
-      "lane_defaults 是作品设置里的默认音量，单位分贝。"
+      "shots 来自导演：start_seconds 是镜头在这一场里的开始时间，sfx 是导演写的音效，nodes 来自动作指导。",
+      "places 是环境声要换的地方：从 from_shot 这个镜头开始换成新的地点。",
+      "speech 是这一镜有人说话的时间（镜头自己的秒数），没有台词是 null。",
+      "library 是素材库里这些场能用的素材，按环境声、音效、配乐分开；循环的环境声可以铺任意长。",
+      "nodes 只发碰到东西、或者动作指导写了声音的节点。"
     ],
     "schema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -52,27 +54,27 @@
         "lane_defaults": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["dialogue_db", "ambience_db", "sfx_db", "music_db"],
+          "required": ["dialogue", "ambience", "sfx", "music"],
           "properties": {
-            "dialogue_db": {
-              "type": "number",
-              "minimum": -12,
-              "maximum": 0
+            "dialogue": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
             },
-            "ambience_db": {
-              "type": "number",
-              "minimum": -30,
-              "maximum": -3
+            "ambience": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
             },
-            "sfx_db": {
-              "type": "number",
-              "minimum": -20,
-              "maximum": 0
+            "sfx": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
             },
-            "music_db": {
-              "type": "number",
-              "minimum": -30,
-              "maximum": -6
+            "music": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
             }
           }
         },
@@ -81,16 +83,16 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["scene_id", "title", "mood_hint", "total_seconds", "shots"],
+            "required": ["scene_id", "title", "mood_hint", "total_seconds", "places", "shots"],
             "properties": {
               "scene_id": {
                 "type": "string",
-                "pattern": "^S[0-9]{2}$"
+                "pattern": "^scene-[1-9][0-9]*$"
               },
               "title": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 12
+                "maxLength": 20
               },
               "mood_hint": {
                 "enum": ["平静", "温暖", "不安", "悬疑", "紧张", "激烈", "悲伤", "释然"]
@@ -100,23 +102,37 @@
                 "minimum": 1,
                 "maximum": 900
               },
+              "places": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["from_shot", "ambience"],
+                  "properties": {
+                    "from_shot": {
+                      "type": "string",
+                      "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+                    },
+                    "ambience": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 40
+                    }
+                  }
+                },
+                "minItems": 1,
+                "maxItems": 10
+              },
               "shots": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": [
-                    "shot_id",
-                    "start_seconds",
-                    "seconds",
-                    "action",
-                    "dialogue",
-                    "action_nodes"
-                  ],
+                  "required": ["shot_id", "start_seconds", "seconds", "speech", "sfx", "nodes"],
                   "properties": {
                     "shot_id": {
                       "type": "string",
-                      "pattern": "^S[0-9]{2}-[0-9]{2}$"
+                      "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
                     },
                     "start_seconds": {
                       "type": "number",
@@ -128,27 +144,34 @@
                       "minimum": 1,
                       "maximum": 15
                     },
-                    "action": {
-                      "type": "string",
-                      "minLength": 4,
-                      "maxLength": 120
+                    "speech": {
+                      "type": ["object", "null"],
+                      "additionalProperties": false,
+                      "required": ["from", "to"],
+                      "properties": {
+                        "from": {
+                          "type": "number",
+                          "minimum": 0.4,
+                          "maximum": 15
+                        },
+                        "to": {
+                          "type": "number",
+                          "minimum": 0.4,
+                          "maximum": 15
+                        }
+                      }
                     },
-                    "dialogue": {
+                    "sfx": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "additionalProperties": false,
-                        "required": ["speaker", "line", "at_seconds"],
+                        "required": ["text", "at_seconds"],
                         "properties": {
-                          "speaker": {
+                          "text": {
                             "type": "string",
-                            "minLength": 1,
-                            "maxLength": 8
-                          },
-                          "line": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 80
+                            "minLength": 2,
+                            "maxLength": 24
                           },
                           "at_seconds": {
                             "type": "number",
@@ -160,7 +183,7 @@
                       "minItems": 0,
                       "maxItems": 6
                     },
-                    "action_nodes": {
+                    "nodes": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -169,15 +192,13 @@
                           "node_id",
                           "at_seconds",
                           "duration_seconds",
-                          "move",
                           "contact",
-                          "force",
                           "sfx_cue"
                         ],
                         "properties": {
                           "node_id": {
                             "type": "string",
-                            "pattern": "^S[0-9]{2}-[0-9]{2}-A[0-9]$"
+                            "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*-node-[1-9]$"
                           },
                           "at_seconds": {
                             "type": "number",
@@ -189,18 +210,8 @@
                             "minimum": 0.3,
                             "maximum": 3
                           },
-                          "move": {
-                            "type": "string",
-                            "minLength": 2,
-                            "maxLength": 16
-                          },
                           "contact": {
                             "type": "boolean"
-                          },
-                          "force": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 5
                           },
                           "sfx_cue": {
                             "type": ["string", "null"],
@@ -215,65 +226,112 @@
                   }
                 },
                 "minItems": 1,
-                "maxItems": 40
+                "maxItems": 60
               }
             }
           },
           "minItems": 1,
-          "maxItems": 10
+          "maxItems": 5
         },
         "library": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["asset_id", "lane", "title", "tags", "mood", "seconds", "loop"],
-            "properties": {
-              "asset_id": {
-                "type": "string",
-                "pattern": "^(amb|sfx|mus)_[a-z0-9_]+$"
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ambience", "sfx", "music"],
+          "properties": {
+            "ambience": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["asset_id", "title", "seconds"],
+                "properties": {
+                  "asset_id": {
+                    "type": "string",
+                    "pattern": "^(amb|sfx|mus)_[a-z0-9_]+$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 30
+                  },
+                  "seconds": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 600
+                  }
+                }
               },
-              "lane": {
-                "enum": ["环境音", "音效", "配乐"]
+              "minItems": 0,
+              "maxItems": 60
+            },
+            "sfx": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["asset_id", "title", "seconds"],
+                "properties": {
+                  "asset_id": {
+                    "type": "string",
+                    "pattern": "^(amb|sfx|mus)_[a-z0-9_]+$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 30
+                  },
+                  "seconds": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 60
+                  }
+                }
               },
-              "title": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 30
+              "minItems": 0,
+              "maxItems": 200
+            },
+            "music": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["asset_id", "title", "mood", "seconds", "loop"],
+                "properties": {
+                  "asset_id": {
+                    "type": "string",
+                    "pattern": "^(amb|sfx|mus)_[a-z0-9_]+$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 30
+                  },
+                  "mood": {
+                    "enum": ["平静", "温暖", "不安", "悬疑", "紧张", "激烈", "悲伤", "释然"]
+                  },
+                  "seconds": {
+                    "type": "number",
+                    "minimum": 5,
+                    "maximum": 600
+                  },
+                  "loop": {
+                    "type": "boolean"
+                  }
+                }
               },
-              "tags": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 6
-                },
-                "minItems": 0,
-                "maxItems": 8
-              },
-              "mood": {
-                "enum": ["平静", "温暖", "不安", "悬疑", "紧张", "激烈", "悲伤", "释然", null]
-              },
-              "seconds": {
-                "type": "number",
-                "minimum": 0.1,
-                "maximum": 600
-              },
-              "loop": {
-                "type": "boolean"
-              }
+              "minItems": 0,
+              "maxItems": 60
             }
-          },
-          "minItems": 1,
-          "maxItems": 200
+          }
         }
       }
     }
   },
   "output_format": {
     "notes": [
-      "ambience 和 music 的时间按这一场算，sfx 的时间按它所在的镜头算。",
-      "asset_id 为 null 的声音一定能在同一场的 missing 里找到，界面会提示用户补素材。"
+      "页面默认只显示 mood 和 master_volume；lanes 的四层音量放在「细调」里。",
+      "0 到 100 按声音大小换算：100 是原样，50 约小 6 分贝，20 约小 14 分贝，和软件现在的默认音量一致。",
+      "music.reason 和 ambience[].reason 会显示给用户，说明为什么选这条素材。"
     ],
     "schema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -287,137 +345,65 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["scene_id", "lanes", "ambience", "sfx", "music", "missing"],
+            "required": [
+              "scene_id",
+              "mood",
+              "master_volume",
+              "lanes",
+              "music",
+              "ambience",
+              "sfx",
+              "missing"
+            ],
             "properties": {
               "scene_id": {
                 "type": "string",
-                "pattern": "^S[0-9]{2}$"
+                "pattern": "^scene-[1-9][0-9]*$"
+              },
+              "mood": {
+                "enum": ["平静", "温暖", "不安", "悬疑", "紧张", "激烈", "悲伤", "释然"]
+              },
+              "master_volume": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
               },
               "lanes": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["dialogue_db", "ambience_db", "sfx_db", "music_db", "duck_music_db"],
+                "required": ["dialogue", "ambience", "sfx", "music", "music_under_dialogue"],
                 "properties": {
-                  "dialogue_db": {
-                    "type": "number",
-                    "minimum": -12,
-                    "maximum": 0
+                  "dialogue": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
                   },
-                  "ambience_db": {
-                    "type": "number",
-                    "minimum": -30,
-                    "maximum": -3
+                  "ambience": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
                   },
-                  "sfx_db": {
-                    "type": "number",
-                    "minimum": -20,
-                    "maximum": 0
+                  "sfx": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
                   },
-                  "music_db": {
-                    "type": "number",
-                    "minimum": -30,
-                    "maximum": -6
+                  "music": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
                   },
-                  "duck_music_db": {
-                    "type": "number",
-                    "minimum": -18,
-                    "maximum": 0
+                  "music_under_dialogue": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
                   }
                 }
-              },
-              "ambience": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["asset_id", "start_seconds", "end_seconds", "volume_db", "reason"],
-                  "properties": {
-                    "asset_id": {
-                      "type": ["string", "null"],
-                      "pattern": "^amb_[a-z0-9_]+$"
-                    },
-                    "start_seconds": {
-                      "type": "number",
-                      "minimum": 0,
-                      "maximum": 900
-                    },
-                    "end_seconds": {
-                      "type": "number",
-                      "minimum": 0,
-                      "maximum": 900
-                    },
-                    "volume_db": {
-                      "type": "number",
-                      "minimum": -30,
-                      "maximum": 0
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 4,
-                      "maxLength": 60
-                    }
-                  }
-                },
-                "minItems": 1,
-                "maxItems": 3
-              },
-              "sfx": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "shot_id",
-                    "at_seconds",
-                    "asset_id",
-                    "description",
-                    "from_node",
-                    "volume_db",
-                    "reason"
-                  ],
-                  "properties": {
-                    "shot_id": {
-                      "type": "string",
-                      "pattern": "^S[0-9]{2}-[0-9]{2}$"
-                    },
-                    "at_seconds": {
-                      "type": "number",
-                      "minimum": 0,
-                      "maximum": 15
-                    },
-                    "asset_id": {
-                      "type": ["string", "null"],
-                      "pattern": "^sfx_[a-z0-9_]+$"
-                    },
-                    "description": {
-                      "type": "string",
-                      "minLength": 2,
-                      "maxLength": 24
-                    },
-                    "from_node": {
-                      "type": ["string", "null"],
-                      "pattern": "^S[0-9]{2}-[0-9]{2}-A[0-9]$"
-                    },
-                    "volume_db": {
-                      "type": "number",
-                      "minimum": -30,
-                      "maximum": 6
-                    },
-                    "reason": {
-                      "type": ["string", "null"],
-                      "minLength": 1,
-                      "maxLength": 60
-                    }
-                  }
-                },
-                "minItems": 0,
-                "maxItems": 80
               },
               "music": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                  "mood",
                   "asset_id",
                   "start_seconds",
                   "end_seconds",
@@ -426,9 +412,6 @@
                   "reason"
                 ],
                 "properties": {
-                  "mood": {
-                    "enum": ["平静", "温暖", "不安", "悬疑", "紧张", "激烈", "悲伤", "释然"]
-                  },
                   "asset_id": {
                     "type": ["string", "null"],
                     "pattern": "^mus_[a-z0-9_]+$"
@@ -460,6 +443,83 @@
                   }
                 }
               },
+              "ambience": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["asset_id", "start_seconds", "end_seconds", "reason"],
+                  "properties": {
+                    "asset_id": {
+                      "type": ["string", "null"],
+                      "pattern": "^amb_[a-z0-9_]+$"
+                    },
+                    "start_seconds": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 900
+                    },
+                    "end_seconds": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 900
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 4,
+                      "maxLength": 60
+                    }
+                  }
+                },
+                "minItems": 1,
+                "maxItems": 6
+              },
+              "sfx": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "shot_id",
+                    "at_seconds",
+                    "asset_id",
+                    "description",
+                    "from_node",
+                    "reason"
+                  ],
+                  "properties": {
+                    "shot_id": {
+                      "type": "string",
+                      "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+                    },
+                    "at_seconds": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 15
+                    },
+                    "asset_id": {
+                      "type": ["string", "null"],
+                      "pattern": "^sfx_[a-z0-9_]+$"
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 24
+                    },
+                    "from_node": {
+                      "type": ["string", "null"],
+                      "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*-node-[1-9]$"
+                    },
+                    "reason": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 60
+                    }
+                  }
+                },
+                "minItems": 0,
+                "maxItems": 80
+              },
               "missing": {
                 "type": "array",
                 "items": {
@@ -488,7 +548,7 @@
             }
           },
           "minItems": 1,
-          "maxItems": 10
+          "maxItems": 5
         }
       }
     }
@@ -496,1304 +556,1072 @@
   "examples": [
     {
       "id": "sound-1",
-      "title": "第一章：雨声分店里和屋檐下两种，三下敲门对齐同一个动作节点",
+      "title": "第一场：情绪不安，雨夜低琴；雨里的刹车声素材库没有，写进 missing",
       "input": {
         "task": "design_sound",
         "lane_defaults": {
-          "dialogue_db": 0,
-          "ambience_db": -6,
-          "sfx_db": -3,
-          "music_db": -14
+          "dialogue": 100,
+          "ambience": 50,
+          "sfx": 70,
+          "music": 20
         },
         "scenes": [
           {
-            "scene_id": "S01",
-            "title": "雨夜来客",
+            "scene_id": "scene-1",
+            "title": "雨夜旧书店",
             "mood_hint": "不安",
-            "total_seconds": 42,
-            "shots": [
+            "total_seconds": 83,
+            "places": [
               {
-                "shot_id": "S01-01",
-                "start_seconds": 0,
-                "seconds": 5,
-                "action": "林晚在画左正要锁门，画右的玻璃门被推开，风铃乱晃，浑身湿透的沈砚走进来，怀里护着塑料袋。",
-                "dialogue": [],
-                "action_nodes": []
+                "from_shot": "scene-1-shot-1",
+                "ambience": "大雨打在青石板上"
               },
               {
-                "shot_id": "S01-02",
-                "start_seconds": 5,
-                "seconds": 9,
-                "action": "从林晚肩后拍沈砚：沈砚滴着水发问，林晚回答时抬手指向最里面那排书架。",
-                "dialogue": [
-                  {
-                    "speaker": "沈砚",
-                    "line": "你父亲留下的那本《潮汐表》，还在吗？",
-                    "at_seconds": 0.5
-                  },
-                  {
-                    "speaker": "林晚",
-                    "line": "在。你这么晚来，就为了一本旧书？",
-                    "at_seconds": 4.6
-                  }
-                ],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S01-03",
-                "start_seconds": 14,
-                "seconds": 4,
-                "action": "沈砚的右手从褪色蓝皮书的书脊里抽出一枚生锈的钥匙，攥进掌心。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S01-04",
-                "start_seconds": 18,
-                "seconds": 9,
-                "action": "沈砚攥着钥匙回头低声警告；画左前景是林晚虚焦的侧脸，她声音发紧地追问。",
-                "dialogue": [
-                  {
-                    "speaker": "沈砚",
-                    "line": "周烈的人在找这个。今晚你别回家。",
-                    "at_seconds": 0.5
-                  },
-                  {
-                    "speaker": "林晚",
-                    "line": "周烈？",
-                    "at_seconds": 4.4
-                  },
-                  {
-                    "speaker": "林晚",
-                    "line": "我爸欠他的钱，早就还清了。",
-                    "at_seconds": 5.3
-                  }
-                ],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S01-05",
-                "start_seconds": 27,
-                "seconds": 8,
-                "action": "沈砚把裹着塑料袋的账本塞进林晚怀里。",
-                "dialogue": [
-                  {
-                    "speaker": "沈砚",
-                    "line": "他要的不是钱。",
-                    "at_seconds": 0.5
-                  },
-                  {
-                    "speaker": "沈砚",
-                    "line": "这是你爸的账本。拿好，别让任何人看见。",
-                    "at_seconds": 2.6
-                  }
-                ],
-                "action_nodes": [
-                  {
-                    "node_id": "S01-05-A1",
-                    "at_seconds": 2,
-                    "duration_seconds": 0.8,
-                    "move": "把塑料袋塞进她怀里",
-                    "contact": true,
-                    "force": 2,
-                    "sfx_cue": "塑料袋窸窣"
-                  },
-                  {
-                    "node_id": "S01-05-A2",
-                    "at_seconds": 2.9,
-                    "duration_seconds": 0.6,
-                    "move": "抱紧塑料袋",
-                    "contact": false,
-                    "force": 2,
-                    "sfx_cue": null
-                  }
-                ]
-              },
-              {
-                "shot_id": "S01-06",
-                "start_seconds": 35,
-                "seconds": 7,
-                "action": "车灯扫过橱窗，周烈撑着黑伞站在门外台阶下，抬手用指节敲了三下玻璃门；沈砚抬手示意林晚退到柜台后面。",
-                "dialogue": [],
-                "action_nodes": [
-                  {
-                    "node_id": "S01-06-A1",
-                    "at_seconds": 2.6,
-                    "duration_seconds": 1.6,
-                    "move": "用指节敲玻璃门三下",
-                    "contact": true,
-                    "force": 2,
-                    "sfx_cue": "指节敲玻璃"
-                  },
-                  {
-                    "node_id": "S01-06-A2",
-                    "at_seconds": 4.6,
-                    "duration_seconds": 0.8,
-                    "move": "抬手示意后退",
-                    "contact": false,
-                    "force": 1,
-                    "sfx_cue": null
-                  }
-                ]
+                "from_shot": "scene-1-shot-2",
+                "ambience": "雨打在玻璃门上，店里很静"
               }
-            ]
-          },
-          {
-            "scene_id": "S02",
-            "title": "檐下对峙",
-            "mood_hint": "悬疑",
-            "total_seconds": 38,
+            ],
             "shots": [
               {
-                "shot_id": "S02-01",
+                "shot_id": "scene-1-shot-1",
                 "start_seconds": 0,
-                "seconds": 5,
-                "action": "沈砚推门走到屋檐下，檐口的雨水在他和台阶下的周烈之间挂成一道水帘。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S02-02",
-                "start_seconds": 5,
-                "seconds": 9,
-                "action": "从沈砚肩后拍周烈：周烈撑着黑伞，笑着开口。",
-                "dialogue": [
-                  {
-                    "speaker": "周烈",
-                    "line": "沈警官，好久不见。",
-                    "at_seconds": 0.5
-                  },
-                  {
-                    "speaker": "周烈",
-                    "line": "书店的房租，我已经替林小姐交到明年了。",
-                    "at_seconds": 2.9
-                  }
-                ],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S02-03",
-                "start_seconds": 14,
                 "seconds": 4,
-                "action": "沈砚盯着周烈，一字一顿地回话。",
-                "dialogue": [
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-2",
+                "start_seconds": 4,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-3",
+                "start_seconds": 8,
+                "seconds": 2,
+                "speech": null,
+                "sfx": [
                   {
-                    "speaker": "沈砚",
-                    "line": "她不欠你什么。",
-                    "at_seconds": 0.6
+                    "text": "门铃叮的一声",
+                    "at_seconds": 0.3
                   }
                 ],
-                "action_nodes": []
+                "nodes": []
               },
               {
-                "shot_id": "S02-04",
-                "start_seconds": 18,
-                "seconds": 3,
-                "action": "隔着沾满雨水的玻璃门，林晚抱着塑料袋站在柜台后面，指节发白。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S02-05",
-                "start_seconds": 21,
-                "seconds": 3,
-                "action": "周烈伸手去拉门把，沈砚用左手扣住他的手腕往外一推，周烈退了半步。",
-                "dialogue": [],
-                "action_nodes": [
+                "shot_id": "scene-1-shot-4",
+                "start_seconds": 10,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": [
                   {
-                    "node_id": "S02-05-A1",
-                    "at_seconds": 0.2,
-                    "duration_seconds": 0.6,
-                    "move": "伸手去拉门把",
+                    "node_id": "scene-1-shot-4-node-1",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 1.2,
+                    "contact": true,
+                    "sfx_cue": "推门声"
+                  },
+                  {
+                    "node_id": "scene-1-shot-4-node-2",
+                    "at_seconds": 2,
+                    "duration_seconds": 1.5,
                     "contact": false,
-                    "force": 2,
-                    "sfx_cue": null
-                  },
-                  {
-                    "node_id": "S02-05-A2",
-                    "at_seconds": 0.8,
-                    "duration_seconds": 0.5,
-                    "move": "扣住手腕",
-                    "contact": true,
-                    "force": 3,
-                    "sfx_cue": "衣袖被抓住"
-                  },
-                  {
-                    "node_id": "S02-05-A3",
-                    "at_seconds": 1.4,
-                    "duration_seconds": 0.8,
-                    "move": "往外一推",
-                    "contact": true,
-                    "force": 4,
-                    "sfx_cue": "踩水声"
+                    "sfx_cue": "收伞的哗啦声"
                   }
                 ]
               },
               {
-                "shot_id": "S02-06",
-                "start_seconds": 24,
-                "seconds": 8,
-                "action": "周烈笑着收回手，把烟从嘴里拿下来，在伞柄上磕了磕。",
-                "dialogue": [
-                  {
-                    "speaker": "周烈",
-                    "line": "凌晨一点，三号码头。钥匙带来，账本的事我就当没发生过。",
-                    "at_seconds": 1.2
-                  }
-                ],
-                "action_nodes": []
+                "shot_id": "scene-1-shot-5",
+                "start_seconds": 15,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.6,
+                  "to": 1.35
+                },
+                "sfx": [],
+                "nodes": []
               },
               {
-                "shot_id": "S02-07",
-                "start_seconds": 32,
+                "shot_id": "scene-1-shot-6",
+                "start_seconds": 18,
+                "seconds": 5,
+                "speech": {
+                  "from": 0.5,
+                  "to": 3.75
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-7",
+                "start_seconds": 23,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.6,
+                  "to": 1.6
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-8",
+                "start_seconds": 26,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.6,
+                  "to": 1.85
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-9",
+                "start_seconds": 29,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-10",
+                "start_seconds": 34,
+                "seconds": 4,
+                "speech": {
+                  "from": 0.6,
+                  "to": 2.6
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-11",
+                "start_seconds": 38,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.8,
+                  "to": 1.55
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-12",
+                "start_seconds": 41,
+                "seconds": 14,
+                "speech": {
+                  "from": 3.2,
+                  "to": 11.95
+                },
+                "sfx": [],
+                "nodes": [
+                  {
+                    "node_id": "scene-1-shot-12-node-2",
+                    "at_seconds": 2.4,
+                    "duration_seconds": 0.8,
+                    "contact": true,
+                    "sfx_cue": "纸包落在木台面上"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-1-shot-13",
+                "start_seconds": 55,
+                "seconds": 4,
+                "speech": {
+                  "from": 0.8,
+                  "to": 2.55
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-14",
+                "start_seconds": 59,
+                "seconds": 4,
+                "speech": {
+                  "from": 0.5,
+                  "to": 3
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-15",
+                "start_seconds": 63,
+                "seconds": 3,
+                "speech": {
+                  "from": 1,
+                  "to": 2
+                },
+                "sfx": [],
+                "nodes": [
+                  {
+                    "node_id": "scene-1-shot-15-node-1",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 0.6,
+                    "contact": true,
+                    "sfx_cue": "纸擦过台面"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-1-shot-16",
+                "start_seconds": 66,
                 "seconds": 6,
-                "action": "周烈转身走进雨里，黑伞很快消失在街角；沈砚站在屋檐下没动，右手攥着钥匙。",
-                "dialogue": [],
-                "action_nodes": []
+                "speech": {
+                  "from": 1.2,
+                  "to": 4.45
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-17",
+                "start_seconds": 72,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-18",
+                "start_seconds": 76,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-1-shot-19",
+                "start_seconds": 79,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [
+                  {
+                    "text": "刺耳的刹车声",
+                    "at_seconds": 0.3
+                  }
+                ],
+                "nodes": []
               }
             ]
           }
         ],
-        "library": [
-          {
-            "asset_id": "amb_rain_shop_inside",
-            "lane": "环境音",
-            "title": "店里听雨：大雨打在玻璃窗上，屋里安静",
-            "tags": ["雨", "室内", "夜"],
-            "mood": null,
-            "seconds": 180,
-            "loop": true
-          },
-          {
-            "asset_id": "amb_rain_eaves",
-            "lane": "环境音",
-            "title": "屋檐下大雨，水帘砸在石台阶上",
-            "tags": ["雨", "室外", "屋檐"],
-            "mood": null,
-            "seconds": 120,
-            "loop": true
-          },
-          {
-            "asset_id": "amb_street_night_rain",
-            "lane": "环境音",
-            "title": "雨夜老街，远处有车开过",
-            "tags": ["雨", "街道", "车声"],
-            "mood": null,
-            "seconds": 150,
-            "loop": true
-          },
-          {
-            "asset_id": "sfx_bell_door",
-            "lane": "音效",
-            "title": "门上的铜风铃乱响",
-            "tags": ["风铃", "门"],
-            "mood": null,
-            "seconds": 2.4,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_glass_door_open",
-            "lane": "音效",
-            "title": "玻璃门推开，门轴轻响",
-            "tags": ["门", "玻璃"],
-            "mood": null,
-            "seconds": 1.6,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_key_scrape",
-            "lane": "音效",
-            "title": "金属钥匙从纸页里抽出",
-            "tags": ["钥匙", "金属"],
-            "mood": null,
-            "seconds": 1.2,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_plastic_bag",
-            "lane": "音效",
-            "title": "塑料袋窸窣",
-            "tags": ["塑料袋"],
-            "mood": null,
-            "seconds": 1.5,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_knock_glass",
-            "lane": "音效",
-            "title": "指节敲一下玻璃",
-            "tags": ["敲门", "玻璃"],
-            "mood": null,
-            "seconds": 0.4,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_footsteps_puddle",
-            "lane": "音效",
-            "title": "踩着积水的脚步",
-            "tags": ["脚步", "积水"],
-            "mood": null,
-            "seconds": 3,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_cloth_grab",
-            "lane": "音效",
-            "title": "衣袖被一把抓住",
-            "tags": ["衣服", "抓"],
-            "mood": null,
-            "seconds": 0.6,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_cigarette_tap",
-            "lane": "音效",
-            "title": "烟在伞柄上轻磕",
-            "tags": ["烟", "轻磕"],
-            "mood": null,
-            "seconds": 0.5,
-            "loop": false
-          },
-          {
-            "asset_id": "mus_unease_piano",
-            "lane": "配乐",
-            "title": "雨夜低琴：慢速钢琴单音，留白多",
-            "tags": ["钢琴", "慢"],
-            "mood": "不安",
-            "seconds": 95,
-            "loop": false
-          },
-          {
-            "asset_id": "mus_suspense_pulse",
-            "lane": "配乐",
-            "title": "暗涌：低音弦乐持续音，带一点心跳声",
-            "tags": ["弦乐", "低音"],
-            "mood": "悬疑",
-            "seconds": 120,
-            "loop": true
-          },
-          {
-            "asset_id": "mus_tense_strings",
-            "lane": "配乐",
-            "title": "绷紧：高音弦乐颤音",
-            "tags": ["弦乐", "高音"],
-            "mood": "紧张",
-            "seconds": 80,
-            "loop": true
-          }
-        ]
+        "library": {
+          "ambience": [
+            {
+              "asset_id": "amb_alley_heavy_rain",
+              "title": "老街大雨：雨打青石板，屋檐流水",
+              "seconds": 180
+            },
+            {
+              "asset_id": "amb_shop_rain_inside",
+              "title": "店里听雨：大雨打在玻璃门上，屋里很静",
+              "seconds": 180
+            }
+          ],
+          "sfx": [
+            {
+              "asset_id": "sfx_door_bell",
+              "title": "门铃叮的一声",
+              "seconds": 1.2
+            },
+            {
+              "asset_id": "sfx_glass_door_push",
+              "title": "推开玻璃门",
+              "seconds": 1.4
+            },
+            {
+              "asset_id": "sfx_umbrella_close",
+              "title": "收起湿雨伞",
+              "seconds": 1.5
+            },
+            {
+              "asset_id": "sfx_paper_on_wood",
+              "title": "纸包放在木台面上",
+              "seconds": 0.6
+            },
+            {
+              "asset_id": "sfx_paper_slide",
+              "title": "纸包擦过台面",
+              "seconds": 0.6
+            }
+          ],
+          "music": [
+            {
+              "asset_id": "mus_rain_piano",
+              "title": "雨夜低琴：慢速钢琴单音，留白多",
+              "mood": "不安",
+              "seconds": 95,
+              "loop": false
+            },
+            {
+              "asset_id": "mus_low_pulse",
+              "title": "暗涌：低音弦乐持续音",
+              "mood": "悬疑",
+              "seconds": 120,
+              "loop": true
+            },
+            {
+              "asset_id": "mus_dawn_strings",
+              "title": "天亮以前：温暖的弦乐慢慢铺开",
+              "mood": "温暖",
+              "seconds": 100,
+              "loop": false
+            }
+          ]
+        }
       },
       "output": {
         "scenes": [
           {
-            "scene_id": "S01",
+            "scene_id": "scene-1",
+            "mood": "不安",
+            "master_volume": 80,
             "lanes": {
-              "dialogue_db": 0,
-              "ambience_db": -8,
-              "sfx_db": -4,
-              "music_db": -16,
-              "duck_music_db": -6
+              "dialogue": 100,
+              "ambience": 45,
+              "sfx": 65,
+              "music": 20,
+              "music_under_dialogue": 10
             },
-            "ambience": [
-              {
-                "asset_id": "amb_rain_shop_inside",
-                "start_seconds": 0,
-                "end_seconds": 42,
-                "volume_db": -8,
-                "reason": "门关着时听到的是隔着玻璃的大雨，压得住又不抢台词。"
-              }
-            ],
-            "sfx": [
-              {
-                "shot_id": "S01-01",
-                "at_seconds": 1,
-                "asset_id": "sfx_glass_door_open",
-                "description": "玻璃门被推开",
-                "from_node": null,
-                "volume_db": -6,
-                "reason": null
-              },
-              {
-                "shot_id": "S01-01",
-                "at_seconds": 1.2,
-                "asset_id": "sfx_bell_door",
-                "description": "风铃乱响",
-                "from_node": null,
-                "volume_db": -4,
-                "reason": null
-              },
-              {
-                "shot_id": "S01-03",
-                "at_seconds": 0.8,
-                "asset_id": "sfx_key_scrape",
-                "description": "钥匙从书脊里抽出",
-                "from_node": null,
-                "volume_db": -6,
-                "reason": null
-              },
-              {
-                "shot_id": "S01-05",
-                "at_seconds": 2.1,
-                "asset_id": "sfx_plastic_bag",
-                "description": "塑料袋塞进怀里",
-                "from_node": "S01-05-A1",
-                "volume_db": -6,
-                "reason": null
-              },
-              {
-                "shot_id": "S01-06",
-                "at_seconds": 2.6,
-                "asset_id": "sfx_knock_glass",
-                "description": "敲玻璃第一下",
-                "from_node": "S01-06-A1",
-                "volume_db": -2,
-                "reason": null
-              },
-              {
-                "shot_id": "S01-06",
-                "at_seconds": 3.1,
-                "asset_id": "sfx_knock_glass",
-                "description": "敲玻璃第二下",
-                "from_node": "S01-06-A1",
-                "volume_db": -2,
-                "reason": null
-              },
-              {
-                "shot_id": "S01-06",
-                "at_seconds": 3.6,
-                "asset_id": "sfx_knock_glass",
-                "description": "敲玻璃第三下",
-                "from_node": "S01-06-A1",
-                "volume_db": -2,
-                "reason": null
-              }
-            ],
             "music": {
-              "mood": "不安",
-              "asset_id": "mus_unease_piano",
-              "start_seconds": 14,
-              "end_seconds": 42,
+              "asset_id": "mus_rain_piano",
+              "start_seconds": 4,
+              "end_seconds": 83,
               "fade_in_seconds": 2,
-              "fade_out_seconds": 1.5,
-              "reason": "慢速钢琴单音留白多，钥匙露面时进来，不抢台词。"
-            },
-            "missing": []
-          },
-          {
-            "scene_id": "S02",
-            "lanes": {
-              "dialogue_db": 0,
-              "ambience_db": -6,
-              "sfx_db": -3,
-              "music_db": -15,
-              "duck_music_db": -6
+              "fade_out_seconds": 3,
+              "reason": "单音钢琴留白多，不盖住对白，和雨夜的不安一致；长度够整场。"
             },
             "ambience": [
               {
-                "asset_id": "amb_rain_eaves",
+                "asset_id": "amb_alley_heavy_rain",
                 "start_seconds": 0,
-                "end_seconds": 38,
-                "volume_db": -6,
-                "reason": "人站在屋檐下，水帘砸台阶的声音比店里大，对峙更有压迫感。"
+                "end_seconds": 4,
+                "reason": "第一镜在巷子里，先听到雨打青石板。"
               },
               {
-                "asset_id": "amb_street_night_rain",
-                "start_seconds": 30,
-                "end_seconds": 38,
-                "volume_db": -14,
-                "reason": "周烈走远时带出远处的车声，让街道显得更空。"
+                "asset_id": "amb_shop_rain_inside",
+                "start_seconds": 4,
+                "end_seconds": 83,
+                "reason": "进店以后雨声隔着玻璃门变闷，店里要安静。"
               }
             ],
             "sfx": [
               {
-                "shot_id": "S02-01",
+                "shot_id": "scene-1-shot-3",
                 "at_seconds": 0.3,
-                "asset_id": "sfx_glass_door_open",
-                "description": "沈砚推门出来",
+                "asset_id": "sfx_door_bell",
+                "description": "门铃叮的一声",
                 "from_node": null,
-                "volume_db": -6,
                 "reason": null
               },
               {
-                "shot_id": "S02-05",
-                "at_seconds": 0.9,
-                "asset_id": "sfx_cloth_grab",
-                "description": "一把扣住手腕",
-                "from_node": "S02-05-A2",
-                "volume_db": -2,
+                "shot_id": "scene-1-shot-4",
+                "at_seconds": 0.3,
+                "asset_id": "sfx_glass_door_push",
+                "description": "推开玻璃门",
+                "from_node": "scene-1-shot-4-node-1",
                 "reason": null
               },
               {
-                "shot_id": "S02-05",
-                "at_seconds": 1.6,
-                "asset_id": "sfx_footsteps_puddle",
-                "description": "退半步踩到积水",
-                "from_node": "S02-05-A3",
-                "volume_db": -4,
+                "shot_id": "scene-1-shot-4",
+                "at_seconds": 2,
+                "asset_id": "sfx_umbrella_close",
+                "description": "收起湿雨伞",
+                "from_node": "scene-1-shot-4-node-2",
                 "reason": null
               },
               {
-                "shot_id": "S02-06",
-                "at_seconds": 0.6,
-                "asset_id": "sfx_cigarette_tap",
-                "description": "烟在伞柄上磕两下",
+                "shot_id": "scene-1-shot-12",
+                "at_seconds": 2.4,
+                "asset_id": "sfx_paper_on_wood",
+                "description": "信封放在收银台上",
+                "from_node": "scene-1-shot-12-node-2",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-1-shot-15",
+                "at_seconds": 0.3,
+                "asset_id": "sfx_paper_slide",
+                "description": "信封擦过台面",
+                "from_node": "scene-1-shot-15-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-1-shot-19",
+                "at_seconds": 0.3,
+                "asset_id": null,
+                "description": "雨里的急刹车",
                 "from_node": null,
-                "volume_db": -8,
-                "reason": null
-              },
-              {
-                "shot_id": "S02-07",
-                "at_seconds": 0.5,
-                "asset_id": "sfx_footsteps_puddle",
-                "description": "周烈踩着积水走远",
-                "from_node": null,
-                "volume_db": -8,
-                "reason": null
+                "reason": "素材库没有雨里的刹车声，见 missing。"
               }
             ],
-            "music": {
-              "mood": "悬疑",
-              "asset_id": "mus_suspense_pulse",
-              "start_seconds": 0,
-              "end_seconds": 38,
-              "fade_in_seconds": 3,
-              "fade_out_seconds": 3,
-              "reason": "低音弦乐一直压着，周烈每句话都像在试探。"
-            },
-            "missing": []
+            "missing": [
+              {
+                "lane": "音效",
+                "need": "雨里的急刹车",
+                "suggestion": "先用普通急刹车声，叠一层大雨声。"
+              }
+            ]
           }
         ]
       }
     },
     {
       "id": "sound-2",
-      "title": "第二章：打斗音效逐个对齐接触节点，缺刀滑地的素材时如实写进 missing",
+      "title": "第二场：情绪激烈，从推倒书架开始进鼓，每个碰到的动作都有音效",
       "input": {
         "task": "design_sound",
         "lane_defaults": {
-          "dialogue_db": 0,
-          "ambience_db": -6,
-          "sfx_db": -3,
-          "music_db": -14
+          "dialogue": 100,
+          "ambience": 50,
+          "sfx": 70,
+          "music": 20
         },
         "scenes": [
           {
-            "scene_id": "S03",
-            "title": "独自赴约",
-            "mood_hint": "悬疑",
-            "total_seconds": 22,
-            "shots": [
-              {
-                "shot_id": "S03-01",
-                "start_seconds": 0,
-                "seconds": 5,
-                "action": "凌晨的集装箱码头下着小雨，积水被海风吹出波纹，远处七号仓库的铁门半开，漏出一线昏黄的光。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S03-02",
-                "start_seconds": 5,
-                "seconds": 5,
-                "action": "沈砚把钥匙揣进夹克内袋，一个人朝画左深处的仓库走去，没有回头。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S03-03",
-                "start_seconds": 10,
-                "seconds": 4,
-                "action": "远处一辆出租车停下，林晚下车，躲到一排集装箱后面。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S03-04",
-                "start_seconds": 14,
-                "seconds": 8,
-                "action": "林晚贴着集装箱，攥着手机压低声音报警。",
-                "dialogue": [
-                  {
-                    "speaker": "林晚",
-                    "line": "喂，110吗？三号码头七号仓库，有人要打起来了，你们快来。",
-                    "at_seconds": 0.6
-                  }
-                ],
-                "action_nodes": []
-              }
-            ]
-          },
-          {
-            "scene_id": "S04",
-            "title": "钢管对刀",
+            "scene_id": "scene-2",
+            "title": "码头仓库",
             "mood_hint": "激烈",
-            "total_seconds": 49,
+            "total_seconds": 96,
+            "places": [
+              {
+                "from_shot": "scene-2-shot-1",
+                "ambience": "门口灌进雨声，店里一片狼藉"
+              },
+              {
+                "from_shot": "scene-2-shot-13",
+                "ambience": "雨砸在铁皮屋顶上，轰轰作响"
+              }
+            ],
             "shots": [
               {
-                "shot_id": "S04-01",
+                "shot_id": "scene-2-shot-1",
                 "start_seconds": 0,
-                "seconds": 6,
-                "action": "吊灯来回摇晃，周烈坐在画右的木箱上削苹果，沈砚从画左走进光里。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S04-02",
-                "start_seconds": 6,
-                "seconds": 4,
-                "action": "周烈把一长条苹果皮甩到地上，抬眼发问。",
-                "dialogue": [
+                "seconds": 3,
+                "speech": null,
+                "sfx": [
                   {
-                    "speaker": "周烈",
-                    "line": "钥匙带来了？",
-                    "at_seconds": 1.4
+                    "text": "门被撞开",
+                    "at_seconds": 0.2
                   }
                 ],
-                "action_nodes": []
+                "nodes": []
               },
               {
-                "shot_id": "S04-03",
-                "start_seconds": 10,
+                "shot_id": "scene-2-shot-2",
+                "start_seconds": 3,
+                "seconds": 3,
+                "speech": {
+                  "from": 1.4,
+                  "to": 2.15
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-3",
+                "start_seconds": 6,
+                "seconds": 10,
+                "speech": {
+                  "from": 0.6,
+                  "to": 8.85
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-4",
+                "start_seconds": 16,
+                "seconds": 4,
+                "speech": {
+                  "from": 0.6,
+                  "to": 2.6
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-5",
+                "start_seconds": 20,
                 "seconds": 5,
-                "action": "沈砚站着不动，冷冷回话。",
-                "dialogue": [
+                "speech": {
+                  "from": 0.5,
+                  "to": 3.75
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-6",
+                "start_seconds": 25,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.8,
+                  "to": 1.3
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-7",
+                "start_seconds": 28,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [
                   {
-                    "speaker": "沈砚",
-                    "line": "先让你的人离书店远一点。",
+                    "text": "书架倒地，书砸了一地",
+                    "at_seconds": 1
+                  }
+                ],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-8",
+                "start_seconds": 31,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-9",
+                "start_seconds": 34,
+                "seconds": 5,
+                "speech": {
+                  "from": 0.6,
+                  "to": 4.1
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-10",
+                "start_seconds": 39,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.8,
+                  "to": 1.55
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-11",
+                "start_seconds": 42,
+                "seconds": 3,
+                "speech": {
+                  "from": 1.2,
+                  "to": 2.2
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-12",
+                "start_seconds": 45,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-13",
+                "start_seconds": 50,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-14",
+                "start_seconds": 54,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [
+                  {
+                    "text": "面包车急刹",
+                    "at_seconds": 3
+                  }
+                ],
+                "nodes": [
+                  {
+                    "node_id": "scene-2-shot-14-node-1",
+                    "at_seconds": 0.5,
+                    "duration_seconds": 0.8,
+                    "contact": true,
+                    "sfx_cue": "鞋底擦过水泥地"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-2-shot-15",
+                "start_seconds": 59,
+                "seconds": 4,
+                "speech": {
+                  "from": 1,
+                  "to": 2.75
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-16",
+                "start_seconds": 63,
+                "seconds": 4,
+                "speech": {
+                  "from": 0.6,
+                  "to": 2.85
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-17",
+                "start_seconds": 67,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [
+                  {
+                    "text": "铁棍砸碎木箱",
+                    "at_seconds": 0.9
+                  }
+                ],
+                "nodes": [
+                  {
+                    "node_id": "scene-2-shot-17-node-1",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 0.6,
+                    "contact": true,
+                    "sfx_cue": "铁棍砸碎木箱"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-2-shot-18",
+                "start_seconds": 70,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [
+                  {
+                    "text": "铁棍当啷落地",
+                    "at_seconds": 1.6
+                  }
+                ],
+                "nodes": [
+                  {
+                    "node_id": "scene-2-shot-18-node-1",
+                    "at_seconds": 0.5,
+                    "duration_seconds": 1.2,
+                    "contact": true,
+                    "sfx_cue": "铁棍当啷落地"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-2-shot-19",
+                "start_seconds": 73,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [
+                  {
+                    "text": "肘击闷响",
+                    "at_seconds": 1
+                  },
+                  {
+                    "text": "跪进积水",
+                    "at_seconds": 2
+                  }
+                ],
+                "nodes": [
+                  {
+                    "node_id": "scene-2-shot-19-node-1",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 0.6,
+                    "contact": false,
+                    "sfx_cue": "踩水声"
+                  },
+                  {
+                    "node_id": "scene-2-shot-19-node-2",
+                    "at_seconds": 0.9,
+                    "duration_seconds": 0.5,
+                    "contact": true,
+                    "sfx_cue": "肘击闷响"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-2-shot-20",
+                "start_seconds": 76,
+                "seconds": 2,
+                "speech": null,
+                "sfx": [
+                  {
+                    "text": "折叠刀弹开",
                     "at_seconds": 0.6
                   }
                 ],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S04-04",
-                "start_seconds": 15,
-                "seconds": 5,
-                "action": "周烈笑了一声，从木箱上跳下来，折叠刀还握在右手。",
-                "dialogue": [
+                "nodes": [
                   {
-                    "speaker": "周烈",
-                    "line": "沈警官，你早就不是警察了。",
-                    "at_seconds": 1
-                  }
-                ],
-                "action_nodes": [
-                  {
-                    "node_id": "S04-04-A1",
-                    "at_seconds": 0.1,
-                    "duration_seconds": 0.3,
-                    "move": "把苹果丢到木箱上",
-                    "contact": true,
-                    "force": 1,
-                    "sfx_cue": null
-                  },
-                  {
-                    "node_id": "S04-04-A2",
+                    "node_id": "scene-2-shot-20-node-1",
                     "at_seconds": 0.4,
-                    "duration_seconds": 0.6,
-                    "move": "从木箱上跳下",
+                    "duration_seconds": 0.4,
                     "contact": false,
-                    "force": 3,
-                    "sfx_cue": "皮鞋落地"
+                    "sfx_cue": "折叠刀弹开"
                   }
                 ]
               },
               {
-                "shot_id": "S04-05",
-                "start_seconds": 20,
+                "shot_id": "scene-2-shot-21",
+                "start_seconds": 78,
+                "seconds": 2,
+                "speech": {
+                  "from": 0.4,
+                  "to": 0.9
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-22",
+                "start_seconds": 80,
                 "seconds": 3,
-                "action": "周烈从画右扑向画左，刀尖直刺沈砚胸口，沈砚侧身躲开。",
-                "dialogue": [],
-                "action_nodes": [
+                "speech": null,
+                "sfx": [
                   {
-                    "node_id": "S04-05-A1",
-                    "at_seconds": 0.2,
-                    "duration_seconds": 0.6,
-                    "move": "前冲直刺",
-                    "contact": false,
-                    "force": 5,
-                    "sfx_cue": "刀破风声"
-                  },
-                  {
-                    "node_id": "S04-05-A2",
-                    "at_seconds": 0.6,
-                    "duration_seconds": 0.5,
-                    "move": "侧身躲开",
-                    "contact": false,
-                    "force": 3,
-                    "sfx_cue": "衣服擦过刀锋"
-                  }
-                ]
-              },
-              {
-                "shot_id": "S04-06",
-                "start_seconds": 23,
-                "seconds": 3,
-                "action": "沈砚右手抄起墙边的锈钢管，横着格开第二刀，钢管和刀刃撞出一串火星。",
-                "dialogue": [],
-                "action_nodes": [
-                  {
-                    "node_id": "S04-06-A1",
-                    "at_seconds": 0.1,
-                    "duration_seconds": 0.5,
-                    "move": "抄起钢管",
-                    "contact": true,
-                    "force": 2,
-                    "sfx_cue": "钢管刮过墙面"
-                  },
-                  {
-                    "node_id": "S04-06-A2",
-                    "at_seconds": 0.7,
-                    "duration_seconds": 0.5,
-                    "move": "挥刀横劈",
-                    "contact": false,
-                    "force": 4,
-                    "sfx_cue": "刀破风声"
-                  },
-                  {
-                    "node_id": "S04-06-A3",
-                    "at_seconds": 1.2,
-                    "duration_seconds": 0.6,
-                    "move": "钢管横格",
-                    "contact": true,
-                    "force": 4,
-                    "sfx_cue": "金属撞击"
-                  }
-                ]
-              },
-              {
-                "shot_id": "S04-07",
-                "start_seconds": 26,
-                "seconds": 3,
-                "action": "第三刀从画右斜劈下来，沈砚抬起左臂去挡，刀刃划过左前臂，夹克袖子渗出血。",
-                "dialogue": [],
-                "action_nodes": [
-                  {
-                    "node_id": "S04-07-A1",
-                    "at_seconds": 0.2,
-                    "duration_seconds": 0.6,
-                    "move": "斜劈",
-                    "contact": true,
-                    "force": 5,
-                    "sfx_cue": "刀划过布料"
-                  },
-                  {
-                    "node_id": "S04-07-A2",
-                    "at_seconds": 0.3,
-                    "duration_seconds": 0.5,
-                    "move": "抬左臂格挡",
-                    "contact": false,
-                    "force": 3,
-                    "sfx_cue": null
-                  },
-                  {
-                    "node_id": "S04-07-A3",
-                    "at_seconds": 0.9,
-                    "duration_seconds": 1.2,
-                    "move": "受伤后缩回手臂",
-                    "contact": false,
-                    "force": 1,
-                    "sfx_cue": null
-                  }
-                ]
-              },
-              {
-                "shot_id": "S04-08",
-                "start_seconds": 29,
-                "seconds": 3,
-                "action": "沈砚闷哼一声，咬紧牙，抡起钢管从画左狠狠砸在周烈的右手腕上。",
-                "dialogue": [],
-                "action_nodes": [
-                  {
-                    "node_id": "S04-08-A1",
-                    "at_seconds": 0.3,
-                    "duration_seconds": 0.7,
-                    "move": "抡钢管砸手腕",
-                    "contact": true,
-                    "force": 5,
-                    "sfx_cue": "钢管砸中闷响"
-                  },
-                  {
-                    "node_id": "S04-08-A2",
-                    "at_seconds": 1,
-                    "duration_seconds": 0.8,
-                    "move": "手腕吃痛松开刀",
-                    "contact": false,
-                    "force": 1,
-                    "sfx_cue": null
-                  }
-                ]
-              },
-              {
-                "shot_id": "S04-09",
-                "start_seconds": 32,
-                "seconds": 3,
-                "action": "折叠刀飞出去落在水泥地上，一路滑出很远。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S04-10",
-                "start_seconds": 35,
-                "seconds": 4,
-                "action": "周烈捂着右手腕跪倒在地，沈砚用钢管抵住他的肩膀，大口喘气。",
-                "dialogue": [],
-                "action_nodes": [
-                  {
-                    "node_id": "S04-10-A1",
-                    "at_seconds": 0.2,
-                    "duration_seconds": 0.8,
-                    "move": "捂着手腕跪倒",
-                    "contact": true,
-                    "force": 3,
-                    "sfx_cue": "膝盖着地"
-                  },
-                  {
-                    "node_id": "S04-10-A2",
-                    "at_seconds": 1.2,
-                    "duration_seconds": 0.8,
-                    "move": "钢管抵住肩膀",
-                    "contact": true,
-                    "force": 3,
-                    "sfx_cue": "衣服摩擦"
-                  }
-                ]
-              },
-              {
-                "shot_id": "S04-11",
-                "start_seconds": 39,
-                "seconds": 5,
-                "action": "铁门被一把推开，林晚举着手机冲进来大喊，远处警笛声逼近。",
-                "dialogue": [
-                  {
-                    "speaker": "林晚",
-                    "line": "我报警了！",
-                    "at_seconds": 1.2
+                    "text": "刀锋划过",
+                    "at_seconds": 0.5
                   }
                 ],
-                "action_nodes": [
+                "nodes": [
                   {
-                    "node_id": "S04-11-A1",
-                    "at_seconds": 0,
-                    "duration_seconds": 0.6,
-                    "move": "推开铁门",
+                    "node_id": "scene-2-shot-22-node-2",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 0.5,
                     "contact": true,
-                    "force": 4,
-                    "sfx_cue": "铁门撞墙"
-                  },
-                  {
-                    "node_id": "S04-11-A2",
-                    "at_seconds": 0.6,
-                    "duration_seconds": 1,
-                    "move": "冲进仓库",
-                    "contact": false,
-                    "force": 3,
-                    "sfx_cue": "急促的脚步"
-                  },
-                  {
-                    "node_id": "S04-11-A3",
-                    "at_seconds": 2.4,
-                    "duration_seconds": 0.6,
-                    "move": "回头",
-                    "contact": false,
-                    "force": 1,
-                    "sfx_cue": null
+                    "sfx_cue": "刀锋划过"
                   }
                 ]
               },
               {
-                "shot_id": "S04-12",
-                "start_seconds": 44,
-                "seconds": 5,
-                "action": "沈砚回头看林晚，血顺着左手的手指滴在地上。",
-                "dialogue": [
+                "shot_id": "scene-2-shot-23",
+                "start_seconds": 83,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [
                   {
-                    "speaker": "沈砚",
-                    "line": "不是让你别来吗。",
+                    "text": "膝盖顶上去",
+                    "at_seconds": 1.2
+                  },
+                  {
+                    "text": "刀滑进铁链堆",
+                    "at_seconds": 2.2
+                  }
+                ],
+                "nodes": [
+                  {
+                    "node_id": "scene-2-shot-23-node-1",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 0.6,
+                    "contact": true,
+                    "sfx_cue": null
+                  },
+                  {
+                    "node_id": "scene-2-shot-23-node-2",
+                    "at_seconds": 1,
+                    "duration_seconds": 0.4,
+                    "contact": true,
+                    "sfx_cue": "刀滑进铁链堆"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-2-shot-24",
+                "start_seconds": 86,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [
+                  {
+                    "text": "远处警笛由远及近",
                     "at_seconds": 1
                   }
                 ],
-                "action_nodes": []
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-25",
+                "start_seconds": 90,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.9,
+                  "to": 1.65
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-2-shot-26",
+                "start_seconds": 93,
+                "seconds": 3,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
               }
             ]
           }
         ],
-        "library": [
-          {
-            "asset_id": "amb_dock_night",
-            "lane": "环境音",
-            "title": "凌晨码头：海浪拍岸，风穿过集装箱",
-            "tags": ["码头", "海浪", "风"],
-            "mood": null,
-            "seconds": 200,
-            "loop": true
-          },
-          {
-            "asset_id": "amb_warehouse_empty",
-            "lane": "环境音",
-            "title": "空仓库：屋顶滴水，吊灯链子轻响",
-            "tags": ["仓库", "室内", "滴水"],
-            "mood": null,
-            "seconds": 160,
-            "loop": true
-          },
-          {
-            "asset_id": "sfx_car_door",
-            "lane": "音效",
-            "title": "出租车车门关上",
-            "tags": ["车门"],
-            "mood": null,
-            "seconds": 1,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_footsteps_puddle",
-            "lane": "音效",
-            "title": "踩着积水的脚步",
-            "tags": ["脚步", "积水"],
-            "mood": null,
-            "seconds": 3,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_shoes_land",
-            "lane": "音效",
-            "title": "皮鞋落地",
-            "tags": ["脚步", "落地"],
-            "mood": null,
-            "seconds": 0.4,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_wood_thud",
-            "lane": "音效",
-            "title": "小东西落在木箱上",
-            "tags": ["木箱", "落下"],
-            "mood": null,
-            "seconds": 0.4,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_knife_whoosh",
-            "lane": "音效",
-            "title": "刀快速划破空气",
-            "tags": ["刀", "破风"],
-            "mood": null,
-            "seconds": 0.5,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_pipe_scrape",
-            "lane": "音效",
-            "title": "钢管刮过墙面",
-            "tags": ["钢管", "金属"],
-            "mood": null,
-            "seconds": 0.8,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_metal_clash",
-            "lane": "音效",
-            "title": "钢管和刀刃猛烈撞击",
-            "tags": ["钢管", "刀", "金属"],
-            "mood": null,
-            "seconds": 0.9,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_cloth_slash",
-            "lane": "音效",
-            "title": "刀划破布料",
-            "tags": ["刀", "布料"],
-            "mood": null,
-            "seconds": 0.5,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_pipe_hit",
-            "lane": "音效",
-            "title": "钢管砸中手腕的闷响",
-            "tags": ["钢管", "击打"],
-            "mood": null,
-            "seconds": 0.7,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_knee_concrete",
-            "lane": "音效",
-            "title": "膝盖砸在水泥地上",
-            "tags": ["膝盖", "水泥地"],
-            "mood": null,
-            "seconds": 0.6,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_cloth_rustle",
-            "lane": "音效",
-            "title": "衣服摩擦",
-            "tags": ["衣服"],
-            "mood": null,
-            "seconds": 0.8,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_metal_door_bang",
-            "lane": "音效",
-            "title": "铁门被推开撞到墙上",
-            "tags": ["铁门", "撞击"],
-            "mood": null,
-            "seconds": 1.4,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_siren_far",
-            "lane": "音效",
-            "title": "远处警笛由远及近",
-            "tags": ["警笛"],
-            "mood": null,
-            "seconds": 8,
-            "loop": false
-          },
-          {
-            "asset_id": "mus_suspense_pulse",
-            "lane": "配乐",
-            "title": "暗涌：低音弦乐持续音，带一点心跳声",
-            "tags": ["弦乐", "低音"],
-            "mood": "悬疑",
-            "seconds": 120,
-            "loop": true
-          },
-          {
-            "asset_id": "mus_tense_strings",
-            "lane": "配乐",
-            "title": "绷紧：高音弦乐颤音",
-            "tags": ["弦乐", "高音"],
-            "mood": "紧张",
-            "seconds": 80,
-            "loop": true
-          },
-          {
-            "asset_id": "mus_fight_drums",
-            "lane": "配乐",
-            "title": "短兵相接：快速打击乐和低音弦",
-            "tags": ["打击乐", "快"],
-            "mood": "激烈",
-            "seconds": 64,
-            "loop": false
-          }
-        ]
+        "library": {
+          "ambience": [
+            {
+              "asset_id": "amb_shop_rain_inside",
+              "title": "店里听雨：大雨打在玻璃门上，屋里很静",
+              "seconds": 180
+            },
+            {
+              "asset_id": "amb_warehouse_tin_roof",
+              "title": "铁皮屋顶下的暴雨，轰轰作响",
+              "seconds": 200
+            }
+          ],
+          "sfx": [
+            {
+              "asset_id": "sfx_door_burst",
+              "title": "门被猛地撞开",
+              "seconds": 1.2
+            },
+            {
+              "asset_id": "sfx_shelf_crash",
+              "title": "书架倒地，书砸了一地",
+              "seconds": 2.5
+            },
+            {
+              "asset_id": "sfx_shoe_scrape",
+              "title": "鞋底擦过水泥地",
+              "seconds": 0.8
+            },
+            {
+              "asset_id": "sfx_rod_smash_wood",
+              "title": "铁棍砸碎木箱",
+              "seconds": 1
+            },
+            {
+              "asset_id": "sfx_rod_drop",
+              "title": "铁棍当啷落地",
+              "seconds": 1.2
+            },
+            {
+              "asset_id": "sfx_body_hit",
+              "title": "打在身上的闷响",
+              "seconds": 0.5
+            },
+            {
+              "asset_id": "sfx_knee_water",
+              "title": "膝盖跪进积水",
+              "seconds": 0.8
+            },
+            {
+              "asset_id": "sfx_knife_open",
+              "title": "折叠刀弹开",
+              "seconds": 0.4
+            },
+            {
+              "asset_id": "sfx_blade_swish",
+              "title": "刀锋划过",
+              "seconds": 0.5
+            },
+            {
+              "asset_id": "sfx_sleeve_grab",
+              "title": "衣袖被一把抓住",
+              "seconds": 0.5
+            },
+            {
+              "asset_id": "sfx_metal_into_chain",
+              "title": "金属滑进铁链堆",
+              "seconds": 1.2
+            },
+            {
+              "asset_id": "sfx_siren_far",
+              "title": "远处警笛由远及近",
+              "seconds": 8
+            }
+          ],
+          "music": [
+            {
+              "asset_id": "mus_fight_drums",
+              "title": "短兵相接：快速打击乐和低音弦",
+              "mood": "激烈",
+              "seconds": 70,
+              "loop": false
+            },
+            {
+              "asset_id": "mus_tense_strings",
+              "title": "绷紧：高音弦乐颤音",
+              "mood": "紧张",
+              "seconds": 80,
+              "loop": true
+            }
+          ]
+        }
       },
       "output": {
         "scenes": [
           {
-            "scene_id": "S03",
+            "scene_id": "scene-2",
+            "mood": "激烈",
+            "master_volume": 85,
             "lanes": {
-              "dialogue_db": 0,
-              "ambience_db": -6,
-              "sfx_db": -4,
-              "music_db": -16,
-              "duck_music_db": -8
+              "dialogue": 100,
+              "ambience": 50,
+              "sfx": 80,
+              "music": 30,
+              "music_under_dialogue": 15
             },
-            "ambience": [
-              {
-                "asset_id": "amb_dock_night",
-                "start_seconds": 0,
-                "end_seconds": 22,
-                "volume_db": -6,
-                "reason": "海浪和穿过集装箱的风一开场就交代是码头。"
-              }
-            ],
-            "sfx": [
-              {
-                "shot_id": "S03-02",
-                "at_seconds": 0.5,
-                "asset_id": "sfx_footsteps_puddle",
-                "description": "沈砚踩着积水走向仓库",
-                "from_node": null,
-                "volume_db": -6,
-                "reason": null
-              },
-              {
-                "shot_id": "S03-03",
-                "at_seconds": 0.4,
-                "asset_id": "sfx_car_door",
-                "description": "出租车车门关上",
-                "from_node": null,
-                "volume_db": -8,
-                "reason": null
-              },
-              {
-                "shot_id": "S03-03",
-                "at_seconds": 1.2,
-                "asset_id": "sfx_footsteps_puddle",
-                "description": "林晚弯腰小跑",
-                "from_node": null,
-                "volume_db": -10,
-                "reason": null
-              }
-            ],
             "music": {
-              "mood": "悬疑",
-              "asset_id": "mus_suspense_pulse",
-              "start_seconds": 5,
-              "end_seconds": 22,
-              "fade_in_seconds": 2,
-              "fade_out_seconds": 1,
-              "reason": "接着上一场的暗涌，沈砚走向仓库时进来，报警时压低让台词清楚。"
-            },
-            "missing": []
-          },
-          {
-            "scene_id": "S04",
-            "lanes": {
-              "dialogue_db": 0,
-              "ambience_db": -9,
-              "sfx_db": -2,
-              "music_db": -12,
-              "duck_music_db": -8
+              "asset_id": "mus_fight_drums",
+              "start_seconds": 28,
+              "end_seconds": 93,
+              "fade_in_seconds": 1,
+              "fade_out_seconds": 3,
+              "reason": "从推倒书架开始进鼓，节奏快，配打斗；70 秒够到他们逃走。"
             },
             "ambience": [
               {
-                "asset_id": "amb_warehouse_empty",
+                "asset_id": "amb_shop_rain_inside",
                 "start_seconds": 0,
-                "end_seconds": 49,
-                "volume_db": -9,
-                "reason": "空仓库的滴水和吊灯链子声，让前面的对话更静、更紧。"
+                "end_seconds": 50,
+                "reason": "前半场还在书店，门被撞开后雨声更大。"
+              },
+              {
+                "asset_id": "amb_warehouse_tin_roof",
+                "start_seconds": 50,
+                "end_seconds": 96,
+                "reason": "到了码头仓库，雨砸铁皮屋顶，压住整场。"
               }
             ],
             "sfx": [
               {
-                "shot_id": "S04-04",
-                "at_seconds": 0.3,
-                "asset_id": "sfx_wood_thud",
-                "description": "苹果落在木箱上",
-                "from_node": "S04-04-A1",
-                "volume_db": -10,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-04",
-                "at_seconds": 0.5,
-                "asset_id": "sfx_shoes_land",
-                "description": "皮鞋落地",
-                "from_node": "S04-04-A2",
-                "volume_db": -4,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-05",
-                "at_seconds": 0.3,
-                "asset_id": "sfx_knife_whoosh",
-                "description": "刀破风",
-                "from_node": "S04-05-A1",
-                "volume_db": -3,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-06",
+                "shot_id": "scene-2-shot-1",
                 "at_seconds": 0.2,
-                "asset_id": "sfx_pipe_scrape",
-                "description": "钢管刮过墙面",
-                "from_node": "S04-06-A1",
-                "volume_db": -6,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-06",
-                "at_seconds": 0.8,
-                "asset_id": "sfx_knife_whoosh",
-                "description": "第二刀破风",
-                "from_node": "S04-06-A2",
-                "volume_db": -3,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-06",
-                "at_seconds": 1.3,
-                "asset_id": "sfx_metal_clash",
-                "description": "钢管撞上刀刃",
-                "from_node": "S04-06-A3",
-                "volume_db": 0,
-                "reason": "整场最响的一下，留给钢管格刀。"
-              },
-              {
-                "shot_id": "S04-07",
-                "at_seconds": 0.5,
-                "asset_id": "sfx_cloth_slash",
-                "description": "刀划破袖子",
-                "from_node": "S04-07-A1",
-                "volume_db": -2,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-08",
-                "at_seconds": 0.7,
-                "asset_id": "sfx_pipe_hit",
-                "description": "钢管砸中手腕",
-                "from_node": "S04-08-A1",
-                "volume_db": 0,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-09",
-                "at_seconds": 0.3,
-                "asset_id": null,
-                "description": "折叠刀在水泥地上滑行",
+                "asset_id": "sfx_door_burst",
+                "description": "门被撞开",
                 "from_node": null,
-                "volume_db": -4,
-                "reason": "素材库里没有刀在水泥地上滑的声音。"
-              },
-              {
-                "shot_id": "S04-10",
-                "at_seconds": 0.4,
-                "asset_id": "sfx_knee_concrete",
-                "description": "膝盖砸在水泥地上",
-                "from_node": "S04-10-A1",
-                "volume_db": -3,
                 "reason": null
               },
               {
-                "shot_id": "S04-10",
-                "at_seconds": 1.4,
-                "asset_id": "sfx_cloth_rustle",
-                "description": "钢管压上肩膀",
-                "from_node": "S04-10-A2",
-                "volume_db": -8,
+                "shot_id": "scene-2-shot-7",
+                "at_seconds": 1,
+                "asset_id": "sfx_shelf_crash",
+                "description": "书架倒地，书砸了一地",
+                "from_node": null,
                 "reason": null
               },
               {
-                "shot_id": "S04-11",
-                "at_seconds": 0.1,
-                "asset_id": "sfx_metal_door_bang",
-                "description": "铁门撞墙",
-                "from_node": "S04-11-A1",
-                "volume_db": -1,
-                "reason": null
-              },
-              {
-                "shot_id": "S04-11",
+                "shot_id": "scene-2-shot-14",
                 "at_seconds": 0.5,
+                "asset_id": "sfx_shoe_scrape",
+                "description": "林晚被推时鞋底擦地",
+                "from_node": "scene-2-shot-14-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-14",
+                "at_seconds": 3,
+                "asset_id": null,
+                "description": "面包车在雨里急刹",
+                "from_node": null,
+                "reason": "素材库没有雨里的刹车声，见 missing。"
+              },
+              {
+                "shot_id": "scene-2-shot-17",
+                "at_seconds": 0.9,
+                "asset_id": "sfx_rod_smash_wood",
+                "description": "铁棍砸碎木箱",
+                "from_node": "scene-2-shot-17-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-18",
+                "at_seconds": 1.6,
+                "asset_id": "sfx_rod_drop",
+                "description": "铁棍当啷落地",
+                "from_node": "scene-2-shot-18-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-19",
+                "at_seconds": 1,
+                "asset_id": "sfx_body_hit",
+                "description": "肘击打在肋下",
+                "from_node": "scene-2-shot-19-node-2",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-19",
+                "at_seconds": 2,
+                "asset_id": "sfx_knee_water",
+                "description": "打手甲跪进积水",
+                "from_node": null,
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-20",
+                "at_seconds": 0.6,
+                "asset_id": "sfx_knife_open",
+                "description": "折叠刀弹开",
+                "from_node": "scene-2-shot-20-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-22",
+                "at_seconds": 0.5,
+                "asset_id": "sfx_blade_swish",
+                "description": "刀锋划过小臂",
+                "from_node": "scene-2-shot-22-node-2",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-23",
+                "at_seconds": 0.3,
+                "asset_id": "sfx_sleeve_grab",
+                "description": "抓住对方手肘",
+                "from_node": "scene-2-shot-23-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-23",
+                "at_seconds": 1.2,
+                "asset_id": "sfx_body_hit",
+                "description": "膝盖顶上去",
+                "from_node": "scene-2-shot-23-node-2",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-23",
+                "at_seconds": 2.2,
+                "asset_id": "sfx_metal_into_chain",
+                "description": "刀滑进铁链堆",
+                "from_node": null,
+                "reason": null
+              },
+              {
+                "shot_id": "scene-2-shot-24",
+                "at_seconds": 1,
                 "asset_id": "sfx_siren_far",
                 "description": "远处警笛由远及近",
                 "from_node": null,
-                "volume_db": -10,
                 "reason": null
               }
             ],
-            "music": {
-              "mood": "激烈",
-              "asset_id": "mus_fight_drums",
-              "start_seconds": 20,
-              "end_seconds": 39,
-              "fade_in_seconds": 0,
-              "fade_out_seconds": 1.5,
-              "reason": "打击乐只跟着六镜打斗，周烈扑上来时砸进来，林晚推门时收掉，让警笛接上。"
-            },
             "missing": [
               {
                 "lane": "音效",
-                "need": "折叠刀在水泥地上滑行",
-                "suggestion": "用钥匙在地上拖的声音代替，或者导入自己录的。"
+                "need": "面包车在雨里急刹",
+                "suggestion": "先用普通急刹车声，叠一层大雨声。"
               }
             ]
           }
@@ -1802,418 +1630,439 @@
     },
     {
       "id": "sound-3",
-      "title": "第三章：同一条走廊沿用环境声，配乐从悲伤换到温暖",
+      "title": "第三场：情绪温暖，医院转到清晨巷子，缺的环境声写进 missing",
       "input": {
         "task": "design_sound",
         "lane_defaults": {
-          "dialogue_db": 0,
-          "ambience_db": -6,
-          "sfx_db": -3,
-          "music_db": -14
+          "dialogue": 100,
+          "ambience": 50,
+          "sfx": 70,
+          "music": 20
         },
         "scenes": [
           {
-            "scene_id": "S05",
-            "title": "父亲的字",
-            "mood_hint": "悲伤",
-            "total_seconds": 17,
-            "shots": [
-              {
-                "shot_id": "S05-01",
-                "start_seconds": 0,
-                "seconds": 5,
-                "action": "医院走廊灯光惨白，林晚一个人坐在急诊室门外的蓝色长椅上，卡其色风衣上沾着灰。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S05-02",
-                "start_seconds": 5,
-                "seconds": 5,
-                "action": "林晚的手把膝盖上的塑料袋一层层打开，翻开发软的账本，第一页是歪歪扭扭的手写字。",
-                "dialogue": [],
-                "action_nodes": []
-              },
-              {
-                "shot_id": "S05-03",
-                "start_seconds": 10,
-                "seconds": 7,
-                "action": "林晚低头看着账本小声说话，一滴眼泪落在纸页上晕开墨迹。",
-                "dialogue": [
-                  {
-                    "speaker": "林晚",
-                    "line": "爸，你到底瞒了我多少事。",
-                    "at_seconds": 1
-                  }
-                ],
-                "action_nodes": []
-              }
-            ]
-          },
-          {
-            "scene_id": "S06",
-            "title": "换我",
+            "scene_id": "scene-3",
+            "title": "医院走廊",
             "mood_hint": "温暖",
-            "total_seconds": 40,
+            "total_seconds": 92,
+            "places": [
+              {
+                "from_shot": "scene-3-shot-1",
+                "ambience": "日光灯嗡嗡作响，走廊很空"
+              },
+              {
+                "from_shot": "scene-3-shot-17",
+                "ambience": "雨后清晨的巷子，远处有早点摊的声音"
+              }
+            ],
             "shots": [
               {
-                "shot_id": "S06-01",
+                "shot_id": "scene-3-shot-1",
                 "start_seconds": 0,
-                "seconds": 5,
-                "action": "急诊室的门开了，沈砚走出来，夹克搭在右肩，左前臂缠着白纱布；长椅上的林晚站起来。",
-                "dialogue": [],
-                "action_nodes": [
-                  {
-                    "node_id": "S06-01-A1",
-                    "at_seconds": 0.2,
-                    "duration_seconds": 1.2,
-                    "move": "推开急诊室的门",
-                    "contact": true,
-                    "force": 2,
-                    "sfx_cue": "门轴转动"
-                  },
-                  {
-                    "node_id": "S06-01-A2",
-                    "at_seconds": 1.6,
-                    "duration_seconds": 0.7,
-                    "move": "从长椅上猛地站起",
-                    "contact": false,
-                    "force": 3,
-                    "sfx_cue": "长椅挪动"
-                  }
-                ]
-              },
-              {
-                "shot_id": "S06-02",
-                "start_seconds": 5,
                 "seconds": 4,
-                "action": "林晚想说话，眼泪先涌出来，她用手背去擦，越擦越多。",
-                "dialogue": [],
-                "action_nodes": []
+                "speech": null,
+                "sfx": [],
+                "nodes": []
               },
               {
-                "shot_id": "S06-03",
+                "shot_id": "scene-3-shot-2",
+                "start_seconds": 4,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-3",
                 "start_seconds": 9,
                 "seconds": 4,
-                "action": "沈砚看着林晚，故作轻松地开口。",
-                "dialogue": [
-                  {
-                    "speaker": "沈砚",
-                    "line": "缝了十二针，死不了。",
-                    "at_seconds": 0.6
-                  }
-                ],
-                "action_nodes": []
+                "speech": {
+                  "from": 0.8,
+                  "to": 2.8
+                },
+                "sfx": [],
+                "nodes": []
               },
               {
-                "shot_id": "S06-04",
+                "shot_id": "scene-3-shot-4",
                 "start_seconds": 13,
-                "seconds": 8,
-                "action": "林晚哭着追问，声音发抖。",
-                "dialogue": [
-                  {
-                    "speaker": "林晚",
-                    "line": "你为什么要一个人去？",
-                    "at_seconds": 0.6
-                  },
-                  {
-                    "speaker": "林晚",
-                    "line": "你要是出事了，我怎么办？",
-                    "at_seconds": 3.6
-                  }
-                ],
-                "action_nodes": []
+                "seconds": 3,
+                "speech": {
+                  "from": 0.6,
+                  "to": 2.1
+                },
+                "sfx": [],
+                "nodes": []
               },
               {
-                "shot_id": "S06-05",
+                "shot_id": "scene-3-shot-5",
+                "start_seconds": 16,
+                "seconds": 5,
+                "speech": {
+                  "from": 0.8,
+                  "to": 3.55
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-6",
                 "start_seconds": 21,
-                "seconds": 9,
-                "action": "沈砚沉默一会儿，抬起没受伤的右手，笨拙地拍了拍林晚的肩膀。",
-                "dialogue": [
-                  {
-                    "speaker": "沈砚",
-                    "line": "你爸当年救过我一次。这回，换我。",
-                    "at_seconds": 2.4
-                  }
-                ],
-                "action_nodes": [
-                  {
-                    "node_id": "S06-05-A1",
-                    "at_seconds": 0.8,
-                    "duration_seconds": 1.2,
-                    "move": "拍她的肩膀",
-                    "contact": true,
-                    "force": 1,
-                    "sfx_cue": "手拍在风衣上"
-                  },
-                  {
-                    "node_id": "S06-05-A2",
-                    "at_seconds": 6.2,
-                    "duration_seconds": 1,
-                    "move": "左前臂护在身侧",
-                    "contact": false,
-                    "force": 1,
-                    "sfx_cue": null
-                  }
-                ]
+                "seconds": 11,
+                "speech": {
+                  "from": 0.6,
+                  "to": 9.85
+                },
+                "sfx": [],
+                "nodes": []
               },
               {
-                "shot_id": "S06-06",
-                "start_seconds": 30,
-                "seconds": 6,
-                "action": "林晚把脸埋进沈砚的肩头，终于哭出声；走廊尽头，值班护士轻轻带上了门。",
-                "dialogue": [],
-                "action_nodes": [
+                "shot_id": "scene-3-shot-7",
+                "start_seconds": 32,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-8",
+                "start_seconds": 37,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-9",
+                "start_seconds": 42,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": [
                   {
-                    "node_id": "S06-06-A1",
-                    "at_seconds": 0.3,
-                    "duration_seconds": 1,
-                    "move": "把脸埋进他的肩头",
-                    "contact": true,
-                    "force": 2,
-                    "sfx_cue": "衣服摩擦"
-                  },
-                  {
-                    "node_id": "S06-06-A2",
+                    "node_id": "scene-3-shot-9-node-1",
                     "at_seconds": 1.5,
                     "duration_seconds": 2,
-                    "move": "肩膀抽动",
-                    "contact": false,
-                    "force": 2,
-                    "sfx_cue": null
+                    "contact": true,
+                    "sfx_cue": "布料轻响"
                   }
                 ]
               },
               {
-                "shot_id": "S06-07",
-                "start_seconds": 36,
+                "shot_id": "scene-3-shot-10",
+                "start_seconds": 47,
+                "seconds": 3,
+                "speech": {
+                  "from": 0.6,
+                  "to": 1.1
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-11",
+                "start_seconds": 50,
                 "seconds": 4,
-                "action": "沈砚低头看见林晚攥着的账本翻在最后一页，上面写着一个看不清的名字。",
-                "dialogue": [],
-                "action_nodes": []
+                "speech": {
+                  "from": 0.5,
+                  "to": 2.75
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-12",
+                "start_seconds": 54,
+                "seconds": 3,
+                "speech": {
+                  "from": 1,
+                  "to": 1.75
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-13",
+                "start_seconds": 57,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-14",
+                "start_seconds": 61,
+                "seconds": 5,
+                "speech": {
+                  "from": 0.6,
+                  "to": 4.1
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-15",
+                "start_seconds": 66,
+                "seconds": 5,
+                "speech": {
+                  "from": 1.2,
+                  "to": 3.95
+                },
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-16",
+                "start_seconds": 71,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [],
+                "nodes": []
+              },
+              {
+                "shot_id": "scene-3-shot-17",
+                "start_seconds": 75,
+                "seconds": 5,
+                "speech": null,
+                "sfx": [],
+                "nodes": [
+                  {
+                    "node_id": "scene-3-shot-17-node-1",
+                    "at_seconds": 0,
+                    "duration_seconds": 3,
+                    "contact": false,
+                    "sfx_cue": "脚步声"
+                  },
+                  {
+                    "node_id": "scene-3-shot-17-node-2",
+                    "at_seconds": 0,
+                    "duration_seconds": 3,
+                    "contact": false,
+                    "sfx_cue": "脚步声"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-3-shot-18",
+                "start_seconds": 80,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [],
+                "nodes": [
+                  {
+                    "node_id": "scene-3-shot-18-node-1",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 1,
+                    "contact": true,
+                    "sfx_cue": "水滴落下"
+                  },
+                  {
+                    "node_id": "scene-3-shot-18-node-2",
+                    "at_seconds": 1.5,
+                    "duration_seconds": 2,
+                    "contact": true,
+                    "sfx_cue": "布料擦过纸面"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-3-shot-19",
+                "start_seconds": 84,
+                "seconds": 4,
+                "speech": null,
+                "sfx": [],
+                "nodes": [
+                  {
+                    "node_id": "scene-3-shot-19-node-1",
+                    "at_seconds": 0.3,
+                    "duration_seconds": 2,
+                    "contact": true,
+                    "sfx_cue": "木书架立起来的吱呀声"
+                  }
+                ]
+              },
+              {
+                "shot_id": "scene-3-shot-20",
+                "start_seconds": 88,
+                "seconds": 4,
+                "speech": {
+                  "from": 1.4,
+                  "to": 2.9
+                },
+                "sfx": [],
+                "nodes": [
+                  {
+                    "node_id": "scene-3-shot-20-node-1",
+                    "at_seconds": 0.8,
+                    "duration_seconds": 1.2,
+                    "contact": true,
+                    "sfx_cue": null
+                  }
+                ]
               }
             ]
           }
         ],
-        "library": [
-          {
-            "asset_id": "amb_hospital_corridor",
-            "lane": "环境音",
-            "title": "夜里的医院走廊：顶灯嗡嗡，远处仪器滴滴",
-            "tags": ["医院", "走廊", "夜"],
-            "mood": null,
-            "seconds": 240,
-            "loop": true
-          },
-          {
-            "asset_id": "sfx_plastic_bag",
-            "lane": "音效",
-            "title": "塑料袋窸窣",
-            "tags": ["塑料袋"],
-            "mood": null,
-            "seconds": 1.5,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_paper_page",
-            "lane": "音效",
-            "title": "翻动发软的旧纸页",
-            "tags": ["纸", "翻页"],
-            "mood": null,
-            "seconds": 1,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_hospital_door",
-            "lane": "音效",
-            "title": "医院双开门推开又合上",
-            "tags": ["门", "医院"],
-            "mood": null,
-            "seconds": 1.8,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_bench_creak",
-            "lane": "音效",
-            "title": "塑料长椅被挪动",
-            "tags": ["长椅"],
-            "mood": null,
-            "seconds": 0.7,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_pat_cloth",
-            "lane": "音效",
-            "title": "手轻拍在外套上",
-            "tags": ["拍", "衣服"],
-            "mood": null,
-            "seconds": 0.4,
-            "loop": false
-          },
-          {
-            "asset_id": "sfx_cloth_rustle",
-            "lane": "音效",
-            "title": "衣服摩擦",
-            "tags": ["衣服"],
-            "mood": null,
-            "seconds": 0.8,
-            "loop": false
-          },
-          {
-            "asset_id": "mus_sad_piano",
-            "lane": "配乐",
-            "title": "空走廊：慢钢琴和一点大提琴",
-            "tags": ["钢琴", "大提琴"],
-            "mood": "悲伤",
-            "seconds": 110,
-            "loop": false
-          },
-          {
-            "asset_id": "mus_warm_strings",
-            "lane": "配乐",
-            "title": "换我：温暖的弦乐慢慢铺开",
-            "tags": ["弦乐", "慢"],
-            "mood": "温暖",
-            "seconds": 90,
-            "loop": false
-          },
-          {
-            "asset_id": "mus_relief_guitar",
-            "lane": "配乐",
-            "title": "天亮以前：木吉他分解和弦",
-            "tags": ["木吉他"],
-            "mood": "释然",
-            "seconds": 100,
-            "loop": false
-          }
-        ]
+        "library": {
+          "ambience": [
+            {
+              "asset_id": "amb_alley_heavy_rain",
+              "title": "老街大雨：雨打青石板，屋檐流水",
+              "seconds": 180
+            },
+            {
+              "asset_id": "amb_shop_rain_inside",
+              "title": "店里听雨：大雨打在玻璃门上，屋里很静",
+              "seconds": 180
+            },
+            {
+              "asset_id": "amb_hospital_night",
+              "title": "凌晨医院走廊：日光灯嗡嗡，远处仪器滴滴",
+              "seconds": 240
+            }
+          ],
+          "sfx": [
+            {
+              "asset_id": "sfx_cloth_drape",
+              "title": "布料轻轻落下",
+              "seconds": 0.8
+            },
+            {
+              "asset_id": "sfx_steps_wet_stone",
+              "title": "湿石板上的脚步",
+              "seconds": 3
+            },
+            {
+              "asset_id": "sfx_water_drip",
+              "title": "水滴落下",
+              "seconds": 0.6
+            },
+            {
+              "asset_id": "sfx_cloth_wipe",
+              "title": "布料擦过纸面",
+              "seconds": 1.5
+            },
+            {
+              "asset_id": "sfx_shelf_creak",
+              "title": "木书架被扶起来的吱呀声",
+              "seconds": 1.2
+            },
+            {
+              "asset_id": "sfx_bowl_touch",
+              "title": "两只瓷碗轻轻一碰",
+              "seconds": 0.4
+            }
+          ],
+          "music": [
+            {
+              "asset_id": "mus_dawn_strings",
+              "title": "天亮以前：温暖的弦乐慢慢铺开",
+              "mood": "温暖",
+              "seconds": 100,
+              "loop": false
+            },
+            {
+              "asset_id": "mus_sad_cello",
+              "title": "空走廊：慢钢琴和大提琴",
+              "mood": "悲伤",
+              "seconds": 110,
+              "loop": false
+            }
+          ]
+        }
       },
       "output": {
         "scenes": [
           {
-            "scene_id": "S05",
+            "scene_id": "scene-3",
+            "mood": "温暖",
+            "master_volume": 75,
             "lanes": {
-              "dialogue_db": 0,
-              "ambience_db": -10,
-              "sfx_db": -6,
-              "music_db": -18,
-              "duck_music_db": -8
+              "dialogue": 100,
+              "ambience": 40,
+              "sfx": 55,
+              "music": 25,
+              "music_under_dialogue": 12
             },
-            "ambience": [
-              {
-                "asset_id": "amb_hospital_corridor",
-                "start_seconds": 0,
-                "end_seconds": 17,
-                "volume_db": -10,
-                "reason": "顶灯嗡嗡和远处的仪器声很轻，衬出林晚一个人的安静。"
-              }
-            ],
-            "sfx": [
-              {
-                "shot_id": "S05-02",
-                "at_seconds": 0.5,
-                "asset_id": "sfx_plastic_bag",
-                "description": "一层层打开塑料袋",
-                "from_node": null,
-                "volume_db": -8,
-                "reason": null
-              },
-              {
-                "shot_id": "S05-02",
-                "at_seconds": 3.2,
-                "asset_id": "sfx_paper_page",
-                "description": "翻开发软的账本",
-                "from_node": null,
-                "volume_db": -8,
-                "reason": null
-              }
-            ],
             "music": {
-              "mood": "悲伤",
-              "asset_id": "mus_sad_piano",
-              "start_seconds": 10,
-              "end_seconds": 17,
-              "fade_in_seconds": 2,
-              "fade_out_seconds": 2,
-              "reason": "钢琴在她开口前一秒进来，跟着眼泪落下，不压住那句小声的话。"
-            },
-            "missing": []
-          },
-          {
-            "scene_id": "S06",
-            "lanes": {
-              "dialogue_db": 0,
-              "ambience_db": -10,
-              "sfx_db": -6,
-              "music_db": -16,
-              "duck_music_db": -8
-            },
-            "ambience": [
-              {
-                "asset_id": "amb_hospital_corridor",
-                "start_seconds": 0,
-                "end_seconds": 40,
-                "volume_db": -10,
-                "reason": "和上一场是同一条走廊，环境声接着用，二十分钟后也不换。"
-              }
-            ],
-            "sfx": [
-              {
-                "shot_id": "S06-01",
-                "at_seconds": 0.3,
-                "asset_id": "sfx_hospital_door",
-                "description": "急诊室的门推开",
-                "from_node": "S06-01-A1",
-                "volume_db": -6,
-                "reason": null
-              },
-              {
-                "shot_id": "S06-01",
-                "at_seconds": 1.7,
-                "asset_id": "sfx_bench_creak",
-                "description": "长椅被带得一响",
-                "from_node": "S06-01-A2",
-                "volume_db": -8,
-                "reason": null
-              },
-              {
-                "shot_id": "S06-05",
-                "at_seconds": 1,
-                "asset_id": "sfx_pat_cloth",
-                "description": "手拍在风衣上",
-                "from_node": "S06-05-A1",
-                "volume_db": -10,
-                "reason": null
-              },
-              {
-                "shot_id": "S06-06",
-                "at_seconds": 0.5,
-                "asset_id": "sfx_cloth_rustle",
-                "description": "脸埋进衣服里",
-                "from_node": "S06-06-A1",
-                "volume_db": -12,
-                "reason": null
-              },
-              {
-                "shot_id": "S06-06",
-                "at_seconds": 4.5,
-                "asset_id": "sfx_hospital_door",
-                "description": "护士轻轻带上门",
-                "from_node": null,
-                "volume_db": -16,
-                "reason": null
-              }
-            ],
-            "music": {
-              "mood": "温暖",
-              "asset_id": "mus_warm_strings",
+              "asset_id": "mus_dawn_strings",
               "start_seconds": 21,
-              "end_seconds": 36,
-              "fade_in_seconds": 3,
-              "fade_out_seconds": 2,
-              "reason": "弦乐在沈砚拍她肩膀时慢慢铺开，最后一镜收掉，把悬念留给安静。"
+              "end_seconds": 92,
+              "fade_in_seconds": 4,
+              "fade_out_seconds": 4,
+              "reason": "沈砚讲起当年时进弦乐，慢慢铺开到天亮，情绪是温暖不是悲伤。"
             },
-            "missing": []
+            "ambience": [
+              {
+                "asset_id": "amb_hospital_night",
+                "start_seconds": 0,
+                "end_seconds": 75,
+                "reason": "凌晨的急诊走廊，日光灯嗡嗡响，越安静越好。"
+              },
+              {
+                "asset_id": null,
+                "start_seconds": 75,
+                "end_seconds": 92,
+                "reason": "天亮回到巷子，要雨后清晨的声音，素材库里没有，见 missing。"
+              }
+            ],
+            "sfx": [
+              {
+                "shot_id": "scene-3-shot-9",
+                "at_seconds": 2.5,
+                "asset_id": "sfx_cloth_drape",
+                "description": "风衣落在林晚肩上",
+                "from_node": "scene-3-shot-9-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-3-shot-17",
+                "at_seconds": 0,
+                "asset_id": "sfx_steps_wet_stone",
+                "description": "两个人的脚步",
+                "from_node": "scene-3-shot-17-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-3-shot-18",
+                "at_seconds": 0.8,
+                "asset_id": "sfx_water_drip",
+                "description": "诗集上的水滴下来",
+                "from_node": "scene-3-shot-18-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-3-shot-18",
+                "at_seconds": 1.5,
+                "asset_id": "sfx_cloth_wipe",
+                "description": "袖子擦过封面",
+                "from_node": "scene-3-shot-18-node-2",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-3-shot-19",
+                "at_seconds": 0.8,
+                "asset_id": "sfx_shelf_creak",
+                "description": "书架被扶起来",
+                "from_node": "scene-3-shot-19-node-1",
+                "reason": null
+              },
+              {
+                "shot_id": "scene-3-shot-20",
+                "at_seconds": 1.6,
+                "asset_id": "sfx_bowl_touch",
+                "description": "接豆浆时碗轻轻一碰",
+                "from_node": "scene-3-shot-20-node-1",
+                "reason": null
+              }
+            ],
+            "missing": [
+              {
+                "lane": "环境音",
+                "need": "雨后清晨的老巷",
+                "suggestion": "先用老街大雨调到很小，再叠远处的人声。"
+              }
+            ]
           }
         ]
       }

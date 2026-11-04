@@ -87,7 +87,7 @@
   </head>
   <body>
     <main>
-      <h1>AIVORA 界面原型</h1>
+      <h1>AIVORA 界面原型 · 第二版</h1>
       <p>
         7 个界面，每个都能直接在浏览器里打开，1280×800 和 1920×1080
         都不会溢出或重叠。点状态名切换到那个状态，画面位置是表示光线的色块。
@@ -131,7 +131,9 @@
           <a href="03-export-check.html"
             ><img src="screenshots/03-export-check-1280x800.jpg" alt="导出前检查"
           /></a>
-          <p>黑屏、画面停住、没有声音、缺字幕、声音太冲，每条都能跳到出问题的位置。</p>
+          <p>
+            黑屏、画面停住、没有声音、缺字幕、声音太冲。每条问题一个「去修」，另有「直接导出」。
+          </p>
           <div class="states">
             <a href="03-export-check.html?state=normal">有问题</a
             ><a href="03-export-check.html?state=checking">检查中</a>
@@ -147,7 +149,7 @@
           <p>3 套模板，横屏和竖屏同时预览，竖屏标出平台按钮会挡住的地方。</p>
           <div class="states">
             <a href="04-subtitles.html?state=normal">正常</a
-            ><a href="04-subtitles.html?state=empty">没有对白</a>
+            ><a href="04-subtitles.html?state=empty">没有台词</a>
             <a href="04-subtitles.html?state=loading">排字幕中</a
             ><a href="04-subtitles.html?state=error">出错</a>
           </div>
@@ -168,10 +170,10 @@
         <section class="card">
           <h2>6. 声音面板</h2>
           <a href="06-sound.html"><img src="screenshots/06-sound-1280x800.jpg" alt="声音面板" /></a>
-          <p>对白、环境音、音效、配乐四层，每层有音量；每场一个配乐情绪，写清选了什么、为什么。</p>
+          <p>默认只看配乐情绪和一个音量，写清选了哪首、为什么；四层音量在「细调」里。</p>
           <div class="states">
-            <a href="06-sound.html?state=normal">正常</a
-            ><a href="06-sound.html?state=empty">还没配</a>
+            <a href="06-sound.html?state=normal">正常</a><a href="06-sound.html?state=fine">细调</a>
+            <a href="06-sound.html?state=empty">还没配</a>
             <a href="06-sound.html?state=loading">配声音中</a
             ><a href="06-sound.html?state=error">出错</a>
           </div>

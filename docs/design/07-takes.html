@@ -35,6 +35,13 @@
       .shot-nav .now strong {
         font-size: 14px;
       }
+      .shot-nav .now .line1 {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 8px;
+        min-width: 0;
+      }
       .tiles {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -254,7 +261,7 @@
           <button class="btn ghost">
             <svg class="ic"><use href="#i-list" /></svg>任务
           </button>
-          <button class="btn primary">
+          <button class="btn">
             <svg class="ic"><use href="#i-export" /></svg>导出成片
           </button>
           <button class="avatar" aria-label="账号">
@@ -268,37 +275,38 @@
           <section class="panel compare" aria-labelledby="shot-title">
             <div class="shot-nav">
               <button class="btn sm">
-                <svg class="ic sm"><use href="#i-prev" /></svg>上一镜 S04-06
+                <svg class="ic sm"><use href="#i-prev" /></svg>上一镜
               </button>
               <div class="now">
-                <strong id="shot-title" class="one-line"
-                  >S04-07 · 第 4 场 · 特写 · 3 秒 · 第 24 个镜头，共 39 个</strong
-                >
+                <p class="line1">
+                  <strong id="shot-title" class="one-line">第 2 场第 17 个镜头 · 中景 · 3 秒</strong
+                  ><span class="code">scene-2-shot-17 · 第 36 个，共 65 个</span>
+                </p>
                 <span class="muted one-line"
-                  >第三刀从画右斜劈下来，沈砚抬起左臂去挡，刀刃划过左前臂，夹克袖子渗出血。</span
+                  >画右的周烈猛地挥棍砸向画左，沈砚侧身一让，铁棍擦着耳边落下，砸在木箱上，木屑四溅。</span
                 >
               </div>
               <button class="btn sm">
-                下一镜 S04-08<svg class="ic sm"><use href="#i-next" /></svg>
+                下一镜<svg class="ic sm"><use href="#i-next" /></svg>
               </button>
             </div>
 
             <div class="tiles" data-show="normal loading error">
-              <article class="tile" aria-label="版本 A">
+              <article class="tile" aria-label="A 版">
                 <div class="head">
-                  <strong>版本 A</strong><span class="faint">第 1 次</span
-                  ><span class="spacer"></span><span class="tag err">必须重做</span>
+                  <strong>A 版</strong><span class="faint">第 1 次</span><span class="spacer"></span
+                  ><span class="tag err">必须重做</span>
                 </div>
                 <div class="media">
                   <div class="frame art-warehouse" data-art>
-                    <span class="cap mono">A · 00:01.2</span>
+                    <span class="cap mono">A · 1.2 秒</span>
                     <span class="scrub" data-layer><i class="played"></i></span>
                   </div>
                 </div>
                 <ul class="notes">
                   <li class="note-line">
-                    <svg class="ic sm err-text"><use href="#i-x" /></svg
-                    >挡刀的是右前臂，伤口也在右袖，和下一镜接不上
+                    <svg class="ic sm err-text"><use href="#i-x" /></svg>0.5 到 1.1
+                    秒，铁棍从沈砚的肩膀穿了过去
                   </li>
                   <li class="note-line">
                     <svg class="ic sm ok-text"><use href="#i-check" /></svg>没有黑屏，画面没停住
@@ -309,28 +317,27 @@
                 </div>
               </article>
 
-              <article class="tile reco" aria-label="版本 B">
+              <article class="tile reco" aria-label="B 版">
                 <div class="head">
-                  <strong>版本 B</strong><span class="faint">第 1 次</span
-                  ><span class="spacer"></span
+                  <strong>B 版</strong><span class="faint">第 1 次</span><span class="spacer"></span
                   ><span class="tag ok" data-show="normal loading">可用 · 推荐</span
                   ><span class="tag err" data-show="error">没有做成</span>
                 </div>
                 <div class="media" data-show="normal loading">
                   <div class="frame art-warehouse" data-art>
-                    <span class="cap mono">B · 00:01.2</span>
+                    <span class="cap mono">B · 1.2 秒</span>
                     <span class="scrub" data-layer><i class="played"></i></span>
                   </div>
                 </div>
                 <div class="media tile-msg" data-show="error">
                   <svg class="ic lg err-text"><use href="#i-alert" /></svg>
-                  <p>Grok 没有接受这段描述，没有生成视频。</p>
-                  <p class="faint">可能是「刀刃划过左前臂」「渗出血」这类字。</p>
+                  <p>等了 10 分钟没有结果，已经停下。</p>
+                  <p class="faint">Grok 那边没有返回视频，这一次的额度算没算，软件看不到。</p>
                 </div>
                 <ul class="notes" data-show="normal loading">
                   <li class="note-line">
                     <svg class="ic sm ok-text"><use href="#i-check" /></svg
-                    >挡刀的是左前臂，袖口只有血迹，接得上下一镜
+                    >砸空干净，木屑清楚，方向是从画右到画左
                   </li>
                   <li class="note-line">
                     <svg class="ic sm ok-text"><use href="#i-check" /></svg>没有黑屏，画面没停住
@@ -338,26 +345,25 @@
                 </ul>
                 <ul class="notes" data-show="error">
                   <li class="note-line">
-                    <svg class="ic sm"><use href="#i-info" /></svg
-                    >建议改成：刀从袖子上擦过，袖口出现一道深色痕迹。
+                    <svg class="ic sm"><use href="#i-info" /></svg>可以按原样再做一次，描述不用改。
                   </li>
                 </ul>
                 <div class="use" data-show="normal loading">
                   <button class="btn primary">用这一版</button><span class="kbd">2</span>
                 </div>
-                <div class="use" data-show="error"><button class="btn">改描述再做</button></div>
+                <div class="use" data-show="error"><button class="btn">再做一次</button></div>
               </article>
 
-              <article class="tile" aria-label="版本 C">
+              <article class="tile" aria-label="C 版">
                 <div class="head">
-                  <strong>版本 C</strong><span class="faint">第 1 次</span
+                  <strong>C 版</strong><span class="faint">第 1 次</span
                   ><span class="spacer"></span>
                   <span class="tag warn" data-show="normal error">建议重做</span
                   ><span class="tag" data-show="loading">正在生成</span>
                 </div>
                 <div class="media" data-show="normal error">
                   <div class="frame art-warehouse" data-art>
-                    <span class="cap mono">C · 00:01.2</span>
+                    <span class="cap mono">C · 1.2 秒</span>
                     <span class="scrub" data-layer
                       ><i class="bad" style="left: 0; width: 13.3%"></i
                       ><i class="played" style="left: 13.3%; width: 26.7%"></i
@@ -366,17 +372,16 @@
                 </div>
                 <div class="media tile-msg" data-show="loading" aria-busy="true">
                   <svg class="ic lg spin"><use href="#i-refresh" /></svg>
-                  <p>版本 C 正在生成 · 已等 48 秒</p>
+                  <p>C 版正在生成 · 已等 48 秒</p>
                   <p class="faint">做好以后会自动排进来，可以先比 A 和 B。</p>
                 </div>
                 <ul class="notes" data-show="normal error">
                   <li class="note-line">
                     <svg class="ic sm warn-text"><use href="#i-alert" /></svg>开头 0.4
-                    秒黑屏，剪掉会少了劈下来的起势
+                    秒黑屏，剪掉会少了挥棍的起势
                   </li>
                   <li class="note-line">
-                    <svg class="ic sm ok-text"><use href="#i-check" /></svg
-                    >伤在左前臂，人物和动作都对
+                    <svg class="ic sm ok-text"><use href="#i-check" /></svg>人物和动作都对
                   </li>
                 </ul>
                 <ul class="notes" data-show="loading">
@@ -402,7 +407,7 @@
             </div>
 
             <div class="transport" data-show="normal loading error">
-              <button class="btn sm primary">
+              <button class="btn sm">
                 <svg class="ic sm"><use href="#i-play" /></svg>三个一起播
               </button>
               <button class="icon-btn" aria-label="上一帧">
@@ -418,7 +423,7 @@
                 <button aria-pressed="false">0.5×</button><button aria-pressed="true">1×</button>
               </div>
               <div class="bar-track" aria-label="播放位置"><i></i></div>
-              <span class="mono muted">00:01.2 / 00:03.0</span>
+              <span class="muted">1.2 秒 / 3 秒</span>
             </div>
           </section>
 
@@ -448,7 +453,7 @@
                   </tr>
                   <tr>
                     <th scope="row">动作和描述一样吗</th>
-                    <td class="n">不对</td>
+                    <td class="y">对</td>
                     <td class="y" data-show="normal loading">对</td>
                     <td class="faint" data-show="error">—</td>
                     <td class="y" data-show="normal error">对</td>
@@ -456,7 +461,7 @@
                   </tr>
                   <tr>
                     <th scope="row">有没有坏画面</th>
-                    <td class="y">没有</td>
+                    <td class="n">穿过身体</td>
                     <td class="y" data-show="normal loading">没有</td>
                     <td class="faint" data-show="error">—</td>
                     <td class="y" data-show="normal error">没有</td>
@@ -464,7 +469,7 @@
                   </tr>
                   <tr>
                     <th scope="row">和前后镜头接得上吗</th>
-                    <td class="n">接不上</td>
+                    <td class="y">接得上</td>
                     <td class="y" data-show="normal loading">接得上</td>
                     <td class="faint" data-show="error">—</td>
                     <td class="y" data-show="normal error">接得上</td>
@@ -485,22 +490,22 @@
               <div class="reco-box">
                 <p class="section-title">AI 审片的建议</p>
                 <p style="margin-top: 6px">
-                  <strong>推荐 B：</strong>挡刀的是左前臂，袖口只有血迹，和下一镜接得上。
+                  <strong>推荐 B 版：</strong>砸空干净，木屑清楚，方向是从画右到画左。
                 </p>
                 <p class="muted" style="margin-top: 4px">
-                  A 挡刀的是右前臂；C 开头 0.4 秒黑屏，剪掉会少了劈下来的起势。
+                  A 版的铁棍从沈砚肩膀穿过去了；C 版开头 0.4 秒黑屏，剪掉会少了挥棍的起势。
                 </p>
               </div>
-              <p class="faint">这一镜要保持：划伤的是左前臂；刀在周烈右手；只拍袖口血迹。</p>
+              <p class="faint">这一镜要保持：铁棍从画右砸向画左；砸在木箱上；沈砚侧身躲开。</p>
             </div>
             <div class="block" data-show="error">
               <div class="reco-box">
                 <p class="section-title">AI 审片的建议</p>
                 <p style="margin-top: 6px">
-                  <strong>可以先用 C 顶上：</strong>开头 0.4 秒黑屏要剪掉，会少一点劈下来的起势。
+                  <strong>可以先用 C 版顶上：</strong>开头 0.4 秒黑屏要剪掉，会少一点挥棍的起势。
                 </p>
                 <p class="muted" style="margin-top: 4px">
-                  A 挡刀的是右前臂，接不上；B 没有做成。想要完整的动作，就改描述再做一版。
+                  A 版的铁棍穿过了沈砚的肩膀；B 版没有做成。想要完整的动作，就再做一次 B 版。
                 </p>
               </div>
             </div>
@@ -527,13 +532,11 @@
 
       <footer class="statusbar">
         <span class="note" role="status" data-show="normal"
-          >S04-07 有 3 个版本，还没选。AI 推荐 B。</span
+          >第 2 场第 17 个镜头有 3 个版本，还没选。AI 推荐 B 版。</span
         >
-        <span class="note" role="status" data-show="loading"
-          >版本 C 还在生成，可以先比 A 和 B。</span
-        >
-        <span class="note" role="status" data-show="empty">S04-07 还没有版本。</span>
-        <span class="note" role="alert" data-show="error">版本 B 没有做成。</span>
+        <span class="note" role="status" data-show="loading">C 版还在生成，可以先比 A 和 B。</span>
+        <span class="note" role="status" data-show="empty">第 2 场第 17 个镜头还没有版本。</span>
+        <span class="note" role="alert" data-show="error">B 版没有做成。</span>
         <span class="task">
           <svg class="ic sm"><use href="#i-clock" /></svg>
           <span data-show="normal empty error">后台生成：没有正在生成的内容</span>

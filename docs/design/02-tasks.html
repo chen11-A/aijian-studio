@@ -128,6 +128,9 @@
         color: var(--text-2);
         font-size: 12px;
       }
+      .job .title .code {
+        flex: none;
+      }
       .job .acts {
         display: flex;
         align-items: center;
@@ -263,9 +266,9 @@
           <button class="btn" aria-pressed="true" style="background: var(--panel-3)">
             <svg class="ic"><use href="#i-list" /></svg>任务
             <span class="badge" data-show="normal">4</span
-            ><span class="badge" data-show="recovered">2</span>
+            ><span class="badge" data-show="recovered">3</span>
           </button>
-          <button class="btn primary">
+          <button class="btn" disabled title="还有镜头没做好">
             <svg class="ic"><use href="#i-export" /></svg>导出成片
           </button>
           <button class="avatar" aria-label="账号">
@@ -279,27 +282,24 @@
           <div class="banner warn" role="alert" data-show="normal">
             <svg class="ic warn-text"><use href="#i-alert" /></svg>
             <div class="text">
-              <strong>软件上次没有正常关闭。做好的 48 段视频都在，没有丢。</strong>
+              <strong>软件上次没有正常关闭。做好的 80 段视频都在，没有丢。</strong>
               <span class="muted"
-                >有 2 段关闭时正在生成，不知道 Grok
-                有没有做完。先查一下再继续，免得重复用掉额度。排队的 26
-                段还没发出去，可以放心继续。</span
+                >关闭时有 2 段正在生成，不知道 Grok
+                有没有做完。先查一下再接着做，免得重复用掉额度；排队的 46 段还没发出去。</span
               >
             </div>
-            <button class="btn primary">查一下这 2 段</button>
-            <button class="btn">继续排队的 26 段</button>
+            <button class="btn primary">查一下，再接着做</button>
           </div>
           <div class="banner ok" role="status" data-show="recovered">
             <svg class="ic ok-text"><use href="#i-check" /></svg>
             <div class="text">
-              <strong>查完了：S04-09 版本 A 已经做好，已经存进作品。</strong>
+              <strong>查完了：第 2 场第 23 个镜头的 A 版已经做好，存进了作品。</strong>
               <span class="muted"
-                >S04-09 版本 B 在 Grok 那边没有记录，说明当时没发出去，可以重新生成，会用 1
-                段视频额度。</span
+                >B 版在 Grok 那边没有记录，说明当时没发出去，会重新排进队里，用 1 段视频额度。另外 2
+                段失败的在下面，等你处理。</span
               >
             </div>
-            <button class="btn primary">重新生成版本 B</button>
-            <button class="btn">继续排队的 26 段</button>
+            <button class="btn primary">接着做 47 段</button>
           </div>
           <div class="banner err" role="alert" data-show="error">
             <svg class="ic err-text"><use href="#i-alert" /></svg>
@@ -331,30 +331,30 @@
               </div>
               <div class="progress stack-bar" aria-label="视频进度" data-show="normal">
                 <i style="width: 61.5%; background: var(--ok)"></i>
-                <i style="width: 5.1%; background: var(--warn)"></i>
-                <i style="width: 33.4%; background: var(--line-2)"></i>
+                <i style="width: 3.1%; background: var(--warn)"></i>
+                <i style="width: 35.4%; background: var(--line-2)"></i>
               </div>
               <div class="progress stack-bar" aria-label="视频进度" data-show="recovered">
-                <i style="width: 62.8%; background: var(--ok)"></i>
-                <i style="width: 3.8%; background: var(--warn)"></i>
-                <i style="width: 33.4%; background: var(--line-2)"></i>
+                <i style="width: 62.3%; background: var(--ok)"></i>
+                <i style="width: 2.3%; background: var(--warn)"></i>
+                <i style="width: 35.4%; background: var(--line-2)"></i>
               </div>
               <div class="skeleton" style="height: 6px" data-show="loading"></div>
               <div class="legend" data-show="normal">
-                <span><i style="background: var(--ok)"></i>做好 48 段</span>
+                <span><i style="background: var(--ok)"></i>做好 80 段</span>
                 <span><i style="background: var(--warn)"></i>要你处理 4 段</span>
-                <span><i style="background: var(--line-2)"></i>排队 26 段</span>
-                <span>视频一共 78 段（39 个镜头 × 2 个版本）</span>
+                <span><i style="background: var(--line-2)"></i>排队 46 段</span>
+                <span>视频一共 130 段（65 个镜头，每个 2 个版本）</span>
               </div>
               <div class="legend" data-show="recovered">
-                <span><i style="background: var(--ok)"></i>做好 49 段</span>
+                <span><i style="background: var(--ok)"></i>做好 81 段</span>
                 <span><i style="background: var(--warn)"></i>要你处理 3 段</span>
-                <span><i style="background: var(--line-2)"></i>排队 26 段</span>
-                <span>视频一共 78 段（39 个镜头 × 2 个版本）</span>
+                <span><i style="background: var(--line-2)"></i>排队 46 段</span>
+                <span>视频一共 130 段（65 个镜头，每个 2 个版本）</span>
               </div>
             </div>
             <div class="row" data-show="normal recovered">
-              <span class="faint">图片 69/69 · 配音 22/22 都做好了</span>
+              <span class="faint">图片 95/95 · 配音 33/33 都做好了</span>
               <button class="btn">失败的全部重试（2）</button>
             </div>
           </section>
@@ -363,7 +363,7 @@
             <nav class="panel filters" aria-label="筛选任务">
               <div class="group">状态</div>
               <button class="filter" aria-pressed="false">
-                <span>全部</span><span class="num">169</span>
+                <span>全部</span><span class="num">258</span>
               </button>
               <button class="filter" aria-pressed="true">
                 <span>要你处理</span><span class="num" data-show="normal loading">4</span
@@ -373,21 +373,21 @@
                 <span>正在生成</span><span class="num">0</span>
               </button>
               <button class="filter" aria-pressed="false">
-                <span>排队</span><span class="num">26</span>
+                <span>排队</span><span class="num">46</span>
               </button>
               <button class="filter" aria-pressed="false">
-                <span>做好了</span><span class="num" data-show="normal loading">139</span
-                ><span class="num" data-show="recovered">140</span>
+                <span>做好了</span><span class="num" data-show="normal loading">208</span
+                ><span class="num" data-show="recovered">209</span>
               </button>
               <div class="group">种类</div>
               <button class="filter" aria-pressed="false">
-                <span>视频</span><span class="num">78</span>
+                <span>视频</span><span class="num">130</span>
               </button>
               <button class="filter" aria-pressed="false">
-                <span>图片</span><span class="num">69</span>
+                <span>图片</span><span class="num">95</span>
               </button>
               <button class="filter" aria-pressed="false">
-                <span>配音</span><span class="num">22</span>
+                <span>配音</span><span class="num">33</span>
               </button>
             </nav>
 
@@ -397,12 +397,37 @@
                 <span class="faint">按镜头顺序</span>
               </div>
               <div class="scroll list" data-show="normal recovered">
+                <div class="job">
+                  <div class="frame art-warehouse" data-art></div>
+                  <div class="one-line">
+                    <p class="title">
+                      <span class="one-line">第 2 场第 21 个镜头 · A 版</span
+                      ><span class="tag err">失败</span
+                      ><span class="code">scene-2-shot-21-take-1</span>
+                    </p>
+                    <p class="sub one-line">等了 10 分钟没有结果，已经停下 · 第 2 次</p>
+                  </div>
+                  <div class="acts"><button class="btn sm">再试一次</button></div>
+                </div>
+                <div class="job selected">
+                  <div class="frame art-warehouse" data-art></div>
+                  <div class="one-line">
+                    <p class="title">
+                      <span class="one-line">第 2 场第 22 个镜头 · A 版</span
+                      ><span class="tag err">失败</span
+                      ><span class="code">scene-2-shot-22-take-1</span>
+                    </p>
+                    <p class="sub one-line">Grok 没有接受这段描述 · 第 1 次</p>
+                  </div>
+                  <div class="acts"><button class="btn sm">改描述再试</button></div>
+                </div>
                 <div class="job" data-show="normal">
                   <div class="frame art-warehouse" data-art></div>
                   <div class="one-line">
                     <p class="title">
-                      <span class="one-line">S04-09 · 版本 A · 视频</span
-                      ><span class="tag warn">不确定</span>
+                      <span class="one-line">第 2 场第 23 个镜头 · A 版</span
+                      ><span class="tag warn">不确定</span
+                      ><span class="code">scene-2-shot-23-take-1</span>
                     </p>
                     <p class="sub one-line">软件关闭时正在生成，不知道 Grok 有没有做完 · 第 1 次</p>
                   </div>
@@ -412,51 +437,31 @@
                   <div class="frame art-warehouse" data-art></div>
                   <div class="one-line">
                     <p class="title">
-                      <span class="one-line">S04-09 · 版本 B · 视频</span>
+                      <span class="one-line">第 2 场第 23 个镜头 · B 版</span>
                       <span class="tag warn" data-show="normal">不确定</span
-                      ><span class="tag err" data-show="recovered">没发出去</span>
+                      ><span class="tag" data-show="recovered">重新排队</span
+                      ><span class="code">scene-2-shot-23-take-2</span>
                     </p>
                     <p class="sub one-line" data-show="normal">
                       软件关闭时正在生成，不知道 Grok 有没有做完 · 第 1 次
                     </p>
                     <p class="sub one-line" data-show="recovered">
-                      Grok 那边没有这次的记录，可以重新生成 · 第 1 次
+                      Grok 那边没有这次的记录，接着做时会重新生成 · 第 1 次
                     </p>
                   </div>
                   <div class="acts">
                     <button class="btn sm" data-show="normal">查一下</button
-                    ><button class="btn sm" data-show="recovered">重新生成</button>
+                    ><button class="btn sm ghost" data-show="recovered">移出队列</button>
                   </div>
                 </div>
-                <div class="job selected">
-                  <div class="frame art-warehouse" data-art></div>
-                  <div class="one-line">
-                    <p class="title">
-                      <span class="one-line">S04-07 · 版本 A · 视频</span
-                      ><span class="tag err">失败</span>
-                    </p>
-                    <p class="sub one-line">Grok 没有接受这段描述 · 第 1 次</p>
-                  </div>
-                  <div class="acts"><button class="btn sm">改描述再试</button></div>
-                </div>
+                <div class="group-head">排队 46 段 · 已暂停</div>
                 <div class="job">
                   <div class="frame art-warehouse" data-art></div>
                   <div class="one-line">
                     <p class="title">
-                      <span class="one-line">S04-08 · 版本 A · 视频</span
-                      ><span class="tag err">失败</span>
-                    </p>
-                    <p class="sub one-line">等了 10 分钟没有结果，已经停下 · 第 2 次</p>
-                  </div>
-                  <div class="acts"><button class="btn sm">再试一次</button></div>
-                </div>
-                <div class="group-head">排队 26 段 · 已暂停</div>
-                <div class="job">
-                  <div class="frame art-warehouse" data-art></div>
-                  <div class="one-line">
-                    <p class="title">
-                      <span class="one-line">S04-10 · 版本 A · 视频</span
-                      ><span class="tag">排第 1</span>
+                      <span class="one-line">第 2 场第 24 个镜头 · A 版</span
+                      ><span class="tag">排第 1</span
+                      ><span class="code">scene-2-shot-24-take-1</span>
                     </p>
                     <p class="sub one-line">起始画面已经做好，还没发给 Grok</p>
                   </div>
@@ -466,8 +471,9 @@
                   <div class="frame art-warehouse" data-art></div>
                   <div class="one-line">
                     <p class="title">
-                      <span class="one-line">S04-10 · 版本 B · 视频</span
-                      ><span class="tag">排第 2</span>
+                      <span class="one-line">第 2 场第 24 个镜头 · B 版</span
+                      ><span class="tag">排第 2</span
+                      ><span class="code">scene-2-shot-24-take-2</span>
                     </p>
                     <p class="sub one-line">起始画面已经做好，还没发给 Grok</p>
                   </div>
@@ -477,15 +483,16 @@
                   <div class="frame art-warehouse" data-art></div>
                   <div class="one-line">
                     <p class="title">
-                      <span class="one-line">S04-11 · 版本 A · 视频</span
-                      ><span class="tag">排第 3</span>
+                      <span class="one-line">第 2 场第 25 个镜头 · A 版</span
+                      ><span class="tag">排第 3</span
+                      ><span class="code">scene-2-shot-25-take-1</span>
                     </p>
                     <p class="sub one-line">起始画面已经做好，还没发给 Grok</p>
                   </div>
                   <div class="acts"><button class="btn sm ghost">移出队列</button></div>
                 </div>
-                <p class="more-row">还有 23 段排在后面，到 S06-07 版本 B 为止。</p>
-                <div class="group-head">做好了 · 视频 48 段、图片 69 张、配音 22 句</div>
+                <p class="more-row">还有 43 段排在后面，到第 3 场第 20 个镜头的 B 版为止。</p>
+                <div class="group-head">做好了 · 视频 80 段、图片 95 张、配音 33 句</div>
                 <p class="more-row">点左边的「做好了」看全部。</p>
               </div>
               <div class="list" data-show="loading" aria-busy="true">
@@ -516,13 +523,13 @@
 
             <aside class="panel detail" aria-labelledby="detail-title">
               <div class="panel-head">
-                <h2 id="detail-title">S04-07 · 版本 A</h2>
+                <h2 id="detail-title" class="one-line">第 2 场第 22 个镜头 · A 版</h2>
                 <span class="tag err">失败</span>
               </div>
               <div class="panel-body" data-show="normal recovered">
                 <p class="muted">
-                  第 4 场 · 特写 · 3 秒 ·
-                  第三刀从画右斜劈下来，沈砚抬起左臂去挡，刀刃划过左前臂，夹克袖子渗出血。
+                  特写 · 3 秒 ·
+                  画右的刀从右往左划过，画左抬起的左小臂去挡，刀锋划过小臂，渗出一道血。
                 </p>
                 <ol class="steps" aria-label="这一版要做的几步">
                   <li class="ok">
@@ -537,25 +544,24 @@
                     >视频
                   </li>
                   <li class="arrow" aria-hidden="true">→</li>
-                  <li class="faint"><span class="st">—</span>配音不用做</li>
+                  <li class="faint"><span class="st">—</span>这一镜没有台词</li>
                 </ol>
                 <div class="attempt">
                   <p class="h"><span>第 1 次</span><span class="tag err">没有生成视频</span></p>
                   <p class="muted" style="margin-top: 6px">
-                    Grok
-                    没有接受这段描述。可能是「刀刃划过左前臂」「渗出血」这类字被当成了血腥内容。
+                    Grok 没有接受这段描述。可能是「刀锋划过小臂」「渗出一道血」被当成了血腥内容。
                   </p>
                 </div>
                 <div class="suggest">
                   <p class="section-title">可以这样改</p>
                   <p style="margin-top: 6px">刀从袖子上擦过，袖口出现一道深色痕迹，不拍伤口。</p>
-                  <p class="faint" style="margin-top: 6px">来自动作指导：刀伤只拍袖口的血迹。</p>
+                  <p class="faint" style="margin-top: 6px">来自动作指导：只拍刀划过和手臂一缩。</p>
                 </div>
                 <div class="detail-acts">
-                  <button class="btn primary wide">用这句描述再试</button>
+                  <button class="btn wide">用这句描述再试</button>
                   <button class="btn">自己改描述</button>
                   <button class="btn">按原样再试</button>
-                  <button class="btn ghost wide">跳过这一版，用版本 B</button>
+                  <button class="btn ghost wide">跳过这一版，用 B 版</button>
                 </div>
                 <p class="faint">再试会用 1 段视频额度。被拒的这次算没算，软件看不到。</p>
               </div>
@@ -597,7 +603,7 @@
         <span class="note" role="alert" data-show="error">任务记录读不出来。</span>
         <span class="task">
           <svg class="ic sm"><use href="#i-clock" /></svg>
-          <span data-show="normal recovered">后台生成：已暂停，排队 26 段</span>
+          <span data-show="normal recovered">后台生成：已暂停，排队 46 段</span>
           <span data-show="empty loading error">后台生成：没有正在生成的内容</span>
           <span class="bar" data-show="normal recovered"><i style="width: 62%"></i></span>
         </span>
