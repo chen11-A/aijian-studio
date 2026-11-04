@@ -645,7 +645,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### 已提供
 
 - `pro/film-pipeline-controller.ts` 的 `createFilmPipelineController(host)` 提供 `run(options)`、`recover()`；`film.productionPipeline` 保存逐步、逐目标状态，`film.pipeline` 是 C12 显示投影。步骤为 writer、art、portraits、director、action、performance、prompter、stills、review、video、assembly。
-- 编剧分场与角色提取分别保存；定妆照目标是 `${characterId}@${view}`，每个角度保存后才推进。导演逐场，动作按镜头 ID，表演拒绝缺失镜头 ID 的回复，提示词逐镜。状态与业务结果同次保存，失败不继续下一个目标。
+- 编剧分场与角色提取分别保存；定妆照目标是 `${characterId}@${view}`，每个角度保存后才推进。导演逐场，动作只按镜头 ID；表演精确 ID 优先，仅无重复且可一一对应时兼容顺序并保存来源，歧义待核对；提示词逐镜。状态与业务结果同次保存，失败不继续下一个目标。
 - `pro/pipeline-media-actions.ts` 提供 `makePipelinePortraits`、`makePipelineStill`、`assemblePipelineFilm`；复用会员出图和现有桌面合成。合成有缺失音轨等部分成功原因时不会标成完整成功。没有引入口型、四层调音或付费服务。
 - 重开时 `recover()` 把中断的 running 标成 uncertain，绝不自动重发。完成目标保留；重试必须用 `productionTargetKey(step, target)` 生成的精确键，例如 `portraits/character-1@正面`。`run({retryTargets:[key]})` 只重试用户选中的目标。
 - 没有已验证的看图能力时，review 返回 needs-input，不写 AI 评分或 AI 选中版本。用户真的审过后才能调用 `run({acceptInputs:[{key:productionTargetKey("review", "all"),reason}]})`；人工状态记为 accepted，区别于自动完成。
@@ -688,7 +688,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 
 首帧最多五张、视频首帧另加最多十三张参考，均人物优先，余位追加场景图；满额时不挤掉人物。过期画风图不作为参考。HTTPS 地址可持久化但不等于已下载本地；实际出图桥返回已保存路径，文件验证仍在桌面边界。真实会员背景一致性未验。
 
-画幅：新建作品数据默认横屏 `16:9`，显式竖屏和新集继承继续支持；旧无画幅存档维持原竖屏解释。生成请求沿已有画幅链传入。Claude 新建选择及预览适配、双画幅居中裁切导出仍未完成，不能将此编号整体标已修。
+画幅：新建作品数据默认横屏 `16:9`，显式竖屏和新集继承继续支持；旧无画幅存档维持原竖屏解释。生成请求沿已有画幅链传入。Claude 新建选择及预览适配仍未完成；双画幅居中裁切后端见下文补充，不能将此编号整体标已修。
 
 ## 4A-B11 选择、差异与撤销（纯逻辑已提供，宿主未接）
 
@@ -696,7 +696,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 - `pro/actions/editor-changes.ts`：`diffEditorSuggestion(base,proposed,selection)` 给出按实体字段的 before/after；`applyEditorSuggestion(latest,suggestion)` 在字段仍等于 base 时原子应用并给 receipt。建议产生时保留 base，不可应用时偷换成 latest。结构新增/删/重排显式 unsupported，不能绕过检查。
 - `undoEditorReceipt(latest,receipt)` 只恢复仍等于该次写入结果的字段，保留后续手改、生成资产和任务；冲突逐项返回。`createPageUndoHistory()` 按作品和页面 record/canUndo/undo，不跨作品恢复。宿主须在成功保存后登记 receipt，并执行角色选声、画风过期等业务校验。
 
-上述函数与 14 项回归已提供；页面回调、请求接线、结构性事务、redo 和持久化历史尚未实现。现有全作品撤销尚未替换，不把这些纯函数说成用户可用入口。Claude 可先据接口准备差异显示，具体宿主接线由 GPT 继续完成。
+上述函数与 14 项回归已提供；页面回调、请求接线、redo 和持久化历史尚未实现；结构性事务见下文补充。现有全作品撤销尚未替换，不把这些纯函数说成用户可用入口。Claude 可先据接口准备差异显示，具体宿主接线由 GPT 继续完成。
 
 ### 4A-B10 双画幅导出后端（已提供，选择器未接）
 
@@ -715,3 +715,11 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### 4A-B08 表演结构（已提供）
 
 `FilmShot.performancePlan` 保存人物/本镜表演及绑定来源，`FilmScene.performanceState` 保存未分配项。`binding=scope-order` 代表明确的一一对应兼容，不能宣称语义已核实；动作仍禁止顺序回退。手动回复只写建议卡，确认后才保存该镜与对应场景，保留用户锁及动作字段；视频描述实际消费结构。真实会员表演效果未验证。
+
+### 4A-B11 建议宿主协调（已提供，页面接线进行中）
+
+`createEditorHost` 通过 `capture → preview → apply(id)` 固定基线并核对作品、页面、选中镜头、请求序号和字段锁。宿主注入现有保存通道；延后或保存失败返回 `applied_unsaved`，不能显示已保存。`canUndo/undo` 只处理本作品本页 receipt，保留生成媒体和后续修改。现有常规历史仍待迁移，纯接口不等同于所有页面已接。
+
+### 4A-B08 服装范围（部分提供）
+
+`FilmProject.costumes/costumeRisks` 保存真实 ranges 声明及核对风险。只有未改正文、可靠段号完整覆盖整场时，首帧/视频请求注入服装块；用户外貌/服装/镜头锁优先。场内换装仍返回 `COSTUME_WITHIN_SCENE_CHANGE`，不会按镜头序号猜。没有生成对应服装定妆照，不能声称该功能全流程完成。
