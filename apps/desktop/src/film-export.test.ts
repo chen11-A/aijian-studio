@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm, writeFile, link, symlink } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile, link, symlink, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -210,4 +210,64 @@ it("IPC authorizes cancellation and aborts a pending ratio export before publica
   release();
   await rejected;
   expect(await readdir(directory)).toEqual(["source.mp4"]);
+});
+
+describe("export validation boundaries", () => {
+  it("accepts omitted options and rejects non-string request identifiers", () => {
+    expect(filmExportOptions(undefined)).toEqual({});
+    expect(filmExportOptions({ aspectRatio: "16:9", requestId: "job:123" })).toEqual({
+      aspectRatio: "16:9",
+      requestId: "job:123",
+    });
+    expect(() => filmExportOptions({ requestId: 1 })).toThrow("EXPORT_OPTIONS_INVALID");
+  });
+  it("rejects invalid or non-directory destinations and pre-cancelled requests before copying", async () => {
+    const { source, directory } = await fixture();
+    const run = vi.fn();
+    for (const path of ["", "relative", "x".repeat(4097), `${directory}\0`, source]) {
+      await expect(exportFilmFile(source, path, "out", {}, run)).rejects.toThrow(
+        "EXPORT_DIRECTORY_INVALID",
+      );
+    }
+    await expect(
+      exportFilmFile(source, directory, "out", {}, run, () => true),
+    ).rejects.toMatchObject({ code: "EXPORT_CANCELLED" });
+    expect(run).not.toHaveBeenCalled();
+    expect(await readdir(directory)).toEqual(["source.mp4"]);
+  });
+  it("preserves the source basename for a default export into another directory", async () => {
+    const { source } = await fixture();
+    const { directory } = await fixture();
+    const output = await exportFilmFile(source, directory, undefined, {}, vi.fn());
+    expect(output).toBe(join(directory, "source.mp4"));
+    expect(await readFile(output)).toEqual(await readFile(source));
+  });
+  it.each(["empty", "directory"])(
+    "rejects a successful process with %s output and cleans its staging folder",
+    async (kind) => {
+      const { source, directory } = await fixture();
+      await expect(
+        exportFilmFile(source, directory, "out", { aspectRatio: "16:9" }, async (args) => {
+          if (kind === "empty") await writeFile(args.at(-1)!, "");
+          else await mkdir(args.at(-1)!);
+        }),
+      ).rejects.toThrow("EXPORT_OUTPUT_INVALID");
+      expect(await readdir(directory)).toEqual(["source.mp4"]);
+    },
+  );
+  it("revalidates source identity when a target hardlink appears during encoding", async () => {
+    const { source, directory } = await fixture();
+    const destination = join(directory, "out-16x9.mp4");
+    await expect(
+      exportFilmFile(source, directory, "out", { aspectRatio: "16:9" }, async (args) => {
+        await writeFile(args.at(-1)!, "encoded");
+        await link(source, destination);
+      }),
+    ).rejects.toThrow("EXPORT_SOURCE_OVERWRITE");
+    expect(await readFile(source, "utf8")).toBe("original video");
+    expect(await readFile(destination)).toEqual(await readFile(source));
+    expect((await readdir(directory)).some((name) => name.startsWith(".aivora-export"))).toBe(
+      false,
+    );
+  });
 });
