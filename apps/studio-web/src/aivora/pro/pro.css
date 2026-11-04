@@ -3087,3 +3087,13 @@ body:has(.pro-root) {
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* UIR-01: a line before the destructive item of a menu, which is written in the warning color. */
+.pro-root .menu .menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+.pro-root .menu button.danger {
+  color: var(--err);
+}

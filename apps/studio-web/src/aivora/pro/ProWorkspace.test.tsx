@@ -1207,6 +1207,33 @@ it("ticks a stage only when it is done, hides an idle progress bar, and points t
   expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeInTheDocument();
 });
 
+it("closes 「更多」 on Esc, a press outside, and another shot; closes the top menus too", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const more = () => screen.getByRole("button", { name: "更多操作" });
+  const menu = () => screen.queryByRole("menu", { name: "这一镜的更多操作" });
+  fireEvent.click(more());
+  expect(menu()).toBeInTheDocument();
+  expect(menu()?.querySelector('[role="separator"] + .danger')).toHaveTextContent("删除这一镜");
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(menu()).toBeNull();
+  fireEvent.click(more());
+  fireEvent.pointerDown(document.querySelector(".pb.grid")!);
+  expect(menu()).toBeNull();
+  fireEvent.click(more());
+  fireEvent.click(document.querySelectorAll<HTMLElement>(".pb.grid .card")[1]!);
+  expect(menu()).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  expect(screen.getByRole("menu", { name: "作品菜单" })).toBeInTheDocument();
+  fireEvent.pointerDown(document.querySelector(".pb.grid")!);
+  expect(screen.queryByRole("menu", { name: "作品菜单" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "账号" }));
+  expect(screen.getByRole("menu", { name: "账号菜单" })).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.queryByRole("menu", { name: "账号菜单" })).toBeNull();
+});
+
 it("keeps one primary button per page, export only on 剪辑", async () => {
   installDesktop();
   await openSample();

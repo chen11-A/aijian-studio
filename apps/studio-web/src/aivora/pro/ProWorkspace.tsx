@@ -119,6 +119,7 @@ import { publishFilmJobs, runTask } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useStatusNotice } from "../next/wiring/statusNotice";
+import { useDismiss } from "../next/wiring/dismiss";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
@@ -2675,6 +2676,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
   // past messages are listed in the task center.
   const status = useStatusNotice(notice);
+  // UIR-01: the 作品 and 账号 menus close on Esc or a press outside them.
+  useDismiss(menu === "project", () => setMenu(null), '[data-menu="project"]');
+  useDismiss(menu === "account", () => setMenu(null), '[data-menu="account"]');
   // UI wiring (3J-U05, 3J-U06, 3J-U10): GPT's production actions, made once. Each call reads
   // the live workspace through productionHost, so it never acts on an old render.
   const productionHost = useRef({ applyLive, completeAgent, emitNotice });
@@ -2760,6 +2764,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <span className="vsep" />
             <button
               className="proj"
+              data-menu="project"
               aria-label="作品"
               onClick={() => {
                 const opening = menu !== "project";
@@ -2796,7 +2801,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <Ic name="redo" />
             </button>
             {menu === "project" && (
-              <div className="menu" role="menu" aria-label="作品菜单">
+              <div className="menu" role="menu" aria-label="作品菜单" data-menu="project">
                 <button
                   onClick={() => {
                     const next = blankFilm();
@@ -3037,6 +3042,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
             <button
               className="avatar"
+              data-menu="account"
               aria-label="账号"
               onClick={() => setMenu(menu === "account" ? null : "account")}
             >
@@ -3047,7 +3053,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
             </button>
             {menu === "account" && (
-              <div className="menu" role="menu" aria-label="账号菜单">
+              <div className="menu" role="menu" aria-label="账号菜单" data-menu="account">
                 {signingIn && (
                   <button
                     onClick={() => {
@@ -5129,6 +5135,10 @@ function BoardPage({
   const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
   // 3J-U10: what the scene on show still misses (C9) and the actions that fit no shot (C10).
   const [fixing, setFixing] = useState("");
+  // UIR-01: 「更多」 closes on Esc, a press outside, choosing an item, or another shot.
+  useDismiss(moreOpen, () => setMoreOpen(false), ".more-wrap");
+  const shownShotId = current?.id ?? "";
+  useEffect(() => setMoreOpen(false), [shownShotId]);
   // One primary button per screen: the shot's own action, or 「下一步：剪辑」 when all are made.
   const allMade = stageProgress(film).board && Boolean(onNext);
   const sceneRow = film.scenes.find((item) => item.id === current?.sceneId);
@@ -5788,8 +5798,10 @@ function BoardPage({
                         重新生成画面
                       </button>
                     ) : null}
+                    <div className="menu-sep" role="separator" />
                     <button
                       type="button"
+                      className="danger"
                       onClick={() => {
                         setMoreOpen(false);
                         onFilm(removeShot(film, current.id));
