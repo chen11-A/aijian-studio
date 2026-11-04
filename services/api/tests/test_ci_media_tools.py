@@ -130,6 +130,10 @@ def test_transient_http_failure_retries_then_publishes_verified_archive(
     monkeypatch.setattr(prepare.time, "sleep", sleep)
     prepare.download_archive(path)
     assert network.call_count == 2
+    assert [call.args[0].full_url for call in network.call_args_list] == [
+        prepare.WINDOWS_ARCHIVE_URL,
+        prepare.WINDOWS_ARCHIVE_MIRROR_URL,
+    ]
     sleep.assert_called_once_with(2)
     assert path.read_bytes() == archive
     assert list(tmp_path.glob(".archive.7z.download-*")) == []
@@ -177,6 +181,10 @@ def test_http_retries_are_bounded_and_permission_failures_are_not_retried(
         prepare.download_archive(path)
     assert raised.value.code == status
     assert network.call_count == attempts
+    assert [call.args[0].full_url for call in network.call_args_list] == [
+        prepare.WINDOWS_ARCHIVE_URL,
+        *([prepare.WINDOWS_ARCHIVE_MIRROR_URL] * (attempts - 1)),
+    ]
     assert sleep.call_count == attempts - 1
     assert not path.exists()
 
@@ -195,3 +203,26 @@ def test_hash_failure_is_not_retried_or_admitted(tmp_path, monkeypatch, archive)
     staged = list(tmp_path.glob(".archive.7z.download-*"))
     assert len(staged) == 1
     assert staged[0].read_bytes() == b"wrong"
+
+
+def test_mirror_bytes_must_still_match_the_original_hash(tmp_path, monkeypatch, archive):
+    path = tmp_path / "archive.7z"
+    response = io.BytesIO(b"wrong mirror bytes")
+    response.url = prepare.WINDOWS_ARCHIVE_MIRROR_URL
+    network = Mock(
+        side_effect=[
+            urllib.error.HTTPError(prepare.WINDOWS_ARCHIVE_URL, 503, "unavailable", {}, None),
+            response,
+        ]
+    )
+    monkeypatch.setattr(prepare.urllib.request, "urlopen", network)
+    sleep = Mock()
+    monkeypatch.setattr(prepare.time, "sleep", sleep)
+    with pytest.raises(ValueError, match="pinned bytes"):
+        prepare.download_archive(path)
+    assert network.call_count == 2
+    sleep.assert_called_once_with(2)
+    assert not path.exists()
+    staged = list(tmp_path.glob(".archive.7z.download-*"))
+    assert len(staged) == 1
+    assert staged[0].read_bytes() == b"wrong mirror bytes"

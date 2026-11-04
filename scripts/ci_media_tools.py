@@ -21,6 +21,10 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS_ARCHIVE_URL = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-full_build.7z"
+# The publisher lists this release as its official mirror with the same SHA-256.
+WINDOWS_ARCHIVE_MIRROR_URL = (
+    "https://github.com/GyanD/codexffmpeg/releases/download/8.1.2/ffmpeg-8.1.2-full_build.7z"
+)
 WINDOWS_ARCHIVE_SHA256 = "0fff188997a499b5382e0f66e845d4556c48c54f0113ebed4853d556dbdd7059"
 WINDOWS_ARCHIVE_ROOT = "ffmpeg-8.1.2-full_build"
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
@@ -49,8 +53,11 @@ def download_archive(path: Path) -> None:
     if path.exists() or path.is_symlink():
         verify_archive(path)
         return
-    request = urllib.request.Request(WINDOWS_ARCHIVE_URL, headers={"User-Agent": "AIVORA-CI"})
     for attempt in range(DOWNLOAD_ATTEMPTS):
+        # Retry transient origin outages at the publisher's fixed mirror. Neither
+        # authorization errors nor integrity failures permit a source switch.
+        url = WINDOWS_ARCHIVE_URL if attempt == 0 else WINDOWS_ARCHIVE_MIRROR_URL
+        request = urllib.request.Request(url, headers={"User-Agent": "AIVORA-CI"})
         # Keep incomplete bytes out of the cache. Validation failures retain the
         # unique staging file for diagnosis; transport failures can safely retry.
         staging: Path | None = None
