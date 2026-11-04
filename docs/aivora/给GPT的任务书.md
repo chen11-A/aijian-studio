@@ -2,6 +2,8 @@
 
 # AIVORA 阶段 3j：后端和逻辑任务书（GPT）
 
+> 用户决定：3J-B18、3J-B19 和 3J-U18–U22 放到 3j 出包后的下一轮处理，不作为本轮 3j 出包或打 tag 的前置条件，不阻挡 `aivora-desktop-v0.3.0-phase3j` tag。下文保留原编号、任务正文及统计归类；执行顺序以本说明为准。
+
 ## 基本要求
 - 仓库 chen11-A/aijian-studio，分支 `gpt/aivora-p3j`，从 tag `aivora-desktop-v0.3.0-phase3i`（提交 6efe12d）开。不合并 main，不开 PR 到 main。
 - 只用 Grok 会员，不接按次付费服务。
