@@ -296,7 +296,7 @@ it("keeps rejection distinct from an ordinary still failure in plain status copy
   });
   expect(stillFailureNotice(new Error("出图没有成功，可以重试。"))).toEqual({
     code: "STILL_FAILED",
-    text: "画面未完成，可以重试。",
+    text: "画面没出成，可以再试一次。",
   });
 });
 
