@@ -129,6 +129,31 @@ export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): 
       ...left,
       seconds: left.seconds + right.seconds,
       picture: join(left.picture, right.picture),
+      ...(left.directorFramePrompt || right.directorFramePrompt
+        ? {
+            directorFramePrompt: join(
+              left.directorFramePrompt || left.picture,
+              right.directorFramePrompt || right.picture,
+            ),
+          }
+        : {}),
+      ...(left.directorVideoPrompt || right.directorVideoPrompt
+        ? {
+            directorVideoPrompt: join(
+              left.directorVideoPrompt || left.picture,
+              right.directorVideoPrompt || right.picture,
+            ),
+          }
+        : {}),
+      ...(left.promptZh || right.promptZh
+        ? {
+            promptZh: join(
+              left.promptZh || left.directorFramePrompt || left.picture,
+              right.promptZh || right.directorFramePrompt || right.picture,
+            ),
+          }
+        : {}),
+      ...(left.promptEn || right.promptEn ? { promptEn: join(left.promptEn, right.promptEn) } : {}),
       action: join(left.action, right.action),
       performance: join(left.performance, right.performance),
       blocking: join(left.blocking, right.blocking),

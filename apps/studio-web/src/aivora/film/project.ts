@@ -194,6 +194,9 @@ export type FilmShot = {
   tag?: string;
   blocking?: string;
   facing?: string;
+  /** Director generation plans, separate from visible picture and later keyframe polishing. */
+  directorFramePrompt?: string;
+  directorVideoPrompt?: string;
   promptZh?: string;
   promptEn?: string;
   source: string;
@@ -458,7 +461,9 @@ export function shotIdentity(shot: FilmShot, film: FilmProject): string {
 }
 
 export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
-  const picture = (shot.picture || shot.action).trim();
+  const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
+  const frame = edited ? "" : shot.promptZh?.trim() || shot.directorFramePrompt?.trim() || "";
+  const picture = frame || (shot.picture || shot.action).trim();
   const base = picture.startsWith("这一镜的起始画面")
     ? picture.endsWith("。")
       ? picture
@@ -497,7 +502,13 @@ function lockKeyframe(body: string, shot: FilmShot, film: FilmProject): string {
 }
 
 export function videoPrompt(shot: FilmShot): string {
-  const motion = (shot.picture || shot.action).replace(/。$/, "");
+  const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
+  const explicit = shot.userFields.includes("promptZh") ? shot.promptZh?.trim() : "";
+  const motion = (
+    edited
+      ? shot.picture || shot.action
+      : explicit || shot.directorVideoPrompt || shot.picture || shot.action
+  ).replace(/。$/, "");
   const spoken = shot.line.trim() ? `台词原句：「${shot.line.trim()}」。不要背景音乐。` : "";
   return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}`;
 }
@@ -718,6 +729,12 @@ export function parseDirectorShots(
       move: typeof record.move === "string" ? record.move : "固定",
       seconds: storedShotSeconds(seconds),
       picture: told,
+      ...(typeof record.start_frame_prompt === "string" && record.start_frame_prompt.trim()
+        ? { directorFramePrompt: plainCue(record.start_frame_prompt.trim()) }
+        : {}),
+      ...(typeof record.video_prompt === "string" && record.video_prompt.trim()
+        ? { directorVideoPrompt: plainCue(record.video_prompt.trim()) }
+        : {}),
       action: action && action !== told ? action : "",
       performance: plainCue(performance),
       characters,

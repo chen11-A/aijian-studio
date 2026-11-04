@@ -1253,7 +1253,14 @@ export function isBeatList(text: string): boolean {
 export function motionPrompt(shot: FilmShot): string {
   const picture = shot.picture.trim();
   const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
-  const prompted = edited ? "" : shot.promptZh?.trim() || "";
+  // The prompter produces keyframe.prompt_zh, not a replacement video action plan.
+  // An explicit user edit of promptZh remains authoritative for legacy prompt editing.
+  const prompted = edited
+    ? ""
+    : (shot.userFields.includes("promptZh") ? shot.promptZh?.trim() : "") ||
+      shot.directorVideoPrompt?.trim() ||
+      shot.promptZh?.trim() ||
+      "";
   let visual = prompted || picture;
   const acted = shot.performance.trim();
   if (acted && visual && !visual.includes(acted) && !isBeatList(acted)) {
