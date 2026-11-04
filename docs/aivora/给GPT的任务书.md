@@ -105,7 +105,7 @@
 
 ## 4A-B01 当前进度：部分完成，未启用新入口
 
-3j-r1 已在 `7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11` 发布，后续工作在 `gpt/work-4a`。已提供逐目标持久化流水线、文本智能体与媒体适配、断点恢复、人工审片与独立检查点控制器；相关接口见 `apps/studio-web/src/aivora/next/INTEGRATION.md` 的 4A-B01 节。
+3j-r1 已在 `7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11` 发布，后续工作在 `gpt/work-4a`。后台实现提交 `cb0122247bd6d876c0b312373aed042a78ecd315` 已推送，提供逐目标持久化流水线、文本智能体与媒体适配、断点恢复、人工审片与独立检查点控制器；相关接口见 `apps/studio-web/src/aivora/next/INTEGRATION.md` 的 4A-B01 节。针对性回归 web 157 项、desktop 11 项通过，真实 web `tsc -b`、desktop 类型检查、ESLint、Prettier 通过；不以此代替下一阶段全量 CI 或真实会员验收。
 
 尚未完成：ProWorkspace 宿主接线及自动保存协调、Claude 4A-U01 的审片/检查点/精确重试交互、真实会员完整生成验收。现有按钮仍走原流程，不能把新增模块测试当成已接线或全流程完成。无已验证看图能力时后台明确要求人工审片，不伪造审片分数；没有发布 4a tag。
 
