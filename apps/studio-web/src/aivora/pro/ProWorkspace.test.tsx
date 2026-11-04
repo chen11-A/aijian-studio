@@ -3198,3 +3198,37 @@ it("names each shot's job in the task center and counts the ones still going", a
   expect(within(center).queryByText("生成视频")).toBeNull();
   release({ data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" } });
 });
+
+it("discards a late art draft after leaving its assistant scope", async () => {
+  const { completeText } = installDesktop();
+  const saved = sampleFilm();
+  saved.backendProjectId = PROJECT_ID;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(saved);
+  window.localStorage.setItem("aivora.film.activeId", saved.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await waitFor(() =>
+    expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
+  );
+  fireEvent.click(stageTab("角色与场景"));
+  let resolve!: (reply: { kind: "OK"; text: string }) => void;
+  completeText.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  pickHelper("美术");
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  await waitFor(() => expect(resolve).toBeDefined());
+  fireEvent.click(stageTab("剧本"));
+  await act(async () => {
+    resolve({ kind: "OK", text: JSON.stringify({ prompt_block_zh: "迟到的美术画风不应写入" }) });
+  });
+  expect(screen.queryByText(/迟到的美术画风不应写入/)).not.toBeInTheDocument();
+  fireEvent.click(stageTab("角色与场景"));
+  expect(screen.queryByText(/迟到的美术画风不应写入/)).not.toBeInTheDocument();
+  const writes = vi.mocked(window.aijian!.writeFilmProject!).mock.calls;
+  expect(
+    writes.some(([value]) => (value as FilmProject).styleZh === "迟到的美术画风不应写入"),
+  ).toBe(false);
+});

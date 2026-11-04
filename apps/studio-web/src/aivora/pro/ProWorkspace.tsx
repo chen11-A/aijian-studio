@@ -1,3 +1,4 @@
+import { planArtDraft } from "./actions/art";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import { ensureContinuityFrame, continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
@@ -87,7 +88,6 @@ import {
 import {
   actionFromModel,
   appearanceMark,
-  artFromModel,
   classifyShotSize,
   DIFFICULTY_LEGEND,
   difficultyLabel,
@@ -163,7 +163,6 @@ import {
   requestFilmStill,
   middlePath,
   shotFrame,
-  applyArtDraft,
   hydrateFilm,
   filmSignature,
   replaceTakes,
@@ -1836,26 +1835,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   async function planArtWork() {
     if (!film) return;
     const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
-    const reply = await completeAgent(
-      "art",
-      `画风：${film.styleZh}\n人物：${film.characters.map((item) => item.name).join("、")}`,
-      "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
-    );
-    if (!isTurnCurrent(turn)) return;
-    const parsed = reply.text ? artFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed) {
+    const result = await planArtDraft(film, {
+      request: completeAgent,
+      current: () => isTurnCurrent(turn),
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
       setStructured([]);
-      const failed = reply.text
-        ? "美术没有按格式返回，这次没有改作品。"
-        : `${reply.detail} 这次没有改作品。`;
-      finishTurn(turn, failed);
-      noteAgent("art", "rejected", failed);
+      finishTurn(turn, result.notice);
+      noteAgent("art", "rejected", result.notice);
       return;
     }
-    setStructured(parsed.lines);
+    setStructured(result.lines);
     publishCard("art", {
       title: "美术 · 画风和外貌",
-      rows: parsed.lines.map((line, index) => ({
+      rows: result.lines.map((line, index) => ({
         id: `art-${index}`,
         mark: "",
         text: line,
@@ -1867,8 +1861,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     });
     finishTurn(turn, "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
     noteAgent("art", "art", "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
-    const next = applyArtDraft(film, parsed);
-    artDraft.current = next;
+    artDraft.current = result.draft;
     setPending(null);
     setPendingRole(null);
   }
