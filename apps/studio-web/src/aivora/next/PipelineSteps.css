@@ -1,0 +1,82 @@
+/* 4A-U01: a thin bar under the top bar while 一键成片 runs or waits at the storyboard. */
+.nx-root.nx-pipeline {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  height: auto;
+  min-height: 40px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.nx-root .nx-pipeline-steps {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+.nx-root .nx-pipeline-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.nx-root .nx-pipeline-step[data-status="done"] {
+  color: var(--text-2);
+}
+
+.nx-root .nx-pipeline-step[data-status="running"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.nx-root .nx-pipeline-step[data-status="failed"] {
+  color: var(--err);
+}
+
+.nx-root .nx-pipeline-arrow {
+  color: var(--text-3);
+}
+
+.nx-root .nx-pipeline-mark {
+  color: var(--ok);
+}
+
+.nx-root .nx-pipeline-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.nx-root .nx-pipeline-retry {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.nx-root .nx-pipeline-check {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.nx-root .nx-pipeline-summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-root .nx-pipeline-check .nx-btn {
+  height: 28px;
+}

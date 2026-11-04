@@ -558,6 +558,16 @@ coverEditorData(film, { mediaUrl: fileMediaUrl });
 - 「打开示例」：内置的 `sampleFilm()` 只有剧本和分镜，没有画面，所以只放一行小字并写明。GPT 将来内置有画面的示例作品（4B-U08）时再做成大入口。
 - 要 GPT 配合：`oneClickFilm` 改成读 `filmRef.current` 或接受作品参数，首页就不用等一次 effect。
 
+## 一键成片步骤条和检查点（4A-U01）
+
+- 组件：`next/PipelineSteps.tsx`，只收 props，放在顶栏和工作区之间一条（`.app.with-pipeline` 多一行）。一键成片在跑或者停在分镜时才出现，其他时候不占地方。
+- 步骤：读 `film.pipeline.steps`（C12）。界面按 `id` 写中文名（编剧、美术、定妆照、导演、动作、表演、画面说明、出图、审片、视频），不显示 GPT 给的 `label`。`done/total` 大于 1 时写「12/28」。
+- 检查点：一键成片停在分镜（现在的 `oneClickReady`）时，写「停在分镜，等你看一遍：28 个镜头 · 约 149 秒 · 将生成 28 段视频 · 用会员额度」，一个主按钮「继续生成」，做的事和原来状态栏的「继续出视频」一样（那个按钮已经从状态栏拿掉）。视频段数 = 镜头数 × 每镜版本数。
+- 剧本页「一键成片」旁边写「会在分镜后停下，等你确认」。「从模板开始」挪到首页「从空白开始」里，和画幅放在一起；新建以后由紧挨 `return (` 的 effect 调一次 `applyTemplate`（它从闭包读 `film`）。
+- 要 GPT 配合（4A-B01）：
+  - 一键成片每一步写 `film.pipeline = {steps, current}`，步骤 `id` 按 C12，状态 queued/running/done/failed。现在没有这份数据，所以步骤那一段不显示，只显示检查点。
+  - 「从这一步重来」要一个 `retryPipelineFrom(stepId)`。没有它时失败的步骤只写「没做完」，不画按钮。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

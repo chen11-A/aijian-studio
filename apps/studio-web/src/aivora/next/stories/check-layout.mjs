@@ -41,6 +41,7 @@ const stories = [
   "take-picker",
   "subtitle-style",
   "cover-editor",
+  "pipeline-steps",
 ];
 
 // Runs inside the page. Returns a list of problems in Chinese.

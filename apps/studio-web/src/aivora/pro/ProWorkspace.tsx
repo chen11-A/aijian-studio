@@ -143,6 +143,7 @@ import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
 import { HomeStart, type Aspect } from "../next/HomeStart";
+import { PipelineSteps } from "../next/PipelineSteps";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2828,11 +2829,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     return next;
   };
   const oneClickFromHome = useRef("");
+  // 4A-U01: a story template is chosen with the new work; it goes in once the work is shown.
+  const templateFromHome = useRef({ id: "", name: "" });
   useEffect(() => {
-    if (!film || oneClickFromHome.current !== film.id) return;
+    if (!film) return;
+    if (templateFromHome.current.id === film.id) {
+      const name = templateFromHome.current.name;
+      templateFromHome.current = { id: "", name: "" };
+      applyTemplate(name);
+    }
+    if (oneClickFromHome.current !== film.id) return;
     oneClickFromHome.current = "";
     void oneClickFilm();
   }, [film]);
+  // 4A-U01: 「继续生成」 at the storyboard checkpoint (it used to sit in the status bar).
+  const continueOneClick = () => {
+    const live = filmRef.current;
+    if (!live || live.shots.length === 0) {
+      void oneClickFilm();
+      return;
+    }
+    queueBatch(live.shots);
+    setOneClickReady(false);
+  };
+  const pipelineSteps = film?.pipeline?.steps ?? [];
+  const showPipeline =
+    open && (oneClickReady || pipelineSteps.some((step) => step.status !== "done"));
   useEffect(() => {
     if (!open) void listFilms().then(setSeriesList);
   }, [open]);
@@ -2851,7 +2873,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       data-sample={open ? "open" : "empty"}
       data-generate={actions.regenerate.enabled ? "on" : "off"}
     >
-      <div className="app">
+      <div className={showPipeline ? "app with-pipeline" : "app"}>
         <header className="topbar">
           <div className="tb-left">
             <div className="logo">
@@ -3159,6 +3181,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             )}
           </div>
         </header>
+        {showPipeline && film ? (
+          <PipelineSteps
+            steps={pipelineSteps}
+            checkpoint={
+              oneClickReady
+                ? {
+                    shots: film.shots.length,
+                    seconds: film.shots.reduce((sum, item) => sum + item.seconds, 0),
+                    videos: film.shots.length * versions,
+                  }
+                : null
+            }
+            onContinue={continueOneClick}
+          />
+        ) : null}
         <main className={wsClass}>
           {!open || !film ? (
             <section className="pane home-pane" style={{ gridColumn: "1 / -1" }}>
@@ -3176,8 +3213,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   });
                   fileRef.current?.click();
                 }}
-                onBlank={(aspect) => {
-                  startWork(aspect);
+                templates={FILM_TEMPLATES.map((item) => item.name)}
+                onBlank={(aspect, template) => {
+                  const next = startWork(aspect);
+                  if (template) templateFromHome.current = { id: next.id, name: template };
                   if (aspect === "16:9") setNotice("已新建横屏作品。");
                   else setNotice("已新建作品（竖屏）。");
                 }}
@@ -3248,7 +3287,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setNotice("已记下审片意见。版本仍由你选。");
                   }}
                   onOneClick={() => void oneClickFilm()}
-                  onTemplate={applyTemplate}
                 />
               )}
               {stage === "cast" && (
@@ -3553,22 +3591,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           }}
         />
         <footer className="statusbar">
-          {oneClickReady && (
-            <button
-              type="button"
-              onClick={() => {
-                const live = filmRef.current;
-                if (!live || live.shots.length === 0) {
-                  void oneClickFilm();
-                  return;
-                }
-                queueBatch(live.shots);
-                setOneClickReady(false);
-              }}
-            >
-              继续出视频
-            </button>
-          )}
           {asking && (
             <button
               type="button"
@@ -4300,7 +4322,6 @@ function ScriptPage({
   onRedoRange,
   onDismiss,
   onOneClick,
-  onTemplate,
   onRetry,
 }: {
   film: FilmProject;
@@ -4338,7 +4359,6 @@ function ScriptPage({
   onRedoRange: () => void;
   onDismiss: () => void;
   onOneClick: () => void;
-  onTemplate: (name: string) => void;
 }) {
   const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
   const words = film.scenes.reduce((sum, item) => sum + item.text.length, 0);
@@ -4424,25 +4444,16 @@ function ScriptPage({
             <Ic name="clap" size={15} />
             {asking ? "正在写" : "让导演拆镜头"}
           </button>
-          <button className="btn" type="button" onClick={onOneClick} disabled={asking}>
+          <button
+            className="btn"
+            type="button"
+            onClick={onOneClick}
+            disabled={asking}
+            title="会在分镜后停下，等你确认"
+          >
             {asking ? "正在做" : "一键成片"}
           </button>
-          <select
-            className="input"
-            aria-label="从模板开始"
-            defaultValue=""
-            onChange={(event) => {
-              if (event.target.value) onTemplate(event.target.value);
-              event.target.value = "";
-            }}
-          >
-            <option value="">从模板开始</option>
-            {FILM_TEMPLATES.map((item) => (
-              <option key={item.id} value={item.name}>
-                {item.name}
-              </option>
-            ))}
-          </select>
+          <span className="tool-hint">会在分镜后停下，等你确认</span>
         </div>
         <div className="pb doc">
           <div className="page">

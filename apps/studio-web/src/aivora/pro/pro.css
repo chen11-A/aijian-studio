@@ -3080,3 +3080,13 @@ body:has(.pro-root) {
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* 4A-U01: room for the 一键成片 step bar between the top bar and the workspace. */
+.pro-root .app.with-pipeline {
+  grid-template-rows: var(--topbar) auto 1fr var(--status);
+}
+.pro-root .tool-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}

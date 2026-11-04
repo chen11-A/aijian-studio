@@ -297,6 +297,19 @@ describe("professional workspace", () => {
     );
   });
 
+  it("starts a new work from a story template chosen on home", async () => {
+    render(<ProWorkspace />);
+    fireEvent.change(screen.getByLabelText("从模板开始"), { target: { value: "雨夜巷战打斗" } });
+    fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
+    await waitFor(() =>
+      expect(document.querySelector(".status-note")?.textContent).toMatch(
+        /已放入模板「雨夜巷战打斗」/,
+      ),
+    );
+    expect(screen.queryByLabelText("从模板开始")).toBeNull();
+    expect(screen.getByText("会在分镜后停下，等你确认")).toBeInTheDocument();
+  });
+
   it("starts a landscape film from the empty screen", () => {
     render(<ProWorkspace />);
     expect(screen.getByRole("radio", { name: "横屏 16:9" })).toBeChecked();
@@ -1227,8 +1240,6 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
       "表演指导",
       "美术",
     ]);
-    fireEvent.change(screen.getByLabelText("从模板开始"), { target: { value: "雨夜巷战打斗" } });
-    expect(await screen.findByText(/已放入模板「雨夜巷战打斗」/)).toBeInTheDocument();
     pickHelper("美术");
     fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
     expect(await screen.findByText(/美术写好了/)).toBeInTheDocument();
@@ -2253,8 +2264,14 @@ it("continues one-click storyboarding and retries the director into shots", asyn
       /分镜好了。看一遍|有的场还有内容没拍到/,
     ),
   );
-  fireEvent.click(screen.getByRole("button", { name: "继续出视频" }));
+  // 4A-U01: the checkpoint bar says what will be made; 「继续生成」 left the status bar.
+  expect(screen.getByRole("region", { name: "一键成片进度" })).toHaveTextContent(
+    /将生成 \d+ 段视频/,
+  );
+  expect(document.querySelector(".statusbar")?.textContent).not.toMatch(/继续/);
+  fireEvent.click(screen.getByRole("button", { name: "继续生成" }));
   expect(await screen.findByRole("button", { name: "开始生成" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "一键成片进度" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "先不生成" }));
   fireEvent.click(stageTab("剧本"));
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));

@@ -10,6 +10,7 @@ export const STORY_PAGES = [
   { id: "take-picker", name: "一选多" },
   { id: "subtitle-style", name: "字幕样式" },
   { id: "cover-editor", name: "封面" },
+  { id: "pipeline-steps", name: "一键成片步骤" },
 ] as const;
 
 export type StoryId = (typeof STORY_PAGES)[number]["id"];
