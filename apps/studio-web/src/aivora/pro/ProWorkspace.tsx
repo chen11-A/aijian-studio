@@ -1,3 +1,4 @@
+import { preparePortraitIdentity } from "./actions/portrait-identity";
 import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
 import { directorRequestInput, requestDirectorDraft } from "./actions/director";
 import { planWriterDraft, writerDraftInput, type WriterDraftResult } from "./actions/writer";
@@ -1422,39 +1423,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `portrait-identity:${characterId}`,
       () => filmRef.current?.id ?? "",
     );
-    try {
-      const identity = character.identity.trim();
-      if (!identity) {
-        setNotice("正在从剧本里看这个人的外貌。");
-        const story =
-          current.scenes
-            .map((item) => item.text)
-            .filter(Boolean)
-            .join("\n") || current.title;
-        const reply = await completeAgent(
-          "writer",
-          story,
-          `只写「${character.name}」的一句外貌，必须写明性别和大致年龄。看不出来就只写：性别未写明。`,
-        );
-        if (!valid()) return;
-        const line = (reply.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
-        if (!line || line.includes("性别未写明")) {
-          setNotice("先写下外貌，再出定妆照。");
-          return;
-        }
-        const latest = filmRef.current;
-        if (!latest || latest.id !== current.id) return;
-        applyLive({
-          ...latest,
-          characters: latest.characters.map((item) =>
-            item.id === character.id ? { ...item, identity: line } : item,
-          ),
-        });
-      }
-      if (valid()) await confirmPortraits(character.id);
-    } catch {
-      if (valid()) emitNotice({ code: "PORTRAIT_FAILED", text: "定妆照未完成，可以重试。" });
-    }
+    await preparePortraitIdentity(current, character.id, {
+      current: () => filmRef.current,
+      valid,
+      request: completeAgent,
+      apply: applyLive,
+      confirm: confirmPortraits,
+      notice: setNotice,
+      failed: () => emitNotice({ code: "PORTRAIT_FAILED", text: "定妆照未完成，可以重试。" }),
+    });
   }
 
   async function confirmPortraits(selection?: string | string[]) {
