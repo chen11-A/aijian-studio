@@ -13,8 +13,10 @@
  *   pnpm --filter @aijian/studio-web dev
  *   AIVORA_CHROMIUM=/path/to/chrome node apps/studio-web/src/aivora/next/stories/check-layout.mjs
  * AIVORA_SIZES picks window sizes (default 1280x800). AIVORA_ONLY=stories or pages runs one
- * half. AIVORA_SHOTS=<folder> saves a screenshot of every workspace page. AIVORA_STORIES_URL
- * and AIVORA_APP_URL change the addresses.
+ * half; AIVORA_PAGES=剧本,分镜 checks only those workspace pages (the others are still
+ * walked through, since each page starts where the last one left off). AIVORA_SHOTS=<folder>
+ * saves a screenshot of every workspace page. AIVORA_STORIES_URL and AIVORA_APP_URL change the
+ * addresses.
  */
 import { mkdir } from "node:fs/promises";
 import process from "node:process";
@@ -26,6 +28,7 @@ const base =
 const app = process.env.AIVORA_APP_URL ?? "http://127.0.0.1:5173/";
 const only = process.env.AIVORA_ONLY ?? "";
 const shots = process.env.AIVORA_SHOTS ?? "";
+const pickedPages = (process.env.AIVORA_PAGES ?? "").split(",").filter(Boolean);
 const sizes = (process.env.AIVORA_SIZES ?? "1280x800").split(",").map((size) => {
   const [width, height] = size.split("x").map(Number);
   return { width, height };
@@ -279,6 +282,11 @@ async function checkPages(browser, size) {
     if (step.tab) await page.locator("nav.tabs").getByRole("button", { name: step.tab }).click();
     if (step.button) await page.getByRole("button", { name: step.button }).first().click();
     await page.waitForLoadState("networkidle");
+    const picked = pickedPages.length === 0 || pickedPages.includes(step.name);
+    if (!picked) {
+      if (step.close) await page.getByRole("button", { name: step.close }).first().click();
+      continue;
+    }
     if (shots) {
       await page.screenshot({ path: `${shots}/${step.name}-${size.width}x${size.height}.png` });
     }
