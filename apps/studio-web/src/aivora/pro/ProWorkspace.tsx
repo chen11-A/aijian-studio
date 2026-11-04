@@ -112,6 +112,7 @@ import {
   pruneCancelledJobs,
   canResumeTake,
   prepareVideoQueue,
+  prepareBlockedVideoQueue,
   generationTargets,
   retryVideoTasks,
   retryableVideoTask,
@@ -2307,6 +2308,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (blocked.length) {
       await submitGeneration(
         current.shots.filter((shot) => blocked.some((job) => job.shotId === shot.id)),
+        false,
+        undefined,
+        blocked.map((job) => job.id),
       );
       return;
     }
@@ -2340,12 +2344,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function submitGeneration(targets?: FilmShot[], resume = false, takeIds?: string[]) {
+  async function submitGeneration(
+    targets?: FilmShot[],
+    resume = false,
+    takeIds?: string[],
+    blockedIds?: string[],
+  ) {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id)) return;
     generationRuns.current.add(id);
     try {
-      await runGeneration(targets, resume, takeIds);
+      await runGeneration(targets, resume, takeIds, blockedIds);
     } finally {
       generationRuns.current.delete(id);
     }
@@ -2355,7 +2364,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       void submitGeneration(undefined, true);
   };
 
-  async function runGeneration(targets?: FilmShot[], resume = false, takeIds?: string[]) {
+  async function runGeneration(
+    targets?: FilmShot[],
+    resume = false,
+    takeIds?: string[],
+    blockedIds?: string[],
+  ) {
     const mine = ++runToken.current;
     stopRef.current = false;
     let live = filmRef.current ?? film;
@@ -2382,7 +2396,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
     if (!canSubmit) {
-      if (resume) {
+      if (resume || blockedIds) {
         setNotice(blocked);
         return;
       }
@@ -2396,7 +2410,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(blocked);
       return;
     }
-    const prepared = prepareVideoQueue(live, selected, versions, resume, takeIds);
+    const prepared = blockedIds
+      ? prepareBlockedVideoQueue(live, blockedIds)
+      : prepareVideoQueue(live, selected, versions, resume, takeIds);
     const next = prepared.film;
     const groups = prepared.groups;
     const queueStopped = () => {

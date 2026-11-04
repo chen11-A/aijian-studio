@@ -7,7 +7,7 @@ import {
   cancelVideoTask,
 } from "./generation-queue";
 
-function emptyFilm() {
+function emptyFilm(): ReturnType<typeof sampleFilm> {
   const film = sampleFilm();
   return {
     ...film,
@@ -97,4 +97,28 @@ it("counts attempts separately from the B version index across explicit retry", 
   expect(
     setVideoTaskState(rebuilt, id, "running").jobs.find((job) => job.takeId === id)?.attempt,
   ).toBe(2);
+});
+
+it("consumes each blocked record once and creates exactly its requested version", async () => {
+  const { prepareBlockedVideoQueue } = await import("./generation-queue");
+  const film = emptyFilm();
+  film.jobs = [1, 2].map((take) => ({
+    id: `blocked-${take}`,
+    shotId: film.shots[0]!.id,
+    kind: "video",
+    take,
+    status: "blocked",
+    prompt: "",
+    reason: "login required",
+  }));
+  const first = prepareBlockedVideoQueue(film, ["blocked-1"]);
+  expect(first.film.shots[0]!.takes).toHaveLength(1);
+  expect(first.film.jobs.some((job) => job.id === "blocked-1")).toBe(false);
+  const second = prepareBlockedVideoQueue(first.film, ["blocked-2"]);
+  expect(second.film.shots[0]!.takes).toHaveLength(2);
+  expect(second.film.jobs.every((job) => job.status === "queued")).toBe(true);
+  expect(prepareBlockedVideoQueue(second.film, ["blocked-1"]).groups).toEqual([]);
+  const batch = prepareBlockedVideoQueue(film, ["blocked-1", "blocked-2"]);
+  expect(batch.groups).toHaveLength(1);
+  expect(batch.groups[0]!.takes).toHaveLength(2);
 });

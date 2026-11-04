@@ -268,3 +268,25 @@ export function retryableVideoTask(film: FilmProject, id: string): boolean {
     (job.status === "failed" && target?.take.status === "failed" && !canResumeTake(target.take))
   );
 }
+
+/** A selected blocked record represents exactly one unsent version, irrespective of UI defaults. */
+export function prepareBlockedVideoQueue(film: FilmProject, ids: string[]) {
+  const selected = film.jobs.filter(
+    (job) =>
+      ids.includes(job.id) &&
+      job.kind === "video" &&
+      job.status === "blocked" &&
+      film.shots.some((shot) => shot.id === job.shotId),
+  );
+  let next = { ...film, jobs: film.jobs.filter((job) => !selected.includes(job)) };
+  const groups: ReturnType<typeof prepareVideoQueue>["groups"] = [];
+  for (const job of selected) {
+    const shot = next.shots.find((shot) => shot.id === job.shotId)!;
+    const made = prepareVideoQueue(next, [shot], 1, false);
+    next = made.film;
+    const group = groups.find((group) => group.shot.id === shot.id);
+    if (group) group.takes.push(...made.groups[0]!.takes);
+    else groups.push(...made.groups);
+  }
+  return { film: next, groups };
+}
