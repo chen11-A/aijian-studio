@@ -2095,7 +2095,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const editorDiff = editorHost.preview(request, result.film);
     const applied = await editorHost.apply(request.id);
-    if (!isTurnCurrent(turn)) return;
+    if (!isTurnCurrent(turn) || applied.completionCurrent === false) return;
     if (applied.status !== "saved") {
       finishTurn(
         turn,

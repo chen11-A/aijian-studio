@@ -3836,3 +3836,48 @@ it.each(["undo", "page"] as const)(
     expect(screen.queryByText(/已写入画风、外貌、场景和道具/)).not.toBeInTheDocument();
   },
 );
+
+it.each(["undo", "edit", "page"] as const)(
+  "B11 ignores a delayed prompter save completion after %s",
+  async (action) => {
+    const { completeText } = installDesktop();
+    await openSample();
+    openBoardTools();
+    completeText.mockResolvedValueOnce({
+      kind: "OK",
+      text: JSON.stringify({
+        keyframe: { prompt_zh: "延迟提示", prompt_en: "delayed saved prompt" },
+      }),
+    });
+    let finish!: () => void;
+    let delayed = false;
+    vi.mocked(window.aijian!.writeFilmProject!).mockImplementation(async (value) => {
+      if (
+        !delayed &&
+        (value as FilmProject).shots.some((row) => row.promptEn === "delayed saved prompt")
+      ) {
+        delayed = true;
+        return new Promise((resolve) => {
+          finish = () => resolve(value);
+        });
+      }
+      return value;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+    await waitFor(() => expect(finish).toBeDefined());
+    if (action === "undo") fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    else if (action === "edit")
+      fireEvent.change(screen.getByLabelText("景别"), { target: { value: "特写" } });
+    else fireEvent.click(stageTab("角色与场景"));
+    await act(async () => finish());
+    expect(screen.queryByText(/提示词写好了/)).not.toBeInTheDocument();
+    if (action === "undo")
+      await waitFor(() => {
+        const saved = vi
+          .mocked(window.aijian!.writeFilmProject!)
+          .mock.calls.at(-1)?.[0] as FilmProject;
+        expect(saved.shots.some((row) => row.promptEn === "delayed saved prompt")).toBe(false);
+      });
+    if (action === "edit") expect(screen.getByLabelText("景别")).toHaveValue("特写");
+  },
+);

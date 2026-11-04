@@ -125,3 +125,25 @@ describe("editor suggestion host", () => {
     expect(s.host.capture()).toBeNull();
   });
 });
+
+it.each(["edit", "selection"] as const)(
+  "does not announce saved completion after %s",
+  async (change) => {
+    const s = setup();
+    let finish!: () => void;
+    s.save.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = () => resolve(true);
+        }),
+    );
+    const { request } = s.propose();
+    const pending = s.host.apply(request.id);
+    expect(finish).toBeDefined();
+    if (change === "edit") s.change({ ...s.film(), title: "later edit" });
+    else s.select({ ...s.selection(), page: "cast" });
+    finish();
+    expect(await pending).toMatchObject({ status: "saved", completionCurrent: false });
+    expect(s.save).toHaveBeenCalledTimes(1);
+  },
+);

@@ -13,6 +13,8 @@ type Draft = { request: Request; suggestion: EditorSuggestion };
 export type EditorHostResult = {
   status: "saved" | "applied_unsaved" | "rejected";
   conflicts: string[];
+  /** Completion may be announced only while this applied version/view is still current. */
+  completionCurrent?: boolean;
 };
 const scopeKey = (scope: EditorSelection) =>
   JSON.stringify([scope.projectId, scope.page, scope.sceneId ?? null, scope.shotId ?? null]);
@@ -102,7 +104,13 @@ export function createEditorHost(host: {
       history.set(key, [...(history.get(key) ?? []), result.receipt].slice(-50));
       drafts.delete(id);
       host.applied?.(structuredClone(result.receipt));
-      return await persist(result.film, result.conflicts);
+      const applied = host.current();
+      const resultSaved = await persist(result.film, result.conflicts);
+      return {
+        ...resultSaved,
+        completionCurrent:
+          applied === host.current() && scopeKey(scope) === scopeKey(host.selection()),
+      };
     } finally {
       busy = false;
     }
