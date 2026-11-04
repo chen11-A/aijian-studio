@@ -620,7 +620,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText("这一版已经生成。", {}, { timeout: 5_000 })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /用这一版/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /^用第 \d+ 版$/ })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
@@ -665,7 +665,7 @@ describe("professional workspace", () => {
     expect((await screen.findAllByText("没有生成成功，可以重试。")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
     fireEvent.click(screen.getByRole("button", { name: /失败的全部重试/ }));
-    expect(await screen.findByText("生成中")).toBeInTheDocument();
+    expect((await screen.findAllByText(/正在生成|排队中/)).length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByRole("button", { name: "全部暂停" }));
     expect(screen.getByText(/已经发出的请求不一定能停/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "停下这一次" }));

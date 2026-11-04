@@ -19,7 +19,9 @@ const RANK: Record<ProjectTake["status"], number> = { done: 1, running: 2, queue
 function option(take: ProjectTake, position: number, toUrl: (path: string) => string): TakeOption {
   const label = `第 ${take.index ?? position} 版`;
   const imageUrl = toUrl(take.stillUrl);
-  const shown = imageUrl ? { imageUrl } : {};
+  // 4A-U03: a finished take shows its video, so the versions can play side by side.
+  const videoUrl = take.status === "done" ? toUrl(take.videoUrl || take.videoPath) : "";
+  const shown = { ...(imageUrl ? { imageUrl } : {}), ...(videoUrl ? { videoUrl } : {}) };
   if (take.status === "done") return { id: take.id, label, ...shown };
   if (take.status === "failed") {
     return {

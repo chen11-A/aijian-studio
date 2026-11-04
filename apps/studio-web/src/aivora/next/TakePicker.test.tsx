@@ -124,4 +124,40 @@ describe("TakePicker", () => {
     expect(screen.getByRole("img", { name: "B 版的画面" })).toHaveAttribute("src", "blob:still-b");
     expect(container.querySelector(".nx-frame")).toHaveClass("nx-wide");
   });
+
+  it("shows each finished version's video and plays them together from the start (4A-U03)", () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    render(
+      <TakePicker
+        shotLabel="第 2 场第 6 个镜头"
+        takes={[
+          { id: "a", label: "第 1 版", videoUrl: "file:///a.mp4", imageUrl: "file:///a.png" },
+          { id: "b", label: "第 2 版", videoUrl: "file:///b.mp4" },
+          { id: "c", label: "第 3 版", status: "generating", statusText: "正在生成" },
+        ]}
+        selectedId="a"
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText("第 1 版的视频")).toHaveAttribute("poster", "file:///a.png");
+    expect(screen.getByLabelText("第 2 版的视频")).toHaveAttribute("src", "file:///b.mp4");
+    fireEvent.click(screen.getByRole("button", { name: "一起播放" }));
+    expect(play).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button", { name: "暂停" }));
+    expect(pause).toHaveBeenCalledTimes(2);
+    play.mockRestore();
+    pause.mockRestore();
+  });
+
+  it("has no play-together button with fewer than two videos", () => {
+    render(
+      <TakePicker
+        shotLabel="第 1 场第 1 个镜头"
+        takes={[{ id: "a", label: "第 1 版", videoUrl: "file:///a.mp4" }]}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "一起播放" })).toBeNull();
+  });
 });

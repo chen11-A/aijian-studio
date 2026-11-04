@@ -144,6 +144,8 @@ import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
 import { HomeStart, type Aspect } from "../next/HomeStart";
 import { PipelineSteps } from "../next/PipelineSteps";
+import { TakePicker } from "../next/TakePicker";
+import { takePickerData } from "../next/adapters/takePicker";
 import {
   AGE_BANDS,
   GENDERS,
@@ -375,10 +377,6 @@ function Thumb({
     ? { backgroundImage: `url(${shown})`, backgroundPosition: position ?? "50% 50%" }
     : undefined;
   return <div className={rain || !src ? "thumb rain" : "thumb"} style={style} />;
-}
-
-function displayableImage(url: string | undefined): string {
-  return fileMediaUrl(url);
 }
 
 function takeVideo(shot: FilmShot | undefined): string {
@@ -3512,6 +3510,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setRightTab("props");
                   }}
                   onAction={runAction}
+                  onChooseTake={(shotId, takeId) => {
+                    if (!film) return;
+                    setFilm({
+                      ...film,
+                      shots: film.shots.map((item) =>
+                        item.id === shotId ? { ...item, selectedTakeId: takeId } : item,
+                      ),
+                    });
+                    setNotice({
+                      code: "TAKE_REPLACED",
+                      text: "已换成这一版。旧版留在历史版本里。",
+                    });
+                  }}
                   onKeep={() => {
                     setComparing(false);
                     setNotice("保留旧版。新版留在历史版本里。");
@@ -6049,49 +6060,19 @@ function GeneratePage({
           </div>
           <div className="cands">
             {takes.length === 0 && <p className="role-desc">还没有版本。点下面生成。</p>}
-            {takes.map((item) => (
-              <button
-                key={item.id}
-                className={item.id === current?.selectedTakeId ? "cand pick" : "cand"}
-                onClick={() => choose(item.id)}
-              >
-                <div
-                  className={
-                    displayableImage(item.stillUrl) || item.videoUrl ? "thumb" : "thumb rain"
-                  }
-                >
-                  {displayableImage(item.stillUrl) ? (
-                    <div
-                      className="still"
-                      style={{ backgroundImage: `url(${displayableImage(item.stillUrl)})` }}
+            {/* 4A-U03: the versions side by side, playing together; the pick goes to 剪辑. */}
+            {current && takes.length > 0
+              ? (() => {
+                  const data = takePickerData(film, current.id, { mediaUrl: fileMediaUrl });
+                  return data.ok ? (
+                    <TakePicker
+                      {...data.props}
+                      aspect={film.aspectRatio === "16:9" ? "16:9" : "9:16"}
+                      onSelect={choose}
                     />
-                  ) : item.videoUrl ? (
-                    <video src={item.videoUrl} muted playsInline preload="metadata" />
-                  ) : null}
-                  <span className="dur">
-                    {item.status === "done"
-                      ? `${current?.seconds ?? 0}s`
-                      : item.status === "running"
-                        ? "生成中"
-                        : item.status === "queued"
-                          ? "排队"
-                          : "失败"}
-                  </span>
-                </div>
-                <div className="cl">
-                  <span>
-                    第{item.index}版/{takes.length}
-                  </span>
-                  <span>
-                    {item.id === current?.selectedTakeId
-                      ? "当前版本"
-                      : item.status === "done"
-                        ? "用这一版"
-                        : item.reason || item.status}
-                  </span>
-                </div>
-              </button>
-            ))}
+                  ) : null;
+                })()
+              : null}
           </div>
         </div>
       </section>
@@ -6249,6 +6230,7 @@ function EditPage({
   onAction,
   onKeep,
   onReplace,
+  onChooseTake,
   onTab,
   onUndo,
   onRedo,
@@ -6282,6 +6264,8 @@ function EditPage({
   onAction: (action: FixAction) => void;
   onKeep: () => void;
   onReplace: () => void;
+  /** 4A-U03: use this version of the shot on show, as on 单镜. */
+  onChooseTake: (shotId: string, takeId: string) => void;
   onTab: (tab: "props" | "fix" | "ai") => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -6367,24 +6351,20 @@ function EditPage({
               <button className="on">左右对比</button>
             </div>
           </div>
-          <div className="cmp">
-            {(current?.takes ?? []).map((item) => (
-              <div className="side" key={item.id}>
-                <div className="lbl">
-                  <span>
-                    第{item.index}版/{current?.takes.length ?? 0}
-                  </span>
-                  <span>
-                    {item.id === current?.selectedTakeId ? "当前版本" : item.reason || item.status}
-                  </span>
-                </div>
-                {item.videoUrl ? (
-                  <video className="frame" src={item.videoUrl} />
-                ) : (
-                  <div className="frame rain" />
-                )}
-              </div>
-            ))}
+          <div className="cmp cmp-takes">
+            {/* 4A-U03: the same picker as 单镜, so a version is chosen the same way everywhere. */}
+            {current && (current.takes.length ?? 0) > 0
+              ? (() => {
+                  const data = takePickerData(film, current.id, { mediaUrl: fileMediaUrl });
+                  return data.ok ? (
+                    <TakePicker
+                      {...data.props}
+                      aspect={film.aspectRatio === "16:9" ? "16:9" : "9:16"}
+                      onSelect={(takeId) => onChooseTake(current.id, takeId)}
+                    />
+                  ) : null;
+                })()
+              : null}
             {(current?.takes.length ?? 0) < 2 && (
               <p className="role-desc">还没有两个版本可以对比。</p>
             )}

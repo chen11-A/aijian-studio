@@ -574,6 +574,13 @@ coverEditorData(film, { mediaUrl: fileMediaUrl });
 - 改了说明或预设以后，写「已有 N 个镜头是按原来的画风做的，要重新生成才会变。」N 是已经出过画面或视频的镜头数，只在这一页打开以后改过画风时出现。
 - 要 GPT 配合（4A-B02）：美术写的画风说明存进作品后，界面直接显示在这里；改画风后给旧镜头一个持久的标记（比如 `shot.styleStale` 或记下出图时用的画风），界面就能在分镜卡上也标出「要重新生成」，关掉软件再开也不丢。
 
+## 多选一接线（4A-U03）
+
+- 单镜页：大预览不动，下面原来的一排版本按钮换成 TakePicker（`takePickerData(film, shot.id, { mediaUrl: fileMediaUrl })`），选了调原来的 `choose(takeId)`。
+- 剪辑页「对比」：并排的 `<video>` 换成同一个 TakePicker，选了调新加的 `onChooseTake(shotId, takeId)`（改 `selectedTakeId`，状态栏「已换成这一版」）。「保留旧版」「用新版替换」先留着，合成一个入口归 4A-U10。
+- TakePicker 加了 `videoUrl`：做好的版本放视频（静帧当封面），两个以上有视频时出「一起播放」，从头同时播、不出声，方便对同一个时刻。画幅跟作品走。
+- 要 GPT 配合：`aiChoiceId`（AI 选的版本）和每个版本的看图审片结论（`verdict`、`notes`），给了才会出「AI 选的，可换」和结论标签。现在都没有，所以不显示。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。
