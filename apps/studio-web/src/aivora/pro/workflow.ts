@@ -1,3 +1,4 @@
+import { withLocationLayout } from "../film/location-reference";
 import { setFilmStyle, withStyleBible } from "../film/style-bible";
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
@@ -269,7 +270,11 @@ export async function requestShotStill(
   const made = await requestStill(
     film.seriesId,
     withStyleBible(
-      prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+      withLocationLayout(
+        prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+        film,
+        shot,
+      ),
       film.styleZh,
     ),
     film.aspectRatio === "16:9" ? "16:9" : "9:16",
@@ -387,17 +392,27 @@ export function applyArtDraft(
         previous.artFields?.ambience,
         locks,
       );
+      const layout = mergeArtField(
+        "layout",
+        previous.layout ?? "",
+        place.layout ?? "",
+        previous.artFields?.layout,
+        locks,
+      );
       places[index] = {
         ...previous,
+        ...(layout.value ? { layout: layout.value } : {}),
         prompt: prompt.value,
         ambience: ambience.value,
         userFields: [...locks],
         artFields: {
           ...previous.artFields,
+          ...(layout.baseline !== undefined ? { layout: layout.baseline } : {}),
           ...(prompt.baseline !== undefined ? { prompt: prompt.baseline } : {}),
           ...(ambience.baseline !== undefined ? { ambience: ambience.baseline } : {}),
         },
-        ...(prompt.value !== previous.prompt && previous.referenceImage
+        ...((prompt.value !== previous.prompt || layout.value !== (previous.layout ?? "")) &&
+        previous.referenceImage
           ? { referenceStyleRevision: -1 }
           : {}),
       };
@@ -407,7 +422,12 @@ export function applyArtDraft(
         name: place.name,
         prompt: place.prompt,
         ambience: place.ambience,
-        artFields: { prompt: place.prompt, ambience: place.ambience },
+        ...(place.layout ? { layout: place.layout } : {}),
+        artFields: {
+          prompt: place.prompt,
+          ambience: place.ambience,
+          ...(place.layout ? { layout: place.layout } : {}),
+        },
       });
     }
   }

@@ -667,7 +667,7 @@ export function artFromModel(value: unknown): {
     gender?: CharacterGender;
     ageBand?: CharacterAgeBand;
   }[];
-  places: { name: string; prompt: string; ambience: string }[];
+  places: { name: string; prompt: string; ambience: string; layout?: string }[];
   props: { name: string; note: string }[];
   lines: string[];
 } | null {
@@ -703,6 +703,7 @@ export function artFromModel(value: unknown): {
             name,
             prompt: typeof place.prompt === "string" ? place.prompt.trim() : "",
             ambience: typeof place.ambience === "string" ? place.ambience.trim() : "",
+            ...(typeof place.layout === "string" ? { layout: place.layout.trim() } : {}),
           },
         ];
       })

@@ -778,7 +778,7 @@ it("plans locations after characters and resumes only the failed location target
 });
 
 it("reuses verified location images but rejects stale styles and false success", async () => {
-  for (const mode of ["valid", "missing", "stale"] as const) {
+  for (const mode of ["valid", "missing", "stale", "layout"] as const) {
     const film = fixture();
     film.locations = [
       {
@@ -788,6 +788,7 @@ it("reuses verified location images but rejects stale styles and false success",
         ambience: "",
         referenceImage: "/media/place.png",
         referenceStyleRevision: mode === "stale" ? 99 : (film.styleRevision ?? 0),
+        ...(mode === "layout" ? { layout: "门在左边", referenceLayout: "门在右边" } : {}),
       },
     ];
     film.scenes[0]!.where = "书店";

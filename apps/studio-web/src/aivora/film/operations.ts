@@ -1,5 +1,5 @@
 import { actionPlanPrompt } from "./action-plan";
-import { locationReference } from "./location-reference";
+import { locationReference, withLocationLayout } from "./location-reference";
 import { parseAgentReplyText } from "./agent-reply-compat";
 import { sceneDisplayTitle } from "./director-continuity";
 import { withStyleBible } from "./style-bible";
@@ -1480,7 +1480,11 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
   return {
     narration: line || "。",
     prompt: withStyleBible(
-      `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+      withLocationLayout(
+        `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+        film,
+        shot,
+      ),
       film.styleZh,
       2000,
     ),

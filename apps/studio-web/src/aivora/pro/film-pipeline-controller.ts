@@ -1,4 +1,4 @@
-import { isLocationImage } from "../film/location-reference";
+import { locationImageCurrent } from "../film/location-reference";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import type { PipelineProgress, UiNotice } from "../film/contracts3j";
 import { detectDirectorCoverage, shotLines } from "../film/director-continuity";
@@ -512,11 +512,11 @@ async function executeMedia(
         );
         return Boolean(
           location &&
-          isLocationImage(location.referenceImage) &&
+          locationImageCurrent(value, location) &&
           value.locations.filter((item) => item.name.trim() === location.name.trim()).length ===
             1 &&
           location.referenceStyleRevision === (value.styleRevision ?? 0) &&
-          (await validMedia(location.referenceImage, "image")),
+          (await validMedia(location.referenceImage!, "image")),
         );
       }
       const person = value.characters.find((person) => person.id === characterId);

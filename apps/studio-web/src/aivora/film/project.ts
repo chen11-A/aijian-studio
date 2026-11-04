@@ -84,7 +84,9 @@ export type FilmJob = {
 
 export type FilmLocation = {
   userFields?: string[];
-  artFields?: { prompt?: string; ambience?: string };
+  artFields?: { prompt?: string; ambience?: string; layout?: string };
+  layout?: string;
+  referenceLayout?: string;
   referenceImage?: string;
   referenceStyleRevision?: number;
   id: string;

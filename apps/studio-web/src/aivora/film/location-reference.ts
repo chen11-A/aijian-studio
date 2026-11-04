@@ -10,6 +10,36 @@ export function isLocationImage(value: string | undefined): value is string {
   );
 }
 
+function layoutBlock(layout: string): string {
+  return layout.trim() ? `【场景布局】\n${layout.trim()}\n【场景布局结束】` : "";
+}
+
+function withLayoutBlock(prompt: string, block: string): string {
+  const body = prompt.replace(/(?:^|\n)【场景布局】\n[\s\S]*?\n【场景布局结束】(?=\n|$)/gu, "");
+  return [body, block].filter(Boolean).join("\n");
+}
+
+export function withLocationLayout(prompt: string, film: FilmProject, shot: FilmShot): string {
+  return withLayoutBlock(prompt, locationLayout(film, shot));
+}
+
+/** Only exact, unique scene/place associations may supply a spatial layout. */
+export function locationLayout(film: FilmProject, shot: FilmShot): string {
+  const scene = film.scenes.find((item) => item.id === shot.sceneId);
+  const places = scene?.where.trim()
+    ? film.locations.filter((item) => item.name.trim() === scene.where.trim())
+    : [];
+  return places.length === 1 && places[0]!.layout?.trim() ? layoutBlock(places[0]!.layout!) : "";
+}
+
+export function locationImageCurrent(film: FilmProject, place: FilmLocation): boolean {
+  return (
+    isLocationImage(place.referenceImage) &&
+    place.referenceStyleRevision === (film.styleRevision ?? 0) &&
+    (place.referenceLayout ?? "") === (place.layout ?? "")
+  );
+}
+
 export function locationReference(
   film: FilmProject,
   shot: FilmShot,
@@ -19,12 +49,8 @@ export function locationReference(
   const places = film.locations.filter((item) => item.name.trim() === scene.where.trim());
   if (places.length !== 1) return null;
   const place = places[0]!;
-  if (
-    !isLocationImage(place.referenceImage) ||
-    place.referenceStyleRevision !== (film.styleRevision ?? 0)
-  )
-    return null;
-  return { url: place.referenceImage, who: place.name, kind: "location" };
+  if (!locationImageCurrent(film, place)) return null;
+  return { url: place.referenceImage!, who: place.name, kind: "location" };
 }
 
 export type LocationReferenceResult = {
@@ -52,6 +78,7 @@ function inputSignature(film: FilmProject, place: FilmLocation): string {
     film.aspectRatio,
     place.name,
     place.prompt,
+    place.layout ?? "",
   ]);
 }
 
@@ -65,8 +92,7 @@ export async function makeLocationReferences(
       (host.locationIds
         ? host.locationIds.includes(place.id)
         : base.scenes.some((scene) => scene.where.trim() === place.name.trim())) &&
-      (!isLocationImage(place.referenceImage) ||
-        place.referenceStyleRevision !== (base.styleRevision ?? 0)),
+      !locationImageCurrent(base, place),
   );
   const result: LocationReferenceResult = {
     total: queue.length,
@@ -103,17 +129,20 @@ export async function makeLocationReferences(
         code = "REQUEST_STALE";
         break;
       }
-      if (
-        isLocationImage(target.referenceImage) &&
-        target.referenceStyleRevision === (live.styleRevision ?? 0)
-      ) {
+      if (locationImageCurrent(live, target)) {
         saved = true;
         break;
       }
       let response: { url: string; reason: string };
       try {
         response = await generate(
-          withStyleBible(`空镜，没有人物。${place.name}。${place.prompt}`, base.styleZh),
+          withStyleBible(
+            withLayoutBlock(
+              `空镜，没有人物。${place.name}。${place.prompt}`,
+              layoutBlock(place.layout ?? ""),
+            ),
+            base.styleZh,
+          ),
           [],
         );
       } catch {
@@ -144,6 +173,7 @@ export async function makeLocationReferences(
                   ...item,
                   referenceImage: response.url,
                   referenceStyleRevision: base.styleRevision ?? 0,
+                  referenceLayout: place.layout ?? "",
                 }
               : item,
           ),
