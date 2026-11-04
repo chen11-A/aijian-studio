@@ -28,10 +28,11 @@ PYTHON_URL = (
 )
 PYTHON_SHA256 = "5ff9f0602ce964a529ed1e8555d3abab6341926d724402ba9a15e9e877191124"
 FFMPEG_URL = (
-    "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-21-13-06/"
-    "ffmpeg-n8.1.3-20-gc8de997cb1-linux64-gpl-shared-8.1.tar.xz"
+    # BtbN retains month-end builds for two years; daily builds expire after 14 days.
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/"
+    "ffmpeg-n8.1.3-27-g8dca1586f4-linux64-gpl-shared-8.1.tar.xz"
 )
-FFMPEG_SHA256 = "2e73402279aa2c051626c95ade18d1d45037b8975fc688aefd6f4aeafcd48b46"
+FFMPEG_SHA256 = "202fe67679a0860b155817a0907ffcc5c1ea82e186acaa21cb87d307f54fd59a"
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
 
 

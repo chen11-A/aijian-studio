@@ -37,6 +37,8 @@ jobs:
             xdg-utils libsecret-1-0
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
+      - name: Verify retained Linux dependency pins
+        run: python3 -m unittest discover -s packaging/linux -p 'test_*.py'
       - name: Build the Linux desktop tarball
         run: |
           python3 packaging/linux/package-desktop.py \
