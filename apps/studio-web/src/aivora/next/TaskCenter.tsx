@@ -3,7 +3,8 @@ import "./next.css";
 import "./TaskCenter.css";
 import { shotLabel } from "./shot";
 
-export type TaskKind = "video" | "image" | "voice";
+/** lipsync and export come from the desktop task feed; they get a filter only when present. */
+export type TaskKind = "video" | "image" | "voice" | "lipsync" | "export";
 
 /** blocked: never sent, for example because nobody was signed in. It needs the user, like failed. */
 export type TaskStatus =
@@ -65,9 +66,27 @@ export type TaskCenterProps = {
 type StatusFilter = "all" | "attention" | "running" | "queued" | "done";
 type KindFilter = "all" | TaskKind;
 
-const KIND_LABEL: Record<TaskKind, string> = { video: "视频", image: "图片", voice: "配音" };
-const KIND_UNIT: Record<TaskKind, string> = { video: "段", image: "张", voice: "句" };
-const KIND_MARK: Record<TaskKind, string> = { video: "视", image: "图", voice: "音" };
+const KIND_LABEL: Record<TaskKind, string> = {
+  video: "视频",
+  image: "图片",
+  voice: "配音",
+  lipsync: "口型",
+  export: "导出",
+};
+const KIND_UNIT: Record<TaskKind, string> = {
+  video: "段",
+  image: "张",
+  voice: "句",
+  lipsync: "段",
+  export: "个",
+};
+const KIND_MARK: Record<TaskKind, string> = {
+  video: "视",
+  image: "图",
+  voice: "音",
+  lipsync: "口",
+  export: "出",
+};
 
 const STATUS_TAG: Record<TaskStatus, { text: string; tone: string }> = {
   queued: { text: "排队", tone: "" },
@@ -92,7 +111,12 @@ const KIND_FILTERS: { id: KindFilter; label: string }[] = [
   { id: "video", label: "视频" },
   { id: "image", label: "图片" },
   { id: "voice", label: "配音" },
+  { id: "lipsync", label: "口型" },
+  { id: "export", label: "导出" },
 ];
+
+/** 口型 and 导出 rows only show up once there is such a task. */
+const ALWAYS_LISTED: readonly KindFilter[] = ["all", "video", "image", "voice"];
 
 const isAttention = (task: TaskItem) =>
   task.status === "uncertain" || task.status === "blocked" || task.status === "failed";
@@ -248,7 +272,7 @@ function Summary({
   const unit = unitFor(scope);
   const failed = tasks.filter((task) => task.status === "failed").length;
   const runningAll = tasks.filter((task) => task.status === "running").length;
-  const others = (["image", "voice"] as const)
+  const others = (["image", "voice", "lipsync", "export"] as const)
     .map((kind) => {
       const rows = tasks.filter((task) => task.kind === kind);
       const finished = rows.filter((task) => task.status === "done").length;
@@ -572,7 +596,10 @@ export function TaskCenter(props: TaskCenterProps) {
             </button>
           ))}
           <p className="nx-filter-group">种类</p>
-          {KIND_FILTERS.map((filter) => (
+          {KIND_FILTERS.filter(
+            (filter) =>
+              ALWAYS_LISTED.includes(filter.id) || tasks.some((task) => task.kind === filter.id),
+          ).map((filter) => (
             <button
               key={filter.id}
               type="button"

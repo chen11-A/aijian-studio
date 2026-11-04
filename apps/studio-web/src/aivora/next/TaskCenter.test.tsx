@@ -327,3 +327,28 @@ describe("task names", () => {
     expect(taskLabel(task({ id: "job-7" }))).toBe("job-7");
   });
 });
+
+describe("lip-sync and export tasks", () => {
+  it("names them and lists their filters only when there are some", () => {
+    const { rerender } = render(<TaskCenter title="作品" tasks={TASKS} />);
+    const filters = screen.getByRole("navigation", { name: "筛选任务" });
+    expect(within(filters).queryByRole("button", { name: /口型/ })).toBeNull();
+    expect(within(filters).queryByRole("button", { name: /导出/ })).toBeNull();
+    rerender(
+      <TaskCenter
+        title="作品"
+        tasks={[
+          ...TASKS,
+          task({ id: "lip-1", title: "第 2 场第 3 个镜头", kind: "lipsync", status: "running" }),
+          task({ id: "export-1", title: "雨夜旧书店-第1集.mp4", kind: "export", status: "done" }),
+        ]}
+      />,
+    );
+    fireEvent.click(within(filters).getByRole("button", { name: /口型/ }));
+    const list = screen.getByRole("region", { name: "任务列表" });
+    expect(within(list).getByText("第 2 场第 3 个镜头")).toBeInTheDocument();
+    expect(within(list).getByText("口")).toBeInTheDocument();
+    expect(screen.getByText(/口型 0\/1/)).toBeInTheDocument();
+    expect(screen.getByText(/导出 1\/1/)).toBeInTheDocument();
+  });
+});
