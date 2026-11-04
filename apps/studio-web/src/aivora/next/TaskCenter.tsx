@@ -5,14 +5,16 @@ import { shotLabel } from "./shot";
 
 export type TaskKind = "video" | "image" | "voice";
 
-export type TaskStatus = "queued" | "running" | "uncertain" | "requeued" | "failed" | "done";
+/** blocked: never sent, for example because nobody was signed in. It needs the user, like failed. */
+export type TaskStatus =
+  "queued" | "running" | "uncertain" | "requeued" | "blocked" | "failed" | "done";
 
 export type TaskItem = {
   /** Job id, shown as small text, for example scene-2-shot-22-take-1. */
   id: string;
-  /** The shot the job belongs to, shown as 「第 2 场第 22 个镜头」. */
+  /** The shot the job belongs to. Without a title it is shown as 「第 2 场第 22 个镜头」. */
   shotId?: string;
-  /** Name for a job without a shot, for example a costume portrait. */
+  /** What the job is called, for example 「第 2 场第 22 个镜头」 or a costume portrait. */
   title?: string;
   /** Version name, for example 「A 版」. */
   version?: string;
@@ -72,6 +74,7 @@ const STATUS_TAG: Record<TaskStatus, { text: string; tone: string }> = {
   running: { text: "正在生成", tone: "nx-info" },
   uncertain: { text: "不确定", tone: "nx-warn" },
   requeued: { text: "重新排队", tone: "" },
+  blocked: { text: "没发出去", tone: "nx-warn" },
   failed: { text: "失败", tone: "nx-err" },
   done: { text: "做好了", tone: "nx-ok" },
 };
@@ -91,7 +94,8 @@ const KIND_FILTERS: { id: KindFilter; label: string }[] = [
   { id: "voice", label: "配音" },
 ];
 
-const isAttention = (task: TaskItem) => task.status === "uncertain" || task.status === "failed";
+const isAttention = (task: TaskItem) =>
+  task.status === "uncertain" || task.status === "blocked" || task.status === "failed";
 const isPending = (task: TaskItem) => task.status === "queued" || task.status === "requeued";
 
 function matchesStatus(task: TaskItem, filter: StatusFilter): boolean {
@@ -109,7 +113,7 @@ export function unitFor(tasks: readonly TaskItem[]): string {
 }
 
 export function taskLabel(task: TaskItem): string {
-  const name = task.shotId ? shotLabel(task.shotId) : (task.title ?? task.id);
+  const name = task.title ?? (task.shotId ? shotLabel(task.shotId) : task.id);
   return task.version ? `${name} · ${task.version}` : name;
 }
 
@@ -126,6 +130,8 @@ function rowNote(task: TaskItem): string {
       return task.reason ?? "Grok 那边没有这次的记录，接着做时会重新生成";
     case "queued":
       return task.reason ?? "还没发给 Grok";
+    case "blocked":
+      return task.reason ?? "没有发给 Grok";
     case "failed":
       return `${task.reason ?? "没有做成"} · ${attempt}`;
     default:
@@ -315,6 +321,10 @@ function rowAction(
   task: TaskItem,
   props: Pick<TaskCenterProps, "onRetry" | "onRemove">,
 ): { label: string; ghost?: boolean; run: () => void } | null {
+  if (task.status === "blocked" && props.onRetry) {
+    const { onRetry } = props;
+    return { label: "再试一次", run: () => onRetry(task.id, "same") };
+  }
   if (task.status === "failed" && props.onRetry) {
     const { onRetry } = props;
     return task.suggestion
@@ -397,7 +407,8 @@ function TaskDetail({
       </div>
       <div className="nx-panel-body nx-detail-body">
         <p className="nx-muted">
-          {KIND_LABEL[task.kind]} · 第 {task.attempt} 次
+          {KIND_LABEL[task.kind]} ·{" "}
+          {task.status === "blocked" ? "没有发出去" : `第 ${task.attempt} 次`}
           {task.waitedSeconds === undefined ? "" : ` · 已经等了 ${task.waitedSeconds} 秒`}
         </p>
         <p className="nx-code">{task.id}</p>
@@ -409,6 +420,13 @@ function TaskDetail({
           <div className="nx-detail-box nx-suggest">
             <p className="nx-section-title">可以这样改</p>
             <p>{task.suggestion}</p>
+          </div>
+        ) : null}
+        {task.status === "blocked" && onRetry ? (
+          <div className="nx-detail-acts">
+            <button type="button" className="nx-btn" onClick={() => onRetry(task.id, "same")}>
+              按原样再试
+            </button>
           </div>
         ) : null}
         {task.status === "failed" && onRetry ? (
@@ -439,6 +457,9 @@ function TaskDetail({
             再试会用 1 {KIND_UNIT[task.kind]}
             {KIND_LABEL[task.kind]}额度。被拒的这一次算没算，软件看不到。
           </p>
+        ) : null}
+        {task.status === "blocked" ? (
+          <p className="nx-faint">这一次没有发给 Grok，没有用额度。</p>
         ) : null}
       </div>
     </aside>

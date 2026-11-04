@@ -277,3 +277,53 @@ describe("task helpers", () => {
     expect(primaryAction({ tasks: TASKS })).toBeNull();
   });
 });
+
+describe("jobs that were never sent", () => {
+  const blocked = task({
+    id: "scene-1-shot-2-video-1",
+    shotId: "scene-1-shot-2",
+    title: "第 1 场第 2 个镜头",
+    version: "版本 1",
+    status: "blocked",
+    reason: "请打开安装好的 AIVORA，并打开一部作品，再生成。",
+  });
+
+  it("puts them under 要你处理 with their reason and a way to try again", () => {
+    const onRetry = vi.fn();
+    render(<TaskCenter title="雨夜旧书店 · 第 1 集" tasks={[blocked]} onRetry={onRetry} />);
+    const attention = screen.getByRole("region", { name: "要你处理" });
+    const row = within(attention).getByRole("listitem");
+    expect(within(row).getByText("没发出去")).toBeInTheDocument();
+    expect(
+      within(row).getByText("请打开安装好的 AIVORA，并打开一部作品，再生成。"),
+    ).toBeInTheDocument();
+    expect(within(row).queryByText(/第 1 次/)).toBeNull();
+    fireEvent.click(within(row).getByRole("button", { name: "再试一次" }));
+    expect(onRetry).toHaveBeenLastCalledWith("scene-1-shot-2-video-1", "same");
+    const detail = screen.getByRole("complementary", { name: "任务详情" });
+    expect(within(detail).getByText(/视频 · 没有发出去/)).toBeInTheDocument();
+    expect(within(detail).getByText("这一次没有发给 Grok，没有用额度。")).toBeInTheDocument();
+    fireEvent.click(within(detail).getByRole("button", { name: "按原样再试" }));
+    expect(onRetry).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/要你处理 1 段/)).toBeInTheDocument();
+  });
+
+  it("says nothing was sent when no reason is given, and offers no retry without a handler", () => {
+    render(<TaskCenter title="作品" tasks={[{ ...blocked, reason: undefined }]} />);
+    const row = within(screen.getByRole("region", { name: "要你处理" })).getByRole("listitem");
+    expect(within(row).getByText("没有发给 Grok")).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "再试一次" })).toBeNull();
+  });
+});
+
+describe("task names", () => {
+  it("uses the title the caller worked out before the shot id", () => {
+    expect(taskLabel(task({ id: "x", shotId: "02-shot-1", title: "第 2 场第 1 个镜头" }))).toBe(
+      "第 2 场第 1 个镜头",
+    );
+    expect(taskLabel(task({ id: "x", shotId: "scene-2-shot-3", version: "第 2 版" }))).toBe(
+      "第 2 场第 3 个镜头 · 第 2 版",
+    );
+    expect(taskLabel(task({ id: "job-7" }))).toBe("job-7");
+  });
+});
