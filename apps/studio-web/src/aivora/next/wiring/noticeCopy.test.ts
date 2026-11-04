@@ -102,3 +102,16 @@ describe("statusLine", () => {
     });
   });
 });
+
+it("keeps incomplete coverage general and reports a completed repair only for its scene", () => {
+  const detail = "少了台词：你来晚了。请补上这一句。";
+  const incomplete = { code: "COVERAGE_INCOMPLETE", text: "覆盖检查未通过。", detail };
+  expect(statusLine(`${incomplete.text} ${detail}`, incomplete)).toEqual({
+    code: "COVERAGE_INCOMPLETE",
+    text: "有的场还有内容没拍到，去分镜看看。",
+    detail,
+  });
+  expect(
+    statusLine("本场覆盖完整。", { code: "COVERAGE_COMPLETE", text: "本场覆盖完整。" })?.text,
+  ).toBe("这一场的台词和结尾都有镜头了。");
+});
