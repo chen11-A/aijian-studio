@@ -711,3 +711,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### 4A-B08 场景布局与编剧来源（已提供）
 
 `FilmLocation.layout/referenceLayout` 保存空间关系及参考图生成时的快照；改布局使旧图失效。布局实际进入首帧和视频描述。`FilmScene.elements/sourceParagraphIds/writerParagraphIds/writerSourceText` 保存编剧对白与来源；只有可靠归属供导演可信上下文，正文编辑后旧结构失效，原始段号不与本地重编段号混用。无需界面把这些结构原样显示给用户。
+
+### 4A-B08 表演结构（已提供）
+
+`FilmShot.performancePlan` 保存人物/本镜表演及绑定来源，`FilmScene.performanceState` 保存未分配项。`binding=scope-order` 代表明确的一一对应兼容，不能宣称语义已核实；动作仍禁止顺序回退。手动回复只写建议卡，确认后才保存该镜与对应场景，保留用户锁及动作字段；视频描述实际消费结构。真实会员表演效果未验证。
