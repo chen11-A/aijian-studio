@@ -1,3 +1,5 @@
+import { planActionDraft } from "./actions/action";
+import { planPerformanceDraft } from "./actions/performance";
 import { planPrompterDraft } from "./actions/prompter";
 import { planArtDraft } from "./actions/art";
 import { applyContinuityChecks } from "../film/continuity-rules";
@@ -16,7 +18,6 @@ import { deleteCurrentFilm } from "./delete-workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
 import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
-  actionBeats,
   adaptToShortDrama,
   addShot,
   applyScenes,
@@ -39,8 +40,6 @@ import {
   parseWriterScenes,
   sceneNeedsSource,
   assignActionBeats,
-  fightConstraints,
-  performanceLine,
   moveShot,
   planVideoJobs,
   portraitPrompts,
@@ -87,18 +86,13 @@ import {
   type FilmShot,
 } from "../film/project";
 import {
-  actionFromModel,
   appearanceMark,
   classifyShotSize,
   DIFFICULTY_LEGEND,
-  difficultyLabel,
   durationFromSpeech,
   FILM_TEMPLATES,
-  gazeHandoff,
   missingIdentityLocks,
   parseLooseJson,
-  performanceFromModel,
-  voiceDirectionFromModel,
   qcFromModel,
   scenesEchoRequest,
   SHOT_SIZES,
@@ -135,7 +129,6 @@ import {
   detectDirectorCoverage,
   directorPlanStatus,
   sceneDisplayTitle,
-  shotLines,
 } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs, runTask } from "../film/task-progress";
@@ -1691,67 +1684,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const turn = pushTurn("action", chat.trim() || "请给这一镜设计动作，标出难度。");
     const current = shownShots[shot];
-    const text = current?.picture || current?.action || film.title;
-    let sentence = actionBeats(text)
-      .map(
-        (beat) =>
-          `${beat.text}（${beat.feasibility}${beat.workaround ? `，${beat.workaround}` : ""}，来自动作指导）`,
-      )
-      .join("");
-    let note = "没有登录，已用离线动作指导。点「写入分镜」写到这一镜。";
-    const context = `人物：${film.characters.map((item) => item.name).join("、")}\n当前镜头 id：${current?.id ?? ""}；只返回这个 id 的动作。\n${fightConstraints(film.scenes.find((item) => item.id === current?.sceneId)?.text ?? "")}\n镜头：${JSON.stringify(current ? [{ id: current.id, no: current.no, size: current.size, picture: current.picture, line: current.line, lines: shotLines(current) }] : [])}`;
-    const reply = await completeAgent("action", context, text);
-    if (!isTurnCurrent(turn)) return;
-    let parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed && connected) {
-      const again = await completeAgent("action", context, `${text}\n只输出 JSON，不要解释。`);
-      if (!isTurnCurrent(turn)) return;
-      parsed = again.text ? actionFromModel(parseLooseJson(again.text)) : null;
-      if (!parsed) {
-        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
-        return;
-      }
-    }
-    if (parsed && current) {
-      const assigned = assignActionBeats([current], current.sceneId, parsed);
-      unassignedDraft.current = assigned.unassignedBeats;
-      parsed = parsed.filter(
-        (row) =>
-          row.shotId === current.id &&
-          !assigned.unassignedBeats.some((item) => item.text === row.text),
-      );
-      sentence = assigned.shots[0]?.action ?? current.action;
-      note = assigned.unassignedBeats.length
-        ? "ACTION_UNASSIGNED：有动作无法归属，已保留供核对。"
-        : "动作指导写好了。点「写入分镜」写到这一镜。";
-    }
-    if (!current) {
-      finishTurn(turn, "先拆出镜头，再请动作指导。");
-      noteAgent("action", "rejected", "先拆出镜头，再请动作指导。");
+    const result = await planActionDraft(film, current, {
+      request: completeAgent,
+      current: () => isTurnCurrent(turn),
+      connected,
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
+      finishTurn(turn, result.notice);
+      if (result.logRejection) noteAgent("action", "rejected", result.notice);
       return;
     }
-    const cues = parsed
-      ? parsed.filter((row) => row.text).map((row) => ({ atSeconds: row.at, text: row.text }))
-      : current.sound.sfx;
-    const actionNotes = parsed
-      ? parsed.map((row) => `难度：${difficultyLabel(row.feasibility)} · ${row.text}`)
-      : sentence
-        ? [sentence]
-        : [];
+    if (result.unassigned) unassignedDraft.current = result.unassigned;
+    const actionShot = result.shot;
     setStructured([]);
-    const actionShot = {
-      ...current,
-      action: sentence,
-      sound: { ...current.sound, sfx: cues },
-      source: "agent:action",
-      userFields: current.userFields.filter((field) => field !== "action"),
-    };
     setPending([actionShot]);
     setPendingRole("action");
     publishCard("action", {
-      title: `动作设计 · 镜头 ${current.no}`,
-      rows: actionNotes.map((line, index) => ({
-        id: `${current.id}-beat-${index}`,
+      title: `动作设计 · 镜头 ${actionShot.no}`,
+      rows: result.notes.map((line, index) => ({
+        id: `${actionShot.id}-beat-${index}`,
         mark: "难度",
         text: line,
         tail: "",
@@ -1761,8 +1713,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       mode: "shots",
       shots: [actionShot],
     });
-    finishTurn(turn, note);
-    noteAgent("action", parsed ? "beats" : "offline", note);
+    finishTurn(turn, result.notice);
+    noteAgent("action", result.event, result.notice);
   }
 
   function planPerformance() {
@@ -1778,41 +1730,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("performance", "rejected", "先拆出镜头，再请表演指导。");
       return;
     }
-    const gaze = gazeHandoff(current.characters);
-    let line = `${performanceLine(current.picture)}${gaze ? ` ${gaze}` : ""}`;
-    let note = "没有登录，已用离线表演指导。点「写入分镜」写到这一镜。";
-    const reply = await completeAgent("performance", current.picture, "写这一镜的表演");
-    if (!isTurnCurrent(turn)) return;
-    let raw = reply.text ? parseLooseJson(reply.text) : null;
-    let parsed = raw ? performanceFromModel(raw, current.characters) : null;
-    if (!parsed && connected) {
-      const again = await completeAgent(
-        "performance",
-        current.picture,
-        "写这一镜的表演。只输出 JSON，不要解释。",
-      );
-      if (!isTurnCurrent(turn)) return;
-      raw = again.text ? parseLooseJson(again.text) : null;
-      parsed = raw ? performanceFromModel(raw, current.characters) : null;
-      if (!parsed) {
-        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
-        return;
-      }
+    const result = await planPerformanceDraft(current, {
+      request: completeAgent,
+      current: () => isTurnCurrent(turn),
+      connected,
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
+      finishTurn(turn, result.notice);
+      return;
     }
-    const direction = raw ? voiceDirectionFromModel(raw) : "";
-    if (parsed) {
-      line = parsed;
-      note = "表演指导写好了。点「写入分镜」写到这一镜。";
-    }
+    const performanceShot = result.shot;
+    const line = result.line;
     setStructured(line ? [line] : []);
-    const performanceShot = {
-      ...current,
-      performance: line,
-      performanceSource: "agent:performance",
-      delivery: direction || current.delivery,
-      source: "agent:performance",
-      userFields: current.userFields.filter((field) => field !== "performance"),
-    };
     setPending([performanceShot]);
     setPendingRole("performance");
     publishCard("performance", {
@@ -1823,8 +1753,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       mode: "shots",
       shots: [performanceShot],
     });
-    finishTurn(turn, note);
-    noteAgent("performance", parsed ? "performance" : "offline", note);
+    finishTurn(turn, result.notice);
+    noteAgent("performance", result.event, result.notice);
   }
 
   function planArt() {
