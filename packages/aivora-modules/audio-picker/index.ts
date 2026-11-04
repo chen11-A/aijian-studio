@@ -47,11 +47,11 @@ function monitorState(text: string): 'steady' | 'accelerating' | 'continuous' | 
   if (/规律|正常|平稳|稳定/.test(text)) return 'steady';
   return undefined;
 }
-function effectFor(assets: AudioAsset[], label: string, context: string): AudioAsset | undefined {
+function effectFor(assets: AudioAsset[], label: string, context: string, used?: Map<string, number>): AudioAsset | undefined {
   const keys = concepts(label);
   // 具体动作优先：拖地不能选击打，划伤可退到明确刀挥砍，但不选择厨刀刮擦。
-  const preferred = keys.includes('钢管拖地') ? ['钢管拖地'] : keys.includes('钢管击打') ? ['钢管击打', '金属管击打'] : keys.includes('刀划伤') ? ['刀划伤', '刀挥砍'] : keys;
-  if (!preferred.length) return choose(assets, label)[0];
+  const preferred = keys.includes('收伞') ? ['收伞'] : keys.includes('开伞') ? ['开伞'] : keys.includes('钢管拖地') ? ['钢管拖地'] : keys.includes('钢管击打') ? ['钢管击打', '金属管击打'] : keys.includes('刀划伤') ? ['刀划伤', '刀挥砍'] : keys;
+  if (!preferred.length) return choose(assets, label).sort((a, b) => (used?.get(a.id) ?? 0) - (used?.get(b.id) ?? 0))[0];
   let matches = assets.filter(a => preferred.some(key => a.tags.includes(key) || a.category === key));
   if (keys.includes('心电监护仪')) {
     const requested = monitorState(label) ?? monitorState(context) ?? 'steady';
@@ -71,7 +71,7 @@ function effectFor(assets: AudioAsset[], label: string, context: string): AudioA
   return matches.sort((a, b) => {
     const exactA = preferred.findIndex(k => a.tags.includes(k) || a.category === k);
     const exactB = preferred.findIndex(k => b.tags.includes(k) || b.category === k);
-    return exactA - exactB || score(b, context + label) - score(a, context + label) || a.id.localeCompare(b.id);
+    return exactA - exactB || (used?.get(a.id) ?? 0) - (used?.get(b.id) ?? 0) || score(b, context + label) - score(a, context + label) || a.id.localeCompare(b.id);
   })[0];
 }
 function cue(asset: AudioAsset, time: number, end: number, gainDb: number, continuous: boolean, reason: string): Cue {
@@ -84,32 +84,35 @@ function continuousAmbience(scene: Scene, shots: Selection['shots'], assets: Aud
   const offsets = [0];
   for (const shot of scene.shots) offsets.push(offsets.at(-1)! + shot.duration);
   const tracks: SceneAmbience[] = [];
-  let first = 0;
-  while (first < shots.length) {
-    const selected = shots[first].ambience[0];
-    if (!selected) { first++; continue; }
-    let last = first + 1;
-    while (last < shots.length && shots[last].ambience[0]?.assetId === selected.assetId) last++;
-    const asset = assets.find(a => a.id === selected.assetId)!;
-    const master = cue(asset, offsets[first], offsets[last], selected.gainDb, true, '同一环境整场连续播放，切镜头不重启');
-    const gainAutomation = [];
-    for (let index = first; index < last; index++) {
-      const shotStart = offsets[index], shotEnd = offsets[index + 1];
-      gainAutomation.push({ start: shotStart, end: shotEnd, gainDb: shots[index].ambience[0].gainDb });
-      const segments = master.segments.filter(s => s.end > shotStart && s.time < shotEnd).map(s => {
-        const from = Math.max(shotStart, s.time);
-        return { ...s, time: from - shotStart, end: Math.min(shotEnd, s.end) - shotStart,
-          sourceStart: s.sourceStart + from - s.time,
-          ...(s.fadeIn > 0 ? { fadeInStart: s.time - shotStart } : {}),
-          ...(s.fadeOut > 0 ? { fadeOutStart: s.end - s.fadeOut - shotStart } : {}),
-        };
-      });
-      shots[index].ambience[0] = { ...shots[index].ambience[0], segments, loop: master.loop, reason: master.reason };
+  for (const assetId of new Set(shots.flatMap(s => s.ambience.map(a => a.assetId)))) {
+    let first = 0;
+    while (first < shots.length) {
+      const selected = shots[first].ambience.find(a => a.assetId === assetId);
+      if (!selected) { first++; continue; }
+      let last = first + 1;
+      while (last < shots.length && shots[last].ambience.some(a => a.assetId === assetId)) last++;
+      const asset = assets.find(a => a.id === selected.assetId)!;
+      const master = cue(asset, offsets[first], offsets[last], selected.gainDb, true, '同一环境整场连续播放，切镜头不重启');
+      const gainAutomation = [];
+      for (let index = first; index < last; index++) {
+        const shotStart = offsets[index], shotEnd = offsets[index + 1];
+        const viewIndex = shots[index].ambience.findIndex(a => a.assetId === assetId);
+        gainAutomation.push({ start: shotStart, end: shotEnd, gainDb: shots[index].ambience[viewIndex].gainDb });
+        const segments = master.segments.filter(s => s.end > shotStart && s.time < shotEnd).map(s => {
+          const from = Math.max(shotStart, s.time);
+          return { ...s, time: from - shotStart, end: Math.min(shotEnd, s.end) - shotStart,
+            sourceStart: s.sourceStart + from - s.time,
+            ...(s.fadeIn > 0 ? { fadeInStart: s.time - shotStart } : {}),
+            ...(s.fadeOut > 0 ? { fadeOutStart: s.end - s.fadeOut - shotStart } : {}),
+          };
+        });
+        shots[index].ambience[viewIndex] = { ...shots[index].ambience[viewIndex], segments, loop: master.loop, reason: master.reason };
+      }
+      tracks.push({ ...master, gainAutomation });
+      first = last;
     }
-    tracks.push({ ...master, gainAutomation });
-    first = last;
   }
-  return tracks;
+  return tracks.sort((a, b) => a.time - b.time);
 }
 /** 场景配乐时间相对整场；镜头内音效时间相对该镜头。缺素材明确返回警告。 */
 export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
@@ -129,6 +132,8 @@ export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
   const musicSegments = track ? fillDuration(track.loop ? [track] : [track, ...tracks.filter(a => a.id !== track.id && a.tags.some(t => track.tags.includes(t)))], scene.duration) : [];
   let offset = 0;
   const ducking: { start: number; end: number; gainDb: number }[] = [];
+  const actionUsage = new Map<string, number>();
+  let actionOrder = 0;
   const shots = scene.shots.map((shot, index) => {
     if (shot.hasDialogue) ducking.push({ start: offset, end: offset + shot.duration, gainDb: -12 });
     offset += shot.duration;
@@ -137,18 +142,26 @@ export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
     const backgrounds = assets.filter(a => a.type === 'sfx' && a.category === '环境');
     const beds = choose(backgrounds, query);
     const hospital = concepts(context).includes('医院底噪');
-    const bed = hospital ? beds.find(a => a.tags.includes('医院底噪')) : beds.find(a => a.loop) ?? beds[0];
+    const raining = /下雨|雨夜|下着雨/.test(context);
+    const rain = raining ? choose(backgrounds.filter(a => a.loop && a.tags.some(t => ['雨声', '真实雨声'].includes(t))), '雨声 真实雨声')[0] : undefined;
+    const street = raining && concepts(context).includes('街道') ? beds.find(a => a.tags.includes('街道')) : undefined;
+    const bed = hospital ? beds.find(a => a.tags.includes('医院底噪')) : street ?? beds.find(a => a.loop) ?? beds[0];
     const defaultBedGain = shot.hasDialogue ? -12 : -6;
     const bedGain = bed && Number.isFinite(bed.suggestedGainDb) ? Math.min(defaultBedGain, bed.suggestedGainDb!) : defaultBedGain;
     const ambience: Cue[] = bed ? [cue(bed, 0, shot.duration, bedGain, true, '按环境关键词选取并连续铺满镜头')] : [];
+    if (rain && rain.id !== bed?.id) ambience.push(cue(rain, 0, shot.duration, -6, true, '下雨场景叠加连续雨声'));
+    if (raining && !rain) warnings.push(`第${index + 1}镜头缺少可循环雨声素材`);
     if (!bed && /雨|医院|病房|街道|小巷/.test(context)) warnings.push(`第${index + 1}镜头缺少匹配的环境音，请补充真实素材`);
     const effects: Cue[] = [];
     const effectsAssets = assets.filter(a => a.type === 'sfx' && a.category !== '环境');
     for (const action of shot.actions) {
       if (action.time >= shot.duration) continue;
       const label = action.label || `${text} ${shot.description ?? ''}`;
-      const effect = effectFor(effectsAssets, label, context);
-      if (effect) effects.push(cue(effect, action.time, shot.duration, shot.hasDialogue ? -6 : 0, false, '音效对准动作节点'));
+      const effect = effectFor(effectsAssets, label, context, actionUsage);
+      if (effect) {
+        actionUsage.set(effect.id, ++actionOrder);
+        effects.push(cue(effect, action.time, shot.duration, shot.hasDialogue ? -6 : 0, false, '音效对准动作节点'));
+      }
       else warnings.push(`第${index + 1}镜头第${action.time}秒缺少“${label}”对应音效`);
     }
     // 描述中的设备声音即使没有动作节点也会安排；已经明确安排的同类动作不重复。

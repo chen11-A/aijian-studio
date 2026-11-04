@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='夜街循环 ') as td:
   else:raise ValueError('最终循环接缝或峰值检查未通过。')
   report=dict(id=entry['id'],sourceSha256=hashlib.sha256(a.night.read_bytes()).hexdigest(),outputSha256=hashlib.sha256(out.read_bytes()).hexdigest(),sourceSliceStart=start,sourceSliceDuration=40,crossfadeSeconds=1,boundaryRotationSeconds=rotation,duration=len(decoded)/m.RATE,loudness=lufs,truePeak=tp,samplePeak=sp,seam=seam,subjectiveListeningCompleted=False)
   report_path=out.with_suffix('.json');report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
-  entry.update(peakLimited=abs(lufs+20)>1,peakSafetyPrioritized=abs(lufs+20)>1,duration=report['duration'],loop=True,loopable=True,loudness=lufs,truePeak=tp,samplePeak=sp,sha256=report['outputSha256'],sourceSha256=report['sourceSha256'],loopReport='remaining/ambience/'+report_path.name,processing=f'墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内{start}至{start+40}秒，原504.384秒录音中的镜像起点未知。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。')
+  entry.update(peakLimited=abs(lufs+20)>1,peakSafetyPrioritized=abs(lufs+20)>1,duration=report['duration'],loop=True,loopable=True,loudness=lufs,truePeak=tp,samplePeak=sp,sha256=report['outputSha256'],sourceSha256=report['sourceSha256'],loopReport='remaining/ambience/'+report_path.name,processing=f'墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内{start}至{start+40}秒，原726615对应起点由用户补充为{entry["sourceStart"]}秒（未独立对齐验证）。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。')
   reports.append(report)
 (root/'entries.json').write_text(json.dumps(entries,ensure_ascii=False,indent=2)+'\n')
 print(json.dumps(reports,ensure_ascii=False,indent=2))

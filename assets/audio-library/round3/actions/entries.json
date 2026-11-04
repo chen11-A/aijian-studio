@@ -262,7 +262,7 @@
     "path": "round3/actions/body-fall-1.ogg",
     "type": "sfx",
     "category": "动作",
-    "name": "人体倒地叠加拟音1",
+    "name": "人体倒地实录片段1（含重拳与衣物混合）",
     "tags": [
       "人体倒地",
       "叠加拟音"
@@ -334,7 +334,7 @@
     "path": "round3/actions/body-fall-2.ogg",
     "type": "sfx",
     "category": "动作",
-    "name": "人体倒地叠加拟音2",
+    "name": "人体倒地实录片段2（含重拳与衣物混合）",
     "tags": [
       "人体倒地",
       "叠加拟音"
@@ -406,7 +406,7 @@
     "path": "round3/actions/body-fall-3.ogg",
     "type": "sfx",
     "category": "动作",
-    "name": "人体倒地叠加拟音3",
+    "name": "人体倒地实录片段3（含重拳与衣物混合）",
     "tags": [
       "人体倒地",
       "叠加拟音"

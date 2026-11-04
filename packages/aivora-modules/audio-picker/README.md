@@ -30,3 +30,7 @@ console.log(plan.music?.segments, plan.warnings);
 第三轮三个多镜头输入与完整原样输出在 `ROUND3_SCENARIO_RESULTS.json`，由 `runRound3Scenarios(library)` 生成，所有动作时间相对所属镜头。原先四场景仍保留于 `SCENARIO_RESULTS.json`。
 
 素材可提供 `suggestedGainDb`，环境计划取它与默认增益中更低者；缺省或非有限值忽略，正数不能提高默认环境增益。例如 -18 LUFS 医院底噪建议 -12 dB，计划音量约为 -30 LUFS（混音后的实测值仍取决于其他轨道）。建议值同步进入整场 `gainAutomation` 和镜头视图。
+
+### 第四轮行为
+
+具体开伞、收伞和拖管动作按同义词匹配，不能用笼统“雨伞”或击打替代。在下雨街道中同时保留街道底噪与约-6dB雨声循环，两条轨道均跨镜头保持源时间连续。同一场景动作候选优先使用未播放或最久未播放的文件轮换，优先保留精确动作类型；只有一个候选时允许复用，新场景重置。

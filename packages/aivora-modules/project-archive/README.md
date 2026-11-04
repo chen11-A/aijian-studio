@@ -32,3 +32,5 @@ Windows 路径由调用者使用 `path.join` 构造，或使用正确转义的�
 `large.test.ts` 每次实际生成 **1 GiB + 1 MiB** 的稀疏 `.mp4` 测试文件，完整读取全部字节进行打包、导入及前后独立SHA-256校验。不是仅模拟大小。由于STORE，压缩包和恢复文件都实际占约1GiB磁盘，测试期间需至少3GiB可用空间，结束自动清理。文件是测试字节流，不是可播放视频。
 
 最近一次Linux / Node24实测记录见 [PERFORMANCE.json](./PERFORMANCE.json)：打包约17.42秒，导入约1.93秒，峰值RSS约135.2MiB，比测试开始增加约77.4MiB。计时和10毫秒采样RSS均包含真实IO，受机器负载、页缓存与测试覆盖插桩影响，不能当成跨机器性能保证。运行时另写 `/tmp/aivora-archive-large-report.json`（通过系统临时目录构造，不限定系统路径）。
+
+JPEG、WEBM、MKV也使用STORE，扩展名大小写不敏感。

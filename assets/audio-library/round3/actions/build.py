@@ -17,7 +17,7 @@ def build(raw_root,repo,ffmpeg,ffprobe):
     manifest=json.loads(subprocess.check_output(['git','show',COMPONENT_COMMIT+':assets/audio-library/manifest.json'],cwd=repo))
     if isinstance(manifest,dict):manifest=manifest.get('entries',manifest.get('items',[]))
     components=[next(x for x in manifest if x['id']==i) for i in ['sfx-b74c1393e17c','sfx-4729d1a9a20d']]
-    specs=[('pipe-hit-1',824117,.34,1.25,'金属管击打实录1','钢管击打'),('pipe-hit-2',824117,3.66,2.15,'金属管击打实录2','钢管击打'),('pipe-hit-3',674034,0,1.3,'金属管击打实录3','钢管击打'),('pipe-drag-1',164676,0,5.56,'金属管拖混凝土实录1','钢管拖地'),('pipe-drag-2',104361,0,6,'金属管拖混凝土实录2','钢管拖地'),('pipe-drag-3',870792,12,8,'搬运金属管刮擦与碰撞实录','钢管拖地'),('body-fall-1',614064,0,.9,'人体倒地叠加拟音1','人体倒地'),('body-fall-2',519262,1.38,.8,'人体倒地叠加拟音2','人体倒地'),('body-fall-3',172413,1.30,2.1,'人体倒地叠加拟音3','人体倒地')]
+    specs=[('pipe-hit-1',824117,.34,1.25,'金属管击打实录1','钢管击打'),('pipe-hit-2',824117,3.66,2.15,'金属管击打实录2','钢管击打'),('pipe-hit-3',674034,0,1.3,'金属管击打实录3','钢管击打'),('pipe-drag-1',164676,0,5.56,'金属管拖混凝土实录1','钢管拖地'),('pipe-drag-2',104361,0,6,'金属管拖混凝土实录2','钢管拖地'),('pipe-drag-3',870792,12,8,'搬运金属管刮擦与碰撞实录','钢管拖地'),('body-fall-1',614064,0,.9,'人体倒地实录片段1（含重拳与衣物混合）','人体倒地'),('body-fall-2',519262,1.38,.8,'人体倒地实录片段2（含重拳与衣物混合）','人体倒地'),('body-fall-3',172413,1.30,2.1,'人体倒地实录片段3（含重拳与衣物混合）','人体倒地')]
     entries=[];report=[]
     with tempfile.TemporaryDirectory(prefix='动作处理 ') as d:
         temp=Path(d);comp_paths=[]

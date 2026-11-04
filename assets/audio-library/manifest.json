@@ -5494,51 +5494,6 @@
     "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
-    "id": "remaining-pipe-drag-1",
-    "path": "remaining/actions/pipe-drag-1.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "金属管拖混凝土地面片段1（钢管动作拟音）",
-    "tags": [
-      "钢管拖地",
-      "金属管拖地",
-      "金属",
-      "混凝土",
-      "拖动"
-    ],
-    "scene": "适合金属管在混凝土地面拖动的动作。",
-    "duration": 4.0,
-    "loop": false,
-    "loopable": false,
-    "loudness": -18.26,
-    "targetLufs": -18,
-    "source": "https://freesound.org/people/RutgerMuller/sounds/104361/",
-    "originalSource": "https://freesound.org/people/RutgerMuller/sounds/104361/",
-    "sourceMirror": "https://github.com/Yarnsh/NakoDay/blob/395ee18dfc6edbcf1daef1beacf5ad8dd4270319/SFX/104361__rutgermuller__metal-pipe-scraped-on-concrete-in-basement.aiff",
-    "author": "RutgerMuller",
-    "license": "CC0-1.0",
-    "origin": "derived",
-    "channels": 1,
-    "sampleRate": 48000,
-    "truePeak": -3.66,
-    "samplePeak": -3.752201,
-    "peakLimited": false,
-    "sourceSha256": "eb9281bb9f5f67cbd99a7e813add356dab5891d3383517c03d796edd3ff8f253",
-    "sha256": "5dfdc1bd33fc177bebccdbd7a8e335a96453072cda5d055cbfb8eb6b76a9530e",
-    "processing": "原作者CC0录音的GitHub镜像；选取独立动作，裁首尾低于-55dB静音；48kHz单声道Vorbis；固定增益以不超过-1dB真峰值和采样峰值优先；无合成、无变速。",
-    "sourceExcerpt": {
-      "start": 0,
-      "duration": 4
-    },
-    "gainDb": 3.8900000000000006,
-    "evidence": "remaining/actions/SOURCES.md",
-    "recordingVerified": true,
-    "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
-    "normalization": "原文件实测在允许范围内，未修改。",
-    "normalizationReport": "ROUND3_NORMALIZATION.json"
-  },
-  {
     "id": "remaining-pipe-drag-2",
     "path": "remaining/actions/pipe-drag-2.ogg",
     "type": "sfx",
@@ -5656,13 +5611,15 @@
     "licensePath": "remaining/ambience/licenses/puebla.md",
     "sourceSha256": "f86b1959ba782115ce972278df058f2fab7b8d589fa4ef36ced34b8057f4fa9d",
     "sha256": "63e4d69431caed8ecdb13acc80a0b174ee6d7843bfaa0b036cc8709b5a7c9a52",
-    "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内0至40秒，原504.384秒录音中的镜像起点未知。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
+    "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内0至40秒，原726615对应起点由用户补充为218.6秒（未独立对齐验证）。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
     "samplePeak": -2.878162,
     "loopReport": "normalization/loops/sfx-night-street-puebla-1.json",
     "peakLimited": false,
     "peakSafetyPrioritized": false,
     "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
-    "normalizationReport": "ROUND3_NORMALIZATION.json"
+    "normalizationReport": "ROUND3_NORMALIZATION.json",
+    "sourceStart": 218.6,
+    "sourceStartBasis": "用户第四轮提供的原始726615对应起点；保留镜像裁切与边界旋转记录，未独立对齐验证。"
   },
   {
     "id": "sfx-night-street-puebla-2",
@@ -5692,13 +5649,15 @@
     "licensePath": "remaining/ambience/licenses/puebla.md",
     "sourceSha256": "f86b1959ba782115ce972278df058f2fab7b8d589fa4ef36ced34b8057f4fa9d",
     "sha256": "4171a7f52c85292dc01eaee18532b37b345f6d6c2e86748bc4ccb034a3caed12",
-    "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内45至85秒，原504.384秒录音中的镜像起点未知。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
+    "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内45至85秒，原726615对应起点由用户补充为264.8秒（未独立对齐验证）。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
     "samplePeak": -2.486829,
     "loopReport": "remaining/ambience/night-street-puebla-2.json",
     "peakLimited": false,
     "peakSafetyPrioritized": false,
     "normalization": "原文件实测在允许范围内，未修改。",
-    "normalizationReport": "ROUND3_NORMALIZATION.json"
+    "normalizationReport": "ROUND3_NORMALIZATION.json",
+    "sourceStart": 264.8,
+    "sourceStartBasis": "用户第四轮提供的原始726615对应起点；保留镜像裁切与边界旋转记录，未独立对齐验证。"
   },
   {
     "id": "sfx-night-street-puebla-3",
@@ -5728,13 +5687,15 @@
     "licensePath": "remaining/ambience/licenses/puebla.md",
     "sourceSha256": "f86b1959ba782115ce972278df058f2fab7b8d589fa4ef36ced34b8057f4fa9d",
     "sha256": "7f9f7801291483467e332025eb27d0a01e43f1847c23495e85ba188275dc089a",
-    "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内90至130秒，原504.384秒录音中的镜像起点未知。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
+    "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内90至130秒，原726615对应起点由用户补充为311.1秒（未独立对齐验证）。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
     "samplePeak": -2.788991,
     "loopReport": "normalization/loops/sfx-night-street-puebla-3.json",
     "peakLimited": false,
     "peakSafetyPrioritized": false,
     "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
-    "normalizationReport": "ROUND3_NORMALIZATION.json"
+    "normalizationReport": "ROUND3_NORMALIZATION.json",
+    "sourceStart": 311.1,
+    "sourceStartBasis": "用户第四轮提供的原始726615对应起点；保留镜像裁切与边界旋转记录，未独立对齐验证。"
   },
   {
     "id": "sfx-crowd-long-loop",
@@ -6039,7 +6000,7 @@
     "path": "round3/actions/body-fall-1.ogg",
     "type": "sfx",
     "category": "动作",
-    "name": "人体倒地叠加拟音1",
+    "name": "人体倒地实录片段1（含重拳与衣物混合）",
     "tags": [
       "人体倒地",
       "叠加拟音"
@@ -6111,7 +6072,7 @@
     "path": "round3/actions/body-fall-2.ogg",
     "type": "sfx",
     "category": "动作",
-    "name": "人体倒地叠加拟音2",
+    "name": "人体倒地实录片段2（含重拳与衣物混合）",
     "tags": [
       "人体倒地",
       "叠加拟音"
@@ -6183,7 +6144,7 @@
     "path": "round3/actions/body-fall-3.ogg",
     "type": "sfx",
     "category": "动作",
-    "name": "人体倒地叠加拟音3",
+    "name": "人体倒地实录片段3（含重拳与衣物混合）",
     "tags": [
       "人体倒地",
       "叠加拟音"

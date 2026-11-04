@@ -27,7 +27,7 @@ def build(ffmpeg, ffprobe, source_file, drag_file):
         records.append((f'pipe-impact-{i}',f'金属管受击{i}（钢管动作拟音）',source_file,start,duration,'martian',
             'https://freesound.org/people/martian/sounds/182262/', ['钢管击打','金属管击打','金属','撞击','拟音'],
             'https://github.com/MMMaellon/P-Shooters/blob/bdf721f69a9592f648c767cfe4bf0e49cf565809/Packages/com.mmmaellon.p-shooters/Runtime/Resources/Audio/GunFoley/182262__martian__foley-bullet-hit-metal-pipe.wav'))
-    for i,(start,duration) in enumerate([(0,4),(5,4),(10,4)],1):
+    for i,(start,duration) in enumerate([(5,4),(10,4)],2):
         records.append((f'pipe-drag-{i}',f'金属管拖混凝土片段{i}（钢管动作拟音）',drag_file,start,duration,'RutgerMuller',
             'https://freesound.org/people/RutgerMuller/sounds/104361/', ['钢管拖地','金属管拖地','金属','混凝土','拖动'],
             'https://github.com/Yarnsh/NakoDay/blob/395ee18dfc6edbcf1daef1beacf5ad8dd4270319/SFX/104361__rutgermuller__metal-pipe-scraped-on-concrete-in-basement.aiff'))

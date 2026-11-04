@@ -197,3 +197,45 @@ it.each([-12, -20, 3, NaN, Infinity, undefined])('环境建议增益 %s 只能�
  expect(output.ambience[0].gainAutomation.map(g => g.gainDb)).toEqual(expected);
  expect(output.ambience[0].gainDb).toBe(expected[0]);
 });
+
+it.each([
+ ['撑开雨伞','open'],['打开伞','open'],['撑开伞','open'],['开雨伞','open'],
+ ['收起雨伞','close'],['收起伞','close'],['合伞','close'],
+ ['铁棍拖','drag'],['棍子拖','drag'],['拖在地上','drag'],['拖着钢管','drag'],
+])('第四轮具体动作%s选择正确方向', (label, expected) => {
+ const lib=[asset('open','sfx',['开伞'],'道具'),asset('close','sfx',['收伞'],'道具'),asset('generic','sfx',['雨伞',label],'道具'),asset('hit','sfx',['钢管击打'],'动作'),asset('drag','sfx',['钢管拖地'],'动作')];
+ const input:Scene={emotions:[],description:'拿着雨伞和钢管',duration:5,shots:[{duration:5,hasDialogue:false,actions:[{time:1,label}]}]};
+ expect(pickAudio(input,lib).shots[0].effects[0].assetId).toBe(expected);
+ expect(pickAudio(input,lib.filter(a=>a.id!==expected)).shots[0].effects).toEqual([]);
+});
+it.each(['下雨','雨夜','下着雨'])('街道%s同时保留街道和独立雨声连续轨道', weather => {
+ const lib=[{...asset('street','sfx',['街道'],'环境'),duration:40},{...asset('rain','sfx',['雨声'],'环境'),duration:30}];
+ const input:Scene={emotions:[],description:`街道${weather}`,duration:55,shots:[{duration:22,hasDialogue:false,actions:[]},{duration:33,hasDialogue:true,actions:[]}]};
+ const out=pickAudio(input,lib);
+ expect(out.ambience.map(a=>a.assetId)).toEqual(['street','rain']);
+ expect(out.shots[1].ambience.map(a=>a.segments[0].sourceStart)).toEqual([22,22]);
+ expect(out.ambience[1].gainAutomation.map(g=>g.gainDb)).toEqual([-6,-6]);
+ expect(out.ambience.every(a=>a.end===55)).toBe(true);
+ expect(out.ambience[1].segments.map(s=>[s.time,s.end])).toEqual([[0,30],[30,55]]);
+ expect(out.warnings).toEqual([]);
+ expect(pickAudio(input,lib.slice(0,1)).warnings.every(w=>w.includes('缺少可循环雨声'))).toBe(true);
+});
+it('同场倒地同义动作跨镜头轮换全部文件，用尽后再轮回；新场重置',()=>{
+ const lib=['a','b','c'].map(id=>asset(id,'sfx',['人体倒地'],'动作'));
+ const input:Scene={emotions:[],description:'',duration:10,shots:[{duration:5,hasDialogue:false,actions:[{time:1,label:'倒地'},{time:3,label:'摔倒'}]},{duration:5,hasDialogue:false,actions:[{time:1,label:'跌倒'},{time:3,label:'倒地'}]}]};
+ const ids=()=>pickAudio(input,lib).shots.flatMap(s=>s.effects.map(e=>e.assetId));
+ expect(ids()).toEqual(['a','b','c','a']);expect(ids()).toEqual(['a','b','c','a']);
+ expect(pickAudio(input,lib.slice(0,1)).shots.flatMap(s=>s.effects.map(e=>e.assetId))).toEqual(['a','a','a','a']);
+});
+
+it('直接关键词动作也轮换，未匹配的文件不进入轮换池',()=>{
+ const lib=[asset('a','sfx',['敲钟'],'动作'),asset('b','sfx',['敲钟'],'动作'),asset('c','sfx',['纸张'],'动作')];
+ const input:Scene={emotions:[],description:'',duration:5,shots:[{duration:5,hasDialogue:false,actions:[{time:1,label:'敲钟'},{time:3,label:'敲钟'}]}]};
+ expect(pickAudio(input,lib).shots[0].effects.map(e=>e.assetId)).toEqual(['a','b']);
+});
+
+it('同义词分数变化也不能在一轮结束时连续重复同文件',()=>{
+ const lib=[{...asset('a','sfx',['人体倒地'],'动作'),name:'摔倒'},{...asset('b','sfx',['人体倒地'],'动作'),name:'倒地'}];
+ const input:Scene={emotions:[],description:'',duration:6,shots:[{duration:6,hasDialogue:false,actions:[{time:1,label:'倒地'},{time:2,label:'摔倒'},{time:3,label:'摔倒'},{time:4,label:'倒地'}]}]};
+ expect(pickAudio(input,lib).shots[0].effects.map(e=>e.assetId)).toEqual(['b','a','b','a']);
+});

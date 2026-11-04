@@ -228,19 +228,19 @@
           ],
           "effects": [
             {
-              "assetId": "round3-pipe-hit-1",
-              "path": "round3/actions/pipe-hit-1.ogg",
+              "assetId": "round3-pipe-hit-2",
+              "path": "round3/actions/pipe-hit-2.ogg",
               "time": 4,
-              "end": 5.25,
+              "end": 6.15,
               "gainDb": -6,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "round3-pipe-hit-1",
-                  "path": "round3/actions/pipe-hit-1.ogg",
+                  "assetId": "round3-pipe-hit-2",
+                  "path": "round3/actions/pipe-hit-2.ogg",
                   "time": 4,
-                  "end": 5.25,
+                  "end": 6.15,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -304,19 +304,19 @@
           ],
           "effects": [
             {
-              "assetId": "round3-pipe-hit-1",
-              "path": "round3/actions/pipe-hit-1.ogg",
+              "assetId": "round3-pipe-hit-3",
+              "path": "round3/actions/pipe-hit-3.ogg",
               "time": 5,
-              "end": 6.25,
+              "end": 6.3,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "round3-pipe-hit-1",
-                  "path": "round3/actions/pipe-hit-1.ogg",
+                  "assetId": "round3-pipe-hit-3",
+                  "path": "round3/actions/pipe-hit-3.ogg",
                   "time": 5,
-                  "end": 6.25,
+                  "end": 6.3,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -629,19 +629,19 @@
           ],
           "effects": [
             {
-              "assetId": "sfx-44043937fae8",
-              "path": "sfx/sfx-44043937fae8.ogg",
+              "assetId": "sfx-741277a378b6",
+              "path": "sfx/sfx-741277a378b6.ogg",
               "time": 6,
-              "end": 8.645188000000001,
+              "end": 8.646521,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "sfx-44043937fae8",
-                  "path": "sfx/sfx-44043937fae8.ogg",
+                  "assetId": "sfx-741277a378b6",
+                  "path": "sfx/sfx-741277a378b6.ogg",
                   "time": 6,
-                  "end": 8.645188000000001,
+                  "end": 8.646521,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0

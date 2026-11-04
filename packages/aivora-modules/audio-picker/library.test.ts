@@ -43,7 +43,7 @@ describe('真实素材库与挑选器联调', () => {
     input.duration = 100;
     input.shots[0].duration = 100;
     const result = pickAudio(input, library);
-    const rain = result.shots[0].ambience[0];
+    const rain = result.shots[0].ambience.find(a => library.find(e => e.id === a.assetId)?.tags.includes('真实雨声'))!;
     expect(rain).toBeDefined();
     const asset = library.find(a => a.id === rain.assetId)!;
     expect(asset.path).toMatch(/^fill-gaps\/weather\//);

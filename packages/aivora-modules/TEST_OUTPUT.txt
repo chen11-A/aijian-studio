@@ -6,52 +6,54 @@
  RUN  v3.2.4 /workspace/aijian-studio/packages/aivora-modules
       Coverage enabled with v8
 
- ✓ loudness/index.test.ts (11 tests) 7163ms
-   ✓ 真实测量 -14 LUFS 前后响度  993ms
-   ✓ 真实测量 -23 LUFS 前后响度  722ms
-   ✓ 处理 ogg 输出格式  791ms
-   ✓ 处理 m4a 输出格式  729ms
-   ✓ 视频输入导出纯音频 wav 时去除视频流  767ms
-   ✓ 视频输入导出纯音频 ogg 时去除视频流  809ms
-   ✓ 视频输出保留画面并规范化声音  726ms
-   ✓ 缺音轨、重复输出和未知格式提供具体中文错误  865ms
- ✓ export-check/index.test.ts (12 tests) 4829ms
-   ✓ 正常画面和配音通过真实解码检查  625ms
-   ✓ 检查尺寸、时长、重叠、台词截断及音画范围  725ms
-   ✓ 检测错误媒体类型  315ms
-   ✓ 真实混音检查头尾静音并处理无效阈值  768ms
-   ✓ 视频原声默认参与混音且允许关闭  607ms
-   ✓ 同视频显式音频覆盖默认原声，避免重复混音  513ms
- ✓ cover-title/index.test.ts (16 tests) 2785ms
-   ✓ 封面与片头 > 实际生成 landscape 封面（cinema）  320ms
-   ✓ 封面与片头 > 实际生成三秒片头并检测淡入淡出  1386ms
-   ✓ 封面与片头 > 损坏图片时有中文提示  597ms
- ✓ project-archive/index.test.ts (36 tests) 468ms
- ✓ subtitles/index.test.ts (27 tests) 163ms
- ✓ audio-library/index.test.ts (48 tests) 93ms
- ✓ audio-picker/library.test.ts (8 tests) 74ms
- ✓ audio-picker/index.test.ts (50 tests) 39ms
- ✓ rough-cut/index.test.ts (26 tests) 11ms
+ ✓ loudness/index.test.ts (11 tests) 6509ms
+   ✓ 真实测量 -14 LUFS 前后响度  585ms
+   ✓ 真实测量 -23 LUFS 前后响度  613ms
+   ✓ 处理 ogg 输出格式  698ms
+   ✓ 处理 m4a 输出格式  662ms
+   ✓ 视频输入导出纯音频 wav 时去除视频流  616ms
+   ✓ 视频输入导出纯音频 ogg 时去除视频流  831ms
+   ✓ 视频输出保留画面并规范化声音  748ms
+   ✓ 缺音轨、重复输出和未知格式提供具体中文错误  914ms
+ ✓ export-check/index.test.ts (12 tests) 5666ms
+   ✓ 正常画面和配音通过真实解码检查  656ms
+   ✓ 检查尺寸、时长、重叠、台词截断及音画范围  863ms
+   ✓ 检测错误媒体类型  482ms
+   ✓ 真实混音检查头尾静音并处理无效阈值  918ms
+   ✓ 视频原声默认参与混音且允许关闭  719ms
+   ✓ 同视频显式音频覆盖默认原声，避免重复混音  633ms
+ ✓ cover-title/index.test.ts (16 tests) 3711ms
+   ✓ 封面与片头 > 实际生成 landscape 封面（cinema）  313ms
+   ✓ 封面与片头 > 实际生成 portrait 封面（drama）  354ms
+   ✓ 封面与片头 > 实际生成三秒片头并检测淡入淡出  2144ms
+   ✓ 封面与片头 > 损坏图片时有中文提示  619ms
+ ✓ project-archive/index.test.ts (36 tests) 836ms
+   ✓ 流式归档边界 > 常见媒体格式包括大写扩展名使用STORE且导入内容完整，文本保持DEFLATE  467ms
+ ✓ subtitles/index.test.ts (27 tests) 224ms
+ ✓ audio-library/index.test.ts (48 tests) 227ms
+ ✓ audio-picker/library.test.ts (8 tests) 94ms
+ ✓ audio-picker/index.test.ts (67 tests) 63ms
+ ✓ rough-cut/index.test.ts (26 tests) 19ms
 stdout | project-archive/large.test.ts > 超过1GiB的真实流式打包、导入和独立校验；视频使用STORE
-大作品实测：{"node":"v24.19.0","platform":"linux","fileSize":1074790400,"archiveBytes":1074790943,"packSeconds":18.734646414000004,"importSeconds":2.1794332719999985,"totalSeconds":23.923208134,"baselineRss":60370944,"peakRss":140746752,"peakRssIncrease":80375808,"sha256":"3fd5c5c14869322a05a7ca0243805a90151e726dfd5a1633eb37db8dda8398ef","compressionMethod":"STORE","result":"通过"}
+大作品实测：{"node":"v24.19.0","platform":"linux","fileSize":1074790400,"archiveBytes":1074790943,"packSeconds":23.118953718,"importSeconds":2.251804057000001,"totalSeconds":29.229378273000002,"baselineRss":60952576,"peakRss":140513280,"peakRssIncrease":79560704,"sha256":"3fd5c5c14869322a05a7ca0243805a90151e726dfd5a1633eb37db8dda8398ef","compressionMethod":"STORE","result":"通过"}
 
- ✓ project-archive/large.test.ts (1 test) 23992ms
-   ✓ 超过1GiB的真实流式打包、导入和独立校验；视频使用STORE  23991ms
+ ✓ project-archive/large.test.ts (1 test) 29312ms
+   ✓ 超过1GiB的真实流式打包、导入和独立校验；视频使用STORE  29310ms
 
  Test Files  10 passed (10)
-      Tests  235 passed (235)
-   Start at  01:23:16
-   Duration  24.44s (transform 304ms, setup 0ms, collect 571ms, tests 39.62s, environment 2ms, prepare 788ms)
+      Tests  252 passed (252)
+   Start at  02:07:44
+   Duration  29.88s (transform 389ms, setup 0ms, collect 697ms, tests 46.66s, environment 2ms, prepare 1.04s)
 
  % Coverage report from v8
 -----------------|---------|----------|---------|---------|---------------------
 File             | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 -----------------|---------|----------|---------|---------|---------------------
-All files        |     100 |     97.3 |     100 |     100 |
+All files        |     100 |    97.41 |     100 |     100 |
  audio-library   |     100 |      100 |     100 |     100 |
   index.ts       |     100 |      100 |     100 |     100 |
- audio-picker    |     100 |    99.49 |     100 |     100 |
-  index.ts       |     100 |    99.46 |     100 |     100 | 155
+ audio-picker    |     100 |    99.56 |     100 |     100 |
+  index.ts       |     100 |    99.54 |     100 |     100 | 168
   scenarios.ts   |     100 |      100 |     100 |     100 |
   synonyms.ts    |     100 |      100 |     100 |     100 |
  cover-title     |     100 |      100 |     100 |     100 |

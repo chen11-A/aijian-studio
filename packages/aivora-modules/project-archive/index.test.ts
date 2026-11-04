@@ -33,7 +33,7 @@ describe('备份结构验证',()=>{
 });
 describe('流式归档边界',()=>{
  it('常见媒体格式包括大写扩展名使用STORE且导入内容完整，文本保持DEFLATE',async()=>{
-  const media=['照片.jpg','照片.WEBP','视频.mov','声音.M4A','配音.mp3','视频.MP4'];
+  const media=['照片.jpg','照片.WEBP','视频.mov','声音.M4A','配音.mp3','视频.MP4','照片.JPEG','视频.webm','视频.MKV'];
   for(const name of media)await fs.writeFile(path.join(src,name),Buffer.alloc(10000,7));
   await fs.writeFile(path.join(src,'图片.PNG'),Buffer.alloc(10000,7));await fs.writeFile(path.join(src,'音乐.ogg'),Buffer.alloc(10000,8));
   await packProject(src,archive);const yauzl=await import('yauzl');
