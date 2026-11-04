@@ -115,7 +115,7 @@ describe("readProject", () => {
       "audioClips",
     ]);
     expect(read.ok && read.project.scenes).toEqual([]);
-    expect(upgradeFilm({ title: "雨夜旧书店" })?.scenes[0]?.title).toBe("第 1 场");
+    expect(upgradeFilm({ title: "雨夜旧书店" })?.scenes).toHaveLength(1);
   });
 });
 

@@ -6,8 +6,8 @@ import type { FilmJob, FilmTake } from "../../film/project";
  * as films/<seriesId>/episodes/<episodeId>/project.json. Nothing is filled in: a value that is
  * missing or of the wrong type is read as "" or null, a list entry without an id is skipped,
  * and the path of each such field goes into missing, for example "shots[2].seconds".
- * upgradeFilm in film/project.ts is not used, because it fills gaps with defaults such as a
- * scene called 第 1 场.
+ * upgradeFilm in film/project.ts is not used, because it fills gaps with defaults, such as a
+ * placeholder scene when the film has none.
  */
 export type ProjectScene = {
   id: string;
