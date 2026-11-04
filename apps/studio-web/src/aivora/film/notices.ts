@@ -380,12 +380,7 @@ export function normalizeNotice(value: string | UiNotice): UiNotice {
   if (typeof value !== "string") {
     if (value.code === "NOTICE_CLEAR") return { code: "NOTICE_CLEAR", text: "" };
     const code = /^[A-Z][A-Z0-9_]*$/u.test(value.code) ? value.code : "OPERATION_STATUS";
-    const text =
-      ["OPERATION_STATUS", "EDITOR_GUIDANCE"].includes(code) &&
-      original &&
-      !/^[A-Z][A-Z0-9_]*$/u.test(original)
-        ? original
-        : (NOTICE_TEXT[code as NoticeCode] ?? NOTICE_TEXT.OPERATION_STATUS);
+    const text = NOTICE_TEXT[code as NoticeCode] ?? NOTICE_TEXT.OPERATION_STATUS;
     const detail = [original !== text ? original : "", value.detail?.trim() ?? ""]
       .filter((part, index, all) => part && all.indexOf(part) === index)
       .join("\n");
@@ -395,9 +390,7 @@ export function normalizeNotice(value: string | UiNotice): UiNotice {
     ([, text]) => text === original,
   )?.[0] as NoticeCode | undefined;
   const code = exact ?? RULES.find(([, match]) => match.test(original))?.[0] ?? "OPERATION_STATUS";
-  const text =
-    ["OPERATION_STATUS", "EDITOR_GUIDANCE"].includes(code) && !/^[A-Z][A-Z0-9_]*$/u.test(original)
-      ? original
-      : NOTICE_TEXT[code];
-  return { code, text, ...(original !== text ? { detail: original } : {}) };
+  const text = NOTICE_TEXT[code];
+  const legacyAlias = original === LEGACY_NOTICE_TEXT[code];
+  return { code, text, ...(original !== text && !legacyAlias ? { detail: original } : {}) };
 }

@@ -440,7 +440,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     window.dispatchEvent(new CustomEvent("aivora-notice", { detail: structured }));
     const rendered =
       typeof value === "string"
-        ? value
+        ? structured.detail
+          ? value
+          : structured.text
         : [structured.text, structured.detail].filter(Boolean).join(" ");
     noticeRef.current = rendered;
     setNoticeState(rendered);

@@ -5,7 +5,6 @@ import { normalizeNotice, NOTICE_TEXT } from "./notices";
 
 describe("structured business notices", () => {
   it.each([
-    ["导演等待超时，正在重试。", "STALL_RETRYING"],
     ["这一镜没有台词。时长保持导演的选择。", "VOICE_EMPTY"],
     ["已写 18 镜，正在写表演。", "PERFORMANCE_PROGRESS"],
     ["正在写第 2/3 场「雨夜旧书店」", "DIRECTOR_PROGRESS"],
@@ -91,6 +90,28 @@ describe("structured business notices", () => {
     });
   });
 
+  it("does not repeat replaced static fallback copy as a new detail", () => {
+    expect(normalizeNotice("导演等待超时，正在重试。")).toEqual({
+      code: "STALL_RETRYING",
+      text: NOTICE_TEXT.STALL_RETRYING,
+    });
+    expect(normalizeNotice("画面已生成。")).toEqual({
+      code: "STILL_DONE",
+      text: NOTICE_TEXT.STILL_DONE,
+    });
+    expect(
+      normalizeNotice({
+        code: "OPERATION_STATUS",
+        text: "先选中当前镜头。",
+        detail: "只影响这一场",
+      }),
+    ).toEqual({
+      code: "OPERATION_STATUS",
+      text: NOTICE_TEXT.OPERATION_STATUS,
+      detail: "先选中当前镜头。\n只影响这一场",
+    });
+  });
+
   it("keeps explicit stage codes while moving long messages into detail", () => {
     expect(
       normalizeNotice({ code: "STILL_FAILED", text: "镜头 12 画面失败", detail: "供应商拒绝" }),
@@ -106,20 +127,13 @@ describe("structured business notices", () => {
     });
   });
 
-  it("shows caller guidance without inventing a generic success or losing details", () => {
+  it("exposes the generic fallback honestly without hashing or implying success", () => {
     expect(normalizeNotice("供应商返回了一种尚未登记的新状态")).toEqual({
       code: "OPERATION_STATUS",
-      text: "供应商返回了一种尚未登记的新状态",
+      text: "请查看操作详情。",
+      detail: "供应商返回了一种尚未登记的新状态",
     });
     expect(normalizeNotice({ code: "bad code", text: "invalid" }).code).toBe("OPERATION_STATUS");
-    expect(
-      normalizeNotice({
-        code: "EDITOR_GUIDANCE",
-        text: "先选中要修改的镜头。",
-        detail: "只影响当前场次",
-      }),
-    ).toEqual({ code: "EDITOR_GUIDANCE", text: "先选中要修改的镜头。", detail: "只影响当前场次" });
-    expect(normalizeNotice("UNREGISTERED_FAILURE_CODE").text).toBe(NOTICE_TEXT.OPERATION_STATUS);
     for (const text of Object.values(NOTICE_TEXT)) expect(text.length).toBeLessThanOrEqual(32);
   });
 });
