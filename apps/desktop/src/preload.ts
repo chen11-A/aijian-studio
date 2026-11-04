@@ -574,6 +574,8 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("film:rename", seriesId, title),
   readFilmMedia: (path: string) =>
     ipcRenderer.invoke("film:read-media", path) as Promise<Uint8Array>,
+  extractFilmLastFrame: (seriesId: string, videoPath: string) =>
+    ipcRenderer.invoke("film:last-frame", seriesId, videoPath),
   assembleFilm: (
     seriesId: string,
     sources: string[],

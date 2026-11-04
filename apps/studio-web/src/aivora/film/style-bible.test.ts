@@ -48,7 +48,11 @@ describe("persisted style bible", () => {
     expect(count(keyframe)).toBe(1);
     for (const variant of keyframeVariants(shot, film)) expect(count(variant)).toBe(1);
     const previousDescription = "雨里奔跑，人物说：不要离开雨里。";
-    const continued = continuityPrompt({ ...shot, picture: previousDescription }, shot, film);
+    const continued = continuityPrompt(
+      { ...shot, id: "previous", picture: previousDescription },
+      { ...shot, continuityFromShotId: "previous" },
+      film,
+    );
     expect(continued).toContain(previousDescription);
     expect(count(continued)).toBe(1);
     expect(withStyleBible(keyframe, style)).toBe(keyframe);

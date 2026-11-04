@@ -20,9 +20,9 @@ agent_version: 2
 - start_frame_prompt 写第一帧的静止画面：「竖屏构图。」（16:9 写「横屏构图。」）、「人物：」（每人后面接上此刻那套衣服的 description）、「画面：」，不写 <IMAGE_n>。
 - video_prompt 先说明每个 <IMAGE_n> 是什么，再写「人物：」「从起始画面开始：」、这一个动作、运镜和什么不动；有台词写「台词原句：「…」」。reference_images 的编号都要用到，别的不能用。video_sound 为 false 时结尾写「视频不要自己出声。」。
 - 不写画风，软件会统一加。picture 写画面，action 写动作，performance 写看得见的表情、视线和手势；sound 写 ambience、sfx 和这一场的配乐情绪 musicMood。
-- continuity_from_prev 表示紧接上一镜的动作；每批第一镜只有 carry_over 不为 null 时才能写 true。
+- 仅当本镜与同场紧邻前镜是连续动作时设置 connect_previous: true；首镜、跨场、时间跳跃和普通切镜必须为 false。不要因人物相同而要求衔接。可选 continuity_from_shot_id 必须精确指向本场紧邻前镜的 id；不确定就省略，不得猜测。
   输出格式：
-  {"scenes":[{"scene_id":"scene-1","title":"","total_seconds":0,"rhythm":"","shots":[{"id":"scene-1-shot-1","no":1,"size":"","tag":"","angle":"","move":"","seconds":0,"purpose":"","picture":"","action":"","performance":"","emotion":"","characters":[""],"line":"","speaker":"","delivery":"","line_at":null,"blocking":"","facing":"","positions":[{"name":"","position":"","depth":"","visible":""}],"continuity_from_prev":false,"source":"P01","sound":{"ambience":"","sfx":[{"text":"","at_seconds":0}],"musicMood":""},"reference_images":[{"token":"<IMAGE_1>","asset_id":""}],"start_frame_prompt":"","video_prompt":""}]}]}
+  {"scenes":[{"scene_id":"scene-1","title":"","total_seconds":0,"rhythm":"","shots":[{"id":"scene-1-shot-1","no":1,"size":"","tag":"","angle":"","move":"","seconds":0,"purpose":"","picture":"","action":"","performance":"","emotion":"","characters":[""],"line":"","speaker":"","delivery":"","line_at":null,"blocking":"","facing":"","positions":[{"name":"","position":"","depth":"","visible":""}],"connect_previous":false,"source":"P01","sound":{"ambience":"","sfx":[{"text":"","at_seconds":0}],"musicMood":""},"reference_images":[{"token":"<IMAGE_1>","asset_id":""}],"start_frame_prompt":"","video_prompt":""}]}]}
 - size：大远景、远景、全景、中景、近景、特写、大特写。angle：平视、俯拍、仰拍、过肩、主观。move：固定、推、拉、摇、移、跟、升、降、手持。
 - position：画左、画中、画右、画外。depth：前景、中间、后景。visible：全身、半身、脸、背影、只露手、画外。musicMood 照抄这一场的 mood。
   输出规则：

@@ -1,5 +1,6 @@
 import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
+import { extractFilmLastFrame } from "./film-last-frame";
 import { basename, dirname, join, resolve } from "node:path";
 import {
   applyDialogue,
@@ -135,6 +136,48 @@ export function registerFilmLibraryHandlers<TEvent>(
     guard(event);
     if (args.length !== 1 || typeof args[0] !== "string") throw new Error("Invalid film path");
     return readMedia([host.filmsRoot(), host.storyFilmsRoot()], args[0]);
+  });
+
+  handle("film:last-frame", async (event, ...args) => {
+    guard(event);
+    const failed = (code: string, text: string) => ({ path: "", sourceVideoPath: "", code, text });
+    if (
+      args.length !== 2 ||
+      typeof args[0] !== "string" ||
+      !idPattern.test(args[0]) ||
+      typeof args[1] !== "string" ||
+      !args[1] ||
+      args[1].length > 4096 ||
+      args[1].includes("\0")
+    )
+      return failed("CONTINUITY_REQUEST_INVALID", "末帧提取参数不完整。");
+    if (!host.probeDuration)
+      return failed("CONTINUITY_PROBE_UNAVAILABLE", "当前无法读取视频时长。");
+    try {
+      return await extractFilmLastFrame(args[0], args[1], {
+        roots: [host.filmsRoot(), host.storyFilmsRoot()],
+        filmsRoot: host.filmsRoot(),
+        runFfmpeg: host.runFfmpeg,
+        probeDuration: host.probeDuration,
+        current: () => authorized(event),
+      });
+    } catch (error) {
+      const messages: Record<string, string> = {
+        CONTINUITY_VIDEO_INVALID: "请使用作品内可读取的本地视频。",
+        CONTINUITY_PROBE_FAILED: "视频时长没有读到。",
+        CONTINUITY_DURATION_INVALID: "视频时长不适合提取末帧。",
+        CONTINUITY_DESTINATION_INVALID: "末帧保存位置不可用。",
+        CONTINUITY_FRAME_INVALID: "提取的末帧无效。",
+        CONTINUITY_REQUEST_STALE: "本次末帧提取已停止。",
+        CONTINUITY_EXTRACTION_FAILED: "末帧没有提取成功。",
+      };
+      const received = error instanceof Error && "code" in error ? error.code : undefined;
+      const code =
+        typeof received === "string" && Object.hasOwn(messages, received)
+          ? received
+          : "CONTINUITY_EXTRACTION_FAILED";
+      return failed(code, messages[code]!);
+    }
   });
 
   handle("film:assemble", async (event, ...args) => {

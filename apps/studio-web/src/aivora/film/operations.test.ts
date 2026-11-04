@@ -355,8 +355,15 @@ describe("film operations", () => {
     const clips = clipLayout(film.shots);
     expect(clips.map((item) => item.width)).toEqual([102, 76, 102, 76, 154, 206]);
     expect(clips[4]?.left).toBe(365);
-    const previous = film.shots[3];
-    expect(continuityPrompt(previous, film.shots[4]!, film)).toContain("接上一镜");
+    const previous = film.shots[3]!;
+    expect(continuityPrompt(previous, film.shots[4]!, film)).not.toContain("接上一镜");
+    expect(
+      continuityPrompt(
+        previous,
+        { ...film.shots[4]!, sceneId: previous.sceneId, continuityFromShotId: previous.id },
+        film,
+      ),
+    ).toContain("接上一镜");
     expect(continuityPrompt(undefined, film.shots[0]!, film)).toContain("起始画面");
   });
 

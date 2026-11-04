@@ -976,6 +976,15 @@ export interface AijianDesktopBridge
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
   readFilmMedia?: (path: string) => Promise<Uint8Array>;
+  extractFilmLastFrame?: (
+    seriesId: string,
+    videoPath: string,
+  ) => Promise<{
+    path: string;
+    sourceVideoPath: string;
+    code?: string;
+    text?: string;
+  }>;
   assembleFilm?: (
     seriesId: string,
     sources: string[],

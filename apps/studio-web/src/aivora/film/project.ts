@@ -158,6 +158,13 @@ export type FilmScene = {
 };
 
 export type FilmShot = {
+  continuityFromShotId?: string;
+  continuityFrame?: {
+    sourceShotId: string;
+    sourceTakeId: string;
+    sourceVideoPath: string;
+    path: string;
+  };
   continuity?: ContinuityNote;
   id: string;
   sceneId: string;
@@ -595,6 +602,11 @@ export function shotBudget(sceneText: string): number | null {
   return Math.min(16, Math.max(1, Math.round(length / 50)));
 }
 
+// Ephemeral parser metadata survives merge spreads, but is removed before persistence.
+const directorConnection = Symbol("directorConnection");
+type DirectorConnection = { previous: boolean; explicit: string; rawId: string };
+type ParsedDirectorShot = FilmShot & { [directorConnection]?: DirectorConnection };
+
 export function parseDirectorShots(
   text: string,
   sceneId: string,
@@ -641,7 +653,7 @@ export function parseDirectorShots(
   if (!("shots" in value)) return null;
   const rows = (value as { shots?: unknown }).shots;
   if (!Array.isArray(rows)) return null;
-  const shots: FilmShot[] = [];
+  const shots: ParsedDirectorShot[] = [];
   rows.forEach((row, index) => {
     if (!row || typeof row !== "object") return;
     const record = row as Record<string, unknown>;
@@ -694,6 +706,14 @@ export function parseDirectorShots(
           : "";
     const speaker = named || (line && characters.length === 1 ? characters[0]!.trim() : "");
     shots.push({
+      [directorConnection]: {
+        previous: record.connect_previous === true || record.continuity_from_prev === true,
+        explicit:
+          typeof record.continuity_from_shot_id === "string"
+            ? record.continuity_from_shot_id.trim()
+            : "",
+        rawId: typeof record.id === "string" ? record.id.trim() : "",
+      },
       id:
         typeof record.id === "string" && /^scene-\d+-shot-\d+$/.test(record.id.trim())
           ? record.id.trim()
@@ -760,10 +780,48 @@ function completeDirectorCoverage(
   sceneId: string,
   sceneText: string,
 ): FilmShot[] {
-  return mergeAdjacentShots(
+  const originals = shots as ParsedDirectorShot[];
+  const merged = mergeAdjacentShots(
     shots.map((shot) => ({ ...shot, sceneId })),
     sceneText.trim() ? suggestedShotCount(sceneText) : 16,
+  ) as ParsedDirectorShot[];
+  const starts = merged.map((shot) =>
+    originals.findIndex((original) => original[directorConnection] === shot[directorConnection]),
   );
+  const groups = starts.map((start, index) =>
+    originals.slice(start, starts[index + 1] ?? originals.length),
+  );
+  return merged.map((shot, index) => {
+    const clean = { ...shot };
+    delete clean[directorConnection];
+    const group = groups[index] ?? [];
+    const requested = group.some((item) => {
+      const meta = item[directorConnection];
+      return meta?.previous || meta?.explicit;
+    });
+    if (!requested) return clean;
+    const previous = merged[index - 1];
+    const meta = shot[directorConnection];
+    const previousGroup = groups[index - 1] ?? [];
+    const explicitMatches =
+      !meta?.explicit ||
+      (previousGroup.length === 1 &&
+        originals.filter(
+          (item) => item.id === meta.explicit || item[directorConnection]?.rawId === meta.explicit,
+        ).length === 1 &&
+        previousGroup.some(
+          (item) => item.id === meta.explicit || item[directorConnection]?.rawId === meta.explicit,
+        ));
+    if (group.length === 1 && previous && previous.sceneId === shot.sceneId && explicitMatches) {
+      clean.continuityFromShotId = previous.id;
+    } else {
+      clean.continuity = {
+        kind: "cut",
+        text: "未自动衔接：首镜、合镜或前镜标识不明确，请确认紧邻前镜后重试。",
+      };
+    }
+    return clean;
+  });
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {

@@ -87,6 +87,94 @@ describe("professional workspace", () => {
     });
   });
 
+  it.each([false, true])(
+    "uses the preceding selected video last frame (regenerate source: %s)",
+    async (regenerateSource) => {
+      const sourcePath = regenerateSource ? "/tmp/new-source.mp4" : "/tmp/source.mp4";
+      let completed = 0;
+      const video = vi.fn(async () => ({
+        data: {
+          status: "SUCCEEDED",
+          output_path: regenerateSource && ++completed === 1 ? sourcePath : "/tmp/next-video.mp4",
+        },
+      }));
+      installDesktop(video);
+      const film = sampleFilm();
+      const source = {
+        ...film.shots[0]!,
+        line: "",
+        lines: [],
+        speaker: "",
+        selectedTakeId: "source-take",
+        poster: "/tmp/source.png",
+      };
+      source.takes = [
+        {
+          id: "source-take",
+          shotId: source.id,
+          index: 1,
+          status: regenerateSource ? "failed" : "done",
+          stillUrl: source.poster,
+          videoPath: regenerateSource ? "" : sourcePath,
+          videoUrl: "",
+          prompt: "",
+          createdAt: "",
+          reason: "",
+        },
+      ];
+      const next = {
+        ...source,
+        id: "next-linked-shot",
+        no: 2,
+        takes: [],
+        selectedTakeId: "",
+        poster: "/tmp/preview.png",
+        continuityFromShotId: source.id,
+      };
+      film.shots = [source, next];
+      const extract = vi.fn(async () => ({
+        path: "/tmp/last-frame.png",
+        sourceVideoPath: sourcePath,
+      }));
+      window.aijian!.extractFilmLastFrame = extract;
+      vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+      window.localStorage.setItem("aivora.film.activeId", film.id);
+      render(<ProWorkspace projectId={PROJECT_ID} />);
+      await screen.findAllByText(film.title);
+      fireEvent.click(stageTab("分镜"));
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: new RegExp(film.scenes.find((scene) => scene.id === source.sceneId)!.title),
+        }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: /镜头 2/ }));
+      if (regenerateSource) fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+      else {
+        fireEvent.click(screen.getByRole("button", { name: "生成视频" }));
+        fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+      }
+      fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+      await waitFor(() => expect(video).toHaveBeenCalledTimes(regenerateSource ? 2 : 1));
+      expect(extract).toHaveBeenCalledWith(film.seriesId, sourcePath);
+      const body = (
+        video.mock.calls.at(-1) as unknown as [string, { shots: { still: string }[] }]
+      )[1];
+      expect(body.shots[0]!.still).toBe("/tmp/last-frame.png");
+      expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+      await waitFor(() => {
+        const saved = vi
+          .mocked(window.aijian!.writeFilmProject!)
+          .mock.calls.at(-1)![0] as FilmProject;
+        if (regenerateSource) expect(saved.shots[0]!.selectedTakeId).not.toBe("source-take");
+        expect(saved.shots[1]!.continuityFrame).toMatchObject({
+          sourceShotId: source.id,
+          sourceTakeId: saved.shots[0]!.selectedTakeId,
+          path: "/tmp/last-frame.png",
+        });
+      });
+    },
+  );
+
   it("keeps the real imported novel across pages and after synchronous offline cast extraction", async () => {
     const source = readFileSync(
       resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),

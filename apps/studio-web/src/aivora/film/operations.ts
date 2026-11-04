@@ -22,8 +22,11 @@ import {
 
 export const QC_REASON = "审片还不能看图打分。版本由你来选，不会自动重做。";
 export const PORTRAIT_REASON = "请打开安装好的 AIVORA 再出图。";
-export const CONTINUITY_REASON =
-  "这一镜会接着上一镜的结尾来写。生成时不会把上一镜的最后一帧传过去。";
+export const CONTINUITY_NOTICE = {
+  code: "CONTINUITY_LINK_INFO",
+  text: "标记为连续动作的镜头，会在出视频前提取前镜末帧。",
+};
+export const CONTINUITY_REASON = CONTINUITY_NOTICE.text;
 export const PREVIEW_REASON =
   "单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。";
 export const LOUDNESS_NOTE =
@@ -1091,9 +1094,14 @@ export function continuityPrompt(
   film: FilmProject,
 ): string {
   const base = keyframePrompt(shot, film);
-  if (!previous?.picture.trim()) return base;
+  if (
+    !previous?.picture.trim() ||
+    shot.continuityFromShotId !== previous.id ||
+    previous.sceneId !== shot.sceneId
+  )
+    return base;
   return withStyleBible(
-    `接上一镜的结尾：${previous.picture.replace(/。$/, "")}。${base}`,
+    `接上一镜的末帧。前镜内容：${previous.picture.replace(/。$/, "")}。${base}`,
     film.styleZh,
   );
 }

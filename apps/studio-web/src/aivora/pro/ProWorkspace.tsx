@@ -1,3 +1,4 @@
+import { ensureContinuityFrame, continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
 import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
 import { createFilmPersistence } from "./film-persistence";
@@ -2565,7 +2566,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           }
           if (await queueStopped()) return;
           const targetShot = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
-          const shotNow = await ensureShotFrame(current, targetShot, {
+          const connectedShot = await ensureContinuityFrame(current, targetShot, {
+            current: () => filmRef.current,
+            valid,
+            apply: applyGeneration,
+          });
+          const shotNow = await ensureShotFrame(filmRef.current ?? current, connectedShot, {
             current: () => filmRef.current,
             valid,
             apply: applyGeneration,
@@ -2640,12 +2646,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             preview.startsWith("data:") || preview.startsWith("blob:") || preview.startsWith("http")
               ? preview
               : "";
+          const selectedId =
+            latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "";
+          const selectedDone = takes.some(
+            (item) => item.id === selectedId && item.status === "done" && item.videoPath,
+          );
           let saved = replaceTakes(
             latest,
             group.shot.id,
             takes,
-            latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ||
-              (done ? take.id : ""),
+            selectedDone ? selectedId : done ? take.id : selectedId,
           );
           if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
           const voicePath = typeof data.voice_path === "string" ? data.voice_path : "";
@@ -2708,7 +2718,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }
     } catch (error) {
       if (!valid()) return;
-      const styleFailure = styleFailureNotice(error);
+      const styleFailure = styleFailureNotice(error) ?? continuityFailureNotice(error);
       const reason =
         styleFailure?.text ??
         (error instanceof Error && error.message === "TASK_TIMEOUT"

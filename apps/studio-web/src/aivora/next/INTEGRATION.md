@@ -669,3 +669,9 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ## 4A-B03 正面锚点定妆（已提供）
 
 全体、单人和流水线入口统一使用 `generate(prompt,references)`：先生成并保存正面全身图，侧面/背面/脸部仅用该人物正面图改图。缺正面时，单角补全自动增加一个前置任务并计入总数。正面失败重试一次，依赖角度标失败且不发请求，继续其他角色；正面被更换时丢弃旧回包。错误保留 `PORTRAIT_ANCHOR_REQUIRED` code，详情为“先补好正面照，再生成这个角度。”。画质沿用 medium。回归验证请求确实带同人物参考图；没有以此代替真实会员同脸视觉验收。
+
+## 4A-B04 前镜末帧衔接（已提供）
+
+导演可返回 `connect_previous:true`，解析器在合镜和重编 ID 后解析 `continuityFromShotId`，仅接受同场紧邻前镜；歧义保留提醒，不按错误 ID 猜。实际视频提交前，`ensureContinuityFrame` 通过 `window.aijian.extractFilmLastFrame(seriesId,videoPath)` 提取前镜已选完成版本的最后解码帧，保存 `poster` 和 `continuityFrame={sourceShotId,sourceTakeId,sourceVideoPath,path}` 后才提交视频。前镜失败后重做会选中新完成版本，下一镜据此衔接。预览出图阶段不提取不存在的视频。
+
+本地 FFmpeg 解码与 PNG 校验不调用供应商。拒绝跨场、无完成版本、过期回包和不可信路径；媒体限制为现有短镜头 MP4（最多 80 MiB、60 秒），结果最多 12 MiB。失败返回 `CONTINUITY_*` code 与短提示，界面不显示原始 code。真实 FFmpeg 回归比较实际末帧像素；会员生成视频的视觉连续性仍需实测。
