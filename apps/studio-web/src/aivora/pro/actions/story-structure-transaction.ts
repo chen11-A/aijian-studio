@@ -1,4 +1,5 @@
 import { applyScenes } from "../../film/operations";
+import { detectDirectorCoverage } from "../../film/director-continuity";
 import type { FilmProject, FilmScene, FilmShot } from "../../film/project";
 import { applyDirectorPlan } from "../director-workflow";
 import {
@@ -28,6 +29,8 @@ export type StoryStructureTransaction = {
   };
   workBefore: unknown;
   workAfter: unknown;
+  /** Explicit splitting shifts only subsequent labels, without replacing their live shot content. */
+  numbering?: { id: string; before: number; after: number }[];
   unsupported: string[];
 };
 const same = (a: unknown, b: unknown): boolean => {
@@ -236,6 +239,58 @@ export function prepareWriterTransaction(
   if (!scenes.length) tx.unsupported.push("EMPTY_PROPOSAL");
   return tx;
 }
+
+/** An explicit duration split replaces exactly one shot, including a user-edited target.
+ * Existing assets/dependencies are checked on base, never on the cleared proposal. */
+export function prepareExplicitShotSplitTransaction(
+  base: FilmProject,
+  targetId: string,
+  twoShots: FilmShot[],
+): StoryStructureTransaction {
+  const matches = base.shots.filter((shot) => shot.id === targetId);
+  const target = matches.length === 1 ? matches[0] : undefined;
+  const reject = (code: string) => {
+    const tx = prepare(base, base, "director", target?.sceneId ?? base.scenes[0]?.id ?? "");
+    tx.unsupported.push(code);
+    return tx;
+  };
+  if (!target) return reject("INVALID_SPLIT_TARGET");
+  if (
+    twoShots.length !== 2 ||
+    twoShots[0]!.id !== targetId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(twoShots[1]!.id) ||
+    twoShots[1]!.id === targetId ||
+    twoShots.some((shot) => shot.sceneId !== target.sceneId)
+  )
+    return reject("INVALID_SPLIT_PROPOSAL");
+  const second = twoShots[1]!;
+  const at = base.shots.indexOf(target);
+  // Preparing an already-present, identical split is a no-op, not another insertion.
+  if (same(target, twoShots[0]) && same(base.shots[at + 1], second))
+    return prepare(base, base, "director", target.sceneId);
+  if (base.shots.some((shot) => shot.id === second.id)) return reject("SPLIT_ID_COLLISION");
+  if (twoShots.some(media)) return reject("SPLIT_PROPOSAL_HAS_ASSETS_OR_CONTINUITY");
+  const pair = [
+    { ...twoShots[0]!, no: target.no },
+    { ...second, no: target.no + 1 },
+  ];
+  const shots = base.shots.flatMap((shot) => (shot.id === targetId ? pair : [shot]));
+  const proposed = {
+    ...base,
+    shots,
+    scenes: base.scenes.map((scene) =>
+      scene.id === target.sceneId
+        ? { ...scene, coverage: detectDirectorCoverage(scene, shots) }
+        : scene,
+    ),
+  };
+  const tx = prepare(base, proposed, "director", target.sceneId);
+  tx.numbering = base.shots
+    .slice(at + 1)
+    .filter((shot) => shot.sceneId === target.sceneId)
+    .map((shot) => ({ id: shot.id, before: shot.no, after: shot.no + 1 }));
+  return tx;
+}
 export function applyStoryStructureTransaction(
   current: FilmProject,
   transaction: StoryStructureTransaction,
@@ -257,6 +312,14 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
   });
   if (tx.unsupported.length) return reject([...tx.unsupported]);
   if (current.id !== tx.projectId) return reject(["PROJECT_MISMATCH"]);
+  if (
+    tx.numbering?.some(
+      (change) =>
+        current.shots.find((shot) => shot.id === change.id)?.no !==
+        (inverse ? change.after : change.before),
+    )
+  )
+    return reject(["SHOT_NUMBER_CHANGED"]);
   if (!same(source(current, tx.kind, tx.sceneId), tx.sourceBefore))
     return reject(["SOURCE_CHANGED"]);
   if (!same(workSnapshot(current, tx.structure), inverse ? tx.workAfter : tx.workBefore))
@@ -284,6 +347,17 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     : applyEditorStructure(current, tx.structure);
   if (changed.conflicts.length) return reject(changed.conflicts);
   let film = changed.film;
+  if (tx.numbering?.length) {
+    const numbers = new Map(
+      tx.numbering.map((change) => [change.id, inverse ? change.before : change.after]),
+    );
+    film = {
+      ...film,
+      shots: film.shots.map((shot) =>
+        numbers.has(shot.id) ? { ...shot, no: numbers.get(shot.id)! } : shot,
+      ),
+    };
+  }
   if (tx.coverage) {
     const replacement = inverse ? tx.coverage.before : tx.coverage.after;
     film = {
