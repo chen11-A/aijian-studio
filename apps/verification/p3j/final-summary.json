@@ -45,5 +45,13 @@
       "percent_branches_covered": 83.62194867515126,
       "percent_branches_covered_display": "84"
     }
+  },
+  "unverifiedFollowup": {
+    "reason": "User instructed stopping tests and CI waiting; no tests or static checks run for followup changes.",
+    "items": [
+      "B01/B17 final director coverage and budget notice",
+      "B05/B13 portrait request edit guards",
+      "B13/B17 coverage repair snapshot guards"
+    ]
   }
 }
