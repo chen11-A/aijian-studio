@@ -19,12 +19,7 @@ export function directorRequestInput(
     sceneId,
     sourceText,
     context: `画风：${film.styleZh}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${script}${writerSceneContext(scene)}`,
-    sceneRefs: film.scenes.map((item) => ({
-      id: item.id,
-      title: item.title,
-      where: item.where,
-      text: item.text,
-    })),
+    sceneRefs: [...film.scenes],
   };
 }
 export type DirectorRequestHost = {

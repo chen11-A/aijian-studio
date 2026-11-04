@@ -1,3 +1,4 @@
+import { buildLegacyStoryboard } from "./actions/legacy-storyboard";
 import { preparePortraitIdentity } from "./actions/portrait-identity";
 import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
 import { directorRequestInput, requestDirectorDraft } from "./actions/director";
@@ -35,8 +36,6 @@ import {
   filmFileName,
   extractBookText,
   LOUDNESS_NOTE,
-  numberedScript,
-  parseWriterScenes,
   sceneNeedsSource,
   assignActionBeats,
   moveShot,
@@ -1836,93 +1835,27 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setAsking(true);
     setOneClickReady(false);
     setNotice("正在让编剧和导演写到分镜。还不会出视频。");
-    const idea =
-      film.scenes
-        .map((item) => item.text)
-        .filter(Boolean)
-        .join("\n") || film.title;
-    const writerReply = await completeAgent(
-      "writer",
-      `画风：${film.styleZh}`,
-      `写成短剧：\n${numberedScript(idea)}`,
-    );
-    if (!valid()) return;
-    const scenes = writerReply.text ? parseWriterScenes(writerReply.text, idea) : null;
-    if (!scenes) {
+    const result = await buildLegacyStoryboard(film, {
+      current: () => filmRef.current,
+      valid,
+      request: completeAgent,
+      apply: setFilm,
+      fillCast,
+      enrich: completeDirectorPlan,
+      merge: (base, sceneId, shots) =>
+        applyDirectorPlan(base, shots, sceneId, unassignedDraft.current),
+      progress: setNotice,
+      notify: emitNotice,
+    });
+    if (result.kind === "stale") return;
+    if (result.kind === "stopped") {
       writing.current = false;
       setAsking(false);
       setOneClickReady(true);
-      setNotice(
-        writerReply.detail || "编剧没有按格式返回，已停。没有写入离线剧本。点「继续」再试。",
-      );
+      setNotice(result.text);
       return;
     }
-    let next = applyScenes(film, scenes);
-    filmRef.current = next;
-    setFilm(next);
-    await fillCast(next);
-    if (!valid()) return;
-    next = filmRef.current ?? next;
-    const names = next.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
-    const scenesWithText = next.scenes.filter((item) => item.text.trim());
-    const directedScenes = scenesWithText.length > 0 ? scenesWithText : next.scenes.slice(0, 1);
-    for (const [sceneIndex, sceneRow] of directedScenes.entries()) {
-      setNotice(`正在写第 ${sceneIndex + 1}/${directedScenes.length} 场「${sceneRow.title}」`);
-      const story = sceneRow.text.trim() || next.title;
-      const directorReply = await retryDirectorTimeout(
-        (control) =>
-          completeAgent(
-            "director",
-            `画风：${next.styleZh}\n场次 id：${sceneRow.id}\n人物：\n${names}\n这一场：${sceneRow.title} ${sceneRow.where}\n剧本：\n${story}`,
-            "把这一场拆成镜头",
-            control,
-          ),
-        setNotice,
-        emitNotice,
-        { current: valid },
-      );
-      const parsed = directorReply.text
-        ? parseDirectorShots(directorReply.text, sceneRow.id, sceneRow.text || story, [
-            {
-              id: sceneRow.id,
-              title: sceneRow.title,
-              where: sceneRow.where,
-              text: sceneRow.text,
-            },
-          ])
-        : null;
-      if (!parsed) {
-        writing.current = false;
-        setAsking(false);
-        setOneClickReady(true);
-        setNotice(
-          directorReply.detail ||
-            `「${sceneRow.title}」导演没有按格式返回，已停。没有写入这一场的离线镜头。点「继续」再试。`,
-        );
-        return;
-      }
-      setNotice(
-        `第 ${sceneIndex + 1}/${directedScenes.length} 场已写 ${parsed.length} 镜，正在写表演。`,
-      );
-      const performed = await completeDirectorPlan(next, sceneRow.id, parsed, valid);
-      if (!valid()) return;
-      next = applyDirectorPlan(next, performed, sceneRow.id, unassignedDraft.current);
-      filmRef.current = next;
-      setFilm(next);
-    }
-    next = {
-      ...next,
-      shots: [...next.shots]
-        .sort((a, b) => {
-          const sceneOrder =
-            next.scenes.findIndex((item) => item.id === a.sceneId) -
-            next.scenes.findIndex((item) => item.id === b.sceneId);
-          return sceneOrder || a.no - b.no;
-        })
-        .map((shot, index) => ({ ...shot, no: index + 1 })),
-    };
-    filmRef.current = next;
-    setFilm(next);
+    const next = result.film;
     const shown = next.scenes.find((item) =>
       next.shots.some((shotItem) => shotItem.sceneId === item.id),
     );

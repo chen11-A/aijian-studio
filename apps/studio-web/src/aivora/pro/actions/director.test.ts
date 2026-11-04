@@ -155,3 +155,16 @@ it("still feeds the existing enrichment repair without losing the first shot, di
   expect(repaired.map((shot) => shot.picture).join("\n")).toContain("林晚抬眼。");
   expect(detectDirectorCoverage(scene, repaired).ok).toBe(true);
 });
+
+it("retains complete scene source metadata for the reply parser", () => {
+  const { film } = fixture();
+  const scene = film.scenes[0]!;
+  scene.sourceParagraphIds = ["P101", "P102"];
+  scene.writerParagraphIds = ["P101", "P102"];
+  scene.writerSourceText = scene.text;
+  const input = directorRequestInput(film, scene.id, scene.text, scene.text);
+  expect(input.sceneRefs[0]).toEqual(scene);
+  expect(input.sceneRefs[0]?.writerParagraphIds).toEqual(["P101", "P102"]);
+  expect(input.context).toContain("[P101] 林晚说：“你来晚了。”");
+  expect(input.context).toContain("[P102] 刹车声传来。");
+});
