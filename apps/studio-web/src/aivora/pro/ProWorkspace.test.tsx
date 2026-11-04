@@ -15,8 +15,40 @@ describe("professional workspace", () => {
 
   it("starts a landscape film from the empty screen", () => {
     render(<ProWorkspace />);
-    fireEvent.click(screen.getByRole("button", { name: "新建横屏" }));
+    expect(screen.getByRole("radio", { name: "横屏 16:9" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
     expect(screen.getByText("已新建横屏作品。")).toBeInTheDocument();
+  });
+
+  it("starts one-click from home with the sentence written there", async () => {
+    const { completeText } = installDesktop();
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "开始一键成片" })).toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByLabelText("一句话的想法"), {
+      target: { value: "雨夜，旧书店的老板娘等来了讨债的人。" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "开始一键成片" }));
+    await waitFor(() => expect(completeText).toHaveBeenCalled());
+    expect(String(completeText.mock.calls[0]?.[0]?.text ?? "")).toContain(
+      "雨夜，旧书店的老板娘等来了讨债的人。",
+    );
+    expect(document.querySelector(".nx-home")).toBeNull();
+  });
+
+  it("offers two ways in from home, with one primary button that signs in first", async () => {
+    render(<ProWorkspace />);
+    const primaries = document.querySelectorAll(".nx-home .nx-primary");
+    expect(primaries).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "一键成片" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "从空白开始" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "用 Grok 会员登录" })).toHaveClass("nx-primary");
+    expect(screen.getByText("还没有保存的作品。")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/ChatGPT/);
+    fireEvent.click(screen.getByRole("radio", { name: "竖屏 9:16" }));
+    fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
+    expect(screen.getByText("已新建作品（竖屏）。")).toBeInTheDocument();
   });
 
   it("feeds a renamed character into that shot's picture prompt", async () => {
@@ -380,7 +412,7 @@ describe("professional workspace", () => {
     const { completeText } = installDesktop();
     render(<ProWorkspace projectId={PROJECT_ID} />);
     fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
-    expect(screen.getByText("从一句故事开始。")).toBeInTheDocument();
+    expect(screen.getByText("已新建横屏作品。")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "一句故事" } });
     await new Promise((resolve) => setTimeout(resolve, 650));
     fireEvent.click(screen.getAllByRole("button", { name: "撤销" })[0]!);

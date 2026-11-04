@@ -122,6 +122,7 @@ import { useStatusNotice } from "../next/wiring/statusNotice";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
+import { HomeStart, type Aspect } from "../next/HomeStart";
 import { createProductionActions } from "./production-actions";
 import {
   AGE_BANDS,
@@ -2677,6 +2678,48 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // the live workspace through productionHost, so it never acts on an old render.
   const productionHost = useRef({ applyLive, completeAgent, emitNotice });
   productionHost.current = { applyLive, completeAgent, emitNotice };
+  // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
+  // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
+  const openSaved = (id: string) => {
+    void readSaved(id).then((saved) => {
+      if (!saved) {
+        setNotice("没有打开这部作品。");
+        return;
+      }
+      const settled = interruptStaleWork(saved);
+      applyLive(settled.film);
+      setScene(settled.film.scenes[0]?.id ?? "scene-1");
+      setShot(0);
+      setPlaying(false);
+      setMenu(null);
+      setNotice(
+        settled.interrupted
+          ? "上次有生成没做完，已标成已中断。可以重试。"
+          : `已打开${saved.seriesTitle || saved.title}。`,
+      );
+    });
+  };
+  const startWork = (aspect: Aspect, idea = "") => {
+    const next = blankFilm();
+    next.aspectRatio = aspect;
+    if (idea)
+      next.scenes = next.scenes.map((item, index) =>
+        index === 0 ? { ...item, text: idea } : item,
+      );
+    setFilm(next);
+    setScene(next.scenes[0]?.id ?? "scene-1");
+    setStage("script");
+    return next;
+  };
+  const oneClickFromHome = useRef("");
+  useEffect(() => {
+    if (!film || oneClickFromHome.current !== film.id) return;
+    oneClickFromHome.current = "";
+    void oneClickFilm();
+  }, [film]);
+  useEffect(() => {
+    if (!open) void listFilms().then(setSeriesList);
+  }, [open]);
   const production = useMemo(
     () =>
       createProductionActions({
@@ -2801,28 +2844,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   打开示例
                 </button>
                 {seriesList.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      void readSaved(item.id).then((saved) => {
-                        if (!saved) {
-                          setNotice("没有打开这部作品。");
-                          return;
-                        }
-                        const settled = interruptStaleWork(saved);
-                        applyLive(settled.film);
-                        setScene(settled.film.scenes[0]?.id ?? "scene-1");
-                        setShot(0);
-                        setPlaying(false);
-                        setMenu(null);
-                        setNotice(
-                          settled.interrupted
-                            ? "上次有生成没做完，已标成已中断。可以重试。"
-                            : `已打开${saved.seriesTitle || saved.title}。`,
-                        );
-                      });
-                    }}
-                  >
+                  <button key={item.id} onClick={() => openSaved(item.id)}>
                     {item.title}
                   </button>
                 ))}
@@ -3037,55 +3059,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         </header>
         <main className={wsClass}>
           {!open || !film ? (
-            <section className="pane" style={{ gridColumn: "1 / -1" }}>
-              <div className="empty-center">
-                <div>
-                  <h2>写下你的故事，或者一句话的想法</h2>
-                  <p>还没有作品。可以新建，也可以先打开示例看看整条流程。</p>
-                  <div className="acts">
-                    {!connected && (
-                      <button className="btn primary" onClick={() => void signInGrok()}>
-                        用 Grok 会员登录
-                      </button>
-                    )}
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        const next = blankFilm();
-                        setFilm(next);
-                        setScene(next.scenes[0]?.id ?? "scene-1");
-                        setStage("script");
-                        setNotice("从一句故事开始。");
-                      }}
-                    >
-                      新建作品
-                    </button>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        const next = blankFilm();
-                        next.aspectRatio = "16:9";
-                        setFilm(next);
-                        setScene(next.scenes[0]?.id ?? "scene-1");
-                        setStage("script");
-                        setNotice("已新建横屏作品。");
-                      }}
-                    >
-                      新建横屏
-                    </button>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        setFilm(sampleFilm());
-                        setScene("02");
-                        setNotice("已打开示例「雨夜巷战」。");
-                      }}
-                    >
-                      打开示例
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <section className="pane home-pane" style={{ gridColumn: "1 / -1" }}>
+              <HomeStart
+                connected={connected}
+                recent={seriesList}
+                onOneClick={(idea, aspect) => {
+                  oneClickFromHome.current = startWork(aspect, idea).id;
+                }}
+                onImport={(aspect) => {
+                  startWork(aspect);
+                  setNotice({
+                    code: "EDITOR_GUIDANCE",
+                    text: "选一个小说文件。读好以后点「放入剧本」，再点「一键成片」。",
+                  });
+                  fileRef.current?.click();
+                }}
+                onBlank={(aspect) => {
+                  startWork(aspect);
+                  if (aspect === "16:9") setNotice("已新建横屏作品。");
+                  else setNotice("已新建作品（竖屏）。");
+                }}
+                onOpen={openSaved}
+                onSignIn={() => void signInGrok()}
+                onSample={() => {
+                  setFilm(sampleFilm());
+                  setScene("02");
+                  setNotice("已打开示例「雨夜巷战」。");
+                }}
+              />
             </section>
           ) : (
             <>

@@ -532,6 +532,15 @@ coverEditorData(film, { mediaUrl: fileMediaUrl });
 - 没对上镜头的动作：读 `film.unassignedBeats` 里这一场的，「有 N 个动作没对上镜头」点开是列表。可以拖到镜头卡片上，也可以先选镜头再点「放到镜头 N」。放的时候调 GPT 的 `assignActionBeats(shots, sceneId, [{text, shotId}])`，只有对白的镜头不收打斗动作，这时提示换一个镜头；放进去的镜头 `userFields` 记上 `action`。
 - 要 GPT 配合：`detectDirectorCoverage` 要求这一场原文最后一段**一字不差**出现在某个镜头里，导演改写过就算漏拍；示例作品第 2 场就是这样。黄条只在 GPT 存了 `coverage.ok=false` 时出现，判得太严会一直挂着，请按「意思到了就算」或按最后一句判。
 
+## 首页（3J-U13）
+
+- 组件：`next/HomeStart.tsx`，只收 props，没打开作品时占满工作区。两个大入口「一键成片」「从空白开始」，共用的画幅选择（横屏 16:9 默认，4A-U07 的新建部分），最近的作品，最下面一行「打开示例」。
+- 唯一的主按钮：没登录时「用 Grok 会员登录」（调 `signInGrok`），登录后「开始一键成片」。点了以后用 `blankFilm()` 建作品、按选的画幅设 `aspectRatio`、把这句话放进第 1 场，切到剧本页；紧挨 `return (` 的 effect 在新作品显示出来后调一次 GPT 的 `oneClickFilm()`（它从闭包读 `film`，所以要等新作品进了 state）。
+- 「导入小说…」：先建作品，再打开原来的文件选择框，走 `importBook`。
+- 最近的作品：没打开作品时调 `listFilms()`；打开走 `openSaved(id)`，和「作品」菜单里打开是同一段代码（从菜单的行内处理移出来，没改逻辑）。
+- 「打开示例」：内置的 `sampleFilm()` 只有剧本和分镜，没有画面，所以只放一行小字并写明。GPT 将来内置有画面的示例作品（4B-U08）时再做成大入口。
+- 要 GPT 配合：`oneClickFilm` 改成读 `filmRef.current` 或接受作品参数，首页就不用等一次 effect。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。
