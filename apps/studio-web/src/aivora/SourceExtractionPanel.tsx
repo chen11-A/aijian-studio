@@ -12,6 +12,7 @@ import { Button } from "./Common";
 import { useModelCenter } from "./account/CurrentModelLink";
 import { getModelCenterSnapshot } from "./account/model-center";
 import { useApiKeyFallback } from "./account/navigation";
+import { splitSourceText, TEXT_REQUEST_LIMIT } from "./film/request-batches";
 import { dispatchGrokLoginText } from "./grok-auth/dispatch";
 import { grokBridge, grokLoginFailureMessage } from "./grok-auth/transport";
 import {
@@ -287,14 +288,25 @@ export function SourceExtractionPanel({
         setNotice("这段来源没有可发送的正文，未调用 Grok。");
         return;
       }
-      const result = await dispatchGrokLoginText(bridge, {
-        model: choice.modelId,
-        text: `你在阅读来源正文。只根据正文整理，不要编造正文里没有的事。用户确认之前，不要改作品。\n\n正文：\n${excerpt.slice(0, 7500)}`,
-        projectId,
-      });
-      if (epoch.current !== request || activeProject.current !== requested) return;
-      setNotice(result.message);
-      setGrokPreview(result.kind === "OK" ? result.text : null);
+      const instruction =
+        "你在阅读来源正文。只根据正文整理，不要编造正文里没有的事。用户确认之前，不要改作品。\n\n正文：\n";
+      const replies: string[] = [];
+      for (const part of splitSourceText(excerpt, TEXT_REQUEST_LIMIT - instruction.length)) {
+        if (epoch.current !== request || activeProject.current !== requested) return;
+        const result = await dispatchGrokLoginText(bridge, {
+          model: choice.modelId,
+          text: `${instruction}${part}`,
+          projectId,
+        });
+        if (epoch.current !== request || activeProject.current !== requested) return;
+        setNotice(result.message);
+        if (result.kind !== "OK") {
+          setGrokPreview(null);
+          return;
+        }
+        replies.push(result.text);
+      }
+      setGrokPreview(replies.join("\n\n"));
     } catch {
       if (epoch.current === request && activeProject.current === requested) {
         setNotice("来源正文没有读成，未调用 Grok。");

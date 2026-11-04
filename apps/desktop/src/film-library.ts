@@ -611,6 +611,35 @@ export function stillPath(root: string, seriesId: string): string {
   return join(seriesDir(root, seriesId), "stills", `${randomBytes(8).toString("hex")}.png`);
 }
 
+/** Resolve local reference images only within the application's media roots. */
+export async function stillReferenceImage(roots: string[], source: string): Promise<string> {
+  if (validReferenceImage(source)) return source;
+  const path = trustedMediaPath(roots, mediaUrlPath(source));
+  const mime = new Map([
+    [".png", "image/png"],
+    [".jpg", "image/jpeg"],
+    [".jpeg", "image/jpeg"],
+    [".webp", "image/webp"],
+  ]).get(extname(path).toLowerCase());
+  if (!mime) throw new Error("Invalid reference image");
+  const bytes = await readFile(path);
+  if (bytes.length === 0 || bytes.length > maxStillBytes)
+    throw new Error("Invalid reference image");
+  return `data:${mime};base64,${bytes.toString("base64")}`;
+}
+
+function validReferenceImage(source: string): boolean {
+  if (/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(source)) {
+    return source.length <= Math.ceil((maxStillBytes * 4) / 3) + 100;
+  }
+  try {
+    const url = new URL(source);
+    return source.length <= 4096 && url.protocol === "https:" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 type ImageRow = { b64_json?: unknown; url?: unknown };
 
 export async function requestStill(options: {
@@ -620,27 +649,47 @@ export async function requestStill(options: {
   destination: string;
   model?: string;
   aspectRatio?: "9:16" | "16:9";
+  references?: readonly string[];
 }): Promise<{ path: string; reason: string }> {
-  const prompt = options.prompt.trim().slice(0, 2000);
+  const prompt = options.prompt
+    .replace(/<IMAGE_\d+>\s*(?:是|为)[^。！？!?\n]*(?:[。！？!?\n]|$)/g, "")
+    .replace(/<IMAGE_\d+>/g, "")
+    .trim()
+    .slice(0, 2000);
   if (!options.token) return { path: "", reason: "需要重新登录后再出图。" };
   if (!prompt) return { path: "", reason: "没有可以出图的提示词。" };
+  const references = [...new Set(options.references ?? [])];
+  if (references.length > 5)
+    return {
+      path: "",
+      reason:
+        "当前首帧图片模型最多支持 5 张参考图；请减少参考图后重试。视频仍可携带 13 张参考图和首帧。",
+    };
+  if (references.some((source) => !validReferenceImage(source)))
+    return { path: "", reason: "参考图无法读取，请重新选择。" };
   let response: Response;
   try {
-    response = await options.fetcher(IMAGE_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${options.token}`,
-        "Content-Type": "application/json",
+    response = await options.fetcher(
+      references.length ? IMAGE_URL.replace("/generations", "/edits") : IMAGE_URL,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${options.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: options.model ?? IMAGE_MODEL,
+          prompt,
+          n: 1,
+          ...(references.length
+            ? { images: references.map((url) => ({ type: "image_url", url })) }
+            : {}),
+          response_format: "b64_json",
+          quality: "medium",
+          ...(options.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
+        }),
       },
-      body: JSON.stringify({
-        model: options.model ?? IMAGE_MODEL,
-        prompt,
-        n: 1,
-        response_format: "b64_json",
-        quality: "medium",
-        ...(options.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
-      }),
-    });
+    );
   } catch {
     return { path: "", reason: "出图没有成功，可以重试。" };
   }
@@ -684,8 +733,15 @@ export function stripUnsafeFileChars(name: string): string {
 }
 
 export function safeExportName(name: string): string {
-  const cleaned = stripUnsafeFileChars(basename(name)).replace(/\s+/g, "").trim().slice(0, 80);
-  if (!cleaned || cleaned === "." || cleaned === "..") return "aivora-film.mp4";
-  if (cleaned.toLowerCase().endsWith(".mp4")) return cleaned;
-  return `${cleaned.replace(/\.+$/, "").slice(0, 76)}.mp4`;
+  const cleaned = stripUnsafeFileChars(basename(name))
+    .replace(/\s+/g, "")
+    .replace(/\.+$/, "")
+    .slice(0, 80);
+  let stem = cleaned
+    .replace(/\.mp4$/i, "")
+    .replace(/\.+$/, "")
+    .slice(0, 76);
+  if (!stem) return "aivora-film.mp4";
+  if (/^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(stem)) stem = `_${stem}`;
+  return `${stem}.mp4`;
 }

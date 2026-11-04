@@ -3,7 +3,7 @@
  *
  * For every file in roles/: the file matches schema/role-file.schema.json; the prompt has no
  * placeholders, stays within 3000 characters and carries an output skeleton whose fields match
- * the output schema; each example request fits the app's 7500-character request; its input and
+ * the output schema; each example request fits the app's 100000-character request; its input and
  * output schemas only use keywords json-schema.mjs supports; each example input and output passes
  * those schemas, each output parses back through parseReply(), and the role rules in rules.mjs
  * hold. Then examples with the same number are checked against each other.
@@ -31,8 +31,8 @@ export const ROLES = [
 ];
 
 export const PROMPT_LIMIT = 3000;
-/** agentRequest in apps/studio-web cuts the whole request at 7500 characters. */
-export const REQUEST_LIMIT = 7500;
+/** Desktop rejects requests beyond 100000 JS characters; source text is never truncated. */
+export const REQUEST_LIMIT = 100000;
 const REQUEST_WRAPPER = "\n\n上下文：\n\n\n用户：\n";
 const USER_LINE_ALLOWANCE = 40;
 
@@ -140,9 +140,9 @@ function promptProblems(file) {
 /** Characters of the request the app would send for an example, as agentRequest builds it. */
 export function requestLength(file, example) {
   return (
-    length(file.system_prompt.join("\n")) +
-    length(REQUEST_WRAPPER) +
-    length(JSON.stringify(example.input)) +
+    file.system_prompt.join("\n").length +
+    REQUEST_WRAPPER.length +
+    JSON.stringify(example.input).length +
     USER_LINE_ALLOWANCE
   );
 }

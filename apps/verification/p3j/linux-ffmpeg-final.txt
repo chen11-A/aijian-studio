@@ -1,0 +1,7 @@
+RUN  v4.1.10 /workspace/aijian-studio/apps/desktop
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  09:30:39
+   Duration  1.06s (transform 62ms, setup 0ms, import 86ms, tests 838ms, environment 0ms)

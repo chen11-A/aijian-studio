@@ -213,7 +213,8 @@ def test_story_film_route_explains_the_provider_before_any_call(tmp_path):
         assert body["status"] == "SUCCEEDED"
         assert body["has_video"] is True and body["has_audio"] is True
         assert body["live_call"] is False
-        assert "草稿" in body["message"]
+        assert body["user_message"]["code"] == "FILM_SAVED"
+        assert body["user_message"]["text"] == "成片已保存。"
 
 
 _PNG = base64.b64decode(

@@ -10023,6 +10023,13 @@ export interface components {
             /** Version Number */
             version_number: number;
         };
+        /** StoryDialogueBody */
+        StoryDialogueBody: {
+            /** Speaker */
+            speaker: string;
+            /** Text */
+            text: string;
+        };
         /** StoryEntityDraftV1 */
         StoryEntityDraftV1: {
             /** Aliases */
@@ -10101,6 +10108,7 @@ export interface components {
             suggested_provider?: ("stub" | "grok_subscription") | null;
             /** Task Id */
             task_id?: string | null;
+            user_message?: components["schemas"]["UserMessage"] | null;
             /** Voice Path */
             voice_path?: string | null;
         };
@@ -10267,6 +10275,8 @@ export interface components {
              * @default
              */
             identity: string;
+            /** Lines */
+            lines?: components["schemas"]["StoryDialogueBody"][];
             /**
              * Move
              * @default
@@ -10964,6 +10974,15 @@ export interface components {
             expected_project_revision: number;
             /** Operation Id */
             operation_id: string;
+        };
+        /** UserMessage */
+        UserMessage: {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail?: string;
+            /** Text */
+            text: string;
         };
         /** ValidationError */
         ValidationError: {

@@ -1,0 +1,45 @@
+✔ the shipped library passes (73.944227ms)
+✔ a dropped line of dialogue is reported (95.308555ms)
+✔ one changed character in a line is reported (27.587138ms)
+✔ a shop name in quotes is not a line (44.679573ms)
+✔ a wrong dialogue count is reported (22.171433ms)
+✔ a place the app cannot find at the start of the scene is reported (27.962112ms)
+✔ gender and age come from the text (57.079775ms)
+✔ beats with a colon are reported, because the app reads lines out of them (24.496624ms)
+✔ an extra reasoning field fails the output schema (33.073218ms)
+✔ a shot longer than 15 seconds fails the schema (46.634186ms)
+✔ <IMAGE_14> and <IMAGE_0> are rejected in a video prompt (81.644311ms)
+✔ more than 13 reference images fail the schema (21.473763ms)
+✔ a reference that is not listed, or a listed one that is unused, is reported (48.865947ms)
+✔ a portrait in the coat after the coat came off is reported (31.325847ms)
+✔ a prompt without the identity sentence is reported (21.806694ms)
+✔ a line that does not fit in its shot is reported (23.33137ms)
+✔ a wide shot with crying in it is reported, because the app would make it a close shot (21.244487ms)
+✔ eyes for a back view are reported (19.252528ms)
+✔ crying in a wide shot's performance is reported (25.882381ms)
+✔ a strong blow without a visible force cue is reported (20.77465ms)
+✔ force on an injured arm is reported (22.148348ms)
+✔ an attack that crosses the line is reported (21.493082ms)
+✔ a hit without a sound effect is reported (21.742137ms)
+✔ a sound asset must exist in the library, sit on its lane and match the mood (38.4343ms)
+✔ a missing sound must be declared instead of invented (22.079324ms)
+✔ a continuity problem in the state table must be reported (22.641932ms)
+✔ continuity summary numbers must match the issues (34.437052ms)
+✔ a black or frozen stretch found by the app must be reported by the reviewer (22.288679ms)
+✔ recommending a take that must be redone is reported (24.15438ms)
+✔ the attached image count must match the frames (20.580948ms)
+✔ an ASCII double quote inside a string is reported (23.082075ms)
+✔ examples that feed each other must agree (42.906043ms)
+✔ a prompt over 3000 characters, a placeholder or a wrong skeleton is reported (120.491332ms)
+✔ a request longer than the app's 100000 characters is reported (45.981364ms)
+✔ parseReply accepts one bare JSON value of the right type only (2.635899ms)
+✔ checkSchema rejects keywords the checker would skip (0.212079ms)
+✔ validate follows JSON Schema for lengths, enums and oneOf (0.845823ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1379.736513

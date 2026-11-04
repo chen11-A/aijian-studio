@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync, truncateSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 
@@ -203,7 +206,7 @@ describe("story film client", () => {
     });
   });
 
-  it("keeps fourteen references and does not fail when more arrive", () => {
+  it("keeps thirteen references and does not fail when more arrive", () => {
     const references = Array.from({ length: 16 }, (_, index) => `/tmp/face-${index}.png`);
     const parsed = parseStoryFilmCreate({
       scene_label: "雨夜",
@@ -233,4 +236,175 @@ describe("story film client", () => {
       }),
     ).toThrow("Invalid story film request");
   });
+});
+
+describe("referenced first-frame guard", () => {
+  const input = {
+    scene_label: "回归场景",
+    narration: "回归台词",
+    provider: "grok_subscription" as const,
+    confirmed: true,
+  };
+  const shot = {
+    narration: "回归台词",
+    prompt: "回归画面",
+    duration_seconds: 3,
+    references: ["https://example.invalid/portrait.png"],
+  };
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  it.each([
+    "http://example.invalid/start.png",
+    "data:image/png;base64,aW1hZ2U=",
+    "blob:fixture",
+    "relative.png",
+    "/missing/p3j-first-frame.png",
+  ])("stops referenced video before sending an unusable first frame: %s", (still) => {
+    const fetcher = vi.fn();
+    const client = createStoryFilmClient(fetcher, { origin, token });
+    expect(() => client.create(projectId, { ...input, shots: [{ ...shot, still }] })).toThrow(
+      "请先用定妆照生成本地首帧",
+    );
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("rejects empty, oversized, non-image, directory, and deleted local files", () => {
+    const root = mkdtempSync(join(tmpdir(), "p3j-frame-"));
+    try {
+      const empty = join(root, "empty.png");
+      const large = join(root, "large.png");
+      const wrong = join(root, "wrong.mp4");
+      const deleted = join(root, "deleted.png");
+      for (const path of [empty, large, wrong, deleted]) writeFileSync(path, png);
+      truncateSync(empty, 0);
+      truncateSync(large, 12_000_001);
+      rmSync(deleted);
+      const fetcher = vi.fn();
+      const client = createStoryFilmClient(fetcher, { origin, token }, undefined, [root]);
+      for (const still of [empty, large, wrong, root, deleted]) {
+        expect(() => client.create(projectId, { ...input, shots: [{ ...shot, still }] })).toThrow(
+          "请先用定妆照生成本地首帧",
+        );
+      }
+      expect(fetcher).not.toHaveBeenCalled();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts a real local first frame with all thirteen portrait references kept separate", async () => {
+    const root = mkdtempSync(join(tmpdir(), "p3j-frame-"));
+    try {
+      const still = join(root, "start.png");
+      writeFileSync(still, png);
+      const references = Array.from(
+        { length: 13 },
+        (_, index) => `https://example.invalid/portrait-${index}.png`,
+      );
+      let expectedStill = still;
+      const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+        expect(JSON.parse(String(init?.body)).shots).toMatchObject([
+          { still: expectedStill, references },
+        ]);
+        return Response.json({ data: {}, request_id: "fixture" });
+      });
+      const client = createStoryFilmClient(fetcher, { origin, token }, undefined, [root]);
+      for (const source of [still, `aivora-media://local/?path=${encodeURIComponent(still)}`]) {
+        expectedStill = source;
+        await client.create(projectId, {
+          ...input,
+          shots: [{ ...shot, still: source, references }],
+        });
+      }
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("also protects the legacy singular reference and other live providers, but allows stub", async () => {
+    const fetcher = vi.fn(async () => Response.json({ data: {}, request_id: "fixture" }));
+    const client = createStoryFilmClient(fetcher, { origin, token });
+    const legacy = {
+      narration: "台词",
+      prompt: "画面",
+      duration_seconds: 3,
+      reference: "https://example.invalid/portrait.png",
+      still: "/missing/local.png",
+    };
+    for (const provider of ["grok_subscription", "xai_api_key", "chatgpt"] as const) {
+      expect(() => client.create(projectId, { ...input, provider, shots: [legacy] })).toThrow(
+        "请先用定妆照生成本地首帧",
+      );
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+    await client.create(projectId, { ...input, provider: "stub", shots: [legacy] });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+});
+
+it("preserves HTTPS or unspecified first frames for the server's referenced generation", async () => {
+  const fetcher = vi.fn(async () => Response.json({ data: {}, request_id: "fixture" }));
+  const client = createStoryFilmClient(fetcher, { origin, token });
+  for (const still of [undefined, "https://example.invalid/first.png"]) {
+    const input = parseStoryFilmCreate({
+      scene_label: "回归",
+      narration: "台词",
+      provider: "grok_subscription",
+      confirmed: true,
+      shots: [
+        {
+          narration: "台词",
+          prompt: "书店",
+          duration_seconds: 3,
+          still,
+          references: ["https://example.invalid/face.png"],
+        },
+      ],
+    });
+    await client.create(projectId, input);
+  }
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
+it("preserves every dialogue line and stops mixed speakers before sending", () => {
+  const fetcher = vi.fn();
+  const client = createStoryFilmClient(fetcher, { origin, token });
+  const lines = [
+    { speaker: "甲", text: "第一句。" },
+    { speaker: "乙", text: "第二句。" },
+  ];
+  const input = parseStoryFilmCreate({
+    scene_label: "回归",
+    narration: "第一句。第二句。",
+    provider: "grok_subscription",
+    confirmed: true,
+    shots: [
+      {
+        narration: "第一句。第二句。",
+        subtitle: "第一句。第二句。",
+        prompt: "书店",
+        duration_seconds: 3,
+        lines,
+      },
+    ],
+  });
+  expect(input.shots?.[0]?.lines).toEqual(lines);
+  expect(() => client.create(projectId, input)).toThrow(
+    expect.objectContaining({ code: "MULTI_VOICE_REQUIRED" }),
+  );
+  expect(input.shots?.[0]?.subtitle).toBe("第一句。第二句。");
+  expect(fetcher).not.toHaveBeenCalled();
+  for (const invalid of [
+    "bad",
+    [{ speaker: "甲", text: "" }],
+    [{ speaker: 3, text: "句" }],
+    [{ speaker: "甲", text: "句", unknown: true }],
+  ]) {
+    expect(() =>
+      parseStoryFilmCreate({ ...input, shots: [{ ...input.shots?.[0], lines: invalid }] }),
+    ).toThrow("Invalid story film request");
+  }
 });

@@ -274,40 +274,64 @@ describe("source extraction panel queue and original read", () => {
       "grok_login",
     );
   });
-  test("sends the selected block through the Grok login transport and surfaces a 403", async () => {
-    const h = setup();
-    const completeText = vi.fn().mockResolvedValue({
-      kind: "ERROR",
-      code: "ENTITLEMENT_DENIED",
-      billingAccountKind: "grok_login",
-    });
-    window.aijianGrok = {
-      status: vi.fn(),
-      signIn: vi.fn(),
-      cancel: vi.fn(),
-      signOut: vi.fn(),
-      models: vi.fn(),
-      completeText,
-    };
-    h.api.getSourceText.mockResolvedValue({ data: { normalized_text: "hello world!" } });
-    selectCenteredModel("TEXT", { provider: "GROK_LOGIN", modelId: "grok-4" });
-    await screen.findByRole("option", { name: /Test connection/ });
-    fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
-    click("用 Grok 账号生成这段文本");
-    expect(await screen.findByRole("button", { name: "改用密钥（高级备用）" })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("还不能用来生成");
-    expect(completeText).toHaveBeenCalledWith({
-      model: "grok-4",
-      text: expect.stringContaining("hello world!"),
-      projectId,
-      idempotencyKey: expect.stringMatching(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      ),
-    });
-    expect(JSON.stringify(completeText.mock.calls)).toContain("来源正文");
-    expect(JSON.stringify(completeText.mock.calls)).toContain("hello world!");
-    expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
-  });
+  test.each([12, 8100])(
+    "sends %i source characters in bounded batches and surfaces a later 403",
+    async (length) => {
+      const h = setup();
+      const completeText = vi.fn().mockResolvedValue({
+        kind: "ERROR",
+        code: "ENTITLEMENT_DENIED",
+        billingAccountKind: "grok_login",
+      });
+      if (length > 8000)
+        completeText.mockResolvedValueOnce({
+          kind: "OK",
+          text: "first batch",
+          model: "grok-4",
+          billingAccountKind: "grok_login",
+        });
+      window.aijianGrok = {
+        status: vi.fn(),
+        signIn: vi.fn(),
+        cancel: vi.fn(),
+        signOut: vi.fn(),
+        models: vi.fn(),
+        completeText,
+      };
+      const source = "hello world!" + "雨".repeat(length - 12);
+      const input = props();
+      const version = input.sourceManifest.data.accepted_version;
+      if (!version) throw new Error("missing fixture version");
+      const block = version.content.documents[0]?.blocks[0];
+      if (!block) throw new Error("missing fixture block");
+      block.end_byte = new TextEncoder().encode(source).length;
+      h.rerender(<SourceExtractionPanel {...input} />);
+      h.api.getSourceText.mockResolvedValue({ data: { normalized_text: source } });
+      selectCenteredModel("TEXT", { provider: "GROK_LOGIN", modelId: "grok-4" });
+      await screen.findByRole("option", { name: /Test connection/ });
+      fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
+      click("用 Grok 账号生成这段文本");
+      expect(
+        await screen.findByRole("button", { name: "改用密钥（高级备用）" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("还不能用来生成");
+      expect(completeText).toHaveBeenCalledWith({
+        model: "grok-4",
+        text: expect.stringContaining("正文：\n"),
+        projectId,
+        idempotencyKey: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        ),
+      });
+      const texts = completeText.mock.calls.map(([request]) => request.text as string);
+      expect(texts.every((text) => text.length <= 8000)).toBe(true);
+      expect(texts.map((text) => text.split("正文：\n")[1]).join("")).toBe(source);
+      expect(screen.queryByText("first batch")).not.toBeInTheDocument();
+      expect(JSON.stringify(completeText.mock.calls)).toContain("来源正文");
+      expect(JSON.stringify(completeText.mock.calls)).toContain("hello world!");
+      expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
+    },
+  );
   test.each(["unknown", "rejected", "storage"])(
     "queue %s does not report success",
     async (fault) => {

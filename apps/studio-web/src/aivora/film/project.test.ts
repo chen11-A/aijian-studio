@@ -84,6 +84,9 @@ describe("film project", () => {
     expect(request).toContain(novel);
     expect(request.length).toBeGreaterThan(2075);
     expect(assistantPrompt("很".repeat(8000), film)).toContain("很".repeat(8000));
+    expect(agentRequest("director", "场次原文", "拆镜")).toContain(
+      "每句台词和每场末段必须完整覆盖",
+    );
   });
 
   it("reads a saved film and ignores a broken record", () => {
@@ -165,7 +168,7 @@ describe("film project", () => {
         { id: "scene-3", title: "医院走廊", where: "医院走廊", text: "林晚哭着说：「你还活着。」" },
       ],
     );
-    expect(wrapped?.map((shot) => shot.sceneId)).toEqual(["scene-1", "scene-3"]);
+    expect([...new Set(wrapped?.map((shot) => shot.sceneId))]).toEqual(["scene-1", "scene-3"]);
     const spoken = parseDirectorShots(
       JSON.stringify({
         shots: [
@@ -204,7 +207,7 @@ describe("film project", () => {
         { id: "scene-2", title: "书店被闯", where: "晚照书店", text: "门被撞开" },
       ],
     );
-    expect(selected?.map((shot) => shot.sceneId)).toEqual(["scene-1"]);
+    expect([...new Set(selected?.map((shot) => shot.sceneId))]).toEqual(["scene-1"]);
     expect(selected?.[0]?.performance).toContain("停 0.4 秒");
     expect(selected?.[0]?.performance).not.toContain("hold_s");
     expect(blankFilm().aspectRatio).toBe("9:16");
@@ -233,8 +236,9 @@ describe("film project", () => {
       "scene-1",
       bookstore,
     );
-    expect(many).toHaveLength(budget ?? 0);
-    expect(many?.at(-1)?.id).toBe(`scene-1-shot-${budget}`);
+    expect(many!.length).toBeLessThanOrEqual(budget ?? 16);
+    for (let no = 1; no <= 19; no += 1)
+      expect(many?.map((shot) => shot.picture).join("\n")).toContain(`画面${no}`);
     expect(shotBudget("雨".repeat(2000))).toBe(16);
     expect(
       parseDirectorShots(
@@ -246,9 +250,9 @@ describe("film project", () => {
         }),
         "scene-1",
         "雨".repeat(2000),
-      ),
-    ).toHaveLength(16);
-    expect(shotBudget("短")).toBeNull();
+      )?.length,
+    ).toBeLessThanOrEqual(16);
+    expect(shotBudget("短")).toBe(1);
     expect(parsed?.[0]?.sound.source).toBe("native");
     expect(parsed?.[0]?.characters).toEqual(["林骁"]);
     expect(restored?.audioClips).toEqual([]);

@@ -79,6 +79,8 @@ describe("Grok login copy and connection", () => {
     expect(grokLoginFailureMessage("ENTITLEMENT_DENIED")).toContain("还不能用来生成");
     expect(grokLoginFailureMessage("ENTITLEMENT_DENIED")).not.toContain("grok-login.log");
     expect(grokLoginFailureMessage("TEXT_FAILED")).toContain("改用密钥");
+    expect(grokLoginFailureMessage("TEXT_TIMEOUT")).toContain("等待超时");
+    expect(grokLoginFailureMessage("TEXT_CANCELLED")).toContain("已取消");
     expect(grokLoginFailureMessage("SOMETHING_NEW")).toContain("SOMETHING_NEW");
     expect(validGrokStatus(connected)).toBe(true);
     expect(validGrokStatus({ ...connected, accessToken: "nope" })).toBe(false);

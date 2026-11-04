@@ -10,11 +10,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aijian_api.style_bible import DEFAULT_PROMPT_ZH
+from aijian_api.user_messages import user_message
 
 MAX_CLIP_SECONDS = 15
 # Default preset text. A project style bible can replace it. Do not branch on this string.
 STYLE_REALISM = DEFAULT_PROMPT_ZH
-AI_GENERATED_NOTE = "画面和声音由 AI 生成，不是实拍。"
+AI_GENERATED_MESSAGE = user_message("AI_GENERATED", "AI 生成。")
+AI_GENERATED_NOTE = AI_GENERATED_MESSAGE["text"]
 
 _FIGHT = (
     (
