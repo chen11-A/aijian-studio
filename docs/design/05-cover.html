@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIVORA 原型 · 封面和片头</title>
+    <link rel="stylesheet" href="assets/proto.css" />
+    <style>
+      .cover-page {
+        display: grid;
+        grid-template-columns: 250px minmax(0, 1fr) 300px;
+        gap: 12px;
+        height: 100%;
+        padding: 16px;
+      }
+      .templates .panel-body {
+        display: grid;
+        gap: 10px;
+      }
+      .tpl {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        background: var(--panel-2);
+        text-align: left;
+      }
+      .tpl[aria-pressed="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+      .tpl .frame {
+        width: 54px;
+        aspect-ratio: 9 / 16;
+      }
+      .tpl .name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+      }
+      .tpl .desc {
+        margin-top: 2px;
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .center {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 16px;
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: 12px;
+        container-type: size;
+      }
+      .cover-col {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 8px;
+        min-height: 0;
+      }
+      .cover {
+        height: min(calc(100cqh - 52px), 640px);
+        aspect-ratio: 9 / 16;
+        container-type: size;
+      }
+      .poster {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        text-align: center;
+      }
+      .poster::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.55));
+      }
+      .p-title {
+        font-family: "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+        font-size: max(20px, 9cqw);
+        font-weight: 700;
+        letter-spacing: 4px;
+        text-shadow: 0 3px 12px rgba(0, 0, 0, 0.7);
+      }
+      .p-ep {
+        color: var(--text-2);
+        font-size: max(12px, 4cqw);
+        letter-spacing: 2px;
+      }
+      .ai-mark {
+        position: absolute;
+        top: 3%;
+        right: 4%;
+        padding: 0 8px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        font-size: max(12px, 3.6cqw);
+        line-height: 1.7;
+      }
+      .ai-mark.sm {
+        font-size: 12px;
+        padding: 0 4px;
+        line-height: 18px;
+      }
+      .intro {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+        min-width: 0;
+        min-height: 0;
+      }
+      .keys {
+        display: flex;
+        gap: 8px;
+      }
+      .key {
+        display: grid;
+        gap: 4px;
+        width: min(120px, calc((100% - 16px) / 3));
+      }
+      .key .frame {
+        aspect-ratio: 9 / 16;
+        display: grid;
+        place-items: center;
+      }
+      .key .t {
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .k-title {
+        font-family: "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .intro-bar {
+        position: relative;
+        height: 30px;
+        border-radius: 6px;
+        background: var(--bg);
+        border: 1px solid var(--line);
+      }
+      .intro-bar i {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        border-radius: 4px;
+      }
+      .intro-ticks {
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .wide-cover {
+        width: min(100%, 300px);
+        aspect-ratio: 16 / 9;
+        display: grid;
+        place-items: center;
+        container-type: size;
+      }
+      .wide-cover .p-title {
+        font-size: max(16px, 9cqh);
+      }
+      .settings .panel-body {
+        display: grid;
+        gap: 10px;
+        align-content: start;
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .thumbs {
+        display: flex;
+        gap: 6px;
+      }
+      .thumbs .frame {
+        width: 36px;
+        height: 64px;
+        flex: none;
+        border: 1px solid transparent;
+      }
+      .thumbs .frame.on {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+      .between {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .ai-box {
+        display: grid;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid var(--line-2);
+        border-radius: 8px;
+        background: var(--panel-2);
+      }
+      .foot {
+        display: grid;
+        gap: 8px;
+        padding: 12px;
+        border-top: 1px solid var(--line);
+        margin-top: auto;
+      }
+      .busy {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 10px;
+        background: rgba(5, 6, 8, 0.6);
+        text-align: center;
+      }
+      @media (min-width: 1600px) {
+        .cover-page {
+          grid-template-columns: 300px minmax(0, 1fr) 340px;
+          padding: 20px;
+          gap: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body data-states="normal empty loading error">
+    <div class="app">
+      <header class="topbar">
+        <div class="tb-left">
+          <div class="logo"><span class="logo-mark">A</span>AIVORA</div>
+          <span class="vsep"></span>
+          <button class="proj" aria-label="作品">
+            <span class="one-line">雨夜旧书店</span><span class="ep">/ 第 1 集</span>
+            <svg class="ic sm"><use href="#i-chev" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="撤销" title="撤销">
+            <svg class="ic"><use href="#i-undo" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="重做" title="重做" disabled>
+            <svg class="ic"><use href="#i-redo" /></svg>
+          </button>
+        </div>
+        <nav class="tabs" aria-label="创作阶段">
+          <button class="tab"><span class="n">1</span>剧本</button>
+          <button class="tab"><span class="n">2</span>角色与场景</button>
+          <button class="tab"><span class="n">3</span>分镜</button>
+          <button class="tab on" aria-current="page"><span class="n">4</span>剪辑</button>
+        </nav>
+        <div class="tb-right">
+          <button class="chip"><span class="dot"></span>Grok 会员 · 已连接</button>
+          <button class="btn ghost">
+            <svg class="ic"><use href="#i-list" /></svg>任务
+          </button>
+          <button class="btn primary">
+            <svg class="ic"><use href="#i-export" /></svg>导出成片
+          </button>
+          <button class="avatar" aria-label="账号">
+            <svg class="ic sm"><use href="#i-user" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="cover-page">
+          <section class="panel templates" aria-labelledby="tpl-title">
+            <div class="panel-head">
+              <h2 id="tpl-title">封面和片头</h2>
+              <span class="faint">3 套</span>
+            </div>
+            <div class="scroll panel-body">
+              <button class="tpl" aria-pressed="true">
+                <span class="frame art-bookstore" data-art></span>
+                <span
+                  ><span class="name">片名居中<span class="tag info">默认</span></span
+                  ><span class="desc">大片名压在画面中间，简单直接。</span></span
+                >
+              </button>
+              <button class="tpl" aria-pressed="false">
+                <span class="frame art-door" data-art></span>
+                <span
+                  ><span class="name">人物海报</span
+                  ><span class="desc">主角站在画面里，名字和片名在下方。</span></span
+                >
+              </button>
+              <button class="tpl" aria-pressed="false">
+                <span class="frame art-warehouse" data-art></span>
+                <span
+                  ><span class="name">悬念台词</span
+                  ><span class="desc">先出一句台词，再出片名，开头就抓人。</span></span
+                >
+              </button>
+              <p class="faint">三套都会同时做竖屏封面、横屏封面和片头，换一套不用重新生成画面。</p>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="预览">
+            <div class="center">
+              <div class="cover-col">
+                <span class="section-title">竖屏封面</span>
+                <div
+                  class="frame cover poster art-bookstore"
+                  data-art
+                  data-show="normal loading error"
+                >
+                  <span class="p-title">雨夜旧书店</span><span class="p-ep">第 1 集</span>
+                  <span class="ai-mark">AI 生成</span>
+                  <span class="busy" data-show="loading">
+                    <svg class="ic lg spin"><use href="#i-refresh" /></svg>
+                    <span>正在生成背景图 · 已等 18 秒</span>
+                    <button class="btn sm">停下</button>
+                  </span>
+                </div>
+                <div class="frame cover poster art-plain" data-art data-show="empty">
+                  <span class="p-title">雨夜旧书店</span><span class="p-ep">第 1 集</span>
+                  <span class="ai-mark">AI 生成</span>
+                </div>
+              </div>
+              <div class="intro">
+                <span class="section-title">片头 3 秒</span>
+                <div class="keys">
+                  <div class="key">
+                    <div class="frame art-plain" data-art>
+                      <span class="ai-mark sm">AI 生成</span>
+                    </div>
+                    <span class="t">0.3 秒 · 黑场淡入</span>
+                  </div>
+                  <div class="key">
+                    <div class="frame art-bookstore" data-art>
+                      <span class="k-title">雨夜旧书店</span><span class="ai-mark sm">AI 生成</span>
+                    </div>
+                    <span class="t">1.2 秒 · 片名出现</span>
+                  </div>
+                  <div class="key">
+                    <div class="frame art-bookstore" data-art></div>
+                    <span class="t">2.7 秒 · 淡进第一镜</span>
+                  </div>
+                </div>
+                <div class="intro-bar" data-layer aria-label="片头时间">
+                  <i style="left: 0; width: 20%; background: #2a2f37"></i>
+                  <i style="left: 20%; width: 60%; background: var(--accent-strong)"></i>
+                  <i style="left: 80%; width: 20%; background: var(--t-video); opacity: 0.6"></i>
+                </div>
+                <div class="intro-ticks">
+                  <span>0 秒</span><span>片名停 1.8 秒</span><span>3 秒 · S01-01</span>
+                </div>
+                <button class="btn sm" style="justify-self: start">
+                  <svg class="ic sm"><use href="#i-play" /></svg>播放片头
+                </button>
+                <span class="section-title" style="margin-top: 6px">横屏封面</span>
+                <div
+                  class="frame wide-cover art-bookstore"
+                  data-art
+                  data-show="normal loading error"
+                >
+                  <span class="p-title">雨夜旧书店</span><span class="ai-mark sm">AI 生成</span>
+                </div>
+                <div class="frame wide-cover art-plain" data-art data-show="empty">
+                  <span class="p-title">雨夜旧书店</span><span class="ai-mark sm">AI 生成</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="panel settings" aria-labelledby="set-title">
+            <div class="panel-head"><h2 id="set-title">设置</h2></div>
+            <div class="panel-body">
+              <div class="two">
+                <div class="field">
+                  <label for="title">片名</label
+                  ><input id="title" class="input" value="雨夜旧书店" />
+                </div>
+                <div class="field">
+                  <label for="ep">副标题</label><input id="ep" class="input" value="第 1 集" />
+                </div>
+              </div>
+              <div class="field">
+                <span class="label">背景</span>
+                <div class="seg" role="group" aria-label="封面背景" data-show="normal">
+                  <button aria-pressed="true">用镜头画面</button
+                  ><button aria-pressed="false">AI 生成一张</button
+                  ><button aria-pressed="false">纯色</button>
+                </div>
+                <div class="seg" role="group" aria-label="封面背景" data-show="loading error">
+                  <button aria-pressed="false">用镜头画面</button
+                  ><button aria-pressed="true">AI 生成一张</button
+                  ><button aria-pressed="false">纯色</button>
+                </div>
+                <div class="seg" role="group" aria-label="封面背景" data-show="empty">
+                  <button aria-pressed="false" disabled title="还没有生成好的画面">
+                    用镜头画面</button
+                  ><button aria-pressed="false">AI 生成一张</button
+                  ><button aria-pressed="true">纯色</button>
+                </div>
+                <div class="thumbs" aria-label="从镜头里选背景" data-show="normal loading error">
+                  <span class="frame art-bookstore" data-art></span>
+                  <span class="frame art-bookstore on" data-art></span>
+                  <span class="frame art-door" data-art></span>
+                  <span class="frame art-warehouse" data-art></span>
+                  <span class="frame art-hospital" data-art></span>
+                </div>
+                <span class="faint" data-show="normal">选中的是 S01-06 的起始画面。</span>
+                <span class="faint" data-show="empty"
+                  >还没有生成好的画面，可以先用纯色，或者让 AI 生成一张（用 1 张图片额度）。</span
+                >
+                <span class="faint" data-show="loading">AI 生成一张背景要用 1 张图片额度。</span>
+                <div class="row err-text" role="alert" data-show="error">
+                  <svg class="ic sm"><use href="#i-alert" /></svg
+                  ><span class="one-line">背景图没生成成功：Grok 没有返回图片。</span>
+                </div>
+                <div class="row" data-show="error">
+                  <button class="btn sm">再试一次</button
+                  ><button class="btn sm ghost">改用纯色</button>
+                </div>
+              </div>
+              <div class="field">
+                <span class="label">片头长度</span>
+                <div class="seg" role="group" aria-label="片头长度">
+                  <button aria-pressed="false">2 秒</button><button aria-pressed="true">3 秒</button
+                  ><button aria-pressed="false">5 秒</button
+                  ><button aria-pressed="false">不要片头</button>
+                </div>
+              </div>
+              <div class="ai-box">
+                <div class="between">
+                  <strong>「AI 生成」标识</strong>
+                  <button
+                    class="toggle"
+                    role="switch"
+                    aria-checked="true"
+                    aria-label="显示 AI 生成标识"
+                  ></button>
+                </div>
+                <div class="seg" role="group" aria-label="标识位置">
+                  <button aria-pressed="false">左上</button><button aria-pressed="true">右上</button
+                  ><button aria-pressed="false">左下</button
+                  ><button aria-pressed="false">右下</button>
+                </div>
+                <div class="seg" role="group" aria-label="标识文字">
+                  <button aria-pressed="true">AI 生成</button
+                  ><button aria-pressed="false">本片由 AI 生成</button>
+                </div>
+                <div class="row wrap">
+                  <label class="check"><input type="checkbox" checked />封面</label>
+                  <label class="check"><input type="checkbox" checked />片头</label>
+                  <label class="check"><input type="checkbox" />整片角落</label>
+                </div>
+                <span class="faint">很多平台要求标明 AI 生成的内容，建议一直打开。</span>
+              </div>
+            </div>
+            <div class="foot">
+              <button class="btn primary" data-disabled="loading">用这个封面和片头</button>
+              <button class="btn" data-disabled="loading">导出封面图</button>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span class="note" role="status" data-show="normal"
+          >封面用「片名居中」，背景是 S01-06 的画面。</span
+        >
+        <span class="note" role="status" data-show="empty">还没有生成好的画面，先用纯色背景。</span>
+        <span class="note" role="status" data-show="loading">正在生成封面背景。</span>
+        <span class="note" role="alert" data-show="error">封面背景没有生成成功。</span>
+        <span class="task">
+          <svg class="ic sm"><use href="#i-clock" /></svg>
+          <span data-show="normal empty error">后台生成：没有正在生成的内容</span>
+          <span data-show="loading">后台生成：图片 1 张</span>
+        </span>
+        <span class="where">作品保存在 <b>雨夜旧书店</b></span>
+      </footer>
+    </div>
+    <script src="assets/proto.js"></script>
+  </body>
+</html>

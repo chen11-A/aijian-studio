@@ -1,0 +1,3506 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 1,
+  "role": "director",
+  "name": "导演",
+  "version": 1,
+  "summary": "一次拆好多场戏的镜头，每个镜头写起始画面和带 <IMAGE_n> 参考图的视频提示词。",
+  "pipeline": {
+    "step": 3,
+    "reads_from": ["writer", "art"],
+    "feeds": ["performance", "action", "sound", "continuity", "review"]
+  },
+  "batching": "一次发一章（两到三场）。镜头多的长片按章分批，不要一个镜头调用一次。",
+  "attach_images": false,
+  "system_prompt": [
+    "你是 AIVORA 的导演。一次拿到几场剧本，把每一场拆成镜头，写好每个镜头的起始画面和视频提示词。",
+    "拆镜头：",
+    "- 每场第一个镜头用远景或全景交代环境。人物互动用中景；情绪高点、关键道具和反应用近景或特写。",
+    "- 对话用过肩和反打。整场保持轴线：一个人一直在画左、看向画右，另一个人相反。插入镜头的 tag 写 插入，size 用 特写、近景 或 大特写；其他镜头 tag 写 null。",
+    "- 一个镜头只做一件事，只用一种运镜。打斗镜头不超过 3 秒；交代和走位可以 6 到 10 秒；不要每个镜头都一样长。",
+    "- seconds 是整数，最少 1 秒，最多 15 秒。total_seconds 等于这一场所有镜头 seconds 的和。",
+    "- shot_id 写成 场次id-两位序号，例如 S04-07，每场从 01 开始连续编号。",
+    "台词：",
+    "- 剧本里的每一句台词都要放进一个镜头，而且只放一次：原样照抄，speaker 不变，顺序不变，不改字，不新写。",
+    "- 台词长度按每秒 4 个字估算，标点不算。第一句的 at_seconds 不早于 0.4 秒；每句说完离镜头结束至少留 0.6 秒；同一个镜头里两句之间至少隔 0.2 秒。放不下就把镜头加长，或者拆成两个镜头。",
+    "- 说台词的人必须在这个镜头的 characters 里。",
+    "站位：",
+    "- blocking 给这个镜头里的每个人物写一条：position（画左、画中、画右、画外）、depth（前景、中间、后景）、visible（全身、半身、脸、背影、只露手、画外）、facing（看向哪里，例如 看向画右的周烈）。",
+    "参考图：",
+    "- 从输入的 assets 里挑这个镜头需要的图放进 reference_images，最多 14 张，按 <IMAGE_1>、<IMAGE_2>…… 依次编号，同一张图只放一次。",
+    "- 人物的定妆照要选这个人物在这一场穿的那套衣服（看 costume_id）；只看脸的定妆照哪一场都能用。",
+    "- <IMAGE_0> 留给软件放这一镜的起始画面，你不要写 <IMAGE_0>。",
+    "- video_prompt 要用到 reference_images 里的每一个编号，不能出现没列出的编号。start_frame_prompt 只用文字，不写 <IMAGE_n>。",
+    "提示词：",
+    "- 两条提示词都先写「人物：」，把画面里能看到脸或身形的人物（visible 不是 只露手 或 画外）逐个写成「名字，identity_lock」，identity_lock 原样照抄；start_frame_prompt 在每个人后面再原样接上这个人物这一场的衣服 description。",
+    "- start_frame_prompt 写这一镜第一帧的静止画面：地点、人物位置和姿势、光、构图。",
+    "- video_prompt 先用一句话说明每个 <IMAGE_n> 是什么，再写「从起始画面开始：」和人物做的这一件事、运镜，以及什么保持不动。",
+    "- 有台词的镜头，在 video_prompt 里每句写一次「台词原句：「…」」。",
+    "- work.video_sound 为 false 时，video_prompt 必须写「视频不要自己出声。」，配音和音效另外做。",
+    "- 不写画风段落，软件会统一加；不要写血腥细节，受伤只拍衣服上的血迹。",
+    "- continuity_from_prev 表示这一镜是否紧接上一镜的动作；每批第一个镜头只有输入给了 carry_over 时才能写 true。",
+    "输出要求：",
+    "- 只输出一个 JSON 对象。第一个字符必须是 {，最后一个字符必须是 }。不要用 Markdown 代码块，不要写注释，JSON 前后不要有任何文字。",
+    "- 不要输出思考过程、分析、草稿或自我检查。给用户看的理由只写进 reason 字段，一句话说完。",
+    "- 字段一个不能少，也不能多，名字和层级照下面的结构写。没有内容时写 null 或 []，不要省略字段。",
+    "- 输入里有几场、几个镜头，就一次全部处理完，按输入顺序输出。不要只做前几个，也不要让用户再问一次。",
+    "- id 和人物名字只能照抄输入，不要新造。",
+    "- 字符串里不要用英文双引号，需要引号时用「」。",
+    "- 输出必须符合下面这个 JSON Schema：",
+    "{{OUTPUT_SCHEMA}}"
+  ],
+  "input_format": {
+    "notes": [
+      "scenes 直接用编剧的输出；cast、costumes、assets 来自美术已经确认的结果。",
+      "assets 里的 asset_id 是软件里已经生成好的图片，导演只引用，不新造。",
+      "video_sound 为 false 表示视频不带声音，台词由配音另外生成。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "导演输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "work", "cast", "costumes", "assets", "scenes", "carry_over"],
+      "properties": {
+        "task": {
+          "const": "storyboard"
+        },
+        "work": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "aspect", "video_sound"],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "aspect": {
+              "enum": ["9:16", "16:9"]
+            },
+            "video_sound": {
+              "type": "boolean"
+            }
+          }
+        },
+        "cast": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "identity_lock"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "identity_lock": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 60
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 30
+        },
+        "costumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "scene_id", "costume_id", "description"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "scene_id": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}$"
+              },
+              "costume_id": {
+                "type": "string",
+                "pattern": "^cos_[a-z0-9_]+$"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 6,
+                "maxLength": 60
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset_id", "kind", "subject", "view", "costume_id", "note"],
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "pattern": "^img_[a-z0-9_]+$"
+              },
+              "kind": {
+                "enum": ["定妆照", "场景图", "道具图"]
+              },
+              "subject": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "view": {
+                "enum": ["正面", "侧面", "背面", "脸部", "空镜", "道具"]
+              },
+              "costume_id": {
+                "type": ["string", "null"],
+                "pattern": "^cos_[a-z0-9_]+$"
+              },
+              "note": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 60
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 300
+        },
+        "scenes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "type": "object"
+          },
+          "description": "编剧输出的场次，结构见编剧角色的 output_format。"
+        },
+        "carry_over": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["from_shot", "note"],
+          "properties": {
+            "from_shot": {
+              "type": "string",
+              "pattern": "^S[0-9]{2}-[0-9]{2}$"
+            },
+            "note": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 60
+            }
+          }
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "<IMAGE_n> 的编号只在这一个镜头里有效，不同镜头可以重新从 <IMAGE_1> 编起。",
+      "软件发视频请求时把 <IMAGE_0> 设为起始画面，再按编号附上 reference_images 里的图片。",
+      "表演指导和动作指导之后会给每个镜头补一句 prompt_addon，加在 video_prompt 后面。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "导演输出",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenes"],
+      "properties": {
+        "scenes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scene_id", "total_seconds", "rhythm", "shots"],
+            "properties": {
+              "scene_id": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}$"
+              },
+              "total_seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 900
+              },
+              "rhythm": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 40
+              },
+              "shots": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/shot"
+                },
+                "minItems": 1,
+                "maxItems": 40
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 20
+        }
+      },
+      "$defs": {
+        "shot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "shot_id",
+            "size",
+            "tag",
+            "angle",
+            "move",
+            "seconds",
+            "purpose",
+            "action",
+            "characters",
+            "dialogue",
+            "blocking",
+            "continuity_from_prev",
+            "reference_images",
+            "start_frame_prompt",
+            "video_prompt"
+          ],
+          "properties": {
+            "shot_id": {
+              "type": "string",
+              "pattern": "^S[0-9]{2}-[0-9]{2}$"
+            },
+            "size": {
+              "enum": ["大远景", "远景", "全景", "中景", "近景", "特写", "大特写"]
+            },
+            "tag": {
+              "enum": ["插入", null]
+            },
+            "angle": {
+              "enum": ["平视", "俯拍", "仰拍", "过肩", "主观"]
+            },
+            "move": {
+              "enum": ["固定", "推", "拉", "摇", "移", "跟", "升", "降", "手持"]
+            },
+            "seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 15
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 30
+            },
+            "action": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 120
+            },
+            "characters": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "minItems": 0,
+              "maxItems": 6,
+              "uniqueItems": true
+            },
+            "dialogue": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["speaker", "line", "at_seconds"],
+                "properties": {
+                  "speaker": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8
+                  },
+                  "line": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "at_seconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 15
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 6
+            },
+            "blocking": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "position", "depth", "visible", "facing"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8
+                  },
+                  "position": {
+                    "enum": ["画左", "画中", "画右", "画外"]
+                  },
+                  "depth": {
+                    "enum": ["前景", "中间", "后景"]
+                  },
+                  "visible": {
+                    "enum": ["全身", "半身", "脸", "背影", "只露手", "画外"]
+                  },
+                  "facing": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 6
+            },
+            "continuity_from_prev": {
+              "type": "boolean"
+            },
+            "reference_images": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["token", "asset_id"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "pattern": "^<IMAGE_([1-9]|1[0-4])>$"
+                  },
+                  "asset_id": {
+                    "type": "string",
+                    "pattern": "^img_[a-z0-9_]+$"
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 14
+            },
+            "start_frame_prompt": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 400
+            },
+            "video_prompt": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 600
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "director-1",
+      "title": "第一章两场一起拆：13 个镜头，过肩反打，11 句台词全部落进镜头",
+      "input": {
+        "task": "storyboard",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16",
+          "video_sound": false
+        },
+        "cast": [
+          {
+            "name": "林晚",
+            "identity_lock": "二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。"
+          },
+          {
+            "name": "沈砚",
+            "identity_lock": "三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。"
+          },
+          {
+            "name": "周烈",
+            "identity_lock": "四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。"
+          }
+        ],
+        "costumes": [
+          {
+            "name": "林晚",
+            "scene_id": "S01",
+            "costume_id": "cos_linwan_shop",
+            "description": "穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。"
+          },
+          {
+            "name": "沈砚",
+            "scene_id": "S01",
+            "costume_id": "cos_shenyan_jacket",
+            "description": "穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。"
+          },
+          {
+            "name": "周烈",
+            "scene_id": "S01",
+            "costume_id": "cos_zhoulie_coat",
+            "description": "穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。"
+          },
+          {
+            "name": "沈砚",
+            "scene_id": "S02",
+            "costume_id": "cos_shenyan_jacket",
+            "description": "穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。"
+          },
+          {
+            "name": "周烈",
+            "scene_id": "S02",
+            "costume_id": "cos_zhoulie_coat",
+            "description": "穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。"
+          },
+          {
+            "name": "林晚",
+            "scene_id": "S02",
+            "costume_id": "cos_linwan_shop",
+            "description": "穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。"
+          }
+        ],
+        "assets": [
+          {
+            "asset_id": "img_linwan_face",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_linwan_front",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "正面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_linwan_side",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "侧面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_linwan_back",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "背面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_face",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_shenyan_front",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "正面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_side",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "侧面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_back",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "背面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_face",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_zhoulie_front",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "正面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_side",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "侧面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_back",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "背面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_loc_bookstore_inside",
+            "kind": "场景图",
+            "subject": "旧书店·店内",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "柜台在画左，玻璃门在画右，最里面那排书架在纵深处。"
+          },
+          {
+            "asset_id": "img_loc_bookstore_door",
+            "kind": "场景图",
+            "subject": "旧书店·门口屋檐下",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "玻璃门在画左，三级石台阶往画右下方走，街角在画右深处。"
+          },
+          {
+            "asset_id": "img_prop_tide_table",
+            "kind": "道具图",
+            "subject": "《潮汐表》",
+            "view": "道具",
+            "costume_id": null,
+            "note": "褪色的蓝色布面旧书，封面不印字。"
+          },
+          {
+            "asset_id": "img_prop_rusty_key",
+            "kind": "道具图",
+            "subject": "生锈的钥匙",
+            "view": "道具",
+            "costume_id": null,
+            "note": "老式铜钥匙，圆环钥匙头，约六厘米。"
+          },
+          {
+            "asset_id": "img_prop_ledger_bag",
+            "kind": "道具图",
+            "subject": "裹着塑料袋的账本",
+            "view": "道具",
+            "costume_id": null,
+            "note": "透明塑料袋裹了三层，袋口打结。"
+          },
+          {
+            "asset_id": "img_prop_black_umbrella",
+            "kind": "道具图",
+            "subject": "黑伞",
+            "view": "道具",
+            "costume_id": null,
+            "note": "黑色长柄直伞，木质弯柄。"
+          }
+        ],
+        "scenes": [
+          {
+            "scene_id": "S01",
+            "no": 1,
+            "heading": {
+              "place": "旧书店",
+              "spot": "店内",
+              "interior": true,
+              "time": "夜里十点",
+              "weather": "大雨"
+            },
+            "title": "雨夜来客",
+            "characters": ["林晚", "沈砚", "周烈"],
+            "source_paragraphs": [
+              "P01",
+              "P02",
+              "P03",
+              "P04",
+              "P05",
+              "P06",
+              "P07",
+              "P08",
+              "P09",
+              "P10"
+            ],
+            "summary": "沈砚冒雨来取《潮汐表》里的钥匙，把账本交给林晚，周烈在门外现身。",
+            "mood": "不安",
+            "est_seconds": 45,
+            "elements": [
+              {
+                "type": "action",
+                "text": "雨夜，老街的路灯在雨里晕成黄雾。晚上十点，林晚把门口的营业木牌翻了个面，伸手去锁门。",
+                "source": "P01"
+              },
+              {
+                "type": "action",
+                "text": "玻璃门被人从外面推开，门上的风铃乱响。",
+                "source": "P01"
+              },
+              {
+                "type": "action",
+                "text": "沈砚走进来，浑身湿透，黑色夹克的下摆往下滴水，怀里护着一个裹了三层塑料袋的东西。",
+                "source": "P02"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "你父亲留下的那本《潮汐表》，还在吗？",
+                "delivery": "开口就问",
+                "source": "P03"
+              },
+              {
+                "type": "action",
+                "text": "林晚愣了一下，指向最里面那排书架。",
+                "source": "P04"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "在。你这么晚来，就为了一本旧书？",
+                "delivery": null,
+                "source": "P04"
+              },
+              {
+                "type": "action",
+                "text": "沈砚没回答，径直走到书架前，抽出一本褪了色的蓝皮书。",
+                "source": "P05"
+              },
+              {
+                "type": "action",
+                "text": "书脊里夹着一枚生锈的钥匙。沈砚用右手把钥匙攥进掌心，回头看林晚。",
+                "source": "P05"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "周烈的人在找这个。今晚你别回家。",
+                "delivery": null,
+                "source": "P06"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "周烈？",
+                "delivery": "声音发紧",
+                "source": "P07"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "我爸欠他的钱，早就还清了。",
+                "delivery": "声音发紧",
+                "source": "P07"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "他要的不是钱。",
+                "delivery": null,
+                "source": "P08"
+              },
+              {
+                "type": "action",
+                "text": "沈砚把塑料袋塞进林晚怀里。",
+                "source": "P08"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "这是你爸的账本。拿好，别让任何人看见。",
+                "delivery": null,
+                "source": "P08"
+              },
+              {
+                "type": "action",
+                "text": "一道车灯扫过橱窗。雨幕里，穿灰色风衣的周烈撑着黑伞站在台阶下，嘴角叼着一根没点着的烟。",
+                "source": "P09"
+              },
+              {
+                "type": "action",
+                "text": "周烈抬起手，用指节在玻璃门上敲了三下。",
+                "source": "P10"
+              },
+              {
+                "type": "action",
+                "text": "沈砚示意林晚退到柜台后面。",
+                "source": "P10"
+              }
+            ]
+          },
+          {
+            "scene_id": "S02",
+            "no": 2,
+            "heading": {
+              "place": "旧书店",
+              "spot": "门口屋檐下",
+              "interior": false,
+              "time": "夜里十点",
+              "weather": "大雨"
+            },
+            "title": "檐下对峙",
+            "characters": ["沈砚", "周烈", "林晚"],
+            "source_paragraphs": ["P11", "P12", "P13", "P14", "P15", "P16"],
+            "summary": "周烈隔着雨帘施压，想进门被沈砚挡回，约他凌晨一点去三号码头。",
+            "mood": "悬疑",
+            "est_seconds": 40,
+            "elements": [
+              {
+                "type": "action",
+                "text": "沈砚推开门，走到屋檐下。檐口的雨水在他和周烈之间挂成一道水帘。",
+                "source": "P11"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "沈警官，好久不见。",
+                "delivery": "笑着说",
+                "source": "P12"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "书店的房租，我已经替林小姐交到明年了。",
+                "delivery": "笑着说",
+                "source": "P12"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "她不欠你什么。",
+                "delivery": null,
+                "source": "P13"
+              },
+              {
+                "type": "action",
+                "text": "周烈往门里看了一眼。林晚抱着塑料袋站在柜台后面，指节发白。",
+                "source": "P14"
+              },
+              {
+                "type": "action",
+                "text": "周烈伸手去拉门把，沈砚一把扣住他的手腕，往外一推，周烈退了半步。",
+                "source": "P14"
+              },
+              {
+                "type": "action",
+                "text": "周烈笑着收回手，把烟从嘴里拿下来，在伞柄上磕了磕。",
+                "source": "P14"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "凌晨一点，三号码头。钥匙带来，账本的事我就当没发生过。",
+                "delivery": null,
+                "source": "P15"
+              },
+              {
+                "type": "action",
+                "text": "周烈转身走进雨里，黑伞很快消失在街角。",
+                "source": "P16"
+              },
+              {
+                "type": "action",
+                "text": "沈砚在屋檐下站了很久，右手一直攥着那枚钥匙。",
+                "source": "P16"
+              }
+            ]
+          }
+        ],
+        "carry_over": null
+      },
+      "output": {
+        "scenes": [
+          {
+            "scene_id": "S01",
+            "total_seconds": 42,
+            "rhythm": "前半靠对话慢慢推，周烈敲门那一下把节奏收紧。",
+            "shots": [
+              {
+                "shot_id": "S01-01",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "交代雨夜书店，有人推门进来",
+                "action": "林晚在画左正要锁门，画右的玻璃门被推开，风铃乱晃，浑身湿透的沈砚走进来，怀里护着塑料袋。",
+                "characters": ["林晚", "沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画右的门口"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画左的林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_ledger_bag"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：旧书店店内，雨夜，琥珀色台灯照着两侧的木书架。林晚站在画左，伸手去锁门。画右的玻璃门被推开一半，沈砚浑身湿透，站在门口，怀里护着裹了三层塑料袋的东西。",
+                "video_prompt": "<IMAGE_1> 是旧书店·店内的空镜，<IMAGE_2> 是林晚的定妆照（正面），<IMAGE_3> 是沈砚的定妆照（正面），<IMAGE_4> 是裹着塑料袋的账本的道具图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画右的玻璃门被推开，门上的铜风铃乱晃。沈砚从画右跨进门，夹克下摆往下滴水，双手护着怀里的塑料袋；林晚在画左收回锁门的手，转头看他。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S01-02",
+                "size": "中景",
+                "tag": null,
+                "angle": "过肩",
+                "move": "固定",
+                "seconds": 9,
+                "purpose": "沈砚开门见山，林晚愣住",
+                "action": "从林晚肩后拍沈砚：沈砚滴着水发问，林晚回答时抬手指向最里面那排书架。",
+                "characters": ["林晚", "沈砚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "你父亲留下的那本《潮汐表》，还在吗？",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "speaker": "林晚",
+                    "line": "在。你这么晚来，就为了一本旧书？",
+                    "at_seconds": 4.6
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "前景",
+                    "visible": "背影",
+                    "facing": "看向画右的沈砚"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_linwan_back"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：旧书店店内，雨夜。画左前景是林晚的背影和肩膀，虚焦。画右中景是沈砚，头发贴在额头，夹克往下滴水，正看着画左。",
+                "video_prompt": "<IMAGE_1> 是旧书店·店内的空镜，<IMAGE_2> 是沈砚的定妆照（正面），<IMAGE_3> 是林晚的定妆照（背面）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画右的沈砚看着画左开口发问；画左前景的林晚停了一下，抬起右手指向画面深处的书架，回答他。只做这一个动作，镜头固定不动。沈砚的台词原句：「你父亲留下的那本《潮汐表》，还在吗？」。林晚的台词原句：「在。你这么晚来，就为了一本旧书？」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S01-03",
+                "size": "特写",
+                "tag": "插入",
+                "angle": "平视",
+                "move": "跟",
+                "seconds": 4,
+                "purpose": "钥匙露面",
+                "action": "沈砚的右手从褪色蓝皮书的书脊里抽出一枚生锈的钥匙，攥进掌心。",
+                "characters": ["沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画中",
+                    "depth": "前景",
+                    "visible": "只露手",
+                    "facing": "看不见脸"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_prop_tide_table"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_prop_rusty_key"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。画面：特写，书架前，一只男人的右手捏着一本褪色的蓝色布面旧书，书脊里露出一枚生锈钥匙的圆环头，琥珀色台灯从画左照过来。",
+                "video_prompt": "<IMAGE_1> 是《潮汐表》的道具图，<IMAGE_2> 是生锈的钥匙的道具图。从起始画面开始：沈砚的右手从书脊里抽出那枚生锈的钥匙，慢慢攥进掌心。只做这一个动作，镜头跟着人物移动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S01-04",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 9,
+                "purpose": "沈砚警告，林晚紧张",
+                "action": "沈砚攥着钥匙回头低声警告；画左前景是林晚虚焦的侧脸，她声音发紧地追问。",
+                "characters": ["沈砚", "林晚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "周烈的人在找这个。今晚你别回家。",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "speaker": "林晚",
+                    "line": "周烈？",
+                    "at_seconds": 4.4
+                  },
+                  {
+                    "speaker": "林晚",
+                    "line": "我爸欠他的钱，早就还清了。",
+                    "at_seconds": 5.3
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "脸",
+                    "facing": "看向画左的林晚"
+                  },
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "前景",
+                    "visible": "脸",
+                    "facing": "看向画右的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_face"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_linwan_side"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。画面：旧书店店内，雨夜，背景是虚化的书架。画右近景是沈砚，右手攥成拳贴在身侧。画左前景是林晚虚焦的侧脸。",
+                "video_prompt": "<IMAGE_1> 是旧书店·店内的空镜，<IMAGE_2> 是沈砚的定妆照（脸部），<IMAGE_3> 是林晚的定妆照（侧面）。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：画右的沈砚回头看向画左，压低声音说话；画左前景的林晚眉头一紧，追问他。焦点留在沈砚脸上。只做这一个动作，镜头固定不动。沈砚的台词原句：「周烈的人在找这个。今晚你别回家。」。林晚的台词原句：「周烈？」。林晚的台词原句：「我爸欠他的钱，早就还清了。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S01-05",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "推",
+                "seconds": 8,
+                "purpose": "交出账本",
+                "action": "沈砚把裹着塑料袋的账本塞进林晚怀里。",
+                "characters": ["林晚", "沈砚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "他要的不是钱。",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "speaker": "沈砚",
+                    "line": "这是你爸的账本。拿好，别让任何人看见。",
+                    "at_seconds": 2.6
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "低头看怀里的账本"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_ledger_bag"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：旧书店的柜台边，雨夜。林晚站在画左，双手空着。沈砚站在画右，左手托着裹了三层塑料袋的账本，右手攥着拳。",
+                "video_prompt": "<IMAGE_1> 是旧书店·店内的空镜，<IMAGE_2> 是林晚的定妆照（正面），<IMAGE_3> 是沈砚的定妆照（正面），<IMAGE_4> 是裹着塑料袋的账本的道具图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画右的沈砚用左手把塑料袋塞进林晚怀里，林晚下意识抱住，低头看它。只做这一个动作，镜头缓慢推近。沈砚的台词原句：「他要的不是钱。」。沈砚的台词原句：「这是你爸的账本。拿好，别让任何人看见。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S01-06",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 7,
+                "purpose": "周烈在门外现身",
+                "action": "车灯扫过橱窗，周烈撑着黑伞站在门外台阶下，抬手用指节敲了三下玻璃门；沈砚抬手示意林晚退到柜台后面。",
+                "characters": ["周烈", "沈砚", "林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画中",
+                    "depth": "后景",
+                    "visible": "全身",
+                    "facing": "隔着玻璃看向店里"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "前景",
+                    "visible": "背影",
+                    "facing": "看向门外的周烈"
+                  },
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "前景",
+                    "visible": "背影",
+                    "facing": "看向门外的周烈"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_black_umbrella"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_shenyan_back"
+                  },
+                  {
+                    "token": "<IMAGE_5>",
+                    "asset_id": "img_linwan_back"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。画面：旧书店店内望向玻璃门，雨夜。画左前景是林晚的背影，画右前景是沈砚的背影。门外台阶下站着周烈，撑着黑伞，嘴角叼着一根没点着的烟。",
+                "video_prompt": "<IMAGE_1> 是旧书店·店内的空镜，<IMAGE_2> 是周烈的定妆照（正面），<IMAGE_3> 是黑伞的道具图，<IMAGE_4> 是沈砚的定妆照（背面），<IMAGE_5> 是林晚的定妆照（背面）。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：一道车灯从画左扫到画右，照亮门外的周烈；他抬起手，用指节在玻璃门上敲了三下。画右前景的沈砚抬起左手，示意林晚往柜台后面退。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              }
+            ]
+          },
+          {
+            "scene_id": "S02",
+            "total_seconds": 38,
+            "rhythm": "对峙时镜头稳住不动，只在推手那三秒用手持。",
+            "shots": [
+              {
+                "shot_id": "S02-01",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "两人隔着雨帘对峙",
+                "action": "沈砚推门走到屋檐下，檐口的雨水在他和台阶下的周烈之间挂成一道水帘。",
+                "characters": ["沈砚", "周烈"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画右的周烈"
+                  },
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "后景",
+                    "visible": "全身",
+                    "facing": "看向画左的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_door"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_side"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_black_umbrella"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：旧书店门口的屋檐下，雨夜，檐口的雨水浇成一道水帘。画左的玻璃门正被推开，沈砚走出来，右手攥着拳。画右台阶下，周烈撑着黑伞站在雨里。",
+                "video_prompt": "<IMAGE_1> 是旧书店·门口屋檐下的空镜，<IMAGE_2> 是沈砚的定妆照（侧面），<IMAGE_3> 是周烈的定妆照（正面），<IMAGE_4> 是黑伞的道具图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：沈砚从画左的门里走到屋檐下站定，看着台阶下的周烈；檐口的雨水在两人之间不停地落。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S02-02",
+                "size": "中景",
+                "tag": null,
+                "angle": "过肩",
+                "move": "固定",
+                "seconds": 9,
+                "purpose": "周烈笑里藏刀",
+                "action": "从沈砚肩后拍周烈：周烈撑着黑伞，笑着开口。",
+                "characters": ["沈砚", "周烈"],
+                "dialogue": [
+                  {
+                    "speaker": "周烈",
+                    "line": "沈警官，好久不见。",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "speaker": "周烈",
+                    "line": "书店的房租，我已经替林小姐交到明年了。",
+                    "at_seconds": 2.9
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "前景",
+                    "visible": "背影",
+                    "facing": "看向画右的周烈"
+                  },
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_door"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_back"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_black_umbrella"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：屋檐下，雨夜。画左前景是沈砚的后背和肩膀，虚焦。画右中景是周烈，撑着黑伞，嘴角叼着没点着的烟，正对着画左笑。",
+                "video_prompt": "<IMAGE_1> 是旧书店·门口屋檐下的空镜，<IMAGE_2> 是周烈的定妆照（正面），<IMAGE_3> 是沈砚的定妆照（背面），<IMAGE_4> 是黑伞的道具图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：画右的周烈隔着雨帘笑着开口，说完第一句停了停，再慢慢说第二句；画左前景的沈砚一动不动。只做这一个动作，镜头固定不动。周烈的台词原句：「沈警官，好久不见。」。周烈的台词原句：「书店的房租，我已经替林小姐交到明年了。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S02-03",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 4,
+                "purpose": "沈砚顶回去",
+                "action": "沈砚盯着周烈，一字一顿地回话。",
+                "characters": ["沈砚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "她不欠你什么。",
+                    "at_seconds": 0.6
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "脸",
+                    "facing": "看向画右的周烈"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_door"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_face"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：屋檐下，雨夜，背景是虚化的雨帘和路灯。沈砚在画左近景，头发湿透，眼睛看向画右。",
+                "video_prompt": "<IMAGE_1> 是旧书店·门口屋檐下的空镜，<IMAGE_2> 是沈砚的定妆照（脸部）。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：沈砚盯着画右，一字一顿地回话，下颌绷紧。只做这一个动作，镜头固定不动。沈砚的台词原句：「她不欠你什么。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S02-04",
+                "size": "近景",
+                "tag": "插入",
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 3,
+                "purpose": "门里的林晚",
+                "action": "隔着沾满雨水的玻璃门，林晚抱着塑料袋站在柜台后面，指节发白。",
+                "characters": ["林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画中",
+                    "depth": "后景",
+                    "visible": "半身",
+                    "facing": "看向门外"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_ledger_bag"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。穿米白色粗针毛衣，系深蓝色帆布围裙，袖口挽到小臂。画面：隔着挂满雨水的玻璃门往店里看。林晚站在柜台后面，双手紧紧抱着裹塑料袋的账本，琥珀色台灯在她身后。",
+                "video_prompt": "<IMAGE_1> 是旧书店·店内的空镜，<IMAGE_2> 是林晚的定妆照（正面），<IMAGE_3> 是裹着塑料袋的账本的道具图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：玻璃上的雨水往下淌，门里的林晚抱紧账本，指节发白，眼睛盯着门外。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S02-05",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "手持",
+                "seconds": 3,
+                "purpose": "周烈试探被挡回",
+                "action": "周烈伸手去拉门把，沈砚用左手扣住他的手腕往外一推，周烈退了半步。",
+                "characters": ["周烈", "沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的门把"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画右的周烈"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_door"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_side"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_side"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_black_umbrella"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：屋檐下的玻璃门前，雨夜。周烈在画右，左手撑伞，右手正伸向画左的门把。沈砚在画左，右手攥拳垂在身侧。",
+                "video_prompt": "<IMAGE_1> 是旧书店·门口屋檐下的空镜，<IMAGE_2> 是周烈的定妆照（侧面），<IMAGE_3> 是沈砚的定妆照（侧面），<IMAGE_4> 是黑伞的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画右的周烈伸手去拉门把，画左的沈砚用左手一把扣住他的手腕，往画右一推，周烈退了半步。只做这一个动作，手持镜头轻微晃动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S02-06",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 8,
+                "purpose": "周烈下最后通牒",
+                "action": "周烈笑着收回手，把烟从嘴里拿下来，在伞柄上磕了磕。",
+                "characters": ["周烈"],
+                "dialogue": [
+                  {
+                    "speaker": "周烈",
+                    "line": "凌晨一点，三号码头。钥匙带来，账本的事我就当没发生过。",
+                    "at_seconds": 1.2
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_door"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_black_umbrella"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：屋檐下，雨夜。周烈在画右中景，撑着黑伞，嘴角叼着一根没点着的烟，右手刚收回来。",
+                "video_prompt": "<IMAGE_1> 是旧书店·门口屋檐下的空镜，<IMAGE_2> 是周烈的定妆照（正面），<IMAGE_3> 是黑伞的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：周烈笑着把烟从嘴里拿下来，在伞柄上磕了磕，再抬眼看向画左开口。只做这一个动作，镜头固定不动。周烈的台词原句：「凌晨一点，三号码头。钥匙带来，账本的事我就当没发生过。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S02-07",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 6,
+                "purpose": "周烈离开，沈砚留在原地",
+                "action": "周烈转身走进雨里，黑伞很快消失在街角；沈砚站在屋檐下没动，右手攥着钥匙。",
+                "characters": ["周烈", "沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "后景",
+                    "visible": "背影",
+                    "facing": "走向画右的街角"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画右的街角"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_bookstore_door"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_back"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_black_umbrella"
+                  },
+                  {
+                    "token": "<IMAGE_5>",
+                    "asset_id": "img_prop_rusty_key"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：旧书店门口，雨夜。沈砚站在画左的屋檐下，右手攥着那枚生锈的钥匙。周烈撑着黑伞，背对镜头站在画右的台阶下。",
+                "video_prompt": "<IMAGE_1> 是旧书店·门口屋檐下的空镜，<IMAGE_2> 是周烈的定妆照（背面），<IMAGE_3> 是沈砚的定妆照（正面），<IMAGE_4> 是黑伞的道具图，<IMAGE_5> 是生锈的钥匙的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：周烈撑着黑伞走进雨里，往画右深处的街角走远，黑伞很快消失；画左的沈砚一动不动地看着街角。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "director-2",
+      "title": "第二章两场一起拆：16 个镜头，打斗每镜 3 秒，受伤只拍袖口血迹",
+      "input": {
+        "task": "storyboard",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16",
+          "video_sound": false
+        },
+        "cast": [
+          {
+            "name": "沈砚",
+            "identity_lock": "三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。"
+          },
+          {
+            "name": "林晚",
+            "identity_lock": "二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。"
+          },
+          {
+            "name": "周烈",
+            "identity_lock": "四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。"
+          }
+        ],
+        "costumes": [
+          {
+            "name": "沈砚",
+            "scene_id": "S03",
+            "costume_id": "cos_shenyan_jacket",
+            "description": "穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。"
+          },
+          {
+            "name": "林晚",
+            "scene_id": "S03",
+            "costume_id": "cos_linwan_coat",
+            "description": "米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。"
+          },
+          {
+            "name": "周烈",
+            "scene_id": "S04",
+            "costume_id": "cos_zhoulie_coat",
+            "description": "穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。"
+          },
+          {
+            "name": "沈砚",
+            "scene_id": "S04",
+            "costume_id": "cos_shenyan_jacket",
+            "description": "穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。"
+          },
+          {
+            "name": "林晚",
+            "scene_id": "S04",
+            "costume_id": "cos_linwan_coat",
+            "description": "米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。"
+          }
+        ],
+        "assets": [
+          {
+            "asset_id": "img_linwan_face",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_linwan_front",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "正面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_linwan_side",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "侧面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_linwan_back",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "背面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_face",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_shenyan_front",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "正面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_side",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "侧面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_back",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "背面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_face",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_zhoulie_front",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "正面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_side",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "侧面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_back",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "背面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_linwan_coat_front",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "正面",
+            "costume_id": "cos_linwan_coat",
+            "note": "夜里出门的衣服"
+          },
+          {
+            "asset_id": "img_linwan_coat_side",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "侧面",
+            "costume_id": "cos_linwan_coat",
+            "note": "夜里出门的衣服"
+          },
+          {
+            "asset_id": "img_linwan_coat_back",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "背面",
+            "costume_id": "cos_linwan_coat",
+            "note": "夜里出门的衣服"
+          },
+          {
+            "asset_id": "img_loc_bookstore_inside",
+            "kind": "场景图",
+            "subject": "旧书店·店内",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "柜台在画左，玻璃门在画右，最里面那排书架在纵深处。"
+          },
+          {
+            "asset_id": "img_loc_bookstore_door",
+            "kind": "场景图",
+            "subject": "旧书店·门口屋檐下",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "玻璃门在画左，三级石台阶往画右下方走，街角在画右深处。"
+          },
+          {
+            "asset_id": "img_loc_dock_outside",
+            "kind": "场景图",
+            "subject": "三号码头·七号仓库外",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "仓库铁门在画左深处，集装箱排在画右，出租车停在画右远处。"
+          },
+          {
+            "asset_id": "img_loc_warehouse_inside",
+            "kind": "场景图",
+            "subject": "七号仓库·内",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "铁门在画中深处，木箱堆在画右，锈钢管靠在画左的墙边。"
+          },
+          {
+            "asset_id": "img_prop_tide_table",
+            "kind": "道具图",
+            "subject": "《潮汐表》",
+            "view": "道具",
+            "costume_id": null,
+            "note": "褪色的蓝色布面旧书，封面不印字。"
+          },
+          {
+            "asset_id": "img_prop_rusty_key",
+            "kind": "道具图",
+            "subject": "生锈的钥匙",
+            "view": "道具",
+            "costume_id": null,
+            "note": "老式铜钥匙，圆环钥匙头，约六厘米。"
+          },
+          {
+            "asset_id": "img_prop_ledger_bag",
+            "kind": "道具图",
+            "subject": "裹着塑料袋的账本",
+            "view": "道具",
+            "costume_id": null,
+            "note": "透明塑料袋裹了三层，袋口打结。"
+          },
+          {
+            "asset_id": "img_prop_black_umbrella",
+            "kind": "道具图",
+            "subject": "黑伞",
+            "view": "道具",
+            "costume_id": null,
+            "note": "黑色长柄直伞，木质弯柄。"
+          },
+          {
+            "asset_id": "img_prop_steel_pipe",
+            "kind": "道具图",
+            "subject": "锈钢管",
+            "view": "道具",
+            "costume_id": null,
+            "note": "约一米长，管口有毛刺。"
+          },
+          {
+            "asset_id": "img_prop_folding_knife",
+            "kind": "道具图",
+            "subject": "折叠刀",
+            "view": "道具",
+            "costume_id": null,
+            "note": "黑柄，刀刃约十厘米。"
+          }
+        ],
+        "scenes": [
+          {
+            "scene_id": "S03",
+            "no": 3,
+            "heading": {
+              "place": "三号码头",
+              "spot": "七号仓库外",
+              "interior": false,
+              "time": "凌晨一点",
+              "weather": "小雨"
+            },
+            "title": "独自赴约",
+            "characters": ["沈砚", "林晚"],
+            "source_paragraphs": ["P17", "P18", "P19"],
+            "summary": "沈砚一个人走向仓库，林晚偷偷跟来，躲在集装箱后报警。",
+            "mood": "悬疑",
+            "est_seconds": 20,
+            "elements": [
+              {
+                "type": "action",
+                "text": "凌晨一点，三号码头下着小雨，海风把集装箱之间的积水吹出一层层波纹。",
+                "source": "P17"
+              },
+              {
+                "type": "action",
+                "text": "七号仓库的铁门半开着，里面漏出一线昏黄的光。",
+                "source": "P17"
+              },
+              {
+                "type": "action",
+                "text": "沈砚打发走出租车，把钥匙揣进夹克内袋，一个人朝仓库走去，没有回头。",
+                "source": "P18"
+              },
+              {
+                "type": "action",
+                "text": "二十米外，另一辆出租车停下。林晚裹着一件卡其色风衣下车，躲到一排集装箱后面。",
+                "source": "P18"
+              },
+              {
+                "type": "action",
+                "text": "林晚攥着手机，压低声音打电话。",
+                "source": "P19"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "电话",
+                "line": "喂，110吗？三号码头七号仓库，有人要打起来了，你们快来。",
+                "delivery": "压低声音",
+                "source": "P19"
+              }
+            ]
+          },
+          {
+            "scene_id": "S04",
+            "no": 4,
+            "heading": {
+              "place": "七号仓库",
+              "spot": "仓库里",
+              "interior": true,
+              "time": "凌晨一点",
+              "weather": null
+            },
+            "title": "钢管对刀",
+            "characters": ["周烈", "沈砚", "林晚"],
+            "source_paragraphs": [
+              "P20",
+              "P21",
+              "P22",
+              "P23",
+              "P24",
+              "P25",
+              "P26",
+              "P27",
+              "P28",
+              "P29"
+            ],
+            "summary": "周烈突然动刀，沈砚抄起钢管反击，左前臂被划伤，林晚带着警笛冲进来。",
+            "mood": "激烈",
+            "est_seconds": 50,
+            "elements": [
+              {
+                "type": "action",
+                "text": "仓库里只亮着一盏吊灯，灯罩被风吹得来回晃，光在地上一圈一圈地扫。",
+                "source": "P20"
+              },
+              {
+                "type": "action",
+                "text": "周烈坐在一堆木箱上，左手拿着苹果，右手用折叠刀慢慢削皮。",
+                "source": "P20"
+              },
+              {
+                "type": "action",
+                "text": "沈砚走进仓库，停在光圈边上。",
+                "source": "P20"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "钥匙带来了？",
+                "delivery": null,
+                "source": "P21"
+              },
+              {
+                "type": "action",
+                "text": "周烈把一长条苹果皮甩到地上。",
+                "source": "P21"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "先让你的人离书店远一点。",
+                "delivery": null,
+                "source": "P22"
+              },
+              {
+                "type": "action",
+                "text": "周烈笑了，从木箱上跳下来。",
+                "source": "P23"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "周烈",
+                "kind": "对白",
+                "line": "沈警官，你早就不是警察了。",
+                "delivery": null,
+                "source": "P23"
+              },
+              {
+                "type": "action",
+                "text": "话音没落，周烈猛地扑上来，刀尖直刺沈砚胸口，沈砚侧身躲开。",
+                "source": "P24"
+              },
+              {
+                "type": "action",
+                "text": "沈砚顺手抄起墙边一根锈钢管，横着格开第二刀，钢管和刀刃撞出一串火星。",
+                "source": "P24"
+              },
+              {
+                "type": "action",
+                "text": "第三刀斜劈下来，沈砚抬起左臂去挡，刀刃划过他的左前臂，夹克袖子渗出血来。",
+                "source": "P25"
+              },
+              {
+                "type": "action",
+                "text": "沈砚闷哼一声，咬紧牙，抡起钢管狠狠砸在周烈的右手腕上。",
+                "source": "P25"
+              },
+              {
+                "type": "action",
+                "text": "折叠刀飞了出去，在水泥地上滑出很远。",
+                "source": "P26"
+              },
+              {
+                "type": "action",
+                "text": "周烈捂着手腕跪倒在地，沈砚用钢管抵住他的肩膀，大口喘气。",
+                "source": "P26"
+              },
+              {
+                "type": "action",
+                "text": "铁门被一把推开，林晚举着手机冲进来，远处的警笛声一路逼近。",
+                "source": "P27"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "我报警了！",
+                "delivery": "喊",
+                "source": "P28"
+              },
+              {
+                "type": "action",
+                "text": "沈砚看了林晚一眼，血顺着左手的手指滴在地上。",
+                "source": "P29"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "不是让你别来吗。",
+                "delivery": null,
+                "source": "P29"
+              }
+            ]
+          }
+        ],
+        "carry_over": null
+      },
+      "output": {
+        "scenes": [
+          {
+            "scene_id": "S03",
+            "total_seconds": 22,
+            "rhythm": "空镜开场，节奏放慢，报警那一镜用手持制造紧张。",
+            "shots": [
+              {
+                "shot_id": "S03-01",
+                "size": "大远景",
+                "tag": null,
+                "angle": "俯拍",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "交代凌晨的码头",
+                "action": "凌晨的集装箱码头下着小雨，积水被海风吹出波纹，远处七号仓库的铁门半开，漏出一线昏黄的光。",
+                "characters": [],
+                "dialogue": [],
+                "blocking": [],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_dock_outside"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。画面：俯拍凌晨的集装箱码头，下着小雨。画右是一排排集装箱，积水反着光，画左深处是七号仓库，铁门半开，漏出一线昏黄的光。",
+                "video_prompt": "<IMAGE_1> 是三号码头·七号仓库外的空镜。从起始画面开始：小雨斜着落下，海风把积水吹出一层层波纹，仓库门缝里的光微微晃动。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S03-02",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "跟",
+                "seconds": 5,
+                "purpose": "沈砚独自赴约",
+                "action": "沈砚把钥匙揣进夹克内袋，一个人朝画左深处的仓库走去，没有回头。",
+                "characters": ["沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画中",
+                    "depth": "中间",
+                    "visible": "背影",
+                    "facing": "走向画左深处的仓库"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_dock_outside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_back"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_rusty_key"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：码头的集装箱之间，小雨。沈砚背对镜头站在画中，右手正把一枚生锈的钥匙揣进夹克内袋。",
+                "video_prompt": "<IMAGE_1> 是三号码头·七号仓库外的空镜，<IMAGE_2> 是沈砚的定妆照（背面），<IMAGE_3> 是生锈的钥匙的道具图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：沈砚把钥匙揣进夹克内袋，一个人朝画左深处的仓库走去，脚踩过积水，没有回头。只做这一个动作，镜头跟着人物移动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S03-03",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 4,
+                "purpose": "林晚偷偷跟来",
+                "action": "远处一辆出租车停下，林晚下车，躲到一排集装箱后面。",
+                "characters": ["林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画右",
+                    "depth": "后景",
+                    "visible": "全身",
+                    "facing": "看向画左的仓库"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_dock_outside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_coat_front"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。画面：码头，小雨。画右远处停着一辆出租车，车门刚打开，林晚正从车里出来。",
+                "video_prompt": "<IMAGE_1> 是三号码头·七号仓库外的空镜，<IMAGE_2> 是林晚的定妆照（正面）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：林晚从车里出来，弯着腰快步跑到画右的一排集装箱后面躲好。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S03-04",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "手持",
+                "seconds": 8,
+                "purpose": "林晚偷偷报警",
+                "action": "林晚贴着集装箱，攥着手机压低声音报警。",
+                "characters": ["林晚"],
+                "dialogue": [
+                  {
+                    "speaker": "林晚",
+                    "line": "喂，110吗？三号码头七号仓库，有人要打起来了，你们快来。",
+                    "at_seconds": 0.6
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "脸",
+                    "facing": "看向画左的仓库方向"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_dock_outside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_coat_side"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。画面：码头集装箱的阴影里，小雨。林晚背贴着集装箱站在画左，右手把手机贴在耳边，头发被雨打湿。",
+                "video_prompt": "<IMAGE_1> 是三号码头·七号仓库外的空镜，<IMAGE_2> 是林晚的定妆照（侧面）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：林晚贴着集装箱，压低声音对着手机说话，眼睛一直盯着画左的仓库方向。只做这一个动作，手持镜头轻微晃动。林晚的台词原句：「喂，110吗？三号码头七号仓库，有人要打起来了，你们快来。」。背景保持稳定。视频不要自己出声。"
+              }
+            ]
+          },
+          {
+            "scene_id": "S04",
+            "total_seconds": 49,
+            "rhythm": "前四镜对话压着不动，打斗六镜每镜三秒，快切。",
+            "shots": [
+              {
+                "shot_id": "S04-01",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 6,
+                "purpose": "交代仓库和等着的周烈",
+                "action": "吊灯来回摇晃，周烈坐在画右的木箱上削苹果，沈砚从画左走进光里。",
+                "characters": ["周烈", "沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "低头看手里的苹果"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画右的周烈"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_folding_knife"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：旧仓库里，吊灯的光圈落在水泥地上。周烈坐在画右的一摞木箱上，左手拿着苹果，右手拿着折叠刀。沈砚站在画左，刚走到光圈边上。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是周烈的定妆照（正面），<IMAGE_3> 是沈砚的定妆照（正面），<IMAGE_4> 是折叠刀的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：吊灯来回摇晃，光圈在地上扫；画右的周烈低着头，用折叠刀慢慢削苹果皮；画左的沈砚往前走了两步，停在光圈边上。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-02",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 4,
+                "purpose": "周烈发问",
+                "action": "周烈把一长条苹果皮甩到地上，抬眼发问。",
+                "characters": ["周烈"],
+                "dialogue": [
+                  {
+                    "speaker": "周烈",
+                    "line": "钥匙带来了？",
+                    "at_seconds": 1.4
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_folding_knife"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：仓库里，吊灯光从头顶打下来。周烈坐在画右的木箱上，右手捏着折叠刀，刀尖挑着一长条苹果皮。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是周烈的定妆照（正面），<IMAGE_3> 是折叠刀的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：周烈手腕一甩，把苹果皮甩到地上，抬眼看向画左发问。只做这一个动作，镜头固定不动。周烈的台词原句：「钥匙带来了？」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-03",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "沈砚提条件",
+                "action": "沈砚站着不动，冷冷回话。",
+                "characters": ["沈砚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "先让你的人离书店远一点。",
+                    "at_seconds": 0.6
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "脸",
+                    "facing": "看向画右的周烈"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_face"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：仓库里，背景是虚化的木箱和吊灯。沈砚在画左近景，夹克还是湿的，眼睛看向画右。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是沈砚的定妆照（脸部）。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：沈砚站着不动，盯着画右冷冷开口，说完嘴唇抿紧。只做这一个动作，镜头固定不动。沈砚的台词原句：「先让你的人离书店远一点。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-04",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "周烈翻脸",
+                "action": "周烈笑了一声，从木箱上跳下来，折叠刀还握在右手。",
+                "characters": ["周烈"],
+                "dialogue": [
+                  {
+                    "speaker": "周烈",
+                    "line": "沈警官，你早就不是警察了。",
+                    "at_seconds": 1
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_side"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_folding_knife"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：仓库里，吊灯晃动。周烈坐在画右的木箱边上，右手握着折叠刀，嘴角带笑。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是周烈的定妆照（侧面），<IMAGE_3> 是折叠刀的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：周烈笑了一声，从木箱上跳下来落地站稳，右手握着折叠刀，看着画左开口。只做这一个动作，镜头固定不动。周烈的台词原句：「沈警官，你早就不是警察了。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-05",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "手持",
+                "seconds": 3,
+                "purpose": "周烈突然动刀",
+                "action": "周烈从画右扑向画左，刀尖直刺沈砚胸口，沈砚侧身躲开。",
+                "characters": ["周烈", "沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的沈砚"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画右的周烈"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_side"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_side"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_folding_knife"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：仓库里，吊灯晃动。周烈在画右，右手握刀，身体前倾，正要扑出去。沈砚在画左，面对他站着。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是周烈的定妆照（侧面），<IMAGE_3> 是沈砚的定妆照（侧面），<IMAGE_4> 是折叠刀的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画右的周烈蹬地扑向画左，右手的刀尖直刺沈砚胸口；沈砚向画左侧身，刀尖擦着胸口刺空。只做这一个动作，手持镜头轻微晃动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-06",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "手持",
+                "seconds": 3,
+                "purpose": "钢管格刀",
+                "action": "沈砚右手抄起墙边的锈钢管，横着格开第二刀，钢管和刀刃撞出一串火星。",
+                "characters": ["沈砚", "周烈"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "前景",
+                    "visible": "半身",
+                    "facing": "看向画右的周烈"
+                  },
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_steel_pipe"
+                  },
+                  {
+                    "token": "<IMAGE_5>",
+                    "asset_id": "img_prop_folding_knife"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：仓库的墙边，吊灯晃动。沈砚在画左前景，右手正抓住靠墙的一根锈钢管。周烈在画右，右手的刀举到肩高。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是沈砚的定妆照（正面），<IMAGE_3> 是周烈的定妆照（正面），<IMAGE_4> 是锈钢管的道具图，<IMAGE_5> 是折叠刀的道具图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：画左的沈砚右手抄起锈钢管，横着往画右一格，挡开周烈劈来的第二刀，钢管和刀刃撞出一串火星。只做这一个动作，手持镜头轻微晃动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-07",
+                "size": "特写",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 3,
+                "purpose": "左前臂被划伤",
+                "action": "第三刀从画右斜劈下来，沈砚抬起左臂去挡，刀刃划过左前臂，夹克袖子渗出血。",
+                "characters": ["沈砚", "周烈"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "前景",
+                    "visible": "只露手",
+                    "facing": "看不见脸"
+                  },
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "前景",
+                    "visible": "只露手",
+                    "facing": "看不见脸"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_prop_folding_knife"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_zhoulie_front"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。画面：特写，仓库里的吊灯光。画左是一只穿黑色夹克袖子的左前臂，正抬起来挡在身前。画右是一只戴金戒指的右手，握着折叠刀举在半空。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是折叠刀的道具图，<IMAGE_3> 是沈砚的定妆照（正面），<IMAGE_4> 是周烈的定妆照（正面）。从起始画面开始：画右握刀的手从右上往左下斜劈，画左的左前臂抬起去挡，刀刃从夹克袖子上划过，袖口洇出一道深色血迹，不拍伤口。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-08",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "手持",
+                "seconds": 3,
+                "purpose": "钢管砸腕",
+                "action": "沈砚闷哼一声，咬紧牙，抡起钢管从画左狠狠砸在周烈的右手腕上。",
+                "characters": ["沈砚", "周烈"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画右的周烈"
+                  },
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_side"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_zhoulie_side"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_steel_pipe"
+                  },
+                  {
+                    "token": "<IMAGE_5>",
+                    "asset_id": "img_prop_folding_knife"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：仓库里，吊灯晃动。沈砚在画左，左袖带着一道深色血迹，右手把钢管举过肩。周烈在画右，右手握刀刚劈空。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是沈砚的定妆照（侧面），<IMAGE_3> 是周烈的定妆照（侧面），<IMAGE_4> 是锈钢管的道具图，<IMAGE_5> 是折叠刀的道具图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：画左的沈砚咬紧牙，转胯把钢管从画左狠狠抡向画右，砸在周烈握刀的右手腕上，周烈的手被砸得一沉。只做这一个动作，手持镜头轻微晃动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-09",
+                "size": "特写",
+                "tag": "插入",
+                "angle": "俯拍",
+                "move": "固定",
+                "seconds": 3,
+                "purpose": "刀飞出去",
+                "action": "折叠刀飞出去落在水泥地上，一路滑出很远。",
+                "characters": [],
+                "dialogue": [],
+                "blocking": [],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_prop_folding_knife"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。画面：俯拍仓库的水泥地，吊灯光圈的边缘，地上有一摊积水。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是折叠刀的道具图。从起始画面开始：一把折叠刀从画左飞进画面，落在水泥地上，打着转往画右滑出很远。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-10",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 4,
+                "purpose": "制住周烈",
+                "action": "周烈捂着右手腕跪倒在地，沈砚用钢管抵住他的肩膀，大口喘气。",
+                "characters": ["周烈", "沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "低头看地面"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画右的周烈"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_zhoulie_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_front"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_prop_steel_pipe"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：仓库里，吊灯晃动。周烈在画右跪在地上，左手捂着右手腕。沈砚站在画左，右手握着钢管，左袖有一道深色血迹。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是周烈的定妆照（正面），<IMAGE_3> 是沈砚的定妆照（正面），<IMAGE_4> 是锈钢管的道具图。人物：周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画左的沈砚把钢管抵在周烈的肩膀上，胸口大幅起伏地喘气；周烈低着头，捂着手腕不敢动。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-11",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "林晚带着警笛冲进来",
+                "action": "铁门被一把推开，林晚举着手机冲进来大喊，远处警笛声逼近。",
+                "characters": ["林晚", "沈砚", "周烈"],
+                "dialogue": [
+                  {
+                    "speaker": "林晚",
+                    "line": "我报警了！",
+                    "at_seconds": 1.2
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画中",
+                    "depth": "后景",
+                    "visible": "全身",
+                    "facing": "看向画面前方的沈砚"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "前景",
+                    "visible": "背影",
+                    "facing": "看向门口的林晚"
+                  },
+                  {
+                    "name": "周烈",
+                    "position": "画右",
+                    "depth": "前景",
+                    "visible": "半身",
+                    "facing": "低头"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_coat_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_back"
+                  },
+                  {
+                    "token": "<IMAGE_4>",
+                    "asset_id": "img_zhoulie_side"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。穿灰色长风衣，里面是深色高领毛衣，脚上一双黑皮鞋。画面：仓库里望向纵深处的铁门。画左前景是沈砚的背影，右手握着钢管。画右前景是跪着的周烈。铁门正被推开，林晚站在门口，举着手机。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是林晚的定妆照（正面），<IMAGE_3> 是沈砚的定妆照（背面），<IMAGE_4> 是周烈的定妆照（侧面）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。周烈，四十岁的精瘦男人，梳着油亮的背头，细长眼，右手无名指戴一枚金戒指。从起始画面开始：纵深处的铁门被一把推开，林晚举着手机冲进来，冲着画面前方大喊；画左前景的沈砚转过头，画右的周烈缩了一下。只做这一个动作，镜头固定不动。林晚的台词原句：「我报警了！」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S04-12",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "沈砚又急又心疼",
+                "action": "沈砚回头看林晚，血顺着左手的手指滴在地上。",
+                "characters": ["沈砚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "不是让你别来吗。",
+                    "at_seconds": 1
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画右的林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_warehouse_inside"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_face"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_front"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿黑色短款夹克，里面是深灰色圆领T恤，下身深色工装裤。画面：仓库里，吊灯晃动。沈砚在画左近景，大口喘着气，左手垂在身侧，指尖挂着一滴血。",
+                "video_prompt": "<IMAGE_1> 是七号仓库·内的空镜，<IMAGE_2> 是沈砚的定妆照（脸部），<IMAGE_3> 是沈砚的定妆照（正面）。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：沈砚转头看向画右，喘着气开口，左手指尖的血滴在地上。只做这一个动作，镜头固定不动。沈砚的台词原句：「不是让你别来吗。」。背景保持稳定。视频不要自己出声。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "director-3",
+      "title": "第三章两场一起拆：10 个镜头，沈砚换成包扎后的定妆照",
+      "input": {
+        "task": "storyboard",
+        "work": {
+          "title": "雨夜旧书店",
+          "aspect": "9:16",
+          "video_sound": false
+        },
+        "cast": [
+          {
+            "name": "林晚",
+            "identity_lock": "二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。"
+          },
+          {
+            "name": "沈砚",
+            "identity_lock": "三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。"
+          }
+        ],
+        "costumes": [
+          {
+            "name": "林晚",
+            "scene_id": "S05",
+            "costume_id": "cos_linwan_coat",
+            "description": "米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。"
+          },
+          {
+            "name": "沈砚",
+            "scene_id": "S06",
+            "costume_id": "cos_shenyan_bandage",
+            "description": "穿深灰色圆领T恤，黑色夹克搭在右肩，左前臂缠着白纱布。"
+          },
+          {
+            "name": "林晚",
+            "scene_id": "S06",
+            "costume_id": "cos_linwan_coat",
+            "description": "米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。"
+          }
+        ],
+        "assets": [
+          {
+            "asset_id": "img_linwan_face",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_linwan_front",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "正面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_linwan_side",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "侧面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_linwan_back",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "背面",
+            "costume_id": "cos_linwan_shop",
+            "note": "打烊时的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_face",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_shenyan_front",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "正面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_side",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "侧面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_back",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "背面",
+            "costume_id": "cos_shenyan_jacket",
+            "note": "黑夹克的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_face",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "脸部",
+            "costume_id": null,
+            "note": "只看脸，哪一场都能用"
+          },
+          {
+            "asset_id": "img_zhoulie_front",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "正面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_side",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "侧面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_zhoulie_back",
+            "kind": "定妆照",
+            "subject": "周烈",
+            "view": "背面",
+            "costume_id": "cos_zhoulie_coat",
+            "note": "灰风衣的衣服"
+          },
+          {
+            "asset_id": "img_linwan_coat_front",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "正面",
+            "costume_id": "cos_linwan_coat",
+            "note": "夜里出门的衣服"
+          },
+          {
+            "asset_id": "img_linwan_coat_side",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "侧面",
+            "costume_id": "cos_linwan_coat",
+            "note": "夜里出门的衣服"
+          },
+          {
+            "asset_id": "img_linwan_coat_back",
+            "kind": "定妆照",
+            "subject": "林晚",
+            "view": "背面",
+            "costume_id": "cos_linwan_coat",
+            "note": "夜里出门的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_bandage_front",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "正面",
+            "costume_id": "cos_shenyan_bandage",
+            "note": "包扎之后的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_bandage_side",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "侧面",
+            "costume_id": "cos_shenyan_bandage",
+            "note": "包扎之后的衣服"
+          },
+          {
+            "asset_id": "img_shenyan_bandage_back",
+            "kind": "定妆照",
+            "subject": "沈砚",
+            "view": "背面",
+            "costume_id": "cos_shenyan_bandage",
+            "note": "包扎之后的衣服"
+          },
+          {
+            "asset_id": "img_loc_bookstore_inside",
+            "kind": "场景图",
+            "subject": "旧书店·店内",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "柜台在画左，玻璃门在画右，最里面那排书架在纵深处。"
+          },
+          {
+            "asset_id": "img_loc_bookstore_door",
+            "kind": "场景图",
+            "subject": "旧书店·门口屋檐下",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "玻璃门在画左，三级石台阶往画右下方走，街角在画右深处。"
+          },
+          {
+            "asset_id": "img_loc_dock_outside",
+            "kind": "场景图",
+            "subject": "三号码头·七号仓库外",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "仓库铁门在画左深处，集装箱排在画右，出租车停在画右远处。"
+          },
+          {
+            "asset_id": "img_loc_warehouse_inside",
+            "kind": "场景图",
+            "subject": "七号仓库·内",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "铁门在画中深处，木箱堆在画右，锈钢管靠在画左的墙边。"
+          },
+          {
+            "asset_id": "img_loc_hospital_corridor",
+            "kind": "场景图",
+            "subject": "医院·急诊室外走廊",
+            "view": "空镜",
+            "costume_id": null,
+            "note": "蓝色长椅靠画左的墙，急诊室双开门在画右，走廊尽头在画中深处。"
+          },
+          {
+            "asset_id": "img_prop_tide_table",
+            "kind": "道具图",
+            "subject": "《潮汐表》",
+            "view": "道具",
+            "costume_id": null,
+            "note": "褪色的蓝色布面旧书，封面不印字。"
+          },
+          {
+            "asset_id": "img_prop_rusty_key",
+            "kind": "道具图",
+            "subject": "生锈的钥匙",
+            "view": "道具",
+            "costume_id": null,
+            "note": "老式铜钥匙，圆环钥匙头，约六厘米。"
+          },
+          {
+            "asset_id": "img_prop_ledger_bag",
+            "kind": "道具图",
+            "subject": "裹着塑料袋的账本",
+            "view": "道具",
+            "costume_id": null,
+            "note": "透明塑料袋裹了三层，袋口打结。"
+          },
+          {
+            "asset_id": "img_prop_black_umbrella",
+            "kind": "道具图",
+            "subject": "黑伞",
+            "view": "道具",
+            "costume_id": null,
+            "note": "黑色长柄直伞，木质弯柄。"
+          },
+          {
+            "asset_id": "img_prop_steel_pipe",
+            "kind": "道具图",
+            "subject": "锈钢管",
+            "view": "道具",
+            "costume_id": null,
+            "note": "约一米长，管口有毛刺。"
+          },
+          {
+            "asset_id": "img_prop_folding_knife",
+            "kind": "道具图",
+            "subject": "折叠刀",
+            "view": "道具",
+            "costume_id": null,
+            "note": "黑柄，刀刃约十厘米。"
+          },
+          {
+            "asset_id": "img_prop_ledger_open",
+            "kind": "道具图",
+            "subject": "摊开的账本",
+            "view": "道具",
+            "costume_id": null,
+            "note": "封皮发软，手写字看不清。"
+          }
+        ],
+        "scenes": [
+          {
+            "scene_id": "S05",
+            "no": 5,
+            "heading": {
+              "place": "医院",
+              "spot": "急诊室门外走廊",
+              "interior": true,
+              "time": "凌晨两点",
+              "weather": null
+            },
+            "title": "父亲的字",
+            "characters": ["林晚"],
+            "source_paragraphs": ["P30", "P31", "P32"],
+            "summary": "林晚独自守在急诊室外，打开父亲的账本，忍不住落泪。",
+            "mood": "悲伤",
+            "est_seconds": 15,
+            "elements": [
+              {
+                "type": "action",
+                "text": "凌晨两点，医院走廊的灯白得刺眼。林晚一个人坐在急诊室门外的长椅上，卡其色风衣上还沾着仓库里的灰。",
+                "source": "P30"
+              },
+              {
+                "type": "action",
+                "text": "林晚把塑料袋放在膝盖上，一层一层打开。账本的封皮已经发软，第一页是父亲歪歪扭扭的字迹。",
+                "source": "P31"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "爸，你到底瞒了我多少事。",
+                "delivery": "小声说",
+                "source": "P32"
+              },
+              {
+                "type": "action",
+                "text": "一滴眼泪掉在纸页上，晕开了一小块墨。",
+                "source": "P32"
+              }
+            ]
+          },
+          {
+            "scene_id": "S06",
+            "no": 6,
+            "heading": {
+              "place": "医院",
+              "spot": "急诊室门外走廊",
+              "interior": true,
+              "time": "二十分钟后",
+              "weather": null
+            },
+            "title": "换我",
+            "characters": ["沈砚", "林晚"],
+            "source_paragraphs": ["P33", "P34", "P35", "P36", "P37", "P38", "P39"],
+            "summary": "沈砚包扎完出来，林晚哭着问他为什么一个人去，账本最后一页留下悬念。",
+            "mood": "温暖",
+            "est_seconds": 40,
+            "elements": [
+              {
+                "type": "action",
+                "text": "急诊室的门开了。沈砚走出来，夹克搭在右肩上，左前臂缠着厚厚的白纱布。",
+                "source": "P33"
+              },
+              {
+                "type": "action",
+                "text": "林晚站起来，想说什么，眼泪先涌了出来。她用手背去擦，越擦越多。",
+                "source": "P34"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "缝了十二针，死不了。",
+                "delivery": null,
+                "source": "P35"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "你为什么要一个人去？",
+                "delivery": "哭着问",
+                "source": "P36"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "林晚",
+                "kind": "对白",
+                "line": "你要是出事了，我怎么办？",
+                "delivery": "哭着问",
+                "source": "P36"
+              },
+              {
+                "type": "action",
+                "text": "沈砚沉默了一会儿，抬起没受伤的右手，笨拙地拍了拍林晚的肩膀。",
+                "source": "P37"
+              },
+              {
+                "type": "dialogue",
+                "speaker": "沈砚",
+                "kind": "对白",
+                "line": "你爸当年救过我一次。这回，换我。",
+                "delivery": null,
+                "source": "P37"
+              },
+              {
+                "type": "action",
+                "text": "林晚把脸埋进沈砚的肩头，终于哭出了声。走廊尽头，值班护士轻轻带上了门。",
+                "source": "P38"
+              },
+              {
+                "type": "action",
+                "text": "沈砚低下头，看见林晚攥在手里的账本。最后一页上写着一个名字，沈砚认识这个名字。",
+                "source": "P39"
+              }
+            ]
+          }
+        ],
+        "carry_over": null
+      },
+      "output": {
+        "scenes": [
+          {
+            "scene_id": "S05",
+            "total_seconds": 17,
+            "rhythm": "安静、慢，镜头跟着林晚的情绪慢慢推近。",
+            "shots": [
+              {
+                "shot_id": "S05-01",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "林晚独自等在急诊室外",
+                "action": "医院走廊灯光惨白，林晚一个人坐在急诊室门外的蓝色长椅上，卡其色风衣上沾着灰。",
+                "characters": ["林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画右的急诊室门"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_coat_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_ledger_bag"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。画面：凌晨的医院走廊，白色顶灯很亮。林晚一个人坐在画左的蓝色长椅上，风衣下摆沾着灰，膝盖上放着裹塑料袋的账本。画右是急诊室的门，门上亮着红灯。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是林晚的定妆照（正面），<IMAGE_3> 是裹着塑料袋的账本的道具图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：林晚坐着不动，望着画右急诊室门上的红灯，顶灯轻轻闪了一下。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S05-02",
+                "size": "特写",
+                "tag": "插入",
+                "angle": "俯拍",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "打开父亲的账本",
+                "action": "林晚的手把膝盖上的塑料袋一层层打开，翻开发软的账本，第一页是歪歪扭扭的手写字。",
+                "characters": ["林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画中",
+                    "depth": "前景",
+                    "visible": "只露手",
+                    "facing": "看不见脸"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_prop_ledger_bag"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_prop_ledger_open"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。画面：俯拍特写，一双女人的手放在卡其色风衣的膝盖上，按着一个裹了三层的透明塑料袋。",
+                "video_prompt": "<IMAGE_1> 是裹着塑料袋的账本的道具图，<IMAGE_2> 是摊开的账本的道具图。从起始画面开始：林晚的手把塑料袋一层层打开，翻开发软的账本封皮，露出写满看不清手写字的第一页。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S05-03",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "推",
+                "seconds": 7,
+                "purpose": "林晚落泪",
+                "action": "林晚低头看着账本小声说话，一滴眼泪落在纸页上晕开墨迹。",
+                "characters": ["林晚"],
+                "dialogue": [
+                  {
+                    "speaker": "林晚",
+                    "line": "爸，你到底瞒了我多少事。",
+                    "at_seconds": 1
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "脸",
+                    "facing": "向下看膝盖上的账本"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_face"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_prop_ledger_open"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。画面：医院走廊，背景是虚化的白色顶灯。林晚低着头，看着膝盖上摊开的账本，眼眶发红。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是林晚的定妆照（脸部），<IMAGE_3> 是摊开的账本的道具图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：林晚看着账本小声开口，说完下巴发抖，一滴眼泪落在纸页上，晕开一小块墨。只做这一个动作，镜头缓慢推近。林晚的台词原句：「爸，你到底瞒了我多少事。」。背景保持稳定。视频不要自己出声。"
+              }
+            ]
+          },
+          {
+            "scene_id": "S06",
+            "total_seconds": 40,
+            "rhythm": "情绪一层层往上走，最后用账本特写留下悬念。",
+            "shots": [
+              {
+                "shot_id": "S06-01",
+                "size": "全景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 5,
+                "purpose": "沈砚包扎完出来",
+                "action": "急诊室的门开了，沈砚走出来，夹克搭在右肩，左前臂缠着白纱布；长椅上的林晚站起来。",
+                "characters": ["沈砚", "林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画右的沈砚"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "全身",
+                    "facing": "看向画左的林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_bandage_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_linwan_coat_front"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿深灰色圆领T恤，黑色夹克搭在右肩，左前臂缠着白纱布。画面：医院走廊，白色顶灯。画右急诊室的门刚打开，沈砚站在门口。林晚坐在画左的长椅上，手里攥着账本。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是沈砚的定妆照（正面），<IMAGE_3> 是林晚的定妆照（正面）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画右的沈砚从急诊室走出来，左前臂垂在身侧；画左的林晚一下子从长椅上站起来，看着他。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S06-02",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 4,
+                "purpose": "林晚忍不住哭",
+                "action": "林晚想说话，眼泪先涌出来，她用手背去擦，越擦越多。",
+                "characters": ["林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "脸",
+                    "facing": "看向画右的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_face"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。画面：医院走廊，背景虚化。林晚在画左近景，眼眶通红，嘴唇微微张开。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是林晚的定妆照（脸部）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：林晚张了张嘴没说出话，眼泪先涌出来，她抬起手背去擦，越擦越多。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S06-03",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 4,
+                "purpose": "沈砚故作轻松",
+                "action": "沈砚看着林晚，故作轻松地开口。",
+                "characters": ["沈砚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "缝了十二针，死不了。",
+                    "at_seconds": 0.6
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_bandage_front"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿深灰色圆领T恤，黑色夹克搭在右肩，左前臂缠着白纱布。画面：医院走廊，白色顶灯。沈砚在画右中景，夹克搭在右肩，左前臂缠着白纱布垂在身侧。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是沈砚的定妆照（正面）。人物：沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：沈砚看着画左，扯了一下嘴角，故作轻松地开口。只做这一个动作，镜头固定不动。沈砚的台词原句：「缝了十二针，死不了。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S06-04",
+                "size": "近景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 8,
+                "purpose": "林晚哭着追问",
+                "action": "林晚哭着追问，声音发抖。",
+                "characters": ["林晚"],
+                "dialogue": [
+                  {
+                    "speaker": "林晚",
+                    "line": "你为什么要一个人去？",
+                    "at_seconds": 0.6
+                  },
+                  {
+                    "speaker": "林晚",
+                    "line": "你要是出事了，我怎么办？",
+                    "at_seconds": 3.6
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "脸",
+                    "facing": "看向画右的沈砚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_face"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。画面：医院走廊，背景虚化。林晚在画左近景，满脸泪水，看着画右。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是林晚的定妆照（脸部）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。从起始画面开始：林晚哭着追问，说完第一句吸了一下鼻子，再说第二句，声音越来越抖。只做这一个动作，镜头固定不动。林晚的台词原句：「你为什么要一个人去？」。林晚的台词原句：「你要是出事了，我怎么办？」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S06-05",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "推",
+                "seconds": 9,
+                "purpose": "沈砚说出原因",
+                "action": "沈砚沉默一会儿，抬起没受伤的右手，笨拙地拍了拍林晚的肩膀。",
+                "characters": ["沈砚", "林晚"],
+                "dialogue": [
+                  {
+                    "speaker": "沈砚",
+                    "line": "你爸当年救过我一次。这回，换我。",
+                    "at_seconds": 2.4
+                  }
+                ],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画右的沈砚"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "看向画左的林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_shenyan_bandage_front"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_linwan_coat_side"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿深灰色圆领T恤，黑色夹克搭在右肩，左前臂缠着白纱布。画面：医院走廊。林晚站在画左，满脸泪水。沈砚站在画右，左前臂缠着白纱布垂在身侧。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是沈砚的定妆照（正面），<IMAGE_3> 是林晚的定妆照（侧面）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：画右的沈砚沉默了一会儿，抬起右手笨拙地拍了拍林晚的肩膀，然后开口；他的左前臂一直垂着不动。只做这一个动作，镜头缓慢推近。沈砚的台词原句：「你爸当年救过我一次。这回，换我。」。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S06-06",
+                "size": "中景",
+                "tag": null,
+                "angle": "平视",
+                "move": "固定",
+                "seconds": 6,
+                "purpose": "林晚终于哭出声",
+                "action": "林晚把脸埋进沈砚的肩头，终于哭出声；走廊尽头，值班护士轻轻带上了门。",
+                "characters": ["林晚", "沈砚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画左",
+                    "depth": "中间",
+                    "visible": "背影",
+                    "facing": "把脸埋进沈砚的肩头"
+                  },
+                  {
+                    "name": "沈砚",
+                    "position": "画右",
+                    "depth": "中间",
+                    "visible": "半身",
+                    "facing": "低头看林晚"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_loc_hospital_corridor"
+                  },
+                  {
+                    "token": "<IMAGE_2>",
+                    "asset_id": "img_linwan_coat_back"
+                  },
+                  {
+                    "token": "<IMAGE_3>",
+                    "asset_id": "img_shenyan_bandage_front"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。米白色粗针毛衣外面套着及膝的卡其色风衣，没有围裙。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。穿深灰色圆领T恤，黑色夹克搭在右肩，左前臂缠着白纱布。画面：医院走廊，白色顶灯。林晚在画左，额头靠向画右沈砚的右肩。走廊尽头的门半开着，门边站着一个值班护士。",
+                "video_prompt": "<IMAGE_1> 是医院·急诊室外走廊的空镜，<IMAGE_2> 是林晚的定妆照（背面），<IMAGE_3> 是沈砚的定妆照（正面）。人物：林晚，二十六岁的清瘦女人，鹅蛋脸，齐肩黑发别在耳后，左眼角有一颗小痣。沈砚，三十四岁的高个男人，短寸头，眉骨很高，下颌左侧有一道浅疤。从起始画面开始：林晚把脸埋进沈砚的右肩哭出声，肩膀一抽一抽；沈砚低头看着她，没有动；走廊尽头的护士轻轻带上了门。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              },
+              {
+                "shot_id": "S06-07",
+                "size": "特写",
+                "tag": "插入",
+                "angle": "主观",
+                "move": "固定",
+                "seconds": 4,
+                "purpose": "账本最后一页的名字",
+                "action": "沈砚低头看见林晚攥着的账本翻在最后一页，上面写着一个看不清的名字。",
+                "characters": ["林晚"],
+                "dialogue": [],
+                "blocking": [
+                  {
+                    "name": "林晚",
+                    "position": "画中",
+                    "depth": "前景",
+                    "visible": "只露手",
+                    "facing": "看不见脸"
+                  }
+                ],
+                "continuity_from_prev": false,
+                "reference_images": [
+                  {
+                    "token": "<IMAGE_1>",
+                    "asset_id": "img_prop_ledger_open"
+                  }
+                ],
+                "start_frame_prompt": "竖屏构图。画面：主观视角往下看，特写一只女人的手攥着摊开的旧账本，停在最后一页，纸上写着一行看不清的名字。",
+                "video_prompt": "<IMAGE_1> 是摊开的账本的道具图。从起始画面开始：林晚的手指微微收紧，账本的最后一页在顶灯下轻轻颤动，纸上那行字始终看不清。只做这一个动作，镜头固定不动。背景保持稳定。视频不要自己出声。"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

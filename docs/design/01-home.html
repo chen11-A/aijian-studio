@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIVORA 原型 · 新手首页</title>
+    <link rel="stylesheet" href="assets/proto.css" />
+    <style>
+      .home {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 20px;
+        height: 100%;
+        padding: 20px;
+      }
+      .start {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 24px 28px;
+        overflow: hidden;
+      }
+      .start-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        width: 100%;
+        max-width: 880px;
+        min-height: 0;
+        margin: auto;
+      }
+      .start h1 {
+        font-size: 22px;
+        line-height: 1.3;
+      }
+      .start .lead {
+        margin-top: 6px;
+        color: var(--text-2);
+        font-size: 14px;
+      }
+      .drop {
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 10px;
+        min-height: 190px;
+        padding: 20px;
+        border: 1.5px dashed var(--line-2);
+        border-radius: 12px;
+        background: var(--panel-2);
+        text-align: center;
+      }
+      .drop .big {
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .drop .ic.lg {
+        width: 34px;
+        height: 34px;
+        color: var(--accent);
+      }
+      .file {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        border: 1px solid var(--line-2);
+        border-radius: 12px;
+        background: var(--panel-2);
+      }
+      .file .badge-ic {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .file .name {
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .file .peek {
+        margin-top: 6px;
+        color: var(--text-2);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .choices {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 28px;
+      }
+      .choices .field {
+        gap: 8px;
+      }
+      .go {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 16px 18px;
+        border-radius: 12px;
+        background: linear-gradient(90deg, rgba(61, 111, 217, 0.18), rgba(124, 108, 255, 0.08));
+        border: 1px solid rgba(91, 140, 255, 0.35);
+      }
+      .go .btn.lg {
+        min-width: 180px;
+      }
+      .go .why {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+        color: var(--text-2);
+      }
+      .go .why strong {
+        color: var(--text);
+      }
+      .path {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr);
+        gap: 4px 10px;
+        align-items: center;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        min-width: 0;
+      }
+      .step .no {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 1px solid var(--line-2);
+        color: var(--text-2);
+        font-weight: 700;
+      }
+      .step .t {
+        font-weight: 700;
+        min-width: 0;
+      }
+      .step .d {
+        grid-column: 2;
+        color: var(--text-3);
+        font-size: 12px;
+        min-width: 0;
+      }
+      .step.done .no {
+        border-color: var(--ok);
+        color: var(--ok);
+      }
+      .step.now {
+        border-color: rgba(91, 140, 255, 0.6);
+        background: var(--accent-soft);
+      }
+      .step.now .no {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+      .path-note {
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .side {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 0;
+      }
+      .side .panel-body {
+        display: grid;
+        gap: 10px;
+      }
+      .recent {
+        flex: 1 1 auto;
+      }
+      .recent .scroll {
+        flex: 1 1 auto;
+      }
+      .member {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+      }
+      .steps-run {
+        display: grid;
+        gap: 4px;
+      }
+      .run {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border-radius: 8px;
+      }
+      .run.now {
+        background: var(--accent-soft);
+      }
+      .run .st {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 1px solid var(--line-2);
+        color: var(--text-3);
+      }
+      .run.done .st {
+        border-color: var(--ok);
+        color: var(--ok);
+      }
+      .run.now .st {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .run .what {
+        font-weight: 700;
+      }
+      .run .detail {
+        color: var(--text-2);
+      }
+      .run.wait .what,
+      .run.wait .detail {
+        color: var(--text-3);
+        font-weight: 400;
+      }
+      .made {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+      .made .frame {
+        width: 150px;
+        aspect-ratio: 9 / 16;
+      }
+      .poster {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 12px;
+      }
+      .poster-title {
+        font-family: "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.2;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+      }
+      .poster-ep {
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .ai-mark {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.55);
+        font-size: 12px;
+        line-height: 20px;
+      }
+      .made .title {
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .made dl {
+        display: grid;
+        grid-template-columns: 72px minmax(0, 1fr);
+        gap: 6px 12px;
+        margin-top: 12px;
+      }
+      .made dt {
+        color: var(--text-3);
+      }
+      .confirm-table {
+        display: grid;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .confirm-table .r {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border-top: 1px solid var(--line);
+      }
+      .confirm-table .r:first-child {
+        border-top: 0;
+      }
+      .confirm-table .n {
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .confirm-table .sub {
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      @media (min-width: 1600px) {
+        .home {
+          grid-template-columns: minmax(0, 1fr) 380px;
+          gap: 24px;
+          padding: 28px;
+        }
+        .start {
+          padding: 48px 40px;
+        }
+        .start-inner {
+          gap: 28px;
+          max-width: 980px;
+        }
+        .start h1 {
+          font-size: 28px;
+          line-height: 1.4;
+        }
+        .start .lead {
+          font-size: 15px;
+        }
+        .drop {
+          min-height: 260px;
+        }
+      }
+    </style>
+  </head>
+  <body data-states="normal empty login loading confirm done error">
+    <div class="app">
+      <header class="topbar">
+        <div class="tb-left">
+          <div class="logo"><span class="logo-mark">A</span>AIVORA</div>
+          <span class="vsep"></span>
+          <button class="proj" aria-label="作品" data-show="normal login loading confirm done">
+            <span class="one-line">雨夜旧书店</span><span class="ep">/ 第 1 集</span>
+            <svg class="ic sm"><use href="#i-chev" /></svg>
+          </button>
+          <button class="proj" aria-label="作品" data-show="empty error">
+            <span class="one-line">还没有作品</span><svg class="ic sm"><use href="#i-chev" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="撤销" title="撤销" disabled>
+            <svg class="ic"><use href="#i-undo" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="重做" title="重做" disabled>
+            <svg class="ic"><use href="#i-redo" /></svg>
+          </button>
+        </div>
+        <nav class="tabs" aria-label="创作阶段">
+          <button class="tab" title="先放入小说才能用" data-disabled="empty error">
+            <span class="n">1</span>剧本
+          </button>
+          <button class="tab" title="先放入小说才能用" data-disabled="empty error">
+            <span class="n">2</span>角色与场景
+          </button>
+          <button class="tab" title="先放入小说才能用" data-disabled="empty error">
+            <span class="n">3</span>分镜
+          </button>
+          <button class="tab" title="先放入小说才能用" data-disabled="empty error">
+            <span class="n">4</span>剪辑
+          </button>
+        </nav>
+        <div class="tb-right">
+          <button class="chip" data-show="normal loading confirm done">
+            <span class="dot"></span>Grok 会员 · 已连接
+          </button>
+          <button class="chip" data-show="empty login error">
+            <span class="dot warn"></span>Grok 会员 · 未登录
+          </button>
+          <button class="btn ghost" aria-label="任务">
+            <svg class="ic"><use href="#i-list" /></svg>任务
+          </button>
+          <button
+            class="btn primary"
+            disabled
+            title="还没有生成好的镜头"
+            data-show="normal empty login loading confirm error"
+          >
+            <svg class="ic"><use href="#i-export" /></svg>导出成片
+          </button>
+          <button class="btn primary" data-show="done">
+            <svg class="ic"><use href="#i-export" /></svg>导出成片
+          </button>
+          <button class="avatar" aria-label="账号">
+            <svg class="ic sm"><use href="#i-user" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="home">
+          <section class="panel start" aria-labelledby="start-title">
+            <div class="start-inner">
+              <div data-show="normal empty login confirm error">
+                <h1 id="start-title">把小说变成一部短剧</h1>
+                <p class="lead">
+                  拖进来，点一下。写剧本、定人物、拆镜头、出画面、配音和剪辑都交给
+                  AI，用的是你自己的 Grok 会员。
+                </p>
+              </div>
+
+              <div class="drop" data-show="empty">
+                <svg class="ic lg"><use href="#i-upload" /></svg>
+                <p class="big">把小说文件拖到这里</p>
+                <p class="muted">支持 txt、md、docx、epub。也可以直接粘贴文字。</p>
+                <div class="row">
+                  <button class="btn">
+                    <svg class="ic"><use href="#i-file" /></svg>选择文件
+                  </button>
+                  <button class="btn ghost">粘贴文字</button>
+                </div>
+              </div>
+
+              <div class="stack" data-show="error">
+                <div class="banner err" role="alert">
+                  <svg class="ic err-text"><use href="#i-alert" /></svg>
+                  <div class="text">
+                    <strong>雨夜旧书店.pdf 读不出文字</strong>
+                    <span class="muted"
+                      >现在还不能读 PDF。请另存为 txt 或 docx
+                      再拖进来，或者把文字复制后粘贴进来。</span
+                    >
+                  </div>
+                </div>
+                <div class="drop">
+                  <p class="big">把小说文件拖到这里</p>
+                  <p class="muted">支持 txt、md、docx、epub。</p>
+                  <div class="row">
+                    <button class="btn">
+                      <svg class="ic"><use href="#i-file" /></svg>重新选择文件
+                    </button>
+                    <button class="btn ghost">粘贴文字</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="file" data-show="normal login confirm">
+                <span class="badge-ic"
+                  ><svg class="ic lg"><use href="#i-book" /></svg
+                ></span>
+                <div style="min-width: 0">
+                  <p class="name one-line">雨夜旧书店.txt</p>
+                  <p class="muted">3 章 · 1,554 字 · 已存进作品「雨夜旧书店」</p>
+                  <p class="peek">
+                    第一章
+                    雨夜旧书店：雨下到第三个钟头，老街的路灯一盏接一盏晕成黄色的雾。晚上十点，林晚把门口的营业木牌翻了个面，正要锁门，玻璃门被人从外面推开，门上的风铃乱响。
+                  </p>
+                </div>
+                <button class="btn ghost sm">换一个文件</button>
+              </div>
+
+              <div class="choices" data-show="normal empty login confirm error">
+                <div class="field">
+                  <span class="label">画面</span>
+                  <div class="seg" role="group" aria-label="画面方向">
+                    <button aria-pressed="true">竖屏 9:16</button
+                    ><button aria-pressed="false">横屏 16:9</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <span class="label">画风</span>
+                  <button class="select" style="width: 170px">
+                    写实电影感<svg class="ic sm"><use href="#i-chev" /></svg>
+                  </button>
+                </div>
+                <div class="field">
+                  <span class="label">先做</span>
+                  <div class="seg" role="group" aria-label="先做成片还是草稿">
+                    <button aria-pressed="true">成片</button
+                    ><button aria-pressed="false">草稿（更快，脸可能会变）</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="go" data-show="normal confirm">
+                <button class="btn primary lg">
+                  <svg class="ic"><use href="#i-wand" /></svg>一键出片
+                </button>
+                <div class="why">
+                  <strong>先写剧本、定人物、拆镜头，这一步只用文字，不生成画面。</strong>
+                  <span
+                    >要生成画面和视频之前，会先告诉你一共做多少段，你点「开始生成」才会用会员额度。</span
+                  >
+                </div>
+              </div>
+              <div class="go" data-show="login">
+                <button class="btn primary lg">
+                  <svg class="ic"><use href="#i-wand" /></svg>登录 Grok 并出片
+                </button>
+                <div class="why">
+                  <strong>会打开浏览器，在 Grok 页面点同意，回来后自动开始写剧本。</strong>
+                  <span>不用在这里输入密码。生成画面和视频之前还会再问你一次。</span>
+                </div>
+              </div>
+              <div class="go" data-show="empty error">
+                <button class="btn primary lg" disabled title="先把小说拖进来">
+                  <svg class="ic"><use href="#i-wand" /></svg>一键出片
+                </button>
+                <div class="why">
+                  <strong>先把小说拖进来。</strong>
+                  <span>放进来以后，这个按钮就能点了。</span>
+                </div>
+              </div>
+
+              <div data-show="normal empty login confirm error">
+                <ol class="path" aria-label="做出第一部片子要点的步骤">
+                  <li class="step done" data-show="normal login confirm">
+                    <span class="no"
+                      ><svg class="ic sm"><use href="#i-check" /></svg
+                    ></span>
+                    <span class="t one-line">拖入小说</span
+                    ><span class="d one-line">拖进来，不用点</span>
+                  </li>
+                  <li class="step now" data-show="empty error">
+                    <span class="no">1</span><span class="t one-line">拖入小说</span
+                    ><span class="d one-line">拖进来，不用点</span>
+                  </li>
+                  <li class="step" data-show="normal login confirm">
+                    <span class="no">2</span><span class="t one-line">一键出片</span
+                    ><span class="d one-line">没登录时先登录</span>
+                  </li>
+                  <li class="step" data-show="empty error">
+                    <span class="no">2</span><span class="t one-line">一键出片</span
+                    ><span class="d one-line">没登录时先登录</span>
+                  </li>
+                  <li class="step">
+                    <span class="no">3</span><span class="t one-line">开始生成</span
+                    ><span class="d one-line">看清要做多少再点</span>
+                  </li>
+                  <li class="step">
+                    <span class="no">4</span><span class="t one-line">做好自动导出</span
+                    ><span class="d one-line">点播放就能看</span>
+                  </li>
+                </ol>
+                <p class="path-note" style="margin-top: 8px">
+                  已登录时点 2 次就能做出成片：一键出片、开始生成。没登录多 2
+                  次：登录、在浏览器里点同意。
+                </p>
+              </div>
+
+              <div class="stack" data-show="loading">
+                <div>
+                  <h1>正在准备《雨夜旧书店》</h1>
+                  <p class="lead">
+                    这一步只用文字模型，不生成画面。完成一步就打一个勾，可以离开这一页，进度在「任务」里。
+                  </p>
+                </div>
+                <ol class="steps-run" aria-live="polite">
+                  <li class="run done">
+                    <span class="st"
+                      ><svg class="ic sm"><use href="#i-check" /></svg
+                    ></span>
+                    <span class="what">读小说</span><span class="detail">3 章，1,554 字</span>
+                  </li>
+                  <li class="run done">
+                    <span class="st"
+                      ><svg class="ic sm"><use href="#i-check" /></svg
+                    ></span>
+                    <span class="what">写剧本</span
+                    ><span class="detail">分成 6 场，22 句对白一句没少</span>
+                  </li>
+                  <li class="run now">
+                    <span class="st"
+                      ><svg class="ic sm spin"><use href="#i-refresh" /></svg
+                    ></span>
+                    <span class="what">定人物和场景</span
+                    ><span class="detail">正在写第 3 个人物：周烈</span>
+                  </li>
+                  <li class="run wait">
+                    <span class="st">4</span><span class="what">拆镜头</span
+                    ><span class="detail">等上一步</span>
+                  </li>
+                  <li class="run wait">
+                    <span class="st">5</span><span class="what">告诉你要生成多少</span
+                    ><span class="detail">要你点「开始生成」</span>
+                  </li>
+                  <li class="run wait">
+                    <span class="st">6</span><span class="what">生成画面、视频和配音</span
+                    ><span class="detail">用会员额度</span>
+                  </li>
+                  <li class="run wait">
+                    <span class="st">7</span><span class="what">检查并导出</span
+                    ><span class="detail">黑屏、画面停住、字幕、音量</span>
+                  </li>
+                </ol>
+                <div class="row">
+                  <button class="btn">
+                    <svg class="ic"><use href="#i-stop" /></svg>停下
+                  </button>
+                  <span class="faint">停下以后，写好的部分会留着，下次接着做。</span>
+                </div>
+              </div>
+
+              <div class="stack" data-show="done">
+                <div class="banner ok" role="status">
+                  <svg class="ic ok-text"><use href="#i-check" /></svg>
+                  <div class="text">
+                    <strong>第 1 集做好了，已经保存</strong>
+                    <span class="muted"
+                      >导出前自动检查：剪掉了 1 处开头黑屏，补上了 1
+                      句缺的字幕，整片音量调到听着一样大。</span
+                    >
+                  </div>
+                </div>
+                <div class="made">
+                  <div class="frame art-bookstore poster" data-art>
+                    <span class="poster-title">雨夜旧书店</span
+                    ><span class="poster-ep">第 1 集</span>
+                    <span class="ai-mark">AI 生成</span>
+                  </div>
+                  <div>
+                    <p class="title">雨夜旧书店 · 第 1 集</p>
+                    <dl>
+                      <dt>时长</dt>
+                      <dd>3 分 31 秒（含 3 秒片头）</dd>
+                      <dt>画面</dt>
+                      <dd>竖屏 1080×1920，MP4</dd>
+                      <dt>保存在</dt>
+                      <dd class="one-line">视频 › AIVORA › 雨夜旧书店-第1集.mp4</dd>
+                      <dt>内容</dt>
+                      <dd>6 场 · 39 个镜头 · 22 句配音 · 带字幕和「AI 生成」标识</dd>
+                    </dl>
+                    <div class="row" style="margin-top: 18px">
+                      <button class="btn primary lg">
+                        <svg class="ic"><use href="#i-play" /></svg>播放
+                      </button>
+                      <button class="btn">
+                        <svg class="ic"><use href="#i-folder" /></svg>打开文件夹
+                      </button>
+                      <button class="btn ghost">去剪辑里改</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="side" aria-label="账号和作品">
+            <section class="panel" aria-labelledby="member-title">
+              <div class="panel-head"><h2 id="member-title">Grok 会员</h2></div>
+              <div class="panel-body">
+                <div data-show="normal loading confirm done">
+                  <p class="member"><span class="dot"></span>已连接</p>
+                  <p class="muted">
+                    生成用的是你自己的会员额度。软件看不到还剩多少，所以每次生成前都会先告诉你要做多少。
+                  </p>
+                </div>
+                <div data-show="empty login error">
+                  <p class="member"><span class="dot warn"></span>还没登录</p>
+                  <p class="muted">
+                    登录会打开浏览器，在 Grok 页面点同意就回来，不用在这里输入密码。
+                  </p>
+                  <button class="btn" style="margin-top: 10px">用 Grok 会员登录</button>
+                </div>
+              </div>
+            </section>
+            <section class="panel recent" aria-labelledby="recent-title">
+              <div class="panel-head"><h2 id="recent-title">最近的作品</h2></div>
+              <div class="scroll">
+                <div class="empty" data-show="normal empty login loading confirm error">
+                  <svg class="ic lg"><use href="#i-film" /></svg>
+                  <p>还没有做好的作品。做完第一部，会出现在这里。</p>
+                </div>
+                <ul class="panel-body" data-show="done">
+                  <li class="row">
+                    <div
+                      class="frame art-bookstore"
+                      data-art
+                      style="width: 40px; height: 56px; flex: none"
+                    ></div>
+                    <div class="one-line">
+                      <p class="one-line" style="font-weight: 700">雨夜旧书店 · 第 1 集</p>
+                      <p class="faint">3 分 31 秒 · 刚刚做好</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </section>
+            <section class="panel" aria-labelledby="sample-title">
+              <div class="panel-head"><h2 id="sample-title">先看看示例</h2></div>
+              <div class="panel-body">
+                <p class="muted">
+                  「雨夜巷战」是软件自带的示例，可以先看一遍完整流程，不用会员额度。
+                </p>
+                <button class="btn ghost" style="justify-self: start">打开示例</button>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span class="note" role="status" data-show="normal confirm"
+          >已读入《雨夜旧书店》：3 章，1,554 字。</span
+        >
+        <span class="note" role="status" data-show="empty"
+          >还没有作品。把小说拖进来就会新建一部。</span
+        >
+        <span class="note" role="status" data-show="login"
+          >已读入《雨夜旧书店》。登录 Grok 以后才能写剧本。</span
+        >
+        <span class="note" role="status" data-show="loading">正在定人物和场景。</span>
+        <span class="note" role="status" data-show="done">第 1 集已导出。</span>
+        <span class="note" role="alert" data-show="error">没有读入：这个文件是 PDF。</span>
+        <span class="task">
+          <svg class="ic sm"><use href="#i-clock" /></svg>
+          <span data-show="normal empty login confirm error done"
+            >后台生成：没有正在生成的内容</span
+          >
+          <span data-show="loading">后台生成：正在问文字模型</span>
+        </span>
+        <span class="where" data-show="normal login loading confirm done"
+          >作品保存在 <b>雨夜旧书店</b></span
+        >
+        <span class="where" data-show="empty error">作品会保存在应用数据目录</span>
+      </footer>
+    </div>
+
+    <div class="dialog-back" data-show="confirm">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div>
+          <h2 id="confirm-title">开始生成前，先看看要做多少</h2>
+          <p class="muted" style="margin-top: 6px">
+            剧本和分镜已经写好：6 场 · 39 个镜头 · 共 3 分 28 秒。
+          </p>
+        </div>
+        <div class="confirm-table">
+          <div class="r">
+            <svg class="ic"><use href="#i-image" /></svg>
+            <div>
+              <p>定妆照、场景图、道具图</p>
+              <p class="sub">3 个人物、5 个地点、7 件道具</p>
+            </div>
+            <span class="n">30 张图</span>
+          </div>
+          <div class="r">
+            <svg class="ic"><use href="#i-image" /></svg>
+            <div>
+              <p>每个镜头的起始画面</p>
+              <p class="sub">视频从这张图开始动</p>
+            </div>
+            <span class="n">39 张图</span>
+          </div>
+          <div class="r">
+            <svg class="ic"><use href="#i-film" /></svg>
+            <div>
+              <p>视频</p>
+              <p class="sub">每个镜头 2 个版本，加起来约 6 分 56 秒</p>
+            </div>
+            <span class="n">78 段</span>
+          </div>
+          <div class="r">
+            <svg class="ic"><use href="#i-mic" /></svg>
+            <div>
+              <p>配音</p>
+              <p class="sub">剧本里的全部对白</p>
+            </div>
+            <span class="n">22 句</span>
+          </div>
+        </div>
+        <div class="row">
+          <span>每个镜头做几个版本</span>
+          <div class="seg" role="group" aria-label="每个镜头做几个版本">
+            <button aria-pressed="false">1</button><button aria-pressed="true">2</button
+            ><button aria-pressed="false">3</button>
+          </div>
+          <span class="faint">版本越多越好挑，也越费额度。</span>
+        </div>
+        <p class="muted">
+          这些都会用你的 Grok 会员额度。软件看不到还剩多少；额度用完时 Grok
+          会停下，已经做好的都会留着。
+        </p>
+        <label class="check">
+          <input type="checkbox" checked />做完后自动检查并导出到「视频 › AIVORA」
+        </label>
+        <div class="acts">
+          <button class="btn ghost" style="margin-right: auto">先看看分镜</button>
+          <button class="btn">先不生成</button>
+          <button class="btn primary">开始生成</button>
+        </div>
+      </div>
+    </div>
+    <script src="assets/proto.js"></script>
+  </body>
+</html>

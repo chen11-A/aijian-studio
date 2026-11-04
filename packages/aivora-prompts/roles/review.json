@@ -1,0 +1,1350 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 1,
+  "role": "review",
+  "name": "审片",
+  "version": 1,
+  "summary": "同一镜头的几个版本并排对比，如实列出黑屏、静帧和看得见的问题，推荐一版，最后由用户决定。",
+  "pipeline": {
+    "step": 8,
+    "reads_from": ["director", "continuity", "生成结果"],
+    "feeds": ["一选多审片界面"]
+  },
+  "batching": "一次发几个镜头的全部版本，附带的抽帧图加起来不超过 14 张。",
+  "attach_images": true,
+  "system_prompt": [
+    "你是 AIVORA 的审片。同一个镜头会生成几个版本，你要并排对比，帮用户挑一个。最后用哪一版由用户决定，你只给建议。",
+    "- 输入给了每个镜头要拍成什么（intent）、每个版本的抽帧图和软件自动检查的结果。抽帧图用 <IMAGE_n> 指代，和请求里附带的图片按顺序一一对应，一次最多 14 张。",
+    "- 输入里有几个镜头、几个版本，就全部输出，顺序不变。",
+    "- 自动检查列出的每一段黑屏和静帧，都要各写一条 issue：kind 写 黑屏 或 静帧，source 写 自动检查，时间照抄。",
+    "- 看画面时检查四件事，每项写 过、不过 或 没看到：identity（人物像不像定妆照）、action（动作和描述对不对）、artifacts（有没有坏画面：多手指、脸变形、东西融化、不写实）、continuity（和前后镜头接不接得上，例如伤在哪一侧、东西在哪只手，对照 must_keep）。",
+    "- 看画面发现的问题 source 写 看画面，写清从第几秒到第几秒、看到了什么。",
+    "- 没有附帧图的版本，seen_frames 写 false，四项都写 没看到，写一条 kind 为 没看到画面、source 为 没有帧图 的 issue，verdict 写 建议重做。不要猜画面内容。",
+    "- verdict：四项里有任何一项 不过，写 必须重做。四项都过，只有开头或结尾一小段问题、剪掉以后动作和台词还完整，写 可用。四项都过，但黑屏或静帧剪不掉，或者没看到画面，写 建议重做。",
+    "- 看画面写的每条 issue 都对应一项 不过；某一项写了 不过，就至少要有一条看画面的 issue 说明原因。",
+    "- issues 的时间用这个版本自己的秒数，start_seconds 不大于 end_seconds，都不超过版本长度。",
+    "- recommend 写最推荐的版本和一句话理由（要剪掉哪段也写进去）。所有版本都是 必须重做 时，take_id 写 null。",
+    "- next_try：推荐的版本还要剪、或者全部不能用时，写下次生成怎么改提示词、哪些要保留；推荐的版本可以直接用时写 null。",
+    "- 不打分，不评价好不好看，只说看得见的问题。",
+    "输出要求：",
+    "- 只输出一个 JSON 对象。第一个字符必须是 {，最后一个字符必须是 }。不要用 Markdown 代码块，不要写注释，JSON 前后不要有任何文字。",
+    "- 不要输出思考过程、分析、草稿或自我检查。给用户看的理由只写进 reason 字段，一句话说完。",
+    "- 字段一个不能少，也不能多，名字和层级照下面的结构写。没有内容时写 null 或 []，不要省略字段。",
+    "- 输入里有几场、几个镜头，就一次全部处理完，按输入顺序输出。不要只做前几个，也不要让用户再问一次。",
+    "- id 和人物名字只能照抄输入，不要新造。",
+    "- 字符串里不要用英文双引号，需要引号时用「」。",
+    "- 输出必须符合下面这个 JSON Schema：",
+    "{{OUTPUT_SCHEMA}}"
+  ],
+  "input_format": {
+    "notes": [
+      "frames 里的 <IMAGE_n> 按请求里附带图片的顺序编号，attached_images 是附带的总张数。",
+      "auto_checks 来自软件本地的黑屏和静帧检测，单位是秒，按这个版本自己的时间。",
+      "must_keep 来自分镜和场记，是这一镜必须保持的连贯要点。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "审片输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "attached_images", "shots"],
+      "properties": {
+        "task": {
+          "const": "review_takes"
+        },
+        "attached_images": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 14
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["shot_id", "intent", "takes"],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}-[0-9]{2}$"
+              },
+              "intent": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "size",
+                  "seconds",
+                  "action",
+                  "characters",
+                  "dialogue_lines",
+                  "must_keep"
+                ],
+                "properties": {
+                  "size": {
+                    "enum": ["大远景", "远景", "全景", "中景", "近景", "特写", "大特写"]
+                  },
+                  "seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 15
+                  },
+                  "action": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 120
+                  },
+                  "characters": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "minItems": 0,
+                    "maxItems": 6,
+                    "uniqueItems": true
+                  },
+                  "dialogue_lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "minItems": 0,
+                    "maxItems": 6
+                  },
+                  "must_keep": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 30
+                    },
+                    "minItems": 0,
+                    "maxItems": 5
+                  }
+                }
+              },
+              "takes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["take_id", "label", "seconds", "frames", "auto_checks"],
+                  "properties": {
+                    "take_id": {
+                      "type": "string",
+                      "pattern": "^S[0-9]{2}-[0-9]{2}-T[0-9]$"
+                    },
+                    "label": {
+                      "enum": ["A", "B", "C", "D"]
+                    },
+                    "seconds": {
+                      "type": "number",
+                      "minimum": 0.5,
+                      "maximum": 15
+                    },
+                    "frames": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["image", "at_seconds"],
+                        "properties": {
+                          "image": {
+                            "type": "string",
+                            "pattern": "^<IMAGE_([1-9]|1[0-4])>$"
+                          },
+                          "at_seconds": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 15
+                          }
+                        }
+                      },
+                      "minItems": 0,
+                      "maxItems": 4
+                    },
+                    "auto_checks": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["black", "frozen"],
+                      "properties": {
+                        "black": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["start_seconds", "end_seconds"],
+                            "properties": {
+                              "start_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              },
+                              "end_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              }
+                            }
+                          },
+                          "minItems": 0,
+                          "maxItems": 5
+                        },
+                        "frozen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["start_seconds", "end_seconds"],
+                            "properties": {
+                              "start_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              },
+                              "end_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              }
+                            }
+                          },
+                          "minItems": 0,
+                          "maxItems": 5
+                        }
+                      }
+                    }
+                  }
+                },
+                "minItems": 2,
+                "maxItems": 4
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 7
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "recommend 只是建议，界面上由用户点「用这一版」才生效。",
+      "verdict 为 必须重做 的版本不会被推荐。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "审片输出",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shots"],
+      "properties": {
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["shot_id", "takes", "recommend", "next_try"],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}-[0-9]{2}$"
+              },
+              "takes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["take_id", "seen_frames", "checks", "verdict", "issues"],
+                  "properties": {
+                    "take_id": {
+                      "type": "string",
+                      "pattern": "^S[0-9]{2}-[0-9]{2}-T[0-9]$"
+                    },
+                    "seen_frames": {
+                      "type": "boolean"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["identity", "action", "artifacts", "continuity"],
+                      "properties": {
+                        "identity": {
+                          "enum": ["过", "不过", "没看到"]
+                        },
+                        "action": {
+                          "enum": ["过", "不过", "没看到"]
+                        },
+                        "artifacts": {
+                          "enum": ["过", "不过", "没看到"]
+                        },
+                        "continuity": {
+                          "enum": ["过", "不过", "没看到"]
+                        }
+                      }
+                    },
+                    "verdict": {
+                      "enum": ["可用", "建议重做", "必须重做"]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["kind", "source", "start_seconds", "end_seconds", "note"],
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "黑屏",
+                              "静帧",
+                              "人物不像",
+                              "动作不对",
+                              "坏画面",
+                              "接不上",
+                              "没看到画面"
+                            ]
+                          },
+                          "source": {
+                            "enum": ["自动检查", "看画面", "没有帧图"]
+                          },
+                          "start_seconds": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 15
+                          },
+                          "end_seconds": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 15
+                          },
+                          "note": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 40
+                          }
+                        }
+                      },
+                      "minItems": 0,
+                      "maxItems": 8
+                    }
+                  }
+                },
+                "minItems": 2,
+                "maxItems": 4
+              },
+              "recommend": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["take_id", "reason"],
+                "properties": {
+                  "take_id": {
+                    "type": ["string", "null"],
+                    "pattern": "^S[0-9]{2}-[0-9]{2}-T[0-9]$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 60
+                  }
+                }
+              },
+              "next_try": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["prompt_change", "keep"],
+                "properties": {
+                  "prompt_change": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 80
+                  },
+                  "keep": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 40
+                  }
+                }
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 7
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "review-1",
+      "title": "第一章三个镜头各两版：静帧、开头黑屏和点着的烟",
+      "input": {
+        "task": "review_takes",
+        "attached_images": 12,
+        "shots": [
+          {
+            "shot_id": "S01-02",
+            "intent": {
+              "size": "中景",
+              "seconds": 9,
+              "action": "从林晚肩后拍沈砚：沈砚滴着水发问，林晚回答时抬手指向最里面那排书架。",
+              "characters": ["林晚", "沈砚"],
+              "dialogue_lines": [
+                "你父亲留下的那本《潮汐表》，还在吗？",
+                "在。你这么晚来，就为了一本旧书？"
+              ],
+              "must_keep": ["林晚在画左背对镜头", "沈砚在画右，夹克往下滴水"]
+            },
+            "takes": [
+              {
+                "take_id": "S01-02-T1",
+                "label": "A",
+                "seconds": 9,
+                "frames": [
+                  {
+                    "image": "<IMAGE_1>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_2>",
+                    "at_seconds": 6
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S01-02-T2",
+                "label": "B",
+                "seconds": 9,
+                "frames": [
+                  {
+                    "image": "<IMAGE_3>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_4>",
+                    "at_seconds": 6.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": [
+                    {
+                      "start_seconds": 6.1,
+                      "end_seconds": 7.8
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "S01-04",
+            "intent": {
+              "size": "近景",
+              "seconds": 9,
+              "action": "沈砚攥着钥匙回头低声警告；画左前景是林晚虚焦的侧脸，她声音发紧地追问。",
+              "characters": ["沈砚", "林晚"],
+              "dialogue_lines": [
+                "周烈的人在找这个。今晚你别回家。",
+                "周烈？",
+                "我爸欠他的钱，早就还清了。"
+              ],
+              "must_keep": ["沈砚右手攥着钥匙", "林晚左眼角有小痣"]
+            },
+            "takes": [
+              {
+                "take_id": "S01-04-T1",
+                "label": "A",
+                "seconds": 9,
+                "frames": [
+                  {
+                    "image": "<IMAGE_5>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_6>",
+                    "at_seconds": 6
+                  }
+                ],
+                "auto_checks": {
+                  "black": [
+                    {
+                      "start_seconds": 0,
+                      "end_seconds": 0.4
+                    }
+                  ],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S01-04-T2",
+                "label": "B",
+                "seconds": 9,
+                "frames": [
+                  {
+                    "image": "<IMAGE_7>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_8>",
+                    "at_seconds": 6
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "S02-06",
+            "intent": {
+              "size": "中景",
+              "seconds": 8,
+              "action": "周烈笑着收回手，把烟从嘴里拿下来，在伞柄上磕了磕。",
+              "characters": ["周烈"],
+              "dialogue_lines": ["凌晨一点，三号码头。钥匙带来，账本的事我就当没发生过。"],
+              "must_keep": ["烟没有点着", "周烈左手撑黑伞"]
+            },
+            "takes": [
+              {
+                "take_id": "S02-06-T1",
+                "label": "A",
+                "seconds": 8,
+                "frames": [
+                  {
+                    "image": "<IMAGE_9>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_10>",
+                    "at_seconds": 5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S02-06-T2",
+                "label": "B",
+                "seconds": 8,
+                "frames": [
+                  {
+                    "image": "<IMAGE_11>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_12>",
+                    "at_seconds": 5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "shots": [
+          {
+            "shot_id": "S01-02",
+            "takes": [
+              {
+                "take_id": "S01-02-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "S01-02-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "建议重做",
+                "issues": [
+                  {
+                    "kind": "静帧",
+                    "source": "自动检查",
+                    "start_seconds": 6.1,
+                    "end_seconds": 7.8,
+                    "note": "林晚回答时画面停住，嘴型对不上台词"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "S01-02-T1",
+              "reason": "A 两句台词都完整，沈砚一直看着画左，没有停帧。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "S01-04",
+            "takes": [
+              {
+                "take_id": "S01-04-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": [
+                  {
+                    "kind": "黑屏",
+                    "source": "自动检查",
+                    "start_seconds": 0,
+                    "end_seconds": 0.4,
+                    "note": "开头 0.4 秒是黑的"
+                  }
+                ]
+              },
+              {
+                "take_id": "S01-04-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "不过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "人物不像",
+                    "source": "看画面",
+                    "start_seconds": 4.4,
+                    "end_seconds": 9,
+                    "note": "林晚的脸型变圆了，左眼角的痣没了"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "S01-04-T1",
+              "reason": "A 剪掉开头 0.4 秒黑屏就能用；B 的林晚不像定妆照。"
+            },
+            "next_try": {
+              "prompt_change": "提示词不用改，导出前把 A 开头的 0.4 秒剪掉。",
+              "keep": "保留 A 的表演和焦点"
+            }
+          },
+          {
+            "shot_id": "S02-06",
+            "takes": [
+              {
+                "take_id": "S02-06-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "不过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "接不上",
+                    "source": "看画面",
+                    "start_seconds": 0.8,
+                    "end_seconds": 3.2,
+                    "note": "烟头是红的还在冒烟，前面写的是没点着的烟"
+                  }
+                ]
+              },
+              {
+                "take_id": "S02-06-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              }
+            ],
+            "recommend": {
+              "take_id": "S02-06-T2",
+              "reason": "B 的烟没点着，磕烟和抬眼都清楚。"
+            },
+            "next_try": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "review-2",
+      "title": "第二章打斗三个镜头共七版，正好 14 张帧图：右臂受伤、钢管变形、六根手指",
+      "input": {
+        "task": "review_takes",
+        "attached_images": 14,
+        "shots": [
+          {
+            "shot_id": "S04-06",
+            "intent": {
+              "size": "近景",
+              "seconds": 3,
+              "action": "沈砚右手抄起墙边的锈钢管，横着格开第二刀，钢管和刀刃撞出一串火星。",
+              "characters": ["沈砚", "周烈"],
+              "dialogue_lines": [],
+              "must_keep": ["钢管在沈砚右手", "火星溅开"]
+            },
+            "takes": [
+              {
+                "take_id": "S04-06-T1",
+                "label": "A",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_1>",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "image": "<IMAGE_2>",
+                    "at_seconds": 1.4
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S04-06-T2",
+                "label": "B",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_3>",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "image": "<IMAGE_4>",
+                    "at_seconds": 1.4
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-07",
+            "intent": {
+              "size": "特写",
+              "seconds": 3,
+              "action": "第三刀从画右斜劈下来，沈砚抬起左臂去挡，刀刃划过左前臂，夹克袖子渗出血。",
+              "characters": ["沈砚", "周烈"],
+              "dialogue_lines": [],
+              "must_keep": ["划伤的是左前臂", "刀在周烈右手", "只拍袖口血迹"]
+            },
+            "takes": [
+              {
+                "take_id": "S04-07-T1",
+                "label": "A",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_5>",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "image": "<IMAGE_6>",
+                    "at_seconds": 1.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S04-07-T2",
+                "label": "B",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_7>",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "image": "<IMAGE_8>",
+                    "at_seconds": 1.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S04-07-T3",
+                "label": "C",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_9>",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "image": "<IMAGE_10>",
+                    "at_seconds": 1.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [
+                    {
+                      "start_seconds": 0,
+                      "end_seconds": 0.4
+                    }
+                  ],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-08",
+            "intent": {
+              "size": "中景",
+              "seconds": 3,
+              "action": "沈砚闷哼一声，咬紧牙，抡起钢管从画左狠狠砸在周烈的右手腕上。",
+              "characters": ["沈砚", "周烈"],
+              "dialogue_lines": [],
+              "must_keep": ["钢管从画左抡向画右", "砸中周烈的右手腕"]
+            },
+            "takes": [
+              {
+                "take_id": "S04-08-T1",
+                "label": "A",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_11>",
+                    "at_seconds": 0.6
+                  },
+                  {
+                    "image": "<IMAGE_12>",
+                    "at_seconds": 1.8
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S04-08-T2",
+                "label": "B",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_13>",
+                    "at_seconds": 0.6
+                  },
+                  {
+                    "image": "<IMAGE_14>",
+                    "at_seconds": 1.8
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": [
+                    {
+                      "start_seconds": 1.9,
+                      "end_seconds": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "shots": [
+          {
+            "shot_id": "S04-06",
+            "takes": [
+              {
+                "take_id": "S04-06-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "S04-06-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "不过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "坏画面",
+                    "source": "看画面",
+                    "start_seconds": 1.2,
+                    "end_seconds": 1.9,
+                    "note": "钢管撞上刀以后像橡皮一样弯了"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "S04-06-T1",
+              "reason": "A 格挡干净，火星清楚，钢管一直在右手。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "S04-07",
+            "takes": [
+              {
+                "take_id": "S04-07-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "不过",
+                  "artifacts": "过",
+                  "continuity": "不过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "接不上",
+                    "source": "看画面",
+                    "start_seconds": 0.4,
+                    "end_seconds": 3,
+                    "note": "挡刀的是右前臂，伤口也在右袖"
+                  }
+                ]
+              },
+              {
+                "take_id": "S04-07-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "S04-07-T3",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "建议重做",
+                "issues": [
+                  {
+                    "kind": "黑屏",
+                    "source": "自动检查",
+                    "start_seconds": 0,
+                    "end_seconds": 0.4,
+                    "note": "开头 0.4 秒黑屏，剪掉会少了劈下来的起势"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "S04-07-T2",
+              "reason": "B 挡刀的是左前臂，袖口只有血迹，和下一镜接得上。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "S04-08",
+            "takes": [
+              {
+                "take_id": "S04-08-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "不过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "坏画面",
+                    "source": "看画面",
+                    "start_seconds": 0.6,
+                    "end_seconds": 1.6,
+                    "note": "周烈握刀的右手有六根手指"
+                  }
+                ]
+              },
+              {
+                "take_id": "S04-08-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": [
+                  {
+                    "kind": "静帧",
+                    "source": "自动检查",
+                    "start_seconds": 1.9,
+                    "end_seconds": 3,
+                    "note": "砸中以后画面停住 1.1 秒"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "S04-08-T2",
+              "reason": "B 砸腕清楚，剪到 1.9 秒就能用；A 手指数不对。"
+            },
+            "next_try": {
+              "prompt_change": "提示词不用改，导出前把 B 剪到 1.9 秒。",
+              "keep": "保留 B 的力度和方向"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "review-3",
+      "title": "第三章：一版没附帧图如实说没看到，两版都接不上时不推荐并写下次怎么改",
+      "input": {
+        "task": "review_takes",
+        "attached_images": 10,
+        "shots": [
+          {
+            "shot_id": "S05-03",
+            "intent": {
+              "size": "近景",
+              "seconds": 7,
+              "action": "林晚低头看着账本小声说话，一滴眼泪落在纸页上晕开墨迹。",
+              "characters": ["林晚"],
+              "dialogue_lines": ["爸，你到底瞒了我多少事。"],
+              "must_keep": ["眼泪落在纸页上", "林晚左眼角有小痣"]
+            },
+            "takes": [
+              {
+                "take_id": "S05-03-T1",
+                "label": "A",
+                "seconds": 7,
+                "frames": [
+                  {
+                    "image": "<IMAGE_1>",
+                    "at_seconds": 1.5
+                  },
+                  {
+                    "image": "<IMAGE_2>",
+                    "at_seconds": 5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S05-03-T2",
+                "label": "B",
+                "seconds": 7,
+                "frames": [
+                  {
+                    "image": "<IMAGE_3>",
+                    "at_seconds": 1.5
+                  },
+                  {
+                    "image": "<IMAGE_4>",
+                    "at_seconds": 5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "S06-04",
+            "intent": {
+              "size": "近景",
+              "seconds": 8,
+              "action": "林晚哭着追问，声音发抖。",
+              "characters": ["林晚"],
+              "dialogue_lines": ["你为什么要一个人去？", "你要是出事了，我怎么办？"],
+              "must_keep": ["满脸泪水", "看向画右的沈砚"]
+            },
+            "takes": [
+              {
+                "take_id": "S06-04-T1",
+                "label": "A",
+                "seconds": 8,
+                "frames": [
+                  {
+                    "image": "<IMAGE_5>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_6>",
+                    "at_seconds": 5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S06-04-T2",
+                "label": "B",
+                "seconds": 8,
+                "frames": [],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "S06-05",
+            "intent": {
+              "size": "中景",
+              "seconds": 9,
+              "action": "沈砚沉默一会儿，抬起没受伤的右手，笨拙地拍了拍林晚的肩膀。",
+              "characters": ["沈砚", "林晚"],
+              "dialogue_lines": ["你爸当年救过我一次。这回，换我。"],
+              "must_keep": ["只用右手拍肩", "左前臂缠着白纱布不动"]
+            },
+            "takes": [
+              {
+                "take_id": "S06-05-T1",
+                "label": "A",
+                "seconds": 9,
+                "frames": [
+                  {
+                    "image": "<IMAGE_7>",
+                    "at_seconds": 1.2
+                  },
+                  {
+                    "image": "<IMAGE_8>",
+                    "at_seconds": 6
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "S06-05-T2",
+                "label": "B",
+                "seconds": 9,
+                "frames": [
+                  {
+                    "image": "<IMAGE_9>",
+                    "at_seconds": 1.2
+                  },
+                  {
+                    "image": "<IMAGE_10>",
+                    "at_seconds": 6
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "shots": [
+          {
+            "shot_id": "S05-03",
+            "takes": [
+              {
+                "take_id": "S05-03-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "不过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "坏画面",
+                    "source": "看画面",
+                    "start_seconds": 4.2,
+                    "end_seconds": 6.5,
+                    "note": "眼泪画成两道亮线，不像真的"
+                  }
+                ]
+              },
+              {
+                "take_id": "S05-03-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              }
+            ],
+            "recommend": {
+              "take_id": "S05-03-T2",
+              "reason": "B 的眼泪自然，台词前那一下吸气也在。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "S06-04",
+            "takes": [
+              {
+                "take_id": "S06-04-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "S06-04-T2",
+                "seen_frames": false,
+                "checks": {
+                  "identity": "没看到",
+                  "action": "没看到",
+                  "artifacts": "没看到",
+                  "continuity": "没看到"
+                },
+                "verdict": "建议重做",
+                "issues": [
+                  {
+                    "kind": "没看到画面",
+                    "source": "没有帧图",
+                    "start_seconds": 0,
+                    "end_seconds": 8,
+                    "note": "这一版没有附抽帧图，没法判断"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "S06-04-T1",
+              "reason": "A 两句都哭得自然，B 这次没看到画面，先用 A。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "S06-05",
+            "takes": [
+              {
+                "take_id": "S06-05-T1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "不过",
+                  "artifacts": "过",
+                  "continuity": "不过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "接不上",
+                    "source": "看画面",
+                    "start_seconds": 0.8,
+                    "end_seconds": 2.4,
+                    "note": "用缠着纱布的左手拍肩"
+                  }
+                ]
+              },
+              {
+                "take_id": "S06-05-T2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "不过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "接不上",
+                    "source": "看画面",
+                    "start_seconds": 0,
+                    "end_seconds": 9,
+                    "note": "左前臂上没有纱布"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": null,
+              "reason": "两版都和前面接不上，不推荐，建议改提示词再生成。"
+            },
+            "next_try": {
+              "prompt_change": "写明只用右手拍肩，左前臂缠着白纱布贴在身侧不动，开头就要看见纱布。",
+              "keep": "保留推近的运镜和两人的站位"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

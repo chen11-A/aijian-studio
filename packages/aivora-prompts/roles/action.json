@@ -1,0 +1,1792 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 1,
+  "role": "action",
+  "name": "动作指导",
+  "version": 1,
+  "summary": "一次处理多个动作镜头，把打斗拆成有力度、有方向的动作节点，并记下受伤和手里的道具。",
+  "pipeline": {
+    "step": 5,
+    "reads_from": ["director"],
+    "feeds": ["sound", "continuity"]
+  },
+  "batching": "一次发这一章里所有有肢体动作的镜头，连同每个人开拍时手里拿着什么。",
+  "attach_images": false,
+  "system_prompt": [
+    "你是 AIVORA 的动作指导，也清楚 AI 视频的局限。一次拿到多个镜头，把打斗和肢体冲突拆成动作节点，让每一下都有力度。",
+    "- 输入里的每个镜头都要输出一条，按输入顺序。每个镜头最多 3 个节点，按开始时间排列。",
+    "- 一个节点只写一个动作：一攻、一防、一受击或一个反应。at_seconds 是动作开始的时间，duration_seconds 在 0.3 到 3 秒之间，动作结束不能超过镜头长度。同一个人的两个节点不能重叠。",
+    "- node_id 写成 镜头id-A序号，例如 S04-05-A1，每个镜头从 A1 开始。",
+    "- 写清 actor（谁）、target（对谁，没有就写 null）、body_part（用身体哪里或拿着什么）、direction（朝哪个方向）。",
+    "- direction 只用 画左→画右、画右→画左、向前、向后、向下、向上、原地。同一场里同一个人冲着别人出手的方向保持一致，不要越轴。",
+    "- force 是力度，1 到 5。力度 3 以上必须写 force_cue：观众看得见的用力迹象，例如蹬地、转胯、武器到底时肩膀跟上、对方被推后半步、溅起的水或火星。力度 1、2 可以写 null。",
+    "- contact 写这一下有没有碰到人或东西。碰到了就写 reaction：被碰的一方看得见的反应；没碰到写 null。",
+    "- sfx_cue 写这一下最该有的声音，交给声音设计；闷哼、喘气这些人声不写，没有写 null。",
+    "- 难拍的动作（两人缠抱、地面翻滚、多人同时出手）要拆开：出手、冲击特写、受击反应，靠剪辑做出接触。feasibility 写 稳、看运气 或 难；写 难 时必须给 workaround，其他情况没有就写 null。",
+    "- injuries_before 里受伤的部位，以及这一批里刚受伤的部位，之后只能做力度 1 的动作。新受的伤写进 injuries：哪个部位、哪一侧、什么伤、从哪个镜头开始、看起来什么样。",
+    "- props_after 写这一批最后每个人两只手里拿着什么，空手写 null，交给场记。",
+    "- prompt_addon 是一句加在视频提示词后面的话，不超过 100 个字，写清力度和方向；参考图只能用这个镜头输入里已经有的 <IMAGE_n>。",
+    "- safety_notes 写生成时要注意的事，比如不拍伤口特写、推搡不拍成摔倒；没有写 []。",
+    "输出要求：",
+    "- 只输出一个 JSON 对象。第一个字符必须是 {，最后一个字符必须是 }。不要用 Markdown 代码块，不要写注释，JSON 前后不要有任何文字。",
+    "- 不要输出思考过程、分析、草稿或自我检查。给用户看的理由只写进 reason 字段，一句话说完。",
+    "- 字段一个不能少，也不能多，名字和层级照下面的结构写。没有内容时写 null 或 []，不要省略字段。",
+    "- 输入里有几场、几个镜头，就一次全部处理完，按输入顺序输出。不要只做前几个，也不要让用户再问一次。",
+    "- id 和人物名字只能照抄输入，不要新造。",
+    "- 字符串里不要用英文双引号，需要引号时用「」。",
+    "- 输出必须符合下面这个 JSON Schema：",
+    "{{OUTPUT_SCHEMA}}"
+  ],
+  "input_format": {
+    "notes": [
+      "shots 来自导演输出，只挑有肢体动作的镜头；props_in_hand 是这个镜头开始时每个人手里的东西。",
+      "injuries_before 是这一批之前已经受的伤。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "动作指导输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "injuries_before", "shots"],
+      "properties": {
+        "task": {
+          "const": "design_action"
+        },
+        "injuries_before": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "body_part", "note"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "body_part": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 8
+              },
+              "note": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 20
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "shot_id",
+              "scene_id",
+              "seconds",
+              "action",
+              "characters",
+              "blocking",
+              "props_in_hand",
+              "reference_images"
+            ],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}-[0-9]{2}$"
+              },
+              "scene_id": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}$"
+              },
+              "seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 15
+              },
+              "action": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 120
+              },
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8
+                },
+                "minItems": 1,
+                "maxItems": 6,
+                "uniqueItems": true
+              },
+              "blocking": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "position", "depth", "visible", "facing"],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "position": {
+                      "enum": ["画左", "画中", "画右", "画外"]
+                    },
+                    "depth": {
+                      "enum": ["前景", "中间", "后景"]
+                    },
+                    "visible": {
+                      "enum": ["全身", "半身", "脸", "背影", "只露手", "画外"]
+                    },
+                    "facing": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 20
+                    }
+                  }
+                },
+                "minItems": 1,
+                "maxItems": 6
+              },
+              "props_in_hand": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "left", "right"],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "left": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 16
+                    },
+                    "right": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 16
+                    }
+                  }
+                },
+                "minItems": 1,
+                "maxItems": 6
+              },
+              "reference_images": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["token", "asset_id"],
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "pattern": "^<IMAGE_([1-9]|1[0-4])>$"
+                    },
+                    "asset_id": {
+                      "type": "string",
+                      "pattern": "^img_[a-z0-9_]+$"
+                    }
+                  }
+                },
+                "minItems": 0,
+                "maxItems": 14
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 40
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "nodes 交给声音设计对齐音效，injuries 和 props_after 交给场记。",
+      "prompt_addon 由软件接在这个镜头的 video_prompt 后面。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "动作指导输出",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shots", "props_after", "injuries", "safety_notes"],
+      "properties": {
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["shot_id", "feasibility", "workaround", "nodes", "prompt_addon"],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}-[0-9]{2}$"
+              },
+              "feasibility": {
+                "enum": ["稳", "看运气", "难"]
+              },
+              "workaround": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "node_id",
+                    "at_seconds",
+                    "duration_seconds",
+                    "actor",
+                    "target",
+                    "move",
+                    "body_part",
+                    "direction",
+                    "force",
+                    "force_cue",
+                    "contact",
+                    "reaction",
+                    "sfx_cue"
+                  ],
+                  "properties": {
+                    "node_id": {
+                      "type": "string",
+                      "pattern": "^S[0-9]{2}-[0-9]{2}-A[0-9]$"
+                    },
+                    "at_seconds": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 15
+                    },
+                    "duration_seconds": {
+                      "type": "number",
+                      "minimum": 0.3,
+                      "maximum": 3
+                    },
+                    "actor": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "target": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "move": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 16
+                    },
+                    "body_part": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 12
+                    },
+                    "direction": {
+                      "enum": ["画左→画右", "画右→画左", "向前", "向后", "向下", "向上", "原地"]
+                    },
+                    "force": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "force_cue": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 30
+                    },
+                    "contact": {
+                      "type": "boolean"
+                    },
+                    "reaction": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 30
+                    },
+                    "sfx_cue": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 16
+                    }
+                  }
+                },
+                "minItems": 1,
+                "maxItems": 3
+              },
+              "prompt_addon": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 40
+        },
+        "props_after": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "left", "right"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "left": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "right": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 16
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 10
+        },
+        "injuries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "body_part", "side", "kind", "from_shot", "visible_as"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "body_part": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 8
+              },
+              "side": {
+                "enum": ["左", "右"]
+              },
+              "kind": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 8
+              },
+              "from_shot": {
+                "type": "string",
+                "pattern": "^S[0-9]{2}-[0-9]{2}$"
+              },
+              "visible_as": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 30
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 10
+        },
+        "safety_notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50
+          },
+          "minItems": 0,
+          "maxItems": 5
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "action-1",
+      "title": "第一章：没有武器的推搡，扣腕和推开各一个节点，力度 2 到 4",
+      "input": {
+        "task": "design_action",
+        "injuries_before": [],
+        "shots": [
+          {
+            "shot_id": "S01-05",
+            "scene_id": "S01",
+            "seconds": 8,
+            "action": "沈砚把裹着塑料袋的账本塞进林晚怀里。",
+            "characters": ["林晚", "沈砚"],
+            "blocking": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "低头看怀里的账本"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画左的林晚"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "林晚",
+                "left": null,
+                "right": null
+              },
+              {
+                "name": "沈砚",
+                "left": "裹着塑料袋的账本",
+                "right": "生锈的钥匙"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_bookstore_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_linwan_front"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_shenyan_front"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_prop_ledger_bag"
+              }
+            ]
+          },
+          {
+            "shot_id": "S01-06",
+            "scene_id": "S01",
+            "seconds": 7,
+            "action": "车灯扫过橱窗，周烈撑着黑伞站在门外台阶下，抬手用指节敲了三下玻璃门；沈砚抬手示意林晚退到柜台后面。",
+            "characters": ["周烈", "沈砚", "林晚"],
+            "blocking": [
+              {
+                "name": "周烈",
+                "position": "画中",
+                "depth": "后景",
+                "visible": "全身",
+                "facing": "隔着玻璃看向店里"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "背影",
+                "facing": "看向门外的周烈"
+              },
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "背影",
+                "facing": "看向门外的周烈"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "周烈",
+                "left": "黑伞",
+                "right": null
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": "生锈的钥匙"
+              },
+              {
+                "name": "林晚",
+                "left": "裹着塑料袋的账本",
+                "right": "裹着塑料袋的账本"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_bookstore_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_zhoulie_front"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_prop_black_umbrella"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_shenyan_back"
+              },
+              {
+                "token": "<IMAGE_5>",
+                "asset_id": "img_linwan_back"
+              }
+            ]
+          },
+          {
+            "shot_id": "S02-05",
+            "scene_id": "S02",
+            "seconds": 3,
+            "action": "周烈伸手去拉门把，沈砚用左手扣住他的手腕往外一推，周烈退了半步。",
+            "characters": ["周烈", "沈砚"],
+            "blocking": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画左的门把"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画右的周烈"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "周烈",
+                "left": "黑伞",
+                "right": null
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": "生锈的钥匙"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_bookstore_door"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_zhoulie_side"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_shenyan_side"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_prop_black_umbrella"
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "shots": [
+          {
+            "shot_id": "S01-05",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S01-05-A1",
+                "at_seconds": 2,
+                "duration_seconds": 0.8,
+                "actor": "沈砚",
+                "target": "林晚",
+                "move": "把塑料袋塞进她怀里",
+                "body_part": "左手",
+                "direction": "画右→画左",
+                "force": 2,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "林晚上身微微后仰，下意识抱住",
+                "sfx_cue": "塑料袋窸窣"
+              },
+              {
+                "node_id": "S01-05-A2",
+                "at_seconds": 2.9,
+                "duration_seconds": 0.6,
+                "actor": "林晚",
+                "target": null,
+                "move": "抱紧塑料袋",
+                "body_part": "双臂",
+                "direction": "原地",
+                "force": 2,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "沈砚用左手把塑料袋往前一送，塞进林晚怀里，林晚上身微微后仰，双手抱住。"
+          },
+          {
+            "shot_id": "S01-06",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S01-06-A1",
+                "at_seconds": 2.6,
+                "duration_seconds": 1.6,
+                "actor": "周烈",
+                "target": null,
+                "move": "用指节敲玻璃门三下",
+                "body_part": "右手指节",
+                "direction": "向前",
+                "force": 2,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "门上的风铃轻轻晃了一下",
+                "sfx_cue": "指节敲玻璃"
+              },
+              {
+                "node_id": "S01-06-A2",
+                "at_seconds": 4.6,
+                "duration_seconds": 0.8,
+                "actor": "沈砚",
+                "target": "林晚",
+                "move": "抬手示意后退",
+                "body_part": "左手",
+                "direction": "画右→画左",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "周烈用右手指节在玻璃门上敲三下，每一下都顿住；沈砚抬起左手往画左一压，示意林晚后退。"
+          },
+          {
+            "shot_id": "S02-05",
+            "feasibility": "看运气",
+            "workaround": "扣腕看不清时拆成两镜：手的特写扣腕，再接中景推开。",
+            "nodes": [
+              {
+                "node_id": "S02-05-A1",
+                "at_seconds": 0.2,
+                "duration_seconds": 0.6,
+                "actor": "周烈",
+                "target": null,
+                "move": "伸手去拉门把",
+                "body_part": "右手",
+                "direction": "画右→画左",
+                "force": 2,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              },
+              {
+                "node_id": "S02-05-A2",
+                "at_seconds": 0.8,
+                "duration_seconds": 0.5,
+                "actor": "沈砚",
+                "target": "周烈",
+                "move": "扣住手腕",
+                "body_part": "左手",
+                "direction": "画左→画右",
+                "force": 3,
+                "force_cue": "手指一下扣死，周烈的手停在半空",
+                "contact": true,
+                "reaction": "周烈的手腕被卡住，伞晃了一下",
+                "sfx_cue": "衣袖被抓住"
+              },
+              {
+                "node_id": "S02-05-A3",
+                "at_seconds": 1.4,
+                "duration_seconds": 0.8,
+                "actor": "沈砚",
+                "target": "周烈",
+                "move": "往外一推",
+                "body_part": "左臂",
+                "direction": "画左→画右",
+                "force": 4,
+                "force_cue": "肩膀跟着送出去，周烈退了半步溅起水花",
+                "contact": true,
+                "reaction": "周烈退了半步，伞面甩出一串水",
+                "sfx_cue": "踩水声"
+              }
+            ],
+            "prompt_addon": "沈砚的左手一把扣死周烈的右手腕，肩膀跟着往画右送，周烈退了半步，脚下溅起水花。"
+          }
+        ],
+        "props_after": [
+          {
+            "name": "林晚",
+            "left": "裹着塑料袋的账本",
+            "right": "裹着塑料袋的账本"
+          },
+          {
+            "name": "沈砚",
+            "left": null,
+            "right": "生锈的钥匙"
+          },
+          {
+            "name": "周烈",
+            "left": "黑伞",
+            "right": null
+          }
+        ],
+        "injuries": [],
+        "safety_notes": ["推搡只推到退半步，不要拍成摔倒。"]
+      }
+    },
+    {
+      "id": "action-2",
+      "title": "第二章：钢管对刀拆成七个镜头，左前臂和右手腕的伤写进 injuries",
+      "input": {
+        "task": "design_action",
+        "injuries_before": [],
+        "shots": [
+          {
+            "shot_id": "S04-04",
+            "scene_id": "S04",
+            "seconds": 5,
+            "action": "周烈笑了一声，从木箱上跳下来，折叠刀还握在右手。",
+            "characters": ["周烈"],
+            "blocking": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画左的沈砚"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "周烈",
+                "left": "苹果",
+                "right": "折叠刀"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_warehouse_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_zhoulie_side"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_prop_folding_knife"
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-05",
+            "scene_id": "S04",
+            "seconds": 3,
+            "action": "周烈从画右扑向画左，刀尖直刺沈砚胸口，沈砚侧身躲开。",
+            "characters": ["周烈", "沈砚"],
+            "blocking": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画左的沈砚"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画右的周烈"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "周烈",
+                "left": null,
+                "right": "折叠刀"
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": null
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_warehouse_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_zhoulie_side"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_shenyan_side"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_prop_folding_knife"
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-06",
+            "scene_id": "S04",
+            "seconds": 3,
+            "action": "沈砚右手抄起墙边的锈钢管，横着格开第二刀，钢管和刀刃撞出一串火星。",
+            "characters": ["沈砚", "周烈"],
+            "blocking": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "半身",
+                "facing": "看向画右的周烈"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画左的沈砚"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": null
+              },
+              {
+                "name": "周烈",
+                "left": null,
+                "right": "折叠刀"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_warehouse_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_shenyan_front"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_zhoulie_front"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_prop_steel_pipe"
+              },
+              {
+                "token": "<IMAGE_5>",
+                "asset_id": "img_prop_folding_knife"
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-07",
+            "scene_id": "S04",
+            "seconds": 3,
+            "action": "第三刀从画右斜劈下来，沈砚抬起左臂去挡，刀刃划过左前臂，夹克袖子渗出血。",
+            "characters": ["沈砚", "周烈"],
+            "blocking": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "只露手",
+                "facing": "看不见脸"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "只露手",
+                "facing": "看不见脸"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": "锈钢管"
+              },
+              {
+                "name": "周烈",
+                "left": null,
+                "right": "折叠刀"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_warehouse_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_prop_folding_knife"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_shenyan_front"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_zhoulie_front"
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-08",
+            "scene_id": "S04",
+            "seconds": 3,
+            "action": "沈砚闷哼一声，咬紧牙，抡起钢管从画左狠狠砸在周烈的右手腕上。",
+            "characters": ["沈砚", "周烈"],
+            "blocking": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画右的周烈"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画左的沈砚"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": "锈钢管"
+              },
+              {
+                "name": "周烈",
+                "left": null,
+                "right": "折叠刀"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_warehouse_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_shenyan_side"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_zhoulie_side"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_prop_steel_pipe"
+              },
+              {
+                "token": "<IMAGE_5>",
+                "asset_id": "img_prop_folding_knife"
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-10",
+            "scene_id": "S04",
+            "seconds": 4,
+            "action": "周烈捂着右手腕跪倒在地，沈砚用钢管抵住他的肩膀，大口喘气。",
+            "characters": ["周烈", "沈砚"],
+            "blocking": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "低头看地面"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画右的周烈"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "周烈",
+                "left": null,
+                "right": null
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": "锈钢管"
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_warehouse_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_zhoulie_front"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_shenyan_front"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_prop_steel_pipe"
+              }
+            ]
+          },
+          {
+            "shot_id": "S04-11",
+            "scene_id": "S04",
+            "seconds": 5,
+            "action": "铁门被一把推开，林晚举着手机冲进来大喊，远处警笛声逼近。",
+            "characters": ["林晚", "沈砚", "周烈"],
+            "blocking": [
+              {
+                "name": "林晚",
+                "position": "画中",
+                "depth": "后景",
+                "visible": "全身",
+                "facing": "看向画面前方的沈砚"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "背影",
+                "facing": "看向门口的林晚"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "半身",
+                "facing": "低头"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "林晚",
+                "left": null,
+                "right": "手机"
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": "锈钢管"
+              },
+              {
+                "name": "周烈",
+                "left": null,
+                "right": null
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_warehouse_inside"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_linwan_coat_front"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_shenyan_back"
+              },
+              {
+                "token": "<IMAGE_4>",
+                "asset_id": "img_zhoulie_side"
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "shots": [
+          {
+            "shot_id": "S04-04",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S04-04-A1",
+                "at_seconds": 0.1,
+                "duration_seconds": 0.3,
+                "actor": "周烈",
+                "target": null,
+                "move": "把苹果丢到木箱上",
+                "body_part": "左手",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "苹果在木箱上滚了半圈",
+                "sfx_cue": null
+              },
+              {
+                "node_id": "S04-04-A2",
+                "at_seconds": 0.4,
+                "duration_seconds": 0.6,
+                "actor": "周烈",
+                "target": null,
+                "move": "从木箱上跳下",
+                "body_part": "双腿",
+                "direction": "向下",
+                "force": 3,
+                "force_cue": "落地时膝盖一弯，风衣下摆扬起",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "皮鞋落地"
+              }
+            ],
+            "prompt_addon": "周烈随手把苹果丢到木箱上，跳下来落地时膝盖一弯，风衣下摆扬起，右手的刀没松。"
+          },
+          {
+            "shot_id": "S04-05",
+            "feasibility": "看运气",
+            "workaround": "刀擦身而过看不清时，改成刀尖刺空的特写加沈砚侧身的中景。",
+            "nodes": [
+              {
+                "node_id": "S04-05-A1",
+                "at_seconds": 0.2,
+                "duration_seconds": 0.6,
+                "actor": "周烈",
+                "target": "沈砚",
+                "move": "前冲直刺",
+                "body_part": "右手持刀",
+                "direction": "画右→画左",
+                "force": 5,
+                "force_cue": "后脚蹬地整个人压过去，刀尖到底时肩膀跟上",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "刀破风声"
+              },
+              {
+                "node_id": "S04-05-A2",
+                "at_seconds": 0.6,
+                "duration_seconds": 0.5,
+                "actor": "沈砚",
+                "target": null,
+                "move": "侧身躲开",
+                "body_part": "上身",
+                "direction": "向后",
+                "force": 3,
+                "force_cue": "胸口往后一收，胯带着身体转开",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "衣服擦过刀锋"
+              }
+            ],
+            "prompt_addon": "周烈后脚蹬地整个人压过去，刀尖直刺；沈砚胸口一收，转胯侧身，刀尖擦着衣服刺空。"
+          },
+          {
+            "shot_id": "S04-06",
+            "feasibility": "看运气",
+            "workaround": "火星和撞击看不清时，单独补一个钢管撞刀的特写。",
+            "nodes": [
+              {
+                "node_id": "S04-06-A1",
+                "at_seconds": 0.1,
+                "duration_seconds": 0.5,
+                "actor": "沈砚",
+                "target": null,
+                "move": "抄起钢管",
+                "body_part": "右手",
+                "direction": "原地",
+                "force": 2,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "靠墙的钢管被一把抽走",
+                "sfx_cue": "钢管刮过墙面"
+              },
+              {
+                "node_id": "S04-06-A2",
+                "at_seconds": 0.7,
+                "duration_seconds": 0.5,
+                "actor": "周烈",
+                "target": "沈砚",
+                "move": "挥刀横劈",
+                "body_part": "右手持刀",
+                "direction": "画右→画左",
+                "force": 4,
+                "force_cue": "转腰带着手臂劈过来，风衣甩开",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "刀破风声"
+              },
+              {
+                "node_id": "S04-06-A3",
+                "at_seconds": 1.2,
+                "duration_seconds": 0.6,
+                "actor": "沈砚",
+                "target": "周烈",
+                "move": "钢管横格",
+                "body_part": "右手持钢管",
+                "direction": "画左→画右",
+                "force": 4,
+                "force_cue": "撞上的一瞬两人的手都一震，火星溅开",
+                "contact": true,
+                "reaction": "周烈的刀被弹开，手腕往外一翻",
+                "sfx_cue": "金属撞击"
+              }
+            ],
+            "prompt_addon": "周烈转腰横劈，沈砚右手的钢管横着迎上去，撞上的一瞬两人的手都一震，火星溅开，刀被弹向画右。"
+          },
+          {
+            "shot_id": "S04-07",
+            "feasibility": "难",
+            "workaround": "拆成刀劈下来的特写和袖口渗血的反应镜头，不拍刀刃切进皮肤。",
+            "nodes": [
+              {
+                "node_id": "S04-07-A1",
+                "at_seconds": 0.2,
+                "duration_seconds": 0.6,
+                "actor": "周烈",
+                "target": "沈砚",
+                "move": "斜劈",
+                "body_part": "右手持刀",
+                "direction": "画右→画左",
+                "force": 5,
+                "force_cue": "整条胳膊从右上往左下抡下来，刀走到底",
+                "contact": true,
+                "reaction": "左前臂被划过，往回一缩",
+                "sfx_cue": "刀划过布料"
+              },
+              {
+                "node_id": "S04-07-A2",
+                "at_seconds": 0.3,
+                "duration_seconds": 0.5,
+                "actor": "沈砚",
+                "target": null,
+                "move": "抬左臂格挡",
+                "body_part": "左前臂",
+                "direction": "向上",
+                "force": 3,
+                "force_cue": "手臂抬到眉前，肌肉绷紧",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              },
+              {
+                "node_id": "S04-07-A3",
+                "at_seconds": 0.9,
+                "duration_seconds": 1.2,
+                "actor": "沈砚",
+                "target": null,
+                "move": "受伤后缩回手臂",
+                "body_part": "左前臂",
+                "direction": "向后",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "刀从右上往左下整条胳膊抡下来，左前臂抬到眉前去挡，刀刃从袖子上划过，手臂往回一缩，袖口洇出深色血迹。"
+          },
+          {
+            "shot_id": "S04-08",
+            "feasibility": "看运气",
+            "workaround": "砸中的一瞬看不清时，靠下一镜刀飞出去的插入镜头补上。",
+            "nodes": [
+              {
+                "node_id": "S04-08-A1",
+                "at_seconds": 0.3,
+                "duration_seconds": 0.7,
+                "actor": "沈砚",
+                "target": "周烈",
+                "move": "抡钢管砸手腕",
+                "body_part": "右手持钢管",
+                "direction": "画左→画右",
+                "force": 5,
+                "force_cue": "转胯发力，钢管从肩后抡出，砸中时整根一震",
+                "contact": true,
+                "reaction": "周烈的右手往下一沉，刀脱手",
+                "sfx_cue": "钢管砸中闷响"
+              },
+              {
+                "node_id": "S04-08-A2",
+                "at_seconds": 1,
+                "duration_seconds": 0.8,
+                "actor": "周烈",
+                "target": null,
+                "move": "手腕吃痛松开刀",
+                "body_part": "右手腕",
+                "direction": "向下",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "沈砚转胯把钢管从肩后抡向画右，砸中周烈右手腕的一瞬整根钢管一震，周烈的手往下一沉，刀脱手。"
+          },
+          {
+            "shot_id": "S04-10",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S04-10-A1",
+                "at_seconds": 0.2,
+                "duration_seconds": 0.8,
+                "actor": "周烈",
+                "target": null,
+                "move": "捂着手腕跪倒",
+                "body_part": "双膝",
+                "direction": "向下",
+                "force": 3,
+                "force_cue": "膝盖砸在水泥地上，上身往前一栽",
+                "contact": true,
+                "reaction": "地上的积水溅开",
+                "sfx_cue": "膝盖着地"
+              },
+              {
+                "node_id": "S04-10-A2",
+                "at_seconds": 1.2,
+                "duration_seconds": 0.8,
+                "actor": "沈砚",
+                "target": "周烈",
+                "move": "钢管抵住肩膀",
+                "body_part": "右手持钢管",
+                "direction": "画左→画右",
+                "force": 3,
+                "force_cue": "钢管压在周烈肩上，把他的肩膀压低",
+                "contact": true,
+                "reaction": "周烈不敢再动",
+                "sfx_cue": "衣服摩擦"
+              }
+            ],
+            "prompt_addon": "周烈捂着右手腕跪下，膝盖砸在水泥地上溅开积水；沈砚右手的钢管压在他肩上，把他压低。"
+          },
+          {
+            "shot_id": "S04-11",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S04-11-A1",
+                "at_seconds": 0,
+                "duration_seconds": 0.6,
+                "actor": "林晚",
+                "target": null,
+                "move": "推开铁门",
+                "body_part": "左手",
+                "direction": "向前",
+                "force": 4,
+                "force_cue": "整个人撞在门上，门板弹到墙上",
+                "contact": true,
+                "reaction": "铁门撞墙晃了两下",
+                "sfx_cue": "铁门撞墙"
+              },
+              {
+                "node_id": "S04-11-A2",
+                "at_seconds": 0.6,
+                "duration_seconds": 1,
+                "actor": "林晚",
+                "target": null,
+                "move": "冲进仓库",
+                "body_part": "双腿",
+                "direction": "向前",
+                "force": 3,
+                "force_cue": "跑进来时风衣下摆甩起来",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "急促的脚步"
+              },
+              {
+                "node_id": "S04-11-A3",
+                "at_seconds": 2.4,
+                "duration_seconds": 0.6,
+                "actor": "沈砚",
+                "target": null,
+                "move": "回头",
+                "body_part": "头",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "林晚用左手猛地推开铁门，门板撞到墙上弹回，她右手举着手机冲进来，风衣下摆甩起。"
+          }
+        ],
+        "props_after": [
+          {
+            "name": "周烈",
+            "left": null,
+            "right": null
+          },
+          {
+            "name": "沈砚",
+            "left": null,
+            "right": "锈钢管"
+          },
+          {
+            "name": "林晚",
+            "left": null,
+            "right": "手机"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "沈砚",
+            "body_part": "左前臂",
+            "side": "左",
+            "kind": "刀划伤",
+            "from_shot": "S04-07",
+            "visible_as": "夹克左袖划开，袖口洇出深色血迹"
+          },
+          {
+            "name": "周烈",
+            "body_part": "右手腕",
+            "side": "右",
+            "kind": "钢管砸伤",
+            "from_shot": "S04-08",
+            "visible_as": "右手腕发红，一直用左手捂着"
+          }
+        ],
+        "safety_notes": [
+          "刀伤只拍袖口的血迹，不拍伤口特写。",
+          "钢管砸中手腕的一瞬就切镜，不拍骨头变形。"
+        ]
+      }
+    },
+    {
+      "id": "action-3",
+      "title": "第三章：带着伤的轻动作，受伤的左前臂只做力度 1 的动作",
+      "input": {
+        "task": "design_action",
+        "injuries_before": [
+          {
+            "name": "沈砚",
+            "body_part": "左前臂",
+            "note": "仓库里被刀划伤，缝了十二针，缠着白纱布"
+          }
+        ],
+        "shots": [
+          {
+            "shot_id": "S06-01",
+            "scene_id": "S06",
+            "seconds": 5,
+            "action": "急诊室的门开了，沈砚走出来，夹克搭在右肩，左前臂缠着白纱布；长椅上的林晚站起来。",
+            "characters": ["沈砚", "林晚"],
+            "blocking": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "全身",
+                "facing": "看向画右的沈砚"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "全身",
+                "facing": "看向画左的林晚"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "林晚",
+                "left": "摊开的账本",
+                "right": null
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": null
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_hospital_corridor"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_shenyan_bandage_front"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_linwan_coat_front"
+              }
+            ]
+          },
+          {
+            "shot_id": "S06-05",
+            "scene_id": "S06",
+            "seconds": 9,
+            "action": "沈砚沉默一会儿，抬起没受伤的右手，笨拙地拍了拍林晚的肩膀。",
+            "characters": ["沈砚", "林晚"],
+            "blocking": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画右的沈砚"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "看向画左的林晚"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "林晚",
+                "left": "摊开的账本",
+                "right": null
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": null
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_hospital_corridor"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_shenyan_bandage_front"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_linwan_coat_side"
+              }
+            ]
+          },
+          {
+            "shot_id": "S06-06",
+            "scene_id": "S06",
+            "seconds": 6,
+            "action": "林晚把脸埋进沈砚的肩头，终于哭出声；走廊尽头，值班护士轻轻带上了门。",
+            "characters": ["林晚", "沈砚"],
+            "blocking": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "背影",
+                "facing": "把脸埋进沈砚的肩头"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身",
+                "facing": "低头看林晚"
+              }
+            ],
+            "props_in_hand": [
+              {
+                "name": "林晚",
+                "left": "摊开的账本",
+                "right": null
+              },
+              {
+                "name": "沈砚",
+                "left": null,
+                "right": null
+              }
+            ],
+            "reference_images": [
+              {
+                "token": "<IMAGE_1>",
+                "asset_id": "img_loc_hospital_corridor"
+              },
+              {
+                "token": "<IMAGE_2>",
+                "asset_id": "img_linwan_coat_back"
+              },
+              {
+                "token": "<IMAGE_3>",
+                "asset_id": "img_shenyan_bandage_front"
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "shots": [
+          {
+            "shot_id": "S06-01",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S06-01-A1",
+                "at_seconds": 0.2,
+                "duration_seconds": 1.2,
+                "actor": "沈砚",
+                "target": null,
+                "move": "推开急诊室的门",
+                "body_part": "右手",
+                "direction": "画右→画左",
+                "force": 2,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "门在身后慢慢合上",
+                "sfx_cue": "门轴转动"
+              },
+              {
+                "node_id": "S06-01-A2",
+                "at_seconds": 1.6,
+                "duration_seconds": 0.7,
+                "actor": "林晚",
+                "target": null,
+                "move": "从长椅上猛地站起",
+                "body_part": "双腿",
+                "direction": "向上",
+                "force": 3,
+                "force_cue": "起身太急，长椅被带得一响",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "长椅挪动"
+              }
+            ],
+            "prompt_addon": "沈砚用右手推开急诊室的门走出来，左前臂垂着不动；林晚起身太急，长椅被带得一响。"
+          },
+          {
+            "shot_id": "S06-05",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S06-05-A1",
+                "at_seconds": 0.8,
+                "duration_seconds": 1.2,
+                "actor": "沈砚",
+                "target": "林晚",
+                "move": "拍她的肩膀",
+                "body_part": "右手",
+                "direction": "画右→画左",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "林晚的肩膀轻轻一颤",
+                "sfx_cue": "手拍在风衣上"
+              },
+              {
+                "node_id": "S06-05-A2",
+                "at_seconds": 6.2,
+                "duration_seconds": 1,
+                "actor": "沈砚",
+                "target": null,
+                "move": "左前臂护在身侧",
+                "body_part": "左前臂",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "沈砚只用右手轻轻拍了两下林晚的肩膀，动作有点笨；缠着纱布的左前臂一直贴在身侧不动。"
+          },
+          {
+            "shot_id": "S06-06",
+            "feasibility": "稳",
+            "workaround": null,
+            "nodes": [
+              {
+                "node_id": "S06-06-A1",
+                "at_seconds": 0.3,
+                "duration_seconds": 1,
+                "actor": "林晚",
+                "target": "沈砚",
+                "move": "把脸埋进他的肩头",
+                "body_part": "额头",
+                "direction": "画左→画右",
+                "force": 2,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "沈砚被靠得微微一晃，没有躲",
+                "sfx_cue": "衣服摩擦"
+              },
+              {
+                "node_id": "S06-06-A2",
+                "at_seconds": 1.5,
+                "duration_seconds": 2,
+                "actor": "林晚",
+                "target": null,
+                "move": "肩膀抽动",
+                "body_part": "双肩",
+                "direction": "原地",
+                "force": 2,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "林晚往画右一倾，把脸埋进沈砚的右肩，肩膀一抽一抽；沈砚被靠得微微一晃，没有躲，也没抬左臂。"
+          }
+        ],
+        "props_after": [
+          {
+            "name": "林晚",
+            "left": "摊开的账本",
+            "right": null
+          },
+          {
+            "name": "沈砚",
+            "left": null,
+            "right": null
+          }
+        ],
+        "injuries": [],
+        "safety_notes": ["沈砚的左前臂全程不用力，拥抱时也不要搭上去。"]
+      }
+    }
+  ]
+}

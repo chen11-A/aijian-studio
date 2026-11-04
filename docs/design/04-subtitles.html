@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIVORA 原型 · 字幕样式</title>
+    <link rel="stylesheet" href="assets/proto.css" />
+    <style>
+      .sub-page {
+        display: grid;
+        grid-template-columns: 250px minmax(0, 1fr) 290px;
+        gap: 12px;
+        height: 100%;
+        padding: 16px;
+      }
+      .templates .panel-body {
+        display: grid;
+        gap: 10px;
+      }
+      .tpl {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        background: var(--panel-2);
+        text-align: left;
+      }
+      .tpl[aria-pressed="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+      .tpl .frame {
+        height: 74px;
+      }
+      .tpl .name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+      }
+      .tpl .desc {
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .s-sample {
+        position: absolute;
+        left: 6%;
+        right: 6%;
+        bottom: 12%;
+        text-align: center;
+        font-size: 12px;
+      }
+      .previews {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 12px;
+        min-height: 0;
+        padding: 12px;
+      }
+      .line-pick {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-2);
+      }
+      .stage {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        min-height: 0;
+        container-type: size;
+      }
+      .shot {
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+      }
+      .shot .label {
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .tall {
+        height: min(calc(100cqh - 32px), calc((100cqw - 20px) / 1.5625));
+        aspect-ratio: 9 / 16;
+        container-type: size;
+      }
+      .wide {
+        width: min(calc(100cqh - 32px), calc((100cqw - 20px) / 1.5625));
+        aspect-ratio: 16 / 9;
+        container-type: size;
+      }
+      .sub {
+        position: absolute;
+        left: 7%;
+        right: 7%;
+        text-align: center;
+        line-height: 1.35;
+      }
+      .tall .sub {
+        bottom: 24%;
+        font-size: max(13px, 3.4cqh);
+      }
+      .wide .sub {
+        bottom: 9%;
+        font-size: max(13px, 5cqh);
+      }
+      .style-a {
+        color: #fff;
+        font-weight: 700;
+        text-shadow:
+          -1px -1px 0 #000,
+          1px -1px 0 #000,
+          -1px 1px 0 #000,
+          1px 1px 0 #000,
+          0 2px 6px rgba(0, 0, 0, 0.8);
+      }
+      .style-b {
+        color: #fff;
+      }
+      .style-b span {
+        padding: 2px 10px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.58);
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+      }
+      .style-c {
+        color: #f3ead7;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+      }
+      .safe {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 19%;
+        display: grid;
+        place-items: center;
+        border-top: 1px dashed rgba(232, 163, 61, 0.8);
+        background: repeating-linear-gradient(
+          135deg,
+          rgba(232, 163, 61, 0.16) 0 6px,
+          rgba(232, 163, 61, 0.06) 6px 12px
+        );
+        color: var(--warn);
+        font-size: 12px;
+        text-align: center;
+      }
+      .settings .panel-body {
+        display: grid;
+        gap: 14px;
+      }
+      .settings .between {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .settings .foot {
+        display: grid;
+        gap: 8px;
+        padding: 12px;
+        border-top: 1px solid var(--line);
+      }
+      .busy {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(5, 6, 8, 0.55);
+        color: var(--text);
+        font-weight: 700;
+      }
+      @media (min-width: 1600px) {
+        .sub-page {
+          grid-template-columns: 300px minmax(0, 1fr) 340px;
+          padding: 20px;
+          gap: 16px;
+        }
+        .tpl .frame {
+          height: 96px;
+        }
+      }
+    </style>
+  </head>
+  <body data-states="normal empty loading error">
+    <div class="app">
+      <header class="topbar">
+        <div class="tb-left">
+          <div class="logo"><span class="logo-mark">A</span>AIVORA</div>
+          <span class="vsep"></span>
+          <button class="proj" aria-label="作品">
+            <span class="one-line">雨夜旧书店</span><span class="ep">/ 第 1 集</span>
+            <svg class="ic sm"><use href="#i-chev" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="撤销" title="撤销">
+            <svg class="ic"><use href="#i-undo" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="重做" title="重做" disabled>
+            <svg class="ic"><use href="#i-redo" /></svg>
+          </button>
+        </div>
+        <nav class="tabs" aria-label="创作阶段">
+          <button class="tab"><span class="n">1</span>剧本</button>
+          <button class="tab"><span class="n">2</span>角色与场景</button>
+          <button class="tab"><span class="n">3</span>分镜</button>
+          <button class="tab on" aria-current="page"><span class="n">4</span>剪辑</button>
+        </nav>
+        <div class="tb-right">
+          <button class="chip"><span class="dot"></span>Grok 会员 · 已连接</button>
+          <button class="btn ghost">
+            <svg class="ic"><use href="#i-list" /></svg>任务
+          </button>
+          <button class="btn primary">
+            <svg class="ic"><use href="#i-export" /></svg>导出成片
+          </button>
+          <button class="avatar" aria-label="账号">
+            <svg class="ic sm"><use href="#i-user" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="sub-page">
+          <section class="panel templates" aria-labelledby="tpl-title">
+            <div class="panel-head">
+              <h2 id="tpl-title">字幕样式</h2>
+              <span class="faint">3 套</span>
+            </div>
+            <div class="scroll panel-body">
+              <button class="tpl" aria-pressed="true">
+                <span class="frame art-bookstore" data-art
+                  ><span class="s-sample style-a">字幕在这里</span></span
+                >
+                <span class="name">清楚白字<span class="tag info">默认</span></span>
+                <span class="desc">白字加黑边，哪种画面都看得清。</span>
+              </button>
+              <button class="tpl" aria-pressed="false">
+                <span class="frame art-hospital" data-art
+                  ><span class="s-sample style-b"><span>字幕在这里</span></span></span
+                >
+                <span class="name">底条字幕</span>
+                <span class="desc">白字垫一条半透明黑底，亮的画面也清楚。</span>
+              </button>
+              <button class="tpl" aria-pressed="false">
+                <span class="frame art-warehouse" data-art
+                  ><span class="s-sample style-c">字幕在这里</span></span
+                >
+                <span class="name">电影字幕</span>
+                <span class="desc">小一号的暖白字，柔和阴影，更像电影。</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel previews" aria-label="横屏和竖屏预览">
+            <div class="line-pick" data-show="normal loading">
+              <span class="faint">预览这一句</span>
+              <strong class="one-line">S01-05 沈砚：这是你爸的账本。拿好，别让任何人看见。</strong>
+              <span class="spacer"></span>
+              <button class="icon-btn" aria-label="上一句">
+                <svg class="ic"><use href="#i-prev" /></svg>
+              </button>
+              <span class="faint">7 / 22</span>
+              <button class="icon-btn" aria-label="下一句">
+                <svg class="ic"><use href="#i-next" /></svg>
+              </button>
+            </div>
+            <div class="banner err" role="alert" data-show="error">
+              <svg class="ic err-text"><use href="#i-alert" /></svg>
+              <div class="text">
+                <strong>有 2 句字幕和剧本对不上</strong>
+                <span class="muted"
+                  >剧本改过以后，S02-02 和 S04-03
+                  的字幕还是旧的。比如剧本是「沈警官，好久不见。」，字幕还写着「沈警官，好久没见。」</span
+                >
+              </div>
+              <button class="btn primary">用新对白更新字幕</button>
+            </div>
+            <div class="banner" data-show="empty">
+              <svg class="ic"><use href="#i-info" /></svg>
+              <div class="text">
+                <strong>这部作品还没有对白</strong>
+                <span class="muted"
+                  >字幕来自剧本里的对白。先在剧本里写对白，这里就能预览；样式可以先选好。</span
+                >
+              </div>
+              <button class="btn">去剧本</button>
+            </div>
+            <div class="stage">
+              <figure class="shot">
+                <div class="frame art-bookstore wide" data-art>
+                  <p class="sub style-a" data-show="normal loading">
+                    这是你爸的账本。拿好，别让任何人看见。
+                  </p>
+                  <p class="sub style-a" data-show="error">沈警官，好久没见。</p>
+                  <span class="busy" data-show="loading">正在按新样式排字幕…</span>
+                </div>
+                <figcaption class="label">横屏 16:9 · 一行最多 20 个字</figcaption>
+              </figure>
+              <figure class="shot">
+                <div class="frame art-bookstore tall" data-art>
+                  <p class="sub style-a" data-show="normal loading">
+                    这是你爸的账本。<br />拿好，别让任何人看见。
+                  </p>
+                  <p class="sub style-a" data-show="error">沈警官，好久没见。</p>
+                  <span class="safe" data-show="normal empty error"
+                    >平台的按钮和标题会挡住这里</span
+                  >
+                  <span class="busy" data-show="loading">正在排字幕…</span>
+                </div>
+                <figcaption class="label">竖屏 9:16 · 一行最多 12 个字</figcaption>
+              </figure>
+            </div>
+          </section>
+
+          <aside class="panel settings" aria-labelledby="set-title">
+            <div class="panel-head">
+              <h2 id="set-title">调整</h2>
+              <span class="faint">整部作品都用</span>
+            </div>
+            <div class="scroll panel-body">
+              <div class="field">
+                <span class="label">字号</span>
+                <div class="seg" role="group" aria-label="字号">
+                  <button aria-pressed="false">小</button><button aria-pressed="true">中</button
+                  ><button aria-pressed="false">大</button>
+                </div>
+              </div>
+              <div class="field">
+                <label for="height">字幕离底边多高</label>
+                <div class="range">
+                  <input id="height" type="range" min="5" max="40" value="24" /><span class="muted"
+                    >24%</span
+                  >
+                </div>
+              </div>
+              <div class="between">
+                <span>竖屏避开平台按钮</span
+                ><button
+                  class="toggle"
+                  role="switch"
+                  aria-checked="true"
+                  aria-label="竖屏避开平台按钮"
+                ></button>
+              </div>
+              <p class="faint">打开时，竖屏字幕放在平台的点赞、评论按钮上面。</p>
+              <div class="field">
+                <span class="label">一行最多几个字</span>
+                <div class="row">
+                  <span class="select" style="flex: 1"
+                    >竖屏 12 个<svg class="ic sm"><use href="#i-chev" /></svg
+                  ></span>
+                  <span class="select" style="flex: 1"
+                    >横屏 20 个<svg class="ic sm"><use href="#i-chev" /></svg
+                  ></span>
+                </div>
+                <span class="faint">超过就在标点处换行，不会把一句话剪短。</span>
+              </div>
+              <div class="between">
+                <span>前面加说话人名字</span
+                ><button
+                  class="toggle"
+                  role="switch"
+                  aria-checked="false"
+                  aria-label="前面加说话人名字"
+                ></button>
+              </div>
+              <div class="field">
+                <span class="label">字幕从哪来</span>
+                <span data-show="normal loading">剧本里的对白，一共 22 句。</span>
+                <span data-show="empty">剧本里还没有对白。</span>
+                <span data-show="error">剧本里的对白，一共 22 句，2 句要更新。</span>
+                <button class="link" style="justify-self: start">去剧本改字</button>
+              </div>
+            </div>
+            <div class="foot">
+              <button class="btn primary" data-disabled="loading">用这个样式</button>
+              <button class="btn ghost">恢复默认</button>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span class="note" role="status" data-show="normal"
+          >正在预览「清楚白字」。点「用这个样式」后，整部作品的字幕一起换。</span
+        >
+        <span class="note" role="status" data-show="empty">还没有对白，所以没有字幕。</span>
+        <span class="note" role="status" data-show="loading">正在排字幕。</span>
+        <span class="note" role="alert" data-show="error">有 2 句字幕和剧本对不上。</span>
+        <span class="task"
+          ><svg class="ic sm"><use href="#i-clock" /></svg>后台生成：没有正在生成的内容</span
+        >
+        <span class="where">作品保存在 <b>雨夜旧书店</b></span>
+      </footer>
+    </div>
+    <script src="assets/proto.js"></script>
+  </body>
+</html>

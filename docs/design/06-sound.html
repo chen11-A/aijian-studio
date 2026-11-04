@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIVORA 原型 · 声音面板</title>
+    <link rel="stylesheet" href="assets/proto.css" />
+    <style>
+      .sound-page {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr) 330px;
+        gap: 12px;
+        height: 100%;
+        padding: 16px;
+      }
+      .scene-btn {
+        display: grid;
+        gap: 4px;
+        width: 100%;
+        padding: 10px 12px;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: none;
+        text-align: left;
+      }
+      .scene-btn[aria-pressed="true"] {
+        background: var(--accent-soft);
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
+      .scene-btn .t {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        min-width: 0;
+      }
+      .scene-btn .m {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .center {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 12px;
+        min-height: 0;
+      }
+      .tl-body {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr);
+        grid-template-rows: 26px repeat(4, minmax(46px, 1fr));
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: 10px 12px 12px 0;
+      }
+      .lane-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 46px;
+        padding-left: 12px;
+        color: var(--text-2);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .lane-name.ruler-name {
+        min-height: 26px;
+      }
+      .ruler {
+        position: relative;
+        height: 26px;
+        border-bottom: 1px solid var(--line-2);
+      }
+      .ruler span {
+        position: absolute;
+        bottom: 4px;
+        padding-left: 3px;
+        border-left: 1px solid var(--line-2);
+        color: var(--text-3);
+        font-size: 12px;
+        line-height: 1;
+        white-space: nowrap;
+      }
+      .track {
+        position: relative;
+        min-height: 46px;
+        border-bottom: 1px solid var(--line);
+      }
+      .track .cut {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--line);
+      }
+      .clip {
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        display: flex;
+        align-items: center;
+        padding: 0 6px;
+        overflow: hidden;
+        border-radius: 4px;
+        color: #fff;
+        font-size: 12px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .clip::before {
+        content: "";
+        position: absolute;
+        inset: 18% 0;
+        z-index: -1;
+        background: repeating-linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.22) 0 1px,
+          transparent 1px 3px
+        );
+        mask-image: linear-gradient(180deg, transparent, #000 35%, #000 65%, transparent);
+      }
+      .clip {
+        isolation: isolate;
+        align-items: flex-start;
+        padding-top: 4px;
+      }
+      .v-dialogue {
+        background: color-mix(in srgb, var(--t-voice) 75%, transparent);
+      }
+      .v-amb {
+        background: color-mix(in srgb, var(--t-amb) 55%, transparent);
+      }
+      .v-music {
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--t-music) 80%, transparent) 92%,
+          transparent
+        );
+      }
+      .v-siren {
+        background: color-mix(in srgb, var(--t-sfx) 45%, transparent);
+      }
+      .fx {
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        width: 3px;
+        border-radius: 2px;
+        background: var(--t-sfx);
+        transform: translateX(-1px);
+      }
+      .fx.miss {
+        background: none;
+        border-left: 3px dashed var(--err);
+      }
+      .playhead {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #fff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+      }
+      .lanes {
+        position: relative;
+      }
+      .mixer {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        padding: 12px;
+      }
+      .strip {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-2);
+        min-width: 0;
+      }
+      .strip .nm {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+      }
+      .strip .sw {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        flex: none;
+      }
+      .strip .db {
+        color: var(--text-2);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .strip .acts {
+        display: flex;
+        gap: 6px;
+      }
+      .mix-foot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px 12px;
+        color: var(--text-2);
+      }
+      .detail {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .detail .top {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .moods {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .mood {
+        height: 26px;
+        padding: 0 10px;
+        border: 1px solid var(--line-2);
+        border-radius: 13px;
+        background: none;
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .mood[aria-pressed="true"] {
+        border-color: var(--t-music);
+        background: color-mix(in srgb, var(--t-music) 30%, transparent);
+        color: #fff;
+      }
+      .asset {
+        display: grid;
+        gap: 6px;
+        padding: 10px;
+        border: 1px solid var(--line-2);
+        border-radius: 8px;
+        background: var(--panel-2);
+      }
+      .asset .h {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .asset .h strong {
+        min-width: 0;
+      }
+      .why {
+        padding-left: 10px;
+        border-left: 2px solid var(--t-music);
+        color: var(--text-2);
+      }
+      .why.amb {
+        border-left-color: var(--t-amb);
+      }
+      .fx-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        height: 36px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line);
+        font-weight: 700;
+        flex: none;
+      }
+      .fx-list {
+        flex: 1 1 auto;
+      }
+      .fx-row {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 2px 10px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .fx-row .at {
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .fx-row .src {
+        grid-column: 2;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .fx-row.miss {
+        background: var(--err-soft);
+      }
+      .fx-row.now {
+        background: var(--accent-soft);
+      }
+      @media (min-width: 1600px) {
+        .sound-page {
+          grid-template-columns: 260px minmax(0, 1fr) 380px;
+          padding: 20px;
+          gap: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body data-states="normal empty loading error">
+    <div class="app">
+      <header class="topbar">
+        <div class="tb-left">
+          <div class="logo"><span class="logo-mark">A</span>AIVORA</div>
+          <span class="vsep"></span>
+          <button class="proj" aria-label="作品">
+            <span class="one-line">雨夜旧书店</span><span class="ep">/ 第 1 集</span>
+            <svg class="ic sm"><use href="#i-chev" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="撤销" title="撤销">
+            <svg class="ic"><use href="#i-undo" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="重做" title="重做" disabled>
+            <svg class="ic"><use href="#i-redo" /></svg>
+          </button>
+        </div>
+        <nav class="tabs" aria-label="创作阶段">
+          <button class="tab"><span class="n">1</span>剧本</button>
+          <button class="tab"><span class="n">2</span>角色与场景</button>
+          <button class="tab"><span class="n">3</span>分镜</button>
+          <button class="tab on" aria-current="page"><span class="n">4</span>剪辑</button>
+        </nav>
+        <div class="tb-right">
+          <button class="chip"><span class="dot"></span>Grok 会员 · 已连接</button>
+          <button class="btn ghost">
+            <svg class="ic"><use href="#i-list" /></svg>任务
+          </button>
+          <button class="btn primary">
+            <svg class="ic"><use href="#i-export" /></svg>导出成片
+          </button>
+          <button class="avatar" aria-label="账号">
+            <svg class="ic sm"><use href="#i-user" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="sound-page">
+          <nav class="panel" aria-labelledby="scenes-title">
+            <div class="panel-head"><h2 id="scenes-title">声音 · 按场</h2></div>
+            <div class="scroll">
+              <button class="scene-btn" aria-pressed="false">
+                <span class="t"><span class="one-line">1 雨夜来客</span></span>
+                <span class="m"><span>42 秒</span><span class="tag">不安</span></span>
+              </button>
+              <button class="scene-btn" aria-pressed="false">
+                <span class="t"><span class="one-line">2 檐下对峙</span></span>
+                <span class="m"><span>38 秒</span><span class="tag">悬疑</span></span>
+              </button>
+              <button class="scene-btn" aria-pressed="false">
+                <span class="t"><span class="one-line">3 独自赴约</span></span>
+                <span class="m"><span>22 秒</span><span class="tag">悬疑</span></span>
+              </button>
+              <button class="scene-btn" aria-pressed="true">
+                <span class="t"><span class="one-line">4 钢管对刀</span></span>
+                <span class="m">
+                  <span>49 秒</span><span class="tag" data-show="normal error">激烈</span
+                  ><span class="tag warn" data-show="normal">缺 1 个音效</span>
+                  <span class="tag" data-show="empty loading">还没配</span>
+                </span>
+              </button>
+              <button class="scene-btn" aria-pressed="false">
+                <span class="t"><span class="one-line">5 父亲的字</span></span>
+                <span class="m"><span>17 秒</span><span class="tag">悲伤</span></span>
+              </button>
+              <button class="scene-btn" aria-pressed="false">
+                <span class="t"><span class="one-line">6 换我</span></span>
+                <span class="m"><span>40 秒</span><span class="tag">温暖</span></span>
+              </button>
+            </div>
+          </nav>
+
+          <div class="center">
+            <section class="panel" aria-labelledby="tl-title">
+              <div class="panel-head">
+                <h2 id="tl-title">第 4 场 · 四层声音</h2>
+                <span class="mono muted">00:24.3 / 00:49.0</span>
+                <span class="spacer"></span>
+                <button class="btn sm">
+                  <svg class="ic sm"><use href="#i-play" /></svg>播放这一场
+                </button>
+                <button class="btn sm ghost" data-show="normal error">让声音设计重配</button>
+              </div>
+              <div class="tl-body" data-show="normal error">
+                <span class="lane-name ruler-name">镜头</span>
+                <div class="ruler" aria-hidden="true">
+                  <span style="left: 0">01</span><span style="left: 12.24%">02</span
+                  ><span style="left: 20.41%">03</span> <span style="left: 30.61%">04</span
+                  ><span style="left: 40.82%">05</span><span style="left: 46.94%">06</span>
+                  <span style="left: 53.06%">07</span><span style="left: 59.18%">08</span
+                  ><span style="left: 65.31%">09</span> <span style="left: 71.43%">10</span
+                  ><span style="left: 79.59%">11</span><span style="left: 89.8%">12</span>
+                </div>
+                <span class="lane-name"
+                  ><svg class="ic sm" style="color: var(--t-voice)"><use href="#i-mic" /></svg
+                  >对白</span
+                >
+                <div class="track" data-layer>
+                  <i
+                    class="clip v-dialogue"
+                    style="left: 15.1%; width: 2.55%"
+                    title="周烈：钥匙带来了？"
+                    >周烈</i
+                  >
+                  <i
+                    class="clip v-dialogue"
+                    style="left: 21.63%; width: 5.61%"
+                    title="沈砚：先让你的人离书店远一点。"
+                    >沈砚</i
+                  >
+                  <i
+                    class="clip v-dialogue"
+                    style="left: 32.65%; width: 5.61%"
+                    title="周烈：沈警官，你早就不是警察了。"
+                    >周烈</i
+                  >
+                  <i
+                    class="clip v-dialogue"
+                    style="left: 82.04%; width: 2.04%"
+                    title="林晚：我报警了！"
+                    >林晚</i
+                  >
+                  <i
+                    class="clip v-dialogue"
+                    style="left: 91.84%; width: 3.57%"
+                    title="沈砚：不是让你别来吗。"
+                    >沈砚</i
+                  >
+                  <i class="playhead" style="left: 49.59%"></i>
+                </div>
+                <span class="lane-name"
+                  ><svg class="ic sm" style="color: var(--t-amb)"><use href="#i-wave" /></svg
+                  >环境音</span
+                >
+                <div class="track" data-layer>
+                  <i class="clip v-amb" style="left: 0; width: 100%"
+                    >空仓库：屋顶滴水，吊灯链子轻响</i
+                  >
+                  <i class="playhead" style="left: 49.59%"></i>
+                </div>
+                <span class="lane-name"
+                  ><svg class="ic sm" style="color: var(--t-sfx)"><use href="#i-bolt" /></svg
+                  >音效</span
+                >
+                <div class="track" data-layer>
+                  <i class="fx" style="left: 31.22%"></i><i class="fx" style="left: 31.63%"></i
+                  ><i class="fx" style="left: 41.43%"></i> <i class="fx" style="left: 47.35%"></i
+                  ><i class="fx" style="left: 48.57%"></i><i class="fx" style="left: 49.59%"></i>
+                  <i class="fx" style="left: 54.08%"></i><i class="fx" style="left: 60.61%"></i
+                  ><i class="fx miss" style="left: 65.92%"></i>
+                  <i class="fx" style="left: 72.24%"></i><i class="fx" style="left: 74.29%"></i
+                  ><i class="fx" style="left: 79.8%"></i>
+                  <i class="clip v-siren" style="left: 80.61%; width: 16.33%">警笛</i>
+                  <i class="playhead" style="left: 49.59%"></i>
+                </div>
+                <span class="lane-name"
+                  ><svg class="ic sm" style="color: var(--t-music)"><use href="#i-music" /></svg
+                  >配乐</span
+                >
+                <div class="track" data-layer>
+                  <i class="clip v-music" style="left: 40.82%; width: 38.78%">短兵相接 · 激烈</i>
+                  <i class="playhead" style="left: 49.59%"></i>
+                </div>
+              </div>
+              <div class="empty" data-show="empty">
+                <svg class="ic lg"><use href="#i-music" /></svg>
+                <h3>这一场还没有配声音</h3>
+                <p>
+                  声音设计会按剧本和动作配好环境声、每一下动作的音效和配乐，只用文字模型，不用视频额度。
+                </p>
+                <button class="btn primary">让声音设计配好第 4 场</button>
+              </div>
+              <div class="tl-body" data-show="loading" aria-busy="true">
+                <span class="lane-name ruler-name">镜头</span>
+                <div class="ruler"></div>
+                <span class="lane-name">对白</span>
+                <div class="track">
+                  <div class="skeleton" style="position: absolute; inset: 10px 40% 10px 12%"></div>
+                </div>
+                <span class="lane-name">环境音</span>
+                <div class="track">
+                  <div class="skeleton" style="position: absolute; inset: 10px 2px"></div>
+                </div>
+                <span class="lane-name">音效</span>
+                <div class="track">
+                  <div class="skeleton" style="position: absolute; inset: 10px 30% 10px 30%"></div>
+                </div>
+                <span class="lane-name">配乐</span>
+                <div class="track">
+                  <div class="skeleton" style="position: absolute; inset: 10px 20% 10px 40%"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" aria-labelledby="mix-title">
+              <div class="panel-head">
+                <h2 id="mix-title">每层音量</h2>
+                <span class="faint">只改第 4 场，其他场不受影响</span>
+              </div>
+              <div class="mixer">
+                <div class="strip">
+                  <span class="nm"><i class="sw" style="background: var(--t-voice)"></i>对白</span>
+                  <div class="range">
+                    <input type="range" min="-30" max="6" value="0" aria-label="对白音量" /><span
+                      class="db"
+                      >0 分贝</span
+                    >
+                  </div>
+                  <div class="acts">
+                    <button class="btn sm">静音</button
+                    ><button class="btn sm ghost">只听这层</button>
+                  </div>
+                </div>
+                <div class="strip">
+                  <span class="nm"><i class="sw" style="background: var(--t-amb)"></i>环境音</span>
+                  <div class="range">
+                    <input type="range" min="-30" max="6" value="-9" aria-label="环境音音量" /><span
+                      class="db"
+                      >-9 分贝</span
+                    >
+                  </div>
+                  <div class="acts">
+                    <button class="btn sm">静音</button
+                    ><button class="btn sm ghost">只听这层</button>
+                  </div>
+                </div>
+                <div class="strip">
+                  <span class="nm"><i class="sw" style="background: var(--t-sfx)"></i>音效</span>
+                  <div class="range">
+                    <input type="range" min="-30" max="6" value="-2" aria-label="音效音量" /><span
+                      class="db"
+                      >-2 分贝</span
+                    >
+                  </div>
+                  <div class="acts">
+                    <button class="btn sm">静音</button
+                    ><button class="btn sm ghost">只听这层</button>
+                  </div>
+                </div>
+                <div class="strip">
+                  <span class="nm"><i class="sw" style="background: var(--t-music)"></i>配乐</span>
+                  <div class="range">
+                    <input type="range" min="-30" max="6" value="-12" aria-label="配乐音量" /><span
+                      class="db"
+                      >-12 分贝</span
+                    >
+                  </div>
+                  <div class="acts">
+                    <button class="btn sm">静音</button
+                    ><button class="btn sm ghost">只听这层</button>
+                  </div>
+                </div>
+              </div>
+              <div class="mix-foot">
+                <button
+                  class="toggle"
+                  role="switch"
+                  aria-checked="true"
+                  aria-label="对白响起时配乐让开"
+                ></button>
+                <span>有人说话时，配乐自动压低 8 分贝</span>
+                <span class="spacer"></span>
+                <span class="faint">导出时整片音量会调到听着一样大</span>
+              </div>
+            </section>
+          </div>
+
+          <aside class="panel detail" aria-labelledby="music-title">
+            <div class="panel-head">
+              <h2 id="music-title">第 4 场 · 钢管对刀</h2>
+              <span class="faint">49 秒</span>
+            </div>
+            <div class="top" data-show="normal error">
+              <div class="field">
+                <span class="label">这一场的配乐情绪（一场只选一个）</span>
+                <div class="moods" role="group" aria-label="配乐情绪">
+                  <button class="mood" aria-pressed="false">平静</button
+                  ><button class="mood" aria-pressed="false">温暖</button>
+                  <button class="mood" aria-pressed="false">不安</button
+                  ><button class="mood" aria-pressed="false">悬疑</button>
+                  <button class="mood" aria-pressed="false">紧张</button
+                  ><button class="mood" aria-pressed="true">激烈</button>
+                  <button class="mood" aria-pressed="false">悲伤</button
+                  ><button class="mood" aria-pressed="false">释然</button>
+                </div>
+              </div>
+              <div class="asset" data-show="normal">
+                <p class="h">
+                  <svg class="ic sm" style="color: var(--t-music)"><use href="#i-music" /></svg
+                  ><strong class="one-line">短兵相接：快速打击乐和低音弦</strong>
+                </p>
+                <p class="faint">素材库 · 1 分 04 秒 · 用在 00:20 到 00:39，最后淡出 1.5 秒</p>
+                <p class="why">
+                  为什么选它：打击乐只跟着六镜打斗，周烈扑上来时砸进来，林晚推门时收掉，让警笛接上。
+                </p>
+                <div class="row">
+                  <button class="btn sm">
+                    <svg class="ic sm"><use href="#i-play" /></svg>试听</button
+                  ><span class="faint">素材库里「激烈」只有这一首</span>
+                </div>
+              </div>
+              <div class="banner err" role="alert" data-show="error">
+                <svg class="ic err-text"><use href="#i-alert" /></svg>
+                <div class="text">
+                  <strong>素材库的文件夹打不开了</strong>
+                  <span class="muted"
+                    >可能被移走或者改了名字。已经放进时间线的声音不受影响，换素材要先找回文件夹。</span
+                  >
+                  <div class="row" style="margin-top: 6px">
+                    <button class="btn sm">重新选择素材库文件夹</button>
+                  </div>
+                </div>
+              </div>
+              <div class="asset">
+                <p class="h">
+                  <svg class="ic sm" style="color: var(--t-amb)"><use href="#i-wave" /></svg
+                  ><strong class="one-line">空仓库：屋顶滴水，吊灯链子轻响</strong>
+                </p>
+                <p class="why amb">
+                  为什么选它：空仓库的滴水和吊灯链子声，让前面的对话更静、更紧。
+                </p>
+              </div>
+            </div>
+            <div class="fx-head" data-show="normal error">
+              <span>音效 · 13 条</span><span class="tag warn" data-show="normal">缺 1 条素材</span>
+            </div>
+            <div class="scroll fx-list" data-show="normal error">
+              <div class="fx-row">
+                <span class="at mono">00:15.3</span><span>苹果落在木箱上</span
+                ><span class="src">S04-04 · 动作「把苹果丢到木箱上」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:15.5</span><span>皮鞋落地</span
+                ><span class="src">S04-04 · 动作「从木箱上跳下」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:20.3</span><span>刀破风</span
+                ><span class="src">S04-05 · 动作「前冲直刺」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:23.2</span><span>钢管刮过墙面</span
+                ><span class="src">S04-06 · 动作「抄起钢管」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:23.8</span><span>第二刀破风</span
+                ><span class="src">S04-06 · 动作「挥刀横劈」</span>
+              </div>
+              <div class="fx-row now">
+                <span class="at mono">00:24.3</span><span>钢管撞上刀刃 · 整场最响的一下</span
+                ><span class="src">S04-06 · 动作「钢管横格」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:26.5</span><span>刀划破袖子</span
+                ><span class="src">S04-07 · 动作「斜劈」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:29.7</span><span>钢管砸中手腕</span
+                ><span class="src">S04-08 · 动作「抡钢管砸手腕」</span>
+              </div>
+              <div class="fx-row miss">
+                <span class="at mono">00:32.3</span
+                ><span><strong>折叠刀在水泥地上滑行</strong> · 素材库里没有</span>
+                <span class="src">建议：用钥匙在地上拖的声音代替，或者导入自己录的。</span>
+                <span class="src"><button class="btn sm">导入素材</button></span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:35.4</span><span>膝盖砸在水泥地上</span
+                ><span class="src">S04-10 · 动作「捂着手腕跪倒」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:36.4</span><span>钢管压上肩膀</span
+                ><span class="src">S04-10 · 动作「钢管抵住肩膀」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:39.1</span><span>铁门撞墙</span
+                ><span class="src">S04-11 · 动作「推开铁门」</span>
+              </div>
+              <div class="fx-row">
+                <span class="at mono">00:39.5</span><span>远处警笛由远及近</span
+                ><span class="src">S04-11 · 剧本「警笛声一路逼近」</span>
+              </div>
+            </div>
+            <div class="empty" data-show="empty">
+              <p>配好以后，这里会显示选了哪首配乐、为什么选，以及每一下动作对应的音效。</p>
+            </div>
+            <div class="panel-body" data-show="loading" aria-busy="true">
+              <p class="muted">声音设计正在配第 4 场，只用文字模型。</p>
+              <div class="skeleton" style="height: 60px; margin-top: 12px"></div>
+              <div class="skeleton" style="height: 60px; margin-top: 12px"></div>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span class="note" role="status" data-show="normal">停在 00:24.3：钢管撞上刀刃。</span>
+        <span class="note" role="status" data-show="empty">第 4 场还没有声音。</span>
+        <span class="note" role="status" data-show="loading">声音设计正在配第 4 场。</span>
+        <span class="note" role="alert" data-show="error">素材库的文件夹打不开。</span>
+        <span class="task">
+          <svg class="ic sm"><use href="#i-clock" /></svg>
+          <span data-show="normal empty error">后台生成：没有正在生成的内容</span>
+          <span data-show="loading">后台生成：正在问文字模型</span>
+        </span>
+        <span class="where">作品保存在 <b>雨夜旧书店</b></span>
+      </footer>
+    </div>
+    <script src="assets/proto.js"></script>
+  </body>
+</html>
