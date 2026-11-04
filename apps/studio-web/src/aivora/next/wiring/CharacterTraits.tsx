@@ -1,5 +1,7 @@
 import type { FilmCharacter } from "../../film/project";
-import { normalizeGender, normalizeAgeBand } from "../../film/cast-traits";
+
+const GENDERS = ["", "男", "女"] as const;
+const AGES = ["", "儿童", "少年", "青年", "中年", "老年"] as const;
 
 export type TraitPatch = Pick<FilmCharacter, "gender" | "ageBand">;
 export function CharacterTraits({
@@ -18,10 +20,13 @@ export function CharacterTraits({
           aria-label="人物性别"
           value={character.gender ?? ""}
           onChange={(event) =>
-            onChange({ gender: normalizeGender(event.target.value), ageBand: character.ageBand })
+            onChange({
+              gender: GENDERS.find((value) => value === event.target.value) ?? "",
+              ageBand: character.ageBand,
+            })
           }
         >
-          {["", "男", "女"].map((value) => (
+          {GENDERS.map((value) => (
             <option key={value} value={value}>
               {value || "未写"}
             </option>
@@ -35,10 +40,13 @@ export function CharacterTraits({
           aria-label="人物年龄段"
           value={character.ageBand ?? ""}
           onChange={(event) =>
-            onChange({ gender: character.gender, ageBand: normalizeAgeBand(event.target.value) })
+            onChange({
+              gender: character.gender,
+              ageBand: AGES.find((value) => value === event.target.value) ?? "",
+            })
           }
         >
-          {["", "儿童", "少年", "青年", "中年", "老年"].map((value) => (
+          {AGES.map((value) => (
             <option key={value} value={value}>
               {value || "未写"}
             </option>
