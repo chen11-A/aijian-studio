@@ -496,6 +496,11 @@ body:has(.pro-root) {
   color: var(--text);
   font-weight: 500;
 }
+/* Two short lines rather than one that breaks in the middle of a number. */
+.pro-root .pfoot.stack {
+  flex-direction: column;
+  gap: 2px;
+}
 
 /* form fields (属性) */
 .pro-root .field {

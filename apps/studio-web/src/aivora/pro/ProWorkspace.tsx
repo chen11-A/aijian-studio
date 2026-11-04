@@ -4858,12 +4858,11 @@ function BoardPage({
             </button>
           ))}
         </div>
-        <div className="pfoot">
+        <div className="pfoot stack">
           <span>
             全片：画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b>/
-            {film.shots.length}
-            {" · "}
-            视频 <b>{film.shots.filter((item) => shotProgress(item) === "视频已出").length}</b>/
+            {film.shots.length} · 视频{" "}
+            <b>{film.shots.filter((item) => shotProgress(item) === "视频已出").length}</b>/
             {film.shots.length}
           </span>
           <span>
