@@ -232,7 +232,17 @@ export function agentIssues(agent: AgentId, value: unknown): string[] {
   }
   if (agent === "action") {
     const beats = value && typeof value === "object" ? (value as { beats?: unknown }).beats : null;
-    if (!Array.isArray(beats) || beats.length === 0) return ["动作结果里没有拍"];
+    const shots = value && typeof value === "object" ? (value as { shots?: unknown }).shots : null;
+    const nodes =
+      Array.isArray(shots) &&
+      shots.some(
+        (shot) =>
+          Boolean(shot) &&
+          typeof shot === "object" &&
+          Array.isArray((shot as { nodes?: unknown }).nodes) &&
+          ((shot as { nodes?: unknown[] }).nodes?.length ?? 0) > 0,
+      );
+    if ((!Array.isArray(beats) || beats.length === 0) && !nodes) return ["动作结果里没有拍"];
     return [];
   }
   if (agent === "performance") {
@@ -256,18 +266,22 @@ type ActionRow = {
   feasibility: "稳" | "看运气" | "难";
   workaround: string;
   at: number;
+  shotId?: string;
 };
+
+function actionText(row: Record<string, unknown>): string {
+  if (typeof row.text === "string" && row.text.trim()) return row.text.trim();
+  return [row.actor, row.body_part, row.direction, row.reaction]
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .join("，");
+}
 
 export function actionFromModel(value: unknown): ActionRow[] | null {
   if (agentIssues("action", value).length > 0 || !value || typeof value !== "object") return null;
-  const beats = (value as { beats?: unknown }).beats;
-  if (!Array.isArray(beats)) return null;
   const rows: ActionRow[] = [];
-  for (const item of beats) {
-    if (!item || typeof item !== "object") continue;
-    const row = item as Record<string, unknown>;
-    const text = typeof row.text === "string" ? row.text.trim() : "";
-    if (!text) continue;
+  const push = (row: Record<string, unknown>, shotId = "") => {
+    const text = actionText(row);
+    if (!text) return;
     const feasibility =
       row.feasibility === "难" || row.feasibility === "看运气" ? row.feasibility : "稳";
     rows.push({
@@ -275,7 +289,31 @@ export function actionFromModel(value: unknown): ActionRow[] | null {
       feasibility,
       workaround: typeof row.workaround === "string" ? row.workaround.trim() : "",
       at: typeof row.at_seconds === "number" ? row.at_seconds : rows.length,
+      ...(shotId ? { shotId } : {}),
     });
+  };
+  const shots = (value as { shots?: unknown }).shots;
+  if (Array.isArray(shots)) {
+    for (const shot of shots) {
+      if (!shot || typeof shot !== "object") continue;
+      const record = shot as Record<string, unknown>;
+      const shotId =
+        typeof record.shot_id === "string"
+          ? record.shot_id
+          : typeof record.id === "string"
+            ? record.id
+            : "";
+      const nodes = Array.isArray(record.nodes) ? record.nodes : [];
+      for (const node of nodes) {
+        if (node && typeof node === "object") push(node as Record<string, unknown>, shotId);
+      }
+    }
+  }
+  const beats = (value as { beats?: unknown }).beats;
+  if (Array.isArray(beats)) {
+    for (const item of beats) {
+      if (item && typeof item === "object") push(item as Record<string, unknown>);
+    }
   }
   return rows.length > 0 ? rows : null;
 }
@@ -327,8 +365,12 @@ function performanceRows(value: unknown): Record<string, unknown>[] {
 /** Turn model field names into words a person can read. */
 export function plainCue(text: string): string {
   return text
-    .replace(/hold_s\s*([0-9.]+)/gi, "停$1秒")
-    .replace(/\b(shot_id|scene_id|at_seconds|feasibility|workaround)\b\s*[:=：]?\s*/gi, "")
+    .replace(/hold_seconds\s*[:=：]?\s*([0-9.]+)/gi, "停 $1 秒")
+    .replace(/hold_s\s*([0-9.]+)/gi, "停 $1 秒")
+    .replace(
+      /\b(shot_id|scene_id|at_seconds|feasibility|workaround|micro_expressions)\b\s*[:=：]?\s*/gi,
+      "",
+    )
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -338,37 +380,83 @@ function spokenBit(value: string): string {
   return /^(无|无台词|无配音|空|没有)$/.test(text) ? "" : text;
 }
 
+function notePieces(row: Record<string, unknown>): string[] {
+  const people = Array.isArray(row.performances) ? row.performances : [row];
+  const bits: string[] = [];
+  for (const person of people) {
+    if (!person || typeof person !== "object") continue;
+    const item = person as Record<string, unknown>;
+    const face = Array.isArray(item.micro_expressions)
+      ? item.micro_expressions
+          .map((part) =>
+            typeof part === "string"
+              ? part
+              : part &&
+                  typeof part === "object" &&
+                  typeof (part as { text?: unknown }).text === "string"
+                ? (part as { text: string }).text
+                : "",
+          )
+          .filter(Boolean)
+          .join("、")
+      : Array.isArray(item.face)
+        ? item.face.filter((part) => typeof part === "string").join("、")
+        : "";
+    const eyes =
+      item.eyes && typeof item.eyes === "object"
+        ? [
+            typeof (item.eyes as { gaze?: unknown }).gaze === "string"
+              ? (item.eyes as { gaze: string }).gaze
+              : "",
+            typeof (item.eyes as { hold_seconds?: unknown }).hold_seconds === "number"
+              ? `停 ${(item.eyes as { hold_seconds: number }).hold_seconds} 秒`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("，")
+        : typeof item.eyes === "string"
+          ? item.eyes
+          : "";
+    const emotion = typeof item.emotion === "string" ? item.emotion : "";
+    const hands = typeof item.hands === "string" ? item.hands : "";
+    const breath = typeof item.breath === "string" ? item.breath : "";
+    bits.push([emotion, face, eyes, hands, breath].map(spokenBit).filter(Boolean).join("，"));
+  }
+  return bits.filter(Boolean);
+}
+
 function noteFromRow(
   row: Record<string, unknown>,
   names: string[],
 ): { performance: string; delivery: string } {
-  const face = Array.isArray(row.face)
-    ? row.face.filter((part) => typeof part === "string").join("、")
-    : "";
-  const eyes = typeof row.eyes === "string" ? row.eyes.trim() : "";
-  const emotion = typeof row.emotion === "string" ? row.emotion.trim() : "";
-  const hands = typeof row.hands === "string" ? row.hands.trim() : "";
-  const breath =
-    typeof row.breath === "string"
-      ? row.breath.trim()
-      : typeof row.pause === "string"
-        ? row.pause.trim()
-        : "";
-  const bit = [emotion, face, eyes, hands, breath].map(spokenBit).filter(Boolean).join("，");
+  const bit = notePieces(row).join("。");
+  const emotion = typeof row.emotion === "string" ? row.emotion : "";
   const gaze = gazeHandoff(names);
   const performance = bit ? (gaze && !bit.includes("视线") ? `${bit}。${gaze}` : bit) : "";
-  const voice =
-    row.voice && typeof row.voice === "object" ? (row.voice as Record<string, unknown>) : row;
-  const tone = spokenBit(typeof voice.tone === "string" ? voice.tone : "");
-  const pace = spokenBit(typeof voice.pace === "string" ? voice.pace : "");
+  const nested = Array.isArray(row.performances) ? row.performances : [];
+  const nestedVoice = nested
+    .map((person) =>
+      person && typeof person === "object" ? (person as { voice?: unknown }).voice : undefined,
+    )
+    .find((voice) => voice && typeof voice === "object");
+  const voice = (Array.isArray(nestedVoice) ? nestedVoice[0] : nestedVoice) as
+    Record<string, unknown> | undefined;
+  const voiceRow =
+    voice && typeof voice === "object"
+      ? voice
+      : row.voice && typeof row.voice === "object"
+        ? (row.voice as Record<string, unknown>)
+        : row;
+  const tone = spokenBit(typeof voiceRow.tone === "string" ? voiceRow.tone : "");
+  const pace = spokenBit(typeof voiceRow.pace === "string" ? voiceRow.pace : "");
   const pauses = spokenBit(
-    typeof voice.pauses === "string"
-      ? voice.pauses
-      : typeof voice.pause === "string"
-        ? voice.pause
+    typeof voiceRow.pauses === "string"
+      ? voiceRow.pauses
+      : typeof voiceRow.pause === "string"
+        ? voiceRow.pause
         : "",
   );
-  const voiceEmotion = spokenBit(typeof voice.emotion === "string" ? voice.emotion : "");
+  const voiceEmotion = spokenBit(typeof voiceRow.emotion === "string" ? voiceRow.emotion : "");
   const delivery = [
     tone ? `语气${tone}` : "",
     pace ? `语速${pace}` : "",

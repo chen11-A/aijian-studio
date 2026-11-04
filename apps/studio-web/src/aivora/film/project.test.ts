@@ -73,8 +73,11 @@ describe("film project", () => {
     expect(prompt).toContain("不要改作品");
     expect(agentRequest("director", "画风", "拆开")).toContain("你是短剧导演");
     expect(assistantPrompt("   ", null)).toContain("短剧助手");
-    expect(assistantPrompt("很".repeat(8000), film).length).toBe(7500);
-    expect(agentRequest("writer", "很".repeat(8000), "写").length).toBe(7500);
+    const novel = "雨夜旧书店。林晚说：“我叫沈砚。”".padEnd(2075, "雨");
+    const request = agentRequest("director", novel, "把这一场拆成镜头");
+    expect(request).toContain(novel);
+    expect(request.length).toBeGreaterThan(2075);
+    expect(assistantPrompt("很".repeat(8000), film)).toContain("很".repeat(8000));
   });
 
   it("reads a saved film and ignores a broken record", () => {
@@ -156,7 +159,25 @@ describe("film project", () => {
         { id: "scene-3", title: "医院走廊", where: "医院走廊", text: "林晚哭着说：「你还活着。」" },
       ],
     );
-    expect(wrapped?.map((shot) => shot.sceneId)).toEqual(["scene-9", "scene-9"]);
+    expect(wrapped?.map((shot) => shot.sceneId)).toEqual(["scene-1", "scene-3"]);
+    const spoken = parseDirectorShots(
+      JSON.stringify({
+        shots: [
+          {
+            video_prompt: "林晚站在柜台后",
+            dialogue: [{ speaker: "林晚", line: "我叫沈砚" }],
+            blocking: [{ who: "林晚", where: "画左" }],
+            seconds: 3,
+          },
+        ],
+      }),
+      "scene-1",
+      "林晚说：“我叫沈砚。”",
+    );
+    expect(spoken?.[0]?.picture).toContain("林晚站在柜台后");
+    expect(spoken?.[0]?.line).toBe("我叫沈砚");
+    expect(spoken?.[0]?.speaker).toBe("林晚");
+    expect(spoken?.[0]?.blocking).toContain("画左");
     const selected = parseDirectorShots(
       JSON.stringify({
         scene_id: "晚照书店_周烈上门",
@@ -178,7 +199,7 @@ describe("film project", () => {
       ],
     );
     expect(selected?.map((shot) => shot.sceneId)).toEqual(["scene-1"]);
-    expect(selected?.[0]?.performance).toContain("停0.4秒");
+    expect(selected?.[0]?.performance).toContain("停 0.4 秒");
     expect(selected?.[0]?.performance).not.toContain("hold_s");
     expect(blankFilm().aspectRatio).toBe("9:16");
     film.aspectRatio = "16:9";

@@ -1048,7 +1048,7 @@ def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
     assert loaded.data.startswith(b"\x89PNG")
     assert references_for_model("grok-imagine-video-1.5-lite", ("data:image/png;base64,aa",)) == ()
     many = tuple(f"https://cdn.example/{index}.png" for index in range(16))
-    assert references_for_model("grok-imagine-video-1.5", many) == many[:14]
+    assert references_for_model("grok-imagine-video-1.5", many) == many[:13]
     assert references_for_model("grok-imagine-video", many) == many[:7]
     assert reference_image_url("https://cdn.example/face.png") == "https://cdn.example/face.png"
     assert reference_image_url("") is None
@@ -1063,12 +1063,12 @@ def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
     assert fast.startswith("<whisper>") and fast.endswith("</whisper>")
 
 
-def test_reference_list_keeps_the_first_fourteen():
+def test_reference_list_keeps_thirteen_beside_the_start_frame():
     from aijian_api.story_film_routes import StoryShotBody
 
     urls = [f"https://cdn.example/{index}.png" for index in range(20)]
     body = StoryShotBody(narration="一句。", prompt="全景。", references=[*urls, 3, ""])
-    assert body.references == urls[:14]
+    assert body.references == urls[:13]
 
 
 def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):

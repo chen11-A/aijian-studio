@@ -21,6 +21,7 @@ import {
   beatsForShot,
   isFightScene,
   keepFightDetails,
+  numberedScript,
   parseWriterScenes,
   sceneNeedsSource,
   performanceLine,
@@ -575,6 +576,48 @@ describe("film operations", () => {
     expect(plan.missing.join(" ")).toContain("镜头");
     const eight = Array.from({ length: 8 }, () => ({ seconds: 3 }));
     expect(confirmEstimate(eight, 1)).toBe("将生成 8 个视频 · 约 24 秒 · 记在 Grok 会员额度里");
+  });
+
+  it("rebuilds scenes from the numbered paragraphs and keeps each line", () => {
+    const source = ["[P01] 门铃响了。林晚说：“打烊了。”", "[P02] 男人说：“我叫沈砚。”"].join("\n");
+    expect(numberedScript("门铃响了。")).toContain("[P01]");
+    const parsed = parseWriterScenes(
+      JSON.stringify({
+        scenes: [
+          {
+            title: "雨夜旧书店",
+            heading: { place: "晚照书店", time: "夜" },
+            source_paragraphs: ["P01"],
+            elements: [{ type: "dialogue", speaker: "林晚", line: "打烊了" }],
+            key_event: "打烊",
+          },
+          {
+            title: "书店被闯",
+            place: "晚照书店",
+            source_paragraphs: ["P02"],
+            text: source,
+          },
+        ],
+      }),
+      source,
+    );
+    expect(parsed?.[0]?.text).toContain("打烊了");
+    expect(parsed?.[0]?.text).not.toContain("我叫沈砚");
+    expect(parsed?.[0]?.where).toContain("晚照书店");
+    expect(parsed?.[1]?.text).toContain("我叫沈砚");
+    expect(parsed?.[1]?.text).not.toContain("打烊了");
+    const cast = parseCastReply(
+      '{"characters":[{"name":"林晚","identity_lock":"低马尾","gender":"女","age_band":"成年"},{"name":"阿婆","identity":"卖早点","gender":"女","age_band":"老年"}]}',
+    );
+    const voiced = mergeCast(blankFilm(), cast ?? { characters: [], locations: [] });
+    expect(voiced.characters.find((item) => item.name === "林晚")?.gender).toBe("女");
+    expect(voiced.characters.find((item) => item.name === "林晚")?.ageBand).toBe("成年");
+    expect(["ara", "eve", "luna", "carina", "celeste"]).toContain(
+      voiced.characters.find((item) => item.name === "林晚")?.voiceId,
+    );
+    expect(["naksh", "ursa"]).toContain(
+      voiced.characters.find((item) => item.name === "阿婆")?.voiceId,
+    );
   });
 
   it("describes every voice in plain words", () => {

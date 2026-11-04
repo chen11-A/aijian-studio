@@ -10,4 +10,5 @@ agent_version: 1
 6. 同框不超过 3 个主要人物。避免长时间连续动作，避免需要读清楚的文字。
 7. 大约 1500 字以上的小说至少写成 2 场。每场留下足够的节拍，让导演能拆出至少 4 个镜头。不要把整篇小说收成一场。
 8. 每场的 text 必须照抄这一场在原文里的台词和动作，一句不改。key_event 只是一句梗概，不能代替 text。beats 写节拍，也不要删掉原文台词。
-9. 只输出 JSON，不要写解释。结构：title, logline, hook, cliffhanger, scenes（每场含 id, no, title, place, interior, time, weather, characters, mood, key_event, text, tags, beats, est_seconds）。
+9. 用户会把原文编成 [P01]、[P02]。每一段只放进一场。source_paragraphs 按原文顺序列出这一场的段落，整章一段不漏。引号里的台词必须原样保留，一个字都不改。
+10. 只输出 JSON，不要写解释。结构：title, logline, hook, cliffhanger, scenes（每场含 id, no, title, place 或 heading, source_paragraphs, elements, text, beats）。

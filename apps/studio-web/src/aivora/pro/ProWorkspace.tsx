@@ -20,6 +20,7 @@ import {
   extractBookText,
   LOUDNESS_NOTE,
   offlineScreenplay,
+  numberedScript,
   parseWriterScenes,
   sceneNeedsSource,
   beatsForShot,
@@ -963,7 +964,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         let first = true;
         next = next.map((shot) => {
           if (shot.sceneId !== sceneId) return shot;
-          const own = beatsForShot(rows, shot.no);
+          const own = beatsForShot(rows, shot.no, shot.id);
           const note = covered.includes("保留原文")
             ? covered.slice(covered.indexOf("保留原文"))
             : "";
@@ -988,7 +989,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const thin = sceneNeedsSource(current?.text ?? "");
     setNotice(`正在写「${current?.title ?? "这一场"}」的镜头。`);
     const names = film.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
-    const context = `画风：${film.styleZh}\n人物：\n${names}\n剧本：\n${story}`;
+    const context = `画风：${film.styleZh}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${numberedScript(story)}`;
     const sceneRefs = film.scenes.map((item) => ({
       id: item.id,
       title: item.title,
@@ -1490,7 +1491,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const reply = await completeAgent(
       "writer",
-      `画风：${film.styleZh}\n目标大约 60 秒。\n剧本：\n${story}`,
+      `画风：${film.styleZh}\n目标大约 60 秒。\n原文段落：\n${numberedScript(story)}`,
       kind === "adapt" ? `把这些内容改成短剧：\n${idea}` : `写成短剧：\n${idea}`,
     );
     if (reply.text) {
@@ -1873,7 +1874,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const writerReply = await completeAgent(
       "writer",
       `画风：${film.styleZh}`,
-      `写成短剧：\n${idea}`,
+      `写成短剧：\n${numberedScript(idea)}`,
     );
     const scenes = writerReply.text ? parseWriterScenes(writerReply.text, idea) : null;
     if (!scenes) {
@@ -1898,7 +1899,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const story = sceneRow.text.trim() || next.title;
       const directorReply = await completeAgent(
         "director",
-        `画风：${next.styleZh}\n人物：\n${names}\n这一场：${sceneRow.title} ${sceneRow.where}\n剧本：\n${story}`,
+        `画风：${next.styleZh}\n场次 id：${sceneRow.id}\n人物：\n${names}\n这一场：${sceneRow.title} ${sceneRow.where}\n剧本：\n${story}`,
         "把这一场拆成镜头",
       );
       const parsed = directorReply.text

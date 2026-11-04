@@ -252,13 +252,13 @@ def reference_image_url(source: str) -> str | None:
 
 
 def reference_cap(model: str) -> int:
-    """grok-imagine-video-1.5 takes 14 reference images. The classic model takes 7."""
+    """1.5 keeps 13 references so the start frame can sit beside them. Classic takes 7."""
 
     name = model.lower()
     if "lite" in name:
         return 0
     if "1.5" in name:
-        return 14
+        return 13
     return 7
 
 

@@ -72,13 +72,13 @@ class StoryShotBody(BaseModel):
     voice_id: str = Field(default="", max_length=64)
     still: str = Field(default="", max_length=500)
     reference: str = Field(default="", max_length=500)
-    references: list[str] = Field(default_factory=list, max_length=14)
+    references: list[str] = Field(default_factory=list, max_length=13)
     delivery: str = Field(default="", max_length=400)
 
     @field_validator("references", mode="before")
     @classmethod
     def _keep_relevant_references(cls, value: object) -> list[str]:
-        """1.5 accepts 14. Extra images are dropped here instead of failing the shot."""
+        """1.5 keeps 13 references plus the start frame. Extra images are dropped."""
 
         if value is None:
             return []
@@ -92,7 +92,7 @@ class StoryShotBody(BaseModel):
             if not text:
                 continue
             kept.append(text[:500])
-            if len(kept) == 14:
+            if len(kept) == 13:
                 break
         return kept
 

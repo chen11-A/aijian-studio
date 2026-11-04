@@ -103,6 +103,8 @@ export type FilmCharacter = {
   id: string;
   name: string;
   identity: string;
+  gender?: string;
+  ageBand?: string;
   voiceId: string;
   source: string;
   userFields: string[];
@@ -505,20 +507,37 @@ export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: str
 export function agentRequest(agentId: AgentId, context: string, user: string): string {
   const system = (PROMPTS[agentId] ?? "").trim();
   const body = `${system}\n\n上下文：\n${context.trim()}\n\n用户：\n${user.trim()}`;
-  return body.length > 7500 ? body.slice(0, 7500) : body;
+  return body;
 }
 
 export type DirectorSceneRef = { id: string; title: string; where: string; text: string };
+
+function placeName(value: string): string {
+  return value.split(/[·_]/)[0]?.trim() ?? "";
+}
 
 function matchDirectorScene(
   block: Record<string, unknown>,
   scenes: DirectorSceneRef[],
   requestedId: string,
+  index: number,
 ): DirectorSceneRef | undefined {
   const id = typeof block.scene_id === "string" ? block.scene_id.trim() : "";
-  return (
-    scenes.find((item) => id && item.id === id) ?? scenes.find((item) => item.id === requestedId)
-  );
+  const exact = scenes.find((item) => id && item.id === id);
+  if (exact) return exact;
+  const hint = [block.place, block.title, id]
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .join(" ");
+  const byPlace = scenes.filter((item) => {
+    const title = item.title.trim();
+    const where = placeName(item.where);
+    return (title && hint.includes(title)) || (where.length >= 2 && hint.includes(where));
+  });
+  if (byPlace.length === 1) return byPlace[0];
+  if (scenes.length === 1) return scenes[0];
+  const requested = scenes.find((item) => item.id === requestedId);
+  if (requested && byPlace.length !== 1) return requested;
+  return scenes[index] ?? requested;
 }
 
 export function parseDirectorShots(
@@ -540,10 +559,11 @@ export function parseDirectorShots(
   const wrapped = (value as { scenes?: unknown; shots?: unknown }).scenes;
   if (Array.isArray(wrapped) && !Array.isArray((value as { shots?: unknown }).shots)) {
     const all: FilmShot[] = [];
-    wrapped.forEach((block) => {
+    wrapped.forEach((block, index) => {
       if (!block || typeof block !== "object") return;
       const record = block as Record<string, unknown>;
-      const target = scenes.length > 0 ? matchDirectorScene(record, scenes, sceneId) : undefined;
+      const target =
+        scenes.length > 0 ? matchDirectorScene(record, scenes, sceneId, index) : undefined;
       const nested = parseDirectorShots(
         JSON.stringify({ shots: record.shots ?? [] }),
         target?.id ?? sceneId,
@@ -560,16 +580,29 @@ export function parseDirectorShots(
   rows.forEach((row, index) => {
     if (!row || typeof row !== "object") return;
     const record = row as Record<string, unknown>;
-    const picture = [record.picture, record.narration, record.action].find(
-      (item) => typeof item === "string" && item.trim(),
-    );
+    const spoken = Array.isArray(record.dialogue)
+      ? record.dialogue.find(
+          (item): item is { line: string; speaker?: string } =>
+            Boolean(item) &&
+            typeof item === "object" &&
+            typeof (item as { line?: unknown }).line === "string",
+        )
+      : undefined;
+    const picture = [
+      record.picture,
+      record.video_prompt,
+      record.narration,
+      record.start_frame_prompt,
+      record.action,
+    ].find((item) => typeof item === "string" && item.trim());
     if (typeof picture !== "string") return;
     const told = picture.trim();
     const action = typeof record.action === "string" ? record.action.trim() : "";
     const seconds = typeof record.seconds === "number" ? record.seconds : 3;
     const sized = classifyShotSize(typeof record.size === "string" ? record.size : "中景");
     const tag = typeof record.tag === "string" && record.tag.trim() ? record.tag.trim() : sized.tag;
-    const proposed = typeof record.line === "string" ? record.line : "";
+    const proposed =
+      typeof record.line === "string" && record.line.trim() ? record.line : (spoken?.line ?? "");
     const performance = typeof record.performance === "string" ? record.performance.trim() : "";
     const purpose = typeof record.purpose === "string" ? record.purpose : "";
     const emotion = typeof record.emotion === "string" ? record.emotion : "";
@@ -580,7 +613,12 @@ export function parseDirectorShots(
       ? record.characters.filter((item): item is string => typeof item === "string")
       : [];
     const line = lineInScript(sceneText, proposed);
-    const named = typeof record.speaker === "string" ? record.speaker.trim() : "";
+    const named =
+      typeof record.speaker === "string" && record.speaker.trim()
+        ? record.speaker.trim()
+        : typeof spoken?.speaker === "string"
+          ? spoken.speaker.trim()
+          : "";
     const speaker = named || (line && characters.length === 1 ? characters[0]!.trim() : "");
     shots.push({
       id: `${sceneId}-shot-${index + 1}`,
@@ -597,7 +635,26 @@ export function parseDirectorShots(
       line,
       speaker,
       delivery: typeof record.delivery === "string" ? record.delivery.trim() : "",
-      blocking: typeof record.blocking === "string" ? record.blocking : "",
+      blocking: Array.isArray(record.blocking)
+        ? record.blocking
+            .map((item) =>
+              typeof item === "string"
+                ? item
+                : item && typeof item === "object"
+                  ? ["who", "where", "note", "position"]
+                      .map((key) => (item as Record<string, unknown>)[key])
+                      .filter(
+                        (part): part is string =>
+                          typeof part === "string" && part.trim().length > 0,
+                      )
+                      .join("")
+                  : "",
+            )
+            .filter(Boolean)
+            .join("；")
+        : typeof record.blocking === "string"
+          ? record.blocking
+          : "",
       facing: typeof record.facing === "string" ? record.facing : "",
       sound: soundFromDirector(record, ""),
       source: "agent:director",
@@ -618,7 +675,7 @@ export function parseDirectorShots(
         }))
       : shots;
   const length = sceneText.trim().length;
-  const budget = length >= 80 ? Math.max(4, Math.min(12, Math.round(length / 60))) : varied.length;
+  const budget = length >= 80 ? Math.max(4, Math.min(16, Math.round(length / 50))) : varied.length;
   const capped = varied.length > budget ? varied.slice(0, budget) : varied;
   return capped.length > 0 ? attachScriptLines(capped, sceneText) : null;
 }
@@ -630,7 +687,7 @@ export function assistantPrompt(userText: string, film: FilmProject | null): str
       }。当前场：${film.scenes[0]?.title ?? "未定"}。用户确认之前，不要改作品。`
     : "你是短剧助手。用户确认之前，不要改作品。";
   const body = `${head}\n\n用户：${userText.trim()}`;
-  return body.length > 7500 ? body.slice(0, 7500) : body;
+  return body;
 }
 
 export function generationNote(modelIds: readonly string[]): string {

@@ -33,8 +33,9 @@
   --line-2: #323843;
   --text: #e7e9ec;
   --text-2: #a3abb6;
-  --text-3: #6e7682;
+  --text-3: #858d99;
   --accent: #5b8cff;
+  --accent-strong: #3d6fd9;
   --accent-2: #7c6cff;
   --accent-soft: rgba(91, 140, 255, 0.14);
   --ok: #35c28a;
@@ -251,7 +252,7 @@ body:has(.pro-root) {
   background: var(--panel-3);
 }
 .pro-root .btn.primary {
-  background: var(--accent);
+  background: var(--accent-strong);
   border-color: transparent;
   color: #fff;
   font-weight: 500;

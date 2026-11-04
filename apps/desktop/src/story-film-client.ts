@@ -244,7 +244,7 @@ function parseReferences(value: unknown): string[] | undefined {
     const trimmed = item.trim().slice(0, 500);
     if (!trimmed) continue;
     kept.push(trimmed);
-    if (kept.length === 14) break;
+    if (kept.length === 13) break;
   }
   return kept.length > 0 ? kept : undefined;
 }

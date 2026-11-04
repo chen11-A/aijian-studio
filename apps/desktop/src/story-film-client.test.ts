@@ -219,7 +219,7 @@ describe("story film client", () => {
         },
       ],
     });
-    expect(parsed.shots?.[0]?.references).toEqual(references.slice(0, 14));
+    expect(parsed.shots?.[0]?.references).toEqual(references.slice(0, 13));
   });
 
   it("rejects a request that tries to carry a token field", () => {

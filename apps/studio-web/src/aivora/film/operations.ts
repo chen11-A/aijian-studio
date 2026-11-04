@@ -286,6 +286,111 @@ function subsplit(chunk: string, group: Record<string, unknown>[]): string[] {
   });
 }
 
+export type SourceParagraph = { id: string; text: string };
+
+/** Number the novel's paragraphs [P01]… so each one can belong to exactly one scene. */
+export function numberParagraphs(source: string): SourceParagraph[] {
+  return source
+    .replace(/\r\n/g, "\n")
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((text, index) => ({
+      id: `P${String(index + 1).padStart(2, "0")}`,
+      text: text.replace(/^\[P\d{2}\]\s*/, ""),
+    }));
+}
+
+export function numberedScript(source: string): string {
+  return numberParagraphs(source)
+    .map((item) => `[${item.id}] ${item.text}`)
+    .join("\n");
+}
+
+/** Lines inside quotes. The writer must keep each one word for word. */
+export function quotedLines(text: string): string[] {
+  const lines: string[] = [];
+  for (const pattern of [/“([^”]+)”/g, /「([^」]+)」/g, /"([^"\n]{1,80})"/g]) {
+    for (const match of text.matchAll(pattern)) {
+      const line = (match[1] ?? "").trim();
+      if (line) lines.push(line);
+    }
+  }
+  return lines;
+}
+
+function headingWhere(record: Record<string, unknown>): string {
+  const heading = record.heading;
+  if (heading && typeof heading === "object" && !Array.isArray(heading)) {
+    const row = heading as Record<string, unknown>;
+    return [row.place, row.location, row.time, row.weather]
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .join(" · ");
+  }
+  return [record.place, record.time]
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .join(" · ");
+}
+
+function listedParagraphs(record: Record<string, unknown>): string[] {
+  const raw = record.source_paragraphs;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is string => typeof item === "string" && /^P\d{2}$/.test(item));
+}
+
+function elementLines(record: Record<string, unknown>): string[] {
+  if (!Array.isArray(record.elements)) return [];
+  return record.elements.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const line = (item as { line?: unknown }).line;
+    return typeof line === "string" && line.trim() ? [line.trim()] : [];
+  });
+}
+
+/** Rebuild each scene from its own paragraphs and put back any dialogue the reply dropped. */
+export function rebuildFromParagraphs(
+  scenes: FilmScene[],
+  records: Record<string, unknown>[],
+  source: string,
+): FilmScene[] {
+  const paragraphs = numberParagraphs(source);
+  if (paragraphs.length === 0 || scenes.length === 0) return scenes;
+  const groups = scenes.map(() => [] as string[]);
+  const explicit = records.map(listedParagraphs);
+  const owner = new Map<string, number>();
+  explicit.forEach((ids, index) => {
+    for (const id of ids) if (!owner.has(id)) owner.set(id, index);
+  });
+  let cursor = 0;
+  for (const paragraph of paragraphs) {
+    const listed = owner.get(paragraph.id);
+    if (listed !== undefined) {
+      cursor = listed;
+    } else if (!explicit.some((ids) => ids.length > 0)) {
+      const needle = paragraph.text.slice(0, Math.min(18, paragraph.text.length));
+      const hits = scenes
+        .map((scene, index) => ({
+          index,
+          length: scene.text.length,
+          lines: elementLines(records[index] ?? {}).some((line) => paragraph.text.includes(line)),
+          hit: scene.text.includes(needle) && scene.text.length < source.length * 0.75,
+        }))
+        .filter((item) => item.lines || item.hit);
+      hits.sort((a, b) => Number(b.lines) - Number(a.lines) || a.length - b.length);
+      if (hits[0]) cursor = hits[0].index;
+    }
+    groups[cursor]?.push(paragraph.id);
+  }
+  const byId = new Map(paragraphs.map((item) => [item.id, item.text]));
+  return scenes.map((scene, index) => {
+    const owned = (groups[index] ?? []).map((id) => byId.get(id) ?? "").filter(Boolean);
+    const text = owned.join("\n");
+    if (!text) return scene;
+    const missing = quotedLines(text).filter((line) => !text.includes(line));
+    return { ...scene, text: missing.length > 0 ? `${text}\n${missing.join("\n")}` : text };
+  });
+}
+
 export function parseWriterScenes(text: string, source = ""): FilmScene[] | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -354,6 +459,7 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
     });
   }
   const scenes: FilmScene[] = [];
+  const kept: Record<string, unknown>[] = [];
   records.forEach((record, index) => {
     const beats = asText(record.beats);
     const written = [asText(record.text), asText(record.dialogue), asText(record.lines)]
@@ -374,15 +480,18 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
       .join("\n");
     if (!body.trim()) return;
     const title = typeof record.title === "string" ? record.title : `第 ${index + 1} 场`;
-    const where = [record.place, record.time]
-      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-      .join(" · ");
+    const where = headingWhere(record);
+    const dialogue = elementLines(record).filter((line) => !body.includes(line));
+    const withLines = [body.trim(), ...dialogue].filter(Boolean).join("\n");
+    if (!withLines) return;
     scenes.push({
-      ...scene(index + 1, title, body.trim(), where),
+      ...scene(index + 1, title, withLines, where),
       source: "agent:writer",
     });
+    kept.push(record);
   });
-  return scenes.length > 0 ? scenes : null;
+  const ready = source ? rebuildFromParagraphs(scenes, kept, source) : scenes;
+  return ready.some((item) => item.text.trim()) ? ready.filter((item) => item.text.trim()) : null;
 }
 
 /** A one-line summary is not enough for the director to shoot. */
@@ -420,7 +529,15 @@ export function keepFightDetails(source: string, beats: string): string {
 }
 
 /** One shot gets the beats that name it, never the whole fight list. */
-export function beatsForShot(beats: { text: string }[], shotNo: number): string {
+export function beatsForShot(
+  beats: { text: string; shotId?: string }[],
+  shotNo: number,
+  shotId = "",
+): string {
+  if (shotId) {
+    const ownId = beats.filter((item) => item.shotId === shotId);
+    if (ownId.length > 0) return ownId.map((item) => item.text).join("。");
+  }
   const own = beats.filter((item) => new RegExp(`镜头\\s*${shotNo}(?!\\d)`).test(item.text));
   if (own.length > 0) return own.map((item) => item.text).join("。");
   const numbered = beats.some((item) => /镜头\s*\d+/.test(item.text));
@@ -480,7 +597,7 @@ export function locationPlate(where: string, styleZh: string, variant: string): 
 }
 
 export type ExtractedCast = {
-  characters: { name: string; identity: string }[];
+  characters: { name: string; identity: string; gender?: string; ageBand?: string }[];
   locations: { name: string; prompt: string }[];
 };
 
@@ -516,13 +633,28 @@ export function parseCastReply(text: string): ExtractedCast | null {
   if (start < 0 || end <= start) return null;
   try {
     const value = JSON.parse(text.slice(start, end + 1)) as {
-      characters?: { name?: unknown; identity?: unknown }[];
+      characters?: {
+        name?: unknown;
+        identity?: unknown;
+        identity_lock?: unknown;
+        gender?: unknown;
+        age_band?: unknown;
+      }[];
       locations?: { name?: unknown; prompt?: unknown }[];
     };
     const characters = (value.characters ?? [])
       .map((item) => ({
         name: typeof item.name === "string" ? item.name.trim() : "",
-        identity: typeof item.identity === "string" ? item.identity.trim() : "",
+        identity:
+          (typeof item.identity === "string" && item.identity.trim()) ||
+          (typeof item.identity_lock === "string" && item.identity_lock.trim()) ||
+          "",
+        ...(typeof item.gender === "string" && item.gender.trim()
+          ? { gender: item.gender.trim() }
+          : {}),
+        ...(typeof item.age_band === "string" && item.age_band.trim()
+          ? { ageBand: item.age_band.trim() }
+          : {}),
       }))
       .filter((item) => item.name);
     const locations = (value.locations ?? [])
@@ -578,9 +710,10 @@ function voicePool(text: string, index: number): string[] {
   const years = ageYears(text);
   const child =
     (years !== null && years < 13) ||
-    (years === null && /小孩|孩子|儿童|幼童|孩童|宝宝/.test(text));
-  const elder = years !== null ? years >= 60 : /老人|长者|爷爷|奶奶|婆婆|阿婆|老爷/.test(text);
-  const young = years !== null ? years < 18 : /少年|少女|年轻|青年/.test(text);
+    (years === null && /小孩|孩子|儿童|幼年|幼童|孩童|宝宝/.test(text));
+  const elder = years !== null ? years >= 60 : /老人|长者|老年|爷爷|奶奶|婆婆|阿婆|老爷/.test(text);
+  const adult = /成年|成人/.test(text);
+  const young = !adult && (years !== null ? years < 18 : /少年|少女|年轻|青年/.test(text));
   if (child && female) return GIRL;
   if (child && male) return BOY;
   if (child) return index % 2 === 0 ? GIRL : BOY;
@@ -613,12 +746,18 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
   for (const item of extracted.characters) {
     if (!item.name || known.has(item.name)) continue;
     known.add(item.name);
-    const voiceId = assignVoice(item.identity, item.name, used);
+    const voiceId = assignVoice(
+      `${item.gender ?? ""} ${item.ageBand ?? ""} ${item.identity}`,
+      item.name,
+      used,
+    );
     used.add(voiceId);
     characters.push({
       id: `cast-${characters.length + 1}`,
       name: item.name,
       identity: item.identity,
+      ...(item.gender ? { gender: item.gender } : {}),
+      ...(item.ageBand ? { ageBand: item.ageBand } : {}),
       voiceId,
       source: "script",
       userFields: [],
@@ -938,7 +1077,7 @@ function shotReference(
     if (seen.has(item.url)) continue;
     seen.add(item.url);
     references.push({ url: item.url.slice(0, 500), who: item.who });
-    if (references.length === 14) break;
+    if (references.length === 13) break;
   }
   return { still: pinned.slice(0, 500), references };
 }

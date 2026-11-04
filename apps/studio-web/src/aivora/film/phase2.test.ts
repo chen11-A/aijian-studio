@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   actionFromModel,
+  assignPerformance,
   actionSentence,
   agentIssues,
   artFromModel,
@@ -253,5 +254,41 @@ describe("phase 2 shot language", () => {
     expect(
       appearanceMark("雨夜巷口。", ["林雨"], [{ name: "林雨", identity: "年轻女性，二十多岁" }]),
     ).toBe("缺外貌");
+    const nodes = actionFromModel({
+      shots: [
+        {
+          shot_id: "scene-3-shot-1",
+          nodes: [{ actor: "周烈", body_part: "铁棍", direction: "画左→画右", feasibility: "稳" }],
+        },
+        {
+          shot_id: "scene-3-shot-2",
+          nodes: [{ text: "沈砚侧肩躲开", feasibility: "看运气" }],
+        },
+      ],
+    });
+    expect(nodes?.map((item) => item.shotId)).toEqual(["scene-3-shot-1", "scene-3-shot-2"]);
+    expect(nodes?.[0]?.text).toContain("铁棍");
+    expect(actionSentence(nodes ?? [])).not.toContain("scene-3-shot-2");
+    const notes = assignPerformance(
+      [
+        {
+          id: "scene-2-shot-1",
+          performances: [
+            {
+              micro_expressions: [{ text: "挑一下眉" }],
+              eyes: { gaze: "看向画左", hold_seconds: 1.5 },
+              hands: "钥匙在指间转",
+              voice: [{ tone: "轻慢", pace: "慢", pauses: "进门先停", emotion: "轻慢" }],
+            },
+          ],
+        },
+      ],
+      [{ id: "scene-2-shot-1" }],
+      ["周烈"],
+    );
+    expect(notes[0]?.performance).toContain("挑一下眉");
+    expect(notes[0]?.performance).toContain("停 1.5 秒");
+    expect(notes[0]?.performance).not.toContain("hold_");
+    expect(notes[0]?.delivery).toContain("轻慢");
   });
 });

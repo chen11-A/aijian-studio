@@ -12,5 +12,6 @@ agent_version: 2
 - 每个镜头写 sound：ambience（环境音）、sfx（数组，含 text 和 at_seconds）、musicMood（配乐情绪，只是建议）。
 - 写 blocking（站位）和 facing（朝向）。continuity_from_prev 表示是否接上一镜。
 - 只输出 JSON。结构：scene_id, total_seconds, rhythm, shots。每个镜头含 id, no, size, tag, angle, move, seconds, purpose, action, performance, characters, line, speaker, blocking, facing, continuity_from_prev, sound。performance 写这一镜看得见的表情变化、视线、手势和呼吸或停顿。
-- 一场里有几个节拍时至少拆成 4 个镜头，最多 12 个。短场 4 到 8 个就够，不要为了凑数把同一拍拆很碎。
+- 一场里有几个节拍时至少拆成 4 个镜头。大约每 40 到 60 个字一个镜头，一场最多 16 个。短场 4 到 8 个就够。
+- scene_id 必须用用户给出的场次 id，例如 scene-1，不要自己另起一个名字。
 - 人物名字只能来自用户给出的剧本，不要换成别的故事里的人。
