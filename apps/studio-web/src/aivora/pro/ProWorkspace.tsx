@@ -1341,6 +1341,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const id = await resolveBillingProject({
       filmId,
       name: live?.seriesTitle || live?.title || "未命名作品",
+      aspectRatio: live?.aspectRatio,
       pending: billingPromises.current,
       isCurrent: () => filmRef.current?.id === filmId,
       create: (input) => api.createProject!(input),

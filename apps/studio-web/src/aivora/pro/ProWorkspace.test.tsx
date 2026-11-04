@@ -2205,6 +2205,7 @@ it("creates a backend project before a clean-profile director call", async () =>
   fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "雨夜巷口。" } });
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
   await waitFor(() => expect(createProject).toHaveBeenCalled());
+  expect(createProject).toHaveBeenCalledWith(expect.objectContaining({ aspect_ratio: "16:9" }));
   await waitFor(() => expect(completeText).toHaveBeenCalled());
   const sent = completeText.mock.calls[0] as unknown as [{ projectId?: string }] | undefined;
   expect(sent?.[0]?.projectId).toBe(projectId);

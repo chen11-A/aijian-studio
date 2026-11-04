@@ -1,6 +1,6 @@
 export type BillingProjectCreate = (input: {
   name: string;
-  aspect_ratio: "9:16";
+  aspect_ratio: "9:16" | "16:9";
   source_language: "zh-CN";
   target_duration_seconds: number;
 }) => Promise<{ data?: { id?: unknown } }>;
@@ -13,6 +13,7 @@ export function isBillingProjectId(value: unknown): value is string {
 export async function resolveBillingProject(input: {
   filmId: string;
   name: string;
+  aspectRatio?: "9:16" | "16:9";
   pending: Map<string, Promise<string>>;
   isCurrent: () => boolean;
   create: BillingProjectCreate;
@@ -26,7 +27,7 @@ export async function resolveBillingProject(input: {
         if (!input.isCurrent()) throw new Error("BILLING_PROJECT_STALE");
         return input.create({
           name: input.name.slice(0, 80) || "未命名作品",
-          aspect_ratio: "9:16",
+          aspect_ratio: input.aspectRatio === "16:9" ? "16:9" : "9:16",
           source_language: "zh-CN",
           target_duration_seconds: 90,
         });

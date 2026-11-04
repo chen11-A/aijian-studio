@@ -104,3 +104,27 @@ it("does not dispatch if the work switches before the shared creation starts", a
   expect(create).not.toHaveBeenCalled();
   expect(pending.size).toBe(0);
 });
+
+it.each([
+  ["16:9", "16:9"],
+  ["9:16", "9:16"],
+  [undefined, "9:16"],
+] as const)("creates a project with work aspect %s as %s", async (aspectRatio, expected) => {
+  const create = vi.fn<BillingProjectCreate>(async () => ({ data: { id } }));
+  expect(
+    await resolveBillingProject({
+      filmId: "aspect-work",
+      name: "画幅作品",
+      aspectRatio,
+      pending: new Map(),
+      isCurrent: () => true,
+      create,
+    }),
+  ).toBe(id);
+  expect(create).toHaveBeenCalledExactlyOnceWith({
+    name: "画幅作品",
+    aspect_ratio: expected,
+    source_language: "zh-CN",
+    target_duration_seconds: 90,
+  });
+});
