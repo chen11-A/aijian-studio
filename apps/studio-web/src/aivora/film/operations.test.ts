@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { blankFilm, sampleFilm } from "./project";
+import { agentRequestBatches, TEXT_REQUEST_LIMIT } from "./request-batches";
 import {
   actionBeats,
   adaptToShortDrama,
@@ -101,6 +102,44 @@ function concat(parts: Uint8Array[]): Uint8Array {
 }
 
 describe("film operations", () => {
+  it("keeps all 41 short chapters through import and scene application", async () => {
+    const source = Array.from(
+      { length: 41 },
+      (_, index) => `第${index + 1}章 夜雨\n林晚说：“第${index + 1}句不能丢。”`,
+    ).join("\n\n");
+    expect(source.length).toBeLessThan(7500);
+    const extracted = await extractBookText("41-chapters.txt", new TextEncoder().encode(source));
+    const split = splitNovel(extracted.text);
+    expect(split.scenes).toHaveLength(41);
+    expect(split.note).not.toMatch(/只收|只读/);
+    const film = applyScenes(blankFilm(), split.scenes);
+    expect(film.scenes).toHaveLength(41);
+    for (let index = 1; index <= 41; index += 1)
+      expect(film.scenes[index - 1]?.text).toContain(`第${index}句不能丢。`);
+  });
+
+  it("keeps the final dialogue and tail beyond 200000 characters through director batching", async () => {
+    const ending = "林晚说：“最后一句也不能丢。”\n警笛远去，所有人终于走出书店。";
+    const body = `${"雨".repeat(200001)}\n${ending}`;
+    const source = `第一章 长夜\n${body}`;
+    const extracted = await extractBookText("long-source.txt", new TextEncoder().encode(source));
+    expect(extracted.text).toBe(source);
+    const split = splitNovel(extracted.text);
+    expect(split.scenes).toHaveLength(1);
+    expect(split.scenes[0]?.text).toBe(body);
+    expect(split.note).not.toMatch(/只收|只读/);
+    const film = applyScenes(blankFilm(), split.scenes);
+    const script = numberedScript(film.scenes[0]!.text);
+    const batches = agentRequestBatches(
+      "director",
+      `场次 id：scene-1\n剧本：\n${script}`,
+      "逐句拆镜",
+    );
+    expect(batches.every((batch) => batch.text.length <= TEXT_REQUEST_LIMIT)).toBe(true);
+    expect(batches.map((batch) => batch.source).join("")).toBe(script);
+    expect(batches.at(-1)?.source).toContain(ending.split("\n").at(-1));
+  });
+
   it("splits chapters and keeps the title", () => {
     const book = splitNovel("雨巷\n\n第一章 夜\n巷口只有风。\n\n第二章 停\n他还没走。");
     expect(book.title).toBe("雨巷");

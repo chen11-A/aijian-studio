@@ -130,10 +130,8 @@ export function splitNovel(text: string): { title: string; scenes: FilmScene[]; 
   const clean = text
     .replace(/^\uFEFF/, "")
     .replace(/\r\n/g, "\n")
-    .trim()
-    .slice(0, 200_000);
-  const note = text.trim().length > 200_000 ? "正文只读了前 20 万字。" : "";
-  if (!clean) return { title: "未命名作品", scenes: [], note: note || "文件里没有正文。" };
+    .trim();
+  if (!clean) return { title: "未命名作品", scenes: [], note: "文件里没有正文。" };
   const lines = clean.split("\n");
   const head = lines[0]?.trim() ?? "";
   const title = head && !CHAPTER.test(head) && head.length <= 40 ? head : "未命名作品";
@@ -141,7 +139,7 @@ export function splitNovel(text: string): { title: string; scenes: FilmScene[]; 
   if (declaredScenes.length)
     return {
       title,
-      note,
+      note: "",
       scenes: declaredScenes.map((item, index) => scene(index + 1, item.title, item.text)),
     };
   const chapters: { title: string; body: string[] }[] = [];
@@ -163,11 +161,9 @@ export function splitNovel(text: string): { title: string; scenes: FilmScene[]; 
     ? chapters.filter((item) => item.body.length > 0)
     : groupParagraphs(clean, title);
   const scenes = (blocks.length > 0 ? blocks : [{ title: "第 1 场", body: [clean] }])
-    .slice(0, 40)
     .map((item, index) => scene(index + 1, item.title, item.body.join("\n").trim()))
     .filter((item) => item.text);
-  const capped = blocks.length > 40 ? `${note} 只收了前 40 场。`.trim() : note;
-  return { title, scenes, note: capped };
+  return { title, scenes, note: "" };
 }
 
 function groupParagraphs(text: string, title: string): { title: string; body: string[] }[] {
