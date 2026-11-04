@@ -78,3 +78,9 @@ pnpm exec vitest run src/aivora/next/wiring/noticeCopy.test.ts
 - B10：场景参考和双画幅后端已提供，入口、画幅选择器和真实画面验收仍待整合。
 
 本轮不合并、不发版。双方下一次整合以最新提交为准，先核对差异，再按职责解决ProWorkspace冲突；不要移动3j-r1 tag。
+
+## 最后一次远端复核补充
+
+交接整理期间 `claude/work` 又推进到 `ceef82629c22f9fc7e1bab7edb577e501248157d`（4A-U02画风卡），父提交仍为caf50e2。它只改画风卡、样式、测试及接口文档，没有补B01或NOTICE_COPY；上述101项差集及B01接线差异仍适用。
+
+画风卡目前用 `styleAtOpen` 判断改变，跨页/重开会重置，不能表示持久失效。请读GPT已保存的 `shot.regenerationRequired`，保留 `setFilmStyle` 的版本与媒体保护；不要在合并时用Claude基于3j的setFilm/处理函数覆盖这些逻辑。最终状态的中文展示仍由Claude决定。本轮没有擅自修改该组件。
