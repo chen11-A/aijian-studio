@@ -23708,7 +23708,7 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 14,
+            "maxItems": 13,
             "title": "References",
             "type": "array"
           },
