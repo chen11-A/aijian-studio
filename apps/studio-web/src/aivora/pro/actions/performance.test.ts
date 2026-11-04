@@ -22,7 +22,11 @@ it("prepares only the current shot's performance and voice direction, retaining 
     current: () => true,
     connected: true,
   });
-  expect(request).toHaveBeenCalledExactlyOnceWith("performance", shot.picture, "写这一镜的表演");
+  expect(request).toHaveBeenCalledExactlyOnceWith(
+    "performance",
+    expect.stringContaining(`镜头 id：${shot.id}`),
+    expect.stringContaining("who 写人物名字"),
+  );
   expect(result.status).toBe("ready");
   if (result.status !== "ready") throw new Error("Expected performance draft");
   expect(result.line).toContain("视线");

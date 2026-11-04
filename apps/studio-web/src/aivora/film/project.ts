@@ -1,4 +1,5 @@
 import type { WriterElement } from "./writer-elements";
+import type { ShotPerformancePlan, PerformanceState } from "./performance-plan";
 import type { ShotActionPlan, SceneActionState } from "./action-plan";
 import { parseAgentReplyText } from "./agent-reply-compat";
 import type {
@@ -153,6 +154,7 @@ export type FilmScene = {
   writerSourceText?: string;
   /** Original paragraph order in the rebuilt text; ownership may still need review. */
   writerParagraphIds?: string[];
+  performanceState?: PerformanceState;
   actionState?: SceneActionState;
   sound?: SceneSound;
   coverage?: SceneCoverage;
@@ -177,6 +179,7 @@ export type FilmScene = {
 };
 
 export type FilmShot = {
+  performancePlan?: ShotPerformancePlan;
   actionPlan?: ShotActionPlan;
   continuityFromShotId?: string;
   continuityFrame?: {

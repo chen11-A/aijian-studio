@@ -168,10 +168,13 @@ describe("persistent pipeline text actions", () => {
         await runPipelineAgentAction(
           film,
           { step: "performance", targetId: shot.sceneId },
-          host([{ id: "wrong", emotion: "冷静", face: ["皱眉"] }]),
+          host([
+            { id: "wrong", emotion: "冷静", face: ["皱眉"] },
+            { id: "other", face: ["抬眉"] },
+          ]),
         )
       ).code,
-    ).toBe("PERFORMANCE_TARGETS_INCOMPLETE");
+    ).toBe("PERFORMANCE_UNASSIGNED");
     const result = await runPipelineAgentAction(
       film,
       { step: "performance", targetId: shot.sceneId },
@@ -179,6 +182,8 @@ describe("persistent pipeline text actions", () => {
     );
     expect(result.status).toBe("done");
     expect(result.film?.shots[0]?.performanceSource).toBe("agent:performance");
+    expect(result.film?.shots[0]?.performancePlan?.scopeCues[0]?.face).toEqual(["皱眉"]);
+    expect(result.film?.shots[0]?.performance).toContain("本镜表演：");
     expect(result.film?.shots[0]?.performance).not.toContain("来自表演");
   });
   it("requires bilingual prompts, restores identity locks, and leaves other shots intact", async () => {

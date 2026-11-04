@@ -175,6 +175,7 @@ type RoleCard = {
   scenes?: FilmScene[];
   shots?: FilmShot[];
   actionState?: FilmScene["actionState"];
+  performanceState?: FilmScene["performanceState"];
 };
 type FixAction = VideoAction;
 
@@ -1186,11 +1187,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const only = incoming.length === 1 ? incoming[0] : undefined;
-    if (only && (only.source === "agent:action" || only.source === "agent:performance")) {
+    if (
+      only &&
+      (role === "performance" ||
+        only.source === "agent:action" ||
+        only.source === "agent:performance")
+    ) {
+      const isPerformance = role === "performance" || only.source === "agent:performance";
       const existing = film.shots.find((item) => item.id === only.id);
+      if (!existing || existing.sceneId !== only.sceneId) {
+        setNotice("镜头已变更，请重新生成建议。");
+        return;
+      }
       if (
         existing &&
-        (existing.userFields.includes("action") || existing.userFields.includes("performance"))
+        (isPerformance
+          ? existing.userFields.includes("performance") ||
+            existing.userFields.includes("performancePlan")
+          : existing.userFields.includes("action"))
       ) {
         setNotice("这一镜是你改过的，没有盖掉。");
         return;
@@ -1199,25 +1213,37 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         updateShot(
           {
             ...film,
-            scenes:
-              only.source === "agent:action" && card?.actionState
-                ? film.scenes.map((item) =>
-                    item.id === only.sceneId ? { ...item, actionState: card.actionState } : item,
-                  )
-                : film.scenes,
-            unassignedBeats: [
-              ...(film.unassignedBeats ?? []).filter((item) => item.sceneId !== only.sceneId),
-              ...unassignedDraft.current,
-            ],
+            scenes: film.scenes.map((item) => {
+              if (item.id !== only.sceneId) return item;
+              if (isPerformance && card?.performanceState)
+                return { ...item, performanceState: card.performanceState };
+              if (!isPerformance && card?.actionState)
+                return { ...item, actionState: card.actionState };
+              return item;
+            }),
+            unassignedBeats: isPerformance
+              ? film.unassignedBeats
+              : [
+                  ...(film.unassignedBeats ?? []).filter((item) => item.sceneId !== only.sceneId),
+                  ...unassignedDraft.current,
+                ],
           },
           only.id,
           {
-            action: only.action,
-            ...(only.source === "agent:action"
-              ? { actionPlan: only.actionPlan, sound: only.sound }
-              : {}),
-            performance: only.performance,
-            performanceSource: only.performanceSource,
+            ...(isPerformance
+              ? {
+                  performance: only.performance,
+                  performancePlan: only.performancePlan,
+                  performanceSource: only.performanceSource,
+                  delivery: existing?.userFields.includes("delivery")
+                    ? existing.delivery
+                    : only.delivery,
+                }
+              : {
+                  action: only.action,
+                  actionPlan: only.actionPlan,
+                  sound: only.sound,
+                }),
             source: only.source,
           },
         ),
@@ -1667,6 +1693,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setPendingRole("performance");
     publishCard("performance", {
       title: `表演 · 镜头 ${current.no}`,
+      performanceState: result.performanceState,
       rows: line ? [{ id: current.id, mark: "表演", text: line, tail: "" }] : [],
       notes: [],
       applied: false,

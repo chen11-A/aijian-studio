@@ -4,7 +4,7 @@ import {
   type CharacterGender,
   type CharacterAgeBand,
 } from "./cast-traits";
-import { normalizeAgentReply } from "./agent-reply-compat";
+import { bindPerformanceRows, normalizeAgentReply } from "./agent-reply-compat";
 import { emptySoundPlan, shotSecondsForLine, type ShotSoundPlan } from "./audio";
 
 /** Seven standard shot sizes. An insert is a tag, never a size. */
@@ -590,23 +590,21 @@ function noteFromRow(
   return { performance, delivery };
 }
 
-/** Map a performance reply onto our shot ids. Unknown ids fall back to order. */
+/** Exact performance IDs first; use only unambiguous one-to-one scope compatibility. */
 export function assignPerformance(
   value: unknown,
   shots: { id: string }[],
   names: string[] = [],
 ): { id: string; performance: string; delivery: string }[] {
   const rows = performanceRows(value);
-  const used = new Set<number>();
-  return shots.map((shot, index) => {
-    const found = rows.findIndex((row, rowIndex) => {
-      if (used.has(rowIndex)) return false;
-      const id =
-        typeof row.shot_id === "string" ? row.shot_id : typeof row.id === "string" ? row.id : "";
-      return id === shot.id;
-    });
-    const rowIndex = found >= 0 ? found : !used.has(index) && rows[index] ? index : -1;
-    if (rowIndex >= 0) used.add(rowIndex);
+  const bindings = bindPerformanceRows(
+    rows.map((row) =>
+      typeof row.shot_id === "string" ? row.shot_id : typeof row.id === "string" ? row.id : "",
+    ),
+    shots.map((shot) => shot.id),
+  );
+  return shots.map((shot) => {
+    const rowIndex = bindings.findIndex((row) => row.targetId === shot.id);
     const row = rowIndex >= 0 ? rows[rowIndex] : undefined;
     const note = row ? noteFromRow(row, names) : { performance: "", delivery: "" };
     return { id: shot.id, ...note };

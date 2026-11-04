@@ -1,4 +1,5 @@
 import { writerNumberedScript, writerSceneContext } from "../film/writer-elements";
+import { applyPerformancePlans, performancePlanPrompt } from "../film/performance-plan";
 import { applyActionPlan } from "../film/action-plan";
 import type { UiNotice } from "../film/contracts3j";
 import { shotLines } from "../film/director-continuity";
@@ -249,8 +250,8 @@ export async function runPipelineAgentAction(
     if (!targets.length) return done(film, "PERFORMANCE_NOT_REQUIRED");
     const reply = await request(
       "performance",
-      `${story}\n镜头：${JSON.stringify(targets.map((shot) => ({ id: shot.id, picture: shot.picture, lines: shotLines(shot) })))}`,
-      "按给出的 id 为每一镜写表情、视线、手势、语气、语速与停顿。只输出 JSON 数组，每项必须使用给出的 id。",
+      `${story}\n镜头：${JSON.stringify(targets.map((shot) => ({ id: shot.id, characters: shot.characters, picture: shot.picture, lines: shotLines(shot) })))}`,
+      "按给出的 id 为每一镜写表情、视线、手势、语气、语速与停顿。只输出 JSON 数组，每项必须使用给出的 id；who 写明人物，其他人的表演放 others 并写 name。",
     );
     if (!current()) return stale();
     if (!reply.text) return replyFailure(reply);
@@ -260,15 +261,15 @@ export async function runPipelineAgentAction(
       : parsed && typeof parsed === "object"
         ? (parsed as { shots?: unknown }).shots
         : null;
-    if (
-      !Array.isArray(rows) ||
-      targets.some(
-        (shot) =>
-          rows.filter(
-            (row) => row && typeof row === "object" && (row.shot_id ?? row.id) === shot.id,
-          ).length !== 1,
-      )
-    )
+    const planned = applyPerformancePlans(targets, parsed);
+    const withState = {
+      ...film,
+      scenes: film.scenes.map((item) =>
+        item.id === scene.id ? { ...item, performanceState: planned.state } : item,
+      ),
+    };
+    if (planned.state.unassigned.length) return blocked("PERFORMANCE_UNASSIGNED", withState);
+    if (!Array.isArray(rows) || targets.some((shot) => !planned.assignedIds.includes(shot.id)))
       return failed("PERFORMANCE_TARGETS_INCOMPLETE");
     const notes = assignPerformance(
       rows,
@@ -278,15 +279,19 @@ export async function runPipelineAgentAction(
     if (notes.some((note) => !note.performance && !note.delivery))
       return failed("PERFORMANCE_PARSE_FAILED");
     return done({
-      ...film,
+      ...withState,
       shots: film.shots.map((shot) => {
+        const plannedShot = planned.shots.find((item) => item.id === shot.id);
         const note = notes.find((note) => note.id === shot.id);
         if (!note) return shot;
         return {
           ...shot,
+          performancePlan: plannedShot?.performancePlan ?? shot.performancePlan,
           performance: shot.userFields.includes("performance")
             ? shot.performance
-            : note.performance || shot.performance,
+            : (plannedShot && performancePlanPrompt(plannedShot)) ||
+              note.performance ||
+              shot.performance,
           performanceSource:
             !shot.userFields.includes("performance") && note.performance
               ? "agent:performance"

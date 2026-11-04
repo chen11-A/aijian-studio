@@ -1,4 +1,5 @@
 import { writerElements } from "./writer-elements";
+import { performancePlanPrompt } from "./performance-plan";
 import { actionPlanPrompt } from "./action-plan";
 import { locationReference, withLocationLayout } from "./location-reference";
 import { parseAgentReplyText } from "./agent-reply-compat";
@@ -1286,7 +1287,7 @@ export function motionPrompt(shot: FilmShot): string {
   let visual = prompted || picture;
   const constraints = actionPlanPrompt(shot);
   if (constraints) visual = [visual, constraints].filter(Boolean).join("。 ");
-  const acted = shot.performance.trim();
+  const acted = performancePlanPrompt(shot) || shot.performance.trim();
   if (acted && visual && !visual.includes(acted) && !isBeatList(acted)) {
     visual = `${visual}。表演：${acted}`;
   }

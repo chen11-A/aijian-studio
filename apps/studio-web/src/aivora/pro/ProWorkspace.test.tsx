@@ -3385,3 +3385,89 @@ it("saves the confirmed action plan and scene end state without assigning it to 
     ).toBe(true);
   });
 });
+
+it.each([false, true])(
+  "confirms only the selected typed performance draft and respects stored locks (locked=%s)",
+  async (locked) => {
+    window.localStorage.clear();
+    const { completeText } = installDesktop();
+    const film = sampleFilm();
+    film.backendProjectId = PROJECT_ID;
+    const target = film.shots[0]!;
+    target.performance = "原有表演";
+    target.action = "用户动作不变";
+    target.delivery = "用户语气不变";
+    target.userFields = ["action", "delivery", ...(locked ? ["performance"] : [])];
+    film.unassignedBeats = [{ sceneId: target.sceneId, text: "待核对动作" }];
+    const person = film.characters[0]!.name;
+    completeText.mockResolvedValue({
+      kind: "OK",
+      text: JSON.stringify([
+        {
+          shot_id: target.id,
+          who: person,
+          face: ["眉头收紧"],
+          face_at: [0.7],
+          gaze: "看向门口",
+          hold_s: 1.5,
+          voice: { tone: "低声" },
+        },
+      ]),
+    });
+    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    await screen.findAllByText(film.title);
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: new RegExp(film.scenes.find((scene) => scene.id === target.sceneId)!.title),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    pickHelper("表演指导");
+    fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "请生成表演草稿" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await screen.findByText(/表演 · 镜头/);
+    const saved = () =>
+      vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject | undefined;
+    expect(saved()?.shots.find((shot) => shot.id === target.id)?.performancePlan).toBeUndefined();
+    expect(
+      saved()?.scenes.find((scene) => scene.id === target.sceneId)?.performanceState,
+    ).toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+    if (locked) {
+      await screen.findAllByText("这一镜是你改过的，没有盖掉。");
+      expect(saved()?.shots.find((shot) => shot.id === target.id)?.performancePlan).toBeUndefined();
+      fireEvent.click(screen.getByRole("button", { name: "属性" }));
+      expect(screen.getByLabelText("表演")).toHaveValue("原有表演");
+    } else {
+      await waitFor(() => {
+        const snapshot = saved();
+        const stored = snapshot?.shots.find((shot) => shot.id === target.id);
+        expect(stored?.performancePlan?.people[0]).toMatchObject({
+          name: person,
+          face: ["眉头收紧"],
+          faceAt: [0.7],
+          holdSeconds: 1.5,
+        });
+        expect(
+          snapshot?.scenes.find((scene) => scene.id === target.sceneId)?.performanceState,
+        ).toEqual({ unassigned: [] });
+        expect(stored?.delivery).toBe("用户语气不变");
+        expect(stored?.action).toBe("用户动作不变");
+        expect(snapshot?.unassignedBeats).toEqual(film.unassignedBeats);
+        expect(
+          snapshot?.shots
+            .filter((shot) => shot.id !== target.id)
+            .every((shot) => !shot.performancePlan),
+        ).toBe(true);
+        expect(
+          snapshot?.scenes
+            .filter((scene) => scene.id !== target.sceneId)
+            .every((scene) => !scene.performanceState),
+        ).toBe(true);
+      });
+    }
+  },
+);
