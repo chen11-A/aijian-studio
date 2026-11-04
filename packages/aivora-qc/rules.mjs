@@ -6,8 +6,8 @@ const descriptions = {
 const actions = {
   black: "trim",
   freeze: "regenerate_shot",
-  silence: "adjust_volume",
-  no_audio: "adjust_volume",
+  silence: "add_audio",
+  no_audio: "add_audio",
   loudness: "adjust_volume",
   true_peak: "adjust_volume",
   subtitle_safe_area: "edit_subtitle",
@@ -18,7 +18,7 @@ const actions = {
 export function issue(type, start, end, message, suggestion, extra = {}) {
   const time = Math.max(0, start);
   return {
-    id: `${type}-${time.toFixed(2)}-${end}${extra.cue === undefined ? "" : `-cue${extra.cue}`}`,
+    id: `${type}-${time.toFixed(2)}-${end.toFixed(2)}${extra.cue === undefined ? "" : `-cue${extra.cue}`}`,
     severity: type === "true_peak" ? "block" : "warn",
     time,
     timeLabel: `第 ${time.toFixed(1)} 秒`,

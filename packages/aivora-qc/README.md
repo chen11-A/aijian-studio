@@ -43,7 +43,7 @@ node packages/aivora-qc/cli.mjs final.mp4 --ffmpeg "/path/含空格 和中文/ff
 
 ```json
 {
-  "id": "black-2.00-2.7",
+  "id": "black-2.00-2.70",
   "severity": "warn",
   "time": 2,
   "timeLabel": "第 2.0 秒",
@@ -73,17 +73,18 @@ node packages/aivora-qc/cli.mjs final.mp4 --ffmpeg "/path/含空格 和中文/ff
 | subtitle_line_length | 单行 >20 全角等效字符，可配置；ASCII 计0.5，其余码点计1     |
 | subtitle_overlap     | 按开始时间排序后与下一条时间重叠；首尾相接不报              |
 
-`message` / `suggestion` 面向普通用户，专业指标放入 `detail`：持续时间/阈值、LUFS/dBTP、字幕估算宽度/布局/行长等。`id` 由类型、开始时间（两位小数）、结束时间和可选字幕条号构成，相同输入和配置重复检查稳定；字幕同一时刻不同条目不会共用 ID。`timeLabel` 按一位小数显示。
+`message` / `suggestion` 面向普通用户，专业指标放入 `detail`：持续时间/阈值、LUFS/dBTP、字幕估算宽度/布局/行长等。`id` 由类型、开始时间和结束时间（均保留两位小数）和可选字幕条号构成，相同输入和配置重复检查稳定；字幕同一时刻不同条目不会共用 ID。`timeLabel` 按一位小数显示。
 
 | 类型                                                         | severity | action          |
 | ------------------------------------------------------------ | -------- | --------------- |
 | black                                                        | warn     | trim            |
 | freeze                                                       | warn     | regenerate_shot |
-| no_audio / silence / loudness                                | warn     | adjust_volume   |
+| no_audio / silence                                           | warn     | add_audio       |
+| loudness                                                     | warn     | adjust_volume   |
 | true_peak                                                    | block    | adjust_volume   |
 | subtitle_safe_area / subtitle_line_length / subtitle_overlap | warn     | edit_subtitle   |
 
-声音过响可能破音，标为 `block`；其他是需要人工确认的 `warn`（包括估算的字幕越界和可能有意的静音）。`action` 是软件“去修”按钮的路由提示，不会自动修改素材；保留 `none` 作为无对应动作时的值。界面可只用 `severity === "block"` 做阻止导出的策略；CLI 本身不强制阻止。
+`true_peak` 超限表示瞬间声音过高，后续编码或播放时可能出现削波、破音，因此标为 `block`，建议修复后再导出。`loudness` 偏离目标表示整片听感偏响或偏轻，并不等于已经破音，也可能是有意的创作选择，因此标为 `warn`，由用户试听确认后决定是否调整。其他需要人工确认的问题也标为 `warn`（包括估算的字幕越界和可能有意的静音）。`action` 是软件“去修”按钮的路由提示，不会自动修改素材；保留 `none` 作为无对应动作时的值。界面可只用 `severity === "block"` 做阻止导出的策略；CLI 本身不强制阻止。
 
 响度/真峰值是全片量，`scope: "program"`、`time: 0`、`end: duration`，**不代表异常发生在第0秒**。静音导致的负无穷、过短音频的不可用测量用 `null` 表示，仍报告响度问题，JSON 中没有 Infinity/NaN。
 

@@ -52,3 +52,9 @@ Node 覆盖率实测：行100%、分支93.06%、函数96.43%（模块总计）�
 - `sidecar-process.test.ts`：真实 Python sidecar 启动失败；另一例期望 `Error`，实际为 `SidecarStartupError`，异常对象断言不匹配。
 
 这些文件不在本次获准修改范围内，未修改。因此用户要求的“无 ffmpeg 时全仓递归测试退出0”尚未达成；已完成本包的跳过修复并保留此阻碍供后续独立处理。
+
+## 1223ad3 之后的小改验证
+
+ID 的起止时间统一为两位小数（原始 time/end 数值精度不变）；silence/no_audio 的 action 改为 add_audio，README 同步解释 true_peak 阻止导出、loudness 仅提示的原因。
+
+新增针对性测试覆盖 `freeze-2.97-4.20`、`black-3.00-3.63`、同一合成视频重复检查 ID 一致、add_audio 动作及严重程度映射。实际执行 `pnpm --dir packages/aivora-qc test`：有 FFmpeg 时11通过、0跳过；无 FFmpeg 时7通过、4跳过；两者均退出0。仓库配置下的 ESLint、Prettier 检查通过。此次未重复全仓测试，上述全仓失败记录仍保留，不宣称已修复。

@@ -111,6 +111,10 @@ test("real ffmpeg synthetic fixtures and CLI", async (t) => {
       5,
     );
     const report = await checkExport(media);
+    assert.deepEqual(
+      (await checkExport(media)).issues.map((entry) => entry.id),
+      report.issues.map((entry) => entry.id),
+    );
     assert.ok(types(report).includes("black"));
     assert.ok(types(report).includes("silence"));
     assert.ok(types(report).includes("loudness"));
@@ -304,7 +308,9 @@ test("portrait sizing and stable actionable plain-language issues", () => {
     assert.ok(["warn", "block"].includes(entry.severity));
     assert.match(entry.timeLabel, /^第 \d+\.\d 秒$/);
     assert.ok(
-      ["trim", "regenerate_shot", "adjust_volume", "edit_subtitle", "none"].includes(entry.action),
+      ["trim", "regenerate_shot", "add_audio", "adjust_volume", "edit_subtitle", "none"].includes(
+        entry.action,
+      ),
     );
     assert.ok(Object.keys(entry.detail).length > 0);
     assert.doesNotMatch(
@@ -389,4 +395,27 @@ test("explicit and environment tool paths, including spaces and Chinese characte
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("issue IDs use two decimal places and audio actions match repair intent", () => {
+  for (const [type, start, end, expected] of [
+    ["freeze", 2.97, 4.2, "freeze-2.97-4.20"],
+    ["black", 3, 3.633333, "black-3.00-3.63"],
+  ]) {
+    const check = () => intervalIssues(type, [{ start, end }], 10)[0];
+    assert.equal(check().id, expected);
+    assert.equal(check().id, check().id);
+    assert.equal(check().end, end); // ID formatting must not reduce measurement precision.
+  }
+  const silence = intervalIssues("silence", [{ start: 1, end: 3 }], 10)[0];
+  const noAudio = audioIssues({ present: false }, 4.2)[0];
+  assert.equal(silence.action, "add_audio");
+  assert.equal(noAudio.action, "add_audio");
+  assert.equal(noAudio.id, "no_audio-0.00-4.20");
+  assert.equal(silence.severity, "warn");
+  assert.equal(noAudio.severity, "warn");
+  const audio = audioIssues({ integratedLufs: -20, truePeakDbtp: 0 }, 4);
+  assert.equal(audio.find((entry) => entry.type === "loudness").severity, "warn");
+  assert.equal(audio.find((entry) => entry.type === "true_peak").severity, "block");
+  assert.ok(audio.every((entry) => entry.action === "adjust_volume"));
 });
