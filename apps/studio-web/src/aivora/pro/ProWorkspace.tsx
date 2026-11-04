@@ -1,3 +1,9 @@
+import {
+  captureBookImportInput,
+  prepareBookImport,
+  applyBookImportSource,
+  bookImportInputUnchanged,
+} from "./actions/book-import";
 import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
 import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
 import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
@@ -43,7 +49,6 @@ import {
   chosenExport,
   confirmEstimate,
   filmFileName,
-  extractBookText,
   LOUDNESS_NOTE,
   sceneNeedsSource,
   assignActionBeats,
@@ -54,7 +59,6 @@ import {
   PREVIEW_REASON,
   voiceLabel,
   removeShot,
-  splitNovel,
   generationEstimate,
   spokenLine,
   draftFaceWarning,
@@ -1607,35 +1611,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function importBook(file: File) {
+    const input = captureBookImportInput(filmRef.current);
+    const turn = activeTurn.current;
     const valid = requestSequences.current.begin(
       filmRef.current?.id ?? "",
       "import",
       () => filmRef.current?.id ?? "",
     );
+    const current = () =>
+      valid() && activeTurn.current === turn && bookImportInputUnchanged(input, filmRef.current);
     try {
-      const book = await extractBookText(file.name, new Uint8Array(await file.arrayBuffer()));
-      if (!valid()) return;
-      if (!book.text.trim()) {
-        setNotice(book.note);
+      const result = await prepareBookImport(file);
+      if (!current()) return;
+      if (result.kind === "notice") {
+        setNotice(result.notice);
         return;
       }
-      const split = splitNovel(book.text);
-      if (split.scenes.length === 0) {
-        setNotice(split.note || "没有读到场次。");
-        return;
-      }
-      setPendingScenes(split.scenes);
-      if (filmRef.current) {
-        const withSource = { ...filmRef.current, sourceText: book.text };
-        filmRef.current = withSource;
-        setFilm(withSource);
+      const applied = applyBookImportSource(input, result, filmRef.current);
+      if (applied.kind === "stale") return;
+      setPendingScenes(result.scenes);
+      if (applied.film) {
+        filmRef.current = applied.film;
+        setFilm(applied.film);
       }
       setRole("writer");
-      setNotice(
-        `${book.note}${split.note} 读到 ${split.scenes.length} 场。点「放入剧本」才会写入。`,
-      );
+      setNotice(result.notice);
     } catch {
-      if (valid()) emitNotice({ code: "IMPORT_FAILED", text: "没有读到文件，请重试。" });
+      if (current()) emitNotice({ code: "IMPORT_FAILED", text: "没有读到文件，请重试。" });
     }
   }
 

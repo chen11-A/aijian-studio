@@ -3540,3 +3540,87 @@ it("B11 keeps prompter undo on its page and restores only the applied prompt fie
   fireEvent.keyDown(window, { key: "z", ctrlKey: true });
   await waitFor(() => expect(screen.queryByText("page scoped prompt")).not.toBeInTheDocument());
 });
+
+it("keeps a same-project scene edit and source when an imported book finishes late", async () => {
+  window.localStorage.clear();
+  installDesktop();
+  await openSample();
+  let finish!: (bytes: ArrayBuffer) => void;
+  const file = new NodeFile([""], "late-book.txt");
+  Object.defineProperty(file, "arrayBuffer", {
+    value: () =>
+      new Promise<ArrayBuffer>((resolve) => {
+        finish = resolve;
+      }),
+  });
+  fireEvent.change(screen.getByLabelText("导入小说"), { target: { files: [file] } });
+  await waitFor(() => expect(finish).toBeDefined());
+  fireEvent.change(screen.getByLabelText("这一场"), {
+    target: { value: "读取期间用户手改正文。" },
+  });
+  await act(async () => {
+    finish(new TextEncoder().encode("第一场 迟到小说\n迟到原文不应该写入。").buffer);
+  });
+  expect(screen.getByLabelText("这一场")).toHaveValue("读取期间用户手改正文。");
+  expect(screen.queryByRole("button", { name: "放入剧本" })).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.some(([value]) =>
+          (value as FilmProject).scenes.some((scene) => scene.text === "读取期间用户手改正文。"),
+        ),
+    ).toBe(true),
+  );
+  expect(
+    vi
+      .mocked(window.aijian!.writeFilmProject!)
+      .mock.calls.some(([value]) => (value as FilmProject).sourceText?.includes("迟到原文")),
+  ).toBe(false);
+});
+
+it.each(["success", "failure"] as const)(
+  "keeps the newest import proposal and ignores an older import %s",
+  async (outcome) => {
+    window.localStorage.clear();
+    installDesktop();
+    await openSample();
+    let reject!: (error: Error) => void;
+    let finish!: (bytes: ArrayBuffer) => void;
+    const old = new NodeFile([""], "old-book.txt");
+    Object.defineProperty(old, "arrayBuffer", {
+      value: () =>
+        new Promise<ArrayBuffer>((resolve, fail) => {
+          reject = fail;
+          finish = resolve;
+        }),
+    });
+    fireEvent.change(screen.getByLabelText("导入小说"), { target: { files: [old] } });
+    await waitFor(() => expect(reject).toBeDefined());
+    const source = "第一场 新小说\n这份原文必须完整保存。";
+    fireEvent.change(screen.getByLabelText("导入小说"), {
+      target: { files: [new NodeFile([source], "new-book.txt")] },
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "放入剧本" })).toBeEnabled());
+    await act(async () => {
+      if (outcome === "failure") reject(new Error("older read failed"));
+      else finish(new TextEncoder().encode("第一场 旧小说\n旧原文不能覆盖新导入。").buffer);
+    });
+    expect(screen.queryByText("没有读到文件，请重试。")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "放入剧本" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "放入剧本" }));
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(window.aijian!.writeFilmProject!)
+          .mock.calls.some(
+            ([value]) =>
+              (value as FilmProject).sourceText === source &&
+              (value as FilmProject).scenes.some((scene) =>
+                scene.text.includes("这份原文必须完整保存。"),
+              ),
+          ),
+      ).toBe(true),
+    );
+  },
+);
