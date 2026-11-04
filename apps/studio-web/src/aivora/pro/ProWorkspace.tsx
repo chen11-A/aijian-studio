@@ -614,13 +614,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         });
     }, 400);
     let timer = 0;
-    if (skipHistory.current) {
+    if (committed.current?.id !== film.id) {
+      resetHistory(film);
+    } else if (skipHistory.current) {
       skipHistory.current = false;
-      committed.current = film;
-    } else if (!committed.current) {
       committed.current = film;
     } else {
       timer = window.setTimeout(() => {
+        if (filmRef.current?.id !== film.id || committed.current?.id !== film.id) return;
         const previous = committed.current;
         if (previous && filmSignature(previous) !== filmSignature(film)) {
           pastRef.current = [...pastRef.current, previous].slice(-50);
@@ -691,16 +692,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setFilm(next);
   }
 
+  function resetHistory(current: FilmProject) {
+    pastRef.current = [];
+    futureRef.current = [];
+    skipHistory.current = false;
+    committed.current = current;
+    setHistoryTick((value) => value + 1);
+  }
+
   function undoEdit() {
     const current = filmRef.current;
     const baseline = committed.current;
-    if (current && baseline && filmSignature(current) !== filmSignature(baseline)) {
+    if (!current) return;
+    if (baseline?.id !== current.id) {
+      resetHistory(current);
+      return;
+    }
+    if (filmSignature(current) !== filmSignature(baseline)) {
       skipHistory.current = true;
       rememberFilm(baseline);
       return;
     }
     const previous = pastRef.current.pop();
-    if (!previous || !current) return;
+    if (!previous) return;
+    if (previous.id !== current.id) {
+      resetHistory(current);
+      return;
+    }
     futureRef.current.push(current);
     skipHistory.current = true;
     setHistoryTick((value) => value + 1);
@@ -709,8 +727,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   function redoEdit() {
     const current = filmRef.current;
+    if (!current) return;
+    if (committed.current?.id !== current.id) {
+      resetHistory(current);
+      return;
+    }
     const next = futureRef.current.pop();
-    if (!next || !current) return;
+    if (!next) return;
+    if (next.id !== current.id) {
+      resetHistory(current);
+      return;
+    }
     pastRef.current.push(current);
     skipHistory.current = true;
     setHistoryTick((value) => value + 1);

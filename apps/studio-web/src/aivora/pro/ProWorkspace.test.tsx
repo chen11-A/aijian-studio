@@ -71,6 +71,51 @@ describe("professional workspace", () => {
     });
   });
 
+  it.each(["undo", "redo"] as const)(
+    "isolates %s history when opening another episode and keeps its own edits reversible",
+    async (direction) => {
+      installDesktop();
+      await openSample();
+      fireEvent.change(screen.getByLabelText("这一场"), {
+        target: { value: "甲作品的独有旧稿。" },
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 650));
+      });
+      if (direction === "redo") fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+      const episode = sampleFilm();
+      episode.id = "film_episode2000000001";
+      episode.title = "乙作品标题";
+      episode.seriesTitle = "乙作品标题";
+      episode.episodeTitle = "第 2 集";
+      episode.scenes[0]!.text = "乙作品原文。";
+      vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(episode);
+      fireEvent.click(screen.getByRole("button", { name: "作品" }));
+      fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
+      expect(await screen.findByText(/已打开第 2 集/)).toBeInTheDocument();
+      fireEvent.keyDown(window, { key: direction === "undo" ? "z" : "y", ctrlKey: true });
+      expect(screen.getByLabelText("这一场")).toHaveValue("乙作品原文。");
+      fireEvent.change(screen.getByLabelText("这一场"), {
+        target: { value: "乙作品修改后的正文。" },
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 650));
+      });
+      fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+      expect(screen.getByLabelText("这一场")).toHaveValue("乙作品原文。");
+      fireEvent.keyDown(window, { key: "y", ctrlKey: true });
+      expect(screen.getByLabelText("这一场")).toHaveValue("乙作品修改后的正文。");
+      await waitFor(() => {
+        const saved = vi
+          .mocked(window.aijian!.writeFilmProject!)
+          .mock.calls.at(-1)?.[0] as FilmProject;
+        expect(saved.id).toBe(episode.id);
+        expect(saved.title).toBe("乙作品标题");
+        expect(saved.scenes[0]?.text).toBe("乙作品修改后的正文。");
+      });
+    },
+  );
+
   it("generates every missing portrait from one whole-cast click", async () => {
     installDesktop();
     await openSample();
@@ -368,7 +413,13 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "新建一集" }));
     expect(screen.getByText(/已新建第 2 集/)).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "撤销" })[0]!);
+    const undo = screen.getAllByRole("button", { name: "撤销" })[0]!;
+    expect(undo).toBeDisabled();
+    fireEvent.click(undo);
+    expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("第 2 集");
+    // Returning to another episode is navigation, never restoration through its undo stack.
+    fireEvent.click(screen.getByRole("button", { name: "作品" }));
+    fireEvent.click(screen.getByRole("button", { name: "打开示例" }));
     expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("第 1 集");
     fireEvent.click(
       screen
@@ -515,8 +566,20 @@ describe("professional workspace", () => {
     fireEvent.keyDown(window, { key: "y", ctrlKey: true });
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
     const center = screen.getByRole("dialog", { name: "后台生成" });
-    expect(within(center).getByRole("heading", { name: "雨夜巷战" })).toBeInTheDocument();
-    expect(within(center).getByRole("region", { name: "任务列表" })).toBeInTheDocument();
+    // Episode B has no jobs; showing A's task list here would be cross-project contamination.
+    expect(within(center).getByRole("heading", { name: "现在没有任务" })).toBeInTheDocument();
+    expect(within(center).queryByRole("region", { name: "任务列表" })).not.toBeInTheDocument();
+    expect(within(center).queryByRole("heading", { name: "巷战" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      const saved = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.at(-1)?.[0] as FilmProject;
+      expect(saved.id).toBe("film_episode2000000001");
+      expect(saved.episodeTitle).toBe("第 2 集");
+      expect(saved.seriesTitle).toBe("雨夜巷战");
+      expect(saved.title).toBe("雨夜巷战");
+      expect(saved.jobs).toEqual([]);
+    });
     fireEvent.click(within(center).getByRole("button", { name: "关上后台生成" }));
     expect(screen.queryByRole("dialog", { name: "后台生成" })).toBeNull();
     expect(completeText).toHaveBeenCalled();
