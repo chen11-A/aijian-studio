@@ -275,7 +275,7 @@ describe("source extraction panel queue and original read", () => {
     );
   });
   test.each([12, 8100])(
-    "sends all %i selected source characters and surfaces a 403",
+    "sends %i source characters in bounded batches and surfaces a later 403",
     async (length) => {
       const h = setup();
       const completeText = vi.fn().mockResolvedValue({
@@ -283,6 +283,13 @@ describe("source extraction panel queue and original read", () => {
         code: "ENTITLEMENT_DENIED",
         billingAccountKind: "grok_login",
       });
+      if (length > 8000)
+        completeText.mockResolvedValueOnce({
+          kind: "OK",
+          text: "first batch",
+          model: "grok-4",
+          billingAccountKind: "grok_login",
+        });
       window.aijianGrok = {
         status: vi.fn(),
         signIn: vi.fn(),
@@ -310,12 +317,16 @@ describe("source extraction panel queue and original read", () => {
       expect(screen.getByRole("status")).toHaveTextContent("还不能用来生成");
       expect(completeText).toHaveBeenCalledWith({
         model: "grok-4",
-        text: expect.stringContaining(source),
+        text: expect.stringContaining("正文：\n"),
         projectId,
         idempotencyKey: expect.stringMatching(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
         ),
       });
+      const texts = completeText.mock.calls.map(([request]) => request.text as string);
+      expect(texts.every((text) => text.length <= 8000)).toBe(true);
+      expect(texts.map((text) => text.split("正文：\n")[1]).join("")).toBe(source);
+      expect(screen.queryByText("first batch")).not.toBeInTheDocument();
       expect(JSON.stringify(completeText.mock.calls)).toContain("来源正文");
       expect(JSON.stringify(completeText.mock.calls)).toContain("hello world!");
       expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();

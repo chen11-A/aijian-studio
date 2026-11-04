@@ -709,9 +709,14 @@ export async function completeGrokText(
     ]);
   } catch (error) {
     if (error instanceof TextWait) {
-      throw new GrokTextFailure(error.reason === "CANCELLED" ? "TEXT_CANCELLED" : "TEXT_TIMEOUT", [
-        { endpoint: "text", httpStatus: 0, body: waitMessage(error.reason) },
-      ]);
+      throw new GrokTextFailure(
+        error.reason === "CANCELLED"
+          ? "TEXT_CANCELLED"
+          : error.reason === "IDLE"
+            ? "STALL_RETRYING"
+            : "TEXT_TIMEOUT",
+        [{ endpoint: "text", httpStatus: 0, body: waitMessage(error.reason) }],
+      );
     }
     throw error;
   } finally {
@@ -749,9 +754,14 @@ async function executeGrokText(
     );
   } catch (error) {
     if (error instanceof TextWait) {
-      throw new GrokTextFailure(error.reason === "CANCELLED" ? "TEXT_CANCELLED" : "TEXT_TIMEOUT", [
-        { endpoint: "responses", httpStatus: 0, body: waitMessage(error.reason) },
-      ]);
+      throw new GrokTextFailure(
+        error.reason === "CANCELLED"
+          ? "TEXT_CANCELLED"
+          : error.reason === "IDLE"
+            ? "STALL_RETRYING"
+            : "TEXT_TIMEOUT",
+        [{ endpoint: "responses", httpStatus: 0, body: waitMessage(error.reason) }],
+      );
     }
     throw error;
   }
@@ -783,7 +793,11 @@ async function executeGrokText(
     if (error instanceof TextWait) {
       attempts.push({ endpoint: "chat", httpStatus: 0, body: waitMessage(error.reason) });
       throw new GrokTextFailure(
-        error.reason === "CANCELLED" ? "TEXT_CANCELLED" : "TEXT_TIMEOUT",
+        error.reason === "CANCELLED"
+          ? "TEXT_CANCELLED"
+          : error.reason === "IDLE"
+            ? "STALL_RETRYING"
+            : "TEXT_TIMEOUT",
         attempts,
       );
     }

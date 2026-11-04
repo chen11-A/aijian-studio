@@ -236,8 +236,9 @@ describe("film project", () => {
       "scene-1",
       bookstore,
     );
-    expect(many!.length).toBeGreaterThanOrEqual(19);
-    expect(many?.some((shot) => shot.picture === "画面19")).toBe(true);
+    expect(many!.length).toBeLessThanOrEqual(budget ?? 16);
+    for (let no = 1; no <= 19; no += 1)
+      expect(many?.map((shot) => shot.picture).join("\n")).toContain(`画面${no}`);
     expect(shotBudget("雨".repeat(2000))).toBe(16);
     expect(
       parseDirectorShots(
@@ -250,7 +251,7 @@ describe("film project", () => {
         "scene-1",
         "雨".repeat(2000),
       )?.length,
-    ).toBeGreaterThanOrEqual(20);
+    ).toBeLessThanOrEqual(16);
     expect(shotBudget("短")).toBe(1);
     expect(parsed?.[0]?.sound.source).toBe("native");
     expect(parsed?.[0]?.characters).toEqual(["林骁"]);

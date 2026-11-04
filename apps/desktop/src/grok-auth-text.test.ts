@@ -217,6 +217,7 @@ describe("Grok text calls", () => {
       await vi.advanceTimersByTimeAsync(60_000);
       const error = await failed;
       expect(error).toBeInstanceOf(GrokTextFailure);
+      expect(error).toMatchObject({ code: "STALL_RETRYING" });
       expect((error as GrokTextFailure).attempts[0]?.body).toContain("很久没有新的字");
     } finally {
       vi.useRealTimers();

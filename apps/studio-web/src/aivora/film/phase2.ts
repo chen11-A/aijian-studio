@@ -97,19 +97,55 @@ export function withIdentityLocks(
   return { prompt: next, missing };
 }
 
+export type ScriptLine = { speaker: string; text: string };
+
+/** Extract dialogue in source order. Quoted multi-sentence speech stays intact. */
+export function extractScriptLines(source: string, known: readonly string[] = []): ScriptLine[] {
+  const lines: ScriptLine[] = [];
+  for (const paragraph of source
+    .split(/\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean)) {
+    const prefix = /^([\u4e00-\u9fff]{1,8}?)(?:说|道|问|喊|叫)?[：:]\s*/u.exec(paragraph);
+    const label = prefix?.[1] ?? "";
+    const isSpeaker = Boolean(
+      prefix &&
+      !/纸条|招牌|书名|标题|备注|旁注|说明|场景/u.test(label) &&
+      (!known.length || known.includes(label) || /(?:说|道|问|喊|叫)[：:]/u.test(prefix[0])),
+    );
+    if (prefix && !isSpeaker) continue;
+    const quoted = [...paragraph.matchAll(/[“「"]([^”」"\n]+)[”」"]/gu)];
+    if (quoted.length) {
+      for (const quote of quoted) {
+        const text = quote[1] ?? "";
+        const at = quote.index ?? 0;
+        const before = paragraph.slice(0, at);
+        const direct = isSpeaker || /(?:说|道|问|喊|叫|声音[^：:]{0,12})[：:]\s*$/u.test(before);
+        if (!direct && !/[，。！？；：!?]/u.test(text) && at !== 0) continue;
+        const speaker = isSpeaker
+          ? label
+          : (known.find(
+              (name) =>
+                paragraph.slice(at + quote[0].length).startsWith(name) ||
+                before.endsWith(`${name}说：`),
+            ) ?? "");
+        lines.push({ speaker, text });
+      }
+      continue;
+    }
+    if (isSpeaker && prefix) {
+      const raw = paragraph.slice(prefix[0].length);
+      const text = raw.match(/^.*?[。！？!?]/u)?.[0] ?? raw;
+      if (text.trim()) lines.push({ speaker: label, text: text.trim() });
+    }
+  }
+  return lines;
+}
+
 export function lineInScript(sceneText: string, proposed: string): string {
   const line = proposed.replace(/\s+/g, " ").trim();
   if (!line || !sceneText.includes(line)) return "";
-  const quoted = [...sceneText.matchAll(/[“「"']([^”」"'\n]+)[”」"']/gu)].some(
-    (match) => (match[1] ?? "").includes(line) && /[，。！？；：]/u.test(match[1] ?? ""),
-  );
-  const at = sceneText.indexOf(line);
-  const prefix = sceneText.slice(Math.max(0, sceneText.lastIndexOf("\n", at) + 1), at);
-  return quoted ||
-    /(?:说|道|问|喊|叫)[：:]\s*[“「"']?\s*$/u.test(prefix) ||
-    /^[\u4e00-\u9fff]{2,4}[：:]\s*[“「"']?\s*$/u.test(prefix)
-    ? line
-    : "";
+  return extractScriptLines(sceneText).some((spoken) => spoken.text.includes(line)) ? line : "";
 }
 
 function spokenLine(raw: string): string {
@@ -140,20 +176,17 @@ export function scriptDialogue(
     for (const match of sceneText.matchAll(new RegExp(`${escaped}[：:]\\s*([^\\n]{1,80})`, "g"))) {
       const raw = match[1] ?? "";
       const quoted = /^[「“"']([^」”"']+)[」”"']/u.exec(raw);
-      push(
-        name,
-        quoted?.[1] ??
-          raw.match(
-            /^.*?[。！？](?=(?:随后|然后|接着)(?:他|她)[\u4e00-\u9fff]|说完(?:后|[，,]))/u,
-          )?.[0] ??
-          raw,
-      );
+      push(name, quoted?.[1] ?? raw.match(/^.*?[。！？!?]/u)?.[0] ?? raw);
     }
   }
   for (const match of sceneText.matchAll(
     /([\u4e00-\u9fff]{2,4})(?:说|道|问|喊|叫)[：:]\s*[「“"']?([^「」“”"'\n]{1,80})/gu,
   )) {
-    push((match[1] ?? "").trim(), match[2] ?? "");
+    const raw = match[2] ?? "";
+    push(
+      (match[1] ?? "").trim(),
+      /[「“"']/u.test(match[0]) ? raw : (raw.match(/^.*?[。！？!?]/u)?.[0] ?? raw),
+    );
   }
   return found;
 }

@@ -175,8 +175,7 @@ describe("film operations", () => {
     expect(placed.scenes.some((item) => item.text === novel)).toBe(false);
     expect(sceneNeedsSource("沈砚许诺留下书店")).toBe(true);
     expect(sceneNeedsSource(split?.[2]?.text ?? "")).toBe(false);
-    expect(keepFightDetails(novel, "沈砚左手按在周烈前臂上")).toContain("钢条");
-    expect(keepFightDetails(novel, "沈砚左手按在周烈前臂上")).toContain("刀");
+    expect(keepFightDetails(novel, "沈砚左手按在周烈前臂上")).toBe("沈砚左手按在周烈前臂上");
     const book = [
       "第一场　雨夜旧书店",
       "入秋后的雨打在青石巷。门铃响了。“打烊了。”林晚说。男人说：“我叫沈砚。”",
@@ -252,13 +251,13 @@ describe("film operations", () => {
       locations: [],
     });
     const voiceOf = (name: string) => adults.characters.find((item) => item.name === name)?.voiceId;
-    expect(["ara", "eve", "luna", "carina", "celeste"]).toContain(voiceOf("林晚"));
-    expect(["leo", "rex", "atlas", "perseus", "zagan", "sal", "lux"]).toContain(voiceOf("沈砚"));
+    expect(["iris", "sirius", "cosmo", "helix"]).toContain(voiceOf("林晚"));
+    expect(["helios", "castor", "kepler", "zenith"]).toContain(voiceOf("沈砚"));
     expect(["leo", "rex", "atlas", "perseus", "zagan", "sal", "lux", "orion"]).toContain(
       voiceOf("林国栋"),
     );
-    expect(["leo", "rex", "atlas", "perseus", "zagan", "sal", "lux"]).toContain(voiceOf("周烈"));
-    expect(["leo", "rex", "atlas", "perseus", "zagan", "sal", "lux"]).toContain(voiceOf("打手"));
+    expect(voiceOf("周烈")).toBe("");
+    expect(voiceOf("打手")).toBe("");
     expect(["naksh", "ursa"]).toContain(voiceOf("阿婆"));
     expect(voiceOf("林晚")).not.toBe("aurora");
     expect(voiceOf("沈砚")).not.toBe("liora");
@@ -370,9 +369,11 @@ describe("film operations", () => {
     const merged = mergeCast(film, found);
     expect(merged.characters.find((item) => item.name === "林雨")?.identity).toBe("我写的");
     expect(merged.characters.map((item) => item.name)).toEqual(["林雨", "阿哲"]);
-    expect(merged.characters[0]?.voiceId).toBeTruthy();
-    expect(merged.characters[1]?.voiceId).toBeTruthy();
-    expect(merged.characters[0]?.voiceId).not.toBe(merged.characters[1]?.voiceId);
+    expect(
+      merged.characters.every(
+        (person) => person.voiceId === "" && person.voiceCode === "VOICE_TRAITS_REQUIRED",
+      ),
+    ).toBe(true);
     const voiced = mergeCast(blankFilm(), {
       characters: [
         { name: "林雨", identity: "年轻女子" },
@@ -463,7 +464,7 @@ describe("film operations", () => {
         },
         unnamed,
       ),
-    ).toBe("leo");
+    ).toBe("");
     expect(
       motionPrompt({ ...shot, picture: "", promptZh: "", performance: "", userFields: [] }),
     ).toBe("起始画面");
@@ -487,6 +488,7 @@ describe("film operations", () => {
     });
     expect(kept.shot.seconds).toBe(4);
     expect(kept.warning).toContain("截断");
+    shot.speaker = film.characters[0]!.name;
     shot.poster = "/tmp/still.png";
     film.characters[0]!.portraits = [
       { view: "正面", prompt: "定妆", url: "https://cdn.example/face.png" },
@@ -508,8 +510,8 @@ describe("film operations", () => {
     shot.stills = [];
     film.characters[0]!.portraits = [{ view: "正面", prompt: "定妆", url: "/tmp/face.png" }];
     const local = storyFilmBatches(film, [shot], false)[0]!;
-    expect(local.shots[0]?.still).toBe("/tmp/face.png");
-    expect(local.shots[0]?.references ?? []).not.toContain("/tmp/face.png");
+    expect(local.shots[0]?.still).toBeUndefined();
+    expect(local.shots[0]?.references).toContain("/tmp/face.png");
     expect(local.shots[0]?.prompt).toContain("<IMAGE_0>");
     expect(batch.shots[0]?.narration).toBe("雨太大。我听不清。");
     expect(batch.shots[0]?.prompt).toContain("冷色");
@@ -621,7 +623,7 @@ describe("film operations", () => {
     );
     const voiced = mergeCast(blankFilm(), cast ?? { characters: [], locations: [] });
     expect(voiced.characters.find((item) => item.name === "林晚")?.gender).toBe("女");
-    expect(voiced.characters.find((item) => item.name === "林晚")?.ageBand).toBe("成年");
+    expect(voiced.characters.find((item) => item.name === "林晚")?.ageBand).toBe("中年");
     expect(["ara", "eve", "luna", "carina", "celeste"]).toContain(
       voiced.characters.find((item) => item.name === "林晚")?.voiceId,
     );
@@ -683,8 +685,10 @@ describe("film operations", () => {
       }),
       novel,
     );
-    // A response claiming only the middle of the full novel must be rejected.
-    expect(parsed).toBeNull();
+    // Preserve all source, but explicitly flag ownership and cross-scene repair risks.
+    expect(parsed?.[0]?.paragraphCoverage).toMatchObject({ ok: false, crossSceneRisk: true });
+    expect(parsed?.[0]?.text).toContain("灯还亮着，就好。");
+    expect(parsed?.[0]?.paragraphCoverage?.missingParagraphs).toContain("P01");
   });
 
   it("describes every voice in plain words", () => {

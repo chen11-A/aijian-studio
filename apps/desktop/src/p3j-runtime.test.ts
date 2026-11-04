@@ -248,7 +248,9 @@ describe("phase3j desktop regressions", () => {
       ]);
       return new Response(null, { status: 400 });
     });
+    const logStill = vi.fn();
     const host: FilmLibraryHost = {
+      logStill,
       filmsRoot: () => root,
       storyFilmsRoot: () => root,
       runFfmpeg: async () => undefined,
@@ -268,9 +270,63 @@ describe("phase3j desktop regressions", () => {
     const still = handlers.get("film:still");
     await still?.(true, "film_series0000000001", "fixture", "16:9", [image]);
     expect(fetcher).toHaveBeenCalledOnce();
+    expect(logStill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referenceImageCount: 1,
+        requestChars: 7,
+        durationMs: expect.any(Number),
+      }),
+    );
     expect(
       await still?.(true, "film_series0000000001", "fixture", "16:9", [foreign]),
     ).toMatchObject({ path: "", reason: "参考图无法读取，请重新选择。" });
     expect(fetcher).toHaveBeenCalledOnce();
   });
+});
+
+it("keeps debug off by default and only logs reference counts with explicit debug", async () => {
+  const root = await mkdtemp(join(tmpdir(), "p3j-debug-"));
+  const path = join(root, "agent.log");
+  const entry = {
+    model: "grok-4.7",
+    endpoint: "image-edit",
+    httpStatus: 200,
+    body: "secret novel prompt",
+    referenceImageCount: 5,
+    requestChars: 100,
+    durationMs: 10,
+  };
+  createAgentLog(path).write(entry);
+  await vi.waitFor(async () =>
+    expect(JSON.parse(await readFile(path, "utf8"))).toMatchObject({
+      referenceImageCount: 5,
+      requestChars: 100,
+      durationMs: 10,
+    }),
+  );
+  expect(await readFile(path, "utf8")).not.toContain('"debug"');
+  createAgentLog(path, { debug: true }).write(entry);
+  await vi.waitFor(async () =>
+    expect((await readFile(path, "utf8")).trim().split("\n")).toHaveLength(2),
+  );
+  const written = await readFile(path, "utf8");
+  expect(written).toContain('"debug":true');
+  expect(written).not.toContain("secret novel prompt");
+});
+
+it("does not include video reference declarations in first-frame prompts", async () => {
+  const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body));
+    expect(body.prompt).toBe("雨夜书店。");
+    expect(body.images).toEqual([{ type: "image_url", url: "https://example.invalid/face.png" }]);
+    return new Response(null, { status: 400 });
+  });
+  await requestStill({
+    prompt: "<IMAGE_1> 是人物的定妆照。雨夜书店。",
+    token: "synthetic",
+    destination: "/unused",
+    references: ["https://example.invalid/face.png"],
+    fetcher,
+  });
+  expect(fetcher).toHaveBeenCalledOnce();
 });

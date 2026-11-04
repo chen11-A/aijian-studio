@@ -1,5 +1,6 @@
 /** Real Chromium UI regression; desktop image calls are replaced, no supplier is called. */
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
@@ -24,11 +25,24 @@ try {
   await page.route("**/api/v1/**", (route) =>
     route.fulfill({ json: { data: { connections: [] } } }),
   );
+  await page.route("**/__p3j-image/**", (route) =>
+    route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5XcAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    }),
+  );
   await page.addInitScript(() => {
     window.__imageCalls = [];
+    window.__taskEvents = [];
     window.__holdImages = false;
     window.__imageRelease = null;
     window.aijian = {
+      publishTasks: async (tasks, batches) => {
+        window.__taskEvents.push(window.structuredClone({ tasks, batches }));
+      },
       generateFilmStill: async (...args) => {
         window.__imageCalls.push(args);
         if (window.__holdImages)
@@ -36,7 +50,7 @@ try {
             window.__imageRelease = resolve;
           });
         return {
-          path: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5XcAAAAASUVORK5CYII=",
+          path: `${window.location.origin}/__p3j-image/${window.__imageCalls.length}.png`,
         };
       },
     };
@@ -49,6 +63,7 @@ try {
       ...film.shots[index % film.shots.length],
       id: `layout-${index}`,
       no: index + 1,
+      characters: ["林骁", "刀疤"],
       picture: "雨落在旧书店的窗沿，人物停下脚步，望向门口。".repeat(12),
       performance: "凝视门口后缓缓转头，眼神中带着疑问。".repeat(8),
     }));
@@ -130,12 +145,35 @@ try {
   await page.getByRole("button", { name: "生成画面", exact: true }).click();
   await page.waitForFunction(() => window.__imageCalls.length === 10);
   const references = await page.evaluate(() => window.__imageCalls[9][3]);
-  // Mock images deliberately share a URL; references are deduplicated before sending.
-  assert.equal(references.length, 1);
-  assert.ok(references[0].startsWith("data:image/png;base64,"));
+  // Two characters have eight stored portraits; real first-frame selection caps to five,
+  // while retaining at least one reference from each person. Same-origin fixture bytes are routed locally.
+  assert.equal(references.length, 5);
+  assert.ok(references.some((url) => /\/[2-5]\.png$/.test(url)));
+  assert.ok(references.some((url) => /\/[6-9]\.png$/.test(url)));
   results.push({
     check: "first-frame request explicitly receives completed portrait references",
     count: references.length,
+  });
+  await page.getByRole("button", { name: "出 4 张候选", exact: true }).click();
+  assert.equal(await page.evaluate(() => window.__imageCalls.length), 10);
+  await page.getByRole("button", { name: "确认这 4 张", exact: true }).click();
+  await page.waitForFunction(() => {
+    const latest = window.__taskEvents.at(-1);
+    return (
+      window.__imageCalls.length === 14 &&
+      latest?.tasks.filter((task) => task.id.startsWith("candidate:") && task.status === "done")
+        .length === 4
+    );
+  });
+  const candidateReferences = await page.evaluate(() =>
+    window.__imageCalls.slice(10, 14).map((call) => call[3]),
+  );
+  assert.ok(candidateReferences.every((refs) => refs.length === 5));
+  await page.screenshot({ path: `${out}/four-candidates-1280x800.png` });
+  results.push({
+    check:
+      "four-candidate confirmation enqueues four actual image requests and all finish done with five references",
+    pass: true,
   });
   await page.locator("nav.tabs").getByRole("button", { name: /剧本/ }).click();
   await page.getByRole("button", { name: "让导演拆镜头", exact: true }).click();
@@ -207,6 +245,37 @@ try {
           : "desktop screenshot",
     });
   }
+  const taskEvents = await page.evaluate(() => window.__taskEvents);
+  assert.ok(
+    taskEvents.some((event) =>
+      event.tasks.some((task) => task.kind === "image" && task.status === "queued"),
+    ),
+  );
+  assert.ok(
+    taskEvents.some((event) =>
+      event.tasks.some((task) => task.kind === "image" && task.status === "running"),
+    ),
+  );
+  assert.ok(
+    taskEvents.some((event) =>
+      event.tasks.some((task) => task.kind === "image" && task.status === "done"),
+    ),
+  );
+  assert.ok(
+    taskEvents.some((event) =>
+      event.batches.some(
+        (batch) => batch.total === 4 && batch.done === 4 && batch.running === false,
+      ),
+    ),
+  );
+  assert.ok(
+    taskEvents.every((event) => event.batches.every((batch) => typeof batch.running === "boolean")),
+  );
+  results.push({
+    check: "real workflow task snapshots publish queued/running/done and finished portrait batches",
+    eventCount: taskEvents.length,
+    pass: true,
+  });
   assert.deepEqual(errors, []);
   assert.ok(cardsPass, JSON.stringify(cards));
   results.push({ check: "browser console errors/warnings and page errors", errors });

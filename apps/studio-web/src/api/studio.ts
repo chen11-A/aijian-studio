@@ -1,3 +1,4 @@
+import type { TaskListener, TaskItem, BatchProgress } from "@aijian/contracts/task-progress";
 import type { AssemblyReadinessGateway } from "@aijian/contracts/assembly-readiness";
 import type { LocalMediaReviewGateway } from "@aijian/contracts/local-media-review";
 import type { AssemblyExactGateway } from "@aijian/contracts/assembly-exact";
@@ -985,6 +986,8 @@ export interface AijianDesktopBridge
   filePath?: (file: File) => string;
   flushed?: () => void;
   onFlush?: (handler: () => void) => void;
+  onTask?: (handler: TaskListener) => () => void;
+  publishTasks?: (tasks: TaskItem[], batches: BatchProgress[]) => Promise<void>;
   generateFilmStill?: (
     seriesId: string,
     prompt: string,

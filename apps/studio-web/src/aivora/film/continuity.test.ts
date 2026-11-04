@@ -1,9 +1,22 @@
+import {
+  detectDirectorCoverage,
+  directorPlanStatus,
+  coverageRepairContext,
+  shotLines,
+} from "./director-continuity";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { novelHeadingSlices, numberParagraphs, parseWriterScenes } from "./operations";
-import { parseDirectorShots, shotBudget } from "./project";
-import { actionFromModel, lineInScript, plainCue, scriptDialogue } from "./phase2";
+import { novelHeadingSlices, numberParagraphs, parseWriterScenes, splitNovel } from "./operations";
+import { blankFilm, parseDirectorShots, shotBudget, upgradeFilm } from "./project";
+import {
+  actionFromModel,
+  attachScriptLines,
+  extractScriptLines,
+  lineInScript,
+  plainCue,
+  scriptDialogue,
+} from "./phase2";
 
 const shot = { picture: "站在窗前", characters: ["甲甲", "乙乙"] };
 const writer = (groups: string[][]) =>
@@ -16,21 +29,30 @@ const writer = (groups: string[][]) =>
   });
 
 describe("source continuity regressions from phase3i audit", () => {
-  it("rejects missing, duplicate, and invalid paragraph ownership without writing partial scenes", () => {
+  it("repairs missing ownership to the preceding scene and keeps only the first duplicate with risks", () => {
     const source = "甲说：“第一句。”\n乙说：“第二句。”\n丙说：“第三句。”";
-    expect(parseWriterScenes(writer([["P01"], ["P02"]]), source)).toBeNull();
-    expect(
-      parseWriterScenes(
-        writer([
-          ["P01", "P02"],
-          ["P02", "P03"],
-        ]),
-        source,
-      ),
-    ).toBeNull();
-    expect(parseWriterScenes(writer([["P01", "P02"], ["P99"]]), source)).toBeNull();
+    for (const groups of [
+      [["P01"], ["P02"]],
+      [
+        ["P01", "P02"],
+        ["P02", "P03"],
+      ],
+      [["P01", "P02"], ["P99"]],
+    ]) {
+      const result = parseWriterScenes(writer(groups), source);
+      expect(result?.map((scene) => scene.text).join("\n")).toBe(source);
+      expect(result?.some((scene) => !scene.paragraphCoverage?.ok)).toBe(true);
+    }
+    const missing = parseWriterScenes(writer([["P01"], ["P03"]]), source);
+    expect(missing?.[0]?.text).toContain("第二句");
+    expect(missing?.[0]?.paragraphCoverage?.missingParagraphs).toEqual(["P02"]);
     const valid = parseWriterScenes(writer([["P01"], ["P02", "P03"]]), source);
-    expect(valid?.map((scene) => scene.text).join("\n")).toBe(source);
+    expect(valid?.every((scene) => scene.paragraphCoverage?.ok)).toBe(true);
+    const crossed = parseWriterScenes(
+      writer([["P01"], ["P04"]]),
+      "第一场 书店\n灯亮着。\n第二场 码头\n警笛响起。",
+    );
+    expect(crossed?.[0]?.paragraphCoverage).toMatchObject({ ok: false, crossSceneRisk: true });
   });
 
   it("keeps explicitly attributed unpunctuated dialogue without treating names or sounds as speech", () => {
@@ -76,16 +98,33 @@ describe("source continuity regressions from phase3i audit", () => {
     );
   });
 
-  it("preserves multiple sentences in unquoted speaker lines", () => {
+  it("ends unquoted speaker lines at the first sentence while quoted speech stays complete", () => {
     expect(scriptDialogue("林晚：走吧。跟我来。", ["林晚"])).toEqual([
-      { speaker: "林晚", line: "走吧。跟我来。" },
+      { speaker: "林晚", line: "走吧。" },
     ]);
     expect(scriptDialogue("林晚：走吧。她还在等我们。", ["林晚"])).toEqual([
-      { speaker: "林晚", line: "走吧。她还在等我们。" },
+      { speaker: "林晚", line: "走吧。" },
     ]);
     expect(scriptDialogue("林晚：走吧。跟我来。随后他转身离开。", ["林晚"])).toEqual([
-      { speaker: "林晚", line: "走吧。跟我来。" },
+      { speaker: "林晚", line: "走吧。" },
     ]);
+  });
+
+  it("clears a pre-existing invented line in the dialogue attachment helper", () => {
+    expect(
+      attachScriptLines(
+        [
+          {
+            picture: "林骁站在门边。",
+            characters: ["林骁"],
+            line: "凭空捏造的台词",
+            speaker: "林骁",
+          },
+        ],
+        "林骁站在门边。",
+        ["林骁"],
+      )[0]?.line,
+    ).toBe("");
   });
 
   it("round trips P100 and later paragraphs", () => {
@@ -100,21 +139,27 @@ describe("source continuity regressions from phase3i audit", () => {
   });
 
   it("retains over-budget shots and assigns unique ids after repeated scene blocks", () => {
-    const block = { scene_id: "scene-1", shots: Array.from({ length: 20 }, () => shot) };
+    const block = {
+      scene_id: "scene-1",
+      shots: Array.from({ length: 20 }, () => ({ ...shot, seconds: 15 })),
+    };
     const result = parseDirectorShots(JSON.stringify({ scenes: [block, block] }), "scene-1", "");
     expect(result).toHaveLength(40);
     expect(new Set(result?.map((item) => item.id)).size).toBe(40);
     expect(shotBudget("短场")).toBe(1);
   });
 
-  it("adds omitted source coverage only once after combining repeated blocks", () => {
+  it("reports omitted source instead of silently adding copied source shots", () => {
     const block = { scene_id: "scene-1", shots: [shot] };
     const result = parseDirectorShots(
       JSON.stringify({ scenes: [block, block] }),
       "scene-1",
       "末段警笛响起。",
     );
-    expect(result?.filter((item) => item.source === "source:coverage")).toHaveLength(1);
+    expect(result?.filter((item) => item.source === "source:coverage")).toHaveLength(0);
+    expect(
+      detectDirectorCoverage({ id: "scene-1", text: "末段警笛响起。" }, result ?? []),
+    ).toMatchObject({ ok: false, missingTail: expect.any(String) });
     expect(plainCue("抬手。。保留原文：肘击，hold_s: 1，hold_s=2")).toBe(
       "抬手。肘击，停 1 秒，停 2 秒",
     );
@@ -158,16 +203,18 @@ describe("source continuity regressions from phase3i audit", () => {
       "scene-1",
       source,
     );
-    expect(result?.filter((item) => item.line).map((item) => item.line)).toEqual([
-      "第一句。",
-      "第二句。",
+    expect(result).toHaveLength(1);
+    expect(result?.[0]?.lines).toEqual([
+      { speaker: "甲甲", text: "第一句。" },
+      { speaker: "乙乙", text: "第二句。" },
     ]);
+    expect(result?.[0]?.line).toBe("第一句。\n第二句。");
     expect(scriptDialogue("林骁：走吧。随后他转身离开。", ["林骁"])).toEqual([
       { speaker: "林骁", line: "走吧。" },
     ]);
   });
 
-  it("uses the actual repository novel and preserves every paragraph, quoted line and ending", () => {
+  it("detects every real novel line in order and the ending without fabricating coverage", () => {
     const source = readFileSync(
       resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),
       "utf8",
@@ -175,29 +222,98 @@ describe("source continuity regressions from phase3i audit", () => {
     const scenes = novelHeadingSlices(source);
     expect(scenes.map((scene) => scene.title)).toEqual(["雨夜旧书店", "码头仓库", "医院走廊"]);
     for (const [index, scene] of scenes.entries()) {
-      const result = parseDirectorShots(
-        JSON.stringify({ shots: Array.from({ length: 20 }, () => shot) }),
-        `scene-${index + 1}`,
-        scene.text,
-      );
-      expect(result!.length).toBeGreaterThan(20);
-      const output = result!.map((item) => `${item.picture}\n${item.line}`).join("\n");
-      const paragraphs = scene.text
+      const id = `scene-${index + 1}`;
+      const rows = scene.text
         .split(/\n+/)
-        .map((part) => part.trim())
         .filter(Boolean)
-        .slice(1);
-      for (const paragraph of paragraphs) expect(output).toContain(paragraph);
-      for (const quote of scene.text.matchAll(/“([^”]+)”/gu)) expect(output).toContain(quote[1]);
-      expect(output).toContain(paragraphs.at(-1));
+        .slice(1)
+        .map((picture) => ({ picture, seconds: 3, lines: extractScriptLines(picture) }));
+      const parsed = parseDirectorShots(JSON.stringify({ shots: rows }), id, scene.text)!;
+      expect(detectDirectorCoverage({ id, text: scene.text }, parsed).ok).toBe(true);
+      expect(parsed.length).toBeLessThanOrEqual(shotBudget(scene.text) ?? 16);
+      const spoken = parsed.flatMap(shotLines);
+      const sourceQuotes = [...scene.text.matchAll(/“([^”]+)”/gu)]
+        .map((match) => match[1]!)
+        .filter((line) => /[，。！？；：]/u.test(line));
+      expect(spoken.map((line) => line.text)).toEqual(sourceQuotes);
+      const interior = spoken[Math.floor(spoken.length / 2)]!;
+      const missingOne = parsed.map((item) => {
+        const lines = shotLines(item).filter((line) => line.text !== interior.text);
+        return { ...item, lines, line: lines.map((line) => line.text).join("\n") };
+      });
+      expect(detectDirectorCoverage({ id, text: scene.text }, missingOne).ok).toBe(false);
+
+      expect(spoken.map((line) => line.text)).toEqual(
+        extractScriptLines(scene.text).map((line) => line.text),
+      );
+      const damaged = parsed.map((item) => ({ ...item, lines: [], line: "" }));
+      const coverage = detectDirectorCoverage({ id, text: scene.text }, damaged);
+      expect(coverage.ok).toBe(false);
+      expect(coverage.missingLines.length).toBeGreaterThan(1);
+      expect(coverageRepairContext({ id, text: scene.text }, damaged)).toContain(
+        coverage.missingLines[0],
+      );
+      const reversed = [...parsed].reverse();
+      expect(detectDirectorCoverage({ id, text: scene.text }, reversed).ok).toBe(false);
     }
-    const ids = numberParagraphs(source).map((paragraph) => paragraph.id);
+  });
+
+  it("keeps incompatible over-budget shots with an explicit status", () => {
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+      ...shot,
+      size: index % 2 ? "近景" : "中景",
+      seconds: 15,
+    }));
+    const scene = { id: "scene-1", text: "雨夜巷口，警笛响起。" };
+    const parsed = parseDirectorShots(JSON.stringify({ shots: rows }), scene.id, scene.text)!;
+    expect(parsed).toHaveLength(20);
+    expect(directorPlanStatus(scene, parsed)).toMatchObject({
+      overBudget: true,
+      shotCount: 20,
+      coverage: { ok: false, missingTail: expect.any(String) },
+    });
+  });
+
+  it("migrates legacy single lines and preserves new dialogue and coverage in saved projects", () => {
+    const legacy = parseDirectorShots(
+      JSON.stringify({ shots: [{ picture: "窗前", line: "走吧。", speaker: "林晚" }] }),
+      "scene-1",
+      "林晚：走吧。",
+    )?.[0];
+    const film = blankFilm();
+    film.shots = [{ ...legacy!, lines: undefined }];
+    const loaded = upgradeFilm(JSON.parse(JSON.stringify(film)));
+    expect(loaded?.shots[0]?.lines).toEqual([{ speaker: "林晚", text: "走吧。" }]);
+    film.scenes[0]!.coverage = {
+      sceneId: "scene-1",
+      ok: false,
+      lastLine: "走吧。",
+      missingLines: ["走吧。"],
+      missingTail: "尾段",
+    };
+    const result = upgradeFilm(JSON.parse(JSON.stringify(film)));
+    expect(result?.scenes[0]?.coverage).toEqual(film.scenes[0]?.coverage);
+    expect(
+      splitNovel("第一场 雨夜旧书店\n灯亮着。\n第二场 医院走廊\n雨停了。").scenes.map(
+        (scene) => scene.title,
+      ),
+    ).toEqual(["雨夜旧书店", "医院走廊"]);
+  });
+
+  it("retains quoted compound dialogue and uses place and time as fallback titles", () => {
+    expect(
+      extractScriptLines("林晚：“走吧。跟我来。”随后她转身。\n沈砚：好。随后他离开。"),
+    ).toEqual([
+      { speaker: "林晚", text: "走吧。跟我来。" },
+      { speaker: "沈砚", text: "好。" },
+    ]);
     const result = parseWriterScenes(
-      JSON.stringify({
-        scenes: [{ title: "第 1 场", text: scenes[0]!.text, source_paragraphs: ids }],
-      }),
-      source,
+      JSON.stringify({ scenes: [{ place: "旧书店", time: "雨夜", text: "灯亮着。" }] }),
     );
-    expect(result?.[0]?.title).toBe("雨夜旧书店");
+    expect(result?.[0]?.title).toBe("旧书店 · 雨夜");
+    const real = parseWriterScenes(
+      JSON.stringify({ scenes: [{ title: "第 1 场", text: "第一场　雨夜旧书店\n灯亮着。" }] }),
+    );
+    expect(real?.[0]?.title).toBe("雨夜旧书店");
   });
 });

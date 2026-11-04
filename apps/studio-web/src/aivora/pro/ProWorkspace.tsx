@@ -1,3 +1,7 @@
+import { useWorkOwners } from "./use-work-owners";
+import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
+import { deleteCurrentFilm } from "./delete-workflow";
+import { ensureShotFrame, makeFourStills } from "./still-workflow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   actionBeats,
@@ -23,8 +27,8 @@ import {
   numberedScript,
   parseWriterScenes,
   sceneNeedsSource,
-  beatsForShot,
-  isFightScene,
+  assignActionBeats,
+  fightConstraints,
   performanceLine,
   moveShot,
   planVideoJobs,
@@ -35,10 +39,8 @@ import {
   removeShot,
   splitNovel,
   generationEstimate,
-  keyframeVariants,
   storyFilmBatches,
   spokenLine,
-  shotVoiceId,
   draftFaceWarning,
   dialogueTracks,
   previewMix,
@@ -54,15 +56,12 @@ import {
   listEpisodes,
   listFilms,
   readSaved,
-  removeFilm,
   renameFilm,
   saveFilm,
   type EpisodeEntry,
   type FilmIndexEntry,
 } from "../film/library";
 import {
-  applyShots,
-  agentRequest,
   blankFilm,
   keyframePrompt,
   interruptStaleWork,
@@ -71,7 +70,6 @@ import {
   sampleFilm,
   offlineShots,
   textModel,
-  shotBudget,
   STYLE_PRESETS,
   type FilmProject,
   type FilmScene,
@@ -80,7 +78,6 @@ import {
 } from "../film/project";
 import {
   actionFromModel,
-  actionSentence,
   appearanceMark,
   artFromModel,
   classifyShotSize,
@@ -91,8 +88,6 @@ import {
   gazeHandoff,
   missingIdentityLocks,
   parseLooseJson,
-  directedSpeech,
-  assignPerformance,
   performanceFromModel,
   voiceDirectionFromModel,
   prompterFromModel,
@@ -109,8 +104,15 @@ import { useGrokAccount, useGrokConnected, useGrokDenied } from "../grok-auth/us
 import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
 import { Ic } from "./icons";
 import "./pro.css";
+import { normalizeNotice } from "../film/notices";
+import type { UiNotice } from "../film/contracts3j";
+import { enrichDirectorPlan } from "./enrichment-workflow";
+import { makeAllPortraits } from "./portrait-workflow";
+import { applyDirectorPlan, RequestSequences } from "./director-workflow";
+import { detectDirectorCoverage, directorPlanStatus, shotLines } from "../film/director-continuity";
+import { completeMembershipAgent } from "./agent-workflow";
+import { publishFilmJobs, runTask } from "../film/task-progress";
 import {
-  generateMissingPortraits,
   settleNextJob,
   dialogueMuted,
   isVoiceFile,
@@ -118,7 +120,13 @@ import {
   fileMediaUrl,
   requestStill,
   middlePath,
+  shotFrame,
+  applyArtDraft,
+  hydrateFilm,
+  filmSignature,
+  replaceTakes,
   requestShotStill,
+  assembleCurrentFilm,
   retryDirectorTimeout,
   type AgentReply,
 } from "./workflow";
@@ -146,32 +154,6 @@ const STAGES: { id: Stage; label: string }[] = [
 
 const SIGN_IN_NOTE = "请打开安装好的 AIVORA 再登录。";
 const ROUGH_CUT_REASON = "多镜头没有接上，没有导出。";
-
-async function hydrateFilm(film: FilmProject): Promise<FilmProject> {
-  const shots = film.shots.map((shot) => ({
-    ...shot,
-    poster: shot.poster,
-    takes: shot.takes.map((take) => {
-      if (take.videoUrl || take.status !== "done") return take;
-      const videoUrl = fileMediaUrl(take.videoPath);
-      return videoUrl ? { ...take, videoUrl } : take;
-    }),
-  }));
-  return { ...film, shots };
-}
-
-function filmSignature(value: FilmProject): string {
-  return JSON.stringify({
-    ...value,
-    savedAt: "",
-    directory: "",
-    assemblyUrl: "",
-    shots: value.shots.map((shot) => ({
-      ...shot,
-      takes: shot.takes.map((take) => ({ ...take, videoUrl: "" })),
-    })),
-  });
-}
 
 const ROLE_COPY: Record<Role, string> = {
   writer: "编剧：把想法或小说收成一场一场的剧本。确认前不会改你写过的字。",
@@ -215,16 +197,6 @@ function togglePlayback(setPlaying: (value: boolean | ((value: boolean) => boole
     return;
   }
   setPlaying((value) => !value);
-}
-
-function shotFrame(shot: FilmShot | undefined): string {
-  if (!shot) return "";
-  const poster = fileMediaUrl(shot.poster);
-  if (poster) return poster;
-  const take =
-    shot.takes.find((item) => item.id === shot.selectedTakeId) ??
-    shot.takes.find((item) => item.status === "done");
-  return fileMediaUrl(take?.stillUrl);
 }
 
 function BedAudio({ src, playing }: { src: string; playing: boolean }) {
@@ -407,7 +379,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [exportOpen, setExportOpen] = useState(false);
   const [partialExport, setPartialExport] = useState<string[] | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const workOwners = useWorkOwners(film?.id ?? "");
+  const exporting = workOwners.busy("export");
   const [asking, setAsking] = useState(false);
   const [pendingRetry, setPendingRetry] = useState<{
     role: Role;
@@ -423,21 +396,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [rightTab, setRightTab] = useState<"props" | "fix" | "ai">("props");
   const [notice, setNoticeState] = useState("");
   const noticeEpoch = useRef(0);
-  const setNotice = (next: string | ((current: string) => string)) => {
+  const noticeRef = useRef("");
+  const setNotice = (next: string | UiNotice | ((current: string) => string)) => {
     noticeEpoch.current += 1;
-    setNoticeState(next);
+    const value = typeof next === "function" ? next(noticeRef.current) : next;
+    const structured = normalizeNotice(value);
+    window.dispatchEvent(new CustomEvent("aivora-notice", { detail: structured }));
+    const rendered =
+      typeof value === "string"
+        ? value
+        : [structured.text, structured.detail].filter(Boolean).join(" ");
+    noticeRef.current = rendered;
+    setNoticeState(rendered);
   };
+  const emitNotice = (message: UiNotice) => setNotice(message);
   const [modelIds, setModelIds] = useState<string[]>([]);
   const [voiceChoices, setVoiceChoices] = useState<{ id: string; label: string }[]>([]);
   const [soundOn, setSoundOn] = useState(
     () => window.localStorage.getItem("aivora.sound") !== "off",
   );
   const [showRoles, setShowRoles] = useState(true);
-  const portraitRunning = useRef(false);
   const castEpoch = useRef(0);
+  const requestSequences = useRef(new RequestSequences());
+  const activeTurn = useRef("");
+  const unassignedDraft = useRef<NonNullable<FilmProject["unassignedBeats"]>>([]);
   const supplementWarnings = useRef<string[]>([]);
-  const [stillProgress, setStillProgress] = useState<Record<string, string>>({});
-  const [portraitBusy, setPortraitBusy] = useState(false);
+  const stillProgress = workOwners.progress("still:");
+  const portraitBusy = workOwners.busy("portraits");
   const [structured, setStructured] = useState<string[]>([]);
   const [turns, setTurns] = useState<
     { id: string; role: Role; who: "user" | "agent"; text: string }[]
@@ -701,45 +686,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const live = filmRef.current;
-    const bridge = grokBridge();
-    const billingProject = live ? await ensureBillingProject() : "";
-    if (!bridge?.speak || !billingProject || !live) {
-      setNotice("配音需要 Grok 会员。画面不会重新生成。");
-      return;
-    }
+    if (!live) return;
+    const valid = requestSequences.current.begin(
+      live.id,
+      `voice:${current.id}`,
+      () => filmRef.current?.id ?? "",
+    );
     setNotice("正在重配这一句，画面不动。");
-    const directed = directedSpeech(line, current.delivery ?? "");
-    const spoken = await bridge.speak({
-      voiceId: shotVoiceId(current, live),
-      text: directed.text,
-      speed: directed.speed,
-      projectId: billingProject,
-      idempotencyKey: crypto.randomUUID(),
-    });
-    if (spoken.kind !== "OK") {
-      setNotice(spoken.detail || "配音没有生成，画面没有动。");
-      return;
+    try {
+      await revoiceFilmShot(live, current, {
+        current: () => filmRef.current,
+        valid,
+        apply: applyLive,
+        billing: ensureBillingProject,
+      });
+      if (valid()) setNotice("这一句已重配，画面没有重新生成。");
+    } catch (error) {
+      if (valid())
+        emitNotice({
+          code:
+            error instanceof Error && error.message === "VOICE_TRAITS_REQUIRED"
+              ? "VOICE_TRAITS_REQUIRED"
+              : "VOICE_FAILED",
+          text: "配音未完成，请确认角色声音后重试。",
+          detail: error instanceof Error ? error.message : undefined,
+        });
+    } finally {
+      if (valid()) setHearing(false);
     }
-    const latest = filmRef.current ?? live;
-    applyLive({
-      ...latest,
-      audioClips: [
-        ...latest.audioClips.filter((clip) => clip.id !== `voice-${current.id}`),
-        {
-          id: `voice-${current.id}`,
-          lane: "dialogue",
-          shotId: current.id,
-          takeId: current.selectedTakeId,
-          label: "配音",
-          startSeconds: 0,
-          durationSeconds: spoken.seconds && spoken.seconds > 0 ? spoken.seconds : current.seconds,
-          offsetSeconds: 0,
-          gainDb: 0,
-          path: `data:${spoken.mime || "audio/mpeg"};base64,${spoken.audioBase64}`,
-        },
-      ],
-    });
-    setNotice("这一句已重配，画面没有重新生成。");
   }
 
   const runAction = (action: FixAction) => {
@@ -842,95 +816,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     .sort((a, b) => a.no - b.no);
   openShotRef.current = shownShots[shot]?.id ?? "";
 
-  async function fillPerformance(base: FilmProject, shots: FilmShot[]): Promise<FilmShot[]> {
-    const sceneIds = [...new Set(shots.map((item) => item.sceneId))];
-    let filled = shots;
-    for (const sceneId of sceneIds) {
-      const group = filled.filter((item) => item.sceneId === sceneId);
-      const targets = group.filter((shot) => {
-        const people = shot.characters.filter((name) => name && name !== "人物" && name !== "空镜");
-        return people.length > 0 || Boolean(shot.speaker?.trim());
-      });
-      if (targets.length === 0) continue;
-      const sceneRow = base.scenes.find((item) => item.id === sceneId);
-      const names = [
-        ...new Set(
-          targets.flatMap((shot) => shot.characters.filter(Boolean).concat(shot.speaker ?? "")),
-        ),
-      ].filter((name) => name && name !== "人物" && name !== "空镜");
-      const context = [
-        `场次：${sceneRow?.title ?? ""} ${sceneRow?.where ?? ""}`.trim(),
-        `剧本：${sceneRow?.text ?? ""}`,
-        `镜头：${JSON.stringify(targets.map((shot) => ({ id: shot.id, picture: shot.picture, line: shot.line, speaker: shot.speaker })))}`,
-      ].join("\n");
-      try {
-        const reply = await completeAgent(
-          "performance",
-          context,
-          "按给出的 id 为每一镜写表情、视线、手势，以及语气、语速、停顿和情绪。只输出 JSON 数组，每项的 id 必须用我给的 id。",
-        );
-        const parsed = reply.text ? parseLooseJson(reply.text) : null;
-        if (!parsed) throw new Error(reply.detail || "表演指导没有返回可用内容。");
-        const notes = assignPerformance(parsed, targets, names);
-        filled = filled.map((shot) => {
-          const note = notes.find((item) => item.id === shot.id);
-          if (!note || (!note.performance && !note.delivery)) return shot;
-          const visual = note.performance;
-          return {
-            ...shot,
-            performance: visual
-              ? visual.includes("来自表演指导")
-                ? visual
-                : `${visual}（来自表演指导）`
-              : shot.performance,
-            delivery: note.delivery || shot.delivery,
-          };
-        });
-      } catch {
-        supplementWarnings.current.push("表演补充未完成，可重新请表演指导补充。");
-      }
-    }
-    return filled;
-  }
-
-  async function fillFight(base: FilmProject, shots: FilmShot[]): Promise<FilmShot[]> {
-    let next = shots;
-    const sceneIds = [...new Set(shots.map((item) => item.sceneId))];
-    for (const sceneId of sceneIds) {
-      const sceneRow = base.scenes.find((item) => item.id === sceneId);
-      const story = `${sceneRow?.title ?? ""}\n${sceneRow?.where ?? ""}\n${sceneRow?.text ?? ""}`;
-      if (!sceneRow || !isFightScene(story, (sceneRow.tags ?? []).join(" "))) continue;
-      try {
-        const reply = await completeAgent(
-          "action",
-          `${story}\n镜头：${JSON.stringify(shots.filter((shot) => shot.sceneId === sceneId).map(({ id, no, picture, action, line }) => ({ id, no, picture, action, line })))}`,
-          "按给出的镜头 id 写拍，每一拍只属于一个镜头。不要把打斗动作放进打斗开始之前的镜头。只输出 JSON。",
-        );
-        const parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
-        if (!parsed) throw new Error(reply.detail || "动作指导没有返回可用内容。");
-        const rows = parsed;
-        next = next.map((shot) => {
-          if (shot.sceneId !== sceneId) return shot;
-          const action = beatsForShot(
-            rows,
-            shot.no,
-            shot.id,
-            `${shot.picture} ${shot.action} ${shot.line}`,
-          );
-          if (!action || shot.action.includes(action)) return shot;
-          return { ...shot, action: [shot.action, action].filter(Boolean).join("。") };
-        });
-      } catch {
-        supplementWarnings.current.push("动作补充未完成，可重新请动作指导补充。");
-      }
-    }
-    return next;
+  async function completeDirectorPlan(
+    base: FilmProject,
+    sceneId: string,
+    shots: FilmShot[],
+    valid: () => boolean,
+  ) {
+    return enrichDirectorPlan(base, sceneId, shots, {
+      valid,
+      request: completeAgent,
+      warning: (text) => {
+        if (valid()) supplementWarnings.current.push(text);
+      },
+      unassigned: (id, beats) => {
+        if (valid())
+          unassignedDraft.current = [
+            ...unassignedDraft.current.filter((item) => item.sceneId !== id),
+            ...beats,
+          ];
+      },
+    });
   }
 
   async function planDirector(asked = "") {
     if (!film) return;
     const scope = scopeRef.current;
     supplementWarnings.current = [];
+    unassignedDraft.current = [];
     const turn = pushTurn("director", asked.trim() || "把这一场拆成镜头");
     const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
     const sceneId = current?.id ?? "scene-1";
@@ -956,6 +868,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         const first = await retryDirectorTimeout(
           () => completeAgent("director", context, "把这一场拆成镜头"),
           setNotice,
+          emitNotice,
         );
         const parsed = first.text
           ? parseDirectorShots(first.text, sceneId, current?.text ?? "", sceneRefs)
@@ -972,7 +885,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           noteAgent("director", "rejected", text);
         } else {
           setNotice(`已写 ${parsed.length} 镜，正在写表演。`);
-          next = await fillFight(film, await fillPerformance(film, parsed));
+          next = await completeDirectorPlan(film, sceneId, parsed, () => isTurnCurrent(turn));
           text = thin
             ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「写入分镜」才会写入。"
             : "导演拆好了。点「写入分镜」才会写入。";
@@ -981,17 +894,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     } catch {
       text = "模型没有返回。没有写入镜头。";
     } finally {
-      writing.current = false;
-      setAsking(false);
+      if (activeTurn.current === turn) {
+        writing.current = false;
+        setAsking(false);
+      }
     }
-    if (scope !== scopeRef.current) return;
+    if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
     if (supplementWarnings.current.length)
       text += ` ${[...new Set(supplementWarnings.current)].join(" ")}`;
-    const budget = shotBudget(current?.text ?? "") ?? 16;
+    const budget = current && next ? directorPlanStatus(current, next).target : 16;
     if (next && next.length > budget)
       text += ` 为保留全部台词和结尾，保留 ${next.length} 镜，超过建议 ${budget} 镜。`;
-    if (next?.some((item) => item.source === "source:coverage"))
-      text += " 已补回原文遗漏，请核对补充镜头的说话人与顺序。";
+    if (current && next && !detectDirectorCoverage(current, next).ok)
+      text += " COVERAGE_INCOMPLETE：台词或结尾仍有缺失，请补齐后再生成。";
     if (!next) {
       setPending(null);
       setPendingRole(null);
@@ -1025,11 +940,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const turn = pushTurn(job.role, "再问一次");
     try {
       const reply = await completeAgent(job.role, job.context, job.instruction);
-      if (assistantScope !== scopeRef.current) return;
+      if (!isTurnCurrent(turn)) return;
       if (job.role === "director" && film) {
         const sceneId =
           film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
-        if (assistantScope !== scopeRef.current) return;
+        if (!isTurnCurrent(turn)) return;
         const parsed = reply.text
           ? parseDirectorShots(
               reply.text,
@@ -1044,8 +959,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             )
           : null;
         if (parsed) {
-          const ready = await fillFight(film, await fillPerformance(film, parsed));
-          if (assistantScope !== scopeRef.current) return;
+          const ready = await completeDirectorPlan(film, sceneId, parsed, () =>
+            isTurnCurrent(turn),
+          );
+          if (!isTurnCurrent(turn)) return;
           setPending(ready);
           setPendingRole("director");
           finishTurn(
@@ -1060,8 +977,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     } catch {
       finishTurn(turn, "这次没有写完。没有写入镜头。");
     } finally {
-      writing.current = false;
-      setAsking(false);
+      if (activeTurn.current === turn) {
+        writing.current = false;
+        setAsking(false);
+      }
     }
   }
 
@@ -1113,11 +1032,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         return;
       }
       setFilm(
-        updateShot(film, only.id, {
-          action: only.action,
-          performance: only.performance,
-          source: only.source,
-        }),
+        updateShot(
+          {
+            ...film,
+            unassignedBeats: [
+              ...(film.unassignedBeats ?? []).filter((item) => item.sceneId !== only.sceneId),
+              ...unassignedDraft.current,
+            ],
+          },
+          only.id,
+          {
+            action: only.action,
+            performance: only.performance,
+            performanceSource: only.performanceSource,
+            source: only.source,
+          },
+        ),
       );
       markApplied(role);
       setNotice("已写入这一镜。你改过的字没有被盖掉。");
@@ -1125,7 +1055,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const sceneId =
       film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
-    const placed = applyShots(film, incoming, sceneId);
+    const placed = applyDirectorPlan(film, incoming, sceneId, unassignedDraft.current);
     setFilm(placed);
     setShot(0);
     void fillCast(placed);
@@ -1192,40 +1122,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   async function completeAgent(agent: Role, context: string, user: string): Promise<AgentReply> {
     const bridge = grokBridge();
     if (!connected || !bridge || !film) return { text: null, detail: "没有登录。" };
-    const billingProject = await ensureBillingProject();
-    if (!billingProject) return { text: null, detail: "这一次没有记到作品上。" };
-    let ids = modelIds;
-    let model = textModel(ids);
-    if (!model) {
-      try {
-        const listed = await bridge.models();
-        if (listed.kind === "OK") {
-          ids = listed.models.map((item) => item.id);
-          setModelIds(ids);
-          model = textModel(ids);
-        }
-      } catch {
-        return { text: null, detail: "模型列表没有读到。" };
-      }
-    }
-    if (!model) return { text: null, detail: "模型列表里没有能写字的模型。" };
-    const result = await bridge.completeText({
-      model,
-      text: agentRequest(agent, context, user),
-      projectId: billingProject,
-      idempotencyKey: crypto.randomUUID(),
-      agent,
+    const requestProjectId = film.id;
+    const requestTurn = activeTurn.current;
+    return completeMembershipAgent(agent, context, user, {
+      bridge,
+      modelIds,
+      billingProject: ensureBillingProject,
+      current: () => filmRef.current?.id === requestProjectId && activeTurn.current === requestTurn,
+      modelsChanged: setModelIds,
     });
-    if (result.kind === "OK") return { text: result.text, detail: "" };
-    const detail =
-      "detail" in result && typeof result.detail === "string" && result.detail
-        ? result.detail
-        : result.code === "ENTITLEMENT_DENIED"
-          ? "当前账号不能用这个文本模型。"
-          : result.code === "REAUTH_REQUIRED"
-            ? "需要重新登录。"
-            : "模型没有返回。";
-    return { text: null, detail, code: result.code };
   }
 
   const turnsRef = useRef<{ id: string; role: Role; who: "user" | "agent"; text: string }[]>([]);
@@ -1233,26 +1138,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   function pushTurn(nextRole: Role, userText: string): string {
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const asked = userText.trim() || "请按你的职责处理当前内容。";
-    const previousUser = [...turnsRef.current].reverse().find((item) => item.who === "user");
-    const previousAgent = turnsRef.current.at(-1);
-    if (
-      previousUser?.role === nextRole &&
-      previousUser.text === asked &&
-      previousAgent?.who === "agent" &&
-      previousAgent.role === nextRole
-    ) {
-      const kept = previousAgent.id.replace(/-a$/, "");
-      const next = turnsRef.current.map((item) =>
-        item.id === previousAgent.id ? { ...item, text: "正在写。" } : item,
-      );
-      turnsRef.current = next;
-      setTurns(next);
-      setStructured([]);
-      writing.current = true;
-      setAsking(true);
-      setAssistPulse((value) => value + 1);
-      return kept;
-    }
+    activeTurn.current = id;
     const next = [
       ...turnsRef.current.slice(-16),
       { id: `${id}-u`, role: nextRole, who: "user" as const, text: asked },
@@ -1267,7 +1153,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     return id;
   }
 
+  function isTurnCurrent(id: string) {
+    return activeTurn.current === id && assistantScope === scopeRef.current;
+  }
+
   function finishTurn(id: string, text: string) {
+    if (!isTurnCurrent(id)) return;
+    window.dispatchEvent(new CustomEvent("aivora-notice", { detail: normalizeNotice(text) }));
     writing.current = false;
     const next = turnsRef.current.map((item) => (item.id === `${id}-a` ? { ...item, text } : item));
     turnsRef.current = next;
@@ -1366,38 +1258,47 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const current = filmRef.current;
     const character = current?.characters.find((item) => item.id === characterId);
     if (!current || !character) return;
-    const identity = character.identity.trim();
-    if (!identity) {
-      setNotice("正在从剧本里看这个人的外貌。");
-      const story =
-        current.scenes
-          .map((item) => item.text)
-          .filter(Boolean)
-          .join("\n") || current.title;
-      const reply = await completeAgent(
-        "writer",
-        story,
-        `只写「${character.name}」的一句外貌，必须写明性别和大致年龄。看不出来就只写：性别未写明。`,
-      );
-      const line = (reply.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
-      if (!line || line.includes("性别未写明")) {
-        setNotice("先写下外貌，再出定妆照。");
-        return;
+    const valid = requestSequences.current.begin(
+      current.id,
+      `portrait-identity:${characterId}`,
+      () => filmRef.current?.id ?? "",
+    );
+    try {
+      const identity = character.identity.trim();
+      if (!identity) {
+        setNotice("正在从剧本里看这个人的外貌。");
+        const story =
+          current.scenes
+            .map((item) => item.text)
+            .filter(Boolean)
+            .join("\n") || current.title;
+        const reply = await completeAgent(
+          "writer",
+          story,
+          `只写「${character.name}」的一句外貌，必须写明性别和大致年龄。看不出来就只写：性别未写明。`,
+        );
+        if (!valid()) return;
+        const line = (reply.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+        if (!line || line.includes("性别未写明")) {
+          setNotice("先写下外貌，再出定妆照。");
+          return;
+        }
+        const latest = filmRef.current;
+        if (!latest || latest.id !== current.id) return;
+        applyLive({
+          ...latest,
+          characters: latest.characters.map((item) =>
+            item.id === character.id ? { ...item, identity: line } : item,
+          ),
+        });
       }
-      const latest = filmRef.current;
-      if (!latest || latest.id !== current.id) return;
-      applyLive({
-        ...latest,
-        characters: latest.characters.map((item) =>
-          item.id === character.id ? { ...item, identity: line } : item,
-        ),
-      });
+      if (valid()) await confirmPortraits(character.id);
+    } catch {
+      if (valid()) emitNotice({ code: "PORTRAIT_FAILED", text: "定妆照未完成，可以重试。" });
     }
-    await confirmPortraits(character.id);
   }
 
   async function confirmPortraits(characterId: string) {
-    if (portraitRunning.current) return;
     const current = filmRef.current;
     const character = current?.characters.find((item) => item.id === characterId);
     if (!current || !character) return;
@@ -1405,21 +1306,41 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("先写下外貌，再出定妆照。");
       return;
     }
-    portraitRunning.current = true;
-    setPortraitBusy(true);
+    if (workOwners.has(current.id, "portraits")) return;
+    const release = workOwners.begin(current.id, "portraits");
     try {
-      await generateMissingPortraits(
-        current,
-        characterId,
-        () => filmRef.current,
-        applyLive,
-        (prompt) =>
-          requestStill(current.seriesId, prompt, current.aspectRatio === "16:9" ? "16:9" : "9:16"),
-        setNotice,
+      const valid = requestSequences.current.begin(
+        current.id,
+        "portraits",
+        () => filmRef.current?.id ?? "",
       );
+      await makeAllPortraits({
+        base: current,
+        characterIds: [characterId],
+        current: () => filmRef.current,
+        isCurrent: valid,
+        apply: async (next) => {
+          if (!valid()) return;
+          applyLive(next);
+          await saveFilm(next);
+        },
+        generate: (prompt) =>
+          requestStill(current.seriesId, prompt, current.aspectRatio === "16:9" ? "16:9" : "9:16"),
+        progress: (batch) => {
+          if (valid())
+            emitNotice({
+              code: batch.failed
+                ? "PORTRAIT_FAILED"
+                : batch.done === batch.total
+                  ? "PORTRAIT_DONE"
+                  : "PORTRAIT_PROGRESS",
+              text: `定妆照 ${batch.done}/${batch.total}，失败 ${batch.failed}。`,
+              detail: batch.failures.map((item) => `${item.view}：${item.reason}`).join("；"),
+            });
+        },
+      });
     } finally {
-      portraitRunning.current = false;
-      setPortraitBusy(false);
+      release();
     }
   }
 
@@ -1447,7 +1368,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const reply = await completeAgent(
         "writer",
         `画风：${film.styleZh}\n目标大约 60 秒。\n原文段落：\n${numberedScript(story)}`,
-        kind === "adapt" ? `把这些内容改成短剧：\n${idea}` : `写成短剧：\n${idea}`,
+        `${kind === "adapt" ? "把原文改成短剧" : "写成短剧，按地点和时间分场"}，保留全部台词与结尾。${chat.trim()}`,
       );
       if (reply.text) {
         const parsed = parseWriterScenes(reply.text, story);
@@ -1469,10 +1390,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       scenes = null;
       text = "编剧请求失败，没有改动剧本，可以重试。";
     } finally {
-      writing.current = false;
-      setAsking(false);
+      if (activeTurn.current === turn) {
+        writing.current = false;
+        setAsking(false);
+      }
     }
-    if (scope !== scopeRef.current) return;
+    if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
     setPendingScenes(scenes);
     if (scenes) {
       publishCard("writer", {
@@ -1517,27 +1440,61 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function importBook(file: File) {
-    const book = await extractBookText(file.name, new Uint8Array(await file.arrayBuffer()));
-    if (!book.text.trim()) {
-      setNotice(book.note);
-      return;
+    const valid = requestSequences.current.begin(
+      filmRef.current?.id ?? "",
+      "import",
+      () => filmRef.current?.id ?? "",
+    );
+    try {
+      const book = await extractBookText(file.name, new Uint8Array(await file.arrayBuffer()));
+      if (!valid()) return;
+      if (!book.text.trim()) {
+        setNotice(book.note);
+        return;
+      }
+      const split = splitNovel(book.text);
+      if (split.scenes.length === 0) {
+        setNotice(split.note || "没有读到场次。");
+        return;
+      }
+      setPendingScenes(split.scenes);
+      if (filmRef.current) {
+        const withSource = { ...filmRef.current, sourceText: book.text };
+        filmRef.current = withSource;
+        setFilm(withSource);
+      }
+      setRole("writer");
+      setNotice(
+        `${book.note}${split.note} 读到 ${split.scenes.length} 场。点「放入剧本」才会写入。`,
+      );
+    } catch {
+      if (valid()) emitNotice({ code: "IMPORT_FAILED", text: "没有读到文件，请重试。" });
     }
-    const split = splitNovel(book.text);
-    if (split.scenes.length === 0) {
-      setNotice(split.note || "没有读到场次。");
-      return;
-    }
-    setPendingScenes(split.scenes);
-    if (filmRef.current) {
-      const withSource = { ...filmRef.current, sourceText: book.text };
-      filmRef.current = withSource;
-      setFilm(withSource);
-    }
-    setRole("writer");
-    setNotice(`${book.note}${split.note} 读到 ${split.scenes.length} 场。点「放入剧本」才会写入。`);
   }
 
-  async function planAction() {
+  function planAction() {
+    return withForeground(planActionWork, "PLANACTION_FAILED");
+  }
+
+  async function withForeground(work: () => Promise<void>, code: string) {
+    const running = work();
+    const turn = activeTurn.current;
+    try {
+      await running;
+    } catch {
+      if (activeTurn.current === turn) {
+        finishTurn(turn, "这一阶段未完成，可以重试。");
+        emitNotice({ code, text: "这一阶段未完成，可以重试。" });
+      }
+    } finally {
+      if (activeTurn.current === turn) {
+        writing.current = false;
+        setAsking(false);
+      }
+    }
+  }
+
+  async function planActionWork() {
     if (!film) return;
     const turn = pushTurn("action", chat.trim() || "请给这一镜设计动作，标出难度。");
     const current = shownShots[shot];
@@ -1549,13 +1506,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
       .join("");
     let note = "没有登录，已用离线动作指导。点「写入分镜」写到这一镜。";
-    const context = `人物：${film.characters.map((item) => item.name).join("、")}\n当前镜头 id：${current?.id ?? ""}；只返回这个 id 的动作。`;
+    const context = `人物：${film.characters.map((item) => item.name).join("、")}\n当前镜头 id：${current?.id ?? ""}；只返回这个 id 的动作。\n${fightConstraints(film.scenes.find((item) => item.id === current?.sceneId)?.text ?? "")}\n镜头：${JSON.stringify(current ? [{ id: current.id, no: current.no, size: current.size, picture: current.picture, line: current.line, lines: shotLines(current) }] : [])}`;
     const reply = await completeAgent("action", context, text);
-    if (assistantScope !== scopeRef.current) return;
+    if (!isTurnCurrent(turn)) return;
     let parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
     if (!parsed && connected) {
       const again = await completeAgent("action", context, `${text}\n只输出 JSON，不要解释。`);
-      if (assistantScope !== scopeRef.current) return;
+      if (!isTurnCurrent(turn)) return;
       parsed = again.text ? actionFromModel(parseLooseJson(again.text)) : null;
       if (!parsed) {
         finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
@@ -1563,18 +1520,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }
     }
     if (parsed && current) {
-      parsed = parsed.filter((row) =>
-        Boolean(
-          beatsForShot(
-            [row],
-            current.no,
-            current.id,
-            `${current.picture} ${current.action} ${current.line}`,
-          ),
-        ),
+      const assigned = assignActionBeats([current], current.sceneId, parsed);
+      unassignedDraft.current = assigned.unassignedBeats;
+      parsed = parsed.filter(
+        (row) =>
+          row.shotId === current.id &&
+          !assigned.unassignedBeats.some((item) => item.text === row.text),
       );
-      sentence = actionSentence(parsed);
-      note = "动作指导写好了。点「写入分镜」写到这一镜。";
+      sentence = assigned.shots[0]?.action ?? current.action;
+      note = assigned.unassignedBeats.length
+        ? "ACTION_UNASSIGNED：有动作无法归属，已保留供核对。"
+        : "动作指导写好了。点「写入分镜」写到这一镜。";
     }
     if (!current) {
       finishTurn(turn, "先拆出镜头，再请动作指导。");
@@ -1616,7 +1572,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     noteAgent("action", parsed ? "beats" : "offline", note);
   }
 
-  async function planPerformance() {
+  function planPerformance() {
+    return withForeground(planPerformanceWork, "PLANPERFORMANCE_FAILED");
+  }
+
+  async function planPerformanceWork() {
     if (!film) return;
     const turn = pushTurn("performance", chat.trim() || "请写这一镜的表演，两人以上要写视线。");
     const current = shownShots[shot];
@@ -1629,7 +1589,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     let line = `${performanceLine(current.picture)}${gaze ? ` ${gaze}` : ""}`;
     let note = "没有登录，已用离线表演指导。点「写入分镜」写到这一镜。";
     const reply = await completeAgent("performance", current.picture, "写这一镜的表演");
-    if (assistantScope !== scopeRef.current) return;
+    if (!isTurnCurrent(turn)) return;
     let raw = reply.text ? parseLooseJson(reply.text) : null;
     let parsed = raw ? performanceFromModel(raw, current.characters) : null;
     if (!parsed && connected) {
@@ -1638,7 +1598,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         current.picture,
         "写这一镜的表演。只输出 JSON，不要解释。",
       );
-      if (assistantScope !== scopeRef.current) return;
+      if (!isTurnCurrent(turn)) return;
       raw = again.text ? parseLooseJson(again.text) : null;
       parsed = raw ? performanceFromModel(raw, current.characters) : null;
       if (!parsed) {
@@ -1648,13 +1608,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const direction = raw ? voiceDirectionFromModel(raw) : "";
     if (parsed) {
-      line = parsed.includes("来自表演指导") ? parsed : `${parsed}（来自表演指导）`;
+      line = parsed;
       note = "表演指导写好了。点「写入分镜」写到这一镜。";
     }
     setStructured(line ? [line] : []);
     const performanceShot = {
       ...current,
       performance: line,
+      performanceSource: "agent:performance",
       delivery: direction || current.delivery,
       source: "agent:performance",
       userFields: current.userFields.filter((field) => field !== "performance"),
@@ -1673,7 +1634,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     noteAgent("performance", parsed ? "performance" : "offline", note);
   }
 
-  async function planArt() {
+  function planArt() {
+    return withForeground(planArtWork, "PLANART_FAILED");
+  }
+
+  async function planArtWork() {
     if (!film) return;
     const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
     const reply = await completeAgent(
@@ -1681,7 +1646,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `画风：${film.styleZh}\n人物：${film.characters.map((item) => item.name).join("、")}`,
       "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
     );
-    if (assistantScope !== scopeRef.current) return;
+    if (!isTurnCurrent(turn)) return;
     const parsed = reply.text ? artFromModel(parseLooseJson(reply.text)) : null;
     if (!parsed) {
       setStructured([]);
@@ -1707,36 +1672,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     });
     finishTurn(turn, "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
     noteAgent("art", "art", "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
-    const next = { ...film };
-    if (parsed.styleZh) next.styleZh = parsed.styleZh;
-    next.characters = next.characters.map((person) => {
-      if (person.userFields.includes("identity")) return person;
-      const found = parsed.identities.find((item) => item.name === person.name);
-      return found ? { ...person, identity: found.identity } : person;
-    });
-    const places = [...next.locations];
-    for (const place of parsed.places) {
-      if (places.some((item) => item.name === place.name)) continue;
-      places.push({
-        id: `loc-${places.length + 1}`,
-        name: place.name,
-        prompt: place.prompt,
-        ambience: place.ambience,
-      });
-    }
-    next.locations = places;
-    const props = [...next.props];
-    for (const prop of parsed.props) {
-      if (props.some((item) => item.name === prop.name)) continue;
-      props.push({ id: `prop-${props.length + 1}`, name: prop.name, note: prop.note });
-    }
-    next.props = props;
+    const next = applyArtDraft(film, parsed);
     artDraft.current = next;
     setPending(null);
     setPendingRole(null);
   }
 
-  async function planPrompter() {
+  function planPrompter() {
+    return withForeground(planPrompterWork, "PLANPROMPTER_FAILED");
+  }
+
+  async function planPrompterWork() {
     if (!film) return;
     const current = shownShots[shot] ?? film.shots[shot] ?? film.shots[0];
     const turn = pushTurn("prompter", chat.trim() || `写镜头 ${current?.no ?? shot + 1} 的提示词`);
@@ -1755,7 +1701,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       locked.prompt,
       "写成这一镜的提示词。只输出 JSON。",
     );
-    if (assistantScope !== scopeRef.current) return;
+    if (!isTurnCurrent(turn)) return;
     const parsed = reply.text ? prompterFromModel(parseLooseJson(reply.text)) : null;
     if (!parsed) {
       const failed = reply.text ? "提示词没有按格式返回。" : reply.detail;
@@ -1783,7 +1729,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     noteAgent("prompter", "prompt", `镜头 ${current.no}`);
   }
 
-  async function planQc() {
+  function planQc() {
+    return withForeground(planQcWork, "PLANQC_FAILED");
+  }
+
+  async function planQcWork() {
     if (!film) return;
     const turn = pushTurn("qc", chat.trim() || "请审这一镜的文字。你看不到画面。");
     const current = shownShots[shot];
@@ -1797,7 +1747,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       current.picture,
       "只审文字。你看不到画面。只输出 JSON。",
     );
-    if (assistantScope !== scopeRef.current) return;
+    if (!isTurnCurrent(turn)) return;
     const parsed = reply.text ? qcFromModel(parseLooseJson(reply.text)) : null;
     if (!parsed) {
       setStructured([]);
@@ -1823,9 +1773,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     noteAgent("qc", "qc", "文字意见");
   }
 
-  async function oneClickFilm() {
+  function oneClickFilm() {
+    return withForeground(oneClickFilmWork, "ONECLICKFILM_FAILED");
+  }
+
+  async function oneClickFilmWork() {
     if (!film) return;
+    const turn = pushTurn("director", "编剧与导演连续处理");
     supplementWarnings.current = [];
+    const valid = () => filmRef.current?.id === film.id && activeTurn.current === turn;
     setAsking(true);
     setOneClickReady(false);
     setNotice("正在让编剧和导演写到分镜。还不会出视频。");
@@ -1839,6 +1795,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `画风：${film.styleZh}`,
       `写成短剧：\n${numberedScript(idea)}`,
     );
+    if (!valid()) return;
     const scenes = writerReply.text ? parseWriterScenes(writerReply.text, idea) : null;
     if (!scenes) {
       writing.current = false;
@@ -1853,6 +1810,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     filmRef.current = next;
     setFilm(next);
     await fillCast(next);
+    if (!valid()) return;
     next = filmRef.current ?? next;
     const names = next.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
     const scenesWithText = next.scenes.filter((item) => item.text.trim());
@@ -1892,8 +1850,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(
         `第 ${sceneIndex + 1}/${directedScenes.length} 场已写 ${parsed.length} 镜，正在写表演。`,
       );
-      const performed = await fillFight(next, await fillPerformance(next, parsed));
-      next = applyShots(next, performed, sceneRow.id);
+      const performed = await completeDirectorPlan(next, sceneRow.id, parsed, valid);
+      if (!valid()) return;
+      next = applyDirectorPlan(next, performed, sceneRow.id, unassignedDraft.current);
       filmRef.current = next;
       setFilm(next);
     }
@@ -2037,6 +1996,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("这一镜没有台词。时长保持导演的选择。");
       return;
     }
+    const valid = requestSequences.current.begin(
+      current.id,
+      `duration:${shotId}`,
+      () => filmRef.current?.id ?? "",
+    );
     const measured = await previewVoice(
       shot.characters.length > 0
         ? current.characters.find((item) => item.name === shot.characters[0])?.voiceId ||
@@ -2044,6 +2008,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : current.narrationVoiceId,
       line,
     );
+    if (!valid()) return;
     const plan = durationFromSpeech(speechSeconds(line, measured ?? null), shot.seconds);
     if (!plan.fits) {
       const parts = splitSpokenLine(line);
@@ -2090,7 +2055,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     setFilm(
-      updateShot(current, shot.id, {
+      updateShot(filmRef.current ?? current, shot.id, {
         seconds: plan.seconds,
         sound: { ...shot.sound, source: "dub" },
       }),
@@ -2127,54 +2092,112 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setFilm(kept);
   }
 
-  function replaceTakes(
-    base: FilmProject,
-    shotId: string,
-    takes: FilmTake[],
-    selected = "",
-  ): FilmProject {
-    return {
-      ...base,
-      shots: base.shots.map((item) =>
-        item.id === shotId
-          ? { ...item, takes, selectedTakeId: selected || item.selectedTakeId }
-          : item,
-      ),
-    };
+  useEffect(() => {
+    if (film) publishFilmJobs(film);
+  }, [film]);
+
+  async function generateFourStills() {
+    const current = shownShots[shot];
+    const base = filmRef.current;
+    if (!base || !current || !window.aijian?.generateFilmStill) {
+      setNotice("请打开安装好的 AIVORA 再出图。");
+      return;
+    }
+    if (workOwners.has(base.id, `still:${current.id}`)) return;
+    if (stillArmed !== current.id) {
+      setStillArmed(current.id);
+      setNotice("将出 4 张候选起始画面。点「确认这 4 张」才出图。");
+      return;
+    }
+    setStillArmed("");
+    const valid = requestSequences.current.begin(
+      base.id,
+      `still:${current.id}`,
+      () => filmRef.current?.id ?? "",
+    );
+    const release = workOwners.begin(base.id, `still:${current.id}`, "正在生成候选画面");
+    try {
+      const result = await makeFourStills(base, current, {
+        current: () => filmRef.current,
+        valid,
+        apply: applyLive,
+      });
+      if (valid()) setNotice(result.notice);
+    } finally {
+      release();
+    }
+  }
+
+  async function confirmDeleteFilm() {
+    const base = filmRef.current;
+    if (!base) return;
+    const valid = requestSequences.current.begin(
+      base.id,
+      "delete",
+      () => filmRef.current?.id ?? "",
+    );
+    await deleteCurrentFilm(base, deleteTarget.current === "series", {
+      valid,
+      notice: setNotice,
+      close: () => setPendingDelete(false),
+      apply: (next) => {
+        if (next) applyLive(next);
+        else {
+          filmRef.current = null;
+          setFilm(null);
+        }
+      },
+    });
   }
 
   async function makeShotStill() {
     const current = shownShots[shot];
     const base = filmRef.current;
-    if (!base || !current || stillProgress[current.id]) return;
-    setStillProgress((prev) => ({ ...prev, [current.id]: "正在生成画面" }));
+    if (!base || !current || workOwners.has(base.id, `still:${current.id}`)) return;
+    const release = workOwners.begin(base.id, `still:${current.id}`, "正在生成画面");
     setNotice("正在生成这一镜的画面。");
+    const valid = requestSequences.current.begin(
+      base.id,
+      `still:${current.id}`,
+      () => filmRef.current?.id ?? "",
+    );
     try {
-      const made = await requestShotStill(base, current, keyframePrompt(current, base));
-      const live = filmRef.current;
-      if (!live || live.id !== base.id) return;
-      if (made.url)
-        applyLive(
-          updateShot(live, current.id, {
-            poster: made.url,
-            stills: [
-              ...current.stills,
-              { id: crypto.randomUUID(), prompt: current.picture, url: made.url },
-            ],
-          }),
-        );
-      setNotice(made.reason);
+      await runTask(
+        {
+          id: `still:${current.id}`,
+          projectId: base.id,
+          shotId: current.id,
+          kind: "image",
+          title: "生成画面",
+        },
+        async (signal) => {
+          const made = await requestShotStill(base, current, keyframePrompt(current, base));
+          if (signal.aborted) throw new Error("TASK_TIMEOUT");
+          const live = filmRef.current;
+          if (!live || !valid()) throw new Error("WORK_STALE");
+          if (!made.url) throw new Error(made.reason || "STILL_FAILED");
+          applyLive(
+            updateShot(live, current.id, {
+              poster: made.url,
+              stills: [
+                ...current.stills,
+                { id: crypto.randomUUID(), prompt: current.picture, url: made.url },
+              ],
+            }),
+          );
+          setNotice(made.reason);
+        },
+      );
+    } catch (error) {
+      if (valid())
+        emitNotice({
+          code: "STILL_FAILED",
+          text: "画面未生成，可以重试。",
+          detail: error instanceof Error ? error.message : undefined,
+        });
     } finally {
-      setStillProgress((prev) => {
-        const next = { ...prev };
-        delete next[current.id];
-        return next;
-      });
+      release();
     }
-  }
-
-  async function clipUrl(path: string): Promise<string> {
-    return fileMediaUrl(path);
   }
 
   async function submitGeneration(targets?: FilmShot[]) {
@@ -2190,6 +2213,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }
     }
     if (!live) return;
+    const generationProject = live.id;
+    const valid = () => filmRef.current?.id === generationProject && runToken.current === mine;
     const selected = (targets ?? [shownShots[shot] ?? live.shots[0]]).filter(
       (item): item is FilmShot => Boolean(item),
     );
@@ -2205,6 +2230,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const gate = actions.regenerate;
     const bridge = window.aijian;
     const billingProject = await ensureBillingProject();
+    if (!valid()) return;
     live = filmRef.current ?? live;
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
@@ -2255,7 +2281,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         for (let index = 0; index < group.takes.length; index += 1) {
           const take = group.takes[index]!;
           const jobId = `${group.shot.id}-video-${index + 1}`;
+          if (!valid()) return;
           const current = filmRef.current ?? next;
+          if (!valid()) return;
           if (cancelledJobs.current.has(jobId)) {
             const latest = filmRef.current ?? current;
             const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
@@ -2310,22 +2338,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             setNotice("已暂停。点继续再生成剩下的。");
             return;
           }
-          let shotNow = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
-          // Generate a referenced first frame here; the server fallback cannot carry portraits.
-          if (!shotNow.poster || /^https?:/i.test(shotNow.poster)) {
-            setNotice(`镜头 ${shotNow.no}：正在用定妆照生成首帧。`);
-            const made = await requestShotStill(current, shotNow, keyframePrompt(shotNow, current));
-            if (!made.url) throw new Error(`镜头 ${shotNow.no} 首帧未完成：${made.reason}`);
-            const latest = filmRef.current;
-            if (!latest || latest.id !== current.id || runToken.current !== mine) return;
-            shotNow = { ...shotNow, poster: made.url };
-            applyLive(updateShot(latest, shotNow.id, { poster: made.url }));
-          }
+          const targetShot = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
+          const shotNow = await ensureShotFrame(current, targetShot, {
+            current: () => filmRef.current,
+            valid,
+            apply: applyLive,
+          });
+          if (!valid()) return;
           const body = storyFilmBatches(filmRef.current ?? current, [shotNow], current.draft)[0];
           const response = await bridge!.createStoryFilm!(billingProject, {
             ...body!,
             regenerate: index > 0 || group.hadTakes,
           });
+          if (!valid()) return;
           if (cancelledJobs.current.has(jobId)) {
             const after = filmRef.current ?? current;
             const dropped = (
@@ -2355,8 +2380,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 ? Number(reportedRaw)
                 : 0;
           const ok = data.status === "SUCCEEDED";
-          const videoUrl = ok ? await clipUrl(output) : "";
+          const videoUrl = ok ? fileMediaUrl(output) : "";
           const done = ok && Boolean(videoUrl || preview || output);
+          if (!valid()) return;
           const latest = filmRef.current ?? current;
           const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
             (item) =>
@@ -2431,8 +2457,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         }
       }
     } catch (error) {
+      if (!valid()) return;
       const reason =
-        error instanceof Error && error.message.includes("首帧未完成")
+        error instanceof Error &&
+        (error.message.includes("首帧未完成") || /VOICE_.*REQUIRED/.test(error.message))
           ? error.message
           : "没有生成成功，可以重试。";
       const latest = filmRef.current ?? next;
@@ -2480,25 +2508,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function joinedCut(paths: string[]) {
     const current = filmRef.current;
-    const bridge = window.aijian;
-    if (!current || paths.length === 0) return;
-    if (paths.length < 2 || !bridge?.assembleFilm) return;
-    try {
-      const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
-      const result = await bridge.assembleFilm(
-        current.seriesId,
-        paths,
-        music?.path ?? "",
-        music ? music.gainDb : -14,
-        dialogueTracks(current),
-      );
-      const url = result.path ? await clipUrl(result.path) : "";
-      const latest = filmRef.current ?? current;
-      applyLive({ ...latest, assemblyPath: result.path, assemblyUrl: url });
-      if (result.reason) setNotice(result.reason);
-    } catch {
-      setNotice(ROUGH_CUT_REASON);
-    }
+    if (!current) return;
+    const valid = requestSequences.current.begin(
+      current.id,
+      "assembly",
+      () => filmRef.current?.id ?? "",
+    );
+    await assembleCurrentFilm(current, paths, () => filmRef.current, applyLive, setNotice, valid);
   }
 
   async function startExport(directoryOverride?: string, allowPartial = false) {
@@ -2508,7 +2524,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const current = filmRef.current;
-    if (!current) return;
+    if (!current || workOwners.has(current.id, "export")) return;
+    const valid = requestSequences.current.begin(
+      current.id,
+      "export",
+      () => filmRef.current?.id ?? "",
+    );
     const plan = chosenExport(current);
     if (plan.paths.length === 0) {
       setNotice(
@@ -2523,48 +2544,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(`还没生成：${plan.missing.join("、")}。可以只导出已生成的。`);
       return;
     }
-    const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
-    const voices = dialogueTracks(current);
-    let source: string;
-    if (plan.paths.length === 1 && bridge.assembleFilm && (music?.path || voices.some(Boolean))) {
-      const mixed = await bridge.assembleFilm(
-        current.seriesId,
-        plan.paths,
-        music?.path ?? "",
-        music ? music.gainDb : -14,
-        voices,
-      );
-      source = mixed.path || plan.paths[0] || "";
-    } else if (plan.paths.length === 1) source = plan.paths[0] ?? "";
-    else {
-      await joinedCut(plan.paths);
-      source = filmRef.current?.assemblyPath ?? "";
-    }
-    if (!source) {
-      setNotice("没有导出成功，可以重试。");
-      return;
-    }
-    const directory = directoryOverride || exportDir || (await bridge.pickFilmFolder()) || "";
-    if (!directory) {
-      setNotice("没有选择文件夹。");
-      return;
-    }
-    setExportDir(directory);
-    setExporting(true);
+    const release = workOwners.begin(current.id, "export");
     setNotice("正在导出。");
     try {
-      const name = filmFileName(
-        current.seriesTitle || current.title,
-        current.episodeTitle || "第1集",
-      );
-      const result = await bridge.exportFilmCut(source, directory, name);
+      const result = await exportFilmTask(current, plan.paths, directoryOverride || exportDir, {
+        current: () => filmRef.current,
+        valid,
+        apply: applyLive,
+      });
+      if (!valid()) return;
+      setExportDir(result.directory);
       setExportFile(result.path);
-      applyLive({ ...(filmRef.current ?? current), exportPath: result.path });
       setNotice(`已导出到 ${result.path}`);
-    } catch {
-      setNotice("没有导出成功，可以重试。");
+    } catch (error) {
+      if (valid())
+        emitNotice({
+          code:
+            error instanceof Error && "code" in error && error.code === "EXPORT_CANCELLED"
+              ? "EXPORT_FOLDER_REQUIRED"
+              : "EXPORT_FAILED",
+          text:
+            error instanceof Error && "code" in error && error.code === "EXPORT_CANCELLED"
+              ? "没有选择文件夹。"
+              : "没有导出成功，可以重试。",
+          detail: error instanceof Error ? error.message : undefined,
+        });
     } finally {
-      setExporting(false);
+      release();
     }
   }
 
@@ -3098,43 +3104,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onBatch={askBatch}
                   stills={[]}
                   fourArmed={stillArmed}
-                  onFour={() => {
-                    const current = shownShots[shot];
-                    if (!current || !window.aijian?.generateFilmStill) {
-                      setNotice("请打开安装好的 AIVORA 再出图。");
-                      return;
-                    }
-                    if (stillArmed !== current.id) {
-                      setStillArmed(current.id);
-                      setNotice("将出 4 张候选起始画面。点「确认这 4 张」才出图。");
-                      return;
-                    }
-                    setStillArmed("");
-                    const prompts = keyframeVariants(current, filmRef.current ?? film);
-                    void (async () => {
-                      const latest = filmRef.current;
-                      if (!latest) return;
-                      const stills = [...current.stills];
-                      for (const prompt of prompts) {
-                        const made = await requestShotStill(
-                          latest,
-                          current,
-                          withIdentityLocks(prompt, latest.characters, current.characters).prompt,
-                        );
-                        if (!made.url) {
-                          setNotice(made.reason);
-                          return;
-                        }
-                        stills.push({ id: crypto.randomUUID(), prompt, url: made.url });
-                      }
-                      const live = filmRef.current;
-                      if (!live) return;
-                      setFilm(
-                        updateShot(live, current.id, { stills, poster: stills.at(-1)?.url ?? "" }),
-                      );
-                      setNotice("4 张候选画面已生成。点一张作为这一镜的画面。");
-                    })();
-                  }}
+                  onFour={generateFourStills}
                   onStills={() => void makeShotStill()}
                   stillProgress={stillProgress}
                   onPickStill={(picture) => {
@@ -3569,27 +3539,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   : `确认删除「${film?.title || "这一集"}」？文件会删掉。`}
               </h2>
               <div className="acts">
-                <button
-                  className="btn primary"
-                  onClick={() => {
-                    if (!film) return;
-                    const series = deleteTarget.current === "series";
-                    void removeFilm(series ? film.seriesId : film.id).then(async () => {
-                      if (series) {
-                        setFilm(null);
-                        setPendingDelete(false);
-                        setNotice("已删除这部作品。");
-                        return;
-                      }
-                      const rows = await listFilms();
-                      const saved = rows[0] ? await readSaved(rows[0].id) : null;
-                      if (saved) applyLive(interruptStaleWork(saved).film);
-                      else setFilm(null);
-                      setPendingDelete(false);
-                      setNotice("已删除这一集。");
-                    });
-                  }}
-                >
+                <button className="btn primary" onClick={confirmDeleteFilm}>
                   确认删除
                 </button>
                 <button className="btn" onClick={() => setPendingDelete(false)}>

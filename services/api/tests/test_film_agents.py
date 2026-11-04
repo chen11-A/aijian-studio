@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from aijian_api.agent_runner import (
     offline_shots,
+    prompt_text,
     prompt_version,
     run_agent,
     shots_from_director,
@@ -186,7 +187,7 @@ def test_director_repairs_once_then_reports_a_plain_reason() -> None:
     assert result["ok"] is False
     assert "没有按格式" in str(result["reason"])
     assert len(calls) == 2
-    assert "你是短剧导演" in calls[0]
+    assert prompt_text("director") in calls[0]
 
 
 def test_director_json_becomes_shots_and_names_only_from_the_reply() -> None:

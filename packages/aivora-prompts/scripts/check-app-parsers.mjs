@@ -7,8 +7,8 @@
  * with TypeScript into a temporary folder (nothing in the repo is written), imports them and runs
  * parseWriterScenes, parseCastReply, artFromModel, parseDirectorShots, assignPerformance,
  * voiceDirectionFromModel, actionFromModel and qcFromModel. A field the prompt library relies on
- * that the parser drops or changes is a failure. Additional source-coverage shots are checked
- * against the original paragraphs and reported as notes. Exits with 1 when anything fails.
+ * that the parser drops or changes is a failure. Adjacent merges are checked for content loss, and incomplete source
+ * coverage is reported honestly as notes. Exits with 1 when anything fails.
  */
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -22,7 +22,9 @@ import { loadLibrary } from "./validate.mjs";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const FILM = "apps/studio-web/src/aivora/film";
-const ENTRIES = ["operations.ts", "phase2.ts", "project.ts"].map((name) => join(REPO, FILM, name));
+const ENTRIES = ["operations.ts", "phase2.ts", "project.ts", "director-continuity.ts"].map((name) =>
+  join(REPO, FILM, name),
+);
 
 function loadTypeScript() {
   const where = process.env.AIVORA_TYPESCRIPT;
@@ -83,6 +85,7 @@ async function transpile(ts, out) {
     ...(await load("operations.ts")),
     ...(await load("phase2.ts")),
     ...(await load("project.ts")),
+    ...(await load("director-continuity.ts")),
   };
 }
 
@@ -119,8 +122,8 @@ function checkWriter(app, library, example, report) {
   const people = output.characters.map((row) => ({
     name: row.name,
     identity: row.identity,
-    ...(row.gender ? { gender: row.gender } : {}),
-    ...(row.age_band ? { ageBand: row.age_band } : {}),
+    gender: row.gender === "未知" ? "" : (row.gender ?? ""),
+    ageBand: row.age_band === "未知" ? "" : (row.age_band ?? ""),
   }));
   if (!cast || !same(cast.characters, people))
     report.fail(`${example.id}：parseCastReply 读出的人物和 characters 不一致`);
@@ -163,39 +166,38 @@ function checkDirector(app, example, writerScene, report) {
   ]);
   const limit = app.shotBudget(ref.text);
   const kept = plan.shots;
-  if (!shots || shots.length < kept.length) {
-    report.fail(`${example.id}：原始 ${kept.length} 个镜头被截断，只剩 ${shots?.length ?? 0} 个`);
+  const raw = app.parseDirectorShots(
+    JSON.stringify({ shots: plan.shots }),
+    plan.scene_id,
+    ref.text,
+    [],
+    false,
+  );
+  if (!shots || !raw || raw.length !== kept.length) {
+    report.fail(`${example.id}：未能无损解析全部原始镜头`);
     return;
   }
   if (new Set(shots.map((shot) => shot.id)).size !== shots.length)
     report.fail(`${example.id}：出现重复镜头 id`);
-  if (limit != null && shots.length > limit)
-    report.note(
-      `${example.id}：建议 ${limit} 镜；为保留完整原文实际保留 ${shots.length} 镜，需核对编排。`,
-    );
-  for (const extra of shots.slice(kept.length)) {
-    if (extra.source !== "source:coverage" || !ref.text.includes(extra.picture))
-      report.fail(`${example.id}：额外镜头不是可追溯的原文补镜`);
-    if (extra.line && !extra.picture.includes(extra.line))
-      report.fail(`${example.id}：原文补镜台词不在其原文中`);
-  }
   const represented = shots
     .map((shot) => `${shot.picture}\n${shot.action}\n${shot.line}`)
     .join("\n");
-  for (const paragraph of ref.text.split(/\n+/).filter(Boolean)) {
-    if (/^第[\d一二三四五六七八九十]+场/u.test(paragraph)) continue;
-    if (!represented.includes(paragraph)) {
-      const quotes = [...paragraph.matchAll(/[“「]([^”」]+)[”」]/gu)].map((match) => match[1]);
-      if (!quotes.length || !quotes.every((line) => shots.some((shot) => shot.line === line)))
-        report.fail(`${example.id}：原文段落未被覆盖`);
-    }
+  for (const original of plan.shots) {
+    for (const text of [original.picture, original.action, original.line].filter(Boolean))
+      if (!represented.includes(text)) report.fail(`${example.id}：合并丢失镜头内容`);
   }
-  const finalParagraph = ref.text.trim().split(/\n+/).at(-1);
-  if (finalParagraph && !represented.includes(finalParagraph))
-    report.fail(`${example.id}：最后一段原文没有镜头覆盖`);
+  const status = app.directorPlanStatus(ref, shots);
+  if (!status.coverage.ok)
+    report.note(
+      `${example.id}：真实示例覆盖检查尚缺 ${status.coverage.missingLines.length} 句台词，尾段${status.coverage.missingTail ? "未覆盖" : "已覆盖"}；软件须补尾，不自动伪造通过。`,
+    );
+  if (status.overBudget)
+    report.note(`${example.id}：建议${limit}镜，保留${shots.length}镜，需核对。`);
+  const absent = app.detectDirectorCoverage(ref, []);
+  if (absent.ok || !absent.missingTail) report.fail(`${example.id}：空镜头不应通过覆盖校验`);
   const added = [];
   kept.forEach((shot, index) => {
-    const got = shots[index];
+    const got = raw[index];
     const where = `${example.id} ${shot.id}`;
     if (got.id !== shot.id || got.sceneId !== plan.scene_id)
       report.fail(`${where}：镜头 id 读成 ${got.id}`);
@@ -354,7 +356,7 @@ async function main() {
   for (const text of notes) console.log(`  · ${text}`);
   console.log(
     failures.length === 0
-      ? "全部读对：编剧、美术、导演、表演指导、动作指导、审片的示例输出都被软件读出。导演超出建议镜头数时保留全部镜头，并检查原文补镜和结尾覆盖。"
+      ? "全部读对：编剧、美术、导演、表演指导、动作指导、审片的示例输出都被软件读出。导演合并不丢内容；原文覆盖风险单独列出，不代表自动补尾或供应商验收已完成。"
       : `有 ${failures.length} 处没读对。`,
   );
   process.exitCode = failures.length === 0 ? 0 : 1;

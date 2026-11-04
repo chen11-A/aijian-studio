@@ -1,3 +1,4 @@
+import { registerTaskProgressHandlers } from "./task-progress-ipc";
 import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
 import { registerAssemblyReadinessHandler } from "./assembly-readiness-ipc";
 import { registerAssemblyExactHandlers } from "./assembly-exact-ipc";
@@ -846,6 +847,15 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
     copy: (source, destination) => copyFile(source, destination),
   },
 );
+registerTaskProgressHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  (event) => event.sender.id,
+  (event, snapshot) => event.sender.send("aivora:tasks", snapshot),
+);
 registerFilmLibraryHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -928,13 +938,17 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     copyFile: (source, destination) => copyFile(source, destination),
     reveal: (path) => revealSavedFile(path),
     open: (path) => shell.openPath(path),
-    logStill: ({ ok, detail }) => {
-      getGrokRuntime().recordAgent?.({
+    logStill: ({ ok, referenceImageCount, durationMs, requestChars }) => {
+      createAgentLog(join(app.getPath("userData"), "logs", "agents.log")).write({
         agent: "image",
         model: "grok-imagine-image-2.0",
-        status: ok ? "ok" : "error",
+        endpoint: referenceImageCount ? "image-edit" : "quality-medium",
+        httpStatus: ok ? 200 : 0,
         parsed: ok ? "image" : "error",
-        detail,
+        referenceImageCount,
+        durationMs,
+        requestChars,
+        errorCode: ok ? undefined : "IMAGE_FAILED",
       });
     },
   },

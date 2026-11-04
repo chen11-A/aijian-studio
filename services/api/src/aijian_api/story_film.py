@@ -57,6 +57,7 @@ from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
+from aijian_api.user_messages import UserMessage, user_message
 from aijian_api.xai_media import (
     IMAGE_MODEL,
     TTS_MODEL,
@@ -66,6 +67,7 @@ from aijian_api.xai_media import (
     XaiMediaError,
     XaiTransport,
     _image_reference,
+    valid_image_reference,
 )
 
 ProviderKind = Literal["stub", "grok_subscription", "xai_api_key", "chatgpt"]
@@ -102,6 +104,12 @@ class StoryFilmError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class StoryDialogue:
+    speaker: str
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
 class StoryShot:
     narration: str
     prompt: str
@@ -119,6 +127,7 @@ class StoryShot:
     reference: str = ""
     references: tuple[str, ...] = ()
     delivery: str = ""
+    lines: tuple[StoryDialogue, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +174,7 @@ class StoryFilmResult:
     live_call: bool
     preview_image: str | None = None
     voice_path: str | None = None
+    user_message: UserMessage | None = None
 
 
 def user_data_root() -> Path | None:
@@ -243,12 +253,25 @@ def reference_image_url(source: str) -> str | None:
     """An https URL, or a local portrait encoded the same way the video API accepts a still."""
 
     text = source.strip()
-    if text.startswith("https://") or text.startswith("data:image/"):
+    if valid_image_reference(text):
         return text
     image = _local_image(text)
     if image is None:
         return None
     return _image_reference(image)["url"]
+
+
+def prepared_reference_image(source: str) -> XaiImage | None:
+    url = reference_image_url(source)
+    if url is None:
+        return None
+    if url.startswith("https://"):
+        return XaiImage(data=b"", source_url=url, model=IMAGE_MODEL)
+    try:
+        data = base64.b64decode(url.split(",", 1)[1], validate=True)
+    except (ValueError, IndexError):
+        return None
+    return XaiImage(data=data, source_url=None, model=IMAGE_MODEL) if data else None
 
 
 def reference_cap(model: str) -> int:
@@ -338,6 +361,20 @@ class StoryFilmService:
         self._shot_captions = None
         clear_film_cancel(project_id)
         provider_label, billing_label = provider_copy(request.provider)
+        if any(
+            len({line.speaker for line in shot.lines if line.text.strip()}) > 1
+            for shot in request.shots
+        ):
+            return replace(
+                _blocked(
+                    "这一镜有多位说话人，请先拆分配音。", provider_label, billing_label, None, None
+                ),
+                user_message=user_message(
+                    "MULTI_VOICE_REQUIRED",
+                    "这一镜需要分角色配音。",
+                    "台词与字幕保留；请先拆分配音后重试。",
+                ),
+            )
         blocked = self._preflight(project_id, request, media_token)
         if blocked is not None:
             return blocked
@@ -450,6 +487,7 @@ class StoryFilmService:
         return StoryFilmResult(
             status="SUCCEEDED",
             message=message,
+            user_message=user_message("FILM_SAVED", "成片已保存。", message),
             provider_label=provider_label,
             billing_label=billing_label,
             suggested_provider=None,
@@ -735,18 +773,17 @@ class StoryFilmService:
                     shots=(),
                 )
                 if request.provider == "grok_subscription":
-                    prepared = _local_image(shot.still)
+                    prepared = prepared_reference_image(shot.still)
                     linked = [
                         url
                         for url in (
                             reference_image_url(item)
                             for item in (*shot.references, shot.reference)
-                            if item and item != shot.still
+                            if item and (prepared is None or item != shot.still)
                         )
                         if url
                     ]
-                    model = request.video_model or VIDEO_MODEL
-                    linked = list(references_for_model(model, tuple(dict.fromkeys(linked))))
+                    linked = list(dict.fromkeys(linked))
                     image, clip, speech = self._live_media(
                         child,
                         media_token,
@@ -902,6 +939,9 @@ class StoryFilmService:
                 prompt=_styled(request.visual_prompt or request.scene_label, request.style_block),
                 model=request.image_model or IMAGE_MODEL,
                 aspect_ratio=request.aspect_ratio or "9:16",
+                reference_images=tuple(
+                    dict.fromkeys((*reference_images, *((reference_url,) if reference_url else ())))
+                )[:5],
             )
             if image.data:
                 self._persist_image(project_id, request, image.data)
@@ -1109,7 +1149,9 @@ class StoryFilmService:
                 model=request.video_model or VIDEO_MODEL,
                 duration=max(1, min(duration, 15)),
                 generate_audio=False,
-                reference_images=reference_images,
+                reference_images=references_for_model(
+                    request.video_model or VIDEO_MODEL, reference_images
+                ),
                 aspect_ratio=request.aspect_ratio or "9:16",
                 resolution="720p" if reference_images else None,
             )
@@ -1303,12 +1345,13 @@ class StoryFilmService:
             expected_revision=film_revision,
         )
         provider_label, billing_label = provider_copy(request.provider)
-        message = "草稿成片已经保存。这还不是正式发行，可以在播放器里打开看看。"
+        message = "成片已保存。"
         if subtitle_note:
             message = f"{message}{subtitle_note}"
         return StoryFilmResult(
             status="SUCCEEDED",
             message=message,
+            user_message=user_message("FILM_SAVED", "成片已保存。", message),
             provider_label=provider_label,
             billing_label=billing_label,
             suggested_provider=None,

@@ -1,3 +1,4 @@
+import type { TaskListener, TaskSnapshot } from "@aijian/contracts/task-progress";
 import type {
   LocalMediaReviewGateway,
   LOCAL_MEDIA_REVIEW_CHANNELS as SharedLocalReviewChannels,
@@ -582,6 +583,27 @@ contextBridge.exposeInMainWorld("aijian", {
   flushed: () => ipcRenderer.invoke("film:flushed"),
   onFlush: (handler: () => void) => {
     ipcRenderer.on("aivora:flush", () => handler());
+  },
+  publishTasks: (tasks: TaskSnapshot["tasks"], batches: TaskSnapshot["batches"]) =>
+    ipcRenderer.invoke("film:tasks-publish", { tasks, batches }) as Promise<void>,
+  onTask: (handler: TaskListener) => {
+    let live = true;
+    let revision = 0;
+    const listener = (_event: unknown, snapshot: TaskSnapshot) => {
+      revision += 1;
+      if (live) handler(snapshot.tasks, snapshot.batches);
+    };
+    ipcRenderer.on("aivora:tasks", listener);
+    const initialRevision = revision;
+    void (ipcRenderer.invoke("film:tasks-read") as Promise<TaskSnapshot>)
+      .then((snapshot) => {
+        if (live && revision === initialRevision) handler(snapshot.tasks, snapshot.batches);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+      ipcRenderer.removeListener("aivora:tasks", listener);
+    };
   },
   generateFilmStill: (
     seriesId: string,

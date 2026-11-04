@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { sampleFilm } from "../film/project";
 import {
+  assembleCurrentFilm,
   generateMissingPortraits,
   middlePath,
   portraitReferences,
@@ -140,4 +141,37 @@ it("sends a first-frame request with references from every visible person and di
   expect(rejected.url).toBe("");
   expect(rejected.reason).toContain("超过 5 位角色");
   expect(generate).toHaveBeenCalledTimes(1);
+});
+
+it("does not write a late assembled cut into another project", async () => {
+  const base = sampleFilm();
+  let current = base;
+  let resolve!: (value: { path: string; reason: string }) => void;
+  const assembleFilm = vi.fn(
+    () =>
+      new Promise<{ path: string; reason: string }>((done) => {
+        resolve = done;
+      }),
+  );
+  const previous = window.aijian;
+  window.aijian = { ...previous, assembleFilm } as NonNullable<typeof window.aijian>;
+  const apply = vi.fn();
+  const notice = vi.fn();
+  try {
+    const pending = assembleCurrentFilm(
+      base,
+      ["a.mp4", "b.mp4"],
+      () => current,
+      apply,
+      notice,
+      () => true,
+    );
+    current = { ...base, id: "another-project" };
+    resolve({ path: "/old-project/cut.mp4", reason: "old result" });
+    await pending;
+    expect(apply).not.toHaveBeenCalled();
+    expect(notice).not.toHaveBeenCalled();
+  } finally {
+    window.aijian = previous;
+  }
 });

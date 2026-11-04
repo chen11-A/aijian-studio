@@ -1,6 +1,13 @@
+import { sceneDisplayTitle } from "./director-continuity";
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 import { emptySoundPlan } from "./audio";
-import { durationFromSpeech, speechSeconds } from "./phase2";
+import { durationFromSpeech, speechSeconds, plainCue } from "./phase2";
+import {
+  normalizeGender,
+  normalizeAgeBand,
+  type CharacterGender,
+  type CharacterAgeBand,
+} from "./cast-traits";
 import {
   keyframePrompt,
   shotIdentity,
@@ -110,7 +117,7 @@ function scene(no: number, title: string, text: string, where = ""): FilmScene {
   return {
     id: `scene-${no}`,
     no,
-    title: title.slice(0, 40) || `第 ${no} 场`,
+    title: sceneDisplayTitle(title, where, text).slice(0, 40),
     where,
     text,
     ambience: "",
@@ -130,6 +137,13 @@ export function splitNovel(text: string): { title: string; scenes: FilmScene[]; 
   const lines = clean.split("\n");
   const head = lines[0]?.trim() ?? "";
   const title = head && !CHAPTER.test(head) && head.length <= 40 ? head : "未命名作品";
+  const declaredScenes = novelHeadingSlices(clean);
+  if (declaredScenes.length)
+    return {
+      title,
+      note,
+      scenes: declaredScenes.map((item, index) => scene(index + 1, item.title, item.text)),
+    };
   const chapters: { title: string; body: string[] }[] = [];
   let current: { title: string; body: string[] } | null = null;
   let sawChapter = false;
@@ -228,7 +242,7 @@ const NOVEL_HEADING = /^第[0-9０-９一二三四五六七八九十百千零两
 export function novelHeadingSlices(source: string): { title: string; text: string }[] {
   const text = source.replace(/\r\n/g, "\n").trim();
   const found = [...text.matchAll(NOVEL_HEADING)];
-  if (found.length < 2) return [];
+  if (found.length === 0) return [];
   return found.map((match, index) => {
     const start = index === 0 ? 0 : (match.index ?? 0);
     const end = index + 1 < found.length ? (found[index + 1]?.index ?? text.length) : text.length;
@@ -345,9 +359,7 @@ function headingWhere(record: Record<string, unknown>): string {
 function listedParagraphs(record: Record<string, unknown>): string[] {
   const raw = record.source_paragraphs;
   if (!Array.isArray(raw)) return [];
-  if (raw.some((item) => typeof item !== "string" || !/^P\d{2,}$/.test(item)))
-    throw new Error("段落编号无效，请重新分场。");
-  return raw as string[];
+  return raw.filter((item): item is string => typeof item === "string" && /^P\d{2,}$/.test(item));
 }
 
 function elementLines(record: Record<string, unknown>): string[] {
@@ -371,44 +383,80 @@ export function rebuildFromParagraphs(
   const explicit = records.map(listedParagraphs);
   const present = new Set(paragraphs.map((item) => item.id));
   const claimed = records.some((record) => Array.isArray(record.source_paragraphs));
+  const risks = scenes.map(() => ({
+    ok: true,
+    missingParagraphs: [] as string[],
+    duplicateParagraphs: [] as string[],
+    invalidParagraphs: [] as string[],
+    crossSceneRisk: false,
+  }));
   const owner = new Map<string, number>();
   if (claimed) {
+    records.forEach((record, index) => {
+      const raw = Array.isArray(record.source_paragraphs) ? record.source_paragraphs : [];
+      for (const item of raw) {
+        if (typeof item !== "string" || !present.has(item)) {
+          risks[index]?.invalidParagraphs.push(String(item));
+          if (index !== 0) risks[0]?.invalidParagraphs.push(String(item));
+        }
+      }
+    });
     explicit.forEach((ids, index) => {
       for (const id of ids) {
-        if (!present.has(id) || owner.has(id)) throw new Error("段落归属重复或无效，请重新分场。");
-        owner.set(id, index);
+        if (!present.has(id)) continue;
+        const first = owner.get(id);
+        if (first !== undefined) {
+          risks[first]?.duplicateParagraphs.push(id);
+          risks[index]?.duplicateParagraphs.push(id);
+        } else owner.set(id, index);
       }
     });
   }
-  if (claimed && owner.size !== paragraphs.length)
-    throw new Error("编剧遗漏了原文段落，请重新分场。");
   let cursor = 0;
   for (const paragraph of paragraphs) {
     const listed = owner.get(paragraph.id);
     if (listed !== undefined) {
+      if (listed < cursor) {
+        risks[cursor]!.crossSceneRisk = true;
+        risks[listed]!.crossSceneRisk = true;
+      }
       cursor = listed;
-      groups[cursor]?.push(paragraph.id);
-      continue;
+    } else if (claimed) {
+      risks[cursor]?.missingParagraphs.push(paragraph.id);
+      if (/^第[0-9０-９一二三四五六七八九十百千零两]+场/u.test(paragraph.text))
+        risks[cursor]!.crossSceneRisk = true;
+    } else {
+      const needle = paragraph.text.slice(0, Math.min(18, paragraph.text.length));
+      const hits = scenes
+        .map((scene, index) => ({
+          index,
+          length: scene.text.length,
+          lines: elementLines(records[index] ?? {}).some((line) => paragraph.text.includes(line)),
+          hit:
+            scene.text.includes(needle) &&
+            (scenes.length === 1 || scene.text.length < source.length * 0.75),
+        }))
+        .filter((item) => item.lines || item.hit);
+      hits.sort((a, b) => Number(b.lines) - Number(a.lines) || a.length - b.length);
+      if (hits[0]) cursor = hits[0].index;
+      else risks[cursor]?.missingParagraphs.push(paragraph.id);
     }
-    if (claimed) continue;
-    const needle = paragraph.text.slice(0, Math.min(18, paragraph.text.length));
-    const hits = scenes
-      .map((scene, index) => ({
-        index,
-        length: scene.text.length,
-        lines: elementLines(records[index] ?? {}).some((line) => paragraph.text.includes(line)),
-        hit: scene.text.includes(needle) && scene.text.length < source.length * 0.75,
-      }))
-      .filter((item) => item.lines || item.hit);
-    hits.sort((a, b) => Number(b.lines) - Number(a.lines) || a.length - b.length);
-    if (hits[0]) cursor = hits[0].index;
     groups[cursor]?.push(paragraph.id);
   }
   const byId = new Map(paragraphs.map((item) => [item.id, item.text]));
   return scenes.map((scene, index) => {
-    const owned = (groups[index] ?? []).map((id) => byId.get(id) ?? "").filter(Boolean);
-    const text = owned.join("\n");
-    return { ...scene, text };
+    const text = (groups[index] ?? [])
+      .map((id) => byId.get(id) ?? "")
+      .filter(Boolean)
+      .join("\n");
+    const risk = risks[index]!;
+    if ([...text.matchAll(NOVEL_HEADING)].length > 1) risk.crossSceneRisk = true;
+    risk.ok =
+      !risk.missingParagraphs.length &&
+      !risk.duplicateParagraphs.length &&
+      !risk.invalidParagraphs.length &&
+      !risk.crossSceneRisk;
+    return { ...scene, text, paragraphCoverage: risk };
   });
 }
 
@@ -507,7 +555,9 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
     const title =
       suppliedTitle && !/^第\s*[\d一二三四五六七八九十]+\s*场$/u.test(suppliedTitle)
         ? suppliedTitle
-        : sourceTitle || headings[index]?.title || `第 ${index + 1} 场`;
+        : sourceTitle ||
+          headings[index]?.title ||
+          sceneDisplayTitle("", headingWhere(record), story);
     const where = headingWhere(record);
     const dialogue = elementLines(record).filter((line) => !body.includes(line));
     const withLines = [body.trim(), ...dialogue].filter(Boolean).join("\n");
@@ -530,7 +580,22 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
   });
   try {
     const ready = source ? rebuildFromParagraphs(scenes, kept, source) : scenes;
-    return ready.some((item) => item.text.trim()) ? ready.filter((item) => item.text.trim()) : null;
+    const nonempty = ready.filter((item) => item.text.trim());
+    const reserved = new Set(nonempty.map((item) => item.id));
+    const used = new Set<string>();
+    return nonempty.length
+      ? nonempty.map((item, index) => {
+          let id = item.id;
+          if (used.has(id)) {
+            let suffix = index + 1;
+            do {
+              id = `scene-${suffix++}`;
+            } while (reserved.has(id) || used.has(id));
+          }
+          used.add(id);
+          return { ...item, id, no: index + 1 };
+        })
+      : null;
   } catch {
     return null;
   }
@@ -564,46 +629,72 @@ const FIGHT_WORDS = [
   "划开",
 ];
 
-/** Preserve source sentences, never expose repair instructions in a shot. */
-export function keepFightDetails(source: string, beats: string): string {
-  const clean = beats
-    .replace(/保留原文[：:][^。\n]*/g, "")
-    .replace(/。{2,}/g, "。")
-    .trim();
-  const missing = FIGHT_WORDS.filter((word) => source.includes(word) && !clean.includes(word));
-  const sentences = source
-    .split(/(?<=[。！？])/)
-    .filter((line) => missing.some((word) => line.includes(word)));
-  return [...new Set([clean, ...sentences].filter(Boolean))].join("");
+/** Legacy callers receive sanitized prose only; source constraints stay in the request. */
+export function keepFightDetails(_source: string, beats: string): string {
+  return plainCue(beats);
 }
 
-/** Match explicit identities first; unlabelled nodes require source overlap. */
+/** Only an explicit shot identity can authorize an action assignment. */
 export function beatsForShot(
   beats: { text: string; shotId?: string }[],
   _shotNo: number,
   shotId = "",
-  sourceText = "",
+  _sourceText = "",
 ): string {
-  const normalize = (value: string) => value.replace(/[\s\p{P}]/gu, "");
-  const source = normalize(sourceText);
-  const own = beats.filter((item) => {
-    if (item.shotId) return Boolean(shotId) && item.shotId === shotId;
-    if (!source) return false;
-    const text = normalize(item.text.replace(/^镜头\s*\d+[·：:]?/, ""));
-    // Require a substantial source span, not a name or a generic single action.
-    const span = Math.min(8, text.length);
-    return (
-      text.length >= 4 &&
-      Array.from({ length: text.length - span + 1 }, (_, index) =>
-        text.slice(index, index + span),
-      ).some((part) => source.includes(part))
-    );
-  });
-  return own
-    .map((item) => item.text.replace(/保留原文[：:][^。\n]*/g, ""))
+  return beats
+    .filter((item) => Boolean(shotId) && item.shotId === shotId)
+    .map((item) => plainCue(item.text))
     .filter(Boolean)
     .join("。")
     .replace(/。{2,}/g, "。");
+}
+
+export function assignActionBeats(
+  shots: FilmShot[],
+  sceneId: string,
+  beats: { text: string; shotId?: string }[],
+): { shots: FilmShot[]; unassignedBeats: { sceneId: string; text: string }[] } {
+  const unassignedBeats: { sceneId: string; text: string }[] = [];
+  const accepted = new Map<string, string[]>();
+  for (const beat of beats) {
+    const text = plainCue(beat.text);
+    if (!text) continue;
+    const target = shots.find((shot) => shot.sceneId === sceneId && shot.id === beat.shotId);
+    // Spoken mentions of weapons do not turn a dialogue shot into a fight shot.
+    const fightAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|铁棍|钢条|钢管|折叠刀/.test(text);
+    let visual = target
+      ? `${target.picture} ${target.action}`.replace(/[“「"][^”」"]*[”」"]/g, "")
+      : "";
+    for (const line of target?.lines ?? (target?.line ? [{ text: target.line }] : [])) {
+      if (line.text) visual = visual.replaceAll(line.text, "");
+    }
+    const hasPhysicalAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|追打|搏斗|闪避|躲闪/.test(visual);
+    if (!target || (fightAction && !hasPhysicalAction)) {
+      unassignedBeats.push({ sceneId, text });
+      continue;
+    }
+    accepted.set(target.id, [...(accepted.get(target.id) ?? []), text]);
+  }
+  return {
+    shots: shots.map((shot) => {
+      const parts = accepted.get(shot.id);
+      return parts
+        ? {
+            ...shot,
+            action: plainCue([...new Set([shot.action, ...parts].filter(Boolean))].join("。")),
+          }
+        : shot;
+    }),
+    unassignedBeats,
+  };
+}
+
+/** These source constraints belong in the model request, not a shot's visible action. */
+export function fightConstraints(source: string): string {
+  const words = FIGHT_WORDS.filter((word) => source.includes(word));
+  return words.length
+    ? `动作约束：武器与伤势必须符合原文（${words.join("、")}）；只分配到明确 shot_id 的动作镜头，无法匹配则留空 id。`
+    : "";
 }
 
 export function applyScenes(film: FilmProject, incoming: FilmScene[]): FilmProject {
@@ -700,6 +791,7 @@ export function parseCastReply(text: string): ExtractedCast | null {
         identity_lock?: unknown;
         gender?: unknown;
         age_band?: unknown;
+        ageBand?: unknown;
       }[];
       locations?: { name?: unknown; prompt?: unknown }[];
     };
@@ -715,9 +807,10 @@ export function parseCastReply(text: string): ExtractedCast | null {
         identity,
       };
       const gender = typeof item.gender === "string" ? item.gender.trim() : "";
-      const ageBand = typeof item.age_band === "string" ? item.age_band.trim() : "";
-      if (gender) person.gender = gender;
-      if (ageBand) person.ageBand = ageBand;
+      const rawAge = item.ageBand ?? item.age_band;
+      const ageBand = typeof rawAge === "string" ? rawAge.trim() : "";
+      person.gender = normalizeGender(gender);
+      person.ageBand = normalizeAgeBand(ageBand);
       return [person];
     });
     const locations = (value.locations ?? [])
@@ -737,8 +830,8 @@ const WOMAN = ["ara", "eve", "luna", "carina", "celeste"];
 const MAN = ["leo", "rex", "atlas", "perseus", "zagan", "sal", "lux"];
 const YOUNG_WOMAN = ["iris", "sirius", "cosmo", "helix"];
 const YOUNG_MAN = ["helios", "castor", "kepler", "zenith"];
-const GIRL = ["iris", "sirius", "cosmo", "lumen"];
-const BOY = ["helios", "castor", "lumen", "zenith"];
+const GIRL = ["iris", "sirius", "cosmo"];
+const BOY = ["helios", "castor", "zenith"];
 const ELDER_WOMAN = ["naksh", "ursa"];
 const ELDER_MAN = ["orion", "lux"];
 
@@ -771,7 +864,9 @@ export function castTraits(
   source = "",
   gender = "",
   ageBand = "",
-): { gender: string; ageBand: string } {
+): { gender: CharacterGender; ageBand: CharacterAgeBand } {
+  gender = normalizeGender(gender);
+  ageBand = normalizeAgeBand(ageBand);
   // Use only a name-adjacent relationship from the source, never a whole paragraph's pronouns.
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const relation =
@@ -792,7 +887,7 @@ export function castTraits(
     /^(男|male|man)$/i.test(gender) ||
     (!gender && /丈夫|父亲|爸爸|之父|爷爷/.test(ownRole || text));
   const inferredGender =
-    gender ||
+    normalizeGender(gender) ||
     (male
       ? "男"
       : female || /女|她|姑娘|小姐/.test(text)
@@ -802,7 +897,7 @@ export function castTraits(
           : "");
   const years = ageYears(text);
   const inferredAge =
-    ageBand ||
+    normalizeAgeBand(ageBand) ||
     (years !== null
       ? years < 13
         ? "儿童"
@@ -810,22 +905,27 @@ export function castTraits(
           ? "少年"
           : years >= 60
             ? "老年"
-            : "成年"
+            : years < 40
+              ? "青年"
+              : "中年"
       : /阿婆|奶奶|婆婆|爷爷|老人|老年/.test(text)
         ? "老年"
         : ownRole
-          ? "成年"
+          ? "中年"
           : /儿童|幼童|小孩/.test(text)
             ? "儿童"
             : /少年|少女|青年|年轻/.test(text)
               ? "青年"
-              : "成年");
+              : /成年|成人|中年/.test(text)
+                ? "中年"
+                : "");
   return { gender: inferredGender, ageBand: inferredAge };
 }
 
 function voicePool(identity: string, name: string, gender = "", ageBand = ""): string[] {
   const traits = castTraits(identity, name, "", gender, ageBand);
-  const female = /女|female|woman/i.test(traits.gender);
+  if (!traits.gender || !traits.ageBand) return [];
+  const female = traits.gender === "女";
   if (/儿童|幼年|child/i.test(traits.ageBand)) return female ? GIRL : BOY;
   if (/老年|elder|senior/i.test(traits.ageBand)) return female ? ELDER_WOMAN : ELDER_MAN;
   if (/少年|青年|young|teen/i.test(traits.ageBand)) return female ? YOUNG_WOMAN : YOUNG_MAN;
@@ -841,7 +941,33 @@ export function assignVoice(
   ageBand = "",
 ): string {
   const pool = voicePool(identity, name, gender, ageBand);
-  return pool.find((id) => !used.has(id)) ?? pool[0] ?? "leo";
+  return pool.find((id) => !used.has(id)) ?? pool[0] ?? "";
+}
+
+export function autoVoiceForCharacter(
+  character: FilmCharacter,
+  used: ReadonlySet<string> = new Set(),
+  source = "",
+): FilmCharacter {
+  const traits = castTraits(
+    character.identity,
+    character.name,
+    source,
+    character.gender,
+    character.ageBand,
+  );
+  if (character.userFields.includes("gender")) traits.gender = normalizeGender(character.gender);
+  if (character.userFields.includes("ageBand"))
+    traits.ageBand = normalizeAgeBand(character.ageBand);
+  if (character.userFields.includes("voiceId")) return { ...character, ...traits, voiceCode: "" };
+  const pool =
+    traits.gender && traits.ageBand
+      ? voicePool(character.identity, character.name, traits.gender, traits.ageBand)
+      : [];
+  const voiceId = pool.includes(character.voiceId)
+    ? character.voiceId
+    : (pool.find((id) => !used.has(id)) ?? pool[0] ?? "");
+  return { ...character, ...traits, voiceId, voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED" };
 }
 
 export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProject {
@@ -856,13 +982,9 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
       item.gender || incoming?.gender,
       item.ageBand || incoming?.ageBand,
     );
-    const pool = voicePool(item.identity, item.name, traits.gender, traits.ageBand);
-    const voiceId =
-      item.voiceId && (item.userFields.includes("voiceId") || pool.includes(item.voiceId))
-        ? item.voiceId
-        : assignVoice(item.identity, item.name, used, traits.gender, traits.ageBand);
-    used.add(voiceId);
-    return { ...item, ...traits, voiceId };
+    const updated = autoVoiceForCharacter({ ...item, ...traits }, used, film.sourceText);
+    used.add(updated.voiceId);
+    return updated;
   });
   for (const item of extracted.characters) {
     if (!item.name || known.has(item.name)) continue;
@@ -876,6 +998,7 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
       identity: item.identity,
       ...traits,
       voiceId,
+      voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED",
       source: "script",
       userFields: [],
       portraits: [],
@@ -902,7 +1025,8 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
     (item, index) =>
       item.voiceId !== film.characters[index]?.voiceId ||
       item.gender !== film.characters[index]?.gender ||
-      item.ageBand !== film.characters[index]?.ageBand,
+      item.ageBand !== film.characters[index]?.ageBand ||
+      item.voiceCode !== film.characters[index]?.voiceCode,
   );
   if (
     !voicesChanged &&
@@ -1029,7 +1153,18 @@ export function updateShot(
 ): FilmProject {
   return {
     ...film,
-    shots: film.shots.map((item) => (item.id === shotId ? { ...item, ...patch } : item)),
+    shots: film.shots.map((item) => {
+      if (item.id !== shotId) return item;
+      const next = { ...item, ...patch };
+      if (patch.lines !== undefined) {
+        next.line = patch.lines.map((line) => line.text).join("\n");
+        const names = [...new Set(patch.lines.map((line) => line.speaker))];
+        next.speaker = names.length === 1 ? names[0] : "";
+      } else if (patch.line !== undefined) {
+        next.lines = patch.line ? [{ speaker: next.speaker ?? "", text: patch.line }] : [];
+      }
+      return next;
+    }),
   };
 }
 
@@ -1102,7 +1237,9 @@ function clip(value: string, max: number): string {
 
 /** The line is spoken. The picture is never used as narration. */
 export function spokenLine(shot: FilmShot): string {
-  return shot.line.replace(/\s+/g, " ").trim();
+  return (shot.lines?.length ? shot.lines.map((line) => line.text).join("\n") : shot.line)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function isBeatList(text: string): boolean {
@@ -1124,25 +1261,20 @@ export function motionPrompt(shot: FilmShot): string {
 }
 
 export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
-  const named = shot.speaker?.trim() || "";
-  const fromSpeaker = film.characters.find((item) => named && item.name === named && item.voiceId);
-  if (fromSpeaker?.voiceId) return fromSpeaker.voiceId;
+  const speakers = [
+    ...new Set(shot.lines?.map((line) => line.speaker.trim()).filter(Boolean) ?? []),
+  ];
+  if (speakers.length > 1) return "";
+  const named = speakers[0] || shot.speaker?.trim() || "";
+  if (named) return film.characters.find((person) => person.name === named)?.voiceId ?? "";
   const fromLine = film.characters.find(
-    (item) => item.name && item.voiceId && shot.line.trim().startsWith(item.name),
+    (person) => person.name && shot.line.trim().startsWith(person.name),
   );
-  if (fromLine?.voiceId) return fromLine.voiceId;
+  if (fromLine) return fromLine.voiceId;
   const names = shot.characters.filter((name) => name && name !== "人物" && name !== "空镜");
-  if (names.length === 1) {
-    const only = film.characters.find((item) => item.name === names[0] && item.voiceId);
-    if (only?.voiceId) return only.voiceId;
-  }
-  if (names.length > 1) {
-    const speaking = film.characters.find((item) => names.includes(item.name) && item.voiceId);
-    if (speaking?.voiceId) return speaking.voiceId;
-  }
-  if (names.length > 1) return "leo";
-  if (film.narrationVoiceId) return film.narrationVoiceId;
-  return "eve";
+  if (names.length === 1)
+    return film.characters.find((person) => person.name === names[0])?.voiceId ?? "";
+  return names.length ? "" : film.narrationVoiceId || "";
 }
 
 export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string } {
@@ -1168,6 +1300,26 @@ function usableImage(url: string): boolean {
   return Boolean(url) && !url.startsWith("blob:") && !url.startsWith("data:");
 }
 
+/** Front views first, with the speaker ahead of other visible characters. */
+export function firstFrameReferences(film: FilmProject, shot: FilmShot): string[] {
+  const speakers = new Set([shot.speaker ?? "", ...(shot.lines ?? []).map((line) => line.speaker)]);
+  const people = film.characters
+    .filter((person) => shot.characters.includes(person.name) || speakers.has(person.name))
+    .sort((a, b) => Number(speakers.has(b.name)) - Number(speakers.has(a.name)));
+  const portraits = people.map((person) =>
+    person.portraits
+      .filter((portrait) => usableImage(portrait.url))
+      .sort((a, b) => Number(b.view === "正面") - Number(a.view === "正面")),
+  );
+  return [
+    ...new Set(
+      [0, 1, 2, 3]
+        .flatMap((index) => portraits.map((views) => views[index]?.url ?? ""))
+        .filter(Boolean),
+    ),
+  ].slice(0, 5);
+}
+
 export function shotReference(
   shot: FilmShot,
   film: FilmProject,
@@ -1190,7 +1342,8 @@ export function shotReference(
       })),
   );
   ranked.sort((a, b) => b.rank - a.rank);
-  const pinned = picked || ranked.find((item) => !/^https?:/i.test(item.url))?.url || "";
+  // A portrait is a reference, never a generated first frame, regardless of URL scheme.
+  const pinned = picked;
   const seen = new Set<string>(pinned ? [pinned] : []);
   const references: { url: string; who: string }[] = [];
   for (const item of ranked) {
@@ -1289,7 +1442,16 @@ export function confirmEstimate(shots: { seconds: number }[], versions: number):
 }
 
 function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
+  if (new Set(shot.lines?.map((line) => line.speaker.trim()).filter(Boolean) ?? []).size > 1) {
+    throw Object.assign(new Error("同镜多位说话人的配音需要逐句音轨，请先拆分配音。"), {
+      code: "MULTI_VOICE_REQUIRED",
+    });
+  }
   const line = spokenLine(shot);
+  if (line && !shotVoiceId(shot, film))
+    throw Object.assign(new Error("请先确认说话人的性别、年龄与声音。"), {
+      code: "VOICE_TRAITS_REQUIRED",
+    });
   const refs = shotReference(shot, film);
   return {
     narration: line || "。",

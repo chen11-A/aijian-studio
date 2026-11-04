@@ -491,6 +491,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           durationMs: Date.now() - started,
           parsed: "text",
           responseChars: text.length,
+          requestChars: input.text.length,
         });
         if (ledger && dispatchId && input.projectId) {
           await ledger.finish({
@@ -524,6 +525,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         "RATE_UNAVAILABLE",
         "TEXT_FAILED",
         "TEXT_TIMEOUT",
+        "STALL_RETRYING",
         "TEXT_CANCELLED",
       ].includes(code)
         ? code
@@ -548,6 +550,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
             durationMs: Date.now() - started,
             parsed: "error",
             responseChars: attempt.body.length,
+            requestChars: input.text.length,
             errorCode: safe,
           });
         }
@@ -569,11 +572,12 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         lastError = safe;
       }
       if (
-        ["TEXT_FAILED", "TEXT_TIMEOUT", "TEXT_CANCELLED"].includes(safe) &&
+        ["TEXT_FAILED", "TEXT_TIMEOUT", "TEXT_CANCELLED", "STALL_RETRYING"].includes(safe) &&
         error instanceof GrokTextFailure
       ) {
         const last = error.attempts[error.attempts.length - 1];
-        const waited = safe === "TEXT_TIMEOUT" || safe === "TEXT_CANCELLED";
+        const waited =
+          safe === "TEXT_TIMEOUT" || safe === "TEXT_CANCELLED" || safe === "STALL_RETRYING";
         const status = waited
           ? (last?.body ?? "文本接口没有返回正文")
           : last?.httpStatus

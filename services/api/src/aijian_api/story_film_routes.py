@@ -14,6 +14,7 @@ from aijian_api.episode_contracts import PROJECT_ID_PATTERN
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.repository import StudioRepository
 from aijian_api.story_film import (
+    StoryDialogue,
     StoryFilmRequest,
     StoryFilmResult,
     StoryFilmService,
@@ -22,6 +23,7 @@ from aijian_api.story_film import (
     live_media_enabled,
     request_film_cancel,
 )
+from aijian_api.user_messages import UserMessage, user_message
 from aijian_api.xai_media import IMAGE_MODEL, TTS_MODEL, VIDEO_MODEL
 
 RepositoryProvider = Callable[[], StudioRepository]
@@ -55,6 +57,13 @@ class StoryFilmPlanResponse(BaseModel):
     request_id: UUID
 
 
+class StoryDialogueBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    speaker: str = Field(max_length=100)
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class StoryShotBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -74,6 +83,7 @@ class StoryShotBody(BaseModel):
     reference: str = Field(default="", max_length=500)
     references: list[str] = Field(default_factory=list, max_length=13)
     delivery: str = Field(default="", max_length=400)
+    lines: list[StoryDialogueBody] = Field(default_factory=list, max_length=100)
 
     @field_validator("references", mode="before")
     @classmethod
@@ -123,6 +133,7 @@ class StoryFilmData(BaseModel):
 
     status: Literal["SUCCEEDED", "BLOCKED", "FAILED"]
     message: str
+    user_message: UserMessage | None = None
     provider_label: str
     billing_label: str
     suggested_provider: Literal["stub", "grok_subscription"] | None = None
@@ -327,6 +338,9 @@ def create_story_film_router(
                         reference=shot.reference.strip(),
                         references=tuple(shot.references),
                         delivery=shot.delivery.strip(),
+                        lines=tuple(
+                            StoryDialogue(line.speaker.strip(), line.text) for line in shot.lines
+                        ),
                     )
                     for shot in payload.shots
                 ),
@@ -342,6 +356,8 @@ def _data(result: StoryFilmResult) -> StoryFilmData:
     return StoryFilmData(
         status=result.status,
         message=result.message,
+        user_message=result.user_message
+        or user_message(f"FILM_{result.status}", result.message[:40], result.message),
         provider_label=result.provider_label,
         billing_label=result.billing_label,
         suggested_provider=result.suggested_provider,

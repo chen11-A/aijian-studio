@@ -256,8 +256,6 @@ describe("referenced first-frame guard", () => {
     "base64",
   );
   it.each([
-    undefined,
-    "https://example.invalid/start.png",
     "http://example.invalid/start.png",
     "data:image/png;base64,aW1hZ2U=",
     "blob:fixture",
@@ -334,6 +332,7 @@ describe("referenced first-frame guard", () => {
       prompt: "画面",
       duration_seconds: 3,
       reference: "https://example.invalid/portrait.png",
+      still: "/missing/local.png",
     };
     for (const provider of ["grok_subscription", "xai_api_key", "chatgpt"] as const) {
       expect(() => client.create(projectId, { ...input, provider, shots: [legacy] })).toThrow(
@@ -344,4 +343,68 @@ describe("referenced first-frame guard", () => {
     await client.create(projectId, { ...input, provider: "stub", shots: [legacy] });
     expect(fetcher).toHaveBeenCalledOnce();
   });
+});
+
+it("preserves HTTPS or unspecified first frames for the server's referenced generation", async () => {
+  const fetcher = vi.fn(async () => Response.json({ data: {}, request_id: "fixture" }));
+  const client = createStoryFilmClient(fetcher, { origin, token });
+  for (const still of [undefined, "https://example.invalid/first.png"]) {
+    const input = parseStoryFilmCreate({
+      scene_label: "回归",
+      narration: "台词",
+      provider: "grok_subscription",
+      confirmed: true,
+      shots: [
+        {
+          narration: "台词",
+          prompt: "书店",
+          duration_seconds: 3,
+          still,
+          references: ["https://example.invalid/face.png"],
+        },
+      ],
+    });
+    await client.create(projectId, input);
+  }
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
+it("preserves every dialogue line and stops mixed speakers before sending", () => {
+  const fetcher = vi.fn();
+  const client = createStoryFilmClient(fetcher, { origin, token });
+  const lines = [
+    { speaker: "甲", text: "第一句。" },
+    { speaker: "乙", text: "第二句。" },
+  ];
+  const input = parseStoryFilmCreate({
+    scene_label: "回归",
+    narration: "第一句。第二句。",
+    provider: "grok_subscription",
+    confirmed: true,
+    shots: [
+      {
+        narration: "第一句。第二句。",
+        subtitle: "第一句。第二句。",
+        prompt: "书店",
+        duration_seconds: 3,
+        lines,
+      },
+    ],
+  });
+  expect(input.shots?.[0]?.lines).toEqual(lines);
+  expect(() => client.create(projectId, input)).toThrow(
+    expect.objectContaining({ code: "MULTI_VOICE_REQUIRED" }),
+  );
+  expect(input.shots?.[0]?.subtitle).toBe("第一句。第二句。");
+  expect(fetcher).not.toHaveBeenCalled();
+  for (const invalid of [
+    "bad",
+    [{ speaker: "甲", text: "" }],
+    [{ speaker: 3, text: "句" }],
+    [{ speaker: "甲", text: "句", unknown: true }],
+  ]) {
+    expect(() =>
+      parseStoryFilmCreate({ ...input, shots: [{ ...input.shots?.[0], lines: invalid }] }),
+    ).toThrow("Invalid story film request");
+  }
 });

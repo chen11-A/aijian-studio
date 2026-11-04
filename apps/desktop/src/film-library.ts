@@ -651,7 +651,11 @@ export async function requestStill(options: {
   aspectRatio?: "9:16" | "16:9";
   references?: readonly string[];
 }): Promise<{ path: string; reason: string }> {
-  const prompt = options.prompt.trim().slice(0, 2000);
+  const prompt = options.prompt
+    .replace(/<IMAGE_\d+>\s*(?:是|为)[^。！？!?\n]*(?:[。！？!?\n]|$)/g, "")
+    .replace(/<IMAGE_\d+>/g, "")
+    .trim()
+    .slice(0, 2000);
   if (!options.token) return { path: "", reason: "需要重新登录后再出图。" };
   if (!prompt) return { path: "", reason: "没有可以出图的提示词。" };
   const references = [...new Set(options.references ?? [])];

@@ -12,6 +12,8 @@ export type AgentLogLine = {
   /** Legacy callers may supply a body; it is never persisted. */
   body?: string;
   responseChars?: number;
+  requestChars?: number;
+  referenceImageCount?: number;
   errorCode?: string;
 };
 
@@ -79,16 +81,18 @@ const parsedKinds = new Set([
 const errorCodes = new Set([
   "TEXT_FAILED",
   "TEXT_TIMEOUT",
+  "STALL_RETRYING",
   "TEXT_CANCELLED",
   "REAUTH_REQUIRED",
   "ENTITLEMENT_DENIED",
   "NOT_CONNECTED",
+  "IMAGE_FAILED",
 ]);
 const count = (value: number | undefined) =>
   Number.isFinite(value) ? Math.max(0, Math.floor(value ?? 0)) : 0;
 
 /** Append-only metadata log. Neither model replies nor provider error bodies are persisted. */
-export function createAgentLog(filePath: string): AgentLog {
+export function createAgentLog(filePath: string, options: { debug?: boolean } = {}): AgentLog {
   return {
     write(line) {
       const row = JSON.stringify({
@@ -100,6 +104,9 @@ export function createAgentLog(filePath: string): AgentLog {
         durationMs: count(line.durationMs),
         parsed: parsedKinds.has(line.parsed ?? "") ? line.parsed : "other",
         responseChars: count(line.responseChars),
+        requestChars: count(line.requestChars),
+        referenceImageCount: count(line.referenceImageCount),
+        ...(options.debug === true ? { debug: true } : {}),
         errorCode: errorCodes.has(line.errorCode ?? "") ? line.errorCode : undefined,
       });
       void mkdir(dirname(filePath), { recursive: true, mode: 0o700 })
