@@ -1,12 +1,14 @@
 name: Windows integrated installer
 
 on:
+  push:
+    tags: ["aivora-desktop-v*"]
   pull_request:
     branches: [codex/aivora-handoff-20261012]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: windows-integrated-installer-${{ github.ref }}
@@ -127,3 +129,25 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+      - name: Publish verified Windows wizard installer to the tag release
+        if: startsWith(github.ref, 'refs/tags/aivora-desktop-v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $package = Join-Path $env:RUNNER_TEMP "aivora-delivery/AIVORA-Setup-0.3.0-win-x64.exe"
+          if (-not (Test-Path $package)) { throw "verified installer is missing" }
+          $hash = (Get-FileHash -Algorithm SHA256 $package).Hash.ToLowerInvariant()
+          "$hash  $([IO.Path]::GetFileName($package))" | Set-Content -Encoding utf8 "$package.sha256"
+          gh release view $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:RELEASE_TAG --verify-tag --title $env:RELEASE_TAG --notes "AIVORA 3j desktop packages. See the branch delivery report for validation and limitations."
+            if ($LASTEXITCODE -ne 0) {
+              gh release view $env:RELEASE_TAG
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          }
+          gh release upload $env:RELEASE_TAG $package "$package.sha256"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

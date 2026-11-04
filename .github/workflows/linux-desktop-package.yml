@@ -1,12 +1,14 @@
 name: Linux desktop package
 
 on:
+  push:
+    tags: ["aivora-desktop-v*"]
   pull_request:
     branches: [codex/aivora-handoff-20261012]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   linux-desktop:
@@ -57,3 +59,15 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+      - name: Publish verified Linux package to the tag release
+        if: startsWith(github.ref, 'refs/tags/aivora-desktop-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          package="$RUNNER_TEMP/AIVORA-Desktop-0.3.0-linux-x64.tar.gz"
+          cd "$(dirname "$package")"
+          sha256sum "$(basename "$package")" > "$(basename "$package").sha256"
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --notes "AIVORA 3j desktop packages. See the branch delivery report for validation and limitations." || gh release view "$RELEASE_TAG"
+          gh release upload "$RELEASE_TAG" "$package" "$package.sha256"
