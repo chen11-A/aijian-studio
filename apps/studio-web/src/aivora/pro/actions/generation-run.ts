@@ -60,7 +60,7 @@ export function applyVideoResponse(
 ) {
   const jobId = `video:${take.id}`;
   const message = typeof data.message === "string" ? data.message : "";
-  const output = typeof data.output_path === "string" ? data.output_path : "";
+  const output = typeof data.output_path === "string" ? data.output_path.trim() : "";
   const preview = typeof data.preview_image === "string" ? data.preview_image : "";
   const reportedRaw = data.duration_seconds;
   const reported =

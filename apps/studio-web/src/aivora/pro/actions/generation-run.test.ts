@@ -247,3 +247,17 @@ it("retains unrelated audio while applying successful narration and measured dur
     }),
   );
 });
+
+it("normalizes surrounding output whitespace once while retaining filename spaces", () => {
+  const { queue } = setup();
+  const shot = queue.film.shots[0]!;
+  const result = applyVideoResponse(queue.film, shot, shot.takes[0]!, {
+    status: "SUCCEEDED",
+    output_path: "  /films/my video.mp4 ",
+  });
+  expect(result.done).toBe(true);
+  expect(result.film.shots[0]?.takes[0]).toMatchObject({
+    videoPath: "/films/my video.mp4",
+    videoUrl: "aivora-media://local/?path=%2Ffilms%2Fmy%20video.mp4",
+  });
+});
