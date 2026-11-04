@@ -1,0 +1,137 @@
+.nx-root .nx-cover-cols {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.nx-root .nx-cover-preview {
+  min-height: 0;
+}
+
+.nx-root .nx-cover-stage {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  gap: 20px;
+  min-height: 0;
+  padding: 16px;
+}
+
+.nx-root .nx-cover-shot {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  container-type: size;
+}
+
+.nx-root .nx-cover {
+  display: grid;
+  place-items: center;
+  container-type: size;
+}
+
+.nx-root .nx-cover-tall {
+  height: min(calc(100cqh - 28px), calc(100cqw * 16 / 9));
+  aspect-ratio: 9 / 16;
+}
+
+.nx-root .nx-cover-wide {
+  width: min(100cqw, calc((100cqh - 28px) * 16 / 9));
+  aspect-ratio: 16 / 9;
+}
+
+.nx-root .nx-cover > img {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.nx-root .nx-cover-words {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 0 8%;
+  text-align: center;
+}
+
+.nx-root .nx-cover-title {
+  font-family: var(--font);
+  font-size: max(18px, 9cqmin);
+  font-weight: 700;
+  letter-spacing: 4px;
+  line-height: 1.4;
+  text-shadow: 0 3px 12px var(--bg);
+  overflow-wrap: anywhere;
+}
+
+.nx-root .nx-cover-title.nx-cover-empty {
+  color: var(--text-3);
+}
+
+.nx-root .nx-cover-sub {
+  color: var(--text-2);
+  font-size: max(12px, 4cqmin);
+  letter-spacing: 2px;
+}
+
+.nx-root .nx-ai-mark {
+  position: absolute;
+  top: 4%;
+  right: 4%;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-radius: var(--r-s);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.nx-root .nx-cover-settings {
+  min-height: 0;
+}
+
+.nx-root .nx-cover-form {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.nx-root .nx-cover-field {
+  display: grid;
+  gap: 6px;
+}
+
+.nx-root .nx-cover-field label {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.nx-root .nx-ai-box {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-cover-warn {
+  color: var(--warn);
+}
+
+.nx-root .nx-cover-foot {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}

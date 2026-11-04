@@ -2,7 +2,7 @@ import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   actionBeats,
   adaptToShortDrama,
@@ -17,7 +17,6 @@ import {
   extractCastOffline,
   chosenExport,
   confirmEstimate,
-  exportSummary,
   filmFileName,
   mergeCast,
   parseCastReply,
@@ -119,9 +118,16 @@ import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
-import { detectDirectorCoverage, directorPlanStatus, shotLines } from "../film/director-continuity";
+import {
+  detectDirectorCoverage,
+  directorPlanStatus,
+  sceneDisplayTitle,
+  shotLines,
+} from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs, runTask } from "../film/task-progress";
+import { TaskCenter } from "../next/TaskCenter";
+import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import {
   dialogueMuted,
   isVoiceFile,
@@ -2644,6 +2650,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const finished = tracked.filter((job) => job.status === "done" || job.status === "failed").length;
   const progress = tracked.length === 0 ? 0 : Math.round((finished / tracked.length) * 100);
 
+  // UI wiring (4A-U04): the live task list for 后台生成 and the task center.
+  const feed = useTaskFeed();
+  const feedNow = feedProgress(feed);
+  // UI wiring (3J-U02): each page opens with its own helper in the assistant. Only a page
+  // change picks it; chooseRole is a new function on every render.
+  useEffect(() => {
+    const helper = PAGE_ROLE[stage];
+    if (helper) chooseRole(helper);
+  }, [stage]);
+
   return (
     <div
       className="pro-root"
@@ -3164,6 +3180,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ? null
                       : (roleCards[role] ?? null)
                   }
+                  qcCard={roleCards.qc ?? null}
                   onRedoRange={() => {
                     setStage("edit");
                     setRange(true);
@@ -3436,13 +3453,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <button className="task" onClick={() => setMenu(menu === "queue" ? null : "queue")}>
             <Ic name="loader" size={12} />
             后台生成：
-            {asking || portraitBusy
+            {asking
               ? "正在问模型"
-              : film && film.jobs.some((job) => job.status === "running" || job.status === "queued")
-                ? `视频 ${film.jobs.filter((job) => job.status === "queued" || job.status === "running").length} 个排队`
-                : "没有正在生成的内容"}
+              : feedNow.active > 0
+                ? `正在做 ${feedNow.active} 个`
+                : portraitBusy
+                  ? "正在出定妆照"
+                  : "没有正在生成的内容"}
             <span className="bar">
-              <i style={{ width: `${progress}%` }} />
+              <i style={{ width: `${feed.tasks.length > 0 ? feedNow.percent : progress}%` }} />
             </span>
           </button>
           <span className="sp" />
@@ -3571,25 +3590,40 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </div>
           </div>
         )}
-        {menu === "queue" && (
-          <div
-            className="menu"
-            style={{ left: 220, bottom: 28, top: "auto" }}
-            role="dialog"
-            aria-label="生成队列"
-          >
-            <button
-              onClick={() => {
-                pauseRef.current = !paused;
-                setPaused((value) => !value);
-                setNotice(paused ? "继续排队。" : "已暂停。已经发出的请求不一定能停。");
+        {menu === "queue" && film ? (
+          <div className="task-back" data-overlay role="dialog" aria-label="后台生成">
+            <div className="task-head">
+              <h2>后台生成</h2>
+              <span className="sp" />
+              <button className="icon-btn" aria-label="关上后台生成" onClick={() => setMenu(null)}>
+                <Ic name="x" size={16} />
+              </button>
+            </div>
+            <TaskCenter
+              title={film.seriesTitle || film.title}
+              tasks={namedTasks(feed.tasks, film)}
+              paused={paused}
+              resumeLabel="继续排队"
+              onPause={() => {
+                pauseRef.current = true;
+                setPaused(true);
+                setNotice("已暂停。已经发出的请求不一定能停。");
               }}
-            >
-              {paused ? "继续排队" : "暂停排队"}
-            </button>
-            <button
-              onClick={() => {
-                const failed = (film?.shots ?? []).filter((item) =>
+              onResume={() => {
+                pauseRef.current = false;
+                setPaused(false);
+                setNotice("继续排队。");
+              }}
+              onRetry={(taskId) => {
+                const job = film.jobs.find((item) => item.id === taskId);
+                const target = film.shots.find((item) => item.id === job?.shotId);
+                if (target) void submitGeneration([target]);
+              }}
+              canRetry={(task) =>
+                film.jobs.some((job) => job.id === task.id && job.kind === "video")
+              }
+              onRetryFailed={() => {
+                const failed = film.shots.filter((item) =>
                   item.takes.some((take) => take.status === "failed"),
                 );
                 if (failed.length === 0) {
@@ -3598,56 +3632,38 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 }
                 void submitGeneration(failed);
               }}
-            >
-              重试失败的
-            </button>
-            {(film?.jobs ?? []).length === 0 && <button>没有正在生成的内容</button>}
-            {(film?.jobs ?? []).map((job) => (
-              <button
-                key={job.id}
-                onClick={() => {
-                  if (!film) return;
-                  if (
-                    job.status === "done" ||
-                    job.status === "failed" ||
-                    job.status === "cancelled"
-                  ) {
-                    cancelledJobs.current.delete(job.id);
-                    return;
-                  }
-                  cancelledJobs.current.add(job.id);
-                  const billed = film.backendProjectId || projectId;
-                  if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
-                    void window.aijian.cancelStoryFilm(billed);
-                  }
-                  setFilm({
-                    ...film,
-                    jobs: film.jobs.map((item) =>
-                      item.id === job.id ? { ...item, status: "cancelled" } : item,
-                    ),
-                  });
-                  setNotice("已取消这一次。已经发出的请求不一定能停。");
-                }}
-              >
-                {job.kind === "video" ? "视频" : "画面"} · 版本 {job.take} ·{" "}
-                {job.status === "blocked"
-                  ? job.reason
-                  : job.status === "done"
-                    ? "好了"
-                    : job.status === "failed"
-                      ? job.reason === "已中断"
-                        ? "已中断"
-                        : "没有成功"
-                      : job.status === "cancelled"
-                        ? "已取消"
-                        : "点此取消"}
-              </button>
-            ))}
+              onRemove={(taskId) => {
+                const job = film.jobs.find((item) => item.id === taskId);
+                if (!job) return;
+                cancelledJobs.current.add(job.id);
+                const billed = film.backendProjectId || projectId;
+                if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
+                  void window.aijian.cancelStoryFilm(billed);
+                }
+                setFilm({
+                  ...film,
+                  jobs: film.jobs.map((item) =>
+                    item.id === job.id ? { ...item, status: "cancelled" } : item,
+                  ),
+                });
+                setNotice("已取消这一次。已经发出的请求不一定能停。");
+              }}
+              canRemove={(task) =>
+                film.jobs.some(
+                  (job) =>
+                    job.id === task.id && (job.status === "queued" || job.status === "running"),
+                )
+              }
+              onOpenStoryboard={() => {
+                setMenu(null);
+                setStage("board");
+              }}
+            />
           </div>
-        )}
+        ) : null}
         {exportOpen && (
           <div className="dialog-back">
-            <div className="dialog" role="dialog" aria-label="导出成片">
+            <div className="dialog export" role="dialog" aria-label="导出成片">
               <h2>导出成片</h2>
               <div className="field">
                 <label>文件名</label>
@@ -3659,70 +3675,86 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               </div>
               <div className="field">
                 <label htmlFor="export-dir">保存到</label>
-                <input
-                  id="export-dir"
-                  className="input"
-                  aria-label="导出文件夹"
-                  title={exportDir}
-                  value={exportDir}
-                  placeholder="点浏览。文件夹选择会打开视频里的 AIVORA"
-                  onChange={(event) => setExportDir(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    const path = event.currentTarget.value.trim();
-                    if (!path) return;
-                    setExportDir(path);
-                    void startExport(path);
-                  }}
-                />
-                <span className="export-path" title={exportDir}>
-                  {middlePath(exportDir)}
-                </span>
-                <button
-                  className="btn sm"
-                  type="button"
-                  onClick={() => {
-                    void window.aijian?.pickFilmFolder?.().then((dir) => {
-                      if (dir) setExportDir(dir);
-                    });
-                  }}
-                >
-                  浏览
-                </button>
+                <div className="pathrow">
+                  {/* The box shows a long path with its middle cut out; typing shows all of it. */}
+                  <div className="pathfield" data-layer title={exportDir}>
+                    <input
+                      id="export-dir"
+                      className="input"
+                      aria-label="导出文件夹"
+                      value={exportDir}
+                      placeholder="点「浏览」选一个文件夹"
+                      onChange={(event) => setExportDir(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        event.preventDefault();
+                        const path = event.currentTarget.value.trim();
+                        if (!path) return;
+                        setExportDir(path);
+                        void startExport(path);
+                      }}
+                    />
+                    {exportDir ? (
+                      <span className="pathshow" aria-hidden="true">
+                        {middlePath(exportDir)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    className="btn sm"
+                    type="button"
+                    onClick={() => {
+                      void window.aijian?.pickFilmFolder?.().then((dir) => {
+                        if (dir) setExportDir(dir);
+                      });
+                    }}
+                  >
+                    浏览
+                  </button>
+                </div>
               </div>
-              <p className="role-desc" data-testid="export-summary">
-                {film ? exportSummary(film) : "还没有作品。"}
+              <p className="export-line" data-testid="export-summary">
+                {film ? exportLine(film) : "还没有作品。"}
               </p>
-              {film && chosenExport(film).missing.length > 0 && (
-                <p className="role-desc">
-                  还没生成：{chosenExport(film).missing.join("、")}。可以只导出已生成的。
-                </p>
-              )}
+              {film && missingByScene(film).length > 0 ? (
+                <details className="missing">
+                  <summary>按场看还没生成的镜头</summary>
+                  <ul>
+                    {missingByScene(film).map((row) => (
+                      <li key={row.id}>
+                        <b>{row.scene}</b>
+                        <span>{row.shots}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+              {partialExport && partialExport.length > 0 ? (
+                <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
+              ) : null}
               <div className="acts">
                 <button className="btn" onClick={() => setExportOpen(false)}>
                   关闭
                 </button>
-                <button
-                  className="btn"
-                  disabled={!exportFile}
-                  title={exportFile ? "打开导出的文件夹" : "还没有导出的文件"}
-                  onClick={() => {
-                    if (exportFile) void window.aijian?.revealFilmPath?.(exportFile);
-                  }}
-                >
-                  打开文件夹
-                </button>
-                <button
-                  className="btn"
-                  disabled={!exportFile}
-                  title={exportFile ? "播放导出的文件" : "还没有导出的文件"}
-                  onClick={() => {
-                    if (exportFile) void window.aijian?.openFilmPath?.(exportFile);
-                  }}
-                >
-                  播放
-                </button>
+                {exportFile ? (
+                  <>
+                    <button
+                      className="btn"
+                      title="打开导出的文件夹"
+                      onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
+                    >
+                      打开文件夹
+                    </button>
+                    <button
+                      className="btn"
+                      title="播放导出的文件"
+                      onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
+                    >
+                      播放
+                    </button>
+                  </>
+                ) : null}
+                <span className="sp" />
                 {partialExport && partialExport.length > 0 && (
                   <button className="btn" onClick={() => void startExport(exportDir, true)}>
                     只导出已生成的
@@ -3743,6 +3775,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     </div>
   );
 }
+
+/** Who the chat can talk to. 提示词 and 审片 run from 分镜 → 属性 → 高级 instead of the chat. */
+const CHAT_ROLES: { id: Role; label: string }[] = [
+  { id: "writer", label: "编剧" },
+  { id: "director", label: "导演" },
+  { id: "action", label: "动作指导" },
+  { id: "performance", label: "表演指导" },
+  { id: "art", label: "美术" },
+];
+const inChat = (role: Role) => CHAT_ROLES.some((item) => item.id === role);
+/** The helper each page starts with: 剧本 the writer, 角色与场景 the art director, 分镜 the director. */
+const PAGE_ROLE: Partial<Record<Stage, Role>> = {
+  script: "writer",
+  cast: "art",
+  board: "director",
+};
 
 function Assistant({
   role,
@@ -3784,8 +3832,12 @@ function Assistant({
   onDismiss?: () => void;
   busy?: boolean;
 }) {
+  const pickId = useId();
   const scenes = role === "writer" ? pendingScenes : null;
   const list = pending ?? [];
+  const talking = CHAT_ROLES.find((item) => item.id === role) ?? CHAT_ROLES[1]!;
+  const chatTurns = turns.filter((item) => inChat(item.role));
+  const lastRole = turns.at(-1)?.role;
   const chips =
     role === "writer"
       ? ["让编剧写", "改成短剧", "导入小说"]
@@ -3795,92 +3847,39 @@ function Assistant({
           ? ["请表演指导看看"]
           : role === "art"
             ? ["请美术定画风"]
-            : role === "prompter"
-              ? ["写这一镜的提示词"]
-              : role === "qc"
-                ? ["请审片看看"]
-                : ["节奏再快些", "加一个特写", "请动作指导看看"];
+            : ["节奏再快些", "加一个特写", "请动作指导看看"];
   return (
     <>
-      {showRoles ? (
-        <div className="roles">
-          <button
-            className={role === "writer" ? "role on" : "role"}
-            onClick={() => onRole("writer")}
-          >
-            <span className="ri">
-              <Ic name="text" size={15} />
-            </span>
-            编剧
-          </button>
-          <button
-            className={role === "director" ? "role on" : "role"}
-            onClick={() => onRole("director")}
-          >
-            <span className="ri">
-              <Ic name="clap" size={15} />
-            </span>
-            导演
-          </button>
-          <button
-            className={role === "action" ? "role on" : "role"}
-            onClick={() => onRole("action")}
-          >
-            <span className="ri">
-              <Ic name="sword" size={15} />
-            </span>
-            动作指导
-          </button>
-          <button
-            className={role === "performance" ? "role on" : "role"}
-            onClick={() => onRole("performance")}
-          >
-            <span className="ri">
-              <Ic name="heart" size={15} />
-            </span>
-            表演指导
-          </button>
-          <button className={role === "art" ? "role on" : "role"} onClick={() => onRole("art")}>
-            <span className="ri">
-              <Ic name="spark" size={15} />
-            </span>
-            美术
-          </button>
-          <button
-            className={role === "prompter" ? "role on" : "role"}
-            onClick={() => onRole("prompter")}
-          >
-            <span className="ri">
-              <Ic name="text" size={15} />
-            </span>
-            提示词
-          </button>
-          <button className={role === "qc" ? "role on" : "role"} onClick={() => onRole("qc")}>
-            <span className="ri">
-              <Ic name="eye" size={15} />
-            </span>
-            审片
-          </button>
-        </div>
-      ) : (
-        <div className="role-desc">新手只看这一位助手。</div>
-      )}
-      <div className="role-desc">
-        {ROLE_COPY[role]}
-        {onToggleRoles ? (
-          <button
-            className="btn sm"
-            type="button"
-            onClick={onToggleRoles}
-            style={{ marginLeft: 8 }}
-          >
-            {showRoles ? "新手" : "切换角色"}
-          </button>
-        ) : null}
+      <div className="role-pick">
+        {showRoles || !onToggleRoles ? (
+          <>
+            <label htmlFor={pickId}>正在和：</label>
+            <select
+              id={pickId}
+              className="input"
+              value={talking.id}
+              title={ROLE_COPY[talking.id]}
+              onChange={(event) => onRole(event.target.value as Role)}
+            >
+              {CHAT_ROLES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <>
+            <span title={ROLE_COPY[talking.id]}>正在和：{talking.label}</span>
+            <button className="btn sm" type="button" onClick={onToggleRoles}>
+              换一位
+            </button>
+          </>
+        )}
       </div>
       <div className="pb chat">
-        {(turns.length > 0
-          ? turns.slice(-8)
+        {(chatTurns.length > 0
+          ? chatTurns.slice(-8)
           : [
               {
                 id: "hint",
@@ -3949,7 +3948,7 @@ function Assistant({
                       </div>
                     ))}
             </div>
-            {structured.length > 0 && (
+            {structured.length > 0 && (!lastRole || inChat(lastRole)) && (
               <div className="shotlist">
                 {structured.map((line) => (
                   <div key={line}>
@@ -4019,15 +4018,7 @@ function Assistant({
           className="ph-t"
           aria-label="跟助手说"
           value={chat}
-          placeholder={`跟${
-            role === "writer"
-              ? "编剧"
-              : role === "action"
-                ? "动作指导"
-                : role === "performance"
-                  ? "表演指导"
-                  : "导演"
-          }说说你的想法… 回车发送，换行用 Shift+回车`}
+          placeholder={`跟${talking.label}说说你的想法… 回车发送，换行用 Shift+回车`}
           onChange={(event) => onChat(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -4041,6 +4032,82 @@ function Assistant({
       </div>
     </>
   );
+}
+
+/** The export summary in one line: 「共 3 场 · 28 个镜头 · 约 149 秒 · 27 个还没生成」. */
+function exportLine(film: FilmProject): string {
+  const seconds = film.shots.reduce((sum, item) => sum + item.seconds, 0);
+  const missing = chosenExport(film).missing.length;
+  const gap = missing === 0 ? "都已生成" : `${missing} 个还没生成`;
+  return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · 约 ${seconds} 秒 · ${gap}`;
+}
+
+/**
+ * The shots the export would leave out, scene by scene: 「第 1 场 雨夜旧书店」 and
+ * 「第 1、2、3 个镜头」. Each shot goes through chosenExport, so the rule is the export's own.
+ */
+function missingByScene(film: FilmProject): { id: string; scene: string; shots: string }[] {
+  return film.scenes.flatMap((scene) => {
+    const numbers = film.shots
+      .filter((item) => item.sceneId === scene.id)
+      .filter((item) => chosenExport({ ...film, shots: [item] }).missing.length > 0)
+      .map((item) => item.no);
+    if (numbers.length === 0) return [];
+    return [
+      {
+        id: scene.id,
+        scene: `第 ${scene.no} 场 ${scene.title}`,
+        shots: `第 ${numbers.join("、")} 个镜头`,
+      },
+    ];
+  });
+}
+
+/** Where the timeline ruler marks fall: every 5 seconds, every 10 past two minutes. */
+function rulerTicks(
+  shots: readonly FilmShot[],
+  clips: readonly { left: number; width: number }[],
+): { seconds: number; left: number }[] {
+  const total = shots.reduce((sum, item) => sum + item.seconds, 0);
+  const step = total > 120 ? 10 : 5;
+  const ticks: { seconds: number; left: number }[] = [];
+  for (let at = 0; at <= total; at += step) {
+    let start = 0;
+    let left = 1;
+    for (const [index, item] of shots.entries()) {
+      const clip = clips[index];
+      if (!clip) break;
+      if (at <= start + item.seconds || index === shots.length - 1) {
+        const part = item.seconds > 0 ? Math.min(1, (at - start) / item.seconds) : 0;
+        left = clip.left + part * clip.width;
+        break;
+      }
+      start += item.seconds;
+    }
+    ticks.push({ seconds: at, left: Math.round(left) });
+  }
+  return ticks;
+}
+
+/** The usual shot lengths; 「自定义」 takes any whole second from 1 to 15. */
+const SECONDS_CHOICES = [2, 3, 4, 5, 6, 10];
+
+/** Who last wrote a shot, for the small mark on its card. 属性 holds the details. */
+function shotSource(shot: FilmShot): { tone: string; label: string } {
+  if (shot.source === "user" || shot.userFields.length > 0) {
+    return { tone: "src-user", label: "你改过" };
+  }
+  if (shot.source === "agent:action") return { tone: "role-a", label: "动作指导写的" };
+  if (shot.source === "agent:performance") return { tone: "role-e", label: "表演指导写的" };
+  if (shot.source.endsWith("director")) return { tone: "role-d", label: "导演写的" };
+  if (shot.source === "template") return { tone: "src-other", label: "来自模板" };
+  return { tone: "src-other", label: "原来就有" };
+}
+
+/** The line under a scene's title in the scene lists: 「内景 · 夜 · 10 镜」. */
+function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
+  const count = shots.filter((item) => item.sceneId === scene.id).length;
+  return [scene.where, count > 0 ? `${count} 镜` : ""].filter(Boolean).join(" · ");
 }
 
 function ScriptPage({
@@ -4135,7 +4202,7 @@ function ScriptPage({
                   {
                     id,
                     no: film.scenes.length + 1,
-                    title: `第 ${film.scenes.length + 1} 场`,
+                    title: sceneDisplayTitle(""),
                     where: "",
                     text: "",
                     ambience: "",
@@ -4160,9 +4227,8 @@ function ScriptPage({
               <span className="no">{String(item.no).padStart(2, "0")}</span>
               <span className="t">
                 {item.title}
-                <small>{item.where}</small>
+                <small>{sceneMeta(item, film.shots)}</small>
               </span>
-              <span className="c" />
             </button>
           ))}
         </div>
@@ -4222,9 +4288,6 @@ function ScriptPage({
         <div className="pb doc">
           <div className="page">
             {current?.where ? <div className="sh">{current.where}</div> : null}
-            <label className="ac" htmlFor="scene-text">
-              这一场
-            </label>
             <textarea
               id="scene-text"
               className="area"
@@ -4274,10 +4337,16 @@ function ScriptPage({
             if (label === "让编剧写" || label === "节奏再快些") onWrite();
             else if (label === "改成短剧" || label === "加一个特写") onAdapt();
             else if (label === "导入小说") onImport();
-            else if (label.includes("动作")) onAction();
-            else if (label.includes("表演")) onPerformance();
-            else if (label.includes("美术")) onArt();
-            else if (label.includes("提示词")) onPrompter();
+            else if (label.includes("动作")) {
+              onRole("action");
+              onAction();
+            } else if (label.includes("表演")) {
+              onRole("performance");
+              onPerformance();
+            } else if (label.includes("美术")) {
+              onRole("art");
+              onArt();
+            } else if (label.includes("提示词")) onPrompter();
             else if (label.includes("审片")) onQc();
             else onSend();
           }}
@@ -4781,6 +4850,7 @@ function BoardPage({
   assistPulse,
   structured,
   card,
+  qcCard = null,
   onRedoRange,
   onDismiss,
 }: {
@@ -4816,20 +4886,29 @@ function BoardPage({
   assistPulse: number;
   structured: string[];
   card: RoleCard | null;
+  /** The last 审片 answer; it shows under 高级, not in the chat. */
+  qcCard?: RoleCard | null;
   onRedoRange: () => void;
   onDismiss: () => void;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
+  const [customSeconds, setCustomSeconds] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const seenAssist = useRef(assistPulse);
+  const lastTurnRole = turns.at(-1)?.role;
   useEffect(() => {
     if (seenAssist.current === assistPulse) return;
     seenAssist.current = assistPulse;
-    setTab("ai");
-  }, [assistPulse]);
+    // 提示词 and 审片 answer under 高级, so their requests keep 属性 open.
+    if (!lastTurnRole || inChat(lastTurnRole)) setTab("ai");
+  }, [assistPulse, lastTurnRole]);
   const current = shots[shot];
   const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
   const focused = shots[shot];
+  const toolNote = turns
+    .filter((item) => (item.role === "prompter" || item.role === "qc") && item.who === "agent")
+    .at(-1)?.text;
   const focusedPrompt = focused?.promptZh || (focused ? keyframePrompt(focused, film) : "");
   const missingLocks = focused
     ? missingIdentityLocks(
@@ -4870,25 +4949,20 @@ function BoardPage({
               <span className="no">{String(item.no).padStart(2, "0")}</span>
               <span className="t">
                 {item.title}
-                <small>{item.where}</small>
-              </span>
-              <span className="c">
-                {film.shots.filter((shotItem) => shotItem.sceneId === item.id).length} 镜
+                <small>{sceneMeta(item, film.shots)}</small>
               </span>
             </button>
           ))}
         </div>
-        <div className="pfoot">
+        <div className="pfoot stack">
           <span>
-            画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b> /{" "}
+            全片：画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b>/
+            {film.shots.length} · 视频{" "}
+            <b>{film.shots.filter((item) => shotProgress(item) === "视频已出").length}</b>/
             {film.shots.length}
-            {" · "}
-            视频 <b>
-              {film.shots.filter((item) => shotProgress(item) === "视频已出").length}
-            </b> / {film.shots.length}
           </span>
           <span>
-            约 <b>{seconds} 秒</b>
+            约 <b>{film.shots.reduce((sum, item) => sum + item.seconds, 0)} 秒</b>
           </span>
         </div>
       </section>
@@ -4937,31 +5011,20 @@ function BoardPage({
               <div className="cb">
                 <div className="ct">
                   镜头 {item.no} <span>{item.size}</span>
+                  <i
+                    className={`src ${shotSource(item).tone}`}
+                    title={shotSource(item).label}
+                    aria-hidden="true"
+                  />
                 </div>
-                <p title={item.picture}>{item.picture}</p>
-                {item.performance ? <p title={item.performance}>{item.performance}</p> : null}
-                <div className="shot-tags">
-                  <span className="tag">
-                    {shotPerson(
-                      item.characters,
-                      item.picture,
-                      film.characters.map((person) => person.name),
-                    )}
-                  </span>
-                  {appearanceMark(
-                    item.promptZh || keyframePrompt(item, film),
-                    item.characters,
-                    film.characters,
-                  ) ? (
-                    <span className="tag">
-                      {appearanceMark(
-                        item.promptZh || keyframePrompt(item, film),
-                        item.characters,
-                        film.characters,
-                      )}
-                    </span>
-                  ) : null}
-                </div>
+                <p className="pic" title={item.picture}>
+                  {item.picture}
+                </p>
+                {item.line.trim() ? (
+                  <p className="line" title={item.line}>
+                    {item.line.split("\n")[0]}
+                  </p>
+                ) : null}
               </div>
             </button>
           ))}
@@ -5003,10 +5066,16 @@ function BoardPage({
             onChat={onChat}
             onSend={onSend}
             onQuick={(label) => {
-              if (label.includes("动作")) onAction();
-              else if (label.includes("表演")) onPerformance();
-              else if (label.includes("美术")) onArt();
-              else if (label.includes("提示词")) onPrompter();
+              if (label.includes("动作")) {
+                onRole("action");
+                onAction();
+              } else if (label.includes("表演")) {
+                onRole("performance");
+                onPerformance();
+              } else if (label.includes("美术")) {
+                onRole("art");
+                onArt();
+              } else if (label.includes("提示词")) onPrompter();
               else if (label.includes("审片")) onQc();
               else onSend();
             }}
@@ -5023,7 +5092,7 @@ function BoardPage({
             </div>
             <div className="pb">
               <div className="field">
-                <div className="row2">
+                <div className="row3">
                   <div>
                     <label>景别</label>
                     <select
@@ -5067,31 +5136,47 @@ function BoardPage({
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label>角度</label>
+                    <div className="input">{current.angle || "平视"}</div>
+                  </div>
                 </div>
               </div>
               <div className="field">
-                <div className="row2">
-                  <div>
-                    <label htmlFor="shot-seconds">时长</label>
-                    <div className="seg" aria-label="时长">
-                      {[2, 3, 4, 5, 6, 10].map((seconds) => (
-                        <button
-                          key={seconds}
-                          type="button"
-                          className={current.seconds === seconds ? "on" : ""}
-                          onClick={() =>
-                            onFilm(
-                              updateShot(film, current.id, {
-                                seconds,
-                                userFields: [...new Set([...current.userFields, "seconds"])],
-                              }),
-                            )
-                          }
-                        >
-                          {seconds} 秒
-                        </button>
-                      ))}
-                    </div>
+                <label htmlFor="shot-seconds">时长（秒）</label>
+                <div className="seg" aria-label="时长">
+                  {SECONDS_CHOICES.map((seconds) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      aria-label={`${seconds} 秒`}
+                      className={!customSeconds && current.seconds === seconds ? "on" : ""}
+                      onClick={() => {
+                        setCustomSeconds(false);
+                        onFilm(
+                          updateShot(film, current.id, {
+                            seconds,
+                            userFields: [...new Set([...current.userFields, "seconds"])],
+                          }),
+                        );
+                      }}
+                    >
+                      {seconds}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={
+                      customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? "on" : ""
+                    }
+                    aria-pressed={customSeconds || !SECONDS_CHOICES.includes(current.seconds)}
+                    onClick={() => setCustomSeconds(true)}
+                  >
+                    自定义
+                  </button>
+                </div>
+                {customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? (
+                  <div className="seconds-box">
                     <input
                       id="shot-seconds"
                       className="input"
@@ -5111,49 +5196,15 @@ function BoardPage({
                         );
                       }}
                     />
-                    <span>{current.seconds} 秒</span>
+                    <span>秒，1 到 15 秒</span>
                   </div>
-                  <div>
-                    <label>角度</label>
-                    <div className="input">{current.angle || "平视"}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="shot-style">画风</label>
-                <select
-                  id="shot-style"
-                  className="input"
-                  aria-label="画风"
-                  value={film.stylePreset}
-                  onChange={(event) => {
-                    const preset =
-                      STYLE_PRESETS.find((item) => item.name === event.target.value) ??
-                      STYLE_PRESETS[0]!;
-                    onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
-                  }}
-                >
-                  {STYLE_PRESETS.map((item) => (
-                    <option key={item.name} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-                <textarea
-                  className="area"
-                  aria-label="这一镜的画风"
-                  style={{ marginTop: 8 }}
-                  placeholder="不写就用整部作品的画风"
-                  value={current.styleNote ?? ""}
-                  onChange={(event) =>
-                    onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
-                  }
-                />
+                ) : null}
               </div>
               <div className="field">
                 <label>画面描述</label>
                 <textarea
                   className="area"
+                  rows={3}
                   aria-label="分镜画面"
                   value={current.picture}
                   onChange={(event) =>
@@ -5175,9 +5226,59 @@ function BoardPage({
                   高级
                 </button>
                 {showEnglish ? (
-                  <p className="role-desc">
-                    {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
-                  </p>
+                  <div className="adv">
+                    <label htmlFor="shot-style-note">这一镜的画风</label>
+                    <textarea
+                      id="shot-style-note"
+                      className="area"
+                      aria-label="这一镜的画风"
+                      placeholder={`不写就用整部作品的画风：${film.stylePreset}`}
+                      value={current.styleNote ?? ""}
+                      onChange={(event) =>
+                        onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
+                      }
+                    />
+                    <p className="role-desc">
+                      {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
+                    </p>
+                    <div className="acts">
+                      <button className="btn sm" type="button" onClick={onPrompter}>
+                        写英文提示词
+                      </button>
+                      <button className="btn sm" type="button" onClick={onQc}>
+                        审一下这一镜的文字
+                      </button>
+                    </div>
+                    {toolNote ? <p className="role-desc">{toolNote}</p> : null}
+                    {qcCard ? (
+                      <div className="bubble">
+                        <div className="h">{qcCard.title}</div>
+                        <div className="shotlist">
+                          {qcCard.rows.map((item) => (
+                            <div key={item.id}>
+                              <span>{item.mark}</span>
+                              <span />
+                              <span title={item.text}>{item.text}</span>
+                              <span />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="acts">
+                          <button className="btn sm" type="button" onClick={onRedoRange}>
+                            按意见重做这一镜
+                          </button>
+                          <button
+                            className="btn sm"
+                            type="button"
+                            disabled={qcCard.applied}
+                            onClick={onDismiss}
+                          >
+                            {qcCard.applied ? "已记下" : "知道了"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
               <div className="field">
@@ -5271,6 +5372,11 @@ function BoardPage({
                       film.characters.map((person) => person.name),
                     )}
                   </span>
+                  {appearanceMark(focusedPrompt, current.characters, film.characters) ? (
+                    <span className="tag">
+                      {appearanceMark(focusedPrompt, current.characters, film.characters)}
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <div className="field">
@@ -5344,35 +5450,91 @@ function BoardPage({
                 )}
               </div>
             </div>
-            <div className="pfoot2">
-              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, -1))}>
-                前移
-              </button>
-              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, 1))}>
-                后移
-              </button>
-              <button
-                className="btn"
-                onClick={() => {
-                  onFilm(removeShot(film, current.id));
-                  onNotice("已删除这一镜。");
-                }}
-              >
-                删除
-              </button>
-              <button
-                className="btn"
-                onClick={onStills}
-                disabled={Boolean(stillProgress[current.id])}
-              >
-                {stillProgress[current.id] || "生成画面"}
-              </button>
-              <button className="btn" type="button" onClick={onFour}>
-                {fourArmed && current && fourArmed === current.id ? "确认这 4 张" : "出 4 张候选"}
-              </button>
-              <button className="btn primary" onClick={onGenerate}>
-                生成视频
-              </button>
+            <div className="pfoot2 one">
+              <div className="more-wrap">
+                <button
+                  className="btn"
+                  type="button"
+                  aria-label="更多操作"
+                  aria-expanded={moreOpen}
+                  onClick={() => setMoreOpen((open) => !open)}
+                >
+                  更多
+                </button>
+                {moreOpen ? (
+                  <div className="menu up" role="menu" aria-label="这一镜的更多操作">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        onFilm(moveShot(film, current.id, -1));
+                      }}
+                    >
+                      前移
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        onFilm(moveShot(film, current.id, 1));
+                      }}
+                    >
+                      后移
+                    </button>
+                    {fourArmed !== current.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoreOpen(false);
+                          onFour();
+                        }}
+                      >
+                        出 4 张候选
+                      </button>
+                    ) : null}
+                    {shotProgress(current) !== "未生成" ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(stillProgress[current.id])}
+                        onClick={() => {
+                          setMoreOpen(false);
+                          onStills();
+                        }}
+                      >
+                        重新生成画面
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        onFilm(removeShot(film, current.id));
+                        onNotice("已删除这一镜。");
+                      }}
+                    >
+                      删除这一镜
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              {fourArmed === current.id ? (
+                <button className="btn" type="button" onClick={onFour}>
+                  确认这 4 张
+                </button>
+              ) : null}
+              {stillProgress[current.id] ? (
+                <button className="btn primary" type="button" disabled>
+                  {stillProgress[current.id]}
+                </button>
+              ) : shotProgress(current) === "未生成" ? (
+                <button className="btn primary" type="button" onClick={onStills}>
+                  生成画面
+                </button>
+              ) : (
+                <button className="btn primary" type="button" onClick={onGenerate}>
+                  生成视频
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -5767,6 +5929,25 @@ function EditPage({
   );
   const scoreClip = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
   const musicGain = scoreClip?.gainDb ?? -14;
+  const dialogueGain =
+    film.audioClips.find((clip) => clip.lane === "dialogue" && clip.path)?.gainDb ?? 0;
+  const trackWidth = Math.max(0, ...clips.map((clip) => clip.left + clip.width)) + 48;
+  const importMusic = (
+    <label className="btn sm">
+      导入音乐
+      <input
+        type="file"
+        accept="audio/*,.mp3,.wav"
+        hidden
+        aria-label="导入音乐"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onImportMusic(file);
+        }}
+      />
+    </label>
+  );
   const mix = previewMix({
     joined: Boolean(film.assemblyUrl),
     voice: fileMediaUrl(voiceClip?.path),
@@ -6018,7 +6199,12 @@ function EditPage({
                 回到分镜重新生成
               </button>
             </div>
-            <p className="role-desc">{LOUDNESS_NOTE}</p>
+            <p className="role-desc hint">
+              有台词时，导出会把配乐压低
+              <span className="q" role="img" aria-label="说明" title={LOUDNESS_NOTE}>
+                ?
+              </span>
+            </p>
           </div>
         )}
       </section>
@@ -6061,6 +6247,12 @@ function EditPage({
               剪掉
             </button>
             <span className="sp" />
+            {current ? (
+              <button className="btn sm" type="button" onClick={onRangeGenerate}>
+                只重做这一段
+              </button>
+            ) : null}
+            {importMusic}
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
             </button>
@@ -6092,6 +6284,8 @@ function EditPage({
             <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
               <Ic name="redo" />
             </button>
+            <span className="sp" />
+            {importMusic}
           </div>
         )}
         <div className="tbody">
@@ -6127,6 +6321,17 @@ function EditPage({
                 <button type="button" aria-label="单听配音" onClick={() => onSolo?.("dialogue")}>
                   单听
                 </button>
+                <input
+                  aria-label="配音音量"
+                  title={`配音音量 ${dbToVolumePercent(dialogueGain)}`}
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={dbToVolumePercent(dialogueGain)}
+                  onChange={(event) =>
+                    onLane?.("dialogue", volumePercentToDb(Number(event.target.value)))
+                  }
+                />
               </span>
             </div>
             <div className="th" style={{ height: "var(--ha)" }}>
@@ -6151,6 +6356,7 @@ function EditPage({
                 </button>
                 <input
                   aria-label="音乐音量"
+                  title={`音乐音量 ${dbToVolumePercent(musicGain)}`}
                   type="range"
                   min={0}
                   max={100}
@@ -6163,139 +6369,121 @@ function EditPage({
             </div>
           </div>
           <div className="tracks">
-            <div className="ruler">
-              {[0, 0.5, 1].map((part, index) => {
-                const total = shots.reduce((sum, item) => sum + item.seconds, 0);
-                return (
-                  <span key={part} style={{ left: index * 160 }}>
-                    {clock(total * part)}
+            <div className="track-area" style={{ width: trackWidth }}>
+              <div className="ruler">
+                {rulerTicks(shots, clips).map((tick) => (
+                  <span key={tick.seconds} style={{ left: tick.left }}>
+                    {clock(tick.seconds)}
                   </span>
-                );
-              })}
-            </div>
-            <div className="lane" style={{ height: "var(--hs)" }}>
-              {cues.map((cue) => {
-                const clip = clips.find((item) => item.id === cue.id);
-                if (!clip) return null;
-                return (
-                  <div
-                    key={cue.id}
-                    className="clip s"
-                    style={{ left: clip.left, width: clip.width }}
-                  >
-                    <span className="tx">{cue.text}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="lane" style={{ height: "var(--hv)" }}>
-              {clips.map((clip, index) => {
-                const ready = shots[index]?.takes.some((take) => take.status === "done");
-                return (
-                  <button
-                    key={clip.id}
-                    className={ready ? "clip v" : "clip v empty"}
-                    style={{ left: clip.left, width: clip.width }}
-                    onClick={() => {
-                      onShot(index);
-                      onPickClip();
-                    }}
-                  >
-                    <span className="lb">
-                      {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="lane" style={{ height: "var(--ha)" }}>
-              {film.audioClips
-                .filter((item) => item.lane === "dialogue" && item.path)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="clip a"
-                    data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
-                    style={{
-                      left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-                      width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
-                    }}
-                  >
-                    <span className="tx">{item.label || "配音"}</span>
-                  </div>
                 ))}
-            </div>
-            <div className="lane" style={{ height: "var(--ha)" }}>
-              {film.audioClips
-                .filter((item) => item.lane === "score" && item.path)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="clip m"
-                    style={{
-                      left: 1,
-                      width: Math.max(
-                        48,
-                        clips.reduce((sum, clip) => sum + clip.width, 0),
-                      ),
-                    }}
-                  >
-                    <span className="tx">
-                      导入的音乐
-                      {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
-                    </span>
-                  </div>
-                ))}
-              <label className="btn sm" style={{ position: "absolute", right: 8, top: 4 }}>
-                导入音乐
-                <input
-                  type="file"
-                  accept="audio/*,.mp3,.wav"
-                  hidden
-                  aria-label="导入音乐"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (file) onImportMusic(file);
-                  }}
-                />
-              </label>
-            </div>
-            {range && current ? (
-              <button
-                className="btn sm"
-                type="button"
-                style={{ position: "absolute", right: 8, bottom: 8 }}
-                onClick={onRangeGenerate}
-              >
-                只重做这一段
-              </button>
-            ) : null}
-            {range && span && clips[span.from] && clips[span.to] && (
-              <div
-                className="range"
-                style={{
-                  left: clips[Math.min(span.from, span.to)]!.left,
-                  width:
-                    clips[Math.max(span.from, span.to)]!.left +
-                    clips[Math.max(span.from, span.to)]!.width -
-                    clips[Math.min(span.from, span.to)]!.left,
-                }}
-              >
-                <span className="h l">入 {clock(start)}</span>
-                <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
               </div>
-            )}
-            <div
-              className="playhead"
-              style={{
-                left:
-                  (selected?.left ?? 1) +
-                  (current && current.seconds > 0
-                    ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
-                    : 0),
-              }}
-            />
+              <div className="lane" style={{ height: "var(--hs)" }}>
+                {cues.length === 0 ? <span className="lane-empty">这一轨还没有内容</span> : null}
+                {cues.map((cue) => {
+                  const clip = clips.find((item) => item.id === cue.id);
+                  if (!clip) return null;
+                  return (
+                    <div
+                      key={cue.id}
+                      className="clip s"
+                      style={{ left: clip.left, width: clip.width }}
+                    >
+                      <span className="tx">{cue.text}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="lane" style={{ height: "var(--hv)" }}>
+                {clips.map((clip, index) => {
+                  const ready = shots[index]?.takes.some((take) => take.status === "done");
+                  return (
+                    <button
+                      key={clip.id}
+                      className={ready ? "clip v" : "clip v empty"}
+                      style={{ left: clip.left, width: clip.width }}
+                      onClick={() => {
+                        onShot(index);
+                        onPickClip();
+                      }}
+                    >
+                      <span className="lb">
+                        {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="lane" style={{ height: "var(--ha)" }}>
+                {film.audioClips.some((item) => item.lane === "dialogue" && item.path) ? null : (
+                  <span className="lane-empty">这一轨还没有内容</span>
+                )}
+                {film.audioClips
+                  .filter((item) => item.lane === "dialogue" && item.path)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="clip a"
+                      data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
+                      style={{
+                        left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
+                        width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
+                      }}
+                    >
+                      <span className="tx">{item.label || "配音"}</span>
+                    </div>
+                  ))}
+              </div>
+              <div className="lane" style={{ height: "var(--ha)" }}>
+                {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
+                  <span className="lane-empty">这一轨还没有内容</span>
+                )}
+                {film.audioClips
+                  .filter((item) => item.lane === "score" && item.path)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="clip m"
+                      style={{
+                        left: 1,
+                        width: Math.max(
+                          48,
+                          clips.reduce((sum, clip) => sum + clip.width, 0),
+                        ),
+                      }}
+                    >
+                      <span className="tx">
+                        导入的音乐
+                        {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              {range && span && clips[span.from] && clips[span.to] && (
+                <div
+                  className="range"
+                  style={{
+                    left: clips[Math.min(span.from, span.to)]!.left,
+                    width:
+                      clips[Math.max(span.from, span.to)]!.left +
+                      clips[Math.max(span.from, span.to)]!.width -
+                      clips[Math.min(span.from, span.to)]!.left,
+                  }}
+                >
+                  <span className="h l">入 {clock(start)}</span>
+                  <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
+                </div>
+              )}
+              <div
+                className="playhead"
+                style={{
+                  left:
+                    (selected?.left ?? 1) +
+                    (current && current.seconds > 0
+                      ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
+                      : 0),
+                }}
+              />
+            </div>
           </div>
         </div>
       </section>

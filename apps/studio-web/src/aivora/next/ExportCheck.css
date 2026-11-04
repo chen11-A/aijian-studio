@@ -1,0 +1,177 @@
+.nx-root.nx-export {
+  gap: 12px;
+}
+
+.nx-root .nx-export-head {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nx-root .nx-export-head h1 {
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nx-root .nx-export-cols {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.nx-root .nx-export-issues {
+  min-height: 0;
+}
+
+.nx-root .nx-export-list {
+  flex: 1 1 auto;
+}
+
+.nx-root .nx-export-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nx-root .nx-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.nx-root .nx-dot.nx-err {
+  background: var(--err);
+}
+
+.nx-root .nx-dot.nx-warn {
+  background: var(--warn);
+}
+
+.nx-root .nx-issue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nx-root .nx-issue-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nx-root .nx-issue-h {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nx-root .nx-issue-h strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nx-root .nx-issue-fix {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.nx-root .nx-issue-where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.nx-root .nx-adv {
+  min-width: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.nx-root .nx-adv > summary {
+  width: max-content;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.nx-root .nx-adv-rows {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-adv-rows > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.nx-root .nx-adv-rows dt {
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+.nx-root .nx-adv-rows dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nx-root .nx-export-state {
+  display: grid;
+  flex: 1 1 auto;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+
+.nx-root .nx-export-side {
+  min-height: 0;
+}
+
+.nx-root .nx-export-facts {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 12px;
+}
+
+.nx-root .nx-fact {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nx-root .nx-export-foot {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
