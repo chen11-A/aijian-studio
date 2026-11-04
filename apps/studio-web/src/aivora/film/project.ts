@@ -67,6 +67,8 @@ const PROMPTS: Record<AgentId, string> = {
 
 export type FilmJob = {
   id: string;
+  takeId?: string;
+  interruptedFrom?: "queued" | "running";
   shotId: string;
   kind: "video" | "keyframe" | "portrait";
   take: number;
@@ -101,6 +103,7 @@ export type FilmStill = {
 };
 
 export type FilmTake = {
+  interruptedFrom?: "queued" | "running";
   lipSync?: LipSyncState;
   lipSyncReason?: string;
   id: string;
@@ -799,12 +802,26 @@ export function interruptStaleWork(film: FilmProject): { film: FilmProject; inte
     film: {
       ...film,
       jobs: film.jobs.map((job) =>
-        pending(job.status) ? { ...job, status: "failed", reason: "已中断" } : job,
+        pending(job.status)
+          ? {
+              ...job,
+              interruptedFrom: job.status as "queued" | "running",
+              status: "failed",
+              reason: "已中断",
+            }
+          : job,
       ),
       shots: film.shots.map((shot) => ({
         ...shot,
         takes: shot.takes.map((take) =>
-          pending(take.status) ? { ...take, status: "failed", reason: "已中断，可以重试。" } : take,
+          pending(take.status)
+            ? {
+                ...take,
+                interruptedFrom: take.status as "queued" | "running",
+                status: "failed",
+                reason: "已中断，可以重试。",
+              }
+            : take,
         ),
       })),
     },

@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { sampleFilm, interruptStaleWork } from "./project";
+import {
+  prepareVideoQueue,
+  setVideoTaskState,
+  videoTaskTarget,
+  cancelVideoTask,
+} from "./generation-queue";
+
+function emptyFilm() {
+  const film = sampleFilm();
+  return {
+    ...film,
+    jobs: [],
+    shots: film.shots.slice(0, 2).map((shot) => ({ ...shot, takes: [], selectedTakeId: "" })),
+  };
+}
+
+describe("persisted video queue", () => {
+  it("resumes the same unsent versions across scenes without resending interrupted running work", () => {
+    const film = emptyFilm();
+    const prepared = prepareVideoQueue(film, film.shots, 2, false);
+    const ids = prepared.film.shots.flatMap((shot) => shot.takes.map((take) => take.id));
+    const running = setVideoTaskState(prepared.film, ids[0]!, "running");
+    const disk = JSON.parse(JSON.stringify(interruptStaleWork(running).film));
+    expect(disk.shots[0].takes[0].interruptedFrom).toBe("running");
+    expect(disk.shots[0].takes[1].interruptedFrom).toBe("queued");
+    const resumed = prepareVideoQueue(disk, disk.shots, 4, true);
+    expect(resumed.groups.flatMap((group) => group.takes.map((take) => take.id))).toEqual(
+      ids.slice(1),
+    );
+    expect(resumed.film.shots.flatMap((shot) => shot.takes.map((take) => take.id))).toEqual(ids);
+    expect(resumed.film.shots[0]!.takes[0]!.status).toBe("failed");
+    expect(new Set(resumed.film.jobs.map((job) => job.id)).size).toBe(resumed.film.jobs.length);
+  });
+  it("cancels by exact version or job id without cancelling adjacent versions", () => {
+    const film = emptyFilm();
+    const next = prepareVideoQueue(film, film.shots.slice(0, 1), 2, false).film;
+    const take = next.shots[0]!.takes[1]!;
+    expect(videoTaskTarget(next, `video:${take.id}`)?.take.id).toBe(take.id);
+    const cancelled = cancelVideoTask(next, take.id);
+    expect(cancelled.film.shots[0]!.takes.map((item) => item.status)).toEqual(["queued", "failed"]);
+    expect(cancelled.film.jobs[1]!.status).toBe("cancelled");
+    expect(
+      prepareVideoQueue(cancelled.film, cancelled.film.shots, 1, true).groups[0]!.takes,
+    ).toHaveLength(1);
+    expect(videoTaskTarget(next, "unknown")).toBeNull();
+  });
+});

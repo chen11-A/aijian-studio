@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { sampleFilm } from "../film/project";
+import { sampleFilm, type FilmProject } from "../film/project";
 import { ProWorkspace } from "./ProWorkspace";
 
 const PROJECT_ID = `prj_${"a".repeat(32)}`;
@@ -309,14 +309,39 @@ describe("professional workspace", () => {
     expect(await screen.findByText("生成中")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /点此取消/ }));
     expect(screen.getByText(/已取消这一次/)).toBeInTheDocument();
-    release({
-      data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
+    await act(async () => {
+      release({
+        data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
+      });
     });
     fireEvent.click(screen.getByRole("button", { name: "暂停排队" }));
     fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText(/已暂停。点继续再生成剩下的/)).toBeInTheDocument();
+    const saved = () =>
+      vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    const before = saved().shots.flatMap((row) => row.takes.map((take) => take.id));
+    const queued = saved()
+      .shots.flatMap((row) => row.takes)
+      .filter((take) => take.status === "queued");
+    expect(queued.length).toBeGreaterThan(0);
+    const sent = createStoryFilm.mock.calls.length;
+    createStoryFilm.mockResolvedValue({
+      data: { status: "SUCCEEDED", output_path: "/tmp/resumed.mp4" },
+    });
+    if (!screen.queryByRole("button", { name: "继续排队" }))
+      fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
+    fireEvent.click(screen.getByRole("button", { name: "继续排队" }));
+    await waitFor(() => expect(createStoryFilm).toHaveBeenCalledTimes(sent + queued.length));
+    await waitFor(() =>
+      expect(
+        saved()
+          .shots.flatMap((row) => row.takes)
+          .filter((take) => take.status === "done"),
+      ).toHaveLength(queued.length),
+    );
+    expect(saved().shots.flatMap((row) => row.takes.map((take) => take.id))).toEqual(before);
   }, 20_000);
 
   it("refuses a draft the catalog does not list and a page without a project", async () => {
@@ -878,7 +903,7 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     expect(await screen.findByText(/声音关着/)).toBeInTheDocument();
     fireEvent.click(stageTab("剧本"));
     fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-    expect(await screen.findByText(/停在分镜。点继续才出视频/)).toBeInTheDocument();
+    expect(await screen.findByText(/台词或结尾未覆盖，请补齐/)).toBeInTheDocument();
     expect(stageTab("分镜").className.split(/\s+/)).toContain("on");
   } finally {
     window.Audio = RealAudio;
@@ -1706,7 +1731,7 @@ it("continues one-click storyboarding and retries the director into shots", asyn
   });
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-  expect(await screen.findByText(/停在分镜。点继续才出视频/)).toBeInTheDocument();
+  expect(await screen.findByText(/台词或结尾未覆盖，请补齐/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "继续" }));
   expect(await screen.findByRole("button", { name: "开始生成" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "先不生成" }));
@@ -1957,7 +1982,7 @@ it("turns a long realistic reply into shots, cast, and performance", async () =>
   );
   fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "林雨在雨里停下。" } });
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-  expect(await screen.findByText(/停在分镜。点继续才出视频/)).toBeInTheDocument();
+  expect(await screen.findByText(/台词或结尾未覆盖，请补齐/)).toBeInTheDocument();
   expect(screen.getAllByText(/林雨/).length).toBeGreaterThan(0);
   expect(document.body.textContent).toContain("第1镜");
   expect(document.body.textContent).toContain("抓紧伞");

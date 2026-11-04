@@ -374,3 +374,29 @@ describe("Grok text calls", () => {
     expect(GrokTextFailure).toBeTruthy();
   });
 });
+
+it("bounds waiting for response headers by the total timeout and aborts fetch", async () => {
+  vi.useFakeTimers();
+  try {
+    let signal: AbortSignal | undefined;
+    const fetch = vi.fn((_url: unknown, init: RequestInit) => {
+      signal = init.signal ?? undefined;
+      return new Promise<Response>(() => undefined);
+    });
+    const result = completeGrokText(fetch as unknown as Fetch, {
+      accessToken: "token",
+      model: "grok-4",
+      text: "scene",
+      limits: { idleMs: 100, totalMs: 1000 },
+    }).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await result).toMatchObject({ code: "TEXT_TIMEOUT" });
+    expect(signal?.aborted).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});

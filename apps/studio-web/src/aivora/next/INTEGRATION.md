@@ -219,3 +219,20 @@ QC schema 对照 `gpt/aivora-qc@7c0eea58b218456f59d1f3ba93eddc791fdad894` 实际
 `completeMembershipAgent` 将绝对截止时间传到 `completeText`，监听 AbortSignal 并调用 `cancelText(idempotencyKey)`；桌面进程在异步准备前登记请求，按该标识取消，避免误停其他请求。现有无参数取消入口保持取消最新文本请求的行为，不改界面。桌面 HTTP 层使用剩余时限，原有响应头超时保护保持有效。
 
 C6 `CoverInput` 仅为输入契约。`aiMark` 对应未来媒体接口的 `aiLabel`；title/subtitle/backgroundUrl 保留用户输入，未选背景不制造占位图。该类型没有实现 `createCovers`、裁切、封面生成或导出接线。上述本次修改遵照用户要求不运行测试、lint、类型检查，不等待CI。
+
+## 3j 排队恢复与跨页建议（本轮已提供）
+
+本轮按用户更新指示恢复后端自测。上文“未经测试”是历史状态，新增验证范围见 `apps/verification/p3j/backend-followup.md`，不代表真实会员端到端验收。
+
+- `film/generation-queue.ts`：视频 job 新增 `takeId`，稳定任务 ID 为 `video:${take.id}`。队列先保存所有待发送版本，再逐个转 running 并保存，最后才请求供应商。按 ID 结算，不能按镜头中的第一个任务结算。
+- `interruptStaleWork` 保存 `interruptedFrom`。`canResumeTake` / `resumeQueuedFilm` 只恢复 queued 或 interruptedFrom=queued 的版本，复用原 ID、序号及用户选择；running 后中断的版本不自动重发。没有可靠供应商查询接口，`canLookUp` 仍应为 false，不能虚称“已找回”或“供应商没有此任务”。
+- `submitGeneration(undefined, true)` 续做全部未发出的版本。现有 `pauseRef=false; setPaused(false)` 回调由业务 effect 接续，不需要 Claude 重写生成流程；同一作品同时只跑一轮。首帧准备或保存过程中暂停仍保留队列。取消未发送的版本后不会被续做复活。
+- `videoTaskTarget(film, id)` 接受精确任务 ID 或版本 ID；`cancelVideoTask(film, id)` 返回 `{film,running,jobId}`，供界面应用状态并调用现有取消桥接。单个失败版本“重试”接线仍需与 Claude 的回调对齐，不能声称 Claude 分支已接入此 helper。
+- `useScopedSuggestions` 提供会话内缓存（最多20个作用域），按作品、页面、场次、输入版本隔离，缓存 roleCards、未写入结果、结构化回复和对话。回到原页面恢复；输入变化不显示旧建议，写入后清除。`cache` 与快照 `origin={projectId,page,sceneId}` 可供 Claude 做跨页待处理提示；此轮不增加 JSX 标记，也不持久化建议到磁盘。
+- 既有 image/voice/export 任务封装已提供，并非需要4b才可订阅；完整4a流水线、供应商任务找回、4b封面/混音/口型执行均未实现。C6封面仅保留类型。
+
+### Claude 分支只读核对
+
+核对 `claude/aivora-ui@3af1dbf37296a1d6d81bf2ae89835e3045b82f9e`，与本分支共同祖先为79e126d。该分支尚不含1dac5b3的编辑竞争保护及a9b53ca的总体截止/取消修复；后续整合必须同时保留业务逻辑和Claude渲染，不可整文件覆盖 ProWorkspace 或本说明。此轮未合并任何分支、未修改Claude JSX/CSS。
+
+`49c0d93ba1bfb96ee6e27e20ea78663dc0bff7de` 的 next 树确有42个文件；交付分布在72dc12c、8636e0f、781f8f6、7221105、a267d93、c463fc7、8148051、4735ee1、49c0d93九个提交，49c0d93本身只改README/index。未来经授权整合应保留完整历史，不能只摘最后一个提交。两个Library ZIP此前下载受限，未取得原始字节；远端树检查不能替代ZIP SHA-256核验，因此不宣称已原样导入ZIP。

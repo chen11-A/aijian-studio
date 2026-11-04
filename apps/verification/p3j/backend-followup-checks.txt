@@ -1,0 +1,13 @@
+2026-11-04 backend follow-up, based on a9b53ca
+
+PASS (exit 0): pnpm --filter @aijian/studio-web exec tsc -b --pretty false
+PASS (exit 0): pnpm --filter @aijian/desktop typecheck
+PASS (exit 0): pnpm exec eslint [changed TS/TSX files]
+PASS (exit 0): pnpm exec prettier --check [changed source and Markdown files]
+Checking formatting...
+All matched files use Prettier code style!
+
+PASS (exit 0): git diff --check
+
+Targeted suites: studio-web 6 files / 73 tests; desktop 3 files / 16 tests.
+No full-suite coverage report or live provider validation in this follow-up.

@@ -175,3 +175,52 @@ it("does not write a late assembled cut into another project", async () => {
     window.aijian = previous;
   }
 });
+
+it("shares one deadline across the retry and aborts a request still awaiting headers", async () => {
+  vi.useFakeTimers();
+  try {
+    const controls: { deadlineAt: number; signal: AbortSignal }[] = [];
+    const pending = retryDirectorTimeout(
+      async (control) => {
+        controls.push(control);
+        if (controls.length === 1) return { text: null, detail: "", code: "TEXT_STALLED" };
+        return new Promise(() => undefined);
+      },
+      vi.fn(),
+      undefined,
+      { totalMs: 1000 },
+    );
+    await vi.advanceTimersByTimeAsync(999);
+    expect(controls).toHaveLength(2);
+    expect(controls[0]!.deadlineAt).toBe(controls[1]!.deadlineAt);
+    expect(controls[1]!.signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect((await pending).code).toBe("TEXT_TIMEOUT");
+    expect(controls[1]!.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("propagates cancellation without retrying or leaving deadline timers", async () => {
+  vi.useFakeTimers();
+  try {
+    const controller = new AbortController();
+    let signal: AbortSignal | undefined;
+    const request = vi.fn((control: { signal: AbortSignal }) => {
+      signal = control.signal;
+      return new Promise<never>(() => undefined);
+    });
+    const pending = retryDirectorTimeout(request, vi.fn(), undefined, {
+      signal: controller.signal,
+    });
+    controller.abort();
+    expect((await pending).code).toBe("TEXT_CANCELLED");
+    expect(signal?.aborted).toBe(true);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});

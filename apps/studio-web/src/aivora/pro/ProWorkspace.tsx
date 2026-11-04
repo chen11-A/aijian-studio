@@ -74,7 +74,6 @@ import {
   type FilmProject,
   type FilmScene,
   type FilmShot,
-  type FilmTake,
 } from "../film/project";
 import {
   actionFromModel,
@@ -104,6 +103,17 @@ import { useGrokAccount, useGrokConnected, useGrokDenied } from "../grok-auth/us
 import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
 import { Ic } from "./icons";
 import "./pro.css";
+import {
+  failRunningVideoTasks,
+  pruneCancelledJobs,
+  canResumeTake,
+  prepareVideoQueue,
+  generationTargets,
+  setVideoTaskState,
+  cancelVideoTask,
+  videoQueueInterruption,
+} from "../film/generation-queue";
+import { useScopedSuggestions } from "./use-scoped-suggestions";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
 import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
@@ -113,7 +123,6 @@ import { detectDirectorCoverage, directorPlanStatus, shotLines } from "../film/d
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs, runTask } from "../film/task-progress";
 import {
-  settleNextJob,
   dialogueMuted,
   isVoiceFile,
   assistantInputVersion,
@@ -466,11 +475,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const pauseRef = useRef(false);
   const stopRef = useRef(false);
   const runToken = useRef(0);
+  const generationRuns = useRef(new Set<string>());
+  const resumeGenerationRef = useRef<() => void>(() => undefined);
+  const wasPaused = useRef(paused);
+  useEffect(() => {
+    const resume = wasPaused.current && !paused;
+    wasPaused.current = paused;
+    if (resume) resumeGenerationRef.current();
+  }, [paused]);
   const cancelledJobs = useRef(new Set<string>());
   const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
   const openShotRef = useRef("");
   const artDraft = useRef<FilmProject | null>(null);
+  const suggestionSnapshot = {
+    origin: { projectId: film?.id ?? "", page: stage, sceneId: scene },
+    roleCards,
+    pending,
+    pendingRole,
+    pendingScenes,
+    pendingRetry,
+    structured,
+    turns,
+    art: artDraft.current,
+  };
+
   const [historyTick, setHistoryTick] = useState(0);
   const actions = videoActions(modelIds);
 
@@ -565,6 +594,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       if (timer) window.clearTimeout(timer);
     };
   }, [film]);
+
+  const queueProject = film?.id ?? "";
+  useEffect(() => {
+    const current = filmRef.current;
+    const queued =
+      current?.id === queueProject && current.shots.some((row) => row.takes.some(canResumeTake));
+    pauseRef.current = Boolean(queued);
+    setPaused(Boolean(queued));
+  }, [queueProject]);
 
   useEffect(() => {
     window.aijian?.onFlush?.(() => {
@@ -1195,19 +1233,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setStructured([]);
   }
 
-  useEffect(() => {
-    setRoleCards({});
-    setAsking(false);
-    writing.current = false;
-    artDraft.current = null;
-    setPending(null);
-    setPendingRole(null);
-    setPendingScenes(null);
-    setPendingRetry(null);
-    setStructured([]);
-    setTurns([]);
-    turnsRef.current = [];
-  }, [assistantScope]);
+  const { clear: clearSuggestion } = useScopedSuggestions(
+    assistantScope,
+    suggestionSnapshot,
+    (cached) => {
+      setRoleCards(cached?.roleCards ?? {});
+      setAsking(false);
+      writing.current = false;
+      artDraft.current = cached?.art ?? null;
+      setPending(cached?.pending ?? null);
+      setPendingRole(cached?.pendingRole ?? null);
+      setPendingScenes(cached?.pendingScenes ?? null);
+      setPendingRetry(cached?.pendingRetry ?? null);
+      setStructured(cached?.structured ?? []);
+      setTurns(cached?.turns ?? []);
+      turnsRef.current = cached?.turns ?? [];
+    },
+  );
 
   function publishCard(nextRole: Role, card: RoleCard) {
     if (assistantScope !== scopeRef.current) return;
@@ -1215,6 +1257,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function markApplied(nextRole: Role) {
+    clearSuggestion();
     setRoleCards((prev) => ({ ...prev, [nextRole]: undefined }));
     setPending(null);
     setPendingRole(null);
@@ -2227,24 +2270,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function submitGeneration(targets?: FilmShot[]) {
+  async function submitGeneration(targets?: FilmShot[], resume = false) {
+    const id = filmRef.current?.id;
+    if (!id || generationRuns.current.has(id)) return;
+    generationRuns.current.add(id);
+    try {
+      await runGeneration(targets, resume);
+    } finally {
+      generationRuns.current.delete(id);
+    }
+  }
+  resumeGenerationRef.current = () => {
+    if (filmRef.current?.shots.some((row) => row.takes.some(canResumeTake)))
+      void submitGeneration(undefined, true);
+  };
+
+  async function runGeneration(targets?: FilmShot[], resume = false) {
     const mine = ++runToken.current;
     stopRef.current = false;
     let live = filmRef.current ?? film;
-    if (live) {
-      for (const id of [...cancelledJobs.current]) {
-        const job = live.jobs.find((item) => item.id === id);
-        if (!job || (job.status !== "running" && job.status !== "queued")) {
-          cancelledJobs.current.delete(id);
-        }
-      }
-    }
     if (!live) return;
+    pruneCancelledJobs(live, cancelledJobs.current);
     const generationProject = live.id;
     const valid = () => filmRef.current?.id === generationProject && runToken.current === mine;
-    const selected = (targets ?? [shownShots[shot] ?? live.shots[0]]).filter(
-      (item): item is FilmShot => Boolean(item),
-    );
+    const selected = generationTargets(live, targets, resume, shownShots[shot]);
     if (selected.length === 0) {
       setNotice("先在剧本里拆镜头。");
       return;
@@ -2263,6 +2312,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
     if (!canSubmit) {
+      if (resume) {
+        setNotice(blocked);
+        return;
+      }
       applyLive({
         ...live,
         jobs: [
@@ -2273,98 +2326,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(blocked);
       return;
     }
-    let next = live;
-    const groups = selected.map((item) => {
-      const fresh: FilmTake[] = Array.from({ length: versions }, (_, index) => ({
-        id: crypto.randomUUID(),
-        shotId: item.id,
-        index: item.takes.length + index + 1,
-        status: "running",
-        stillUrl: "",
-        videoPath: "",
-        videoUrl: "",
-        prompt: item.picture,
-        createdAt: new Date().toISOString(),
-        reason: "",
-      }));
-      next = replaceTakes(
-        next,
-        item.id,
-        [...item.takes, ...fresh],
-        item.selectedTakeId || fresh[0]?.id || "",
+    const prepared = prepareVideoQueue(live, selected, versions, resume);
+    const next = prepared.film;
+    const groups = prepared.groups;
+    const queueStopped = () => {
+      const interrupted = videoQueueInterruption(
+        filmRef.current ?? next,
+        stopRef.current,
+        pauseRef.current,
       );
-      return { shot: item, takes: fresh, hadTakes: item.takes.length > 0 };
-    });
-    next = {
-      ...next,
-      jobs: [
-        ...next.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
-        ...jobs.map((job) => ({ ...job, status: "running" as const })),
-      ],
+      if (!interrupted) return false;
+      applyLive(interrupted.film);
+      setNotice(interrupted.notice);
+      return true;
     };
     applyLive(next);
     try {
+      await saveFilm(next);
+      if (!valid()) return;
       for (const group of groups) {
         for (let index = 0; index < group.takes.length; index += 1) {
           const take = group.takes[index]!;
-          const jobId = `${group.shot.id}-video-${index + 1}`;
+          const jobId = `video:${take.id}`;
           if (!valid()) return;
           const current = filmRef.current ?? next;
-          if (!valid()) return;
           if (cancelledJobs.current.has(jobId)) {
-            const latest = filmRef.current ?? current;
-            const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
-              (item) =>
-                item.id === take.id
-                  ? { ...item, status: "failed" as const, reason: "已取消" }
-                  : item,
-            );
-            applyLive(
-              replaceTakes(
-                latest,
-                group.shot.id,
-                takes,
-                latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "",
-              ),
-            );
+            applyLive(cancelVideoTask(current, take.id).film);
             continue;
           }
-          if (stopRef.current || runToken.current !== mine) {
-            const latest = filmRef.current ?? current;
-            const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
-              (item) =>
-                item.status === "running"
-                  ? { ...item, status: "failed" as const, reason: "已取消" }
-                  : item,
-            );
-            applyLive(
-              replaceTakes(
-                latest,
-                group.shot.id,
-                takes,
-                latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "",
-              ),
-            );
-            setNotice("已取消。还没开始的镜头不再生成。");
-            return;
-          }
-          if (pauseRef.current) {
-            const queued = group.takes.slice(index).map((item) => item.id);
-            applyLive(
-              replaceTakes(
-                current,
-                group.shot.id,
-                (current.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
-                  (item) =>
-                    queued.includes(item.id)
-                      ? { ...item, status: "queued", reason: "已暂停。点继续再生成剩下的。" }
-                      : item,
-                ),
-              ),
-            );
-            setNotice("已暂停。点继续再生成剩下的。");
-            return;
-          }
+          if (queueStopped()) return;
           const targetShot = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
           const shotNow = await ensureShotFrame(current, targetShot, {
             current: () => filmRef.current,
@@ -2372,27 +2362,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             apply: applyLive,
           });
           if (!valid()) return;
-          const body = storyFilmBatches(filmRef.current ?? current, [shotNow], current.draft)[0];
+          const liveBeforeSend = filmRef.current ?? current;
+          if (cancelledJobs.current.has(jobId)) {
+            applyLive(cancelVideoTask(liveBeforeSend, take.id).film);
+            continue;
+          }
+          if (queueStopped()) return;
+          const dispatched = setVideoTaskState(liveBeforeSend, take.id, "running");
+          applyLive(dispatched);
+          await saveFilm(dispatched);
+          if (!valid()) return;
+          if (cancelledJobs.current.has(jobId) || stopRef.current) {
+            applyLive(cancelVideoTask(filmRef.current ?? dispatched, take.id).film);
+            if (queueStopped()) return;
+            continue;
+          }
+          if (pauseRef.current) {
+            applyLive(setVideoTaskState(filmRef.current ?? dispatched, take.id, "queued"));
+            queueStopped();
+            return;
+          }
+          const body = storyFilmBatches(dispatched, [shotNow], current.draft)[0];
           const response = await bridge!.createStoryFilm!(billingProject, {
             ...body!,
             regenerate: index > 0 || group.hadTakes,
           });
           if (!valid()) return;
           if (cancelledJobs.current.has(jobId)) {
-            const after = filmRef.current ?? current;
-            const dropped = (
-              after.shots.find((item) => item.id === group.shot.id)?.takes ?? []
-            ).map((item) =>
-              item.id === take.id ? { ...item, status: "failed" as const, reason: "已取消" } : item,
-            );
-            applyLive(
-              replaceTakes(
-                after,
-                group.shot.id,
-                dropped,
-                after.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "",
-              ),
-            );
+            applyLive(cancelVideoTask(filmRef.current ?? current, take.id).film);
             continue;
           }
           const data = response.data ?? {};
@@ -2471,7 +2468,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               saved = updateShot(saved, group.shot.id, { seconds: shown });
             }
           }
-          saved = settleNextJob(saved, group.shot.id, done ? "done" : "failed");
+          saved = {
+            ...saved,
+            jobs: saved.jobs.map((job) =>
+              job.id === jobId
+                ? {
+                    ...job,
+                    status: done ? ("done" as const) : ("failed" as const),
+                    reason: message,
+                  }
+                : job,
+            ),
+          };
           applyLive(saved);
           if (done && group.shot.id === openShotRef.current) setPlaying(true);
           setNotice((current) =>
@@ -2491,24 +2499,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           ? error.message
           : "没有生成成功，可以重试。";
       const latest = filmRef.current ?? next;
-      let failed = latest;
-      for (const group of groups) {
-        failed = replaceTakes(
-          failed,
-          group.shot.id,
-          (failed.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map((item) =>
-            item.status === "running" ? { ...item, status: "failed", reason } : item,
-          ),
-        );
+      applyLive(failRunningVideoTasks(latest, groups, reason));
+      if (latest.shots.some((row) => row.takes.some(canResumeTake))) {
+        pauseRef.current = true;
+        setPaused(true);
       }
-      applyLive({
-        ...failed,
-        jobs: failed.jobs.map((job) =>
-          job.status === "running" || job.status === "queued"
-            ? { ...job, status: "failed" as const }
-            : job,
-        ),
-      });
       setNotice(reason);
     }
   }
