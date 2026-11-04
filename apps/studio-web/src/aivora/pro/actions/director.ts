@@ -37,9 +37,10 @@ export type DirectorRequestHost = {
 export async function requestDirectorDraft(
   input: ReturnType<typeof directorRequestInput>,
   host: DirectorRequestHost,
+  instruction = "把这一场拆成镜头",
 ) {
   const reply = await retryDirectorTimeout(
-    (control) => host.request("director", input.context, "把这一场拆成镜头", control),
+    (control) => host.request("director", input.context, instruction, control),
     host.progress,
     host.notify,
     { current: host.current },

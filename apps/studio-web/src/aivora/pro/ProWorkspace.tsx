@@ -1,20 +1,21 @@
+import { retryDirectorDraft } from "./actions/director-retry";
 import { historyCheckpoint } from "./actions/history-checkpoint";
-import {
-  prepareArtTransaction,
-  applyArtTransaction,
-  type ArtTransaction,
-} from "./actions/art-transaction";
 import {
   captureBookImportInput,
   prepareBookImport,
   applyBookImportSource,
   bookImportInputUnchanged,
 } from "./actions/book-import";
+import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
 import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
 import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
-import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
-import { captureReviewInput, applyTextReview } from "../film/review-report";
+import {
+  prepareArtTransaction,
+  applyArtTransaction,
+  type ArtTransaction,
+} from "./actions/art-transaction";
 import { generateShotStill } from "./actions/shot-still";
+import { captureReviewInput, applyTextReview } from "../film/review-report";
 import { createEditorPageHistory } from "./actions/page-history";
 import { createEditorHost } from "./actions/editor-host";
 import type { EditorSuggestion } from "./actions/editor-changes";
@@ -92,7 +93,6 @@ import {
   keyframePrompt,
   interruptStaleWork,
   newEpisode,
-  parseDirectorShots,
   sampleFilm,
   offlineShots,
   textModel,
@@ -1172,44 +1172,36 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!job) return;
     setPendingRetry(null);
     const turn = pushTurn(job.role, "再问一次");
+    const base = filmRef.current;
+    const scope = scopeRef.current;
+    const valid = () =>
+      isTurnCurrent(turn) && filmRef.current?.id === base?.id && scopeRef.current === scope;
     try {
-      const reply = await completeAgent(job.role, job.context, job.instruction);
-      if (!isTurnCurrent(turn)) return;
-      if (job.role === "director" && film) {
+      if (job.role === "director" && base) {
         const sceneId =
-          film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
-        if (!isTurnCurrent(turn)) return;
-        const parsed = reply.text
-          ? parseDirectorShots(
-              reply.text,
-              sceneId,
-              film.scenes.find((item) => item.id === sceneId)?.text ?? "",
-              film.scenes.map((item) => ({
-                id: item.id,
-                title: item.title,
-                where: item.where,
-                text: item.text,
-              })),
-            )
-          : null;
-        if (parsed) {
-          const ready = await completeDirectorPlan(film, sceneId, parsed, () =>
-            isTurnCurrent(turn),
-          );
-          if (!isTurnCurrent(turn)) return;
-          setPending(ready);
+          base.scenes.find((item) => item.id === scene)?.id ?? base.scenes[0]?.id ?? "scene-1";
+        const result = await retryDirectorDraft(base, sceneId, job, {
+          request: completeAgent,
+          progress: setNotice,
+          notify: emitNotice,
+          current: valid,
+          enrich: completeDirectorPlan,
+        });
+        if (!valid() || result.kind === "stale") return;
+        if (result.kind === "ready") {
+          setPending(result.shots);
           setPendingRole("director");
           finishTurn(
             turn,
             `导演拆好了。点「写入分镜」才会写入。${supplementWarnings.current.join(" ")}`,
           );
-          return;
-        }
+        } else finishTurn(turn, `${result.detail} 没有写入镜头。`);
+        return;
       }
-      const failed = reply.detail || "模型没有按格式返回。";
-      finishTurn(turn, `${failed} 没有写入镜头。`);
+      const reply = await completeAgent(job.role, job.context, job.instruction);
+      if (valid()) finishTurn(turn, `${reply.detail || "模型没有按格式返回。"} 没有写入镜头。`);
     } catch {
-      finishTurn(turn, "这次没有写完。没有写入镜头。");
+      if (valid()) finishTurn(turn, "这次没有写完。没有写入镜头。");
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
