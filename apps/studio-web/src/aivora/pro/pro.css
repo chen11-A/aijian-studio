@@ -3352,3 +3352,13 @@ body:has(.pro-root) {
   gap: 8px;
   margin-bottom: 8px;
 }
+
+/* 3J-U18: a line before the destructive item of a menu, which is written in the warning color. */
+.pro-root .menu .menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+.pro-root .menu button.danger {
+  color: var(--err);
+}

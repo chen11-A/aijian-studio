@@ -151,9 +151,9 @@ import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
 import { useStatusNotice } from "../next/wiring/statusNotice";
+import { useDismiss } from "../next/wiring/dismiss";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
-import { useDismiss } from "../next/wiring/dismiss";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
 import { HomeStart, type Aspect } from "../next/HomeStart";
 import { PipelineSteps } from "../next/PipelineSteps";
@@ -2844,6 +2844,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
   // past messages are listed in the task center.
   const status = useStatusNotice(notice);
+  // 3J-U18: the 作品 and 账号 menus close on Esc or a press outside them.
+  useDismiss(menu === "project", () => setMenu(null), '[data-menu="project"]');
+  useDismiss(menu === "account", () => setMenu(null), '[data-menu="account"]');
   // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
   // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
   const openSaved = (id: string) => {
@@ -2935,6 +2938,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <span className="vsep" />
             <button
               className="proj"
+              data-menu="project"
               aria-label="作品"
               onClick={() => {
                 const opening = menu !== "project";
@@ -2971,7 +2975,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <Ic name="redo" />
             </button>
             {menu === "project" && (
-              <div className="menu" role="menu" aria-label="作品菜单">
+              <div className="menu" role="menu" aria-label="作品菜单" data-menu="project">
                 <button
                   onClick={() => {
                     const next = blankFilm();
@@ -3216,6 +3220,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
             <button
               className="avatar"
+              data-menu="account"
               aria-label="账号"
               onClick={() => setMenu(menu === "account" ? null : "account")}
             >
@@ -3226,7 +3231,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
             </button>
             {menu === "account" && (
-              <div className="menu" role="menu" aria-label="账号菜单">
+              <div className="menu" role="menu" aria-label="账号菜单" data-menu="account">
                 {signingIn && (
                   <button
                     onClick={() => {
@@ -5537,6 +5542,10 @@ function BoardPage({
   const sceneKey = `${film.id}:${activeSceneId}`;
   const repair = useCoverageRepair(sceneKey, () => onFixCoverage(activeSceneId));
   const sceneRow = film.scenes.find((item) => item.id === activeSceneId);
+  // 3J-U18: 「更多」 closes on Esc, a press outside, choosing an item, or another shot.
+  useDismiss(moreOpen, () => setMoreOpen(false), ".more-wrap");
+  const shownShotId = current?.id ?? "";
+  useEffect(() => setMoreOpen(false), [shownShotId]);
   // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
   // does not run the check again on every edit.
   const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
@@ -6277,8 +6286,10 @@ function BoardPage({
                         重新生成画面
                       </button>
                     ) : null}
+                    <div className="menu-sep" role="separator" />
                     <button
                       type="button"
+                      className="danger"
                       onClick={() => {
                         setMoreOpen(false);
                         onFilm(removeShot(film, current.id));
