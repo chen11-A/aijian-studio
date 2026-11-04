@@ -1,3 +1,4 @@
+import { planWriterDraft, writerDraftInput, type WriterDraftResult } from "./actions/writer";
 import { planActionDraft } from "./actions/action";
 import { planPerformanceDraft } from "./actions/performance";
 import { planPrompterDraft } from "./actions/prompter";
@@ -18,7 +19,6 @@ import { deleteCurrentFilm } from "./delete-workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
 import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
-  adaptToShortDrama,
   addShot,
   applyScenes,
   clipLayout,
@@ -35,7 +35,6 @@ import {
   parseCastReply,
   extractBookText,
   LOUDNESS_NOTE,
-  offlineScreenplay,
   numberedScript,
   parseWriterScenes,
   sceneNeedsSource,
@@ -94,7 +93,6 @@ import {
   missingIdentityLocks,
   parseLooseJson,
   qcFromModel,
-  scenesEchoRequest,
   SHOT_SIZES,
   shotPerson,
   speechSeconds,
@@ -1534,49 +1532,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planWriter(kind: "write" | "adapt") {
     if (!film) return;
-    const story =
-      film.scenes
-        .map((item) => item.text)
-        .filter(Boolean)
-        .join("\n") || film.title;
-    const idea = chat.trim() || story;
-    const asked =
-      chat.trim() || (kind === "adapt" ? "把现有内容改成短剧" : "按地点和时间把现有剧本分成几场");
+    const input = writerDraftInput(film, kind, chat);
     const scope = scopeRef.current;
-    const turn = pushTurn("writer", asked);
+    const turn = pushTurn("writer", input.asked);
     setPendingScenes(null);
-    let scenes: FilmScene[] | null = null;
-    let text = "没有登录，已用离线编剧。点「放入剧本」才会写入。";
+    let result: WriterDraftResult;
     try {
-      if (!connected) {
-        scenes = kind === "adapt" ? adaptToShortDrama(idea, 60) : offlineScreenplay(idea, 60);
-        text =
-          kind === "adapt" ? "没有登录，已按大约 60 秒收成短剧。点「放入剧本」才会写入。" : text;
-      }
-      const reply = await completeAgent(
-        "writer",
-        `画风：${film.styleZh}\n目标大约 60 秒。\n原文段落：\n${numberedScript(story)}`,
-        `${kind === "adapt" ? "把原文改成短剧" : "写成短剧，按地点和时间分场"}，保留全部台词与结尾。${chat.trim()}`,
-      );
-      if (reply.text) {
-        const parsed = parseWriterScenes(reply.text, story);
-        const echo = parsed ? scenesEchoRequest(parsed, asked) : false;
-        if (parsed && !echo) {
-          scenes = parsed;
-          text = "编剧写好了。点「放入剧本」才会写入。";
-        } else if (connected) {
-          scenes = null;
-          text = echo
-            ? "模型把请求原文当成了结果，这次没有改剧本。"
-            : "模型没有按格式返回，这次没有改剧本。";
-        }
-      } else if (connected) {
-        scenes = null;
-        text = `${reply.detail} 这次没有改剧本。`;
-      }
-    } catch {
-      scenes = null;
-      text = "编剧请求失败，没有改动剧本，可以重试。";
+      result = await planWriterDraft(input, { connected, request: completeAgent });
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
@@ -1584,6 +1546,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }
     }
     if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
+    const { scenes, notice: text } = result;
     setPendingScenes(scenes);
     if (scenes) {
       publishCard("writer", {
@@ -1601,7 +1564,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       });
     }
     finishTurn(turn, text);
-    noteAgent("writer", scenes && connected ? "scenes" : connected ? "rejected" : "offline", text);
+    noteAgent("writer", result.event, text);
   }
 
   function applyPendingScenes() {

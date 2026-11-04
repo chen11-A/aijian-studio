@@ -3284,3 +3284,36 @@ it("keeps a hand-edited shot when a late prompter request returns", async () => 
       ),
   ).toBe(false);
 });
+
+it("discards a late writer proposal after changing assistant scope", async () => {
+  const { completeText } = installDesktop();
+  const saved = sampleFilm();
+  saved.backendProjectId = PROJECT_ID;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(saved);
+  window.localStorage.setItem("aivora.film.activeId", saved.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await waitFor(() =>
+    expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
+  );
+  let resolve!: (reply: { kind: "OK"; text: string }) => void;
+  completeText.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  pickHelper("编剧");
+  fireEvent.click(screen.getByRole("button", { name: "让编剧写" }));
+  await waitFor(() => expect(resolve).toBeDefined());
+  fireEvent.click(stageTab("角色与场景"));
+  await act(async () => {
+    resolve({
+      kind: "OK",
+      text: JSON.stringify({ scenes: [{ title: "迟到编剧场次", text: saved.scenes[0]!.text }] }),
+    });
+  });
+  fireEvent.click(stageTab("剧本"));
+  expect(screen.queryByRole("button", { name: "放入剧本" })).not.toBeInTheDocument();
+  expect(screen.queryByText("迟到编剧场次")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "让导演拆镜头" })).not.toBeDisabled();
+});
