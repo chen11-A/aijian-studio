@@ -1,5 +1,7 @@
 # AIVORA phase3j 验证记录
 
+> 历史记录：新版任务书已替换原要求，services 等范围已获授权；当前差异与状态以 [替换版任务核对](delivery.md) 为准。本文原先的“待授权”描述仅记录当时情况。
+
 基线：`aivora-desktop-v0.3.0-phase3i` → `6efe12d411d5764277d9b1064d8bc2f83bfd0710`。
 修复分支：`gpt/aivora-p3j`。只读审阅 `gpt/audit-p3i` / `f9734de083ae5c2bca73342fb64782269854f74e`，未合并审计分支。
 

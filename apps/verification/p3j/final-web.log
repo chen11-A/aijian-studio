@@ -1,0 +1,297 @@
+
+ RUN  v4.1.10 /workspace/aijian-studio/apps/studio-web
+      Coverage enabled with v8
+
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+
+ Test Files  218 passed (218)
+      Tests  3150 passed (3150)
+   Start at  10:35:36
+   Duration  505.94s (transform 5.59s, setup 35.90s, import 20.80s, tests 263.91s, environment 133.74s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   90.07 |    86.47 |   91.26 |   92.83 |
+ build             |   91.52 |    93.33 |   85.71 |   90.38 |
+  ...CoreAssets.ts |   91.52 |    93.33 |   85.71 |   90.38 | 63,123-133
+ src               |   92.85 |    93.29 |   95.45 |   95.55 |
+  ...evelopment.ts |   94.87 |    81.25 |     100 |     100 | 101-104,125
+  ...on-journal.ts |   97.14 |    97.01 |     100 |     100 | 62,66
+  ...on-journal.ts |   85.71 |    91.89 |    87.5 |   86.66 | ...56,184,189,196
+  ...sion-cache.ts |   93.33 |     90.9 |     100 |     100 | 16
+ src/aivora        |   89.04 |    85.55 |   89.31 |   91.64 |
+  ...mmarySeed.tsx |   96.77 |    97.29 |     100 |     100 | 38
+  ...dioEditor.tsx |    92.1 |    92.55 |    92.3 |   94.11 | 67,155
+  ...andidates.tsx |   83.01 |    78.22 |   81.25 |   88.54 | ...49,202,225-229
+  ...iaPreview.tsx |      88 |    89.06 |     100 |   93.33 | 47-48,100
+  ...tTimebase.tsx |   83.72 |    84.84 |     100 |    87.5 | 55-56,60-61,66
+  ...nessPanel.tsx |   92.78 |     92.4 |     100 |   96.59 | 91,175-176
+  ...rovenance.tsx |    91.3 |    91.07 |      90 |      90 | 134-140
+  ...eferences.tsx |   96.96 |    91.95 |     100 |   96.66 | 75
+  ...tleEditor.tsx |   91.89 |    88.13 |     100 |   95.65 | 162-163,267
+  ...yTimeline.tsx |   86.45 |    86.41 |   77.14 |   91.04 | ...77,300-317,383
+  ...ackEditor.tsx |   88.73 |    86.66 |    92.3 |   94.73 | 78,103,318
+  ...versation.tsx |   91.48 |     92.3 |   93.75 |      95 | 81-82
+  ...tantPanel.tsx |     100 |    84.09 |     100 |     100 | 35-43,57,109,118
+  ...antStatus.tsx |   96.66 |    91.66 |     100 |     100 | 18,29,50,115,128
+  ...TaskQueue.tsx |   88.88 |    81.81 |   83.33 |   88.88 | 29
+  ...ssetProbe.tsx |     100 |    95.65 |     100 |     100 | 28,81
+  ...rCostumes.tsx |    86.2 |    76.92 |     100 |      92 | 18-19
+  ...acterPage.tsx |   91.21 |    89.06 |   95.19 |    92.3 | ...45,333,487,563
+  ...nceAssets.tsx |      80 |    86.84 |   85.71 |   83.33 | 36-37,82
+  ...ncePicker.tsx |     100 |    93.33 |     100 |     100 | 76
+  ...cePreview.tsx |   93.75 |     86.2 |   88.88 |    97.5 | 100
+  ...ceRecords.tsx |   77.77 |    70.27 |   66.66 |      75 | 93-99
+  ...tionships.tsx |      75 |    72.72 |      80 |   74.19 | 27,30-31,113-119
+  ...sagePanel.tsx |     100 |    94.44 |     100 |     100 | 44
+  Common.tsx       |    93.1 |    94.73 |   96.15 |   94.93 | 245-246,259,393
+  ...paceFrame.tsx |   97.43 |    95.23 |   89.47 |     100 | 58,196
+  DemoApp.tsx      |   72.22 |    67.23 |   65.95 |   73.19 | ...81,545,584-585
+  ...portPanel.tsx |    93.2 |    93.17 |     100 |   96.75 | ...62,211,296,423
+  ...ediaPanel.tsx |   82.09 |    86.85 |   80.95 |   84.61 | ...29,239,334-348
+  ...rtHistory.tsx |     100 |    70.83 |     100 |     100 | 44,58,85-99
+  ...ortOutput.tsx |   94.56 |    94.28 |   82.35 |   96.25 | 174-176
+  ...portPanel.tsx |   92.85 |     92.1 |   83.33 |   91.66 | 35
+  ...avigation.tsx |     100 |    83.33 |     100 |     100 | 23
+  ...wNoteList.tsx |   94.11 |    78.26 |     100 |   93.33 | 88
+  ...viewNotes.tsx |      80 |    83.95 |    87.5 |   87.75 | 80,94-95,139-156
+  ...sionPlans.tsx |   87.33 |    83.19 |   91.22 |   89.51 | ...83,310-330,530
+  ...nPlayback.tsx |   82.43 |    86.56 |   88.88 |   86.56 | ...07,115,149-150
+  ...viewScope.tsx |     100 |    83.33 |     100 |     100 | 33
+  ...stFixtures.ts |   42.85 |      100 |   42.85 |   42.85 | 22-23,40-41,52-55
+  ...Workspace.tsx |    87.5 |    91.42 |      75 |   85.71 | 84-89
+  ...stFixtures.ts |   81.48 |    55.55 |   73.68 |      80 | 144-151
+  Dropdown.tsx     |   97.14 |    92.85 |     100 |     100 | 33
+  ...eferences.tsx |   83.33 |    86.88 |   83.33 |   83.33 | 37-38,50,190-196
+  ...mblyPanel.tsx |   91.66 |    89.57 |   89.47 |   92.85 | ...81-285,377,472
+  ...iptEditor.tsx |    85.2 |    84.57 |   92.85 |   88.45 | ...-943,1220-1223
+  ...oardPanel.tsx |   75.28 |     75.4 |   79.48 |   77.92 | ...29,273,350-351
+  ...iceChoice.tsx |    90.9 |      100 |     100 |   90.47 | 20,29
+  ...tantPanel.tsx |   96.15 |    88.46 |   95.55 |   96.96 | 90,270
+  HomePages.tsx    |    85.2 |    83.29 |   79.76 |   88.41 | ...23,896-908,936
+  Icon.tsx         |     100 |    66.66 |     100 |     100 | 52
+  Inspector.tsx    |   81.89 |    76.04 |   79.06 |   83.01 | ...77-587,633-677
+  ...Inspector.tsx |    97.5 |     82.6 |     100 |     100 | ...8,60,79,97-103
+  ...viewPanel.tsx |   94.94 |    91.81 |   94.87 |   98.44 | 364,389-390,596
+  ...stFixtures.ts |   95.45 |       75 |     100 |   95.45 | 33
+  ...iveEditor.tsx |   85.05 |    90.64 |   89.74 |   88.88 | ...11,284-285,404
+  ...extFields.tsx |      75 |      100 |      75 |      75 | 52-72
+  ...datePanel.tsx |   84.69 |       80 |   90.32 |   87.95 | ...80,306,394,407
+  ...ssetProbe.tsx |     100 |    87.03 |     100 |     100 | 27,71,84,119-130
+  MediaPages.tsx   |   87.69 |    87.46 |   85.51 |   89.51 | ...1327,1371-1372
+  ...tionPanel.tsx |   85.98 |    76.28 |   93.18 |   89.79 | ...15,337-338,490
+  ...nWorkflow.tsx |   95.45 |      100 |   88.88 |   94.11 | 60
+  ...nSettings.tsx |     100 |    93.75 |     100 |     100 | 21
+  ...viewPanel.tsx |   96.21 |    92.85 |   95.83 |   96.89 | 114,182,204,240
+  ...lyPreview.tsx |   92.68 |     87.5 |     100 |    92.5 | 68,94-95
+  ...ativePage.tsx |   21.42 |       25 |   16.66 |   27.27 | 17-82
+  ...raftPages.tsx |   41.66 |    82.05 |   22.22 |   41.66 | 39,68-92
+  ...VoicePage.tsx |   33.33 |       75 |   14.28 |   33.33 | 17-44
+  ...ationForm.tsx |   73.68 |    84.44 |   81.81 |   73.68 | 21-24,55
+  ...nputProof.tsx |     100 |    88.88 |     100 |     100 | 38
+  ...anPreview.tsx |     100 |    66.66 |     100 |     100 | 81-99
+  ...osalPanel.tsx |   89.47 |    91.39 |     100 |     100 | ...8-57,67-68,120
+  ...osalPanel.tsx |   63.15 |    88.15 |   66.66 |   63.15 | 44-47,75,103,124
+  ...Inspector.tsx |   85.71 |    66.66 |      75 |   83.33 | 29
+  ProjectCosts.tsx |   96.96 |    91.66 |   94.11 |     100 | 12-19,130
+  ...ngsEditor.tsx |    94.9 |       90 |     100 |   99.48 | 52
+  ...onPreview.tsx |   92.59 |    93.44 |   83.33 |   91.66 | 157-159
+  ...onHistory.tsx |   93.75 |       98 |    87.5 |    93.1 | 122,154
+  ...AndAssets.tsx |   91.43 |    84.49 |    90.9 |    93.4 | ...-958,1230-1238
+  ...eVariants.tsx |   89.36 |    78.26 |     100 |   90.24 | 39,61-62,179
+  ...ctHistory.tsx |   79.16 |    83.33 |      75 |    81.6 | ...64,180-183,296
+  ...adthrough.tsx |      75 |       50 |      75 |      75 | 26
+  ...eneBlocks.tsx |   96.96 |    75.86 |     100 |     100 | 7-41,58-65,81
+  Select.tsx       |   95.52 |    86.36 |     100 |   99.09 | 69
+  SettingsPage.tsx |   85.39 |    83.07 |   88.46 |   88.99 | ...29-630,634-635
+  ...FilmGuide.tsx |   91.11 |     84.1 |   96.87 |   94.95 | ...68,389,402,548
+  ...salReview.tsx |    74.5 |    86.32 |   72.72 |   79.06 | ...,91-92,213-247
+  ...hotEditor.tsx |   98.11 |    91.66 |     100 |     100 | 51,80,141
+  ...tionPanel.tsx |   87.12 |    87.16 |    92.5 |   91.35 | ...34,520,709-748
+  StoryPages.tsx   |    86.5 |    84.95 |   83.47 |   88.12 | ...1621,1673-1726
+  ...lyPreview.tsx |   92.85 |     91.8 |     100 |      95 | 72-73
+  ...rBindings.tsx |   87.27 |     78.4 |   95.23 |   88.23 | 35-50,91,178
+  ...haracters.tsx |   72.72 |    70.58 |   66.66 |      80 | 41,47
+  ...tBindings.tsx |   93.33 |    96.84 |      95 |   97.36 | 101
+  ...ingFields.tsx |    87.5 |       75 |     100 |     100 | 36-39
+  ...erencePin.tsx |   94.44 |    94.01 |     100 |      98 | 125
+  ...eferences.tsx |   82.14 |     82.5 |     100 |   87.75 | 92,191-198
+  ...xtPreview.tsx |    92.5 |    94.44 |     100 |   91.42 | 37,83-84
+  ...lBiblePin.tsx |   89.47 |     89.1 |   83.33 |    90.9 | ...11,132,181-184
+  ...spaceView.tsx |   61.53 |    76.74 |   54.54 |    61.4 | ...99-268,329-339
+  ...anagement.tsx |   92.67 |     87.3 |   96.66 |   96.98 | 190-195,361-363
+  ...Readiness.tsx |   97.36 |    88.46 |     100 |     100 | 36-38,55,89,104
+  ...Workbench.tsx |   96.22 |    88.19 |   97.77 |   99.29 | 8
+  UserChip.tsx     |   93.93 |       90 |   91.66 |   96.66 | 36
+  UtilityPages.tsx |   68.64 |    74.79 |   69.81 |   71.15 | ...13,296,331-346
+  ...ageViewer.tsx |    98.1 |    88.46 |     100 |     100 | ...49,172,300,392
+  ...Inspector.tsx |   84.37 |    68.42 |     100 |   87.09 | 47,61,75-76
+  ...bleEditor.tsx |   78.12 |    75.75 |   72.46 |   73.75 | ...25,366,473-567
+  ...leHistory.tsx |   92.68 |    91.07 |     100 |   94.73 | 49-50
+  ...opeEditor.tsx |   92.85 |    82.05 |   94.73 |    92.3 | 91,157
+  VisualPages.tsx  |   83.67 |    65.78 |      80 |    87.5 | 132-133,174-201
+  WorldPage.tsx    |   95.65 |    78.57 |    90.9 |   95.23 | 112
+  ...Selection.tsx |   98.03 |       95 |     100 |     100 | ...27,248-254,290
+  model.tsx        |   90.76 |    82.24 |      96 |   92.57 | ...1527,1546-1547
+  ...le-project.ts |   89.65 |    79.16 |     100 |   92.59 | 46-47
+  shot-plan.ts     |   96.66 |    78.57 |     100 |     100 | 128-153
+  ...enceImpact.ts |   98.38 |    93.82 |     100 |   98.27 | 114
+  ...line-model.ts |   96.29 |    97.05 |     100 |     100 | 37
+  ...nversation.ts |   90.45 |    81.87 |   92.59 |   94.17 | ...39-340,351-357
+  ...acterUsage.ts |   95.12 |    88.88 |     100 |   94.59 | 58-59
+  ...mblyScript.ts |   93.02 |       94 |   88.88 |    92.3 | 58,60,80
+  ...iveLibrary.ts |   97.03 |    95.34 |     100 |   99.18 | 39
+  ...rentObject.ts |   93.02 |     93.5 |   81.81 |    92.5 | 61-63
+  ...aftExports.ts |    91.3 |    88.19 |     100 |   94.32 | ...30-131,139,229
+  ...raftReview.ts |   86.51 |       82 |     100 |   90.24 | ...,64-66,132-133
+  ...ewRevision.ts |   86.61 |    80.95 |     100 |   87.96 | ...31-235,247-250
+  ...isionInput.ts |   86.48 |    54.54 |   85.71 |    87.5 | 49,54-56
+  ...wWorkspace.ts |   82.85 |    82.35 |     100 |   81.25 | ...,88-90,108-115
+  ...deAssembly.ts |   88.78 |    88.58 |   91.66 |   90.54 | ...66-371,417-419
+  ...Storyboard.ts |   97.05 |    95.74 |     100 |    99.2 | 44
+  ...anShotPlan.ts |    84.9 |    79.13 |    92.3 |   91.66 | ...46-147,223-225
+  ...rProposals.ts |   93.13 |     86.2 |     100 |    97.7 | 111-112
+  ...torRecords.ts |   92.78 |    82.85 |    92.3 |   96.66 | 51,156,178
+  ...tProposals.ts |   95.17 |    87.59 |   95.45 |   97.67 | 58,251,304
+  ...rectorHost.ts |    92.3 |    74.28 |   85.71 |   97.77 | 83
+  ...ntApproval.ts |   91.66 |      100 |   71.42 |   95.45 | 84
+  ...lAuthority.ts |     100 |    89.47 |     100 |     100 | 16,39
+  ...lWorkspace.ts |   82.81 |     70.4 |   90.32 |   90.42 | ...61-570,719-725
+  user-chip.ts     |      95 |     87.5 |     100 |   93.75 | 16
+  ...lWorkspace.ts |   84.74 |    90.14 |     100 |   91.48 | 67,82,92,117
+ ...aivora/account |   92.22 |    89.09 |   95.87 |   94.14 |
+  ...delCenter.tsx |    82.2 |    82.46 |    86.2 |   84.44 | ...30,251-252,383
+  ...onnections.ts |     100 |    94.82 |     100 |     100 | 69,109-111
+  ...ered-model.ts |   95.65 |    88.23 |     100 |     100 | 25,32
+  ...pabilities.ts |   92.85 |    81.81 |     100 |     100 | 15-27
+  model-center.ts  |   96.87 |    89.47 |     100 |   98.73 | 54
+  navigation.ts    |   88.23 |      100 |     100 |    87.5 | 15,26
+  xai-account.ts   |   97.61 |    94.28 |     100 |     100 | 105,125
+ ...ivora/adapters |   91.22 |    92.21 |   96.17 |   93.98 |
+  ...references.ts |   86.04 |    90.78 |     100 |    92.1 | 65,114,144
+  ...blyEditing.ts |   87.32 |    85.07 |     100 |   88.88 | ...30,135,197-199
+  assemblyExact.ts |   88.37 |    91.89 |     100 |      90 | 43,60,84,95
+  ...Storyboard.ts |      95 |       75 |     100 |   93.33 | 44
+  ...ySubtitles.ts |    92.3 |    90.24 |     100 |     100 | 18,37,44,52
+  assetLibrary.ts  |   74.54 |     85.1 |   92.85 |   76.08 | 174,254-272
+  ...AssetProbe.ts |   93.54 |    95.74 |     100 |      95 | 104,159,207
+  ...terDetails.ts |   78.94 |    84.21 |      75 |      80 | ...03-108,120,125
+  ...nvironment.ts |      50 |    66.66 |   46.15 |   56.25 | 23,26,32,38-42
+  ...iveLibrary.ts |   88.52 |    93.52 |     100 |   92.66 | ...41,354,376,385
+  ...mentExport.ts |   97.89 |    97.56 |     100 |    98.8 | 398,421
+  ...keTimeline.ts |   97.36 |    95.62 |    91.3 |   98.77 | 345,413
+  draftExport.ts   |   93.93 |    93.84 |     100 |     100 | 111-113,167
+  draftReview.ts   |   93.75 |    96.42 |     100 |   93.33 | 64
+  ...ewRecovery.ts |   71.42 |    68.62 |     100 |   73.68 | 10,25,44-57
+  ...ewRevision.ts |   97.26 |     98.6 |     100 |     100 | 203,280
+  ...isionInput.ts |      88 |    91.66 |     100 |   95.45 | 70
+  ...onRecovery.ts |   83.17 |    85.31 |   94.44 |   96.42 | 148,177,205
+  ...iaAssembly.ts |   85.18 |    88.57 |     100 |   89.61 | ...53,257,262,268
+  episodeScript.ts |   90.61 |    94.11 |     100 |    93.9 | ...41,954,973,984
+  ...Storyboard.ts |   88.43 |    91.28 |     100 |   90.84 | ...58,586,590,612
+  humanShotPlan.ts |   93.65 |    93.48 |     100 |   95.63 | ...1047,1097,1132
+  ...ediaReview.ts |   92.85 |    94.73 |     100 |   97.29 | 80
+  ...aCandidate.ts |   80.76 |    82.92 |      75 |   83.33 | ...3,82,84,92,100
+  ...AssetProbe.ts |   92.72 |    86.53 |     100 |   92.72 | 123,205-225
+  ...reparation.ts |      82 |    74.35 |    87.5 |   82.22 | ...58,67,76,78,94
+  ...iewSession.ts |      90 |    90.41 |     100 |   94.44 | 175
+  ...aToolchain.ts |   96.39 |    97.08 |   94.11 |   98.96 | 246
+  ...reviewPlan.ts |   89.28 |    91.66 |     100 |      88 | 49,64,84
+  ...fWorkspace.ts |   92.59 |    90.17 |     100 |   95.45 | 47,61,72,284
+  ...ateJournal.ts |   96.77 |    96.82 |     100 |   98.11 | 116
+  ...Management.ts |    76.4 |    84.37 |     100 |   84.61 | ...27,230,244,248
+  ...tWorkspace.ts |    90.9 |    83.33 |     100 |     100 | 36-38
+  ...rceExtract.ts |    93.1 |    93.61 |     100 |    96.5 | ...1084,1095,1110
+  ...MediaProbe.ts |   86.48 |    86.88 |   89.47 |    89.7 | ...75,125-132,145
+  ...ortJournal.ts |      88 |    87.01 |     100 |      95 | 54,76,101
+  ...ceManifest.ts |   90.47 |    91.66 |     100 |   88.88 | 31,61
+  ...yWorkspace.ts |      80 |       25 |     100 |      75 | 20
+  ...blyPreview.ts |    97.5 |    93.54 |     100 |     100 | 13,36
+  ...nvironment.ts |   30.76 |     42.1 |   42.85 |   33.33 | 14-27
+  ...eSelection.ts |   94.28 |    95.58 |     100 |      95 | 47,54,169
+ ...a/chatgpt-auth |   90.83 |    86.69 |   96.42 |   93.84 |
+  ...ctionCard.tsx |     100 |    93.42 |     100 |     100 | 162-170,178
+  ...onContext.tsx |   91.66 |    84.93 |   95.23 |   91.86 | ...74,140-142,170
+  ...eparation.tsx |     100 |    78.57 |     100 |     100 | 70,76
+  ...Preference.ts |   89.74 |    93.02 |     100 |    90.9 | 36,38,58
+  transport.ts     |   91.66 |       90 |     100 |     100 | 39,95-98,109-147
+  ...Connection.ts |   88.74 |    79.27 |   89.47 |   93.18 | ...44,168,197-199
+  ...ectedModel.ts |    87.5 |    89.47 |     100 |   92.85 | 27
+ src/aivora/film   |    94.5 |    84.47 |   96.39 |    97.4 |
+  audio.ts         |   98.43 |    91.78 |     100 |   98.07 | 47
+  cast-traits.ts   |   95.23 |    94.44 |     100 |     100 | 15
+  ...continuity.ts |    97.4 |     93.5 |   96.42 |   98.48 | 147
+  library.ts       |   82.25 |    73.07 |   81.81 |   85.43 | ...84-188,219-220
+  notices.ts       |     100 |    92.85 |     100 |     100 | 253,262
+  operations.ts    |   94.77 |    84.23 |   97.77 |   97.08 | ...,961,1428,1452
+  phase2.ts        |      96 |    87.23 |   98.64 |   99.71 | 129
+  project.ts       |   93.48 |       75 |    93.5 |   98.12 | 841-873
+  ...st-batches.ts |   94.95 |    91.74 |     100 |   99.02 | 133
+  task-progress.ts |   98.48 |    94.87 |   95.23 |     100 | 160-162
+ ...vora/grok-auth |   93.02 |    78.71 |   91.11 |   96.73 |
+  ...ctionCard.tsx |      70 |    61.11 |      40 |      70 | 45-58
+  transport.ts     |   96.29 |    89.47 |     100 |     100 | 34,40,65
+  ...kConnected.ts |     100 |       85 |     100 |     100 | 16,43,68
+  ...Connection.ts |   90.83 |    78.43 |      90 |   96.96 | 67-68,115
+ src/aivora/pro    |   87.28 |    77.81 |   89.68 |   91.53 |
+  ProWorkspace.tsx |   86.17 |    76.71 |   88.79 |   90.45 | ...5423,5739,6014
+  ...t-workflow.ts |   83.78 |    69.44 |     100 |   92.85 | 32,48
+  capabilities.ts  |   93.75 |      100 |   66.66 |   93.33 | 56
+  ...e-workflow.ts |   86.66 |    83.33 |     100 |     100 | 18,20,25
+  ...r-workflow.ts |   93.05 |    91.22 |   93.33 |   96.66 | 153-154
+  ...t-workflow.ts |   89.04 |    67.16 |   90.47 |   96.29 | 26,79
+  icons.tsx        |     100 |    66.66 |     100 |     100 | 73
+  media-tasks.ts   |   97.95 |    89.65 |   85.71 |   97.43 | 51
+  ...t-workflow.ts |   91.22 |    86.48 |     100 |   91.48 | 57-58,64-65
+  ...l-workflow.ts |   91.89 |    82.14 |     100 |     100 | 38-51,83-85
+  ...ork-owners.ts |     100 |     90.9 |     100 |     100 | 18
+  workflow.ts      |    92.3 |    86.66 |   93.47 |   98.19 | 281,309
+ src/api           |   93.02 |     96.1 |   90.47 |   94.65 |
+  draftExports.ts  |      85 |      100 |   82.35 |      85 | 42-44
+  ...lWorkbench.ts |   98.11 |    98.13 |     100 |   99.59 | 365
+  studio.ts        |   87.87 |    91.06 |   87.74 |   90.04 | ...1813,1833-1837
+ src/domain        |   97.95 |    96.18 |     100 |   98.82 |
+  ...ip-preview.ts |   97.67 |     97.5 |     100 |     100 | 113
+  ...controller.ts |   95.52 |    89.47 |     100 |     100 | 49,119,135,164
+  ...controller.ts |   97.22 |    91.83 |     100 |   98.43 | 111
+  ...ction-form.ts |   96.66 |    97.67 |     100 |   96.55 | 111-114
+  ...r-settings.ts |   96.22 |       85 |     100 |   95.91 | 90-91
+ src/test          |    86.9 |    79.31 |   80.64 |    90.9 |
+  ...torFixture.ts |      80 |    72.72 |   72.72 |   85.71 | 20,120-125
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 90.07% ( 21348/23700 )
+Branches     : 86.47% ( 23497/27172 )
+Functions    : 91.26% ( 5338/5849 )
+Lines        : 92.83% ( 19462/20965 )
+================================================================================

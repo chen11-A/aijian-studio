@@ -1,0 +1,4 @@
+$ pnpm contracts:generate && git diff --exit-code -- packages/contracts
+$ uv run python scripts/export_openapi.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/generated.ts
+✨ openapi-typescript 7.13.0
+🚀 packages/contracts/openapi.json → packages/contracts/src/generated.ts [616.3ms]
