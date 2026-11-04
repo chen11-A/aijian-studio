@@ -179,11 +179,12 @@ body:has(.pro-root) {
   white-space: nowrap;
 }
 .pro-root .tab .n {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 1px solid var(--line-2);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1;
   display: grid;
   place-items: center;
   color: var(--text-3);
@@ -472,12 +473,12 @@ body:has(.pro-root) {
 }
 .pro-root .scene .t small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   line-height: 1.3;
 }
 .pro-root .scene .c {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
 }
 .pro-root .pfoot {
@@ -567,7 +568,7 @@ body:has(.pro-root) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   margin-left: 6px;
 }
@@ -581,7 +582,7 @@ body:has(.pro-root) {
   color: var(--accent);
 }
 .pro-root .sec {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   letter-spacing: 0.5px;
   padding: 14px 14px 0;
@@ -802,7 +803,7 @@ body:has(.pro-root) {
   height: 20px;
   padding: 0 7px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -835,7 +836,7 @@ body:has(.pro-root) {
   padding: 0 6px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.65);
-  font: 11px/18px var(--mono);
+  font: 12px/18px var(--mono);
   color: #fff;
 }
 
@@ -1074,7 +1075,7 @@ body:has(.pro-root) {
 }
 .pro-root .cb .tag {
   height: 20px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .pro-root .prev {
   margin: 12px 14px 0;
@@ -1136,7 +1137,7 @@ body:has(.pro-root) {
   padding: 5px 0;
   border-radius: 6px;
   color: var(--text-2);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 .pro-root .mtabs button.on {
   background: var(--panel-3);
@@ -1161,7 +1162,7 @@ body:has(.pro-root) {
   box-shadow: inset 0 0 0 2px rgba(91, 140, 255, 0);
 }
 .pro-root .bin .it p {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-2);
   margin-top: 4px;
   white-space: nowrap;
@@ -1337,7 +1338,7 @@ body:has(.pro-root) {
 .pro-root .ruler span {
   position: absolute;
   top: 4px;
-  font: 10.5px var(--mono);
+  font: 12px var(--mono);
   color: var(--text-3);
   transform: translateX(3px);
 }
@@ -1351,7 +1352,7 @@ body:has(.pro-root) {
   bottom: 5px;
   border-radius: 5px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
   padding: 0 6px;
   display: flex;
@@ -1377,7 +1378,7 @@ body:has(.pro-root) {
   background: rgba(0, 0, 0, 0.55);
   padding: 0 5px;
   border-radius: 3px;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 16px;
 }
 .pro-root .clip.v.sel {
@@ -1493,7 +1494,7 @@ body:has(.pro-root) {
   border: 1px solid var(--line-2);
 }
 .pro-root .ref p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-2);
   text-align: center;
   margin-top: 2px;
@@ -1554,7 +1555,7 @@ body:has(.pro-root) {
   gap: 6px;
 }
 .pro-root .genbar .note {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-3);
   text-align: center;
 }
@@ -1700,7 +1701,7 @@ body:has(.pro-root) {
   display: block;
 }
 .pro-root .shotrow small {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   display: flex;
   gap: 4px;
@@ -1819,7 +1820,7 @@ body:has(.pro-root) {
 }
 .pro-root .act small {
   display: block;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -1837,7 +1838,7 @@ body:has(.pro-root) {
   color: #f28b8b;
 }
 .pro-root .act .soon {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-3);
   border: 1px solid var(--line-2);
   border-radius: 8px;
@@ -1929,7 +1930,7 @@ body:has(.pro-root) {
   border-radius: 4px;
   padding: 0 5px;
   height: 18px;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 16px;
 }
 .pro-root .th .lane-controls input[type="range"] {
@@ -1959,7 +1960,7 @@ body:has(.pro-root) {
 .pro-root .ruler span {
   position: absolute;
   top: 4px;
-  font: 10.5px var(--mono);
+  font: 12px var(--mono);
   color: var(--text-3);
   transform: translateX(3px);
 }
@@ -1974,7 +1975,7 @@ body:has(.pro-root) {
   bottom: 4px;
   border-radius: 5px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
   padding: 0 6px;
   display: flex;
@@ -2000,7 +2001,7 @@ body:has(.pro-root) {
   background: rgba(0, 0, 0, 0.6);
   padding: 0 5px;
   border-radius: 3px;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 16px;
   display: flex;
   align-items: center;
@@ -2104,7 +2105,7 @@ body:has(.pro-root) {
   padding: 0 5px;
   background: var(--accent);
   color: #fff;
-  font: 10.5px/20px var(--mono);
+  font: 12px/20px var(--mono);
   border-radius: 3px;
   white-space: nowrap;
 }
@@ -2160,7 +2161,7 @@ body:has(.pro-root) {
   padding: 7px 0;
   border-radius: 6px;
   color: var(--text-2);
-  font-size: 11px;
+  font-size: 12px;
 }
 .pro-root .rail button.on {
   background: var(--panel-3);
@@ -2190,7 +2191,7 @@ body:has(.pro-root) {
   border-radius: 4px;
 }
 .pro-root .mini-cmp p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   margin-top: 2px;
 }
@@ -2274,7 +2275,7 @@ body:has(.pro-root) {
   border: 1px solid var(--line-2);
 }
 .pro-root .composer2 .att .lab {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
 }
 .pro-root .pill {
@@ -2312,7 +2313,7 @@ body:has(.pro-root) {
   position: absolute;
   left: 3px;
   bottom: 2px;
-  font-size: 10px;
+  font-size: 12px;
   background: rgba(0, 0, 0, 0.6);
   padding: 0 4px;
   border-radius: 3px;
@@ -2346,7 +2347,7 @@ body:has(.pro-root) {
 .pro-root .trim .rg .h {
   position: absolute;
   top: -10px;
-  font: 10.5px/16px var(--mono);
+  font: 12px/16px var(--mono);
   background: var(--accent);
   color: #fff;
   padding: 0 5px;
@@ -2401,7 +2402,7 @@ body:has(.pro-root) {
 }
 .pro-root .tile small {
   margin-left: auto;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-3);
 }
 .pro-root .wide16 {
