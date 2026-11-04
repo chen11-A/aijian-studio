@@ -90,10 +90,10 @@ describe("SoundPanel", () => {
     expect(onDuckMusicChange).toHaveBeenCalledWith(false);
   });
 
-  it("says when the mood has no track yet, and offers a preview", () => {
+  it("says when the scene has no music yet, and offers a preview", () => {
     const onPreview = vi.fn();
     renderPanel({ music: null, onPreview });
-    expect(screen.getByText("这个情绪还没有选配乐。")).toBeInTheDocument();
+    expect(screen.getByText("这一场还没有配乐。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "试听这一场" }));
     expect(onPreview).toHaveBeenCalledTimes(1);
   });
@@ -102,5 +102,40 @@ describe("SoundPanel", () => {
     renderPanel({ defaultFineOpen: true, master: 140 });
     expect(screen.queryByRole("switch")).toBeNull();
     expect(screen.getByRole("slider", { name: "这一场的音量" })).toHaveValue("100");
+  });
+
+  it("says what is missing instead of making up a mood, a volume or a layer", () => {
+    const { container, onMoodChange } = renderPanel({
+      mood: null,
+      music: { title: "导入的音乐" },
+      master: null,
+      lanes: { dialogue: 80 },
+      laneNotes: { score: "配乐是整部片子一起调的，在时间线的音乐轨上调。" },
+      defaultFineOpen: true,
+    });
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toHaveAttribute("aria-checked", "false");
+    }
+    const first = screen.getByRole("radio", { name: MOODS[0] });
+    expect(first).toHaveAttribute("tabindex", "0");
+    expect(screen.getByText("还没有选这一场的配乐情绪。")).toBeInTheDocument();
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    expect(onMoodChange).toHaveBeenLastCalledWith(MOODS[0]);
+    expect(screen.getByText("导入的音乐")).toBeInTheDocument();
+    expect(screen.queryByText(/为什么选它/)).toBeNull();
+    expect(screen.queryByRole("slider", { name: "这一场的音量" })).toBeNull();
+    expect(screen.getByText("还不能单独调。")).toBeInTheDocument();
+    expect(screen.getAllByRole("slider")).toHaveLength(1);
+    expect(screen.getByRole("slider", { name: /台词/ })).toHaveValue("80");
+    expect(screen.getByText("这一场没有环境声。")).toBeInTheDocument();
+    expect(screen.getByText("这一场没有音效。")).toBeInTheDocument();
+    expect(screen.getByText("配乐是整部片子一起调的，在时间线的音乐轨上调。")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/分贝|dB/);
+  });
+
+  it("shows a note about the mood next to a chosen one", () => {
+    renderPanel({ moodNote: "导演写的是「低音弦乐」，不在这八个里。" });
+    expect(screen.getByRole("radio", { name: "激烈" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("导演写的是「低音弦乐」，不在这八个里。")).toBeInTheDocument();
   });
 });

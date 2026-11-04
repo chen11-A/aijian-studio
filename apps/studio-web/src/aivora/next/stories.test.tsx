@@ -135,7 +135,7 @@ describe("other examples", () => {
   it("changes the mood, volumes and preview in the sound example", () => {
     render(<StoryGallery search="?story=sound-panel&state=fine" />);
     fireEvent.click(screen.getByRole("radio", { name: "平静" }));
-    expect(screen.getByText("这个情绪还没有选配乐。")).toBeInTheDocument();
+    expect(screen.getByText("这一场还没有配乐。")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("slider", { name: "这一场的音量" }), {
       target: { value: "0" },
     });

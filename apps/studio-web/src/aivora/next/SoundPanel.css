@@ -1,3 +1,7 @@
+.nx-root.nx-sound {
+  container-type: inline-size;
+}
+
 .nx-root .nx-sound-panel {
   flex: 1 1 auto;
 }
@@ -66,9 +70,13 @@
   border-radius: var(--r);
 }
 
-.nx-root .nx-master label {
+.nx-root .nx-master .nx-master-name {
   font-weight: 700;
   white-space: nowrap;
+}
+
+.nx-root .nx-master .nx-master-note {
+  grid-column: 2 / -1;
 }
 
 .nx-root .nx-master input {
@@ -101,6 +109,13 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+/* In a side pane four sliders in a row are too short to drag, so they go two by two. */
+@container (max-width: 560px) {
+  .nx-root .nx-lanes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .nx-root .nx-lane {
