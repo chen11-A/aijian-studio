@@ -208,6 +208,50 @@ describe("professional workspace", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "正在补…" })).toBeNull());
   });
 
+  it("keeps a saved paragraph ownership risk visible when no dialogue or ending is missing", async () => {
+    installDesktop();
+    const { detectDirectorCoverage } = await import("../film/director-continuity");
+    const film = sampleFilm();
+    const scene = film.scenes[0]!;
+    scene.title = "待核对归属场";
+    scene.text = "警笛远去。";
+    scene.paragraphCoverage = {
+      ok: false,
+      missingParagraphs: ["P02"],
+      duplicateParagraphs: [],
+      invalidParagraphs: [],
+      crossSceneRisk: true,
+    };
+    film.shots = [
+      {
+        ...film.shots[0]!,
+        sceneId: scene.id,
+        picture: scene.text,
+        action: "",
+        line: "",
+        lines: [],
+      },
+    ];
+    scene.coverage = detectDirectorCoverage(scene, film.shots);
+    expect(scene.coverage).toMatchObject({ ok: false, missingLines: [], missingTail: null });
+    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    await screen.findByRole("button", { name: /后台生成/ });
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.click(screen.getByRole("button", { name: /待核对归属场/ }));
+    const warning = document.querySelector(".nx-scene-alerts")!;
+    expect(warning).toHaveTextContent("有原文段落的场次归属需要核对");
+    expect(warning).toHaveTextContent("请按原文核对顺序");
+    expect(warning).not.toHaveTextContent("结尾还没拍到");
+    expect(within(warning as HTMLElement).queryByRole("button", { name: "补上结尾" })).toBeNull();
+    fireEvent.click(stageTab("角色与场景"));
+    fireEvent.click(stageTab("分镜"));
+    expect(document.querySelector(".nx-scene-alerts")).toHaveTextContent(
+      "有原文段落的场次归属需要核对",
+    );
+  });
+
   it("starts a landscape film from the empty screen", () => {
     render(<ProWorkspace />);
     expect(screen.getByRole("radio", { name: "横屏 16:9" })).toBeChecked();

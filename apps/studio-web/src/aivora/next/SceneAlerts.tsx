@@ -11,6 +11,8 @@ export type SceneAlertsProps = {
   /** Project and scene identity prevents a drag from being applied in another scene. */
   dragScope?: string;
   repairFailed?: boolean;
+  /** Coverage can remain disputed because paragraph ownership needs review, without missing text. */
+  coverageWarning?: string;
   /** Lines of dialogue no shot speaks yet (C9 missingLines). */
   missingLines: readonly string[];
   /** Actions the action director wrote that fit no shot (C10). */
@@ -34,12 +36,15 @@ const clip = (text: string, size = 18) => (text.length > size ? `${text.slice(0,
 export function SceneAlerts(props: SceneAlertsProps) {
   const [open, setOpen] = useState(false);
   const { missingTail, missingLines, beats } = props;
-  const uncovered = Boolean(missingTail) || missingLines.length > 0;
+  const missingContent = Boolean(missingTail) || missingLines.length > 0;
+  const uncovered = missingContent || Boolean(props.coverageWarning);
   if (!uncovered && beats.length === 0) return null;
   const sentence = missingTail
     ? `这一场结尾还没拍到：「${clip(missingTail)}」`
-    : `这一场还有 ${missingLines.length} 句台词没拍到：「${clip(missingLines[0] ?? "")}」`;
-  const full = [missingTail, ...missingLines].filter(Boolean).join("\n");
+    : missingLines.length > 0
+      ? `这一场还有 ${missingLines.length} 句台词没拍到：「${clip(missingLines[0] ?? "")}」`
+      : props.coverageWarning;
+  const full = [missingTail, ...missingLines, props.coverageWarning].filter(Boolean).join("\n");
   return (
     <div className="nx-root nx-scene-alerts">
       {props.repairFailed && <span role="alert">未完成，可以重试。</span>}
@@ -48,7 +53,7 @@ export function SceneAlerts(props: SceneAlertsProps) {
           <span className="nx-alert-text" title={full}>
             {sentence}
           </span>
-          {props.onFixEnding && (
+          {props.onFixEnding && missingContent && (
             <button
               type="button"
               className="nx-btn"

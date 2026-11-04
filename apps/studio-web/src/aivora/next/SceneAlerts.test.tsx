@@ -77,3 +77,22 @@ describe("SceneAlerts", () => {
     expect(place).toHaveBeenCalledWith(0);
   });
 });
+
+it("keeps paragraph ownership warnings visible without inventing a missing ending or dialogue", () => {
+  const warning = "有原文段落的场次归属需要核对。请按原文核对顺序。";
+  const fix = vi.fn();
+  const { rerender } = render(
+    <SceneAlerts
+      missingTail={null}
+      missingLines={[]}
+      beats={[]}
+      coverageWarning={warning}
+      onFixEnding={fix}
+    />,
+  );
+  expect(screen.getByText(warning)).toHaveAttribute("title", warning);
+  expect(screen.queryByText(/结尾还没拍到|句台词没拍到/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "补上结尾" })).toBeNull();
+  rerender(<SceneAlerts missingTail={null} missingLines={[]} beats={[]} />);
+  expect(screen.queryByText(warning)).toBeNull();
+});

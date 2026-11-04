@@ -5283,6 +5283,11 @@ function BoardPage({
             key={sceneKey}
             dragScope={sceneKey}
             repairFailed={repair.failed}
+            coverageWarning={
+              coverage && !coverage.missingLines.length && !coverage.missingTail
+                ? coverageNotice(coverage).detail
+                : undefined
+            }
             missingTail={coverage?.missingTail ?? null}
             missingLines={coverage?.missingLines ?? []}
             beats={sceneBeats.map((beat) => beat.text)}

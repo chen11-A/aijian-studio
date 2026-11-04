@@ -627,3 +627,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 - 状态栏采用 Claude useStatusNotice/NoticeLog，保留 GPT coverageNotice 和出图失败原因；STILL_REJECTED、STILL_CAST_LIMIT 映射已补，diagnostics 与用户提示分离。跨页面建议缓存与写入清除逻辑保留。
 - 双方测试取并集，保留真实持久化、未知属性、重开恢复及任务过滤断言；新增空场补尾、跨场拖放、补尾失败及并发场次状态回归。本次整合未运行测试，最终统一检查由主代理执行。
 - 不实现4a/4b；原 ZIP 字节和哈希仍未取得验证，本次是 Git 历史合并，不称 ZIP 导入。
+
+### B17 仅原文归属风险的持久提示
+
+`SceneAlerts.coverageWarning?: string` 接收现有 `coverageNotice(coverage).detail`，仅在当前场 `coverage.ok=false` 且 `missingLines` 为空、`missingTail` 为空时提供。即使没有未分配动作，风险说明也留在分镜页，换页回来仍能看见。它不制造缺失台词，不把归属风险说成结尾漏拍，也不显示“补上结尾”按钮；现有说明给出核对原文与重新拆镜的下一步。对应 SceneAlerts 与 ProWorkspace 回归已通过；最终全量和 CI 结果另见阶段报告。
