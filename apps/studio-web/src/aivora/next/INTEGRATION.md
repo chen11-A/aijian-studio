@@ -654,8 +654,8 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 
 ### 接线前必须处理（GPT 逻辑与 Claude 4A-U01 配合）
 
-1. GPT 宿主必须先完成作品 ID 准备，再启动控制器；请求使用独立的流水线有效性守卫，不能借用助手聊天的 activeTurn 生命周期。
-2. 宿主先通过准备接口将内联媒体物化，再计算输入摘要并原子保存。不能忽略桌面保存返回的媒体路径变化。原有 400 毫秒自动保存和退出刷新也必须与流水线保存协调，避免旧快照覆盖新状态。
+1. 已提供并实例化 `pipelineWorkspace`：`start()`、`recover()`、`retry(keys)`、`acceptReview(reason)`、`continue()`、`cancel()`。宿主先完成作品 ID 准备，采用独立会员请求与有效性守卫，不依赖聊天 activeTurn；video 提交复用预先准备的 billingProjectId。
+2. 已接 `film-persistence`：按作品排队、流水线取得独占保存租约前排空已发旧写入；自动保存与退出刷新不能覆盖检查点，停止期间的新用户编辑会保存。媒体准备先于摘要和原子写盘；摘要按真实重载规范计算，源文及真实媒体修改仍拒绝续跑。作品打开只恢复 running→uncertain，不重发；切换作品与卸载取消旧宿主。
 3. Claude 提供步骤进度、精确目标重试、uncertain 风险确认、真实人工审片及独立 checkpoint 的继续/取消操作。显示文案由 Claude 定，后台 code 不直接显示给用户。
 4. 旧 footer 的“继续出视频”当前直接调用 `queueBatch`；启用新入口时必须改接上述 checkpoint 操作，不能旁路审片和原文覆盖。GPT 配合提供业务回调，Claude 修改 JSX。
-5. 启用前补宿主接线回归和真实会员验收；仅模块测试不能证明小说已在桌面跑完整流程。因此 4A-B01 暂记部分完成，不发布 4a tag。
+5. 宿主、保存协调、真实 save→upgrade→hydrate→recover 及 ProWorkspace 打开作品回归已补；真实会员全流程仍待验收。旧入口未切换，需完成第 3、4 项 Claude 交互后再启用，4A-B01 仍为部分完成，不发布 4a tag。

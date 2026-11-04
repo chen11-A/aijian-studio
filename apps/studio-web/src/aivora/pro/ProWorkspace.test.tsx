@@ -18,6 +18,47 @@ describe("professional workspace", () => {
     delete window.aijianGrok;
   });
 
+  it("recovers a saved pipeline checkpoint without dispatching or autosaving the old running state", async () => {
+    const { createProductionPipeline } = await import("../film/production-pipeline");
+    const { filmPipelineFingerprint } = await import("./film-pipeline-controller");
+    const { completeText } = installDesktop();
+    const film = sampleFilm();
+    const state = createProductionPipeline(film.id, "initial-source-version");
+    state.status = "running";
+    state.current = "writer";
+    state.steps[0] = {
+      id: "writer",
+      status: "running",
+      planned: true,
+      done: 0,
+      total: 1,
+      targets: [{ id: "script", status: "running", attempt: 1 }],
+    };
+    film.productionPipeline = state;
+    film.productionInputFingerprint = await filmPipelineFingerprint(film);
+    window.aijian!.createProject = vi.fn();
+    window.aijian!.prepareFilmProject = vi.fn(async (value) => structuredClone(value));
+    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace />);
+    await waitFor(() => {
+      const writes = vi.mocked(window.aijian!.writeFilmProject!).mock.calls;
+      expect(
+        writes.some(
+          ([value]) =>
+            (value as FilmProject).productionPipeline?.steps[0]?.targets[0]?.status === "uncertain",
+        ),
+      ).toBe(true);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    expect(saved.productionPipeline?.steps[0]?.targets[0]?.status).toBe("uncertain");
+    expect(completeText).not.toHaveBeenCalled();
+    expect(window.aijian!.createProject).not.toHaveBeenCalled();
+  });
+
   it("keeps the real imported novel across pages and after synchronous offline cast extraction", async () => {
     const source = readFileSync(
       resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),

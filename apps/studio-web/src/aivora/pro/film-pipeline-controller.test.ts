@@ -1,6 +1,8 @@
 import { webcrypto } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { sampleFilm, type FilmProject } from "../film/project";
+import { sampleFilm, upgradeFilm, type FilmProject } from "../film/project";
+import { readSaved, saveFilm } from "../film/library";
+import { fileMediaUrl, hydrateFilm } from "./workflow";
 import { createProductionPipeline, type ProductionStepId } from "../film/production-pipeline";
 import { runPipelineAgentAction } from "./pipeline-agent-actions";
 import {
@@ -578,4 +580,147 @@ it("rejects preparation that leaves transient media or changes project identity"
   env.host.prepareSnapshot = async (snapshot) => ({ ...snapshot, seriesId: "different-series" });
   expect((await env.controller().run()).code).toBe("PIPELINE_PREPARATION_INVALID");
   expect(env.disk).toHaveLength(0);
+});
+
+it("recovers the actual save / upgrade / hydration round trip without accepting source or media edits", async () => {
+  delete window.aijian;
+  window.localStorage.clear();
+  const film = fixture();
+  delete film.characters[0]!.gender;
+  delete film.characters[0]!.ageBand;
+  film.assemblyPath = "/media/assembled.mp4";
+  film.assemblyUrl = fileMediaUrl(film.assemblyPath);
+  film.shots[0]!.takes = [
+    {
+      id: "saved-take",
+      shotId: film.shots[0]!.id,
+      index: 1,
+      status: "done",
+      stillUrl: film.shots[0]!.poster,
+      videoPath: "/media/saved.mp4",
+      videoUrl: "",
+      prompt: "",
+      reason: "",
+      createdAt: "",
+    },
+  ];
+  const env = setup(await prime(film, "review"));
+  env.host.save = async (snapshot, guard) => {
+    expect(guard()).toBe(true);
+    await saveFilm(snapshot, window.localStorage);
+  };
+  expect((await env.controller().run()).status).toBe("needs-input");
+  const saved = await readSaved(film.id, window.localStorage);
+  expect(saved).not.toBeNull();
+  const reloaded = await hydrateFilm(upgradeFilm(saved)!);
+  expect(reloaded.characters[0]!.gender).toBe("");
+  expect(reloaded.assemblyUrl).toBe("");
+  expect(reloaded.shots[0]!.takes[0]!.videoUrl).toBe(fileMediaUrl("/media/saved.mp4"));
+  env.edit(reloaded);
+  expect((await env.controller().recover()).status).toBe("needs-input");
+  const stable = structuredClone(env.live());
+  for (const edited of [
+    { ...stable, sourceText: "真正改变的原文" },
+    { ...stable, assemblyPath: "/media/different-assembly.mp4" },
+    { ...stable, shots: stable.shots.map((shot) => ({ ...shot, poster: "/media/different.png" })) },
+    {
+      ...stable,
+      shots: stable.shots.map((shot) => ({
+        ...shot,
+        takes: shot.takes.map((take) => ({ ...take, videoPath: "/media/different.mp4" })),
+      })),
+    },
+    {
+      ...stable,
+      shots: stable.shots.map((shot) => ({
+        ...shot,
+        takes: shot.takes.map((take) => ({
+          ...take,
+          videoUrl: "https://example.com/unrelated.mp4",
+        })),
+      })),
+    },
+  ]) {
+    env.edit(edited);
+    expect((await env.controller().recover()).code).toBe("PIPELINE_INPUT_CHANGED");
+  }
+});
+
+it("validates the saved fingerprint before interrupting only owned video work during recovery", async () => {
+  const film = fixture();
+  const shot = film.shots[0]!;
+  shot.takes = [
+    {
+      id: "pending",
+      shotId: shot.id,
+      index: 1,
+      status: "running",
+      stillUrl: shot.poster,
+      videoPath: "",
+      videoUrl: "",
+      prompt: "",
+      reason: "",
+      createdAt: "",
+    },
+  ];
+  film.shots.push({
+    ...shot,
+    id: "unowned",
+    takes: [{ ...shot.takes[0]!, id: "unowned-take", shotId: "unowned", status: "queued" }],
+  });
+  film.jobs = [
+    {
+      id: "owned-job",
+      kind: "video",
+      shotId: shot.id,
+      take: 1,
+      status: "queued",
+      prompt: "",
+      reason: "",
+    },
+    {
+      id: "portrait-job",
+      kind: "portrait",
+      shotId: shot.id,
+      take: 1,
+      status: "running",
+      prompt: "",
+      reason: "",
+    },
+  ];
+  const prepared = await prime(film, "video");
+  const state = prepared.productionPipeline!;
+  Object.assign(
+    state.steps.find((step) => step.id === "video")!,
+    {
+      status: "running",
+      planned: true,
+      total: 1,
+      done: 0,
+      targets: [{ id: shot.id, status: "running", attempt: 1 }],
+    },
+  );
+  state.status = "running";
+  state.current = "video";
+  const env = setup(await hydrateFilm(upgradeFilm(prepared)!));
+  const original = structuredClone(env.live());
+  env.edit({ ...original, sourceText: "tampered" });
+  expect((await env.controller().recover()).code).toBe("PIPELINE_INPUT_CHANGED");
+  expect(env.disk).toHaveLength(0);
+  env.edit(original);
+  expect((await env.controller().recover()).status).toBe("uncertain");
+  expect(env.live().shots[0]!.takes[0]).toMatchObject({
+    status: "failed",
+    interruptedFrom: "running",
+  });
+  expect(env.live().jobs[0]).toMatchObject({ status: "failed", interruptedFrom: "queued" });
+  expect(env.live().shots[1]!.takes[0]!.status).toBe("queued");
+  expect(env.live().jobs[1]!.status).toBe("running");
+  expect(env.disk).toHaveLength(1);
+  expect(
+    env.disk[0]!.productionPipeline!.steps.find((step) => step.id === "video")!.targets[0]!.status,
+  ).toBe("uncertain");
+  expect(env.disk[0]!.productionInputFingerprint).toBe(await filmPipelineFingerprint(env.disk[0]!));
+  expect(env.host.video).not.toHaveBeenCalled();
+  expect(runPipelineAgentAction).not.toHaveBeenCalled();
 });

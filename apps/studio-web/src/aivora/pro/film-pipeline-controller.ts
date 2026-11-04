@@ -1,7 +1,8 @@
 import type { PipelineProgress, UiNotice } from "../film/contracts3j";
 import { detectDirectorCoverage, shotLines } from "../film/director-continuity";
 import { isFightScene, portraitPrompts } from "../film/operations";
-import type { FilmProject, FilmShot } from "../film/project";
+import { interruptStaleWork, upgradeFilm, type FilmProject, type FilmShot } from "../film/project";
+import { fileMediaUrl } from "./workflow";
 import {
   createProductionPipeline,
   isProductionPipeline,
@@ -117,9 +118,26 @@ function businessContent(film: FilmProject): string {
 }
 /** Only a digest is persisted; source prose is not duplicated in orchestration metadata. */
 export async function filmPipelineFingerprint(film: FilmProject): Promise<string> {
+  // readSaved upgrades persisted films and hydrateFilm derives playback URLs. Hash that
+  // stable business shape, while the running owner guard still compares raw businessContent.
+  const normalized = upgradeFilm(structuredClone(film));
+  if (!normalized) throw new Error("PIPELINE_INPUT_INVALID");
+  normalized.shots = normalized.shots.map((shot) => ({
+    ...shot,
+    takes: shot.takes.map((take) => ({
+      ...take,
+      videoUrl:
+        take.videoPath &&
+        (!take.videoUrl ||
+          take.videoUrl === take.videoPath ||
+          take.videoUrl === fileMediaUrl(take.videoPath))
+          ? ""
+          : take.videoUrl,
+    })),
+  }));
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(businessContent(film)),
+    new TextEncoder().encode(businessContent(normalized)),
   );
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -340,8 +358,30 @@ export function createFilmPipelineController(host: FilmPipelineHost) {
         latestState = structuredClone(state);
       };
       if (recoveryOnly) {
+        const ownedShots = new Set(
+          latestState.steps
+            .find((step) => step.id === "video")
+            ?.targets.filter((target) => ["running", "queued", "uncertain"].includes(target.status))
+            .map((target) => target.id) ?? [],
+        );
+        const interrupted = interruptStaleWork({
+          ...expected,
+          shots: expected.shots.filter((shot) => ownedShots.has(shot.id)),
+          jobs: expected.jobs.filter((job) => job.kind === "video" && ownedShots.has(job.shotId)),
+        });
+        const recoveredFilm = interrupted.interrupted
+          ? {
+              ...expected,
+              shots: expected.shots.map(
+                (shot) => interrupted.film.shots.find((item) => item.id === shot.id) ?? shot,
+              ),
+              jobs: expected.jobs.map(
+                (job) => interrupted.film.jobs.find((item) => item.id === job.id) ?? job,
+              ),
+            }
+          : expected;
         latestState = recoverProductionPipeline(latestState);
-        await persist(expected, latestState);
+        await persist(recoveredFilm, latestState);
         return latestState;
       }
       const result = await runProductionPipeline(

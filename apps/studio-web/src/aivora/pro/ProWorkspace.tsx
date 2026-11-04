@@ -1,3 +1,5 @@
+import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
+import { createFilmPersistence } from "./film-persistence";
 import { stillFailureNotice } from "./workflow";
 import { coverageNotice } from "../film/coverage-notice";
 import { awaitVideoResult } from "./video-request";
@@ -61,7 +63,7 @@ import {
   listFilms,
   readSaved,
   renameFilm,
-  saveFilm,
+  saveFilm as writeFilm,
   type EpisodeEntry,
   type FilmIndexEntry,
 } from "../film/library";
@@ -183,11 +185,7 @@ type RoleCard = {
 };
 type FixAction = VideoAction;
 
-type PipelineGenerationHost = {
-  current: () => boolean;
-  apply: (film: FilmProject) => Promise<void>;
-  versions: number;
-};
+type PipelineGenerationHost = PipelineVideoHost;
 
 const STAGES: { id: Stage; label: string }[] = [
   { id: "script", label: "剧本" },
@@ -502,6 +500,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const filmRef = useRef<FilmProject | null>(null);
+  const persistence = useMemo(
+    () => createFilmPersistence({ current: () => filmRef.current, write: writeFilm }),
+    [],
+  );
+  const saveFilm = (next: FilmProject) => persistence.save(next);
+  const pipelineLive = useRef({ connected, modelIds, ensureBillingProject, submitGeneration });
+  pipelineLive.current = { connected, modelIds, ensureBillingProject, submitGeneration };
+  const pipelineWorkspace = useMemo(
+    () =>
+      createPipelineWorkspaceHost({
+        current: () => filmRef.current,
+        apply: applyLive,
+        ensureBillingProject: () => pipelineLive.current.ensureBillingProject(),
+        acquireSaveOwnership: persistence.acquire,
+        bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
+        modelIds: () => pipelineLive.current.modelIds,
+        modelsChanged: setModelIds,
+        submitGeneration: (shots, control) =>
+          pipelineLive.current.submitGeneration(shots, false, undefined, undefined, control),
+        notify: emitNotice,
+      }),
+    [persistence],
+  );
   const productionActions = useProductionActions({
     current: () => filmRef.current,
     apply: async (next) => {
@@ -576,7 +597,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const id = activeFilmId() || rows[0]?.id || "";
       const stored = id ? await readSaved(id) : null;
       if (!live || !stored || filmRef.current) return;
-      const settled = interruptStaleWork(await hydrateFilm(stored));
+      const settled = settleOpenedFilm(await hydrateFilm(stored));
       filmRef.current = settled.film;
       committed.current = settled.film;
       setFilm(settled.film);
@@ -589,6 +610,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     };
   }, []);
 
+  function settleOpenedFilm(value: FilmProject) {
+    // Pipeline recovery validates its saved input before changing interrupted media.
+    return value.productionPipeline
+      ? { film: value, interrupted: false }
+      : interruptStaleWork(value);
+  }
+
   const saveGeneration = useRef(0);
   useEffect(() => {
     filmRef.current = film;
@@ -596,8 +624,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const generation = ++saveGeneration.current;
     const savingId = film.id;
     const flush = () => {
-      const current = filmRef.current;
-      if (current) void saveFilm(current);
+      void persistence.flush().catch(() => undefined);
     };
     window.addEventListener("beforeunload", flush);
     setSavingDisk(true);
@@ -605,6 +632,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       void saveFilm(film)
         .then((stored) => {
           if (generation !== saveGeneration.current) return;
+          if (!stored) {
+            setSavingDisk(false);
+            return;
+          }
           if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
             setDiskFilmId(savingId);
             setDiskPath(stored.directory);
@@ -654,10 +685,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, [queueProject]);
 
   useEffect(() => {
+    pipelineWorkspace.projectChanged();
+    if (filmRef.current?.productionPipeline) {
+      void pipelineWorkspace.recover().catch(() => {
+        emitNotice({ code: "PIPELINE_RECOVERY_FAILED", text: "进度未能恢复，请重试。" });
+      });
+    }
+    return () => pipelineWorkspace.cancel();
+  }, [film?.id, pipelineWorkspace]);
+
+  useEffect(() => {
     window.aijian?.onFlush?.(() => {
-      const current = filmRef.current;
-      const done = current ? saveFilm(current) : Promise.resolve(null);
-      void done.finally(() => window.aijian?.flushed?.());
+      void persistence.flush().then(
+        () => window.aijian?.flushed?.(),
+        () => {
+          setDiskError("没有写到应用数据目录，可以重试。");
+          window.aijian?.flushed?.();
+        },
+      );
     });
   }, []);
 
@@ -2453,7 +2498,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const gate = actions.regenerate;
     const bridge = window.aijian;
-    const billingProject = await ensureBillingProject();
+    const billingProject = pipeline?.billingProjectId ?? (await ensureBillingProject());
     if (!valid()) return;
     live = filmRef.current ?? live;
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
@@ -2822,7 +2867,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         setNotice("没有打开这部作品。");
         return;
       }
-      const settled = interruptStaleWork(saved);
+      const settled = settleOpenedFilm(saved);
       applyLive(settled.film);
       setScene(settled.film.scenes[0]?.id ?? "scene-1");
       setShot(0);
@@ -2990,7 +3035,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     onClick={() => {
                       void readSaved(item.id).then((saved) => {
                         if (!saved) return;
-                        const settled = interruptStaleWork(saved);
+                        const settled = settleOpenedFilm(saved);
                         applyLive(settled.film);
                         setScene(settled.film.scenes[0]?.id ?? scene);
                         setPlaying(false);
