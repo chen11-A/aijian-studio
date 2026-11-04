@@ -84,6 +84,9 @@ describe("next/ styles", () => {
   });
 });
 
+/** The test novel, which the full-page layout check uses as its project. */
+const NOVEL = "../../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt?raw";
+
 describe("next/ components", () => {
   it("talk to nothing but their props: no bridge, IPC, network or storage", () => {
     for (const file of load().own.filter((item) => /\.tsx?$/.test(item.path))) {
@@ -107,7 +110,9 @@ describe("next/ components", () => {
           (story && (spec === "../../pro/pro.css" || spec === "../next.css")) ||
           (story && /^\.\.\/[A-Za-z]+(\.story)?$/.test(spec)) ||
           (adapter && /^\.\.\/[A-Za-z]+$/.test(spec)) ||
-          (adapter && /^\.\.\/\.\.\/film\/(audio|operations|project)$/.test(spec));
+          (adapter &&
+            /^\.\.\/\.\.\/film\/(audio|director-continuity|operations|project)$/.test(spec)) ||
+          (file.path === "adapters/novelProject.ts" && spec === NOVEL);
         expect(allowed, `${file.path} imports ${spec}`).toBe(true);
       }
     }

@@ -1,22 +1,31 @@
-/* global document, getComputedStyle, innerWidth, innerHeight, Node, SVGElement, URL */
+/* global document, getComputedStyle, innerWidth, innerHeight, Node, SVGElement, URL, localStorage */
 /**
- * Layout check for the next/ story pages. For every story and every example state it lists,
- * at each window size: the page does not scroll, nothing sits outside the window, nothing is
- * cut off by a box that does not scroll (one-line text with an ellipsis is fine), no two
- * pieces of text or controls overlap (text drawn on a picture frame, .nx-frame, is meant to),
- * no text is smaller than 12px, every button has a name, and the console stays clean.
+ * Layout check for the next/ story pages and for the whole workspace. It looks at every state
+ * of every story, then at the workspace pages with the test novel loaded (adapters/
+ * novelProject.ts): 首页, 剧本, 角色与场景, 分镜, 单镜, 剪辑, the export dialog and the task
+ * center. At each window size it checks that the page does not scroll, nothing sits outside
+ * the window, nothing is cut off by a box that does not scroll (one-line text with an ellipsis
+ * is fine), no two pieces of text or controls overlap (text drawn on a picture frame, .nx-frame
+ * or [data-layer], is meant to), no text is smaller than 12px, every button has a name, and
+ * the console stays clean.
  *
  * Start the dev server first, then run from the repository root:
  *   pnpm --filter @aijian/studio-web dev
  *   AIVORA_CHROMIUM=/path/to/chrome node apps/studio-web/src/aivora/next/stories/check-layout.mjs
- * AIVORA_STORIES_URL changes the address; AIVORA_SIZES picks window sizes (default 1280x800).
+ * AIVORA_SIZES picks window sizes (default 1280x800). AIVORA_ONLY=stories or pages runs one
+ * half. AIVORA_SHOTS=<folder> saves a screenshot of every workspace page. AIVORA_STORIES_URL
+ * and AIVORA_APP_URL change the addresses.
  */
+import { mkdir } from "node:fs/promises";
 import process from "node:process";
 import console from "node:console";
 import { chromium } from "playwright";
 
 const base =
   process.env.AIVORA_STORIES_URL ?? "http://127.0.0.1:5173/src/aivora/next/stories/index.html";
+const app = process.env.AIVORA_APP_URL ?? "http://127.0.0.1:5173/";
+const only = process.env.AIVORA_ONLY ?? "";
+const shots = process.env.AIVORA_SHOTS ?? "";
 const sizes = (process.env.AIVORA_SIZES ?? "1280x800").split(",").map((size) => {
   const [width, height] = size.split("x").map(Number);
   return { width, height };
@@ -31,7 +40,7 @@ const stories = [
 ];
 
 // Runs inside the page. Returns a list of problems in Chinese.
-function inspect() {
+function inspect(rootSelector) {
   const problems = [];
   const describe = (el) => {
     const cls =
@@ -86,7 +95,7 @@ function inspect() {
       `整页滚动：内容 ${root.scrollWidth}×${root.scrollHeight}，窗口 ${innerWidth}×${innerHeight}`,
     );
   }
-  if (!document.querySelector(".nx-root")) problems.push("页面上没有组件");
+  if (!document.querySelector(rootSelector)) problems.push(`页面上没有 ${rootSelector}`);
 
   const elements = [...document.body.querySelectorAll("*")].filter(
     (el) => !(el instanceof SVGElement) && shown(el),
@@ -150,7 +159,7 @@ function inspect() {
         bottom: Math.min(rect.bottom, clip.bottom),
       }))
       .filter((rect) => rect.right - rect.left > 0.5 && rect.bottom - rect.top > 0.5);
-    return { el, rects, layer: el.closest(".nx-frame") };
+    return { el, rects, layer: el.closest(".nx-frame, [data-layer]") };
   });
   for (let i = 0; i < boxes.length; i += 1) {
     for (let j = i + 1; j < boxes.length; j += 1) {
@@ -171,6 +180,117 @@ function inspect() {
   return problems;
 }
 
+/** Checks the page as it is now, then again with every 「高级」 section open. */
+async function inspectPage(page, rootSelector) {
+  await page.evaluate(() => document.fonts.ready);
+  const passes = [["", await page.evaluate(inspect, rootSelector)]];
+  const opened = await page.$$eval("details", (all) => {
+    for (const details of all) details.open = true;
+    return all.length;
+  });
+  if (opened > 0) passes.push([" 高级打开", await page.evaluate(inspect, rootSelector)]);
+  return passes;
+}
+
+function watchConsole(page) {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  return errors;
+}
+
+function report(where, found, errors) {
+  const problems = [...found, ...errors.map((text) => `控制台：${text}`)];
+  if (problems.length === 0) console.log(`✔ ${where}`);
+  else {
+    console.log(`✘ ${where}`);
+    for (const problem of problems) console.log(`    - ${problem}`);
+  }
+  return problems.length === 0 ? 0 : 1;
+}
+
+async function checkStories(browser, size) {
+  let failed = 0;
+  const page = await browser.newPage({ viewport: size });
+  const errors = watchConsole(page);
+  for (const story of stories) {
+    await page.goto(`${base}?story=${story}`, { waitUntil: "networkidle" });
+    const states = await page.$$eval('nav[aria-label="示例状态"] a', (links) =>
+      links.map((link) => new URL(link.href).searchParams.get("state")),
+    );
+    for (const state of states) {
+      errors.length = 0;
+      await page.goto(`${base}?story=${story}&state=${state}`, { waitUntil: "networkidle" });
+      for (const [label, found] of await inspectPage(page, ".nx-root")) {
+        failed += report(`${story} ${state}${label} ${size.width}×${size.height}`, found, errors);
+      }
+    }
+  }
+  await page.close();
+  return failed;
+}
+
+/**
+ * The workspace pages, in the order a user meets them. Each step gets the page to its state;
+ * the next step starts from there. The backend is not running, so its address answers empty.
+ */
+const pages = [
+  {
+    name: "首页",
+    async open(page) {
+      await page.evaluate(() => localStorage.clear());
+      await page.reload({ waitUntil: "networkidle" });
+    },
+  },
+  {
+    name: "剧本",
+    async open(page) {
+      await page.evaluate(async () => {
+        const { novelProject } = await import("/src/aivora/next/adapters/novelProject.ts");
+        const { FILM_KEY } = await import("/src/aivora/film/project.ts");
+        localStorage.setItem(FILM_KEY, JSON.stringify(novelProject()));
+      });
+      await page.reload({ waitUntil: "networkidle" });
+      await page.locator("nav.tabs").getByRole("button", { name: "剧本" }).click();
+    },
+  },
+  { name: "角色与场景", tab: "角色与场景" },
+  { name: "分镜", tab: "分镜" },
+  { name: "单镜", button: "单镜" },
+  { name: "剪辑", tab: "剪辑" },
+  { name: "导出对话框", button: "导出成片", close: "关闭" },
+  { name: "任务中心", button: /后台生成/ },
+];
+
+async function checkPages(browser, size) {
+  let failed = 0;
+  const page = await browser.newPage({ viewport: size });
+  const errors = watchConsole(page);
+  await page.route("**/api/v1/**", (route) =>
+    route.fulfill({ json: { data: { connections: [] } } }),
+  );
+  await page.goto(app, { waitUntil: "networkidle" });
+  if (shots) await mkdir(shots, { recursive: true });
+  for (const step of pages) {
+    errors.length = 0;
+    if (step.open) await step.open(page);
+    if (step.tab) await page.locator("nav.tabs").getByRole("button", { name: step.tab }).click();
+    if (step.button) await page.getByRole("button", { name: step.button }).first().click();
+    await page.waitForLoadState("networkidle");
+    if (shots) {
+      await page.screenshot({ path: `${shots}/${step.name}-${size.width}x${size.height}.png` });
+    }
+    for (const [label, found] of await inspectPage(page, ".pro-root")) {
+      failed += report(`页面 ${step.name}${label} ${size.width}×${size.height}`, found, errors);
+    }
+    if (step.close) await page.getByRole("button", { name: step.close }).first().click();
+  }
+  await page.close();
+  return failed;
+}
+
 async function main() {
   const browser = await chromium.launch({
     executablePath: process.env.AIVORA_CHROMIUM || undefined,
@@ -178,41 +298,8 @@ async function main() {
   let failed = 0;
   try {
     for (const size of sizes) {
-      const page = await browser.newPage({ viewport: size });
-      const errors = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      page.on("console", (message) => {
-        if (message.type() === "error") errors.push(message.text());
-      });
-      for (const story of stories) {
-        await page.goto(`${base}?story=${story}`, { waitUntil: "networkidle" });
-        const states = await page.$$eval('nav[aria-label="示例状态"] a', (links) =>
-          links.map((link) => new URL(link.href).searchParams.get("state")),
-        );
-        for (const state of states) {
-          errors.length = 0;
-          await page.goto(`${base}?story=${story}&state=${state}`, { waitUntil: "networkidle" });
-          await page.evaluate(() => document.fonts.ready);
-          const passes = [["", await page.evaluate(inspect)]];
-          // 「高级」 sections are closed at first; check the page again with them open.
-          const opened = await page.$$eval("details", (all) => {
-            for (const details of all) details.open = true;
-            return all.length;
-          });
-          if (opened > 0) passes.push([" 高级打开", await page.evaluate(inspect)]);
-          for (const [label, found] of passes) {
-            const problems = [...found, ...errors.map((text) => `控制台：${text}`)];
-            const where = `${story} ${state}${label} ${size.width}×${size.height}`;
-            if (problems.length === 0) console.log(`✔ ${where}`);
-            else {
-              failed += 1;
-              console.log(`✘ ${where}`);
-              for (const problem of problems) console.log(`    - ${problem}`);
-            }
-          }
-        }
-      }
-      await page.close();
+      if (only !== "pages") failed += await checkStories(browser, size);
+      if (only !== "stories") failed += await checkPages(browser, size);
     }
   } finally {
     await browser.close();

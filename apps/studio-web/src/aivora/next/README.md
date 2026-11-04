@@ -261,12 +261,12 @@ http://127.0.0.1:5173/src/aivora/next/stories/index.html?story=task-center
 
 ## 布局检查
 
-`stories/check-layout.mjs` 用 Playwright 打开每个示例页的每个状态，检查：
+`stories/check-layout.mjs` 用 Playwright 打开每个示例页的每个状态，再打开整个工作区的八个页面：首页、剧本、角色与场景、分镜、单镜、剪辑、导出对话框、任务中心。工作区里放的是测试小说《晚照书店》（`adapters/novelProject.ts`）：三场、七个人、28 个镜头、149 秒。还没有生成过画面，画面位都是空的。每个页面检查：
 
 - 整页不滚动。
 - 没有东西超出窗口。
 - 没有内容被截断。单行省略号除外。
-- 文字和控件不重叠。画面占位框里的字幕和标识除外。
+- 文字和控件不重叠。画在画面上的字幕和标识除外（`.nx-frame` 或带 `data-layer` 的元素里）。
 - 字号不小于 12px。
 - 按钮都有名字。
 - 控制台没有报错。
@@ -280,7 +280,7 @@ AIVORA_CHROMIUM=/path/to/chrome AIVORA_SIZES=1280x800,1920x1080 \
   node apps/studio-web/src/aivora/next/stories/check-layout.mjs
 ```
 
-`AIVORA_SIZES` 不写时只查 1280×800。
+`AIVORA_SIZES` 不写时只查 1280×800。`AIVORA_ONLY=stories` 或 `pages` 只查一半；`AIVORA_SHOTS=文件夹` 把工作区每个页面截图存下来。
 
 ## 验证
 
@@ -311,6 +311,7 @@ pnpm --filter @aijian/studio-web test
 | `stories/`                            | 示例页外框、示例数据、入口页面和布局检查脚本                   |
 | `adapters/*.ts`                       | 适配层：读 `project.json`，给出每个组件的数据 props            |
 | `adapters/sampleProject.ts`           | 示例作品和它的示例检查报告，给测试和示例页用                   |
+| `adapters/novelProject.ts`            | 测试小说《晚照书店》做成的作品，给工作区的布局检查用           |
 | `adapters/*.test.ts(x)`               | 适配层的测试，每个都用适配结果把组件画一遍                     |
 | `INTEGRATION.md`                      | 接线清单：放在哪、什么事件、还缺什么接口                       |
 | `helpers.test.ts`、`qcReport.test.ts` | 换算函数和报告校验的测试                                       |
