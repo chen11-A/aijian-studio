@@ -3881,3 +3881,42 @@ it.each(["undo", "edit", "page"] as const)(
     if (action === "edit") expect(screen.getByLabelText("景别")).toHaveValue("特写");
   },
 );
+
+it.each(["writer", "art"] as const)(
+  "B11 wires actual global %s request to the selected scene without narrowing project scope",
+  async (role) => {
+    const { completeText } = installDesktop();
+    await openSample();
+    const fixture = sampleFilm();
+    const selected = fixture.scenes[1]!;
+    const button = screen
+      .getAllByRole("button", { name: new RegExp(selected.title) })
+      .find((item) => item.className.includes("scene"));
+    expect(button).toBeDefined();
+    fireEvent.click(button!);
+    completeText.mockClear();
+    if (role === "writer") {
+      pickHelper("编剧");
+      fireEvent.click(screen.getByRole("button", { name: "让编剧写" }));
+    } else {
+      pickHelper("美术");
+      fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
+    }
+    await waitFor(() => expect(completeText).toHaveBeenCalled());
+    const request = completeText.mock.calls[0]![0].text;
+    expect(request).toContain('"taskScope":"project"');
+    expect(request).toContain(`"id":"${selected.id}"`);
+    expect(request).toContain("任务和输出、写入范围仍为全项目");
+    if (role === "writer") {
+      for (const scene of fixture.scenes) {
+        for (const paragraph of scene.text.split("\n").filter(Boolean))
+          expect(request.split(paragraph)).toHaveLength(2);
+      }
+      const appended = request.split("编辑器选中内容（仅补充参考）：")[1]!.split("\n")[1]!;
+      expect(JSON.parse(appended).scene).not.toHaveProperty("text");
+    } else {
+      for (const person of fixture.characters) expect(request).toContain(person.name);
+      expect(request).toContain(JSON.stringify(selected.text));
+    }
+  },
+);

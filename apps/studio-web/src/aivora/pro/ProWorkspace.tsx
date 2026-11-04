@@ -50,6 +50,7 @@ import { planActionDraft } from "./actions/action";
 import { planPerformanceDraft } from "./actions/performance";
 import { planPrompterDraft } from "./actions/prompter";
 import { planArtDraft } from "./actions/art";
+import { globalEditorRequest } from "./actions/editor-request-context";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import { continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
@@ -1602,6 +1603,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const base = structuredClone(filmRef.current ?? film);
     const origin = structuredClone(editorSelection.current);
+    const scoped = globalEditorRequest(base, origin, completeAgent);
+    if (!scoped.ok) {
+      emitNotice({ code: scoped.code, text: "选中内容已失效，请重新选择。" });
+      return;
+    }
     storyDraft.current = null;
     const input = writerDraftInput(base, kind, chat);
     const scope = scopeRef.current;
@@ -1609,7 +1615,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setPendingScenes(null);
     let result: WriterDraftResult;
     try {
-      result = await planWriterDraft(input, { connected, request: completeAgent });
+      result = await planWriterDraft(input, { connected, request: scoped.request });
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
@@ -1985,11 +1991,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planArtWork() {
     if (!film) return;
-    const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
     const base = structuredClone(filmRef.current ?? film);
     const selection = structuredClone(editorSelection.current);
+    const scoped = globalEditorRequest(base, selection, completeAgent);
+    if (!scoped.ok) {
+      emitNotice({ code: scoped.code, text: "选中内容已失效，请重新选择。" });
+      return;
+    }
+    const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
     const result = await planArtDraft(base, {
-      request: completeAgent,
+      request: scoped.request,
       current: () => isTurnCurrent(turn),
     });
     if (!isTurnCurrent(turn) || result.status === "stale") return;
