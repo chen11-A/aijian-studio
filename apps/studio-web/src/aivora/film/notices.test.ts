@@ -82,6 +82,40 @@ describe("structured business notices", () => {
       expect(normalizeNotice(message).code, message).not.toBe("OPERATION_STATUS");
   });
 
+  it.each([
+    ["镜头已变更，请重新生成建议。", "REQUEST_STALE"],
+    ["作品已修改，已停下连续编导。保留了你的修改，请重新开始。", "REQUEST_STALE"],
+    ["这次改动不能安全撤销，已保留当前内容。", "EDITOR_UNDO_CONFLICT"],
+    ["内容后来改过，这次没有覆盖。", "EDITOR_EDIT_CONFLICT"],
+    ["有表演尚未对应到镜头或人物，请核对后再写入。", "PERFORMANCE_UNASSIGNED"],
+    ["配音语气还需核对，已保留原语气。", "PERFORMANCE_VOICE_REVIEW"],
+    ["表演指导写好了。点「写入分镜」写到这一镜。", "PERFORMANCE_READY"],
+    ["没有登录，已用离线表演指导。点「写入分镜」写到这一镜。", "PERFORMANCE_OFFLINE"],
+  ])("keeps new action notice %s specific", (text, code) => {
+    expect(normalizeNotice(text).code).toBe(code);
+  });
+
+  it("gives every agent step and editor reason a short Chinese fallback", () => {
+    const files = [
+      "../pro/pipeline-agent-actions.ts",
+      "../pro/film-pipeline-controller.ts",
+      "./production-pipeline.ts",
+      "../pro/actions/editor-host.ts",
+      "../pro/actions/editor-context.ts",
+      "../pro/actions/editor-changes.ts",
+      "../pro/actions/editor-structure.ts",
+    ];
+    for (const file of files) {
+      const source = readFileSync(resolve(__dirname, file), "utf8");
+      const codes = [...source.matchAll(/"([A-Z][A-Z_]{2,})"/gu)].map((match) => match[1]!);
+      for (const code of codes) {
+        const notice = normalizeNotice({ code, text: code });
+        expect(notice.text, `${file}: ${code}`).not.toBe(NOTICE_TEXT.OPERATION_STATUS);
+        expect(notice.text, code).toMatch(/[\u4e00-\u9fff]/u);
+      }
+    }
+  });
+
   it("clears messages explicitly and does not retain old details", () => {
     expect(normalizeNotice(" \n ")).toEqual({ code: "NOTICE_CLEAR", text: "" });
     expect(normalizeNotice({ code: "NOTICE_CLEAR", text: "old", detail: "old" })).toEqual({
