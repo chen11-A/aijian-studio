@@ -90,7 +90,7 @@ export function NativeDraftPages({
           }
           secondaryLabel={view === "changes" ? "回到审片" : "回到剪辑"}
           secondaryAction={() => d.go(view === "changes" ? "review" : "assembly")}
-          reason="当前导出的是草稿。正式发行还要另外完成检查。"
+          reason="现在导出的是试做版。要发布，还要另外做完检查。"
         />
       )}
     </>

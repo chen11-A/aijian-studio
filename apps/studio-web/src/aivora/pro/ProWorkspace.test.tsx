@@ -271,10 +271,10 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     desktop.pickFilmFolder.mockResolvedValueOnce("");
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
-    expect(await screen.findByText(/请选择导出文件夹/)).toBeInTheDocument();
+    expect(await screen.findByText(/先选一个保存的文件夹/)).toBeInTheDocument();
     desktop.exportFilmCut.mockRejectedValueOnce(new Error("disk"));
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
-    expect(await screen.findByText(/导出未完成，可以重试/)).toBeInTheDocument();
+    expect(await screen.findByText(/导出没有完成，可以再试一次/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
     expect(await screen.findByText(/已导出到/)).toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "导出成片" });
@@ -479,9 +479,7 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
       expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /后台生成/ }).textContent).toContain(
-        "没有正在生成的内容",
-      );
+      expect(screen.getByRole("button", { name: /后台生成/ }).textContent).toContain("没有在做的");
       const preview = document.querySelector("video.frame");
       if (preview) {
         fireEvent.timeUpdate(preview);
@@ -592,9 +590,12 @@ describe("professional workspace", () => {
       detail: "文本接口返回 404。已改用普通对话再试过。",
       text: "",
     });
-    expect(await screen.findByRole("button", { name: "再用普通对话问一次" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "换个问法再问一次" })).toBeInTheDocument();
+    // 3J-U04: the retry sits under the failed reply, never in the status bar.
+    expect(document.querySelector(".statusbar")?.textContent).not.toContain("再问一次");
+    expect(screen.getAllByRole("button", { name: "换个问法再问一次" })).toHaveLength(1);
     expect(completeText).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "再用普通对话问一次" }));
+    fireEvent.click(screen.getByRole("button", { name: "换个问法再问一次" }));
     await waitFor(() => expect(replies).toHaveLength(2));
     replies[1]?.({
       kind: "ERROR",
@@ -662,9 +663,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
     expect(await screen.findByText(/已标成已中断/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent(
-      "没有正在生成的内容",
-    );
+    expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有在做的");
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
     expect(screen.getByRole("button", { name: /已中断/ })).toBeInTheDocument();
   }, 20_000);
@@ -888,7 +887,11 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     expect(await screen.findByText(/声音关着/)).toBeInTheDocument();
     fireEvent.click(stageTab("剧本"));
     fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-    expect(await screen.findByText(/停在分镜。点继续才出视频/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.querySelector(".status-note")?.textContent).toMatch(
+        /分镜好了。看一遍|有的场结尾还没拍到/,
+      ),
+    );
     expect(stageTab("分镜").className.split(/\s+/)).toContain("on");
   } finally {
     window.Audio = RealAudio;
@@ -1740,13 +1743,17 @@ it("continues one-click storyboarding and retries the director into shots", asyn
   });
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-  expect(await screen.findByText(/停在分镜。点继续才出视频/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "继续" }));
+  await waitFor(() =>
+    expect(document.querySelector(".status-note")?.textContent).toMatch(
+      /分镜好了。看一遍|有的场结尾还没拍到/,
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "继续出视频" }));
   expect(await screen.findByRole("button", { name: "开始生成" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "先不生成" }));
   fireEvent.click(stageTab("剧本"));
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
-  fireEvent.click(await screen.findByRole("button", { name: "再用普通对话问一次" }));
+  fireEvent.click(await screen.findByRole("button", { name: "换个问法再问一次" }));
   expect((await screen.findAllByText(/导演拆好了/)).length).toBeGreaterThan(0);
   pickHelper("编剧");
   expect(screen.queryByRole("button", { name: "写入分镜" })).toBeNull();
@@ -1865,7 +1872,7 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   });
   expect(await screen.findByText(/已导入音乐/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "静音配音" }));
-  expect(screen.getByText("这一路已静音。")).toBeInTheDocument();
+  expect(screen.getByText("这一轨已静音。")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "静音配音" }));
   fireEvent.click(screen.getByRole("button", { name: "单听配音" }));
   fireEvent.click(screen.getByRole("button", { name: "静音音乐" }));
@@ -1927,7 +1934,7 @@ it("shows a failure when the director bridge throws, including a retry", async (
     });
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
-  fireEvent.click(await screen.findByRole("button", { name: "再用普通对话问一次" }));
+  fireEvent.click(await screen.findByRole("button", { name: "换个问法再问一次" }));
   expect(await screen.findByText(/这次没有写完/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "让导演拆镜头" })).toBeEnabled();
 });
@@ -1991,7 +1998,11 @@ it("turns a long realistic reply into shots, cast, and performance", async () =>
   );
   fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "林雨在雨里停下。" } });
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-  expect(await screen.findByText(/停在分镜。点继续才出视频/)).toBeInTheDocument();
+  await waitFor(() =>
+    expect(document.querySelector(".status-note")?.textContent).toMatch(
+      /分镜好了。看一遍|有的场结尾还没拍到/,
+    ),
+  );
   expect(screen.getAllByText(/林雨/).length).toBeGreaterThan(0);
   expect(document.body.textContent).toContain("第1镜");
   expect(document.body.textContent).toContain("抓紧伞");
@@ -2445,7 +2456,7 @@ it("sums the export in one line, lists missing shots by scene, and offers the fi
 it("opens the task center from 后台生成 with nothing to do yet, and goes to the storyboard", () => {
   render(<ProWorkspace />);
   fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
-  expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有正在生成的内容");
+  expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有在做的");
   fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
   expect(screen.getByText("现在没有任务")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "去分镜" }));

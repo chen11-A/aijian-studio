@@ -118,6 +118,8 @@ import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs, runTask } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
+import { useStatusNotice } from "../next/wiring/statusNotice";
+import { NoticeLog } from "../next/NoticeLog";
 import {
   settleNextJob,
   dialogueMuted,
@@ -2658,6 +2660,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (4A-U04): the live task list for 后台生成 and the task center.
   const feed = useTaskFeed();
   const feedNow = feedProgress(feed);
+  // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
+  // past messages are listed in the task center.
+  const status = useStatusNotice(notice);
   // UI wiring (3J-U02): each page opens with its own helper in the assistant. Only a page
   // change picks it; chooseRole is a new function on every render.
   useEffect(() => {
@@ -3095,6 +3100,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onToggleRoles={() => setShowRoles((value) => !value)}
                   structured={structured}
                   turns={turns}
+                  onRetry={pendingRetry ? () => void retryPending() : undefined}
                   card={
                     roleCards[role]?.shots &&
                     roleCards[role]?.shots.every((item) => item.sceneId !== scene)
@@ -3177,6 +3183,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onChat={setChat}
                   onSend={sendChat}
                   turns={turns}
+                  onRetry={pendingRetry ? () => void retryPending() : undefined}
                   assistPulse={assistPulse}
                   structured={structured}
                   card={
@@ -3409,11 +3416,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           }}
         />
         <footer className="statusbar">
-          {pendingRetry && (
-            <button type="button" onClick={() => void retryPending()}>
-              再用普通对话问一次
-            </button>
-          )}
           {oneClickReady && (
             <button
               type="button"
@@ -3427,7 +3429,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 setOneClickReady(false);
               }}
             >
-              继续
+              继续出视频
             </button>
           )}
           {asking && (
@@ -3445,7 +3447,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
           )}
           <span
-            className="status-note"
+            className={status.fading ? "status-note fading" : "status-note"}
+            role="status"
+            title={
+              status.line
+                ? [status.line.text, status.line.detail].filter(Boolean).join("\n")
+                : undefined
+            }
             style={{
               minWidth: 0,
               overflow: "hidden",
@@ -3453,18 +3461,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               whiteSpace: "nowrap",
             }}
           >
-            {notice}
+            {status.line?.text ?? ""}
+            {status.line?.detail ? (
+              <span className="status-detail">{status.line.detail.replace(/\n/g, " · ")}</span>
+            ) : null}
           </span>
           <button className="task" onClick={() => setMenu(menu === "queue" ? null : "queue")}>
             <Ic name="loader" size={12} />
             后台生成：
             {asking
-              ? "正在问模型"
+              ? "AI 在写"
               : feedNow.active > 0
                 ? `正在做 ${feedNow.active} 个`
                 : portraitBusy
                   ? "正在出定妆照"
-                  : "没有正在生成的内容"}
+                  : "没有在做的"}
             <span className="bar">
               <i style={{ width: `${feed.tasks.length > 0 ? feedNow.percent : progress}%` }} />
             </span>
@@ -3474,8 +3485,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             {savedDirectory
               ? "作品保存在"
               : savingDisk
-                ? "正在写入应用数据目录"
-                : diskError || (filmDiskReady() ? "作品在应用数据目录" : BROWSER_DIRECTORY)}{" "}
+                ? "正在保存…"
+                : diskError || (filmDiskReady() ? "已保存在这台电脑上" : BROWSER_DIRECTORY)}{" "}
             <b>{savedDirectory || film?.title || ""}</b>
           </span>
         </footer>
@@ -3664,6 +3675,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 setStage("board");
               }}
             />
+            <NoticeLog log={status.log} />
           </div>
         ) : null}
         {exportOpen && (
@@ -3816,6 +3828,7 @@ function Assistant({
   onRedoRange,
   onDismiss,
   busy = false,
+  onRetry,
 }: {
   role: Role;
   onRole: (role: Role) => void;
@@ -3823,6 +3836,8 @@ function Assistant({
   pendingScenes?: FilmScene[] | null;
   onApply: () => void;
   onApplyScenes?: () => void;
+  /** 3J-U04: set while the last request failed; shows 「换个问法再问一次」 under that reply. */
+  onRetry?: () => void;
   shots: FilmShot[];
   chat: string;
   onChat: (value: string) => void;
@@ -3898,6 +3913,13 @@ function Assistant({
             {item.text}
           </div>
         ))}
+        {onRetry && chatTurns.at(-1)?.who === "agent" ? (
+          <div className="msg-retry">
+            <button className="btn sm" type="button" onClick={onRetry}>
+              换个问法再问一次
+            </button>
+          </div>
+        ) : null}
         <div className="msg-a">
           <span className="ri">
             <Ic name="clap" size={13} />
@@ -4150,6 +4172,7 @@ function ScriptPage({
   onDismiss,
   onOneClick,
   onTemplate,
+  onRetry,
 }: {
   film: FilmProject;
   scene: string;
@@ -4180,6 +4203,8 @@ function ScriptPage({
   onToggleRoles: () => void;
   structured: string[];
   turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  /** 3J-U04: retry for the reply that just failed; the button sits under that reply. */
+  onRetry?: () => void;
   card: RoleCard | null;
   onRedoRange: () => void;
   onDismiss: () => void;
@@ -4360,6 +4385,7 @@ function ScriptPage({
           structured={structured}
           turns={turns}
           card={card}
+          onRetry={onRetry}
           onRedoRange={onRedoRange}
           onDismiss={onDismiss}
           busy={asking}
@@ -4858,6 +4884,7 @@ function BoardPage({
   qcCard = null,
   onRedoRange,
   onDismiss,
+  onRetry,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -4888,6 +4915,8 @@ function BoardPage({
   onChat: (value: string) => void;
   onSend: () => void;
   turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  /** 3J-U04: retry for the reply that just failed; the button sits under that reply. */
+  onRetry?: () => void;
   assistPulse: number;
   structured: string[];
   card: RoleCard | null;
@@ -5087,6 +5116,7 @@ function BoardPage({
             turns={turns}
             structured={structured}
             card={card}
+            onRetry={onRetry}
             onRedoRange={onRedoRange}
             onDismiss={onDismiss}
           />

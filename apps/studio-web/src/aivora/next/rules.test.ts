@@ -88,6 +88,7 @@ describe("next/ styles", () => {
 /** GPT's interfaces that wiring/ hooks connect the workspace to (3J-B17). */
 const WIRING = [
   "@aijian/contracts/task-progress",
+  "../../film/contracts3j",
   "../../film/project",
   "../../film/task-progress",
 ];
