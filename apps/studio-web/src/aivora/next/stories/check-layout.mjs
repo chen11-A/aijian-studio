@@ -6,9 +6,9 @@
  * center. At each window size it checks that the page does not scroll, nothing sits outside
  * the window, nothing is cut off by a box that does not scroll (one-line text with an ellipsis
  * is fine, and so is text cut to a few lines whose tooltip holds all of it), no two pieces of
- * text or controls overlap (text drawn on a picture frame, .nx-frame
- * or [data-layer], is meant to), no text is smaller than 12px, every button has a name, and
- * the console stays clean.
+ * text or controls overlap (a dialog or menu over the page is fine; so is text drawn on a
+ * picture frame, .nx-frame or [data-layer]), no text is smaller than 12px, every button has a
+ * name, and the console stays clean.
  *
  * Start the dev server first, then run from the repository root:
  *   pnpm --filter @aijian/studio-web dev
@@ -45,6 +45,7 @@ const stories = [
 
 // Runs inside the page. Returns a list of problems in Chinese.
 function inspect(rootSelector) {
+  const OVERLAYS = ".dialog-back, .menu, [data-overlay]";
   const problems = [];
   const describe = (el) => {
     const cls =
@@ -167,7 +168,12 @@ function inspect(rootSelector) {
         bottom: Math.min(rect.bottom, clip.bottom),
       }))
       .filter((rect) => rect.right - rect.left > 0.5 && rect.bottom - rect.top > 0.5);
-    return { el, rects, layer: el.closest(".nx-frame, [data-layer]") };
+    return {
+      el,
+      rects,
+      layer: el.closest(".nx-frame, [data-layer]"),
+      overlay: el.closest(OVERLAYS),
+    };
   });
   for (let i = 0; i < boxes.length; i += 1) {
     for (let j = i + 1; j < boxes.length; j += 1) {
@@ -175,6 +181,8 @@ function inspect(rootSelector) {
       const b = boxes[j];
       if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
       if (a.layer && a.layer === b.layer) continue;
+      // A dialog or a menu covers the page on purpose; what lies under it is checked alone.
+      if (a.overlay !== b.overlay) continue;
       const hit = a.rects.some((ra) =>
         b.rects.some(
           (rb) =>
