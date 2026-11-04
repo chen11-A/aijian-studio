@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { AssetsPage, ScenePage } from "./SceneAndAssets";
 import { EditorDialog } from "./Common";
@@ -73,7 +73,7 @@ describe("scene environment selection", () => {
 });
 
 describe("scene and asset local workflows", () => {
-  it("saves an explicit scene detail change and confirms all scenes before moving to storyboard", () => {
+  it("saves an explicit scene detail change and confirms all scenes before moving to storyboard", async () => {
     window.history.replaceState({}, "", "#scenes");
     render(
       <DemoProvider fixture={createAivoraSampleFixture()}>
@@ -85,6 +85,7 @@ describe("scene and asset local workflows", () => {
     fireEvent.change(screen.getByLabelText("光线与氛围"), { target: { value: "柔和反光" } });
     fireEvent.click(screen.getByRole("button", { name: "保存设定" }));
     expect(screen.getByText("柔和反光")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "确认场景并进入分镜" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("核对本集全部场景");
@@ -130,7 +131,7 @@ describe("scene and asset local workflows", () => {
     expect(screen.getByRole("button", { name: "大屏查看故事参考" })).toBeInTheDocument();
   });
 
-  it("adds and removes an asset reference only through its local preview confirmation", () => {
+  it("adds and removes an asset reference only through its local preview confirmation", async () => {
     window.history.replaceState({}, "", "#assets");
     render(
       <DemoProvider fixture={createAivoraSampleFixture()}>
@@ -145,6 +146,7 @@ describe("scene and asset local workflows", () => {
       selected: "story",
       references: ["故事参考"],
     });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "故事参考详情与引用" }));
     fireEvent.click(screen.getByRole("button", { name: "移除项目引用" }));

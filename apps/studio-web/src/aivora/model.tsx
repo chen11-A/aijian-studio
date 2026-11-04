@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode, SetStateAction } from "react";
 import { initialCharacters, initialProjects, initialShots, pages } from "./data";
 import type { PageId, Scenario } from "./data";
@@ -21,6 +21,11 @@ import {
   createWorkspaceProject,
   restoreLatestSource,
 } from "./adapters/projectWorkspace";
+import {
+  ProjectCreateJournal,
+  validProjectCreateInput,
+  type ProjectCreateIntent,
+} from "./adapters/projectCreateJournal";
 import {
   importTextSource,
   readSourceDocumentText,
@@ -85,7 +90,9 @@ export type Editor = {
   save?: (values: Record<string, string>) => void | false | Promise<void | false>;
 };
 export type ProjectCreateUiState =
-  { kind: "idle" } | { kind: "SUBMITTING" } | { kind: "REMOTE_UNKNOWN" };
+  | { kind: "idle" }
+  | { kind: "SUBMITTING" }
+  | { kind: "REMOTE_UNKNOWN"; intent?: ProjectCreateIntent | null };
 export type SourceImportUiState =
   | { kind: "idle" }
   | { kind: "pending"; projectId: string }
@@ -243,18 +250,47 @@ export function moveShot(shots: typeof initialShots, id: number, target: number)
 }
 function initialPage(): PageId {
   const hash = window.location.hash.slice(1);
-  return hash in pages ? (hash as PageId) : "project";
+  return hash in pages ? (hash as PageId) : "launch";
 }
 function useDemoModel(fixture?: DemoFixture) {
   const [page, setPage] = useState<PageId>(initialPage);
+  const currentPage = useRef(page);
+  currentPage.current = page;
+  const navigationGuard = useRef<(() => boolean) | null>(null);
+  const setNavigationGuard = useCallback((guard: (() => boolean) | null) => {
+    navigationGuard.current = guard;
+  }, []);
+  const canNavigate = () => navigationGuard.current?.() ?? true;
   const [scenario, setScenario] = useState<Scenario>("normal");
-  const [professional, setProfessional] = useState(false);
+  const productWorkspace = fixture === undefined;
+  const [professional, setProfessionalState] = useState(productWorkspace);
+  const setProfessional = (value: boolean) => {
+    setProfessionalState(productWorkspace ? true : value);
+  };
+  const [filmStep, setFilmStep] = useState(0);
   const [inspector, setInspector] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [projectCreateState, setProjectCreateState] = useState<ProjectCreateUiState>({
-    kind: "idle",
+  const [projectCreateJournal] = useState(() => {
+    try {
+      return new ProjectCreateJournal(window.localStorage);
+    } catch {
+      return new ProjectCreateJournal(null);
+    }
   });
+  const [projectCreateState, setProjectCreateState] = useState<ProjectCreateUiState>(() => {
+    const read = fixture ? { kind: "READY" as const, intent: null } : projectCreateJournal.read();
+    return read.kind === "READY" && !read.intent
+      ? { kind: "idle" }
+      : { kind: "REMOTE_UNKNOWN", intent: read.intent };
+  });
+  const creationMounted = useRef(true);
+  useEffect(() => {
+    creationMounted.current = true;
+    return () => {
+      creationMounted.current = false;
+    };
+  }, []);
   const [toast, setToast] = useState("");
   const [values, setValues] = useState<Record<string, string>>(() => ({
     source: "",
@@ -409,14 +445,23 @@ function useDemoModel(fixture?: DemoFixture) {
   const [references, setReferences] = useState<string[]>([]);
   const [rightTabs, setRightTabs] = useState<Partial<Record<PageId, "inspector" | "ai">>>({});
   const rightTab = rightTabs[page] ?? "inspector";
+  // Page-scoped view preference only; it never changes the selected object or permissions.
+  const [professionalDockPages, setProfessionalDockPages] = useState<
+    Partial<Record<PageId, boolean>>
+  >({});
+  const professionalDockCollapsed = professionalDockPages[page] ?? false;
+  const setProfessionalDockCollapsed = (collapsed: boolean) =>
+    setProfessionalDockPages((old) => ({ ...old, [page]: collapsed }));
   const selectRightTab = (tab: "inspector" | "ai") =>
     setRightTabs((old) => ({ ...old, [page]: tab }));
   function focusAssistant(request: string) {
+    setProfessionalDockCollapsed(false);
     selectRightTab("ai");
     setAiOpen(true);
     setAiDraft(request);
   }
   const history = useRef<PageId[]>([]);
+  const goRef = useRef<(next: PageId) => void>(() => undefined);
   const scroll = useRef<Partial<Record<PageId, number>>>({});
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -460,7 +505,8 @@ function useDemoModel(fixture?: DemoFixture) {
     allowUnlisted = false,
   ) {
     if (!projectId || (!allowUnlisted && !episodes.some((episode) => episode.id === episodeId)))
-      return;
+      return false;
+    if (!allowUnlisted && episodeId !== selectedEpisodeId && !canNavigate()) return false;
     const generation = episodeGate.begin();
     setSelectedEpisodeId(null);
     setEpisodeState("loading");
@@ -472,10 +518,10 @@ function useDemoModel(fixture?: DemoFixture) {
     });
     setStoryWorkspaceState("idle");
     const outcome = await readEpisodeWorkspace(studio, projectId, episodeId);
-    if (!episodeGate.isCurrent(generation) || projectId !== currentBackendProjectId()) return;
+    if (!episodeGate.isCurrent(generation) || projectId !== currentBackendProjectId()) return false;
     if (outcome.kind !== "SUCCEEDED") {
       setEpisodeState(outcome.kind === "UNAVAILABLE" ? "unavailable" : "error");
-      return;
+      return false;
     }
     setSelectedEpisodeId(outcome.receipt.data.id);
     setEpisodeState("ready");
@@ -485,7 +531,9 @@ function useDemoModel(fixture?: DemoFixture) {
         : [outcome.receipt.data, ...old],
     );
     put("episode", outcome.receipt.data.title);
-    persistSelection(withWorkspaceSelection(selectionSnapshot.current, { projectId, episodeId }));
+    return persistSelection(
+      withWorkspaceSelection(selectionSnapshot.current, { projectId, episodeId }),
+    );
   }
   async function refreshRealEpisodes(
     projectId = currentBackendProjectId(),
@@ -549,6 +597,7 @@ function useDemoModel(fixture?: DemoFixture) {
     if (persistEpisodeMarker(projectId, null)) notify("已记录你的核对；现在可以新建剧集。");
   }
   async function createRealEpisode(input: CreateEpisodeInput) {
+    if (!canNavigate()) return { kind: "UNAVAILABLE" } as const;
     const projectId = currentBackendProjectId();
     if (!projectId || !selectionAvailable.current) return { kind: "UNAVAILABLE" } as const;
     if (episodeCreatePending.has(projectId)) {
@@ -589,6 +638,8 @@ function useDemoModel(fixture?: DemoFixture) {
   function clearProjectScopedState() {
     const cleared: Record<string, string> = {
       episode: "",
+      input: "",
+      c3DraftIntent: "",
       source: "",
       importedName: "",
       sourceApproved: "false",
@@ -780,13 +831,13 @@ function useDemoModel(fixture?: DemoFixture) {
               kind: "unknown",
               message: "来源已找到，但保存记录未能清除；请人工核对。",
             });
-            return;
+          } else {
+            sourceImportUnknown.delete(projectId);
+            put("source", normalizedText);
+            put("importedName", reconciled.data.filename);
+            setSourceDocument(reconciled);
+            setSourceImportState({ kind: "saved", filename: reconciled.data.filename });
           }
-          sourceImportUnknown.delete(projectId);
-          put("source", normalizedText);
-          put("importedName", reconciled.data.filename);
-          setSourceDocument(reconciled);
-          setSourceImportState({ kind: "saved", filename: reconciled.data.filename });
         }
       }
       const manifest = await studio.getSourceManifest(projectId);
@@ -830,9 +881,8 @@ function useDemoModel(fixture?: DemoFixture) {
       const remote = await connectWorkspace(studio);
       if (!projectGate.isCurrent(generation)) return;
       const mapped = remote.map(mapProject);
-      // A successful authoritative list read is the reconciliation point for an
-      // earlier create whose outcome was unknown.
-      createUnknown.current = false;
+      // A project list is not an original creation receipt. It never releases
+      // the retained creation intent or authorizes another create.
       setProjects(mapped);
       const savedProjectId = selectionAvailable.current
         ? selectionSnapshot.current.selection?.projectId
@@ -882,12 +932,34 @@ function useDemoModel(fixture?: DemoFixture) {
     }
   }
   async function createRealProject(input: CreateProjectInput) {
-    if (createPending.current || createUnknown.current) {
+    if (!canNavigate()) return { kind: "UNAVAILABLE" } as const;
+    const retained = projectCreateJournal.read();
+    if (
+      createPending.current ||
+      createUnknown.current ||
+      retained.kind !== "READY" ||
+      retained.intent
+    ) {
+      if (!createPending.current) {
+        createUnknown.current = true;
+        setProjectCreateState({ kind: "REMOTE_UNKNOWN", intent: retained.intent });
+      }
       notify(
-        createUnknown.current
-          ? "上次创建结果未知。请刷新项目列表后确认，未自动重试。"
-          : "正在创建项目，请等待结果后再试。",
+        createPending.current
+          ? "正在创建项目，请等待结果后再试。"
+          : "原创建结果或保存记录尚未核实；列表读取不会解除锁定，未发送新创建。",
       );
+      return { kind: "REMOTE_UNKNOWN" } as const;
+    }
+    if (!validProjectCreateInput(input)) {
+      notify("创建内容无效；未发送创建请求。");
+      return { kind: "UNAVAILABLE" } as const;
+    }
+    const intent = projectCreateJournal.begin(input);
+    if (!intent) {
+      createUnknown.current = true;
+      setProjectCreateState({ kind: "REMOTE_UNKNOWN", intent: projectCreateJournal.read().intent });
+      notify("创建保存记录无法核实；未发送本次创建请求。");
       return { kind: "REMOTE_UNKNOWN" } as const;
     }
     createPending.current = true;
@@ -897,16 +969,24 @@ function useDemoModel(fixture?: DemoFixture) {
     sourceStageGate.invalidate();
     storyGate.invalidate();
     episodeGate.invalidate();
-    const outcome = await createWorkspaceProject(studio, input);
+    const outcome = await createWorkspaceProject(studio, intent.input);
     createPending.current = false;
-    if (outcome.kind !== "SUCCEEDED") {
-      setProjectCreateState(outcome);
+    if (
+      outcome.kind !== "SUCCEEDED" ||
+      !creationMounted.current ||
+      !projectGate.isCurrent(generation) ||
+      !projectCreateJournal.complete(intent)
+    ) {
       createUnknown.current = true;
-      notify("创建结果未知。请刷新项目列表后确认，未自动重试。");
-      return outcome;
+      const kept = projectCreateJournal.read();
+      if (creationMounted.current) {
+        setProjectCreateState({ kind: "REMOTE_UNKNOWN", intent: kept.intent });
+        notify("创建结果尚未归因；原记录保留，列表读取不会解除锁定，未自动重试。");
+      }
+      return { kind: "REMOTE_UNKNOWN" } as const;
     }
+    createUnknown.current = false;
     setProjectCreateState({ kind: "idle" });
-    if (!projectGate.isCurrent(generation)) return outcome;
     const mapped = mapProject(outcome.project, 0);
     clearProjectScopedState();
     setBackendProjectId(mapped.backendId ?? null);
@@ -922,19 +1002,22 @@ function useDemoModel(fixture?: DemoFixture) {
     setProjects((old) => [mapped, ...old.map((project, index) => ({ ...project, id: index + 2 }))]);
     if (mapped.backendId) {
       restoreSourceImportMarker(mapped.backendId);
-      void refreshRealEpisodes(mapped.backendId, false);
-      void refreshProductionBrief(mapped.backendId);
+      await Promise.all([
+        refreshRealEpisodes(mapped.backendId, false),
+        refreshProductionBrief(mapped.backendId),
+      ]);
     }
     notify("项目已由本地工作区创建。");
     return outcome;
   }
   async function selectRealProject(localId: number) {
     const selected = projects.find((project) => project.id === localId);
-    if (!selected) return;
+    if (!selected) return false;
     if (!selected.backendId) {
       notify("该项目没有本地工作区标识，无法打开。");
-      return;
+      return false;
     }
+    if (!canNavigate()) return false;
     const generation = projectGate.begin();
     sourceGate.invalidate();
     sourceStageGate.invalidate();
@@ -957,7 +1040,7 @@ function useDemoModel(fixture?: DemoFixture) {
       void refreshRealEpisodes(selected.backendId, false);
       void refreshProductionBrief(selected.backendId);
       const source = await restoreLatestSource(studio, selected.backendId);
-      if (!projectGate.isCurrent(generation)) return;
+      if (!projectGate.isCurrent(generation)) return false;
       if (source) {
         put("importedName", source.data.filename);
         try {
@@ -966,11 +1049,11 @@ function useDemoModel(fixture?: DemoFixture) {
             selected.backendId,
             source.data,
           );
-          if (!projectGate.isCurrent(generation)) return;
+          if (!projectGate.isCurrent(generation)) return false;
           put("source", normalizedText);
           setSourceDocument(source);
         } catch {
-          if (!projectGate.isCurrent(generation)) return;
+          if (!projectGate.isCurrent(generation)) return false;
           put("source", "");
           setSourceDocument(null);
           setSourceImportState({
@@ -980,9 +1063,11 @@ function useDemoModel(fixture?: DemoFixture) {
         }
       }
       void refreshRealSourceStage(selected.backendId);
+      return true;
     } catch {
       if (projectGate.isCurrent(generation))
         notify("项目已切换，但原文恢复失败；请重新连接后再试。");
+      return false;
     }
   }
   async function importRealSource(file: File) {
@@ -1134,8 +1219,12 @@ function useDemoModel(fixture?: DemoFixture) {
     capturedSourceDocumentId?: string,
   ) {
     const projectId = currentBackendProjectId();
-    if (!projectId || !capturedIdentity || capturedIdentity.project_id !== projectId ||
-        !capturedSourceDocumentId) {
+    if (
+      !projectId ||
+      !capturedIdentity ||
+      capturedIdentity.project_id !== projectId ||
+      !capturedSourceDocumentId
+    ) {
       notify("当前项目或来源审核目标未核实，未发送审核。");
       return false;
     }
@@ -1158,13 +1247,17 @@ function useDemoModel(fixture?: DemoFixture) {
         return false;
       }
       const identity = sourceReviewIdentity(manifest, projectId);
-      if (!manifest || !identity || sourceStageFromManifest(manifest, projectId).kind !== "draft" ||
-          identity.version_id !== capturedIdentity.version_id ||
-          identity.content_hash !== capturedIdentity.content_hash ||
-          identity.expected_revision !== capturedIdentity.expected_revision ||
-          !manifest.data.latest_version.content.documents.some(
-            (document) => document.source_document_id === capturedSourceDocumentId,
-          )) {
+      if (
+        !manifest ||
+        !identity ||
+        sourceStageFromManifest(manifest, projectId).kind !== "draft" ||
+        identity.version_id !== capturedIdentity.version_id ||
+        identity.content_hash !== capturedIdentity.content_hash ||
+        identity.expected_revision !== capturedIdentity.expected_revision ||
+        !manifest.data.latest_version.content.documents.some(
+          (document) => document.source_document_id === capturedSourceDocumentId,
+        )
+      ) {
         notify("来源审核目标已变化；请刷新清单并重新核对，未发送审核。");
         return false;
       }
@@ -1359,8 +1452,14 @@ function useDemoModel(fixture?: DemoFixture) {
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }
+  function releaseSourceRead(next: PageId) {
+    if (next === "source") return;
+    sourceStageGate.invalidate();
+    setSourceStage((current) => (current.kind === "loading" ? { kind: "empty" } : current));
+  }
   function go(next: PageId) {
-    if (next !== "source") sourceStageGate.invalidate();
+    if (next !== page && !canNavigate()) return;
+    releaseSourceRead(next);
     scroll.current[page] = document.getElementById("demo-scroll")?.scrollTop ?? 0;
     if (next !== page) history.current.push(page);
     if (page === "storyboard") setSelectedShot(shotAtTime(shots, time)?.id ?? 1);
@@ -1371,9 +1470,11 @@ function useDemoModel(fixture?: DemoFixture) {
     setPlaying(false);
     window.history.pushState({}, "", `#${next}`);
   }
+  goRef.current = go;
   function back() {
+    if (!canNavigate()) return;
     const next = history.current.pop() ?? "projects";
-    if (next !== "source") sourceStageGate.invalidate();
+    releaseSourceRead(next);
     if (page === "storyboard") setSelectedShot(shotAtTime(shots, time)?.id ?? 1);
     scroll.current[page] = document.getElementById("demo-scroll")?.scrollTop ?? 0;
     setPage(next);
@@ -1386,6 +1487,17 @@ function useDemoModel(fixture?: DemoFixture) {
     if (el) el.scrollTop = scroll.current[page] ?? 0;
   }, [page]);
   useEffect(() => {
+    const open = (event: Event) => {
+      const next = (event as CustomEvent<string>).detail;
+      if (typeof next !== "string" || !(next in pages)) return;
+      goRef.current(next as PageId);
+      if (next === "services")
+        requestAnimationFrame(() => document.getElementById("model-center")?.focus());
+    };
+    window.addEventListener("aivora-open-page", open);
+    return () => window.removeEventListener("aivora-open-page", open);
+  }, []);
+  useEffect(() => {
     void connectRealWorkspace();
   }, []);
   useEffect(() => {
@@ -1393,17 +1505,31 @@ function useDemoModel(fixture?: DemoFixture) {
     let active = true;
     void readAppPreferences(studio as AppPreferencesGateway).then((result) => {
       if (!active || result.kind !== "READY") return;
-      setValues((old) => old.userName === "本地用户" && old.bio === undefined
-        ? { ...old, userName: result.response.data.user_name || "本地用户",
-            bio: result.response.data.display_bio }
-        : old);
+      setValues((old) =>
+        old.userName === "本地用户" && old.bio === undefined
+          ? {
+              ...old,
+              userName: result.response.data.user_name || "本地用户",
+              bio: result.response.data.display_bio,
+            }
+          : old,
+      );
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [fixture, studio]);
   useEffect(() => {
     const pop = () => {
       const next = initialPage();
-      if (next !== "source") sourceStageGate.invalidate();
+      if (next !== currentPage.current && !canNavigate()) {
+        window.history.pushState({}, "", `#${currentPage.current}`);
+        return;
+      }
+      if (next !== "source") {
+        sourceStageGate.invalidate();
+        setSourceStage((current) => (current.kind === "loading" ? { kind: "empty" } : current));
+      }
       setPage(next);
       setPlaying(false);
     };
@@ -1463,7 +1589,28 @@ function useDemoModel(fixture?: DemoFixture) {
     onSave?: (data: Record<string, string>) => void | false | Promise<void | false>,
   ) {
     const creatingRealProject = !fixture && title === "新建项目" && !!onSave;
-    if (title === "新建项目") setProjectCreateState({ kind: "idle" });
+    if (title === "新建项目") {
+      const read = creatingRealProject
+        ? projectCreateJournal.read()
+        : { kind: "READY" as const, intent: null };
+      const locked =
+        creatingRealProject && (createUnknown.current || read.kind !== "READY" || !!read.intent);
+      setProjectCreateState(
+        createPending.current
+          ? { kind: "SUBMITTING" }
+          : locked
+            ? { kind: "REMOTE_UNKNOWN", intent: read.intent }
+            : { kind: "idle" },
+      );
+      if (read.intent)
+        fields = fields.map((field) =>
+          field.key === "title"
+            ? { ...field, value: read.intent!.input.name }
+            : field.key === "aspect_ratio"
+              ? { ...field, value: read.intent!.input.aspect_ratio! }
+              : field,
+        );
+    }
     setEditor({
       title,
       fields,
@@ -1478,12 +1625,16 @@ function useDemoModel(fixture?: DemoFixture) {
   }
   return {
     page,
+    setNavigationGuard,
+    canLeaveCurrentEditor: canNavigate,
     go,
     back,
     scenario,
     setScenario,
     professional,
     setProfessional,
+    filmStep,
+    setFilmStep,
     inspector,
     setInspector,
     aiOpen,
@@ -1572,6 +1723,8 @@ function useDemoModel(fixture?: DemoFixture) {
     recoverProductionBrief,
     pendingProductionBrief,
     rightTab,
+    professionalDockCollapsed,
+    setProfessionalDockCollapsed,
     selectRightTab,
     focusAssistant,
   };

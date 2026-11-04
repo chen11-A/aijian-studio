@@ -49,7 +49,10 @@ _ERRORS: dict[int | str, dict[str, Any]] = {
 }
 _SUBMIT_RESPONSES = {
     **_ERRORS,
-    200: {"description": "Existing final operation returned", "model": ProductExportOperationResponse},
+    200: {
+        "description": "Existing final operation returned",
+        "model": ProductExportOperationResponse,
+    },
 }
 
 
@@ -90,30 +93,44 @@ def create_product_export_operation_router(runtime_provider: RuntimeProvider) ->
             data = runtime_provider().submit(project_id, episode_id, payload)
         except ProductExportClaimError as error:
             return _error(
-                request, status_code=409, code=error.code,
+                request,
+                status_code=409,
+                code=error.code,
                 message="Product export claim was rejected",
             )
         except MediaToolchainError:
             return _error(
-                request, status_code=503, code="PRODUCT_EXPORT_TOOLCHAIN_UNAVAILABLE",
+                request,
+                status_code=503,
+                code="PRODUCT_EXPORT_TOOLCHAIN_UNAVAILABLE",
                 message="Product export toolchain is unavailable",
             )
         except ProductExportExecutionError as error:
             if error.code == "SHUTTING_DOWN":
                 return _error(
-                    request, status_code=503, code="PRODUCT_EXPORT_SHUTTING_DOWN",
+                    request,
+                    status_code=503,
+                    code="PRODUCT_EXPORT_SHUTTING_DOWN",
                     message="Product export is shutting down",
                 )
             return _error(
-                request, status_code=503, code="PRODUCT_EXPORT_SUBMISSION_UNKNOWN",
-                message="Submission outcome is unknown; read the operation before any further action",
+                request,
+                status_code=503,
+                code="PRODUCT_EXPORT_SUBMISSION_UNKNOWN",
+                message=(
+                    "Submission outcome is unknown; read the operation before any further action"
+                ),
             )
         except Exception:
             # A claim may already exist. Callers must inspect this operation ID;
             # another POST must not be treated as an automatic retry.
             return _error(
-                request, status_code=503, code="PRODUCT_EXPORT_SUBMISSION_UNKNOWN",
-                message="Submission outcome is unknown; read the operation before any further action",
+                request,
+                status_code=503,
+                code="PRODUCT_EXPORT_SUBMISSION_UNKNOWN",
+                message=(
+                    "Submission outcome is unknown; read the operation before any further action"
+                ),
             )
         if data.status in {"SUCCEEDED", "UNKNOWN", "CANCELLED"}:
             response.status_code = status.HTTP_200_OK
@@ -134,17 +151,23 @@ def create_product_export_operation_router(runtime_provider: RuntimeProvider) ->
             return _receipt(request, runtime_provider().get(project_id, operation_id))
         except ProductExportExecutionError:
             return _error(
-                request, status_code=503, code="PRODUCT_EXPORT_SHUTTING_DOWN",
+                request,
+                status_code=503,
+                code="PRODUCT_EXPORT_SHUTTING_DOWN",
                 message="Product export is shutting down",
             )
         except ProductExportStateError as error:
             if error.code == "NOT_FOUND":
                 return _error(
-                    request, status_code=404, code="PRODUCT_EXPORT_OPERATION_NOT_FOUND",
+                    request,
+                    status_code=404,
+                    code="PRODUCT_EXPORT_OPERATION_NOT_FOUND",
                     message="The requested product export operation was not found",
                 )
             return _error(
-                request, status_code=409, code="PRODUCT_EXPORT_RECEIPT_INCONSISTENT",
+                request,
+                status_code=409,
+                code="PRODUCT_EXPORT_RECEIPT_INCONSISTENT",
                 message="The stored product export receipt is inconsistent",
             )
 
@@ -163,17 +186,23 @@ def create_product_export_operation_router(runtime_provider: RuntimeProvider) ->
             return _receipt(request, runtime_provider().request_cancel(project_id, operation_id))
         except ProductExportExecutionError:
             return _error(
-                request, status_code=503, code="PRODUCT_EXPORT_SHUTTING_DOWN",
+                request,
+                status_code=503,
+                code="PRODUCT_EXPORT_SHUTTING_DOWN",
                 message="Product export is shutting down",
             )
         except ProductExportStateError as error:
             if error.code == "NOT_FOUND":
                 return _error(
-                    request, status_code=404, code="PRODUCT_EXPORT_OPERATION_NOT_FOUND",
+                    request,
+                    status_code=404,
+                    code="PRODUCT_EXPORT_OPERATION_NOT_FOUND",
                     message="The requested product export operation was not found",
                 )
             return _error(
-                request, status_code=409, code="PRODUCT_EXPORT_RECEIPT_INCONSISTENT",
+                request,
+                status_code=409,
+                code="PRODUCT_EXPORT_RECEIPT_INCONSISTENT",
                 message="The stored product export receipt is inconsistent",
             )
 

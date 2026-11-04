@@ -1,9 +1,11 @@
 import "@testing-library/jest-dom/vitest";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { Button, FlowFooter, Info, Pill, Section, StateView, Tabs } from "./Common";
 import { createAivoraSampleFixture, DemoProvider, useDemo } from "./model";
+
+beforeEach(() => window.history.replaceState({}, "", "#launch"));
 
 function StateHarness() {
   const demo = useDemo();
@@ -52,7 +54,7 @@ describe("C19 common interaction contracts", () => {
     expect(document.querySelector(".state-view")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "失败" }));
     fireEvent.click(screen.getByRole("button", { name: "重试演示" }));
-    expect(screen.getByLabelText("common-page")).toHaveTextContent("project");
+    expect(screen.getByLabelText("common-page")).toHaveTextContent("launch");
   });
 
   it("uses the flow footer default next and previous navigation actions", () => {
@@ -64,6 +66,6 @@ describe("C19 common interaction contracts", () => {
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
     expect(screen.getByLabelText("common-page")).toHaveTextContent("source");
     fireEvent.click(screen.getByRole("button", { name: "上一步" }));
-    expect(screen.getByLabelText("common-page")).toHaveTextContent("project");
+    expect(screen.getByLabelText("common-page")).toHaveTextContent("launch");
   });
 });

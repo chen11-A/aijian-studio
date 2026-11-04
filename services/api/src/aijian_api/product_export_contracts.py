@@ -16,8 +16,8 @@ from aijian_api.product_timeline_export_contracts import (
     CONTENT_HASH_PATTERN,
     EPISODE_ID_PATTERN,
     PROJECT_ID_PATTERN,
-    ProductExportSpec,
     VERSION_ID_PATTERN,
+    ProductExportSpec,
 )
 
 PRODUCT_EXPORT_OPERATION_ID_PATTERN = r"^peop_[0-9a-f]{32}$"
@@ -60,10 +60,7 @@ class ProductExportClaimRequest(_Closed):
 
     @model_validator(mode="after")
     def unique_and_local(self) -> Self:
-        refs = [
-            (item.media.asset_id, item.media.asset_version_id)
-            for item in self.media_rights
-        ]
+        refs = [(item.media.asset_id, item.media.asset_version_id) for item in self.media_rights]
         if len(refs) != len(set(refs)):
             raise ValueError("each selected media version needs one rights assertion")
         path = self.output_relative_path
@@ -74,8 +71,12 @@ class ProductExportClaimRequest(_Closed):
             or path != unicodedata.normalize("NFC", path)
             or any(char in path for char in '/\\:<>"|?*')
             or path.endswith((" ", "."))
-            or device_name in {
-                "con", "prn", "aux", "nul",
+            or device_name
+            in {
+                "con",
+                "prn",
+                "aux",
+                "nul",
                 *(f"com{i}" for i in range(1, 10)),
                 *(f"lpt{i}" for i in range(1, 10)),
             }
@@ -86,7 +87,11 @@ class ProductExportClaimRequest(_Closed):
 
 
 ProductExportOperationStatus = Literal[
-    "CLAIMED", "RUNNING", "CANCELLED", "SUCCEEDED", "UNKNOWN",
+    "CLAIMED",
+    "RUNNING",
+    "CANCELLED",
+    "SUCCEEDED",
+    "UNKNOWN",
 ]
 ProductExportProgressPhase = Literal["QUEUED", "ENCODING", "VERIFYING"]
 

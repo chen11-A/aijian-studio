@@ -348,11 +348,14 @@ def test_remote_enqueue_is_remote_from_creation_and_persists_immutable_facts(
     )
     with sqlite3.connect(database) as connection:
         connection.execute(
-            """INSERT INTO provider_connections VALUES (?, 'OPENAI_COMPATIBLE',
+            """INSERT INTO provider_connections (
+            connection_id, provider_kind, display_name, base_url, enabled,
+            models_json, revision, created_at, updated_at, credential_ref
+            ) VALUES (?, 'OPENAI_COMPATIBLE',
             'test remote', 'http://offline.invalid', 1,
             '[{\"model_id\":\"remote-model\",\"capabilities\":[\"TEXT\"]}]',
-            1, ?, ?)""",
-            (connection_id, timestamp(NOW), timestamp(NOW)),
+            1, ?, ?, ?)""",
+            (connection_id, timestamp(NOW), timestamp(NOW), connection_id),
         )
         connection.execute(
             "INSERT INTO agent_runs VALUES (?, ?, ?, ?, 'PENDING', ?, 1, ?, ?)",

@@ -52,6 +52,7 @@ from aijian_api.artifact_proposal_routes import (
     create_artifact_proposal_write_router,
 )
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
+from aijian_api.audio_asset_probe_routes import create_audio_asset_probe_router
 from aijian_api.contracts import (
     CreateProjectRequest,
     ErrorBody,
@@ -74,6 +75,7 @@ from aijian_api.credential_vault import (
     CredentialVaultUnavailableError,
     SystemCredentialVault,
 )
+from aijian_api.desktop_subscription_routes import create_desktop_subscription_router
 from aijian_api.development_timeline_export import (
     DevelopmentTimelineExportConflictError,
     DevelopmentTimelineExportInvalidError,
@@ -86,18 +88,27 @@ from aijian_api.development_timeline_export_routes import (
     create_development_timeline_export_router,
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
-from aijian_api.episode_routes import EpisodeStorageError, create_episode_router
-from aijian_api.episode_script_routes import (
-    create_episode_script_public_router,
-    create_episode_script_write_router,
+from aijian_api.draft_export_routes import create_draft_export_router
+from aijian_api.draft_export_runtime import DraftExportRuntime
+from aijian_api.draft_review_revision_routes import create_draft_review_revision_router
+from aijian_api.draft_review_routes import create_draft_review_router
+from aijian_api.episode_assembly_readiness_routes import create_episode_assembly_readiness_router
+from aijian_api.episode_media_assembly_routes import (
+    create_episode_media_assembly_public_router,
+    create_episode_media_assembly_write_router,
 )
+from aijian_api.episode_routes import EpisodeStorageError, create_episode_router
 from aijian_api.episode_script_confirmation_routes import (
     create_episode_script_confirmation_public_router,
     create_episode_script_confirmation_write_router,
 )
-from aijian_api.episode_media_assembly_routes import (
-    create_episode_media_assembly_public_router,
-    create_episode_media_assembly_write_router,
+from aijian_api.episode_script_routes import (
+    create_episode_script_public_router,
+    create_episode_script_write_router,
+)
+from aijian_api.episode_storyboard_routes import (
+    create_episode_storyboard_public_router,
+    create_episode_storyboard_write_router,
 )
 from aijian_api.fake_timeline_run import (
     FakeTimelineRunConflictError,
@@ -123,20 +134,52 @@ from aijian_api.invalidation_routes import (
     InvalidationReportTooLargeError,
     create_invalidation_router,
 )
-from aijian_api.media_asset_routes import create_media_asset_router
-from aijian_api.media_asset_rights_routes import create_media_asset_rights_router
+from aijian_api.local_media_review_routes import (
+    create_local_media_review_native_router,
+    create_local_media_review_public_router,
+)
+from aijian_api.local_media_toolchain import LocalMediaToolchainService, machine_settings_path
+from aijian_api.local_media_toolchain_routes import create_local_media_toolchain_router
+from aijian_api.manual_media_candidate_routes import (
+    create_manual_media_candidate_native_router,
+    create_manual_media_candidate_public_router,
+)
 from aijian_api.media_asset_probe_routes import create_media_asset_probe_router
+from aijian_api.media_asset_rights_routes import create_media_asset_rights_router
+from aijian_api.media_asset_routes import create_media_asset_router
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
-from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
+from aijian_api.media_preparation_routes import (
+    create_media_preparation_native_router,
+    create_media_preparation_public_router,
+)
+from aijian_api.media_preview_plan_routes import create_media_preview_plan_router
+from aijian_api.media_toolchain import (
+    MediaToolchain,
+    discover_media_toolchain,
+    load_media_toolchain_lock,
+)
+from aijian_api.official_director_routes import (
+    create_official_director_public_router,
+    create_official_director_write_router,
+)
+from aijian_api.official_text_routes import (
+    create_official_text_public_router,
+    create_official_text_write_router,
+)
 from aijian_api.product_export_operation_routes import create_product_export_operation_router
 from aijian_api.product_export_runtime import ProductExportRuntime
+from aijian_api.product_timeline_export import ProductTimelineExportPreflightService
+from aijian_api.product_timeline_export_routes import create_product_timeline_export_router
 from aijian_api.production_brief_routes import (
     create_production_brief_public_router,
     create_production_brief_write_router,
 )
-from aijian_api.product_timeline_export import ProductTimelineExportPreflightService
-from aijian_api.product_timeline_export_routes import create_product_timeline_export_router
+from aijian_api.project_creative_library_routes import (
+    create_project_creative_library_public_router,
+    create_project_creative_library_write_router,
+)
 from aijian_api.project_management_routes import create_project_management_router
+from aijian_api.project_settings_routes import create_project_settings_router
 from aijian_api.proposal_run_factory import ProposalRunFactory
 from aijian_api.proposal_run_routes import (
     create_proposal_run_router,
@@ -154,6 +197,9 @@ from aijian_api.provider_connection_routes import create_provider_connection_rou
 from aijian_api.provider_connections import (
     ProviderConnectionService,
 )
+from aijian_api.remote_source_extract_operation_routes import (
+    create_remote_source_extract_operation_router,
+)
 from aijian_api.repository import (
     ArtifactConflictError,
     ArtifactDependencyInvalidError,
@@ -167,21 +213,27 @@ from aijian_api.repository import (
     StudioRepository,
 )
 from aijian_api.runtime_resources import media_tool_root, media_toolchain_lock_path
-from aijian_api.remote_source_extract_operation_routes import (
-    create_remote_source_extract_operation_router,
+from aijian_api.script_confirmation_impact_routes import (
+    create_script_confirmation_impact_router,
+    create_script_confirmation_operation_router,
 )
 from aijian_api.security import SecurityFailure, SidecarSecurity
-from aijian_api.source_extraction_routes import create_source_extraction_router
-from aijian_api.source_proposal_acceptance_query import (
-    create_source_proposal_acceptance_query_router,
+from aijian_api.shot_plan_routes import (
+    create_shot_plan_public_router,
+    create_shot_plan_write_router,
 )
+from aijian_api.source_extraction_routes import create_source_extraction_router
 from aijian_api.source_manifest_routes import (
     create_source_manifest_internal_router,
     create_source_manifest_public_router,
 )
+from aijian_api.source_proposal_acceptance_query import (
+    create_source_proposal_acceptance_query_router,
+)
 from aijian_api.source_text_contracts import SourceDocumentTextData, SourceDocumentTextResponse
 from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
 from aijian_api.story_bible_routes import create_story_bible_public_router
+from aijian_api.story_film_routes import create_story_film_router
 from aijian_api.sub2api_connection_readiness import Sub2APIConfiguredReadiness
 from aijian_api.sub2api_connection_readiness_routes import (
     create_sub2api_connection_readiness_router,
@@ -197,6 +249,11 @@ from aijian_api.timeline_routes import (
     TimelineAlreadyExistsError,
     TimelineRevisionConflictError,
     create_timeline_router,
+)
+from aijian_api.visual_bible_routes import (
+    create_visual_bible_internal_router,
+    create_visual_bible_public_router,
+    create_visual_bible_write_router,
 )
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -291,6 +348,8 @@ def create_app(
     fake_timeline_run_factory: FakeTimelineRunFactory | None = None,
     development_timeline_export_service: DevelopmentTimelineExportService | None = None,
     product_export_runtime: ProductExportRuntime | None = None,
+    draft_export_runtime: DraftExportRuntime | None = None,
+    local_media_toolchain: LocalMediaToolchainService | None = None,
     sub2api_runtime_availability: Callable[[], str] | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
@@ -317,6 +376,11 @@ def create_app(
     resolved_proposal_schema_registry = built_in_proposal_schema_registry()
     resolved_fake_timeline_run_factory = fake_timeline_run_factory
     resolved_development_timeline_export_service = development_timeline_export_service
+    resolved_local_media_toolchain = local_media_toolchain or (
+        LocalMediaToolchainService(machine_settings_path())
+        if sidecar_security is not None
+        else None
+    )
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -389,18 +453,16 @@ def create_app(
         return AppPreferencesStore(get_repository().database_path)
 
     def get_product_timeline_export_preflight_service() -> ProductTimelineExportPreflightService:
-        return ProductTimelineExportPreflightService(
-            get_repository(), media_toolchain_lock_path()
-        )
+        return ProductTimelineExportPreflightService(get_repository(), media_toolchain_lock_path())
 
-    def get_media_probe_toolchain():
+    def get_media_probe_toolchain() -> MediaToolchain:
+        if resolved_local_media_toolchain is not None:
+            return resolved_local_media_toolchain.discover()
         lock = load_media_toolchain_lock(media_toolchain_lock_path())
         return discover_media_toolchain(lock, explicit_root=media_tool_root())
 
     def get_sub2api_source_extract_factory() -> Sub2APISourceExtractRunFactory:
-        return Sub2APISourceExtractRunFactory(
-            get_repository(), sub2api_source_extract_registry()
-        )
+        return Sub2APISourceExtractRunFactory(get_repository(), sub2api_source_extract_registry())
 
     def get_sub2api_source_extract_store() -> Sub2APISourceExtractStore:
         return Sub2APISourceExtractStore(get_repository().database_path)
@@ -890,7 +952,8 @@ def create_app(
 
     @app.exception_handler(ProviderConnectionVersionConflictError)
     async def provider_connection_version_conflict(
-        request: Request, _error: ProviderConnectionVersionConflictError,
+        request: Request,
+        _error: ProviderConnectionVersionConflictError,
     ) -> JSONResponse:
         return _error_response(
             status_code=status.HTTP_409_CONFLICT,
@@ -901,7 +964,8 @@ def create_app(
 
     @app.exception_handler(ProviderRotationOperationExistsError)
     async def provider_rotation_operation_exists(
-        request: Request, _error: ProviderRotationOperationExistsError,
+        request: Request,
+        _error: ProviderRotationOperationExistsError,
     ) -> JSONResponse:
         return _error_response(
             status_code=status.HTTP_409_CONFLICT,
@@ -912,7 +976,8 @@ def create_app(
 
     @app.exception_handler(ProviderConnectionWriteUnknownError)
     async def provider_connection_write_unknown(
-        request: Request, _error: ProviderConnectionWriteUnknownError,
+        request: Request,
+        _error: ProviderConnectionWriteUnknownError,
     ) -> JSONResponse:
         return _error_response(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1145,14 +1210,26 @@ def create_app(
         )
 
     app.include_router(create_source_manifest_public_router(get_repository))
+    app.include_router(create_visual_bible_public_router(get_repository, trusted_review_actor))
     app.include_router(create_project_management_router(get_repository))
+    app.include_router(create_project_settings_router(get_repository))
     app.include_router(create_source_extraction_router(get_repository))
     app.include_router(create_source_proposal_acceptance_query_router(get_repository))
     app.include_router(create_remote_source_extract_operation_router(get_repository))
     app.include_router(create_episode_router(get_repository))
     app.include_router(create_episode_script_public_router(get_repository))
+    app.include_router(create_official_text_public_router(get_repository))
+    app.include_router(create_official_director_public_router(get_repository))
+    app.include_router(create_episode_storyboard_public_router(get_repository))
+    app.include_router(create_shot_plan_public_router(get_repository))
+    app.include_router(create_project_creative_library_public_router(get_repository))
     app.include_router(create_episode_script_confirmation_public_router(get_repository))
+    app.include_router(create_script_confirmation_impact_router(get_repository))
+    app.include_router(create_media_preparation_public_router(get_repository))
+    app.include_router(create_manual_media_candidate_public_router(get_repository))
     app.include_router(create_episode_media_assembly_public_router(get_repository))
+    app.include_router(create_episode_assembly_readiness_router(get_repository))
+    app.include_router(create_local_media_review_public_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
     app.include_router(create_production_brief_public_router(get_repository))
     app.include_router(create_task_queue_router(get_task_queue_reader))
@@ -1169,17 +1246,54 @@ def create_app(
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))
     if sidecar_security is not None:
+        app.include_router(
+            create_local_media_review_native_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_media_preparation_native_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_manual_media_candidate_native_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(create_visual_bible_write_router(get_repository, trusted_review_actor))
+        app.include_router(
+            create_visual_bible_internal_router(get_repository, trusted_review_actor)
+        )
+        assert resolved_local_media_toolchain is not None
+        app.include_router(create_local_media_toolchain_router(resolved_local_media_toolchain))
+        app.include_router(create_official_text_write_router(get_repository, trusted_review_actor))
+        app.include_router(create_desktop_subscription_router(get_repository))
+        app.include_router(
+            create_official_director_write_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))
+        )
+        app.include_router(create_story_film_router(get_repository, get_media_probe_toolchain))
+        app.include_router(
+            create_draft_review_router(
+                get_repository,
+                lambda: cast(DraftExportRuntime, draft_export_runtime),
+                trusted_review_actor,
+            )
+        )
+        app.include_router(
+            create_draft_review_revision_router(
+                get_repository,
+                lambda: cast(DraftExportRuntime, draft_export_runtime),
+                trusted_review_actor,
+            )
+        )
         if product_export_runtime is not None:
             app.include_router(
-                create_product_export_operation_router(
-                    lambda: cast(ProductExportRuntime, product_export_runtime)
-                )
+                create_product_export_operation_router(lambda: product_export_runtime)
             )
         app.include_router(create_app_preferences_router(get_app_preferences_store))
         app.include_router(
             create_sub2api_connection_readiness_router(get_sub2api_configured_readiness)
         )
         app.include_router(create_media_asset_router(get_repository))
+        app.include_router(create_media_preview_plan_router(get_repository))
         app.include_router(create_media_asset_rights_router(get_repository, trusted_review_actor))
         app.include_router(
             create_media_asset_probe_router(
@@ -1187,20 +1301,29 @@ def create_app(
             )
         )
         app.include_router(
+            create_audio_asset_probe_router(
+                get_repository, get_media_probe_toolchain, trusted_review_actor
+            )
+        )
+        app.include_router(
             create_product_timeline_export_router(get_product_timeline_export_preflight_service)
         )
+        app.include_router(create_episode_script_write_router(get_repository, trusted_review_actor))
         app.include_router(
-            create_episode_script_write_router(get_repository, trusted_review_actor)
+            create_episode_storyboard_write_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(create_shot_plan_write_router(get_repository, trusted_review_actor))
+        app.include_router(
+            create_project_creative_library_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
-            create_episode_script_confirmation_write_router(
-                get_repository, trusted_review_actor
-            )
+            create_episode_script_confirmation_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
-            create_episode_media_assembly_write_router(
-                get_repository, trusted_review_actor
-            )
+            create_script_confirmation_operation_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_episode_media_assembly_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
             create_sub2api_source_extract_router(

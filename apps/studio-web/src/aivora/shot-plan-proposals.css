@@ -1,0 +1,95 @@
+.shot-plan-proposal {
+  border: 1px solid #214c68;
+  border-radius: 10px;
+  padding: 14px;
+  margin-block: 12px;
+}
+.shot-plan-proposal > summary {
+  color: #e5f0fa;
+  font-size: 14px;
+  cursor: pointer;
+}
+.shot-plan-proposal .episode-storyboard {
+  margin-top: 12px;
+}
+.shot-plan-proposal .storyboard-layout {
+  min-height: 280px;
+  max-height: 520px;
+}
+.shot-plan-proposal .storyboard-status p {
+  line-height: 1.7;
+}
+.shot-plan-proposal .storyboard-shot-list h3 {
+  font-size: 14px;
+}
+.shot-plan-toolbar,
+.shot-plan-inline-fields,
+.shot-plan-coverage {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.shot-plan-toolbar > label {
+  max-width: 140px;
+}
+.shot-plan-inline-fields > label {
+  flex: 1 1 120px;
+}
+.shot-plan-block-choices {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+.shot-plan-block-choices label,
+.shot-plan-coverage label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.7;
+}
+.shot-plan-block-choices span {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.shot-plan-legend {
+  padding-bottom: 12px;
+  font-size: 14px;
+}
+.shot-plan-advanced {
+  margin-top: 12px;
+}
+.shot-plan-pin {
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+  font-size: 12px;
+}
+.shot-plan-issues {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #f0cf87;
+}
+.shot-plan-proposal summary:focus-visible {
+  outline: 2px solid #57d4e8;
+  outline-offset: 4px;
+}
+@media (max-width: 620px) {
+  .shot-plan-proposal .storyboard-layout {
+    grid-template-columns: 1fr;
+    max-height: 720px;
+  }
+  .shot-plan-proposal .storyboard-shot-list {
+    max-height: 180px;
+  }
+  .shot-plan-proposal .storyboard-detail-scroll {
+    max-height: 460px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shot-plan-proposal *,
+  .shot-plan-proposal *::before,
+  .shot-plan-proposal *::after {
+    transition: none;
+  }
+}

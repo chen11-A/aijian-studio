@@ -176,6 +176,7 @@ class CreateRemoteSourceExtractRunRequest(BaseModel):
 
     source: CreateProposalRunRequest
     selection: RemoteSourceExtractSelectionData
+    billing_account_kind: Literal["gpt_login", "grok_login"] = "gpt_login"
 
 
 class ProposalRunTaskData(BaseModel):
@@ -580,7 +581,7 @@ class CreateProjectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=80)
-    aspect_ratio: Literal["9:16"] = "9:16"
+    aspect_ratio: Literal["9:16", "16:9"] = "9:16"
     target_duration_seconds: int = Field(default=90, ge=30, le=180)
     source_language: Literal["zh-CN"] = "zh-CN"
 
@@ -602,7 +603,7 @@ class ProjectData(BaseModel):
 
     id: str = Field(pattern=PROJECT_ID_PATTERN)
     name: str
-    aspect_ratio: Literal["9:16"]
+    aspect_ratio: Literal["9:16", "16:9"]
     target_duration_seconds: int
     source_language: Literal["zh-CN"]
     status: Literal["active", "archived"]

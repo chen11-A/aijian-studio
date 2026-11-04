@@ -1,0 +1,37 @@
+.project-costs {
+  min-width: 0;
+}
+.project-cost-ledger {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.project-cost-table {
+  overflow: auto;
+  max-height: 480px;
+}
+.project-cost-table table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.project-cost-table th,
+.project-cost-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.project-cost-table td:first-child,
+.project-cost-table td:last-child {
+  min-width: 200px;
+}
+.project-cost-table code,
+.project-cost-table span,
+.project-cost-table time {
+  display: block;
+  margin-top: 8px;
+}
+.project-costs p,
+.project-cost-table td {
+  overflow-wrap: anywhere;
+}

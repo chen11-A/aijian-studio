@@ -7,6 +7,7 @@ export type WorkspaceSelection = { projectId: string; episodeId: string | null }
 export type WorkspaceSelectionSnapshot = {
   selection: WorkspaceSelection | null;
   createMarkers: Readonly<Record<string, EpisodeCreateMarker>>;
+  reviewOperations?: Readonly<Record<string, string>>;
 };
 export type WorkspaceSelectionRead =
   { kind: "READY"; snapshot: WorkspaceSelectionSnapshot } | { kind: "UNAVAILABLE" | "CORRUPT" };
@@ -15,6 +16,7 @@ type StoredWorkspaceSelection = {
   version: 1;
   selection: WorkspaceSelection | null;
   createMarkers: Record<string, EpisodeCreateMarker>;
+  reviewOperations?: Readonly<Record<string, string>>;
 };
 const emptySnapshot = (): WorkspaceSelectionSnapshot => ({ selection: null, createMarkers: {} });
 const isProjectId = (value: unknown): value is string =>
@@ -35,7 +37,9 @@ function parse(value: string | null): WorkspaceSelectionRead {
     const candidate: unknown = JSON.parse(value);
     if (
       !isRecord(candidate) ||
-      Object.keys(candidate).length !== 3 ||
+      Object.keys(candidate).some(
+        (key) => !["version", "selection", "createMarkers", "reviewOperations"].includes(key),
+      ) ||
       candidate.version !== 1 ||
       !Object.hasOwn(candidate, "selection") ||
       !Object.hasOwn(candidate, "createMarkers")
@@ -50,7 +54,32 @@ function parse(value: string | null): WorkspaceSelectionRead {
         return { kind: "CORRUPT" };
       createMarkers[projectId] = marker;
     }
-    return { kind: "READY", snapshot: { selection: candidate.selection, createMarkers } };
+    if (
+      candidate.reviewOperations !== undefined &&
+      (!isRecord(candidate.reviewOperations) ||
+        Object.keys(candidate.reviewOperations).length > 64 ||
+        Object.entries(candidate.reviewOperations).some(([scope, operation]) => {
+          const [project, episode, extra] = scope.split("/");
+          return (
+            extra !== undefined ||
+            !isProjectId(project) ||
+            !isEpisodeId(episode) ||
+            typeof operation !== "string" ||
+            !/^dmp_[0-9a-f]{32}$/.test(operation)
+          );
+        }))
+    )
+      return { kind: "CORRUPT" };
+    return {
+      kind: "READY",
+      snapshot: {
+        selection: candidate.selection,
+        createMarkers,
+        ...(candidate.reviewOperations !== undefined
+          ? { reviewOperations: candidate.reviewOperations as Record<string, string> }
+          : {}),
+      },
+    };
   } catch {
     return { kind: "CORRUPT" };
   }
@@ -65,14 +94,19 @@ export function readWorkspaceSelection(storage: Pick<Storage, "getItem">): Works
 }
 
 export function persistWorkspaceSelection(
-  storage: Pick<Storage, "setItem">,
+  storage: Pick<Storage, "getItem" | "setItem">,
   snapshot: WorkspaceSelectionSnapshot,
 ): boolean {
   try {
+    const stored = readWorkspaceSelection(storage);
+    if (stored.kind !== "READY") return false;
     const normalized: StoredWorkspaceSelection = {
       version: 1,
       selection: snapshot.selection,
       createMarkers: { ...snapshot.createMarkers },
+      ...(stored.snapshot.reviewOperations
+        ? { reviewOperations: stored.snapshot.reviewOperations }
+        : {}),
     };
     storage.setItem(WORKSPACE_SELECTION_STORAGE_KEY, JSON.stringify(normalized));
     return true;
@@ -86,7 +120,7 @@ export function withWorkspaceSelection(
   selection: WorkspaceSelection | null,
 ): WorkspaceSelectionSnapshot {
   if (selection !== null && !isSelection(selection)) return snapshot;
-  return { selection, createMarkers: { ...snapshot.createMarkers } };
+  return { ...snapshot, selection, createMarkers: { ...snapshot.createMarkers } };
 }
 
 export function withEpisodeCreateMarker(
@@ -98,5 +132,40 @@ export function withEpisodeCreateMarker(
   const createMarkers = { ...snapshot.createMarkers };
   if (marker) createMarkers[projectId] = marker;
   else delete createMarkers[projectId];
-  return { selection: snapshot.selection, createMarkers };
+  return { ...snapshot, createMarkers };
+}
+
+/** UI cursor only; notes, plans, approvals and outputs stay in the backend. */
+export function persistDraftReviewSelection(
+  storage: Pick<Storage, "getItem" | "setItem">,
+  projectId: string,
+  episodeId: string,
+  operationId: string,
+): boolean {
+  if (
+    !isProjectId(projectId) ||
+    !isEpisodeId(episodeId) ||
+    (operationId !== "" && !/^dmp_[0-9a-f]{32}$/.test(operationId))
+  )
+    return false;
+  const stored = readWorkspaceSelection(storage);
+  if (stored.kind !== "READY") return false;
+  const reviewOperations = { ...stored.snapshot.reviewOperations };
+  const scope = `${projectId}/${episodeId}`;
+  if (operationId) reviewOperations[scope] = operationId;
+  else delete reviewOperations[scope];
+  if (Object.keys(reviewOperations).length > 64) return false;
+  try {
+    storage.setItem(
+      WORKSPACE_SELECTION_STORAGE_KEY,
+      JSON.stringify({ version: 1, ...stored.snapshot, reviewOperations }),
+    );
+    const confirmed = readWorkspaceSelection(storage);
+    return (
+      confirmed.kind === "READY" &&
+      (confirmed.snapshot.reviewOperations?.[scope] ?? "") === operationId
+    );
+  } catch {
+    return false;
+  }
 }

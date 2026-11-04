@@ -8,7 +8,7 @@ import os
 import re
 import sqlite3
 import stat
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
@@ -43,7 +43,7 @@ class MediaAssetError(ValueError):
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _require_id(value: str, pattern: re.Pattern[str]) -> None:
@@ -95,9 +95,15 @@ def _classify(path: Path) -> tuple[AssetKind, str, dict[str, str | int]]:
         width = int.from_bytes(header[16:20], "big")
         height = int.from_bytes(header[20:24], "big")
         if 0 < width <= 100_000 and 0 < height <= 100_000:
-            return "image", "image/png", {
-                "width": width, "height": height, "inspection_status": "HEADER_ONLY",
-            }
+            return (
+                "image",
+                "image/png",
+                {
+                    "width": width,
+                    "height": height,
+                    "inspection_status": "HEADER_ONLY",
+                },
+            )
     if header.startswith(b"\xff\xd8\xff"):
         return "image", "image/jpeg", {"inspection_status": "DIMENSIONS_UNINSPECTED"}
     if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
@@ -142,7 +148,12 @@ def _verified_size_and_hash(path: Path, expected_size: int, expected_hash: str) 
 
 
 def _availability(
-    workspace: Path, path: Path, size: int, digest: str, *, verify: bool,
+    workspace: Path,
+    path: Path,
+    size: int,
+    digest: str,
+    *,
+    verify: bool,
 ) -> AssetAvailability:
     try:
         io_path = managed_local_io_path(workspace, path)
@@ -175,7 +186,11 @@ class MediaAssetStore:
         self._repository = repository
 
     def import_local(
-        self, project_id: str, source_path: Path, *, asset_id: str | None = None,
+        self,
+        project_id: str,
+        source_path: Path,
+        *,
+        asset_id: str | None = None,
         display_filename: str | None = None,
     ) -> MediaAssetData:
         _require_id(project_id, _PROJECT_ID)
@@ -194,20 +209,29 @@ class MediaAssetStore:
             raise MediaAssetError("SOURCE_SIZE", "Media source size is outside the limit")
         filename = display_filename if display_filename is not None else source.name
         if (
-            not filename or len(filename) > 255 or "/" in filename or "\\" in filename
+            not filename
+            or len(filename) > 255
+            or "/" in filename
+            or "\\" in filename
             or any(ord(character) < 32 or ord(character) == 127 for character in filename)
         ):
             raise MediaAssetError("INVALID_FILENAME", "Media filename is invalid")
 
         with self._repository._connection() as connection:
-            if connection.execute(
-                "SELECT 1 FROM projects WHERE id = ?", (project_id,)
-            ).fetchone() is None:
+            if (
+                connection.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
+                is None
+            ):
                 raise MediaAssetError("PROJECT_NOT_FOUND", "Project was not found")
-            if asset_id is not None and connection.execute(
-                "SELECT 1 FROM media_assets WHERE project_id = ? AND id = ? AND deleted_at IS NULL",
-                (project_id, asset_id),
-            ).fetchone() is None:
+            if (
+                asset_id is not None
+                and connection.execute(
+                    "SELECT 1 FROM media_assets "
+                    "WHERE project_id = ? AND id = ? AND deleted_at IS NULL",
+                    (project_id, asset_id),
+                ).fetchone()
+                is None
+            ):
                 raise MediaAssetError("ASSET_NOT_FOUND", "Media asset was not found")
 
         root = _media_root(self._repository)
@@ -268,9 +292,12 @@ class MediaAssetStore:
             with self._repository._connection() as connection:
                 try:
                     connection.execute("BEGIN IMMEDIATE")
-                    if connection.execute(
-                        "SELECT 1 FROM projects WHERE id = ?", (project_id,)
-                    ).fetchone() is None:
+                    if (
+                        connection.execute(
+                            "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+                        ).fetchone()
+                        is None
+                    ):
                         raise MediaAssetError("PROJECT_NOT_FOUND", "Project was not found")
                     if asset_id is None:
                         connection.execute(
@@ -297,11 +324,13 @@ class MediaAssetStore:
                                 "MEDIA_KIND_CONFLICT",
                                 "A new asset version must keep the original media kind",
                             )
-                        ordinal = int(connection.execute(
-                            """SELECT COALESCE(MAX(ordinal), 0) + 1
+                        ordinal = int(
+                            connection.execute(
+                                """SELECT COALESCE(MAX(ordinal), 0) + 1
                                FROM media_asset_versions WHERE asset_id = ?""",
-                            (asset_id,),
-                        ).fetchone()[0])
+                                (asset_id,),
+                            ).fetchone()[0]
+                        )
                     connection.execute(
                         """INSERT INTO media_asset_versions (
                                id, project_id, asset_id, ordinal, filename, kind, mime_type,
@@ -310,9 +339,17 @@ class MediaAssetStore:
                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_REVIEW',
                                      'LOCAL_IMPORT', ?, ?)""",
                         (
-                            version_id, project_id, chosen_asset_id, ordinal, filename, kind,
-                            mime_type, copied, content_hash,
-                            json.dumps(technical, sort_keys=True, separators=(",", ":")), timestamp,
+                            version_id,
+                            project_id,
+                            chosen_asset_id,
+                            ordinal,
+                            filename,
+                            kind,
+                            mime_type,
+                            copied,
+                            content_hash,
+                            json.dumps(technical, sort_keys=True, separators=(",", ":")),
+                            timestamp,
                         ),
                     )
                     connection.commit()
@@ -324,7 +361,11 @@ class MediaAssetStore:
             staged_io.unlink(missing_ok=True)
 
     def _asset_data(
-        self, connection: sqlite3.Connection, row: sqlite3.Row, *, verify: bool,
+        self,
+        connection: sqlite3.Connection,
+        row: sqlite3.Row,
+        *,
+        verify: bool,
     ) -> MediaAssetData:
         versions = connection.execute(
             """SELECT * FROM media_asset_versions WHERE project_id = ? AND asset_id = ?
@@ -336,10 +377,12 @@ class MediaAssetStore:
         root = _media_root(self._repository)
         version_data = tuple(
             AssetVersionData(
-                id=str(version["id"]), ordinal=int(version["ordinal"]),
+                id=str(version["id"]),
+                ordinal=int(version["ordinal"]),
                 filename=str(version["filename"]),
                 kind=cast(AssetKind, str(version["kind"])),
-                mime_type=str(version["mime_type"]), byte_size=int(version["byte_size"]),
+                mime_type=str(version["mime_type"]),
+                byte_size=int(version["byte_size"]),
                 sha256=str(version["sha256"]),
                 rights_status=cast(RightsStatus, str(version["rights_status"])),
                 technical_metadata=json.loads(str(version["technical_json"])),
@@ -347,7 +390,8 @@ class MediaAssetStore:
                 availability=_availability(
                     root.parent,
                     _blob_path(root, str(version["sha256"])),
-                    int(version["byte_size"]), str(version["sha256"]),
+                    int(version["byte_size"]),
+                    str(version["sha256"]),
                     verify=verify or int(version["byte_size"]) <= MAX_INLINE_PREVIEW_BYTES,
                 ),
             )
@@ -360,14 +404,19 @@ class MediaAssetStore:
             (row["project_id"], row["id"]),
         ).fetchall()
         return MediaAssetData(
-            id=str(row["id"]), project_id=str(row["project_id"]),
-            created_at=str(row["created_at"]), latest_version=version_data[0],
+            id=str(row["id"]),
+            project_id=str(row["project_id"]),
+            created_at=str(row["created_at"]),
+            latest_version=version_data[0],
             versions=version_data,
             episode_references=tuple(
                 AssetEpisodeReferenceData(
-                    episode_id=str(ref["episode_id"]), version_id=str(ref["version_id"]),
-                    role=str(ref["role"]), created_at=str(ref["created_at"]),
-                ) for ref in references
+                    episode_id=str(ref["episode_id"]),
+                    version_id=str(ref["version_id"]),
+                    role=str(ref["role"]),
+                    created_at=str(ref["created_at"]),
+                )
+                for ref in references
             ),
         )
 
@@ -392,9 +441,10 @@ class MediaAssetStore:
         with self._repository._connection() as connection:
             connection.execute("PRAGMA query_only = ON")
             connection.execute("BEGIN")
-            if connection.execute(
-                "SELECT 1 FROM projects WHERE id = ?", (project_id,)
-            ).fetchone() is None:
+            if (
+                connection.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
+                is None
+            ):
                 raise MediaAssetError("PROJECT_NOT_FOUND", "Project was not found")
             rows = connection.execute(
                 """SELECT * FROM media_assets WHERE project_id = ? AND deleted_at IS NULL
@@ -406,7 +456,12 @@ class MediaAssetStore:
             return data
 
     def add_episode_reference(
-        self, project_id: str, asset_id: str, episode_id: str, version_id: str, role: str,
+        self,
+        project_id: str,
+        asset_id: str,
+        episode_id: str,
+        version_id: str,
+        role: str,
     ) -> MediaAssetData:
         _require_id(project_id, _PROJECT_ID)
         _require_id(asset_id, _ASSET_ID)
@@ -416,18 +471,24 @@ class MediaAssetStore:
         with self._repository._connection() as connection:
             try:
                 connection.execute("BEGIN IMMEDIATE")
-                if connection.execute(
-                    "SELECT 1 FROM episodes WHERE project_id = ? AND id = ?",
-                    (project_id, episode_id),
-                ).fetchone() is None:
+                if (
+                    connection.execute(
+                        "SELECT 1 FROM episodes WHERE project_id = ? AND id = ?",
+                        (project_id, episode_id),
+                    ).fetchone()
+                    is None
+                ):
                     raise MediaAssetError("EPISODE_NOT_FOUND", "Episode was not found")
-                if connection.execute(
-                    """SELECT 1 FROM media_assets AS asset
+                if (
+                    connection.execute(
+                        """SELECT 1 FROM media_assets AS asset
                        JOIN media_asset_versions AS version ON version.asset_id = asset.id
                        WHERE asset.project_id = ? AND asset.id = ? AND asset.deleted_at IS NULL
                          AND version.id = ?""",
-                    (project_id, asset_id, version_id),
-                ).fetchone() is None:
+                        (project_id, asset_id, version_id),
+                    ).fetchone()
+                    is None
+                ):
                     raise MediaAssetError("ASSET_NOT_FOUND", "Media asset version was not found")
                 connection.execute(
                     """INSERT INTO media_asset_episode_references
@@ -447,7 +508,11 @@ class MediaAssetStore:
         return self.get_asset(project_id, asset_id)
 
     def remove_episode_reference(
-        self, project_id: str, asset_id: str, episode_id: str, role: str,
+        self,
+        project_id: str,
+        asset_id: str,
+        episode_id: str,
+        role: str,
     ) -> MediaAssetData:
         _require_id(project_id, _PROJECT_ID)
         _require_id(asset_id, _ASSET_ID)
@@ -484,16 +549,20 @@ class MediaAssetStore:
                 ).fetchone()
                 if row is None:
                     raise MediaAssetError("ASSET_NOT_FOUND", "Media asset was not found")
-                if connection.execute(
-                    """SELECT 1 FROM media_asset_episode_references
+                if (
+                    connection.execute(
+                        """SELECT 1 FROM media_asset_episode_references
                        WHERE project_id = ? AND asset_id = ?""",
-                    (project_id, asset_id),
-                ).fetchone() is not None:
+                        (project_id, asset_id),
+                    ).fetchone()
+                    is not None
+                ):
                     raise MediaAssetError(
                         "ASSET_REFERENCED", "Media asset is referenced by an episode"
                     )
                 hashes = {
-                    str(row[0]) for row in connection.execute(
+                    str(row[0])
+                    for row in connection.execute(
                         """SELECT sha256 FROM media_asset_versions
                            WHERE project_id = ? AND asset_id = ?""",
                         (project_id, asset_id),
@@ -527,7 +596,10 @@ class MediaAssetStore:
                 raise
 
     def read_verified_preview(
-        self, project_id: str, asset_id: str, version_id: str,
+        self,
+        project_id: str,
+        asset_id: str,
+        version_id: str,
     ) -> tuple[bytes, str, str]:
         asset = self.get_asset(project_id, asset_id)
         version = next((item for item in asset.versions if item.id == version_id), None)

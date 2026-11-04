@@ -41,12 +41,16 @@ class ProductExportRuntime:
         self._closing = False
 
     def submit(
-        self, project_id: str, episode_id: str, request: ProductExportClaimRequest,
+        self,
+        project_id: str,
+        episode_id: str,
+        request: ProductExportClaimRequest,
     ) -> ProductExportOperationData:
         with self._guard:
             if self._closing:
                 raise ProductExportExecutionError(
-                    "SHUTTING_DOWN", "Product export service is no longer accepting work",
+                    "SHUTTING_DOWN",
+                    "Product export service is no longer accepting work",
                 )
             existing = self._reader.replay_existing(project_id, episode_id, request)
             if existing is not None:
@@ -66,7 +70,8 @@ class ProductExportRuntime:
         with self._guard:
             if self._closing:
                 raise ProductExportExecutionError(
-                    "SHUTTING_DOWN", "Product export service is no longer accepting work",
+                    "SHUTTING_DOWN",
+                    "Product export service is no longer accepting work",
                 )
             return self._reader.get(project_id, operation_id)
 
@@ -74,7 +79,8 @@ class ProductExportRuntime:
         with self._guard:
             if self._closing:
                 raise ProductExportExecutionError(
-                    "SHUTTING_DOWN", "Product export service is no longer accepting work",
+                    "SHUTTING_DOWN",
+                    "Product export service is no longer accepting work",
                 )
             return self._reader.request_cancel(project_id, operation_id)
 

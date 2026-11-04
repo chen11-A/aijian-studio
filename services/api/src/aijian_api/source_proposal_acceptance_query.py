@@ -171,9 +171,7 @@ def create_source_proposal_acceptance_query_router(
             error=ErrorBody(code=code, message=message, details={}, retryable=False),
             request_id=cast(UUID, request.state.request_id),
         )
-        return JSONResponse(
-            status_code=status_code, content=envelope.model_dump(mode="json")
-        )
+        return JSONResponse(status_code=status_code, content=envelope.model_dump(mode="json"))
 
     @router.get(
         "/api/v1/projects/{project_id}/source-extraction/versions/{version_id}/proposal-acceptance",

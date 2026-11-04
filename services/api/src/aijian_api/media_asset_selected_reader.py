@@ -84,11 +84,7 @@ class _ReadBudgetExceeded(Exception):
 
 def _plain_directory(path: Path) -> bool:
     try:
-        return (
-            path.is_dir()
-            and not path.is_symlink()
-            and path.resolve(strict=True) == path
-        )
+        return path.is_dir() and not path.is_symlink() and path.resolve(strict=True) == path
     except (OSError, RuntimeError):
         return False
 
@@ -128,7 +124,8 @@ def _hash_stream(stream: BinaryIO, *, maximum: int, deadline: float) -> tuple[st
 
 
 def _version_from_row(
-    row: sqlite3.Row, episode_rows: list[sqlite3.Row],
+    row: sqlite3.Row,
+    episode_rows: list[sqlite3.Row],
 ) -> SelectedMediaAssetVersion:
     if len(episode_rows) > MAX_EPISODE_USES:
         raise ValueError("too many media asset episode references")
@@ -157,9 +154,7 @@ def _version_from_row(
         raise ValueError("invalid media asset version record")
     technical = json.loads(str(row["technical_json"]))
     if not isinstance(technical, dict) or any(
-        not isinstance(key, str)
-        or not isinstance(value, str | int)
-        or isinstance(value, bool)
+        not isinstance(key, str) or not isinstance(value, str | int) or isinstance(value, bool)
         for key, value in technical.items()
     ):
         raise ValueError("invalid media asset technical metadata")
@@ -188,7 +183,10 @@ def _version_from_row(
 
 
 def _read_database(
-    database_path: Path, project_id: str, asset_id: str, version_id: str,
+    database_path: Path,
+    project_id: str,
+    asset_id: str,
+    version_id: str,
 ) -> SelectedMediaAssetRead:
     uri = f"{database_path.as_uri()}?mode=ro&immutable=1&cache=private"
     connection = sqlite3.connect(uri, uri=True, timeout=0)
@@ -222,7 +220,9 @@ def _read_database(
 
 
 def _verify_blob(
-    workspace: Path, version: SelectedMediaAssetVersion, deadline: float,
+    workspace: Path,
+    version: SelectedMediaAssetVersion,
+    deadline: float,
 ) -> SelectedReadStatus:
     root = workspace / "media-assets"
     blobs = root / "blobs"
@@ -252,7 +252,9 @@ def _verify_blob(
             if version.byte_size > MAX_VERIFIED_ASSET_BYTES:
                 return "UNVERIFIED_SIZE_LIMIT"
             digest, total = _hash_stream(
-                stream, maximum=MAX_VERIFIED_ASSET_BYTES, deadline=deadline,
+                stream,
+                maximum=MAX_VERIFIED_ASSET_BYTES,
+                deadline=deadline,
             )
             after = os.fstat(stream.fileno())
     except FileNotFoundError:
@@ -272,7 +274,10 @@ def _verify_blob(
 
 
 def read_selected_media_asset_version(
-    database_path: Path, project_id: str, asset_id: str, version_id: str,
+    database_path: Path,
+    project_id: str,
+    asset_id: str,
+    version_id: str,
 ) -> SelectedMediaAssetRead:
     """Return proof for one version; never create a DB, directory, task, or media file."""
 
@@ -317,7 +322,9 @@ def read_selected_media_asset_version(
             ):
                 return SelectedMediaAssetRead("UNKNOWN_DATABASE_CHANGED")
             database_hash_before, count = _hash_stream(
-                database_stream, maximum=MAX_DATABASE_BYTES, deadline=deadline,
+                database_stream,
+                maximum=MAX_DATABASE_BYTES,
+                deadline=deadline,
             )
             if count != opened.st_size:
                 return SelectedMediaAssetRead("UNKNOWN_DATABASE_CHANGED")
@@ -328,11 +335,14 @@ def read_selected_media_asset_version(
             if result.version is not None:
                 version = result.version
                 result = SelectedMediaAssetRead(
-                    _verify_blob(workspace, version, deadline), version,
+                    _verify_blob(workspace, version, deadline),
+                    version,
                 )
             database_stream.seek(0)
             database_hash_after, count_after = _hash_stream(
-                database_stream, maximum=MAX_DATABASE_BYTES, deadline=deadline,
+                database_stream,
+                maximum=MAX_DATABASE_BYTES,
+                deadline=deadline,
             )
             closed = os.fstat(database_stream.fileno())
             try:

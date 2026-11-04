@@ -1,0 +1,77 @@
+.service-capabilities {
+  flex: 0 0 auto;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.service-capabilities > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.service-capabilities h2 {
+  margin: 0 0 4px;
+  white-space: normal;
+}
+.service-capabilities p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.service-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 0;
+}
+.service-capability-grid > div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.service-capability-grid dt {
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.service-capability-grid dd {
+  margin: 0;
+}
+.service-capabilities summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+.service-capabilities ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+.service-capabilities li {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.service-capability-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.service-capability-result {
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+}
+@media (max-width: 768px) {
+  .service-capability-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .service-capabilities > header {
+    flex-direction: column;
+  }
+  .service-capabilities .button {
+    min-height: 44px;
+    height: auto;
+    white-space: normal;
+  }
+}

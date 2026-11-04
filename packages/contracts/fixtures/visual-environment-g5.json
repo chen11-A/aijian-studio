@@ -1,0 +1,480 @@
+{
+  "evidence_boundary": "Actual SQLite/local PNG source; native inspection is controlled TEST_ADAPTER only. Test-only discarded capability; no user credential or Provider.",
+  "request": {
+    "content": {
+      "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+      "creative_library_version_id": "ver_0fe89848ced9495b824474143655975c",
+      "creative_library_content_hash": "sha256:c7926a6c20000b6f5f11f35d55f02df4dd599d11df183cde4586fbdaa355bd5e",
+      "character_reference_ids": [
+        "crf_ffffffffffffffffffffffffffffffff",
+        "crf_00000000000000000000000000000000"
+      ],
+      "scenes": [
+        {
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "assets": [
+            {
+              "asset_id": "asset_b15a633c7e29456e8110dae929886b8f",
+              "asset_version_id": "asv_3c2662d6d5364b6e96621a6021280a01",
+              "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679"
+            }
+          ]
+        }
+      ],
+      "props": [],
+      "safe_area": {
+        "canvas_width": 1080,
+        "canvas_height": 1920,
+        "x": 54,
+        "y": 96,
+        "width": 972,
+        "height": 1728
+      },
+      "effective_scope": "PROJECT",
+      "change_reason": "人工选择完整视觉基线",
+      "schema_version": "1.1.0",
+      "environment_scope": {
+        "world_included": true,
+        "scene_variant_ids": ["scv_11111111111111111111111111111111"],
+        "environment_reference_ids": [
+          "erf_11111111111111111111111111111111",
+          "erf_33333333333333333333333333333333"
+        ]
+      }
+    },
+    "parent_version_id": "ver_6268add881c143d59de001772558d862",
+    "expected_revision": 1,
+    "change_summary": "保存视觉版本供人工审签"
+  },
+  "saved": {
+    "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+    "head": {
+      "artifact_id": "art_2c5d04b0e7694d7ca3cf54f62142d0bd",
+      "latest_version_id": "ver_63178c2895d4426498ecb27140913ccf",
+      "review_version_id": null,
+      "review_submission_id": null,
+      "accepted_version_id": null,
+      "revision": 2,
+      "review_evidence_revision": 0,
+      "updated_at": "2026-10-11T11:28:23.770323Z"
+    },
+    "version": {
+      "id": "ver_63178c2895d4426498ecb27140913ccf",
+      "artifact_id": "art_2c5d04b0e7694d7ca3cf54f62142d0bd",
+      "version_number": 2,
+      "content": {
+        "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+        "creative_library_version_id": "ver_0fe89848ced9495b824474143655975c",
+        "creative_library_content_hash": "sha256:c7926a6c20000b6f5f11f35d55f02df4dd599d11df183cde4586fbdaa355bd5e",
+        "character_reference_ids": [
+          "crf_ffffffffffffffffffffffffffffffff",
+          "crf_00000000000000000000000000000000"
+        ],
+        "scenes": [
+          {
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "assets": [
+              {
+                "asset_id": "asset_b15a633c7e29456e8110dae929886b8f",
+                "asset_version_id": "asv_3c2662d6d5364b6e96621a6021280a01",
+                "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679"
+              }
+            ]
+          }
+        ],
+        "props": [],
+        "safe_area": {
+          "canvas_width": 1080,
+          "canvas_height": 1920,
+          "x": 54,
+          "y": 96,
+          "width": 972,
+          "height": 1728
+        },
+        "effective_scope": "PROJECT",
+        "change_reason": "人工选择完整视觉基线",
+        "schema_version": "1.1.0",
+        "environment_scope": {
+          "world_included": true,
+          "scene_variant_ids": ["scv_11111111111111111111111111111111"],
+          "environment_reference_ids": [
+            "erf_11111111111111111111111111111111",
+            "erf_33333333333333333333333333333333"
+          ]
+        }
+      },
+      "content_hash": "sha256:48a84816232bcdd18d4e38a35628d6754d733f654bb36d71e6bc66f1b86ba959",
+      "parent_version_id": "ver_6268add881c143d59de001772558d862",
+      "author_actor_id": "local-user",
+      "change_summary": "保存视觉版本供人工审签",
+      "created_at": "2026-10-11T11:28:23.770323Z"
+    }
+  },
+  "legacy_saved": {
+    "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+    "head": {
+      "artifact_id": "art_2c5d04b0e7694d7ca3cf54f62142d0bd",
+      "latest_version_id": "ver_6268add881c143d59de001772558d862",
+      "review_version_id": null,
+      "review_submission_id": null,
+      "accepted_version_id": null,
+      "revision": 1,
+      "review_evidence_revision": 0,
+      "updated_at": "2026-10-11T11:28:23.715452Z"
+    },
+    "version": {
+      "id": "ver_6268add881c143d59de001772558d862",
+      "artifact_id": "art_2c5d04b0e7694d7ca3cf54f62142d0bd",
+      "version_number": 1,
+      "content": {
+        "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+        "creative_library_version_id": "ver_60bf6767241f4f5b8032dd09248da423",
+        "creative_library_content_hash": "sha256:b2b79b07290ee4661f5ea67488045a02280e4cb0890bb9c5c095b20799be71bb",
+        "character_reference_ids": [
+          "crf_ffffffffffffffffffffffffffffffff",
+          "crf_00000000000000000000000000000000"
+        ],
+        "scenes": [
+          {
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "assets": [
+              {
+                "asset_id": "asset_b15a633c7e29456e8110dae929886b8f",
+                "asset_version_id": "asv_3c2662d6d5364b6e96621a6021280a01",
+                "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679"
+              }
+            ]
+          }
+        ],
+        "props": [],
+        "safe_area": {
+          "canvas_width": 1080,
+          "canvas_height": 1920,
+          "x": 54,
+          "y": 96,
+          "width": 972,
+          "height": 1728
+        },
+        "effective_scope": "PROJECT",
+        "change_reason": "人工选择完整视觉基线",
+        "schema_version": "1.0.0"
+      },
+      "content_hash": "sha256:dbd5389524cf28333220f00f215f0e69020c64d105d783a09d93f74bddd9dff5",
+      "parent_version_id": null,
+      "author_actor_id": "local-user",
+      "change_summary": "保存视觉版本供人工审签",
+      "created_at": "2026-10-11T11:28:23.715452Z"
+    }
+  },
+  "library": {
+    "version_id": "ver_0fe89848ced9495b824474143655975c",
+    "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+    "episode_id": null,
+    "version_number": 2,
+    "head_revision": 2,
+    "parent_version_id": "ver_60bf6767241f4f5b8032dd09248da423",
+    "content": {
+      "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+      "episode_id": null,
+      "characters": [
+        {
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ordinal": 1,
+          "name": "林舟",
+          "role": "主角",
+          "description": "守护城市",
+          "appearance": "",
+          "personality": "谨慎"
+        },
+        {
+          "character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "ordinal": 2,
+          "name": "周岚",
+          "role": "主角",
+          "description": "守护城市",
+          "appearance": "",
+          "personality": "谨慎"
+        }
+      ],
+      "world": {
+        "premise": "星夜之城",
+        "rules": "永夜",
+        "era": "未来",
+        "visual_style": "手绘",
+        "palette": "蓝紫",
+        "materials": "金属"
+      },
+      "scenes": [
+        {
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "ordinal": 1,
+          "name": "码头",
+          "description": "",
+          "location": "旧城",
+          "time_of_day": "夜晚",
+          "weather": "雨",
+          "continuity": "灯未熄"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_id": "rel_dddddddddddddddddddddddddddddddd",
+          "ordinal": 1,
+          "from_character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "to_character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "label": "同事",
+          "description": "信任逐步建立"
+        }
+      ],
+      "costumes": [
+        {
+          "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "ordinal": 1,
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "雨衣",
+          "description": "深蓝色旧雨衣"
+        }
+      ],
+      "schema_version": "1.3.0",
+      "references": [
+        {
+          "reference_id": "crf_ffffffffffffffffffffffffffffffff",
+          "ordinal": 1,
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "asset_id": "asset_b15a633c7e29456e8110dae929886b8f",
+          "asset_version_id": "asv_3c2662d6d5364b6e96621a6021280a01",
+          "asset_sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+          "label": "服装参考"
+        },
+        {
+          "reference_id": "crf_00000000000000000000000000000000",
+          "ordinal": 2,
+          "character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "costume_id": null,
+          "asset_id": "asset_b15a633c7e29456e8110dae929886b8f",
+          "asset_version_id": "asv_3c2662d6d5364b6e96621a6021280a01",
+          "asset_sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+          "label": "服装参考"
+        }
+      ],
+      "scene_variants": [
+        {
+          "variant_id": "scv_11111111111111111111111111111111",
+          "ordinal": 1,
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "雨后凌晨",
+          "view": "港口朝西",
+          "time_of_day": "凌晨",
+          "weather": "雨后",
+          "state": "地面湿润",
+          "continuity": "保留窗边灯光"
+        }
+      ],
+      "environment_references": [
+        {
+          "reference_id": "erf_11111111111111111111111111111111",
+          "ordinal": 1,
+          "scene_id": null,
+          "variant_id": null,
+          "asset_id": "asset_88452ad64bc749b8913718f25e8d3cbe",
+          "asset_version_id": "asv_3367e2c8c8984b069ced594e7bb91342",
+          "asset_sha256": "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+          "label": "世界材质"
+        },
+        {
+          "reference_id": "erf_22222222222222222222222222222222",
+          "ordinal": 2,
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "variant_id": null,
+          "asset_id": "asset_88452ad64bc749b8913718f25e8d3cbe",
+          "asset_version_id": "asv_3367e2c8c8984b069ced594e7bb91342",
+          "asset_sha256": "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+          "label": "码头基础"
+        },
+        {
+          "reference_id": "erf_33333333333333333333333333333333",
+          "ordinal": 3,
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "variant_id": "scv_11111111111111111111111111111111",
+          "asset_id": "asset_88452ad64bc749b8913718f25e8d3cbe",
+          "asset_version_id": "asv_3367e2c8c8984b069ced594e7bb91342",
+          "asset_sha256": "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+          "label": "雨后状态"
+        }
+      ]
+    },
+    "content_hash": "sha256:c7926a6c20000b6f5f11f35d55f02df4dd599d11df183cde4586fbdaa355bd5e",
+    "author_actor_id": "local-user",
+    "change_summary": "保存人工创作草稿",
+    "created_at": "2026-10-11T11:28:23.749765Z"
+  },
+  "prepared_submit": {
+    "report": {
+      "id": "rpt_f01f2227354d452490fc94a185d1c702",
+      "artifact_id": "art_2c5d04b0e7694d7ca3cf54f62142d0bd",
+      "version_id": "ver_63178c2895d4426498ecb27140913ccf",
+      "gate": "G5",
+      "submission_id": null,
+      "policy_code": "g5.visual-bible",
+      "policy_version": "2",
+      "head_revision": 2,
+      "review_evidence_revision": 0,
+      "report": {
+        "ready": true,
+        "blocking": [],
+        "version_id": "ver_63178c2895d4426498ecb27140913ccf",
+        "content_hash": "sha256:48a84816232bcdd18d4e38a35628d6754d733f654bb36d71e6bc66f1b86ba959",
+        "creative_library_version_id": "ver_0fe89848ced9495b824474143655975c",
+        "creative_library_content_hash": "sha256:c7926a6c20000b6f5f11f35d55f02df4dd599d11df183cde4586fbdaa355bd5e",
+        "effective_scope": "PROJECT",
+        "props_declared_empty": true,
+        "originals": [
+          {
+            "asset_id": "asset_88452ad64bc749b8913718f25e8d3cbe",
+            "asset_version_id": "asv_3367e2c8c8984b069ced594e7bb91342",
+            "sha256": "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+            "byte_size": 69,
+            "rights_decision_id": "ard_c169bfcb3a194b90ab0f97ad50c67364",
+            "rights_revision": 1,
+            "rights_evidence_sha256": "5aec937e973f3fcf03c3c13b71ee8af6014a511e8654ff75b48cb47db246a84c",
+            "technical_evidence_hash": "sha256:b7832ccd5f21a69e08c147918ca4a92217a73d9d04edaa9bfa1971012e04aefb"
+          },
+          {
+            "asset_id": "asset_b15a633c7e29456e8110dae929886b8f",
+            "asset_version_id": "asv_3c2662d6d5364b6e96621a6021280a01",
+            "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+            "byte_size": 69,
+            "rights_decision_id": "ard_0cec80a39bdb4e6d9c380c65bc59006e",
+            "rights_revision": 1,
+            "rights_evidence_sha256": "5aec937e973f3fcf03c3c13b71ee8af6014a511e8654ff75b48cb47db246a84c",
+            "technical_evidence_hash": "sha256:6857b6d9c5503f40e91ae07414173017738007baac45ec80fb13020776defd94"
+          }
+        ],
+        "environment_projection": {
+          "declaration": {
+            "world_included": true,
+            "scene_variant_ids": ["scv_11111111111111111111111111111111"],
+            "environment_reference_ids": [
+              "erf_11111111111111111111111111111111",
+              "erf_33333333333333333333333333333333"
+            ]
+          },
+          "world": {
+            "premise": "星夜之城",
+            "rules": "永夜",
+            "era": "未来",
+            "visual_style": "手绘",
+            "palette": "蓝紫",
+            "materials": "金属"
+          },
+          "states": [
+            {
+              "variant_id": "scv_11111111111111111111111111111111",
+              "ordinal": 1,
+              "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "name": "雨后凌晨",
+              "view": "港口朝西",
+              "time_of_day": "凌晨",
+              "weather": "雨后",
+              "state": "地面湿润",
+              "continuity": "保留窗边灯光"
+            }
+          ],
+          "references": [
+            {
+              "reference_id": "erf_11111111111111111111111111111111",
+              "ordinal": 1,
+              "scene_id": null,
+              "variant_id": null,
+              "asset_id": "asset_88452ad64bc749b8913718f25e8d3cbe",
+              "asset_version_id": "asv_3367e2c8c8984b069ced594e7bb91342",
+              "asset_sha256": "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+              "label": "世界材质"
+            },
+            {
+              "reference_id": "erf_33333333333333333333333333333333",
+              "ordinal": 3,
+              "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "variant_id": "scv_11111111111111111111111111111111",
+              "asset_id": "asset_88452ad64bc749b8913718f25e8d3cbe",
+              "asset_version_id": "asv_3367e2c8c8984b069ced594e7bb91342",
+              "asset_sha256": "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+              "label": "雨后状态"
+            }
+          ]
+        },
+        "policy_code": "g5.visual-bible",
+        "policy_version": "2",
+        "policy_snapshot_hash": "sha256:9507704a4dab6fcbe7b171fde7002ff7ce6296e765f85f9c86046daa734c5361"
+      },
+      "report_hash": "sha256:e294ce91b9cbb368b181edfbb411af9914ce4e11b8e81d4661c3c485b61a2763",
+      "expires_at": "2026-10-11T11:33:23.805659Z",
+      "created_at": "2026-10-11T11:28:23.805659Z"
+    },
+    "challenge": {
+      "id": "chg_babb9d5f98fd471288af539b855cf804",
+      "artifact_id": "art_2c5d04b0e7694d7ca3cf54f62142d0bd",
+      "version_id": "ver_63178c2895d4426498ecb27140913ccf",
+      "gate": "G5",
+      "action": "submit",
+      "readiness_report_id": "rpt_f01f2227354d452490fc94a185d1c702",
+      "head_revision": 2,
+      "review_evidence_revision": 0,
+      "expires_at": "2026-10-11T11:33:23.805659Z",
+      "consumed_at": null,
+      "created_at": "2026-10-11T11:28:23.805659Z"
+    },
+    "confirmation_token": "synthetic-discarded-test-capability"
+  },
+  "board_request": {
+    "content": {
+      "project_id": "prj_9c3c3b5b635d48bb83df921cf1688985",
+      "episode_id": "ep_prj_9c3c3b5b635d48bb83df921cf1688985",
+      "fps": 25,
+      "script_version_id": null,
+      "creative_library_version_id": "ver_0fe89848ced9495b824474143655975c",
+      "shots": [
+        {
+          "shot_id": "shp_00000000000000000000000000000001",
+          "ordinal": 1,
+          "duration_frames": 75,
+          "title": "镜头 1",
+          "description": "码头的灯火",
+          "action": "角色回望",
+          "dialogue": "我会回来。",
+          "camera": "中景",
+          "script_scene_id": null,
+          "character_ids": ["chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          "location_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "character_bindings": [
+            {
+              "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "reference_ids": ["crf_ffffffffffffffffffffffffffffffff"]
+            }
+          ],
+          "coverage_notes": "覆盖角色反应",
+          "continuity_notes": "保留批准服装",
+          "transition_notes": "动作接下一镜",
+          "environment_binding": {
+            "variant_id": "scv_11111111111111111111111111111111",
+            "reference_ids": [
+              "erf_11111111111111111111111111111111",
+              "erf_33333333333333333333333333333333"
+            ]
+          }
+        }
+      ],
+      "schema_version": "1.5.0",
+      "visual_bible_pin": {
+        "version_id": "ver_63178c2895d4426498ecb27140913ccf",
+        "content_hash": "sha256:48a84816232bcdd18d4e38a35628d6754d733f654bb36d71e6bc66f1b86ba959"
+      }
+    },
+    "parent_version_id": null,
+    "expected_revision": null,
+    "change_summary": "保存人工分镜草稿"
+  },
+  "request_id": "12345678-abcd-1234-1234-123456789012"
+}

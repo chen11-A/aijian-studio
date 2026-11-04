@@ -20,10 +20,10 @@ from aijian_api.media_asset_contracts import (
 from aijian_api.media_asset_store import (
     _ASSET_ID,
     _PROJECT_ID,
-    _media_root,
-    _require_id,
     MediaAssetError,
     MediaAssetStore,
+    _media_root,
+    _require_id,
 )
 from aijian_api.media_probe import MAX_MEDIA_INPUT_BYTES
 from aijian_api.repository import StudioRepository
@@ -95,7 +95,10 @@ def _filename(request: Request) -> str:
 
 
 async def _import_bytes(
-    request: Request, repository: StudioRepository, project_id: str, asset_id: str | None,
+    request: Request,
+    repository: StudioRepository,
+    project_id: str,
+    asset_id: str | None,
 ) -> MediaAssetResponse | JSONResponse:
     content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
     if content_type != "application/octet-stream":
@@ -108,14 +111,20 @@ async def _import_bytes(
         if asset_id is not None:
             _require_id(asset_id, _ASSET_ID)
         with repository._connection() as connection:
-            if connection.execute(
-                "SELECT 1 FROM projects WHERE id = ?", (project_id,)
-            ).fetchone() is None:
+            if (
+                connection.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
+                is None
+            ):
                 raise MediaAssetError("PROJECT_NOT_FOUND", "Project was not found")
-            if asset_id is not None and connection.execute(
-                "SELECT 1 FROM media_assets WHERE project_id = ? AND id = ? AND deleted_at IS NULL",
-                (project_id, asset_id),
-            ).fetchone() is None:
+            if (
+                asset_id is not None
+                and connection.execute(
+                    "SELECT 1 FROM media_assets "
+                    "WHERE project_id = ? AND id = ? AND deleted_at IS NULL",
+                    (project_id, asset_id),
+                ).fetchone()
+                is None
+            ):
                 raise MediaAssetError("ASSET_NOT_FOUND", "Media asset was not found")
         root = _media_root(repository)
         staging = root / "staging"
@@ -136,7 +145,10 @@ async def _import_bytes(
             if total == 0:
                 raise MediaAssetError("SOURCE_SIZE", "Media source is empty")
             asset = MediaAssetStore(repository).import_local(
-                project_id, staged, asset_id=asset_id, display_filename=filename,
+                project_id,
+                staged,
+                asset_id=asset_id,
+                display_filename=filename,
             )
         finally:
             staged.unlink(missing_ok=True)
@@ -178,11 +190,15 @@ def create_media_asset_router(repository_provider: RepositoryProvider) -> APIRou
         responses=_RESPONSES,
     )
     def get_asset(
-        request: Request, project_id: str, asset_id: str,
+        request: Request,
+        project_id: str,
+        asset_id: str,
     ) -> MediaAssetResponse | JSONResponse:
         try:
             asset = MediaAssetStore(repository_provider()).get_asset(
-                project_id, asset_id, verify=True,
+                project_id,
+                asset_id,
+                verify=True,
             )
             return MediaAssetResponse(data=asset, request_id=_request_id(request))
         except MediaAssetError as error:
@@ -196,7 +212,9 @@ def create_media_asset_router(repository_provider: RepositoryProvider) -> APIRou
         responses=_RESPONSES,
     )
     async def import_version(
-        request: Request, project_id: str, asset_id: str,
+        request: Request,
+        project_id: str,
+        asset_id: str,
     ) -> MediaAssetResponse | JSONResponse:
         return await _import_bytes(request, repository_provider(), project_id, asset_id)
 
@@ -207,7 +225,10 @@ def create_media_asset_router(repository_provider: RepositoryProvider) -> APIRou
         responses=_RESPONSES,
     )
     def get_content(
-        request: Request, project_id: str, asset_id: str, version_id: str,
+        request: Request,
+        project_id: str,
+        asset_id: str,
+        version_id: str,
     ) -> Response | JSONResponse:
         try:
             content, mime_type, digest = MediaAssetStore(
@@ -232,12 +253,18 @@ def create_media_asset_router(repository_provider: RepositoryProvider) -> APIRou
         responses=_RESPONSES,
     )
     def add_reference(
-        request: Request, project_id: str, asset_id: str,
+        request: Request,
+        project_id: str,
+        asset_id: str,
         payload: AddAssetEpisodeReferenceRequest,
     ) -> MediaAssetResponse | JSONResponse:
         try:
             asset = MediaAssetStore(repository_provider()).add_episode_reference(
-                project_id, asset_id, payload.episode_id, payload.version_id, payload.role,
+                project_id,
+                asset_id,
+                payload.episode_id,
+                payload.version_id,
+                payload.role,
             )
             return MediaAssetResponse(data=asset, request_id=_request_id(request))
         except MediaAssetError as error:
@@ -250,11 +277,18 @@ def create_media_asset_router(repository_provider: RepositoryProvider) -> APIRou
         responses=_RESPONSES,
     )
     def remove_reference(
-        request: Request, project_id: str, asset_id: str, episode_id: str, role: str,
+        request: Request,
+        project_id: str,
+        asset_id: str,
+        episode_id: str,
+        role: str,
     ) -> MediaAssetResponse | JSONResponse:
         try:
             asset = MediaAssetStore(repository_provider()).remove_episode_reference(
-                project_id, asset_id, episode_id, role,
+                project_id,
+                asset_id,
+                episode_id,
+                role,
             )
             return MediaAssetResponse(data=asset, request_id=_request_id(request))
         except MediaAssetError as error:

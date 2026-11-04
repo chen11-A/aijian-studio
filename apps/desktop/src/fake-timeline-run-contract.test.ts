@@ -3,6 +3,8 @@ import { delimiter, resolve } from "node:path";
 
 import { describe, expect, test, vi } from "vitest";
 
+import { ffmpegOnPath, ffmpegSkipReason } from "./test-ffmpeg";
+
 import {
   FAKE_TIMELINE_CAPABILITY_LOSSES,
   FAKE_TIMELINE_RUN_CHANNELS,
@@ -323,59 +325,73 @@ describe("fake timeline run creation contract", () => {
     }
   });
 
-  test("accepts actual fresh and replay receipts from the Sidecar contract", () => {
-    const repositoryRoot = resolve(process.cwd(), "../..");
-    const python = [
-      "import json, runpy, tempfile",
-      "from pathlib import Path",
-      `root = Path(${JSON.stringify(repositoryRoot)})`,
-      "ns = runpy.run_path(str(root / 'services/api/tests/test_fake_timeline_run_api.py'))",
-      "operation_id = '7e0df32e-299a-4bb7-b77e-b85f20c41d61'",
-      "with tempfile.TemporaryDirectory() as directory:",
-      "    workspace = Path(directory) / 'workspace'",
-      "    repository = ns['StudioRepository'](workspace / 'workspace.sqlite3')",
-      "    generator = ns['_generator'](workspace)",
-      "    factory = ns['FakeTimelineRunFactory'](repository, generator)",
-      "    client = ns['_sidecar_client'](repository, factory)",
-      "    project_id, source_id, version_id = ns['_project_and_source'](client, approve_manifest=True)",
-      "    payload = ns['_command'](source_id, version_id)",
-      "    headers = {'Idempotency-Key': 'fake-timeline-run:create:v1:' + operation_id}",
-      "    path = f'/api/v1/projects/{project_id}/fake-timeline-runs'",
-      "    fresh = client.post(path, json=payload, headers=headers)",
-      "    replay = client.post(path, json=payload, headers=headers)",
-      "    print(json.dumps({'project_id': project_id, 'command': {'operation_id': operation_id, 'input': payload}, 'fresh_status': fresh.status_code, 'fresh': fresh.json(), 'replay_status': replay.status_code, 'replay': replay.json()}, ensure_ascii=False))",
-    ].join("\n");
-    const result = spawnSync("uv", ["run", "python", "-c", python], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PYTHONIOENCODING: "utf-8",
-        PYTHONPATH: [resolve(repositoryRoot, "services/api/src"), process.env.PYTHONPATH]
-          .filter(Boolean)
-          .join(delimiter),
-      },
-    });
-    expect(result.status, result.stderr).toBe(0);
-    const actual = JSON.parse(result.stdout) as {
-      project_id: string;
-      command: unknown;
-      fresh_status: number;
-      fresh: unknown;
-      replay_status: number;
-      replay: unknown;
-    };
-    expect(actual.fresh_status).toBe(201);
-    expect(actual.replay_status).toBe(200);
-    expect(isFakeTimelineRunCreateCommand(actual.command)).toBe(true);
-    if (!isFakeTimelineRunCreateCommand(actual.command)) throw new Error("invalid Sidecar command");
-    expect(isFakeTimelineRunResponse(actual.fresh, actual.project_id, actual.command, true)).toBe(
-      true,
-    );
-    expect(isFakeTimelineRunResponse(actual.replay, actual.project_id, actual.command, false)).toBe(
-      true,
-    );
-  }, 30_000);
+  test.skipIf(!ffmpegOnPath())(
+    `accepts Sidecar enqueue-only fresh and replay receipts with synthetic toolchain identity (${ffmpegSkipReason})`,
+    () => {
+      const repositoryRoot = resolve(process.cwd(), "../..");
+      const python = [
+        "import json, runpy, tempfile",
+        "from pathlib import Path",
+        "from types import SimpleNamespace",
+        "from aijian_api.fake_media_package import FakeMediaToolchainIdentityV1",
+        `root = Path(${JSON.stringify(repositoryRoot)})`,
+        "ns = runpy.run_path(str(root / 'services/api/tests/test_fake_timeline_run_api.py'))",
+        "operation_id = '7e0df32e-299a-4bb7-b77e-b85f20c41d61'",
+        "with tempfile.TemporaryDirectory() as directory:",
+        "    workspace = Path(directory) / 'workspace'",
+        "    repository = ns['StudioRepository'](workspace / 'workspace.sqlite3')",
+        // Enqueue/replay freezes identity only; media execution keeps its real toolchain tests.
+        "    generator = SimpleNamespace(identity=FakeMediaToolchainIdentityV1(",
+        "        toolchain_profile_id='synthetic-contract-only', toolchain_version='0.0.0',",
+        "        ffmpeg_sha256='sha256:' + 'a' * 64, ffprobe_sha256='sha256:' + 'b' * 64))",
+        "    factory = ns['FakeTimelineRunFactory'](repository, generator)",
+        "    client = ns['_sidecar_client'](repository, factory)",
+        "    project_id, source_id, version_id = ns['_project_and_source'](client, approve_manifest=True)",
+        "    payload = ns['_command'](source_id, version_id)",
+        "    headers = {'Idempotency-Key': 'fake-timeline-run:create:v1:' + operation_id}",
+        "    path = f'/api/v1/projects/{project_id}/fake-timeline-runs'",
+        "    fresh = client.post(path, json=payload, headers=headers)",
+        "    replay = client.post(path, json=payload, headers=headers)",
+        "    print(json.dumps({'project_id': project_id, 'command': {'operation_id': operation_id, 'input': payload}, 'fresh_status': fresh.status_code, 'fresh': fresh.json(), 'replay_status': replay.status_code, 'replay': replay.json()}, ensure_ascii=False))",
+      ].join("\n");
+      const result = spawnSync("uv", ["run", "python", "-c", python], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: "utf-8",
+          PYTHONPATH: [
+            resolve(repositoryRoot, "services/api/src"),
+            resolve(repositoryRoot, "services/api/tests"),
+            process.env.PYTHONPATH,
+          ]
+            .filter(Boolean)
+            .join(delimiter),
+        },
+      });
+      expect(result.status, result.stderr).toBe(0);
+      const actual = JSON.parse(result.stdout) as {
+        project_id: string;
+        command: unknown;
+        fresh_status: number;
+        fresh: unknown;
+        replay_status: number;
+        replay: unknown;
+      };
+      expect(actual.fresh_status).toBe(201);
+      expect(actual.replay_status).toBe(200);
+      expect(isFakeTimelineRunCreateCommand(actual.command)).toBe(true);
+      if (!isFakeTimelineRunCreateCommand(actual.command))
+        throw new Error("invalid Sidecar command");
+      expect(isFakeTimelineRunResponse(actual.fresh, actual.project_id, actual.command, true)).toBe(
+        true,
+      );
+      expect(
+        isFakeTimelineRunResponse(actual.replay, actual.project_id, actual.command, false),
+      ).toBe(true);
+    },
+    30_000,
+  );
 
   test("maps one fixed IPC channel without generating operation identity", async () => {
     const invoke = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });

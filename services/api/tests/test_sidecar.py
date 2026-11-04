@@ -1,4 +1,3 @@
-import builtins
 import json
 import os
 import socket
@@ -7,7 +6,7 @@ import sys
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
+from io import BytesIO, TextIOWrapper
 from pathlib import Path
 from time import monotonic, sleep
 from types import SimpleNamespace
@@ -128,8 +127,8 @@ def test_parent_pipe_eof_requests_a_graceful_server_exit(monkeypatch: pytest.Mon
 
 
 def test_run_emits_one_handshake_and_closes_the_reserved_listener(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     class FakeListener:
         closed = False
@@ -153,6 +152,12 @@ def test_run_emits_one_handshake_and_closes_the_reserved_listener(
         def start(self) -> None:
             self.started = True
 
+        def join(self, timeout: float | None = None) -> None:
+            pass
+
+        def is_alive(self) -> bool:
+            return False
+
     class FakeWorker:
         started = False
         stopped = False
@@ -163,6 +168,7 @@ def test_run_emits_one_handshake_and_closes_the_reserved_listener(
         def stop(self) -> None:
             self.stopped = True
 
+    monkeypatch.setenv("AIJIAN_DATA_DIR", str(tmp_path))
     listener = FakeListener()
     server = FakeServer()
     thread = FakeThread()
@@ -174,9 +180,17 @@ def test_run_emits_one_handshake_and_closes_the_reserved_listener(
     monkeypatch.setattr(sidecar.threading, "Thread", lambda **_kwargs: thread)
     monkeypatch.setattr(sidecar, "create_local_fake_worker", lambda _database: worker)
 
-    sidecar.run()
-
-    output_lines = capsys.readouterr().out.splitlines()
+    # Model Windows newline translation even on Linux. Wire output must bypass
+    # the text wrapper and match the strict LF-only inherited pipe protocol.
+    raw = BytesIO()
+    windows_stdout = TextIOWrapper(raw, encoding="utf-8", newline="\r\n", write_through=True)
+    with monkeypatch.context() as stdout_patch:
+        stdout_patch.setattr(sidecar.sys, "stdout", windows_stdout)
+        sidecar.run()
+    output = raw.getvalue()
+    assert b"\r" not in output
+    assert output.endswith(b"\n")
+    output_lines = output.decode("utf-8").splitlines()
     assert len(output_lines) == 1
     assert json.loads(output_lines[0]) == create_handshake(port=43123, token="z" * 43, pid=7654)
     assert server.sockets == [listener]
@@ -187,6 +201,7 @@ def test_run_emits_one_handshake_and_closes_the_reserved_listener(
 
 
 def test_handshake_output_failure_stops_worker_and_closes_listener(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeListener:
@@ -204,6 +219,7 @@ def test_handshake_output_failure_stops_worker_and_closes_listener(
         def stop(self) -> None:
             self.stopped = True
 
+    monkeypatch.setenv("AIJIAN_DATA_DIR", str(tmp_path))
     listener = FakeListener()
     worker = FakeWorker()
     monkeypatch.setattr(sidecar, "create_listener", lambda: (listener, 43123))
@@ -216,12 +232,17 @@ def test_handshake_output_failure_stops_worker_and_closes_listener(
     monkeypatch.setattr(
         sidecar.threading,
         "Thread",
-        lambda **_kwargs: SimpleNamespace(start=lambda: None),
+        lambda **_kwargs: SimpleNamespace(
+            start=lambda: None, join=lambda **_kwargs: None, is_alive=lambda: False
+        ),
     )
     monkeypatch.setattr(sidecar, "create_local_fake_worker", lambda _database: worker)
-    monkeypatch.setattr(
-        builtins, "print", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("closed pipe"))
-    )
+
+    class ClosedOutput:
+        def write(self, _data: bytes) -> int:
+            raise OSError("closed pipe")
+
+    monkeypatch.setattr(sidecar.sys, "stdout", SimpleNamespace(buffer=ClosedOutput()))
 
     with pytest.raises(OSError, match="closed pipe"):
         sidecar.run()

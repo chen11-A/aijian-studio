@@ -1,0 +1,168 @@
+{
+  "browser": "151.0.7922.173",
+  "provider": "mock desktop image bridge",
+  "input": "repository sample film with synthetic repeated long descriptions; no user novel or credentials",
+  "results": [
+    {
+      "check": "13 long shot cards: three lines, full tooltips, separate unobscured tags",
+      "cards": [
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        },
+        {
+          "noSiblingOverlap": true,
+          "clamp": true,
+          "tooltips": true,
+          "noOverlap": true,
+          "tagsInside": true
+        }
+      ]
+    },
+    {
+      "check": "first image click invokes bridge exactly once and displays card progress",
+      "pass": true
+    },
+    {
+      "check": "one click generates four portraits; batch fills remaining character including face",
+      "imageCalls": 9
+    },
+    {
+      "check": "first-frame request explicitly receives completed portrait references",
+      "count": 5
+    },
+    {
+      "check": "four-candidate confirmation enqueues four actual image requests and all finish done with five references",
+      "pass": true
+    },
+    {
+      "check": "director suggestions expire on page and scene changes",
+      "pass": true
+    },
+    {
+      "check": "export path middle ellipsis with full hover title",
+      "pass": true
+    },
+    {
+      "check": "keyboard next action focus and reduced-motion preference",
+      "pass": true
+    },
+    {
+      "check": "additional viewport observation",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "metrics": {
+        "width": 1440,
+        "documentOverflow": 0,
+        "clippedControls": 0
+      },
+      "supportedDesktop": true,
+      "note": "desktop screenshot"
+    },
+    {
+      "check": "additional viewport observation",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "metrics": {
+        "width": 390,
+        "documentOverflow": 0,
+        "clippedControls": 39
+      },
+      "supportedDesktop": false,
+      "note": "390px is below the documented desktop minimum; observation only, not a mobile acceptance pass"
+    },
+    {
+      "check": "real workflow task snapshots publish queued/running/done and finished portrait batches",
+      "eventCount": 59,
+      "pass": true
+    },
+    {
+      "check": "browser console errors/warnings and page errors",
+      "errors": []
+    }
+  ]
+}

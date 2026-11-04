@@ -1,21 +1,33 @@
+import { availableParallelism } from "node:os";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { developmentCoreAssets } from "./build/developmentCoreAssets.ts";
+
+const buildProfile =
+  process.env.AIVORA_BUILD_PROFILE === "development-core" ? "development-core" : "production";
 
 export default defineConfig({
   base: "./",
-  plugins: [react()],
+  plugins: [react(), ...(buildProfile === "development-core" ? [developmentCoreAssets()] : [])],
+  define: { __AIVORA_BUILD_PROFILE__: JSON.stringify(buildProfile) },
   server: {
     port: 5173,
     strictPort: true,
     headers: {
       "Content-Security-Policy":
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:5173; img-src 'self' data:; media-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:5173; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
     },
     proxy: {
       "/api": "http://127.0.0.1:8000",
     },
   },
   test: {
+    // pnpm runs desktop and renderer suites together; share CPU capacity.
+    // https://v4.vitest.dev/config/maxworkers
+    maxWorkers:
+      process.env.RUNNER_OS === "Windows"
+        ? 1
+        : Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2))),
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
     coverage: {

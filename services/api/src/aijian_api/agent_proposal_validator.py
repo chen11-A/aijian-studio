@@ -277,7 +277,7 @@ def prepare_proposal_draft(
         expected_schema_ref=delegation.skill_definition.output_schema_ref,
         payload=proposal.payload,
     )
-    if proposal.target_artifact_type == "ShotOutline":
+    if isinstance(proposal, ArtifactProposalV1) and proposal.target_artifact_type == "ShotOutline":
         try:
             validate_shot_outline_proposal(proposal)
         except (ValidationError, ValueError) as error:

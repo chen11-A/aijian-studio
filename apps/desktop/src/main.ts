@@ -1,7 +1,70 @@
-import { lstatSync } from "node:fs";
+import { registerTaskProgressHandlers } from "./task-progress-ipc";
+import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
+import { registerAssemblyReadinessHandler } from "./assembly-readiness-ipc";
+import { registerAssemblyExactHandlers } from "./assembly-exact-ipc";
+import { registerManualMediaCandidateHandlers } from "./manual-media-candidate-ipc";
+import { registerMediaPreparationHandlers } from "./media-preparation-ipc";
+import { registerScriptConfirmationImpactHandlers } from "./script-confirmation-impact-ipc";
+import { registerProjectSettingsHandlers } from "./project-settings-ipc";
+import { registerVisualBibleHandlers } from "./visual-bible-ipc";
+import { registerOfficialDirectorHandlers } from "./official-director-ipc";
+import { registerMediaToolchainHandlers } from "./media-toolchain-ipc";
+import { registerOfficialTextHandlers } from "./official-text-ipc";
+import { registerAssistantChatHandlers } from "./assistant-chat-ipc";
+import { createAssistantReceiptStore, type AssistantReceiptStore } from "./assistant-chat-receipts";
+import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
+import { createProtectedStore } from "./chatgpt-auth-storage";
+import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
+import { createGrokRuntime } from "./grok-auth-runtime";
+import { liveMediaSidecarEnv } from "./live-media-env";
+import { createAgentLog } from "./agent-log";
+import { runCapabilityProbe } from "./capability-probe";
+import { createGrokLoginLog } from "./grok-login-log";
+import { createSubscriptionLedger } from "./desktop-subscription-ledger";
+import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
+import { createFileKeyEncryption, selectGrokEncryption } from "./grok-linux-storage";
+import { registerGrokHandlers } from "./grok-auth-ipc";
+import { revealInFolder } from "./reveal-in-folder";
+import { registerStoryFilmHandlers } from "./story-film-ipc";
+import { registerFilmLibraryHandlers } from "./film-library-ipc";
+import { bundledFfmpeg, bundledTool, trustedMediaPath } from "./film-library";
+import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
+import { registerDraftReviewHandlers } from "./draft-review-ipc";
+import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
+import { registerDraftExportHandlers } from "./draft-export-ipc";
+import { prepareCompositionPreviewPath } from "./composition-preview-cache";
+import { registerEpisodeMediaAssemblyHandlers } from "./episode-media-assembly-ipc";
+import { registerNativePreviewPlanHandler } from "./media-preview-plan-ipc";
+import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc";
+import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
+import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { spawn } from "node:child_process";
+import { copyFile, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { developmentPythonLaunch } from "./development-python";
 
-import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  net,
+  protocol,
+  safeStorage,
+  nativeImage,
+  shell,
+  type IpcMainInvokeEvent,
+} from "electron";
 
 import {
   createLocalApiClient,
@@ -17,7 +80,12 @@ import {
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { registerAppPreferencesHandlers } from "./app-preferences-ipc";
 import { registerMediaAssetHandlers } from "./media-asset-ipc";
+import { registerAudioAssetProbeHandlers } from "./audio-asset-probe-ipc";
+import { registerMediaAssetProbeHandlers } from "./media-asset-probe-ipc";
 import { registerEpisodeScriptHandlers } from "./episode-script-ipc";
+import { registerProjectCreativeLibraryHandlers } from "./project-creative-library-ipc";
+import { registerShotPlanHandlers } from "./shot-plan-ipc";
+import { registerEpisodeStoryboardHandlers } from "./episode-storyboard-ipc";
 import { registerEpisodeScriptConfirmationHandlers } from "./episode-script-confirmation-ipc";
 import { registerSourceProposalAcceptanceHandler } from "./source-proposal-acceptance-ipc";
 import { registerSub2APIConfiguredReadinessHandler } from "./sub2api-configured-readiness-ipc";
@@ -34,7 +102,10 @@ import {
 } from "./e2e-proposal-run-response-fault";
 import { registerFakeTimelineRunHandlers } from "./fake-timeline-run-contract";
 import { registerDevelopmentExportHandlers } from "./development-export-ipc";
-import { registerInvalidationOperationHandlers } from "./invalidation-operation-ipc";
+import {
+  registerInvalidationOperationHandlers,
+  registerInvalidationConsumerHandler,
+} from "./invalidation-operation-ipc";
 import { registerProposalRunHandlers } from "./proposal-run-contract";
 import { isProjectUpdateId, normalizeProjectUpdateCommand } from "./project-update-contract";
 import {
@@ -50,11 +121,12 @@ import {
   resolveProductionBriefTopFrameClient,
 } from "./production-brief-ipc";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
+import { createSidecarExtractionTemp, type SidecarExtractionTemp } from "./sidecar-extraction-temp";
 import {
-  createSidecarExtractionTemp, type SidecarExtractionTemp,
-} from "./sidecar-extraction-temp";
-import {
-  SidecarStartupError, startSidecar, type SidecarHandle, type StartSidecarOptions,
+  SidecarStartupError,
+  startSidecar,
+  type SidecarHandle,
+  type StartSidecarOptions,
 } from "./sidecar-process";
 import { createSourceManifestReviewController } from "./source-manifest-review";
 import { registerSourceManifestReviewHandlers } from "./source-manifest-review-ipc";
@@ -65,6 +137,33 @@ let sourceManifestReviewController: ReturnType<typeof createSourceManifestReview
   null;
 let sidecar: SidecarHandle | null = null;
 let quitting = false;
+let nativePreviewDocumentEpoch = 0;
+
+function pinPackagedUserData(): void {
+  // New installs use AIVORA. The first launch copies an existing
+  // "AIVORA Dev Core" folder and leaves the old one in place.
+  if (!app.isPackaged) return;
+  const legacy = join(app.getPath("appData"), "AIVORA Dev Core");
+  const next = join(app.getPath("appData"), "AIVORA");
+  if (!existsSync(next) && existsSync(legacy)) {
+    try {
+      cpSync(legacy, next, { recursive: true, dereference: false });
+    } catch {
+      app.setPath("userData", legacy);
+      return;
+    }
+  }
+  app.setPath("userData", next);
+}
+
+function revealSavedFile(path: string): void {
+  revealInFolder(path, {
+    platform: process.platform,
+    showItemInFolder: (item) => {
+      shell.showItemInFolder(item);
+    },
+  });
+}
 
 function configureDevelopmentUserData(): boolean {
   const requested = process.env.AIJIAN_E2E_USER_DATA_DIR;
@@ -84,17 +183,23 @@ function developmentSidecarOptions(): StartSidecarOptions {
     throw new Error("Packaged sidecar runtime is not available");
   }
   const repositoryRoot = resolve(__dirname, "../../..");
-  const command =
-    process.platform === "win32"
-      ? join(repositoryRoot, ".venv", "Scripts", "python.exe")
-      : join(repositoryRoot, ".venv", "bin", "python");
+  const python = developmentPythonLaunch(repositoryRoot);
   return {
-    command,
+    command: python.command,
     args: ["-m", "aijian_api.sidecar"],
     cwd: repositoryRoot,
     env: {
+      ...python.env,
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
-      AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "1",
+      AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "0",
+      ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
+      ...(process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT && process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK
+        ? {
+            AIJIAN_DRAFT_MEDIA_TOOL_ROOT: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
+            AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK: process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK,
+          }
+        : {}),
       PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
     },
   };
@@ -103,8 +208,7 @@ function developmentSidecarOptions(): StartSidecarOptions {
 function plainResource(path: string, kind: "directory" | "file"): boolean {
   try {
     const info = lstatSync(path);
-    return !info.isSymbolicLink() &&
-      (kind === "directory" ? info.isDirectory() : info.isFile());
+    return !info.isSymbolicLink() && (kind === "directory" ? info.isDirectory() : info.isFile());
   } catch {
     return false;
   }
@@ -115,9 +219,13 @@ function packagedResourceRoot(): string {
     throw new Error("Packaged resources require a Windows installation");
   }
   const rawRoot = process.resourcesPath;
-  if (typeof rawRoot !== "string" || rawRoot.length === 0 ||
-      !isAbsolute(rawRoot) || rawRoot.startsWith("\\\\") ||
-      rawRoot.split(/[\\/]/).includes("..")) {
+  if (
+    typeof rawRoot !== "string" ||
+    rawRoot.length === 0 ||
+    !isAbsolute(rawRoot) ||
+    rawRoot.startsWith("\\\\") ||
+    rawRoot.split(/[\\/]/).includes("..")
+  ) {
     throw new Error("Packaged resource root is invalid");
   }
   const root = resolve(rawRoot);
@@ -130,18 +238,18 @@ function packagedResourceRoot(): string {
 function packagedSidecarOptions(): StartSidecarOptions {
   const resourceRoot = packagedResourceRoot();
   const sidecarDirectory = join(resourceRoot, "sidecar");
-  if (!plainResource(sidecarDirectory, "directory") ||
-      !plainResource(join(resourceRoot, "config"), "directory") ||
-      !plainResource(join(resourceRoot, "config", "media-toolchain-lock.json"), "file") ||
-      !plainResource(join(sidecarDirectory, "aijian-sidecar.exe"), "file")) {
+  if (
+    !plainResource(sidecarDirectory, "directory") ||
+    !plainResource(join(resourceRoot, "config"), "directory") ||
+    !plainResource(join(resourceRoot, "config", "media-toolchain-lock.json"), "file") ||
+    !plainResource(join(sidecarDirectory, "aijian-sidecar.exe"), "file")
+  ) {
     throw new Error("Packaged sidecar resources are unavailable");
   }
   const workspaceDirectory = join(app.getPath("userData"), "workspace");
   let extraction: SidecarExtractionTemp;
   try {
-    extraction = createSidecarExtractionTemp(
-      process.env.LOCALAPPDATA, process.env.USERPROFILE,
-    );
+    extraction = createSidecarExtractionTemp(process.env.LOCALAPPDATA, process.env.USERPROFILE);
   } catch {
     throw new SidecarStartupError("STARTUP_UNKNOWN");
   }
@@ -152,6 +260,8 @@ function packagedSidecarOptions(): StartSidecarOptions {
     env: {
       AIJIAN_DATA_DIR: workspaceDirectory,
       AIJIAN_RESOURCE_ROOT: resourceRoot,
+      ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
       TEMP: extraction.directory,
       TMP: extraction.directory,
     },
@@ -162,19 +272,53 @@ function packagedSidecarOptions(): StartSidecarOptions {
 function packagedRendererIndex(): string {
   const rendererDirectory = join(packagedResourceRoot(), "renderer");
   const index = join(rendererDirectory, "index.html");
-  if (!plainResource(rendererDirectory, "directory") ||
-      !plainResource(index, "file")) {
+  if (!plainResource(rendererDirectory, "directory") || !plainResource(index, "file")) {
     throw new Error("Packaged renderer is unavailable");
   }
   return index;
 }
 
+function windowStatePath(): string {
+  return join(app.getPath("userData"), "window-state.json");
+}
+
+function readWindowState(): {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  maximized?: boolean;
+} | null {
+  try {
+    const value = JSON.parse(readFileSync(windowStatePath(), "utf8")) as {
+      width?: unknown;
+      height?: unknown;
+      x?: unknown;
+      y?: unknown;
+      maximized?: unknown;
+    };
+    if (typeof value.width !== "number" || typeof value.height !== "number") return null;
+    return {
+      width: value.width,
+      height: value.height,
+      ...(typeof value.x === "number" ? { x: value.x } : {}),
+      ...(typeof value.y === "number" ? { y: value.y } : {}),
+      maximized: value.maximized === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function createMainWindow(): BrowserWindow {
+  const saved = readWindowState();
   const window = new BrowserWindow({
-    width: 1440,
-    height: 920,
-    minWidth: 980,
-    minHeight: 680,
+    width: saved?.width ?? 1440,
+    height: saved?.height ?? 920,
+    ...(typeof saved?.x === "number" ? { x: saved.x } : {}),
+    ...(typeof saved?.y === "number" ? { y: saved.y } : {}),
+    minWidth: 1280,
+    minHeight: 800,
     show: false,
     backgroundColor: "#0d0e0c",
     autoHideMenuBar: true,
@@ -189,15 +333,39 @@ function createMainWindow(): BrowserWindow {
   });
 
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("did-start-navigation", (_event, _url, isSameDocument, isMainFrame) => {
+    if (isMainFrame && !isSameDocument) {
+      nativePreviewDocumentEpoch += 1;
+      nativePreviewHost.invalidateAll();
+    }
+  });
   window.webContents.on("will-navigate", (event) => event.preventDefault());
-  window.once("ready-to-show", () => window.show());
+  window.once("ready-to-show", () => {
+    if (!saved || saved.maximized) window.maximize();
+    else {
+      const bounds = window.getBounds();
+      if (bounds.width < 1280 || bounds.height < 800) window.setSize(1440, 920);
+    }
+    window.show();
+  });
+  const remember = () => {
+    if (window.isDestroyed()) return;
+    const bounds = window.getBounds();
+    writeFileSync(
+      windowStatePath(),
+      JSON.stringify({ ...bounds, maximized: window.isMaximized() }),
+    );
+  };
+  window.on("close", remember);
   window.on("closed", () => {
+    nativePreviewDocumentEpoch += 1;
+    nativePreviewHost.invalidateAll();
     mainWindow = null;
   });
 
-  void window.loadFile(app.isPackaged
-    ? packagedRendererIndex()
-    : join(__dirname, "../../studio-web/dist/index.html"));
+  void window.loadFile(
+    app.isPackaged ? packagedRendererIndex() : join(__dirname, "../../studio-web/dist/index.html"),
+  );
   return window;
 }
 
@@ -208,16 +376,267 @@ function clientFor(event: IpcMainInvokeEvent): LocalApiClient {
   return apiClient;
 }
 
+let chatgptRuntime: ReturnType<typeof createChatGPTRuntime> | null = null;
+let assistantAuthEpoch = 0;
+let assistantReceiptStore: AssistantReceiptStore | null = null;
+function getAssistantReceiptStore(): AssistantReceiptStore {
+  assistantReceiptStore ??= createAssistantReceiptStore(
+    join(app.getPath("userData"), "assistant-chat-receipts"),
+  );
+  return assistantReceiptStore;
+}
+function subscriptionLedger() {
+  if (!sidecar) throw new Error("BILLING_UNAVAILABLE");
+  return createSubscriptionLedger(globalThis.fetch, sidecar.session);
+}
+function getChatGPTRuntime() {
+  chatgptRuntime ??= createChatGPTRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
+    store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    confirmText: async (request) => {
+      const window = mainWindow;
+      if (!window) return false;
+      const result = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "确认一次 ChatGPT 文本请求",
+        defaultId: 1,
+        cancelId: 1,
+        buttons: ["批准这一次请求", "取消"],
+        message: `向 OpenAI 发送文本并使用 ${request.modelLabel} 生成一次草稿？`,
+        detail: `账号：${request.profileLabel}\n${request.approvalContext ?? ""}\n操作：${request.operationId}\n\n将发送完整输入（${request.text.length} 字符）和指令（${request.instructions?.length ?? 0} 字符）。本次仅允许一次请求，消耗 ChatGPT 套餐或现有积分；不自动重试。实际消耗由 OpenAI 决定，请先确认账号用量限制。结果需在 AIVORA 审阅后采用。\n\n输入：\n${request.text}\n\n指令：\n${request.instructions ?? "无"}`,
+      });
+      return result.response === 0;
+    },
+    confirmSignIn: async (scope, signal) => {
+      const window = mainWindow;
+      if (!window) return false;
+      const scopes = {
+        LOCAL_PERSONAL: "个人本机项目",
+        OPEN_SOURCE: "开源项目",
+        APPROVED_PRIVATE: "已获 OpenAI 批准的私有应用",
+      };
+      const result = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "ChatGPT 官方账号授权",
+        defaultId: 1,
+        cancelId: 1,
+        signal,
+        buttons: ["继续并打开系统浏览器", "取消"],
+        message: "允许 AIVORA 注册或重新连接 ChatGPT，并在本机加密保存登录凭据？",
+        detail: `你确认此次软件用于：${scopes[scope]}。这是软件接入资格，不是账号套餐；具体权限将在 OpenAI 页面另行确认。这不会代替 OpenAI 对商业/托管应用的资格批准。\n\n浏览器中由你登录 OpenAI 并审阅权限。AIVORA 将获取经验证的账号标识和邮箱，申请使用 ChatGPT 套餐及后续刷新权限，并由系统保护本机保存的凭据。凭据不会进入项目文件或 Sub2API。你可随时退出并在 ChatGPT 用量设置撤销访问。\n\n本次只进行登录，不发送剧本或执行模型推理。`,
+      });
+      return result.response === 0;
+    },
+  });
+  return chatgptRuntime;
+}
+let grokRuntime: ReturnType<typeof createGrokRuntime> | null = null;
+let grokEncryption: GrokEncryption | null = null;
+function useGrokEncryption(): GrokEncryption {
+  if (grokEncryption) return grokEncryption;
+  const directory = join(app.getPath("userData"), "grok-official");
+  const choice = selectGrokEncryption(
+    process.platform,
+    safeStorage,
+    createFileKeyEncryption(directory),
+  );
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  chmodSync(directory, 0o700);
+  const record = join(directory, "storage-backend.txt");
+  writeFileSync(record, `${choice.backend}\n`, { mode: 0o600 });
+  chmodSync(record, 0o600);
+  grokEncryption = choice.encryption;
+  const log = createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log"));
+  void log.event("storage", { code: choice.backend }).catch(() => undefined);
+  return grokEncryption;
+}
+function getGrokRuntime() {
+  grokRuntime ??= createGrokRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
+    store: createGrokStore(join(app.getPath("userData"), "grok-official"), useGrokEncryption()),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    onBrowserReturned: () => {
+      const window = mainWindow;
+      if (!window || window.isDestroyed()) return;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.moveTop();
+      window.focus();
+    },
+    log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
+    agentLog: createAgentLog(join(app.getPath("userData"), "logs", "agents.log")),
+    // The labeled button is the confirmation. One click opens the system browser.
+    confirmSignIn: async () => true,
+    packaged: app.isPackaged,
+  });
+  return grokRuntime;
+}
+registerGrokHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => getGrokRuntime(),
+);
+
+registerChatGPTHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => {
+    const runtime = getChatGPTRuntime();
+    return {
+      ...runtime,
+      signIn: async (...args: Parameters<typeof runtime.signIn>) => {
+        assistantAuthEpoch++;
+        return runtime.signIn(...args);
+      },
+      cancel: async () => {
+        assistantAuthEpoch++;
+        return runtime.cancel();
+      },
+      selectProfile: async (profileId: string) => {
+        assistantAuthEpoch++;
+        return runtime.selectProfile(profileId);
+      },
+      signOut: async () => {
+        assistantAuthEpoch++;
+        return runtime.signOut();
+      },
+    };
+  },
+  (url) => shell.openExternal(url),
+);
+
+registerAssistantChatHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  getChatGPTRuntime,
+  {
+    reserve: (receipt) => getAssistantReceiptStore().reserve(receipt),
+    finish: (operationId, status, responseHash) =>
+      getAssistantReceiptStore().finish(operationId, status, responseHash),
+    get: (operationId) => getAssistantReceiptStore().get(operationId),
+    pending: (scope, profileId) => getAssistantReceiptStore().pending(scope, profileId),
+  },
+  () => assistantAuthEpoch,
+);
+
+registerOfficialTextHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+  getChatGPTRuntime,
+);
+
+registerOfficialDirectorHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  getChatGPTRuntime,
+);
+
 const episodeClientFor = createTopLevelEpisodeClientFor(
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
+
+registerMediaToolchainHandlers((channel, listener) => ipcMain.handle(channel, listener), {
+  getMainWindow: () => mainWindow,
+  getClient: () => apiClient,
+  showOpenDialog: (window, options) => dialog.showOpenDialog(window, options),
+});
 
 registerAppPreferencesHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
+registerMediaAssetProbeHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.senderFrame === mainWindow.webContents.mainFrame &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached,
+);
+registerAudioAssetProbeHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.senderFrame === mainWindow.webContents.mainFrame &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached,
+);
+registerVisualBibleHandlers((channel, listener) => ipcMain.handle(channel, listener), {
+  getWindow: () => mainWindow,
+  getClient: () => apiClient,
+  confirm: async (window, detail, signal) => {
+    try {
+      const result = await dialog.showMessageBox(window, {
+        type: "warning",
+        title: "人工 G5 视觉审签",
+        message: "请明确核对本次精确视觉版本与动作",
+        detail,
+        buttons: ["取消", "确认本次动作"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+        signal,
+      });
+      return result.response === 1 && !signal.aborted;
+    } catch {
+      return false;
+    }
+  },
+  decode: (bytes) => {
+    const image = nativeImage.createFromBuffer(Buffer.from(bytes));
+    if (image.isEmpty()) throw new Error("Native image decoder rejected original");
+    const size = image.getSize();
+    return { ...size, bitmap: image.toBitmap() };
+  },
+  decoderVersion: () => {
+    if (!process.versions.electron) throw new Error("Native image decoder version unavailable");
+    return process.versions.electron;
+  },
+});
 registerMediaAssetHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
@@ -226,7 +645,7 @@ registerMediaAssetHandlers<IpcMainInvokeEvent>(
     const window = mainWindow;
     if (window === null) throw new Error("Media asset file picker is unavailable");
     const selected = await dialog.showOpenDialog(window, { properties: ["openFile"] });
-    return selected.canceled ? null : selected.filePaths[0] ?? null;
+    return selected.canceled ? null : (selected.filePaths[0] ?? null);
   },
 );
 registerSub2APIConfiguredReadinessHandler<IpcMainInvokeEvent>(
@@ -239,7 +658,129 @@ registerSub2APIConnectionMutationHandlers<IpcMainInvokeEvent>(
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
+registerProjectCreativeLibraryHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
 registerEpisodeScriptHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerDraftExportOutputHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+  (trustedPath) => revealSavedFile(trustedPath),
+);
+registerDraftReviewHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerDraftReviewRevisionHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerDraftExportHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+  async (suggestedName) => {
+    const window = mainWindow;
+    if (window === null) throw new Error("Draft export Save dialog is unavailable");
+    const selected = await dialog.showSaveDialog(window, {
+      title: "保存草稿 MP4 · DRAFT",
+      defaultPath: suggestedName,
+      filters: [{ name: "草稿 MP4", extensions: ["mp4"] }],
+      buttonLabel: "保存草稿",
+    });
+    return selected.canceled ? null : (selected.filePath ?? null);
+  },
+  (operationId) => prepareCompositionPreviewPath(app.getPath("userData"), operationId),
+);
+registerEpisodeMediaAssemblyHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+function nativePreviewAuthorized(event: IpcMainInvokeEvent): boolean {
+  return (
+    mainWindow !== null &&
+    apiClient !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached &&
+    event.senderFrame === mainWindow.webContents.mainFrame
+  );
+}
+registerLocalMediaReviewHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  nativePreviewAuthorized,
+);
+registerAssemblyReadinessHandler<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  nativePreviewAuthorized,
+);
+registerNativePreviewPlanHandler<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  nativePreviewAuthorized,
+  () => nativePreviewDocumentEpoch,
+);
+const nativePreviewHost = createManagedMediaPreviewHost({
+  resolvePlan: async (identity) =>
+    apiClient?.getNativeMediaPreviewPlan(
+      identity.project_id,
+      identity.episode_id,
+      identity.assembly_version_id,
+    ) ?? { kind: "UNKNOWN" },
+  // Actual installed-source composition; empty compiled policy still returns null.
+  runtime: createInstalledMltNativeRuntime({
+    platform: process.platform,
+    packaged: app.isPackaged,
+    getPipe: () => sidecar?.nativePipe ?? null,
+  }),
+});
+registerMediaPreviewSessionHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  nativePreviewHost,
+  nativePreviewAuthorized,
+  () => nativePreviewDocumentEpoch,
+);
+registerShotPlanHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerEpisodeStoryboardHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerMediaPreparationHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerManualMediaCandidateHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerAssemblyExactHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerScriptConfirmationImpactHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
@@ -257,8 +798,160 @@ registerSourceProposalAcceptanceHandler<IpcMainInvokeEvent>(
 
 ipcMain.handle("health:get", (event) => clientFor(event).getHealth());
 ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
-ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
-  clientFor(event).createProject(input),
+ipcMain.handle("projects:create", (event, input: CreateProjectInput) => {
+  if (process.env.AIVORA_SLOW_TEXT_FIXTURE === "1" && !app.isPackaged) {
+    return { data: { id: `prj_${"a".repeat(32)}` }, request_id: "fixture" };
+  }
+  return clientFor(event).createProject(input);
+});
+registerStoryFilmHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => {
+    if (!sidecar) throw new Error("Local API is not available");
+    return sidecar.session;
+  },
+  async () => {
+    try {
+      return await getGrokRuntime().mediaAccessToken();
+    } catch {
+      return null;
+    }
+  },
+  globalThis.fetch,
+  {
+    workspace: () => join(app.getPath("userData"), "workspace"),
+    byteLength: async (path) => {
+      const info = await stat(path);
+      if (!info.isFile()) throw new Error("Story film media is unavailable");
+      return info.size;
+    },
+    read: async (path) => new Uint8Array(await readFile(path)),
+    reveal: (path) => {
+      revealSavedFile(path);
+    },
+    chooseExport: async (suggestedName) => {
+      if (mainWindow === null) return null;
+      const selected = await dialog.showSaveDialog(mainWindow, {
+        title: "导出成片",
+        defaultPath: suggestedName,
+        filters: [{ name: "MP4", extensions: ["mp4"] }],
+        buttonLabel: "导出",
+      });
+      return selected.canceled ? null : (selected.filePath ?? null);
+    },
+    copy: (source, destination) => copyFile(source, destination),
+  },
+);
+registerTaskProgressHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  (event) => event.sender.id,
+  (event, snapshot) => event.sender.send("aivora:tasks", snapshot),
+);
+registerFilmLibraryHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: () => join(app.getPath("userData"), "films"),
+    storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
+    runFfmpeg: (args) =>
+      new Promise((resolve, reject) => {
+        let bin: string;
+        try {
+          bin = bundledFfmpeg(process.resourcesPath ?? "", process.platform, {
+            execPath: process.execPath,
+            envRoot: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
+          });
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error("没有找到安装包里的 ffmpeg。"));
+          return;
+        }
+        const child = spawn(bin, args, { stdio: "ignore" });
+        child.on("error", reject);
+        child.on("close", (code) => {
+          if (code === 0) resolve();
+          else reject(new Error("ffmpeg failed"));
+        });
+      }),
+    probeDuration: (path) =>
+      new Promise((resolve) => {
+        let bin: string;
+        try {
+          bin = bundledTool(process.resourcesPath ?? "", process.platform, "ffprobe", {
+            execPath: process.execPath,
+            envRoot: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
+          });
+        } catch {
+          resolve(0);
+          return;
+        }
+        const child = spawn(
+          bin,
+          ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path],
+          { stdio: ["ignore", "pipe", "ignore"] },
+        );
+        let out = "";
+        child.stdout?.on("data", (chunk: Buffer) => {
+          out += chunk.toString();
+        });
+        child.on("error", () => resolve(0));
+        child.on("close", () => {
+          const seconds = Number(out.trim());
+          resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : 0);
+        });
+      }),
+    mediaToken: async () => {
+      try {
+        return await getGrokRuntime().mediaAccessToken();
+      } catch {
+        return null;
+      }
+    },
+    defaultDirectory: async () => {
+      const videos = join(app.getPath("videos"), "AIVORA");
+      mkdirSync(videos, { recursive: true });
+      return videos;
+    },
+    pickDirectory: async () => {
+      if (mainWindow === null) return null;
+      const videos = join(app.getPath("videos"), "AIVORA");
+      mkdirSync(videos, { recursive: true });
+      const selected = await dialog.showOpenDialog(mainWindow, {
+        title: "选择导出文件夹",
+        defaultPath: videos,
+        properties: ["openDirectory", "createDirectory"],
+        buttonLabel: "选择文件夹",
+      });
+      return selected.canceled ? null : (selected.filePaths[0] ?? null);
+    },
+    copyFile: (source, destination) => copyFile(source, destination),
+    reveal: (path) => revealSavedFile(path),
+    open: (path) => shell.openPath(path),
+    logStill: ({ ok, referenceImageCount, durationMs, requestChars }) => {
+      createAgentLog(join(app.getPath("userData"), "logs", "agents.log")).write({
+        agent: "image",
+        model: "grok-imagine-image-2.0",
+        endpoint: referenceImageCount ? "image-edit" : "quality-medium",
+        httpStatus: ok ? 200 : 0,
+        parsed: ok ? "image" : "error",
+        referenceImageCount,
+        durationMs,
+        requestChars,
+        errorCode: ok ? undefined : "IMAGE_FAILED",
+      });
+    },
+  },
 );
 ipcMain.handle("projects:get", (event, projectId: string) =>
   clientFor(event).getProject(projectId),
@@ -310,6 +1003,10 @@ registerArtifactProposalHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
 );
+registerInvalidationConsumerHandler<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+);
 registerInvalidationOperationHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
@@ -320,11 +1017,8 @@ registerProposalRunHandlers<IpcMainInvokeEvent>(
 );
 registerRemoteSourceExtractHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
-  (event) => resolveRemoteSourceExtractTopFrameClient(
-    event,
-    mainWindow?.webContents.mainFrame,
-    clientFor,
-  ),
+  (event) =>
+    resolveRemoteSourceExtractTopFrameClient(event, mainWindow?.webContents.mainFrame, clientFor),
 );
 registerVersionedSourceExtractionProposalHandler<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -332,6 +1026,11 @@ registerVersionedSourceExtractionProposalHandler<IpcMainInvokeEvent>(
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
 registerSub2APISourceExtractHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerProjectSettingsHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
@@ -397,8 +1096,37 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 );
 
 async function startApplication(): Promise<void> {
+  pinPackagedUserData();
   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: "aivora-media",
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+        bypassCSP: true,
+      },
+    },
+  ]);
   await app.whenReady();
+  protocol.handle("aivora-media", (request) => {
+    try {
+      const filePath = new URL(request.url).searchParams.get("path") ?? "";
+      const trusted = trustedMediaPath(
+        [
+          join(app.getPath("userData"), "films"),
+          join(app.getPath("userData"), "workspace", "story-films"),
+        ],
+        filePath,
+      );
+      return net.fetch(pathToFileURL(trusted).href);
+    } catch {
+      return new Response("forbidden", { status: 403 });
+    }
+  });
+  useGrokEncryption();
   if (app.isPackaged) packagedRendererIndex();
   sidecar = await startSidecar(
     app.isPackaged ? packagedSidecarOptions() : developmentSidecarOptions(),
@@ -422,6 +1150,26 @@ async function startApplication(): Promise<void> {
   );
   sourceManifestReviewController = createSourceManifestReviewController(apiClient);
   mainWindow = createMainWindow();
+  if (process.env.AIVORA_CAPABILITY_PROBE === "1") {
+    const probeLog = createAgentLog(join(app.getPath("userData"), "logs", "agents.log"));
+    void getGrokRuntime()
+      .mediaAccessToken()
+      .then((token) => {
+        if (!token) {
+          probeLog.write({
+            agent: "probe",
+            model: "",
+            endpoint: "probe",
+            httpStatus: 0,
+            parsed: "no-token",
+            body: "没有登录，探测没有发出。",
+          });
+          return;
+        }
+        return runCapabilityProbe({ fetch: globalThis.fetch, token, log: probeLog });
+      })
+      .catch(() => undefined);
+  }
 
   app.on("activate", () => {
     if (mainWindow === null) {
@@ -431,17 +1179,45 @@ async function startApplication(): Promise<void> {
 }
 
 void startApplication().catch((error: unknown) => {
-  console.error(error instanceof SidecarStartupError
-    ? error.classification : "STARTUP_UNKNOWN");
+  console.error(error instanceof SidecarStartupError ? error.classification : "STARTUP_UNKNOWN");
   app.quit();
 });
 
+let finishFlush: (() => void) | null = null;
+
+function flushRenderer(): Promise<void> {
+  const window = mainWindow;
+  if (window === null || window.isDestroyed()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(timer);
+      finishFlush = null;
+      resolve();
+    };
+    const timer = setTimeout(finish, 1500);
+    finishFlush = finish;
+    window.webContents.send("aivora:flush");
+  });
+}
+
+ipcMain.handle("film:flushed", () => {
+  finishFlush?.();
+});
+
 app.on("before-quit", (event) => {
-  if (quitting || sidecar === null) return;
+  nativePreviewHost.invalidateAll();
+  void chatgptRuntime?.cancel();
+  if (quitting) return;
   event.preventDefault();
   quitting = true;
-  void sidecar
-    .stop()
+  const stoppedSidecar = sidecar;
+  // Preserve the private channel until supervisor-owned stop attempts settle.
+  // Sidecar EOF then performs its own Job/reader cleanup before workspace release.
+  void flushRenderer()
+    .catch(() => undefined)
+    .then(() => nativePreviewHost.shutdown())
+    .catch(() => undefined)
+    .then(() => stoppedSidecar?.stop())
     .catch(() => undefined)
     .finally(() => {
       sidecar = null;

@@ -1,10 +1,31 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
+import { readChatGPTStatus } from "./chatgpt-auth/transport";
+import {
+  GROK_WAITING_MESSAGE,
+  grokBridge,
+  grokLoginFailureMessage,
+  readGrokStatus,
+  validGrokStatus,
+} from "./grok-auth/transport";
+import {
+  FirstRunServiceChoice,
+  hasServiceEntryChoice,
+  rememberServiceEntryChoice,
+  type FirstRunServiceChoiceKind,
+} from "./FirstRunServiceChoice";
+import { useApiKeyFallback } from "./account/navigation";
+import {
+  GrokSignInButton,
+  WelcomeBrand,
+  WelcomeFinePrint,
+  welcomeStatusTone,
+} from "./WelcomeSignIn";
 import { stages } from "./data";
 import { useDemo } from "./model";
 import { Button, FlowFooter, Pill } from "./Common";
-import { Icon, Logo } from "./Icon";
+import { Icon } from "./Icon";
 import storyArt from "./assets/v2/story-art.png";
 import streetArt from "./assets/v2/street.png";
 import cityArt from "./assets/v2/city-wide.png";
@@ -16,88 +37,275 @@ import {
 } from "./adapters/projectManagement";
 import type { ProjectJournalState } from "./adapters/projectManagement";
 import "./v2-home.css";
+import "./welcome-sign-in.css";
 
+import { Select } from "./Select";
+import { openWuchengSample, promptNewProject } from "./sample-project";
 const projectImages = [storyArt, streetArt, cityArt];
+function WorkspaceLink() {
+  const d = useDemo();
+  if (d.workspaceState === "connected") {
+    return (
+      <>
+        <span className="workspace-status" role="status" aria-label="本地工作区已连接">
+          本地工作区已连接
+        </span>
+        <Button onClick={() => void d.connectRealWorkspace()}>重新读取本地项目</Button>
+      </>
+    );
+  }
+  return (
+    <Button onClick={() => void d.connectRealWorkspace()} disabled={d.workspaceState === "loading"}>
+      {d.workspaceState === "loading" ? "正在连接" : "连接本地工作区"}
+    </Button>
+  );
+}
+
 export function HomePages() {
   const d = useDemo();
   const live = useRef(d);
   live.current = d;
   const transport = useMemo(createStudioTransport, []);
   const managementStorage = useMemo(() => {
-    try { return window.localStorage; } catch { return null; }
+    try {
+      return window.localStorage;
+    } catch {
+      return null;
+    }
   }, []);
   const managementInFlight = useRef(false);
   const managedProjectRef = useRef<string | null>(null);
   const [managedProjectId, setManagedProjectId] = useState<string | null>(null);
-  const [managementJournal, setManagementJournal] = useState<ProjectJournalState>({ kind: "EMPTY" });
+  const [managementJournal, setManagementJournal] = useState<ProjectJournalState>({
+    kind: "EMPTY",
+  });
   const [managementNotice, setManagementNotice] = useState("");
   const [managementBusy, setManagementBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("全部");
-  const newProject = () =>
+  const [serviceChoiceOpen, setServiceChoiceOpen] = useState(false);
+  const [serviceChoiceNotice, setServiceChoiceNotice] = useState("");
+  const [checkingServiceEntry, setCheckingServiceEntry] = useState(false);
+  const [launchPhase, setLaunchPhase] = useState<
+    "unknown" | "signed-out" | "waiting" | "signed-in"
+  >("unknown");
+  const [accountName, setAccountName] = useState("");
+  const [launchNotice, setLaunchNotice] = useState("");
+  const launchPhaseRef = useRef(launchPhase);
+  launchPhaseRef.current = launchPhase;
+  const loadingServiceEntry = !d.isFixture && d.providerSettings.state.kind === "loading";
+  const enterWorkbench = async () => {
+    if (checkingServiceEntry) return;
+    if (
+      d.isFixture ||
+      hasServiceEntryChoice() ||
+      (d.providerSettings.state.kind === "ready" &&
+        d.providerSettings.state.response.data.length > 0)
+    ) {
+      d.go("home");
+      return;
+    }
+    setCheckingServiceEntry(true);
+    let alreadyConnected = false;
+    try {
+      const status = await readChatGPTStatus();
+      alreadyConnected = status.state === "CONNECTED" || status.state === "IDENTITY_ONLY";
+    } catch {
+      // Reading status never grants access and failure must not block local work.
+    }
+    if (!alreadyConnected) {
+      try {
+        const grok = await readGrokStatus();
+        alreadyConnected = grok.state === "CONNECTED" || grok.state === "ENTITLEMENT_DENIED";
+      } catch {
+        // A failed Grok status read must not block local work.
+      }
+    }
+    setCheckingServiceEntry(false);
+    if (live.current.page !== "launch") return;
+    if (alreadyConnected) d.go("home");
+    else {
+      setServiceChoiceNotice(
+        d.providerSettings.state.kind === "error"
+          ? "本地服务暂时读不到已保存的连接。可以先离线创作，或稍后到 AI 服务再试。"
+          : "",
+      );
+      setServiceChoiceOpen(true);
+    }
+  };
+  useEffect(() => {
+    if (d.isFixture) return;
+    let live = true;
+    void (async () => {
+      try {
+        const status = await readGrokStatus();
+        if (!live || launchPhaseRef.current === "waiting" || launchPhaseRef.current === "signed-in")
+          return;
+        if (status.state === "CONNECTED" || status.state === "ENTITLEMENT_DENIED") {
+          if (!live) return;
+          setLaunchPhase("signed-in");
+          if (status.accountLabel) setAccountName(status.accountLabel);
+          setLaunchNotice(
+            status.state === "ENTITLEMENT_DENIED"
+              ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
+              : `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}。关闭再打开不用重新登录。`,
+          );
+        } else if (live) setLaunchPhase("signed-out");
+      } catch {
+        if (live) setLaunchPhase("signed-out");
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [d.isFixture]);
+  const startGrokSignIn = async (): Promise<boolean> => {
+    const bridge = grokBridge();
+    if (!bridge) {
+      const message = grokLoginFailureMessage("DESKTOP_REQUIRED");
+      setLaunchNotice(message);
+      setServiceChoiceNotice(message);
+      setLaunchPhase("signed-out");
+      return false;
+    }
+    setLaunchPhase("waiting");
+    setLaunchNotice(GROK_WAITING_MESSAGE);
+    setServiceChoiceNotice(GROK_WAITING_MESSAGE);
+    try {
+      const result = await bridge.signIn();
+      if (!validGrokStatus(result.status)) throw new Error("invalid status");
+      const signedIn =
+        result.kind === "OK" &&
+        (result.status.state === "CONNECTED" || result.status.state === "ENTITLEMENT_DENIED");
+      if (signedIn) {
+        rememberServiceEntryChoice("grok");
+        setLaunchPhase("signed-in");
+        if (result.status.accountLabel) setAccountName(result.status.accountLabel);
+        window.dispatchEvent(new CustomEvent("aivora-grok-changed"));
+        const message =
+          result.status.state === "ENTITLEMENT_DENIED"
+            ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
+            : `已登录${result.status.accountLabel ? ` · ${result.status.accountLabel}` : ""}。关闭再打开不用重新登录。`;
+        setLaunchNotice(message);
+        setServiceChoiceNotice(message);
+        return true;
+      }
+      const code = result.kind === "ERROR" ? result.code : "AUTH_CANCELLED";
+      const message =
+        result.kind === "CANCELLED" ? "已取消 Grok 登录。" : grokLoginFailureMessage(code);
+      setLaunchPhase("signed-out");
+      setLaunchNotice(message);
+      setServiceChoiceNotice(message);
+      return false;
+    } catch {
+      const message = "登录结果尚未确认。请重新读取状态，避免重复授权。";
+      setLaunchPhase("signed-out");
+      setLaunchNotice(message);
+      setServiceChoiceNotice(message);
+      return false;
+    }
+  };
+  const selectServiceEntry = (choice: FirstRunServiceChoiceKind) => {
+    const remembered = rememberServiceEntryChoice(choice);
+    setServiceChoiceOpen(false);
+    d.put("serviceEntry", choice);
+    if (!remembered) d.notify("本机无法保存入口偏好，下次启动可能再次显示选择；作品数据不受影响。");
+    d.go(choice === "offline" ? "home" : "services");
+  };
+  const openSampleProject = () => {
+    void openWuchengSample(d);
+  };
+  const startFromSentence = () => {
+    if (d.workspaceState !== "connected") {
+      d.notify("请先点「连接本地工作区」。连上之后，可以打开示例「雾城来信」，或写一句话开始。");
+      return;
+    }
     d.edit(
-      "新建项目",
-      [
-        { key: "title", label: "作品名称", value: "", required: true },
-        { key: "input", label: "故事灵感", type: "textarea", value: d.value("input") },
-      ],
+      "写一句话开始",
+      [{ key: "line", label: "这一句", value: "", required: true }],
       async (data) => {
-        if (d.workspaceState !== "connected") {
-          d.notify("请先连接本地工作区，再创建真实项目。");
-          return false;
-        }
-        const title = data.title!.trim();
-        if (!title) return false;
+        const line = Array.from(data.line ?? "")
+          .filter((character) => {
+            const code = character.charCodeAt(0);
+            return code >= 32 && code !== 127;
+          })
+          .join("")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!line) return false;
+        const name = [...line].slice(0, 40).join("") || "一句话短片";
         const outcome = await d.createRealProject({
-          name: title,
-          aspect_ratio: "9:16",
+          name,
+          aspect_ratio: "16:9",
           target_duration_seconds: 60,
           source_language: "zh-CN",
         });
-        if (outcome.kind === "SUCCEEDED") d.go("source");
-        return outcome.kind === "SUCCEEDED" ? undefined : false;
+        if (outcome.kind !== "SUCCEEDED") return false;
+        d.put("input", [...line].slice(0, 200).join(""));
+        d.setFilmStep(0);
+        d.go("story");
       },
     );
+  };
+  const newProject = () => promptNewProject(d);
   const newEpisode = () =>
     d.setEditor({
       title: "新建剧集",
       fields: [{ key: "title", label: "剧集名称", value: "", required: true }],
       confirm: "创建剧集",
-      save: (data) => {
+      save: async (data) => {
         const title = data.title?.trim();
         if (!title) return false;
-        void d.createRealEpisode({ title });
+        const outcome = await d.createRealEpisode({ title });
+        if (outcome.kind !== "SUCCEEDED") {
+          d.notify(
+            outcome.kind === "REMOTE_UNKNOWN"
+              ? "创建结果待确认，请关闭窗口并刷新剧集列表核对。"
+              : "剧集未创建，请核对名称和工作区连接后重试。",
+          );
+          return false;
+        }
+        d.notify("剧集已创建并读回，可以开始编写剧本。");
+        d.go("script");
       },
     });
-  const openProject = (id: number) => {
+  const openProject = async (id: number) => {
     const project = d.projects.find((item) => item.id === id);
     if (!project) return;
     if (!project.backendId) {
       d.notify("该项目没有本地工作区标识，无法打开。");
       return;
     }
-    void d.selectRealProject(id);
-    d.go("project");
+    if (await d.selectRealProject(id)) d.go("project");
   };
   const showManagedProject = (project: ProjectData) => {
     const current = live.current;
     const card = current.projects.find((item) => item.backendId === project.id);
     if (!card || (card.revision ?? 0) > project.revision) return;
-    current.setProjects((old) => old.map((item) =>
-      item.backendId === project.id && (item.revision ?? 0) <= project.revision
-        ? { ...item, name: project.name,
-            status: project.status === "archived" ? "已归档" : "进行中",
-            updated: project.updated_at, revision: project.revision,
-            episode: `REV ${project.revision}` }
-        : item));
-    if (current.backendProjectId === project.id &&
-      current.value("projectId") === String(card.id)) current.put("title", project.name);
+    current.setProjects((old) =>
+      old.map((item) =>
+        item.backendId === project.id && (item.revision ?? 0) <= project.revision
+          ? {
+              ...item,
+              name: project.name,
+              status: project.status === "archived" ? "已归档" : "进行中",
+              updated: project.updated_at,
+              revision: project.revision,
+              episode: `REV ${project.revision}`,
+            }
+          : item,
+      ),
+    );
+    if (current.backendProjectId === project.id && current.value("projectId") === String(card.id))
+      current.put("title", project.name);
   };
   const refreshManagedJournal = (projectId: string) => {
-    setManagementJournal(managementStorage
-      ? readProjectUpdateJournal(managementStorage, projectId)
-      : { kind: "BLOCKED" });
+    setManagementJournal(
+      managementStorage
+        ? readProjectUpdateJournal(managementStorage, projectId)
+        : { kind: "BLOCKED" },
+    );
   };
   const inspectPendingManagement = async (close: boolean) => {
     const projectId = managedProjectRef.current;
@@ -112,11 +320,17 @@ export function HomePages() {
     if (result.kind === "CURRENT") showManagedProject(result.project);
     if (managedProjectRef.current === projectId) {
       refreshManagedJournal(projectId);
-      setManagementNotice(result.kind === "CURRENT"
-        ? `${close ? "本地未知记录已结束。" : "已读取权威项目状态。"}${result.targetReached
-          ? "当前字段已达到目标；无法归因于原 PATCH。" : "当前字段未达到原目标。"}`
-        : result.kind === "UNAVAILABLE" ? result.message
-          : "项目状态读取未知；原操作仍锁定，未重新提交。 ");
+      setManagementNotice(
+        result.kind === "CURRENT"
+          ? `${close ? "本地未知记录已结束。" : "已读取权威项目状态。"}${
+              result.targetReached
+                ? "当前字段已达到目标；无法归因于原 PATCH。"
+                : "当前字段未达到原目标。"
+            }`
+          : result.kind === "UNAVAILABLE"
+            ? result.message
+            : "项目状态读取未知；原操作仍锁定，未重新提交。 ",
+      );
     }
   };
   const manageProject = (id: number) => {
@@ -127,8 +341,11 @@ export function HomePages() {
       return;
     }
     const projectRevision = project.revision;
-    if (typeof projectRevision !== "number" ||
-      !Number.isSafeInteger(projectRevision) || projectRevision <= 0) {
+    if (
+      typeof projectRevision !== "number" ||
+      !Number.isSafeInteger(projectRevision) ||
+      projectRevision <= 0
+    ) {
       d.notify("项目修订号不可用；请刷新项目列表后再修改。");
       return;
     }
@@ -140,42 +357,61 @@ export function HomePages() {
       : { kind: "BLOCKED" as const };
     setManagementJournal(journal);
     if (journal.kind !== "EMPTY") {
-      d.notify(journal.kind === "PENDING"
-        ? "此项目有结果未知的更新；请在项目中心先读取权威状态。"
-        : "本地项目更新记录无法读取；已阻止提交。");
+      d.notify(
+        journal.kind === "PENDING"
+          ? "此项目有结果未知的更新；请在项目中心先读取权威状态。"
+          : "本地项目更新记录无法读取；已阻止提交。",
+      );
       return;
     }
     const originalStatus = project.status === "已归档" ? "archived" : "active";
     d.setEditor({
       title: `管理 ${project.name}`,
-      description: "重命名和归档写入本地工作区，并在读回后显示。归档仅改变分类，不停止在途任务、不删除产物。收藏与删除尚无持久合同，当前不可执行。",
+      description:
+        "重命名和归档会写到这台电脑上，保存后能再读出来。归档只是分类，不会停掉正在做的事，也不会删掉成片。收藏和删除现在还不能用。",
       fields: [
         { key: "name", label: "项目名称", value: project.name, required: true },
         {
           key: "action",
           label: "操作",
           value: "重命名",
-          options: ["重命名", originalStatus === "archived" ? "恢复项目" : "归档",
-            "收藏 / 取消收藏（待接入）", "删除（待影响核对）"],
+          options: [
+            "重命名",
+            originalStatus === "archived" ? "恢复项目" : "归档",
+            "收藏 / 取消收藏（还不能用）",
+            "删除（还不能用）",
+          ],
         },
       ],
       confirm: "保存真实项目修改",
       validate: () => {
         const current = live.current.projects.find((item) => item.backendId === project.backendId);
-        if (!current || typeof current.revision !== "number" ||
-          !Number.isSafeInteger(current.revision) || current.revision <= 0 ||
-          current.revision !== projectRevision)
+        if (
+          !current ||
+          typeof current.revision !== "number" ||
+          !Number.isSafeInteger(current.revision) ||
+          current.revision <= 0 ||
+          current.revision !== projectRevision
+        )
           return "项目列表已变化，请关闭窗口、刷新项目列表后重新核对。";
       },
       save: async (data) => {
         const targetName = (data.name ?? "").trim();
         if (data.action?.startsWith("收藏") || data.action?.startsWith("删除")) {
-          d.notify(data.action.startsWith("删除")
-            ? "尚无删除影响清单和确认合同；未删除项目或任何产物。"
-            : "收藏尚无持久合同；未修改项目或界面状态。");
+          d.notify(
+            data.action.startsWith("删除")
+              ? "删除还不能用。作品和成片都还在。"
+              : "收藏还不能用。作品没有改动。",
+          );
           return false;
         }
-        if (!targetName || [...targetName].length > 80 || /[\u0000-\u001f\u007f]/.test(targetName)) {
+        if (
+          !targetName ||
+          [...targetName].length > 80 ||
+          [...targetName].some(
+            (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+          )
+        ) {
           d.notify("项目名称需为 1 至 80 个字符且不能含控制字符。");
           return false;
         }
@@ -184,15 +420,19 @@ export function HomePages() {
           return false;
         }
         const current = live.current.projects.find((item) => item.backendId === project.backendId);
-        if (!current || typeof current.revision !== "number" ||
-          !Number.isSafeInteger(current.revision) || current.revision <= 0 ||
+        if (
+          !current ||
+          typeof current.revision !== "number" ||
+          !Number.isSafeInteger(current.revision) ||
+          current.revision <= 0 ||
           current.revision !== projectRevision ||
-          managedProjectRef.current !== project.backendId) {
+          managedProjectRef.current !== project.backendId
+        ) {
           d.notify("项目身份或修订已变化；未提交，请刷新项目列表。");
           return false;
         }
-        const nextStatus = data.action === "归档" ? "archived"
-          : data.action === "恢复项目" ? "active" : undefined;
+        const nextStatus =
+          data.action === "归档" ? "archived" : data.action === "恢复项目" ? "active" : undefined;
         const nameChanged = targetName !== project.name;
         if (!nameChanged && nextStatus === undefined) {
           d.notify("项目名称未变化；未发出更新请求。");
@@ -214,15 +454,20 @@ export function HomePages() {
         }
         if (managedProjectRef.current === project.backendId) {
           refreshManagedJournal(project.backendId);
-          const notice = result.kind === "APPLIED"
-            ? "项目已由更新回执与权威 GET 双重核对。"
-            : result.kind === "REJECTED"
-              ? `项目更新被明确拒绝：${result.status} / ${result.code}。已读取当前项目，未宣称保存。`
-              : result.kind === "UNKNOWN"
-                ? `更新结果未知；${result.targetReached ? "当前字段已达目标，但不能归因原 PATCH。" :
-                  "当前字段尚未确认达到目标。"}原操作已锁定，不能重复提交。`
-                : result.kind === "TRACKED" ? "已有未确认的原更新；没有重复 PATCH。"
-                  : result.message;
+          const notice =
+            result.kind === "APPLIED"
+              ? "项目已由更新回执与权威 GET 双重核对。"
+              : result.kind === "REJECTED"
+                ? `项目更新被明确拒绝：${result.status} / ${result.code}。已读取当前项目，未宣称保存。`
+                : result.kind === "UNKNOWN"
+                  ? `更新结果未知；${
+                      result.targetReached
+                        ? "当前字段已达目标，但不能归因原 PATCH。"
+                        : "当前字段尚未确认达到目标。"
+                    }原操作已锁定，不能重复提交。`
+                  : result.kind === "TRACKED"
+                    ? "已有未确认的原更新；没有重复 PATCH。"
+                    : result.message;
           setManagementNotice(notice);
           d.notify(notice);
         }
@@ -240,10 +485,16 @@ export function HomePages() {
       onChange={(event) => {
         const selected = event.target.files?.[0];
         if (selected) void d.importRealSource(selected);
+        event.target.value = "";
       }}
     />
   );
-  const importOptions = () =>
+  const importOptions = () => {
+    if (!d.isFixture) {
+      if (!d.backendProjectId) newProject();
+      else d.go("source");
+      return;
+    }
     d.setEditor({
       title: "从已有内容开始",
       description: "选择一个已有入口。导入来源需要先连接本地工作区。",
@@ -273,6 +524,7 @@ export function HomePages() {
         }
       },
     });
+  };
   const header = (title: string) => (
     <header className="page-title v2-home-heading">
       <div>
@@ -282,7 +534,7 @@ export function HomePages() {
             ? d.workspaceState === "connected"
               ? `已连接本地工作区 · ${d.projects.length} 个项目。`
               : "正在读取本地工作区项目。"
-            : "管理已读取的本地项目。"}
+            : "在这里打开或新建作品。"}
         </p>
       </div>
       <div className="actions">
@@ -291,9 +543,7 @@ export function HomePages() {
             项目中心
           </Button>
         )}
-        <Button onClick={() => d.go("project")}>
-          {d.page === "project" ? "项目设置" : "返回项目"}
-        </Button>
+        {d.page === "project" && <Button onClick={() => d.go("projectSettings")}>项目设置</Button>}
       </div>
     </header>
   );
@@ -320,11 +570,17 @@ export function HomePages() {
         </h2>
         <p>
           {mode === "error"
-            ? "请检查桌面服务后重试。"
+            ? "请检查桌面服务后重试。连上之后，可以打开示例「雾城来信」，或写一句话开始。"
             : mode === "empty"
-              ? "创建项目后会显示在这里。"
+              ? "可以打开示例「雾城来信」，或写一句话开始。"
               : "正在等待桌面服务返回项目列表。"}
         </p>
+        {(mode === "empty" || mode === "error") && (
+          <>
+            <Button onClick={openSampleProject}>打开示例</Button>
+            <Button onClick={startFromSentence}>写一句话开始</Button>
+          </>
+        )}
         <Button onClick={() => void d.connectRealWorkspace()} disabled={mode === "loading"}>
           {mode === "error" ? "重试读取" : mode === "empty" ? "刷新项目列表" : "正在读取"}
         </Button>
@@ -334,36 +590,100 @@ export function HomePages() {
   const projects = d.projects.filter(
     (project) =>
       project.name.includes(query) &&
-      (filter === "全部"
-        ? true
-        : filter === "收藏"
-          ? project.favorite
-          : project.status === filter),
+      (filter === "全部" ? true : filter === "收藏" ? project.favorite : project.status === filter),
   );
   if (d.page === "launch")
     return (
       <div className="v2-launch">
-        <div className="v2-launch-art">
-          <img src={storyArt} alt="星夜之城 · 样例插画" />
-        </div>
-        <div className="v2-launch-copy">
-          <div className="v2-launch-brand">
-            <Logo />
-            <strong>AIVORA</strong>
-          </div>
+        <div className="welcome-sign-in">
+          <WelcomeBrand />
           <h1>把故事，变成看得见的世界。</h1>
-          <p>一个创作入口，走完故事、角色与世界、分镜、制作和审片。</p>
-          <Button primary disabled={d.scenario === "loading"} onClick={() => d.go("home")}>
-            {d.scenario === "loading" ? "正在初始化" : "进入 UI 演示"}
-          </Button>
-          <Pill>本地样例 · 不调用生成服务</Pill>
-          {d.scenario === "error" && (
-            <div className="v2-launch-error" role="alert">
-              初始化失败，入口仍保留。<Button onClick={() => d.setScenario("normal")}>重试</Button>
+          <div className="welcome-actions">
+            {!d.isFixture && launchPhase !== "signed-in" && (
+              <GrokSignInButton
+                disabled={launchPhase === "waiting"}
+                onClick={() => void startGrokSignIn()}
+              />
+            )}
+            {(d.isFixture || launchPhase === "signed-in") && (
+              <Button
+                primary
+                disabled={d.scenario === "loading" || checkingServiceEntry || loadingServiceEntry}
+                onClick={() => void enterWorkbench()}
+              >
+                {checkingServiceEntry || loadingServiceEntry
+                  ? "正在读取连接状态"
+                  : d.scenario === "loading"
+                    ? "正在初始化"
+                    : d.isFixture
+                      ? "进入 UI 演示"
+                      : "进入创作工作台"}
+              </Button>
+            )}
+            {!d.isFixture && launchPhase !== "signed-in" && (
+              <Button
+                disabled={launchPhase === "waiting"}
+                onClick={() => selectServiceEntry("chatgpt")}
+              >
+                使用 ChatGPT 账号
+              </Button>
+            )}
+          </div>
+          {launchNotice && (
+            <div
+              className={`welcome-status ${welcomeStatusTone(launchNotice, launchPhase)}`}
+              role="status"
+            >
+              {launchNotice}
             </div>
           )}
-          <small>DESKTOP CREATOR / V2.0</small>
+          {!d.isFixture && launchPhase !== "signed-in" && (
+            <div className="welcome-links">
+              <button type="button" onClick={() => selectServiceEntry("api")}>
+                使用密钥
+              </button>
+              <button type="button" onClick={() => selectServiceEntry("offline")}>
+                暂时离线创作
+              </button>
+              <button type="button" onClick={() => void enterWorkbench()}>
+                {checkingServiceEntry || loadingServiceEntry
+                  ? "正在读取连接状态"
+                  : "进入创作工作台"}
+              </button>
+            </div>
+          )}
+          {!d.isFixture && welcomeStatusTone(launchNotice, launchPhase) === "is-denied" && (
+            <div className="welcome-links">
+              <button type="button" onClick={() => useApiKeyFallback()}>
+                改用密钥（高级备用）
+              </button>
+            </div>
+          )}
+          {d.isFixture ? (
+            <p className="welcome-fine">本地样例 · 不调用生成服务</p>
+          ) : (
+            <WelcomeFinePrint />
+          )}
+          {d.scenario === "error" && (
+            <div className="welcome-status is-error welcome-inline-error" role="alert">
+              初始化失败，入口仍保留。
+              <Button onClick={() => d.setScenario("normal")}>重试</Button>
+            </div>
+          )}
         </div>
+        {serviceChoiceOpen && (
+          <FirstRunServiceChoice
+            onSelect={selectServiceEntry}
+            onGrokLogin={() =>
+              void startGrokSignIn().then((ok) => {
+                if (ok) selectServiceEntry("grok");
+              })
+            }
+            grokBusy={launchPhase === "waiting"}
+            onClose={() => setServiceChoiceOpen(false)}
+            notice={serviceChoiceNotice}
+          />
+        )}
       </div>
     );
   if (d.page === "home")
@@ -375,24 +695,19 @@ export function HomePages() {
           <section className="v2-welcome">
             <h2>
               <Icon name="home" size={16} />
-              欢迎回来，{d.value("userName", "陈")}
+              欢迎回来，{d.isFixture ? d.value("userName", "陈") : accountName || "本地用户"}
             </h2>
             <button className="v2-welcome-copy" onClick={importOptions}>
-              继续已有的演示项目，或从一段故事开始。
+              {d.isFixture
+                ? "继续已有的演示项目，或从一段故事开始。"
+                : "打开已有作品，或从原创灵感和来源文本开始。"}
             </button>
-            <Button primary onClick={newProject}>
-              新建项目
-            </Button>
-            <Button
-              onClick={() => void d.connectRealWorkspace()}
-              disabled={d.workspaceState === "loading"}
-            >
-              {d.workspaceState === "connected"
-                ? "本地工作区已连接"
-                : d.workspaceState === "loading"
-                  ? "正在连接"
-                  : "连接本地工作区"}
-            </Button>
+            <div className="v2-welcome-actions">
+              <Button primary onClick={newProject}>
+                新建项目
+              </Button>
+              <WorkspaceLink />
+            </div>
           </section>
           <div className="v2-recent-heading">
             <h2>最近项目</h2>
@@ -406,7 +721,7 @@ export function HomePages() {
                     <button className="v2-recent-art" onClick={() => openProject(project.id)}>
                       <img
                         src={projectImages[project.id - 1] ?? project.image}
-                        alt={`${project.name}封面`}
+                        alt={d.isFixture ? `${project.name}封面` : "项目占位插画（非作品产物）"}
                       />
                     </button>
                     <div>
@@ -419,11 +734,16 @@ export function HomePages() {
               ) : (
                 <div className="v2-home-state">
                   <h2>还没有项目</h2>
+                  <p>可以打开示例，或写一句话开始。</p>
                   <Button onClick={newProject}>新建项目</Button>
+                  <Button onClick={openSampleProject}>打开示例</Button>
+                  <Button onClick={startFromSentence}>写一句话开始</Button>
                 </div>
               ))}
           </div>
-          <p className="v2-home-foot">项目列表来自本地工作区；界面不声明视频、费用或发布状态。</p>
+          <p className="v2-home-foot">
+            作品保存在这台电脑上。封面只是占位图，打开作品后才能看到进度。
+          </p>
         </div>
       </div>
     );
@@ -442,7 +762,7 @@ export function HomePages() {
                 onChange={(e) => setQuery(e.target.value)}
               />
             </label>
-            <select
+            <Select
               aria-label="筛选项目"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -450,35 +770,34 @@ export function HomePages() {
               {["全部", "进行中", "草稿", "已完成", "已归档", "收藏"].map((label) => (
                 <option key={label}>{label}</option>
               ))}
-            </select>
+            </Select>
             <Button primary onClick={newProject}>
               新建项目
             </Button>
-            <Button
-              onClick={() => void d.connectRealWorkspace()}
-              disabled={d.workspaceState === "loading"}
-            >
-              {d.workspaceState === "connected"
-                ? "本地工作区已连接"
-                : d.workspaceState === "loading"
-                  ? "正在连接"
-                  : "连接本地工作区"}
-            </Button>
+            <WorkspaceLink />
           </div>
-          {filter === "收藏" &&
-            <p role="status">收藏尚无项目持久字段，此筛选无法给出真实结果。</p>}
-          {(filter === "草稿" || filter === "已完成") &&
-            <p role="status">项目接口目前只提供进行中与已归档状态，无法判断此筛选。</p>}
+          {filter === "收藏" && <p role="status">收藏还不能用，所以这里列不出结果。</p>}
+          {(filter === "草稿" || filter === "已完成") && (
+            <p role="status">项目接口目前只提供进行中与已归档状态，无法判断此筛选。</p>
+          )}
           {managedProjectId && managementJournal.kind !== "EMPTY" && (
             <div role="alert" className="v2-home-state">
-              <p>项目 <code>{managedProjectId}</code> 的更新记录
-                {managementJournal.kind === "PENDING" ? "结果未确认。" : "无法安全读取。"}</p>
+              <p>
+                项目 <code>{managedProjectId}</code> 的更新记录
+                {managementJournal.kind === "PENDING" ? "结果未确认。" : "无法安全读取。"}
+              </p>
               {managementJournal.kind === "PENDING" && (
                 <div className="actions">
-                  <Button disabled={managementBusy}
-                    onClick={() => void inspectPendingManagement(false)}>查询当前项目状态</Button>
-                  <Button disabled={managementBusy}
-                    onClick={() => void inspectPendingManagement(true)}>
+                  <Button
+                    disabled={managementBusy}
+                    onClick={() => void inspectPendingManagement(false)}
+                  >
+                    查询当前项目状态
+                  </Button>
+                  <Button
+                    disabled={managementBusy}
+                    onClick={() => void inspectPendingManagement(true)}
+                  >
                     核对并结束本地未知记录
                   </Button>
                 </div>
@@ -487,16 +806,16 @@ export function HomePages() {
             </div>
           )}
           {managementNotice && <p role="status">{managementNotice}</p>}
-          <div className="v2-project-table">
-            <div className="v2-project-table-head">
-              <span>项目</span>
-              <span>当前页面</span>
-              <span>状态</span>
-              <span>操作</span>
-            </div>
-            <div className="v2-project-rows" data-scroll-region="projects-rows">
-              {state("还没有项目") ??
-                (projects.length ? (
+          {state("还没有项目") ?? (
+            <div className="v2-project-table">
+              <div className="v2-project-table-head">
+                <span>项目</span>
+                <span>当前页面</span>
+                <span>状态</span>
+                <span>操作</span>
+              </div>
+              <div className="v2-project-rows" data-scroll-region="projects-rows">
+                {projects.length ? (
                   projects.map((project) => (
                     <div className="v2-project-row" key={project.id}>
                       <div>
@@ -533,11 +852,14 @@ export function HomePages() {
                       清除筛选
                     </Button>
                   </div>
-                ))}
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <p className="v2-home-foot">
-            {projects.length} 个本地项目 · 列表可内部滚动，整个工作台不滚动
+            {projects.length === 0
+              ? "还没有作品。可以打开示例「雾城来信」。"
+              : `${projects.length} 个作品保存在这台电脑上。`}
           </p>
         </div>
       </div>
@@ -549,9 +871,11 @@ export function HomePages() {
         <header className="page-title v2-home-heading">
           <div>
             <h1>项目创作首页</h1>
-            <p>尚未选择真实项目。</p>
+            <p>还没有打开作品。可以打开示例「雾城来信」，或回到首页写一句话开始。</p>
           </div>
           <div className="actions">
+            <Button onClick={newProject}>新建项目</Button>
+            <Button onClick={openSampleProject}>打开示例</Button>
             <Button aria-label="打开项目中心" onClick={() => d.go("projects")}>
               项目中心
             </Button>
@@ -581,10 +905,18 @@ export function HomePages() {
             {state("还没有视觉参考") ?? (
               <button
                 onClick={() =>
-                  d.setEditor({ title: `${d.value("title")} · 参考插画`, image: storyArt })
+                  d.setEditor({
+                    title: d.isFixture
+                      ? `${d.value("title")} · 参考插画`
+                      : "界面占位插画（非作品产物）",
+                    image: storyArt,
+                  })
                 }
               >
-                <img src={storyArt} alt={`${d.value("title")}参考插画`} />
+                <img
+                  src={storyArt}
+                  alt={d.isFixture ? `${d.value("title")}参考插画` : "界面占位插画（非作品产物）"}
+                />
               </button>
             )}
           </div>
@@ -601,6 +933,7 @@ export function HomePages() {
               </p>
             </section>
             <Button onClick={() => d.go("projectSettings")}>项目设置</Button>
+            <Button onClick={() => d.go("source")}>来源与原创灵感</Button>
             <Button onClick={() => d.go("script")}>查看剧本</Button>
           </div>
         </div>
@@ -618,7 +951,11 @@ export function HomePages() {
             <ul>
               {d.episodes.map((episode) => (
                 <li key={episode.id}>
-                  <Button onClick={() => void d.selectRealEpisode(episode.id)}>
+                  <Button
+                    onClick={async () => {
+                      if (await d.selectRealEpisode(episode.id)) d.go("script");
+                    }}
+                  >
                     {episode.title}
                   </Button>
                   {d.selectedEpisodeId === episode.id ? " · 当前剧集" : ""}
@@ -630,7 +967,15 @@ export function HomePages() {
           )}
           <div className="actions">
             <Button onClick={() => void d.refreshRealEpisodes()}>刷新剧集列表</Button>
-            <Button onClick={newEpisode} disabled={d.episodeState === "storage-error"}>
+            <Button
+              onClick={newEpisode}
+              disabled={
+                d.episodeState === "storage-error" ||
+                d.episodeState === "loading" ||
+                d.episodeCreateInFlight ||
+                !!d.episodeCreateMarker
+              }
+            >
               新建剧集
             </Button>
             {d.episodeCreateMarker && d.episodeState === "ready" && (
@@ -657,22 +1002,26 @@ export function HomePages() {
                 <Icon name={["book", "users", "film", "spark", "review"][index]!} size={16} />
                 {stage.label}
               </h2>
-              <span>{["样例初稿", "参考样例", "静帧预演", "未接入服务", "批注示例"][index]}</span>
+              <span>
+                {d.isFixture
+                  ? ["样例初稿", "参考样例", "静帧预演", "未接入服务", "批注示例"][index]
+                  : "以已保存产物与任务为准"}
+              </span>
               <p>
-                可浏览界面
+                {d.isFixture ? "可浏览界面" : "打开阶段工作区"}
                 <br />
-                不触发生成
+                {d.isFixture ? "不触发生成" : "任务需另行确认"}
               </p>
             </button>
           ))}
         </div>
       </div>
       <FlowFooter
-        label="继续故事理解"
-        action={() => d.go("story")}
+        label={d.isFixture ? "继续故事理解" : "继续编写剧本"}
+        action={() => d.go(d.isFixture ? "story" : "script")}
         secondaryLabel="项目中心"
         secondaryAction={() => d.go("projects")}
-        reason="保持五阶段 · 演示数据独立"
+        reason={d.isFixture ? "保持五阶段 · 演示数据独立" : "按当前作品与剧集保存版本"}
       />
     </div>
   );

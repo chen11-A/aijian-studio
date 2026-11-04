@@ -70,7 +70,9 @@ export function TimelineWorkbench({
       elapsed += shot.duration;
       edges.push(Math.round(elapsed * frameRate));
     });
-  useEffect(() => {
+  // Synchronize an external frame before the control becomes interactive.
+  // A deferred effect can otherwise overwrite a newer typed timecode.
+  useLayoutEffect(() => {
     setCode(
       frameTimecode(
         frame,

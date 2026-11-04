@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { delimiter, resolve } from "node:path";
 
 import { describe, expect, test, vi } from "vitest";
+
+import { ffmpegOnPath, ffmpegSkipReason } from "./test-ffmpeg";
 
 import {
   PROPOSAL_RUN_CHANNELS,
@@ -73,54 +76,85 @@ describe("proposal run creation contract", () => {
     expect(isCreatedProposalRunResponse(progressed, projectId, command, true)).toBe(false);
   });
 
-  test("accepts actual fresh and replay responses from the Sidecar contract", () => {
-    const repositoryRoot = resolve(process.cwd(), "../..");
-    const python = [
-      "import json, runpy, tempfile",
-      "from pathlib import Path",
-      `root = Path(${JSON.stringify(repositoryRoot)})`,
-      "ns = runpy.run_path(str(root / 'services/api/tests/test_proposal_run_create_api.py'))",
-      "operation_id = '7e0df32e-299a-4bb7-b77e-b85f20c41d61'",
-      "with tempfile.TemporaryDirectory() as directory:",
-      "    client, _ = ns['sidecar_client'](Path(directory))",
-      "    source = ns['accepted_source'](client)",
-      "    payload = ns['create_payload'](source)",
-      "    headers = {'Idempotency-Key': 'proposal-run:create:v1:' + operation_id}",
-      "    fresh = client.post(f'/api/v1/projects/{source[0]}/proposal-runs', json=payload, headers=headers)",
-      "    replay = client.post(f'/api/v1/projects/{source[0]}/proposal-runs', json=payload, headers=headers)",
-      "    print(json.dumps({'project_id': source[0], 'command': {'operation_id': operation_id, 'input': payload}, 'fresh_status': fresh.status_code, 'fresh': fresh.json(), 'replay_status': replay.status_code, 'replay': replay.json()}, ensure_ascii=False))",
-    ].join("\n");
-    const result = spawnSync("uv", ["run", "python", "-c", python], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PYTHONIOENCODING: "utf-8",
-        PYTHONPATH: [resolve(repositoryRoot, "services/api/src"), process.env.PYTHONPATH]
-          .filter(Boolean)
-          .join(delimiter),
-      },
-    });
-    expect(result.status, result.stderr).toBe(0);
-    const actual = JSON.parse(result.stdout) as {
-      project_id: string;
-      command: unknown;
-      fresh_status: number;
-      fresh: unknown;
-      replay_status: number;
-      replay: unknown;
-    };
-    expect(actual.fresh_status).toBe(201);
-    expect(actual.replay_status).toBe(200);
-    expect(isProposalRunCreateCommand(actual.command)).toBe(true);
-    if (!isProposalRunCreateCommand(actual.command)) throw new Error("invalid Sidecar command");
-    expect(
-      isCreatedProposalRunResponse(actual.fresh, actual.project_id, actual.command, true),
-    ).toBe(true);
-    expect(
-      isCreatedProposalRunResponse(actual.replay, actual.project_id, actual.command, false),
-    ).toBe(true);
-  }, 30_000);
+  test.skipIf(!ffmpegOnPath())(
+    `accepts actual fresh and replay responses from the Sidecar contract (${ffmpegSkipReason})`,
+    () => {
+      const repositoryRoot = resolve(process.cwd(), "../..");
+      const python = [
+        "import json, runpy, tempfile",
+        "from pathlib import Path",
+        `root = Path(${JSON.stringify(repositoryRoot)})`,
+        "ns = runpy.run_path(str(root / 'services/api/tests/test_proposal_run_create_api.py'))",
+        "operation_id = '7e0df32e-299a-4bb7-b77e-b85f20c41d61'",
+        "with tempfile.TemporaryDirectory() as directory:",
+        "    client, _ = ns['sidecar_client'](Path(directory))",
+        "    source = ns['accepted_source'](client)",
+        "    payload = ns['create_payload'](source)",
+        "    headers = {'Idempotency-Key': 'proposal-run:create:v1:' + operation_id}",
+        "    fresh = client.post(f'/api/v1/projects/{source[0]}/proposal-runs', json=payload, headers=headers)",
+        "    replay = client.post(f'/api/v1/projects/{source[0]}/proposal-runs', json=payload, headers=headers)",
+        "    print(json.dumps({'project_id': source[0], 'command': {'operation_id': operation_id, 'input': payload}, 'fresh_status': fresh.status_code, 'fresh': fresh.json(), 'replay_status': replay.status_code, 'replay': replay.json()}, ensure_ascii=False))",
+      ].join("\n");
+      const result = spawnSync("uv", ["run", "python", "-c", python], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: "utf-8",
+          PYTHONPATH: [resolve(repositoryRoot, "services/api/src"), process.env.PYTHONPATH]
+            .filter(Boolean)
+            .join(delimiter),
+        },
+      });
+      expect(result.status, result.stderr).toBe(0);
+      const actual = JSON.parse(result.stdout) as {
+        project_id: string;
+        command: unknown;
+        fresh_status: number;
+        fresh: unknown;
+        replay_status: number;
+        replay: unknown;
+      };
+      expect(actual.fresh_status).toBe(201);
+      expect(actual.replay_status).toBe(200);
+      expect(isProposalRunCreateCommand(actual.command)).toBe(true);
+      if (!isProposalRunCreateCommand(actual.command)) throw new Error("invalid Sidecar command");
+      expect(
+        isCreatedProposalRunResponse(actual.fresh, actual.project_id, actual.command, true),
+      ).toBe(true);
+      expect(
+        isCreatedProposalRunResponse(actual.replay, actual.project_id, actual.command, false),
+      ).toBe(true);
+    },
+    30_000,
+  );
+
+  test("rejects the legacy manifest-only context ID even when both references agree", () => {
+    const unscoped = structuredClone(response);
+    const manifestHash = unscoped.data.context_manifest.manifest_hash;
+    const legacyId = `ctx_${manifestHash.slice(7, 39)}`;
+    unscoped.data.context_manifest.context_manifest_id = legacyId;
+    unscoped.data.skill_run.context_manifest_id = legacyId;
+    expect(isCreatedProposalRunResponse(unscoped, projectId, command, true)).toBe(false);
+  });
+
+  test("rejects a context ID scoped to another agent run", () => {
+    const wrongScope = structuredClone(response);
+    const digest = createHash("sha256")
+      .update(
+        JSON.stringify({
+          domain: "agent-context-instance-v1",
+          manifest_hash: wrongScope.data.context_manifest.manifest_hash,
+          run_scope: `agr_${"0".repeat(32)}`,
+        }),
+        "utf8",
+      )
+      .digest("hex");
+    const wrongId = `ctx_${digest.slice(0, 32)}`;
+    wrongScope.data.context_manifest.context_manifest_id = wrongId;
+    wrongScope.data.skill_run.context_manifest_id = wrongId;
+    expect(isCreatedProposalRunResponse(wrongScope, projectId, command, true)).toBe(false);
+  });
 
   test("binds a receipt to the exact operation and immutable input", () => {
     expect(

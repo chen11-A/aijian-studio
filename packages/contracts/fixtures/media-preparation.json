@@ -1,0 +1,185 @@
+{
+  "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+  "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+  "request_id": "7bf9a881-a4e5-4054-905d-6372df5f067d",
+  "command": {
+    "operation_id": "8B1F0BC6-B59D-458A-BC3D-8A48F544DED8",
+    "payload": {
+      "input": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+        "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+        "capability_intent": "IMAGE",
+        "storyboard_version_id": "ver_e85252a2503d4c069792a1f49b7764c2",
+        "storyboard_content_hash": "sha256:8e6bf5d2a2d2fe9d3cb586694f3bef474769718dd28edb62eb9802b305575cda",
+        "shot_id": "shp_00000000000000000000000000000001",
+        "prompt": "完整手工画面：码头灯火与回望。",
+        "negative_prompt": "避免失去同一服装。",
+        "width": 1920,
+        "height": 1080,
+        "requested_frames": 1
+      },
+      "parent_version_id": null,
+      "expected_revision": null
+    }
+  },
+  "operation": {
+    "operation_id": "8B1F0BC6-B59D-458A-BC3D-8A48F544DED8",
+    "payload": {
+      "input": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+        "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+        "capability_intent": "IMAGE",
+        "storyboard_version_id": "ver_e85252a2503d4c069792a1f49b7764c2",
+        "storyboard_content_hash": "sha256:8e6bf5d2a2d2fe9d3cb586694f3bef474769718dd28edb62eb9802b305575cda",
+        "shot_id": "shp_00000000000000000000000000000001",
+        "prompt": "完整手工画面：码头灯火与回望。",
+        "negative_prompt": "避免失去同一服装。",
+        "width": 1920,
+        "height": 1080,
+        "requested_frames": 1
+      },
+      "parent_version_id": null,
+      "expected_revision": null
+    },
+    "version": {
+      "version_id": "ver_24f69ad91d89400a8d6e0e7a0e3340f1",
+      "version_number": 1,
+      "parent_version_id": null,
+      "author_actor_id": "local-user",
+      "content": {
+        "schema_version": "1.0.0",
+        "input": {
+          "schema_version": "1.0.0",
+          "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+          "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+          "capability_intent": "IMAGE",
+          "storyboard_version_id": "ver_e85252a2503d4c069792a1f49b7764c2",
+          "storyboard_content_hash": "sha256:8e6bf5d2a2d2fe9d3cb586694f3bef474769718dd28edb62eb9802b305575cda",
+          "shot_id": "shp_00000000000000000000000000000001",
+          "prompt": "完整手工画面：码头灯火与回望。",
+          "negative_prompt": "避免失去同一服装。",
+          "width": 1920,
+          "height": 1080,
+          "requested_frames": 1
+        },
+        "snapshot": {
+          "storyboard_schema_version": "1.0.0",
+          "fps": 25,
+          "shot": {
+            "shot_id": "shp_00000000000000000000000000000001",
+            "ordinal": 1,
+            "duration_frames": 75,
+            "title": "镜头 1",
+            "description": "码头的灯火",
+            "action": "角色回望",
+            "dialogue": "我会回来。",
+            "camera": "中景",
+            "script_scene_id": null,
+            "character_ids": [],
+            "location_id": null
+          },
+          "script_version_id": null,
+          "creative_library_version_id": null,
+          "visual_bible_version_id": null,
+          "selected_references": []
+        }
+      },
+      "content_hash": "sha256:2fabeccdd7762b7a23f6845fde9d95fa19a5f25c053355875b687d852e1b7841",
+      "created_at": "2026-10-11T13:39:01.334624Z"
+    }
+  },
+  "page": {
+    "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+    "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+    "head_version_id": "ver_24f69ad91d89400a8d6e0e7a0e3340f1",
+    "head_revision": 1,
+    "items": [
+      {
+        "version_id": "ver_24f69ad91d89400a8d6e0e7a0e3340f1",
+        "version_number": 1,
+        "parent_version_id": null,
+        "author_actor_id": "local-user",
+        "content": {
+          "schema_version": "1.0.0",
+          "input": {
+            "schema_version": "1.0.0",
+            "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+            "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+            "capability_intent": "IMAGE",
+            "storyboard_version_id": "ver_e85252a2503d4c069792a1f49b7764c2",
+            "storyboard_content_hash": "sha256:8e6bf5d2a2d2fe9d3cb586694f3bef474769718dd28edb62eb9802b305575cda",
+            "shot_id": "shp_00000000000000000000000000000001",
+            "prompt": "完整手工画面：码头灯火与回望。",
+            "negative_prompt": "避免失去同一服装。",
+            "width": 1920,
+            "height": 1080,
+            "requested_frames": 1
+          },
+          "snapshot": {
+            "storyboard_schema_version": "1.0.0",
+            "fps": 25,
+            "shot": {
+              "shot_id": "shp_00000000000000000000000000000001",
+              "ordinal": 1,
+              "duration_frames": 75,
+              "title": "镜头 1",
+              "description": "码头的灯火",
+              "action": "角色回望",
+              "dialogue": "我会回来。",
+              "camera": "中景",
+              "script_scene_id": null,
+              "character_ids": [],
+              "location_id": null
+            },
+            "script_version_id": null,
+            "creative_library_version_id": null,
+            "visual_bible_version_id": null,
+            "selected_references": []
+          }
+        },
+        "content_hash": "sha256:2fabeccdd7762b7a23f6845fde9d95fa19a5f25c053355875b687d852e1b7841",
+        "created_at": "2026-10-11T13:39:01.334624Z"
+      }
+    ],
+    "next_cursor": null
+  },
+  "board": {
+    "version_id": "ver_e85252a2503d4c069792a1f49b7764c2",
+    "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+    "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+    "version_number": 1,
+    "head_revision": 1,
+    "parent_version_id": null,
+    "content": {
+      "project_id": "prj_cee84727796f411ab39b2d16fb02a354",
+      "episode_id": "ep_prj_cee84727796f411ab39b2d16fb02a354",
+      "fps": 25,
+      "script_version_id": null,
+      "creative_library_version_id": null,
+      "shots": [
+        {
+          "shot_id": "shp_00000000000000000000000000000001",
+          "ordinal": 1,
+          "duration_frames": 75,
+          "title": "镜头 1",
+          "description": "码头的灯火",
+          "action": "角色回望",
+          "dialogue": "我会回来。",
+          "camera": "中景",
+          "script_scene_id": null,
+          "character_ids": [],
+          "location_id": null
+        }
+      ],
+      "schema_version": "1.0.0"
+    },
+    "content_hash": "sha256:8e6bf5d2a2d2fe9d3cb586694f3bef474769718dd28edb62eb9802b305575cda",
+    "author_actor_id": "local-user",
+    "change_summary": "保存人工分镜草稿",
+    "created_at": "2026-10-11T13:39:01.325015Z"
+  },
+  "payload_hash": "sha256:16287b95fbbd77fcc21df84f5fd131adda19e21d6ce9cd5c10389b9920db1ac1",
+  "provenance": "Actual temporary SQLite and manually authored board, no native execution or Provider"
+}

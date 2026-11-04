@@ -32,8 +32,12 @@ _HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def _read_database(
-    database_path: Path, project_id: str, asset_id: str, version_id: str,
-    expected_revision: int | None, expected_decision_id: str | None,
+    database_path: Path,
+    project_id: str,
+    asset_id: str,
+    version_id: str,
+    expected_revision: int | None,
+    expected_decision_id: str | None,
     expected_content_hash: str | None,
 ) -> RightsDecisionReadResult:
     uri = f"{database_path.as_uri()}?mode=ro&immutable=1&cache=private"
@@ -57,7 +61,11 @@ def _read_database(
             return RightsDecisionReadResult(status="UNKNOWN_INVALID_RECORD")
         try:
             history = _validated_history(
-                connection, project_id, asset_id, version_id, asset_sha256,
+                connection,
+                project_id,
+                asset_id,
+                version_id,
+                asset_sha256,
             )
         except RightsDecisionError:
             return RightsDecisionReadResult(status="UNKNOWN_INVALID_RECORD")
@@ -69,9 +77,7 @@ def _read_database(
                 return RightsDecisionReadResult(status="CONFLICT", current_revision=0)
             return RightsDecisionReadResult(status="NO_DECISION", current_revision=0)
         latest = history[-1]
-        if (
-            expected_decision_id is not None and expected_decision_id != latest.decision_id
-        ) or (
+        if (expected_decision_id is not None and expected_decision_id != latest.decision_id) or (
             expected_content_hash is not None
             and expected_content_hash != latest.decision_content_hash
         ):
@@ -99,8 +105,12 @@ def _read_database(
 
 
 def read_latest_rights_decision(
-    database_path: Path, project_id: str, asset_id: str, version_id: str,
-    *, expected_revision: int | None = None,
+    database_path: Path,
+    project_id: str,
+    asset_id: str,
+    version_id: str,
+    *,
+    expected_revision: int | None = None,
     expected_decision_id: str | None = None,
     expected_content_hash: str | None = None,
 ) -> RightsDecisionReadResult:
@@ -119,11 +129,14 @@ def read_latest_rights_decision(
     ):
         return RightsDecisionReadResult(status="NOT_FOUND")
     if (
-        (expected_revision is not None and (
-            isinstance(expected_revision, bool)
-            or not isinstance(expected_revision, int)
-            or expected_revision < 0
-        ))
+        (
+            expected_revision is not None
+            and (
+                isinstance(expected_revision, bool)
+                or not isinstance(expected_revision, int)
+                or expected_revision < 0
+            )
+        )
         or (expected_decision_id is not None and _DECISION.fullmatch(expected_decision_id) is None)
         or (expected_content_hash is not None and _HASH.fullmatch(expected_content_hash) is None)
     ):
@@ -160,20 +173,29 @@ def read_latest_rights_decision(
             ):
                 return RightsDecisionReadResult(status="UNKNOWN_DATABASE_CHANGED")
             before_hash, before_bytes = _hash_stream(
-                stream, maximum=MAX_DATABASE_BYTES, deadline=deadline,
+                stream,
+                maximum=MAX_DATABASE_BYTES,
+                deadline=deadline,
             )
             if before_bytes != opened.st_size:
                 return RightsDecisionReadResult(status="UNKNOWN_DATABASE_CHANGED")
             try:
                 result = _read_database(
-                    database_path, project_id, asset_id, version_id,
-                    expected_revision, expected_decision_id, expected_content_hash,
+                    database_path,
+                    project_id,
+                    asset_id,
+                    version_id,
+                    expected_revision,
+                    expected_decision_id,
+                    expected_content_hash,
                 )
             except sqlite3.Error:
                 return RightsDecisionReadResult(status="UNKNOWN_DATABASE")
             stream.seek(0)
             after_hash, after_bytes = _hash_stream(
-                stream, maximum=MAX_DATABASE_BYTES, deadline=deadline,
+                stream,
+                maximum=MAX_DATABASE_BYTES,
+                deadline=deadline,
             )
             closed = os.fstat(stream.fileno())
             try:

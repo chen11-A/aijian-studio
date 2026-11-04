@@ -109,7 +109,11 @@ export function createdProposalRunResponse(
     total_byte_count: totalByteCount,
   };
   const manifestHash = hash(manifestPayload);
-  const contextManifestId = `ctx_${manifestHash.slice(7, 39)}`;
+  const contextManifestId = `ctx_${hash({
+    domain: "agent-context-instance-v1",
+    manifest_hash: manifestHash,
+    run_scope: agentRunId,
+  }).slice(7, 39)}`;
   const inputHash = hash({
     project_id: proposalRunProjectId,
     ...proposalRunCommand.input,

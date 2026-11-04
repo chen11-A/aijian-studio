@@ -1,0 +1,41 @@
+{
+  "identity": {
+    "project_id": "prj_98a971813c434659baff0b2623f76f31",
+    "operation_id": "ivo_cf756871ba54471b8121f15f40a5348a",
+    "path_id": "ivp_21aab6e4ba3c4c8bae5b792a9631819d",
+    "assessment_hash": "sha256:12a84afbde06164a31c7aa7305763fd3c590b3dd43f3eb1d9978e650f19effee",
+    "artifact_id": "art_dcdd1e6c7c1f4edfba9cf3d2c1930ebb",
+    "version_id": "ver_5ba19d0a07414e4d8fabdcb11475eb67"
+  },
+  "response": {
+    "data": {
+      "project_id": "prj_98a971813c434659baff0b2623f76f31",
+      "operation_id": "ivo_cf756871ba54471b8121f15f40a5348a",
+      "path_id": "ivp_21aab6e4ba3c4c8bae5b792a9631819d",
+      "assessment_hash": "sha256:12a84afbde06164a31c7aa7305763fd3c590b3dd43f3eb1d9978e650f19effee",
+      "artifact_id": "art_dcdd1e6c7c1f4edfba9cf3d2c1930ebb",
+      "version_id": "ver_5ba19d0a07414e4d8fabdcb11475eb67",
+      "content_hash": "sha256:87dca21648495c85750e2dfb5ec0e9909756e74690f44ae95201c1f5e43dcbbb",
+      "version_number": 1,
+      "artifact_type": "episode_storyboard",
+      "episode": {
+        "id": "ep_prj_98a971813c434659baff0b2623f76f31",
+        "position": "1",
+        "title": "第 1 集",
+        "revision": "1",
+        "label_origin": "CURRENT_EPISODE"
+      },
+      "shot_scope": "WHOLE_STORYBOARD_VERSION",
+      "shots": [
+        {
+          "storyboard_version_id": "ver_5ba19d0a07414e4d8fabdcb11475eb67",
+          "storyboard_content_hash": "sha256:87dca21648495c85750e2dfb5ec0e9909756e74690f44ae95201c1f5e43dcbbb",
+          "shot_id": "shp_00000000000000000000000000000001",
+          "ordinal": 1,
+          "title": "镜头 1"
+        }
+      ]
+    },
+    "request_id": "3889c17f-5918-489c-8359-3e8aeadaa859"
+  }
+}

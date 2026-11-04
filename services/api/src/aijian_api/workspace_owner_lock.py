@@ -10,6 +10,7 @@ import errno
 import hashlib
 import os
 import stat
+import sys
 import threading
 from pathlib import Path
 from types import TracebackType
@@ -61,10 +62,9 @@ def _identity_and_lock_path(database_path: Path) -> tuple[str, Path]:
         resolved_database = database_path.resolve(strict=False)
     except (OSError, RuntimeError) as error:
         raise WorkspaceLockUnsafePathError("Workspace path cannot be resolved") from error
-    if (
-        os.path.normcase(str(resolved_root)) != os.path.normcase(str(owner_root))
-        or os.path.normcase(str(resolved_database)) != os.path.normcase(str(database_path))
-    ):
+    if os.path.normcase(str(resolved_root)) != os.path.normcase(
+        str(owner_root)
+    ) or os.path.normcase(str(resolved_database)) != os.path.normcase(str(database_path)):
         raise WorkspaceLockUnsafePathError("Workspace path changes when resolved")
     identity = os.path.normcase(os.path.normpath(str(resolved_database)))
     digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
@@ -82,7 +82,7 @@ def _lock_io_path(lock_path: Path) -> Path:
 
 
 def _lock_file(fd: int) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         # Python 3.12: https://docs.python.org/3.12/library/msvcrt.html#msvcrt.locking
@@ -97,7 +97,7 @@ def _lock_file(fd: int) -> None:
 
 
 def _unlock_file(fd: int) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         os.lseek(fd, 0, os.SEEK_SET)
@@ -134,7 +134,8 @@ class WorkspaceOwnerLock:
         return self
 
     def __exit__(
-        self, exc_type: type[BaseException] | None,
+        self,
+        exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:

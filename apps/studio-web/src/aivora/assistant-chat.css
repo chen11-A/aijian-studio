@@ -1,0 +1,71 @@
+.assistant-chat {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.assistant-chat-messages {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  max-height: min(24vh, 200px);
+  overflow: auto;
+}
+.assistant-chat-message {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+.assistant-chat-message p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assistant-chat-context,
+.assistant-chat-preview {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.assistant-chat-context p,
+.assistant-chat-preview p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.assistant-chat-context pre,
+.assistant-chat-preview pre {
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+.assistant-chat-context label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.assistant-chat textarea {
+  width: 100%;
+  min-height: 92px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.assistant-chat button {
+  min-height: 36px;
+}
+.assistant-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-height: 850px) {
+  .assistant-chat {
+    gap: 8px;
+  }
+  .assistant-chat-messages {
+    max-height: 100px;
+  }
+  .assistant-chat textarea {
+    min-height: 64px;
+  }
+}

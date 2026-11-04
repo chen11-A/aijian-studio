@@ -47,44 +47,17 @@ export function useProviderSettings(transport: ProviderSettingsTransport) {
 
   const create = useCallback(
     async (input: CreateProviderConnectionInput) => {
+      if (input.provider_kind === "SUB2API") {
+        setSaveError("该连接方式已停用，不能新建。");
+        return;
+      }
       if (createPending.current) return;
       createPending.current = true;
       setSaving(true);
       setSaveError(null);
       try {
-        const receipt = await createConnection(input);
-        if (input.provider_kind === "SUB2API" &&
-            input.origin_mode === "LOCAL_LOOPBACK_HTTP") {
-          const created = receipt.data;
-          const expectedModels = JSON.stringify(input.models);
-          if (!receipt.request_id || !/^pcn_[0-9a-f]{32}$/.test(created.id) ||
-              created.provider_kind !== "SUB2API" ||
-              created.origin_mode !== "LOCAL_LOOPBACK_HTTP" ||
-              created.revision !== 1 || created.base_url !== input.base_url ||
-              created.display_name !== input.display_name ||
-              created.enabled !== input.enabled ||
-              created.credential_status !== "CONFIGURED" ||
-              JSON.stringify(created.models) !== expectedModels) {
-            throw new Error("Sub2API local create receipt did not match the submitted mode");
-          }
-          const response = await listConnections();
-          const current = response.data.find((item) => item.id === created.id);
-          if (!response.request_id || !current ||
-              current.provider_kind !== "SUB2API" ||
-              current.origin_mode !== created.origin_mode ||
-              current.revision !== created.revision ||
-              current.base_url !== created.base_url ||
-              current.display_name !== created.display_name ||
-              current.enabled !== created.enabled ||
-              current.credential_status !== created.credential_status ||
-              JSON.stringify(current.models) !== expectedModels) {
-            throw new Error("Sub2API local create was not confirmed by the connection list");
-          }
-          requestSequence.current += 1;
-          setState({ kind: "ready", response });
-        } else {
-          await load();
-        }
+        await createConnection(input);
+        await load();
       } catch (error) {
         await load();
         const cleanupRequired =
@@ -100,16 +73,20 @@ export function useProviderSettings(transport: ProviderSettingsTransport) {
         setSaving(false);
       }
     },
-    [createConnection, listConnections, load],
+    [createConnection, load],
   );
 
   const remove = useCallback(
     async (connectionId: string) => {
       if (confirmingId !== connectionId) return;
-      const connection = state.kind === "ready"
-        ? state.response.data.find((item) => item.id === connectionId) : null;
-      if (connection?.provider_kind === "SUB2API" &&
-          readProviderJournal(connectionId).kind !== "empty") {
+      const connection =
+        state.kind === "ready"
+          ? state.response.data.find((item) => item.id === connectionId)
+          : null;
+      if (
+        connection?.provider_kind === "SUB2API" &&
+        readProviderJournal(connectionId).kind !== "empty"
+      ) {
         setSaveError("该连接有待核对的 B31 操作或本地记录不可用；已阻止移除。");
         return;
       }

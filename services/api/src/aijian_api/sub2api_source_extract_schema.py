@@ -19,10 +19,12 @@ def migration_23_statements() -> tuple[str, ...]:
             connection_id TEXT NOT NULL REFERENCES provider_connections(connection_id),
             connection_revision INTEGER NOT NULL CHECK (connection_revision >= 1),
             model_id TEXT NOT NULL,
-            origin_hash TEXT NOT NULL CHECK (length(origin_hash) = 71 AND origin_hash LIKE 'sha256:%'),
+            origin_hash TEXT NOT NULL
+                CHECK (length(origin_hash) = 71 AND origin_hash LIKE 'sha256:%'),
             input_hash TEXT NOT NULL CHECK (length(input_hash) = 71 AND input_hash LIKE 'sha256:%'),
             context_manifest_hash TEXT NOT NULL
-                CHECK (length(context_manifest_hash) = 71 AND context_manifest_hash LIKE 'sha256:%'),
+                CHECK (length(context_manifest_hash) = 71
+                    AND context_manifest_hash LIKE 'sha256:%'),
             attempt_fingerprint TEXT NOT NULL
                 CHECK (length(attempt_fingerprint) = 71 AND attempt_fingerprint LIKE 'sha256:%'),
             created_at TEXT NOT NULL
@@ -34,8 +36,10 @@ def migration_23_statements() -> tuple[str, ...]:
             task_id TEXT NOT NULL UNIQUE REFERENCES sub2api_source_extract_scopes(task_id),
             attempt_id TEXT NOT NULL UNIQUE REFERENCES sub2api_source_extract_scopes(attempt_id),
             project_id TEXT NOT NULL REFERENCES projects(id),
-            approval_json TEXT NOT NULL CHECK (json_valid(approval_json) AND length(approval_json) <= 16384),
-            approval_hash TEXT NOT NULL CHECK (length(approval_hash) = 71 AND approval_hash LIKE 'sha256:%'),
+            approval_json TEXT NOT NULL
+                CHECK (json_valid(approval_json) AND length(approval_json) <= 16384),
+            approval_hash TEXT NOT NULL
+                CHECK (length(approval_hash) = 71 AND approval_hash LIKE 'sha256:%'),
             idempotency_key_hash TEXT NOT NULL,
             actor_id TEXT NOT NULL,
             approved_at TEXT NOT NULL,
@@ -50,7 +54,8 @@ def migration_23_statements() -> tuple[str, ...]:
             task_id TEXT NOT NULL UNIQUE REFERENCES sub2api_source_extract_scopes(task_id),
             approval_id TEXT NOT NULL UNIQUE REFERENCES sub2api_call_approvals(approval_id),
             lease_generation INTEGER NOT NULL CHECK (lease_generation >= 1),
-            lease_token_hash TEXT NOT NULL CHECK (length(lease_token_hash) = 71 AND lease_token_hash LIKE 'sha256:%'),
+            lease_token_hash TEXT NOT NULL
+                CHECK (length(lease_token_hash) = 71 AND lease_token_hash LIKE 'sha256:%'),
             consumed_at TEXT NOT NULL
         )
         """,
@@ -58,7 +63,8 @@ def migration_23_statements() -> tuple[str, ...]:
         CREATE TABLE sub2api_call_observations (
             attempt_id TEXT PRIMARY KEY REFERENCES sub2api_call_consumptions(attempt_id),
             status TEXT NOT NULL CHECK (status IN ('REMOTE_UNKNOWN', 'PROPOSAL_READY')),
-            provider_response_id TEXT CHECK (provider_response_id IS NULL OR length(provider_response_id) BETWEEN 1 AND 512),
+            provider_response_id TEXT CHECK (
+                provider_response_id IS NULL OR length(provider_response_id) BETWEEN 1 AND 512),
             raw_output_sha256 TEXT CHECK (
                 raw_output_sha256 IS NULL OR
                 (length(raw_output_sha256) = 71 AND raw_output_sha256 LIKE 'sha256:%')
@@ -68,7 +74,8 @@ def migration_23_statements() -> tuple[str, ...]:
             ),
             raw_response_body BLOB CHECK (
                 raw_response_body IS NULL OR
-                (typeof(raw_response_body) = 'blob' AND length(raw_response_body) BETWEEN 1 AND 1048576)
+                (typeof(raw_response_body) = 'blob'
+                    AND length(raw_response_body) BETWEEN 1 AND 1048576)
             ),
             raw_response_sha256 TEXT CHECK (
                 raw_response_sha256 IS NULL OR

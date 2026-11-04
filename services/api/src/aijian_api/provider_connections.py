@@ -84,28 +84,46 @@ class ProviderConnectionService:
         )
         if api_key is None:
             return ProviderConnectionView(connection=connection, credential_status="MISSING")
-        try:
-            self._vault.set(connection.credential_ref, api_key)
-        except CredentialCleanupRequiredError:
-            raise
-        except CredentialVaultUnavailableError:
-            self._repository.delete(connection.id)
-            raise
+        with self._repository.credential_lifecycle(connection.id):
+            self._repository.require_credential_write(connection.id, connection.revision)
+            try:
+                self._vault.set(connection.credential_ref, api_key)
+            except CredentialCleanupRequiredError:
+                raise
+            except CredentialVaultUnavailableError:
+                try:
+                    self._repository.delete(connection.id, expected_revision=connection.revision)
+                except ProviderConnectionConflictError:
+                    pass  # A concurrent mutation keeps its durable recovery identity.
+                raise
         return ProviderConnectionView(connection=connection, credential_status="CONFIGURED")
 
     def delete(self, connection_id: str) -> None:
-        connection = self._repository.get(connection_id)
-        self._repository.delete(connection_id)
+        self._repository.prepare_delete(connection_id)
         try:
-            self._vault.delete(connection.credential_ref)
-        except CredentialVaultUnavailableError as error:
+            with self._repository.credential_lifecycle(connection_id):
+                references = self._repository.cleanup_credential_refs(connection_id)
+                for reference in references:
+                    self._vault.delete(reference)
+                    if self._vault.get(reference) is not None:
+                        raise CredentialCleanupRequiredError(
+                            "provider credential removal could not be verified"
+                        )
+                self._repository.finish_delete(connection_id, credential_refs=references)
+        except (CredentialVaultUnavailableError, ProviderConnectionWriteUnknownError) as error:
             raise CredentialCleanupRequiredError(
-                "deleted provider credential may require cleanup"
+                "provider credential cleanup requires recovery or readback"
             ) from error
 
     def edit_sub2api(
-        self, *, connection_id: str, expected_revision: int, display_name: str,
-        base_url: str, enabled: bool, models: Sequence[ProviderModel],
+        self,
+        *,
+        connection_id: str,
+        expected_revision: int,
+        display_name: str,
+        base_url: str,
+        enabled: bool,
+        models: Sequence[ProviderModel],
         origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS",
         origin_mode_explicit: bool = False,
     ) -> ProviderConnectionView:
@@ -116,8 +134,12 @@ class ProviderConnectionService:
             raise ValueError("editing a local Sub2API connection requires explicit origin_mode")
         validate_sub2api_origin(base_url, origin_mode)
         updated = self._repository.update_metadata_cas(
-            connection_id=connection_id, expected_revision=expected_revision,
-            display_name=display_name, base_url=base_url, enabled=enabled, models=models,
+            connection_id=connection_id,
+            expected_revision=expected_revision,
+            display_name=display_name,
+            base_url=base_url,
+            enabled=enabled,
+            models=models,
             origin_mode=origin_mode,
         )
         return ProviderConnectionView(
@@ -126,8 +148,28 @@ class ProviderConnectionService:
         )
 
     def rotate_sub2api_key(
-        self, *, connection_id: str, expected_revision: int,
-        operation_id: str, api_key: str,
+        self,
+        *,
+        connection_id: str,
+        expected_revision: int,
+        operation_id: str,
+        api_key: str,
+    ) -> ProviderConnectionView:
+        with self._repository.credential_lifecycle(connection_id):
+            return self._rotate_sub2api_key(
+                connection_id=connection_id,
+                expected_revision=expected_revision,
+                operation_id=operation_id,
+                api_key=api_key,
+            )
+
+    def _rotate_sub2api_key(
+        self,
+        *,
+        connection_id: str,
+        expected_revision: int,
+        operation_id: str,
+        api_key: str,
     ) -> ProviderConnectionView:
         if not 8 <= len(api_key) <= 8192 or any(character.isspace() for character in api_key):
             raise ValueError("Sub2API requires a dedicated user API key")
@@ -142,10 +184,12 @@ class ProviderConnectionService:
             raise ProviderConnectionVersionConflictError("provider revision changed")
         candidate_ref = f"{connection_id}:crd_{uuid4().hex}"
         self._repository.prepare_rotation(
-            operation_id=operation_id, connection_id=connection_id,
+            operation_id=operation_id,
+            connection_id=connection_id,
             expected_revision=expected_revision,
             candidate_credential_ref=candidate_ref,
         )
+        self._repository.require_credential_write(connection_id, expected_revision)
         try:
             self._vault.set(candidate_ref, api_key)
             if self._vault.get(candidate_ref) != api_key:
@@ -157,7 +201,8 @@ class ProviderConnectionService:
             raise
         try:
             updated = self._repository.apply_rotation_cas(
-                operation_id=operation_id, connection_id=connection_id,
+                operation_id=operation_id,
+                connection_id=connection_id,
                 expected_revision=expected_revision,
                 old_credential_ref=current.credential_ref,
                 candidate_credential_ref=candidate_ref,
@@ -177,7 +222,10 @@ class ProviderConnectionService:
         return ProviderConnectionView(connection=updated, credential_status="CONFIGURED")
 
     def get_rotation_operation(
-        self, *, connection_id: str, operation_id: str,
+        self,
+        *,
+        connection_id: str,
+        operation_id: str,
     ) -> ProviderRotationOperation:
         operation = self._repository.get_rotation_operation(operation_id)
         if operation.connection_id != connection_id:

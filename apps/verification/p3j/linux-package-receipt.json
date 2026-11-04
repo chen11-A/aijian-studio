@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "4fbbf8bbc7b736c100acb67c9fc362281ef59ffb",
+  "file": "AIVORA-Desktop-0.3.0-linux-x64.tar.gz",
+  "path": "/tmp/p3j-final/AIVORA-Desktop-0.3.0-linux-x64.tar.gz",
+  "bytes": 370116293,
+  "sha256": "db00d7bef63bc2fcd31aded1ac01a8b6c9d23972b2351a22483e5fe9e6607769",
+  "sha256VerifiedIndependently": true,
+  "build": "local Linux package-desktop.py",
+  "windowHealth": "ok",
+  "bundledFfmpegTests": {
+    "passed": 4,
+    "failed": 0
+  },
+  "githubReleaseUploaded": false,
+  "windowsInstaller": null
+}

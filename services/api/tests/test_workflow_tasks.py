@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from typing import get_args
 
 import pytest
 from aijian_api.workflow_tasks import (
@@ -87,6 +88,13 @@ def test_node_and_attempt_state_contracts_are_separate() -> None:
     assert "RECONCILIATION_REQUIRED" not in ATTEMPT_STATES
     assert set(NODE_STATES) >= {"PENDING", "RUNNING", "NEEDS_REVIEW", "SUCCEEDED"}
     assert set(ATTEMPT_STATES) >= {"SUBMIT_INTENT", "SUBMITTING", "REMOTE_UNKNOWN"}
+
+
+def test_state_enumerations_match_every_declared_domain_state_without_duplicates() -> None:
+    assert set(NODE_STATES) == set(get_args(NodeState.__value__))
+    assert len(NODE_STATES) == len(set(NODE_STATES))
+    assert set(ATTEMPT_STATES) == set(get_args(AttemptState.__value__))
+    assert len(ATTEMPT_STATES) == len(set(ATTEMPT_STATES))
 
 
 def test_node_binds_exactly_one_new_attempt_when_started() -> None:
@@ -268,6 +276,83 @@ def test_remote_unknown_requires_authoritative_reconciliation() -> None:
         ),
     )
     assert succeeded.output_version_id == "ver_preview_1"
+
+
+@pytest.mark.parametrize("target", ["REMOTE_REVIEW_PENDING", "FAILED"])
+def test_known_remote_response_can_leave_unknown_only_for_non_runnable_review_or_failure(
+    target: AttemptState,
+) -> None:
+    uncertain = attempt(mode="remote", state="REMOTE_UNKNOWN", retry_disposition="REMOTE_UNKNOWN")
+    evidence = TransitionEvidence(
+        provider_response_id="response-42",
+        reconciliation_confirmed=True,
+        retry_disposition="NON_RETRYABLE",
+    )
+
+    for invalid in (
+        replace(evidence, reconciliation_confirmed=False),
+        replace(evidence, provider_response_id=None),
+        replace(evidence, provider_response_id=""),
+        replace(evidence, provider_response_id=" \t"),
+        replace(evidence, retry_disposition=None),
+        replace(evidence, retry_disposition="SAFE_LOCAL_RETRY"),
+        replace(evidence, retry_disposition="PROVIDER_CONFIRMED_NOT_ACCEPTED"),
+        replace(evidence, retry_disposition="REMOTE_UNKNOWN"),
+    ):
+        with pytest.raises(InvalidTaskTransitionError):
+            transition_attempt(uncertain, target, now=NOW, evidence=invalid)
+
+    settled = transition_attempt(uncertain, target, now=NOW, evidence=evidence)
+    assert settled.state == target
+    assert settled.provider_response_id == "response-42"
+    assert settled.retry_disposition == "NON_RETRYABLE"
+    assert settled.output_version_id is None
+    assert settled.revision == uncertain.revision + 1
+    with pytest.raises(InvalidTaskTransitionError, match="cannot be replaced"):
+        transition_attempt(
+            replace(uncertain, provider_response_id="response-original"),
+            target,
+            now=NOW,
+            evidence=evidence,
+        )
+    with pytest.raises(InvalidTaskTransitionError):
+        transition_attempt(settled, "SUBMITTING", now=NOW, evidence=evidence)
+    with pytest.raises(InvalidTaskTransitionError):
+        transition_attempt(settled, "READY", now=NOW, evidence=evidence)
+
+
+def test_reconciled_node_review_requires_its_exact_active_attempt_and_known_response() -> None:
+    uncertain = node(
+        state="RECONCILIATION_REQUIRED", attempt_count=1, active_attempt_id="att_render_preview_1"
+    )
+    evidence = TransitionEvidence(
+        attempt_id="att_render_preview_1",
+        provider_response_id="response-42",
+        reconciliation_confirmed=True,
+    )
+    for invalid in (
+        replace(evidence, reconciliation_confirmed=False),
+        replace(evidence, attempt_id=None),
+        replace(evidence, attempt_id="att_unrelated"),
+        replace(evidence, provider_response_id=None),
+        replace(evidence, provider_response_id=""),
+        replace(evidence, provider_response_id=" \t"),
+    ):
+        with pytest.raises(InvalidTaskTransitionError):
+            transition_node(uncertain, "NEEDS_REVIEW", now=NOW, evidence=invalid)
+    with pytest.raises(InvalidTaskTransitionError):
+        transition_node(
+            replace(uncertain, active_attempt_id=None),
+            "NEEDS_REVIEW",
+            now=NOW,
+            evidence=evidence,
+        )
+
+    reviewed = transition_node(uncertain, "NEEDS_REVIEW", now=NOW, evidence=evidence)
+    assert reviewed.active_attempt_id == uncertain.active_attempt_id
+    assert reviewed.attempt_count == uncertain.attempt_count
+    assert reviewed.output_version_id is None
+    assert reviewed.revision == uncertain.revision + 1
 
 
 def test_remote_recovery_distinguishes_idempotency_from_lookup() -> None:

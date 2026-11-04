@@ -91,6 +91,62 @@ class TypedDependencyInvalidationResult:
     affected: tuple[AffectedDownstreamVersion, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class SourceVersionReplacementInput:
+    """A source event, with no accepted-head or Gate representation."""
+
+    project_id: str
+    versions: tuple[ArtifactVersionIdentity, ...]
+    dependencies: tuple[ExactVersionDependency, ...]
+    artifact_id: str
+    old_version_id: str
+    new_version_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class SourceAffectedVersion:
+    version_id: str
+    artifact_id: str
+    aggregate_impact: DependencyImpact
+    reason_paths: tuple[InvalidationReasonPath, ...]
+
+
+def assess_source_version_replacement(
+    assessment: SourceVersionReplacementInput,
+) -> tuple[SourceAffectedVersion, ...]:
+    if len(assessment.versions) > 10_000 or len(assessment.dependencies) > 40_000:
+        raise TypedDependencyInvalidationError("source impact graph exceeds its bounded contract")
+    versions = _closed_version_index(assessment)
+    if assessment.old_version_id == assessment.new_version_id:
+        raise TypedDependencyInvalidationError("source replacement requires different versions")
+    for version_id in (assessment.old_version_id, assessment.new_version_id):
+        version = versions.get(version_id)
+        if version is None or version.artifact_id != assessment.artifact_id:
+            raise TypedDependencyInvalidationError("source replacement endpoints are inconsistent")
+    dependents = _closed_dependency_index(assessment, versions)
+    _reject_cycles(versions, assessment.dependencies)
+    paths = _collect_simple_reason_paths(
+        old_version_id=assessment.old_version_id,
+        dependents=dependents,
+        max_paths=10_000,
+        max_depth=64,
+    )
+    if len(paths) > 1000:
+        raise TypedDependencyInvalidationError("source impact has too many affected versions")
+    result = [
+        SourceAffectedVersion(
+            version_id=version_id,
+            artifact_id=versions[version_id].artifact_id,
+            aggregate_impact=_strongest_impact(tuple(path.effective_impact for path in reasons)),
+            reason_paths=tuple(
+                sorted(reasons, key=lambda p: (p.dependency_ids, p.relationships, p.edge_impacts))
+            ),
+        )
+        for version_id, reasons in paths.items()
+    ]
+    return tuple(sorted(result, key=lambda item: (item.artifact_id, item.version_id)))
+
+
 def assess_typed_dependency_invalidation(
     assessment: TypedDependencyInvalidationInput,
 ) -> TypedDependencyInvalidationResult:
@@ -127,7 +183,7 @@ def _require_project(project_id: str, expected_project_id: str) -> None:
 
 
 def _closed_version_index(
-    assessment: TypedDependencyInvalidationInput,
+    assessment: TypedDependencyInvalidationInput | SourceVersionReplacementInput,
 ) -> dict[str, ArtifactVersionIdentity]:
     project_id = _require_identity(assessment.project_id, field_name="project_id")
     versions_by_id: dict[str, ArtifactVersionIdentity] = {}
@@ -201,7 +257,7 @@ def _validate_head_change(
 
 
 def _closed_dependency_index(
-    assessment: TypedDependencyInvalidationInput,
+    assessment: TypedDependencyInvalidationInput | SourceVersionReplacementInput,
     versions_by_id: dict[str, ArtifactVersionIdentity],
 ) -> dict[str, tuple[ExactVersionDependency, ...]]:
     dependents: dict[str, list[ExactVersionDependency]] = defaultdict(list)
@@ -292,8 +348,11 @@ def _collect_simple_reason_paths(
     *,
     old_version_id: str,
     dependents: dict[str, tuple[ExactVersionDependency, ...]],
+    max_paths: int | None = None,
+    max_depth: int | None = None,
 ) -> dict[str, list[InvalidationReasonPath]]:
     paths_by_version: dict[str, list[InvalidationReasonPath]] = defaultdict(list)
+    path_count = 0
 
     def walk(
         upstream_version_id: str,
@@ -302,6 +361,7 @@ def _collect_simple_reason_paths(
         relationships: tuple[str, ...],
         edge_impacts: tuple[DependencyImpact, ...],
     ) -> None:
+        nonlocal path_count
         for edge in dependents.get(upstream_version_id, ()):
             downstream_version_id = edge.downstream_version_id
             if downstream_version_id in visited:
@@ -310,6 +370,11 @@ def _collect_simple_reason_paths(
             next_ids = (edge.id, *dependency_ids)
             next_relationships = (edge.relationship, *relationships)
             next_impacts = (edge.impact, *edge_impacts)
+            if max_depth is not None and len(next_ids) > max_depth:
+                raise TypedDependencyInvalidationError("source impact path exceeds depth budget")
+            path_count += 1
+            if max_paths is not None and path_count > max_paths:
+                raise TypedDependencyInvalidationError("source impact exceeds path budget")
             paths_by_version[downstream_version_id].append(
                 InvalidationReasonPath(
                     dependency_ids=next_ids,

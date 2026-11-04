@@ -1,4 +1,31 @@
+import type { TaskListener, TaskItem, BatchProgress } from "@aijian/contracts/task-progress";
+import type { AssemblyReadinessGateway } from "@aijian/contracts/assembly-readiness";
+import type { LocalMediaReviewGateway } from "@aijian/contracts/local-media-review";
+import type { AssemblyExactGateway } from "@aijian/contracts/assembly-exact";
+import type { ManualMediaCandidateGateway } from "@aijian/contracts/manual-media-candidate";
+import type { MediaPreparationGateway } from "@aijian/contracts/media-preparation";
+import type { ScriptImpactGateway } from "@aijian/contracts/script-confirmation-impact";
+import type { ProjectSettingsGateway } from "@aijian/contracts/project-settings";
+import type { NativePreviewPlanGateway } from "@aijian/contracts/native-preview-plan";
+import type { MediaPreviewSessionGateway } from "../aivora/adapters/mediaPreviewSession";
+import {
+  desktopAudioAssetProbe,
+  type AudioAssetProbeGateway,
+} from "../aivora/adapters/audioAssetProbe";
+import type { InvalidationConsumerGateway } from "@aijian/contracts/invalidation-consumer";
+import type { VisualGateway, VisualHistoryGateway } from "@aijian/contracts/visual-bible";
+import {
+  desktopMediaAssetProbe,
+  type MediaAssetProbeGateway,
+} from "../aivora/adapters/mediaAssetProbe";
+import type { MediaToolchainGateway } from "../aivora/mediaToolchainContract";
+import { desktopMediaToolchain } from "../aivora/adapters/mediaToolchain";
+import type { DraftReviewGateway } from "../aivora/adapters/draftReview";
+import type { DraftReviewRevisionGateway } from "../aivora/adapters/draftReviewRevision";
+import type { DraftExportGateway } from "../aivora/adapters/draftExport";
+import { desktopDraftExports } from "./draftExports";
 import type { components } from "@aijian/contracts";
+import { localWorkbenchTransport } from "./localWorkbench";
 import {
   isArtifactProposalResponse,
   type ArtifactProposalResponse,
@@ -12,10 +39,14 @@ import {
   type InvalidationOperationResponse,
 } from "@aijian/contracts/invalidation-operation";
 import type { AppPreferencesGateway } from "../aivora/adapters/appPreferences";
+import type { StoryboardGateway } from "../aivora/adapters/episodeStoryboard";
+import type { CreativeGateway } from "../aivora/adapters/creativeLibrary";
 import type { AssetLibraryGateway } from "../aivora/adapters/assetLibrary";
 import type { EpisodeMediaAssemblyGateway } from "../aivora/adapters/episodeMediaAssembly";
 import type {
-  ConfirmationGateway, ScriptGateway, SourceBindingGateway,
+  ConfirmationGateway,
+  ScriptGateway,
+  SourceBindingGateway,
 } from "../aivora/adapters/episodeScript";
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
@@ -32,8 +63,12 @@ export type UpdateProjectCommand = {
 export type UpdateProjectResult =
   | { kind: "SUCCEEDED"; receipt: ProjectResponse }
   | { kind: "INVALID_INPUT" }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 409 | 412 | 422 | 428;
-      code: string; request_id: string }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 409 | 412 | 422 | 428;
+      code: string;
+      request_id: string;
+    }
   | { kind: "REMOTE_UNKNOWN" };
 export type CreateEpisodeInput = components["schemas"]["CreateEpisodeRequest"];
 export type EpisodeListResponse = components["schemas"]["EpisodeListResponse"];
@@ -189,6 +224,7 @@ export type RemoteSourceExtractCreateInput = {
     end_byte: number;
   };
   selection: { connection_id: string; connection_revision: number; model_id: string };
+  billing_account_kind?: "gpt_login" | "grok_login";
 };
 export type RemoteSourceExtractCreateCommand = {
   operation_id: string;
@@ -199,13 +235,21 @@ export type RemoteSourceExtractCreateResult =
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
 export type RemoteSourceExtractOriginalRunResult =
-  | { kind: "FOUND_RUN"; receipt: components["schemas"]["ProposalRunResponse"]; binding: "UNVERIFIED" }
+  | {
+      kind: "FOUND_RUN";
+      receipt: components["schemas"]["ProposalRunResponse"];
+      binding: "UNVERIFIED";
+    }
   | { kind: "NOT_FOUND" | "REMOTE_UNKNOWN"; binding: "UNVERIFIED" };
 export type RemoteSourceExtractCapability = {
-  create(projectId: string, command: RemoteSourceExtractCreateCommand):
-    Promise<RemoteSourceExtractCreateResult>;
-  readOriginal(projectId: string, originalCommand: RemoteSourceExtractCreateCommand):
-    Promise<RemoteSourceExtractOriginalRunResult>;
+  create(
+    projectId: string,
+    command: RemoteSourceExtractCreateCommand,
+  ): Promise<RemoteSourceExtractCreateResult>;
+  readOriginal(
+    projectId: string,
+    originalCommand: RemoteSourceExtractCreateCommand,
+  ): Promise<RemoteSourceExtractOriginalRunResult>;
 };
 export type SourceExtractionProposalV2Response = {
   data: {
@@ -282,6 +326,7 @@ export type Sub2APISourceExtractScope = {
   selection: Sub2APISourceExtractCreateCommand["input"]["selection"];
   source: Sub2APISourceExtractCreateCommand["input"]["source"];
   origin_hash: string;
+  origin_mode: Sub2APIOriginMode;
   input_hash: string;
   context_manifest_hash: string;
   attempt_fingerprint: string;
@@ -341,14 +386,23 @@ export type Sub2APICallApprovalReadResult =
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
 export type Sub2APISourceExtractCapability = {
-  create(projectId: string, command: Sub2APISourceExtractCreateCommand):
-    Promise<Sub2APISourceExtractCreateResult>;
-  readOriginal(projectId: string, originalCommand: Sub2APISourceExtractCreateCommand):
-    Promise<Sub2APISourceExtractOperationReadResult>;
-  approve(projectId: string, originalCommand: Sub2APISourceExtractCreateCommand,
-    command: Sub2APICallApprovalCommand): Promise<Sub2APICallApprovalCreateResult>;
-  readApproval(projectId: string, originalCommand: Sub2APISourceExtractCreateCommand):
-    Promise<Sub2APICallApprovalReadResult>;
+  create(
+    projectId: string,
+    command: Sub2APISourceExtractCreateCommand,
+  ): Promise<Sub2APISourceExtractCreateResult>;
+  readOriginal(
+    projectId: string,
+    originalCommand: Sub2APISourceExtractCreateCommand,
+  ): Promise<Sub2APISourceExtractOperationReadResult>;
+  approve(
+    projectId: string,
+    originalCommand: Sub2APISourceExtractCreateCommand,
+    command: Sub2APICallApprovalCommand,
+  ): Promise<Sub2APICallApprovalCreateResult>;
+  readApproval(
+    projectId: string,
+    originalCommand: Sub2APISourceExtractCreateCommand,
+  ): Promise<Sub2APICallApprovalReadResult>;
 };
 export type SourceExtractionResponse = {
   data: {
@@ -470,21 +524,27 @@ export type DevelopmentExportPreviewResult =
     };
 export type Sub2APIOriginMode = "PUBLIC_HTTPS" | "LOCAL_LOOPBACK_HTTP";
 // The QA-generated schema includes origin_mode; keep old author snapshots type-safe until promotion.
-export type CreateProviderConnectionInput =
-  Omit<components["schemas"]["CreateProviderConnectionRequest"], "origin_mode"> &
-  { origin_mode?: Sub2APIOriginMode };
+export type CreateProviderConnectionInput = Omit<
+  components["schemas"]["CreateProviderConnectionRequest"],
+  "origin_mode"
+> & { origin_mode?: Sub2APIOriginMode };
 type WithGeneratedOriginMode<T> = "origin_mode" extends keyof T
-  ? T : T & { origin_mode?: Sub2APIOriginMode | null };
-export type ProviderConnectionData =
-  WithGeneratedOriginMode<components["schemas"]["ProviderConnectionData"]>;
-export type ProviderConnectionListResponse =
-  Omit<components["schemas"]["ProviderConnectionListResponse"], "data"> &
-  { data: ProviderConnectionData[] };
-export type ProviderConnectionResponse =
-  Omit<components["schemas"]["ProviderConnectionResponse"], "data"> &
-  { data: ProviderConnectionData };
+  ? T
+  : T & { origin_mode?: Sub2APIOriginMode | null };
+export type ProviderConnectionData = WithGeneratedOriginMode<
+  components["schemas"]["ProviderConnectionData"]
+>;
+export type ProviderConnectionListResponse = Omit<
+  components["schemas"]["ProviderConnectionListResponse"],
+  "data"
+> & { data: ProviderConnectionData[] };
+export type ProviderConnectionResponse = Omit<
+  components["schemas"]["ProviderConnectionResponse"],
+  "data"
+> & { data: ProviderConnectionData };
 type GeneratedSchema<Name extends string> = Name extends keyof components["schemas"]
-  ? components["schemas"][Name] : never;
+  ? components["schemas"][Name]
+  : never;
 type LegacySub2APIMetadataCommand = {
   expected_revision: number;
   display_name: string;
@@ -493,14 +553,17 @@ type LegacySub2APIMetadataCommand = {
   enabled: boolean;
   models: { model_id: string; capabilities: ["TEXT"] }[];
 };
-export type Sub2APIMetadataCommand =
-  [GeneratedSchema<"EditSub2APIConnectionRequest">] extends [never]
-    ? LegacySub2APIMetadataCommand
-    : GeneratedSchema<"EditSub2APIConnectionRequest">;
+export type Sub2APIMetadataCommand = [GeneratedSchema<"EditSub2APIConnectionRequest">] extends [
+  never,
+]
+  ? LegacySub2APIMetadataCommand
+  : GeneratedSchema<"EditSub2APIConnectionRequest">;
 function assertSub2APIWriteMode(value: { origin_mode?: unknown }): void {
-  if (Object.prototype.hasOwnProperty.call(value, "origin_mode") &&
-      value.origin_mode !== "PUBLIC_HTTPS" &&
-      value.origin_mode !== "LOCAL_LOOPBACK_HTTP") {
+  if (
+    Object.prototype.hasOwnProperty.call(value, "origin_mode") &&
+    value.origin_mode !== "PUBLIC_HTTPS" &&
+    value.origin_mode !== "LOCAL_LOOPBACK_HTTP"
+  ) {
     throw new TypeError("Sub2API origin_mode must be a non-null known mode when supplied");
   }
 }
@@ -511,28 +574,44 @@ export type Sub2APIRotationCommand = {
 };
 export type Sub2APIMutationResult =
   | { kind: "UPDATED"; receipt: ProviderConnectionResponse }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 409 | 422;
-      code: string; request_id: string }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 409 | 422;
+      code: string;
+      request_id: string;
+    }
   | { kind: "REMOTE_UNKNOWN" };
 export type Sub2APIRotationReadResult =
-  | { kind: "READ"; receipt: { data: {
-      operation_id: string; connection_id: string; expected_revision: number;
-      status: "PREPARED" | "APPLIED" | "CONFLICT" | "UNKNOWN";
-      applied_revision: number | null; created_at: string; updated_at: string;
-    }; request_id: string } }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 422;
-      code: string; request_id: string }
+  | {
+      kind: "READ";
+      receipt: {
+        data: {
+          operation_id: string;
+          connection_id: string;
+          expected_revision: number;
+          status: "PREPARED" | "APPLIED" | "CONFLICT" | "UNKNOWN";
+          applied_revision: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        request_id: string;
+      };
+    }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 422;
+      code: string;
+      request_id: string;
+    }
   | { kind: "REMOTE_UNKNOWN" };
 export type Sub2APIReadinessResult =
-  | { kind: "READ"; receipt: { data: {
-      connection_id: string; connection_revision: number; model_id: string;
-      credential_status: "CONFIGURED" | "MISSING" | "UNAVAILABLE";
-      runtime_status: string; local_preconditions_met: boolean;
-      reasons: string[]; provider_observation: "NOT_CHECKED";
-      model_entitlement: "UNKNOWN";
-    }; request_id: string } }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 422;
-      code: string; request_id: string }
+  | { kind: "READ"; receipt: components["schemas"]["Sub2APIConfiguredReadinessResponse"] }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 422;
+      code: string;
+      request_id: string;
+    }
   | { kind: "READINESS_UNKNOWN" };
 
 export interface ProposalDecisionCapability {
@@ -570,13 +649,44 @@ export interface EpisodeCapability {
 }
 
 export interface StudioTransport {
+  getLocalMediaReviewTarget?: LocalMediaReviewGateway["getLocalMediaReviewTarget"];
+  listLocalMediaReviews?: LocalMediaReviewGateway["listLocalMediaReviews"];
+  getLocalMediaReview?: LocalMediaReviewGateway["getLocalMediaReview"];
+  getLocalMediaReviewStatus?: LocalMediaReviewGateway["getLocalMediaReviewStatus"];
+  saveLocalMediaReview?: LocalMediaReviewGateway["saveLocalMediaReview"];
+  getLocalMediaReviewOperation?: LocalMediaReviewGateway["getLocalMediaReviewOperation"];
+  getEpisodeAssemblyReadiness?: AssemblyReadinessGateway["getEpisodeAssemblyReadiness"];
+  nativePreviewPlan?: NativePreviewPlanGateway;
+  mediaPreviewSession?: MediaPreviewSessionGateway;
+  mediaAssetProbe?: MediaAssetProbeGateway;
+  audioAssetProbe?: AudioAssetProbeGateway;
+  mediaToolchain?: MediaToolchainGateway;
   getAppPreferences?: AppPreferencesGateway["getAppPreferences"];
   saveAppPreferences?: AppPreferencesGateway["saveAppPreferences"];
   assetLibrary?: AssetLibraryGateway;
   episodeMediaAssembly?: EpisodeMediaAssemblyGateway;
+  draftExports?: DraftExportGateway;
+  getEpisodeStoryboard?: StoryboardGateway["getEpisodeStoryboard"];
+  getEpisodeStoryboardVersion?: StoryboardGateway["getEpisodeStoryboardVersion"];
+  createEpisodeStoryboardVersion?: StoryboardGateway["createEpisodeStoryboardVersion"];
+  getProjectCreativeLibrary?: CreativeGateway["getProjectCreativeLibrary"];
+  getProjectCreativeLibraryVersion?: CreativeGateway["getProjectCreativeLibraryVersion"];
+  createProjectCreativeLibraryVersion?: CreativeGateway["createProjectCreativeLibraryVersion"];
   getEpisodeScript?: ScriptGateway["getEpisodeScript"];
+  getEpisodeScriptWriteOperation?: ScriptGateway["getEpisodeScriptWriteOperation"];
   getEpisodeScriptVersion?: ScriptGateway["getEpisodeScriptVersion"];
   createEpisodeScriptVersion?: ScriptGateway["createEpisodeScriptVersion"];
+  listManualMediaCandidates?: ManualMediaCandidateGateway["listManualMediaCandidates"];
+  getManualMediaCandidate?: ManualMediaCandidateGateway["getManualMediaCandidate"];
+  saveManualMediaCandidate?: ManualMediaCandidateGateway["saveManualMediaCandidate"];
+  getManualMediaCandidateOperation?: ManualMediaCandidateGateway["getManualMediaCandidateOperation"];
+  listMediaPreparations?: MediaPreparationGateway["listMediaPreparations"];
+  getMediaPreparation?: MediaPreparationGateway["getMediaPreparation"];
+  saveMediaPreparation?: MediaPreparationGateway["saveMediaPreparation"];
+  getMediaPreparationOperation?: MediaPreparationGateway["getMediaPreparationOperation"];
+  listScriptConfirmationImpacts?: ScriptImpactGateway["listScriptConfirmationImpacts"];
+  getScriptConfirmationImpact?: ScriptImpactGateway["getScriptConfirmationImpact"];
+  getEpisodeScriptConfirmationOperation?: ScriptImpactGateway["getEpisodeScriptConfirmationOperation"];
   getEpisodeScriptConfirmation?: ConfirmationGateway["getEpisodeScriptConfirmation"];
   createEpisodeScriptConfirmation?: ConfirmationGateway["createEpisodeScriptConfirmation"];
   getEpisodeScriptConfirmationReceipt?: ConfirmationGateway["getEpisodeScriptConfirmationReceipt"];
@@ -585,8 +695,13 @@ export interface StudioTransport {
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
-  updateProject?: (projectId: string, command: UpdateProjectCommand) =>
-    Promise<UpdateProjectResult>;
+  getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];
+  getProjectSettingsReceipt?: ProjectSettingsGateway["getProjectSettingsReceipt"];
+  updateProjectSettings?: ProjectSettingsGateway["updateProjectSettings"];
+  updateProject?: (
+    projectId: string,
+    command: UpdateProjectCommand,
+  ) => Promise<UpdateProjectResult>;
   listSources(projectId: string): Promise<SourceDocumentListResponse>;
   getSource(projectId: string, sourceId: string): Promise<SourceDocumentResponse>;
   getSourceText?(projectId: string, sourceId: string): Promise<SourceDocumentTextResponse>;
@@ -609,12 +724,14 @@ export interface StudioTransport {
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   readVersionedSourceExtractionProposal?: (
-    projectId: string, proposalId: string,
+    projectId: string,
+    proposalId: string,
   ) => Promise<VersionedSourceExtractionProposalReadResult>;
   listInvalidationOperations(
     projectId: string,
     query?: InvalidationOperationPageQuery,
   ): Promise<InvalidationOperationPageResponse>;
+  inspectInvalidationConsumer?: InvalidationConsumerGateway["inspectInvalidationConsumer"];
   getInvalidationOperation(
     projectId: string,
     operationId: string,
@@ -624,8 +741,10 @@ export interface StudioTransport {
   remoteSourceExtract?: RemoteSourceExtractCapability;
   sub2apiSourceExtract?: Sub2APISourceExtractCapability;
   getSourceExtraction?: (projectId: string) => Promise<SourceExtractionReadResult>;
-  getSourceExtractionVersion?: (projectId: string, versionId: string) =>
-    Promise<SourceExtractionReadResult>;
+  getSourceExtractionVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<SourceExtractionReadResult>;
   fakeTimelineRuns?: FakeTimelineRunCapability;
   episodes?: EpisodeCapability;
   sourceManifestReview?: SourceManifestReviewCapability;
@@ -653,48 +772,125 @@ export interface StudioTransport {
     expectedRevision: number,
     expectedSha256: string,
   ): Promise<DevelopmentExportPreviewResult>;
-  createDevelopmentExport?(projectId: string, input: DevelopmentExportCreateInput):
-    Promise<DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection>;
-  getDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportResponse>;
-  openDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportOpenResult>;
-  saveDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportSaveResult>;
+  createDevelopmentExport?(
+    projectId: string,
+    input: DevelopmentExportCreateInput,
+  ): Promise<
+    DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection
+  >;
+  getDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportResponse>;
+  openDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportOpenResult>;
+  saveDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportSaveResult>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
   ): Promise<ProviderConnectionResponse>;
   deleteProviderConnection(connectionId: string): Promise<void>;
-  readSub2APIConfiguredReadiness?(connectionId: string, modelId: string):
-    Promise<Sub2APIReadinessResult>;
-  editSub2APIMetadata?(connectionId: string, command: Sub2APIMetadataCommand):
-    Promise<Sub2APIMutationResult>;
-  rotateSub2APIKey?(connectionId: string, command: Sub2APIRotationCommand):
-    Promise<Sub2APIMutationResult>;
-  readSub2APIKeyRotation?(connectionId: string, operationId: string):
-    Promise<Sub2APIRotationReadResult>;
+  readSub2APIConfiguredReadiness?(
+    connectionId: string,
+    modelId: string,
+  ): Promise<Sub2APIReadinessResult>;
+  editSub2APIMetadata?(
+    connectionId: string,
+    command: Sub2APIMetadataCommand,
+  ): Promise<Sub2APIMutationResult>;
+  rotateSub2APIKey?(
+    connectionId: string,
+    command: Sub2APIRotationCommand,
+  ): Promise<Sub2APIMutationResult>;
+  readSub2APIKeyRotation?(
+    connectionId: string,
+    operationId: string,
+  ): Promise<Sub2APIRotationReadResult>;
 }
 
-export interface AijianDesktopBridge {
+export interface AijianDesktopBridge
+  extends
+    Partial<VisualGateway>,
+    Partial<VisualHistoryGateway>,
+    Partial<MediaPreviewSessionGateway> {
+  getNativeMediaPreviewPlan?: NativePreviewPlanGateway["getNativeMediaPreviewPlan"];
+  getAudioAssetProbeEvidence?: AudioAssetProbeGateway["getAudioAssetProbeEvidence"];
+  probeSelectedAudioAssetVersion?: AudioAssetProbeGateway["probeSelectedAudioAssetVersion"];
+  getMediaAssetProbeEvidence?: MediaAssetProbeGateway["getMediaAssetProbeEvidence"];
+  probeSelectedMediaAssetVersion?: MediaAssetProbeGateway["probeSelectedMediaAssetVersion"];
+  getMediaToolchainStatus?: MediaToolchainGateway["getMediaToolchainStatus"];
+  cancelMediaToolchainSelection?: MediaToolchainGateway["cancelMediaToolchainSelection"];
+  selectMediaToolchain?: MediaToolchainGateway["selectMediaToolchain"];
+  clearMediaToolchain?: MediaToolchainGateway["clearMediaToolchain"];
   getAppPreferences?: AppPreferencesGateway["getAppPreferences"];
   saveAppPreferences?: AppPreferencesGateway["saveAppPreferences"];
   listProjectMediaAssets?: AssetLibraryGateway["listProjectMediaAssets"];
   getProjectMediaAsset?: AssetLibraryGateway["getProjectMediaAsset"];
   importProjectMediaAssetFromPicker?: AssetLibraryGateway["importProjectMediaAssetFromPicker"];
-  importProjectMediaAssetVersionFromPicker?:
-    AssetLibraryGateway["importProjectMediaAssetVersionFromPicker"];
+  importProjectMediaAssetVersionFromPicker?: AssetLibraryGateway["importProjectMediaAssetVersionFromPicker"];
   readProjectMediaAssetPreview?: AssetLibraryGateway["readProjectMediaAssetPreview"];
-  addProjectMediaAssetEpisodeReference?:
-    AssetLibraryGateway["addProjectMediaAssetEpisodeReference"];
-  removeProjectMediaAssetEpisodeReference?:
-    AssetLibraryGateway["removeProjectMediaAssetEpisodeReference"];
+  addProjectMediaAssetEpisodeReference?: AssetLibraryGateway["addProjectMediaAssetEpisodeReference"];
+  removeProjectMediaAssetEpisodeReference?: AssetLibraryGateway["removeProjectMediaAssetEpisodeReference"];
   deleteProjectMediaAsset?: AssetLibraryGateway["deleteProjectMediaAsset"];
+  listDraftReviewRevisionPlans?: DraftReviewRevisionGateway["listDraftReviewRevisionPlans"];
+  getDraftReviewRevisionScope?: DraftReviewRevisionGateway["getDraftReviewRevisionScope"];
+  createDraftReviewRevisionPlan?: DraftReviewRevisionGateway["createDraftReviewRevisionPlan"];
+  approveDraftReviewRevisionPlan?: DraftReviewRevisionGateway["approveDraftReviewRevisionPlan"];
+  attachDraftReviewRevisionCandidate?: DraftReviewRevisionGateway["attachDraftReviewRevisionCandidate"];
+  recheckDraftReviewRevisionCandidate?: DraftReviewRevisionGateway["recheckDraftReviewRevisionCandidate"];
+  listDraftReviewNotes?: DraftReviewGateway["listDraftReviewNotes"];
+  createDraftReviewNote?: DraftReviewGateway["createDraftReviewNote"];
+  resolveDraftReviewNote?: DraftReviewGateway["resolveDraftReviewNote"];
+  listDraftExports?: DraftExportGateway["list"];
+  getDraftExport?: DraftExportGateway["get"];
+  createDraftExportFromPicker?: DraftExportGateway["createFromPicker"];
+  createDraftCompositionPreview?: DraftExportGateway["createPreview"];
+  cancelDraftExport?: DraftExportGateway["cancel"];
+  readDraftExportPreview?: DraftExportGateway["preview"];
+  revealDraftExportOutput?: DraftExportGateway["reveal"];
+  getEpisodeAssemblyReadiness?: AssemblyReadinessGateway["getEpisodeAssemblyReadiness"];
+  getLocalMediaReviewTarget?: LocalMediaReviewGateway["getLocalMediaReviewTarget"];
+  listLocalMediaReviews?: LocalMediaReviewGateway["listLocalMediaReviews"];
+  getLocalMediaReview?: LocalMediaReviewGateway["getLocalMediaReview"];
+  getLocalMediaReviewStatus?: LocalMediaReviewGateway["getLocalMediaReviewStatus"];
+  saveLocalMediaReview?: LocalMediaReviewGateway["saveLocalMediaReview"];
+  getLocalMediaReviewOperation?: LocalMediaReviewGateway["getLocalMediaReviewOperation"];
   readLatestEpisodeMediaAssembly?: EpisodeMediaAssemblyGateway["readLatest"];
   createEpisodeMediaAssemblyVersion?: EpisodeMediaAssemblyGateway["createVersion"];
+  saveExact?: AssemblyExactGateway["saveExact"];
+  getOriginal?: AssemblyExactGateway["getOriginal"];
+  getEpisodeStoryboard?: StoryboardGateway["getEpisodeStoryboard"];
+  getEpisodeStoryboardVersion?: StoryboardGateway["getEpisodeStoryboardVersion"];
+  createEpisodeStoryboardVersion?: StoryboardGateway["createEpisodeStoryboardVersion"];
+  getProjectCreativeLibrary?: CreativeGateway["getProjectCreativeLibrary"];
+  getProjectCreativeLibraryVersion?: CreativeGateway["getProjectCreativeLibraryVersion"];
+  createProjectCreativeLibraryVersion?: CreativeGateway["createProjectCreativeLibraryVersion"];
   getEpisodeScript?: ScriptGateway["getEpisodeScript"];
+  getEpisodeScriptWriteOperation?: ScriptGateway["getEpisodeScriptWriteOperation"];
   getEpisodeScriptVersion?: ScriptGateway["getEpisodeScriptVersion"];
   createEpisodeScriptVersion?: ScriptGateway["createEpisodeScriptVersion"];
+  listManualMediaCandidates?: ManualMediaCandidateGateway["listManualMediaCandidates"];
+  getManualMediaCandidate?: ManualMediaCandidateGateway["getManualMediaCandidate"];
+  saveManualMediaCandidate?: ManualMediaCandidateGateway["saveManualMediaCandidate"];
+  getManualMediaCandidateOperation?: ManualMediaCandidateGateway["getManualMediaCandidateOperation"];
+  listMediaPreparations?: MediaPreparationGateway["listMediaPreparations"];
+  getMediaPreparation?: MediaPreparationGateway["getMediaPreparation"];
+  saveMediaPreparation?: MediaPreparationGateway["saveMediaPreparation"];
+  getMediaPreparationOperation?: MediaPreparationGateway["getMediaPreparationOperation"];
+  listScriptConfirmationImpacts?: ScriptImpactGateway["listScriptConfirmationImpacts"];
+  getScriptConfirmationImpact?: ScriptImpactGateway["getScriptConfirmationImpact"];
+  getEpisodeScriptConfirmationOperation?: ScriptImpactGateway["getEpisodeScriptConfirmationOperation"];
   getEpisodeScriptConfirmation?: ConfirmationGateway["getEpisodeScriptConfirmation"];
   createEpisodeScriptConfirmation?: ConfirmationGateway["createEpisodeScriptConfirmation"];
   getEpisodeScriptConfirmationReceipt?: ConfirmationGateway["getEpisodeScriptConfirmationReceipt"];
@@ -705,9 +901,116 @@ export interface AijianDesktopBridge {
   health(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
+  getStoryFilmPlan?(projectId: string): Promise<{
+    data: {
+      providers: Array<{
+        id: string;
+        label: string;
+        billing_label: string;
+        available: boolean;
+        fix?: string | null;
+        unavailable_reason?: string | null;
+      }>;
+    };
+    request_id: string;
+  }>;
+  createStoryFilm?(
+    projectId: string,
+    input: {
+      scene_label: string;
+      narration: string;
+      subtitle?: string;
+      provider: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
+      confirmed: boolean;
+      voice_id?: string;
+      video_model?: string;
+      regenerate?: boolean;
+      style_block?: string;
+      shots?: Array<{
+        narration: string;
+        prompt: string;
+        subtitle?: string;
+        duration_seconds: number;
+        regenerate?: boolean;
+        size?: string;
+        angle?: string;
+        move?: string;
+        action?: string;
+        performance?: string;
+        identity?: string;
+      }>;
+    },
+  ): Promise<{ data: Record<string, unknown>; request_id: string }>;
+  getStoryFilmProgress?(projectId: string): Promise<{
+    data: {
+      stage?: string;
+      label?: string;
+      elapsed_seconds?: number;
+      message?: string;
+      image_saved?: boolean;
+      preview_image?: string | null;
+    };
+    request_id: string;
+  }>;
+  cancelStoryFilm?(
+    projectId: string,
+  ): Promise<{ data: Record<string, unknown>; request_id: string }>;
+  readStoryFilmMedia?(path: string): Promise<Uint8Array>;
+  revealStoryFilm?(path: string): Promise<{ ok: boolean }>;
+  exportStoryFilm?(path: string): Promise<{ ok: boolean; cancelled?: boolean }>;
+  listFilmSeries?: () => Promise<{ id: string; title: string; savedAt: string; path: string }[]>;
+  listFilmEpisodes?: (seriesId: string) => Promise<
+    {
+      id: string;
+      seriesId: string;
+      title: string;
+      no: number;
+      shots: number;
+      done: number;
+      savedAt: string;
+    }[]
+  >;
+  readFilmProject?: (id: string) => Promise<Record<string, unknown> | null>;
+  writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
+  renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
+  readFilmMedia?: (path: string) => Promise<Uint8Array>;
+  assembleFilm?: (
+    seriesId: string,
+    sources: string[],
+    musicPath?: string,
+    duck?: boolean | number,
+    dialogue?: string[],
+  ) => Promise<{ path: string; reason: string }>;
+  importMusic?: (seriesId: string, source: string) => Promise<{ path: string }>;
+  filePath?: (file: File) => string;
+  flushed?: () => void;
+  onFlush?: (handler: () => void) => void;
+  onTask?: (handler: TaskListener) => () => void;
+  publishTasks?: (tasks: TaskItem[], batches: BatchProgress[]) => Promise<void>;
+  generateFilmStill?: (
+    seriesId: string,
+    prompt: string,
+    aspectRatio?: "9:16" | "16:9",
+    references?: string[],
+  ) => Promise<{ path: string; reason: string }>;
+  pickFilmFolder?: () => Promise<string | null>;
+  defaultFilmFolder?: () => Promise<string>;
+  exportFilmCut?: (
+    source: string,
+    directory: string,
+    name?: string,
+  ) => Promise<{ ok: boolean; path: string }>;
+  revealFilmPath?: (path: string) => Promise<{ ok: boolean }>;
+  openFilmPath?: (path: string) => Promise<{ ok: boolean; error: string }>;
   getProject(projectId: string): Promise<ProjectResponse>;
-  updateProject?: (projectId: string, command: UpdateProjectCommand) =>
-    Promise<UpdateProjectResult>;
+  getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];
+  getProjectSettingsReceipt?: ProjectSettingsGateway["getProjectSettingsReceipt"];
+  updateProjectSettings?: ProjectSettingsGateway["updateProjectSettings"];
+  updateProject?: (
+    projectId: string,
+    command: UpdateProjectCommand,
+  ) => Promise<UpdateProjectResult>;
   listEpisodes?: EpisodeCapability["list"];
   getEpisode?: EpisodeCapability["get"];
   createEpisode?: EpisodeCapability["create"];
@@ -733,12 +1036,14 @@ export interface AijianDesktopBridge {
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   readVersionedSourceExtractionProposal?: (
-    projectId: string, proposalId: string,
+    projectId: string,
+    proposalId: string,
   ) => Promise<VersionedSourceExtractionProposalReadResult>;
   listInvalidationOperations(
     projectId: string,
     query?: InvalidationOperationPageQuery,
   ): Promise<InvalidationOperationPageResponse>;
+  inspectInvalidationConsumer?: InvalidationConsumerGateway["inspectInvalidationConsumer"];
   getInvalidationOperation(
     projectId: string,
     operationId: string,
@@ -764,8 +1069,10 @@ export interface AijianDesktopBridge {
   approveSub2APISourceExtractCall?: Sub2APISourceExtractCapability["approve"];
   getSub2APISourceExtractApproval?: Sub2APISourceExtractCapability["readApproval"];
   getSourceExtraction?: (projectId: string) => Promise<SourceExtractionReadResult>;
-  getSourceExtractionVersion?: (projectId: string, versionId: string) =>
-    Promise<SourceExtractionReadResult>;
+  getSourceExtractionVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<SourceExtractionReadResult>;
   createFakeTimelineRun(
     projectId: string,
     command: FakeTimelineRunCreateCommand,
@@ -794,27 +1101,51 @@ export interface AijianDesktopBridge {
     expectedRevision: number,
     expectedSha256: string,
   ): Promise<DevelopmentExportPreviewResult>;
-  createDevelopmentExport?(projectId: string, input: DevelopmentExportCreateInput):
-    Promise<DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection>;
-  getDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportResponse>;
-  openDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportOpenResult>;
-  saveDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportSaveResult>;
+  createDevelopmentExport?(
+    projectId: string,
+    input: DevelopmentExportCreateInput,
+  ): Promise<
+    DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection
+  >;
+  getDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportResponse>;
+  openDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportOpenResult>;
+  saveDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportSaveResult>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
   ): Promise<ProviderConnectionResponse>;
   deleteProviderConnection(connectionId: string): Promise<void>;
-  readSub2APIConfiguredReadiness?(connectionId: string, modelId: string):
-    Promise<Sub2APIReadinessResult>;
-  editSub2APIMetadata?(connectionId: string, command: Sub2APIMetadataCommand):
-    Promise<Sub2APIMutationResult>;
-  rotateSub2APIKey?(connectionId: string, command: Sub2APIRotationCommand):
-    Promise<Sub2APIMutationResult>;
-  readSub2APIKeyRotation?(connectionId: string, operationId: string):
-    Promise<Sub2APIRotationReadResult>;
+  readSub2APIConfiguredReadiness?(
+    connectionId: string,
+    modelId: string,
+  ): Promise<Sub2APIReadinessResult>;
+  editSub2APIMetadata?(
+    connectionId: string,
+    command: Sub2APIMetadataCommand,
+  ): Promise<Sub2APIMutationResult>;
+  rotateSub2APIKey?(
+    connectionId: string,
+    command: Sub2APIRotationCommand,
+  ): Promise<Sub2APIMutationResult>;
+  readSub2APIKeyRotation?(
+    connectionId: string,
+    operationId: string,
+  ): Promise<Sub2APIRotationReadResult>;
 }
 
 declare global {
@@ -1010,10 +1341,17 @@ export function createStudioTransport(): StudioTransport {
   const bridge = window.aijian;
   if (bridge) {
     return {
-      getAppPreferences: typeof bridge.getAppPreferences === "function"
-        ? () => bridge.getAppPreferences!() : undefined,
-      saveAppPreferences: typeof bridge.saveAppPreferences === "function"
-        ? (command) => bridge.saveAppPreferences!(command) : undefined,
+      mediaToolchain: desktopMediaToolchain(bridge),
+      mediaAssetProbe: desktopMediaAssetProbe(bridge),
+      audioAssetProbe: desktopAudioAssetProbe(bridge),
+      getAppPreferences:
+        typeof bridge.getAppPreferences === "function"
+          ? () => bridge.getAppPreferences!()
+          : undefined,
+      saveAppPreferences:
+        typeof bridge.saveAppPreferences === "function"
+          ? (command) => bridge.saveAppPreferences!(command)
+          : undefined,
       assetLibrary:
         typeof bridge.listProjectMediaAssets === "function" &&
         typeof bridge.getProjectMediaAsset === "function" &&
@@ -1041,30 +1379,181 @@ export function createStudioTransport(): StudioTransport {
                 bridge.deleteProjectMediaAsset!(projectId, assetId),
             }
           : undefined,
+      draftExports: desktopDraftExports(bridge),
+      nativePreviewPlan:
+        typeof bridge.getNativeMediaPreviewPlan === "function"
+          ? {
+              getNativeMediaPreviewPlan: (projectId, episodeId, versionId) =>
+                bridge.getNativeMediaPreviewPlan!(projectId, episodeId, versionId),
+            }
+          : undefined,
+      mediaPreviewSession:
+        typeof bridge.openMediaPreviewSession === "function" &&
+        typeof bridge.playMediaPreviewSession === "function" &&
+        typeof bridge.pauseMediaPreviewSession === "function" &&
+        typeof bridge.seekMediaPreviewSession === "function" &&
+        typeof bridge.readMediaPreviewSessionStatus === "function" &&
+        typeof bridge.closeMediaPreviewSession === "function"
+          ? {
+              openMediaPreviewSession: (command) => bridge.openMediaPreviewSession!(command),
+              playMediaPreviewSession: (command) => bridge.playMediaPreviewSession!(command),
+              pauseMediaPreviewSession: (command) => bridge.pauseMediaPreviewSession!(command),
+              seekMediaPreviewSession: (command) => bridge.seekMediaPreviewSession!(command),
+              readMediaPreviewSessionStatus: (query) =>
+                bridge.readMediaPreviewSessionStatus!(query),
+              closeMediaPreviewSession: (command) => bridge.closeMediaPreviewSession!(command),
+            }
+          : undefined,
+      getLocalMediaReviewTarget:
+        typeof bridge.getLocalMediaReviewTarget === "function"
+          ? (p, e, q) => bridge.getLocalMediaReviewTarget!(p, e, q)
+          : undefined,
+      listLocalMediaReviews:
+        typeof bridge.listLocalMediaReviews === "function"
+          ? (p, e, c) => bridge.listLocalMediaReviews!(p, e, c)
+          : undefined,
+      getLocalMediaReview:
+        typeof bridge.getLocalMediaReview === "function"
+          ? (p, e, v) => bridge.getLocalMediaReview!(p, e, v)
+          : undefined,
+      getLocalMediaReviewStatus:
+        typeof bridge.getLocalMediaReviewStatus === "function"
+          ? (p, e, q) => bridge.getLocalMediaReviewStatus!(p, e, q)
+          : undefined,
+      saveLocalMediaReview:
+        typeof bridge.saveLocalMediaReview === "function"
+          ? (p, e, c) => bridge.saveLocalMediaReview!(p, e, c)
+          : undefined,
+      getLocalMediaReviewOperation:
+        typeof bridge.getLocalMediaReviewOperation === "function"
+          ? (p, e, c) => bridge.getLocalMediaReviewOperation!(p, e, c)
+          : undefined,
+      getEpisodeAssemblyReadiness:
+        typeof bridge.getEpisodeAssemblyReadiness === "function"
+          ? (p, e, target) => bridge.getEpisodeAssemblyReadiness!(p, e, target)
+          : undefined,
       episodeMediaAssembly:
         typeof bridge.readLatestEpisodeMediaAssembly === "function" &&
         typeof bridge.createEpisodeMediaAssemblyVersion === "function"
           ? {
+              saveExact:
+                typeof bridge.saveExact === "function"
+                  ? (p, e, c) => bridge.saveExact!(p, e, c)
+                  : undefined,
+              getOriginal:
+                typeof bridge.getOriginal === "function"
+                  ? (p, e, c) => bridge.getOriginal!(p, e, c)
+                  : undefined,
               readLatest: (projectId, episodeId) =>
                 bridge.readLatestEpisodeMediaAssembly!(projectId, episodeId),
               createVersion: (projectId, episodeId, command) =>
                 bridge.createEpisodeMediaAssemblyVersion!(projectId, episodeId, command),
             }
           : undefined,
-      getEpisodeScript: typeof bridge.getEpisodeScript === "function"
-        ? (projectId, episodeId) => bridge.getEpisodeScript!(projectId, episodeId) : undefined,
-      getEpisodeScriptVersion: typeof bridge.getEpisodeScriptVersion === "function"
-        ? (projectId, episodeId, versionId) =>
-            bridge.getEpisodeScriptVersion!(projectId, episodeId, versionId) : undefined,
-      createEpisodeScriptVersion: typeof bridge.createEpisodeScriptVersion === "function"
-        ? (projectId, episodeId, idempotencyKey, payload) =>
-            bridge.createEpisodeScriptVersion!(projectId, episodeId, idempotencyKey, payload) : undefined,
-      getEpisodeScriptConfirmation: typeof bridge.getEpisodeScriptConfirmation === "function"
-        ? (projectId, episodeId) =>
-            bridge.getEpisodeScriptConfirmation!(projectId, episodeId) : undefined,
-      createEpisodeScriptConfirmation: typeof bridge.createEpisodeScriptConfirmation === "function"
-        ? (projectId, episodeId, idempotencyKey, payload) =>
-            bridge.createEpisodeScriptConfirmation!(projectId, episodeId, idempotencyKey, payload) : undefined,
+      getEpisodeStoryboard:
+        typeof bridge.getEpisodeStoryboard === "function"
+          ? (projectId, episodeId) => bridge.getEpisodeStoryboard!(projectId, episodeId)
+          : undefined,
+      getEpisodeStoryboardVersion:
+        typeof bridge.getEpisodeStoryboardVersion === "function"
+          ? (projectId, episodeId, versionId) =>
+              bridge.getEpisodeStoryboardVersion!(projectId, episodeId, versionId)
+          : undefined,
+      createEpisodeStoryboardVersion:
+        typeof bridge.createEpisodeStoryboardVersion === "function"
+          ? (projectId, episodeId, idempotencyKey, payload) =>
+              bridge.createEpisodeStoryboardVersion!(projectId, episodeId, idempotencyKey, payload)
+          : undefined,
+      getProjectCreativeLibrary:
+        typeof bridge.getProjectCreativeLibrary === "function"
+          ? (projectId) => bridge.getProjectCreativeLibrary!(projectId)
+          : undefined,
+      getProjectCreativeLibraryVersion:
+        typeof bridge.getProjectCreativeLibraryVersion === "function"
+          ? (projectId, versionId) => bridge.getProjectCreativeLibraryVersion!(projectId, versionId)
+          : undefined,
+      createProjectCreativeLibraryVersion:
+        typeof bridge.createProjectCreativeLibraryVersion === "function"
+          ? (projectId, idempotencyKey, payload) =>
+              bridge.createProjectCreativeLibraryVersion!(projectId, idempotencyKey, payload)
+          : undefined,
+      getEpisodeScript:
+        typeof bridge.getEpisodeScript === "function"
+          ? (projectId, episodeId) => bridge.getEpisodeScript!(projectId, episodeId)
+          : undefined,
+      getEpisodeScriptWriteOperation:
+        typeof bridge.getEpisodeScriptWriteOperation === "function"
+          ? (p, e, id, payload) => bridge.getEpisodeScriptWriteOperation!(p, e, id, payload)
+          : undefined,
+      getEpisodeScriptVersion:
+        typeof bridge.getEpisodeScriptVersion === "function"
+          ? (projectId, episodeId, versionId) =>
+              bridge.getEpisodeScriptVersion!(projectId, episodeId, versionId)
+          : undefined,
+      createEpisodeScriptVersion:
+        typeof bridge.createEpisodeScriptVersion === "function"
+          ? (projectId, episodeId, idempotencyKey, payload) =>
+              bridge.createEpisodeScriptVersion!(projectId, episodeId, idempotencyKey, payload)
+          : undefined,
+      listMediaPreparations:
+        typeof bridge.listMediaPreparations === "function"
+          ? (p, e, c) => bridge.listMediaPreparations!(p, e, c)
+          : undefined,
+      getMediaPreparation:
+        typeof bridge.getMediaPreparation === "function"
+          ? (p, e, id) => bridge.getMediaPreparation!(p, e, id)
+          : undefined,
+      saveMediaPreparation:
+        typeof bridge.saveMediaPreparation === "function"
+          ? (p, e, c) => bridge.saveMediaPreparation!(p, e, c)
+          : undefined,
+      getMediaPreparationOperation:
+        typeof bridge.getMediaPreparationOperation === "function"
+          ? (p, e, c) => bridge.getMediaPreparationOperation!(p, e, c)
+          : undefined,
+      listManualMediaCandidates:
+        typeof bridge.listManualMediaCandidates === "function"
+          ? (p, e, c) => bridge.listManualMediaCandidates!(p, e, c)
+          : undefined,
+      getManualMediaCandidate:
+        typeof bridge.getManualMediaCandidate === "function"
+          ? (p, e, id) => bridge.getManualMediaCandidate!(p, e, id)
+          : undefined,
+      saveManualMediaCandidate:
+        typeof bridge.saveManualMediaCandidate === "function"
+          ? (p, e, c) => bridge.saveManualMediaCandidate!(p, e, c)
+          : undefined,
+      getManualMediaCandidateOperation:
+        typeof bridge.getManualMediaCandidateOperation === "function"
+          ? (p, e, c) => bridge.getManualMediaCandidateOperation!(p, e, c)
+          : undefined,
+      listScriptConfirmationImpacts:
+        typeof bridge.listScriptConfirmationImpacts === "function"
+          ? (projectId, cursor) => bridge.listScriptConfirmationImpacts!(projectId, cursor)
+          : undefined,
+      getScriptConfirmationImpact:
+        typeof bridge.getScriptConfirmationImpact === "function"
+          ? (projectId, reportId) => bridge.getScriptConfirmationImpact!(projectId, reportId)
+          : undefined,
+      getEpisodeScriptConfirmationOperation:
+        typeof bridge.getEpisodeScriptConfirmationOperation === "function"
+          ? (projectId, episodeId, operationId, payload) =>
+              bridge.getEpisodeScriptConfirmationOperation!(
+                projectId,
+                episodeId,
+                operationId,
+                payload,
+              )
+          : undefined,
+      getEpisodeScriptConfirmation:
+        typeof bridge.getEpisodeScriptConfirmation === "function"
+          ? (projectId, episodeId) => bridge.getEpisodeScriptConfirmation!(projectId, episodeId)
+          : undefined,
+      createEpisodeScriptConfirmation:
+        typeof bridge.createEpisodeScriptConfirmation === "function"
+          ? (projectId, episodeId, idempotencyKey, payload) =>
+              bridge.createEpisodeScriptConfirmation!(projectId, episodeId, idempotencyKey, payload)
+          : undefined,
       getEpisodeScriptConfirmationReceipt:
         typeof bridge.getEpisodeScriptConfirmationReceipt === "function"
           ? (projectId, episodeId, confirmationId) =>
@@ -1079,6 +1568,18 @@ export function createStudioTransport(): StudioTransport {
       listProjects: () => bridge.listProjects(),
       createProject: (input) => bridge.createProject(input),
       getProject: (projectId) => bridge.getProject(projectId),
+      getProjectSettings:
+        typeof bridge.getProjectSettings === "function"
+          ? (projectId) => bridge.getProjectSettings!(projectId)
+          : undefined,
+      getProjectSettingsReceipt:
+        typeof bridge.getProjectSettingsReceipt === "function"
+          ? (projectId, operationId) => bridge.getProjectSettingsReceipt!(projectId, operationId)
+          : undefined,
+      updateProjectSettings:
+        typeof bridge.updateProjectSettings === "function"
+          ? (projectId, command) => bridge.updateProjectSettings!(projectId, command)
+          : undefined,
       updateProject:
         typeof bridge.updateProject === "function"
           ? (projectId, command) => bridge.updateProject!(projectId, command)
@@ -1214,7 +1715,11 @@ export function createStudioTransport(): StudioTransport {
         typeof bridge.readDevelopmentExportPreview === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision, expectedSha256) =>
               bridge.readDevelopmentExportPreview!(
-                projectId, operationId, timelineVersionId, expectedRevision, expectedSha256,
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+                expectedSha256,
               )
           : undefined,
       createDevelopmentExport:
@@ -1224,20 +1729,32 @@ export function createStudioTransport(): StudioTransport {
       getDevelopmentExport:
         typeof bridge.getDevelopmentExport === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision) =>
-              bridge.getDevelopmentExport!(projectId, operationId, timelineVersionId,
-                expectedRevision)
+              bridge.getDevelopmentExport!(
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+              )
           : undefined,
       openDevelopmentExport:
         typeof bridge.openDevelopmentExport === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision) =>
-              bridge.openDevelopmentExport!(projectId, operationId, timelineVersionId,
-                expectedRevision)
+              bridge.openDevelopmentExport!(
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+              )
           : undefined,
       saveDevelopmentExport:
         typeof bridge.saveDevelopmentExport === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision) =>
-              bridge.saveDevelopmentExport!(projectId, operationId, timelineVersionId,
-                expectedRevision)
+              bridge.saveDevelopmentExport!(
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+              )
           : undefined,
       listProviderConnections: () => bridge.listProviderConnections(),
       createProviderConnection: async (input) => {
@@ -1247,8 +1764,7 @@ export function createStudioTransport(): StudioTransport {
       deleteProviderConnection: (connectionId) => bridge.deleteProviderConnection(connectionId),
       readSub2APIConfiguredReadiness:
         typeof bridge.readSub2APIConfiguredReadiness === "function"
-          ? (connectionId, modelId) =>
-              bridge.readSub2APIConfiguredReadiness!(connectionId, modelId)
+          ? (connectionId, modelId) => bridge.readSub2APIConfiguredReadiness!(connectionId, modelId)
           : undefined,
       editSub2APIMetadata:
         typeof bridge.editSub2APIMetadata === "function"
@@ -1263,12 +1779,12 @@ export function createStudioTransport(): StudioTransport {
           : undefined,
       readSub2APIKeyRotation:
         typeof bridge.readSub2APIKeyRotation === "function"
-          ? (connectionId, operationId) =>
-              bridge.readSub2APIKeyRotation!(connectionId, operationId)
+          ? (connectionId, operationId) => bridge.readSub2APIKeyRotation!(connectionId, operationId)
           : undefined,
     };
   }
   return {
+    ...localWorkbenchTransport(),
     getHealth: browserHealth,
     listProjects: () => getRequest<ProjectListResponse>("/api/v1/projects"),
     createProject: (input) => postRequest<ProjectResponse>("/api/v1/projects", input),
@@ -1312,15 +1828,6 @@ export function createStudioTransport(): StudioTransport {
       getOptionalRequest<TimelineResponse>(
         `/api/v1/projects/${projectId}/timeline`,
         "TIMELINE_NOT_FOUND",
-      ),
-    getProductionBrief: (projectId) =>
-      getOptionalRequest<ProductionBriefResponse>(
-        `/api/v1/projects/${projectId}/production-brief`,
-        "ARTIFACT_NOT_FOUND",
-      ),
-    getProductionBriefVersion: (projectId, versionId) =>
-      getRequest<ProductionBriefResponse>(
-        `/api/v1/projects/${projectId}/production-brief/versions/${versionId}`,
       ),
     trimTimelineClip: (projectId, input) =>
       postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/trim`, input),

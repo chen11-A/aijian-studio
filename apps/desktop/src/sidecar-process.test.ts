@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 import type * as childProcess from "node:child_process";
@@ -45,7 +46,9 @@ vi.mock("node:child_process", async (importOriginal) => {
 });
 
 import { createLocalApiClient } from "./api-client";
-import { startSidecar, type SidecarHandle } from "./sidecar-process";
+import { SidecarStartupError, startSidecar, type SidecarHandle } from "./sidecar-process";
+import { developmentPythonLaunch } from "./development-python";
+import { ffmpegOnPath, ffmpegSkipReason } from "./test-ffmpeg";
 
 let activeSidecar: SidecarHandle | null = null;
 const repositoryRoot = resolve(__dirname, "../../..");
@@ -132,8 +135,10 @@ function mockChildThatIgnoresEof(phases: Phase[]) {
     stdout: PassThrough;
     stderr: PassThrough;
     kill: ReturnType<typeof vi.fn>;
+    pid: number;
   };
   child.stdin = new PassThrough();
+  child.pid = 7654;
   child.stdout = new PassThrough();
   child.stderr = new PassThrough();
   const originalEnd = child.stdin.end.bind(child.stdin);
@@ -184,7 +189,9 @@ function nodeHandshakeScript(options: { line?: string; remainAlive?: boolean } =
       token,
     });
   const remainAlive = options.remainAlive ? "setInterval(() => {}, 1000);" : "";
-  return `process.stdout.write(${JSON.stringify(`${line}\n`)});${remainAlive}`;
+  return options.line !== undefined
+    ? `process.stdout.write(${JSON.stringify(`${line}\n`)});${remainAlive}`
+    : `const handshake = JSON.parse(${JSON.stringify(line)}); handshake.pid = process.pid; process.stdout.write(JSON.stringify(handshake) + "\\n");${remainAlive}`;
 }
 
 afterEach(async () => {
@@ -207,26 +214,32 @@ afterEach(async () => {
   }
 });
 
-test(
-  "starts the real Python sidecar, authenticates health, and stops on stdin EOF",
-  { timeout: 30_000 },
+test.skipIf(!ffmpegOnPath())(
+  `starts the real Python sidecar, authenticates health, and stops on stdin EOF (${ffmpegSkipReason})`,
+  { timeout: 60_000 },
   async () => {
     const phases: Phase[] = [];
     phaseCapture.current = phases;
+    // Windows TEMP may use an 8.3 alias; supply a canonical test-owned path
+    // without weakening production workspace link/junction rejection.
+    const testWorkspace = mkdtempSync(
+      join(realpathSync.native(tmpdir()), "aivora-private-sidecar-"),
+    );
     try {
-      const python =
-        process.platform === "win32"
-          ? join(repositoryRoot, ".venv", "Scripts", "python.exe")
-          : join(repositoryRoot, ".venv", "bin", "python");
-      expect(existsSync(python)).toBe(true);
+      const python = developmentPythonLaunch(repositoryRoot);
+      expect(existsSync(python.command)).toBe(true);
 
       mark(phases, "spawn.start");
       activeSidecar = await startSidecar({
-        command: python,
+        command: python.command,
         args: ["-m", "aijian_api.sidecar"],
         cwd: repositoryRoot,
-        env: { PYTHONPATH: join(repositoryRoot, "services", "api", "src") },
-        startupTimeoutMs: 10_000,
+        env: {
+          ...python.env,
+          PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
+          AIJIAN_DATA_DIR: join(testWorkspace, "workspace"),
+        },
+        startupTimeoutMs: 20_000,
         shutdownTimeoutMs: 5_000,
       });
       mark(phases, "ready", { pid: activeSidecar.session.pid, port: activeSidecar.session.port });
@@ -243,12 +256,46 @@ test(
       await expect(client.getHealth()).resolves.toMatchObject({ data: { status: "ok" } });
       mark(phases, "health.end");
 
+      // Actual production private-pipe registration is reachable, with no admitted release.
+      await expect(activeSidecar.nativePipe.request("prepare", {})).resolves.toEqual({
+        kind: "REFUSED",
+      });
+      const receipt = JSON.parse(
+        readFileSync(
+          join(repositoryRoot, "packages/contracts/fixtures/native-preview-plan.json"),
+          "utf8",
+        ),
+      );
+      const source = receipt.data.plan.source;
+      await expect(
+        activeSidecar.nativePipe.request("prepare", {
+          profile_hash: "sha256:" + "f".repeat(64),
+          opening: {
+            open_request_id: "pvo_" + "b".repeat(32),
+            session_id: "pvs_" + "a".repeat(32),
+            generation: 1,
+            expires_at: new Date(Date.now() + 120_000).toISOString(),
+            plan: receipt.data,
+            identity: {
+              project_id: source.project_id,
+              episode_id: source.episode_id,
+              assembly_artifact_id: source.assembly_artifact_id,
+              assembly_version_id: source.assembly_version_id,
+              assembly_content_hash: source.assembly_content_hash,
+              assembly_head_revision: source.assembly_head_revision,
+              plan_hash: receipt.data.plan_hash,
+            },
+          },
+        }),
+      ).resolves.toEqual({ kind: "UNAVAILABLE" });
+
       mark(phases, "stop.start");
       await activeSidecar.stop();
       mark(phases, "stop.resolve");
       await expect(activeSidecar.exited).resolves.toMatchObject({ code: 0, signal: null });
       mark(phases, "close.observed", { code: 0, signal: null });
       activeSidecar = null;
+      rmSync(testWorkspace, { recursive: true });
     } finally {
       mark(phases, "test.finally");
     }
@@ -256,15 +303,15 @@ test(
 );
 
 test("rejects malformed startup output and terminates the child without exposing it", async () => {
-  await expect(
-    startSidecar({
-      command: process.execPath,
-      args: ["-e", nodeHandshakeScript({ line: "not-json", remainAlive: true })],
-      cwd: repositoryRoot,
-      startupTimeoutMs: 1_000,
-      shutdownTimeoutMs: 25,
-    }),
-  ).rejects.toThrow(new Error("Sidecar failed to start"));
+  const startup = startSidecar({
+    command: process.execPath,
+    args: ["-e", nodeHandshakeScript({ line: "not-json", remainAlive: true })],
+    cwd: repositoryRoot,
+    startupTimeoutMs: 1_000,
+    shutdownTimeoutMs: 25,
+  });
+  await expect(startup).rejects.toThrow(SidecarStartupError);
+  await expect(startup).rejects.toMatchObject({ message: "Sidecar failed to start" });
 });
 
 test("force-stops a controlled mock child that ignores parent-pipe EOF", async () => {

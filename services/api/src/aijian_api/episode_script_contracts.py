@@ -170,3 +170,21 @@ class EpisodeScriptVersionCreatedData(_Closed):
 class EpisodeScriptVersionCreatedResponse(_Closed):
     data: EpisodeScriptVersionCreatedData
     request_id: UUID
+
+
+class EpisodeScriptWriteOperationData(_Closed):
+    """Evidence from the original atomic write receipt; not the current head."""
+
+    operation_id: StrictStr = Field(
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    )
+    project_id: StrictStr = Field(pattern=PROJECT_ID_PATTERN)
+    episode_id: StrictStr = Field(pattern=EPISODE_ID_PATTERN)
+    idempotency_key_hash: StrictStr = Field(pattern=CONTENT_HASH_PATTERN)
+    request_hash: StrictStr = Field(pattern=CONTENT_HASH_PATTERN)
+    version: EpisodeScriptVersionData
+
+
+class EpisodeScriptWriteOperationResponse(_Closed):
+    data: EpisodeScriptWriteOperationData
+    request_id: UUID

@@ -1,0 +1,264 @@
+{
+  "request": {
+    "content": {
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "episode_id": null,
+      "characters": [
+        {
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ordinal": 1,
+          "name": "林舟",
+          "role": "主角",
+          "description": "守护城市",
+          "appearance": "",
+          "personality": "谨慎"
+        },
+        {
+          "character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "ordinal": 2,
+          "name": "周岚",
+          "role": "主角",
+          "description": "守护城市",
+          "appearance": "",
+          "personality": "谨慎"
+        }
+      ],
+      "world": {
+        "premise": "星夜之城",
+        "rules": "永夜",
+        "era": "未来",
+        "visual_style": "手绘",
+        "palette": "蓝紫",
+        "materials": "金属"
+      },
+      "scenes": [
+        {
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "ordinal": 1,
+          "name": "码头",
+          "description": "",
+          "location": "旧城",
+          "time_of_day": "夜晚",
+          "weather": "雨",
+          "continuity": "灯未熄"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_id": "rel_dddddddddddddddddddddddddddddddd",
+          "ordinal": 1,
+          "from_character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "to_character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "label": "同事",
+          "description": "信任逐步建立"
+        }
+      ],
+      "costumes": [
+        {
+          "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "ordinal": 1,
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "雨衣",
+          "description": "深蓝色旧雨衣"
+        }
+      ],
+      "schema_version": "1.3.0",
+      "references": [
+        {
+          "reference_id": "crf_ffffffffffffffffffffffffffffffff",
+          "ordinal": 1,
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+          "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "label": "服装参考"
+        }
+      ],
+      "scene_variants": [
+        {
+          "variant_id": "scv_11111111111111111111111111111111",
+          "ordinal": 1,
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "name": "雨后凌晨",
+          "view": "港口朝西",
+          "time_of_day": "凌晨",
+          "weather": "雨后",
+          "state": "地面湿润",
+          "continuity": "保留窗边灯光"
+        }
+      ],
+      "environment_references": [
+        {
+          "reference_id": "erf_11111111111111111111111111111111",
+          "ordinal": 1,
+          "scene_id": null,
+          "variant_id": null,
+          "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+          "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "label": "世界材质"
+        },
+        {
+          "reference_id": "erf_22222222222222222222222222222222",
+          "ordinal": 2,
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "variant_id": null,
+          "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+          "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "label": "码头基础"
+        },
+        {
+          "reference_id": "erf_33333333333333333333333333333333",
+          "ordinal": 3,
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "variant_id": "scv_11111111111111111111111111111111",
+          "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+          "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "label": "雨后状态"
+        }
+      ]
+    },
+    "parent_version_id": null,
+    "expected_revision": null,
+    "change_summary": "保存人工创作草稿"
+  },
+  "response": {
+    "data": {
+      "version_id": "ver_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "episode_id": null,
+      "version_number": 1,
+      "head_revision": 1,
+      "parent_version_id": null,
+      "content": {
+        "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "episode_id": null,
+        "characters": [
+          {
+            "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "ordinal": 1,
+            "name": "林舟",
+            "role": "主角",
+            "description": "守护城市",
+            "appearance": "",
+            "personality": "谨慎"
+          },
+          {
+            "character_id": "chr_cccccccccccccccccccccccccccccccc",
+            "ordinal": 2,
+            "name": "周岚",
+            "role": "主角",
+            "description": "守护城市",
+            "appearance": "",
+            "personality": "谨慎"
+          }
+        ],
+        "world": {
+          "premise": "星夜之城",
+          "rules": "永夜",
+          "era": "未来",
+          "visual_style": "手绘",
+          "palette": "蓝紫",
+          "materials": "金属"
+        },
+        "scenes": [
+          {
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "ordinal": 1,
+            "name": "码头",
+            "description": "",
+            "location": "旧城",
+            "time_of_day": "夜晚",
+            "weather": "雨",
+            "continuity": "灯未熄"
+          }
+        ],
+        "relationships": [
+          {
+            "relationship_id": "rel_dddddddddddddddddddddddddddddddd",
+            "ordinal": 1,
+            "from_character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "to_character_id": "chr_cccccccccccccccccccccccccccccccc",
+            "label": "同事",
+            "description": "信任逐步建立"
+          }
+        ],
+        "costumes": [
+          {
+            "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "ordinal": 1,
+            "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "雨衣",
+            "description": "深蓝色旧雨衣"
+          }
+        ],
+        "schema_version": "1.3.0",
+        "references": [
+          {
+            "reference_id": "crf_ffffffffffffffffffffffffffffffff",
+            "ordinal": 1,
+            "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+            "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "label": "服装参考"
+          }
+        ],
+        "scene_variants": [
+          {
+            "variant_id": "scv_11111111111111111111111111111111",
+            "ordinal": 1,
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "name": "雨后凌晨",
+            "view": "港口朝西",
+            "time_of_day": "凌晨",
+            "weather": "雨后",
+            "state": "地面湿润",
+            "continuity": "保留窗边灯光"
+          }
+        ],
+        "environment_references": [
+          {
+            "reference_id": "erf_11111111111111111111111111111111",
+            "ordinal": 1,
+            "scene_id": null,
+            "variant_id": null,
+            "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+            "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "label": "世界材质"
+          },
+          {
+            "reference_id": "erf_22222222222222222222222222222222",
+            "ordinal": 2,
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "variant_id": null,
+            "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+            "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "label": "码头基础"
+          },
+          {
+            "reference_id": "erf_33333333333333333333333333333333",
+            "ordinal": 3,
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "variant_id": "scv_11111111111111111111111111111111",
+            "asset_id": "asset_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "asset_version_id": "asv_cccccccccccccccccccccccccccccccc",
+            "asset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "label": "雨后状态"
+          }
+        ]
+      },
+      "content_hash": "sha256:d083a9c99d5255434ece5ff897942b3b2eb2fdba58c0af4594ef7dc0633758cc",
+      "author_actor_id": "local-user",
+      "change_summary": "保存人工创作草稿",
+      "created_at": "2026-10-11T06:00:00Z"
+    },
+    "request_id": "123e4567-e89b-42d3-a456-426614174000"
+  }
+}

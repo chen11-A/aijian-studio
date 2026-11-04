@@ -1,0 +1,79 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { normalizeNotice, NOTICE_TEXT } from "./notices";
+
+describe("structured business notices", () => {
+  it.each([
+    ["导演等待超时，正在重试。", "STALL_RETRYING"],
+    ["这一镜没有台词。时长保持导演的选择。", "VOICE_EMPTY"],
+    ["已写 18 镜，正在写表演。", "PERFORMANCE_PROGRESS"],
+    ["正在写第 2/3 场「雨夜旧书店」", "DIRECTOR_PROGRESS"],
+    ["镜头 8：正在用定妆照生成首帧。", "FIRST_FRAME_PROGRESS"],
+    ["镜头 8 首帧未完成：供应商拒绝", "FIRST_FRAME_FAILED"],
+    ["定妆照 3/12，失败 0。", "PORTRAIT_PROGRESS"],
+    ["定妆照 4/12，失败 1。", "PORTRAIT_PROGRESS"],
+    ["已导出到 C:\\Users\\User\\雨夜.mp4", "EXPORT_DONE"],
+    ["已记下人物：林晚、沈砚。", "CAST_RECORDED"],
+    ["读到 3 场。点「放入剧本」才会写入。", "IMPORT_READY"],
+    ["已取消这一次。已经发出的请求不一定能停。", "GENERATION_CANCEL_REQUESTED"],
+    ["已取消。还没开始的镜头不再生成。", "GENERATION_CANCELLED"],
+    ["已暂停。已经发出的请求不一定能停。", "GENERATION_PAUSED"],
+    ["没有生成成功，可以重试。", "GENERATION_FAILED"],
+    ["没有导出成功，可以重试。", "EXPORT_FAILED"],
+    ["编剧没有按格式返回，已停。没有写入离线剧本。点「继续」再试。", "WRITER_FAILED"],
+    ["「医院」导演没有按格式返回，已停。", "DIRECTOR_FAILED"],
+    ["已写入分镜。你改过的镜头没有被盖掉。", "SHOTS_APPLIED"],
+    ["只重做镜头 3。确认表里点开始生成才会出视频。", "GENERATION_CONFIRM_REQUIRED"],
+    ["模型列表里没有 grok-imagine-video-1.5-lite，不能先出草稿。", "DRAFT_MODEL_UNAVAILABLE"],
+    ["还没生成：镜头1、镜头2。可以只导出已生成的。", "EXPORT_INCOMPLETE"],
+    ["这个会员不能用这里的模型。", "ENTITLEMENT_DENIED"],
+    ["这一句已重配，画面没有重新生成。", "VOICE_DONE"],
+  ])("classifies %s as %s without putting dynamic values in the fallback", (message, code) => {
+    const notice = normalizeNotice(message);
+    expect(notice.code).toBe(code);
+    expect(notice.text).toBe(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]);
+    if (notice.text !== message) expect(notice.detail).toBe(message);
+  });
+
+  it("has a non-generic business code for every direct static workspace notice", () => {
+    const source = readFileSync(resolve(__dirname, "../pro/ProWorkspace.tsx"), "utf8");
+    const literals = [...source.matchAll(/setNotice\("([^"\n]*)"\)/gu)].map((match) => match[1]!);
+    expect(literals.length).toBeGreaterThan(50);
+    for (const message of literals)
+      expect(normalizeNotice(message).code, message).not.toBe("OPERATION_STATUS");
+  });
+
+  it("clears messages explicitly and does not retain old details", () => {
+    expect(normalizeNotice(" \n ")).toEqual({ code: "NOTICE_CLEAR", text: "" });
+    expect(normalizeNotice({ code: "NOTICE_CLEAR", text: "old", detail: "old" })).toEqual({
+      code: "NOTICE_CLEAR",
+      text: "",
+    });
+  });
+
+  it("keeps explicit stage codes while moving long messages into detail", () => {
+    expect(
+      normalizeNotice({ code: "STILL_FAILED", text: "镜头 12 画面失败", detail: "供应商拒绝" }),
+    ).toEqual({
+      code: "STILL_FAILED",
+      text: NOTICE_TEXT.STILL_FAILED,
+      detail: "镜头 12 画面失败\n供应商拒绝",
+    });
+    expect(normalizeNotice({ code: "CUSTOM_STAGE", text: "新阶段的详细状态" })).toEqual({
+      code: "CUSTOM_STAGE",
+      text: NOTICE_TEXT.OPERATION_STATUS,
+      detail: "新阶段的详细状态",
+    });
+  });
+
+  it("exposes the generic fallback honestly without hashing or implying success", () => {
+    expect(normalizeNotice("供应商返回了一种尚未登记的新状态")).toEqual({
+      code: "OPERATION_STATUS",
+      text: "请查看操作详情。",
+      detail: "供应商返回了一种尚未登记的新状态",
+    });
+    expect(normalizeNotice({ code: "bad code", text: "invalid" }).code).toBe("OPERATION_STATUS");
+    for (const text of Object.values(NOTICE_TEXT)) expect(text.length).toBeLessThanOrEqual(32);
+  });
+});

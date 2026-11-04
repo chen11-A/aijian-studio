@@ -68,6 +68,7 @@ ATTEMPT_STATES: tuple[AttemptState, ...] = (
     "SUBMITTING",
     "WAITING_REMOTE",
     "REMOTE_UNKNOWN",
+    "REMOTE_REVIEW_PENDING",
     "SUCCEEDED",
     "FAILED",
     "CANCEL_REQUESTED",
@@ -88,7 +89,7 @@ _NODE_TRANSITIONS: dict[NodeState, frozenset[NodeState]] = {
             "CANCEL_REQUESTED",
         }
     ),
-    "RECONCILIATION_REQUIRED": frozenset({"RUNNING", "SUCCEEDED", "FAILED"}),
+    "RECONCILIATION_REQUIRED": frozenset({"RUNNING", "NEEDS_REVIEW", "SUCCEEDED", "FAILED"}),
     "NEEDS_REVIEW": frozenset({"SUCCEEDED", "FAILED", "SUPERSEDED"}),
     "SUCCEEDED": frozenset({"SUPERSEDED"}),
     "FAILED": frozenset({"PENDING", "SUPERSEDED"}),
@@ -105,7 +106,9 @@ _ATTEMPT_TRANSITIONS: dict[AttemptState, frozenset[AttemptState]] = {
         {"WAITING_REMOTE", "REMOTE_UNKNOWN", "REMOTE_REVIEW_PENDING", "FAILED", "CANCEL_REQUESTED"}
     ),
     "WAITING_REMOTE": frozenset({"SUCCEEDED", "FAILED", "CANCEL_REQUESTED", "REMOTE_UNKNOWN"}),
-    "REMOTE_UNKNOWN": frozenset({"WAITING_REMOTE", "SUCCEEDED", "NOT_SUBMITTED"}),
+    "REMOTE_UNKNOWN": frozenset(
+        {"WAITING_REMOTE", "REMOTE_REVIEW_PENDING", "SUCCEEDED", "FAILED", "NOT_SUBMITTED"}
+    ),
     "REMOTE_REVIEW_PENDING": frozenset({"SUCCEEDED", "FAILED", "CANCEL_REQUESTED"}),
     "SUCCEEDED": frozenset(),
     "FAILED": frozenset(),
@@ -252,6 +255,17 @@ def transition_node(
     if node.state == "RECONCILIATION_REQUIRED" and target == "RUNNING":
         if not transition_evidence.reconciliation_confirmed:
             raise InvalidTaskTransitionError("manual reconciliation evidence is required")
+    if node.state == "RECONCILIATION_REQUIRED" and target == "NEEDS_REVIEW":
+        if (
+            not transition_evidence.reconciliation_confirmed
+            or not node.active_attempt_id
+            or transition_evidence.attempt_id != node.active_attempt_id
+            or not transition_evidence.provider_response_id
+            or not transition_evidence.provider_response_id.strip()
+        ):
+            raise InvalidTaskTransitionError(
+                "reconciled review requires the exact active attempt and a known provider response"
+            )
 
     active_attempt_id = node.active_attempt_id
     attempt_count = node.attempt_count
@@ -369,9 +383,20 @@ def _validate_reconciliation(
 ) -> None:
     if attempt.state != "REMOTE_UNKNOWN":
         return
-    if target in {"WAITING_REMOTE", "SUCCEEDED", "NOT_SUBMITTED"}:
+    if target in {
+        "WAITING_REMOTE",
+        "REMOTE_REVIEW_PENDING",
+        "SUCCEEDED",
+        "FAILED",
+        "NOT_SUBMITTED",
+    }:
         if not evidence.reconciliation_confirmed:
             raise InvalidTaskTransitionError("manual or authoritative reconciliation is required")
+    if target in {"REMOTE_REVIEW_PENDING", "FAILED"}:
+        if not evidence.provider_response_id or not evidence.provider_response_id.strip():
+            raise InvalidTaskTransitionError("known provider response evidence is required")
+        if evidence.retry_disposition != "NON_RETRYABLE":
+            raise InvalidTaskTransitionError("known response settlement must remain non-retryable")
 
 
 def _provider_job_id(

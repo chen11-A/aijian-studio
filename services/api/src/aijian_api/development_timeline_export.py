@@ -274,7 +274,9 @@ def _media_bindings(
         try:
             actual_size = path.stat().st_size
         except OSError:
-            raise DevelopmentTimelineExportInvalidError("timeline media input is unavailable") from None
+            raise DevelopmentTimelineExportInvalidError(
+                "timeline media input is unavailable"
+            ) from None
         if actual_size != binding.preview_byte_length:
             raise DevelopmentTimelineExportInvalidError("timeline media input size changed")
         bindings.append(
@@ -544,7 +546,9 @@ class DevelopmentTimelineExportService:
                 raise DevelopmentTimelineExportInvalidError("timeline content hash is invalid")
             # The encoder validates again because files can change after this preflight.
             bindings = _media_bindings(self._workspace_root, project_id, timeline)
-            output_directory = self._workspace_root / "exports" / "development-timeline" / project_id
+            output_directory = (
+                self._workspace_root / "exports" / "development-timeline" / project_id
+            )
             try:
                 output_directory.mkdir(parents=True, exist_ok=True)
             except OSError:
@@ -601,7 +605,12 @@ class DevelopmentTimelineExportService:
                 has_audio=generated.probe.audio is not None,
             )
             return self._response_data(self._mark_succeeded(stored, output)), False
-        except (TimelineExportError, DevelopmentTimelineExportInvalidError, OSError, ValueError) as error:
+        except (
+            TimelineExportError,
+            DevelopmentTimelineExportInvalidError,
+            OSError,
+            ValueError,
+        ) as error:
             if isinstance(error, TimelineExportError):
                 failure_code = "EXPORT_PIPELINE_UNKNOWN"
             elif isinstance(error, DevelopmentTimelineExportInvalidError):

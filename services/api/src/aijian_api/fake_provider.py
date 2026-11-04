@@ -115,7 +115,9 @@ class FakeProviderProcess:
             environment["PYTHONUTF8"] = "1"
             environment["PYTHONNOUSERSITE"] = "1"
             environment["PYTHONPATH"] = str(worker.parent.parent)
-            creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            creation_flags = 0
+            if sys.platform == "win32":
+                creation_flags = subprocess.CREATE_NO_WINDOW
             self._process = subprocess.Popen(
                 [
                     sys.executable,

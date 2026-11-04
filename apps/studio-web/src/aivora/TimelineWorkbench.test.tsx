@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { useState } from "react";
+import { Profiler, useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { MediaPages } from "./MediaPages";
@@ -35,6 +35,48 @@ function enterTimecode(value: string) {
 }
 
 describe("frame-accurate timeline controls", () => {
+  it("preserves timecode typed at first commit before deferred synchronization settles", () => {
+    const seek = vi.fn();
+    let typedDuringCommit = false;
+    render(
+      <DemoProvider fixture={createAivoraSampleFixture()}>
+        <Profiler
+          id="early-timecode-input"
+          onRender={() => {
+            const input = screen.queryByRole("textbox", { name: "当前时间码" });
+            if (typedDuringCommit || !(input instanceof HTMLInputElement)) return;
+            typedDuringCommit = true;
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+              input,
+              "00:00:00:24",
+            );
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+          }}
+        >
+          <TimelineWorkbench
+            seek={seek}
+            timeline={{
+              totalFrames: 240,
+              frame: 0,
+              frameRate: { num: 24, den: 1 },
+              timecodeMode: "NON_DROP_FRAME",
+              clipEndFrames: [240],
+            }}
+          >
+            <div />
+          </TimelineWorkbench>
+        </Profiler>
+      </DemoProvider>,
+    );
+    const input = screen.getByRole("textbox", { name: "当前时间码" });
+    expect(typedDuringCommit).toBe(true);
+    expect(input).toHaveValue("00:00:00:24");
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(seek).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(input).toHaveValue("00:00:00:00");
+  });
   it("round trips every frame in the four-minute sequence, including its end boundary", () => {
     for (let frame = 0; frame <= 5760; frame++)
       expect(parseTimecode(frameTimecode(frame), 5760)).toBe(frame);

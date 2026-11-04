@@ -1,0 +1,33 @@
+{
+  "appId": "com.aivora.studio.devcore",
+  "productName": "AIVORA",
+  "electronVersion": "43.2.0",
+  "directories": { "app": "app", "output": "installer-output" },
+  "npmRebuild": false,
+  "nodeGypRebuild": false,
+  "allowMissingDependencies": false,
+  "onNodeModuleFile": "build/include-contract-types.cjs",
+  "files": [{ "from": ".", "filter": ["**/*"] }],
+  "extraResources": [{ "from": "resources", "to": ".", "filter": ["**/*"] }],
+  "asar": true,
+  "win": {
+    "target": [{ "target": "dir", "arch": ["x64"] }],
+    "executableName": "AIVORA",
+    "signAndEditExecutable": true,
+    "signExecutable": false
+  },
+  "nsis": {
+    "include": "build/installer.nsh",
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true,
+    "shortcutName": "AIVORA",
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "displayLanguageSelector": false,
+    "artifactName": "AIVORA-Setup-${version}-win-${arch}.${ext}"
+  }
+}

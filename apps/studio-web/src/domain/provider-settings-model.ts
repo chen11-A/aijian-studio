@@ -1,4 +1,7 @@
-import type { CreateProviderConnectionInput, Sub2APIOriginMode as ContractOriginMode } from "../api/studio";
+import type {
+  CreateProviderConnectionInput,
+  Sub2APIOriginMode as ContractOriginMode,
+} from "../api/studio";
 
 export type ProviderKind = CreateProviderConnectionInput["provider_kind"];
 export type Capability = "TEXT" | "IMAGE" | "VIDEO" | "SPEECH";
@@ -11,6 +14,11 @@ export const sub2apiOriginModeWritesReady: boolean = true;
 export function isLiteralSub2APILoopbackOrigin(value: string): boolean {
   const match = /^http:\/\/(?:127\.0\.0\.1|\[::1\]):([1-9][0-9]{0,4})$/.exec(value);
   return match !== null && Number(match[1]) <= 65535;
+}
+
+/** Kinds the settings form may offer. SUB2API stays in providerPresets for historical records. */
+export function isUserFacingProviderKind(kind: string): boolean {
+  return kind !== "SUB2API";
 }
 
 export const capabilityLabels: Record<Capability, string> = {
@@ -43,8 +51,8 @@ export const providerPresets: Record<
     keyRequired: true,
   },
   SUB2API: {
-    label: "Sub2API",
-    description: "首批仅支持文本来源抽取；可选公网 HTTPS 或本机 loopback 网关，须填写业务密钥",
+    label: "文本网关",
+    description: "已停用。历史连接仍可解析，设置页不再提供新建或派发。",
     baseUrl: "",
     keyRequired: true,
   },

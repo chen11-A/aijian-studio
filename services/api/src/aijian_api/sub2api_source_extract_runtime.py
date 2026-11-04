@@ -36,9 +36,7 @@ class AuthorizedSub2APITask:
 
 
 class Sub2APIBindingSource(Protocol):
-    def next_ready(
-        self, *, exclude_task_ids: frozenset[str]
-    ) -> AuthorizedSub2APITask | None: ...
+    def next_ready(self, *, exclude_task_ids: frozenset[str]) -> AuthorizedSub2APITask | None: ...
 
 
 class Sub2APISourceExtractRuntime:
@@ -93,10 +91,10 @@ class Sub2APISourceExtractRuntime:
         deadline = monotonic() + timeout
         self._stop.set()
         if self._started:
-            self._thread.join(timeout=max(0.0, deadline - monotonic()))
+            self._thread.join(timeout=min(timeout, max(0.0, deadline - monotonic())))
             if self._thread.is_alive():
                 raise RuntimeError("Sub2API runtime did not stop in time")
-        if not self._iteration.acquire(timeout=max(0.0, deadline - monotonic())):
+        if not self._iteration.acquire(timeout=min(timeout, max(0.0, deadline - monotonic()))):
             raise RuntimeError("Sub2API operation did not stop in time")
         self._iteration.release()
 

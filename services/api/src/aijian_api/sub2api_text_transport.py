@@ -6,8 +6,8 @@ result reconciliation. Constructing this transport never probes a provider.
 
 from __future__ import annotations
 
-import http.client
 import hashlib
+import http.client
 import json
 import math
 import queue
@@ -50,13 +50,14 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
     """Connect to one vetted DNS result while verifying TLS against the URL host."""
 
     def __init__(self, hostname: str, port: int, address: str, timeout: float) -> None:
-        super().__init__(hostname, port, timeout=timeout, context=ssl.create_default_context())
+        self._tls_context = ssl.create_default_context()
+        super().__init__(hostname, port, timeout=timeout, context=self._tls_context)
         self._address = address
 
     def connect(self) -> None:
         raw_socket = socket.create_connection((self._address, self.port), self.timeout)
         try:
-            self.sock = self._context.wrap_socket(raw_socket, server_hostname=self.host)
+            self.sock = self._tls_context.wrap_socket(raw_socket, server_hostname=self.host)
         except BaseException:
             raw_socket.close()
             raise
@@ -140,7 +141,10 @@ class Sub2APITextTransport:
         self._total_timeout = float(total_timeout_seconds)
 
     def dispatch(
-        self, *, base_url: str, request: GatewayTextRequest,
+        self,
+        *,
+        base_url: str,
+        request: GatewayTextRequest,
         origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS",
     ) -> GatewayTextResult:
         """Return an explicit outcome; ambiguity after sending is never a retry signal."""
@@ -151,7 +155,9 @@ class Sub2APITextTransport:
             port = parsed.port or 443
             if hostname is None:
                 raise ValueError("Sub2API hostname is missing")
-            if not isinstance(request, GatewayTextRequest) or not isinstance(request.messages, list):
+            if not isinstance(request, GatewayTextRequest) or not isinstance(
+                request.messages, list
+            ):
                 raise ValueError("Sub2API request is invalid")
             snapshot = GatewayTextRequest(
                 model=request.model,
@@ -178,13 +184,16 @@ class Sub2APITextTransport:
                 if not local_loopback_route_clear(base_url):
                     return GatewayNotDispatched(kind="NOT_DISPATCHED", code="CONNECTION_FAILED")
                 connection: http.client.HTTPConnection = _LiteralLoopbackHTTPConnection(
-                    hostname, port,
+                    hostname,
+                    port,
                     timeout=min(self._connect_timeout, self._remaining(deadline)),
                 )
             else:
                 address = self._resolve_public_address(hostname, port, deadline)
                 connection = _PinnedHTTPSConnection(
-                    hostname, port, address,
+                    hostname,
+                    port,
+                    address,
                     timeout=min(self._connect_timeout, self._remaining(deadline)),
                 )
         except (TimeoutError, OSError, ValueError):
@@ -228,7 +237,9 @@ class Sub2APITextTransport:
                 return GatewayRemoteError(
                     kind="REMOTE_ERROR", code="REMOTE_REJECTED", status_code=response.status
                 )
-            if (response.getheader("Content-Type") or "").split(";", 1)[0].strip().lower() != "application/json":
+            if (response.getheader("Content-Type") or "").split(";", 1)[
+                0
+            ].strip().lower() != "application/json":
                 return GatewayRemoteError(
                     kind="REMOTE_ERROR", code="RESPONSE_INVALID", status_code=200
                 )
@@ -255,14 +266,20 @@ class Sub2APITextTransport:
 
     @classmethod
     def _resolve_public_address(cls, hostname: str, port: int, deadline: float) -> str:
-        results: queue.Queue[object] = queue.Queue(maxsize=1)
+        results: queue.Queue[list[str] | OSError | ValueError] = queue.Queue(maxsize=1)
 
         def resolve() -> None:
             try:
-                answer: object = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+                addresses: list[str] = []
+                for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM):
+                    address = item[4][0]
+                    if not isinstance(address, str):
+                        raise ValueError("Sub2API DNS returned an invalid address")
+                    addresses.append(address)
             except (OSError, ValueError, UnicodeError) as error:
-                answer = error
-            results.put(answer)
+                results.put(error)
+            else:
+                results.put(addresses)
 
         Thread(target=resolve, name="sub2api-dns", daemon=True).start()
         try:
@@ -271,7 +288,7 @@ class Sub2APITextTransport:
             raise TimeoutError("Sub2API DNS resolution timed out") from error
         if isinstance(answer, (OSError, ValueError, UnicodeError)):
             raise answer
-        addresses = [item[4][0] for item in answer]
+        addresses = answer
         if not addresses or any(
             not ip_address(address).is_global or ip_address(address).is_multicast
             for address in addresses

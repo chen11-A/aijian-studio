@@ -392,6 +392,20 @@ def test_default_contract_export_remains_public_and_excludes_review_secrets(
     assert all("/api/v1/internal/" not in path for path in schema["paths"])
     assert "confirmation_token" not in str(schema)
     assert "PreparedReviewActionResponse" not in schema["components"]["schemas"]
+    generated = {
+        name: (tmp_path / "packages/contracts/src" / name).read_bytes()
+        for name in (
+            "script-confirmation-impact-schema.ts",
+            "media-preparation-schema.ts",
+            "local-media-operations-schema.ts",
+            "local-media-review-schema.ts",
+        )
+    }
+    export_openapi.main()
+    assert all(
+        (tmp_path / "packages/contracts/src" / name).read_bytes() == content
+        for name, content in generated.items()
+    )
 
 
 def test_source_manifest_review_export_rejects_reachable_nested_name_collisions(

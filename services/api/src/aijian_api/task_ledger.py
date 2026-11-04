@@ -7,9 +7,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from aijian_api.agent_skill_contracts import AttemptSnapshotV1
+from aijian_api.dispatch_billing import SubscriptionAccessProbe
 from aijian_api.remote_execution_authorization import RemoteDispatchSnapshotDraft
-from aijian_api.sub2api_source_extract_store import Sub2APISourceExtractScopeDraft
 from aijian_api.repository import StudioRepository
+from aijian_api.sub2api_source_extract_store import Sub2APISourceExtractScopeDraft
 from aijian_api.task_ledger_agent_runs import mark_agent_skill_run_running
 from aijian_api.task_ledger_cancellation import (
     LocalCancellationResult,
@@ -168,6 +169,12 @@ class LocalTaskLedger:
         attempt_snapshot_kind: str,
         attempt_snapshot: Mapping[str, object],
         transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+        billing_account_kind: str | None = None,
+        billing_class: str | None = None,
+        metered_currency: str | None = None,
+        metered_amount_micro: int | None = None,
+        episode_id: str | None = None,
+        subscription_access: SubscriptionAccessProbe | None = None,
     ) -> QueuedTask:
         request = EnqueueRemoteNodeRequest(
             project_id=project_id,
@@ -190,6 +197,11 @@ class LocalTaskLedger:
             attempt_snapshot_kind=attempt_snapshot_kind,
             attempt_snapshot=attempt_snapshot,
             dispatch_snapshot=dispatch_snapshot,
+            billing_account_kind=billing_account_kind,
+            billing_class=billing_class,
+            metered_currency=metered_currency,
+            metered_amount_micro=metered_amount_micro,
+            episode_id=episode_id,
         )
         return enqueue_remote_node(
             request,
@@ -197,6 +209,7 @@ class LocalTaskLedger:
             clock=self._clock,
             id_factory=self._id_factory,
             transaction_validator=transaction_validator,
+            subscription_access=subscription_access,
         )
 
     def enqueue_sub2api_node(
@@ -225,19 +238,31 @@ class LocalTaskLedger:
         transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
     ) -> QueuedTask:
         request = EnqueueRemoteNodeRequest(
-            project_id=project_id, definition_id=definition_id,
-            definition_version=definition_version, definition_hash=definition_hash,
-            graph=graph, workflow_input_hash=workflow_input_hash,
-            node_key=node_key, node_type=node_type,
-            contract_version=contract_version, input_bindings=input_bindings,
-            node_input_hash=node_input_hash, request_fingerprint=request_fingerprint,
-            idempotency_key=idempotency_key, max_attempts=max_attempts,
-            task_kind=task_kind, priority=priority, available_at=available_at,
+            project_id=project_id,
+            definition_id=definition_id,
+            definition_version=definition_version,
+            definition_hash=definition_hash,
+            graph=graph,
+            workflow_input_hash=workflow_input_hash,
+            node_key=node_key,
+            node_type=node_type,
+            contract_version=contract_version,
+            input_bindings=input_bindings,
+            node_input_hash=node_input_hash,
+            request_fingerprint=request_fingerprint,
+            idempotency_key=idempotency_key,
+            max_attempts=max_attempts,
+            task_kind=task_kind,
+            priority=priority,
+            available_at=available_at,
             attempt_snapshot_kind=attempt_snapshot_kind,
-            attempt_snapshot=attempt_snapshot, sub2api_scope=sub2api_scope,
+            attempt_snapshot=attempt_snapshot,
+            sub2api_scope=sub2api_scope,
         )
         return enqueue_sub2api_node(
-            request, connection_factory=self._open, clock=self._clock,
+            request,
+            connection_factory=self._open,
+            clock=self._clock,
             id_factory=self._id_factory,
             transaction_validator=transaction_validator,
         )

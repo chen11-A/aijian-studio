@@ -1,11 +1,14 @@
 import { Button, Tabs } from "./Common";
 import { Logo } from "./Icon";
 import { pages } from "./data";
-import { shotAtTime } from "./model";
+import { ManualCreativeInspector } from "./ManualCreativeEditor";
+import { ProductionInspector } from "./ProductionInspector";
+import { shotAtTime, useDemo } from "./model";
 import { mediaTimecode } from "./MediaPages";
 import { useCurrentObject } from "./useCurrentObject";
 import "./v2-inspector.css";
 
+import { Select } from "./Select";
 type Spec = {
   key: string;
   label: string;
@@ -28,6 +31,14 @@ const spec = (key: string, label: string, fallback: string, options?: string[]):
 });
 
 export function Inspector() {
+  const d = useDemo();
+  if (!d.isFixture && ["characters", "character", "world", "scenes"].includes(d.page))
+    return <ManualCreativeInspector />;
+  if (!d.isFixture) return <ProductionInspector />;
+  return <CurrentObjectInspector />;
+}
+
+function CurrentObjectInspector() {
   const o = useCurrentObject();
   const { d, shot, person, family, field, putField } = o;
   const tabs =
@@ -435,7 +446,7 @@ export function Inspector() {
         {family === "shot" && actualTab === "参考" && (
           <label>
             关联角色
-            <select
+            <Select
               value={o.character.id}
               onChange={(event) => putField("characterId", event.target.value)}
             >
@@ -444,21 +455,21 @@ export function Inspector() {
                   {item.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {fields.map((item) => (
           <label key={item.key}>
             {item.label}
             {item.options ? (
-              <select
+              <Select
                 value={field(item.key, item.fallback)}
                 onChange={(event) => putField(item.key, event.target.value)}
               >
                 {item.options.map((value) => (
                   <option key={value}>{value}</option>
                 ))}
-              </select>
+              </Select>
             ) : item.multiline ? (
               <textarea
                 value={field(item.key, item.fallback)}
@@ -517,7 +528,7 @@ export function Inspector() {
         )}
       </div>
       <div className="v2-inspector-reference">
-        <small>本次演示内保存 · 切换模式保留</small>
+        <small>只保存在这次演示里</small>
         <Button
           icon="link"
           onClick={() => {
@@ -535,7 +546,7 @@ export function Inspector() {
       <header>
         <Logo />
         <div>
-          <h2>Inspector</h2>
+          <h2>属性</h2>
           <p>当前对象 · 演示属性</p>
         </div>
       </header>

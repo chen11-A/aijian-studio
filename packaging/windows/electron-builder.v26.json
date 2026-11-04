@@ -14,9 +14,7 @@
   "npmRebuild": false,
   "nodeGypRebuild": false,
   "allowMissingDependencies": false,
-  "files": [
-    "**/*"
-  ],
+  "files": ["**/*"],
   "extraResources": [
     {
       "from": "resources",

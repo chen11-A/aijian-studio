@@ -1,0 +1,1151 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 2,
+  "role": "review",
+  "name": "审片",
+  "version": 2,
+  "summary": "把同一个镜头的几个版本并排对比：查人物、动作、坏画面和前后连贯，推荐一版，最后由用户选。",
+  "pipeline": {
+    "step": 8,
+    "reads_from": ["director", "continuity"],
+    "feeds": ["导出前检查"]
+  },
+  "batching": "一次发几个镜头的全部版本，抽帧图加起来不超过 14 张。",
+  "attach_images": true,
+  "app_parsers": ["qcFromModel 读顶层 verdict 和 issues（字符串数组）。"],
+  "system_prompt": [
+    "你是 AIVORA 的审片。同一个镜头会生成几个版本，你要并排对比，帮用户挑一个。最后用哪一版由用户决定，你只给建议。",
+    "- 输入给了每个镜头要拍成什么（intent）、每个版本的抽帧图和软件自动检查的结果。抽帧图用 <IMAGE_n> 指代，和请求里附带的图片按顺序一一对应，一次最多 14 张。",
+    "- 输入里有几个镜头、几个版本，就全部输出，顺序不变。",
+    "- 自动检查列出的每一段黑屏和静帧都要各写一条 issue：kind 写 黑屏 或 静帧，source 写 自动检查，时间照抄。",
+    "- 看画面检查四项，每项写 过、不过 或 没看到：identity（人物像不像定妆照）、action（动作和描述对不对，人物有没有看镜头）、artifacts（多手指、脸变形、东西穿过身体、不写实）、continuity（和前后镜头接不接得上，对照 must_keep）。看画面发现的问题 source 写 看画面，写清从第几秒到第几秒、看到了什么。",
+    "- 没有附帧图的版本：seen_frames 写 false，四项都写 没看到，写一条 kind 为 没看到画面、source 为 没有帧图 的 issue，verdict 写 建议重做。不要猜画面。",
+    "- verdict：四项里有一项 不过，写 必须重做。四项都过，只有开头或结尾一小段问题、剪掉后动作和台词还完整，写 可用。四项都过，但黑屏或静帧剪不掉，或者没看到画面，写 建议重做。",
+    "- 某一项写了 不过，至少要有一条看画面的 issue 说明原因。时间用这个版本自己的秒数。",
+    "- recommend 写最推荐的版本和一句理由（要剪掉哪段也写进去）；全部必须重做时 take_id 写 null。next_try：推荐的版本要剪、或者全部不能用时，写下次怎么改提示词、哪些要保留；可以直接用时写 null。",
+    "- 顶层 verdict 用一句话总结这一批；顶层 issues 给每个不能直接用的版本写一句「第几场第几个镜头 X 版：问题，结论」。",
+    "- 不打分，不评价好不好看，只说看得见的问题。",
+    "输出格式：",
+    "{\"verdict\":\"\",\"issues\":[\"\"],\"shots\":[{\"shot_id\":\"scene-1-shot-1\",\"takes\":[{\"take_id\":\"scene-1-shot-1-take-1\",\"seen_frames\":true,\"checks\":{\"identity\":\"过\",\"action\":\"过\",\"artifacts\":\"过\",\"continuity\":\"过\"},\"verdict\":\"可用\",\"issues\":[{\"kind\":\"\",\"source\":\"\",\"start_seconds\":0,\"end_seconds\":0,\"note\":\"\"}]}],\"recommend\":{\"take_id\":null,\"reason\":\"\"},\"next_try\":{\"prompt_change\":\"\",\"keep\":\"\"}}]}",
+    "- checks 每项写 过、不过、没看到；issue 的 kind 写 黑屏、静帧、人物不像、动作不对、坏画面、接不上、没看到画面；verdict 写 可用、建议重做 或 必须重做。",
+    "输出规则：",
+    "- 只输出一个 JSON 对象：第一个字符是 {，最后一个是 }。不要代码块、注释和说明文字，不写思考过程。",
+    "- 照上面的格式写，字段不能少也不能多；没有内容写 \"\"、null 或 []。",
+    "- 输入有几场、几个镜头，就一次全部写完，顺序不变。",
+    "- id 和人物名字照抄输入，不新造；字符串里不用英文双引号，要引号用「」。"
+  ],
+  "input_format": {
+    "notes": [
+      "每个版本的 frames 列出它的抽帧图：image 是请求里附带图片的编号，at_seconds 是这一帧在版本里的时间。",
+      "auto_checks 是软件自动查出的黑屏和静帧，时间是这个版本自己的秒数。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "审片输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "attached_images", "shots"],
+      "properties": {
+        "task": {
+          "const": "review_takes"
+        },
+        "attached_images": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 14
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["shot_id", "intent", "takes"],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+              },
+              "intent": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "size",
+                  "seconds",
+                  "picture",
+                  "action",
+                  "characters",
+                  "line",
+                  "must_keep"
+                ],
+                "properties": {
+                  "size": {
+                    "enum": ["大远景", "远景", "全景", "中景", "近景", "特写", "大特写"]
+                  },
+                  "seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 15
+                  },
+                  "picture": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 160
+                  },
+                  "action": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 160
+                  },
+                  "characters": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "minItems": 0,
+                    "maxItems": 6,
+                    "uniqueItems": true
+                  },
+                  "line": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "must_keep": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 30
+                    },
+                    "minItems": 0,
+                    "maxItems": 5
+                  }
+                }
+              },
+              "takes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["take_id", "label", "seconds", "frames", "auto_checks"],
+                  "properties": {
+                    "take_id": {
+                      "type": "string",
+                      "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*-take-[1-9]$"
+                    },
+                    "label": {
+                      "enum": ["A", "B", "C", "D"]
+                    },
+                    "seconds": {
+                      "type": "number",
+                      "minimum": 0.5,
+                      "maximum": 15
+                    },
+                    "frames": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["image", "at_seconds"],
+                        "properties": {
+                          "image": {
+                            "type": "string",
+                            "pattern": "^<IMAGE_([1-9]|1[0-4])>$"
+                          },
+                          "at_seconds": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 15
+                          }
+                        }
+                      },
+                      "minItems": 0,
+                      "maxItems": 4
+                    },
+                    "auto_checks": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["black", "frozen"],
+                      "properties": {
+                        "black": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["start_seconds", "end_seconds"],
+                            "properties": {
+                              "start_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              },
+                              "end_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              }
+                            }
+                          },
+                          "minItems": 0,
+                          "maxItems": 5
+                        },
+                        "frozen": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["start_seconds", "end_seconds"],
+                            "properties": {
+                              "start_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              },
+                              "end_seconds": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 15
+                              }
+                            }
+                          },
+                          "minItems": 0,
+                          "maxItems": 5
+                        }
+                      }
+                    }
+                  }
+                },
+                "minItems": 2,
+                "maxItems": 4
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 7
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "shots 里是每个版本的结论，07-takes 页面按它显示；顶层 verdict 和 issues 给软件现在的审片卡片用。",
+      "recommend 只是建议，用哪一版由用户在页面上选。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "审片输出",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "issues", "shots"],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 80
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 80
+          },
+          "minItems": 0,
+          "maxItems": 20
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["shot_id", "takes", "recommend", "next_try"],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+              },
+              "takes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["take_id", "seen_frames", "checks", "verdict", "issues"],
+                  "properties": {
+                    "take_id": {
+                      "type": "string",
+                      "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*-take-[1-9]$"
+                    },
+                    "seen_frames": {
+                      "type": "boolean"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["identity", "action", "artifacts", "continuity"],
+                      "properties": {
+                        "identity": {
+                          "enum": ["过", "不过", "没看到"]
+                        },
+                        "action": {
+                          "enum": ["过", "不过", "没看到"]
+                        },
+                        "artifacts": {
+                          "enum": ["过", "不过", "没看到"]
+                        },
+                        "continuity": {
+                          "enum": ["过", "不过", "没看到"]
+                        }
+                      }
+                    },
+                    "verdict": {
+                      "enum": ["可用", "建议重做", "必须重做"]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["kind", "source", "start_seconds", "end_seconds", "note"],
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "黑屏",
+                              "静帧",
+                              "人物不像",
+                              "动作不对",
+                              "坏画面",
+                              "接不上",
+                              "没看到画面"
+                            ]
+                          },
+                          "source": {
+                            "enum": ["自动检查", "看画面", "没有帧图"]
+                          },
+                          "start_seconds": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 15
+                          },
+                          "end_seconds": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 15
+                          },
+                          "note": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 40
+                          }
+                        }
+                      },
+                      "minItems": 0,
+                      "maxItems": 8
+                    }
+                  }
+                },
+                "minItems": 2,
+                "maxItems": 4
+              },
+              "recommend": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["take_id", "reason"],
+                "properties": {
+                  "take_id": {
+                    "type": ["string", "null"],
+                    "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*-take-[1-9]$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 60
+                  }
+                }
+              },
+              "next_try": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["prompt_change", "keep"],
+                "properties": {
+                  "prompt_change": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 80
+                  },
+                  "keep": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 40
+                  }
+                }
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 7
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "review-1",
+      "title": "第一场：沈砚还钱的长镜头和林晚说下个月就没了，一版没附帧图",
+      "input": {
+        "task": "review_takes",
+        "attached_images": 8,
+        "shots": [
+          {
+            "shot_id": "scene-1-shot-12",
+            "intent": {
+              "size": "近景",
+              "seconds": 14,
+              "picture": "沈砚站在收银台前，手里拿着一个油纸包着的信封。",
+              "action": "沈砚沉默几秒，把油纸信封放在收银台上，然后开口。",
+              "characters": ["沈砚"],
+              "line": "我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。",
+              "must_keep": ["沈砚在画右", "信封放在收银台上", "左手虎口有旧疤"]
+            },
+            "takes": [
+              {
+                "take_id": "scene-1-shot-12-take-1",
+                "label": "A",
+                "seconds": 14,
+                "frames": [
+                  {
+                    "image": "<IMAGE_1>",
+                    "at_seconds": 2
+                  },
+                  {
+                    "image": "<IMAGE_2>",
+                    "at_seconds": 9
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-1-shot-12-take-2",
+                "label": "B",
+                "seconds": 14,
+                "frames": [
+                  {
+                    "image": "<IMAGE_3>",
+                    "at_seconds": 2
+                  },
+                  {
+                    "image": "<IMAGE_4>",
+                    "at_seconds": 9
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-16",
+            "intent": {
+              "size": "近景",
+              "seconds": 6,
+              "picture": "林晚低着头，假装整理收银台上的发票，眼眶发红。",
+              "action": "林晚抿了抿嘴唇，低头整理发票，声音发紧地开口。",
+              "characters": ["林晚"],
+              "line": "你来晚了。这家店，下个月就没了。",
+              "must_keep": ["林晚低头整理发票", "眼眶发红"]
+            },
+            "takes": [
+              {
+                "take_id": "scene-1-shot-16-take-1",
+                "label": "A",
+                "seconds": 6,
+                "frames": [
+                  {
+                    "image": "<IMAGE_5>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_6>",
+                    "at_seconds": 4
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": [
+                    {
+                      "start_seconds": 4.6,
+                      "end_seconds": 6
+                    }
+                  ]
+                }
+              },
+              {
+                "take_id": "scene-1-shot-16-take-2",
+                "label": "B",
+                "seconds": 6,
+                "frames": [
+                  {
+                    "image": "<IMAGE_7>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_8>",
+                    "at_seconds": 4
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-1-shot-16-take-3",
+                "label": "C",
+                "seconds": 6,
+                "frames": [],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "verdict": "两个镜头都有能用的版本：第 1 场第 12 个镜头用 A 版，第 1 场第 16 个镜头用 A 版，剪掉结尾的静帧。",
+        "issues": [
+          "第 1 场第 12 个镜头 B 版：6 秒以后沈砚的脸变了，必须重做。",
+          "第 1 场第 16 个镜头 B 版：林晚的右手有六根手指，必须重做。",
+          "第 1 场第 16 个镜头 C 版：没有附抽帧图，没看到画面，建议重做。"
+        ],
+        "shots": [
+          {
+            "shot_id": "scene-1-shot-12",
+            "takes": [
+              {
+                "take_id": "scene-1-shot-12-take-1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "scene-1-shot-12-take-2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "不过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "人物不像",
+                    "source": "看画面",
+                    "start_seconds": 6,
+                    "end_seconds": 14,
+                    "note": "6 秒以后脸变圆了，眉骨不高"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "scene-1-shot-12-take-1",
+              "reason": "A 从头到尾都像定妆照，放信封的手是有疤的左手。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "scene-1-shot-16",
+            "takes": [
+              {
+                "take_id": "scene-1-shot-16-take-1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": [
+                  {
+                    "kind": "静帧",
+                    "source": "自动检查",
+                    "start_seconds": 4.6,
+                    "end_seconds": 6,
+                    "note": "台词说完以后画面停住 1.4 秒"
+                  }
+                ]
+              },
+              {
+                "take_id": "scene-1-shot-16-take-2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "不过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "坏画面",
+                    "source": "看画面",
+                    "start_seconds": 0.8,
+                    "end_seconds": 3,
+                    "note": "整理发票的右手有六根手指"
+                  }
+                ]
+              },
+              {
+                "take_id": "scene-1-shot-16-take-3",
+                "seen_frames": false,
+                "checks": {
+                  "identity": "没看到",
+                  "action": "没看到",
+                  "artifacts": "没看到",
+                  "continuity": "没看到"
+                },
+                "verdict": "建议重做",
+                "issues": [
+                  {
+                    "kind": "没看到画面",
+                    "source": "没有帧图",
+                    "start_seconds": 0,
+                    "end_seconds": 6,
+                    "note": "这一版没有附抽帧图，没法判断"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "scene-1-shot-16-take-1",
+              "reason": "A 剪到 4.6 秒，台词和眼眶发红都完整。"
+            },
+            "next_try": {
+              "prompt_change": "提示词不用改，导出前把 A 版剪到 4.6 秒。",
+              "keep": "保留 A 版低头的节奏"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "review-2",
+      "title": "第二场：铁棍砸空和刀划小臂，一版铁棍穿过身体、一版伤错了手",
+      "input": {
+        "task": "review_takes",
+        "attached_images": 10,
+        "shots": [
+          {
+            "shot_id": "scene-2-shot-17",
+            "intent": {
+              "size": "中景",
+              "seconds": 3,
+              "picture": "仓库的木箱旁，周烈高举铁棍，沈砚站在他对面。",
+              "action": "画右的周烈猛地挥棍砸向画左，画左的沈砚侧身一让，铁棍擦着耳边落下，砸在木箱上，木屑四溅。",
+              "characters": ["周烈", "沈砚"],
+              "line": "",
+              "must_keep": ["铁棍从画右砸向画左", "砸在木箱上", "沈砚侧身躲开"]
+            },
+            "takes": [
+              {
+                "take_id": "scene-2-shot-17-take-1",
+                "label": "A",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_1>",
+                    "at_seconds": 0.4
+                  },
+                  {
+                    "image": "<IMAGE_2>",
+                    "at_seconds": 1
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-2-shot-17-take-2",
+                "label": "B",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_3>",
+                    "at_seconds": 0.4
+                  },
+                  {
+                    "image": "<IMAGE_4>",
+                    "at_seconds": 1
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-2-shot-17-take-3",
+                "label": "C",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_5>",
+                    "at_seconds": 0.6
+                  },
+                  {
+                    "image": "<IMAGE_6>",
+                    "at_seconds": 1.2
+                  }
+                ],
+                "auto_checks": {
+                  "black": [
+                    {
+                      "start_seconds": 0,
+                      "end_seconds": 0.4
+                    }
+                  ],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-22",
+            "intent": {
+              "size": "特写",
+              "seconds": 3,
+              "picture": "特写：画左一条卷起袖子的左小臂抬起来挡在身前，画右一只手握着折叠刀。",
+              "action": "画右的刀从右往左划过，画左抬起的左小臂去挡，刀锋划过小臂，渗出一道血。不拍伤口特写。",
+              "characters": ["沈砚", "打手乙"],
+              "line": "",
+              "must_keep": ["划伤的是左小臂", "刀在打手乙手里", "不拍伤口特写"]
+            },
+            "takes": [
+              {
+                "take_id": "scene-2-shot-22-take-1",
+                "label": "A",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_7>",
+                    "at_seconds": 0.4
+                  },
+                  {
+                    "image": "<IMAGE_8>",
+                    "at_seconds": 1.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-2-shot-22-take-2",
+                "label": "B",
+                "seconds": 3,
+                "frames": [
+                  {
+                    "image": "<IMAGE_9>",
+                    "at_seconds": 0.4
+                  },
+                  {
+                    "image": "<IMAGE_10>",
+                    "at_seconds": 1.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "verdict": "两个镜头都有能用的版本：第 2 场第 17 个镜头用 B 版，第 2 场第 22 个镜头用 B 版。",
+        "issues": [
+          "第 2 场第 17 个镜头 A 版：铁棍从沈砚身上穿过去，必须重做。",
+          "第 2 场第 17 个镜头 C 版：开头 0.4 秒黑屏，剪掉会少了挥棍的起势，建议重做。",
+          "第 2 场第 22 个镜头 A 版：划伤的是右小臂，和后面的纱布对不上，必须重做。"
+        ],
+        "shots": [
+          {
+            "shot_id": "scene-2-shot-17",
+            "takes": [
+              {
+                "take_id": "scene-2-shot-17-take-1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "不过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "坏画面",
+                    "source": "看画面",
+                    "start_seconds": 0.5,
+                    "end_seconds": 1.1,
+                    "note": "铁棍从沈砚的肩膀穿了过去"
+                  }
+                ]
+              },
+              {
+                "take_id": "scene-2-shot-17-take-2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "scene-2-shot-17-take-3",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "建议重做",
+                "issues": [
+                  {
+                    "kind": "黑屏",
+                    "source": "自动检查",
+                    "start_seconds": 0,
+                    "end_seconds": 0.4,
+                    "note": "开头 0.4 秒黑屏，剪掉会少了挥棍的起势"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "scene-2-shot-17-take-2",
+              "reason": "B 砸空干净，木屑清楚，方向是从画右到画左。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "scene-2-shot-22",
+            "takes": [
+              {
+                "take_id": "scene-2-shot-22-take-1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "不过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "接不上",
+                    "source": "看画面",
+                    "start_seconds": 0.4,
+                    "end_seconds": 3,
+                    "note": "挡刀的是右小臂，伤也在右边"
+                  }
+                ]
+              },
+              {
+                "take_id": "scene-2-shot-22-take-2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              }
+            ],
+            "recommend": {
+              "take_id": "scene-2-shot-22-take-2",
+              "reason": "B 挡刀的是左小臂，只看到袖口渗血，和第三场的纱布接得上。"
+            },
+            "next_try": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "review-3",
+      "title": "第三场：林晚掉眼泪和阿婆送豆浆，一版看了镜头、一版没披风衣",
+      "input": {
+        "task": "review_takes",
+        "attached_images": 10,
+        "shots": [
+          {
+            "shot_id": "scene-3-shot-7",
+            "intent": {
+              "size": "近景",
+              "seconds": 5,
+              "picture": "林晚怔住了，眼眶慢慢红了。",
+              "action": "林晚怔住，嘴角动了动想笑，眼泪却先掉了下来。",
+              "characters": ["林晚"],
+              "line": "",
+              "must_keep": ["林晚看着画右的沈砚", "眼泪先掉下来"]
+            },
+            "takes": [
+              {
+                "take_id": "scene-3-shot-7-take-1",
+                "label": "A",
+                "seconds": 5,
+                "frames": [
+                  {
+                    "image": "<IMAGE_1>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_2>",
+                    "at_seconds": 4
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-3-shot-7-take-2",
+                "label": "B",
+                "seconds": 5,
+                "frames": [
+                  {
+                    "image": "<IMAGE_3>",
+                    "at_seconds": 1
+                  },
+                  {
+                    "image": "<IMAGE_4>",
+                    "at_seconds": 4
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-20",
+            "intent": {
+              "size": "中景",
+              "seconds": 4,
+              "picture": "书店门口，阿婆端着两碗热豆浆探进头来，林晚站在门边，沈砚在后面。",
+              "action": "阿婆把两碗热豆浆递给林晚，笑着说了一句；画右的沈砚停下手看过来。",
+              "characters": ["阿婆", "林晚", "沈砚"],
+              "line": "灯还亮着，就好。",
+              "must_keep": ["林晚披着黑风衣", "阿婆端着两碗豆浆", "沈砚在画右后景"]
+            },
+            "takes": [
+              {
+                "take_id": "scene-3-shot-20-take-1",
+                "label": "A",
+                "seconds": 4,
+                "frames": [
+                  {
+                    "image": "<IMAGE_5>",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "image": "<IMAGE_6>",
+                    "at_seconds": 2.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-3-shot-20-take-2",
+                "label": "B",
+                "seconds": 4,
+                "frames": [
+                  {
+                    "image": "<IMAGE_7>",
+                    "at_seconds": 0.5
+                  },
+                  {
+                    "image": "<IMAGE_8>",
+                    "at_seconds": 2.5
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": []
+                }
+              },
+              {
+                "take_id": "scene-3-shot-20-take-3",
+                "label": "C",
+                "seconds": 4,
+                "frames": [
+                  {
+                    "image": "<IMAGE_9>",
+                    "at_seconds": 1.5
+                  },
+                  {
+                    "image": "<IMAGE_10>",
+                    "at_seconds": 3
+                  }
+                ],
+                "auto_checks": {
+                  "black": [],
+                  "frozen": [
+                    {
+                      "start_seconds": 0,
+                      "end_seconds": 1.2
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "verdict": "第 3 场第 7 个镜头用 A 版；第 3 场第 20 个镜头用 A 版。",
+        "issues": [
+          "第 3 场第 7 个镜头 B 版：林晚抬眼看了镜头，必须重做。",
+          "第 3 场第 20 个镜头 B 版：林晚身上没有披风衣，必须重做。",
+          "第 3 场第 20 个镜头 C 版：开头 1.2 秒静帧，剪掉会少了递豆浆的动作，建议重做。"
+        ],
+        "shots": [
+          {
+            "shot_id": "scene-3-shot-7",
+            "takes": [
+              {
+                "take_id": "scene-3-shot-7-take-1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "scene-3-shot-7-take-2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "不过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "动作不对",
+                    "source": "看画面",
+                    "start_seconds": 2.5,
+                    "end_seconds": 4,
+                    "note": "林晚抬眼直接看着镜头"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "scene-3-shot-7-take-1",
+              "reason": "A 想笑又掉泪的变化完整，视线一直在画右。"
+            },
+            "next_try": null
+          },
+          {
+            "shot_id": "scene-3-shot-20",
+            "takes": [
+              {
+                "take_id": "scene-3-shot-20-take-1",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "可用",
+                "issues": []
+              },
+              {
+                "take_id": "scene-3-shot-20-take-2",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "不过"
+                },
+                "verdict": "必须重做",
+                "issues": [
+                  {
+                    "kind": "接不上",
+                    "source": "看画面",
+                    "start_seconds": 0,
+                    "end_seconds": 4,
+                    "note": "林晚身上没有披风衣"
+                  }
+                ]
+              },
+              {
+                "take_id": "scene-3-shot-20-take-3",
+                "seen_frames": true,
+                "checks": {
+                  "identity": "过",
+                  "action": "过",
+                  "artifacts": "过",
+                  "continuity": "过"
+                },
+                "verdict": "建议重做",
+                "issues": [
+                  {
+                    "kind": "静帧",
+                    "source": "自动检查",
+                    "start_seconds": 0,
+                    "end_seconds": 1.2,
+                    "note": "开头 1.2 秒静帧，剪掉会少了递豆浆的动作"
+                  }
+                ]
+              }
+            ],
+            "recommend": {
+              "take_id": "scene-3-shot-20-take-1",
+              "reason": "A 递豆浆和台词都完整，林晚披着风衣。"
+            },
+            "next_try": null
+          }
+        ]
+      }
+    }
+  ]
+}

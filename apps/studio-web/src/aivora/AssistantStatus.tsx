@@ -1,0 +1,141 @@
+import type { ProviderSettingsState } from "../domain/use-provider-settings";
+import { pages } from "./data";
+import { useDemo } from "./model";
+import { Button } from "./Common";
+import { selectProductionSourceStage } from "./adapters/productionSourceStage";
+import {
+  assessChatGPTConnection,
+  readinessLabels,
+  type ConnectionReadiness,
+} from "../domain/ai-capability-readiness";
+import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
+
+export function assistantServiceLabel(
+  state: ProviderSettingsState,
+  official?: ConnectionReadiness,
+  grokConnected = false,
+): string {
+  if (grokConnected) return "Grok 已连接";
+  const api =
+    state.kind === "loading"
+      ? "正在读取密钥连接"
+      : state.kind === "error"
+        ? "密钥连接读取失败"
+        : state.response.data.length
+          ? `已配置 ${state.response.data.length} 个 · 能力未验证`
+          : "没有密钥连接";
+  if (!official) return api;
+  const account =
+    official === "AUTHORIZED_UNVERIFIED"
+      ? "ChatGPT 已连接 · 推理待验证"
+      : `ChatGPT：${readinessLabels[official]}`;
+  return `${account}；${api}`;
+}
+
+export function AssistantServiceStatus() {
+  const d = useDemo();
+  const account = useOfficialConnection();
+  const state = d.providerSettings.state;
+  const connections = state.kind === "ready" ? state.response.data : [];
+  const candidates = connections.filter(
+    (item) =>
+      ["SUB2API", "CPA_LOOPBACK"].includes(item.provider_kind) &&
+      item.enabled &&
+      item.credential_status === "CONFIGURED" &&
+      item.models.some((model) => model.capabilities.includes("TEXT")),
+  );
+  return (
+    <section className="v2-ai-detail" aria-label="真实服务配置">
+      <h3>服务配置</h3>
+      {account && (
+        <p>ChatGPT 官方账号：{readinessLabels[assessChatGPTConnection(account.connection)]}</p>
+      )}
+      {state.kind === "loading" && <p role="status">正在读取本地连接目录…</p>}
+      {state.kind === "error" && <p role="alert">无法读取连接目录，请重新读取或检查 AI 服务页。</p>}
+      {state.kind === "ready" && (
+        <>
+          <p>
+            已配置 {connections.length} 个连接，{connections.filter((item) => item.enabled).length}{" "}
+            个已启用。
+          </p>
+          <p>
+            已登记的来源提取文本候选：{candidates.length}{" "}
+            个。配置记录不证明供应商可连接、模型可用或有授权额度。
+          </p>
+          <p>调用准备：请在 AI 服务页核对本地配置；供应商连通性与模型能力尚未在此验证。</p>
+          {!!connections.length && (
+            <details>
+              <summary>查看连接与文本配置</summary>
+              {connections.map((connection) => (
+                <p key={connection.id}>
+                  <strong>{connection.display_name}</strong> ·{" "}
+                  {connection.enabled ? "已启用" : "已停用"}
+                  <br />
+                  {connection.credential_status === "CONFIGURED"
+                    ? "凭据已配置"
+                    : connection.credential_status === "UNAVAILABLE"
+                      ? "凭据库不可用"
+                      : "无已配置凭据"}
+                  {` · ${connection.models.filter((model) => model.capabilities.includes("TEXT")).length} 个文本模型`}
+                </p>
+              ))}
+            </details>
+          )}
+        </>
+      )}
+      <Button onClick={() => d.go("services")}>打开 AI 服务设置</Button>
+      <Button disabled={state.kind === "loading"} onClick={() => void d.providerSettings.load()}>
+        重新读取服务配置
+      </Button>
+    </section>
+  );
+}
+
+export function AssistantContext() {
+  const d = useDemo();
+  const project = d.projects.find((item) => item.backendId === d.backendProjectId);
+  const episode = d.episodes.find(
+    (item) => item.id === d.selectedEpisodeId && item.project_id === d.backendProjectId,
+  );
+  const source =
+    d.sourceDocument?.data.project_id === d.backendProjectId ? d.sourceDocument.data : null;
+  const manifest =
+    d.sourceManifest?.data.project_id === d.backendProjectId ? d.sourceManifest.data : null;
+  const sourceStatus = selectProductionSourceStage(d.sourceStage);
+  return (
+    <section className="v2-ai-detail">
+      <h3>当前创作上下文</h3>
+      <dl>
+        <dt>作品</dt>
+        <dd>{project?.name ?? "尚未选择真实作品"}</dd>
+        <dt>剧集</dt>
+        <dd>{episode?.title ?? "尚未选择真实剧集"}</dd>
+        <dt>页面</dt>
+        <dd>
+          {!d.professional && d.page === "project"
+            ? (["故事", "画面", "声音", "成片"] as const)[Math.min(3, Math.max(0, d.filmStep))]
+            : pages[d.page][0]}
+        </dd>
+        <dt>来源文档</dt>
+        <dd>{source?.filename ?? "尚未读取来源"}</dd>
+        <dt>来源状态</dt>
+        <dd>{d.backendProjectId ? sourceStatus.status : "未选择作品"}</dd>
+        {manifest && (
+          <>
+            <dt>最新来源</dt>
+            <dd>已读取</dd>
+            <dt>已接受来源</dt>
+            <dd>{manifest.accepted_version ? "已接受" : "尚未接受"}</dd>
+          </>
+        )}
+      </dl>
+      {sourceStatus.baselineNote && d.backendProjectId && <p>{sourceStatus.baselineNote}</p>}
+      <p>
+        助手可引用当前已保存的选中内容；发送前需预览确认。未保存内容、整部作品与附件不会自动发送。
+      </p>
+      <Button disabled={!d.backendProjectId} onClick={() => d.go("project")}>
+        返回当前作品
+      </Button>
+    </section>
+  );
+}

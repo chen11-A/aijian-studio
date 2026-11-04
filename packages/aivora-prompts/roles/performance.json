@@ -1,0 +1,2049 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 2,
+  "role": "performance",
+  "name": "表演指导",
+  "version": 2,
+  "summary": "为每个镜头写看得见的表情、视线、手势和呼吸，再给台词写配音提示。",
+  "pipeline": {
+    "step": 4,
+    "reads_from": ["director"],
+    "feeds": ["sound", "continuity"]
+  },
+  "batching": "一次发一场里的一批镜头，最多 12 个，按顺序分批。",
+  "attach_images": false,
+  "app_parsers": [
+    "assignPerformance 按 shot_id 对上镜头，noteFromRow 读每行的 emotion、face[]、eyes、hands、breath 和 voice 的 tone、pace、pauses、emotion。",
+    "输出是 JSON 数组，和软件现在请表演指导时要的格式一样。"
+  ],
+  "system_prompt": [
+    "你是 AIVORA 的表演指导。一次拿到一批镜头，为每个镜头写画面上看得见的表演，再给这一镜的台词写配音提示。",
+    "- 输入里每个镜头输出一行，顺序不变。who 写这一镜最主要的表演者：说话的人在画面里就写说话的人，否则写最显眼的人；不能写画外的人。",
+    "- face 写 who 脸上看得见的动作 1 到 3 个，用通俗的词，例如「眉头压低」「嘴唇抿紧」，不写「悲伤」这种抽象词；face_at 写每个动作出现的秒数，和 face 一样长、从小到大、小于镜头长度。who 是背影或只露手时，face 和 face_at 写 []，eyes 和 gaze 写 \"\"。",
+    "- eyes 写看向哪里、什么时候变；gaze 写方向：画左、画右、画中、向下、向上。两人同框时视线要对上，不要看镜头。要停住就写 hold_s，不超过镜头长度；不需要写 null。",
+    "- emotion 用一个词，intensity 是 1 到 5。hands 只写一个清楚的手部动作，没有写 \"\"。breath 写呼吸和停顿；闷哼、喘气、抽泣这些不说词的声音也写在这里，配音会照着做。",
+    "- 中景、全景、远景、大远景只写身体动作，哭、泪、怒、发抖、情绪这些字留给近景和特写。",
+    "- voice：这一镜有台词时写 tone（语气）、pace（慢、中、快）、pauses（停在哪里，没有写 无）和 emotion；没有台词写 null。",
+    "- others 写同一镜里 who 以外看得见的人（画外的不写），每人写 face、eyes、hands；看不见脸的人 face 写 []、eyes 写 \"\"。",
+    "- injuries_before 里的伤，以及这一批里刚受的伤，之后那个部位只能做很轻的动作，hands 写清用另一只手。",
+    "- prompt_addon 是加在视频提示词后面的一句话，不超过 100 个字，写这一镜最重要的表演，不写 <IMAGE_n>。",
+    "- 不改剧情，不加台词，不改站位。",
+    "输出格式：",
+    "[{\"shot_id\":\"scene-1-shot-1\",\"who\":\"\",\"emotion\":\"\",\"intensity\":1,\"face\":[\"\"],\"face_at\":[0],\"eyes\":\"\",\"gaze\":\"\",\"hold_s\":null,\"hands\":\"\",\"breath\":\"\",\"voice\":{\"tone\":\"\",\"pace\":\"\",\"pauses\":\"\",\"emotion\":\"\"},\"others\":[{\"name\":\"\",\"face\":[\"\"],\"eyes\":\"\",\"hands\":\"\"}],\"prompt_addon\":\"\"}]",
+    "- gaze 写 画左、画右、画中、向下、向上，看不见眼睛写 \"\"；voice.pace 写 慢、中 或 快。",
+    "输出规则：",
+    "- 只输出一个 JSON 数组：第一个字符是 [，最后一个是 ]。不要代码块、注释和说明文字，不写思考过程。",
+    "- 照上面的格式写，字段不能少也不能多；没有内容写 \"\"、null 或 []。",
+    "- 输入有几场、几个镜头，就一次全部写完，顺序不变。",
+    "- id 和人物名字照抄输入，不新造；字符串里不用英文双引号，要引号用「」。"
+  ],
+  "input_format": {
+    "notes": [
+      "shots 来自导演，只发有人物的镜头。positions 里的 visible 决定脸能不能被看到。",
+      "injuries_before 是这一批之前已经受的伤，交给表演指导限制动作。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "表演指导输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "scene", "cast", "injuries_before", "shots"],
+      "properties": {
+        "task": {
+          "const": "direct_performance"
+        },
+        "scene": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "mood"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^scene-[1-9][0-9]*$"
+            },
+            "mood": {
+              "enum": ["平静", "温暖", "不安", "悬疑", "紧张", "激烈", "悲伤", "释然"]
+            }
+          }
+        },
+        "cast": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "gender", "age_band"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "gender": {
+                "enum": ["女", "男", "未知"]
+              },
+              "age_band": {
+                "enum": ["儿童", "少年", "青年", "中年", "老年", "未知"]
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 30
+        },
+        "injuries_before": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "body_part", "side", "note"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "body_part": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 8
+              },
+              "side": {
+                "enum": ["左", "右"]
+              },
+              "note": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 20
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "shot_id",
+              "size",
+              "seconds",
+              "picture",
+              "action",
+              "characters",
+              "positions",
+              "line",
+              "speaker",
+              "delivery",
+              "line_at"
+            ],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+              },
+              "size": {
+                "enum": ["大远景", "远景", "全景", "中景", "近景", "特写", "大特写"]
+              },
+              "seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 15
+              },
+              "picture": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 160
+              },
+              "action": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 160
+              },
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8
+                },
+                "minItems": 1,
+                "maxItems": 6,
+                "uniqueItems": true
+              },
+              "positions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "position", "depth", "visible"],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "position": {
+                      "enum": ["画左", "画中", "画右", "画外"]
+                    },
+                    "depth": {
+                      "enum": ["前景", "中间", "后景"]
+                    },
+                    "visible": {
+                      "enum": ["全身", "半身", "脸", "背影", "只露手", "画外"]
+                    }
+                  }
+                },
+                "minItems": 1,
+                "maxItems": 6
+              },
+              "line": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "speaker": {
+                "type": "string",
+                "maxLength": 8
+              },
+              "delivery": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "line_at": {
+                "type": ["number", "null"],
+                "minimum": 0.4,
+                "maximum": 15
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 12
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "每行的 emotion、face、eyes、hands、breath 连起来就是软件写进镜头的表演；voice 连起来是配音提示。",
+      "others 和 prompt_addon 是新加的字段，软件现在不读，不影响解析。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "表演指导输出",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "shot_id",
+          "who",
+          "emotion",
+          "intensity",
+          "face",
+          "face_at",
+          "eyes",
+          "gaze",
+          "hold_s",
+          "hands",
+          "breath",
+          "voice",
+          "others",
+          "prompt_addon"
+        ],
+        "properties": {
+          "shot_id": {
+            "type": "string",
+            "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+          },
+          "who": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8
+          },
+          "emotion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8
+          },
+          "intensity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "face": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 12
+            },
+            "minItems": 0,
+            "maxItems": 3
+          },
+          "face_at": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 15
+            },
+            "minItems": 0,
+            "maxItems": 3
+          },
+          "eyes": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "gaze": {
+            "enum": ["画左", "画右", "画中", "向下", "向上", ""]
+          },
+          "hold_s": {
+            "type": ["number", "null"],
+            "minimum": 0.2,
+            "maximum": 15
+          },
+          "hands": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "breath": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 40
+          },
+          "voice": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["tone", "pace", "pauses", "emotion"],
+            "properties": {
+              "tone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12
+              },
+              "pace": {
+                "enum": ["慢", "中", "快"]
+              },
+              "pauses": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30
+              },
+              "emotion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              }
+            }
+          },
+          "others": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "face", "eyes", "hands"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8
+                },
+                "face": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 12
+                  },
+                  "minItems": 0,
+                  "maxItems": 3
+                },
+                "eyes": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "hands": {
+                  "type": "string",
+                  "maxLength": 40
+                }
+              }
+            },
+            "minItems": 0,
+            "maxItems": 5
+          },
+          "prompt_addon": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 100
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "performance-1",
+      "title": "第一场第 5 到 16 镜：对话戏，只露手的镜头不写脸",
+      "input": {
+        "task": "direct_performance",
+        "scene": {
+          "id": "scene-1",
+          "mood": "不安"
+        },
+        "cast": [
+          {
+            "name": "林晚",
+            "gender": "女",
+            "age_band": "青年"
+          },
+          {
+            "name": "沈砚",
+            "gender": "男",
+            "age_band": "青年"
+          }
+        ],
+        "injuries_before": [],
+        "shots": [
+          {
+            "shot_id": "scene-1-shot-5",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "林晚蹲在书架前装书，头也没抬。",
+            "action": "林晚一边把书放进纸箱一边开口，头也没抬。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "打烊了。",
+            "speaker": "林晚",
+            "delivery": "头也没抬",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-1-shot-6",
+            "size": "特写",
+            "seconds": 5,
+            "picture": "林晚沾着灰的手，把一摞旧书码进纸箱。",
+            "action": "林晚的手把书码齐，压进纸箱。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画中",
+                "depth": "前景",
+                "visible": "只露手"
+              }
+            ],
+            "line": "要买书的话，明天来吧，全场五折。",
+            "speaker": "林晚",
+            "delivery": "头也没抬",
+            "line_at": 0.5
+          },
+          {
+            "shot_id": "scene-1-shot-7",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "门口的沈砚，头发湿透贴在额头，眼神沉静。",
+            "action": "沈砚看着画左，低声开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "我不买书。",
+            "speaker": "沈砚",
+            "delivery": "声音很低",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-1-shot-8",
+            "size": "特写",
+            "seconds": 3,
+            "picture": "林晚的手拿着一本旧书，停在半空。",
+            "action": "林晚手里的书停在半空，不动了；画外的沈砚说出一个名字。",
+            "characters": ["林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画中",
+                "depth": "前景",
+                "visible": "只露手"
+              },
+              {
+                "name": "沈砚",
+                "position": "画外",
+                "depth": "后景",
+                "visible": "画外"
+              }
+            ],
+            "line": "我找林国栋。",
+            "speaker": "沈砚",
+            "delivery": "声音很低",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-1-shot-9",
+            "size": "中景",
+            "seconds": 5,
+            "picture": "林晚站在书架前转过身，和门口的沈砚面对面。",
+            "action": "林晚慢慢站起来转过身，看清了门口的沈砚；沈砚站着没动。",
+            "characters": ["林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-1-shot-10",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "林晚站在书架前，脸上没有表情。",
+            "action": "林晚看着画右的沈砚，平静地说。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "他三年前就不在了。",
+            "speaker": "林晚",
+            "delivery": "",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-1-shot-11",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "从沈砚肩后拍林晚：画右前景是沈砚湿透的风衣肩头，画左是林晚。",
+            "action": "画左的林晚看着沈砚追问；画右前景的沈砚背影不动。",
+            "characters": ["林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "背影"
+              }
+            ],
+            "line": "你是谁？",
+            "speaker": "林晚",
+            "delivery": "",
+            "line_at": 0.8
+          },
+          {
+            "shot_id": "scene-1-shot-12",
+            "size": "近景",
+            "seconds": 14,
+            "picture": "沈砚站在收银台前，手里拿着一个油纸包着的信封。",
+            "action": "沈砚沉默几秒，把油纸信封放在收银台上，然后开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "我叫沈砚。十年前，你父亲借给我母亲一笔钱，救了她一命。她临走前让我一定把钱还上。",
+            "speaker": "沈砚",
+            "delivery": "",
+            "line_at": 3.2
+          },
+          {
+            "shot_id": "scene-1-shot-13",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "林晚盯着收银台上的信封，没有伸手。",
+            "action": "林晚盯着信封，没有伸手，轻声开口。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "我爸从来没提过。",
+            "speaker": "林晚",
+            "delivery": "",
+            "line_at": 0.8
+          },
+          {
+            "shot_id": "scene-1-shot-14",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "沈砚站在收银台另一边，看着林晚。",
+            "action": "沈砚看着画左，语气很平。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "他大概也没打算让人还。",
+            "speaker": "沈砚",
+            "delivery": "",
+            "line_at": 0.5
+          },
+          {
+            "shot_id": "scene-1-shot-15",
+            "size": "特写",
+            "seconds": 3,
+            "picture": "收银台上的油纸信封，一只虎口有旧疤的左手按在信封上。",
+            "action": "那只左手把信封往前推了推。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "只露手"
+              }
+            ],
+            "line": "但我得还。",
+            "speaker": "沈砚",
+            "delivery": "",
+            "line_at": 1
+          },
+          {
+            "shot_id": "scene-1-shot-16",
+            "size": "近景",
+            "seconds": 6,
+            "picture": "林晚低着头，假装整理收银台上的发票，眼眶发红。",
+            "action": "林晚抿了抿嘴唇，低头整理发票，声音发紧地开口。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "你来晚了。这家店，下个月就没了。",
+            "speaker": "林晚",
+            "delivery": "声音有些发紧",
+            "line_at": 1.2
+          }
+        ]
+      },
+      "output": [
+        {
+          "shot_id": "scene-1-shot-5",
+          "who": "林晚",
+          "emotion": "疲惫",
+          "intensity": 2,
+          "face": ["眼皮半垂", "嘴角往下"],
+          "face_at": [0.3, 1],
+          "eyes": "一直看着手里的书，没抬头",
+          "gaze": "向下",
+          "hold_s": null,
+          "hands": "双手把一本书放进纸箱",
+          "breath": "开口前轻轻吐一口气",
+          "voice": {
+            "tone": "平淡，有点累",
+            "pace": "中",
+            "pauses": "无",
+            "emotion": "疲惫"
+          },
+          "others": [],
+          "prompt_addon": "林晚眼皮半垂，嘴角往下，一直看着手里的书，没抬头。"
+        },
+        {
+          "shot_id": "scene-1-shot-6",
+          "who": "林晚",
+          "emotion": "疲惫",
+          "intensity": 2,
+          "face": [],
+          "face_at": [],
+          "eyes": "",
+          "gaze": "",
+          "hold_s": null,
+          "hands": "把一摞书码齐，压进纸箱",
+          "breath": "说一句停一下，像自言自语",
+          "voice": {
+            "tone": "平淡",
+            "pace": "中",
+            "pauses": "「明天来吧」前停半拍",
+            "emotion": "疲惫"
+          },
+          "others": [],
+          "prompt_addon": "林晚把一摞书码齐，压进纸箱。"
+        },
+        {
+          "shot_id": "scene-1-shot-7",
+          "who": "沈砚",
+          "emotion": "克制",
+          "intensity": 2,
+          "face": ["眉头微压", "嘴唇抿了一下"],
+          "face_at": [0.2, 1.8],
+          "eyes": "看向画左的林晚，目光不躲",
+          "gaze": "画左",
+          "hold_s": 1,
+          "hands": "右手握着收起的伞",
+          "breath": "开口前停半拍",
+          "voice": {
+            "tone": "低沉",
+            "pace": "慢",
+            "pauses": "说之前停半拍",
+            "emotion": "克制"
+          },
+          "others": [],
+          "prompt_addon": "沈砚眉头微压，嘴唇抿了一下，看向画左的林晚，目光不躲。"
+        },
+        {
+          "shot_id": "scene-1-shot-8",
+          "who": "林晚",
+          "emotion": "震动",
+          "intensity": 3,
+          "face": [],
+          "face_at": [],
+          "eyes": "",
+          "gaze": "",
+          "hold_s": null,
+          "hands": "手里的书停在半空，手指慢慢收紧",
+          "breath": "屏住气",
+          "voice": {
+            "tone": "低沉",
+            "pace": "慢",
+            "pauses": "「林国栋」前顿一下",
+            "emotion": "郑重"
+          },
+          "others": [],
+          "prompt_addon": "林晚手里的书停在半空，手指慢慢收紧。"
+        },
+        {
+          "shot_id": "scene-1-shot-9",
+          "who": "林晚",
+          "emotion": "警觉",
+          "intensity": 3,
+          "face": ["眉头一皱", "眼睛眯起"],
+          "face_at": [1.5, 3],
+          "eyes": "转过身后看向画右的沈砚，上下打量",
+          "gaze": "画右",
+          "hold_s": 1.5,
+          "hands": "那本书垂在身侧",
+          "breath": "站起来时屏住气",
+          "voice": null,
+          "others": [
+            {
+              "name": "沈砚",
+              "face": ["神情不变"],
+              "eyes": "看向画左的林晚",
+              "hands": "双手垂在身侧"
+            }
+          ],
+          "prompt_addon": "林晚眉头一皱，眼睛眯起，转过身后看向画右的沈砚，上下打量；沈砚神情不变。"
+        },
+        {
+          "shot_id": "scene-1-shot-10",
+          "who": "林晚",
+          "emotion": "平静",
+          "intensity": 2,
+          "face": ["嘴角放平", "眼睛垂了一下"],
+          "face_at": [0.4, 2.8],
+          "eyes": "看向画右的沈砚，说完垂下眼睛又抬起来",
+          "gaze": "画右",
+          "hold_s": null,
+          "hands": "",
+          "breath": "说完轻轻吸一口气",
+          "voice": {
+            "tone": "平静，有点冷",
+            "pace": "中",
+            "pauses": "无",
+            "emotion": "平静"
+          },
+          "others": [],
+          "prompt_addon": "林晚嘴角放平，眼睛垂了一下，看向画右的沈砚，说完垂下眼睛又抬起来。"
+        },
+        {
+          "shot_id": "scene-1-shot-11",
+          "who": "林晚",
+          "emotion": "戒备",
+          "intensity": 3,
+          "face": ["抬眼", "下巴绷紧"],
+          "face_at": [0.3, 0.8],
+          "eyes": "直视画右的沈砚",
+          "gaze": "画右",
+          "hold_s": 1.5,
+          "hands": "手指捏紧书脊",
+          "breath": "问之前吸一口气",
+          "voice": {
+            "tone": "冷",
+            "pace": "快",
+            "pauses": "无",
+            "emotion": "戒备"
+          },
+          "others": [
+            {
+              "name": "沈砚",
+              "face": [],
+              "eyes": "",
+              "hands": "背影不动"
+            }
+          ],
+          "prompt_addon": "林晚抬眼，下巴绷紧，直视画右的沈砚。"
+        },
+        {
+          "shot_id": "scene-1-shot-12",
+          "who": "沈砚",
+          "emotion": "郑重",
+          "intensity": 3,
+          "face": ["嘴唇抿紧", "眉头松开"],
+          "face_at": [1, 9],
+          "eyes": "放下信封后看向画左的林晚，说到母亲时垂了一下眼",
+          "gaze": "画左",
+          "hold_s": 2,
+          "hands": "左手把信封放在收银台上，手停在信封上",
+          "breath": "放下信封后沉默几秒再开口",
+          "voice": {
+            "tone": "低沉，郑重",
+            "pace": "慢",
+            "pauses": "「十年前」后停一下，「她临走前」前停一下",
+            "emotion": "郑重"
+          },
+          "others": [],
+          "prompt_addon": "沈砚嘴唇抿紧，眉头松开，放下信封后看向画左的林晚，说到母亲时垂了一下眼。"
+        },
+        {
+          "shot_id": "scene-1-shot-13",
+          "who": "林晚",
+          "emotion": "抗拒",
+          "intensity": 3,
+          "face": ["眉头皱起", "嘴唇抿紧"],
+          "face_at": [0.3, 2.6],
+          "eyes": "盯着收银台上的信封",
+          "gaze": "向下",
+          "hold_s": 1.2,
+          "hands": "双手垂在身侧，没有伸手",
+          "breath": "说之前停一下",
+          "voice": {
+            "tone": "轻，有点硬",
+            "pace": "慢",
+            "pauses": "开口前停一下",
+            "emotion": "抗拒"
+          },
+          "others": [],
+          "prompt_addon": "林晚眉头皱起，嘴唇抿紧，盯着收银台上的信封。"
+        },
+        {
+          "shot_id": "scene-1-shot-14",
+          "who": "沈砚",
+          "emotion": "温和",
+          "intensity": 2,
+          "face": ["嘴角放松", "眼神变软"],
+          "face_at": [0.3, 2],
+          "eyes": "看向画左的林晚",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "",
+          "breath": "语气放平",
+          "voice": {
+            "tone": "温和",
+            "pace": "中",
+            "pauses": "无",
+            "emotion": "温和"
+          },
+          "others": [],
+          "prompt_addon": "沈砚嘴角放松，眼神变软，看向画左的林晚。"
+        },
+        {
+          "shot_id": "scene-1-shot-15",
+          "who": "沈砚",
+          "emotion": "坚决",
+          "intensity": 3,
+          "face": [],
+          "face_at": [],
+          "eyes": "",
+          "gaze": "",
+          "hold_s": null,
+          "hands": "左手按着信封往前推了推",
+          "breath": "推完信封再开口",
+          "voice": {
+            "tone": "坚定",
+            "pace": "慢",
+            "pauses": "推完信封再说",
+            "emotion": "坚决"
+          },
+          "others": [],
+          "prompt_addon": "沈砚左手按着信封往前推了推。"
+        },
+        {
+          "shot_id": "scene-1-shot-16",
+          "who": "林晚",
+          "emotion": "压抑",
+          "intensity": 4,
+          "face": ["眼眶发红", "嘴唇抿紧"],
+          "face_at": [0.5, 1],
+          "eyes": "低头看着发票，不看沈砚",
+          "gaze": "向下",
+          "hold_s": 2,
+          "hands": "手指整理收银台上的发票",
+          "breath": "开口前抿一下嘴，声音发紧",
+          "voice": {
+            "tone": "发紧",
+            "pace": "慢",
+            "pauses": "「这家店」后停一下",
+            "emotion": "难过"
+          },
+          "others": [],
+          "prompt_addon": "林晚眼眶发红，嘴唇抿紧，低头看着发票，不看沈砚。"
+        }
+      ]
+    },
+    {
+      "id": "performance-2",
+      "title": "第二场第 14 到 25 镜：打斗戏，沈砚左小臂受伤后只用右手",
+      "input": {
+        "task": "direct_performance",
+        "scene": {
+          "id": "scene-2",
+          "mood": "激烈"
+        },
+        "cast": [
+          {
+            "name": "林晚",
+            "gender": "女",
+            "age_band": "青年"
+          },
+          {
+            "name": "周烈",
+            "gender": "男",
+            "age_band": "中年"
+          },
+          {
+            "name": "打手甲",
+            "gender": "男",
+            "age_band": "青年"
+          },
+          {
+            "name": "打手乙",
+            "gender": "男",
+            "age_band": "青年"
+          },
+          {
+            "name": "沈砚",
+            "gender": "男",
+            "age_band": "青年"
+          }
+        ],
+        "injuries_before": [],
+        "shots": [
+          {
+            "shot_id": "scene-2-shot-14",
+            "size": "全景",
+            "seconds": 5,
+            "picture": "仓库里，林晚被推到木箱旁边，周烈、打手甲和打手乙围成半圈。",
+            "action": "打手甲把林晚推到木箱旁边，周烈和打手乙围上来；门口一辆旧面包车的车灯照了进来。",
+            "characters": ["林晚", "周烈", "打手甲", "打手乙"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "后景",
+                "visible": "全身"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "全身"
+              },
+              {
+                "name": "打手甲",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "全身"
+              },
+              {
+                "name": "打手乙",
+                "position": "画中",
+                "depth": "中间",
+                "visible": "全身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-15",
+            "size": "中景",
+            "seconds": 4,
+            "picture": "仓库里，周烈握着一根铁棍，对着画左走进来的沈砚。",
+            "action": "周烈掂了掂手里的铁棍，冲着画左的沈砚笑。",
+            "characters": ["周烈", "沈砚"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "后景",
+                "visible": "全身"
+              }
+            ],
+            "line": "小子，你倒是有胆。",
+            "speaker": "周烈",
+            "delivery": "",
+            "line_at": 1
+          },
+          {
+            "shot_id": "scene-2-shot-16",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "周烈握着铁棍，眼神发狠。",
+            "action": "周烈握紧铁棍，盯着画左放狠话。",
+            "characters": ["周烈"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "今天就让你长长记性。",
+            "speaker": "周烈",
+            "delivery": "",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-2-shot-17",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "仓库的木箱旁，周烈高举铁棍，沈砚站在他对面。",
+            "action": "画右的周烈猛地挥棍砸向画左，画左的沈砚侧身一让，铁棍擦着耳边落下，砸在木箱上，木屑四溅。",
+            "characters": ["周烈", "沈砚"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-18",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "沈砚的右手扣住周烈握棍的右手腕。",
+            "action": "画左的沈砚顺势扣住周烈的手腕一拧，铁棍当啷落地。",
+            "characters": ["沈砚", "周烈"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "半身"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-19",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "沈砚背后，打手甲正扑上来。",
+            "action": "打手甲从画右背后扑向沈砚，沈砚矮身一记肘击正中他肋下，打手甲闷哼一声跪倒在积水里。",
+            "characters": ["沈砚", "打手甲"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "打手甲",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "全身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-20",
+            "size": "特写",
+            "seconds": 2,
+            "picture": "昏暗的灯下，打手乙手里攥着一把折叠刀。",
+            "action": "打手乙弹开折叠刀，刀刃在灯下一闪。",
+            "characters": ["打手乙"],
+            "positions": [
+              {
+                "name": "打手乙",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-21",
+            "size": "近景",
+            "seconds": 2,
+            "picture": "木箱旁，林晚惊恐地睁大眼睛。",
+            "action": "林晚冲着画右尖叫。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "小心！",
+            "speaker": "林晚",
+            "delivery": "尖叫",
+            "line_at": 0.4
+          },
+          {
+            "shot_id": "scene-2-shot-22",
+            "size": "特写",
+            "seconds": 3,
+            "picture": "特写：画左一条卷起袖子的左小臂抬起来挡在身前，画右一只手握着折叠刀。",
+            "action": "画右的刀从右往左划过，画左抬起的左小臂去挡，刀锋划过小臂，渗出一道血。不拍伤口特写。",
+            "characters": ["沈砚", "打手乙"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "只露手"
+              },
+              {
+                "name": "打手乙",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "只露手"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-23",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "沈砚咬着牙，右手抓住打手乙握刀的手肘。",
+            "action": "画左的沈砚咬紧牙，右手反手抓住打手乙的手肘往下一压，膝盖顶上去，刀飞出去滑进铁链堆。",
+            "characters": ["沈砚", "打手乙"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "打手乙",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-24",
+            "size": "中景",
+            "seconds": 4,
+            "picture": "周烈从积水里爬起来，喘着粗气；画左的沈砚左小臂流着血。",
+            "action": "周烈喘着粗气爬起来，脸色铁青地盯着画左的沈砚；远处警笛声由远及近。",
+            "characters": ["周烈", "沈砚"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-2-shot-25",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "周烈咬着牙，嘴角挂着水。",
+            "action": "周烈啐了一口，咬着牙说。",
+            "characters": ["周烈"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "算你狠。",
+            "speaker": "周烈",
+            "delivery": "啐了一口",
+            "line_at": 0.9
+          }
+        ]
+      },
+      "output": [
+        {
+          "shot_id": "scene-2-shot-14",
+          "who": "林晚",
+          "emotion": "紧张",
+          "intensity": 3,
+          "face": ["眼睛睁大", "嘴唇发白"],
+          "face_at": [0.8, 2.5],
+          "eyes": "被推到木箱旁边后看向画右的周烈",
+          "gaze": "画右",
+          "hold_s": null,
+          "hands": "双手撑住木箱边缘",
+          "breath": "被推时短促吸气",
+          "voice": null,
+          "others": [
+            {
+              "name": "周烈",
+              "face": ["嘴角带笑"],
+              "eyes": "看向门口的车灯",
+              "hands": "手插在皮夹克口袋里"
+            },
+            {
+              "name": "打手甲",
+              "face": ["面无表情"],
+              "eyes": "盯着林晚",
+              "hands": "推人的右手收回来"
+            },
+            {
+              "name": "打手乙",
+              "face": ["皱眉"],
+              "eyes": "看向门口",
+              "hands": "双手垂在身侧"
+            }
+          ],
+          "prompt_addon": "林晚眼睛睁大，嘴唇发白，被推到木箱旁边后看向画右的周烈；周烈嘴角带笑；打手甲面无表情；打手乙皱眉。"
+        },
+        {
+          "shot_id": "scene-2-shot-15",
+          "who": "周烈",
+          "emotion": "嚣张",
+          "intensity": 3,
+          "face": ["咧嘴笑", "露出金牙"],
+          "face_at": [0.3, 0.9],
+          "eyes": "看向画左走进来的沈砚",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "右手掂着铁棍",
+          "breath": "笑着开口",
+          "voice": {
+            "tone": "轻佻",
+            "pace": "中",
+            "pauses": "「小子」后停一下",
+            "emotion": "嚣张"
+          },
+          "others": [
+            {
+              "name": "沈砚",
+              "face": ["神情平静"],
+              "eyes": "看向画右的周烈",
+              "hands": "双手垂在身侧"
+            }
+          ],
+          "prompt_addon": "周烈咧嘴笑，露出金牙，看向画左走进来的沈砚；沈砚神情平静。"
+        },
+        {
+          "shot_id": "scene-2-shot-16",
+          "who": "周烈",
+          "emotion": "凶狠",
+          "intensity": 4,
+          "face": ["笑容收起", "眼睛眯起"],
+          "face_at": [0.2, 0.5],
+          "eyes": "盯着画左的沈砚",
+          "gaze": "画左",
+          "hold_s": 1.5,
+          "hands": "右手握紧铁棍",
+          "breath": "咬着字说",
+          "voice": {
+            "tone": "凶",
+            "pace": "慢",
+            "pauses": "每个字都咬重",
+            "emotion": "凶狠"
+          },
+          "others": [],
+          "prompt_addon": "周烈笑容收起，眼睛眯起，盯着画左的沈砚。"
+        },
+        {
+          "shot_id": "scene-2-shot-17",
+          "who": "周烈",
+          "emotion": "激烈",
+          "intensity": 5,
+          "face": ["龇牙", "眼睛瞪圆"],
+          "face_at": [0.3, 0.8],
+          "eyes": "盯着画左的沈砚",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "双手抡起铁棍往下砸",
+          "breath": "挥棍时大喝一声",
+          "voice": null,
+          "others": [
+            {
+              "name": "沈砚",
+              "face": ["眼神专注"],
+              "eyes": "盯着砸下来的铁棍",
+              "hands": "侧身时双手护在身前"
+            }
+          ],
+          "prompt_addon": "周烈龇牙，眼睛瞪圆，盯着画左的沈砚；沈砚眼神专注。"
+        },
+        {
+          "shot_id": "scene-2-shot-18",
+          "who": "沈砚",
+          "emotion": "冷静",
+          "intensity": 4,
+          "face": ["下颌绷紧"],
+          "face_at": [0.5],
+          "eyes": "盯着周烈的手腕",
+          "gaze": "画右",
+          "hold_s": null,
+          "hands": "右手扣住周烈的手腕一拧",
+          "breath": "出手时短促呼气",
+          "voice": null,
+          "others": [
+            {
+              "name": "周烈",
+              "face": ["疼得龇牙"],
+              "eyes": "看向自己的手腕",
+              "hands": "右手松开，铁棍落地"
+            }
+          ],
+          "prompt_addon": "沈砚下颌绷紧，盯着周烈的手腕；周烈疼得龇牙。"
+        },
+        {
+          "shot_id": "scene-2-shot-19",
+          "who": "沈砚",
+          "emotion": "冷静",
+          "intensity": 4,
+          "face": ["眉头一压"],
+          "face_at": [0.6],
+          "eyes": "余光看向画右身后的打手甲",
+          "gaze": "画右",
+          "hold_s": null,
+          "hands": "右肘往后一顶",
+          "breath": "出肘时短促呼气",
+          "voice": null,
+          "others": [
+            {
+              "name": "打手甲",
+              "face": ["脸皱成一团"],
+              "eyes": "低头",
+              "hands": "捂着肋下"
+            }
+          ],
+          "prompt_addon": "沈砚眉头一压，余光看向画右身后的打手甲；打手甲脸皱成一团。"
+        },
+        {
+          "shot_id": "scene-2-shot-20",
+          "who": "打手乙",
+          "emotion": "阴狠",
+          "intensity": 4,
+          "face": ["嘴角一撇", "眼神阴狠"],
+          "face_at": [0.2, 0.8],
+          "eyes": "盯着画左的沈砚",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "右手弹开折叠刀",
+          "breath": "屏住气",
+          "voice": null,
+          "others": [],
+          "prompt_addon": "打手乙嘴角一撇，眼神阴狠，盯着画左的沈砚。"
+        },
+        {
+          "shot_id": "scene-2-shot-21",
+          "who": "林晚",
+          "emotion": "惊恐",
+          "intensity": 5,
+          "face": ["眼睛睁大", "嘴张开"],
+          "face_at": [0.2, 0.4],
+          "eyes": "看向画右的打手乙",
+          "gaze": "画右",
+          "hold_s": null,
+          "hands": "双手抓紧木箱边",
+          "breath": "猛吸一口气后喊出来",
+          "voice": {
+            "tone": "尖叫",
+            "pace": "快",
+            "pauses": "无",
+            "emotion": "惊恐"
+          },
+          "others": [],
+          "prompt_addon": "林晚眼睛睁大，嘴张开，看向画右的打手乙。"
+        },
+        {
+          "shot_id": "scene-2-shot-22",
+          "who": "沈砚",
+          "emotion": "痛",
+          "intensity": 4,
+          "face": [],
+          "face_at": [],
+          "eyes": "",
+          "gaze": "",
+          "hold_s": null,
+          "hands": "左小臂抬起挡刀，挨了一刀后猛地一缩",
+          "breath": "挨刀时闷哼一声",
+          "voice": null,
+          "others": [
+            {
+              "name": "打手乙",
+              "face": [],
+              "eyes": "",
+              "hands": "握刀从右往左划过"
+            }
+          ],
+          "prompt_addon": "沈砚左小臂抬起挡刀，挨了一刀后猛地一缩。"
+        },
+        {
+          "shot_id": "scene-2-shot-23",
+          "who": "沈砚",
+          "emotion": "狠",
+          "intensity": 5,
+          "face": ["咬紧牙关"],
+          "face_at": [0.3],
+          "eyes": "盯着画右打手乙的手肘",
+          "gaze": "画右",
+          "hold_s": null,
+          "hands": "右手抓住对方手肘往下压，受伤的左臂贴在身侧",
+          "breath": "咬着牙出一口粗气",
+          "voice": null,
+          "others": [
+            {
+              "name": "打手乙",
+              "face": ["疼得张嘴"],
+              "eyes": "看向自己的手",
+              "hands": "握刀的手被压下去，刀脱手"
+            }
+          ],
+          "prompt_addon": "沈砚咬紧牙关，盯着画右打手乙的手肘；打手乙疼得张嘴。"
+        },
+        {
+          "shot_id": "scene-2-shot-24",
+          "who": "周烈",
+          "emotion": "不甘",
+          "intensity": 4,
+          "face": ["脸色铁青", "咬紧牙"],
+          "face_at": [0.8, 2],
+          "eyes": "盯着画左沈砚流血的胳膊",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "撑着膝盖从地上爬起来",
+          "breath": "大口喘粗气",
+          "voice": null,
+          "others": [
+            {
+              "name": "沈砚",
+              "face": ["神情冷静"],
+              "eyes": "看向画右的周烈",
+              "hands": "右手按住流血的左小臂"
+            }
+          ],
+          "prompt_addon": "周烈脸色铁青，咬紧牙，盯着画左沈砚流血的胳膊；沈砚神情冷静。"
+        },
+        {
+          "shot_id": "scene-2-shot-25",
+          "who": "周烈",
+          "emotion": "恨",
+          "intensity": 4,
+          "face": ["啐一口", "咬着牙"],
+          "face_at": [0.3, 0.9],
+          "eyes": "瞪着画左的沈砚",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "抹了一下嘴角",
+          "breath": "啐完再开口",
+          "voice": {
+            "tone": "恨恨的",
+            "pace": "慢",
+            "pauses": "啐完停一下",
+            "emotion": "不甘"
+          },
+          "others": [],
+          "prompt_addon": "周烈啐一口，咬着牙，瞪着画左的沈砚。"
+        }
+      ]
+    },
+    {
+      "id": "performance-3",
+      "title": "第三场第 2 到 12 镜：哭戏在近景，背影只写手和呼吸",
+      "input": {
+        "task": "direct_performance",
+        "scene": {
+          "id": "scene-3",
+          "mood": "温暖"
+        },
+        "cast": [
+          {
+            "name": "沈砚",
+            "gender": "男",
+            "age_band": "青年"
+          },
+          {
+            "name": "林晚",
+            "gender": "女",
+            "age_band": "青年"
+          }
+        ],
+        "injuries_before": [
+          {
+            "name": "沈砚",
+            "body_part": "小臂",
+            "side": "左",
+            "note": "第二场第 22 个镜头被刀划伤，现在缠着白纱布"
+          }
+        ],
+        "shots": [
+          {
+            "shot_id": "scene-3-shot-2",
+            "size": "中景",
+            "seconds": 5,
+            "picture": "沈砚坐在长椅上，左小臂缠着白纱布；林晚站在他面前，手里捏着泡软的油纸信封。",
+            "action": "林晚站在长椅前，低头看着坐着的沈砚；沈砚缠着纱布的左小臂搭在腿上不动。",
+            "characters": ["沈砚", "林晚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "全身"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-3-shot-3",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "林晚站着，低头看向画右下方。",
+            "action": "林晚看着画右的沈砚，轻声说。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "你本来可以不管的。",
+            "speaker": "林晚",
+            "delivery": "声音很轻",
+            "line_at": 0.8
+          },
+          {
+            "shot_id": "scene-3-shot-4",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "林晚垂下眼睛，看着手里的信封。",
+            "action": "林晚垂下眼睛，补了一句。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "这是我家的事。",
+            "speaker": "林晚",
+            "delivery": "声音很轻",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-3-shot-5",
+            "size": "近景",
+            "seconds": 5,
+            "picture": "沈砚坐在长椅上，抬起头。",
+            "action": "沈砚抬头看着画左的林晚，开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "十年前，你父亲也可以不管。",
+            "speaker": "沈砚",
+            "delivery": "",
+            "line_at": 0.8
+          },
+          {
+            "shot_id": "scene-3-shot-6",
+            "size": "近景",
+            "seconds": 11,
+            "picture": "沈砚坐着，左小臂缠着纱布，慢慢说起往事。",
+            "action": "沈砚看着画左慢慢讲。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "那年冬天，我妈在医院门口晕倒，是他把身上所有的钱都垫了。他说，谁家都有过不去的时候。",
+            "speaker": "沈砚",
+            "delivery": "",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-3-shot-7",
+            "size": "近景",
+            "seconds": 5,
+            "picture": "林晚怔住了，眼眶慢慢红了。",
+            "action": "林晚怔住，嘴角动了动想笑，眼泪却先掉了下来。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-3-shot-8",
+            "size": "近景",
+            "seconds": 5,
+            "picture": "林晚背过身，肩膀发抖。",
+            "action": "林晚慌忙转过身，用手背擦眼泪，越擦越多，肩膀轻轻发抖。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画中",
+                "depth": "中间",
+                "visible": "背影"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-3-shot-9",
+            "size": "中景",
+            "seconds": 5,
+            "picture": "沈砚站在林晚身后，右手拿着那件半干的黑风衣。",
+            "action": "沈砚犹豫了一下，没有碰她，只用右手把半干的风衣披在林晚肩上。",
+            "characters": ["沈砚", "林晚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "背影"
+              }
+            ],
+            "line": "",
+            "speaker": "",
+            "delivery": "",
+            "line_at": null
+          },
+          {
+            "shot_id": "scene-3-shot-10",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "沈砚看着画左林晚的背影。",
+            "action": "沈砚看着她的背影，开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "书店，",
+            "speaker": "沈砚",
+            "delivery": "",
+            "line_at": 0.6
+          },
+          {
+            "shot_id": "scene-3-shot-11",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "沈砚看着画左。",
+            "action": "沈砚停了一下，接着说。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "我想试试帮你留下来。",
+            "speaker": "沈砚",
+            "delivery": "",
+            "line_at": 0.5
+          },
+          {
+            "shot_id": "scene-3-shot-12",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "林晚披着黑风衣转过头，泪痕还挂在脸上。",
+            "action": "林晚转过头看向画右，问。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ],
+            "line": "为什么？",
+            "speaker": "林晚",
+            "delivery": "",
+            "line_at": 1
+          }
+        ]
+      },
+      "output": [
+        {
+          "shot_id": "scene-3-shot-2",
+          "who": "林晚",
+          "emotion": "沉默",
+          "intensity": 2,
+          "face": ["嘴唇抿着"],
+          "face_at": [1],
+          "eyes": "低头看着坐着的沈砚",
+          "gaze": "画右",
+          "hold_s": null,
+          "hands": "两只手捏着泡软的信封",
+          "breath": "呼吸很轻",
+          "voice": null,
+          "others": [
+            {
+              "name": "沈砚",
+              "face": ["神情平静"],
+              "eyes": "看向画左的林晚",
+              "hands": "缠着纱布的左小臂搭在腿上不动"
+            }
+          ],
+          "prompt_addon": "林晚嘴唇抿着，低头看着坐着的沈砚；沈砚神情平静。"
+        },
+        {
+          "shot_id": "scene-3-shot-3",
+          "who": "林晚",
+          "emotion": "愧疚",
+          "intensity": 3,
+          "face": ["眉头轻皱", "嘴角往下"],
+          "face_at": [0.3, 2],
+          "eyes": "看向画右下方沈砚缠着纱布的手臂",
+          "gaze": "画右",
+          "hold_s": 1,
+          "hands": "",
+          "breath": "声音很轻",
+          "voice": {
+            "tone": "轻",
+            "pace": "慢",
+            "pauses": "无",
+            "emotion": "愧疚"
+          },
+          "others": [],
+          "prompt_addon": "林晚眉头轻皱，嘴角往下，看向画右下方沈砚缠着纱布的手臂。"
+        },
+        {
+          "shot_id": "scene-3-shot-4",
+          "who": "林晚",
+          "emotion": "倔强",
+          "intensity": 3,
+          "face": ["垂下眼睛", "下巴微抬"],
+          "face_at": [0.2, 1.6],
+          "eyes": "垂下眼睛看着信封",
+          "gaze": "向下",
+          "hold_s": null,
+          "hands": "手指捏紧信封",
+          "breath": "说完憋住一口气",
+          "voice": {
+            "tone": "轻，有点硬",
+            "pace": "中",
+            "pauses": "无",
+            "emotion": "倔强"
+          },
+          "others": [],
+          "prompt_addon": "林晚垂下眼睛，下巴微抬，垂下眼睛看着信封。"
+        },
+        {
+          "shot_id": "scene-3-shot-5",
+          "who": "沈砚",
+          "emotion": "认真",
+          "intensity": 3,
+          "face": ["抬起头", "目光平静"],
+          "face_at": [0.3, 0.8],
+          "eyes": "抬头看向画左上方的林晚",
+          "gaze": "画左",
+          "hold_s": 1.5,
+          "hands": "",
+          "breath": "抬头后停一下再说",
+          "voice": {
+            "tone": "平静",
+            "pace": "慢",
+            "pauses": "「十年前」后停一下",
+            "emotion": "认真"
+          },
+          "others": [],
+          "prompt_addon": "沈砚抬起头，目光平静，抬头看向画左上方的林晚。"
+        },
+        {
+          "shot_id": "scene-3-shot-6",
+          "who": "沈砚",
+          "emotion": "怀念",
+          "intensity": 3,
+          "face": ["眼神放远", "嘴角微微上扬"],
+          "face_at": [2, 8.5],
+          "eyes": "看着画左的林晚，说到当年时目光放远",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "",
+          "breath": "「他说」前停一下",
+          "voice": {
+            "tone": "温和，低",
+            "pace": "慢",
+            "pauses": "「他说」前停一下",
+            "emotion": "怀念"
+          },
+          "others": [],
+          "prompt_addon": "沈砚眼神放远，嘴角微微上扬，看着画左的林晚，说到当年时目光放远。"
+        },
+        {
+          "shot_id": "scene-3-shot-7",
+          "who": "林晚",
+          "emotion": "心酸",
+          "intensity": 4,
+          "face": ["怔住", "嘴角动了动", "眼泪掉下来"],
+          "face_at": [0.3, 2, 3.5],
+          "eyes": "看着画右的沈砚，眼神放空",
+          "gaze": "画右",
+          "hold_s": 2,
+          "hands": "",
+          "breath": "吸了一下鼻子",
+          "voice": null,
+          "others": [],
+          "prompt_addon": "林晚怔住，嘴角动了动，眼泪掉下来，看着画右的沈砚，眼神放空。"
+        },
+        {
+          "shot_id": "scene-3-shot-8",
+          "who": "林晚",
+          "emotion": "压抑",
+          "intensity": 4,
+          "face": [],
+          "face_at": [],
+          "eyes": "",
+          "gaze": "",
+          "hold_s": null,
+          "hands": "用手背擦眼泪，越擦越多",
+          "breath": "死死咬住下唇，肩膀轻轻发抖，不出声",
+          "voice": null,
+          "others": [],
+          "prompt_addon": "林晚用手背擦眼泪，越擦越多。"
+        },
+        {
+          "shot_id": "scene-3-shot-9",
+          "who": "沈砚",
+          "emotion": "温柔",
+          "intensity": 2,
+          "face": ["犹豫", "眼神放软"],
+          "face_at": [0.5, 2.5],
+          "eyes": "看着画左林晚的背影",
+          "gaze": "画左",
+          "hold_s": 1,
+          "hands": "右手把半干的风衣轻轻披在她肩上，没有碰到她",
+          "breath": "呼吸放轻",
+          "voice": null,
+          "others": [
+            {
+              "name": "林晚",
+              "face": [],
+              "eyes": "",
+              "hands": "肩膀慢慢平静下来"
+            }
+          ],
+          "prompt_addon": "沈砚犹豫，眼神放软，看着画左林晚的背影。"
+        },
+        {
+          "shot_id": "scene-3-shot-10",
+          "who": "沈砚",
+          "emotion": "郑重",
+          "intensity": 2,
+          "face": ["嘴唇动了动"],
+          "face_at": [0.3],
+          "eyes": "看着画左林晚的背影",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "",
+          "breath": "开口前停一下",
+          "voice": {
+            "tone": "轻",
+            "pace": "慢",
+            "pauses": "说完「书店」停一下",
+            "emotion": "郑重"
+          },
+          "others": [],
+          "prompt_addon": "沈砚嘴唇动了动，看着画左林晚的背影。"
+        },
+        {
+          "shot_id": "scene-3-shot-11",
+          "who": "沈砚",
+          "emotion": "坚定",
+          "intensity": 3,
+          "face": ["眼神坚定"],
+          "face_at": [0.4],
+          "eyes": "看着画左的林晚",
+          "gaze": "画左",
+          "hold_s": null,
+          "hands": "",
+          "breath": "语气稳",
+          "voice": {
+            "tone": "笃定",
+            "pace": "中",
+            "pauses": "无",
+            "emotion": "坚定"
+          },
+          "others": [],
+          "prompt_addon": "沈砚眼神坚定，看着画左的林晚。"
+        },
+        {
+          "shot_id": "scene-3-shot-12",
+          "who": "林晚",
+          "emotion": "不解",
+          "intensity": 3,
+          "face": ["转过头", "眉头微蹙"],
+          "face_at": [0.2, 0.8],
+          "eyes": "看向画右的沈砚，眼睛红着",
+          "gaze": "画右",
+          "hold_s": 1,
+          "hands": "攥着肩上的风衣",
+          "breath": "吸了一下鼻子再问",
+          "voice": {
+            "tone": "轻，带着哭腔",
+            "pace": "慢",
+            "pauses": "开口前停一下",
+            "emotion": "不解"
+          },
+          "others": [],
+          "prompt_addon": "林晚转过头，眉头微蹙，看向画右的沈砚，眼睛红着。"
+        }
+      ]
+    }
+  ]
+}

@@ -15,13 +15,14 @@ from pathlib import Path
 from aijian_api.artifacts import canonical_content_hash
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_contracts import (
-    ProductExportClaimRequest,
     ProductExportAssemblyAssertion,
+    ProductExportClaimRequest,
     ProductExportOperationData,
     ProductExportOutputReceipt,
 )
 from aijian_api.product_export_output_verify import (
-    output_target_identity, verify_product_output,
+    output_target_identity,
+    verify_product_output,
 )
 from aijian_api.product_export_render_plan import ProductExportRenderPlan
 from aijian_api.repository import StudioRepository
@@ -46,7 +47,9 @@ def _identity(project_id: str, operation_id: str) -> None:
 
 
 def _read_operation(
-    connection: sqlite3.Connection, project_id: str, operation_id: str,
+    connection: sqlite3.Connection,
+    project_id: str,
+    operation_id: str,
 ) -> ProductExportOperationData:
     row = connection.execute(
         """SELECT * FROM product_export_operations
@@ -63,7 +66,9 @@ def _read_operation(
             (project_id, operation_id),
         ).fetchone()
         if receipt is None:
-            raise ProductExportStateError("CORRUPT_RECEIPT", "Successful export has no output receipt")
+            raise ProductExportStateError(
+                "CORRUPT_RECEIPT", "Successful export has no output receipt"
+            )
         output = ProductExportOutputReceipt(
             absolute_path=str(receipt["absolute_path"]),
             sha256=str(receipt["sha256"]),
@@ -71,31 +76,32 @@ def _read_operation(
             probe_hash=str(receipt["probe_hash"]),
             verified_at=str(receipt["verified_at"]),
         )
-    return ProductExportOperationData(
-        project_id=str(row["project_id"]),
-        episode_id=str(row["episode_id"]),
-        operation_id=str(row["operation_id"]),
-        request_hash=str(row["request_hash"]),
-        assembly=ProductExportAssemblyAssertion(
+    operation_data: dict[str, object] = {
+        "project_id": str(row["project_id"]),
+        "episode_id": str(row["episode_id"]),
+        "operation_id": str(row["operation_id"]),
+        "request_hash": str(row["request_hash"]),
+        "assembly": ProductExportAssemblyAssertion(
             artifact_id=str(row["assembly_artifact_id"]),
             version_id=str(row["assembly_version_id"]),
             content_hash=str(row["assembly_content_hash"]),
             head_revision=row["assembly_head_revision"],
         ),
-        status=str(row["status"]),
-        progress_phase=str(row["progress_phase"]),
-        progress_frames=row["progress_frames"],
-        total_frames=row["total_frames"],
-        inputs_sealed_at=row["inputs_sealed_at"],
-        cancel_requested_at=row["cancel_requested_at"],
-        unknown_reason=row["unknown_reason"],
-        output=output,
-        created_at=str(row["created_at"]),
-        updated_at=str(row["updated_at"]),
-        started_at=row["started_at"],
-        finished_at=row["finished_at"],
-        reconciled_at=row["reconciled_at"],
-    )
+        "status": str(row["status"]),
+        "progress_phase": str(row["progress_phase"]),
+        "progress_frames": row["progress_frames"],
+        "total_frames": row["total_frames"],
+        "inputs_sealed_at": row["inputs_sealed_at"],
+        "cancel_requested_at": row["cancel_requested_at"],
+        "unknown_reason": row["unknown_reason"],
+        "output": output,
+        "created_at": str(row["created_at"]),
+        "updated_at": str(row["updated_at"]),
+        "started_at": row["started_at"],
+        "finished_at": row["finished_at"],
+        "reconciled_at": row["reconciled_at"],
+    }
+    return ProductExportOperationData.model_validate(operation_data)
 
 
 class ProductExportStore:
@@ -112,7 +118,9 @@ class ProductExportStore:
             return result
 
     def request_cancel(
-        self, project_id: str, operation_id: str,
+        self,
+        project_id: str,
+        operation_id: str,
     ) -> ProductExportOperationData:
         """Persist a cancellation signal; the worker separately stops the process."""
         _identity(project_id, operation_id)
@@ -140,7 +148,9 @@ class ProductExportStore:
                 raise
 
     def mark_running(
-        self, project_id: str, operation_id: str,
+        self,
+        project_id: str,
+        operation_id: str,
     ) -> ProductExportOperationData:
         """One worker starts only while assembly and every rights head still match."""
         _identity(project_id, operation_id)
@@ -162,12 +172,15 @@ class ProductExportStore:
                     (project_id, operation_id),
                 ).fetchone()
                 if (
-                    claim is None or claim["inputs_sealed_at"] is None
+                    claim is None
+                    or claim["inputs_sealed_at"] is None
                     or claim["latest_version_id"] != claim["assembly_version_id"]
                     or claim["revision"] != claim["assembly_head_revision"]
                     or claim["content_hash"] != claim["assembly_content_hash"]
                 ):
-                    raise ProductExportStateError("ASSEMBLY_CHANGED", "Selected assembly head changed before encoding")
+                    raise ProductExportStateError(
+                        "ASSEMBLY_CHANGED", "Selected assembly head changed before encoding"
+                    )
                 media_rows = connection.execute(
                     """SELECT media.asset_id, media.version_id, media.asset_sha256,
                               media.rights_decision_id, media.rights_revision,
@@ -205,7 +218,10 @@ class ProductExportStore:
                     or media["deleted_at"] is not None
                     for media in media_rows
                 ):
-                    raise ProductExportStateError("MEDIA_OR_RIGHTS_CHANGED", "Selected media or rights changed before encoding")
+                    raise ProductExportStateError(
+                        "MEDIA_OR_RIGHTS_CHANGED",
+                        "Selected media or rights changed before encoding",
+                    )
                 stamp = _now()
                 changed = connection.execute(
                     """UPDATE product_export_operations
@@ -217,7 +233,8 @@ class ProductExportStore:
                 ).rowcount
                 if changed != 1:
                     raise ProductExportStateError(
-                        "NOT_STARTABLE", "Product export is not queued or cancellation was requested",
+                        "NOT_STARTABLE",
+                        "Product export is not queued or cancellation was requested",
                     )
                 result = _read_operation(connection, project_id, operation_id)
                 connection.commit()
@@ -227,7 +244,10 @@ class ProductExportStore:
                 raise
 
     def record_progress(
-        self, project_id: str, operation_id: str, completed_frames: int,
+        self,
+        project_id: str,
+        operation_id: str,
+        completed_frames: int,
     ) -> ProductExportOperationData:
         _identity(project_id, operation_id)
         if isinstance(completed_frames, bool) or not isinstance(completed_frames, int):
@@ -243,12 +263,19 @@ class ProductExportStore:
                          AND status = 'RUNNING' AND progress_phase = 'ENCODING'
                          AND cancel_requested_at IS NULL
                          AND progress_frames <= ? AND total_frames >= ?""",
-                    (completed_frames, stamp, project_id, operation_id,
-                     completed_frames, completed_frames),
+                    (
+                        completed_frames,
+                        stamp,
+                        project_id,
+                        operation_id,
+                        completed_frames,
+                        completed_frames,
+                    ),
                 ).rowcount
                 if changed != 1:
                     raise ProductExportStateError(
-                        "PROGRESS_CONFLICT", "Product export progress is stale or not running",
+                        "PROGRESS_CONFLICT",
+                        "Product export progress is stale or not running",
                     )
                 result = _read_operation(connection, project_id, operation_id)
                 connection.commit()
@@ -258,7 +285,9 @@ class ProductExportStore:
                 raise
 
     def mark_verifying(
-        self, project_id: str, operation_id: str,
+        self,
+        project_id: str,
+        operation_id: str,
     ) -> ProductExportOperationData:
         """Encoding exited; caller must still verify file bytes and media structure."""
         _identity(project_id, operation_id)
@@ -276,7 +305,9 @@ class ProductExportStore:
                     (stamp, project_id, operation_id),
                 ).rowcount
                 if changed != 1:
-                    raise ProductExportStateError("NOT_VERIFYING", "Product export cannot enter verification")
+                    raise ProductExportStateError(
+                        "NOT_VERIFYING", "Product export cannot enter verification"
+                    )
                 result = _read_operation(connection, project_id, operation_id)
                 connection.commit()
                 return result
@@ -285,7 +316,10 @@ class ProductExportStore:
                 raise
 
     def mark_unknown(
-        self, project_id: str, operation_id: str, reason: str,
+        self,
+        project_id: str,
+        operation_id: str,
+        reason: str,
     ) -> ProductExportOperationData:
         """Keep a durable uncertainty receipt; never schedule a retry here."""
         _identity(project_id, operation_id)
@@ -299,7 +333,9 @@ class ProductExportStore:
                     connection.commit()
                     return current
                 if current.status not in {"CLAIMED", "RUNNING"}:
-                    raise ProductExportStateError("TERMINAL", "Terminal export cannot become unknown")
+                    raise ProductExportStateError(
+                        "TERMINAL", "Terminal export cannot become unknown"
+                    )
                 stamp = _now()
                 connection.execute(
                     """UPDATE product_export_operations
@@ -316,7 +352,9 @@ class ProductExportStore:
                 raise
 
     def mark_cancelled(
-        self, project_id: str, operation_id: str,
+        self,
+        project_id: str,
+        operation_id: str,
     ) -> ProductExportOperationData:
         """A worker records cancellation only after the encoder has stopped."""
         _identity(project_id, operation_id)
@@ -330,13 +368,20 @@ class ProductExportStore:
                 if current.status not in {"CLAIMED", "RUNNING", "UNKNOWN"}:
                     raise ProductExportStateError("TERMINAL", "Terminal export cannot be cancelled")
                 if current.cancel_requested_at is None:
-                    raise ProductExportStateError("NO_CANCEL_REQUEST", "Cancellation was not requested")
-                if connection.execute(
-                    """SELECT 1 FROM product_export_outputs
+                    raise ProductExportStateError(
+                        "NO_CANCEL_REQUEST", "Cancellation was not requested"
+                    )
+                if (
+                    connection.execute(
+                        """SELECT 1 FROM product_export_outputs
                        WHERE project_id = ? AND operation_id = ?""",
-                    (project_id, operation_id),
-                ).fetchone() is not None:
-                    raise ProductExportStateError("OUTPUT_EXISTS", "Verified output must be reconciled")
+                        (project_id, operation_id),
+                    ).fetchone()
+                    is not None
+                ):
+                    raise ProductExportStateError(
+                        "OUTPUT_EXISTS", "Verified output must be reconciled"
+                    )
                 stamp = _now()
                 connection.execute(
                     """UPDATE product_export_operations
@@ -373,7 +418,10 @@ class ProductExportStore:
                 raise
 
     def finalize_output(
-        self, project_id: str, operation_id: str, output_root: Path,
+        self,
+        project_id: str,
+        operation_id: str,
+        output_root: Path,
         toolchain: MediaToolchain,
     ) -> ProductExportOperationData:
         """Verify actual bytes, then save receipt and success in one transaction."""
@@ -389,19 +437,29 @@ class ProductExportStore:
             if row is None:
                 raise ProductExportStateError("NOT_FOUND", "Product export operation was not found")
             if row["status"] != "RUNNING" or row["progress_phase"] != "VERIFYING":
-                raise ProductExportStateError("NOT_VERIFYING", "Product export is not ready for output verification")
+                raise ProductExportStateError(
+                    "NOT_VERIFYING", "Product export is not ready for output verification"
+                )
             if row["cancel_requested_at"] is not None:
-                raise ProductExportStateError("CANCEL_REQUESTED", "Product export cancellation was requested")
+                raise ProductExportStateError(
+                    "CANCEL_REQUESTED", "Product export cancellation was requested"
+                )
             try:
                 request = ProductExportClaimRequest.model_validate_json(str(row["request_json"]))
                 plan = ProductExportRenderPlan.model_validate_json(str(row["render_plan_json"]))
             except ValueError:
-                raise ProductExportStateError("CORRUPT_CLAIM", "Persisted product export claim is invalid") from None
+                raise ProductExportStateError(
+                    "CORRUPT_CLAIM", "Persisted product export claim is invalid"
+                ) from None
             if (
-                canonical_content_hash({
-                    "project_id": project_id, "episode_id": str(row["episode_id"]),
-                    "request": request.model_dump(mode="json"),
-                }) != str(row["request_hash"])
+                canonical_content_hash(
+                    {
+                        "project_id": project_id,
+                        "episode_id": str(row["episode_id"]),
+                        "request": request.model_dump(mode="json"),
+                    }
+                )
+                != str(row["request_hash"])
                 or plan.content_hash != str(row["render_plan_hash"])
                 or plan.total_frames != row["total_frames"]
                 or plan.spec != request.spec
@@ -409,12 +467,18 @@ class ProductExportStore:
                 or plan.ffmpeg_sha256 != toolchain.ffmpeg_sha256
                 or plan.ffprobe_sha256 != toolchain.ffprobe_sha256
                 or plan.toolchain_profile_id != toolchain.profile_id
-                or output_target_identity(output_root, request) != str(row["output_target_identity"])
+                or output_target_identity(output_root, request)
+                != str(row["output_target_identity"])
             ):
-                raise ProductExportStateError("CORRUPT_CLAIM", "Persisted product export identity differs from plan")
+                raise ProductExportStateError(
+                    "CORRUPT_CLAIM", "Persisted product export identity differs from plan"
+                )
             connection.commit()
         verified = verify_product_output(
-            output_root, request, plan.total_frames, toolchain,
+            output_root,
+            request,
+            plan.total_frames,
+            toolchain,
             expect_audio=plan.has_audio,
         )
         with self._repository._connection() as connection:
@@ -428,22 +492,32 @@ class ProductExportStore:
                     (project_id, operation_id),
                 ).fetchone()
                 if (
-                    current is None or current["status"] != "RUNNING"
+                    current is None
+                    or current["status"] != "RUNNING"
                     or current["progress_phase"] != "VERIFYING"
                     or current["cancel_requested_at"] is not None
                     or current["request_hash"] != row["request_hash"]
                     or current["render_plan_hash"] != row["render_plan_hash"]
                     or current["output_target_identity"] != row["output_target_identity"]
                 ):
-                    raise ProductExportStateError("CLAIM_CHANGED", "Product export state changed during output verification")
+                    raise ProductExportStateError(
+                        "CLAIM_CHANGED", "Product export state changed during output verification"
+                    )
                 connection.execute(
                     """INSERT INTO product_export_outputs (
                            project_id, operation_id, absolute_path, sha256, byte_size,
                            probe_json, probe_hash, verified_at
                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (project_id, operation_id, verified.absolute_path, verified.sha256,
-                     verified.byte_size, verified.probe_json, verified.probe_hash,
-                     verified.verified_at),
+                    (
+                        project_id,
+                        operation_id,
+                        verified.absolute_path,
+                        verified.sha256,
+                        verified.byte_size,
+                        verified.probe_json,
+                        verified.probe_hash,
+                        verified.verified_at,
+                    ),
                 )
                 stamp = _now()
                 connection.execute(

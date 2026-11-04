@@ -9,6 +9,7 @@ from __future__ import annotations
 import unicodedata
 from datetime import datetime
 from typing import Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -50,8 +51,7 @@ class ProjectSettingsChangesV1(_Closed):
         if not self.model_fields_set:
             raise ValueError("At least one project setting must be supplied")
         if any(
-            getattr(self, field) is None
-            for field in self.model_fields_set - {"sequence_timebase"}
+            getattr(self, field) is None for field in self.model_fields_set - {"sequence_timebase"}
         ):
             raise ValueError("Only sequence_timebase can be explicitly cleared")
         return self
@@ -79,7 +79,7 @@ class ProjectSettingsDataV1(_Closed):
     description: str = Field(max_length=4000)
     sequence_timebase: SequenceTimebaseData | None
     # Existing authoritative columns remain read-only in this settings version.
-    aspect_ratio: Literal["9:16"]
+    aspect_ratio: Literal["9:16", "16:9"]
     target_duration_seconds: int = Field(gt=0)
     source_language: Literal["zh-CN"]
     revision: int = Field(ge=1, le=_REVISION_MAX)
@@ -108,6 +108,7 @@ class ProjectSettingsBoundaryV1(_Closed):
 class ProjectSettingsResponseV1(_Closed):
     data: ProjectSettingsDataV1
     boundary: ProjectSettingsBoundaryV1
+    request_id: UUID
 
 
 class ProjectSettingsWriteReceiptV1(_Closed):
@@ -123,6 +124,15 @@ class ProjectSettingsWriteReceiptV1(_Closed):
     def bind_result(self) -> Self:
         if self.result_revision not in {self.base_revision, self.base_revision + 1}:
             raise ValueError("Settings revision must be a no-op or one CAS increment")
-        if self.result.project_id != self.project_id or self.result.revision != self.result_revision:
+        if (
+            self.result.project_id != self.project_id
+            or self.result.revision != self.result_revision
+        ):
             raise ValueError("Settings receipt must bind its exact historical result")
         return self
+
+
+class ProjectSettingsReceiptResponseV1(_Closed):
+    data: ProjectSettingsWriteReceiptV1
+    boundary: ProjectSettingsBoundaryV1
+    request_id: UUID

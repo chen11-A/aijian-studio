@@ -58,8 +58,6 @@ def media_tool_root() -> Path | None:
     if not bool(getattr(sys, "frozen", False)):
         return None
     media_directory = media_toolchain_lock_path().parent.parent / "media"
-    if media_directory.exists() and (
-        not media_directory.is_dir() or _is_link(media_directory)
-    ):
+    if media_directory.exists() and (not media_directory.is_dir() or _is_link(media_directory)):
         raise PackagedResourceError("packaged media tool directory is unsafe")
     return media_directory

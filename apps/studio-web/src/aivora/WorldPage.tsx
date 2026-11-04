@@ -1,9 +1,15 @@
 import { Button, FlowFooter, PageTitle, Pill } from "./Common";
 import { useDemo } from "./model";
+import { ManualCreativePage } from "./ManualCreativeEditor";
 import cityWide from "./assets/v2/city-wide.png";
 import "./v2-visual.css";
 
 export function WorldPage() {
+  const d = useDemo();
+  return d.isFixture ? <FixtureWorldPage /> : <ManualCreativePage kind="world" />;
+}
+
+function FixtureWorldPage() {
   const d = useDemo();
   const activeProject = d.projects.find((project) => String(project.id) === d.value("projectId"));
   const summary = d.value("worldNote");

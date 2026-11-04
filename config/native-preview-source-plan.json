@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_ONLY_NOT_ADMITTED",
+  "production_runtime": null,
+  "admitted_release_profiles": [],
+  "source_target": "WINDOWS_X64_MSVC",
+  "protocol_version": 1,
+  "capability_version": 1,
+  "supported_source_design": [
+    "SINGLE_TRACK_CFR_IDENTITY_VIDEO",
+    "NATIVE_SDL2_WINDOW",
+    "MUTE_EMBEDDED_AUDIO",
+    "MLT_PATCHED_PRESENTED_FRAME"
+  ],
+  "not_supported_in_version_1": [
+    "IMAGES",
+    "SCALE",
+    "VIDEO_TRANSITIONS",
+    "EXTERNAL_AUDIO",
+    "AUDIO_HARDWARE_CLOCK",
+    "SUBTITLES",
+    "ENCODE",
+    "PUBLISH"
+  ],
+  "full_product_scope_unchanged": "23 pages / five stages; this capability is not full Animatic/export acceptance",
+  "source_patch": {
+    "path": "native/mlt-preview-host/MLT-7.40.0-explicit-repository.patch",
+    "sha256": "2edca9962a458e0eb6877e81320f17a86bb77555bc2e0f1572ecccaba81652bc",
+    "purpose": "Export explicit repository marker revision2, suppress plugin auto-discovery, register exact held modules, and require image/SDL render success before separate presented-frame event",
+    "license_obligation": "Modified MLT corresponding source, patch, LGPL texts, build/relink instructions and notices must accompany a reviewed release"
+  },
+  "dependencies": [
+    {
+      "name": "MLT framework/core/avformat/sdl2",
+      "version": "7.40.0 + local explicit-repository patch",
+      "source": "https://github.com/mltframework/mlt/releases/tag/v7.40.0",
+      "license": "LGPL-2.1-or-later for selected files; full actual build inventory required",
+      "purpose": "Native playlist, decode, SDL2 consumer",
+      "future_action": "Separately approve source acquisition; hash full source plus patch and build only fixed selected modules. No melt/Qt/plusgpl promotion"
+    },
+    {
+      "name": "FFmpeg shared decoding libraries",
+      "version": "8.1.3 proposed (distinct from existing 8.1.2 GPL development CLI)",
+      "source": "https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz",
+      "license": "LGPL-2.1-or-later target; depends on actual configure flags and linked code",
+      "purpose": "MLT avformat/avcodec/avfilter/swscale/swresample/avutil dependency closure",
+      "future_action": "Separately approve source/signature acquisition and fixed build with network/GPL/nonfree/version3/external codec/device/encoder/muxer features disabled; file protocol and mov/matroska demux only. Produce exact configuration, complete source/SBOM/licenses and DLL/PE hashes"
+    },
+    {
+      "name": "SDL2",
+      "version": "2.32.10",
+      "source": "https://github.com/libsdl-org/SDL/tree/release-2.32.10",
+      "license": "Zlib",
+      "purpose": "Native video window/renderer, not hardware audio-clock proof",
+      "future_action": "Separately approve fixed source and compile; preserve license text and record DLL/driver closure and actual Windows display results",
+      "port_metadata": "https://raw.githubusercontent.com/microsoft/vcpkg/12dcccadfe573d0eaa6c67a968413ded7805d256/ports/sdl2/vcpkg.json"
+    },
+    {
+      "name": "PThreads4W",
+      "version": "3.0.0, vcpkg port revision14 at fixed baseline",
+      "source": "https://sourceforge.net/projects/pthreads4w/",
+      "license": "Apache-2.0 per fixed vcpkg metadata; actual copyright/notice files required",
+      "purpose": "MLT/SDL2-module thread APIs and host header ABI",
+      "future_action": "Fix acquired source hash and thread ABI/build flags, notices and runtime import closure before build",
+      "port_metadata": "https://raw.githubusercontent.com/microsoft/vcpkg/12dcccadfe573d0eaa6c67a968413ded7805d256/ports/pthreads/vcpkg.json"
+    },
+    {
+      "name": "dlfcn-win32",
+      "version": "1.4.2",
+      "source": "https://github.com/dlfcn-win32/dlfcn-win32",
+      "license": "MIT",
+      "purpose": "MLT Windows compatibility dependency; auto-discovery is suppressed by local patch",
+      "future_action": "Pin source/hash/license and prove actual static/dynamic PE closure; never use system PATH",
+      "port_metadata": "https://raw.githubusercontent.com/microsoft/vcpkg/12dcccadfe573d0eaa6c67a968413ded7805d256/ports/dlfcn-win32/vcpkg.json"
+    },
+    {
+      "name": "dirent",
+      "version": "1.26",
+      "source": "https://github.com/tronkko/dirent",
+      "license": "MIT",
+      "purpose": "MLT Windows compatibility headers/library",
+      "future_action": "Pin source/hash/license and full compile/import receipt",
+      "port_metadata": "https://raw.githubusercontent.com/microsoft/vcpkg/12dcccadfe573d0eaa6c67a968413ded7805d256/ports/dirent/vcpkg.json"
+    },
+    {
+      "name": "GNU libiconv library",
+      "version": "1.18, vcpkg port revision4 at fixed baseline",
+      "source": "https://www.gnu.org/software/libiconv/",
+      "license": "Library LGPL; utilities GPL; actual selected payload licenses must be checked",
+      "purpose": "Required by MLT Windows framework; cannot omit from license/PE closure",
+      "future_action": "Fix source/hash and ship only admitted library closure with matching corresponding source/license; do not infer license from vcpkg null metadata",
+      "port_metadata": "https://raw.githubusercontent.com/microsoft/vcpkg/12dcccadfe573d0eaa6c67a968413ded7805d256/ports/libiconv/vcpkg.json"
+    },
+    {
+      "name": "MSVC / Windows SDK / CMake / Ninja / vcpkg build tools",
+      "version": "Exact binaries and SDK/CRT versions not selected or installed; vcpkg registry reference fixed above",
+      "source": "https://github.com/mltframework/mlt/blob/v7.40.0/.github/workflows/build-windows-msvc.yml",
+      "license": "Each actual tool/EULA/redistribution component requires its own inventory",
+      "purpose": "Future Windows compilation and source/ABI receipts",
+      "future_action": "Provide concrete installer/package versions, official URLs, hashes, full transitive bytes/disk/permission scope before separately requesting acquisition/install/build. This source change does none"
+    }
+  ],
+  "release_admission_required": [
+    "Exact canonical profile digest in trusted application allowlist",
+    "Host SHA held before resume, static-CRT/system-only startup PE closure",
+    "Full raw held-file PE receipt: x64 PE32+, closed normal/RVA-delay/export-forwarder imports, unique DLL basename, no bound/CLR/VA-delay/manifest or host dynamic CRT; dynamic/OS/driver closure separately verified",
+    "All runtime DLL/module/data/license file SHA and deny-write/delete handles",
+    "Explicit-module patch export marker revision2",
+    "Private protected cwd and sanitized environment, pre-resume owned Job/handle list",
+    "Native binding retains every partial/late launch; zero-active-process and joined-pipe proof before source release",
+    "Complete license/corresponding-source/build/PE receipts",
+    "Windows actual compilation, DLL races, parent exit, lease, Unicode paths, window/decoder/shown-frame tests"
+  ],
+  "current_missing_source_binding": "Actual production source binding is connected; reviewed binary/profile, Windows compile/loader/Job/pipe/decoder/window acceptance remain absent. Empty compiled main and sidecar release policies deny native dispatch.",
+  "current_verification": "TypeScript/Python static checks, controlled kernel/byte pipes and real temporary SQLite/Python sidecar only; no C++ compile/install/native process or Windows proof",
+  "source_admission_implementation": "Full held-byte PE/import/delay/forwarder proof consumed by the actual main-to-sidecar owner; protected cwd, same held-file bytes, immutable opening handle dispatched inside final SQLite admission, pre-resume Job/handle list and original IO-thread handle cancellation/join. Prior uncompiled C++ SealedLaunch/OwnedJob remain source references; actual production owner is Python WinAPI. No reviewed binary profile.",
+  "production_source_factory": "createInstalledMltNativeRuntime: compiled empty policy returns null",
+  "production_source_chain": [
+    "apps/desktop/src/main.ts",
+    "apps/desktop/src/media-preview-sidecar-runtime.ts",
+    "apps/desktop/src/sidecar-process.ts",
+    "apps/desktop/src/sidecar-private-pipe.ts",
+    "services/api/src/aijian_api/sidecar.py",
+    "services/api/src/aijian_api/native_preview_parent_pipe.py",
+    "services/api/src/aijian_api/native_preview_owner.py",
+    "services/api/src/aijian_api/native_preview_windows_job.py",
+    "native/mlt-preview-host/host.cpp"
+  ]
+}

@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from datetime import datetime
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -59,6 +59,7 @@ from aijian_api.sub2api_source_extract_contracts import (
 )
 from aijian_api.sub2api_source_extract_store import Sub2APISourceExtractScopeDraft
 from aijian_api.task_ledger import LocalTaskLedger, QueuedTask
+from aijian_api.task_ledger_models import utc_now
 
 SOURCE_ANALYST_SUB2API_REF = DefinitionRefV1(
     definition_id="writer.source-analyst-sub2api", version="1.0.0"
@@ -68,10 +69,10 @@ SOURCE_EXTRACT_SUB2API_REF = DefinitionRefV1(
 )
 
 _GRAPH: dict[str, object] = {"nodes": ["source.extract"], "runtime": "sub2api-v0.2.8"}
-_DEFINITION_ID = "agent-skill-sub2api-runtime"
+_DEFINITION_ID: Final = "agent-skill-sub2api-runtime"
 _DEFINITION_HASH = canonical_sha256(_GRAPH)
-_ENDPOINT_BINDING = "SUB2API_EXTERNAL_HTTPS_CHAT_V1"
-_LOCAL_ENDPOINT_BINDING = "SUB2API_LOCAL_LOOPBACK_HTTP_CHAT_V1"
+_ENDPOINT_BINDING: Final = "SUB2API_EXTERNAL_HTTPS_CHAT_V1"
+_LOCAL_ENDPOINT_BINDING: Final = "SUB2API_LOCAL_LOOPBACK_HTTP_CHAT_V1"
 _TRANSPORT_CONTRACT_HASH = canonical_sha256(
     {
         "method": "POST",
@@ -164,7 +165,8 @@ def _enqueue_from_intent(
         or intent.agent_run_id != persisted.agent_run_id
         or intent.definition_hash != _DEFINITION_HASH
         or intent.graph != _GRAPH
-        or intent.endpoint_binding != (
+        or intent.endpoint_binding
+        != (
             _LOCAL_ENDPOINT_BINDING
             if intent.sub2api_scope.origin_mode == "LOCAL_LOOPBACK_HTTP"
             else _ENDPOINT_BINDING
@@ -259,7 +261,12 @@ class Sub2APISourceExtractRunFactory:
         )
         agent_run_id = _stable_id("agr", {**identity_seed, "kind": "agent"})
         skill_run_id = _stable_id("skr", {**identity_seed, "kind": "skill"})
-        store = AgentRunStore(self._repository.database_path)
+        # available_at is this bundle's created_at. Share the factory clock so a
+        # frozen claim clock cannot fall behind a slow wall-clock insert.
+        store = AgentRunStore(
+            self._repository.database_path,
+            clock=self._clock or utc_now,
+        )
         try:
             existing = store.get_with_intent(project_id, agent_run_id)
         except ProposalRunNotFoundError:
@@ -286,6 +293,8 @@ class Sub2APISourceExtractRunFactory:
             connection = ProviderConnectionRepository(self._repository.database_path).get(
                 selection.connection_id
             )
+            if connection.origin_mode is None:
+                raise ValueError("Sub2API origin mode is missing")
             validate_sub2api_origin(connection.base_url, connection.origin_mode)
         except (ProviderConnectionNotFoundError, ValueError) as error:
             raise ProposalRunInputRejectedError("Sub2API connection is unavailable") from error
@@ -307,7 +316,9 @@ class Sub2APISourceExtractRunFactory:
             )
             delegation.assert_registry_resolved()
         except (LookupError, PermissionError, ValueError) as error:
-            raise ProposalRunInputRejectedError("Sub2API Agent/Skill pair is unavailable") from error
+            raise ProposalRunInputRejectedError(
+                "Sub2API Agent/Skill pair is unavailable"
+            ) from error
         if (
             delegation.skill_definition.max_attempts != 1
             or delegation.skill_definition.output_schema_ref
@@ -346,11 +357,11 @@ class Sub2APISourceExtractRunFactory:
                 content='{"additionalProperties":false,"required":["summary"],"type":"object"}',
             ),
         )
-        built_context = build_context(delegation=delegation, trusted_inputs=trusted_inputs)
+        built_context = build_context(
+            delegation=delegation, trusted_inputs=trusted_inputs, run_scope=agent_run_id
+        )
         origin_hash = canonical_sha256(
-            sub2api_origin_binding(
-                connection.base_url, connection.origin_mode, connection.revision
-            )
+            sub2api_origin_binding(connection.base_url, connection.origin_mode, connection.revision)
         )
         input_hash = canonical_sha256(
             {
@@ -485,9 +496,7 @@ class Sub2APISourceExtractRunFactory:
         intent_record = write.enqueue_intent
         if intent_record is None or intent_record.request_hash != request_hash:
             raise AgentRunBundleConflictError("persisted Sub2API enqueue intent is missing")
-        queued, attempt = _enqueue_from_intent(
-            self._repository, intent_record, clock=self._clock
-        )
+        queued, attempt = _enqueue_from_intent(self._repository, intent_record, clock=self._clock)
         return CreatedProposalRun(
             persisted=write.bundle,
             task=queued,

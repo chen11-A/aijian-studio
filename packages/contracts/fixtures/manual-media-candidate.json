@@ -1,0 +1,478 @@
+{
+  "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+  "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+  "request_id": "4ac3da45-869a-43ca-8cbb-5cea272cd967",
+  "board": {
+    "version_id": "ver_b51a26ff44a54dec9f0321c4389def56",
+    "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+    "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+    "version_number": 1,
+    "head_revision": 1,
+    "parent_version_id": null,
+    "content": {
+      "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+      "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+      "fps": 25,
+      "script_version_id": null,
+      "creative_library_version_id": null,
+      "shots": [
+        {
+          "shot_id": "shp_00000000000000000000000000000001",
+          "ordinal": 1,
+          "duration_frames": 75,
+          "title": "镜头 1",
+          "description": "码头的灯火",
+          "action": "角色回望",
+          "dialogue": "我会回来。",
+          "camera": "中景",
+          "script_scene_id": null,
+          "character_ids": [],
+          "location_id": null
+        }
+      ],
+      "schema_version": "1.0.0"
+    },
+    "content_hash": "sha256:ea1fe2d2ab9acfb8e9c92e2290fc267601426eb854b8b226afd12d21d0d4b01c",
+    "author_actor_id": "local-user",
+    "change_summary": "保存人工分镜草稿",
+    "created_at": "2026-10-11T15:13:27.305511Z"
+  },
+  "preparation": {
+    "version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+    "version_number": 1,
+    "parent_version_id": null,
+    "author_actor_id": "local-user",
+    "content": {
+      "schema_version": "1.0.0",
+      "input": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "capability_intent": "IMAGE",
+        "storyboard_version_id": "ver_b51a26ff44a54dec9f0321c4389def56",
+        "storyboard_content_hash": "sha256:ea1fe2d2ab9acfb8e9c92e2290fc267601426eb854b8b226afd12d21d0d4b01c",
+        "shot_id": "shp_00000000000000000000000000000001",
+        "prompt": "完整手工画面：码头灯火与回望。",
+        "negative_prompt": "避免失去同一服装。",
+        "width": 1920,
+        "height": 1080,
+        "requested_frames": 1
+      },
+      "snapshot": {
+        "storyboard_schema_version": "1.0.0",
+        "fps": 25,
+        "shot": {
+          "shot_id": "shp_00000000000000000000000000000001",
+          "ordinal": 1,
+          "duration_frames": 75,
+          "title": "镜头 1",
+          "description": "码头的灯火",
+          "action": "角色回望",
+          "dialogue": "我会回来。",
+          "camera": "中景",
+          "script_scene_id": null,
+          "character_ids": [],
+          "location_id": null
+        },
+        "script_version_id": null,
+        "creative_library_version_id": null,
+        "visual_bible_version_id": null,
+        "selected_references": []
+      }
+    },
+    "content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+    "created_at": "2026-10-11T15:13:27.328856Z"
+  },
+  "preparation_page": {
+    "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+    "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+    "head_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+    "head_revision": 1,
+    "items": [
+      {
+        "version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+        "version_number": 1,
+        "parent_version_id": null,
+        "author_actor_id": "local-user",
+        "content": {
+          "schema_version": "1.0.0",
+          "input": {
+            "schema_version": "1.0.0",
+            "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+            "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+            "capability_intent": "IMAGE",
+            "storyboard_version_id": "ver_b51a26ff44a54dec9f0321c4389def56",
+            "storyboard_content_hash": "sha256:ea1fe2d2ab9acfb8e9c92e2290fc267601426eb854b8b226afd12d21d0d4b01c",
+            "shot_id": "shp_00000000000000000000000000000001",
+            "prompt": "完整手工画面：码头灯火与回望。",
+            "negative_prompt": "避免失去同一服装。",
+            "width": 1920,
+            "height": 1080,
+            "requested_frames": 1
+          },
+          "snapshot": {
+            "storyboard_schema_version": "1.0.0",
+            "fps": 25,
+            "shot": {
+              "shot_id": "shp_00000000000000000000000000000001",
+              "ordinal": 1,
+              "duration_frames": 75,
+              "title": "镜头 1",
+              "description": "码头的灯火",
+              "action": "角色回望",
+              "dialogue": "我会回来。",
+              "camera": "中景",
+              "script_scene_id": null,
+              "character_ids": [],
+              "location_id": null
+            },
+            "script_version_id": null,
+            "creative_library_version_id": null,
+            "visual_bible_version_id": null,
+            "selected_references": []
+          }
+        },
+        "content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+        "created_at": "2026-10-11T15:13:27.328856Z"
+      }
+    ],
+    "next_cursor": null
+  },
+  "assets": [
+    {
+      "id": "asset_511334c701044ee4b27cfd33e42ec12d",
+      "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+      "created_at": "2026-10-11T15:13:27.313773Z",
+      "latest_version": {
+        "id": "asv_c6d00210147146dcae7b24bda07e2440",
+        "ordinal": 1,
+        "filename": "owned-candidate.png",
+        "kind": "image",
+        "mime_type": "image/png",
+        "byte_size": 80,
+        "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+        "rights_status": "PENDING_REVIEW",
+        "source_kind": "LOCAL_IMPORT",
+        "technical_metadata": {
+          "height": 16,
+          "inspection_status": "HEADER_ONLY",
+          "width": 16
+        },
+        "created_at": "2026-10-11T15:13:27.313773Z",
+        "availability": "VERIFIED"
+      },
+      "versions": [
+        {
+          "id": "asv_c6d00210147146dcae7b24bda07e2440",
+          "ordinal": 1,
+          "filename": "owned-candidate.png",
+          "kind": "image",
+          "mime_type": "image/png",
+          "byte_size": 80,
+          "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+          "rights_status": "PENDING_REVIEW",
+          "source_kind": "LOCAL_IMPORT",
+          "technical_metadata": {
+            "height": 16,
+            "inspection_status": "HEADER_ONLY",
+            "width": 16
+          },
+          "created_at": "2026-10-11T15:13:27.313773Z",
+          "availability": "VERIFIED"
+        }
+      ],
+      "episode_references": []
+    }
+  ],
+  "candidate_command": {
+    "operation_id": "70A3B5E3-D0D9-461C-85DE-AD0F27810615",
+    "payload": {
+      "input": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "preparation_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+        "preparation_content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+        "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+        "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+        "asset_sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+        "association_note": "手工选择自有图片作为候选；未表示模型生成或已完成镜头。"
+      },
+      "parent_version_id": null,
+      "expected_revision": null
+    }
+  },
+  "candidate_operation": {
+    "operation_id": "70A3B5E3-D0D9-461C-85DE-AD0F27810615",
+    "payload": {
+      "input": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "preparation_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+        "preparation_content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+        "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+        "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+        "asset_sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+        "association_note": "手工选择自有图片作为候选；未表示模型生成或已完成镜头。"
+      },
+      "parent_version_id": null,
+      "expected_revision": null
+    },
+    "version": {
+      "version_id": "ver_957057b08ecf48639718b04071e6b37a",
+      "version_number": 1,
+      "parent_version_id": null,
+      "author_actor_id": "local-user",
+      "content": {
+        "schema_version": "1.0.0",
+        "input": {
+          "schema_version": "1.0.0",
+          "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+          "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+          "preparation_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+          "preparation_content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+          "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+          "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+          "asset_sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+          "association_note": "手工选择自有图片作为候选；未表示模型生成或已完成镜头。"
+        },
+        "asset_snapshot": {
+          "filename": "owned-candidate.png",
+          "kind": "image",
+          "mime_type": "image/png",
+          "byte_size": 80,
+          "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+          "technical_metadata": {
+            "height": 16,
+            "inspection_status": "HEADER_ONLY",
+            "width": 16
+          }
+        },
+        "origin": "LOCAL_IMPORT",
+        "association": "MANUAL_ASSOCIATION",
+        "cost_status": "UNKNOWN"
+      },
+      "content_hash": "sha256:bd65b10888b17065fa621ff8fd81a31cd3b4d41c6a014a4a391f48a465140f28",
+      "created_at": "2026-10-11T15:13:27.341888Z"
+    }
+  },
+  "candidate_page": {
+    "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+    "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+    "head_version_id": "ver_957057b08ecf48639718b04071e6b37a",
+    "head_revision": 1,
+    "items": [
+      {
+        "version_id": "ver_957057b08ecf48639718b04071e6b37a",
+        "version_number": 1,
+        "parent_version_id": null,
+        "author_actor_id": "local-user",
+        "content": {
+          "schema_version": "1.0.0",
+          "input": {
+            "schema_version": "1.0.0",
+            "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+            "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+            "preparation_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+            "preparation_content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+            "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+            "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+            "asset_sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+            "association_note": "手工选择自有图片作为候选；未表示模型生成或已完成镜头。"
+          },
+          "asset_snapshot": {
+            "filename": "owned-candidate.png",
+            "kind": "image",
+            "mime_type": "image/png",
+            "byte_size": 80,
+            "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef",
+            "technical_metadata": {
+              "height": 16,
+              "inspection_status": "HEADER_ONLY",
+              "width": 16
+            }
+          },
+          "origin": "LOCAL_IMPORT",
+          "association": "MANUAL_ASSOCIATION",
+          "cost_status": "UNKNOWN"
+        },
+        "content_hash": "sha256:bd65b10888b17065fa621ff8fd81a31cd3b4d41c6a014a4a391f48a465140f28",
+        "created_at": "2026-10-11T15:13:27.341888Z"
+      }
+    ],
+    "next_cursor": null
+  },
+  "assembly_command": {
+    "operation_id": "076B8F07-30FC-4BFC-AA14-B079FE2ED487",
+    "payload": {
+      "content": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "sequence_timebase": {
+          "frame_rate": {
+            "num": 25,
+            "den": 1
+          },
+          "timecode_mode": "NON_DROP_FRAME"
+        },
+        "canvas_width": 160,
+        "canvas_height": 90,
+        "total_frames": 75,
+        "visual_segments": [
+          {
+            "segment_id": "seg_manual",
+            "media_kind": "image",
+            "media": {
+              "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+              "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+              "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef"
+            },
+            "start_frame": 0,
+            "end_frame": 75,
+            "source_in_frame": 0,
+            "embedded_audio": "MUTE",
+            "storyboard_ref": {
+              "storyboard_version_id": "ver_b51a26ff44a54dec9f0321c4389def56",
+              "shot_id": "shp_00000000000000000000000000000001"
+            },
+            "manual_candidate_ref": {
+              "candidate_version_id": "ver_957057b08ecf48639718b04071e6b37a",
+              "candidate_content_hash": "sha256:bd65b10888b17065fa621ff8fd81a31cd3b4d41c6a014a4a391f48a465140f28",
+              "preparation_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+              "preparation_content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+              "adoption_intent": "MANUAL_ADOPTION"
+            }
+          }
+        ],
+        "audio_segments": [],
+        "subtitle_segments": []
+      },
+      "parent_version_id": null,
+      "expected_revision": null,
+      "change_summary": "用户明确选入手工候选，保存本分集装配"
+    }
+  },
+  "assembly_operation": {
+    "result_revision": 1,
+    "operation_id": "076B8F07-30FC-4BFC-AA14-B079FE2ED487",
+    "payload": {
+      "content": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "sequence_timebase": {
+          "frame_rate": {
+            "num": 25,
+            "den": 1
+          },
+          "timecode_mode": "NON_DROP_FRAME"
+        },
+        "canvas_width": 160,
+        "canvas_height": 90,
+        "total_frames": 75,
+        "visual_segments": [
+          {
+            "segment_id": "seg_manual",
+            "media_kind": "image",
+            "media": {
+              "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+              "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+              "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef"
+            },
+            "start_frame": 0,
+            "end_frame": 75,
+            "source_in_frame": 0,
+            "embedded_audio": "MUTE",
+            "storyboard_ref": {
+              "storyboard_version_id": "ver_b51a26ff44a54dec9f0321c4389def56",
+              "shot_id": "shp_00000000000000000000000000000001"
+            },
+            "manual_candidate_ref": {
+              "candidate_version_id": "ver_957057b08ecf48639718b04071e6b37a",
+              "candidate_content_hash": "sha256:bd65b10888b17065fa621ff8fd81a31cd3b4d41c6a014a4a391f48a465140f28",
+              "preparation_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+              "preparation_content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+              "adoption_intent": "MANUAL_ADOPTION"
+            }
+          }
+        ],
+        "audio_segments": [],
+        "subtitle_segments": []
+      },
+      "parent_version_id": null,
+      "expected_revision": null,
+      "change_summary": "用户明确选入手工候选，保存本分集装配"
+    },
+    "version": {
+      "artifact_id": "art_eb01218c73cd46e5a20eab9ac491c5cc",
+      "version_id": "ver_f661edee74234518b0ba5a9de7bd6dc0",
+      "content_hash": "sha256:941de5030b98e5803ac64024a2d8c6a581bdb2dcdedc05c62290d14e29acb770",
+      "head_revision": 1,
+      "parent_version_id": null,
+      "content": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "episode_id": "ep_prj_17e2b1fc7a4c4241a0141519e2fd9cf3",
+        "sequence_timebase": {
+          "frame_rate": {
+            "num": 25,
+            "den": 1
+          },
+          "timecode_mode": "NON_DROP_FRAME"
+        },
+        "canvas_width": 160,
+        "canvas_height": 90,
+        "total_frames": 75,
+        "visual_segments": [
+          {
+            "segment_id": "seg_manual",
+            "media_kind": "image",
+            "media": {
+              "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+              "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+              "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef"
+            },
+            "start_frame": 0,
+            "end_frame": 75,
+            "source_in_frame": 0,
+            "embedded_audio": "MUTE",
+            "storyboard_ref": {
+              "storyboard_version_id": "ver_b51a26ff44a54dec9f0321c4389def56",
+              "shot_id": "shp_00000000000000000000000000000001"
+            },
+            "manual_candidate_ref": {
+              "candidate_version_id": "ver_957057b08ecf48639718b04071e6b37a",
+              "candidate_content_hash": "sha256:bd65b10888b17065fa621ff8fd81a31cd3b4d41c6a014a4a391f48a465140f28",
+              "preparation_version_id": "ver_fedd7b5d76ea4d629712eee7112cea6a",
+              "preparation_content_hash": "sha256:13b320817c42ae29edf05640551417cf16b2d0d4b797506452ec849148d8be78",
+              "adoption_intent": "MANUAL_ADOPTION"
+            }
+          }
+        ],
+        "audio_segments": [],
+        "subtitle_segments": []
+      },
+      "media_checks": [
+        {
+          "media": {
+            "asset_id": "asset_511334c701044ee4b27cfd33e42ec12d",
+            "asset_version_id": "asv_c6d00210147146dcae7b24bda07e2440",
+            "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef"
+          },
+          "kind": "image",
+          "availability": "VERIFIED",
+          "technical_status": "STILL_HEADER_ONLY",
+          "probe_evidence_id": null,
+          "probed_video_frames": null,
+          "probed_has_audio": null,
+          "rights_status": "PENDING_REVIEW",
+          "rights_decision_id": null
+        }
+      ],
+      "playback_status": "DRAFT_STATIC_ANIMATIC",
+      "export_status": "NO_EXPORT_CLAIM"
+    }
+  }
+}

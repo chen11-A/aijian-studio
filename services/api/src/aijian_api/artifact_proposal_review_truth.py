@@ -156,9 +156,13 @@ def read_reviewable_proposal_truth(
         WHERE attempt.attempt_id = ? AND workflow.project_id = ?
         """,
         (
-            (enqueue_intent.task_kind if enqueue_intent is not None else
-             "sub2api.source.extract" if isinstance(proposal, ArtifactProposalV2)
-             else "remote.extract"),
+            (
+                enqueue_intent.task_kind
+                if enqueue_intent is not None
+                else "sub2api.source.extract"
+                if isinstance(proposal, ArtifactProposalV2)
+                else "remote.extract"
+            ),
             persisted.producer_attempt_id,
             project_id,
         ),
@@ -186,7 +190,9 @@ def read_reviewable_proposal_truth(
     if str(truth["execution_mode"]) == "remote":
         if isinstance(proposal, ArtifactProposalV2):
             _validate_sub2api_review_chain(
-                connection=connection, truth=truth, persisted=persisted,
+                connection=connection,
+                truth=truth,
+                persisted=persisted,
                 context_manifest_id=run_bundle.context_manifest.context_manifest_id,
             )
         else:
@@ -301,8 +307,11 @@ def _validate_remote_dispatch_review_chain(
 
 
 def _validate_sub2api_review_chain(
-    *, connection: sqlite3.Connection, truth: sqlite3.Row,
-    persisted: PersistedArtifactProposal, context_manifest_id: str,
+    *,
+    connection: sqlite3.Connection,
+    truth: sqlite3.Row,
+    persisted: PersistedArtifactProposal,
+    context_manifest_id: str,
 ) -> None:
     proposal = persisted.proposal
     if not isinstance(proposal, ArtifactProposalV2):
@@ -358,9 +367,8 @@ def _validate_sub2api_review_chain(
             or not row["raw_output_sha256"]
             or str(row["response_content_type"]) != "application/json"
             or row["raw_response_body"] is None
-            or str(row["raw_response_sha256"]) != (
-                "sha256:" + hashlib.sha256(bytes(row["raw_response_body"])).hexdigest()
-            )
+            or str(row["raw_response_sha256"])
+            != ("sha256:" + hashlib.sha256(bytes(row["raw_response_body"])).hexdigest())
             or not scope["accepted_manifest_content_hash"]
             or len(proposal.source_spans) != 1
             or proposal.source_spans[0].source_span_id != scope["source_span_id"]

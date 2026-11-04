@@ -1,3 +1,4 @@
+import { invalidationConsumerIdentity } from "@aijian/contracts/invalidation-consumer";
 import {
   validateInvalidationOperationPageQuery,
   type InvalidationOperationPageQuery,
@@ -88,5 +89,20 @@ export function registerInvalidationOperationHandlers<TEvent>(
       throw new Error("Invalidation operation IPC requires exact canonical arguments");
     }
     return client.getInvalidationOperation(args[0], args[1]);
+  });
+}
+
+export function registerInvalidationConsumerHandler<TEvent>(
+  handle: (
+    channel: string,
+    listener: (event: TEvent, ...args: unknown[]) => Promise<unknown>,
+  ) => void,
+  clientFor: (event: TEvent) => Pick<LocalApiClient, "inspectInvalidationConsumer">,
+): void {
+  handle("invalidation-operations:inspect-consumer", async (event, ...args) => {
+    const client = clientFor(event);
+    if (args.length !== 1 || !invalidationConsumerIdentity(args[0]))
+      throw new Error("Impact consumer IPC requires one exact saved path identity");
+    return client.inspectInvalidationConsumer(args[0]);
   });
 }

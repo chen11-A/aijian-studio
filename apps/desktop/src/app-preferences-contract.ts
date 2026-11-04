@@ -47,12 +47,16 @@ export const APP_PREFERENCES_CHANNELS = Object.freeze({
 } as const);
 
 const DATA_KEYS = [
-  "saved", "revision", "user_name", "display_bio", "ui_language", "ui_theme",
-  "created_at", "updated_at",
+  "saved",
+  "revision",
+  "user_name",
+  "display_bio",
+  "ui_language",
+  "ui_theme",
+  "created_at",
+  "updated_at",
 ];
-const REQUEST_KEYS = [
-  "expected_revision", "user_name", "display_bio", "ui_language", "ui_theme",
-];
+const REQUEST_KEYS = ["expected_revision", "user_name", "display_bio", "ui_language", "ui_theme"];
 const ERROR_CODES = new Map<number, readonly string[]>([
   [401, ["SIDECAR_AUTH_REQUIRED"]],
   [403, ["SIDECAR_REQUEST_REJECTED"]],
@@ -61,13 +65,20 @@ const ERROR_CODES = new Map<number, readonly string[]>([
 ]);
 
 function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
-  return Object.keys(value).length === keys.length &&
-    keys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+  return (
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
+  );
 }
 
 function validUserName(value: unknown, allowEmpty: boolean): value is string {
-  if (typeof value !== "string" || value !== value.trim() || [...value].length > 80 ||
-      (!allowEmpty && value.length === 0)) return false;
+  if (
+    typeof value !== "string" ||
+    value !== value.trim() ||
+    [...value].length > 80 ||
+    (!allowEmpty && value.length === 0)
+  )
+    return false;
   return ![...value].some((char) => {
     const code = char.codePointAt(0) ?? 0;
     return code < 32 || code === 127;
@@ -83,18 +94,25 @@ function validBio(value: unknown): value is string {
 }
 
 function isAwareTimestamp(value: unknown): value is string {
-  return typeof value === "string" &&
+  return (
+    typeof value === "string" &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
-    Number.isFinite(Date.parse(value));
+    Number.isFinite(Date.parse(value))
+  );
 }
 
 export function isSaveAppPreferencesCommand(value: unknown): value is SaveAppPreferencesCommand {
   if (!isRecord(value) || !hasExactKeys(value, REQUEST_KEYS)) return false;
-  return typeof value.expected_revision === "number" &&
-    Number.isSafeInteger(value.expected_revision) && value.expected_revision >= 0 &&
+  return (
+    typeof value.expected_revision === "number" &&
+    Number.isSafeInteger(value.expected_revision) &&
+    value.expected_revision >= 0 &&
     value.expected_revision < Number.MAX_SAFE_INTEGER &&
-    validUserName(value.user_name, false) && validBio(value.display_bio) &&
-    value.ui_language === "zh-CN" && value.ui_theme === "dark-cinematic";
+    validUserName(value.user_name, false) &&
+    validBio(value.display_bio) &&
+    value.ui_language === "zh-CN" &&
+    value.ui_theme === "dark-cinematic"
+  );
 }
 
 export function isAppPreferencesResponse(
@@ -102,19 +120,34 @@ export function isAppPreferencesResponse(
   requestId: string | null,
   etag: string | null,
 ): value is AppPreferencesResponse {
-  if (!isRecord(value) || !hasExactKeys(value, ["data", "request_id"]) ||
-      !hasRequestId(value) || value.request_id !== requestId || !isRecord(value.data)) return false;
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["data", "request_id"]) ||
+    !hasRequestId(value) ||
+    value.request_id !== requestId ||
+    !isRecord(value.data)
+  )
+    return false;
   const data = value.data;
-  if (!hasExactKeys(data, DATA_KEYS) || typeof data.saved !== "boolean" ||
-      typeof data.revision !== "number" || !Number.isSafeInteger(data.revision) ||
-      !validUserName(data.user_name, !data.saved) || !validBio(data.display_bio) ||
-      data.ui_language !== "zh-CN" || data.ui_theme !== "dark-cinematic" ||
-      etag !== `"revision-${data.revision}"`) return false;
+  if (
+    !hasExactKeys(data, DATA_KEYS) ||
+    typeof data.saved !== "boolean" ||
+    typeof data.revision !== "number" ||
+    !Number.isSafeInteger(data.revision) ||
+    !validUserName(data.user_name, !data.saved) ||
+    !validBio(data.display_bio) ||
+    data.ui_language !== "zh-CN" ||
+    data.ui_theme !== "dark-cinematic" ||
+    etag !== `"revision-${data.revision}"`
+  )
+    return false;
   return data.saved
-    ? data.revision >= 1 && isAwareTimestamp(data.created_at) &&
-        isAwareTimestamp(data.updated_at)
-    : data.revision === 0 && data.user_name === "" && data.display_bio === "" &&
-        data.created_at === null && data.updated_at === null;
+    ? data.revision >= 1 && isAwareTimestamp(data.created_at) && isAwareTimestamp(data.updated_at)
+    : data.revision === 0 &&
+        data.user_name === "" &&
+        data.display_bio === "" &&
+        data.created_at === null &&
+        data.updated_at === null;
 }
 
 export function appPreferencesDefiniteError(
@@ -122,13 +155,24 @@ export function appPreferencesDefiniteError(
   value: unknown,
   requestId: string | null,
 ): AppPreferencesDefiniteError | null {
-  if (!isRecord(value) || !hasExactKeys(value, ["error", "request_id"]) ||
-      !hasRequestId(value) || value.request_id !== requestId || !isRecord(value.error) ||
-      !hasExactKeys(value.error, ["code", "message", "retryable", "details"])) return null;
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["error", "request_id"]) ||
+    !hasRequestId(value) ||
+    value.request_id !== requestId ||
+    !isRecord(value.error) ||
+    !hasExactKeys(value.error, ["code", "message", "retryable", "details"])
+  )
+    return null;
   const error = value.error;
-  if (typeof error.code !== "string" || !ERROR_CODES.get(status)?.includes(error.code) ||
-      typeof error.message !== "string" || error.retryable !== false ||
-      !isRecord(error.details)) return null;
+  if (
+    typeof error.code !== "string" ||
+    !ERROR_CODES.get(status)?.includes(error.code) ||
+    typeof error.message !== "string" ||
+    error.retryable !== false ||
+    !isRecord(error.details)
+  )
+    return null;
   return {
     kind: "DEFINITE_SERVER_ERROR",
     status: status as AppPreferencesDefiniteError["status"],

@@ -20,6 +20,7 @@ from aijian_api.agent_skill_contracts import (
     AttemptSnapshotV1,
     ProposalCostV1,
     ProposalQcV1,
+    SkillDefinitionV1,
 )
 from aijian_api.agent_skill_registry import ResolvedDelegation
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
@@ -99,7 +100,10 @@ class FakeAgentSkillExecutor:
         self._stop_requested = stop_requested or (lambda: False)
         self._isolation_backend = isolation_backend
         delegation.assert_registry_resolved()
+        if not isinstance(delegation.skill_definition, SkillDefinitionV1):
+            raise PermissionError("Fake execution requires an explicit local budget")
         self._delegation = delegation
+        self._skill_definition = delegation.skill_definition
 
     def run_once(self, *, task_id: str | None = None) -> bool:
         self._raise_if_stopping()
@@ -152,7 +156,7 @@ class FakeAgentSkillExecutor:
 
     def _retry_budget(self, snapshot: AttemptSnapshotV1) -> tuple[int, int]:
         agent = self._delegation.agent_definition
-        skill = self._delegation.skill_definition
+        skill = self._skill_definition
         if (
             snapshot.agent_definition_id != agent.agent_definition_id
             or snapshot.agent_version != agent.version

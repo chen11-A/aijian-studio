@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event
-from time import sleep
 
 import pytest
 from aijian_api.local_executor import LocalExecutor
@@ -357,14 +356,30 @@ def test_expired_attempt_with_committed_output_is_reconciled_without_regeneratio
         ).fetchone() == ("SUCCEEDED", output_version_id)
 
 
-def test_executor_heartbeats_while_a_long_handler_is_running(tmp_path: Path) -> None:
+def test_executor_heartbeats_while_a_long_handler_is_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     database = tmp_path / "workspace.db"
-    repository, ledger, _queued, project_id = setup_execution(
-        database,
-        [datetime.now(UTC)],
-    )
+    clock = [NOW]
+    repository, ledger, queued, project_id = setup_execution(database, clock)
     entered = Event()
     release = Event()
+    renewed_past_original_expiry = Event()
+    heartbeat = ledger.heartbeat
+    renewals = 0
+
+    def observed_heartbeat(claim: ClaimedTask, *, lease_duration: timedelta) -> ClaimedTask:
+        nonlocal renewals
+        # Advance the ledger clock only at a real renewal, not with machine load.
+        if renewals < 4:
+            clock[0] += timedelta(milliseconds=40)
+        renewed = heartbeat(claim, lease_duration=lease_duration)
+        renewals += 1
+        if renewals >= 4:
+            renewed_past_original_expiry.set()
+        return renewed
+
+    monkeypatch.setattr(ledger, "heartbeat", observed_heartbeat)
 
     def slow_handler(claim: ClaimedTask) -> str:
         entered.set()
@@ -376,7 +391,7 @@ def test_executor_heartbeats_while_a_long_handler_is_running(tmp_path: Path) -> 
         )
 
     executor = LocalExecutor(
-        LocalTaskLedger(database),
+        ledger,
         worker_id="worker-long",
         lease_duration=timedelta(milliseconds=120),
         heartbeat_interval=timedelta(milliseconds=25),
@@ -384,9 +399,16 @@ def test_executor_heartbeats_while_a_long_handler_is_running(tmp_path: Path) -> 
     )
     with ThreadPoolExecutor(max_workers=1) as pool:
         execution = pool.submit(executor.run_once)
-        assert entered.wait(timeout=1)
-        sleep(0.25)
-        summary = LocalTaskLedger(database).recover_expired_local_tasks()
-        assert summary.recovered == 0
-        release.set()
+        try:
+            assert entered.wait(timeout=1)
+            assert renewed_past_original_expiry.wait(timeout=1)
+            assert clock[0] > NOW + timedelta(milliseconds=120)
+            summary = ledger.recover_expired_local_tasks()
+            assert summary.recovered == 0
+            with sqlite3.connect(database) as connection:
+                assert connection.execute(
+                    "SELECT status FROM task_ledger WHERE task_id = ?", (queued.task_id,)
+                ).fetchone() == ("LEASED",)
+        finally:
+            release.set()
         assert execution.result(timeout=2)

@@ -66,7 +66,8 @@ def create_sub2api_connection_readiness_router(
             return JSONResponse(status_code=404, content=payload.model_dump(mode="json"))
         response.headers["Cache-Control"] = "no-store"
         return Sub2APIConfiguredReadinessResponse(
-            data=data, request_id=cast(UUID, request.state.request_id),
+            data=data,
+            request_id=cast(UUID, request.state.request_id),
         )
 
     return router

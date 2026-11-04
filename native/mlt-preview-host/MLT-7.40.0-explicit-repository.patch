@@ -1,0 +1,48 @@
+diff --git a/src/framework/mlt_repository.c b/src/framework/mlt_repository.c
+--- a/src/framework/mlt_repository.c
++++ b/src/framework/mlt_repository.c
+@@ -49,1 +49,7 @@
+ };
++/* AIVORA modification: explicit held modules, never filesystem auto-discovery. */
++MLT_EXPORT int aivora_mlt_explicit_repository_revision(void)
++{
++    return 2;
++}
++
+@@ -67,6 +73,11 @@ mlt_repository mlt_repository_init(const char *directory)
+     self->links = mlt_properties_new();
+     self->producers = mlt_properties_new();
+     self->transitions = mlt_properties_new();
++    const char *explicit_only = getenv("AIVORA_MLT_EXPLICIT_MODULES");
++    if (explicit_only && !strcmp(explicit_only, "1")) {
++        return self;
++    }
++
+     // Get the directory list
+     mlt_properties dir = mlt_properties_new();
+     int count = mlt_properties_dir_list(dir, directory, NULL, 0);
+diff --git a/src/modules/sdl2/consumer_sdl2.c b/src/modules/sdl2/consumer_sdl2.c
+--- a/src/modules/sdl2/consumer_sdl2.c
++++ b/src/modules/sdl2/consumer_sdl2.c
+@@ -561 +561,2 @@
+-        mlt_frame_get_image(frame, &image, &vfmt, &width, &height, 0);
++        int image_error = mlt_frame_get_image(frame, &image, &vfmt, &width, &height, 0);
++        if (image_error || !image) return 1;
+@@ -629 +630 @@
+-                SDL_UpdateYUVTexture(self->sdl_texture,
++                if (SDL_UpdateYUVTexture(self->sdl_texture,
+@@ -636 +637 @@
+-                                     strides[2]);
++                                     strides[2]) != 0) return 1;
+@@ -638 +639 @@
+-                SDL_UpdateTexture(self->sdl_texture, NULL, planes[0], strides[0]);
++                if (SDL_UpdateTexture(self->sdl_texture, NULL, planes[0], strides[0]) != 0) return 1;
+@@ -640,3 +641,6 @@
+-            SDL_RenderClear(self->sdl_renderer);
+-            SDL_RenderCopy(self->sdl_renderer, self->sdl_texture, NULL, &self->sdl_rect);
++            if (SDL_RenderClear(self->sdl_renderer) != 0) return 1;
++            if (SDL_RenderCopy(self->sdl_renderer, self->sdl_texture, NULL, &self->sdl_rect) != 0) return 1;
++            SDL_ClearError();
+             SDL_RenderPresent(self->sdl_renderer);
++            if (SDL_GetError()[0]) return 1;
++            mlt_events_fire(properties, "aivora-consumer-frame-presented", mlt_event_data_from_frame(frame));

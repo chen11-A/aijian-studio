@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from aijian_api.app_preferences_schema import migration_25_statements
 from aijian_api.artifact_invalidation_ledger import (
     InvalidationOperationPage,
     get_invalidation_operation,
@@ -21,6 +22,8 @@ from aijian_api.artifact_invalidation_ledger import (
     record_accepted_head_replacement,
 )
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
+from aijian_api.desktop_subscription_schema import DESKTOP_SUBSCRIPTION_MIGRATION
+from aijian_api.dispatch_billing_schema import DISPATCH_BILLING_MIGRATION
 from aijian_api.domain import (
     ArtifactActorType,
     ArtifactDependency,
@@ -56,18 +59,55 @@ from aijian_api.domain import (
     SourceSpanRole,
     TrustedReviewActor,
 )
+from aijian_api.draft_export_schema import DRAFT_EXPORT_MIGRATION
+from aijian_api.draft_review_revision_schema import DRAFT_REVIEW_REVISION_MIGRATION
+from aijian_api.draft_review_schema import DRAFT_REVIEW_MIGRATION
+from aijian_api.engineering_test_export_schema import ENGINEERING_TEST_EXPORT_MIGRATION
 from aijian_api.episode_schema import MIGRATION_17
-from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
+from aijian_api.episode_script_confirmation_schema import EPISODE_SCRIPT_CONFIRMATION_MIGRATION
+from aijian_api.episode_script_schema import EPISODE_SCRIPT_MIGRATION
+from aijian_api.episode_storyboard_schema import EPISODE_STORYBOARD_MIGRATION
+from aijian_api.gate_policy import (
+    DEFAULT_GATE_POLICIES,
+    VISUAL_ENVIRONMENT_GATE_POLICY_V2,
+    GatePolicy,
+)
 from aijian_api.ingestion import ParsedSource
 from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
+from aijian_api.local_media_review_schema import LOCAL_MEDIA_REVIEW_MIGRATION
+from aijian_api.manual_media_candidate_schema import (
+    ASSEMBLY_WRITE_RECEIPT_MIGRATION,
+    MANUAL_MEDIA_CANDIDATE_MIGRATION,
+)
+from aijian_api.media_asset_probe_schema import MEDIA_ASSET_PROBE_MIGRATION
+from aijian_api.media_asset_rights_schema import RIGHTS_DECISION_MIGRATION
+from aijian_api.media_asset_schema import MEDIA_ASSET_MIGRATION
+from aijian_api.media_budget_schema import MEDIA_BUDGET_MIGRATION
+from aijian_api.media_preparation_schema import MEDIA_PREPARATION_MIGRATION
+from aijian_api.official_director_schema import OFFICIAL_DIRECTOR_MIGRATION
+from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
+from aijian_api.product_export_schema import PRODUCT_EXPORT_MIGRATION
 from aijian_api.production_brief import ProductionBriefContentV1
-from aijian_api.provider_schema import MIGRATION_7, migration_20_statements
+from aijian_api.project_creative_library_schema import PROJECT_CREATIVE_LIBRARY_MIGRATION
+from aijian_api.project_settings_schema import PROJECT_SETTINGS_MIGRATION
+from aijian_api.provider_credential_cleanup_schema import PROVIDER_CREDENTIAL_CLEANUP_MIGRATION
+from aijian_api.provider_credential_ref_schema import PROVIDER_CREDENTIAL_REF_MIGRATION
+from aijian_api.provider_origin_mode_schema import PROVIDER_ORIGIN_MODE_MIGRATION
+from aijian_api.provider_schema import (
+    MIGRATION_7,
+    migration_20_statements,
+    migration_22_statements,
+)
 from aijian_api.remote_settlement_contracts import migration_21_statements
+from aijian_api.script_confirmation_impact_schema import SCRIPT_CONFIRMATION_IMPACT_MIGRATION
+from aijian_api.shot_plan_schema import SHOT_PLAN_MIGRATION
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
     SourceManifestContentV1,
     SourceManifestDocumentV1,
 )
+from aijian_api.sub2api_source_extract_schema import migration_23_statements
+from aijian_api.visual_bible_schema import VISUAL_BIBLE_MIGRATION
 from aijian_api.workflow_schema import (
     MIGRATION_4,
     MIGRATION_5,
@@ -83,7 +123,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 50
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -801,6 +841,35 @@ _MIGRATIONS = {
     19: migration_19_statements(),
     20: migration_20_statements(),
     21: migration_21_statements(),
+    22: migration_22_statements(),
+    23: migration_23_statements(),
+    24: EPISODE_SCRIPT_MIGRATION,
+    25: migration_25_statements(),
+    26: MEDIA_ASSET_MIGRATION,
+    27: RIGHTS_DECISION_MIGRATION,
+    28: PRODUCT_EXPORT_MIGRATION,
+    29: EPISODE_SCRIPT_CONFIRMATION_MIGRATION,
+    30: MEDIA_ASSET_PROBE_MIGRATION,
+    31: PROVIDER_CREDENTIAL_REF_MIGRATION + ENGINEERING_TEST_EXPORT_MIGRATION,
+    32: PROJECT_SETTINGS_MIGRATION,
+    33: PROVIDER_ORIGIN_MODE_MIGRATION,
+    34: PROJECT_CREATIVE_LIBRARY_MIGRATION,
+    35: EPISODE_STORYBOARD_MIGRATION,
+    36: DRAFT_EXPORT_MIGRATION,
+    37: OFFICIAL_TEXT_MIGRATION,
+    38: DRAFT_REVIEW_MIGRATION,
+    39: PROVIDER_CREDENTIAL_CLEANUP_MIGRATION,
+    40: SHOT_PLAN_MIGRATION,
+    41: OFFICIAL_DIRECTOR_MIGRATION,
+    42: DRAFT_REVIEW_REVISION_MIGRATION,
+    43: VISUAL_BIBLE_MIGRATION,
+    44: SCRIPT_CONFIRMATION_IMPACT_MIGRATION,
+    45: MEDIA_PREPARATION_MIGRATION,
+    46: (*MANUAL_MEDIA_CANDIDATE_MIGRATION, *ASSEMBLY_WRITE_RECEIPT_MIGRATION),
+    47: LOCAL_MEDIA_REVIEW_MIGRATION,
+    48: MEDIA_BUDGET_MIGRATION,
+    49: DISPATCH_BILLING_MIGRATION,
+    50: DESKTOP_SUBSCRIPTION_MIGRATION,
 }
 
 
@@ -1124,7 +1193,7 @@ class StudioRepository:
             while version < SCHEMA_VERSION:
                 next_version = version + 1
                 statements = _MIGRATIONS[next_version]
-                rebuild_with_foreign_keys_disabled = next_version in {19, 20}
+                rebuild_with_foreign_keys_disabled = next_version in {19, 20, 22, 24, 31, 33, 50}
                 if next_version == 3:
                     challenge_columns = {
                         str(row["name"])
@@ -1136,9 +1205,14 @@ class StudioRepository:
                         statements = _LEGACY_V2_CHALLENGE_COLUMNS + statements
                 if next_version == 5:
                     self._validate_v5_enqueue_keys(connection)
+                original_legacy_alter = int(
+                    connection.execute("PRAGMA legacy_alter_table").fetchone()[0]
+                )
                 try:
                     if rebuild_with_foreign_keys_disabled:
                         connection.execute("PRAGMA foreign_keys = OFF")
+                        # Preserve cross-table trigger references during create/copy/drop/rename.
+                        connection.execute("PRAGMA legacy_alter_table = ON")
                         if int(connection.execute("PRAGMA foreign_keys").fetchone()[0]) != 0:
                             raise RuntimeError(
                                 f"Migration v{next_version} could not disable foreign keys"
@@ -1167,6 +1241,7 @@ class StudioRepository:
                     raise
                 finally:
                     if rebuild_with_foreign_keys_disabled:
+                        connection.execute(f"PRAGMA legacy_alter_table = {original_legacy_alter}")
                         connection.execute("PRAGMA foreign_keys = ON")
                         if int(connection.execute("PRAGMA foreign_keys").fetchone()[0]) != 1:
                             raise RuntimeError(
@@ -1551,7 +1626,7 @@ class StudioRepository:
         artifact_row = connection.execute(
             """
             SELECT * FROM artifacts
-            WHERE project_id = ? AND artifact_type = 'source_manifest'
+            WHERE project_id = ? AND artifact_type = 'source_manifest' AND episode_id IS NULL
             """,
             (project_id,),
         ).fetchone()
@@ -1561,7 +1636,8 @@ class StudioRepository:
             version_number = 1
             parent_version_id = None
             connection.execute(
-                "INSERT INTO artifacts VALUES (?, ?, 'source_manifest', ?)",
+                "INSERT INTO artifacts (artifact_id, project_id, artifact_type, created_at) "
+                "VALUES (?, ?, 'source_manifest', ?)",
                 (artifact_id, project_id, _timestamp(created_at)),
             )
         else:
@@ -1709,6 +1785,7 @@ class StudioRepository:
         producer_attempt_id: str | None = None,
         _transaction_connection: sqlite3.Connection | None = None,
         _manage_transaction: bool = True,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         """Append an immutable artifact version and conditionally move its latest head."""
 
@@ -1728,6 +1805,15 @@ class StudioRepository:
                 ).fetchone()
                 if project is None:
                     raise ProjectNotFoundError("Project was not found")
+                if (
+                    episode_id is not None
+                    and connection.execute(
+                        "SELECT 1 FROM episodes WHERE project_id = ? AND id = ?",
+                        (project_id, episode_id),
+                    ).fetchone()
+                    is None
+                ):
+                    raise EpisodeNotFoundError("Episode was not found")
                 if producer_attempt_id is not None:
                     producer = connection.execute(
                         """
@@ -1852,8 +1938,9 @@ class StudioRepository:
                 version_id = self._id_factory("ver")
 
                 artifact_row = connection.execute(
-                    "SELECT * FROM artifacts WHERE project_id = ? AND artifact_type = ?",
-                    (project_id, artifact_type),
+                    "SELECT * FROM artifacts WHERE project_id = ? AND artifact_type = ? "
+                    "AND episode_id IS ?",
+                    (project_id, artifact_type, episode_id),
                 ).fetchone()
                 if artifact_row is None:
                     if expected_revision is not None or parent_version_id is not None:
@@ -1861,8 +1948,16 @@ class StudioRepository:
                     artifact_id = self._id_factory("art")
                     version_number = 1
                     connection.execute(
-                        "INSERT INTO artifacts VALUES (?, ?, ?, ?)",
-                        (artifact_id, project_id, artifact_type, _timestamp(created_at)),
+                        "INSERT INTO artifacts "
+                        "(artifact_id, project_id, artifact_type, created_at, episode_id) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (
+                            artifact_id,
+                            project_id,
+                            artifact_type,
+                            _timestamp(created_at),
+                            episode_id,
+                        ),
                     )
                 else:
                     artifact_id = str(artifact_row["artifact_id"])
@@ -2045,11 +2140,13 @@ class StudioRepository:
         content_resolver: ArtifactContentResolver | None = None,
         record_validator: ArtifactRecordValidator | None = None,
         producer_attempt_id: str | None = None,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         """Append an ArtifactVersion inside an already-owned transaction."""
 
         return self.create_artifact_version(
             project_id=project_id,
+            episode_id=episode_id,
             artifact_type=artifact_type,
             schema_version=schema_version,
             content=content,
@@ -2214,7 +2311,9 @@ class StudioRepository:
                 "ProductionBrief focus blocks are outside the accepted SourceManifest"
             )
 
-    def get_artifact_head(self, project_id: str, artifact_type: str) -> ArtifactHead:
+    def get_artifact_head(
+        self, project_id: str, artifact_type: str, *, episode_id: str | None = None
+    ) -> ArtifactHead:
         with self._connection() as connection:
             row = connection.execute(
                 """
@@ -2222,8 +2321,9 @@ class StudioRepository:
                 FROM artifact_heads
                 JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
                 WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                    AND artifacts.episode_id IS ?
                 """,
-                (project_id, artifact_type),
+                (project_id, artifact_type, episode_id),
             ).fetchone()
         if row is None:
             raise ArtifactConflictError("Artifact was not found")
@@ -2235,6 +2335,8 @@ class StudioRepository:
         artifact_type: str,
         version_id: str,
         payload_metrics_validator: ArtifactPayloadMetricsValidator | None = None,
+        *,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         with self._connection() as connection:
             try:
@@ -2246,6 +2348,7 @@ class StudioRepository:
                             project_id=project_id,
                             artifact_type=artifact_type,
                             version_id=version_id,
+                            episode_id=episode_id,
                         )
                     )
                 record = self._get_artifact_version_in_connection(
@@ -2253,6 +2356,7 @@ class StudioRepository:
                     project_id=project_id,
                     artifact_type=artifact_type,
                     version_id=version_id,
+                    episode_id=episode_id,
                 )
                 connection.commit()
             except Exception:
@@ -2267,6 +2371,7 @@ class StudioRepository:
         project_id: str,
         artifact_type: str,
         version_id: str,
+        episode_id: str | None = None,
     ) -> ArtifactVersionPayloadMetrics:
         row = connection.execute(
             """
@@ -2285,9 +2390,9 @@ class StudioRepository:
             FROM artifact_versions
             JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
             WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
-                AND artifact_versions.version_id = ?
+                AND artifact_versions.version_id = ? AND artifacts.episode_id IS ?
             """,
-            (project_id, artifact_type, version_id),
+            (project_id, artifact_type, version_id, episode_id),
         ).fetchone()
         if row is None:
             raise ArtifactConflictError("Artifact version was not found")
@@ -2304,6 +2409,7 @@ class StudioRepository:
         project_id: str,
         artifact_type: str,
         version_id: str,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         version_row = connection.execute(
             """
@@ -2311,9 +2417,9 @@ class StudioRepository:
             FROM artifact_versions
             JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
             WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
-                AND artifact_versions.version_id = ?
+                AND artifact_versions.version_id = ? AND artifacts.episode_id IS ?
             """,
-            (project_id, artifact_type, version_id),
+            (project_id, artifact_type, version_id, episode_id),
         ).fetchone()
         if version_row is None:
             raise ArtifactConflictError("Artifact version was not found")
@@ -2344,7 +2450,9 @@ class StudioRepository:
             dependencies=tuple(self._artifact_dependency_from_row(row) for row in dependency_rows),
         )
 
-    def get_latest_artifact(self, project_id: str, artifact_type: str) -> ArtifactVersionRecord:
+    def get_latest_artifact(
+        self, project_id: str, artifact_type: str, *, episode_id: str | None = None
+    ) -> ArtifactVersionRecord:
         with self._connection() as connection:
             connection.execute("BEGIN")
             row = connection.execute(
@@ -2353,8 +2461,9 @@ class StudioRepository:
                 FROM artifact_heads
                 JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
                 WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                    AND artifacts.episode_id IS ?
                 """,
-                (project_id, artifact_type),
+                (project_id, artifact_type, episode_id),
             ).fetchone()
             if row is None:
                 connection.rollback()
@@ -2366,11 +2475,14 @@ class StudioRepository:
                 project_id=project_id,
                 artifact_type=artifact_type,
                 version_id=str(row["latest_version_id"]),
+                episode_id=episode_id,
             )
             connection.commit()
         return record
 
-    def get_artifact_role_index(self, project_id: str, artifact_type: str) -> ArtifactRoleIndex:
+    def get_artifact_role_index(
+        self, project_id: str, artifact_type: str, *, episode_id: str | None = None
+    ) -> ArtifactRoleIndex:
         """Read role pointers and their lightweight immutable metadata in one snapshot."""
         with self._connection() as connection:
             connection.execute("BEGIN")
@@ -2380,8 +2492,9 @@ class StudioRepository:
                 FROM artifact_heads
                 JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
                 WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                    AND artifacts.episode_id IS ?
                 """,
-                (project_id, artifact_type),
+                (project_id, artifact_type, episode_id),
             ).fetchone()
             if head_row is None:
                 connection.rollback()
@@ -2452,6 +2565,11 @@ class StudioRepository:
                 )
                 if int(head_row["revision"]) != expected_revision:
                     raise ArtifactConflictError("Artifact head revision has changed")
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, action, action_payload, actor)
+                bound_payload = self._bound_action_payload(action_payload, actor, policy)
                 if (
                     action in ("signoff", "decision")
                     and not policy.allow_self_review
@@ -2475,8 +2593,12 @@ class StudioRepository:
 
                 if readiness_report_id is None:
                     content = cast(dict[str, object], json.loads(str(version_row["content_json"])))
-                    readiness_report = policy.evaluate(content)
-                    if readiness_report.get("ready") is not True:
+                    readiness_report = self._evaluate_gate_readiness(
+                        connection, policy, version_row, content
+                    )
+                    if readiness_report.get("ready") is not True and not self._g5_rejection(
+                        policy, action, action_payload
+                    ):
                         raise GateNotReadyError("Gate readiness has blocking checks")
                     report = GateReadinessReport(
                         id=self._id_factory("rpt"),
@@ -2535,11 +2657,26 @@ class StudioRepository:
                         or report.report.get("policy_snapshot_hash") != policy.snapshot_hash
                         or report.review_evidence_revision
                         != int(head_row["review_evidence_revision"])
-                        or report.expires_at <= now
-                        or report.report.get("ready") is not True
+                        or (report.expires_at <= now and policy.artifact_type != "visual_bible")
+                        or (
+                            report.report.get("ready") is not True
+                            and not self._g5_rejection(policy, action, action_payload)
+                        )
                         or report.submission_id != str(head_row["review_submission_id"])
                     ):
                         raise ReviewInvalidError("Readiness report does not match review evidence")
+
+                if artifact_type == "visual_bible" and readiness_report_id is not None:
+                    fresh = self._evaluate_gate_readiness(
+                        connection,
+                        policy,
+                        version_row,
+                        cast(dict[str, object], json.loads(str(version_row["content_json"]))),
+                    )
+                    if canonical_content_hash(fresh) != report.report_hash:
+                        raise ReviewInvalidError(
+                            "G5 originals or rights/inspection evidence changed"
+                        )
 
                 challenge_id = self._id_factory("chg")
                 confirmation_token = self._challenge_token_factory()
@@ -2621,6 +2758,10 @@ class StudioRepository:
                     artifact_type=artifact_type,
                     version_id=version_id,
                 )
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, "submit", {}, actor)
                 report = self._consume_challenge(
                     connection,
                     challenge_id=challenge_id,
@@ -2720,6 +2861,10 @@ class StudioRepository:
                     artifact_type=artifact_type,
                     version_id=version_id,
                 )
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, "signoff", payload, actor)
                 submission_id = self._require_open_review(head_row, version_id)
                 report = self._consume_challenge(
                     connection,
@@ -2836,6 +2981,10 @@ class StudioRepository:
                     artifact_type=artifact_type,
                     version_id=version_id,
                 )
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, "decision", payload, actor)
                 submission_id = self._require_open_review(head_row, version_id)
                 report = self._consume_challenge(
                     connection,
@@ -3077,23 +3226,100 @@ class StudioRepository:
             report.version_id != version_id
             or report.gate != gate
             or report.review_evidence_revision != expected_evidence_revision
-            or report.expires_at <= consumed_at
+            or (report.expires_at <= consumed_at and policy.artifact_type != "visual_bible")
             or report.policy_code != policy.policy_code
             or report.policy_version != policy.policy_version
             or report.report.get("policy_snapshot_hash") != policy.snapshot_hash
-            or report.report.get("ready") is not True
+            or (
+                report.report.get("ready") is not True
+                and not self._g5_rejection(policy, expected_action, action_payload)
+            )
         ):
             raise ReviewInvalidError("Readiness report no longer matches the review")
+        if policy.artifact_type == "visual_bible":
+            version_row = connection.execute(
+                "SELECT * FROM artifact_versions WHERE version_id = ?",
+                (version_id,),
+            ).fetchone()
+            if version_row is None:
+                raise ReviewInvalidError("G5 visual version is missing")
+            fresh = self._evaluate_gate_readiness(
+                connection,
+                policy,
+                version_row,
+                cast(dict[str, object], json.loads(str(version_row["content_json"]))),
+            )
+            if canonical_content_hash(fresh) != report.report_hash:
+                raise ReviewInvalidError("G5 originals or rights/inspection evidence changed")
         return report
+
+    @staticmethod
+    def _g5_rejection(
+        policy: GatePolicy,
+        action: ReviewAction,
+        payload: dict[str, object],
+    ) -> bool:
+        return (
+            policy.artifact_type == "visual_bible"
+            and action == "decision"
+            and payload.get("decision") == "rejected"
+        )
+
+    def _evaluate_gate_readiness(
+        self,
+        connection: sqlite3.Connection,
+        policy: GatePolicy,
+        version_row: sqlite3.Row,
+        content: dict[str, object],
+    ) -> dict[str, object]:
+        if policy.artifact_type != "visual_bible":
+            return policy.evaluate(content)
+        from aijian_api.visual_bible_integrity import fresh_visual_readiness
+
+        owner = connection.execute(
+            "SELECT project_id, episode_id, artifact_type FROM artifacts WHERE artifact_id=?",
+            (str(version_row["artifact_id"]),),
+        ).fetchone()
+        if (
+            owner is None
+            or owner["episode_id"] is not None
+            or owner["artifact_type"] != "visual_bible"
+        ):
+            raise ReviewInvalidError("G5 artifact scope is inconsistent")
+        record = self._get_artifact_version_in_connection(
+            connection,
+            project_id=str(owner["project_id"]),
+            artifact_type="visual_bible",
+            version_id=str(version_row["version_id"]),
+            episode_id=None,
+        )
+        report = fresh_visual_readiness(self, connection, record, str(owner["project_id"]))
+        return {
+            **report,
+            "policy_code": policy.policy_code,
+            "policy_version": policy.policy_version,
+            "policy_snapshot_hash": policy.snapshot_hash,
+        }
 
     def _transaction_step(self, operation: str, step: str) -> None:
         if self._transaction_hook is not None:
             self._transaction_hook(operation, step)
 
-    def _gate_policy(self, artifact_type: str) -> GatePolicy:
+    def _gate_policy(
+        self, artifact_type: str, *, content_schema_version: str | None = None
+    ) -> GatePolicy:
         policy = self._gate_policies.get(artifact_type)
         if policy is None or policy.artifact_type != artifact_type:
             raise ReviewInvalidError("Artifact type does not have a registered Gate policy")
+        if artifact_type == "visual_bible" and content_schema_version is not None:
+            if content_schema_version == "1.1.0":
+                if policy != DEFAULT_GATE_POLICIES["visual_bible"]:
+                    raise ReviewInvalidError(
+                        "Environment Gate policy is not registered for this configuration"
+                    )
+                return VISUAL_ENVIRONMENT_GATE_POLICY_V2
+            if content_schema_version != "1.0.0":
+                raise ReviewInvalidError("Visual schema has no registered Gate policy")
         return policy
 
     @staticmethod

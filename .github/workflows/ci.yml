@@ -11,24 +11,49 @@ jobs:
   quality:
     name: quality (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Linux host stays Ubuntu; Debian supplies the exact existing dev-tool pin.
+    # This is a test container, not an additional supported product platform.
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            container: python:3.12.15-slim-trixie
+          - os: windows-latest
+            container: null
 
     steps:
+      - name: Prepare Debian test container and pinned development media tools
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates curl libstdc++6 ffmpeg=7:7.1.5-0+deb13u1
+
       - name: Check out repository
         uses: actions/checkout@v7.0.1
+
+      - name: Bind container Git trust to this workspace only
+        if: runner.os == 'Linux'
+        run: |
+          test "$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse --show-toplevel)" = "$GITHUB_WORKSPACE"
+          test -z "${GIT_CONFIG_COUNT:-}"
+          echo "GIT_CONFIG_COUNT=1" >> "$GITHUB_ENV"
+          echo "GIT_CONFIG_KEY_0=safe.directory" >> "$GITHUB_ENV"
+          echo "GIT_CONFIG_VALUE_0=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
 
       - name: Set up Node.js
         uses: actions/setup-node@v7.0.0
         with:
           node-version: 24.15.0
+          # The zero-extra-cost development branch must not write shared caches.
+          package-manager-cache: ${{ github.ref != 'refs/heads/codex/windows-installer-dev-20261008' }}
 
       - name: Enable pinned pnpm
         run: corepack enable pnpm
 
       - name: Set up Python
+        if: runner.os == 'Windows'
         uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
@@ -36,13 +61,26 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v9.0.0
         with:
-          enable-cache: true
+          enable-cache: ${{ github.ref != 'refs/heads/codex/windows-installer-dev-20261008' }}
 
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install Python dependencies
         run: uv sync --frozen --python 3.12
+
+      - name: Verify exact Linux development media binaries
+        if: runner.os == 'Linux'
+        run: uv run python scripts/ci_media_tools.py --verify-only --root /usr/bin
+
+      - name: Prepare exact Windows development media binaries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $prepared = uv run python scripts/ci_media_tools.py --root "${{ runner.temp }}/aivora-quality-media"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output $prepared
+          ($prepared | ConvertFrom-Json).root | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Verify generated contracts
         run: pnpm contracts:check

@@ -16,7 +16,10 @@ import {
   createFakeTimelineRunOperationJournal,
   type PendingFakeTimelineRunOperation,
 } from "../../fake-timeline-run-operation-journal";
-import { prepareFakeTimelineRun, type FakeTimelinePreflight } from "../../fake-timeline-run-preflight";
+import {
+  prepareFakeTimelineRun,
+  type FakeTimelinePreflight,
+} from "../../fake-timeline-run-preflight";
 
 type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type FakeTask = TaskQueueResponse["data"]["tasks"][number];
@@ -48,21 +51,36 @@ function isRecovered(value: unknown, projectId: string): value is RecoveredFakeT
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   const keys = [
-    "schema_version", "project_id", "operation_id", "source_manifest_version_id",
-    "source_document_id", "workflow_run_id", "node_run_id", "attempt_id", "task_id",
+    "schema_version",
+    "project_id",
+    "operation_id",
+    "source_manifest_version_id",
+    "source_document_id",
+    "workflow_run_id",
+    "node_run_id",
+    "attempt_id",
+    "task_id",
   ];
   return (
     Object.keys(record).length === keys.length &&
     keys.every((key) => Object.prototype.hasOwnProperty.call(record, key)) &&
     record.schema_version === 1 &&
-    record.project_id === projectId && PROJECT_ID.test(projectId) &&
-    typeof record.operation_id === "string" && OPERATION_ID.test(record.operation_id) &&
-    typeof record.source_manifest_version_id === "string" && VERSION_ID.test(record.source_manifest_version_id) &&
-    typeof record.source_document_id === "string" && SOURCE_ID.test(record.source_document_id) &&
-    typeof record.workflow_run_id === "string" && WORKFLOW_ID.test(record.workflow_run_id) &&
-    typeof record.node_run_id === "string" && NODE_ID.test(record.node_run_id) &&
-    typeof record.attempt_id === "string" && ATTEMPT_ID.test(record.attempt_id) &&
-    typeof record.task_id === "string" && TASK_ID.test(record.task_id)
+    record.project_id === projectId &&
+    PROJECT_ID.test(projectId) &&
+    typeof record.operation_id === "string" &&
+    OPERATION_ID.test(record.operation_id) &&
+    typeof record.source_manifest_version_id === "string" &&
+    VERSION_ID.test(record.source_manifest_version_id) &&
+    typeof record.source_document_id === "string" &&
+    SOURCE_ID.test(record.source_document_id) &&
+    typeof record.workflow_run_id === "string" &&
+    WORKFLOW_ID.test(record.workflow_run_id) &&
+    typeof record.node_run_id === "string" &&
+    NODE_ID.test(record.node_run_id) &&
+    typeof record.attempt_id === "string" &&
+    ATTEMPT_ID.test(record.attempt_id) &&
+    typeof record.task_id === "string" &&
+    TASK_ID.test(record.task_id)
   );
 }
 
@@ -100,9 +118,7 @@ export type DevelopmentFakeTimelineTaskRefresh =
   | (Scoped & {
       kind: "task";
       task: FakeTask;
-      output:
-        | { kind: "not-ready" | "not-current" }
-        | { kind: "media"; timeline: TimelineResponse };
+      output: { kind: "not-ready" | "not-current" } | { kind: "media"; timeline: TimelineResponse };
     });
 
 export type DevelopmentFakeTimelineRecoveryState =
@@ -120,8 +136,12 @@ export type DevelopmentFakeTimelineRecoveryResult =
   | DevelopmentFakeTimelineRecoveryState
   | (Scoped & {
       kind:
-        | "capability-unavailable" | "query-unavailable" | "not-found"
-        | "remote-unknown" | "identity-mismatch" | "pending-changed"
+        | "capability-unavailable"
+        | "query-unavailable"
+        | "not-found"
+        | "remote-unknown"
+        | "identity-mismatch"
+        | "pending-changed"
         | "storage-unavailable";
       operation: PendingFakeTimelineRunOperation;
     })
@@ -265,8 +285,12 @@ export function createDevelopmentFakeTimelineAdapter(studio: FakeStudio, storage
         }
         if (response.kind === "DEFINITE_SERVER_ERROR") {
           return {
-            kind: "server-error", operation, status: response.status,
-            code: response.code, request_id: response.request_id, ...scoped(scope),
+            kind: "server-error",
+            operation,
+            status: response.status,
+            code: response.code,
+            request_id: response.request_id,
+            ...scoped(scope),
           };
         }
         return {
@@ -314,8 +338,12 @@ export function createDevelopmentFakeTimelineAdapter(studio: FakeStudio, storage
     })();
     recovering.set(scope.projectId, request);
     void request.then(
-      () => { if (recovering.get(scope.projectId) === request) recovering.delete(scope.projectId); },
-      () => { if (recovering.get(scope.projectId) === request) recovering.delete(scope.projectId); },
+      () => {
+        if (recovering.get(scope.projectId) === request) recovering.delete(scope.projectId);
+      },
+      () => {
+        if (recovering.get(scope.projectId) === request) recovering.delete(scope.projectId);
+      },
     );
     return request;
   };
@@ -365,7 +393,11 @@ export function createDevelopmentFakeTimelineAdapter(studio: FakeStudio, storage
 
       const pending = readPending(scope);
       if (pending.kind === "pending") {
-        return Promise.resolve({ kind: "pending-operation", operation: pending.operation, ...scoped(scope) });
+        return Promise.resolve({
+          kind: "pending-operation",
+          operation: pending.operation,
+          ...scoped(scope),
+        });
       }
       if (pending.kind === "journal-corrupt" || pending.kind === "scope-unavailable") {
         return Promise.resolve(pending);

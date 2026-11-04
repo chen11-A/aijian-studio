@@ -11,7 +11,7 @@ from fastapi import APIRouter, Path, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from aijian_api.contracts import ErrorBody, ErrorResponse, PROJECT_ID_PATTERN
+from aijian_api.contracts import PROJECT_ID_PATTERN, ErrorBody, ErrorResponse
 from aijian_api.domain import TrustedReviewActor
 from aijian_api.media_asset_contracts import ASSET_ID_PATTERN, ASSET_VERSION_ID_PATTERN
 from aijian_api.media_asset_rights_contracts import (
@@ -72,7 +72,10 @@ _ERROR_STATUS = {
 }
 _ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"description": "Sidecar authentication required", "model": ErrorResponse},
-    403: {"description": "Local user identity or request boundary rejected", "model": ErrorResponse},
+    403: {
+        "description": "Local user identity or request boundary rejected",
+        "model": ErrorResponse,
+    },
     404: {"description": "Media version, decision, or operation not found", "model": ErrorResponse},
     409: {"description": "Rights revision, operation, or history conflict", "model": ErrorResponse},
     422: {"description": "Rights decision input is invalid", "model": ErrorResponse},
@@ -102,20 +105,27 @@ def create_media_asset_rights_router(
 ) -> APIRouter:
     """Register only under the authenticated desktop sidecar branch."""
     router = APIRouter()
-    prefix = "/api/v1/projects/{project_id}/assets/{asset_id}/versions/{version_id}/rights-decisions"
+    prefix = (
+        "/api/v1/projects/{project_id}/assets/{asset_id}/versions/{version_id}/rights-decisions"
+    )
 
     def store() -> MediaAssetRightsStore:
         return MediaAssetRightsStore(repository_provider())
 
     def history(
-        request: Request, project_id: str, asset_id: str, version_id: str,
+        request: Request,
+        project_id: str,
+        asset_id: str,
+        version_id: str,
     ) -> tuple[RightsDecisionAuditData, ...] | JSONResponse:
         try:
             return store().audit_history(project_id, asset_id, version_id)
         except RightsDecisionError as error:
             return _store_error(request, error)
         except sqlite3.Error:
-            return _error(request, "RIGHTS_READ_UNKNOWN", "Rights history could not be confirmed", 503)
+            return _error(
+                request, "RIGHTS_READ_UNKNOWN", "Rights history could not be confirmed", 503
+            )
 
     @router.post(
         prefix,
@@ -133,10 +143,16 @@ def create_media_asset_rights_router(
         payload: HumanRightsDecisionInput,
     ) -> RightsDecisionWriteResponse | JSONResponse:
         if "writer" not in trusted_actor.roles:
-            return _error(request, "RIGHTS_ACTOR_FORBIDDEN", "Local user cannot declare rights", 403)
+            return _error(
+                request, "RIGHTS_ACTOR_FORBIDDEN", "Local user cannot declare rights", 403
+            )
         try:
             receipt = store().append_human_decision(
-                project_id, asset_id, version_id, payload, actor_id=trusted_actor.subject_id,
+                project_id,
+                asset_id,
+                version_id,
+                payload,
+                actor_id=trusted_actor.subject_id,
             )
         except RightsDecisionError as error:
             return _store_error(request, error)
@@ -157,11 +173,16 @@ def create_media_asset_rights_router(
         asset_id: AssetId,
         version_id: VersionId,
         expected_revision: Annotated[int | None, Query(ge=0)] = None,
-        expected_decision_id: Annotated[str | None, Query(pattern=RIGHTS_DECISION_ID_PATTERN)] = None,
+        expected_decision_id: Annotated[
+            str | None, Query(pattern=RIGHTS_DECISION_ID_PATTERN)
+        ] = None,
         expected_content_hash: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
     ) -> RightsDecisionReadResponse:
         result = read_latest_rights_decision(
-            repository_provider().database_path, project_id, asset_id, version_id,
+            repository_provider().database_path,
+            project_id,
+            asset_id,
+            version_id,
             expected_revision=expected_revision,
             expected_decision_id=expected_decision_id,
             expected_content_hash=expected_content_hash,
@@ -185,12 +206,17 @@ def create_media_asset_rights_router(
     ) -> RightsDecisionWriteResponse | JSONResponse:
         try:
             receipt = store().get_operation_receipt(
-                project_id, asset_id, version_id, operation_id,
+                project_id,
+                asset_id,
+                version_id,
+                operation_id,
             )
         except RightsDecisionError as error:
             return _store_error(request, error)
         except sqlite3.Error:
-            return _error(request, "RIGHTS_READ_UNKNOWN", "Rights receipt could not be confirmed", 503)
+            return _error(
+                request, "RIGHTS_READ_UNKNOWN", "Rights receipt could not be confirmed", 503
+            )
         response.headers["Cache-Control"] = "no-store"
         return RightsDecisionWriteResponse(data=receipt, request_id=_request_id(request))
 

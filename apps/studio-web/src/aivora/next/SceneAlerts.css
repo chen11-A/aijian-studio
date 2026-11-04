@@ -1,0 +1,83 @@
+/* 3J-U10: warnings above the shot cards of one scene. Not a full panel, so it keeps its own
+   height instead of filling the parent like other .nx-root blocks. */
+.nx-root.nx-scene-alerts {
+  flex: none;
+  height: auto;
+  gap: 6px;
+  padding: 8px 12px 0;
+  font-size: 12px;
+}
+
+.nx-root .nx-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  color: var(--text-2);
+}
+
+.nx-root .nx-alert.warn {
+  border-color: var(--warn);
+  color: var(--text);
+}
+
+.nx-root .nx-alert-text {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-root .nx-alert .nx-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.nx-root .nx-alert-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--warn);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nx-root .nx-alert-hint {
+  color: var(--text-3);
+}
+
+.nx-root .nx-beats {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+.nx-root .nx-beats li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel);
+  cursor: grab;
+}
+
+.nx-root .nx-beat-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

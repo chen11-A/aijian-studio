@@ -1,0 +1,39 @@
+{
+  "data": {
+    "id": "mpe_22222222222222222222222222222222",
+    "project_id": "prj_11111111111111111111111111111111",
+    "asset_id": "asset_22222222222222222222222222222222",
+    "version_id": "asv_22222222222222222222222222222222",
+    "asset_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "byte_size": 64,
+    "probe_sha256": "16de4402d1521c87d2b4c6597819420bc0dfb81bf554d810cf0b20f985b6e258",
+    "toolchain_profile_id": "synthetic-contract-only",
+    "toolchain_version": "8.1.2",
+    "ffmpeg_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "ffprobe_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "created_at": "2026-10-11T00:00:00Z",
+    "probe": {
+      "source_asset_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "byte_size": 64,
+      "format_names": ["wav"],
+      "container_duration": {
+        "num": 1,
+        "den": 2
+      },
+      "video": null,
+      "audio": {
+        "stream_index": 0,
+        "codec_name": "pcm_s16le",
+        "sample_rate_hz": 32000,
+        "channels": 2,
+        "channel_layout": null,
+        "time_base": {
+          "num": 1,
+          "den": 32000
+        },
+        "total_samples": 16000
+      }
+    }
+  },
+  "request_id": "c2daab9c-2e17-4f91-b7ca-cc7bcd19ce6f"
+}

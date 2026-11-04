@@ -1,0 +1,285 @@
+.nx-root.nx-tasks {
+  gap: 10px;
+}
+
+.nx-root .nx-tasks-summary {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+}
+
+.nx-root .nx-tasks-meter {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nx-root .nx-tasks-summary h1 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.nx-root .nx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.nx-root .nx-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+
+.nx-root .nx-tasks-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 170px minmax(0, 1fr) 300px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.nx-root .nx-filters {
+  gap: 2px;
+  padding: 8px;
+}
+
+.nx-root .nx-filter-group {
+  padding: 10px 8px 4px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.nx-root .nx-filter {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-root .nx-filter:hover {
+  background: var(--panel-2);
+}
+
+.nx-root .nx-filter[aria-pressed="true"] {
+  background: var(--panel-3);
+  color: var(--text);
+}
+
+.nx-root .nx-filter-num {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.nx-root .nx-tasks-list {
+  min-height: 0;
+}
+
+.nx-root .nx-tasks-rows {
+  flex: 1 1 auto;
+}
+
+.nx-root .nx-group-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nx-root .nx-more-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.nx-root .nx-job {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nx-root .nx-job.nx-selected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.nx-root .nx-job-main {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0 10px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-root .nx-job-kind {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 44px;
+  border-radius: var(--r-s);
+  background: var(--panel-3);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.nx-root .nx-job-kind.nx-kind-video {
+  background: color-mix(in srgb, var(--t-video) 30%, var(--panel-2));
+}
+
+.nx-root .nx-job-kind.nx-kind-image {
+  background: color-mix(in srgb, var(--accent-2) 30%, var(--panel-2));
+}
+
+.nx-root .nx-job-kind.nx-kind-voice {
+  background: color-mix(in srgb, var(--t-voice) 30%, var(--panel-2));
+}
+
+.nx-root .nx-job-kind.nx-kind-lipsync {
+  background: color-mix(in srgb, var(--t-sub) 30%, var(--panel-2));
+}
+
+.nx-root .nx-job-kind.nx-kind-export {
+  background: color-mix(in srgb, var(--ok) 30%, var(--panel-2));
+}
+
+.nx-root .nx-job-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nx-root .nx-job-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.nx-root .nx-job-sub {
+  display: block;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.nx-root .nx-task-detail {
+  min-height: 0;
+}
+
+.nx-root .nx-detail-body {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.nx-root .nx-detail-box {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-detail-box.nx-suggest {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--accent-soft);
+}
+
+.nx-root .nx-detail-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nx-root .nx-tasks-empty {
+  display: grid;
+  flex: 1 1 auto;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.nx-root .nx-tasks-empty h2 {
+  font-size: 15px;
+}
+
+.nx-root .nx-tasks-loading {
+  gap: 0;
+}
+
+.nx-root .nx-skeleton-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nx-root .nx-skeleton {
+  display: block;
+  border-radius: var(--r);
+  background: linear-gradient(90deg, var(--panel-2), var(--panel-3), var(--panel-2));
+  background-size: 200% 100%;
+  animation: nx-shimmer 1.4s ease-in-out infinite;
+}
+
+.nx-root .nx-skeleton-thumb {
+  height: 44px;
+}
+
+.nx-root .nx-skeleton-line {
+  width: 60%;
+  height: 12px;
+}
+
+@keyframes nx-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

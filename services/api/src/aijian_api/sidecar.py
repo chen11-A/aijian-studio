@@ -6,31 +6,34 @@ import json
 import logging
 import os
 import secrets
-import sqlite3
 import socket
+import sqlite3
 import stat
 import sys
 import threading
 from collections.abc import Mapping
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import uvicorn
 
 from aijian_api.credential_vault import CredentialVault, SystemCredentialVault
+from aijian_api.draft_export_runtime import DraftExportRuntime
 from aijian_api.fake_media_package import FakeMediaPackageGenerator
 from aijian_api.fake_timeline_run import FakeTimelineRunFactory, LocalFakeTimelineWorker
 from aijian_api.gateway_transport import GatewayTextTransport
+from aijian_api.local_media_toolchain import LocalMediaToolchainService, machine_settings_path
 from aijian_api.main import create_app, default_database_path
 from aijian_api.media_toolchain import (
     MediaToolchain,
     discover_media_toolchain,
     load_media_toolchain_lock,
 )
-from aijian_api.provider_connection_repository import ProviderConnectionRepository
+from aijian_api.native_preview_parent_pipe import NativeParentPipe
 from aijian_api.product_export_runtime import ProductExportRuntime
 from aijian_api.product_export_windows_job import ProductExportJobManager
+from aijian_api.provider_connection_repository import ProviderConnectionRepository
 from aijian_api.remote_execution_authorization import RemoteExecutionAuthorizationStore
 from aijian_api.remote_settlement_contracts import DenyRemoteSettlementVerifier
 from aijian_api.remote_source_extract_runtime import (
@@ -64,6 +67,7 @@ PROTOCOL_VERSION = 1
 SIDECAR_HOST = "127.0.0.1"
 _LOGGER = logging.getLogger(__name__)
 _BACKUP_DIRECTORIES = ("media-assets", "fake-media", "exports")
+_BACKUP_EMPTY_DIRECTORIES = ("draft-export-work",)
 _SQLITE_SIDECARS = frozenset(
     {"workspace.sqlite3-wal", "workspace.sqlite3-shm", "workspace.sqlite3-journal"}
 )
@@ -96,7 +100,12 @@ def _plain_existing_path(path: Path, *, directory: bool) -> None:
 def _inventory(workspace: Path) -> dict[str, tuple[str, int, int, int, int]]:
     """Enumerate every supported media file without following links."""
 
-    allowed = {"workspace.sqlite3", *_SQLITE_SIDECARS, *_BACKUP_DIRECTORIES}
+    allowed = {
+        "workspace.sqlite3",
+        *_SQLITE_SIDECARS,
+        *_BACKUP_DIRECTORIES,
+        *_BACKUP_EMPTY_DIRECTORIES,
+    }
     if any(child.name not in allowed for child in workspace.iterdir()):
         raise WorkspaceBackupError("Workspace contains an unsupported top-level entry")
     for name in _SQLITE_SIDECARS:
@@ -116,7 +125,11 @@ def _inventory(workspace: Path) -> dict[str, tuple[str, int, int, int, int]]:
                 visit(child)
         elif stat.S_ISREG(info.st_mode):
             inventory[relative] = (
-                "file", info.st_size, info.st_mtime_ns, info.st_dev, info.st_ino,
+                "file",
+                info.st_size,
+                info.st_mtime_ns,
+                info.st_dev,
+                info.st_ino,
             )
         else:
             raise WorkspaceBackupError("Workspace contains an unsupported file type")
@@ -125,6 +138,17 @@ def _inventory(workspace: Path) -> dict[str, tuple[str, int, int, int, int]]:
         root = workspace / name
         if os.path.lexists(root):
             visit(root)
+    for name in _BACKUP_EMPTY_DIRECTORIES:
+        root = workspace / name
+        if not os.path.lexists(root):
+            continue
+        # A completed draft leaves this parent directory. Never recursively copy
+        # unknown interrupted job state or accept a link to another directory.
+        _plain_existing_path(root, directory=True)
+        info = root.stat(follow_symlinks=False)
+        if next(root.iterdir(), None) is not None:
+            raise WorkspaceBackupError("Draft export staging must be empty before backup")
+        inventory[name] = ("dir", 0, info.st_mtime_ns, info.st_dev, info.st_ino)
     return inventory
 
 
@@ -138,15 +162,16 @@ def _file_digest(path: Path) -> tuple[str, int]:
     return digest.hexdigest(), total
 
 
-def _copy_verified(source: Path, target: Path, fingerprint: tuple[str, int, int, int, int]) -> dict[str, object]:
+def _copy_verified(
+    source: Path, target: Path, fingerprint: tuple[str, int, int, int, int]
+) -> dict[str, object]:
     digest = hashlib.sha256()
     total = 0
     with source.open("rb") as reader, target.open("xb") as writer:
         before = os.fstat(reader.fileno())
         if (
             not stat.S_ISREG(before.st_mode)
-            or (before.st_size, before.st_mtime_ns, before.st_dev, before.st_ino)
-            != fingerprint[1:]
+            or (before.st_size, before.st_mtime_ns, before.st_dev, before.st_ino) != fingerprint[1:]
         ):
             raise WorkspaceBackupError("Source media changed before copy")
         while chunk := reader.read(1024 * 1024):
@@ -156,11 +181,9 @@ def _copy_verified(source: Path, target: Path, fingerprint: tuple[str, int, int,
         writer.flush()
         os.fsync(writer.fileno())
         after = os.fstat(reader.fileno())
-        if (
-            (after.st_size, after.st_mtime_ns, after.st_dev, after.st_ino)
-            != fingerprint[1:]
-            or total != fingerprint[1]
-        ):
+        if (after.st_size, after.st_mtime_ns, after.st_dev, after.st_ino) != fingerprint[
+            1:
+        ] or total != fingerprint[1]:
             raise WorkspaceBackupError("Source media changed during copy")
     if _file_digest(target) != (digest.hexdigest(), total):
         raise WorkspaceBackupError("Copied media failed readback")
@@ -217,11 +240,13 @@ def backup_workspace(workspace: Path, output: Path) -> dict[str, object]:
     receipt = {
         "schema_version": 1,
         "source_workspace": str(workspace),
-        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "files": sorted(files, key=lambda entry: str(entry["path"])),
         "sqlite_sidecars_excluded": sorted(_SQLITE_SIDECARS),
     }
-    receipt_bytes = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    receipt_bytes = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(
+        "utf-8"
+    )
     receipt_path = output / "receipt.json"
     with receipt_path.open("xb") as stream:
         stream.write(receipt_bytes)
@@ -231,8 +256,10 @@ def backup_workspace(workspace: Path, output: Path) -> dict[str, object]:
     if _file_digest(receipt_path) != (receipt_sha256, len(receipt_bytes)):
         raise WorkspaceBackupError("Backup receipt failed readback")
     return {
-        "event": "backup-complete", "schema_version": 1,
-        "output": str(output), "receipt_sha256": receipt_sha256,
+        "event": "backup-complete",
+        "schema_version": 1,
+        "output": str(output),
+        "receipt_sha256": receipt_sha256,
         "file_count": len(files),
     }
 
@@ -282,9 +309,18 @@ def create_handshake(*, port: int, token: str, pid: int) -> Mapping[str, object]
     }
 
 
-def _stop_when_parent_pipe_closes(server: uvicorn.Server) -> None:
-    sys.stdin.buffer.read()
-    server.should_exit = True
+def _stop_when_parent_pipe_closes(
+    server: uvicorn.Server, native_pipe: NativeParentPipe | None = None
+) -> None:
+    try:
+        if native_pipe is None:
+            sys.stdin.buffer.read()
+        else:
+            native_pipe.serve(sys.stdin.buffer)
+    except (ValueError, OSError):
+        _LOGGER.warning("Private parent pipe is unavailable")
+    finally:
+        server.should_exit = True
 
 
 def create_local_fake_worker(database_path: Path) -> LocalFakeSourceExtractWorker:
@@ -357,7 +393,10 @@ def create_remote_source_extract_runtime(
 ) -> RemoteSourceExtractRuntime | None:
     """Compose the existing one-shot worker only with explicit trusted dependencies."""
 
-    if remote_source_extract_availability(composition) != "CONFIGURED_PENDING_PER_TASK_AUTHORIZATION":
+    if (
+        remote_source_extract_availability(composition)
+        != "CONFIGURED_PENDING_PER_TASK_AUTHORIZATION"
+    ):
         return None
     assert composition is not None
     ledger = LocalTaskLedger(repository.database_path)
@@ -426,10 +465,12 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
     listener: socket.socket | None = None
     product_export_jobs: ProductExportJobManager | None = None
     product_export_runtime: ProductExportRuntime | None = None
+    draft_export_runtime: DraftExportRuntime | None = None
     worker: LocalFakeSourceExtractWorker | None = None
     timeline_worker: LocalFakeTimelineWorker | None = None
     remote_worker: RemoteSourceExtractRuntime | None = None
     sub2api_worker: Sub2APISourceExtractRuntime | None = None
+    native_pipe: NativeParentPipe | None = None
     worker_started = False
     timeline_worker_started = False
     remote_worker_started = False
@@ -443,7 +484,14 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
             origin=SIDECAR_ORIGIN,
         )
         repository = StudioRepository(database_path)
+        native_pipe = NativeParentPipe(repository, sys.stdout.buffer)
         product_export_jobs = ProductExportJobManager()
+        local_media_toolchain = LocalMediaToolchainService(machine_settings_path())
+        draft_export_runtime = DraftExportRuntime(
+            repository,
+            local_media_toolchain.discover,
+            product_export_jobs if os.name == "nt" else None,
+        )
         product_export_runtime = ProductExportRuntime(
             repository,
             product_export_jobs,
@@ -455,9 +503,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         remote_worker = create_remote_source_extract_runtime(
             repository, composition=remote_source_extract_composition
         )
-        sub2api_worker = create_sub2api_source_extract_runtime(
-            repository, credentials=credentials
-        )
+        sub2api_worker = create_sub2api_source_extract_runtime(repository, credentials=credentials)
         if remote_worker is None:
             _LOGGER.info(
                 "remote source.extract disabled: %s",
@@ -473,6 +519,8 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
                 credential_vault=credentials,
                 fake_timeline_run_factory=timeline_factory,
                 product_export_runtime=product_export_runtime,
+                draft_export_runtime=draft_export_runtime,
+                local_media_toolchain=local_media_toolchain,
                 sub2api_runtime_availability=sub2api_worker.availability,
             ),
             host=SIDECAR_HOST,
@@ -484,7 +532,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         server = uvicorn.Server(config)
         pipe_monitor = threading.Thread(
             target=_stop_when_parent_pipe_closes,
-            args=(server,),
+            args=(server, native_pipe),
             name="sidecar-parent-pipe",
             daemon=True,
         )
@@ -497,15 +545,31 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         if remote_worker is not None:
             remote_worker.start()
             remote_worker_started = True
-        sub2api_worker.start()
-        sub2api_worker_started = True
+        # Sub2API relay dispatch is retired. The runtime stays constructed so
+        # readiness can see that it was not started, but it must not poll or
+        # open a gateway connection. Historical rows remain readable.
 
         handshake = create_handshake(port=port, token=token, pid=os.getpid())
-        print(json.dumps(handshake, separators=(",", ":"), sort_keys=True), flush=True)
+        # Keep UTF-8/LF wire framing independent of Windows text newline translation.
+        sys.stdout.buffer.write(
+            (json.dumps(handshake, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
+        )
+        sys.stdout.buffer.flush()
         server.run(sockets=[listener])
     finally:
         shutdown_error: BaseException | None = None
         try:
+            if native_pipe is not None:
+                try:
+                    native_pipe.shutdown_and_wait()
+                except BaseException as error:
+                    shutdown_error = error
+            if draft_export_runtime is not None:
+                try:
+                    draft_export_runtime.stop_accepting()
+                except BaseException as error:
+                    if shutdown_error is None:
+                        shutdown_error = error
             if product_export_runtime is not None:
                 try:
                     product_export_runtime.stop_accepting()
@@ -521,6 +585,12 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
             if product_export_runtime is not None:
                 try:
                     product_export_runtime.join_workers()
+                except BaseException as error:
+                    if shutdown_error is None:
+                        shutdown_error = error
+            if draft_export_runtime is not None:
+                try:
+                    draft_export_runtime.join_workers()
                 except BaseException as error:
                     if shutdown_error is None:
                         shutdown_error = error

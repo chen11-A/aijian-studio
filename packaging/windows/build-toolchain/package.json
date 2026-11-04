@@ -1,0 +1,10 @@
+{
+  "name": "aivora-windows-build-toolchain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated Windows build tools; not application dependencies",
+  "devDependencies": {
+    "electron-builder": "26.17.0",
+    "pnpm": "11.9.0"
+  }
+}

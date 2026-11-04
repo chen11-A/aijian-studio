@@ -258,9 +258,16 @@ def _remote_fixture(tmp_path, *, scope_update=None, draft_update=None, provider_
     with sqlite3.connect(database) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute(
-            "INSERT INTO provider_connections VALUES (?, 'OPENAI_COMPATIBLE', 'offline', "
-            "'http://offline.invalid', 1, '[{\"model_id\":\"remote-model\"}]', 1, ?, ?)",
-            (fields["provider_connection_id"], now_text, now_text),
+            "INSERT INTO provider_connections (connection_id, provider_kind, display_name, "
+            "base_url, enabled, models_json, revision, created_at, updated_at, credential_ref) "
+            "VALUES (?, 'OPENAI_COMPATIBLE', 'offline', "
+            "'http://offline.invalid', 1, '[{\"model_id\":\"remote-model\"}]', 1, ?, ?, ?)",
+            (
+                fields["provider_connection_id"],
+                now_text,
+                now_text,
+                fields["provider_connection_id"],
+            ),
         )
         if provider_mutation is not None:
             provider_mutation(connection, fields["provider_connection_id"])
@@ -777,9 +784,9 @@ def test_formal_scope_binding_mutation_cannot_enqueue_or_consume(tmp_path, field
         ("revision", {"connection_revision": 2}, None),
         (
             "disabled-provider",
-            None,
+            {"connection_revision": 2},
             lambda connection, connection_id: connection.execute(
-                "UPDATE provider_connections SET enabled = 0 WHERE connection_id = ?",
+                "UPDATE provider_connections SET enabled = 0, revision = 2 WHERE connection_id = ?",
                 (connection_id,),
             ),
         ),
@@ -793,11 +800,11 @@ def test_formal_scope_binding_mutation_cannot_enqueue_or_consume(tmp_path, field
         ),
         (
             "malformed-models",
-            None,
+            {"connection_revision": 2},
             lambda connection, connection_id: (
                 connection.execute("PRAGMA ignore_check_constraints = ON"),
                 connection.execute(
-                    "UPDATE provider_connections SET models_json = 'not-json' "
+                    "UPDATE provider_connections SET models_json = 'not-json', revision = 2 "
                     "WHERE connection_id = ?",
                     (connection_id,),
                 ),
@@ -805,9 +812,10 @@ def test_formal_scope_binding_mutation_cannot_enqueue_or_consume(tmp_path, field
         ),
         (
             "unapproved-model",
-            None,
+            {"connection_revision": 2},
             lambda connection, connection_id: connection.execute(
-                "UPDATE provider_connections SET models_json = '[]' WHERE connection_id = ?",
+                "UPDATE provider_connections SET models_json = '[]', revision = 2 "
+                "WHERE connection_id = ?",
                 (connection_id,),
             ),
         ),

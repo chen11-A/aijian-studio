@@ -6,9 +6,13 @@ import {
   isSourceExtractionVersionId,
 } from "./remote-source-extract-contract";
 
-type Client = Pick<LocalApiClient,
-  "createRemoteSourceExtractRun" | "readOriginalRemoteSourceExtractRun" |
-  "getSourceExtraction" | "getSourceExtractionVersion">;
+type Client = Pick<
+  LocalApiClient,
+  | "createRemoteSourceExtractRun"
+  | "readOriginalRemoteSourceExtractRun"
+  | "getSourceExtraction"
+  | "getSourceExtractionVersion"
+>;
 
 export function resolveRemoteSourceExtractTopFrameClient<TEvent, TFrame>(
   event: TEvent & { senderFrame?: TFrame },
@@ -31,8 +35,10 @@ export function registerRemoteSourceExtractHandlers<TEvent>(
   handle(REMOTE_SOURCE_EXTRACT_CHANNELS.create, (event, ...args) => {
     if (args.length !== 2) throw new Error("Invalid remote source extract command");
     const [projectId, command] = args;
-    if (!isRemoteSourceExtractProjectId(projectId) ||
-        !isRemoteSourceExtractCreateCommand(command)) {
+    if (
+      !isRemoteSourceExtractProjectId(projectId) ||
+      !isRemoteSourceExtractCreateCommand(command)
+    ) {
       throw new Error("Invalid remote source extract command");
     }
     return clientFor(event).createRemoteSourceExtractRun(projectId, command);
@@ -40,8 +46,10 @@ export function registerRemoteSourceExtractHandlers<TEvent>(
   handle(REMOTE_SOURCE_EXTRACT_CHANNELS.readOriginalRun, (event, ...args) => {
     if (args.length !== 2) throw new Error("Invalid remote source extract run identity");
     const [projectId, originalCommand] = args;
-    if (!isRemoteSourceExtractProjectId(projectId) ||
-        !isRemoteSourceExtractCreateCommand(originalCommand)) {
+    if (
+      !isRemoteSourceExtractProjectId(projectId) ||
+      !isRemoteSourceExtractCreateCommand(originalCommand)
+    ) {
       throw new Error("Invalid remote source extract run identity");
     }
     return clientFor(event).readOriginalRemoteSourceExtractRun(projectId, originalCommand);
@@ -53,8 +61,11 @@ export function registerRemoteSourceExtractHandlers<TEvent>(
     return clientFor(event).getSourceExtraction(args[0]);
   });
   handle(REMOTE_SOURCE_EXTRACT_CHANNELS.getSourceExtractionVersion, (event, ...args) => {
-    if (args.length !== 2 || !isRemoteSourceExtractProjectId(args[0]) ||
-        !isSourceExtractionVersionId(args[1])) {
+    if (
+      args.length !== 2 ||
+      !isRemoteSourceExtractProjectId(args[0]) ||
+      !isSourceExtractionVersionId(args[1])
+    ) {
       throw new Error("Invalid SourceExtraction version identity");
     }
     return clientFor(event).getSourceExtractionVersion(args[0], args[1]);

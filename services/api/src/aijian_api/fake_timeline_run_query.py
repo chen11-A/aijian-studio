@@ -7,6 +7,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from pydantic import ValidationError
 
@@ -68,11 +69,13 @@ def _matches(pattern: str, value: object) -> bool:
     return isinstance(value, str) and re.fullmatch(pattern, value) is not None
 
 
-def _required_row(connection: sqlite3.Connection, sql: str, values: tuple[object, ...]) -> sqlite3.Row:
+def _required_row(
+    connection: sqlite3.Connection, sql: str, values: tuple[object, ...]
+) -> sqlite3.Row:
     row = connection.execute(sql, values).fetchone()
     if row is None:
         raise FakeTimelineRunOperationConflictError("Fake Timeline operation link is missing")
-    return row
+    return cast(sqlite3.Row, row)
 
 
 class FakeTimelineRunOperationReader:
@@ -144,7 +147,9 @@ class FakeTimelineRunOperationReader:
             (node["node_run_id"],),
         ).fetchone()
         if attempt is None:
-            raise FakeTimelineRunOperationConflictError("Fake Timeline operation attempt is missing")
+            raise FakeTimelineRunOperationConflictError(
+                "Fake Timeline operation attempt is missing"
+            )
         tasks = connection.execute(
             "SELECT task_id, attempt_id, task_kind FROM task_ledger WHERE attempt_id = ?",
             (attempt["attempt_id"],),

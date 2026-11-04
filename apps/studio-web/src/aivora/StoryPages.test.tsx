@@ -72,7 +72,23 @@ function Harness() {
       >
         保存 C3 草稿
       </button>
-      <button onClick={() => void d.reviewRealSource()}>提交真实来源审核</button>
+      <button
+        onClick={() => {
+          const manifest = d.sourceManifest?.data;
+          if (!manifest) return;
+          void d.reviewRealSource(
+            {
+              project_id: manifest.project_id,
+              version_id: manifest.latest_version.id,
+              content_hash: manifest.latest_version.content_hash,
+              expected_revision: manifest.head.revision,
+            },
+            manifest.latest_version.content.documents[0]?.source_document_id,
+          );
+        }}
+      >
+        提交真实来源审核
+      </button>
       <output aria-label="状态">
         {JSON.stringify({
           source: d.value("source"),
@@ -261,6 +277,8 @@ function remoteBridge(
       data: { status: "ok", service: "aijian-api", version: "test" },
     }),
     listProjects: vi.fn().mockResolvedValue({ request_id: "projects", data: projects }),
+    getProductionBrief: vi.fn().mockResolvedValue(null),
+    listProviderConnections: vi.fn().mockResolvedValue({ request_id: "connections", data: [] }),
     listSources: vi.fn().mockResolvedValue({ request_id: "sources", data: [] }),
     getSourceText: vi.fn(async () => ({
       request_id: "source-text",
@@ -320,7 +338,9 @@ describe("selected story source workflow", () => {
     bridge.createProductionBriefVersion = createProductionBriefVersion as never;
     openWithBridge(bridge);
 
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "基于已批准来源改编" }));
     fireEvent.change(screen.getByLabelText("改编说明"), { target: { value: "改编说明" } });
     fireEvent.change(screen.getByLabelText(/焦点区块序号/), { target: { value: "1,2" } });
@@ -391,14 +411,18 @@ describe("selected story source workflow", () => {
     bridge.createProductionBriefVersion = createProductionBriefVersion;
     openWithBridge(bridge);
 
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "基于已批准来源改编" }));
     fireEvent.change(screen.getByLabelText("改编说明"), { target: { value: "改编说明" } });
     fireEvent.change(screen.getByLabelText(/焦点区块序号/), { target: { value: "1,2" } });
     fireEvent.change(screen.getByLabelText("核心设定"), { target: { value: "核心设定" } });
     fireEvent.change(screen.getByLabelText("创作意图"), { target: { value: "创作意图" } });
     fireEvent.click(screen.getByRole("button", { name: "刷新来源状态" }));
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
 
     expect(createProductionBriefVersion).not.toHaveBeenCalled();
@@ -440,7 +464,9 @@ describe("selected story source workflow", () => {
     bridge.createProductionBriefVersion = createProductionBriefVersion;
     openWithBridge(bridge);
 
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "粘贴故事" }));
     fireEvent.click(screen.getByRole("button", { name: "原创灵感" }));
     fireEvent.change(screen.getByLabelText("原创来源说明"), { target: { value: "原创来源" } });
@@ -452,7 +478,10 @@ describe("selected story source workflow", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
     expect(createProductionBriefVersion).not.toHaveBeenCalled();
-    expect(await screen.findByText("项目已变化；请重新打开原创灵感草稿。")).toBeInTheDocument();
+    expect(
+      await screen.findByText("项目已变化，请关闭窗口后重新打开原创灵感草稿。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存草稿" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "关闭对话框" }));
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
@@ -460,7 +489,9 @@ describe("selected story source workflow", () => {
     await waitFor(() =>
       expect((screen.getByLabelText("项目名称") as HTMLInputElement).value).toBe("来源项目"),
     );
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "基于已批准来源改编" }));
     fireEvent.change(screen.getByLabelText("改编说明"), { target: { value: "改编说明" } });
     fireEvent.change(screen.getByLabelText(/焦点区块序号/), { target: { value: "1" } });
@@ -501,7 +532,9 @@ describe("selected story source workflow", () => {
     bridge.createProductionBriefVersion = createProductionBriefVersion as never;
     openWithBridge(bridge);
 
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "粘贴故事" }));
     fireEvent.click(screen.getByRole("button", { name: "原创灵感" }));
     fireEvent.change(screen.getByLabelText("原创来源说明"), { target: { value: "原创来源" } });
@@ -567,7 +600,9 @@ describe("selected story source workflow", () => {
     bridge.getSource = vi.fn().mockResolvedValue(sourceResponse());
     bridge.createProductionBriefVersion = createProductionBriefVersion as never;
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "粘贴故事" }));
     fireEvent.click(screen.getByRole("button", { name: "原创灵感" }));
@@ -636,19 +671,25 @@ describe("selected story source workflow", () => {
   });
   it("shows the current accepted manifest state without submitting a review", async () => {
     openRemoteSource(manifest());
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/最新来源 V4 已批准/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "审阅故事证据" })).toBeInTheDocument();
   });
   it("keeps an old accepted baseline visibly distinct from the newer draft", async () => {
     const oldAccepted = `ver_${"6".repeat(32)}`;
     openRemoteSource(manifest({ accepted: oldAccepted }));
-    expect(await screen.findByText(/来源状态：新版待审核/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：新版待审核/, {
+        selector: "p.v2-source-support[role=status]",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/旧批准基线 V3 仍可用于故事阅读/)).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "审阅故事证据" })).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "审核来源版本" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "提交来源审核" })).toBeInTheDocument();
   });
 
   it.each([
@@ -665,7 +706,11 @@ describe("selected story source workflow", () => {
     ],
   ])("clears approval for a real %s", async (_name, getManifest, status) => {
     openWithBridge(remoteBridge(getManifest));
-    expect(await screen.findByText(new RegExp(`来源状态：${status}`))).toBeInTheDocument();
+    expect(
+      await screen.findByText(new RegExp(`来源状态：${status}`), {
+        selector: "p.v2-source-support[role=status]",
+      }),
+    ).toBeInTheDocument();
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
     });
@@ -674,13 +719,17 @@ describe("selected story source workflow", () => {
   it("keeps approval false while a real manifest is loading", async () => {
     const request = pending<ReturnType<typeof manifest>>();
     openWithBridge(remoteBridge(() => request.promise));
-    expect(await screen.findByText(/来源状态：读取中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：读取中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
       stage: "loading",
     });
     request.resolve(manifest({ accepted: null, review: latestId }));
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
   });
 
   it("does not let an earlier same-project refresh overwrite a later refresh", async () => {
@@ -694,12 +743,20 @@ describe("selected story source workflow", () => {
         return manifest({ accepted: null, review: latestId });
       }),
     );
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "刷新来源状态" }));
     fireEvent.click(screen.getByRole("button", { name: "刷新来源状态" }));
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     stale.resolve(manifest());
-    await waitFor(() => expect(screen.getByText(/来源状态：审核中/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+      ).toBeInTheDocument(),
+    );
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
       stage: "review",
@@ -717,12 +774,20 @@ describe("selected story source workflow", () => {
         return manifest({ accepted: null, review: latestId });
       }),
     );
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "读取真实故事工作区" }));
     fireEvent.click(screen.getByRole("button", { name: "刷新来源状态" }));
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     storyManifest.resolve(manifest());
-    await waitFor(() => expect(screen.getByText(/来源状态：审核中/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+      ).toBeInTheDocument(),
+    );
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
       stage: "review",
@@ -734,7 +799,11 @@ describe("selected story source workflow", () => {
         throw new Error("bridge");
       }),
     );
-    expect(await screen.findByText(/来源状态：读取失败/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：读取失败/, {
+        selector: "p.v2-source-support[role=status]",
+      }),
+    ).toBeInTheDocument();
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
       stage: "error",
@@ -748,7 +817,9 @@ describe("selected story source workflow", () => {
     };
     bridge.sourceManifestReview = { submit };
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "审阅故事证据" }));
     expect(screen.getByRole("heading", { name: "故事理解" })).toBeInTheDocument();
     expect(submit).not.toHaveBeenCalled();
@@ -780,15 +851,21 @@ describe("selected story source workflow", () => {
       copySourceManifestDraft: vi.fn(),
     });
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "确认来源审核基线" }));
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(document.querySelector("footer")!).getByRole("button", { name: "确认来源审核基线" }),
+    );
     expect(screen.getByRole("heading", { name: "确认来源审核基线" })).toBeInTheDocument();
     expect(screen.getByText(new RegExp(projectId))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(latestId))).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("确认理由（1 至 1000 个字符）"), {
       target: { value: `  ${"😀".repeat(1000)}  ` },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: "确认来源审核基线" })[1]!);
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "确认来源审核基线" }),
+    );
     await waitFor(() =>
       expect(confirmSourceManifestBaseline).toHaveBeenCalledWith({
         project_id: projectId,
@@ -798,7 +875,9 @@ describe("selected story source workflow", () => {
         rationale: "😀".repeat(1000),
       }),
     );
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
   });
   it("keeps the confirmation drawer and astral rationale when it exceeds 1000 code points", async () => {
     const review = manifest({ accepted: null, review: latestId });
@@ -810,13 +889,19 @@ describe("selected story source workflow", () => {
       copySourceManifestDraft: vi.fn(),
     });
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "确认来源审核基线" }));
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(document.querySelector("footer")!).getByRole("button", { name: "确认来源审核基线" }),
+    );
     const rationale = "😀".repeat(1001);
     fireEvent.change(screen.getByLabelText("确认理由（1 至 1000 个字符）"), {
       target: { value: rationale },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: "确认来源审核基线" })[1]!);
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "确认来源审核基线" }),
+    );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText("确认理由（1 至 1000 个字符）")).toHaveValue(rationale);
     expect(screen.getByText("确认理由需要是 1 至 1000 个字符。")).toBeInTheDocument();
@@ -832,8 +917,12 @@ describe("selected story source workflow", () => {
       copySourceManifestDraft: vi.fn(),
     });
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "确认来源审核基线" }));
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(document.querySelector("footer")!).getByRole("button", { name: "确认来源审核基线" }),
+    );
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "关闭" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(confirmSourceManifestBaseline).not.toHaveBeenCalled();
@@ -866,8 +955,12 @@ describe("selected story source workflow", () => {
       copySourceManifestDraft: vi.fn(),
     });
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "确认来源审核基线" }));
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(document.querySelector("footer")!).getByRole("button", { name: "确认来源审核基线" }),
+    );
     fireEvent.change(screen.getByLabelText("确认理由（1 至 1000 个字符）"), {
       target: { value: "已核对" },
     });
@@ -906,11 +999,19 @@ describe("selected story source workflow", () => {
       ],
     );
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：读取中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：读取中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "打开第二项目" }));
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     oldProject.resolve(manifest());
-    await waitFor(() => expect(screen.getByText(/来源状态：审核中/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+      ).toBeInTheDocument(),
+    );
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
       stage: "review",
@@ -928,12 +1029,20 @@ describe("selected story source workflow", () => {
     }) as Window["aijian"] & { importTextSource: ReturnType<typeof vi.fn> };
     installImportReadback(bridge!);
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "刷新来源状态" }));
     fireEvent.click(screen.getByRole("button", { name: "导入真实来源" }));
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     stale.resolve(manifest());
-    await waitFor(() => expect(screen.getByText(/来源状态：审核中/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+      ).toBeInTheDocument(),
+    );
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
       stage: "review",
@@ -947,7 +1056,9 @@ describe("selected story source workflow", () => {
     };
     installImportReadback(bridge!);
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "导入长粘贴来源" }));
     await waitFor(() => expect(bridge.importTextSource).toHaveBeenCalledTimes(1));
     const encoded = bridge.importTextSource.mock.calls[0]![1].content_base64 as string;
@@ -958,7 +1069,9 @@ describe("selected story source workflow", () => {
 
   it("retains the original recovery operation when the create bridge is unavailable", async () => {
     openWithBridge(remoteBridge(async () => manifest()));
-    expect(await screen.findByText(/来源状态：已批准/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：已批准/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "保存 C3 草稿" }));
     expect(await screen.findByRole("button", { name: "恢复原草稿操作" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "恢复原草稿操作" }));
@@ -971,13 +1084,23 @@ describe("selected story source workflow", () => {
 
   it("does not let an old manifest begun before a successful review overwrite its newer state", async () => {
     const stale = pending<ReturnType<typeof manifest>>();
+    const reviewManifest = (review: string | null = null) => {
+      const result = manifest({ accepted: null, review });
+      result.data.latest_version.content.documents = [
+        {
+          source_document_id: sourceResponse().data.id,
+          blocks: [{ source_block_id: `srcb_${"a".repeat(32)}`, ordinal: 1 }],
+        },
+      ] as never;
+      return result;
+    };
     let calls = 0;
     const bridge = remoteBridge(async () => {
       calls += 1;
-      if (calls === 1) return manifest({ accepted: null });
+      if (calls === 1) return reviewManifest();
       if (calls === 2) return stale.promise;
-      if (calls === 3) return manifest({ accepted: null });
-      return manifest({ accepted: null, review: latestId });
+      if (calls === 3) return reviewManifest();
+      return reviewManifest(latestId);
     })!;
     bridge.submitSourceManifest = vi.fn().mockResolvedValue({
       kind: "SUCCEEDED",
@@ -989,12 +1112,20 @@ describe("selected story source workflow", () => {
     bridge.confirmSourceManifestBaseline = vi.fn();
     bridge.copySourceManifestDraft = vi.fn();
     openWithBridge(bridge);
-    expect(await screen.findByText(/来源状态：待审核/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：待审核/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "刷新来源状态" }));
     fireEvent.click(screen.getByRole("button", { name: "提交真实来源审核" }));
-    expect(await screen.findByText(/来源状态：审核中/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+    ).toBeInTheDocument();
     stale.resolve(manifest({ accepted: null }));
-    await waitFor(() => expect(screen.getByText(/来源状态：审核中/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/来源状态：审核中/, { selector: "p.v2-source-support[role=status]" }),
+      ).toBeInTheDocument(),
+    );
     expect(JSON.parse(screen.getByLabelText("状态").textContent!)).toMatchObject({
       approved: "false",
       submitted: "true",

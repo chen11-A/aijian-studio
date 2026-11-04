@@ -9,8 +9,8 @@ from __future__ import annotations
 import os
 import re
 import stat
+import sys
 from pathlib import Path
-
 
 _LOCAL_DRIVE = re.compile(r"[A-Za-z]:")
 _REPARSE_POINT = 0x400
@@ -28,7 +28,7 @@ def managed_local_io_path(root: Path, candidate: Path) -> Path:
         raise ValueError("managed paths must be absolute")
     if any(part == ".." for path in (root, candidate) for part in path.parts):
         raise ValueError("managed paths cannot traverse parents")
-    if os.name == "nt":
+    if sys.platform == "win32":
         for path in (root, candidate):
             if _LOCAL_DRIVE.fullmatch(path.drive) is None:
                 raise ValueError("managed paths need a local drive spelling")
@@ -67,7 +67,7 @@ def managed_local_io_path(root: Path, candidate: Path) -> Path:
                 break
             raise
         if stat.S_ISLNK(information.st_mode) or (
-            os.name == "nt" and information.st_file_attributes & _REPARSE_POINT
+            sys.platform == "win32" and information.st_file_attributes & _REPARSE_POINT
         ):
             raise ValueError("managed path contains a reparse point")
         if not final and not stat.S_ISDIR(information.st_mode):

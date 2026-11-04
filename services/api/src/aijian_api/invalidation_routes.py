@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable
 from typing import Any, cast
 from uuid import UUID
@@ -15,6 +16,7 @@ from aijian_api.artifact_invalidation_ledger import (
 from aijian_api.artifacts import canonical_content_bytes
 from aijian_api.contracts import PROJECT_ID_PATTERN, ErrorResponse
 from aijian_api.domain import InvalidationOperationRecord
+from aijian_api.invalidation_consumer import InvalidationConsumerResponse, inspect_consumer
 from aijian_api.invalidation_contracts import (
     OPERATION_ID_PATTERN,
     InvalidationOperationData,
@@ -124,6 +126,28 @@ def create_invalidation_router(repository_provider: RepositoryProvider) -> APIRo
             raise InvalidationReportCorruptError("invalid invalidation ledger record") from error
         except (TypeError, ValueError, KeyError) as error:
             raise InvalidationReportCorruptError("invalid invalidation ledger record") from error
+
+    @router.get(
+        "/api/v1/projects/{project_id}/invalidation-operations/{operation_id}/paths/{path_id}/consumer",
+        operation_id="inspectInvalidationConsumer",
+        response_model=InvalidationConsumerResponse,
+        responses=errors,
+    )
+    def consumer(
+        request: Request,
+        project_id: str = Path(pattern=PROJECT_ID_PATTERN),
+        operation_id: str = Path(pattern=OPERATION_ID_PATTERN),
+        path_id: str = Path(pattern=r"^ivp_[0-9a-f]{32}$"),
+    ) -> InvalidationConsumerResponse:
+        try:
+            data = inspect_consumer(repository_provider(), project_id, operation_id, path_id)
+            return InvalidationConsumerResponse(
+                data=data, request_id=cast(UUID, request.state.request_id)
+            )
+        except InvalidationOperationNotFoundError:
+            raise
+        except (TypeError, ValueError, KeyError, RuntimeError, sqlite3.DatabaseError) as error:
+            raise InvalidationReportCorruptError("Affected version context is unknown") from error
 
     return router
 

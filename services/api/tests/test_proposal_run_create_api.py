@@ -30,12 +30,10 @@ from aijian_api.artifact_proposal_rejection import (
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
 from aijian_api.domain import TrustedReviewActor
 from aijian_api.main import create_app
-from aijian_api.provider_schema import MIGRATION_7
 from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
 from aijian_api.task_ledger_snapshots import canonical_snapshot_json, snapshot_sha256
-from aijian_api.workflow_schema import MIGRATION_12
 from fastapi.testclient import TestClient
 from httpx2 import Response as HttpxResponse
 
@@ -851,6 +849,8 @@ def test_existing_draft_acceptance_blocks_direct_rejection_insert(tmp_path: Path
 
 
 def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path: Path) -> None:
+    from test_migrations import migrate_through
+
     client, repository, project_id, proposal_id, _created = reviewable_proposal(
         tmp_path,
         key="source-extract:v12-acceptance-upgrade",
@@ -867,38 +867,52 @@ def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path
             "SELECT acceptance_id FROM artifact_proposal_draft_acceptances WHERE proposal_id = ?",
             (proposal_id,),
         ).fetchone()[0]
-        connection.execute("DROP TABLE artifact_proposal_rejections")
-        connection.execute("DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert")
-        connection.execute(MIGRATION_12[1])
-        for table in (
-            "remote_settlement_receipts",
-            "remote_dispatch_snapshots",
-            "remote_execution_authorization_snapshots",
-            "production_brief_write_requests",
-        ):
-            assert connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone() == (0,)
-            connection.execute(f'DROP TABLE "{table}"')
-        projects = connection.execute(
-            "SELECT id, target_duration_seconds, created_at FROM projects ORDER BY id"
-        ).fetchall()
-        default_episodes = connection.execute(
-            "SELECT id, project_id, position, title, is_default, target_duration_seconds, "
-            "revision, created_at FROM episodes ORDER BY project_id"
-        ).fetchall()
-        assert default_episodes == [
-            (f"ep_{project}", project, 1, "第 1 集", 1, duration, 1, created)
-            for project, duration, created in projects
-        ], "cannot rewind fixture with authored episodes"
-        connection.execute("DROP TABLE episodes")
-        assert connection.execute("SELECT COUNT(*) FROM provider_connections").fetchone() == (0,)
-        connection.execute("DROP INDEX provider_connections_name_unique")
-        connection.execute("DROP TABLE provider_connections")
-        for statement in MIGRATION_7:
-            connection.execute(statement)
-        connection.execute("PRAGMA user_version = 12")
 
-    StudioRepository(repository.database_path)
-    with sqlite3.connect(repository.database_path) as connection:
+    historical = tmp_path / "accepted-v12.db"
+    migrate_through(historical, 12)
+    with sqlite3.connect(historical) as connection:
+        schema = connection.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall()
+        triggers = [(name, sql) for kind, name, sql in schema if kind == "trigger"]
+        # Import final-state rows, not workflow transitions. Restore every genuine
+        # v12 trigger before inserting the acceptance and exercising migration.
+        for name, _sql in triggers:
+            connection.execute(f'DROP TRIGGER "{name}"')
+        connection.execute("ATTACH DATABASE ? AS seed", (str(repository.database_path),))
+        acceptance_table = "artifact_proposal_draft_acceptances"
+        tables = [
+            name
+            for kind, name, _sql in schema
+            if kind == "table" and not name.startswith("sqlite_")
+        ]
+
+        def copy_rows(table: str) -> None:
+            columns = ", ".join(
+                f'"{row[1]}"' for row in connection.execute(f'PRAGMA main.table_info("{table}")')
+            )
+            connection.execute(
+                f'INSERT INTO main."{table}" ({columns}) SELECT {columns} FROM seed."{table}"'
+            )
+
+        for table in tables:
+            if table != acceptance_table:
+                copy_rows(table)
+        for _name, sql in triggers:
+            connection.execute(sql)
+        copy_rows(acceptance_table)
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert (
+            connection.execute(
+                "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+            ).fetchall()
+            == schema
+        )
+        assert connection.execute("PRAGMA user_version").fetchone() == (12,)
+
+    StudioRepository(historical)
+    with sqlite3.connect(historical) as connection:
         assert connection.execute("PRAGMA user_version").fetchone() == (SCHEMA_VERSION,)
         assert connection.execute(
             "SELECT acceptance_id FROM artifact_proposal_draft_acceptances WHERE proposal_id = ?",

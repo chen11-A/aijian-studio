@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
-import { createInterface } from "node:readline";
-
-import { parseSidecarHandshake, type SidecarSession } from "./sidecar-protocol";
+import type { SidecarSession } from "./sidecar-protocol";
+import { createSidecarPrivatePipe, type SidecarPrivatePipe } from "./sidecar-private-pipe";
 import {
   createSidecarStartupDiagnosticCollector,
   type SidecarStartupClassification,
@@ -40,6 +39,8 @@ export interface SidecarExit {
 
 export interface SidecarHandle {
   session: SidecarSession;
+  /** Internal main-only owned pipe. Never passed to preload or HTTP clients. */
+  nativePipe: SidecarPrivatePipe;
   exited: Promise<SidecarExit>;
   stop(): Promise<void>;
 }
@@ -96,7 +97,11 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
       windowsHide: true,
     });
   } catch {
-    try { options.cleanupAfterClose?.(); } catch { /* Preserve the spawn failure. */ }
+    try {
+      options.cleanupAfterClose?.();
+    } catch {
+      /* Preserve the spawn failure. */
+    }
     throw new SidecarStartupError("STARTUP_UNKNOWN");
   }
   let exitResult: SidecarExit | undefined;
@@ -105,7 +110,11 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
   const exited = new Promise<SidecarExit>((resolve) => {
     child.once("close", (code, signal) => {
       exitResult = { code, signal };
-      try { options.cleanupAfterClose?.(); } catch { /* Preserve the exit result. */ }
+      try {
+        options.cleanupAfterClose?.();
+      } catch {
+        /* Preserve the exit result. */
+      }
       resolve(exitResult);
     });
   });
@@ -114,7 +123,11 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
   const stderr = child.stderr;
   if (stdin === null || stdout === null || stderr === null) {
     child.once("error", () => undefined);
-    try { child.kill(); } catch { /* Preserve the startup classification. */ }
+    try {
+      child.kill();
+    } catch {
+      /* Preserve the startup classification. */
+    }
     await settlesWithin(exited, shutdownTimeoutMs);
     throw new SidecarStartupError("STARTUP_UNKNOWN");
   }
@@ -122,7 +135,7 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
   const onStderrData = (chunk: Buffer): void => diagnostic.append(chunk);
   stderr.on("data", onStderrData);
 
-  const output = createInterface({ input: stdout, crlfDelay: Infinity });
+  const output = createSidecarPrivatePipe({ stdin, stdout, childPid: () => child.pid });
   let session: SidecarSession;
   try {
     session = await new Promise<SidecarSession>((resolve, reject) => {
@@ -148,17 +161,19 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
 
       child.once("error", onSpawnError);
       child.once("exit", onExit);
-      output.once("line", (line) => {
-        cleanup();
-        try {
-          resolve(parseSidecarHandshake(line));
-        } catch {
+      void output.ready.then(
+        (value) => {
+          cleanup();
+          resolve(value);
+        },
+        () => {
+          cleanup();
           rejectStartup();
-        }
-      });
+        },
+      );
     });
   } catch {
-    output.close();
+    output.pipe.close();
     stdout.resume();
     stdin.end();
     if (!(await settlesWithin(exited, shutdownTimeoutMs))) {
@@ -168,16 +183,16 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
     }
     stderr.off("data", onStderrData);
     stderr.resume();
-    throw new SidecarStartupError(diagnostic.classify({
-      code: exitResult?.code ?? null,
-      signal: exitResult?.signal ?? null,
-      spawn_failed: spawnFailed,
-      timed_out: timedOut,
-    }));
+    throw new SidecarStartupError(
+      diagnostic.classify({
+        code: exitResult?.code ?? null,
+        signal: exitResult?.signal ?? null,
+        spawn_failed: spawnFailed,
+        timed_out: timedOut,
+      }),
+    );
   }
 
-  output.close();
-  stdout.resume();
   stderr.off("data", onStderrData);
   stderr.resume();
 
@@ -195,5 +210,5 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
     return stopping;
   };
 
-  return { session, exited, stop };
+  return { session, nativePipe: output.pipe, exited, stop };
 }

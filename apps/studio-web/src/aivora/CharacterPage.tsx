@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button, FlowFooter, PageTitle, Pill, Section, Tabs } from "./Common";
 import { Icon } from "./Icon";
+import { useDemo } from "./model";
+import { ManualCreativePage } from "./ManualCreativeEditor";
 import { useCurrentObject } from "./useCurrentObject";
 import type { Outfit } from "./model";
 import avatar from "./assets/v2/avatar.png";
@@ -14,6 +16,7 @@ import medical from "./assets/v2/medical.png";
 import homewear from "./assets/v2/homewear.png";
 import "./v2-character.css";
 
+import { Select } from "./Select";
 const modelViews = [
   { id: "front", label: "正面", image: front },
   { id: "side", label: "侧面", image: side },
@@ -45,6 +48,11 @@ type CharacterReview = {
 };
 
 export function CharacterPage() {
+  const d = useDemo();
+  return d.isFixture ? <FixtureCharacterPage /> : <ManualCreativePage kind="characters" />;
+}
+
+function FixtureCharacterPage() {
   const triptychRef = useRef<HTMLElement>(null);
   const [triptychColumns, setTriptychColumns] = useState<string>();
   useLayoutEffect(() => {
@@ -490,7 +498,7 @@ export function CharacterPage() {
           </header>
           <label className="v2-character-switch">
             当前角色
-            <select
+            <Select
               value={person.id}
               onChange={(event) => d.setSelectedCharacter(Number(event.target.value))}
             >
@@ -499,7 +507,7 @@ export function CharacterPage() {
                   {item.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <Tabs
             items={["角色模型", "身份", "外观", "造型", "状态", "声音", "关联"]}

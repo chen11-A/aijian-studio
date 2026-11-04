@@ -1,0 +1,577 @@
+{
+  "provenance": "Controlled synthetic native inspection; no Electron or Windows decoding acceptance.",
+  "request_id": "e6542a55-6412-4d7f-8896-9ca0f480ec90",
+  "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+  "save_request": {
+    "content": {
+      "schema_version": "1.0.0",
+      "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+      "creative_library_version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+      "creative_library_content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+      "character_reference_ids": [
+        "crf_ffffffffffffffffffffffffffffffff",
+        "crf_00000000000000000000000000000000"
+      ],
+      "scenes": [
+        {
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "assets": [
+            {
+              "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+              "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+              "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679"
+            }
+          ]
+        }
+      ],
+      "props": [],
+      "safe_area": {
+        "canvas_width": 1080,
+        "canvas_height": 1920,
+        "x": 54,
+        "y": 96,
+        "width": 972,
+        "height": 1728
+      },
+      "effective_scope": "PROJECT",
+      "change_reason": "人工选择完整视觉基线"
+    },
+    "parent_version_id": null,
+    "expected_revision": null,
+    "change_summary": "保存视觉版本供人工审签"
+  },
+  "saved": {
+    "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+    "head": {
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "latest_version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "review_version_id": null,
+      "review_submission_id": null,
+      "accepted_version_id": null,
+      "revision": 1,
+      "review_evidence_revision": 0,
+      "updated_at": "2026-10-11T03:23:10.746483Z"
+    },
+    "version": {
+      "id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_number": 1,
+      "content": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+        "creative_library_version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+        "creative_library_content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+        "character_reference_ids": [
+          "crf_ffffffffffffffffffffffffffffffff",
+          "crf_00000000000000000000000000000000"
+        ],
+        "scenes": [
+          {
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "assets": [
+              {
+                "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+                "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+                "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679"
+              }
+            ]
+          }
+        ],
+        "props": [],
+        "safe_area": {
+          "canvas_width": 1080,
+          "canvas_height": 1920,
+          "x": 54,
+          "y": 96,
+          "width": 972,
+          "height": 1728
+        },
+        "effective_scope": "PROJECT",
+        "change_reason": "人工选择完整视觉基线"
+      },
+      "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+      "parent_version_id": null,
+      "author_actor_id": "local-user",
+      "change_summary": "保存视觉版本供人工审签",
+      "created_at": "2026-10-11T03:23:10.746483Z"
+    }
+  },
+  "index": {
+    "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+    "head": {
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "latest_version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "review_version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "review_submission_id": "sub_a1a6226ebdf74ffea6acee182a30e981",
+      "accepted_version_id": null,
+      "revision": 2,
+      "review_evidence_revision": 1,
+      "updated_at": "2026-10-11T03:23:10.769605Z"
+    },
+    "latest_version": {
+      "id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_number": 1,
+      "content": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+        "creative_library_version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+        "creative_library_content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+        "character_reference_ids": [
+          "crf_ffffffffffffffffffffffffffffffff",
+          "crf_00000000000000000000000000000000"
+        ],
+        "scenes": [
+          {
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "assets": [
+              {
+                "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+                "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+                "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679"
+              }
+            ]
+          }
+        ],
+        "props": [],
+        "safe_area": {
+          "canvas_width": 1080,
+          "canvas_height": 1920,
+          "x": 54,
+          "y": 96,
+          "width": 972,
+          "height": 1728
+        },
+        "effective_scope": "PROJECT",
+        "change_reason": "人工选择完整视觉基线"
+      },
+      "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+      "parent_version_id": null,
+      "author_actor_id": "local-user",
+      "change_summary": "保存视觉版本供人工审签",
+      "created_at": "2026-10-11T03:23:10.746483Z"
+    },
+    "review_version": {
+      "id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_number": 1,
+      "content": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+        "creative_library_version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+        "creative_library_content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+        "character_reference_ids": [
+          "crf_ffffffffffffffffffffffffffffffff",
+          "crf_00000000000000000000000000000000"
+        ],
+        "scenes": [
+          {
+            "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "assets": [
+              {
+                "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+                "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+                "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679"
+              }
+            ]
+          }
+        ],
+        "props": [],
+        "safe_area": {
+          "canvas_width": 1080,
+          "canvas_height": 1920,
+          "x": 54,
+          "y": 96,
+          "width": 972,
+          "height": 1728
+        },
+        "effective_scope": "PROJECT",
+        "change_reason": "人工选择完整视觉基线"
+      },
+      "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+      "parent_version_id": null,
+      "author_actor_id": "local-user",
+      "change_summary": "保存视觉版本供人工审签",
+      "created_at": "2026-10-11T03:23:10.746483Z"
+    },
+    "accepted_version": null
+  },
+  "prepared_submit": {
+    "report": {
+      "id": "rpt_cda78d96e1494d79a0b012fbc4e931ae",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "gate": "G5",
+      "submission_id": null,
+      "policy_code": "g5.visual-bible",
+      "policy_version": "1",
+      "head_revision": 1,
+      "review_evidence_revision": 0,
+      "report": {
+        "ready": true,
+        "blocking": [],
+        "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+        "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+        "creative_library_version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+        "creative_library_content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+        "effective_scope": "PROJECT",
+        "props_declared_empty": true,
+        "originals": [
+          {
+            "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+            "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+            "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+            "byte_size": 69,
+            "rights_decision_id": "ard_e9bec397253b416b939dfac761f80a28",
+            "rights_revision": 1,
+            "rights_evidence_sha256": "5aec937e973f3fcf03c3c13b71ee8af6014a511e8654ff75b48cb47db246a84c",
+            "technical_evidence_hash": "sha256:8634e76caf37053dbd953c1e7bf5b879931d4aadc9801a3b98e33735df94a463"
+          }
+        ],
+        "policy_code": "g5.visual-bible",
+        "policy_version": "1",
+        "policy_snapshot_hash": "sha256:3fc41a93028d6e11532d2896c6b9d16fbd4e56681b5f7a5999f99a12f0c7244d"
+      },
+      "report_hash": "sha256:ebb89703ad0d77514a7fac2fb787fa99c372af67740affa4b75e8e5e6bab1cd9",
+      "expires_at": "2026-10-11T03:28:10.758484Z",
+      "created_at": "2026-10-11T03:23:10.758484Z"
+    },
+    "challenge": {
+      "id": "chg_69aa7184e88e45e3a78a27922ca82193",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "gate": "G5",
+      "action": "submit",
+      "readiness_report_id": "rpt_cda78d96e1494d79a0b012fbc4e931ae",
+      "head_revision": 1,
+      "review_evidence_revision": 0,
+      "expires_at": "2026-10-11T03:28:10.758484Z",
+      "consumed_at": null,
+      "created_at": "2026-10-11T03:23:10.758484Z"
+    },
+    "confirmation_token": "YpGW7nEZd9L-SqRWIDyv2-5Sa3XMuUcKAy06KJE1Ubc"
+  },
+  "pending_submit": {
+    "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+    "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+    "challenge": {
+      "id": "chg_69aa7184e88e45e3a78a27922ca82193",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "gate": "G5",
+      "action": "submit",
+      "readiness_report_id": "rpt_cda78d96e1494d79a0b012fbc4e931ae",
+      "head_revision": 1,
+      "review_evidence_revision": 0,
+      "expires_at": "2026-10-11T03:28:10.758484Z",
+      "consumed_at": null,
+      "created_at": "2026-10-11T03:23:10.758484Z"
+    },
+    "action_payload_hash": "sha256:44fcd89c00262012c4c700df0d95ab8ad394b33181977d2e8858cd10253c1379",
+    "actor_id": "local-user",
+    "actor_roles": ["writer", "continuity_reviewer", "producer"],
+    "policy_snapshot_hash": "sha256:3fc41a93028d6e11532d2896c6b9d16fbd4e56681b5f7a5999f99a12f0c7244d",
+    "report": {
+      "id": "rpt_cda78d96e1494d79a0b012fbc4e931ae",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "gate": "G5",
+      "submission_id": null,
+      "policy_code": "g5.visual-bible",
+      "policy_version": "1",
+      "head_revision": 1,
+      "review_evidence_revision": 0,
+      "report": {
+        "blocking": [],
+        "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+        "creative_library_content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+        "creative_library_version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+        "effective_scope": "PROJECT",
+        "originals": [
+          {
+            "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+            "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+            "byte_size": 69,
+            "rights_decision_id": "ard_e9bec397253b416b939dfac761f80a28",
+            "rights_evidence_sha256": "5aec937e973f3fcf03c3c13b71ee8af6014a511e8654ff75b48cb47db246a84c",
+            "rights_revision": 1,
+            "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+            "technical_evidence_hash": "sha256:8634e76caf37053dbd953c1e7bf5b879931d4aadc9801a3b98e33735df94a463"
+          }
+        ],
+        "policy_code": "g5.visual-bible",
+        "policy_snapshot_hash": "sha256:3fc41a93028d6e11532d2896c6b9d16fbd4e56681b5f7a5999f99a12f0c7244d",
+        "policy_version": "1",
+        "props_declared_empty": true,
+        "ready": true,
+        "version_id": "ver_48b11fc66a574839aa8e66d54907e918"
+      },
+      "report_hash": "sha256:ebb89703ad0d77514a7fac2fb787fa99c372af67740affa4b75e8e5e6bab1cd9",
+      "expires_at": "2026-10-11T03:28:10.758484Z",
+      "created_at": "2026-10-11T03:23:10.758484Z"
+    },
+    "terminal_no_write": false,
+    "state": "NOT_CONSUMED",
+    "result_revision": null,
+    "head": {
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "latest_version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "review_version_id": null,
+      "review_submission_id": null,
+      "accepted_version_id": null,
+      "revision": 1,
+      "review_evidence_revision": 0,
+      "updated_at": "2026-10-11T03:23:10.746483Z"
+    },
+    "submission": null,
+    "signoffs": [],
+    "decision": null
+  },
+  "submitted": {
+    "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+    "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+    "challenge": {
+      "id": "chg_69aa7184e88e45e3a78a27922ca82193",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "gate": "G5",
+      "action": "submit",
+      "readiness_report_id": "rpt_cda78d96e1494d79a0b012fbc4e931ae",
+      "head_revision": 1,
+      "review_evidence_revision": 0,
+      "expires_at": "2026-10-11T03:28:10.758484Z",
+      "consumed_at": "2026-10-11T03:23:10.769605Z",
+      "created_at": "2026-10-11T03:23:10.758484Z"
+    },
+    "action_payload_hash": "sha256:44fcd89c00262012c4c700df0d95ab8ad394b33181977d2e8858cd10253c1379",
+    "actor_id": "local-user",
+    "actor_roles": ["writer", "continuity_reviewer", "producer"],
+    "policy_snapshot_hash": "sha256:3fc41a93028d6e11532d2896c6b9d16fbd4e56681b5f7a5999f99a12f0c7244d",
+    "report": {
+      "id": "rpt_cda78d96e1494d79a0b012fbc4e931ae",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "gate": "G5",
+      "submission_id": null,
+      "policy_code": "g5.visual-bible",
+      "policy_version": "1",
+      "head_revision": 1,
+      "review_evidence_revision": 0,
+      "report": {
+        "blocking": [],
+        "content_hash": "sha256:97607a560bda2b5af78c0ee7c156e6f32fa8aca356db666eb3208e044e2251de",
+        "creative_library_content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+        "creative_library_version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+        "effective_scope": "PROJECT",
+        "originals": [
+          {
+            "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+            "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+            "byte_size": 69,
+            "rights_decision_id": "ard_e9bec397253b416b939dfac761f80a28",
+            "rights_evidence_sha256": "5aec937e973f3fcf03c3c13b71ee8af6014a511e8654ff75b48cb47db246a84c",
+            "rights_revision": 1,
+            "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+            "technical_evidence_hash": "sha256:8634e76caf37053dbd953c1e7bf5b879931d4aadc9801a3b98e33735df94a463"
+          }
+        ],
+        "policy_code": "g5.visual-bible",
+        "policy_snapshot_hash": "sha256:3fc41a93028d6e11532d2896c6b9d16fbd4e56681b5f7a5999f99a12f0c7244d",
+        "policy_version": "1",
+        "props_declared_empty": true,
+        "ready": true,
+        "version_id": "ver_48b11fc66a574839aa8e66d54907e918"
+      },
+      "report_hash": "sha256:ebb89703ad0d77514a7fac2fb787fa99c372af67740affa4b75e8e5e6bab1cd9",
+      "expires_at": "2026-10-11T03:28:10.758484Z",
+      "created_at": "2026-10-11T03:23:10.758484Z"
+    },
+    "terminal_no_write": false,
+    "state": "COMPLETED",
+    "result_revision": 2,
+    "head": {
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "latest_version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "review_version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "review_submission_id": "sub_a1a6226ebdf74ffea6acee182a30e981",
+      "accepted_version_id": null,
+      "revision": 2,
+      "review_evidence_revision": 1,
+      "updated_at": "2026-10-11T03:23:10.769605Z"
+    },
+    "submission": {
+      "id": "sub_a1a6226ebdf74ffea6acee182a30e981",
+      "artifact_id": "art_5d6affa2e528419a88f541df15351bb0",
+      "version_id": "ver_48b11fc66a574839aa8e66d54907e918",
+      "gate": "G5",
+      "readiness_report_id": "rpt_cda78d96e1494d79a0b012fbc4e931ae",
+      "supersedes_submission_id": null,
+      "submitted_by_actor_id": "local-user",
+      "submitted_at": "2026-10-11T03:23:10.769605Z"
+    },
+    "signoffs": [],
+    "decision": null
+  },
+  "inspection": {
+    "id": "vin_5b3837f00c574c49a81cb4aa6bf71ca0",
+    "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+    "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+    "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+    "actor_id": "local-user",
+    "evidence": {
+      "operation_id": "vinop_910fa70aee084eb5b2cca81478ee272f",
+      "asset_sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+      "byte_size": 69,
+      "mime_type": "image/png",
+      "width": 1,
+      "height": 1,
+      "pixel_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "decoder": "ELECTRON_NATIVE_IMAGE",
+      "decoder_version": "TEST_ADAPTER"
+    },
+    "evidence_hash": "sha256:8634e76caf37053dbd953c1e7bf5b879931d4aadc9801a3b98e33735df94a463",
+    "created_at": "2026-10-11T03:23:10.757518Z"
+  },
+  "library": {
+    "version_id": "ver_ace3937e94a042fba5ea6f7dcef228a1",
+    "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+    "episode_id": null,
+    "version_number": 1,
+    "head_revision": 1,
+    "parent_version_id": null,
+    "content": {
+      "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+      "episode_id": null,
+      "characters": [
+        {
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ordinal": 1,
+          "name": "林舟",
+          "role": "主角",
+          "description": "守护城市",
+          "appearance": "",
+          "personality": "谨慎"
+        },
+        {
+          "character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "ordinal": 2,
+          "name": "周岚",
+          "role": "主角",
+          "description": "守护城市",
+          "appearance": "",
+          "personality": "谨慎"
+        }
+      ],
+      "world": {
+        "premise": "星夜之城",
+        "rules": "永夜",
+        "era": "未来",
+        "visual_style": "手绘",
+        "palette": "蓝紫",
+        "materials": "金属"
+      },
+      "scenes": [
+        {
+          "scene_id": "loc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "ordinal": 1,
+          "name": "码头",
+          "description": "",
+          "location": "旧城",
+          "time_of_day": "夜晚",
+          "weather": "雨",
+          "continuity": "灯未熄"
+        }
+      ],
+      "relationships": [
+        {
+          "relationship_id": "rel_dddddddddddddddddddddddddddddddd",
+          "ordinal": 1,
+          "from_character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "to_character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "label": "同事",
+          "description": "信任逐步建立"
+        }
+      ],
+      "costumes": [
+        {
+          "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "ordinal": 1,
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "雨衣",
+          "description": "深蓝色旧雨衣"
+        }
+      ],
+      "schema_version": "1.2.0",
+      "references": [
+        {
+          "reference_id": "crf_ffffffffffffffffffffffffffffffff",
+          "ordinal": 1,
+          "character_id": "chr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "costume_id": "cst_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+          "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+          "asset_sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+          "label": "服装参考"
+        },
+        {
+          "reference_id": "crf_00000000000000000000000000000000",
+          "ordinal": 2,
+          "character_id": "chr_cccccccccccccccccccccccccccccccc",
+          "costume_id": null,
+          "asset_id": "asset_3e229898c3f34070bd64f8e85a75d815",
+          "asset_version_id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+          "asset_sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+          "label": "服装参考"
+        }
+      ]
+    },
+    "content_hash": "sha256:f91f2bae905827b593a408dd9c41f5d66cf4557140ce5c9821603c2fd5822679",
+    "author_actor_id": "local-user",
+    "change_summary": "保存人工创作草稿",
+    "created_at": "2026-10-11T03:23:10.729682Z"
+  },
+  "asset": {
+    "id": "asset_3e229898c3f34070bd64f8e85a75d815",
+    "project_id": "prj_cdbbdcc067394478b34ef0fe2d0bb599",
+    "created_at": "2026-10-11T03:23:10.716620Z",
+    "latest_version": {
+      "id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+      "ordinal": 1,
+      "filename": "image.png",
+      "kind": "image",
+      "mime_type": "image/png",
+      "byte_size": 69,
+      "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+      "rights_status": "PENDING_REVIEW",
+      "source_kind": "LOCAL_IMPORT",
+      "technical_metadata": {
+        "height": 1,
+        "inspection_status": "HEADER_ONLY",
+        "width": 1
+      },
+      "created_at": "2026-10-11T03:23:10.716620Z",
+      "availability": "VERIFIED"
+    },
+    "versions": [
+      {
+        "id": "asv_d2ca2cdb839143938287854ac9fd2e8b",
+        "ordinal": 1,
+        "filename": "image.png",
+        "kind": "image",
+        "mime_type": "image/png",
+        "byte_size": 69,
+        "sha256": "fce481932ea5d07a91c7991c09fdadb4bf78f9b4cc8f927188384231f9d12679",
+        "rights_status": "PENDING_REVIEW",
+        "source_kind": "LOCAL_IMPORT",
+        "technical_metadata": {
+          "height": 1,
+          "inspection_status": "HEADER_ONLY",
+          "width": 1
+        },
+        "created_at": "2026-10-11T03:23:10.716620Z",
+        "availability": "VERIFIED"
+      }
+    ],
+    "episode_references": []
+  }
+}

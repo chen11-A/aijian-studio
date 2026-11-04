@@ -1,0 +1,186 @@
+{
+  "data": {
+    "authority": {
+      "mode": "ORIGINAL",
+      "production_brief": {
+        "content_hash": "sha256:50f16ee606d2353580d78c8c9390ce59685ab43199174b4f00844b055b5f56a9",
+        "version_id": "ver_eaee20b27809413f91643b5a8d80c9c9"
+      },
+      "script": {
+        "confirmation_id": "esc_09977f805c7f4b6e9d74a4217c03062f",
+        "content_hash": "sha256:528ea5ba03b00bb4aece89d181252a2aff340a1593e91e7a1c032cd284ff2210",
+        "head_revision": 1,
+        "version_id": "ver_af4c8a0052e54531a5d8ab8bcf25507d"
+      }
+    },
+    "episode_id": "ep_prj_ae982bc8bb8e45cb8e294831478535d6",
+    "generation_status": "UNAVAILABLE",
+    "production_brief_content": {
+      "budget_intent": {
+        "amount_micros": null,
+        "currency": null,
+        "state": "unknown"
+      },
+      "creative": {
+        "audience": null,
+        "constraints": [],
+        "genre": null,
+        "intent": "一部充满希望的动画短片。",
+        "premise": "记忆有代价。",
+        "style": null
+      },
+      "creative_entry": {
+        "kind": "original_idea",
+        "origin_statement": "城市记住每一首歌。",
+        "references": []
+      },
+      "delivery": {
+        "display_aspect_ratio": {
+          "den": 9,
+          "num": 16
+        },
+        "frame_rate": {
+          "den": 1,
+          "num": 24
+        },
+        "height_px": 1080,
+        "language": "zh-CN",
+        "width_px": 1920
+      },
+      "duration_intent": {
+        "episode_mode": "unspecified",
+        "episode_seconds": null,
+        "work_seconds": null
+      },
+      "rights_declaration": {
+        "state": "unknown",
+        "statement": null
+      },
+      "schema_version": "1.0.0"
+    },
+    "production_brief_stored_content": {
+      "budget_intent": {
+        "amount_micros": null,
+        "currency": null,
+        "state": "unknown"
+      },
+      "creative": {
+        "intent": "一部充满希望的动画短片。",
+        "premise": "记忆有代价。"
+      },
+      "creative_entry": {
+        "kind": "original_idea",
+        "origin_statement": "城市记住每一首歌。"
+      },
+      "delivery": {
+        "display_aspect_ratio": {
+          "den": 9,
+          "num": 16
+        },
+        "frame_rate": {
+          "den": 1,
+          "num": 24
+        },
+        "height_px": 1080,
+        "language": "zh-CN",
+        "width_px": 1920
+      },
+      "duration_intent": {
+        "episode_mode": "unspecified",
+        "episode_seconds": null,
+        "work_seconds": null
+      },
+      "rights_declaration": {
+        "state": "unknown",
+        "statement": null
+      }
+    },
+    "project_id": "prj_ae982bc8bb8e45cb8e294831478535d6",
+    "script_content": {
+      "episode_id": "ep_prj_ae982bc8bb8e45cb8e294831478535d6",
+      "production_brief_version_id": "ver_eaee20b27809413f91643b5a8d80c9c9",
+      "project_id": "prj_ae982bc8bb8e45cb8e294831478535d6",
+      "scenes": [
+        {
+          "blocks": [
+            {
+              "block_id": "sblk_00000000000000000000000000000001",
+              "delivery": null,
+              "kind": "ACTION",
+              "ordinal": 1,
+              "speaker": null,
+              "text": "回望灯塔。"
+            },
+            {
+              "block_id": "sblk_00000000000000000000000000000002",
+              "delivery": "ON_SCREEN",
+              "kind": "DIALOGUE",
+              "ordinal": 2,
+              "speaker": "林舟",
+              "text": "我会回来。"
+            },
+            {
+              "block_id": "sblk_00000000000000000000000000000003",
+              "delivery": null,
+              "kind": "ACTION",
+              "ordinal": 3,
+              "speaker": null,
+              "text": "回望灯塔。"
+            }
+          ],
+          "heading": "码头",
+          "ordinal": 1,
+          "scene_id": "scn_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "schema_version": "1.0.0",
+      "source_extraction_version_id": null,
+      "source_proposal_acceptance_id": null,
+      "story_bible_version_id": null
+    },
+    "script_stored_content": {
+      "episode_id": "ep_prj_ae982bc8bb8e45cb8e294831478535d6",
+      "production_brief_version_id": "ver_eaee20b27809413f91643b5a8d80c9c9",
+      "project_id": "prj_ae982bc8bb8e45cb8e294831478535d6",
+      "scenes": [
+        {
+          "blocks": [
+            {
+              "block_id": "sblk_00000000000000000000000000000001",
+              "delivery": null,
+              "kind": "ACTION",
+              "ordinal": 1,
+              "speaker": null,
+              "text": "回望灯塔。"
+            },
+            {
+              "block_id": "sblk_00000000000000000000000000000002",
+              "delivery": "ON_SCREEN",
+              "kind": "DIALOGUE",
+              "ordinal": 2,
+              "speaker": "林舟",
+              "text": "我会回来。"
+            },
+            {
+              "block_id": "sblk_00000000000000000000000000000003",
+              "delivery": null,
+              "kind": "ACTION",
+              "ordinal": 3,
+              "speaker": null,
+              "text": "回望灯塔。"
+            }
+          ],
+          "heading": "码头",
+          "ordinal": 1,
+          "scene_id": "scn_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "schema_version": "1.0.0",
+      "source_extraction_version_id": null,
+      "source_proposal_acceptance_id": null,
+      "story_bible_version_id": null
+    },
+    "storyboard_base": null
+  },
+  "request_id": "7a523649-305c-422e-ba7a-2868ab27f8e5"
+}

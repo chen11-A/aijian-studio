@@ -15,11 +15,12 @@ from aijian_api.artifacts import canonical_content_hash
 from aijian_api.fake_media_package import FakeMediaPackageError, FakeMediaPackageGenerator
 from aijian_api.fake_timeline_run import FakeTimelineRunFactory, LocalFakeTimelineWorker
 from aijian_api.main import create_app
-from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
 from aijian_api.repository import ArtifactNotFoundError, StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.task_ledger import LocalTaskLedger
 from fastapi.testclient import TestClient
+from media_test_toolchain import test_media_lock as _media_lock
+from media_test_toolchain import test_media_tools as _media_tools
 
 TOKEN = "t" * 43
 HOST = "127.0.0.1:43129"
@@ -28,8 +29,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _generator(workspace: Path) -> FakeMediaPackageGenerator:
-    lock = load_media_toolchain_lock(REPOSITORY_ROOT / "config" / "media-toolchain-lock.json")
-    toolchain = discover_media_toolchain(lock)
+    lock = _media_lock()
+    toolchain = _media_tools()
     workspace.mkdir(parents=True, exist_ok=True)
     return FakeMediaPackageGenerator.from_locked_tool_root(
         workspace,
@@ -528,7 +529,9 @@ def test_worker_claims_only_its_exact_task_kind(tmp_path: Path) -> None:
         )
 
 
-def test_committed_timeline_is_recovered_after_completion_crash(tmp_path: Path) -> None:
+def test_committed_timeline_is_recovered_after_completion_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     workspace = tmp_path / "workspace"
     repository = StudioRepository(workspace / "workspace.sqlite3")
     generator = _generator(workspace)
@@ -551,6 +554,10 @@ def test_committed_timeline_is_recovered_after_completion_crash(tmp_path: Path) 
         lease_duration=timedelta(seconds=1),
         fault_hook=crash,
     )
+    # This tests durable-output recovery, not scheduler speed during real media generation.
+    # Keep the real ledger and its expiry checks; advance only its existing clock seam.
+    lease_now = datetime.now(UTC)
+    monkeypatch.setattr(worker._ledger, "_clock", lambda: lease_now)
     try:
         worker.run_once()
     except RuntimeError as error:
@@ -560,11 +567,19 @@ def test_committed_timeline_is_recovered_after_completion_crash(tmp_path: Path) 
     incomplete = client.post(f"/api/v1/projects/{project_id}/workflows/fake-timeline")
     assert incomplete.status_code == 409
     assert incomplete.json()["error"]["code"] == "TIMELINE_ALREADY_EXISTS"
-    time.sleep(1.1)
-    summary = LocalTaskLedger(repository.database_path).recover_expired_local_tasks(
+    not_expired = worker._ledger.recover_expired_local_tasks(
+        task_kind="local.timeline.assemble.fake.media.v1"
+    )
+    assert not_expired.recovered == not_expired.succeeded == 0
+    lease_now += timedelta(seconds=1, microseconds=1)
+    summary = worker._ledger.recover_expired_local_tasks(
         task_kind="local.timeline.assemble.fake.media.v1"
     )
     assert summary.recovered == summary.succeeded == 1
+    repeated = worker._ledger.recover_expired_local_tasks(
+        task_kind="local.timeline.assemble.fake.media.v1"
+    )
+    assert repeated.recovered == repeated.succeeded == 0
     with repository._connection() as connection:
         assert (
             connection.execute(

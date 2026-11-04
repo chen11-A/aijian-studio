@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect } from "react";
 import { UtilityPages } from "./UtilityPages";
 import { EditorDialog } from "./Common";
@@ -117,10 +117,12 @@ function openUtilityPage(
 }
 async function ready() {
   await screen.findByRole("heading", { name: "AI 服务" });
+  const backup = screen.queryByRole("button", { name: "密钥连接（高级备用）" });
+  if (backup) fireEvent.click(backup);
 }
 async function submitConnection() {
   fireEvent.change(screen.getByLabelText("连接名称"), { target: { value: "正式 OpenAI" } });
-  fireEvent.change(screen.getByLabelText(/API Key/), { target: { value: "sk-secret-123" } });
+  fireEvent.change(screen.getByLabelText("供应商密钥"), { target: { value: "sk-secret-123" } });
   fireEvent.change(screen.getByLabelText("剧本 / 提示词"), { target: { value: "gpt-5" } });
   fireEvent.click(screen.getByRole("button", { name: "保存连接" }));
 }
@@ -129,7 +131,7 @@ describe("real provider service configuration", () => {
   it("reads an empty real connection list without inventing a provider", async () => {
     const bridge = open();
     await ready();
-    expect(await screen.findByText("还没有模型连接")).toBeInTheDocument();
+    expect(await screen.findByText("还没有密钥连接")).toBeInTheDocument();
     expect(bridge.listProviderConnections).toHaveBeenCalledOnce();
     expect(bridge.createProviderConnection).not.toHaveBeenCalled();
   });
@@ -165,7 +167,7 @@ describe("real provider service configuration", () => {
   it("requires at least one model before creating a connection", async () => {
     const bridge = open();
     await ready();
-    fireEvent.change(screen.getByLabelText(/API Key/), { target: { value: "sk-secret-123" } });
+    fireEvent.change(screen.getByLabelText("供应商密钥"), { target: { value: "sk-secret-123" } });
     fireEvent.click(screen.getByRole("button", { name: "保存连接" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("至少填写一个");
     expect(bridge.createProviderConnection).not.toHaveBeenCalled();
@@ -217,12 +219,12 @@ describe("real provider service configuration", () => {
     expect(screen.getByRole("button", { name: "正在安全保存…" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^xAI/ })).toBeDisabled();
     expect(screen.getByLabelText("连接名称")).toBeDisabled();
-    expect(screen.getByLabelText(/API Key/)).toBeDisabled();
+    expect(screen.getByLabelText("供应商密钥")).toBeDisabled();
     fireEvent.submit(document.getElementById("new-provider-connection")!);
     expect(create).toHaveBeenCalledOnce();
     finishCreate();
     await screen.findByText("OpenAI 制作");
-    expect(screen.getByLabelText(/API Key/)).toHaveValue("");
+    expect(screen.getByLabelText("供应商密钥")).toHaveValue("");
     expect(bridge.createProviderConnection).toHaveBeenCalledWith(
       expect.objectContaining({
         display_name: "正式 OpenAI",
@@ -231,15 +233,18 @@ describe("real provider service configuration", () => {
       }),
     );
   });
-  it("re-reads and reports a failed create without retaining the secret", async () => {
+  it("re-reads an unknown create without retrying and retains only the local form draft", async () => {
     const list = vi.fn().mockResolvedValue(response());
     const create = vi.fn().mockRejectedValue(new Error("write failed"));
     open(desktop({ listProviderConnections: list, createProviderConnection: create }));
     await ready();
     await submitConnection();
-    expect(await screen.findByText(/连接未保存/)).toBeInTheDocument();
+    expect(
+      await within(document.getElementById("new-provider-connection")!).findByRole("alert"),
+    ).toHaveTextContent("连接保存结果未知");
     expect(list).toHaveBeenCalledTimes(2);
-    expect(screen.getByLabelText(/API Key/)).toHaveValue("sk-secret-123");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("供应商密钥")).toHaveValue("sk-secret-123");
   });
 
   it("requires explicit confirmation before deleting a real connection", async () => {
@@ -270,8 +275,9 @@ describe("real provider service configuration", () => {
     await screen.findByText("OpenAI 制作");
     fireEvent.click(screen.getByRole("button", { name: "移除连接" }));
     fireEvent.click(screen.getByRole("button", { name: "确认移除" }));
-    expect(await screen.findByText("无法移除连接；原配置未被界面隐藏。")).toBeInTheDocument();
+    expect(await screen.findAllByText(/移除结果未知/)).toHaveLength(2);
     expect(screen.getByText("OpenAI 制作")).toBeInTheDocument();
+    expect(remove).toHaveBeenCalledTimes(1);
   });
 });
 

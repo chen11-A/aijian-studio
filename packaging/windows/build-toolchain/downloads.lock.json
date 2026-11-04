@@ -1,0 +1,374 @@
+{
+  "schema_version": 1,
+  "target": "win32-x64",
+  "purpose": "development-build-prerequisites-only",
+  "release_approved": false,
+  "source_locks": {
+    "uv.lock": "fb54b3ad6407a035bdc62b1321122f5fe1c24620ad075f549dce4629f8b9cbcc",
+    "pyproject.toml": "11c9b9dba2f4a389aa99a3ed4545e3792b5d950ee79ca718ef4657e5678d9bfa",
+    "packaging/windows/build-toolchain/package-lock.json": "9247b55e2fb506b734423987a07d0b4e2d609abf4ab9ec5c60bb50554398880b",
+    "packaging/windows/build-toolchain/sidecar-requirements-win-x64.txt": "3ff8744d1b31824fd8b32bbb9dbf0ed3b8969d41dea86fab87f617ad7d88fd6b"
+  },
+  "downloads": [
+    {
+      "id": "python",
+      "version": "3.12.13+20260807",
+      "path": "downloads/cpython-3.12.13-20260807-windows-x64.tar.gz",
+      "url": "https://releases.astral.sh/github/python-build-standalone/releases/download/20260807/cpython-3.12.13%2B20260807-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "sha256": "18bcc65b17921806b72cdc88bcf000bf67a2c99a8fc381fe1629f2b9ba56858d",
+      "integrity_source": "Observed SHA256 of official Astral distribution downloaded on 2026-10-08; uv independently installed same build",
+      "usage": "BUILD_TOOL_ONLY"
+    },
+    {
+      "id": "node",
+      "version": "24.19.0",
+      "path": "downloads/node-v24.19.0-win-x64.zip",
+      "url": "https://nodejs.org/dist/v24.19.0/node-v24.19.0-win-x64.zip",
+      "sha256": "57f71ab3652e797d84acddc79c81cc9ff1c6ddb2a1974cdb83f00fee9bff4c73",
+      "integrity_source": "https://nodejs.org/dist/v24.19.0/SHASUMS256.txt",
+      "usage": "BUILD_TOOL_ONLY"
+    },
+    {
+      "id": "electron",
+      "version": "43.2.0",
+      "path": "downloads/electron-v43.2.0-win32-x64.zip",
+      "url": "https://github.com/electron/electron/releases/download/v43.2.0/electron-v43.2.0-win32-x64.zip",
+      "sha256": "eba5f5088af40ecb364fe258809c79a5234c6ece5a75c64722772eba01b02786",
+      "integrity_source": "https://github.com/electron/electron/releases/download/v43.2.0/SHASUMS256.txt",
+      "usage": "RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "nsis",
+      "version": "3.0.4.1",
+      "path": "downloads/nsis-3.0.4.1.7z",
+      "url": "https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z",
+      "sha256": "9877df902530f96357d13a7a31ae2b9df67f48b11ffc9a1700a7c961574ec5fa",
+      "integrity_source": "electron-builder@26.17.0 locked app-builder-lib/out/toolsets/windows.js",
+      "usage": "BUILD_TOOL_ONLY"
+    },
+    {
+      "id": "nsis-resources",
+      "version": "3.4.1",
+      "path": "downloads/nsis-resources-3.4.1.7z",
+      "url": "https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z",
+      "sha256": "593a9a92ef958321293ac6a2ee61e64bf1bd543142a5bd6b3d310709cc924103",
+      "integrity_source": "electron-builder@26.17.0 locked app-builder-lib/out/toolsets/windows.js",
+      "usage": "BUILD_TOOL_ONLY"
+    },
+    {
+      "id": "winCodeSign",
+      "version": "2.6.0",
+      "path": "downloads/winCodeSign-2.6.0.7z",
+      "url": "https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z",
+      "sha256": "cdaec7154dda7cc31f88d886e2489379a0625a737d610b5ae7f62a12f16743a4",
+      "integrity_source": "electron-builder@26.17.0 locked app-builder-lib/out/toolsets/windows.js",
+      "usage": "BUILD_TOOL_ONLY"
+    },
+    {
+      "id": "7zip-win-x64",
+      "version": "1.0.0",
+      "path": "downloads/7zip-win-x64.tar.gz",
+      "url": "https://github.com/electron-userland/electron-builder-binaries/releases/download/7zip%401.0.0/7zip-win-x64.tar.gz",
+      "sha256": "be071f15bd6da2f78fe81c6ddef2009b0c4d8a51f36b780cb806c7e6df95e1b3",
+      "integrity_source": "electron-builder@26.17.0 locked app-builder-lib/out/toolsets/7zip.js",
+      "usage": "BUILD_TOOL_ONLY"
+    },
+    {
+      "id": "7zip-linux-x64",
+      "version": "1.0.0",
+      "path": "downloads/7zip-linux-x64.tar.gz",
+      "url": "https://github.com/electron-userland/electron-builder-binaries/releases/download/7zip%401.0.0/7zip-linux-x64.tar.gz",
+      "sha256": "d151bb44b2a9d9bfc52813ce4cac042916394a0ab8a56bd5d221a5dc9ef8d5d7",
+      "integrity_source": "electron-builder@26.17.0 locked app-builder-lib/out/toolsets/7zip.js",
+      "usage": "BUILD_TOOL_ONLY"
+    },
+    {
+      "id": "ffmpeg-development",
+      "version": "8.1.2",
+      "path": "downloads/ffmpeg-8.1.2-full_build.7z",
+      "url": "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-full_build.7z",
+      "sha256": "0fff188997a499b5382e0f66e845d4556c48c54f0113ebed4853d556dbdd7059",
+      "integrity_source": "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-full_build.7z.sha256",
+      "usage": "DEVELOPMENT_ONLY_NOT_FOR_DISTRIBUTION"
+    },
+    {
+      "id": "altgraph",
+      "version": "0.17.5",
+      "path": "wheels/altgraph-0.17.5-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/a9/ba/000a1996d4308bc65120167c21241a3b205464a2e0b58deda26ae8ac21d1/altgraph-0.17.5-py2.py3-none-any.whl",
+      "sha256": "f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597",
+      "integrity_source": "https://pypi.org/pypi/altgraph/0.17.5/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "annotated-doc",
+      "version": "0.0.5",
+      "path": "wheels/annotated_doc-0.0.5-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl",
+      "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+      "integrity_source": "https://pypi.org/pypi/annotated-doc/0.0.5/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "annotated-types",
+      "version": "0.8.0",
+      "path": "wheels/annotated_types-0.8.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl",
+      "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+      "integrity_source": "https://pypi.org/pypi/annotated-types/0.8.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "anyio",
+      "version": "4.14.2",
+      "path": "wheels/anyio-4.14.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl",
+      "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+      "integrity_source": "https://pypi.org/pypi/anyio/4.14.2/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "click",
+      "version": "8.4.2",
+      "path": "wheels/click-8.4.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/fb/e2/79c688af8b210d232694e31e59da9f6ec747bae31c3f5946e4e9b98860d5/click-8.4.2-py3-none-any.whl",
+      "sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76",
+      "integrity_source": "https://pypi.org/pypi/click/8.4.2/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "colorama",
+      "version": "0.4.6",
+      "path": "wheels/colorama-0.4.6-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl",
+      "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+      "integrity_source": "https://pypi.org/pypi/colorama/0.4.6/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "fastapi",
+      "version": "0.141.1",
+      "path": "wheels/fastapi-0.141.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/cb/03/10388a42375ee7e4ac9b94eb2c5c569c8b5795e377e701c9ac3ad63de890/fastapi-0.141.1-py3-none-any.whl",
+      "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3",
+      "integrity_source": "https://pypi.org/pypi/fastapi/0.141.1/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "h11",
+      "version": "0.16.0",
+      "path": "wheels/h11-0.16.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl",
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "integrity_source": "https://pypi.org/pypi/h11/0.16.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "httptools",
+      "version": "0.8.0",
+      "path": "wheels/httptools-0.8.0-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/05/0b/4240efeb672751ee5b9b380cb0e3fdc050bc05f68adc7a8aefc4fcd9a69a/httptools-0.8.0-cp312-cp312-win_amd64.whl",
+      "sha256": "cd96f29b4bab1d42fa6e3d008711c75e0f79e94e06827330160e3a304227f150",
+      "integrity_source": "https://pypi.org/pypi/httptools/0.8.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "idna",
+      "version": "3.18",
+      "path": "wheels/idna-3.18-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/1e/5e/d4e9f1a599fb8e573b7b87160658329fbf28d19eac2718f51fc3def3aa5a/idna-3.18-py3-none-any.whl",
+      "sha256": "7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2",
+      "integrity_source": "https://pypi.org/pypi/idna/3.18/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "jaraco-classes",
+      "version": "3.4.0",
+      "path": "wheels/jaraco.classes-3.4.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/7f/66/b15ce62552d84bbfcec9a4873ab79d993a1dd4edb922cbfccae192bd5b5f/jaraco.classes-3.4.0-py3-none-any.whl",
+      "sha256": "f662826b6bed8cace05e7ff873ce0f9283b5c924470fe664fff1c2f00f581790",
+      "integrity_source": "https://pypi.org/pypi/jaraco-classes/3.4.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "jaraco-context",
+      "version": "6.1.2",
+      "path": "wheels/jaraco_context-6.1.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/f2/58/bc8954bda5fcda97bd7c19be11b85f91973d67a706ed4a3aec33e7de22db/jaraco_context-6.1.2-py3-none-any.whl",
+      "sha256": "bf8150b79a2d5d91ae48629d8b427a8f7ba0e1097dd6202a9059f29a36379535",
+      "integrity_source": "https://pypi.org/pypi/jaraco-context/6.1.2/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "jaraco-functools",
+      "version": "4.6.0",
+      "path": "wheels/jaraco_functools-4.6.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/02/36/ecc85bc96c273dc8a11273ed4782272975e6338d4a3e9228621175edf0e3/jaraco_functools-4.6.0-py3-none-any.whl",
+      "sha256": "99e3dc0060c5cbe8fcd1cdb36258e2a65ca40f1566b2033b12abb1bb44dd3c30",
+      "integrity_source": "https://pypi.org/pypi/jaraco-functools/4.6.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "keyring",
+      "version": "25.7.0",
+      "path": "wheels/keyring-25.7.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl",
+      "sha256": "be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f",
+      "integrity_source": "https://pypi.org/pypi/keyring/25.7.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "more-itertools",
+      "version": "11.1.0",
+      "path": "wheels/more_itertools-11.1.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/e8/3d/1087453384dbde46a8c7f9356eead2c58be8a7bf156bca40243377c85715/more_itertools-11.1.0-py3-none-any.whl",
+      "sha256": "4b65538ae22f6fed0ce4874efd317463a7489796a0939fa66824dd542125a192",
+      "integrity_source": "https://pypi.org/pypi/more-itertools/11.1.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "packaging",
+      "version": "26.3",
+      "path": "wheels/packaging-26.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "integrity_source": "https://pypi.org/pypi/packaging/26.3/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "pefile",
+      "version": "2024.8.26",
+      "path": "wheels/pefile-2024.8.26-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/54/16/12b82f791c7f50ddec566873d5bdd245baa1491bac11d15ffb98aecc8f8b/pefile-2024.8.26-py3-none-any.whl",
+      "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+      "integrity_source": "https://pypi.org/pypi/pefile/2024.8.26/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "pydantic",
+      "version": "2.13.4",
+      "path": "wheels/pydantic-2.13.4-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/fd/7b/122376b1fd3c62c1ed9dc80c931ace4844b3c55407b6fb2d199377c9736f/pydantic-2.13.4-py3-none-any.whl",
+      "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba",
+      "integrity_source": "https://pypi.org/pypi/pydantic/2.13.4/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "pydantic-core",
+      "version": "2.46.4",
+      "path": "wheels/pydantic_core-2.46.4-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/40/8c/985c1d41ea1107c2534abd9870e4ed5c8e7669b5c308297835c001e7a1c4/pydantic_core-2.46.4-cp312-cp312-win_amd64.whl",
+      "sha256": "e9c26f834c65f5752f3f06cb08cb86a913ceb7274d0db6e267808a708b46bc89",
+      "integrity_source": "https://pypi.org/pypi/pydantic-core/2.46.4/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "pyinstaller",
+      "version": "6.22.3",
+      "path": "wheels/pyinstaller-6.22.3-py3-none-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/24/83/c5422204772a27aef643280fdc887b7ef55679989096b21dceb1b9625fc4/pyinstaller-6.22.3-py3-none-win_amd64.whl",
+      "sha256": "500bd58c7bf7e584a8435adccbd763a0b918d5c12b08d74ff50fd79b2915458b",
+      "integrity_source": "https://pypi.org/pypi/pyinstaller/6.22.3/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "pyinstaller-hooks-contrib",
+      "version": "2026.8",
+      "path": "wheels/pyinstaller_hooks_contrib-2026.8-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/8f/f1/3eee0263b487e571aed9204257b45bc2a0b6fec34d0a1adade4d8d8a968c/pyinstaller_hooks_contrib-2026.8-py3-none-any.whl",
+      "sha256": "6d21d65323ea4467753afc21f52d7d0e69416ae8101dd88269bf273ad48db084",
+      "integrity_source": "https://pypi.org/pypi/pyinstaller-hooks-contrib/2026.8/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "python-dotenv",
+      "version": "1.2.2",
+      "path": "wheels/python_dotenv-1.2.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/0b/d7/1959b9648791274998a9c3526f6d0ec8fd2233e4d4acce81bbae76b44b2a/python_dotenv-1.2.2-py3-none-any.whl",
+      "sha256": "1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a",
+      "integrity_source": "https://pypi.org/pypi/python-dotenv/1.2.2/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "pywin32-ctypes",
+      "version": "0.2.3",
+      "path": "wheels/pywin32_ctypes-0.2.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/de/3d/8161f7711c017e01ac9f008dfddd9410dff3674334c233bde66e7ba65bbf/pywin32_ctypes-0.2.3-py3-none-any.whl",
+      "sha256": "8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8",
+      "integrity_source": "https://pypi.org/pypi/pywin32-ctypes/0.2.3/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "pyyaml",
+      "version": "6.0.3",
+      "path": "wheels/pyyaml-6.0.3-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/86/bf/899e81e4cce32febab4fb42bb97dcdf66bc135272882d1987881a4b519e9/pyyaml-6.0.3-cp312-cp312-win_amd64.whl",
+      "sha256": "5fcd34e47f6e0b794d17de1b4ff496c00986e1c83f7ab2fb8fcfe9616ff7477b",
+      "integrity_source": "https://pypi.org/pypi/pyyaml/6.0.3/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "setuptools",
+      "version": "84.0.0",
+      "path": "wheels/setuptools-84.0.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl",
+      "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+      "integrity_source": "https://pypi.org/pypi/setuptools/84.0.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "starlette",
+      "version": "1.3.1",
+      "path": "wheels/starlette-1.3.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/ec/bb/2799cc2ede3ed41131f8975621e7213dfc7ef4acbbaadfa440f32500c370/starlette-1.3.1-py3-none-any.whl",
+      "sha256": "c7372aae11c3c3f26a42df7bd626cec2f47d03483d261d369516a615a53714c6",
+      "integrity_source": "https://pypi.org/pypi/starlette/1.3.1/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "typing-extensions",
+      "version": "4.16.0",
+      "path": "wheels/typing_extensions-4.16.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "integrity_source": "https://pypi.org/pypi/typing-extensions/4.16.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "typing-inspection",
+      "version": "0.4.2",
+      "path": "wheels/typing_inspection-0.4.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/dc/9b/47798a6c91d8bdb567fe2698fe81e0c6b7cb7ef4d13da4114b41d239f65d/typing_inspection-0.4.2-py3-none-any.whl",
+      "sha256": "4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7",
+      "integrity_source": "https://pypi.org/pypi/typing-inspection/0.4.2/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "uvicorn",
+      "version": "0.52.1",
+      "path": "wheels/uvicorn-0.52.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/c7/d5/68e6e9bca63c0badf67002890a46d3784c958de45b65e1275ec583ca1f06/uvicorn-0.52.1-py3-none-any.whl",
+      "sha256": "e4403f9d93188cf9d1088e9f40e3acd12630e2df8675316704379a7fc20fff6a",
+      "integrity_source": "https://pypi.org/pypi/uvicorn/0.52.1/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "watchfiles",
+      "version": "1.2.0",
+      "path": "wheels/watchfiles-1.2.0-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/1c/e6/9d42569c0102645cc8cea5d8c7d8a1e9d4ada2cb7f05f75e554b8aa2202a/watchfiles-1.2.0-cp312-cp312-win_amd64.whl",
+      "sha256": "f155b3a1b2a5fc89cdc70d47ee5d54e3b75e88efa34982028a35daef9ba00379",
+      "integrity_source": "https://pypi.org/pypi/watchfiles/1.2.0/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    },
+    {
+      "id": "websockets",
+      "version": "17.0.1",
+      "path": "wheels/websockets-17.0.1-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/82/d8/c3a78cccc74a554780e9e76e323d5cde891048627025f0f82623e22dc3df/websockets-17.0.1-cp312-cp312-win_amd64.whl",
+      "sha256": "2b3f3020171202b135ca078e20434977c6b2b02af647130d6980c9e39b9462e3",
+      "integrity_source": "https://pypi.org/pypi/websockets/17.0.1/json",
+      "usage": "BUILD_AND_RUNTIME_REVIEW_REQUIRED"
+    }
+  ]
+}

@@ -18,21 +18,33 @@ import {
 
 type MediaRightsDecisionClient = {
   recordMediaAssetRightsDecision(
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
     command: HumanRightsDecisionCommand,
   ): Promise<RightsDecisionWriteResult>;
   getMediaAssetRightsOperation(
-    projectId: string, assetId: string, versionId: string, operationId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
+    operationId: string,
   ): Promise<RightsDecisionOperationResult>;
   readLatestMediaAssetRightsDecision(
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
     expectation: RightsDecisionLatestExpectation,
   ): Promise<RightsDecisionLatestResult>;
   listMediaAssetRightsDecisionHistory(
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
   ): Promise<RightsDecisionHistoryResult>;
   getMediaAssetRightsDecisionAudit(
-    projectId: string, assetId: string, versionId: string, decisionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
+    decisionId: string,
   ): Promise<RightsDecisionAuditResult>;
 };
 
@@ -52,13 +64,11 @@ export function registerMediaRightsDecisionHandlers<TEvent>(
     return client;
   };
   const canonicalVersion = (args: unknown[]): args is [string, string, string, ...unknown[]] =>
-    isRightsProjectId(args[0]) && isRightsAssetId(args[1]) &&
-    isRightsVersionId(args[2]);
+    isRightsProjectId(args[0]) && isRightsAssetId(args[1]) && isRightsVersionId(args[2]);
 
   handle(MEDIA_RIGHTS_DECISION_CHANNELS.record, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 4 || !canonicalVersion(args) ||
-        !isHumanRightsDecisionCommand(args[3])) {
+    if (args.length !== 4 || !canonicalVersion(args) || !isHumanRightsDecisionCommand(args[3])) {
       throw new Error("Media rights write IPC requires canonical arguments");
     }
     // Actor identity is resolved in the trusted main/sidecar boundary, never from IPC input.
@@ -66,16 +76,18 @@ export function registerMediaRightsDecisionHandlers<TEvent>(
   });
   handle(MEDIA_RIGHTS_DECISION_CHANNELS.operation, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 4 || !canonicalVersion(args) ||
-        !isRightsOperationId(args[3])) {
+    if (args.length !== 4 || !canonicalVersion(args) || !isRightsOperationId(args[3])) {
       throw new Error("Media rights operation IPC requires canonical ids");
     }
     return client.getMediaAssetRightsOperation(args[0], args[1], args[2], args[3]);
   });
   handle(MEDIA_RIGHTS_DECISION_CHANNELS.latest, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 4 || !canonicalVersion(args) ||
-        !isRightsDecisionLatestExpectation(args[3])) {
+    if (
+      args.length !== 4 ||
+      !canonicalVersion(args) ||
+      !isRightsDecisionLatestExpectation(args[3])
+    ) {
       throw new Error("Media rights latest IPC requires canonical arguments");
     }
     return client.readLatestMediaAssetRightsDecision(args[0], args[1], args[2], args[3]);
@@ -89,8 +101,7 @@ export function registerMediaRightsDecisionHandlers<TEvent>(
   });
   handle(MEDIA_RIGHTS_DECISION_CHANNELS.audit, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 4 || !canonicalVersion(args) ||
-        !isRightsDecisionId(args[3])) {
+    if (args.length !== 4 || !canonicalVersion(args) || !isRightsDecisionId(args[3])) {
       throw new Error("Media rights audit IPC requires canonical ids");
     }
     return client.getMediaAssetRightsDecisionAudit(args[0], args[1], args[2], args[3]);

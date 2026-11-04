@@ -14,13 +14,13 @@ from aijian_api.contracts import (
     NODE_RUN_ID_PATTERN,
     PROJECT_ID_PATTERN,
     PROPOSAL_ID_PATTERN,
-    PROVIDER_CONNECTION_ID_PATTERN,
     SOURCE_BLOCK_ID_PATTERN,
     SOURCE_ID_PATTERN,
     TASK_ID_PATTERN,
     VERSION_ID_PATTERN,
     WORKFLOW_RUN_ID_PATTERN,
 )
+from aijian_api.provider_contracts import PROVIDER_CONNECTION_ID_PATTERN
 from aijian_api.remote_call_accounting import RemoteCallAccountingData
 
 

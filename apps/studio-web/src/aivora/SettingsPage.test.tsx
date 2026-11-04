@@ -32,11 +32,11 @@ function SettingsHarness() {
   );
 }
 
-describe("user settings draft", () => {
+describe("explicit demo user settings draft", () => {
   it("keeps edits local until save and restores the applied value on cancel", () => {
     window.history.replaceState({}, "", "#settings");
     render(
-      <DemoProvider>
+      <DemoProvider fixture={createAivoraSampleFixture()}>
         <SettingsHarness />
       </DemoProvider>,
     );
@@ -75,7 +75,7 @@ describe("user settings draft", () => {
   it("keeps a user draft intact when the local save simulation reports an error", () => {
     window.history.replaceState({}, "", "#settings");
     render(
-      <DemoProvider>
+      <DemoProvider fixture={createAivoraSampleFixture()}>
         <SettingsHarness />
       </DemoProvider>,
     );
@@ -93,7 +93,7 @@ describe("user settings draft", () => {
   it("opens the privacy-only local cache action without claiming a persistent setting", () => {
     window.history.replaceState({}, "", "#settings");
     render(
-      <DemoProvider>
+      <DemoProvider fixture={createAivoraSampleFixture()}>
         <SettingsHarness />
       </DemoProvider>,
     );
@@ -108,7 +108,7 @@ describe("user settings draft", () => {
   it("switches between visual and creation-default drafts without enabling the unavailable directory action", () => {
     window.history.replaceState({}, "", "#settings");
     render(
-      <DemoProvider>
+      <DemoProvider fixture={createAivoraSampleFixture()}>
         <SettingsHarness />
       </DemoProvider>,
     );
@@ -170,7 +170,7 @@ describe("user settings draft", () => {
   it("recovers the controlled settings loading state without applying a draft", () => {
     window.history.replaceState({}, "", "#settings");
     render(
-      <DemoProvider>
+      <DemoProvider fixture={createAivoraSampleFixture()}>
         <SettingsHarness />
       </DemoProvider>,
     );
@@ -184,7 +184,7 @@ describe("user settings draft", () => {
   it("rejects an unsupported avatar file before opening a local reader", () => {
     window.history.replaceState({}, "", "#settings");
     render(
-      <DemoProvider>
+      <DemoProvider fixture={createAivoraSampleFixture()}>
         <SettingsHarness />
       </DemoProvider>,
     );

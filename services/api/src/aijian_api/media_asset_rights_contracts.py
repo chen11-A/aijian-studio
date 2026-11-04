@@ -52,8 +52,10 @@ class HumanRightsDecisionInput(BaseModel):
     @classmethod
     def require_readable_basis(cls, value: str) -> str:
         normalized = unicodedata.normalize("NFC", value)
-        if not 20 <= len(normalized) <= 4000 or normalized != normalized.strip() or any(
-            _unreadable(character, allow_layout=True) for character in normalized
+        if (
+            not 20 <= len(normalized) <= 4000
+            or normalized != normalized.strip()
+            or any(_unreadable(character, allow_layout=True) for character in normalized)
         ):
             raise ValueError("rights basis must be readable and trimmed")
         return normalized
@@ -112,9 +114,8 @@ class RightsDecisionWriteReceipt(BaseModel):
 
     @model_validator(mode="after")
     def require_current_head(self) -> Self:
-        if (
-            self.current_revision < self.decision.revision
-            or self.is_latest != (self.current_revision == self.decision.revision)
+        if self.current_revision < self.decision.revision or self.is_latest != (
+            self.current_revision == self.decision.revision
         ):
             raise ValueError("rights decision write receipt disagrees with head")
         return self
