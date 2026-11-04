@@ -3,6 +3,24 @@ import type { UiNotice } from "./contracts3j";
 /** Stable event codes and short fallback copy. Details carry names, paths, counts and reasons. */
 const LEGACY_NOTICE_TEXT = {
   NOTICE_CLEAR: "",
+  BILLING_PROJECT_REQUIRED: "生成准备尚未完成，请重试。",
+  SHOT_STILL_INPUT_CHANGED: "镜头内容已改，旧画面没有写入。",
+  STILL_CANDIDATE_PRESERVED: "画面已加入候选，保留了所选首帧。",
+  ART_APPLIED_UNSAVED: "美术建议已应用，但尚未保存。",
+  PROMPTER_APPLIED_UNSAVED: "画面说明已应用，但尚未保存。",
+  REVIEW_REASON_REQUIRED: "请填写人工检查结论再继续。",
+  REVIEW_INPUT_STALE: "审片内容已变化，请重新检查。",
+  REVIEW_INVALID: "审片结果不完整，请重新检查。",
+  REVIEW_SHOT_UNKNOWN_OR_DUPLICATE: "审片镜头对应不明确，请核对。",
+  REVIEW_TAKE_UNKNOWN_OR_DUPLICATE: "审片版本对应不明确，请核对。",
+  REVIEW_RECOMMENDATION_UNVERIFIED: "推荐版本尚未确认，请人工核对。",
+  PIPELINE_REQUEST_STALE: "制作期间内容已变，结果没有写入。",
+  VOICE_PROJECT_REQUIRED: "配音准备尚未完成，请重试。",
+  VOICE_METADATA_TIMEOUT: "配音时长读取超时，请重试。",
+  VOICE_AUDIO_FAILED: "配音无法播放，请检查音频。",
+  BILLING_PROJECT_STALE: "作品已切换，配音准备已停止。",
+  BILLING_PROJECT_ID_INVALID: "配音准备结果无效，请重试。",
+
   STATE_INVALID: "制作进度损坏，请核对后重新开始。",
   RUN_INTERRUPTED: "上次制作已中断，请核对已完成内容。",
   REQUEST_CANCELLED: "请求已取消。",
@@ -340,6 +358,13 @@ export type NoticeCode = keyof typeof NOTICE_TEXT;
 
 /** Ordered rules: distinguish cancellation requests and failures before progress/success. */
 const RULES: readonly [NoticeCode, RegExp][] = [
+  ["USER_EDIT_PRESERVED", /台词或时长已修改，保留了你的修改/u],
+  ["SELECTION_MISMATCH", /当前选择已改变，请回到美术建议/u],
+  ["EDITOR_EDIT_CONFLICT", /内容后来改过，这次美术建议没有覆盖/u],
+  ["ART_APPLIED_UNSAVED", /美术建议已应用，但还没有保存/u],
+  ["PROMPTER_APPLIED_UNSAVED", /提示词已应用，但还没有保存/u],
+  ["SHOT_STILL_INPUT_CHANGED", /镜头内容已修改，旧画面没有写入/u],
+  ["STILL_CANDIDATE_PRESERVED", /画面已加入候选，保留了你选择的首帧/u],
   ["WORK_INTERRUPTED", /上次.*(?:中断|没做完)/u],
   ["STALL_RETRYING", /(?:导演|回复).*(?:超时|停顿|没有新的字).*重试/u],
   ["EDITOR_UNDO_CONFLICT", /这次改动不能安全撤销/u],
