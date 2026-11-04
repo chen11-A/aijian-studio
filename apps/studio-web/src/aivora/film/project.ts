@@ -1,3 +1,4 @@
+import { parseAgentReplyText } from "./agent-reply-compat";
 import type {
   SceneCoverage,
   LipSyncState,
@@ -614,15 +615,7 @@ export function parseDirectorShots(
   scenes: DirectorSceneRef[] = [],
   preserveSource = true,
 ): FilmShot[] | null {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  let value: unknown;
-  try {
-    value = JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
-  }
+  const value = parseAgentReplyText("director", text);
   if (!value || typeof value !== "object") return null;
   const wrapped = (value as { scenes?: unknown; shots?: unknown }).scenes;
   if (Array.isArray(wrapped) && !Array.isArray((value as { shots?: unknown }).shots)) {

@@ -1,3 +1,4 @@
+import { normalizeAgentReply } from "./agent-reply-compat";
 import { emptySoundPlan, shotSecondsForLine, type ShotSoundPlan } from "./audio";
 
 /** Seven standard shot sizes. An insert is a tag, never a size. */
@@ -336,19 +337,23 @@ type ActionRow = {
 
 function actionText(row: Record<string, unknown>): string {
   if (typeof row.text === "string" && row.text.trim()) return row.text.trim();
-  return [row.actor, row.body_part, row.direction, row.reaction]
+  return [row.actor, row.move, row.target, row.body_part, row.direction, row.reaction]
     .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     .join("，");
 }
 
 export function actionFromModel(value: unknown): ActionRow[] | null {
+  value = normalizeAgentReply("action", value);
   if (agentIssues("action", value).length > 0 || !value || typeof value !== "object") return null;
   const rows: ActionRow[] = [];
+  const nodeRows = new Map<string, number>();
   const push = (row: Record<string, unknown>, shotId = "") => {
     const text = actionText(row);
     if (!text) return;
     const feasibility =
       row.feasibility === "难" || row.feasibility === "看运气" ? row.feasibility : "稳";
+    if (typeof row.node_id === "string" && row.node_id && !nodeRows.has(row.node_id))
+      nodeRows.set(row.node_id, rows.length);
     rows.push({
       text,
       feasibility,
@@ -376,7 +381,6 @@ export function actionFromModel(value: unknown): ActionRow[] | null {
   }
   const beats = (value as { beats?: unknown }).beats;
   if (Array.isArray(beats) && beats.length > 0) {
-    const onlyBeats: ActionRow[] = [];
     for (const item of beats) {
       if (!item || typeof item !== "object") continue;
       const row = item as Record<string, unknown>;
@@ -390,15 +394,27 @@ export function actionFromModel(value: unknown): ActionRow[] | null {
           : typeof row.id === "string"
             ? row.id.trim()
             : "";
-      onlyBeats.push({
+      const existing = typeof row.node_id === "string" ? nodeRows.get(row.node_id) : undefined;
+      if (existing !== undefined) {
+        const node = rows[existing]!;
+        node.text = node.text.includes(text)
+          ? node.text
+          : text.includes(node.text)
+            ? text
+            : `${text}，${node.text}`;
+        node.feasibility = feasibility;
+        node.workaround =
+          typeof row.workaround === "string" ? row.workaround.trim() : node.workaround;
+        continue;
+      }
+      rows.push({
         ...(shotId ? { shotId } : {}),
         text,
         feasibility,
         workaround: typeof row.workaround === "string" ? row.workaround.trim() : "",
-        at: typeof row.at_seconds === "number" ? row.at_seconds : onlyBeats.length,
+        at: typeof row.at_seconds === "number" ? row.at_seconds : rows.length,
       });
     }
-    return onlyBeats.length > 0 ? onlyBeats : null;
   }
   return rows.length > 0 ? rows : null;
 }

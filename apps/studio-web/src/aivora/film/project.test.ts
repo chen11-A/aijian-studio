@@ -75,8 +75,18 @@ describe("film project", () => {
     expect(prompt).toContain("这一场怎么写");
     expect(prompt).toContain("不要改作品");
     expect(agentRequest("director", "画风", "拆开")).toContain("你是 AIVORA 的导演");
+    const directorRules = agentRequest("director", "画风", "拆开");
+    for (const rule of [
+      "打斗动作优先 1–2 秒",
+      "悬疑 3–5 秒",
+      "情感 3–4 秒",
+      "每连续 3–4 个镜头",
+      "台词说完和原文动作完整优先",
+      "不能无损合并就保留全部镜头",
+    ])
+      expect(directorRules).toContain(rule);
     expect(agentRequest("director", "画风", "拆开")).toContain(
-      "大约每 40 到 60 个字一个镜头，一场最多 16 个",
+      "大约每 40 到 60 个字一个镜头，一场以 16 个为合并节拍的目标",
     );
     expect(assistantPrompt("   ", null)).toContain("短剧助手");
     const novel = "雨夜旧书店。林晚说：“我叫沈砚。”".padEnd(2075, "雨");

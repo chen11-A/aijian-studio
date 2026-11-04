@@ -1,3 +1,4 @@
+import { parseAgentReplyText } from "./agent-reply-compat";
 import { sceneDisplayTitle } from "./director-continuity";
 import { withStyleBible } from "./style-bible";
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
@@ -461,15 +462,7 @@ export function rebuildFromParagraphs(
 }
 
 export function parseWriterScenes(text: string, source = ""): FilmScene[] | null {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  let value: unknown;
-  try {
-    value = JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
-  }
+  const value = parseAgentReplyText("writer", text);
   if (!value || typeof value !== "object" || !("scenes" in value)) return null;
   const rows = (value as { scenes?: unknown }).scenes;
   if (!Array.isArray(rows)) return null;
