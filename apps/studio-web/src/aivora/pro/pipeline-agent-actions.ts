@@ -278,8 +278,22 @@ export async function runPipelineAgentAction(
     );
     if (notes.some((note) => !note.performance && !note.delivery))
       return failed("PERFORMANCE_PARSE_FAILED");
-    return done({
+    const voiceReviews = notes
+      .filter((note) => note.voiceRisk)
+      .map((note) => ({ shotId: note.id, reason: note.voiceRisk! }));
+    const next = {
       ...withState,
+      scenes: withState.scenes.map((item) =>
+        item.id === scene.id
+          ? {
+              ...item,
+              performanceState: {
+                ...planned.state,
+                ...(voiceReviews.length ? { voiceReviews } : {}),
+              },
+            }
+          : item,
+      ),
       shots: film.shots.map((shot) => {
         const plannedShot = planned.shots.find((item) => item.id === shot.id);
         const note = notes.find((note) => note.id === shot.id);
@@ -301,7 +315,8 @@ export async function runPipelineAgentAction(
             : note.delivery || shot.delivery,
         };
       }),
-    });
+    };
+    return voiceReviews.length ? blocked("PERFORMANCE_VOICE_REVIEW", next) : done(next);
   } catch {
     return current() ? failed(`${target.step.toUpperCase()}_REQUEST_FAILED`) : stale();
   }

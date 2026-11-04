@@ -325,7 +325,8 @@ describe("phase 2 shot language", () => {
     expect(notes[0]?.performance).toContain("挑一下眉");
     expect(notes[0]?.performance).toContain("停 1.5 秒");
     expect(notes[0]?.performance).not.toContain("hold_");
-    expect(notes[0]?.delivery).toContain("轻慢");
+    expect(notes[0]?.delivery).toBe("");
+    expect(notes[0]?.voiceRisk).toBe("SPEAKER_UNSPECIFIED");
   });
 });
 

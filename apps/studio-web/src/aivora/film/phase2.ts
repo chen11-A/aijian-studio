@@ -548,28 +548,66 @@ function notePieces(row: Record<string, unknown>): string[] {
   return bits.filter(Boolean);
 }
 
+type PerformanceVoiceScope = {
+  id: string;
+  speaker?: string;
+  lines?: { speaker: string; text: string }[];
+};
+export type PerformanceVoiceRisk = "SPEAKER_UNSPECIFIED" | "MULTIPLE_SPEAKERS" | "VOICE_NOT_UNIQUE";
+function nestedVoice(
+  row: Record<string, unknown>,
+  shot: PerformanceVoiceScope,
+): { voice: Record<string, unknown>; risk?: PerformanceVoiceRisk } | null {
+  if (!Array.isArray(row.performances)) return null;
+  const candidates = row.performances.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const person = raw as Record<string, unknown>;
+    const voices = Array.isArray(person.voice) ? person.voice : [person.voice];
+    return voices
+      .filter((v): v is Record<string, unknown> => Boolean(v) && typeof v === "object")
+      .filter((v) =>
+        [v.tone, v.pace, v.pauses, v.pause, v.emotion].some(
+          (part) => typeof part === "string" && part.trim(),
+        ),
+      )
+      .map((voice) => ({
+        name:
+          typeof (person.who ?? person.name) === "string"
+            ? String(person.who ?? person.name).trim()
+            : "",
+        voice,
+      }));
+  });
+  if (!candidates.length) return null;
+  const speakers = new Set(
+    [
+      shot.speaker?.trim() ?? "",
+      ...(shot.lines ?? []).filter((line) => line.text.trim()).map((line) => line.speaker.trim()),
+    ].filter(Boolean),
+  );
+  if (speakers.size !== 1)
+    return { voice: {}, risk: speakers.size ? "MULTIPLE_SPEAKERS" : "SPEAKER_UNSPECIFIED" };
+  const matches = candidates.filter((candidate) => speakers.has(candidate.name));
+  return matches.length === 1
+    ? { voice: matches[0]!.voice }
+    : { voice: {}, risk: "VOICE_NOT_UNIQUE" };
+}
+
 function noteFromRow(
   row: Record<string, unknown>,
   names: string[],
-): { performance: string; delivery: string } {
+  shot: PerformanceVoiceScope,
+): { performance: string; delivery: string; voiceRisk?: PerformanceVoiceRisk } {
   const bit = notePieces(row).join("。");
   const emotion = typeof row.emotion === "string" ? row.emotion : "";
   const gaze = gazeHandoff(names);
   const performance = bit ? (gaze && !bit.includes("视线") ? `${bit}。${gaze}` : bit) : "";
-  const nested = Array.isArray(row.performances) ? row.performances : [];
-  const nestedVoice = nested
-    .map((person) =>
-      person && typeof person === "object" ? (person as { voice?: unknown }).voice : undefined,
-    )
-    .find((voice) => voice && typeof voice === "object");
-  const voice = (Array.isArray(nestedVoice) ? nestedVoice[0] : nestedVoice) as
-    Record<string, unknown> | undefined;
-  const voiceRow =
-    voice && typeof voice === "object"
-      ? voice
-      : row.voice && typeof row.voice === "object"
-        ? (row.voice as Record<string, unknown>)
-        : row;
+  const selected = nestedVoice(row, shot);
+  const voiceRow = selected
+    ? selected.voice
+    : row.voice && typeof row.voice === "object"
+      ? (row.voice as Record<string, unknown>)
+      : row;
   const tone = spokenBit(typeof voiceRow.tone === "string" ? voiceRow.tone : "");
   const pace = spokenBit(typeof voiceRow.pace === "string" ? voiceRow.pace : "");
   const pauses = spokenBit(
@@ -588,15 +626,15 @@ function noteFromRow(
   ]
     .filter(Boolean)
     .join("，");
-  return { performance, delivery };
+  return { performance, delivery, ...(selected?.risk ? { voiceRisk: selected.risk } : {}) };
 }
 
 /** Exact performance IDs first; use only unambiguous one-to-one scope compatibility. */
 export function assignPerformance(
   value: unknown,
-  shots: { id: string }[],
+  shots: PerformanceVoiceScope[],
   names: string[] = [],
-): { id: string; performance: string; delivery: string }[] {
+): { id: string; performance: string; delivery: string; voiceRisk?: PerformanceVoiceRisk }[] {
   const rows = performanceRows(value);
   const bindings = bindPerformanceRows(
     rows.map((row) =>
@@ -607,7 +645,7 @@ export function assignPerformance(
   return shots.map((shot) => {
     const rowIndex = bindings.findIndex((row) => row.targetId === shot.id);
     const row = rowIndex >= 0 ? rows[rowIndex] : undefined;
-    const note = row ? noteFromRow(row, names) : { performance: "", delivery: "" };
+    const note = row ? noteFromRow(row, names, shot) : { performance: "", delivery: "" };
     return { id: shot.id, ...note };
   });
 }

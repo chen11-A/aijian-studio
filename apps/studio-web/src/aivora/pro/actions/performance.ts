@@ -8,7 +8,7 @@ import {
   gazeHandoff,
   parseLooseJson,
   performanceFromModel,
-  voiceDirectionFromModel,
+  assignPerformance,
 } from "../../film/phase2";
 import type { FilmShot } from "../../film/project";
 import type { AgentReply } from "../workflow";
@@ -42,7 +42,11 @@ export async function planPerformanceDraft(
   const reply = await host.request("performance", context, instruction);
   if (!host.current()) return { status: "stale" };
   let raw = reply.text ? parseLooseJson(reply.text) : null;
-  let parsed = raw ? performanceFromModel(raw, current.characters) : null;
+  const parseDraft = (value: unknown) =>
+    performanceFromModel(value, current.characters) ||
+    assignPerformance(value, [current], current.characters)[0]?.performance ||
+    null;
+  let parsed = raw ? parseDraft(raw) : null;
   if (!parsed && host.connected) {
     const again = await host.request(
       "performance",
@@ -51,7 +55,7 @@ export async function planPerformanceDraft(
     );
     if (!host.current()) return { status: "stale" };
     raw = again.text ? parseLooseJson(again.text) : null;
-    parsed = raw ? performanceFromModel(raw, current.characters) : null;
+    parsed = raw ? parseDraft(raw) : null;
     if (!parsed) {
       return {
         status: "rejected",
@@ -62,7 +66,13 @@ export async function planPerformanceDraft(
   const planned = raw ? applyPerformancePlans([current], raw, { draft: true }) : null;
   const performanceState = planned?.state;
   const scoped = raw && !performanceState?.unassigned.length ? raw : null;
-  const direction = scoped ? voiceDirectionFromModel(scoped) : "";
+  const voiceNote = scoped
+    ? assignPerformance(scoped, [current], current.characters)[0]
+    : undefined;
+  const direction = voiceNote?.delivery ?? "";
+  if (voiceNote?.voiceRisk && performanceState) {
+    performanceState.voiceReviews = [{ shotId: current.id, reason: voiceNote.voiceRisk }];
+  }
   if (parsed && !performanceState?.unassigned.length) {
     line =
       (planned?.shots[0]?.performancePlan?.people.length
@@ -74,6 +84,7 @@ export async function planPerformanceDraft(
     line = current.performance;
     note = "有表演尚未对应到镜头或人物，请核对后再写入。";
   }
+  if (voiceNote?.voiceRisk) note = "配音语气还需核对，已保留原语气。";
   // An explicit manual request creates a replacement draft; the host protects saved field locks.
   const rejectedPlan = Boolean(performanceState?.unassigned.length);
   const performanceShot = {
