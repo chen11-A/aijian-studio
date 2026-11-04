@@ -124,6 +124,8 @@ describe("ExportCheck", () => {
       },
     });
     expect(screen.getByText("有 5 处建议看看，不影响导出。")).toBeInTheDocument();
+    expect(screen.getByText(/有 5 处建议看看，没有要先处理的。/)).toBeInTheDocument();
+    expect(screen.queryByText(/其中 0 处/)).toBeNull();
     expect(screen.queryByRole("region", { name: "要先处理" })).toBeNull();
   });
 

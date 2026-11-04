@@ -140,8 +140,10 @@ export function ExportCheck({
   if (checking) headline = "正在检查成片，查完才能导出。";
   else if (error) headline = "这次没有检查完。";
   else if (invalid) headline = "检查结果读不出来。";
-  else if (valid && issues.length > 0) {
+  else if (valid && blocking.length > 0) {
     headline = `检查了 ${durationLabel(valid.media.duration)} 的成片：有 ${issues.length} 处问题，其中 ${blocking.length} 处要先处理。`;
+  } else if (valid && issues.length > 0) {
+    headline = `检查了 ${durationLabel(valid.media.duration)} 的成片：有 ${issues.length} 处建议看看，没有要先处理的。`;
   } else if (valid)
     headline = `检查了 ${durationLabel(valid.media.duration)} 的成片，没有发现问题。`;
   const note = exportNote({
