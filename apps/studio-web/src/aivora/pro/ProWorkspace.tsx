@@ -1,3 +1,4 @@
+import { directorRequestInput, requestDirectorDraft } from "./actions/director";
 import { planWriterDraft, writerDraftInput, type WriterDraftResult } from "./actions/writer";
 import { planActionDraft } from "./actions/action";
 import { planPerformanceDraft } from "./actions/performance";
@@ -1016,14 +1017,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
     const thin = sceneNeedsSource(current?.text ?? "");
     setNotice(`正在写「${current?.title ?? "这一场"}」的镜头。`);
-    const names = film.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
-    const context = `画风：${film.styleZh}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${numberedScript(story)}`;
-    const sceneRefs = film.scenes.map((item) => ({
-      id: item.id,
-      title: item.title,
-      where: item.where,
-      text: item.text,
-    }));
+    const input = directorRequestInput(film, sceneId, story, current?.text ?? "");
+    const context = input.context;
     let next: FilmShot[] | null = null;
     let text: string;
     const bridge = grokBridge();
@@ -1032,15 +1027,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         next = offlineShots(story, sceneId);
         text = "没有登录，已用离线拆镜。点「写入分镜」才会写入。";
       } else {
-        const first = await retryDirectorTimeout(
-          (control) => completeAgent("director", context, "把这一场拆成镜头", control),
-          setNotice,
-          emitNotice,
-          { current: () => isTurnCurrent(turn) && filmRef.current?.id === film.id },
-        );
-        const parsed = first.text
-          ? parseDirectorShots(first.text, sceneId, current?.text ?? "", sceneRefs)
-          : null;
+        const first = await requestDirectorDraft(input, {
+          request: completeAgent,
+          progress: setNotice,
+          notify: emitNotice,
+          current: () => isTurnCurrent(turn) && filmRef.current?.id === film.id,
+        });
+        const parsed = first.shots;
         if (!parsed) {
           setPendingRetry({
             role: "director",
