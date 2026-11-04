@@ -144,3 +144,16 @@ test("removed film ledger entries disappear without dropping independent image w
   publishFilmJobs({ ...film, jobs: [] });
   expect(taskSnapshot().tasks.map((task) => task.id)).toEqual(["image"]);
 });
+
+test("reopened unsent versions remain queued in the feed while unknown running results stay failed", async () => {
+  const { sampleFilm, interruptStaleWork } = await import("./project");
+  const { prepareVideoQueue, setVideoTaskState } = await import("./generation-queue");
+  const { publishFilmJobs, taskSnapshot } = await import("./task-progress");
+  const film = sampleFilm();
+  const prepared = prepareVideoQueue(film, [film.shots[0]!], 2, false).film;
+  const first = prepared.shots[0]!.takes[0]!;
+  const recovered = interruptStaleWork(setVideoTaskState(prepared, first.id, "running")).film;
+  publishFilmJobs(recovered);
+  expect(taskSnapshot().tasks.map((task) => task.status)).toEqual(["failed", "queued"]);
+  expect(taskSnapshot().tasks.map((task) => task.attempt)).toEqual([1, 1]);
+});

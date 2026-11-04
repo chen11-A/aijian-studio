@@ -406,3 +406,25 @@ describe("what the host can and cannot do with each job", () => {
     ).toBe("继续排队");
   });
 });
+
+it("counts only actionable failures in bulk retry and hides an unsupported bulk action", () => {
+  const tasks = [
+    task({ id: "video", status: "failed" }),
+    task({ id: "portrait", kind: "image", status: "failed" }),
+  ];
+  const retry = vi.fn();
+  const view = render(
+    <TaskCenter
+      title="作品"
+      tasks={tasks}
+      onRetryFailed={retry}
+      canRetry={(item) => item.id === "video"}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "失败的全部重试（1）" }));
+  expect(retry).toHaveBeenCalledTimes(1);
+  view.rerender(
+    <TaskCenter title="作品" tasks={tasks} onRetryFailed={retry} canRetry={() => false} />,
+  );
+  expect(screen.queryByRole("button", { name: /失败的全部重试/ })).not.toBeInTheDocument();
+});

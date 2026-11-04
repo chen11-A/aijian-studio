@@ -55,6 +55,33 @@ describe("professional workspace", () => {
     });
   });
 
+  it("offers resume after reopening unsent versions without resending unknown running work", async () => {
+    const { prepareVideoQueue, setVideoTaskState } = await import("../film/generation-queue");
+    const video = vi.fn(async () => ({
+      data: { status: "SUCCEEDED", output_path: "/tmp/resumed.mp4" },
+    }));
+    installDesktop(video);
+    const film = sampleFilm();
+    const prepared = prepareVideoQueue(film, [film.shots[0]!], 2, false).film;
+    const takes = prepared.shots[0]!.takes;
+    const stored = setVideoTaskState(prepared, takes[0]!.id, "running");
+    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(stored);
+    window.localStorage.setItem("aivora.film.activeId", stored.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    fireEvent.click(await screen.findByRole("button", { name: /后台生成/ }));
+    const resume = await screen.findByRole("button", { name: "继续排队" });
+    expect(video).not.toHaveBeenCalled();
+    fireEvent.click(resume);
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      const saved = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.at(-1)![0] as FilmProject;
+      expect(saved.shots[0]!.takes.map((take) => take.id)).toEqual(takes.map((take) => take.id));
+      expect(saved.shots[0]!.takes.map((take) => take.status)).toEqual(["failed", "done"]);
+    });
+  });
+
   it("starts a landscape film from the empty screen", () => {
     render(<ProWorkspace />);
     fireEvent.click(screen.getByRole("button", { name: "新建横屏" }));

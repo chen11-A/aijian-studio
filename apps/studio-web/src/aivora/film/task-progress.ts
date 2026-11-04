@@ -1,3 +1,4 @@
+import { videoTaskTarget } from "./generation-queue";
 import type {
   TaskItem,
   BatchProgress,
@@ -163,8 +164,15 @@ export function publishFilmJobs(film: FilmProject): void {
             ? `${String.fromCharCode(64 + job.take)}版`
             : `${job.take}版`,
         kind: job.kind === "video" ? "video" : "image",
-        status: job.status === "blocked" || job.status === "cancelled" ? "failed" : job.status,
-        attempt: Math.max(1, job.take),
+        status:
+          job.status === "failed" &&
+          job.interruptedFrom === "queued" &&
+          videoTaskTarget(film, job.id)?.take.interruptedFrom === "queued"
+            ? "queued"
+            : job.status === "blocked" || job.status === "cancelled"
+              ? "failed"
+              : job.status,
+        attempt: Math.max(1, job.attempt ?? 1),
         ...(job.reason || job.status === "cancelled" || job.status === "blocked"
           ? {
               reason: (job.reason || (job.status === "cancelled" ? "已取消" : "生成受阻")).slice(

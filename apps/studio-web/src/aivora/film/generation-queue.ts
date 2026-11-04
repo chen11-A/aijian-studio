@@ -44,6 +44,12 @@ export function resumeQueuedFilm(film: FilmProject): FilmProject {
             take: take.index,
             status: "queued" as const,
             prompt: take.prompt,
+            attempt:
+              film.jobs.find(
+                (job) =>
+                  job.takeId === take.id ||
+                  (!job.takeId && job.shotId === shot.id && job.take === take.index),
+              )?.attempt ?? 0,
             reason: "",
           })),
       ),
@@ -55,8 +61,21 @@ export function resumeQueuedFilm(film: FilmProject): FilmProject {
 export function videoTaskTarget(film: FilmProject, id: string) {
   const job = film.jobs.find((item) => item.id === id && item.kind === "video");
   for (const shot of film.shots) {
-    const take = shot.takes.find((item) => item.id === id || item.id === job?.takeId);
-    if (take) return { shot, take, job: job ?? film.jobs.find((item) => item.takeId === take.id) };
+    const legacy =
+      job && !job.takeId && job.shotId === shot.id
+        ? shot.takes.filter((take) => take.index === job.take)
+        : [];
+    const take =
+      shot.takes.find((item) => item.id === id || item.id === job?.takeId) ??
+      (legacy.length === 1 ? legacy[0] : undefined);
+    if (take) {
+      const linked = film.jobs.filter(
+        (item) =>
+          item.takeId === take.id ||
+          (!item.takeId && item.shotId === shot.id && item.take === take.index),
+      );
+      return { shot, take, job: job ?? (linked.length === 1 ? linked[0] : undefined) };
+    }
   }
   return null;
 }
@@ -64,7 +83,7 @@ export function videoTaskTarget(film: FilmProject, id: string) {
 /** Returns the specific running target for the host's existing cancellation bridge. */
 export function cancelVideoTask(film: FilmProject, id: string) {
   const target = videoTaskTarget(film, id);
-  if (!target || !["queued", "running"].includes(target.take.status))
+  if (!target || (!canResumeTake(target.take) && target.take.status !== "running"))
     return { film, running: false, jobId: null };
   return {
     running: target.take.status === "running",
@@ -155,7 +174,14 @@ export function setVideoTaskState(film: FilmProject, takeId: string, status: "qu
       ),
     })),
     jobs: film.jobs.map((job) =>
-      job.takeId === takeId ? { ...job, status, interruptedFrom: undefined } : job,
+      job.takeId === takeId
+        ? {
+            ...job,
+            status,
+            interruptedFrom: undefined,
+            attempt: status === "running" ? (job.attempt ?? 0) + 1 : job.attempt,
+          }
+        : job,
     ),
   };
 }
@@ -231,4 +257,14 @@ export function retryVideoTasks(film: FilmProject, ids: string[]): FilmProject {
       if (selected.has(take.id) && take.status === "failed")
         next = setVideoTaskState(next, take.id, "queued");
   return next;
+}
+
+export function retryableVideoTask(film: FilmProject, id: string): boolean {
+  const job = film.jobs.find((item) => item.id === id && item.kind === "video");
+  if (!job) return false;
+  const target = videoTaskTarget(film, id);
+  return (
+    job.status === "blocked" ||
+    (job.status === "failed" && target?.take.status === "failed" && !canResumeTake(target.take))
+  );
 }

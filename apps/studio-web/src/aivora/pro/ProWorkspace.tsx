@@ -1,3 +1,4 @@
+import { awaitVideoResult } from "./video-request";
 import { SceneCoverage } from "../next/wiring/SceneCoverage";
 import { CharacterTraits, type TraitPatch } from "../next/wiring/CharacterTraits";
 import { useProductionActions } from "./use-production-actions";
@@ -113,6 +114,7 @@ import {
   prepareVideoQueue,
   generationTargets,
   retryVideoTasks,
+  retryableVideoTask,
   videoTaskTarget,
   setVideoTaskState,
   cancelVideoTask,
@@ -2296,14 +2298,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  function retryGenerationTasks(ids: string[]) {
+  async function retryGenerationTasks(ids: string[]) {
     const current = filmRef.current;
     if (!current || generationRuns.current.has(current.id)) return;
     const blocked = current.jobs.filter(
       (job) => ids.includes(job.id) && job.kind === "video" && job.status === "blocked",
     );
     if (blocked.length) {
-      void submitGeneration(
+      await submitGeneration(
         current.shots.filter((shot) => blocked.some((job) => job.shotId === shot.id)),
       );
       return;
@@ -2319,7 +2321,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!targets.length) return;
     applyLive(next);
     pauseRef.current = false;
-    void submitGeneration(
+    const retry = submitGeneration(
       targets,
       true,
       ids.flatMap((id) => {
@@ -2328,6 +2330,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }),
     );
     setPaused(false);
+    await retry;
+    if (
+      filmRef.current?.id === current.id &&
+      filmRef.current.shots.some((row) => row.takes.some(canResumeTake))
+    ) {
+      pauseRef.current = true;
+      setPaused(true);
+    }
   }
 
   async function submitGeneration(targets?: FilmShot[], resume = false, takeIds?: string[]) {
@@ -2443,10 +2453,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             return;
           }
           const body = storyFilmBatches(dispatched, [shotNow], current.draft)[0];
-          const response = await bridge!.createStoryFilm!(billingProject, {
-            ...body!,
-            regenerate: index > 0 || group.hadTakes,
-          });
+          const response = await awaitVideoResult(
+            () =>
+              bridge!.createStoryFilm!(billingProject, {
+                ...body!,
+                regenerate: index > 0 || group.hadTakes,
+              }),
+            () => !valid() || stopRef.current || cancelledJobs.current.has(jobId),
+          );
           if (!valid()) return;
           if (cancelledJobs.current.has(jobId)) {
             applyLive(cancelVideoTask(filmRef.current ?? current, take.id).film);
@@ -2554,17 +2568,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     } catch (error) {
       if (!valid()) return;
       const reason =
-        error instanceof Error &&
-        (error.message.includes("首帧未完成") || /VOICE_.*REQUIRED/.test(error.message))
-          ? error.message
-          : "没有生成成功，可以重试。";
+        error instanceof Error && error.message === "TASK_TIMEOUT"
+          ? "等待结果超时，请先核对会员端结果。"
+          : error instanceof Error && error.message === "VIDEO_CANCELLED"
+            ? "已取消"
+            : error instanceof Error &&
+                (error.message.includes("首帧未完成") || /VOICE_.*REQUIRED/.test(error.message))
+              ? error.message
+              : "没有生成成功，可以重试。";
       const latest = filmRef.current ?? next;
       applyLive(failRunningVideoTasks(latest, groups, reason));
       if (latest.shots.some((row) => row.takes.some(canResumeTake))) {
         pauseRef.current = true;
         setPaused(true);
       }
-      setNotice(reason);
+      if (error instanceof Error && error.message === "TASK_TIMEOUT")
+        emitNotice({ code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT, detail: reason });
+      else setNotice(reason);
     }
   }
 
@@ -3673,19 +3693,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 setNotice("继续排队。");
               }}
               onRetry={(taskId) => retryGenerationTasks([taskId])}
-              canRetry={(task) =>
-                Boolean(videoTaskTarget(film, task.id)) ||
-                film.jobs.some(
-                  (job) => job.id === task.id && job.kind === "video" && job.status === "blocked",
-                )
-              }
-              onRetryFailed={() =>
-                retryGenerationTasks(
-                  film.jobs
-                    .filter((job) => job.kind === "video" && job.status === "failed")
-                    .map((job) => job.id),
-                )
-              }
+              canRetry={(task) => retryableVideoTask(film, task.id)}
+              onRetryFailed={() => {
+                const ids = film.jobs
+                  .filter((job) => retryableVideoTask(film, job.id))
+                  .map((job) => job.id);
+                void (async () => {
+                  for (const id of ids) {
+                    if (filmRef.current?.id !== film.id) return;
+                    await retryGenerationTasks([id]);
+                  }
+                })();
+              }}
               onRemove={(taskId) => {
                 const cancelled = cancelVideoTask(filmRef.current ?? film, taskId);
                 if (!cancelled.jobId) return;
@@ -3698,7 +3717,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               canRemove={(task) =>
                 film.jobs.some(
                   (job) =>
-                    job.id === task.id && (job.status === "queued" || job.status === "running"),
+                    job.id === task.id &&
+                    (job.status === "queued" ||
+                      job.status === "running" ||
+                      (job.status === "failed" && job.interruptedFrom === "queued")),
                 )
               }
               onOpenStoryboard={() => {

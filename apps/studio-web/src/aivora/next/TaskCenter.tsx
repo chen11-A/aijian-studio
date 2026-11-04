@@ -189,6 +189,7 @@ export function primaryAction(
     | "onReload"
     | "loading"
     | "onRetryFailed"
+    | "canRetry"
   >,
 ): Primary | null {
   if (props.loading) return null;
@@ -203,7 +204,9 @@ export function primaryAction(
       onClick: props.onResume,
     };
   }
-  const failed = props.tasks.filter((task) => task.status === "failed").length;
+  const failed = props.tasks.filter(
+    (task) => task.status === "failed" && (props.canRetry?.(task) ?? true),
+  ).length;
   if (failed > 0 && props.onRetryFailed) {
     return { label: `失败的全部重试（${failed}）`, onClick: props.onRetryFailed };
   }
@@ -278,6 +281,7 @@ function Summary({
   paused,
   action,
   onRetryFailed,
+  canRetry,
   onPause,
 }: {
   title: string;
@@ -285,6 +289,7 @@ function Summary({
   paused: boolean;
   action: Primary | null;
   onRetryFailed?: () => void;
+  canRetry?: (task: TaskItem) => boolean;
   onPause?: () => void;
 }) {
   const videos = tasks.filter((task) => task.kind === "video");
@@ -296,7 +301,9 @@ function Summary({
   const total = scope.length;
   const share = (count: number) => `${total === 0 ? 0 : (count / total) * 100}%`;
   const unit = unitFor(scope);
-  const failed = tasks.filter((task) => task.status === "failed").length;
+  const failed = tasks.filter(
+    (task) => task.status === "failed" && (canRetry?.(task) ?? true),
+  ).length;
   const runningAll = tasks.filter((task) => task.status === "running").length;
   const others = (["image", "voice", "lipsync", "export"] as const)
     .map((kind) => {
@@ -620,6 +627,7 @@ export function TaskCenter(props: TaskCenterProps) {
         paused={paused}
         action={recovery ? null : action}
         onRetryFailed={props.onRetryFailed}
+        canRetry={props.canRetry}
         onPause={props.onPause}
       />
       <div className="nx-tasks-body">

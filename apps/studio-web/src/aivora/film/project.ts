@@ -67,6 +67,7 @@ const PROMPTS: Record<AgentId, string> = {
 
 export type FilmJob = {
   id: string;
+  attempt?: number;
   takeId?: string;
   interruptedFrom?: "queued" | "running";
   shotId: string;

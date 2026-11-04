@@ -68,3 +68,33 @@ it("explicit retry keeps the failed version id and does not reset adjacent versi
   const retry = prepareVideoQueue(retried, retried.shots, 4, true, [chosen.id]);
   expect(retry.groups.flatMap((group) => group.takes.map((take) => take.id))).toEqual([chosen.id]);
 });
+
+it("migrates a legacy job by unique persisted version number and rejects ambiguous matches", () => {
+  const film = emptyFilm();
+  const prepared = prepareVideoQueue(film, film.shots, 2, false).film;
+  prepared.jobs = prepared.jobs.map((job) => ({
+    ...job,
+    id: `legacy-${job.shotId}-${job.take}`,
+    takeId: undefined,
+  }));
+  const first = prepared.jobs[0]!;
+  expect(videoTaskTarget(prepared, first.id)?.take.id).toBe(prepared.shots[0]!.takes[0]!.id);
+  const recovered = interruptStaleWork(prepared).film;
+  expect(
+    cancelVideoTask(recovered, first.id).film.shots[0]!.takes[0]!.interruptedFrom,
+  ).toBeUndefined();
+  prepared.shots[0]!.takes[1]!.index = first.take;
+  expect(videoTaskTarget(prepared, first.id)).toBeNull();
+});
+it("counts attempts separately from the B version index across explicit retry", () => {
+  const film = emptyFilm();
+  const prepared = prepareVideoQueue(film, film.shots, 2, false);
+  const id = prepared.groups[0]!.takes[1]!.id;
+  const first = setVideoTaskState(prepared.film, id, "running");
+  expect(first.jobs.find((job) => job.takeId === id)).toMatchObject({ take: 2, attempt: 1 });
+  const queued = setVideoTaskState(first, id, "queued");
+  const rebuilt = prepareVideoQueue(queued, queued.shots, 2, true).film;
+  expect(
+    setVideoTaskState(rebuilt, id, "running").jobs.find((job) => job.takeId === id)?.attempt,
+  ).toBe(2);
+});
