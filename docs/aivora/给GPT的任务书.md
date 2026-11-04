@@ -66,3 +66,6 @@
 4. 检查结果：eslint、prettier、tsc、vitest（desktop 和 studio-web，附覆盖率）、ruff、mypy、pytest；注明哪些失败是原来就有的。
 5. 合入的 Claude zip 的 SHA 列表。
 6. 你认为我实测时要特别看的地方（最多 5 条）。
+
+## 界面评审里归 GPT 的
+见 `界面评审任务.md`：UIR-02、UIR-03 的原因文字、UIR-07 里 `film/*.ts` 和服务端的字、UIR-11 最后一条；UIR-09、UIR-10、UIR-19 里写了要你配合的接口。
