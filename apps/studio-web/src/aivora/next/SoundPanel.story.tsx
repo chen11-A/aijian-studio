@@ -3,7 +3,8 @@ import { SoundPanel, type Mood } from "./SoundPanel";
 import { StoryFrame } from "./stories/StoryFrame";
 import { LANE_LABEL, type LaneVolumes } from "./volume";
 
-const gain = (db: number) => (Number.isFinite(db) ? `给混音的增益 ${db.toFixed(1)} dB` : "静音");
+/** The app treats −40 dB and below as muted. */
+const gain = (db: number) => (db <= -40 ? "静音" : `给混音的增益 ${db.toFixed(1)} dB`);
 
 /** Example page: scene 2 of 《雨夜旧书店》 with made-up tracks. */
 const STATES = [

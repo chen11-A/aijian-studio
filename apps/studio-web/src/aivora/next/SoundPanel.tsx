@@ -30,7 +30,7 @@ export type SoundPanelProps = {
   duckMusic?: boolean;
   defaultFineOpen?: boolean;
   onMoodChange: (mood: Mood) => void;
-  /** db is volumeToDb(volume), the gain for the mixer: 100 → 0 dB, 70 → −3.1, 20 → −14.0. */
+  /** db is volumeToDb(volume): 100 → 0 dB, 70 → −3, 50 → −6, 20 → −14, 0 → −40. */
   onMasterChange: (volume: number, db: number) => void;
   onLaneChange: (lane: SoundLane, volume: number, db: number) => void;
   onDuckMusicChange?: (on: boolean) => void;

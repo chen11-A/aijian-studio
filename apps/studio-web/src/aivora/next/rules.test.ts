@@ -1,7 +1,8 @@
 // Checks rules every file in next/ keeps: CSS uses only pro.css custom properties and no
 // literal colors, every selector is scoped, nothing calls the desktop bridge, the network or
-// storage, and imports stay within react and next/. CSS is read from disk: with vitest's
-// default css setting a CSS import, even with ?raw, comes back as an empty string.
+// storage, and imports stay within react and next/, except that volume.ts uses the film
+// audio helpers. CSS is read from disk: with vitest's default css setting a CSS import, even
+// with ?raw, comes back as an empty string.
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -101,6 +102,7 @@ describe("next/ components", () => {
           spec === "react" ||
           (spec === "react-dom/client" && file.path === "stories/main.tsx") ||
           spec.startsWith("./") ||
+          (file.path === "volume.ts" && spec === "../film/audio") ||
           (story && (spec === "../../pro/pro.css" || spec === "../next.css")) ||
           (story && /^\.\.\/[A-Za-z]+(\.story)?$/.test(spec));
         expect(allowed, `${file.path} imports ${spec}`).toBe(true);

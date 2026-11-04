@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AUDIO_LANE_GAIN_DB } from "../film/audio";
+import { AUDIO_LANE_GAIN_DB, dbToVolumePercent, volumePercentToDb } from "../film/audio";
 import { stepChoice } from "./radio";
 import { clockLabel, durationLabel, shotLabel } from "./shot";
 import { clampVolume, dbToVolume, DEFAULT_LANE_VOLUMES, SOUND_LANES, volumeToDb } from "./volume";
@@ -23,23 +23,35 @@ describe("shot labels", () => {
 });
 
 describe("volume and dB", () => {
-  it("maps 100/70/50/20 to 0/−3/−6/−14 dB", () => {
-    expect(Math.round(volumeToDb(100))).toBe(0);
-    expect(Math.round(volumeToDb(70))).toBe(-3);
-    expect(Math.round(volumeToDb(50))).toBe(-6);
-    expect(Math.round(volumeToDb(20))).toBe(-14);
-    expect(volumeToDb(0)).toBe(Number.NEGATIVE_INFINITY);
+  it("maps 100/70/50/20/0 to 0/−3/−6/−14/−40 dB, with straight lines between", () => {
+    expect(volumeToDb(100)).toBe(0);
+    expect(volumeToDb(70)).toBe(-3);
+    expect(volumeToDb(50)).toBe(-6);
+    expect(volumeToDb(20)).toBe(-14);
+    expect(volumeToDb(0)).toBe(-40);
+    expect(volumeToDb(85)).toBe(-1.5);
+    expect(volumeToDb(35)).toBe(-10);
   });
 
   it("maps dB back to whole steps", () => {
     expect(dbToVolume(0)).toBe(100);
-    expect(dbToVolume(-3)).toBe(71);
+    expect(dbToVolume(-3)).toBe(70);
     expect(dbToVolume(-6)).toBe(50);
+    expect(dbToVolume(-10)).toBe(35);
     expect(dbToVolume(-14)).toBe(20);
+    expect(dbToVolume(-40)).toBe(0);
+    expect(dbToVolume(-80)).toBe(0);
     expect(dbToVolume(Number.NEGATIVE_INFINITY)).toBe(0);
     expect(dbToVolume(Number.NaN)).toBe(0);
     expect(dbToVolume(12)).toBe(100);
     expect(dbToVolume(Number.POSITIVE_INFINITY)).toBe(100);
+  });
+
+  it("uses the same conversion as the music volume on the timeline", () => {
+    for (let volume = 0; volume <= 100; volume += 5) {
+      expect(volumeToDb(volume)).toBe(volumePercentToDb(volume));
+      expect(dbToVolume(volumeToDb(volume))).toBe(dbToVolumePercent(volumePercentToDb(volume)));
+    }
   });
 
   it("keeps volumes inside 0–100", () => {
@@ -54,7 +66,7 @@ describe("volume and dB", () => {
 
   it("starts each lane where the app's mixer starts", () => {
     for (const lane of SOUND_LANES) {
-      expect(Math.round(volumeToDb(DEFAULT_LANE_VOLUMES[lane]))).toBe(AUDIO_LANE_GAIN_DB[lane]);
+      expect(volumeToDb(DEFAULT_LANE_VOLUMES[lane])).toBe(AUDIO_LANE_GAIN_DB[lane]);
     }
   });
 });

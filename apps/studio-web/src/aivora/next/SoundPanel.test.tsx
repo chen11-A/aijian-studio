@@ -60,11 +60,11 @@ describe("SoundPanel", () => {
     fireEvent.change(screen.getByRole("slider", { name: "这一场的音量" }), {
       target: { value: "70" },
     });
-    expect(onMasterChange).toHaveBeenCalledWith(70, expect.closeTo(-3.1, 1));
+    expect(onMasterChange).toHaveBeenCalledWith(70, -3);
     fireEvent.change(screen.getByRole("slider", { name: /配乐/ }), { target: { value: "20" } });
-    expect(onLaneChange).toHaveBeenCalledWith("score", 20, expect.closeTo(-13.98, 1));
+    expect(onLaneChange).toHaveBeenCalledWith("score", 20, -14);
     fireEvent.change(screen.getByRole("slider", { name: /台词/ }), { target: { value: "0" } });
-    expect(onLaneChange).toHaveBeenLastCalledWith("dialogue", 0, Number.NEGATIVE_INFINITY);
+    expect(onLaneChange).toHaveBeenLastCalledWith("dialogue", 0, -40);
   });
 
   it("picks one mood at a time, by click or arrow keys", () => {
