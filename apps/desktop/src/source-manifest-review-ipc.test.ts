@@ -453,6 +453,7 @@ describe("real B2 controller through the native adapter", () => {
       });
     });
     const pending = h.invoke("source-manifest:copy-draft");
+    await vi.waitFor(() => expect(h.show).toHaveBeenCalledOnce());
     await vi.advanceTimersByTimeAsync(300_000);
     expect(await pending).toMatchObject({ kind: "EXPIRED", completed_actions: [] });
     expect(signal?.aborted).toBe(true);
