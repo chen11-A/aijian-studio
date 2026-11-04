@@ -3993,6 +3993,32 @@ function Assistant({
   );
 }
 
+/** Where the timeline ruler marks fall: every 5 seconds, every 10 past two minutes. */
+function rulerTicks(
+  shots: readonly FilmShot[],
+  clips: readonly { left: number; width: number }[],
+): { seconds: number; left: number }[] {
+  const total = shots.reduce((sum, item) => sum + item.seconds, 0);
+  const step = total > 120 ? 10 : 5;
+  const ticks: { seconds: number; left: number }[] = [];
+  for (let at = 0; at <= total; at += step) {
+    let start = 0;
+    let left = 1;
+    for (const [index, item] of shots.entries()) {
+      const clip = clips[index];
+      if (!clip) break;
+      if (at <= start + item.seconds || index === shots.length - 1) {
+        const part = item.seconds > 0 ? Math.min(1, (at - start) / item.seconds) : 0;
+        left = clip.left + part * clip.width;
+        break;
+      }
+      start += item.seconds;
+    }
+    ticks.push({ seconds: at, left: Math.round(left) });
+  }
+  return ticks;
+}
+
 /** The usual shot lengths; 「自定义」 takes any whole second from 1 to 15. */
 const SECONDS_CHOICES = [2, 3, 4, 5, 6, 10];
 
@@ -5833,6 +5859,25 @@ function EditPage({
   );
   const scoreClip = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
   const musicGain = scoreClip?.gainDb ?? -14;
+  const dialogueGain =
+    film.audioClips.find((clip) => clip.lane === "dialogue" && clip.path)?.gainDb ?? 0;
+  const trackWidth = Math.max(0, ...clips.map((clip) => clip.left + clip.width)) + 48;
+  const importMusic = (
+    <label className="btn sm">
+      导入音乐
+      <input
+        type="file"
+        accept="audio/*,.mp3,.wav"
+        hidden
+        aria-label="导入音乐"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onImportMusic(file);
+        }}
+      />
+    </label>
+  );
   const mix = previewMix({
     joined: Boolean(film.assemblyUrl),
     voice: fileMediaUrl(voiceClip?.path),
@@ -6084,7 +6129,12 @@ function EditPage({
                 回到分镜重新生成
               </button>
             </div>
-            <p className="role-desc">{LOUDNESS_NOTE}</p>
+            <p className="role-desc hint">
+              有台词时，导出会把配乐压低
+              <span className="q" role="img" aria-label="说明" title={LOUDNESS_NOTE}>
+                ?
+              </span>
+            </p>
           </div>
         )}
       </section>
@@ -6127,6 +6177,12 @@ function EditPage({
               剪掉
             </button>
             <span className="sp" />
+            {current ? (
+              <button className="btn sm" type="button" onClick={onRangeGenerate}>
+                只重做这一段
+              </button>
+            ) : null}
+            {importMusic}
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
             </button>
@@ -6158,6 +6214,8 @@ function EditPage({
             <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
               <Ic name="redo" />
             </button>
+            <span className="sp" />
+            {importMusic}
           </div>
         )}
         <div className="tbody">
@@ -6193,6 +6251,17 @@ function EditPage({
                 <button type="button" aria-label="单听配音" onClick={() => onSolo?.("dialogue")}>
                   单听
                 </button>
+                <input
+                  aria-label="配音音量"
+                  title={`配音音量 ${dbToVolumePercent(dialogueGain)}`}
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={dbToVolumePercent(dialogueGain)}
+                  onChange={(event) =>
+                    onLane?.("dialogue", volumePercentToDb(Number(event.target.value)))
+                  }
+                />
               </span>
             </div>
             <div className="th" style={{ height: "var(--ha)" }}>
@@ -6217,6 +6286,7 @@ function EditPage({
                 </button>
                 <input
                   aria-label="音乐音量"
+                  title={`音乐音量 ${dbToVolumePercent(musicGain)}`}
                   type="range"
                   min={0}
                   max={100}
@@ -6229,139 +6299,121 @@ function EditPage({
             </div>
           </div>
           <div className="tracks">
-            <div className="ruler">
-              {[0, 0.5, 1].map((part, index) => {
-                const total = shots.reduce((sum, item) => sum + item.seconds, 0);
-                return (
-                  <span key={part} style={{ left: index * 160 }}>
-                    {clock(total * part)}
+            <div className="track-area" style={{ width: trackWidth }}>
+              <div className="ruler">
+                {rulerTicks(shots, clips).map((tick) => (
+                  <span key={tick.seconds} style={{ left: tick.left }}>
+                    {clock(tick.seconds)}
                   </span>
-                );
-              })}
-            </div>
-            <div className="lane" style={{ height: "var(--hs)" }}>
-              {cues.map((cue) => {
-                const clip = clips.find((item) => item.id === cue.id);
-                if (!clip) return null;
-                return (
-                  <div
-                    key={cue.id}
-                    className="clip s"
-                    style={{ left: clip.left, width: clip.width }}
-                  >
-                    <span className="tx">{cue.text}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="lane" style={{ height: "var(--hv)" }}>
-              {clips.map((clip, index) => {
-                const ready = shots[index]?.takes.some((take) => take.status === "done");
-                return (
-                  <button
-                    key={clip.id}
-                    className={ready ? "clip v" : "clip v empty"}
-                    style={{ left: clip.left, width: clip.width }}
-                    onClick={() => {
-                      onShot(index);
-                      onPickClip();
-                    }}
-                  >
-                    <span className="lb">
-                      {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="lane" style={{ height: "var(--ha)" }}>
-              {film.audioClips
-                .filter((item) => item.lane === "dialogue" && item.path)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="clip a"
-                    data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
-                    style={{
-                      left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-                      width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
-                    }}
-                  >
-                    <span className="tx">{item.label || "配音"}</span>
-                  </div>
                 ))}
-            </div>
-            <div className="lane" style={{ height: "var(--ha)" }}>
-              {film.audioClips
-                .filter((item) => item.lane === "score" && item.path)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="clip m"
-                    style={{
-                      left: 1,
-                      width: Math.max(
-                        48,
-                        clips.reduce((sum, clip) => sum + clip.width, 0),
-                      ),
-                    }}
-                  >
-                    <span className="tx">
-                      导入的音乐
-                      {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
-                    </span>
-                  </div>
-                ))}
-              <label className="btn sm" style={{ position: "absolute", right: 8, top: 4 }}>
-                导入音乐
-                <input
-                  type="file"
-                  accept="audio/*,.mp3,.wav"
-                  hidden
-                  aria-label="导入音乐"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (file) onImportMusic(file);
-                  }}
-                />
-              </label>
-            </div>
-            {range && current ? (
-              <button
-                className="btn sm"
-                type="button"
-                style={{ position: "absolute", right: 8, bottom: 8 }}
-                onClick={onRangeGenerate}
-              >
-                只重做这一段
-              </button>
-            ) : null}
-            {range && span && clips[span.from] && clips[span.to] && (
-              <div
-                className="range"
-                style={{
-                  left: clips[Math.min(span.from, span.to)]!.left,
-                  width:
-                    clips[Math.max(span.from, span.to)]!.left +
-                    clips[Math.max(span.from, span.to)]!.width -
-                    clips[Math.min(span.from, span.to)]!.left,
-                }}
-              >
-                <span className="h l">入 {clock(start)}</span>
-                <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
               </div>
-            )}
-            <div
-              className="playhead"
-              style={{
-                left:
-                  (selected?.left ?? 1) +
-                  (current && current.seconds > 0
-                    ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
-                    : 0),
-              }}
-            />
+              <div className="lane" style={{ height: "var(--hs)" }}>
+                {cues.length === 0 ? <span className="lane-empty">这一轨还没有内容</span> : null}
+                {cues.map((cue) => {
+                  const clip = clips.find((item) => item.id === cue.id);
+                  if (!clip) return null;
+                  return (
+                    <div
+                      key={cue.id}
+                      className="clip s"
+                      style={{ left: clip.left, width: clip.width }}
+                    >
+                      <span className="tx">{cue.text}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="lane" style={{ height: "var(--hv)" }}>
+                {clips.map((clip, index) => {
+                  const ready = shots[index]?.takes.some((take) => take.status === "done");
+                  return (
+                    <button
+                      key={clip.id}
+                      className={ready ? "clip v" : "clip v empty"}
+                      style={{ left: clip.left, width: clip.width }}
+                      onClick={() => {
+                        onShot(index);
+                        onPickClip();
+                      }}
+                    >
+                      <span className="lb">
+                        {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="lane" style={{ height: "var(--ha)" }}>
+                {film.audioClips.some((item) => item.lane === "dialogue" && item.path) ? null : (
+                  <span className="lane-empty">这一轨还没有内容</span>
+                )}
+                {film.audioClips
+                  .filter((item) => item.lane === "dialogue" && item.path)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="clip a"
+                      data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
+                      style={{
+                        left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
+                        width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
+                      }}
+                    >
+                      <span className="tx">{item.label || "配音"}</span>
+                    </div>
+                  ))}
+              </div>
+              <div className="lane" style={{ height: "var(--ha)" }}>
+                {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
+                  <span className="lane-empty">这一轨还没有内容</span>
+                )}
+                {film.audioClips
+                  .filter((item) => item.lane === "score" && item.path)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="clip m"
+                      style={{
+                        left: 1,
+                        width: Math.max(
+                          48,
+                          clips.reduce((sum, clip) => sum + clip.width, 0),
+                        ),
+                      }}
+                    >
+                      <span className="tx">
+                        导入的音乐
+                        {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              {range && span && clips[span.from] && clips[span.to] && (
+                <div
+                  className="range"
+                  style={{
+                    left: clips[Math.min(span.from, span.to)]!.left,
+                    width:
+                      clips[Math.max(span.from, span.to)]!.left +
+                      clips[Math.max(span.from, span.to)]!.width -
+                      clips[Math.min(span.from, span.to)]!.left,
+                  }}
+                >
+                  <span className="h l">入 {clock(start)}</span>
+                  <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
+                </div>
+              )}
+              <div
+                className="playhead"
+                style={{
+                  left:
+                    (selected?.left ?? 1) +
+                    (current && current.seconds > 0
+                      ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
+                      : 0),
+                }}
+              />
+            </div>
           </div>
         </div>
       </section>

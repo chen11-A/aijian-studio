@@ -1222,7 +1222,7 @@ body:has(.pro-root) {
 }
 .pro-root {
   --hs: 36px;
-  --hv: 70px;
+  --hv: 66px;
   --ha: 52px;
 }
 @media (min-width: 1600px) {
@@ -1442,11 +1442,12 @@ body:has(.pro-root) {
   display: flex;
   gap: 4px;
 }
+/* 3J-U12: a long film scrolls sideways inside the timeline, not off the edge of the window. */
 .pro-root .tracks {
   position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
 }
 .pro-root .ruler {
   height: 26px;
@@ -1568,19 +1569,31 @@ body:has(.pro-root) {
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* The playhead box is as wide as its cap, so nothing hangs outside it; the line is drawn in
+   the middle. */
 .pro-root .playhead {
   position: absolute;
   top: 0;
   bottom: 0;
+  width: 12px;
+  margin-left: -5px;
+  z-index: 5;
+  pointer-events: none;
+}
+.pro-root .playhead::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
   width: 2px;
   background: #fff;
-  z-index: 5;
 }
 .pro-root .playhead::before {
   content: "";
   position: absolute;
   top: 0;
-  left: -5px;
+  left: 0;
   border: 6px solid transparent;
   border-top: 8px solid #fff;
 }
@@ -2064,11 +2077,43 @@ body:has(.pro-root) {
   height: 14px;
   border-radius: 2px;
 }
+/* 3J-U12: a long film scrolls sideways inside the timeline, not off the edge of the window. */
 .pro-root .tracks {
   position: relative;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+}
+.pro-root .track-area {
+  position: relative;
+  min-width: 100%;
   display: flex;
   flex-direction: column;
+}
+.pro-root .lane-empty {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pro-root .hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pro-root .hint .q {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  cursor: help;
 }
 .pro-root .ruler {
   height: 26px;
@@ -2193,19 +2238,31 @@ body:has(.pro-root) {
     0 100%
   );
 }
+/* The playhead box is as wide as its cap, so nothing hangs outside it; the line is drawn in
+   the middle. */
 .pro-root .playhead {
   position: absolute;
   top: 0;
   bottom: 0;
+  width: 12px;
+  margin-left: -5px;
+  z-index: 5;
+  pointer-events: none;
+}
+.pro-root .playhead::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
   width: 2px;
   background: #fff;
-  z-index: 5;
 }
 .pro-root .playhead::before {
   content: "";
   position: absolute;
   top: 0;
-  left: -5px;
+  left: 0;
   border: 6px solid transparent;
   border-top: 8px solid #fff;
 }

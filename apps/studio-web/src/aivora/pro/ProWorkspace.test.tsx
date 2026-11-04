@@ -2396,3 +2396,25 @@ it("keeps one primary button under a shot that follows its state, the rest under
   fireEvent.click(within(footer()).getByRole("button", { name: "更多操作" }));
   expect(screen.getByRole("button", { name: "重新生成画面" })).toBeInTheDocument();
 });
+
+it("gives both sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  for (const lane of ["配音", "音乐"]) {
+    expect(screen.getByRole("button", { name: `静音${lane}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `单听${lane}` })).toBeInTheDocument();
+    expect(screen.getByLabelText(`${lane}音量`)).toHaveAttribute(
+      "title",
+      expect.stringMatching(new RegExp(`^${lane}音量 \\d+$`)),
+    );
+  }
+  expect(screen.getAllByText("这一轨还没有内容")).toHaveLength(2);
+  const ruler = [...document.querySelectorAll(".ruler span")].map((item) => item.textContent);
+  expect(ruler.slice(0, 3)).toEqual(["00:00.0", "00:05.0", "00:10.0"]);
+  expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
+    "title",
+    expect.stringContaining("配乐会在对白出现时让路"),
+  );
+  expect(screen.getByLabelText("导入音乐")).toBeInTheDocument();
+});
