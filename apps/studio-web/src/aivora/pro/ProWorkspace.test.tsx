@@ -388,7 +388,8 @@ describe("professional workspace", () => {
         .find((item) => item.className.includes("tab"))!,
     );
     fireEvent.click(screen.getByRole("button", { name: /^补齐.+的定妆照（还缺 \d 张）$/ }));
-    expect((await screen.findAllByText(/请打开安装好的 AIVORA 再出图/)).length).toBeGreaterThan(0);
+    // 3J-U19: the status line is one sentence; the reason waits in its tooltip.
+    await waitFor(() => expect(statusDetail()).toMatch(/请打开安装好的 AIVORA 再出图/));
     expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "试听" }));
     fireEvent.click(
@@ -681,7 +682,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
-    expect(await screen.findByText(/已暂停。点继续再生成剩下的/)).toBeInTheDocument();
+    await waitFor(() => expect(statusDetail()).toMatch(/已暂停。点继续再生成剩下的/));
     const saved = () =>
       vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
     const before = saved().shots.flatMap((row) => row.takes.map((take) => take.id));
@@ -1647,6 +1648,23 @@ it("puts a yellow dot on a shot with a continuity reminder and explains it in �
   expect(screen.queryByRole("region", { name: "场记提醒" })).toBeNull();
 });
 
+it("ticks a stage only when it is done, hides an idle progress bar, and points to real buttons", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  // UIR-06: the sample has no portraits, so 角色与场景 is not ticked even when passed.
+  const cast = stageTab("角色与场景");
+  expect(cast).not.toHaveClass("done");
+  expect(cast.querySelector(".tab-count")?.textContent).toMatch(/^0\/\d+$/);
+  // UIR-04: nothing is being made, so there is no progress bar.
+  expect(document.querySelector(".statusbar .bar")).toBeNull();
+  // UIR-05: the empty 单镜 says where the button is, once.
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  expect(screen.getByText("还没有版本。在右边点「生成 1 个版本」。")).toBeInTheDocument();
+  expect(screen.queryByText("还没有版本")).toBeNull();
+  expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeInTheDocument();
+});
+
 it("follows the work's aspect and offers 比例 only where the desktop can crop (4A-U07)", async () => {
   installDesktop();
   await openSample();
@@ -1696,6 +1714,8 @@ it("makes every missing portrait from one button and shows each slot's state", a
   fireEvent.click(all);
   await waitFor(() => expect(screen.getAllByText("已完成")).toHaveLength(4));
   expect(document.querySelector(".portrait-progress")).toHaveTextContent("都齐了");
+  // 3J-U19: a coded message is one sentence; the counts stay in the tooltip.
+  expect(document.querySelector(".status-note")?.textContent ?? "").not.toMatch(/\d+\/\d+/);
   expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeDisabled();
   expect(screen.queryByRole("button", { name: /^补齐.+的定妆照（还缺 \d 张）$/ })).toBeNull();
   expect(screen.getAllByText("定妆照齐了").length).toBeGreaterThan(0);
@@ -1875,6 +1895,11 @@ function openBoardTools() {
   if (!screen.queryByRole("button", { name: "写英文画面说明" })) {
     fireEvent.click(screen.getByRole("button", { name: "高级" }));
   }
+}
+
+// UIR-03: a coded message shows one sentence; its detail is in the status bar's tooltip.
+function statusDetail() {
+  return document.querySelector(".status-note")?.getAttribute("title") ?? "";
 }
 
 function stageTab(name: string) {
