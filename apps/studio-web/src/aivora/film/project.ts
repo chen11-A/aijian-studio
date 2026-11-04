@@ -1,7 +1,9 @@
+import type { WriterPlan, SceneWriterPlan, WriterCharacterPlan } from "./writer-plan";
 import type { ArtDesign } from "./art-design";
 import type { TextReviewReport } from "./review-report";
 import {
   directorPlanPrompt,
+  sceneDirectorDeclaration,
   parseDirectorPlan,
   type ShotDirectorPlan,
   type DirectorSourceRef,
@@ -143,6 +145,7 @@ export type FilmTake = {
 };
 
 export type FilmCharacter = {
+  writerPlan?: WriterCharacterPlan;
   id: string;
   name: string;
   identity: string;
@@ -156,6 +159,7 @@ export type FilmCharacter = {
 };
 
 export type FilmScene = {
+  writerPlan?: SceneWriterPlan;
   elements?: WriterElement[];
   /** Only uniquely attributable source paragraphs, in original order. */
   sourceParagraphIds?: string[];
@@ -242,6 +246,7 @@ export type FilmShot = {
 };
 
 export type FilmProject = {
+  writerPlan?: WriterPlan;
   artDesign?: ArtDesign;
   artDesignBaseline?: ArtDesign;
   reviewReports?: TextReviewReport[];
@@ -684,7 +689,39 @@ export function parseDirectorShots(
         target ? [target] : [],
         false,
       );
-      if (nested) all.push(...nested);
+      if (nested) {
+        const resolvedId = target?.id ?? sceneId;
+        const exact = record.scene_id === resolvedId;
+        const hint = [record.title, record.place]
+          .filter((value): value is string => typeof value === "string")
+          .join(" ");
+        const matching = scenes.filter(
+          (scene) =>
+            (scene.title.trim() && hint.includes(scene.title.trim())) ||
+            (placeName(scene.where).length >= 2 && hint.includes(placeName(scene.where))),
+        );
+        const matched = exact || (matching.length === 1 && matching[0]?.id === resolvedId);
+        const declaration = sceneDirectorDeclaration(record, resolvedId, matched);
+        all.push(
+          ...nested.map((shot) => {
+            const plan = shot.directorPlan ?? parseDirectorPlan({ purpose: "" }, shot);
+            return {
+              ...shot,
+              ...(plan
+                ? {
+                    directorPlan: {
+                      ...plan,
+                      segments: plan.segments.map((segment) => ({
+                        ...segment,
+                        sceneDeclaration: declaration,
+                      })),
+                    },
+                  }
+                : {}),
+            };
+          }),
+        );
+      }
     });
     if (!all.length) return null;
     return [...new Set(all.map((shot) => shot.sceneId))].flatMap((id) =>

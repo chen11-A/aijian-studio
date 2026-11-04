@@ -1,3 +1,4 @@
+import { parseWriterPlan, type WriterPlan } from "../../film/writer-plan";
 import {
   adaptToShortDrama,
   offlineScreenplay,
@@ -20,6 +21,7 @@ export function writerDraftInput(film: FilmProject, kind: "write" | "adapt", cha
 }
 export type WriterDraftResult = {
   scenes: FilmScene[] | null;
+  writerPlan?: WriterPlan;
   notice: string;
   event: "scenes" | "rejected" | "offline";
 };
@@ -33,6 +35,7 @@ export async function planWriterDraft(
   const { story, idea, asked, kind, chat, styleZh } = input;
   const connected = host.connected;
   let scenes: FilmScene[] | null = null;
+  let writerPlan: WriterPlan | undefined;
   let text = "没有登录，已用离线编剧。点「放入剧本」才会写入。";
   try {
     if (!connected) {
@@ -49,6 +52,7 @@ export async function planWriterDraft(
       const echo = parsed ? scenesEchoRequest(parsed, asked) : false;
       if (parsed && !echo) {
         scenes = parsed;
+        writerPlan = parseWriterPlan(reply.text, story);
         text = "编剧写好了。点「放入剧本」才会写入。";
       } else if (connected) {
         scenes = null;
@@ -66,6 +70,7 @@ export async function planWriterDraft(
   }
   return {
     scenes,
+    ...(writerPlan ? { writerPlan } : {}),
     notice: text,
     event: scenes && connected ? "scenes" : connected ? "rejected" : "offline",
   };

@@ -1,4 +1,5 @@
-import { applyScenes } from "../../film/operations";
+import type { WriterPlan } from "../../film/writer-plan";
+import { applyScenes, applyWriterPlan } from "../../film/operations";
 import { detectDirectorCoverage } from "../../film/director-continuity";
 import type { FilmProject, FilmScene, FilmShot } from "../../film/project";
 import { applyDirectorPlan } from "../director-workflow";
@@ -10,6 +11,14 @@ import {
 } from "./editor-structure";
 
 type Coverage = { present: boolean; value: FilmScene["coverage"] };
+type WriterAssets = Pick<FilmProject, "characters" | "locations"> & {
+  plan: { present: boolean; value: FilmProject["writerPlan"] };
+};
+const writerAssets = (film: FilmProject): WriterAssets => ({
+  characters: film.characters,
+  locations: film.locations,
+  plan: { present: Object.hasOwn(film, "writerPlan"), value: film.writerPlan },
+});
 type Beats = NonNullable<FilmProject["unassignedBeats"]>;
 export type StoryStructureTransaction = {
   kind: "writer" | "director";
@@ -20,6 +29,10 @@ export type StoryStructureTransaction = {
   sourceBefore: unknown;
   /** Initial manuscript retained verbatim when its placeholder scene is split. */
   sourceAfter?: string;
+  writerAssets?: {
+    before: WriterAssets;
+    after: WriterAssets;
+  };
   coverage?: { before: Coverage; after: Coverage };
   beats?: {
     before: Beats;
@@ -243,6 +256,7 @@ export function prepareDirectorTransaction(
 export function prepareWriterTransaction(
   base: FilmProject,
   scenes: FilmScene[],
+  writerPlan?: WriterPlan,
 ): StoryStructureTransaction {
   const initial = base.scenes[0];
   const initialManuscript =
@@ -334,6 +348,11 @@ export function prepareWriterTransaction(
     "writer",
     base.scenes[0]?.id ?? "",
   );
+  if (writerPlan) {
+    const after = writerAssets(applyWriterPlan(proposed, writerPlan));
+    const before = writerAssets(base);
+    if (!same(before, after)) tx.writerAssets = structuredClone({ before, after });
+  }
   if (sceneNumbering.length) tx.sceneNumbering = sceneNumbering;
   if (initialManuscript) tx.sourceAfter = initial.text;
   tx.unsupported.push(...unsupported);
@@ -415,6 +434,11 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
   if (tx.unsupported.length) return reject([...tx.unsupported]);
   if (current.id !== tx.projectId) return reject(["PROJECT_MISMATCH"]);
   if (
+    tx.writerAssets &&
+    !same(writerAssets(current), inverse ? tx.writerAssets.after : tx.writerAssets.before)
+  )
+    return reject(["WRITER_ASSETS_CHANGED"]);
+  if (
     tx.numbering?.some(
       (change) =>
         current.shots.find((shot) => shot.id === change.id)?.no !==
@@ -457,6 +481,7 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     same(tx.structure.beforeOrder, tx.structure.afterOrder);
   if (
     noStructure &&
+    !tx.writerAssets &&
     !tx.coverage &&
     !tx.beats &&
     !tx.shotChanges?.length &&
@@ -478,6 +503,12 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     : applyEditorStructure(prepared, tx.structure);
   if (changed.conflicts.length) return reject(changed.conflicts);
   let film = changed.film;
+  if (tx.writerAssets) {
+    const replacement = structuredClone(inverse ? tx.writerAssets.before : tx.writerAssets.after);
+    film = { ...film, characters: replacement.characters, locations: replacement.locations };
+    if (replacement.plan.present) film.writerPlan = replacement.plan.value;
+    else delete film.writerPlan;
+  }
   if (tx.sourceAfter !== undefined)
     film = { ...film, sourceText: inverse ? (tx.sourceBefore as string) : tx.sourceAfter };
   if (tx.sceneNumbering?.length) {

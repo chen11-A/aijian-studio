@@ -1,3 +1,4 @@
+import { sceneWriterPlan, type WriterPlan } from "./writer-plan";
 import { directorPlanPrompt } from "./director-plan";
 import { withShotCostumes } from "./costume-rules";
 import { writerElements } from "./writer-elements";
@@ -592,6 +593,7 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
       id: /^scene-\d+$/.test(explicit) ? explicit : `scene-${no}`,
       source: "agent:writer",
       elements: writerElements(record, [], []),
+      writerPlan: sceneWriterPlan(record),
       ...(tags.length > 0 ? { tags } : {}),
     });
     kept.push(record);
@@ -1682,4 +1684,52 @@ export async function extractBookText(
   return pages.length
     ? { text: pages.join("\n\n"), note: "已从电子书里抽出正文。" }
     : { text: "", note: "电子书里没有正文。请另存为 txt 再导入。" };
+}
+
+/** Same-reply writer metadata and cast projection. Existing media and user locks are preserved. */
+export function applyWriterPlan(film: FilmProject, plan: WriterPlan | undefined): FilmProject {
+  if (!plan) return film;
+  const prepared = {
+    ...film,
+    characters: film.characters.map((person) => {
+      const incoming = plan.characters.find((row) => row.name === person.name);
+      if (!incoming) return person;
+      const locked = (field: string) => person.userFields.includes(field);
+      return {
+        ...person,
+        writerPlan: incoming,
+        ...(!locked("identity") && !person.portraits.length && incoming.identity !== undefined
+          ? { identity: incoming.identity }
+          : {}),
+        ...(!locked("gender") && normalizeGender(incoming.gender)
+          ? { gender: normalizeGender(incoming.gender) }
+          : {}),
+        ...(!locked("ageBand") && normalizeAgeBand(incoming.ageBand)
+          ? { ageBand: normalizeAgeBand(incoming.ageBand) }
+          : {}),
+      };
+    }),
+  };
+  const merged = mergeCast(prepared, {
+    characters: plan.characters.map((row) => ({ ...row, identity: row.identity ?? "" })),
+    locations: plan.locations.map((row) => ({ name: row.name, prompt: row.prompt ?? "" })),
+  });
+  return {
+    ...merged,
+    writerPlan: structuredClone(plan),
+    characters: merged.characters.map((person) => {
+      const incoming = plan.characters.find((row) => row.name === person.name);
+      return incoming
+        ? { ...person, writerPlan: structuredClone(incoming) }
+        : (film.characters.find((row) => row.id === person.id) ?? person);
+    }),
+    locations: merged.locations.map((place) => {
+      const incoming = plan.locations.find((row) => row.name === place.name);
+      return incoming?.prompt !== undefined &&
+        !place.referenceImage &&
+        !place.userFields?.includes("prompt")
+        ? { ...place, prompt: incoming.prompt }
+        : place;
+    }),
+  };
 }

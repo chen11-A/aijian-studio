@@ -20,7 +20,34 @@ export type DirectorDialogueCue = {
   atSeconds: number | null;
   timingStatus: "specified" | "unspecified" | "needs_review";
 };
+export type SceneDirectorDeclaration = {
+  sourceSceneId?: string;
+  resolvedSceneId: string;
+  title?: string;
+  declaredTotalSeconds?: number;
+  rhythm?: string;
+  matchStatus: "matched" | "needs_review";
+};
+export function sceneDirectorDeclaration(
+  row: Record<string, unknown>,
+  resolvedSceneId: string,
+  matched: boolean,
+): SceneDirectorDeclaration {
+  return {
+    resolvedSceneId,
+    matchStatus: matched ? "matched" : "needs_review",
+    ...(typeof row.scene_id === "string" ? { sourceSceneId: row.scene_id } : {}),
+    ...(typeof row.title === "string" ? { title: row.title } : {}),
+    ...(typeof row.rhythm === "string" ? { rhythm: row.rhythm } : {}),
+    ...(typeof row.total_seconds === "number" && Number.isFinite(row.total_seconds)
+      ? { declaredTotalSeconds: row.total_seconds }
+      : {}),
+  };
+}
 export type DirectorSegment = {
+  sceneDeclaration?: SceneDirectorDeclaration;
+  sourceNo?: number;
+  declaredSeconds?: number;
   sourceShotId: string;
   seconds: number;
   purpose: string;
@@ -145,6 +172,10 @@ export function parseDirectorPlan(
   const sourceIds = trustedSource ? (source.sourceParagraphIds ?? []) : [];
   const segment: DirectorSegment = {
     sourceShotId: text(record.id) || shot.id,
+    ...(typeof record.no === "number" && Number.isFinite(record.no) ? { sourceNo: record.no } : {}),
+    ...(typeof record.seconds === "number" && Number.isFinite(record.seconds)
+      ? { declaredSeconds: record.seconds }
+      : {}),
     seconds: shot.seconds,
     purpose: text(record.purpose),
     emotion: text(record.emotion),
@@ -227,6 +258,9 @@ export function directorPlanPrompt(shot: FilmShot, mode: "frame" | "video"): str
   return (mode === "frame" ? plan.segments.slice(0, 1) : plan.segments)
     .map((segment, index) => {
       const notes = [
+        segment.sceneDeclaration?.matchStatus === "matched" && segment.sceneDeclaration.rhythm
+          ? `本场节奏参考：${segment.sceneDeclaration.rhythm}（设计参考，不改变镜头时长）`
+          : "",
         segment.purpose ? `镜头意图：${segment.purpose}` : "",
         segment.emotion ? `情绪：${segment.emotion}` : "",
         ...segment.positions

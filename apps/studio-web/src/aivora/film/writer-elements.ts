@@ -77,8 +77,9 @@ export function writerSceneContext(scene: FilmScene | undefined): string {
         (element) => element.verification === "needs_review",
       ).length,
       paragraphCoverage: scene.paragraphCoverage,
+      guidance: scene.writerPlan,
     },
-  )}\n段号沿用原文；保留在正文中的段落不代表归属已确认，可靠归属仅见 sourceParagraphIds。待核对元素不得当作原文；原文缺失和重复归属风险不得忽略。`;
+  )}\nguidance 是编剧设计参考，预计时长和台词计数不是实际结果或覆盖证明；正文优先。段号沿用原文；保留在正文中的段落不代表归属已确认，可靠归属仅见 sourceParagraphIds。待核对元素不得当作原文；原文缺失和重复归属风险不得忽略。`;
 }
 
 /** Preserve the global source-number namespace, including paragraphs awaiting ownership review. */

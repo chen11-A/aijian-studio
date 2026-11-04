@@ -1670,7 +1670,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const { scenes, notice: text } = result;
     setPendingScenes(scenes);
     if (scenes) {
-      const draft: StoryDraft = { transaction: prepareWriterTransaction(base, scenes), origin };
+      const draft: StoryDraft = { transaction: prepareWriterTransaction(base, scenes, result.writerPlan), origin };
       storyDraft.current = draft;
       publishCard("writer", {
         storyDraft: draft,

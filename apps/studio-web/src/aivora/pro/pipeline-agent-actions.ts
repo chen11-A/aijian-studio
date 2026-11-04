@@ -1,3 +1,5 @@
+import { parseWriterPlan } from "../film/writer-plan";
+import { applyWriterPlan } from "../film/operations";
 import { writerNumberedScript, writerSceneContext } from "../film/writer-elements";
 import { applyPerformancePlans, performancePlanPrompt } from "../film/performance-plan";
 import { applyActionPlan } from "../film/action-plan";
@@ -128,7 +130,7 @@ export async function runPipelineAgentAction(
       }
       const scenes = parseWriterScenes(reply.text, source);
       if (!scenes?.length) return failed("WRITER_PARSE_FAILED");
-      const next = applyScenes(film, scenes);
+      const next = applyWriterPlan(applyScenes(film, scenes), parseWriterPlan(reply.text, source));
       return scenes.some((scene) => scene.paragraphCoverage && !scene.paragraphCoverage.ok)
         ? blocked("SCRIPT_COVERAGE_REVIEW", next)
         : done(next);

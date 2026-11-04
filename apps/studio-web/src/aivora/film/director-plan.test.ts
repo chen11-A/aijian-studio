@@ -315,3 +315,74 @@ describe("typed director plan", () => {
     ).toEqual([]);
   });
 });
+
+describe("director scene declarations survive normal parsing and merges", () => {
+  it.each(directors)("projects scene metadata from frozen design $example.id", ({ example }) => {
+    const output = (
+      example as unknown as {
+        output: {
+          scenes: {
+            scene_id: string;
+            title: string;
+            total_seconds: number;
+            rhythm: string;
+            shots: Record<string, unknown>[];
+          }[];
+        };
+      }
+    ).output;
+    const raw = output.scenes[0]!;
+    const text = raw.shots
+      .map((shot) => `${shot.picture}\n${shot.speaker}：“${shot.line}”`)
+      .join("\n");
+    const ref = { id: raw.scene_id, title: raw.title, where: "", text };
+    const shots = parseDirectorShots(JSON.stringify(output), raw.scene_id, text, [ref])!;
+    const segments = shots.flatMap((shot) => shot.directorPlan!.segments);
+    expect(segments).toHaveLength(raw.shots.length);
+    raw.shots.forEach((original, index) => {
+      expect(segments[index]).toMatchObject({
+        sourceNo: original.no,
+        declaredSeconds: original.seconds,
+        sceneDeclaration: {
+          sourceSceneId: raw.scene_id,
+          resolvedSceneId: raw.scene_id,
+          title: raw.title,
+          declaredTotalSeconds: raw.total_seconds,
+          rhythm: raw.rhythm,
+          matchStatus: "matched",
+        },
+      });
+    });
+    const restored = upgradeFilm(JSON.parse(JSON.stringify({ ...blankFilm(), shots })))!;
+    expect(restored.shots.map((shot) => shot.directorPlan)).toEqual(
+      shots.map((shot) => shot.directorPlan),
+    );
+    expect(directorPlanPrompt(shots[0]!, "video")).toContain(raw.rhythm);
+  });
+  it("keeps ambiguous fallback declarations review-only and estimates do not set duration", () => {
+    const shots = parseDirectorShots(
+      JSON.stringify({
+        scenes: [
+          {
+            scene_id: "wrong",
+            title: "另一场",
+            total_seconds: 999,
+            rhythm: "不能消费的错误场景节奏",
+            shots: [row({ no: 99, seconds: 3 })],
+          },
+        ],
+      }),
+      "scene-1",
+      "",
+      [{ id: "scene-1", title: "书店", where: "", text: "" }],
+    )!;
+    expect(shots[0]!.seconds).toBe(3);
+    expect(shots[0]!.no).toBe(1);
+    expect(shots[0]!.directorPlan!.segments[0]).toMatchObject({
+      sourceNo: 99,
+      declaredSeconds: 3,
+      sceneDeclaration: { matchStatus: "needs_review", declaredTotalSeconds: 999 },
+    });
+    expect(directorPlanPrompt(shots[0]!, "video")).not.toContain("错误场景节奏");
+  });
+});

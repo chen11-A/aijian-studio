@@ -1,3 +1,5 @@
+import { parseWriterPlan } from "../../film/writer-plan";
+import { applyWriterPlan } from "../../film/operations";
 import { applyContinuityChecks } from "../../film/continuity-rules";
 import { applyScenes, numberedScript, parseWriterScenes } from "../../film/operations";
 import type { FilmProject, FilmShot } from "../../film/project";
@@ -88,7 +90,9 @@ export async function buildLegacyStoryboard(
       kind: "stopped",
       text: writer.detail || "编剧没有按格式返回，已停。没有写入离线剧本。点「继续」再试。",
     };
-  apply(applyScenes(host.current()!, scenes));
+  apply(
+    applyWriterPlan(applyScenes(host.current()!, scenes), parseWriterPlan(writer.text ?? "", idea)),
+  );
   const castBase = host.current()!;
   const castSource = source(castBase);
   await host.fillCast(castBase);
