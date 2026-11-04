@@ -1,3 +1,4 @@
+import { generateShotStill } from "./actions/shot-still";
 import { createEditorPageHistory } from "./actions/page-history";
 import { createEditorHost } from "./actions/editor-host";
 import type { EditorSuggestion } from "./actions/editor-changes";
@@ -129,7 +130,7 @@ import {
   sceneDisplayTitle,
 } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
-import { publishFilmJobs, runTask } from "../film/task-progress";
+import { publishFilmJobs } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
@@ -155,7 +156,6 @@ import {
   shotFrame,
   hydrateFilm,
   filmSignature,
-  requestShotStill,
   assembleCurrentFilm,
   retryDirectorTimeout,
   type AgentReply,
@@ -2220,34 +2220,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       () => filmRef.current?.id ?? "",
     );
     try {
-      await runTask(
-        {
-          id: `still:${current.id}`,
-          projectId: base.id,
-          shotId: current.id,
-          kind: "image",
-          title: "生成画面",
-        },
-        async (signal) => {
-          const made = await requestShotStill(base, current, keyframePrompt(current, base));
-          if (signal.aborted) throw new Error("TASK_TIMEOUT");
-          const live = filmRef.current;
-          if (!live || !valid()) throw new Error("WORK_STALE");
-          if (!made.url) throw new Error(made.reason || "STILL_FAILED");
-          applyLive(
-            updateShot(live, current.id, {
-              poster: made.url,
-              stills: [
-                ...current.stills,
-                { id: crypto.randomUUID(), prompt: current.picture, url: made.url },
-              ],
-            }),
-          );
-          setNotice(made.reason);
-        },
-      );
+      const result = await generateShotStill(base, current, {
+        current: () => filmRef.current,
+        valid,
+        apply: applyLive,
+      });
+      if (valid()) setNotice(result.notice);
     } catch (error) {
-      if (valid()) emitNotice(stillFailureNotice(error));
+      if (valid()) {
+        if (error instanceof Error && "code" in error && error.code === "SHOT_STILL_INPUT_CHANGED")
+          emitNotice({ code: "SHOT_STILL_INPUT_CHANGED", text: error.message });
+        else emitNotice(stillFailureNotice(error));
+      }
     } finally {
       release();
     }
