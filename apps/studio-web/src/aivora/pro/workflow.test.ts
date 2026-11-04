@@ -274,10 +274,23 @@ it("UIR-03 emits one short status sentence without technical details or duplicat
     NOTICE_TEXT.STILL_CAST_LIMIT,
     "图片模型不可用，上限 5 张；最多 13 张参考图。",
     "请重新登录会员。",
+    "模型拒绝了这一张。",
   ]) {
     const result = normalizeNotice(stillFailureNotice(new Error(reason)));
     expect(result.detail).toBeUndefined();
     expect(result.text).not.toMatch(/模型|上限|首帧选用|\d/);
     expect(result.text.match(/。/g)).toHaveLength(1);
   }
+});
+
+it("keeps rejection distinct from an ordinary still failure in plain status copy", async () => {
+  const { stillFailureNotice } = await import("./workflow");
+  expect(stillFailureNotice(new Error("模型拒绝了这一张。"))).toEqual({
+    code: "STILL_REJECTED",
+    text: "这张画面未获准生成，请调整画面描述后重试。",
+  });
+  expect(stillFailureNotice(new Error("出图没有成功，可以重试。"))).toEqual({
+    code: "STILL_FAILED",
+    text: "画面未完成，可以重试。",
+  });
 });

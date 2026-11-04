@@ -577,3 +577,5 @@ GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名�
 ## UIR-03 出图原因文字
 
 requestShotStill 的 reason 不再拼参考图数量或模型上限，diagnostics 独立提供 referenceCount/imageLimit/videoReferenceLimit，供任务详情使用；实际发送参考张数继续由桌面请求日志记录，不记录原文。状态栏只收到规范的一句话提示，无 detail 重复兜底；新增 STILL_CAST_LIMIT 表示人物太多、应拆镜重试。未修改 Claude 的状态栏 JSX/CSS，也未处理其他 UIR 项。
+
+UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为“这张画面未获准生成，请调整画面描述后重试。”；普通网络/出图失败仍为 STILL_FAILED。B18/B19 已按用户新指示移到出包后的下一轮，延后指示前已提交的 UIR-02/03 保留，不继续扩展。

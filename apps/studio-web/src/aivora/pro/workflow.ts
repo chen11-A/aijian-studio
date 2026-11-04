@@ -370,7 +370,10 @@ export async function assembleCurrentFilm(
 
 /** Status copy is one canonical sentence; provider/selection diagnostics stay separate. */
 export function stillFailureNotice(error: unknown): UiNotice {
-  const parsed = normalizeNotice(error instanceof Error ? error.message : "");
+  const reason = error instanceof Error ? error.message : "";
+  if (/拒绝|未获准/u.test(reason))
+    return { code: "STILL_REJECTED", text: NOTICE_TEXT.STILL_REJECTED };
+  const parsed = normalizeNotice(reason);
   const code = [
     "DESKTOP_REQUIRED",
     "GROK_MEMBERSHIP_REQUIRED",

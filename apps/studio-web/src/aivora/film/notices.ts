@@ -85,6 +85,7 @@ export const NOTICE_TEXT = {
   FIRST_FRAME_PROGRESS: "正在生成带参考图的首帧。",
   FIRST_FRAME_FAILED: "首帧未完成，可以重试。",
   STILL_FAILED: "画面未完成，可以重试。",
+  STILL_REJECTED: "这张画面未获准生成，请调整画面描述后重试。",
   STILL_CAST_LIMIT: "这一镜人物太多，请拆成更少人物的镜头后重试。",
   STILL_DONE: "画面已生成。",
   STILL_CANDIDATES_READY: "候选画面已生成，请选择。",

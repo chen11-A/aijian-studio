@@ -567,9 +567,11 @@ describe("professional workspace", () => {
       expect(screen.getAllByText("画面已出").length).toBeGreaterThan(0);
       expect(screen.getByRole("button", { name: "生成视频" })).toHaveClass("primary");
       moreAction("重新生成画面");
-      expect(await screen.findByText(/模型拒绝了这一张。/)).toBeInTheDocument();
+      expect(
+        await screen.findByText("这张画面未获准生成，请调整画面描述后重试。"),
+      ).toBeInTheDocument();
       moreAction("重新生成画面");
-      expect(await screen.findByText(/出图没有成功，可以重试。/)).toBeInTheDocument();
+      expect(await screen.findByText("画面未完成，可以重试。")).toBeInTheDocument();
       moreAction("重新生成画面");
       expect(await screen.findByText(/画面已生成。/)).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
