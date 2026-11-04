@@ -165,8 +165,8 @@
     "output": {
       "ambience": [
         {
-          "assetId": "sfx-night-street-puebla-1",
-          "path": "remaining/ambience/night-street-puebla-1.ogg",
+          "assetId": "round3-night-street-413949-0",
+          "path": "round3/ambience/round3-night-street-413949-0.ogg",
           "time": 0,
           "end": 8,
           "gainDb": -6,
@@ -174,8 +174,8 @@
           "loop": false,
           "segments": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 8,
               "sourceStart": 0,
@@ -219,8 +219,8 @@
           "index": 1,
           "ambience": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 8,
               "gainDb": -6,
@@ -228,8 +228,8 @@
               "loop": false,
               "segments": [
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
                   "time": 0,
                   "end": 8,
                   "sourceStart": 0,
@@ -241,19 +241,19 @@
           ],
           "effects": [
             {
-              "assetId": "remaining-pipe-impact-1",
-              "path": "remaining/actions/pipe-impact-1.ogg",
+              "assetId": "round3-pipe-hit-1",
+              "path": "round3/actions/pipe-hit-1.ogg",
               "time": 1,
-              "end": 3.1,
+              "end": 2.25,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "remaining-pipe-impact-1",
-                  "path": "remaining/actions/pipe-impact-1.ogg",
+                  "assetId": "round3-pipe-hit-1",
+                  "path": "round3/actions/pipe-hit-1.ogg",
                   "time": 1,
-                  "end": 3.1,
+                  "end": 2.25,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -299,13 +299,31 @@
                   "fadeOut": 0
                 }
               ]
+            },
+            {
+              "assetId": "round3-body-fall-1",
+              "path": "round3/actions/body-fall-1.ogg",
+              "time": 5,
+              "end": 5.7222290000000005,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "round3-body-fall-1",
+                  "path": "round3/actions/body-fall-1.ogg",
+                  "time": 5,
+                  "end": 5.7222290000000005,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
             }
           ]
         }
       ],
-      "warnings": [
-        "第1镜头第5秒缺少“倒地”对应音效"
-      ],
+      "warnings": [],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
     }
   },
@@ -331,7 +349,44 @@
       ]
     },
     "output": {
-      "ambience": [],
+      "ambience": [
+        {
+          "assetId": "round3-hospital-corridor-451883-0",
+          "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+          "time": 0,
+          "end": 45,
+          "gainDb": -12,
+          "reason": "同一环境整场连续播放，切镜头不重启",
+          "loop": true,
+          "segments": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 40,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            },
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 40,
+              "end": 45,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            }
+          ],
+          "gainAutomation": [
+            {
+              "start": 0,
+              "end": 45,
+              "gainDb": -12
+            }
+          ]
+        }
+      ],
       "music": {
         "assetId": "r2-loop-music-6d424149d4a2",
         "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
@@ -372,7 +427,37 @@
       "shots": [
         {
           "index": 1,
-          "ambience": [],
+          "ambience": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 45,
+              "gainDb": -12,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 0,
+                  "end": 40,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                },
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 40,
+                  "end": 45,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
           "effects": [
             {
               "assetId": "sfx-44043937fae8",
@@ -453,9 +538,7 @@
           ]
         }
       ],
-      "warnings": [
-        "第1镜头缺少匹配的环境音，请补充真实素材"
-      ],
+      "warnings": [],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
     }
   },

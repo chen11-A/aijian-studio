@@ -51,8 +51,8 @@
     "output": {
       "ambience": [
         {
-          "assetId": "sfx-night-street-puebla-1",
-          "path": "remaining/ambience/night-street-puebla-1.ogg",
+          "assetId": "round3-night-street-413949-0",
+          "path": "round3/ambience/round3-night-street-413949-0.ogg",
           "time": 0,
           "end": 55,
           "gainDb": -6,
@@ -60,18 +60,18 @@
           "loop": true,
           "segments": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
-              "end": 39,
+              "end": 40,
               "sourceStart": 0,
               "fadeIn": 0,
               "fadeOut": 0
             },
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
-              "time": 39,
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 40,
               "end": 55,
               "sourceStart": 0,
               "fadeIn": 0,
@@ -139,8 +139,8 @@
           "index": 1,
           "ambience": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 18,
               "gainDb": -6,
@@ -148,8 +148,8 @@
               "loop": true,
               "segments": [
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
                   "time": 0,
                   "end": 18,
                   "sourceStart": 0,
@@ -161,19 +161,19 @@
           ],
           "effects": [
             {
-              "assetId": "remaining-pipe-impact-1",
-              "path": "remaining/actions/pipe-impact-1.ogg",
+              "assetId": "round3-pipe-hit-1",
+              "path": "round3/actions/pipe-hit-1.ogg",
               "time": 2,
-              "end": 4.1,
+              "end": 3.25,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "remaining-pipe-impact-1",
-                  "path": "remaining/actions/pipe-impact-1.ogg",
+                  "assetId": "round3-pipe-hit-1",
+                  "path": "round3/actions/pipe-hit-1.ogg",
                   "time": 2,
-                  "end": 4.1,
+                  "end": 3.25,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -206,8 +206,8 @@
           "index": 2,
           "ambience": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 20,
               "gainDb": -12,
@@ -215,8 +215,8 @@
               "loop": true,
               "segments": [
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
                   "time": 0,
                   "end": 20,
                   "sourceStart": 18,
@@ -228,19 +228,39 @@
           ],
           "effects": [
             {
-              "assetId": "remaining-pipe-impact-1",
-              "path": "remaining/actions/pipe-impact-1.ogg",
+              "assetId": "round3-pipe-hit-1",
+              "path": "round3/actions/pipe-hit-1.ogg",
               "time": 4,
-              "end": 6.1,
+              "end": 5.25,
               "gainDb": -6,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "remaining-pipe-impact-1",
-                  "path": "remaining/actions/pipe-impact-1.ogg",
+                  "assetId": "round3-pipe-hit-1",
+                  "path": "round3/actions/pipe-hit-1.ogg",
                   "time": 4,
-                  "end": 6.1,
+                  "end": 5.25,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            },
+            {
+              "assetId": "round3-body-fall-1",
+              "path": "round3/actions/body-fall-1.ogg",
+              "time": 9,
+              "end": 9.722229,
+              "gainDb": -6,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "round3-body-fall-1",
+                  "path": "round3/actions/body-fall-1.ogg",
+                  "time": 9,
+                  "end": 9.722229,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -253,8 +273,8 @@
           "index": 3,
           "ambience": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 17,
               "gainDb": -6,
@@ -262,18 +282,18 @@
               "loop": true,
               "segments": [
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
                   "time": 0,
-                  "end": 1,
+                  "end": 2,
                   "sourceStart": 38,
                   "fadeIn": 0,
                   "fadeOut": 0
                 },
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
-                  "time": 1,
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 2,
                   "end": 17,
                   "sourceStart": 0,
                   "fadeIn": 0,
@@ -284,19 +304,19 @@
           ],
           "effects": [
             {
-              "assetId": "remaining-pipe-impact-1",
-              "path": "remaining/actions/pipe-impact-1.ogg",
+              "assetId": "round3-pipe-hit-1",
+              "path": "round3/actions/pipe-hit-1.ogg",
               "time": 5,
-              "end": 7.1,
+              "end": 6.25,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "remaining-pipe-impact-1",
-                  "path": "remaining/actions/pipe-impact-1.ogg",
+                  "assetId": "round3-pipe-hit-1",
+                  "path": "round3/actions/pipe-hit-1.ogg",
                   "time": 5,
-                  "end": 7.1,
+                  "end": 6.25,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -306,9 +326,7 @@
           ]
         }
       ],
-      "warnings": [
-        "第2镜头第9秒缺少“倒地”对应音效"
-      ],
+      "warnings": [],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
     }
   },
@@ -349,7 +367,54 @@
       ]
     },
     "output": {
-      "ambience": [],
+      "ambience": [
+        {
+          "assetId": "round3-hospital-corridor-451883-0",
+          "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+          "time": 0,
+          "end": 65,
+          "gainDb": -6,
+          "reason": "同一环境整场连续播放，切镜头不重启",
+          "loop": true,
+          "segments": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 40,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            },
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 40,
+              "end": 65,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            }
+          ],
+          "gainAutomation": [
+            {
+              "start": 0,
+              "end": 23,
+              "gainDb": -6
+            },
+            {
+              "start": 23,
+              "end": 42,
+              "gainDb": -12
+            },
+            {
+              "start": 42,
+              "end": 65,
+              "gainDb": -6
+            }
+          ]
+        }
+      ],
       "music": {
         "assetId": "r2-loop-music-6d424149d4a2",
         "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
@@ -390,7 +455,28 @@
       "shots": [
         {
           "index": 1,
-          "ambience": [],
+          "ambience": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 23,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 0,
+                  "end": 23,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
           "effects": [
             {
               "assetId": "sfx-44043937fae8",
@@ -454,7 +540,37 @@
         },
         {
           "index": 2,
-          "ambience": [],
+          "ambience": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 19,
+              "gainDb": -12,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 0,
+                  "end": 17,
+                  "sourceStart": 23,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                },
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 17,
+                  "end": 19,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
           "effects": [
             {
               "assetId": "sfx-monitor-steady",
@@ -489,7 +605,28 @@
         },
         {
           "index": 3,
-          "ambience": [],
+          "ambience": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 23,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 0,
+                  "end": 23,
+                  "sourceStart": 2,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
           "effects": [
             {
               "assetId": "sfx-44043937fae8",
@@ -552,11 +689,7 @@
           ]
         }
       ],
-      "warnings": [
-        "第1镜头缺少匹配的环境音，请补充真实素材",
-        "第2镜头缺少匹配的环境音，请补充真实素材",
-        "第3镜头缺少匹配的环境音，请补充真实素材"
-      ],
+      "warnings": [],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
     }
   },
@@ -604,8 +737,8 @@
     "output": {
       "ambience": [
         {
-          "assetId": "sfx-night-street-puebla-1",
-          "path": "remaining/ambience/night-street-puebla-1.ogg",
+          "assetId": "round3-night-street-413949-0",
+          "path": "round3/ambience/round3-night-street-413949-0.ogg",
           "time": 0,
           "end": 75,
           "gainDb": -6,
@@ -613,18 +746,18 @@
           "loop": true,
           "segments": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
-              "end": 39,
+              "end": 40,
               "sourceStart": 0,
               "fadeIn": 0,
               "fadeOut": 0
             },
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
-              "time": 39,
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 40,
               "end": 75,
               "sourceStart": 0,
               "fadeIn": 0,
@@ -692,8 +825,8 @@
           "index": 1,
           "ambience": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 22,
               "gainDb": -6,
@@ -701,8 +834,8 @@
               "loop": true,
               "segments": [
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
                   "time": 0,
                   "end": 22,
                   "sourceStart": 0,
@@ -712,14 +845,35 @@
               ]
             }
           ],
-          "effects": []
+          "effects": [
+            {
+              "assetId": "r3-umbrella-open-1",
+              "path": "round3/umbrella/r3-umbrella-open-1.ogg",
+              "time": 3,
+              "end": 3.8,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "r3-umbrella-open-1",
+                  "path": "round3/umbrella/r3-umbrella-open-1.ogg",
+                  "time": 3,
+                  "end": 3.8,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
         },
         {
           "index": 2,
           "ambience": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 28,
               "gainDb": -12,
@@ -727,18 +881,18 @@
               "loop": true,
               "segments": [
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
                   "time": 0,
-                  "end": 17,
+                  "end": 18,
                   "sourceStart": 22,
                   "fadeIn": 0,
                   "fadeOut": 0
                 },
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
-                  "time": 17,
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 18,
                   "end": 28,
                   "sourceStart": 0,
                   "fadeIn": 0,
@@ -774,8 +928,8 @@
           "index": 3,
           "ambience": [
             {
-              "assetId": "sfx-night-street-puebla-1",
-              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
               "time": 0,
               "end": 25,
               "gainDb": -6,
@@ -783,24 +937,42 @@
               "loop": true,
               "segments": [
                 {
-                  "assetId": "sfx-night-street-puebla-1",
-                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
                   "time": 0,
                   "end": 25,
-                  "sourceStart": 11,
+                  "sourceStart": 10,
                   "fadeIn": 0,
                   "fadeOut": 0
                 }
               ]
             }
           ],
-          "effects": []
+          "effects": [
+            {
+              "assetId": "r3-umbrella-close-1",
+              "path": "round3/umbrella/r3-umbrella-close-1.ogg",
+              "time": 16,
+              "end": 17.8,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "r3-umbrella-close-1",
+                  "path": "round3/umbrella/r3-umbrella-close-1.ogg",
+                  "time": 16,
+                  "end": 17.8,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
         }
       ],
-      "warnings": [
-        "第1镜头第3秒缺少“开伞”对应音效",
-        "第3镜头第16秒缺少“收伞”对应音效"
-      ],
+      "warnings": [],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
     }
   }

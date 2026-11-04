@@ -1,0 +1,8 @@
+title: Metal Pipe Scraped on Concrete in Basement.aif by RutgerMuller
+author: RutgerMuller
+pageUrl: https://freesound.org/people/RutgerMuller/sounds/104361/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

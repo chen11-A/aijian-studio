@@ -125,7 +125,7 @@ function expectFilled(segments: Segment[], duration: number): void {
   }
 }
 
-it('四个指定场景用新真实清单，雨与监护仪补齐，医院走廊和倒地仍如实缺项', () => {
+it('四个指定场景用真实清单，雨、动作、医院走廊及长配乐全部覆盖', () => {
   const results = runScenarios(library);
   const [rain, fight, hospital, warm] = results.map(r => r.output);
   const rainBed = rain.shots[0].ambience[0];
@@ -136,22 +136,22 @@ it('四个指定场景用新真实清单，雨与监护仪补齐，医院走廊�
   expect(rain.shots[0].effects.some(e => library.find(a => a.id === e.assetId)?.tags.includes('手机震动'))).toBe(true);
   expect(rain.warnings.some(w => w.includes('环境音'))).toBe(false);
 
-  expect(fight.shots[0].effects.map(e => e.time)).toEqual([1, 2, 3]);
+  expect(fight.shots[0].effects.map(e => e.time)).toEqual([1, 2, 3, 5]);
   const street = fight.shots[0].ambience[0];
   expect(street).toBeDefined();
   const streetAsset = library.find(a => a.id === street.assetId)!;
   expect(streetAsset.tags).toContain('街道');
-  expect(streetAsset.id).toMatch(/^sfx-night-street-puebla-/);
+  expect(streetAsset.id).toMatch(/^round3-night-street-/);
   expect(streetAsset.loop).toBe(true);
   expectFilled(street.segments, 8);
   expect(fight.warnings.some(w => w.includes('环境音'))).toBe(false);
   const pipe = library.find(a => a.id === fight.shots[0].effects[0].assetId)!;
-  expect(pipe.id).toMatch(/^remaining-pipe-impact-/);
+  expect(pipe.id).toMatch(/^round3-pipe-hit-/);
   expect(pipe.tags).toContain('金属管击打');
   expect(fight.warnings.some(w => w.includes('金属管击打素材'))).toBe(false);
   const knife = fight.shots[0].effects.find(e => e.time === 3)!;
   expect(library.find(a => a.id === knife.assetId)?.tags).toContain('刀划伤');
-  expect(fight.warnings.some(w => w.includes('倒地'))).toBe(true);
+  expect(fight.warnings.some(w => w.includes('倒地'))).toBe(false);
 
   const footstep = hospital.shots[0].effects.find(e => e.time === 1)!;
   const steps = library.find(a => a.id === footstep.assetId)!;
@@ -164,8 +164,10 @@ it('四个指定场景用新真实清单，雨与监护仪补齐，医院走廊�
   expect(monitor!.gainDb).toBe(-6);
   expect(hospital.warnings.some(w => w.includes('心电监护仪'))).toBe(false);
   // 设备滴声不是走廊空间底噪；不拿人群或监护仪冒充医院环境声。
-  expect(hospital.shots[0].ambience).toEqual([]);
-  expect(hospital.warnings.some(w => w.includes('环境音'))).toBe(true);
+  expect(hospital.shots[0].ambience).toHaveLength(1);
+  expect(library.find(a => a.id === hospital.shots[0].ambience[0].assetId)?.tags).toContain('医院底噪');
+  expectFilled(hospital.shots[0].ambience[0].segments, 45);
+  expect(hospital.warnings.some(w => w.includes('环境音'))).toBe(false);
   expect(hospital.music?.ducking).toEqual([{ start: 0, end: 45, gainDb: -12 }]);
 
   expect(warm.music?.segments.length).toBeGreaterThan(1);
@@ -208,22 +210,39 @@ it('第三轮三个真实场景的环境整场连续，镜头视图保留源位�
     expect(effect).toBeDefined();
     expect(library.find(a => a.id === effect.assetId)!.tags.some(t => ['钢管击打', '金属管击打'].includes(t))).toBe(true);
   }
-  expect(fight.warnings.some(w => w.includes('倒地'))).toBe(true);
+  expect(fight.warnings.some(w => w.includes('倒地'))).toBe(false);
   const hospital = results[1].output;
-  expect(hospital.ambience).toEqual([]);
-  expect(hospital.warnings.filter(w => w.includes('环境音'))).toHaveLength(3);
+  expect(hospital.ambience).toHaveLength(1);
+  expect(hospital.ambience[0].end).toBe(65);
+  expect(hospital.shots[1].ambience[0].segments[0].sourceStart).toBe(23);
+  expect(hospital.warnings).toEqual([]);
   const street = results[2].output;
   expect(street.ambience).toHaveLength(1);
   expect(street.ambience[0].end).toBe(75);
   expect(street.shots[1].ambience[0].segments[0].sourceStart).toBe(22);
-  expect(street.shots[0].effects).toEqual([]);
-  expect(street.shots[2].effects).toEqual([]);
-  expect(street.warnings).toEqual(expect.arrayContaining([
-    '第1镜头第3秒缺少“开伞”对应音效', '第3镜头第16秒缺少“收伞”对应音效',
-  ]));
+  expect(street.shots[0].effects[0].assetId).toMatch(/^r3-umbrella-open-/);
+  expect(street.shots[2].effects[0].assetId).toMatch(/^r3-umbrella-close-/);
+  expect(street.warnings).toEqual([]);
   if (process.env.AIVORA_SCENARIO_REPORT) {
     writeFileSync(new URL('./ROUND3_SCENARIO_RESULTS.json', import.meta.url), JSON.stringify(results, null, 2) + '\n');
   } else {
     expect(JSON.parse(readFileSync(new URL('./ROUND3_SCENARIO_RESULTS.json', import.meta.url), 'utf8'))).toEqual(results);
+  }
+});
+
+
+it('第三轮导入原件有固定提交证据，六类数量与40秒循环可核验', () => {
+  const entries = JSON.parse(readFileSync(new URL('manifest.json', libraryRoot), 'utf8')) as (AudioAsset & { rawCommit?: string; downloadSource?: string; sha256: string })[];
+  const raw = entries.filter(a => a.rawCommit === '72b08644f41a0d62fe11f5708b193450341f41c5');
+  expect(raw).toHaveLength(21);
+  for (const tag of ['开伞', '收伞', '钢管击打', '钢管拖地', '人体倒地', '医院底噪', '夜街']) {
+    expect(raw.filter(a => a.tags.includes(tag))).toHaveLength(3);
+  }
+  for (const a of raw) {
+    expect(a.downloadSource).toMatch(/^https:\/\/cdn\.freesound\.org\/previews\/.+-hq\.mp3$/);
+    expect(a.author).toBeTruthy();
+    expect(a.license).toBe('CC0-1.0');
+    expect(createHash('sha256').update(readFileSync(new URL(a.path, libraryRoot))).digest('hex')).toBe(a.sha256);
+    if (a.category === '环境') expect(a).toMatchObject({ duration: 40, loop: true, loopable: true });
   }
 });

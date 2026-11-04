@@ -1,0 +1,98 @@
+[
+  {
+    "id": "freesound-628659",
+    "freesoundId": 628659,
+    "category": "umbrella",
+    "title": "Umbrella - small - open - close - handle - indoor - mecanism - 1.wav",
+    "author": "ValentinPetiteau",
+    "pageUrl": "https://freesound.org/people/ValentinPetiteau/sounds/628659/",
+    "previewUrl": "https://cdn.freesound.org/previews/628/628659_10443988-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "umbrella/evidence/fs-628659.html",
+      "umbrella/evidence/fs-628659.txt"
+    ],
+    "file": "umbrella/fs-628659.mp3",
+    "sha256": "5bb1c3596d8cebfd2c173c1e043b569b61f92ea1c501eb34bd9862f9119fc08b",
+    "bytes": 752229,
+    "duration": 32.409,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04",
+    "rawCommit": "72b08644f41a0d62fe11f5708b193450341f41c5",
+    "downloadSource": "https://cdn.freesound.org/previews/628/628659_10443988-hq.mp3",
+    "source": "https://freesound.org/people/ValentinPetiteau/sounds/628659/"
+  },
+  {
+    "id": "freesound-502526",
+    "freesoundId": 502526,
+    "category": "umbrella",
+    "title": "Umbrella opening and closing in steady rainfall",
+    "author": "RavenWolfProds",
+    "pageUrl": "https://freesound.org/people/RavenWolfProds/sounds/502526/",
+    "previewUrl": "https://cdn.freesound.org/previews/502/502526_9619518-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "umbrella/evidence/fs-502526.html",
+      "umbrella/evidence/fs-502526.txt"
+    ],
+    "file": "umbrella/fs-502526.mp3",
+    "sha256": "c4a956f9c28d3c65b847a485a46c521002394ce69afabd848b2b31d31ee0769a",
+    "bytes": 2839559,
+    "duration": 99.261,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04",
+    "rawCommit": "72b08644f41a0d62fe11f5708b193450341f41c5",
+    "downloadSource": "https://cdn.freesound.org/previews/502/502526_9619518-hq.mp3",
+    "source": "https://freesound.org/people/RavenWolfProds/sounds/502526/"
+  },
+  {
+    "id": "freesound-369322",
+    "freesoundId": 369322,
+    "category": "umbrella",
+    "title": "Umbrella Opening",
+    "author": "Sheyvan",
+    "pageUrl": "https://freesound.org/people/Sheyvan/sounds/369322/",
+    "previewUrl": "https://cdn.freesound.org/previews/369/369322_3248005-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "umbrella/evidence/fs-369322.html",
+      "umbrella/evidence/fs-369322.txt"
+    ],
+    "file": "umbrella/fs-369322.mp3",
+    "sha256": "ffb5ec4c23d168721b0ccc2f3560c551026c98f12084619b70e2f2856351f2c9",
+    "bytes": 442166,
+    "duration": 18.559,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04",
+    "rawCommit": "72b08644f41a0d62fe11f5708b193450341f41c5",
+    "downloadSource": "https://cdn.freesound.org/previews/369/369322_3248005-hq.mp3",
+    "source": "https://freesound.org/people/Sheyvan/sounds/369322/"
+  },
+  {
+    "id": "freesound-197375",
+    "freesoundId": 197375,
+    "category": "umbrella",
+    "title": "open and close umbrella.aif",
+    "author": "trundlefly",
+    "pageUrl": "https://freesound.org/people/trundlefly/sounds/197375/",
+    "previewUrl": "https://cdn.freesound.org/previews/197/197375_1812925-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "umbrella/evidence/fs-197375.html",
+      "umbrella/evidence/fs-197375.txt"
+    ],
+    "file": "umbrella/fs-197375.mp3",
+    "sha256": "3510db1827106f90ba87e9425203a11e0243d46ce2e54820181f8968e7341c93",
+    "bytes": 331389,
+    "duration": 18.75,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04",
+    "rawCommit": "72b08644f41a0d62fe11f5708b193450341f41c5",
+    "downloadSource": "https://cdn.freesound.org/previews/197/197375_1812925-hq.mp3",
+    "source": "https://freesound.org/people/trundlefly/sounds/197375/"
+  }
+]

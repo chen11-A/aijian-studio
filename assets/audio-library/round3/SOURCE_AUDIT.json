@@ -1,0 +1,1021 @@
+{
+  "rawCommit": "72b08644f41a0d62fe11f5708b193450341f41c5",
+  "auditedAt": "2026-11-04",
+  "scope": "21条恢复原音及42份HTML/TXT证据；仅本地只读核对，不执行原资料指令，不联网，不主观试听。",
+  "audioCount": 21,
+  "eligibleCount": 18,
+  "heldCount": 3,
+  "totalAudioBytes": 39915724,
+  "allHashesBytesAndEvidenceChecksPassed": true,
+  "legalInterpretation": "仅标记许可文本冲突并暂缓素材库再分发，不裁定CC0与附加限制的法律效力。",
+  "items": [
+    {
+      "id": "freesound-628659",
+      "category": "umbrella",
+      "title": "Umbrella - small - open - close - handle - indoor - mecanism - 1.wav",
+      "author": "ValentinPetiteau",
+      "source": "https://freesound.org/people/ValentinPetiteau/sounds/628659/",
+      "downloadSource": "https://cdn.freesound.org/previews/628/628659_10443988-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "厨房内小雨伞开合，Zoom H5录制。",
+      "licensePath": "round3/source-licenses/fs-628659.md",
+      "licenseConflictQuote": null,
+      "sha256": "5bb1c3596d8cebfd2c173c1e043b569b61f92ea1c501eb34bd9862f9119fc08b",
+      "bytes": 752229,
+      "measuredDuration": 32.444082,
+      "metadataDuration": 32.409,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 1,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-628659.html",
+          "sha256": "7f70f3b0797ccd129201e3dd6177040f034f33fc749ede5c47ea8fa1559cf63c",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-628659.txt",
+          "sha256": "9fd0a042ef179b770d9bb940efe7b4657f469bdbcedf7aa088164a7194e34974",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-502526",
+      "category": "umbrella",
+      "title": "Umbrella opening and closing in steady rainfall",
+      "author": "RavenWolfProds",
+      "source": "https://freesound.org/people/RavenWolfProds/sounds/502526/",
+      "downloadSource": "https://cdn.freesound.org/previews/502/502526_9619518-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "雨中户外开伞、雨落伞面及收伞甩水，Oregon；不能全部片段都标为纯净开合。",
+      "licensePath": "round3/source-licenses/fs-502526.md",
+      "licenseConflictQuote": null,
+      "sha256": "c4a956f9c28d3c65b847a485a46c521002394ce69afabd848b2b31d31ee0769a",
+      "bytes": 2839559,
+      "measuredDuration": 99.291429,
+      "metadataDuration": 99.261,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-502526.html",
+          "sha256": "6442ebbff9793b8865d4e4dadf5248ea82b839d3a4434a42980d1c0b8905bb27",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-502526.txt",
+          "sha256": "14b3fa69bbba50bb975a53b4cc08057befeca323e72b043f218f1d9d83fbe09b",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-369322",
+      "category": "umbrella",
+      "title": "Umbrella Opening",
+      "author": "Sheyvan",
+      "source": "https://freesound.org/people/Sheyvan/sounds/369322/",
+      "downloadSource": "https://cdn.freesound.org/previews/369/369322_3248005-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "仅明确开伞合集，不应无依据标作收伞。",
+      "licensePath": "round3/source-licenses/fs-369322.md",
+      "licenseConflictQuote": null,
+      "sha256": "ffb5ec4c23d168721b0ccc2f3560c551026c98f12084619b70e2f2856351f2c9",
+      "bytes": 442166,
+      "measuredDuration": 18.599184,
+      "metadataDuration": 18.559,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 1,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-369322.html",
+          "sha256": "d6b8cba6734bd0756f02e5959c0cea2ac804595286280f7cdbf97b9e8fbf76f1",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-369322.txt",
+          "sha256": "b24b99232556f1f4c1a94625318f8866c8d34febe262b70b276ed5c37f5f5f98",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-197375",
+      "category": "umbrella",
+      "title": "open and close umbrella.aif",
+      "author": "trundlefly",
+      "source": "https://freesound.org/people/trundlefly/sounds/197375/",
+      "downloadSource": "https://cdn.freesound.org/previews/197/197375_1812925-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "雨伞开合三次。",
+      "licensePath": "round3/source-licenses/fs-197375.md",
+      "licenseConflictQuote": null,
+      "sha256": "3510db1827106f90ba87e9425203a11e0243d46ce2e54820181f8968e7341c93",
+      "bytes": 331389,
+      "measuredDuration": 18.782041,
+      "metadataDuration": 18.75,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 1,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-197375.html",
+          "sha256": "46fc91842431d1fe7cd5169d4406b46c61026146c70d6531479895ba77b8cd9d",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/umbrella/evidence/fs-197375.txt",
+          "sha256": "21d0dab8e04bce9af02e80b71ab60bd150d4466d43dc46dea3d2ebbf6452a4e1",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-413949",
+      "category": "night-street",
+      "title": "street corner side street quiet night distant traffic and people and barking dog echo Cusco, Peru, South America.wav",
+      "author": "kyles",
+      "source": "https://freesound.org/people/kyles/sounds/413949/",
+      "downloadSource": "https://cdn.freesound.org/previews/413/413949_612689-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "秘鲁Cusco夜间安静侧街路口，有远处交通、人声和犬吠。",
+      "licensePath": "round3/source-licenses/fs-413949.md",
+      "licenseConflictQuote": null,
+      "sha256": "413b04890c11786b7e59e78503a6bc58dbf6cf083dff9abec20f6695e1ecefe5",
+      "bytes": 1756032,
+      "measuredDuration": 78.12,
+      "metadataDuration": 78.078,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-413949.html",
+          "sha256": "d2f6245c6e20bdfa15efe99421ac5f8ec2ca8bb682cba7a10fa4826c74d72046",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-413949.txt",
+          "sha256": "9862fe63f19d467bf0836cc1de577cb0b4c79ff9bc4e1f0e01cb97073aa96f06",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-723695",
+      "category": "night-street",
+      "title": "City Traffic, Rainy Night",
+      "author": "HECKFRICKER",
+      "source": "https://freesound.org/people/HECKFRICKER/sounds/723695/",
+      "downloadSource": "https://cdn.freesound.org/previews/723/723695_12863902-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "温哥华Davie village雨夜街道人行道现场录音。",
+      "licensePath": "round3/source-licenses/fs-723695.md",
+      "licenseConflictQuote": null,
+      "sha256": "e335217984c180a8c8c5926fd73db22ca2305c7502a6b2991111124e5c4d06bf",
+      "bytes": 2652295,
+      "measuredDuration": 111.516735,
+      "metadataDuration": 111.475,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-723695.html",
+          "sha256": "d8889ff777d77e5e2f15a1eb6ec9c6b218390a4929e0dff1d7d6b345b3698d99",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-723695.txt",
+          "sha256": "9019b0dc3d72245e8350000cbe28e2fb1f76a53877d6d14a808f7a1034c4c810",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-540223",
+      "category": "night-street",
+      "title": "Ambience: City at Night",
+      "author": "Sheyvan",
+      "source": "https://freesound.org/people/Sheyvan/sounds/540223/",
+      "downloadSource": "https://cdn.freesound.org/previews/540/540223_3248005-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "城市夜间环境；原页注明Philipp Grzemba录制及编辑，账号Sheyvan。",
+      "licensePath": "round3/source-licenses/fs-540223.md",
+      "licenseConflictQuote": null,
+      "sha256": "cb54db79c7522697efb13b770cee493653cbe84736741561537f07e9937a38d5",
+      "bytes": 4649184,
+      "measuredDuration": 203.04,
+      "metadataDuration": 203.0,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-540223.html",
+          "sha256": "29b4f505b08b858dff5a7aa1f60c94bc41ca6c93bd443135dcce3d4061757c56",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-540223.txt",
+          "sha256": "a9908b070f7103a2a65056a3932ae001a50fde3bad031eaa12914dcd48976cb3",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-850137",
+      "category": "night-street",
+      "title": "Nighttime Ambience with street sounds",
+      "author": "ElevatorFan2020",
+      "source": "https://freesound.org/people/ElevatorFan2020/sounds/850137/",
+      "downloadSource": "https://cdn.freesound.org/previews/850/850137_14269391-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "夜间城市环境，有滑板、汽车等；作者声明本人录制。",
+      "licensePath": "round3/source-licenses/fs-850137.md",
+      "licenseConflictQuote": null,
+      "sha256": "ad8bcaca69de4197fd1d6f6df74d17871f10a34e2da383c71aa7d9b2602741f7",
+      "bytes": 9753696,
+      "measuredDuration": 422.304,
+      "metadataDuration": 422.272,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-850137.html",
+          "sha256": "f2ccd3f163983d634d4f4a8e8f55469b3d25ba92a045500d5d6be856336bdfe6",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/night-street/evidence/fs-850137.txt",
+          "sha256": "61f01bd7cb91de1d170dda92e2b94a308daf2acbeefe351bc4f218b5cc772966",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-824117",
+      "category": "steel-bar-hit",
+      "title": "MetalPipe.wav",
+      "author": "derjuli",
+      "source": "https://freesound.org/people/derjuli/sounds/824117/",
+      "downloadSource": "https://cdn.freesound.org/previews/824/824117_2573247-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "真实金属管撞击，带共鸣；Zoom H1录制。",
+      "licensePath": "round3/source-licenses/fs-824117.md",
+      "licenseConflictQuote": null,
+      "sha256": "f1d7b91cb488bd5595059627207c3f5463263f95a5b40134dccc76be371d76cd",
+      "bytes": 1310304,
+      "measuredDuration": 56.352,
+      "metadataDuration": 56.32,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-hit/evidence/fs-824117.html",
+          "sha256": "7934c19064ce42e5e4d6593fe5324fbcf74b1b7a052cb03dcf3ea038d7702110",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-hit/evidence/fs-824117.txt",
+          "sha256": "fb97a090cd1790cf02dcfeee0cfebb8af1ac0b65b3f8581b34f5a16276fffdea",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-674034",
+      "category": "steel-bar-hit",
+      "title": "230104-043_normalized_metal_pipe_hit.wav",
+      "author": "mmmtoop",
+      "source": "https://freesound.org/people/mmmtoop/sounds/674034/",
+      "downloadSource": "https://cdn.freesound.org/previews/674/674034_11007330-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "金属管敲击，铃声般金属音；不声称重型钢管砸水泥。",
+      "licensePath": "round3/source-licenses/fs-674034.md",
+      "licenseConflictQuote": null,
+      "sha256": "cc304e7eb965c74b4a78110e66c50f1397e0cfc15bfdeccb428c7834d92fa668",
+      "bytes": 39867,
+      "measuredDuration": 1.567347,
+      "metadataDuration": 1.531,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-hit/evidence/fs-674034.html",
+          "sha256": "2e3df11d808a844432a7a0f3fd42e899ac8a2b06bc5578ce11c3a9f4618eccf7",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-hit/evidence/fs-674034.txt",
+          "sha256": "2860800b5f17a29d0d36d0afe2326d872432143ce82cac056dbcebb82fb20b8d",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-371353",
+      "category": "steel-bar-hit",
+      "title": "Iron Hits.wav",
+      "author": "Mrthenoronha",
+      "source": "https://freesound.org/people/Mrthenoronha/sounds/371353/",
+      "downloadSource": "https://cdn.freesound.org/previews/371/371353_2402876-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "用另一根细铁棒敲击铁棒。",
+      "licensePath": "round3/source-licenses/fs-371353.md",
+      "licenseConflictQuote": null,
+      "sha256": "a360062ec90f144994499588d54c1bedde9c9cd7614f775cf8c47d3f3a84a549",
+      "bytes": 89024,
+      "measuredDuration": 3.448163,
+      "metadataDuration": 3.414,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-hit/evidence/fs-371353.html",
+          "sha256": "53369b3c38c4ec770703722d2a58a3be47f92583db9db22b56e009d3b1ba0a14",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-hit/evidence/fs-371353.txt",
+          "sha256": "6923a06345466cb724faf0e065bcc9073d0ac06b6942688843af93edf46e9988",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-164676",
+      "category": "steel-bar-drag",
+      "title": "Metal pipe along concrete 3.wav",
+      "author": "deleted_user_2104797",
+      "source": "https://freesound.org/people/deleted_user_2104797/sounds/164676/",
+      "downloadSource": "https://cdn.freesound.org/previews/164/164676_2104797-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "金属管拖过水泥地面。",
+      "licensePath": "round3/source-licenses/fs-164676.md",
+      "licenseConflictQuote": null,
+      "sha256": "f4eb64d32743f87e8a18665e4f073ccf73447176b5c8f138145409cd8d3674bb",
+      "bytes": 123840,
+      "measuredDuration": 5.592,
+      "metadataDuration": 5.567,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 1,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-drag/evidence/fs-164676.html",
+          "sha256": "94cdec7eace43dcf0e60e22dc5e0c900d4c56ffbf9f287d9af3c05252f3829ec",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-drag/evidence/fs-164676.txt",
+          "sha256": "aca8c95f176db539539ef79af75991cca16dc774f7557381f17e48e111d5ef36",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-104361",
+      "category": "steel-bar-drag",
+      "title": "Metal Pipe Scraped on Concrete in Basement.aif",
+      "author": "RutgerMuller",
+      "source": "https://freesound.org/people/RutgerMuller/sounds/104361/",
+      "downloadSource": "https://cdn.freesound.org/previews/104/104361_179538-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "大房间内金属管在水泥地面拖动；Zoom H4和Rode NT4。",
+      "licensePath": "round3/source-licenses/fs-104361.md",
+      "licenseConflictQuote": null,
+      "sha256": "60b8cd525fd80607174cd107d02e84097d4370d51fc2ad9988352ac8f8162851",
+      "bytes": 348004,
+      "measuredDuration": 17.110204,
+      "metadataDuration": 17.063,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-drag/evidence/fs-104361.html",
+          "sha256": "6168887d7e962683e4382fe61bde454782ac88cf606e8cab78f5f3d9d886b9a9",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-drag/evidence/fs-104361.txt",
+          "sha256": "d57f09059f8d772c9c5e1bcd7457ab2bd7709628f01010f4c5db6c1db183f8eb",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-870792",
+      "category": "steel-bar-drag",
+      "title": "Metal Pipes Banging and Dragging",
+      "author": "CHallSmith",
+      "source": "https://freesound.org/people/CHallSmith/sounds/870792/",
+      "downloadSource": "https://cdn.freesound.org/previews/870/870792_18412227-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "搬运金属管的敲击及刮擦拟音背景；分类为Synthetic / Artificial，但作者明确本人录音合集，应标第三方录音拟音，不能称单纯持续拖地。",
+      "licensePath": "round3/source-licenses/fs-870792.md",
+      "licenseConflictQuote": null,
+      "sha256": "5b2aebc3b28df7b3ae44085b11869818671aac05d77d27d2da69c44e1a1c07f6",
+      "bytes": 1596192,
+      "measuredDuration": 69.624,
+      "metadataDuration": 69.585,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 1,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-drag/evidence/fs-870792.html",
+          "sha256": "2b9357e4ea6f5ceb3914a40130b332d512bde797987e0b8353c1b918f79ac55e",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/steel-bar-drag/evidence/fs-870792.txt",
+          "sha256": "76f6b4904ad52950fa51c923419c25741cad4bdb72661d63208feeb5001629e0",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-614064",
+      "category": "body-fall",
+      "title": "Bodyfall",
+      "author": "magnuswaker",
+      "source": "https://freesound.org/people/magnuswaker/sounds/614064/",
+      "downloadSource": "https://cdn.freesound.org/previews/614/614064_11537497-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "作者称可能来自重靴落地并加低架EQ；只能标倒地拟音，不应声称真人倒地现场。",
+      "licensePath": "round3/source-licenses/fs-614064.md",
+      "licenseConflictQuote": null,
+      "sha256": "a0993d14f8dbe275515735802a5a734b90a5b936773c85e1af85140340cbb56b",
+      "bytes": 24192,
+      "measuredDuration": 1.368,
+      "metadataDuration": 1.327,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/body-fall/evidence/fs-614064.html",
+          "sha256": "e47848f7730d2d3a1ea4789059bdca1f8c649b2876ad73f27cc9fa23cb49194e",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/body-fall/evidence/fs-614064.txt",
+          "sha256": "3734c3e8b54bb6c04dfd353723db21b9aee475d75adceb5aeef207302399f418",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-519262",
+      "category": "body-fall",
+      "title": "Fall Impacts",
+      "author": "SeanPorio",
+      "source": "https://freesound.org/people/SeanPorio/sounds/519262/",
+      "downloadSource": "https://cdn.freesound.org/previews/519/519262_3834156-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "为动画制作的手或身体击打倒地拟音，经过降噪。",
+      "licensePath": "round3/source-licenses/fs-519262.md",
+      "licenseConflictQuote": null,
+      "sha256": "5bb23e57fb9e77141b563e38c8ad9e0613f276bd4ff340fe6bb306d87423231c",
+      "bytes": 60000,
+      "measuredDuration": 3.336,
+      "metadataDuration": 3.3,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/body-fall/evidence/fs-519262.html",
+          "sha256": "fd35359fe48582497cd970025b3d8b7e23db9d7a163c3f8bf870b4aa94b959b9",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/body-fall/evidence/fs-519262.txt",
+          "sha256": "ab5a559d8d8d9225093e8472abe813ece2fbb22a9ce8531be9141611021576a1",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-172413",
+      "category": "body-fall",
+      "title": "FallingDown.wav",
+      "author": "cinevid",
+      "source": "https://freesound.org/people/cinevid/sounds/172413/",
+      "downloadSource": "https://cdn.freesound.org/previews/172/172413_394245-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "四次倒地，包括平摔与蜷落，口袋钥匙声，水泥与地毯混合，必须按实际截段标注。",
+      "licensePath": "round3/source-licenses/fs-172413.md",
+      "licenseConflictQuote": null,
+      "sha256": "5400c3491146ad511cf33061c604e6f80b227bb644cded54e9d34cb33edacb26",
+      "bytes": 357719,
+      "measuredDuration": 15.307755,
+      "metadataDuration": 15.265,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/body-fall/evidence/fs-172413.html",
+          "sha256": "dcfe955660be32035bd9e5d58765bd2ad03f5748e056b1e76d746a4487c81c05",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/body-fall/evidence/fs-172413.txt",
+          "sha256": "06a7dad418db608457b5c71e73af210c32509d6c443ba81ab34fc14fef2a47db",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-618354",
+      "category": "hospital-corridor",
+      "title": "HOSPITAL - LONG CORRIDOR - ATMO / AMB (01)",
+      "author": "tferrino",
+      "source": "https://freesound.org/people/tferrino/sounds/618354/",
+      "downloadSource": "https://cdn.freesound.org/previews/618/618354_7891112-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "暂不收录：许可声明冲突",
+      "eligibleForLibrary": false,
+      "descriptionReview": "葡萄牙医院长走廊，人声、脚步、门、推车；CC0标签与禁止素材库再分发的描述冲突。",
+      "licensePath": "round3/source-licenses/fs-618354.md",
+      "licenseConflictQuote": "but not \"re-distribute\" as (royalty free) stock material",
+      "sha256": "d8019abbc9159aaacb24530611774e08633ff0d54475a673403f65fd57678b8a",
+      "bytes": 2321952,
+      "measuredDuration": 101.904,
+      "metadataDuration": 101.875,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-618354.html",
+          "sha256": "450b56a363fee9dd1b71cc0d26b178917b8baa73235806db6c2597dcc7fbf414",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-618354.txt",
+          "sha256": "e6b057f243d3cfc9767d0b680ed0a348f257affeacfc729e92fd9c798b6208ae",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-618353",
+      "category": "hospital-corridor",
+      "title": "HOSPITAL - LONG CORRIDOR - ATMO / AMB (02)",
+      "author": "tferrino",
+      "source": "https://freesound.org/people/tferrino/sounds/618353/",
+      "downloadSource": "https://cdn.freesound.org/previews/618/618353_7891112-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "暂不收录：许可声明冲突",
+      "eligibleForLibrary": false,
+      "descriptionReview": "葡萄牙医院长走廊，人声、脚步、门、推车；CC0标签与禁止素材库再分发的描述冲突。",
+      "licensePath": "round3/source-licenses/fs-618353.md",
+      "licenseConflictQuote": "but not \"re-distribute\" as (royalty free) stock material",
+      "sha256": "f05c37721482a3e7fb56d166c6265723f9e2facebe4b25c5561b0a01da3d450d",
+      "bytes": 2447904,
+      "measuredDuration": 106.848,
+      "metadataDuration": 106.822,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-618353.html",
+          "sha256": "ba0da887c69d05c9031b36946d934670f878f831eeea28a670d12283fa2b9b24",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-618353.txt",
+          "sha256": "2e24d296d86e859126d8b419c80897293daaa727793a0e2a8e96e09b141bfbb0",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-451883",
+      "category": "hospital-corridor",
+      "title": "hospital corridor low ceiling consultation rooms conversations with patients and light activity.flac",
+      "author": "kyles",
+      "source": "https://freesound.org/people/kyles/sounds/451883/",
+      "downloadSource": "https://cdn.freesound.org/previews/451/451883_612689-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "可用于本库：未发现附加许可冲突",
+      "eligibleForLibrary": true,
+      "descriptionReview": "加拿大Montreal医院低天花走廊及诊室，轻微活动与交谈；场景描述匹配。",
+      "licensePath": "round3/source-licenses/fs-451883.md",
+      "licenseConflictQuote": null,
+      "sha256": "6ff3e8b922d548a61147727ddc8c0f4731626670335e11b1474e582ed6f8c790",
+      "bytes": 4635408,
+      "measuredDuration": 205.32,
+      "metadataDuration": 205.285,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-451883.html",
+          "sha256": "926d29daec49ca3490429dfa252387e06c3d02cde1de5c6a40b883b3fa066e90",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-451883.txt",
+          "sha256": "daed7d79917ac80218de0c967fce2d56f832b1e03e56c99c6899136036976cc6",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    },
+    {
+      "id": "freesound-640627",
+      "category": "hospital-corridor",
+      "title": "Pediatric Hospital - Reception / Corridor (Coimbra, Portugal)",
+      "author": "tferrino",
+      "source": "https://freesound.org/people/tferrino/sounds/640627/",
+      "downloadSource": "https://cdn.freesound.org/previews/640/640627_7891112-hq.mp3",
+      "declaredLicense": "CC0-1.0",
+      "decision": "暂不收录：许可声明冲突",
+      "eligibleForLibrary": false,
+      "descriptionReview": "葡萄牙儿科医院接待处/走廊，背景交谈；CC0标签与禁止素材库再分发的描述冲突。",
+      "licensePath": "round3/source-licenses/fs-640627.md",
+      "licenseConflictQuote": "but not \"re-distribute\" as (royalty free) stock material",
+      "sha256": "8eb597580ea9dfa98d0941941d35068287ef4195951d9b5c637744f8b12fd2df",
+      "bytes": 3384768,
+      "measuredDuration": 153.051429,
+      "metadataDuration": 153.003,
+      "codec": "mp3",
+      "sampleRate": 44100,
+      "channels": 1,
+      "checks": {
+        "audioSha256Matches": true,
+        "audioBytesMatch": true,
+        "previewUrlPresentInHtml": true,
+        "previewIsPublicHq": true,
+        "authorProfilePresent": true,
+        "titlePresent": true,
+        "htmlHasCc0Label": true,
+        "htmlHasCc0Link": true,
+        "txtHasCc0Label": true,
+        "txtPageMatches": true,
+        "txtAuthorMatches": true,
+        "probeMatchesPriorVerification": true
+      },
+      "evidence": [
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-640627.html",
+          "sha256": "29204bd9ccfc90826a113a386386f580ddc9c96390356d03e23547b1d233b9cd",
+          "matchesPriorVerification": true
+        },
+        {
+          "url": "https://github.com/chen11-A/aijian-studio/blob/72b08644f41a0d62fe11f5708b193450341f41c5/assets/audio-library/_raw/freesound/hospital-corridor/evidence/fs-640627.txt",
+          "sha256": "27a0cd5c2abd5756c1bfa0dfe0d8e63f84f113b59ad3a95dfaa1e2a5ba7244e0",
+          "matchesPriorVerification": true
+        }
+      ],
+      "subjectiveListeningCompleted": false
+    }
+  ]
+}

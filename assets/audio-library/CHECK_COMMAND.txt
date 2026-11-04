@@ -1,9 +1,32 @@
-普通实际命令：/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/aijian-studio/assets/audio-library/check.py --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe
-普通退出码：0
-普通耗时秒：219.335
-普通标准错误：
-严格实际命令：/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/aijian-studio/assets/audio-library/check.py --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe --strict-request
-严格退出码：1
-严格耗时秒：215.694
-严格标准错误：
-清单SHA256：cfdcd2a218fd5bfac1ada463cf1fc62e0f1641d37990ec159e48d35e4ffecbf3
+{
+  "runs": [
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "assets/audio-library/check.py",
+        "--ffmpeg",
+        "/usr/bin/ffmpeg",
+        "--ffprobe",
+        "/usr/bin/ffprobe"
+      ],
+      "exitCode": 0,
+      "seconds": 226.52397228800055,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "assets/audio-library/check.py",
+        "--ffmpeg",
+        "/usr/bin/ffmpeg",
+        "--ffprobe",
+        "/usr/bin/ffprobe",
+        "--strict-request"
+      ],
+      "exitCode": 0,
+      "seconds": 234.9202245489996,
+      "stderr": ""
+    }
+  ],
+  "manifestSha256": "beec0befd559f681d4340dde83eeddf088be94369e61aa1b1b7ffed5bc5a8d31"
+}

@@ -1,0 +1,8 @@
+title: open and close umbrella.aif by trundlefly
+author: trundlefly
+pageUrl: https://freesound.org/people/trundlefly/sounds/197375/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

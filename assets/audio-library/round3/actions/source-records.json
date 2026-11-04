@@ -1,0 +1,191 @@
+[
+  {
+    "id": "freesound-824117",
+    "freesoundId": 824117,
+    "category": "steel-bar-hit",
+    "title": "MetalPipe.wav",
+    "author": "derjuli",
+    "pageUrl": "https://freesound.org/people/derjuli/sounds/824117/",
+    "previewUrl": "https://cdn.freesound.org/previews/824/824117_2573247-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "steel-bar-hit/evidence/fs-824117.html",
+      "steel-bar-hit/evidence/fs-824117.txt"
+    ],
+    "file": "steel-bar-hit/fs-824117.mp3",
+    "sha256": "f1d7b91cb488bd5595059627207c3f5463263f95a5b40134dccc76be371d76cd",
+    "bytes": 1310304,
+    "duration": 56.32,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-674034",
+    "freesoundId": 674034,
+    "category": "steel-bar-hit",
+    "title": "230104-043_normalized_metal_pipe_hit.wav",
+    "author": "mmmtoop",
+    "pageUrl": "https://freesound.org/people/mmmtoop/sounds/674034/",
+    "previewUrl": "https://cdn.freesound.org/previews/674/674034_11007330-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "steel-bar-hit/evidence/fs-674034.html",
+      "steel-bar-hit/evidence/fs-674034.txt"
+    ],
+    "file": "steel-bar-hit/fs-674034.mp3",
+    "sha256": "cc304e7eb965c74b4a78110e66c50f1397e0cfc15bfdeccb428c7834d92fa668",
+    "bytes": 39867,
+    "duration": 1.531,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-371353",
+    "freesoundId": 371353,
+    "category": "steel-bar-hit",
+    "title": "Iron Hits.wav",
+    "author": "Mrthenoronha",
+    "pageUrl": "https://freesound.org/people/Mrthenoronha/sounds/371353/",
+    "previewUrl": "https://cdn.freesound.org/previews/371/371353_2402876-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "steel-bar-hit/evidence/fs-371353.html",
+      "steel-bar-hit/evidence/fs-371353.txt"
+    ],
+    "file": "steel-bar-hit/fs-371353.mp3",
+    "sha256": "a360062ec90f144994499588d54c1bedde9c9cd7614f775cf8c47d3f3a84a549",
+    "bytes": 89024,
+    "duration": 3.414,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-164676",
+    "freesoundId": 164676,
+    "category": "steel-bar-drag",
+    "title": "Metal pipe along concrete 3.wav",
+    "author": "deleted_user_2104797",
+    "pageUrl": "https://freesound.org/people/deleted_user_2104797/sounds/164676/",
+    "previewUrl": "https://cdn.freesound.org/previews/164/164676_2104797-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "steel-bar-drag/evidence/fs-164676.html",
+      "steel-bar-drag/evidence/fs-164676.txt"
+    ],
+    "file": "steel-bar-drag/fs-164676.mp3",
+    "sha256": "f4eb64d32743f87e8a18665e4f073ccf73447176b5c8f138145409cd8d3674bb",
+    "bytes": 123840,
+    "duration": 5.567,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-104361",
+    "freesoundId": 104361,
+    "category": "steel-bar-drag",
+    "title": "Metal Pipe Scraped on Concrete in Basement.aif",
+    "author": "RutgerMuller",
+    "pageUrl": "https://freesound.org/people/RutgerMuller/sounds/104361/",
+    "previewUrl": "https://cdn.freesound.org/previews/104/104361_179538-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "steel-bar-drag/evidence/fs-104361.html",
+      "steel-bar-drag/evidence/fs-104361.txt"
+    ],
+    "file": "steel-bar-drag/fs-104361.mp3",
+    "sha256": "60b8cd525fd80607174cd107d02e84097d4370d51fc2ad9988352ac8f8162851",
+    "bytes": 348004,
+    "duration": 17.063,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-870792",
+    "freesoundId": 870792,
+    "category": "steel-bar-drag",
+    "title": "Metal Pipes Banging and Dragging",
+    "author": "CHallSmith",
+    "pageUrl": "https://freesound.org/people/CHallSmith/sounds/870792/",
+    "previewUrl": "https://cdn.freesound.org/previews/870/870792_18412227-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "steel-bar-drag/evidence/fs-870792.html",
+      "steel-bar-drag/evidence/fs-870792.txt"
+    ],
+    "file": "steel-bar-drag/fs-870792.mp3",
+    "sha256": "5b2aebc3b28df7b3ae44085b11869818671aac05d77d27d2da69c44e1a1c07f6",
+    "bytes": 1596192,
+    "duration": 69.585,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-614064",
+    "freesoundId": 614064,
+    "category": "body-fall",
+    "title": "Bodyfall",
+    "author": "magnuswaker",
+    "pageUrl": "https://freesound.org/people/magnuswaker/sounds/614064/",
+    "previewUrl": "https://cdn.freesound.org/previews/614/614064_11537497-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "body-fall/evidence/fs-614064.html",
+      "body-fall/evidence/fs-614064.txt"
+    ],
+    "file": "body-fall/fs-614064.mp3",
+    "sha256": "a0993d14f8dbe275515735802a5a734b90a5b936773c85e1af85140340cbb56b",
+    "bytes": 24192,
+    "duration": 1.327,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-519262",
+    "freesoundId": 519262,
+    "category": "body-fall",
+    "title": "Fall Impacts",
+    "author": "SeanPorio",
+    "pageUrl": "https://freesound.org/people/SeanPorio/sounds/519262/",
+    "previewUrl": "https://cdn.freesound.org/previews/519/519262_3834156-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "body-fall/evidence/fs-519262.html",
+      "body-fall/evidence/fs-519262.txt"
+    ],
+    "file": "body-fall/fs-519262.mp3",
+    "sha256": "5bb23e57fb9e77141b563e38c8ad9e0613f276bd4ff340fe6bb306d87423231c",
+    "bytes": 60000,
+    "duration": 3.3,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-172413",
+    "freesoundId": 172413,
+    "category": "body-fall",
+    "title": "FallingDown.wav",
+    "author": "cinevid",
+    "pageUrl": "https://freesound.org/people/cinevid/sounds/172413/",
+    "previewUrl": "https://cdn.freesound.org/previews/172/172413_394245-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "body-fall/evidence/fs-172413.html",
+      "body-fall/evidence/fs-172413.txt"
+    ],
+    "file": "body-fall/fs-172413.mp3",
+    "sha256": "5400c3491146ad511cf33061c604e6f80b227bb644cded54e9d34cb33edacb26",
+    "bytes": 357719,
+    "duration": 15.265,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  }
+]

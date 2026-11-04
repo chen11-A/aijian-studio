@@ -1,6 +1,6 @@
 # 音频来源与许可
 
-当前收录为186条 CC0-1.0 和1条 Public Domain，具体以每条清单为准。第三方 manifest.source 链接到固定提交的原始文件，自制条目链接到本分支的生成脚本，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
+当前收录为207条 CC0-1.0 和1条 Public Domain，具体以每条清单为准。第三方 manifest.source 链接到固定提交的原始文件，自制条目链接到本分支的生成脚本，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
 
 ## 配乐
 
@@ -58,3 +58,7 @@ CC0 说明：https://creativecommons.org/publicdomain/zero/1.0/
 钥匙3位作者、金属管2位作者、夜街Romano.Tercero的原作者CC0证据在 `remaining/` 及 `licenses/remaining/` 对应目录；同源分段如实标注。音乐新增证据包含Bandcamp平台官方文档、与原作者双向关联的站外CC0声明及作者当前档案授权，见 `remaining/music-review/HOLIZNA_REVIEW.md`，支持额外CC0授权，不忽略BY通用按钮。
 
 人群三个非循环成品已替换，并新增55秒长循环；来源仍为已核实jentlemen432331，不新增原作者或冒称不同录音。证据见 remaining/crowd-loop/ 及 licenses/remaining/crowd-loop/。
+
+## 第三轮用户提供的原件
+
+21份原件哈希、大小、42份证据已核验，采用其中14份生成21条音效。逐条作者和原页面链接见 [round3/README.md](round3/README.md)，许可摘录与排除原因见 [SOURCE_AUDIT.json](round3/SOURCE_AUDIT.json)。原MP3和完整HTML只从固定提交读取，没有并入本分支。tferrino三条含额外限制未采用。所有本轮成品CC0-1.0，人体叠加成分另附Kenney原许可与固定提交哈希。

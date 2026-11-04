@@ -1,0 +1,8 @@
+title: Umbrella opening and closing in steady rainfall by RavenWolfProds
+author: RavenWolfProds
+pageUrl: https://freesound.org/people/RavenWolfProds/sounds/502526/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

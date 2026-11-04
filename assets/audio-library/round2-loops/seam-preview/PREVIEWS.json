@@ -1,0 +1,32 @@
+[
+  {
+    "id": "r2-loop-music-360f3c163ed6",
+    "name": "快乐生活（长循环）",
+    "source": "round2-loops/r2-loop-music-360f3c163ed6.ogg",
+    "sourceSha256": "cc56c1c60dca9ee30ee9b6c9388fe0a204841350e5b22bc189f45561a74192ef",
+    "preview": "happy-life-seam.wav",
+    "previewSha256": "ba6717a54ad30e8e40e60aef07e2cf07b0048f9d9e2835b8495aab03c498a175",
+    "duration": 10,
+    "joinAtSeconds": 5,
+    "sampleRate": 48000,
+    "channels": 2,
+    "format": "24位PCM WAV",
+    "processing": "最终Ogg尾5秒直接接头5秒；没有新增淡化、限幅或响度处理。",
+    "subjectiveListeningPerformed": false
+  },
+  {
+    "id": "r2-loop-music-9935a373414d",
+    "name": "幻术师（长循环）",
+    "source": "round2-loops/r2-loop-music-9935a373414d.ogg",
+    "sourceSha256": "269f3bc3019a66e0e121639a8d9402b220b9895f92d25fc7d685c250a95ddd05",
+    "preview": "illusionist-seam.wav",
+    "previewSha256": "9d67c85464bf1a77e1fa2aa08cc0ff43f6c0eeb6e714a82e16fb118845e0e251",
+    "duration": 10,
+    "joinAtSeconds": 5,
+    "sampleRate": 48000,
+    "channels": 2,
+    "format": "24位PCM WAV",
+    "processing": "最终Ogg尾5秒直接接头5秒；没有新增淡化、限幅或响度处理。",
+    "subjectiveListeningPerformed": false
+  }
+]

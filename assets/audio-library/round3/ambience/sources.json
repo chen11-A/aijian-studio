@@ -1,0 +1,86 @@
+[
+  {
+    "id": "freesound-413949",
+    "freesoundId": 413949,
+    "category": "night-street",
+    "title": "street corner side street quiet night distant traffic and people and barking dog echo Cusco, Peru, South America.wav",
+    "author": "kyles",
+    "pageUrl": "https://freesound.org/people/kyles/sounds/413949/",
+    "previewUrl": "https://cdn.freesound.org/previews/413/413949_612689-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "night-street/evidence/fs-413949.html",
+      "night-street/evidence/fs-413949.txt"
+    ],
+    "file": "night-street/fs-413949.mp3",
+    "sha256": "413b04890c11786b7e59e78503a6bc58dbf6cf083dff9abec20f6695e1ecefe5",
+    "bytes": 1756032,
+    "duration": 78.078,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-540223",
+    "freesoundId": 540223,
+    "category": "night-street",
+    "title": "Ambience: City at Night",
+    "author": "Sheyvan",
+    "pageUrl": "https://freesound.org/people/Sheyvan/sounds/540223/",
+    "previewUrl": "https://cdn.freesound.org/previews/540/540223_3248005-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "night-street/evidence/fs-540223.html",
+      "night-street/evidence/fs-540223.txt"
+    ],
+    "file": "night-street/fs-540223.mp3",
+    "sha256": "cb54db79c7522697efb13b770cee493653cbe84736741561537f07e9937a38d5",
+    "bytes": 4649184,
+    "duration": 203.0,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-850137",
+    "freesoundId": 850137,
+    "category": "night-street",
+    "title": "Nighttime Ambience with street sounds",
+    "author": "ElevatorFan2020",
+    "pageUrl": "https://freesound.org/people/ElevatorFan2020/sounds/850137/",
+    "previewUrl": "https://cdn.freesound.org/previews/850/850137_14269391-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "night-street/evidence/fs-850137.html",
+      "night-street/evidence/fs-850137.txt"
+    ],
+    "file": "night-street/fs-850137.mp3",
+    "sha256": "ad8bcaca69de4197fd1d6f6df74d17871f10a34e2da383c71aa7d9b2602741f7",
+    "bytes": 9753696,
+    "duration": 422.272,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  },
+  {
+    "id": "freesound-451883",
+    "freesoundId": 451883,
+    "category": "hospital-corridor",
+    "title": "hospital corridor low ceiling consultation rooms conversations with patients and light activity.flac",
+    "author": "kyles",
+    "pageUrl": "https://freesound.org/people/kyles/sounds/451883/",
+    "previewUrl": "https://cdn.freesound.org/previews/451/451883_612689-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseEvidence": [
+      "hospital-corridor/evidence/fs-451883.html",
+      "hospital-corridor/evidence/fs-451883.txt"
+    ],
+    "file": "hospital-corridor/fs-451883.mp3",
+    "sha256": "6ff3e8b922d548a61147727ddc8c0f4731626670335e11b1474e582ed6f8c790",
+    "bytes": 4635408,
+    "duration": 205.285,
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "processed": false,
+    "retrieved": "2026-11-04"
+  }
+]
