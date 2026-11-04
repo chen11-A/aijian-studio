@@ -4581,6 +4581,10 @@ function CastPage({
   const [place, setPlace] = useState(0);
   const [side, setSide] = useState<"people" | "places" | "props">("people");
   const character = film.characters[who];
+  // 4A-U02: shots already made keep the style they were made with until they are made again.
+  const [styleAtOpen] = useState(film.styleZh);
+  const styleChanged = film.styleZh.trim() !== styleAtOpen.trim();
+  const madeShots = film.shots.filter((shot) => shotProgress(shot) !== "未生成").length;
   const VIEWS = ["正面", "侧面", "背面", "脸部"];
   const has = (person: (typeof film.characters)[number], view: string) =>
     person.portraits.some((portrait) => portrait.view === view && portrait.url);
@@ -4730,6 +4734,43 @@ function CastPage({
           <span className="meta">同一张脸，同一套衣服</span>
         </div>
         <div className="pb sheet cast-sheet">
+          <section className="style-card" aria-label="整部作品的画风">
+            <div className="style-head">
+              <span className="sec-t">整部作品的画风</span>
+              <select
+                id="style-preset"
+                className="input"
+                aria-label="画风"
+                value={film.stylePreset}
+                onChange={(event) => {
+                  const preset =
+                    STYLE_PRESETS.find((item) => item.name === event.target.value) ??
+                    STYLE_PRESETS[0]!;
+                  onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
+                }}
+              >
+                {STYLE_PRESETS.map((item) => (
+                  <option key={item.name} value={item.name}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <span className="meta">每张图、每段视频都按这段来</span>
+            </div>
+            <textarea
+              className="area style-text"
+              aria-label="画风说明"
+              rows={2}
+              value={film.styleZh}
+              placeholder="还没有画风说明。选一个画风，或者请右边的美术写。"
+              onChange={(event) => onFilm({ ...film, styleZh: event.target.value })}
+            />
+            {styleChanged && madeShots > 0 ? (
+              <p className="style-warn">
+                已有 {madeShots} 个镜头是按原来的画风做的，要重新生成才会变。
+              </p>
+            ) : null}
+          </section>
           <div className="cast-info">
             <div className="cast-id-row">
               <div className="field" style={{ padding: 0 }}>
@@ -4854,27 +4895,6 @@ function CastPage({
                   });
                 }}
               />
-            </div>
-            <div className="field">
-              <label htmlFor="style-preset">画风</label>
-              <select
-                id="style-preset"
-                className="input"
-                aria-label="画风"
-                value={film.stylePreset}
-                onChange={(event) => {
-                  const preset =
-                    STYLE_PRESETS.find((item) => item.name === event.target.value) ??
-                    STYLE_PRESETS[0]!;
-                  onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
-                }}
-              >
-                {STYLE_PRESETS.map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
             </div>
             <div className="sec-t" style={{ marginTop: 12 }}>
               声音

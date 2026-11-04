@@ -2992,6 +2992,7 @@ body:has(.pro-root) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr);
   align-items: start;
+  align-content: start;
   gap: 20px;
   max-width: 1120px;
 }
@@ -3089,4 +3090,42 @@ body:has(.pro-root) {
   font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
+}
+
+/* 4A-U02: the style of the whole work sits above the character columns, not inside them. */
+.pro-root .style-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+}
+.pro-root .style-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pro-root .style-head .sec-t {
+  margin: 0;
+  color: var(--text-2);
+}
+.pro-root .style-head .meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pro-root .style-text {
+  width: 100%;
+  min-height: calc(2 * 1.6em + 18px);
+  max-height: calc(5 * 1.6em + 18px);
+  field-sizing: content;
+  overflow-y: auto;
+  resize: none;
+}
+.pro-root .style-warn {
+  font-size: 12px;
+  color: var(--warn);
 }

@@ -1568,6 +1568,47 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
   expect(screen.getByRole("button", { name: "补上结尾" })).toBeEnabled();
 });
 
+it("keeps the style of the whole work above the characters and warns which shots it no longer matches", async () => {
+  const film = sampleFilm();
+  const shot = film.shots[0]!;
+  shot.takes = [
+    {
+      id: "take-made",
+      shotId: shot.id,
+      index: 1,
+      status: "done",
+      stillUrl: "",
+      videoPath: "/tmp/a.mp4",
+      videoUrl: "file:///tmp/a.mp4",
+      prompt: film.styleZh,
+      createdAt: "",
+      reason: "",
+    },
+  ];
+  shot.selectedTakeId = "take-made";
+  window.aijian = {
+    listFilmSeries: vi.fn(async () => [
+      { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
+    ]),
+    readFilmProject: vi.fn(async () => film),
+    writeFilmProject: vi.fn(async (value: unknown) => value),
+  } as unknown as Window["aijian"];
+  render(<ProWorkspace />);
+  await screen.findAllByText(film.title);
+  fireEvent.click(stageTab("角色与场景"));
+  const card = screen.getByRole("region", { name: "整部作品的画风" });
+  expect(within(card).getByLabelText("画风")).toBeInTheDocument();
+  expect(within(card).getByLabelText("画风说明")).toHaveValue(film.styleZh);
+  expect(screen.queryByText(/要重新生成才会变/)).toBeNull();
+  fireEvent.change(within(card).getByLabelText("画风说明"), {
+    target: { value: "黑白胶片，颗粒感重" },
+  });
+  expect(
+    await screen.findByText("已有 1 个镜头是按原来的画风做的，要重新生成才会变。"),
+  ).toBeInTheDocument();
+  expect(document.querySelector(".cast-info #style-preset")).toBeNull();
+});
+
 it("makes every missing portrait from one button and shows each slot's state", async () => {
   installDesktop();
   await openSample();
