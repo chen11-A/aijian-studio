@@ -1,8 +1,8 @@
 // Checks rules every file in next/ keeps: CSS uses only pro.css custom properties and no
 // literal colors, every selector is scoped, nothing calls the desktop bridge, the network or
-// storage, and imports stay within react and next/, except that volume.ts uses the film
-// audio helpers. CSS is read from disk: with vitest's default css setting a CSS import, even
-// with ?raw, comes back as an empty string.
+// storage, and imports stay within react and next/, except that volume.ts and adapters/ use the
+// film helpers whose data they convert. CSS is read from disk: with vitest's default css
+// setting a CSS import, even with ?raw, comes back as an empty string.
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -93,9 +93,10 @@ describe("next/ components", () => {
     }
   });
 
-  it("import only React and each other; stories may load the workspace styles", () => {
+  it("import only React and each other; stories load the styles, adapters the film helpers", () => {
     for (const file of load().own.filter((item) => /\.tsx?$/.test(item.path))) {
       const story = file.path.startsWith("stories/");
+      const adapter = file.path.startsWith("adapters/");
       for (const match of file.text.matchAll(/(?:import|from)\s+["']([^"']+)["']/g)) {
         const spec = match[1]!;
         const allowed =
@@ -104,7 +105,9 @@ describe("next/ components", () => {
           spec.startsWith("./") ||
           (file.path === "volume.ts" && spec === "../film/audio") ||
           (story && (spec === "../../pro/pro.css" || spec === "../next.css")) ||
-          (story && /^\.\.\/[A-Za-z]+(\.story)?$/.test(spec));
+          (story && /^\.\.\/[A-Za-z]+(\.story)?$/.test(spec)) ||
+          (adapter && /^\.\.\/[A-Za-z]+$/.test(spec)) ||
+          (adapter && /^\.\.\/\.\.\/film\/(audio|operations|project)$/.test(spec));
         expect(allowed, `${file.path} imports ${spec}`).toBe(true);
       }
     }
