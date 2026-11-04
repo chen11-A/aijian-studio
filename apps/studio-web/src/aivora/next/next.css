@@ -1,0 +1,344 @@
+/*
+ * Shared look for the next/ components. Only custom properties defined in ../pro/pro.css are
+ * used, so the components must sit inside .pro-root. pro.css does not define --accent-strong,
+ * so var(--accent-strong, var(--accent)) shows --accent. Every rule is scoped under .nx-root so
+ * it wins over the .pro-root button and * resets.
+ */
+.nx-root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.nx-root *,
+.nx-root *::before,
+.nx-root *::after {
+  box-sizing: border-box;
+}
+
+.nx-root h1,
+.nx-root h2,
+.nx-root h3,
+.nx-root p,
+.nx-root ul,
+.nx-root ol,
+.nx-root dl,
+.nx-root dd,
+.nx-root figure {
+  margin: 0;
+  padding: 0;
+}
+
+.nx-root ul,
+.nx-root ol {
+  list-style: none;
+}
+
+.nx-root :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.nx-root .nx-muted {
+  color: var(--text-2);
+}
+
+.nx-root .nx-faint {
+  color: var(--text-3);
+}
+
+.nx-root .nx-code {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.nx-root .nx-one-line {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nx-root .nx-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nx-root .nx-spacer {
+  flex: 1 1 auto;
+}
+
+/* ---------- buttons ---------- */
+.nx-root .nx-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nx-root .nx-btn:hover {
+  background: var(--panel-3);
+}
+
+.nx-root .nx-btn.nx-primary {
+  border-color: var(--accent-strong, var(--accent));
+  background: var(--accent-strong, var(--accent));
+  color: var(--text);
+  font-weight: 700;
+}
+
+.nx-root .nx-btn.nx-primary:hover {
+  background: color-mix(in srgb, var(--accent-strong, var(--accent)) 88%, var(--text));
+}
+
+.nx-root .nx-btn.nx-ghost {
+  border-color: transparent;
+  background: none;
+  color: var(--text-2);
+}
+
+.nx-root .nx-btn.nx-ghost:hover {
+  background: var(--panel-3);
+  color: var(--text);
+}
+
+.nx-root .nx-btn.nx-sm {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.nx-root .nx-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- panels ---------- */
+.nx-root .nx-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.nx-root .nx-panel-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nx-root .nx-panel-head h2,
+.nx-root .nx-panel-head h3 {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nx-root .nx-panel-body {
+  min-height: 0;
+  padding: 12px;
+}
+
+.nx-root .nx-scroll {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+
+.nx-root .nx-section-title {
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ---------- tags and banners ---------- */
+.nx-root .nx-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r-s);
+  background: var(--panel-3);
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.nx-root .nx-tag.nx-ok {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+
+.nx-root .nx-tag.nx-warn {
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--warn);
+}
+
+.nx-root .nx-tag.nx-err {
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+  color: var(--err);
+}
+
+.nx-root .nx-tag.nx-info {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.nx-root .nx-banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-banner.nx-warn {
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
+.nx-root .nx-banner.nx-err {
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+  background: color-mix(in srgb, var(--err) 12%, transparent);
+}
+
+.nx-root .nx-banner.nx-ok {
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+
+.nx-root .nx-banner-text {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* ---------- controls ---------- */
+.nx-root input[type="range"] {
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.nx-root .nx-input {
+  width: 100%;
+  height: 30px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.nx-root .nx-switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--line-2);
+  cursor: pointer;
+}
+
+.nx-root .nx-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-2);
+}
+
+.nx-root .nx-switch[aria-checked="true"] {
+  background: var(--accent-strong, var(--accent));
+}
+
+.nx-root .nx-switch[aria-checked="true"]::after {
+  left: 17px;
+  background: var(--text);
+}
+
+.nx-root .nx-bar {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line-2);
+}
+
+.nx-root .nx-bar > i {
+  display: block;
+  height: 100%;
+}
+
+/* A stand-in for a picture that has not been generated: the scene's light, not a photo. */
+.nx-root .nx-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r);
+  background:
+    radial-gradient(
+      ellipse 45% 35% at 50% 30%,
+      color-mix(in srgb, var(--warn) 45%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(170deg, color-mix(in srgb, var(--t-video) 30%, var(--bg)), var(--bg));
+  isolation: isolate;
+}
+
+.nx-root .nx-frame > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-root * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
