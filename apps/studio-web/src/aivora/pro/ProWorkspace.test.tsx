@@ -230,12 +230,11 @@ describe("professional workspace", () => {
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     fireEvent.keyDown(window, { key: "y", ctrlKey: true });
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
-    fireEvent.click(screen.getByRole("button", { name: "暂停排队" }));
-    expect(screen.getByText(/已经发出的请求不一定能停/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "继续排队" }));
-    expect(screen.getByText("继续排队。")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "重试失败的" }));
-    expect(screen.getByText("没有失败的生成。")).toBeInTheDocument();
+    const center = screen.getByRole("dialog", { name: "后台生成" });
+    expect(within(center).getByRole("heading", { name: "雨夜巷战" })).toBeInTheDocument();
+    expect(within(center).getByRole("region", { name: "任务列表" })).toBeInTheDocument();
+    fireEvent.click(within(center).getByRole("button", { name: "关上后台生成" }));
+    expect(screen.queryByRole("dialog", { name: "后台生成" })).toBeNull();
     expect(completeText).toHaveBeenCalled();
   }, 20_000);
 
@@ -305,14 +304,16 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect((await screen.findAllByText("没有生成成功，可以重试。")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
-    fireEvent.click(screen.getByRole("button", { name: "重试失败的" }));
+    fireEvent.click(screen.getByRole("button", { name: /失败的全部重试/ }));
     expect(await screen.findByText("生成中")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /点此取消/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "全部暂停" }));
+    expect(screen.getByText(/已经发出的请求不一定能停/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "停下这一次" }));
     expect(screen.getByText(/已取消这一次/)).toBeInTheDocument();
     release({
       data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "暂停排队" }));
+    fireEvent.click(screen.getByRole("button", { name: "关上后台生成" }));
     fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -369,8 +370,9 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "开始生成" })[0]!);
     expect(await screen.findByText(/网页里不能直接出片/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
-    fireEvent.click(screen.getAllByRole("button", { name: /网页里不能直接出片/ })[0]!);
-    expect(screen.getAllByText(/已取消这一次/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/网页里不能直接出片/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: "再试一次" })[0]!);
+    expect((await screen.findAllByText(/网页里不能直接出片/)).length).toBeGreaterThan(0);
   });
 
   it("records an undo step and the project menu", async () => {
@@ -2438,4 +2440,38 @@ it("sums the export in one line, lists missing shots by scene, and offers the fi
   expect(dialog.querySelector(".pathshow")?.textContent).toContain("…");
   expect(dialog.querySelector(".pathrow")?.textContent).toContain("浏览");
   expect(exportFilmCut).not.toHaveBeenCalled();
+});
+
+it("opens the task center from 后台生成 with nothing to do yet, and goes to the storyboard", () => {
+  render(<ProWorkspace />);
+  fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
+  expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有正在生成的内容");
+  fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
+  expect(screen.getByText("现在没有任务")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "去分镜" }));
+  expect(screen.queryByRole("dialog", { name: "后台生成" })).toBeNull();
+  expect(stageTab("分镜").className.split(/\s+/)).toContain("on");
+});
+
+it("names each shot's job in the task center and counts the ones still going", async () => {
+  let release: (value: unknown) => void = () => undefined;
+  const createStoryFilm = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  installDesktop(createStoryFilm);
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent(/正在做 \d+ 个/),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
+  const center = screen.getByRole("dialog", { name: "后台生成" });
+  expect(within(center).getAllByText(/第 2 场第 1 个镜头/).length).toBeGreaterThan(0);
+  expect(within(center).queryByText("生成视频")).toBeNull();
+  release({ data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" } });
 });

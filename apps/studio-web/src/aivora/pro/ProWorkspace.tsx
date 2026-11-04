@@ -116,6 +116,8 @@ import {
 } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs, runTask } from "../film/task-progress";
+import { TaskCenter } from "../next/TaskCenter";
+import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import {
   settleNextJob,
   dialogueMuted,
@@ -2626,6 +2628,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const finished = tracked.filter((job) => job.status === "done" || job.status === "failed").length;
   const progress = tracked.length === 0 ? 0 : Math.round((finished / tracked.length) * 100);
 
+  // UI wiring (4A-U04): the live task list for 后台生成 and the task center.
+  const feed = useTaskFeed();
+  const feedNow = feedProgress(feed);
   // UI wiring (3J-U02): each page opens with its own helper in the assistant. Only a page
   // change picks it; chooseRole is a new function on every render.
   useEffect(() => {
@@ -3426,13 +3431,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <button className="task" onClick={() => setMenu(menu === "queue" ? null : "queue")}>
             <Ic name="loader" size={12} />
             后台生成：
-            {asking || portraitBusy
+            {asking
               ? "正在问模型"
-              : film && film.jobs.some((job) => job.status === "running" || job.status === "queued")
-                ? `视频 ${film.jobs.filter((job) => job.status === "queued" || job.status === "running").length} 个排队`
-                : "没有正在生成的内容"}
+              : feedNow.active > 0
+                ? `正在做 ${feedNow.active} 个`
+                : portraitBusy
+                  ? "正在出定妆照"
+                  : "没有正在生成的内容"}
             <span className="bar">
-              <i style={{ width: `${progress}%` }} />
+              <i style={{ width: `${feed.tasks.length > 0 ? feedNow.percent : progress}%` }} />
             </span>
           </button>
           <span className="sp" />
@@ -3561,25 +3568,40 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </div>
           </div>
         )}
-        {menu === "queue" && (
-          <div
-            className="menu"
-            style={{ left: 220, bottom: 28, top: "auto" }}
-            role="dialog"
-            aria-label="生成队列"
-          >
-            <button
-              onClick={() => {
-                pauseRef.current = !paused;
-                setPaused((value) => !value);
-                setNotice(paused ? "继续排队。" : "已暂停。已经发出的请求不一定能停。");
+        {menu === "queue" && film ? (
+          <div className="task-back" data-overlay role="dialog" aria-label="后台生成">
+            <div className="task-head">
+              <h2>后台生成</h2>
+              <span className="sp" />
+              <button className="icon-btn" aria-label="关上后台生成" onClick={() => setMenu(null)}>
+                <Ic name="x" size={16} />
+              </button>
+            </div>
+            <TaskCenter
+              title={film.seriesTitle || film.title}
+              tasks={namedTasks(feed.tasks, film)}
+              paused={paused}
+              resumeLabel="继续排队"
+              onPause={() => {
+                pauseRef.current = true;
+                setPaused(true);
+                setNotice("已暂停。已经发出的请求不一定能停。");
               }}
-            >
-              {paused ? "继续排队" : "暂停排队"}
-            </button>
-            <button
-              onClick={() => {
-                const failed = (film?.shots ?? []).filter((item) =>
+              onResume={() => {
+                pauseRef.current = false;
+                setPaused(false);
+                setNotice("继续排队。");
+              }}
+              onRetry={(taskId) => {
+                const job = film.jobs.find((item) => item.id === taskId);
+                const target = film.shots.find((item) => item.id === job?.shotId);
+                if (target) void submitGeneration([target]);
+              }}
+              canRetry={(task) =>
+                film.jobs.some((job) => job.id === task.id && job.kind === "video")
+              }
+              onRetryFailed={() => {
+                const failed = film.shots.filter((item) =>
                   item.takes.some((take) => take.status === "failed"),
                 );
                 if (failed.length === 0) {
@@ -3588,53 +3610,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 }
                 void submitGeneration(failed);
               }}
-            >
-              重试失败的
-            </button>
-            {(film?.jobs ?? []).length === 0 && <button>没有正在生成的内容</button>}
-            {(film?.jobs ?? []).map((job) => (
-              <button
-                key={job.id}
-                onClick={() => {
-                  if (!film) return;
-                  if (
-                    job.status === "done" ||
-                    job.status === "failed" ||
-                    job.status === "cancelled"
-                  ) {
-                    cancelledJobs.current.delete(job.id);
-                    return;
-                  }
-                  cancelledJobs.current.add(job.id);
-                  const billed = film.backendProjectId || projectId;
-                  if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
-                    void window.aijian.cancelStoryFilm(billed);
-                  }
-                  setFilm({
-                    ...film,
-                    jobs: film.jobs.map((item) =>
-                      item.id === job.id ? { ...item, status: "cancelled" } : item,
-                    ),
-                  });
-                  setNotice("已取消这一次。已经发出的请求不一定能停。");
-                }}
-              >
-                {job.kind === "video" ? "视频" : "画面"} · 版本 {job.take} ·{" "}
-                {job.status === "blocked"
-                  ? job.reason
-                  : job.status === "done"
-                    ? "好了"
-                    : job.status === "failed"
-                      ? job.reason === "已中断"
-                        ? "已中断"
-                        : "没有成功"
-                      : job.status === "cancelled"
-                        ? "已取消"
-                        : "点此取消"}
-              </button>
-            ))}
+              onRemove={(taskId) => {
+                const job = film.jobs.find((item) => item.id === taskId);
+                if (!job) return;
+                cancelledJobs.current.add(job.id);
+                const billed = film.backendProjectId || projectId;
+                if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
+                  void window.aijian.cancelStoryFilm(billed);
+                }
+                setFilm({
+                  ...film,
+                  jobs: film.jobs.map((item) =>
+                    item.id === job.id ? { ...item, status: "cancelled" } : item,
+                  ),
+                });
+                setNotice("已取消这一次。已经发出的请求不一定能停。");
+              }}
+              canRemove={(task) =>
+                film.jobs.some(
+                  (job) =>
+                    job.id === task.id && (job.status === "queued" || job.status === "running"),
+                )
+              }
+              onOpenStoryboard={() => {
+                setMenu(null);
+                setStage("board");
+              }}
+            />
           </div>
-        )}
+        ) : null}
         {exportOpen && (
           <div className="dialog-back">
             <div className="dialog export" role="dialog" aria-label="导出成片">

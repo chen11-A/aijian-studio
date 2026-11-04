@@ -2693,6 +2693,33 @@ body:has(.pro-root) {
 .pro-root .menu button:hover {
   background: var(--panel-3);
 }
+/* 4A-U04: 后台生成 opens the task center over the whole workspace, under the top bar. */
+.pro-root .task-back {
+  position: absolute;
+  inset: 48px 0 24px;
+  z-index: 6;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px 12px;
+}
+.pro-root .task-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  flex: none;
+}
+.pro-root .task-head h2 {
+  font-size: 14px;
+}
+.pro-root .task-head .sp {
+  flex: 1;
+}
+.pro-root .task-back > .nx-root {
+  flex: 1;
+  min-height: 0;
+}
 .pro-root .dialog-back {
   position: absolute;
   inset: 48px 0 24px;
