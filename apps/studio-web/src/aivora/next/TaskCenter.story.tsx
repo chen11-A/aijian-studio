@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { taskCenterData } from "./adapters";
+import { sampleProjectJson } from "./adapters/sampleProject";
 import { TaskCenter, type TaskItem, type TaskRecovery } from "./TaskCenter";
 import { StoryFrame } from "./stories/StoryFrame";
 import { sampleTasks } from "./stories/sampleData";
@@ -11,7 +13,11 @@ const STATES = [
   { id: "loading", label: "加载中" },
   { id: "empty", label: "没有任务" },
   { id: "error", label: "读不出记录" },
+  { id: "project", label: "按 project.json" },
 ];
+
+/** A fixed clock, so the example always says the running take has waited 72 seconds. */
+const PROJECT_NOW = Date.parse("2026-11-04T08:01:12.000Z");
 
 const UNCERTAIN_FOUND = "scene-2-shot-23-take-1";
 const CHECK_SECONDS = 1.2;
@@ -39,14 +45,22 @@ export function startQueue(tasks: readonly TaskItem[]): TaskItem[] {
   });
 }
 
-function initial(state: string): { tasks: TaskItem[]; recovery: TaskRecovery | null } {
-  if (state === "empty") return { tasks: [], recovery: null };
+type Start = { title: string; tasks: TaskItem[]; recovery: TaskRecovery | null };
+
+function initial(state: string): Start {
+  const title = "第 1 集 · 一键出片";
+  if (state === "empty") return { title, tasks: [], recovery: null };
+  if (state === "project") {
+    const adapted = taskCenterData(sampleProjectJson(), { now: PROJECT_NOW });
+    const props = adapted.ok ? adapted.props : { title, tasks: [] };
+    return { title: props.title, tasks: [...props.tasks], recovery: null };
+  }
   const tasks = sampleTasks();
   if (state === "checked") {
-    return { tasks: afterCheck(tasks), recovery: { phase: "checked", found: 1, lost: 1 } };
+    return { title, tasks: afterCheck(tasks), recovery: { phase: "checked", found: 1, lost: 1 } };
   }
-  if (state === "running") return { tasks: startQueue(afterCheck(tasks)), recovery: null };
-  return { tasks, recovery: { phase: "needs-check" } };
+  if (state === "running") return { title, tasks: startQueue(afterCheck(tasks)), recovery: null };
+  return { title, tasks, recovery: { phase: "needs-check" } };
 }
 
 export function TaskCenterStory({ state = "recovery" }: { state?: string }) {
@@ -68,7 +82,7 @@ export function TaskCenterStory({ state = "recovery" }: { state?: string }) {
   return (
     <StoryFrame story="task-center" states={STATES} state={state} log={log}>
       <TaskCenter
-        title="第 1 集 · 一键出片"
+        title={start.title}
         tasks={tasks}
         recovery={recovery}
         paused={paused}

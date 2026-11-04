@@ -35,12 +35,12 @@ describe("story pages", () => {
   });
 
   it.each([
-    ["task-center", ["recovery", "checked", "running", "loading", "empty", "error"]],
-    ["export-check", ["issues", "checking", "clean", "error", "invalid"]],
-    ["sound-panel", ["simple", "fine"]],
-    ["take-picker", ["three", "two", "one", "generating"]],
-    ["subtitle-style", ["clear", "bold"]],
-    ["cover-editor", ["on", "off", "untitled"]],
+    ["task-center", ["recovery", "checked", "running", "loading", "empty", "error", "project"]],
+    ["export-check", ["issues", "checking", "clean", "error", "invalid", "project"]],
+    ["sound-panel", ["simple", "fine", "project"]],
+    ["take-picker", ["three", "two", "one", "generating", "project"]],
+    ["subtitle-style", ["clear", "bold", "project"]],
+    ["cover-editor", ["on", "off", "untitled", "project"]],
   ])("%s renders every example state", (story, states) => {
     for (const state of states) {
       const view = render(<StoryGallery search={`?story=${story}&state=${state}`} />);
@@ -182,5 +182,59 @@ describe("other examples", () => {
     expect(screen.getByText(/打开「AI 生成」标识/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "用这个封面" }));
     expect(screen.getByText(/刚才点了：用这个封面$/)).toBeInTheDocument();
+  });
+});
+
+describe("examples built from the example project.json", () => {
+  it("lists its takes in the task center, with the job that was never sent", () => {
+    render(<StoryGallery search="?story=task-center&state=project" />);
+    expect(screen.getByText("雨夜旧书店 · 第 1 集")).toBeInTheDocument();
+    expect(screen.getByText("没发出去")).toBeInTheDocument();
+    expect(screen.getByText(/已经等了 72 秒/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "接着做 1 段" }));
+    expect(screen.getByText(/刚才点了：接着做$/)).toBeInTheDocument();
+  });
+
+  it("names the shot of each issue in the export check", () => {
+    render(<StoryGallery search="?story=export-check&state=project" />);
+    const row = screen.getByText("这里有至少两秒听不到声音。").closest("li")!;
+    expect(within(row).getByText("第 2 场第 1 个镜头")).toBeInTheDocument();
+  });
+
+  it("shows what scene 1 has for sound and what it does not", () => {
+    render(<StoryGallery search="?story=sound-panel&state=project" />);
+    expect(screen.getByRole("radio", { name: "不安" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("还不能单独调。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "紧张" }));
+    expect(screen.getByRole("radio", { name: "紧张" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.change(screen.getByRole("slider", { name: /台词/ }), { target: { value: "0" } });
+    expect(screen.getByText(/台词 0（静音）/)).toBeInTheDocument();
+  });
+
+  it("picks a version from the shot's takes", () => {
+    render(<StoryGallery search="?story=take-picker&state=project" />);
+    expect(
+      within(screen.getByRole("listitem", { name: "第 1 版" })).getByText("正在用这一版"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "用第 2 版" }));
+    expect(screen.getByText(/用 s2-1-t2/)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("listitem", { name: "第 2 版" })).getByText("正在用这一版"),
+    ).toBeInTheDocument();
+  });
+
+  it("previews the first line and waits for a style", () => {
+    render(<StoryGallery search="?story=subtitle-style&state=project" />);
+    expect(screen.getByTestId("wide-line")).toHaveTextContent("打烊了。");
+    expect(screen.getByRole("button", { name: "用这个样式" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("radio", { name: /底条字幕/ }));
+    fireEvent.click(screen.getByRole("button", { name: "用这个样式" }));
+    expect(screen.getByText(/用这个样式 band/)).toBeInTheDocument();
+  });
+
+  it("puts the work's name on the cover", () => {
+    render(<StoryGallery search="?story=cover-editor&state=project" />);
+    expect(screen.getByRole("textbox", { name: "片名" })).toHaveValue("雨夜旧书店");
+    expect(screen.getByRole("textbox", { name: "副标题" })).toHaveValue("第 1 集");
   });
 });

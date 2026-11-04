@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { takePickerData } from "./adapters";
+import { sampleProjectJson } from "./adapters/sampleProject";
 import { TakePicker, type TakeOption } from "./TakePicker";
 import { StoryFrame } from "./stories/StoryFrame";
 
@@ -8,6 +10,7 @@ const STATES = [
   { id: "two", label: "2 个版本" },
   { id: "one", label: "1 个版本" },
   { id: "generating", label: "还在生成" },
+  { id: "project", label: "按 project.json" },
 ];
 
 const A: TakeOption = {
@@ -54,9 +57,26 @@ function takesFor(state: string): TakeOption[] {
   return [A, B, C];
 }
 
+/** 第 2 场第 1 个镜头 of the example project.json, through takePickerData. Stills are not loaded. */
+const FROM_PROJECT = takePickerData(sampleProjectJson(), "scene-2-shot-1", { mediaUrl: () => "" });
+
 export function TakePickerStory({ state = "three" }: { state?: string }) {
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = useState<string | null>();
   const [log, setLog] = useState<string>();
+  if (state === "project" && FROM_PROJECT.ok) {
+    return (
+      <StoryFrame story="take-picker" states={STATES} state={state} log={log}>
+        <TakePicker
+          {...FROM_PROJECT.props}
+          selectedId={selected === undefined ? FROM_PROJECT.props.selectedId : selected}
+          onSelect={(id) => {
+            setSelected(id);
+            setLog(`用 ${id}`);
+          }}
+        />
+      </StoryFrame>
+    );
+  }
   return (
     <StoryFrame story="take-picker" states={STATES} state={state} log={log}>
       <TakePicker

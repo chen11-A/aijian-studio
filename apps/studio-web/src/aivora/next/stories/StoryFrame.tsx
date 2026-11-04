@@ -35,9 +35,7 @@ export function StoryFrame({
   children: ReactNode;
 }) {
   // The notice comes first so a narrow window cuts off the end of the log, not the notice.
-  const note = log
-    ? `示例里不会真的去做。刚才点了：${log}`
-    : "作品、镜头和数字都是演示用的，没有连到软件。";
+  const note = log ? `示例里不会真的去做。刚才点了：${log}` : "演示用的作品和数字，没有连到软件。";
   return (
     <div className="pro-root nx-story" data-story={story}>
       <header className="nx-story-bar">
