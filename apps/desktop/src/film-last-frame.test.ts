@@ -1,10 +1,23 @@
-import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  readdir,
+  symlink,
+  truncate,
+  rm,
+} from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
+import { existsSync, readdirSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractFilmLastFrame, type LastFrameHost } from "./film-last-frame";
+const roots: string[] = [];
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 const series = "film_abcdefghijklmnop";
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO/aZasAAAAASUVORK5CYII=",
@@ -12,6 +25,7 @@ const png = Buffer.from(
 );
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "last-frame-"));
+  roots.push(root);
   const source = join(root, "clip.mp4");
   await writeFile(source, "fixture");
   const host: LastFrameHost = {
@@ -80,6 +94,7 @@ describe("local film last-frame extraction", () => {
   it("rejects a symlink escape for the output directory", async () => {
     const { root, source, host } = await fixture();
     const outside = await mkdtemp(join(tmpdir(), "last-frame-outside-"));
+    roots.push(outside);
     await mkdir(join(root, series));
     await symlink(outside, join(root, series, "stills"), "junction");
     await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
@@ -90,6 +105,7 @@ describe("local film last-frame extraction", () => {
   it("rejects an escaping series junction before creating any external stills directory", async () => {
     const { root, source, host } = await fixture();
     const outside = await mkdtemp(join(tmpdir(), "last-frame-series-outside-"));
+    roots.push(outside);
     // Directory junctions work on Windows without the file-symlink developer privilege.
     await symlink(outside, join(root, series), "junction");
     expect(await readdir(outside)).toEqual([]);
@@ -152,4 +168,84 @@ describe("local film last-frame extraction", () => {
       expect(extracted).not.toEqual(raw.subarray(0, 32 * 32 * 3));
     },
   );
+});
+
+describe("last-frame validation boundaries", () => {
+  it("rejects zero-length, oversized, non-file and non-video sources before probing", async () => {
+    const { root, source, host } = await fixture();
+    const image = join(root, "photo.png");
+    await writeFile(image, png);
+    const folder = join(root, "directory.mp4");
+    await mkdir(folder);
+    for (const path of [image, folder])
+      await expect(extractFilmLastFrame(series, path, host)).rejects.toMatchObject({
+        code: "CONTINUITY_VIDEO_INVALID",
+      });
+    await truncate(source, 0);
+    await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
+      code: "CONTINUITY_VIDEO_INVALID",
+    });
+    await truncate(source, 80 * 1024 * 1024 + 1);
+    await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
+      code: "CONTINUITY_VIDEO_INVALID",
+    });
+    expect(host.probeDuration).not.toHaveBeenCalled();
+    expect(host.runFfmpeg).not.toHaveBeenCalled();
+    await rm(root, { recursive: true, force: true });
+  });
+  it("distinguishes probe failure and cancellation while probing without decoding", async () => {
+    const { source, host } = await fixture();
+    host.current = () => false;
+    await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
+      code: "CONTINUITY_REQUEST_STALE",
+    });
+    expect(host.probeDuration).not.toHaveBeenCalled();
+    host.current = () => true;
+    host.probeDuration = async () => {
+      throw new Error("probe unavailable");
+    };
+    await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
+      code: "CONTINUITY_PROBE_FAILED",
+    });
+    let current = true;
+    host.current = () => current;
+    host.probeDuration = async () => {
+      current = false;
+      return 1;
+    };
+    await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
+      code: "CONTINUITY_REQUEST_STALE",
+    });
+    expect(host.runFfmpeg).not.toHaveBeenCalled();
+  });
+  it.each(["short", "oversized", "signature", "header", "width", "height"])(
+    "rejects %s frame output and removes temporary files",
+    async (kind) => {
+      const { root, source, host } = await fixture();
+      host.runFfmpeg = async (args) => {
+        const bytes = Buffer.from(png);
+        if (kind === "signature") bytes[0] = 0;
+        if (kind === "header") bytes.write("BAD!", 12, "ascii");
+        if (kind === "width") bytes.writeUInt32BE(0, 16);
+        if (kind === "height") bytes.writeUInt32BE(0, 20);
+        await writeFile(args.at(-1)!, kind === "short" ? bytes.subarray(0, 12) : bytes);
+        if (kind === "oversized") await truncate(args.at(-1)!, 12 * 1024 * 1024 + 1);
+      };
+      await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
+        code: "CONTINUITY_FRAME_INVALID",
+      });
+      expect(await readdir(join(root, series, "stills"))).toEqual([]);
+    },
+  );
+  it("removes a published frame when its project is invalidated at publication", async () => {
+    const { root, source, host } = await fixture();
+    const folder = join(root, series, "stills");
+    host.current = () =>
+      !existsSync(folder) ||
+      !readdirSync(folder).some((name) => name.endsWith(".png") && !name.endsWith(".partial.png"));
+    await expect(extractFilmLastFrame(series, source, host)).rejects.toMatchObject({
+      code: "CONTINUITY_REQUEST_STALE",
+    });
+    expect(await readdir(folder)).toEqual([]);
+  });
 });
