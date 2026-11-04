@@ -1,6 +1,10 @@
+import { File as NodeFile } from "node:buffer";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
+import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
 import { NOTICE_COPY } from "../next/wiring/noticeCopy";
 import { ProWorkspace } from "./ProWorkspace";
@@ -12,6 +16,59 @@ describe("professional workspace", () => {
     window.localStorage.clear();
     delete window.aijian;
     delete window.aijianGrok;
+  });
+
+  it("keeps the real imported novel across pages and after synchronous offline cast extraction", async () => {
+    const source = readFileSync(
+      resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),
+      "utf8",
+    );
+    render(<ProWorkspace />);
+    fireEvent.click(screen.getByRole("button", { name: "导入小说…" }));
+    fireEvent.change(screen.getByLabelText("导入小说"), {
+      target: { files: [new NodeFile([source], "test-novel-2000.txt", { type: "text/plain" })] },
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "放入剧本" })).toBeEnabled());
+    fireEvent.click(stageTab("角色与场景"));
+    expect(screen.queryByRole("button", { name: "放入剧本" })).not.toBeInTheDocument();
+    fireEvent.click(stageTab("剧本"));
+    fireEvent.click(await screen.findByRole("button", { name: "放入剧本" }));
+    expect(screen.getByLabelText("这一场")).not.toHaveValue("");
+    fireEvent.click(stageTab("角色与场景"));
+    expect(document.body.textContent).toContain("林晚");
+    fireEvent.click(stageTab("剧本"));
+    expect(screen.queryByRole("button", { name: "放入剧本" })).not.toBeInTheDocument();
+    await waitFor(async () => {
+      const saved = await readSaved(activeFilmId());
+      expect(saved?.sourceText).toBe(source);
+      expect(saved?.scenes.map((item) => item.title)).toEqual([
+        "雨夜旧书店",
+        "码头仓库",
+        "医院走廊",
+      ]);
+      const allScenes = saved!.scenes.map((item) => item.text).join("\n");
+      for (const paragraph of source
+        .split(/\n+/)
+        .map((item) => item.trim())
+        .filter(Boolean))
+        expect(allScenes).toContain(paragraph);
+    });
+  });
+
+  it("keeps an offline director plan when cast extraction finishes synchronously", async () => {
+    render(<ProWorkspace />);
+    fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
+    fireEvent.change(screen.getByLabelText("这一场"), {
+      target: { value: "林晚走进书店。林晚说：这书店我不卖。" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+    fireEvent.click(await screen.findByRole("button", { name: "写入分镜" }));
+    await waitFor(async () => {
+      const saved = await readSaved(activeFilmId());
+      expect(saved?.shots.length).toBeGreaterThan(0);
+      expect(saved?.characters.some((person) => person.name === "林晚")).toBe(true);
+      expect(saved?.scenes[0]?.text).toContain("这书店我不卖。");
+    });
   });
 
   it("generates every missing portrait from one whole-cast click", async () => {

@@ -1078,7 +1078,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     if (card?.mode === "scenes" && card.scenes && film) {
       const next = applyScenes(film, card.scenes);
-      setFilm(next);
+      applyLive(next);
       void fillCast(next);
       const first =
         next.scenes.find((item) => card.scenes?.some((sceneRow) => sceneRow.title === item.title))
@@ -1142,7 +1142,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const sceneId =
       film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
     const placed = applyDirectorPlan(film, incoming, sceneId, unassignedDraft.current);
-    setFilm(placed);
+    applyLive(placed);
     setShot(0);
     void fillCast(placed);
     markApplied(role);
@@ -1524,7 +1524,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const next = applyScenes(film, pendingScenes);
-    setFilm(next);
+    applyLive(next);
     void fillCast(next);
     const first =
       next.scenes.find((item) => pendingScenes.some((sceneRow) => sceneRow.title === item.title))
