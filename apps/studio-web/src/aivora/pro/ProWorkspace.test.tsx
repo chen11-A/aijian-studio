@@ -571,7 +571,14 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "让编剧写" }));
     expect(await screen.findByText(/离线编剧/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放入剧本" }));
-    expect(screen.getByText(/已放入剧本/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放入剧本/)).toBeInTheDocument();
+    // Replacing the script clears obsolete automatic shots. Build the new script's
+    // shots before editing one away and checking the remaining ungenerated shots.
+    pickHelper("导演");
+    fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+    expect(await screen.findByText(/离线拆镜/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+    expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
     fireEvent.click(
       screen
         .getAllByRole("button", { name: /角色/ })
@@ -656,7 +663,7 @@ describe("professional workspace", () => {
     if (document.body.textContent?.includes("还有内容需要补齐"))
       expect(document.body.textContent).not.toContain("为保留全部台词和结尾");
     fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
-    expect(screen.getByText(/已写入分镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
   });
 
   it("walks the stages, confirms agents, and keeps a hand edit", async () => {
@@ -670,7 +677,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "让编剧写" }));
     expect(await screen.findByText(/编剧写好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放入剧本" }));
-    expect(screen.getByText(/已放入剧本/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放入剧本/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "改成短剧" }));
     expect(await screen.findByText(/编剧写好了/)).toBeInTheDocument();
     const novel = new File(["第一章 夜雨\n巷子里只有风。"], "故事.txt", { type: "text/plain" });
@@ -685,18 +692,34 @@ describe("professional workspace", () => {
     expect((await screen.findAllByText(/编剧写好了/)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "返回修改" }));
     expect((await screen.findAllByText(/编剧写好了/)).length).toBeGreaterThan(0);
+    // The rewritten script no longer owns the sample's obsolete shots.
+    pickHelper("导演");
+    fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+    expect(await screen.findByRole("button", { name: "写入分镜" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+    expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
     pickHelper("动作指导");
     fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
     expect(await screen.findByText(/动作指导写好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
-    expect(screen.getByText(/已写入这一镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/已写入这一镜/)).toBeInTheDocument();
     fireEvent.click(stageTab("分镜"));
     fireEvent.change(screen.getByLabelText("动作要点"), { target: { value: "我改过这一下" } });
     fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
     fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
-    expect(await screen.findByText(/动作指导写好了/)).toBeInTheDocument();
+    expect(await screen.findByText(/有动作没对上镜头/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
     expect(screen.getByText(/你改过的，没有盖掉/)).toBeInTheDocument();
+    await waitFor(() => {
+      const saved = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.at(-1)?.[0] as FilmProject;
+      expect(
+        saved.shots.some(
+          (row) => row.action === "我改过这一下" && row.userFields.includes("action"),
+        ),
+      ).toBe(true);
+    });
     fireEvent.click(screen.getByRole("button", { name: "属性" }));
     fireEvent.change(screen.getByLabelText("景别"), { target: { value: "特写" } });
     fireEvent.change(screen.getByLabelText("运镜"), { target: { value: "推" } });
@@ -1566,8 +1589,25 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   await waitFor(() =>
     expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/拆成两镜/),
   );
+  const beforeSplit = structuredClone(
+    vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject,
+  );
+  const splitTarget = beforeSplit.shots.find((item) => item.line === spoken)!;
+  expect(splitTarget).toBeDefined();
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+  await waitFor(() => {
+    const after = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    expect(after.shots).toHaveLength(beforeSplit.shots.length + 1);
+    expect(
+      after.shots
+        .filter((item) => item.sceneId === splitTarget.sceneId)
+        .map((item) => item.line)
+        .join(""),
+    ).toBe(spoken);
+    for (const other of beforeSplit.shots.filter((item) => item.id !== splitTarget.id))
+      expect(after.shots.some((item) => item.id === other.id)).toBe(true);
+  });
   pickHelper("美术");
   fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
   expect(await screen.findByText(/美术没有按格式返回/)).toBeInTheDocument();
@@ -2836,6 +2876,12 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
   expect(document.body.textContent).not.toContain("沈砚许诺留下书店");
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
   await screen.findByText(/导演拆好了/);
+  const scopedRequest = completeText.mock.calls
+    .filter(([request]) => request.text.includes("把这一场拆成镜头"))
+    .at(-1)![0].text;
+  expect(scopedRequest).toContain("今晚打烊了");
+  expect(scopedRequest).not.toContain("刀放下");
+  expect(scopedRequest).not.toContain("你还活着");
   fireEvent.click(await screen.findByRole("button", { name: "写入分镜" }));
   fireEvent.click(stageTab("分镜"));
   expect(
@@ -3755,3 +3801,38 @@ it("B11 confirms performance while retaining a user-locked delivery", async () =
     expect(saved?.userFields).toContain("delivery");
   });
 });
+
+it.each(["undo", "page"] as const)(
+  "B11 does not announce a delayed art save after %s",
+  async (action) => {
+    const { completeText } = installDesktop();
+    await openSample();
+    completeText.mockResolvedValueOnce({
+      kind: "OK",
+      text: JSON.stringify({
+        prompt_block_zh: "延迟保存画风",
+        identities: [],
+        locations: [],
+        props: [],
+      }),
+    });
+    let finish!: () => void;
+    vi.mocked(window.aijian!.writeFilmProject!).mockImplementation(async (value) => {
+      if ((value as FilmProject).styleZh === "延迟保存画风") {
+        return new Promise((resolve) => {
+          finish = () => resolve(value);
+        });
+      }
+      return value;
+    });
+    pickHelper("美术");
+    fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
+    await screen.findByText(/美术写好了/);
+    fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+    await waitFor(() => expect(finish).toBeDefined());
+    if (action === "undo") fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    else fireEvent.click(stageTab("分镜"));
+    await act(async () => finish());
+    expect(screen.queryByText(/已写入画风、外貌、场景和道具/)).not.toBeInTheDocument();
+  },
+);

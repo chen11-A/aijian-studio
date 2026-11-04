@@ -1,4 +1,9 @@
 import {
+  applyStoryConfirmation,
+  undoStoryConfirmation,
+  type StoryConfirmation,
+} from "./story-confirmation";
+import {
   applyShotDirection,
   undoShotDirection,
   type ShotDirectionTransaction,
@@ -25,7 +30,8 @@ type Entry =
   | { blocked: true }
   | { structure: EditorStructureTransaction }
   | { art: ArtTransaction }
-  | { direction: ShotDirectionTransaction };
+  | { direction: ShotDirectionTransaction }
+  | { story: StoryConfirmation };
 export function createEditorPageHistory() {
   const past = new Map<string, Entry[]>(),
     future = new Map<string, Entry[]>();
@@ -70,6 +76,16 @@ export function createEditorPageHistory() {
     if (!receipt) return { film: current, conflicts: ["NOTHING_TO_UNDO"] };
     if ("blocked" in receipt)
       return { film: current, conflicts: ["STRUCTURAL_HISTORY_UNSUPPORTED"] };
+    if ("story" in receipt) {
+      const result = inverse
+        ? undoStoryConfirmation(current, receipt.story)
+        : applyStoryConfirmation(current, receipt.story);
+      if (result.receipt) {
+        stack!.pop();
+        to.set(id, [...(to.get(id) ?? []), { story: result.receipt }]);
+      }
+      return { film: result.film, conflicts: result.conflicts };
+    }
     if ("direction" in receipt) {
       const result = inverse
         ? undoShotDirection(current, receipt.direction)
@@ -124,6 +140,11 @@ export function createEditorPageHistory() {
   }
   return {
     record,
+    recordStory: (story: StoryConfirmation, origin: EditorSelection) => {
+      const id = key(origin);
+      past.set(id, [...(past.get(id) ?? []), { story: structuredClone(story) }].slice(-50));
+      future.delete(id);
+    },
     recordDirection: (direction: ShotDirectionTransaction) => {
       const id = key(direction.selection);
       past.set(id, [...(past.get(id) ?? []), { direction: structuredClone(direction) }].slice(-50));

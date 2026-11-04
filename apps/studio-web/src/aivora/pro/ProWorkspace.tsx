@@ -1,3 +1,13 @@
+import { editorCompletionCurrent } from "./actions/editor-completion";
+import {
+  prepareDirectorConfirmation,
+  applyStoryConfirmation,
+  type StoryConfirmation,
+} from "./actions/story-confirmation";
+import {
+  prepareExplicitShotSplitTransaction,
+  prepareWriterTransaction,
+} from "./actions/story-structure-transaction";
 import {
   prepareShotDirection,
   applyShotDirection,
@@ -51,7 +61,6 @@ import { makeFourStills } from "./still-workflow";
 import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
   addShot,
-  applyScenes,
   clipLayout,
   clock,
   continuityPrompt,
@@ -181,7 +190,9 @@ import {
 type Stage = "script" | "cast" | "board" | "edit";
 type Role = "writer" | "director" | "action" | "performance" | "art" | "prompter" | "qc";
 
+type StoryDraft = { transaction: StoryConfirmation; origin: EditorSelection };
 type RoleCard = {
+  storyDraft?: StoryDraft;
   directionDiff?: ShotDirectionTransaction;
   artDiff?: ArtTransaction;
   editorDiff?: EditorSuggestion;
@@ -440,6 +451,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     role: Role;
     context: string;
     instruction: string;
+    origin?: EditorSelection;
   } | null>(null);
   const [confirmSignIn, setConfirmSignIn] = useState(false);
   const [oneClickReady, setOneClickReady] = useState(false);
@@ -636,6 +648,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
   const openShotRef = useRef("");
+  const storyDraft = useRef<StoryDraft | null>(null);
+  const applyingStory = useRef(false);
   const artDraft = useRef<ArtTransaction | null>(null);
   const applyingArt = useRef(false);
   const suggestionSnapshot = {
@@ -648,6 +662,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     structured,
     turns,
     art: artDraft.current,
+    story: storyDraft.current,
   };
 
   const [historyTick, setHistoryTick] = useState(0);
@@ -1083,16 +1098,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planDirector(asked = "") {
     if (!film) return;
+    const base = structuredClone(filmRef.current ?? film);
+    const origin = structuredClone(editorSelection.current);
+    storyDraft.current = null;
     const scope = scopeRef.current;
     supplementWarnings.current = [];
     unassignedDraft.current = [];
     const turn = pushTurn("director", asked.trim() || "把这一场拆成镜头");
-    const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
+    const current = base.scenes.find((item) => item.id === scene);
+    if (!current) {
+      finishTurn(turn, "先写好这一场，再请导演。");
+      return;
+    }
     const sceneId = current?.id ?? "scene-1";
     const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
     const thin = sceneNeedsSource(current?.text ?? "");
     setNotice(`正在写「${current?.title ?? "这一场"}」的镜头。`);
-    const input = directorRequestInput(film, sceneId, story, current?.text ?? "");
+    const input = directorRequestInput(base, sceneId, story, current?.text ?? "");
     const context = input.context;
     let next: FilmShot[] | null = null;
     let text: string;
@@ -1112,6 +1134,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         if (!parsed) {
           setPendingRetry({
             role: "director",
+            origin,
             context,
             instruction:
               '只返回 JSON，不要解释。格式：{"shots":[{"picture":"","size":"全景","seconds":5}]}',
@@ -1121,7 +1144,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           noteAgent("director", "rejected", text);
         } else {
           setNotice(`已写 ${parsed.length} 镜，正在写表演。`);
-          next = await completeDirectorPlan(film, sceneId, parsed, () => isTurnCurrent(turn));
+          next = await completeDirectorPlan(base, sceneId, parsed, () => isTurnCurrent(turn));
           text = thin
             ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「写入分镜」才会写入。"
             : "导演拆好了。点「写入分镜」才会写入。";
@@ -1153,9 +1176,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       finishTurn(turn, text);
       return;
     }
+    const draft: StoryDraft = {
+      transaction: prepareDirectorConfirmation(base, next, unassignedDraft.current),
+      origin,
+    };
+    storyDraft.current = draft;
     setPending(next);
     setPendingRole("director");
     publishCard("director", {
+      storyDraft: draft,
       title: `建议拆成 ${next.length} 个镜头`,
       rows: next.map((shot) => ({
         id: shot.id,
@@ -1178,14 +1207,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!job) return;
     setPendingRetry(null);
     const turn = pushTurn(job.role, "再问一次");
-    const base = filmRef.current;
+    const base = filmRef.current ? structuredClone(filmRef.current) : null;
+    const origin = structuredClone(editorSelection.current);
+    storyDraft.current = null;
     const scope = scopeRef.current;
     const valid = () =>
       isTurnCurrent(turn) && filmRef.current?.id === base?.id && scopeRef.current === scope;
     try {
       if (job.role === "director" && base) {
-        const sceneId =
-          base.scenes.find((item) => item.id === scene)?.id ?? base.scenes[0]?.id ?? "scene-1";
+        const sceneId = origin.sceneId;
+        if (
+          !sceneId ||
+          !base.scenes.some((row) => row.id === sceneId) ||
+          (job.origin && JSON.stringify(job.origin) !== JSON.stringify(origin))
+        ) {
+          finishTurn(turn, "镜头已变更，请重新生成建议。");
+          return;
+        }
         const result = await retryDirectorDraft(base, sceneId, job, {
           request: completeAgent,
           progress: setNotice,
@@ -1195,6 +1233,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         });
         if (!valid() || result.kind === "stale") return;
         if (result.kind === "ready") {
+          const draft: StoryDraft = {
+            transaction: prepareDirectorConfirmation(base, result.shots, unassignedDraft.current),
+            origin,
+          };
+          storyDraft.current = draft;
+          publishCard("director", {
+            storyDraft: draft,
+            title: `建议拆成 ${result.shots.length} 个镜头`,
+            rows: result.shots.map((row) => ({
+              id: row.id,
+              mark: row.size,
+              text: row.picture,
+              tail: `${row.seconds}s`,
+            })),
+            notes: [],
+            applied: false,
+            mode: "shots",
+            shots: result.shots,
+          });
           setPending(result.shots);
           setPendingRole("director");
           finishTurn(
@@ -1223,22 +1280,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     if (card?.mode === "scenes" && card.scenes && film) {
-      const next = applyScenes(film, card.scenes);
-      applyLive(next);
-      void fillCast(next);
-      const first =
-        next.scenes.find((item) => card.scenes?.some((sceneRow) => sceneRow.title === item.title))
-          ?.id ?? next.scenes[0]?.id;
-      if (first) setScene(first);
-      markApplied(role);
-      setNotice("已放入剧本。你改过的场没有被盖掉。");
-      const placed = turnsRef.current.map((item) =>
-        item.who === "agent" && item.text.includes("才会写入")
-          ? { ...item, text: "剧本已经写入。" }
-          : item,
-      );
-      turnsRef.current = placed;
-      setTurns(placed);
+      void applyPendingStory(card.storyDraft);
       return;
     }
     if (artDraft.current && (role === "art" || card?.mode === "art")) {
@@ -1260,21 +1302,122 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       void applyPendingDirection(card?.directionDiff);
       return;
     }
-    const sceneId =
-      film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
-    const placed = applyDirectorPlan(film, incoming, sceneId, unassignedDraft.current);
-    applyLive(placed);
-    setShot(0);
-    void fillCast(placed);
-    markApplied(role);
-    setNotice("已写入分镜。你改过的镜头没有被盖掉。");
-    const placedTurns = turnsRef.current.map((item) =>
-      item.who === "agent" && item.text.includes("才会写入")
-        ? { ...item, text: "镜头已经写入分镜。" }
-        : item,
+    void applyPendingStory(
+      card?.storyDraft ??
+        (pendingRole === "director" ? (storyDraft.current ?? undefined) : undefined),
     );
-    turnsRef.current = placedTurns;
-    setTurns(placedTurns);
+  }
+
+  async function applyPendingStory(draft: StoryDraft | undefined) {
+    const live = filmRef.current;
+    if (!draft || !live || applyingStory.current) {
+      if (!draft) setNotice("镜头已变更，请重新生成建议。");
+      return;
+    }
+    const current = editorSelection.current,
+      origin = draft.origin;
+    if (
+      storyDraft.current !== draft ||
+      current.projectId !== origin.projectId ||
+      current.page !== origin.page ||
+      current.sceneId !== origin.sceneId ||
+      current.shotId !== origin.shotId
+    ) {
+      setNotice("镜头已变更，请重新生成建议。");
+      return;
+    }
+    const result = applyStoryConfirmation(live, draft.transaction);
+    if (result.code === "NO_CHANGES") {
+      storyDraft.current = null;
+      markApplied(draft.transaction.kind);
+      setNotice("这一步已经放入。");
+      return;
+    }
+    if (!result.receipt) {
+      const code = result.conflicts.some((item) =>
+        /DEPENDENT|DEPENDENCIES|TASKS_CHANGED/.test(item),
+      )
+        ? "DEPENDENT_WORK_EXISTS"
+        : "STRUCTURE_STALE";
+      emitNotice({ code, text: NOTICE_TEXT[code] });
+      return;
+    }
+    let appliedVersion: FilmProject | null = null;
+    let completionOrigin = origin;
+    applyingStory.current = true;
+    try {
+      if (committed.current?.id === live.id)
+        pageHistory.record(committed.current, live, historyScope.current);
+      applyLive(result.film);
+      const applied = filmRef.current!;
+      appliedVersion = applied;
+      const expectedScene = applied.scenes.some((row) => row.id === origin.sceneId)
+        ? origin.sceneId
+        : applied.scenes[0]?.id;
+      const expectedShot =
+        origin.page === "board" || origin.page === "edit"
+          ? applied.shots
+              .filter((row) => row.sceneId === expectedScene)
+              .slice()
+              .sort((a, b) => a.no - b.no)[draft.transaction.kind === "director" ? 0 : shot]?.id
+          : undefined;
+      completionOrigin = { ...origin, sceneId: expectedScene, shotId: expectedShot };
+      pageHistory.recordStory(result.receipt, origin);
+      committed.current = applied;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      storyDraft.current = null;
+      markApplied(draft.transaction.kind);
+      if (draft.transaction.kind === "director") setShot(0);
+      else if (!applied.scenes.some((row) => row.id === scene))
+        setScene(applied.scenes[0]?.id ?? "");
+      const stored = await persistence.save(applied);
+      if (
+        !editorCompletionCurrent(
+          applied,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      ) {
+        return;
+      }
+      if (!stored) {
+        setNotice("没有写到应用数据目录，可以重试。");
+        return;
+      }
+      const latest = filmRef.current;
+      if (!latest) return;
+      void fillCast(latest);
+      setNotice(
+        draft.transaction.kind === "writer"
+          ? "已放入剧本。你改过的场没有被盖掉。"
+          : "已写入分镜。你改过的镜头没有被盖掉。",
+      );
+      const placed = turnsRef.current.map((item) =>
+        item.who === "agent" && item.text.includes("才会写入")
+          ? {
+              ...item,
+              text: draft.transaction.kind === "writer" ? "剧本已经写入。" : "镜头已经写入分镜。",
+            }
+          : item,
+      );
+      turnsRef.current = placed;
+      setTurns(placed);
+    } catch {
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice("没有写到应用数据目录，可以重试。");
+    } finally {
+      applyingStory.current = false;
+    }
   }
 
   const billingPromises = useRef(new Map<string, Promise<string>>());
@@ -1394,6 +1537,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setAsking(false);
       writing.current = false;
       artDraft.current = cached?.art ?? null;
+      storyDraft.current = cached?.story ?? null;
       setPending(cached?.pending ?? null);
       setPendingRole(cached?.pendingRole ?? null);
       setPendingScenes(cached?.pendingScenes ?? null);
@@ -1506,7 +1650,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planWriter(kind: "write" | "adapt") {
     if (!film) return;
-    const input = writerDraftInput(film, kind, chat);
+    const base = structuredClone(filmRef.current ?? film);
+    const origin = structuredClone(editorSelection.current);
+    storyDraft.current = null;
+    const input = writerDraftInput(base, kind, chat);
     const scope = scopeRef.current;
     const turn = pushTurn("writer", input.asked);
     setPendingScenes(null);
@@ -1523,7 +1670,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const { scenes, notice: text } = result;
     setPendingScenes(scenes);
     if (scenes) {
+      const draft: StoryDraft = { transaction: prepareWriterTransaction(base, scenes), origin };
+      storyDraft.current = draft;
       publishCard("writer", {
+        storyDraft: draft,
         title: `建议写成 ${scenes.length} 场`,
         rows: scenes.map((item) => ({
           id: item.id,
@@ -1546,22 +1696,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("还没有可放入的场次。");
       return;
     }
-    const next = applyScenes(film, pendingScenes);
-    applyLive(next);
-    void fillCast(next);
-    const first =
-      next.scenes.find((item) => pendingScenes.some((sceneRow) => sceneRow.title === item.title))
-        ?.id ?? next.scenes[0]?.id;
-    if (first) setScene(first);
-    markApplied("writer");
-    setNotice("已放入剧本。你改过的场没有被盖掉。");
-    const placed = turnsRef.current.map((item) =>
-      item.who === "agent" && item.text.includes("才会写入")
-        ? { ...item, text: "剧本已经写入。" }
-        : item,
+    void applyPendingStory(
+      storyDraft.current?.transaction.kind === "writer" ? storyDraft.current : undefined,
     );
-    turnsRef.current = placed;
-    setTurns(placed);
   }
 
   async function importBook(file: File) {
@@ -1587,6 +1724,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       if (applied.film) {
         filmRef.current = applied.film;
         setFilm(applied.film);
+        const draft: StoryDraft = {
+          transaction: prepareWriterTransaction(structuredClone(filmRef.current!), result.scenes),
+          origin: structuredClone(editorSelection.current),
+        };
+        storyDraft.current = draft;
+        publishCard("writer", {
+          storyDraft: draft,
+          title: `建议写成 ${result.scenes.length} 场`,
+          rows: result.scenes.map((row) => ({
+            id: row.id,
+            mark: "场",
+            text: row.where || row.title,
+            tail: "",
+          })),
+          notes: [],
+          applied: false,
+          mode: "scenes",
+          scenes: result.scenes,
+        });
       }
       setRole("writer");
       setNotice(result.notice);
@@ -1761,24 +1917,44 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       );
       return;
     }
+    const completionOrigin = structuredClone(editorSelection.current);
+    let appliedVersion: FilmProject | null = null;
     applyingDirection.current = true;
     try {
       if (committed.current?.id === live.id)
         pageHistory.record(committed.current, live, historyScope.current);
       applyLive(result.film);
       const applied = filmRef.current!;
+      appliedVersion = applied;
       pageHistory.recordDirection(result.receipt);
       committed.current = applied;
       skipHistory.current = true;
       setHistoryTick((value) => value + 1);
       markApplied(transaction.role);
       const stored = await persistence.save(applied);
-      if (filmRef.current?.id === live.id)
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
         setNotice(
           stored ? "已写入这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
         );
     } catch {
-      if (filmRef.current?.id === live.id) setNotice("没有写到应用数据目录，可以重试。");
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice("没有写到应用数据目录，可以重试。");
     } finally {
       applyingDirection.current = false;
     }
@@ -1804,12 +1980,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
       return;
     }
+    const completionOrigin = structuredClone(editorSelection.current);
+    let appliedVersion: FilmProject | null = null;
     applyingArt.current = true;
     try {
       if (committed.current?.id === live.id)
         pageHistory.record(committed.current, live, historyScope.current);
       applyLive(result.film);
       const applied = filmRef.current!;
+      appliedVersion = applied;
       pageHistory.recordArt(result.receipt);
       committed.current = applied;
       skipHistory.current = true;
@@ -1817,14 +1996,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       artDraft.current = null;
       markApplied("art");
       const stored = await persistence.save(applied);
-      if (filmRef.current?.id === live.id)
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
         setNotice(
           stored
             ? "已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。"
             : "美术建议已应用，但还没有保存。",
         );
     } catch {
-      if (filmRef.current?.id === live.id) setNotice("美术建议已应用，但还没有保存。");
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice("美术建议已应用，但还没有保存。");
     } finally {
       applyingArt.current = false;
     }
@@ -2173,6 +2369,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `duration:${shotId}`,
       () => filmRef.current?.id ?? "",
     );
+    const requestBase = structuredClone(current);
+    const origin = structuredClone(editorSelection.current);
     const measurementEpoch = previewEpoch.current + 1;
     const measured = await previewVoice(
       shot.characters.length > 0
@@ -2194,9 +2392,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     if (plan.kind === "split") {
       const splitShots = plan.shots;
+      const draft: StoryDraft = {
+        transaction: prepareExplicitShotSplitTransaction(requestBase, shotId, splitShots),
+        origin,
+      };
+      storyDraft.current = draft;
       setPending(splitShots);
       setPendingRole("director");
       publishCard("director", {
+        storyDraft: draft,
         title: `建议拆成 ${splitShots.length} 个镜头`,
         rows: splitShots.map((item) => ({
           id: item.id,
