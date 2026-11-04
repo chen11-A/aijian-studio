@@ -24,8 +24,8 @@ describe("subtitleStyleData", () => {
       },
       missing: [],
     });
-    const picked = subtitleStyleData(sampleProjectJson(), { value: "bold" });
-    expect(picked.ok && picked.props.value).toBe("bold");
+    const picked = subtitleStyleData(sampleProjectJson(), { value: "yellow" });
+    expect(picked.ok && picked.props.value).toBe("yellow");
   });
 
   it("says there is nothing to preview without dialogue", () => {

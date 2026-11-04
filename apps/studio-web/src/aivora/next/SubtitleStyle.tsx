@@ -7,10 +7,10 @@ export type SubtitleStyleOption = { id: string; name: string; description: strin
 
 /** The four built-in looks. Each id has its own CSS in SubtitleStyle.css. */
 export const SUBTITLE_STYLES: readonly SubtitleStyleOption[] = [
-  { id: "clear", name: "清楚白字", description: "白字加深色边，哪种画面都看得清。" },
-  { id: "band", name: "底条字幕", description: "白字垫一条半透明深色底，亮的画面也清楚。" },
+  { id: "white", name: "清楚白字", description: "白字加深色边，哪种画面都看得清。" },
+  { id: "bar", name: "底条字幕", description: "白字垫一条半透明深色底，亮的画面也清楚。" },
   { id: "film", name: "电影字幕", description: "小一号的字，柔和阴影，更像电影。" },
-  { id: "bold", name: "醒目黄字", description: "大号黄字加深色粗边，短视频里最常见。" },
+  { id: "yellow", name: "醒目黄字", description: "大号黄字加深色粗边，短视频里最常见。" },
 ];
 
 const LOOKS = new Set(SUBTITLE_STYLES.map((style) => style.id));
@@ -52,7 +52,7 @@ export function wrapLine(text: string, max: number): string[] {
   return lines;
 }
 
-const lookOf = (styleId: string) => (LOOKS.has(styleId) ? styleId : "clear");
+const lookOf = (styleId: string) => (LOOKS.has(styleId) ? styleId : "white");
 
 /** Pick a subtitle style and see it on a landscape and a portrait frame at the same time. */
 export function SubtitleStyle({

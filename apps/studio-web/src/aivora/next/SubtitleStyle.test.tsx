@@ -9,7 +9,7 @@ function renderStyle(props: Partial<SubtitleStyleProps> = {}) {
   const onChange = vi.fn();
   const view = render(
     <SubtitleStyle
-      value="clear"
+      value="white"
       sampleLine={LINE}
       sampleSource="第 1 场第 16 个镜头"
       onChange={onChange}
@@ -32,7 +32,7 @@ describe("SubtitleStyle", () => {
     ]);
     expect(screen.getByRole("radio", { name: /清楚白字/ })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("wide-line")).toHaveTextContent(LINE);
-    expect(screen.getByTestId("wide-line")).toHaveClass("nx-look-clear");
+    expect(screen.getByTestId("wide-line")).toHaveClass("nx-look-white");
     const tall = screen.getByTestId("tall-line");
     expect(
       within(tall)
@@ -47,10 +47,10 @@ describe("SubtitleStyle", () => {
     const { onChange } = renderStyle({ value: "film" });
     expect(screen.getByTestId("wide-line")).toHaveClass("nx-look-film");
     fireEvent.click(screen.getByRole("radio", { name: /醒目黄字/ }));
-    expect(onChange).toHaveBeenLastCalledWith("bold");
+    expect(onChange).toHaveBeenLastCalledWith("yellow");
     const current = screen.getByRole("radio", { name: /电影字幕/ });
     fireEvent.keyDown(current, { key: "ArrowUp" });
-    expect(onChange).toHaveBeenLastCalledWith("band");
+    expect(onChange).toHaveBeenLastCalledWith("bar");
     expect(screen.getByRole("radio", { name: /底条字幕/ })).toHaveFocus();
     fireEvent.keyDown(current, { key: "Enter" });
     expect(onChange).toHaveBeenCalledTimes(2);
@@ -58,9 +58,9 @@ describe("SubtitleStyle", () => {
 
   it("applies the chosen style when asked", () => {
     const onApply = vi.fn();
-    renderStyle({ value: "bold", onApply });
+    renderStyle({ value: "yellow", onApply });
     fireEvent.click(screen.getByRole("button", { name: "用这个样式" }));
-    expect(onApply).toHaveBeenCalledWith("bold");
+    expect(onApply).toHaveBeenCalledWith("yellow");
   });
 
   it("waits for a choice before it can apply", () => {
@@ -83,7 +83,7 @@ describe("SubtitleStyle", () => {
       value: "mine",
       styles: [{ id: "mine", name: "我的样式", description: "自己调的" }],
     });
-    expect(screen.getByTestId("wide-line")).toHaveClass("nx-look-clear");
+    expect(screen.getByTestId("wide-line")).toHaveClass("nx-look-white");
     expect(screen.getByText("1 套")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "用这个样式" })).toBeNull();
   });

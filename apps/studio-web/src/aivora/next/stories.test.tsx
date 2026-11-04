@@ -39,7 +39,7 @@ describe("story pages", () => {
     ["export-check", ["issues", "checking", "clean", "error", "invalid", "project"]],
     ["sound-panel", ["simple", "fine", "project"]],
     ["take-picker", ["three", "two", "one", "generating", "project"]],
-    ["subtitle-style", ["clear", "bold", "project"]],
+    ["subtitle-style", ["white", "yellow", "project"]],
     ["cover-editor", ["on", "off", "untitled", "project"]],
   ])("%s renders every example state", (story, states) => {
     for (const state of states) {
@@ -164,7 +164,7 @@ describe("other examples", () => {
     render(<StoryGallery search="?story=subtitle-style" />);
     fireEvent.click(screen.getByRole("radio", { name: /醒目黄字/ }));
     fireEvent.click(screen.getByRole("button", { name: "用这个样式" }));
-    expect(screen.getByText(/用这个样式 bold/)).toBeInTheDocument();
+    expect(screen.getByText(/用这个样式 yellow/)).toBeInTheDocument();
   });
 
   it("edits the cover and logs the mark and save", () => {
@@ -229,7 +229,7 @@ describe("examples built from the example project.json", () => {
     expect(screen.getByRole("button", { name: "用这个样式" })).toBeDisabled();
     fireEvent.click(screen.getByRole("radio", { name: /底条字幕/ }));
     fireEvent.click(screen.getByRole("button", { name: "用这个样式" }));
-    expect(screen.getByText(/用这个样式 band/)).toBeInTheDocument();
+    expect(screen.getByText(/用这个样式 bar/)).toBeInTheDocument();
   });
 
   it("puts the work's name on the cover", () => {

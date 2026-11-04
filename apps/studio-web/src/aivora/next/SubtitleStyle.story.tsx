@@ -6,18 +6,18 @@ import { StoryFrame } from "./stories/StoryFrame";
 
 /** Example page with a line from 《雨夜旧书店》. */
 const STATES = [
-  { id: "clear", label: "清楚白字" },
-  { id: "bold", label: "醒目黄字" },
+  { id: "white", label: "清楚白字" },
+  { id: "yellow", label: "醒目黄字" },
   { id: "project", label: "按 project.json" },
 ];
 
 /** The example project.json has dialogue but no saved style, so nothing is chosen yet. */
 const FROM_PROJECT = subtitleStyleData(sampleProjectJson());
 
-export function SubtitleStyleStory({ state = "clear" }: { state?: string }) {
+export function SubtitleStyleStory({ state = "white" }: { state?: string }) {
   const fromProject = state === "project" && FROM_PROJECT.ok ? FROM_PROJECT.props : null;
   const [value, setValue] = useState(
-    fromProject ? fromProject.value : state === "bold" ? "bold" : "clear",
+    fromProject ? fromProject.value : state === "yellow" ? "yellow" : "white",
   );
   const [log, setLog] = useState<string>();
   return (
