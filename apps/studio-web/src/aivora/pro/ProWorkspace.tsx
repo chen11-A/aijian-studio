@@ -1,3 +1,4 @@
+import { SceneCoverage } from "../next/wiring/SceneCoverage";
 import { CharacterTraits, type TraitPatch } from "../next/wiring/CharacterTraits";
 import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
@@ -3194,6 +3195,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onNotice={setNotice}
                   onGenerate={() => setBench(true)}
                   onBatch={askBatch}
+                  onRepairCoverage={productionActions.fixCoverage}
+                  activeSceneId={scene}
                   stills={[]}
                   fourArmed={stillArmed}
                   onFour={generateFourStills}
@@ -4870,6 +4873,8 @@ function BoardPage({
   onNotice,
   onGenerate,
   onBatch,
+  onRepairCoverage,
+  activeSceneId,
   stills,
   onStills,
   stillProgress,
@@ -4906,6 +4911,8 @@ function BoardPage({
   onNotice: (text: string) => void;
   onGenerate: () => void;
   onBatch: () => void;
+  onRepairCoverage: (sceneId: string) => Promise<unknown>;
+  activeSceneId: string;
   stills: string[];
   onStills: () => void;
   onFour: () => void;
@@ -5010,6 +5017,12 @@ function BoardPage({
         </div>
       </section>
       <section className="pane">
+        <SceneCoverage
+          film={film}
+          key={`${film.id}:${activeSceneId}`}
+          sceneId={activeSceneId}
+          onRepair={onRepairCoverage}
+        />
         <div className="tool">
           <h3>{film.scenes.find((item) => item.id === current?.sceneId)?.title ?? "镜头"}</h3>
           <span className="meta">

@@ -557,3 +557,11 @@ GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名�
 ## B16 分支整合记录
 
 按用户最新授权，以 --no-ff 合入 claude/aivora-ui@3af1dbf37296a1d6d81bf2ae89835e3045b82f9e，保留全部组件与界面提交历史。唯一文本冲突为本说明，保留 GPT 接口与 Claude 接线两部分；ProWorkspace 自动合并后继续核对业务回调，不整文件覆盖。B16 的分支交付已合入；原始 ZIP 字节哈希仍未核验，不将 Git 合并描述为 ZIP 导入。上文“未合并”描述属于上一轮历史状态。
+
+## 合并后的实际接线（3j）
+
+- 全体角色按钮直接调用同一 `makeAllPortraits` 队列，单人按钮保留；TaskCenter旁显示真实BatchProgress。
+- TaskCenter单项重试复用精确takeId，仅重发所选失败版本；未登录而blocked的任务没有版本，走原生成入口重新检查登录。取消同步版本和任务，不把已取消版本自动续做。
+- 角色性别/年龄下拉接入稳定的 `createProductionActions.updateCharacterTraits`，显式清空不被原文推断覆盖；手选声音写入userFields并保留。
+- 分镜页 `SceneCoverage` 接入 `fixCoverage(sceneId)`，空镜头场次也使用当前选中场次；显示该场缺失内容与未分配动作。保存失败允许重试，不形成未捕获Promise。未分配动作目前展示列表，拖放分配交互未交付，不能宣称支持。
+- 4a/4b接口仍只定义类型；没有新增供应商任务查询、口型、混音或新导出实现。
