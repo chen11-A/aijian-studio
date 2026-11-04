@@ -690,7 +690,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 
 画幅：新建作品数据默认横屏 `16:9`，显式竖屏和新集继承继续支持；旧无画幅存档维持原竖屏解释。生成请求沿已有画幅链传入。Claude 新建选择及预览适配仍未完成；双画幅居中裁切后端见下文补充，不能将此编号整体标已修。
 
-## 4A-B11 选择、差异与撤销（纯逻辑已提供，宿主未接）
+## 4A-B11 选择、差异与撤销（初始接口；实际接线见后文）
 
 - `pro/actions/editor-context.ts`：`resolveEditorContext(film,{projectId,page,sceneId?,shotId?})` 精确解析实际选择；缺选择不代选第一场，跨作品/场镜不符明确拒绝。`editorAgentContext` 仅投影选中原文、镜头文本/台词及人物身份，排除媒体路径、URL、任务及流水线元数据；不截断原文，后续请求继续使用既有分批机制。不要把完整界面快照直接发给供应商。
 - `pro/actions/editor-changes.ts`：`diffEditorSuggestion(base,proposed,selection)` 给出按实体字段的 before/after；`applyEditorSuggestion(latest,suggestion)` 在字段仍等于 base 时原子应用并给 receipt。建议产生时保留 base，不可应用时偷换成 latest。结构新增/删/重排显式 unsupported，不能绕过检查。
@@ -704,7 +704,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 
 取消会阻止最终发布并在进程结束后清理临时文件；现有 FFmpeg 宿主没有中止进程接口，不能声称点击取消立即终止编码。真实 FFmpeg 回归验证两种比例、中心像素、音轨字节一致和源文件不变。Claude 仍需导出比例选择器和“两种都要”交互；本提交不改 JSX，也未新增 4b 声音混合/导出检查。
 
-### 4A-B11 结构事务补充（纯逻辑已提供，宿主未接）
+### 4A-B11 结构事务补充（初始接口；实际接线见后文）
 
 `pro/actions/editor-structure.ts` 提供 `diffEditorStructure`、`applyEditorStructure`、`undoEditorStructure`。仅接受明确审核的连续场/镜头范围，原结构与关联任务、音频、衔接引用均作比较；不删除带资产或依赖的对象，不替换媒体。结构 receipt 必须交给 `undoEditorStructure`，不可塞进字段撤销历史。10 项回归通过；保存协调、页面回调和 Claude 差异呈现仍需接线。
 
@@ -743,3 +743,14 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### 4a 文案映射缺口（待 Claude）
 
 固定4fcd198全量web为3872通过、1失败、0跳过；唯一失败是NOTICE_COPY缺101个新增代码。完整code与后端短句已列在 `docs/aivora/4a-notice-handoff.md`，请Claude补最终文案及其表格。后端未改界面文案表，完整性测试保留；此项阻挡阶段全绿与4a发布。
+
+### 4A-B11 单镜与结构建议确认（已提供逻辑，差异呈现待 Claude）
+
+- `RoleCard.directionDiff` 是固定请求基线的单镜动作/表演事务；应用时检查身份、用户锁、原字段和场景状态，拒绝把其他镜头或后续修改覆盖掉。
+- `RoleCard.storyDraft={transaction,origin}` 同时保留请求时的编剧/导演结构建议和真正发起请求的页面选择；使用 `applyStoryConfirmation` 原子确认。已知场次的多场导演建议作为一个组合执行，一场冲突则全部不写；未知场次或重复镜头 ID 拒绝。
+- `prepareExplicitShotSplitTransaction` 专用于用户确认的台词拆镜：保留同场其他镜头，后续编号独立比较，不把两个新镜头当作整场替换。
+- 编剧首次从空作品原文框分场时，原文逐字保存到 `sourceText`；替换旧自动分镜须无人工修改、媒体、任务、音轨和衔接依赖。撤销原子恢复场次及被移除的完整镜头。
+- `createEditorPageHistory().recordStory(receipt,origin)` 将撤销留在请求原页面；不持久化全作品快照，不恢复旧媒体。返回旧页面的建议恢复沿用现有作用域缓存。
+- `editorCompletionCurrent` 仅限制保存完成提示：原页面或作品版本已变就不显示旧成功/失败提示，已授权的落盘仍继续。美术新增地点被其他页面新引用后，撤销保留该地点并返回冲突。
+
+这些接口没有新增 JSX、CSS 或最终文案；助手差异展示仍由 Claude 接线。全量文案契约缺口及 B01 检查点界面仍阻挡阶段验收。
