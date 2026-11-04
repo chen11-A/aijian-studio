@@ -5,7 +5,7 @@
 本目录生成脚本与生成音频以 **CC0 1.0 Universal（CC0-1.0）** 提供。在法律允许的最大范围内，作者放弃对这些原创内容的全部著作权及相关权利，使其贡献于公有领域；在无法放弃的范围内，提供 CC0 所规定的无条件、不可撤销、免版税许可。允许复制、修改、商用与再分发，无需署名。不提供担保。
 
 - CC0 授权文本：https://creativecommons.org/publicdomain/zero/1.0/legalcode
-- 可核查的生成来源：https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py
+- 可核查的生成来源：https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py
 - 每个文件的元数据与实际 SHA-256 校验值见 `entries.json`。来源链接在分支推送后可访问。
 
 ## 重新生成

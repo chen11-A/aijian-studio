@@ -13,7 +13,7 @@ import tempfile
 import wave
 
 RATE = 48000
-SOURCE = 'https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py'
+SOURCE = 'https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py'
 
 
 def execute(tool, args):
