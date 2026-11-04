@@ -1,3 +1,4 @@
+import { coverageNotice } from "../film/coverage-notice";
 import { awaitVideoResult } from "./video-request";
 import { SceneCoverage } from "../next/wiring/SceneCoverage";
 import { CharacterTraits, type TraitPatch } from "../next/wiring/CharacterTraits";
@@ -971,11 +972,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
     if (supplementWarnings.current.length)
       text += ` ${[...new Set(supplementWarnings.current)].join(" ")}`;
+    const coverage = current && next ? detectDirectorCoverage(current, next) : null;
     const budget = current && next ? directorPlanStatus(current, next).target : 16;
-    if (next && next.length > budget)
+    if (coverage && !coverage.ok) {
+      const message = coverageNotice(coverage);
+      text += ` ${message.text} ${message.detail}`;
+      emitNotice(message);
+    } else if (next && next.length > budget) {
       text += ` 为保留全部台词和结尾，保留 ${next.length} 镜，超过建议 ${budget} 镜。`;
-    if (current && next && !detectDirectorCoverage(current, next).ok)
-      text += " COVERAGE_INCOMPLETE：台词或结尾仍有缺失，请补齐后再生成。";
+    }
     if (!next) {
       setPending(null);
       setPendingRole(null);
@@ -1978,7 +1983,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       detail: [
         ...planStatus
           .filter((status) => !status.coverage.ok || status.overBudget)
-          .map((status) => `${status.title}：${status.shotCount}/${status.target}`),
+          .map((status) =>
+            status.coverage.ok
+              ? `${status.title}：${status.shotCount}/${status.target}`
+              : `${status.title}：${coverageNotice(status.coverage).detail}`,
+          ),
         ...supplementWarnings.current,
       ].join("；"),
     });

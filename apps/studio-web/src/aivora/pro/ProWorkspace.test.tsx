@@ -187,6 +187,9 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "打开示例" }));
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
     expect(await screen.findByText(/离线拆镜/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("COVERAGE_INCOMPLETE");
+    if (document.body.textContent?.includes("还有内容需要补齐"))
+      expect(document.body.textContent).not.toContain("为保留全部台词和结尾");
     fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
     expect(screen.getByText(/已写入分镜/)).toBeInTheDocument();
   });

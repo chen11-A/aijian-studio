@@ -1,3 +1,4 @@
+import { coverageNotice } from "../film/coverage-notice";
 import type { FilmCharacter, FilmProject } from "../film/project";
 import { autoVoiceForCharacter } from "../film/operations";
 import type { UiNotice } from "../film/contracts3j";
@@ -79,11 +80,7 @@ export function createProductionActions(host: {
                 : latest.shots.filter((shot) => shot.sceneId === scene.id),
             ),
           });
-        if (owned())
-          host.notify({
-            code: result.coverage?.ok ? "COVERAGE_COMPLETE" : "COVERAGE_INCOMPLETE",
-            text: result.coverage?.ok ? "台词和结尾已覆盖。" : "台词或结尾仍有缺失。",
-          });
+        if (owned() && result.coverage) host.notify(coverageNotice(result.coverage));
       }
       return result.coverage;
     },
