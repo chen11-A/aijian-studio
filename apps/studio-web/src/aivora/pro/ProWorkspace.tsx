@@ -1355,11 +1355,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function confirmPortraits(characterId: string) {
+  async function confirmPortraits(characterId?: string) {
     const current = filmRef.current;
     const character = current?.characters.find((item) => item.id === characterId);
-    if (!current || !character) return;
-    if (!character.identity.trim()) {
+    if (!current || (characterId && !character)) return;
+    if (character && !character.identity.trim()) {
       setNotice("先写下外貌，再出定妆照。");
       return;
     }
@@ -1373,7 +1373,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       );
       await makeAllPortraits({
         base: current,
-        characterIds: [characterId],
+        characterIds: characterId ? [characterId] : undefined,
         current: () => filmRef.current,
         isCurrent: valid,
         apply: async (next) => {
@@ -3117,6 +3117,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRole={chooseRole}
                   onNotice={setNotice}
                   onPortraits={makePortraits}
+                  onAllPortraits={() => confirmPortraits()}
                   portraitBusy={portraitBusy}
                   voices={voiceChoices}
                   onPreview={(voiceId, line) => void previewVoice(voiceId, line)}
@@ -4377,6 +4378,7 @@ function CastPage({
   onRole,
   onNotice,
   onPortraits,
+  onAllPortraits,
   portraitBusy,
   voices,
   onPreview,
@@ -4391,6 +4393,7 @@ function CastPage({
   onRole: (role: Role) => void;
   onNotice: (text: string) => void;
   onPortraits: (id: string) => Promise<void>;
+  onAllPortraits: () => Promise<void>;
   portraitBusy: boolean;
   voices: { id: string; label: string }[];
   onPreview: (voiceId: string, line: string) => void;
@@ -4644,25 +4647,10 @@ function CastPage({
             type="button"
             disabled={portraitBusy}
             onClick={() => {
-              const missing = film.characters.filter((person) =>
-                ["正面", "侧面", "背面", "脸部"].some(
-                  (view) =>
-                    !person.portraits.some((portrait) => portrait.view === view && portrait.url),
-                ),
-              );
-              if (missing.length === 0) {
-                onNotice("主要人物的定妆照都有了。");
-                return;
-              }
-              onNotice(`开始补${missing.map((person) => person.name).join("、")}还缺的定妆照。`);
-              void (async () => {
-                for (const person of missing) {
-                  await onPortraits(person.id);
-                }
-              })();
+              void onAllPortraits();
             }}
           >
-            补全缺少的定妆照
+            给所有人出定妆照
           </button>
           <div className="sec-t" style={{ marginTop: 12 }}>
             声音

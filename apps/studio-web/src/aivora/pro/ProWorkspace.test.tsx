@@ -12,6 +12,35 @@ describe("professional workspace", () => {
     delete window.aijianGrok;
   });
 
+  it("generates every missing portrait from one whole-cast click", async () => {
+    installDesktop();
+    await openSample();
+    fireEvent.click(stageTab("角色与场景"));
+    fireEvent.click(screen.getByRole("button", { name: "给所有人出定妆照" }));
+    const missing = sampleFilm().characters.reduce(
+      (count, person) =>
+        count +
+        ["正面", "侧面", "背面", "脸部"].filter(
+          (view) => !person.portraits.some((item) => item.view === view && item.url),
+        ).length,
+      0,
+    );
+    await waitFor(() => expect(window.aijian!.generateFilmStill).toHaveBeenCalledTimes(missing));
+    await waitFor(() => {
+      const saved = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.at(-1)![0] as FilmProject;
+      expect(
+        saved.characters.every((person) =>
+          ["正面", "侧面", "背面", "脸部"].every((view) =>
+            person.portraits.some((item) => item.view === view && item.url),
+          ),
+        ),
+      ).toBe(true);
+    });
+    expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeEnabled();
+  });
+
   it("starts a landscape film from the empty screen", () => {
     render(<ProWorkspace />);
     fireEvent.click(screen.getByRole("button", { name: "新建横屏" }));
