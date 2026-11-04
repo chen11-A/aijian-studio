@@ -34,11 +34,16 @@
   },
   "nsis": {
     "include": "build/installer.nsh",
-    "oneClick": true,
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
     "perMachine": false,
     "allowElevation": false,
     "deleteAppDataOnUninstall": false,
-    "runAfterFinish": false,
+    "runAfterFinish": true,
+    "createDesktopShortcut": true,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "displayLanguageSelector": false,
     "artifactName": "AIVORA-Setup-${version}-win-${arch}.${ext}"
   }
 }

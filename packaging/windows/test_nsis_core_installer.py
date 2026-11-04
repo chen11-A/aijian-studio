@@ -67,6 +67,27 @@ class NsisCoreTests(unittest.TestCase):
             self.assertIn('Delete "$INSTDIR\\resources\\owned-file.txt"', script)
             self.assertIn('Delete "$INSTDIR\\AIVORA Dev Core.exe"', script)
 
+    def test_wizard_desktop_shortcut_respects_selection_and_launch_is_on_finish_page(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script, _ = core.generate_script(
+                self.make_app(root), root / "syntax-only.exe", HERE / "installer.dev-core.nsh"
+            )
+            shortcut = script.split("Function aivoraWriteShortcuts\n", 1)[1].split(
+                "FunctionEnd", 1
+            )[0]
+            desktop = shortcut.split("SectionGetFlags ${SEC_DESKTOP} $R1", 1)[1]
+            self.assertIn("IntOp $R1 $R1 & ${SF_SELECTED}", desktop)
+            self.assertIn("IntCmp $R1 0 aivoraNoDesktop aivoraNoDesktop aivoraYesDesktop", desktop)
+            self.assertLess(desktop.index("aivoraYesDesktop:"), desktop.index("CreateShortCut"))
+            self.assertLess(desktop.index("CreateShortCut"), desktop.index("aivoraNoDesktop:"))
+            self.assertIn('!define MUI_FINISHPAGE_RUN "$INSTDIR\\AIVORA.exe"', script)
+            self.assertNotIn("MUI_FINISHPAGE_RUN_NOTCHECKED", script)
+            self.assertNotIn("Function .onInstSuccess", script)
+            pages = ["WELCOME", "COMPONENTS", "DIRECTORY", "INSTFILES", "FINISH"]
+            offsets = [script.index("!insertmacro MUI_PAGE_" + page) for page in pages]
+            self.assertEqual(offsets, sorted(offsets))
+
     def test_unsafe_literal_and_colliding_uninstaller_are_rejected(self):
         with self.assertRaises(ValueError):
             core.literal("line\nbreak")

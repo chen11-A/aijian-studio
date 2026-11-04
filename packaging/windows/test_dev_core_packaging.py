@@ -120,7 +120,10 @@ class DevCoreTests(unittest.TestCase):
         self.assertTrue(config["nsis"]["allowToChangeInstallationDirectory"])
         self.assertFalse(config["nsis"]["deleteAppDataOnUninstall"])
         self.assertTrue(config["nsis"]["runAfterFinish"])
-        self.assertEqual(config["nsis"]["artifactName"], "AIVORA-Setup-${version}-win-${arch}.${ext}")
+        self.assertTrue(config["nsis"]["createDesktopShortcut"])
+        self.assertEqual(
+            config["nsis"]["artifactName"], "AIVORA-Setup-${version}-win-${arch}.${ext}"
+        )
         self.assertNotIn("Dev-Core", config["nsis"]["artifactName"])
         self.assertNotIn("0.1.0-dev", config["nsis"]["artifactName"])
         hook = (HERE / "installer.dev-core.nsh").read_text()
@@ -131,6 +134,15 @@ class DevCoreTests(unittest.TestCase):
         # The formal staging path is still Release-only.
         stage = (HERE.parents[1] / "scripts/stage-windows-runtime.ps1").read_text()
         self.assertIn("-Purpose Release", stage)
+
+    def test_alternate_release_config_keeps_the_same_wizard_contract(self):
+        config = json.loads((HERE / "electron-builder.v26.json").read_text())["nsis"]
+        self.assertFalse(config["oneClick"])
+        self.assertTrue(config["allowToChangeInstallationDirectory"])
+        self.assertTrue(config["createDesktopShortcut"])
+        self.assertTrue(config["runAfterFinish"])
+        self.assertFalse(config["deleteAppDataOnUninstall"])
+        self.assertEqual(config["installerLanguages"], ["zh_CN"])
 
     def test_material_catalog_and_copy_remain_exact(self):
         catalog = materials.load_catalog()
