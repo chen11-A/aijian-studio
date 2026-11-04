@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { sampleFilm } from "../film/project";
+import { blankFilm, FILM_KEY, readFilm, sampleFilm } from "../film/project";
 import {
   assembleCurrentFilm,
   generateMissingPortraits,
@@ -127,7 +127,7 @@ it("keeps image reference limits in diagnostics and gives a short actionable rea
   expect(generate).toHaveBeenCalledWith(
     film.seriesId,
     `frame\n【画风说明】\n${film.styleZh}\n【画风说明结束】`,
-    "9:16",
+    "16:9",
     [
       "https://example.test/0/0.png",
       "https://example.test/1/0.png",
@@ -299,3 +299,36 @@ it("keeps rejection distinct from an ordinary still failure in plain status copy
     text: "画面未完成，可以重试。",
   });
 });
+
+it("starts new projects in landscape", () => {
+  expect(blankFilm().aspectRatio).toBe("16:9");
+});
+
+it.each(["9:16", undefined] as const)(
+  "preserves legacy portrait projects and still requests when saved aspect is %s",
+  async (aspectRatio) => {
+    const { requestShotStill } = await import("./workflow");
+    const previousApi = window.aijian;
+    const previousFilm = localStorage.getItem(FILM_KEY);
+    const saved = { ...sampleFilm(), aspectRatio };
+    const generate = vi.fn(async () => ({ path: "/tmp/portrait.png", reason: "" }));
+    try {
+      localStorage.setItem(FILM_KEY, JSON.stringify(saved));
+      const restored = readFilm(localStorage);
+      expect(restored?.aspectRatio).toBe("9:16");
+      if (!restored) throw new Error("legacy project was not restored");
+      window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
+      await requestShotStill(restored, restored.shots[0]!, "legacy frame");
+      expect(generate).toHaveBeenCalledExactlyOnceWith(
+        restored.seriesId,
+        expect.stringContaining("legacy frame"),
+        "9:16",
+        expect.any(Array),
+      );
+    } finally {
+      window.aijian = previousApi;
+      if (previousFilm === null) localStorage.removeItem(FILM_KEY);
+      else localStorage.setItem(FILM_KEY, previousFilm);
+    }
+  },
+);
