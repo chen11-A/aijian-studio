@@ -754,3 +754,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 - `editorCompletionCurrent` 仅限制保存完成提示：原页面或作品版本已变就不显示旧成功/失败提示，已授权的落盘仍继续。美术新增地点被其他页面新引用后，撤销保留该地点并返回冲突。
 
 这些接口没有新增 JSX、CSS 或最终文案；助手差异展示仍由 Claude 接线。全量文案契约缺口及 B01 检查点界面仍阻挡阶段验收。
+
+### B01 最新界面适配与交接
+
+`pro/pipeline-view.ts` 的 `pipelineView(film)` 给出真实状态、目标key、retryable、requiresOutcomeConfirmation、canAcceptReview、canContinue；`pipelineRetryKey` 只解析用户明确选定目标，uncertain须先核对。控制器仍在执行时验证输入和保存归属。实现 `a7b5249`，相关37项回归通过。详细按钮映射、`claude/work@caf50e2` 已实现范围与冲突注意事项见 `docs/aivora/4a-claude-integration-handoff.md`，不要把stepId或旧queueBatch直接当新流水线重试/继续。
