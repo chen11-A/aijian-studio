@@ -362,7 +362,11 @@ function noteFromRow(
   const tone = spokenBit(typeof voice.tone === "string" ? voice.tone : "");
   const pace = spokenBit(typeof voice.pace === "string" ? voice.pace : "");
   const pauses = spokenBit(
-    typeof voice.pauses === "string" ? voice.pauses : typeof voice.pause === "string" ? voice.pause : "",
+    typeof voice.pauses === "string"
+      ? voice.pauses
+      : typeof voice.pause === "string"
+        ? voice.pause
+        : "",
   );
   const voiceEmotion = spokenBit(typeof voice.emotion === "string" ? voice.emotion : "");
   const delivery = [
