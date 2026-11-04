@@ -57,7 +57,7 @@ describe("professional workspace", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
     expect((await screen.findAllByText(/请打开安装好的 AIVORA 再出图/)).length).toBeGreaterThan(0);
-    expect(screen.getByText(/还没有读到声音名单/)).toBeInTheDocument();
+    expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "试听" }));
     fireEvent.click(
       screen
@@ -182,7 +182,7 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("画风"), { target: { value: "古风武侠" } });
     fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
     expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
-    expect(screen.getByText(/还没有读到声音名单/)).toBeInTheDocument();
+    expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.click(stageTab("剪辑"));
     fireEvent.click(screen.getByRole("button", { name: "上一个" }));
@@ -1102,6 +1102,40 @@ it("asks action and performance, then writes those fields on the shot", async ()
   fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "雨夜巷战测试" } });
   fireEvent.keyDown(screen.getByLabelText("作品名"), { key: "Enter" });
   expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("雨夜巷战测试");
+});
+
+it("lets the character page set gender and age, and lists only voices of that gender", async () => {
+  installDesktop();
+  window.aijianGrok = {
+    ...window.aijianGrok!,
+    models: vi.fn(async () => ({
+      kind: "OK" as const,
+      models: [
+        { id: "grok-imagine-video-1.5", label: "video" },
+        { id: "grok-4.7", label: "text" },
+        { id: "leo", label: "leo", outputModalities: ["audio"] },
+        { id: "orion", label: "orion", outputModalities: ["audio"] },
+        { id: "ara", label: "ara", outputModalities: ["audio"] },
+      ],
+    })),
+  } as unknown as Window["aijianGrok"];
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  const voiceIds = () =>
+    [...(screen.getByLabelText("角色声音") as HTMLSelectElement).options]
+      .map((option) => option.value)
+      .filter(Boolean);
+  await waitFor(() => expect(voiceIds().length).toBeGreaterThan(0));
+  fireEvent.change(screen.getByLabelText("性别"), { target: { value: "女" } });
+  fireEvent.change(screen.getByLabelText("年龄段"), { target: { value: "中年" } });
+  await waitFor(() => expect(screen.getByLabelText("性别")).toHaveValue("女"));
+  await waitFor(() => expect(screen.getByLabelText("年龄段")).toHaveValue("中年"));
+  await waitFor(() => expect(voiceIds()).toEqual(["ara"]));
+  expect(screen.getByText(/已选：温暖友好/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("性别"), { target: { value: "男" } });
+  await waitFor(() => expect(voiceIds()).toEqual(["leo", "orion"]));
+  expect(screen.getByRole("group", { name: "适合中年男性" })).toBeInTheDocument();
+  expect(screen.getByRole("group", { name: "其他男声" })).toBeInTheDocument();
 });
 
 it("keeps a separate review card and confirms the shots before video", async () => {

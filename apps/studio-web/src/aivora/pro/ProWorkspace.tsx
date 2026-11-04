@@ -120,6 +120,14 @@ import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useStatusNotice } from "../next/wiring/statusNotice";
 import { NoticeLog } from "../next/NoticeLog";
+import { createProductionActions } from "./production-actions";
+import {
+  AGE_BANDS,
+  GENDERS,
+  voiceGroups,
+  type AgeBand,
+  type Gender,
+} from "../next/adapters/voices";
 import {
   settleNextJob,
   dialogueMuted,
@@ -2663,6 +2671,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
   // past messages are listed in the task center.
   const status = useStatusNotice(notice);
+  // UI wiring (3J-U05, 3J-U06, 3J-U10): GPT's production actions, made once. Each call reads
+  // the live workspace through productionHost, so it never acts on an old render.
+  const productionHost = useRef({ applyLive, completeAgent, emitNotice });
+  productionHost.current = { applyLive, completeAgent, emitNotice };
+  const production = useMemo(
+    () =>
+      createProductionActions({
+        current: () => filmRef.current,
+        apply: async (next) => {
+          productionHost.current.applyLive(next);
+          await saveFilm(next);
+        },
+        requestDirector: (context, instruction) =>
+          productionHost.current.completeAgent("director", context, instruction),
+        notify: (message) => productionHost.current.emitNotice(message),
+      }),
+    [],
+  );
   // UI wiring (3J-U02): each page opens with its own helper in the assistant. Only a page
   // change picks it; chooseRole is a new function on every render.
   useEffect(() => {
@@ -3128,6 +3154,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRole={chooseRole}
                   onNotice={setNotice}
                   onPortraits={makePortraits}
+                  onTraits={(id, traits) => void production.updateCharacterTraits(id, traits)}
                   portraitBusy={portraitBusy}
                   voices={voiceChoices}
                   onPreview={(voiceId, line) => void previewVoice(voiceId, line)}
@@ -4408,6 +4435,7 @@ function CastPage({
   onRole,
   onNotice,
   onPortraits,
+  onTraits,
   portraitBusy,
   voices,
   onPreview,
@@ -4422,6 +4450,8 @@ function CastPage({
   onRole: (role: Role) => void;
   onNotice: (text: string) => void;
   onPortraits: (id: string) => Promise<void>;
+  /** 3J-U05: gender or age changed; GPT keeps the data and picks the voice again (C8). */
+  onTraits: (id: string, traits: { gender: Gender; ageBand: AgeBand }) => void;
   portraitBusy: boolean;
   voices: { id: string; label: string }[];
   onPreview: (voiceId: string, line: string) => void;
@@ -4434,6 +4464,12 @@ function CastPage({
   const [place, setPlace] = useState(0);
   const [side, setSide] = useState<"people" | "places" | "props">("people");
   const character = film.characters[who];
+  const voiceGroup = voiceGroups(
+    voices,
+    character?.gender ?? "",
+    character?.ageBand ?? "",
+    character?.voiceId,
+  );
   return (
     <>
       <section className="pane">
@@ -4547,53 +4583,103 @@ function CastPage({
           <span className="meta">同一张脸，同一套衣服</span>
         </div>
         <div className="pb sheet">
-          <div className="field" style={{ padding: 0 }}>
-            <label htmlFor="cast-name">名字</label>
-            <input
-              id="cast-name"
-              className="input"
-              aria-label="人物名字"
-              value={character?.name ?? ""}
-              onChange={(event) => {
-                const name = event.target.value;
-                if (!character) {
+          <div className="cast-id-row">
+            <div className="field" style={{ padding: 0 }}>
+              <label htmlFor="cast-name">名字</label>
+              <input
+                id="cast-name"
+                className="input"
+                aria-label="人物名字"
+                value={character?.name ?? ""}
+                onChange={(event) => {
+                  const name = event.target.value;
+                  if (!character) {
+                    onFilm({
+                      ...film,
+                      characters: [
+                        {
+                          id: "char-1",
+                          name,
+                          identity: name,
+                          voiceId: "leo",
+                          source: "user",
+                          userFields: ["name"],
+                          portraits: [],
+                        },
+                      ],
+                    });
+                    return;
+                  }
                   onFilm({
                     ...film,
-                    characters: [
-                      {
-                        id: "char-1",
-                        name,
-                        identity: name,
-                        voiceId: "leo",
-                        source: "user",
-                        userFields: ["name"],
-                        portraits: [],
-                      },
-                    ],
-                  });
-                  return;
-                }
-                onFilm({
-                  ...film,
-                  characters: film.characters.map((item) =>
-                    item.id === character.id
-                      ? {
-                          ...item,
-                          name,
-                          source: "user",
-                          userFields: [...new Set([...item.userFields, "name"])],
-                        }
-                      : item,
-                  ),
-                  shots: film.shots.map((item) => ({
-                    ...item,
-                    characters: item.characters.map((person) =>
-                      person === character.name ? name : person,
+                    characters: film.characters.map((item) =>
+                      item.id === character.id
+                        ? {
+                            ...item,
+                            name,
+                            source: "user",
+                            userFields: [...new Set([...item.userFields, "name"])],
+                          }
+                        : item,
                     ),
-                  })),
-                });
-              }}
-            />
+                    shots: film.shots.map((item) => ({
+                      ...item,
+                      characters: item.characters.map((person) =>
+                        person === character.name ? name : person,
+                      ),
+                    })),
+                  });
+                }}
+              />
+            </div>
+            <div className="field" style={{ padding: 0 }}>
+              <label htmlFor="cast-gender">性别</label>
+              <select
+                id="cast-gender"
+                className="input"
+                aria-label="性别"
+                disabled={!character}
+                value={character?.gender ?? ""}
+                onChange={(event) => {
+                  if (!character) return;
+                  onTraits(character.id, {
+                    gender: event.target.value as Gender,
+                    ageBand: character.ageBand ?? "",
+                  });
+                }}
+              >
+                <option value="">未写</option>
+                {GENDERS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ padding: 0 }}>
+              <label htmlFor="cast-age">年龄段</label>
+              <select
+                id="cast-age"
+                className="input"
+                aria-label="年龄段"
+                disabled={!character}
+                value={character?.ageBand ?? ""}
+                onChange={(event) => {
+                  if (!character) return;
+                  onTraits(character.id, {
+                    gender: character.gender ?? "",
+                    ageBand: event.target.value as AgeBand,
+                  });
+                }}
+              >
+                <option value="">未写</option>
+                {AGE_BANDS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="field">
             <label htmlFor="cast-id">外貌</label>
@@ -4699,10 +4785,14 @@ function CastPage({
             声音
           </div>
           <p className="role-desc">
-            {character?.voiceId ? `已选：${voiceLabel(character.voiceId)}` : "还没有选定声音。"}
+            {character?.voiceId
+              ? `已选：${voiceLabel(character.voiceId)}`
+              : character && !character.gender
+                ? "性别没写，请先选一下，声音会按性别列出。"
+                : "还没有选定声音。"}
           </p>
           {voices.length === 0 ? (
-            <p className="role-desc">还没有读到声音名单。登录后会从接口读取。</p>
+            <p className="role-desc">登录 Grok 会员后才能看到声音名单。</p>
           ) : (
             <div className="row2">
               <select
@@ -4712,33 +4802,40 @@ function CastPage({
                 onChange={(event) => {
                   if (!character) return;
                   const voiceId = event.target.value;
+                  // Picked by hand: GPT keeps it when gender or age change later.
                   onFilm({
                     ...film,
                     characters: film.characters.map((item) =>
-                      item.id === character.id ? { ...item, voiceId } : item,
+                      item.id === character.id
+                        ? {
+                            ...item,
+                            voiceId,
+                            userFields: [...new Set([...item.userFields, "voiceId"])],
+                          }
+                        : item,
                     ),
                   });
                 }}
               >
                 <option value="">还没有选定</option>
-                <optgroup label="旁白感">
-                  {voices
-                    .filter((voice) => /温和|平静|清楚|温暖|沉稳|耐心|安心/.test(voice.label))
-                    .map((voice) => (
+                {voiceGroup.fitting.length > 0 && (
+                  <optgroup label={`适合${character?.ageBand ?? ""}${character?.gender ?? ""}性`}>
+                    {voiceGroup.fitting.map((voice) => (
                       <option key={voice.id} value={voice.id}>
                         {voice.label}
                       </option>
                     ))}
-                </optgroup>
-                <optgroup label="角色">
-                  {voices
-                    .filter((voice) => !/温和|平静|清楚|温暖|沉稳|耐心|安心/.test(voice.label))
-                    .map((voice) => (
+                  </optgroup>
+                )}
+                {voiceGroup.others.length > 0 && (
+                  <optgroup label={character?.gender ? `其他${character.gender}声` : "全部声音"}>
+                    {voiceGroup.others.map((voice) => (
                       <option key={voice.id} value={voice.id}>
                         {voice.label}
                       </option>
                     ))}
-                </optgroup>
+                  </optgroup>
+                )}
               </select>
               <button
                 className="btn sm"

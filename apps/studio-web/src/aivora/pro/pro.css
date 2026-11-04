@@ -2864,10 +2864,25 @@ body:has(.pro-root) {
   flex-wrap: wrap;
   gap: 4px;
 }
+/* 3J-U05: the appearance box starts at four lines and grows with the text up to eight; only
+   past that does it scroll inside. */
 .pro-root #cast-id {
-  min-height: 7em;
+  min-height: calc(4 * 1.6em + 18px);
+  max-height: calc(8 * 1.6em + 18px);
   height: auto;
   field-sizing: content;
+  overflow-y: auto;
+  resize: none;
+}
+/* 3J-U05: name, gender and age band on one row. */
+.pro-root .cast-id-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 96px;
+  gap: 8px;
+  align-items: end;
+}
+.pro-root .cast-id-row .input {
+  width: 100%;
 }
 /* 3J-U11 export dialog: the path box takes the row with 「浏览」 beside it; a long path shows
    its start and end with the middle cut out until the box is being typed in. */
