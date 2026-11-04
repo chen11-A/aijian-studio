@@ -1,3 +1,8 @@
+import {
+  generationPreflight,
+  prepareGeneration,
+  prepareGenerationRetry,
+} from "./actions/generation-prepare";
 import { editorCompletionCurrent } from "./actions/editor-completion";
 import {
   prepareDirectorConfirmation,
@@ -30,7 +35,7 @@ import {
   type ArtTransaction,
 } from "./actions/art-transaction";
 import { generateShotStill } from "./actions/shot-still";
-import { captureReviewInput, applyTextReview } from "../film/review-report";
+import { reviewShotText } from "./actions/text-review";
 import { createEditorPageHistory } from "./actions/page-history";
 import { createEditorHost } from "./actions/editor-host";
 import type { EditorSuggestion } from "./actions/editor-changes";
@@ -39,7 +44,7 @@ import { runPreparedGeneration } from "./actions/generation-run";
 import { buildLegacyStoryboard } from "./actions/legacy-storyboard";
 import { preparePortraitIdentity } from "./actions/portrait-identity";
 import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
-import { directorRequestInput, requestDirectorDraft } from "./actions/director";
+import { planDirectorDraft, type DirectorDraftResult } from "./actions/director-draft";
 import { planWriterDraft, writerDraftInput, type WriterDraftResult } from "./actions/writer";
 import { planActionDraft } from "./actions/action";
 import { planPerformanceDraft } from "./actions/performance";
@@ -71,10 +76,8 @@ import {
   confirmEstimate,
   filmFileName,
   LOUDNESS_NOTE,
-  sceneNeedsSource,
   assignActionBeats,
   moveShot,
-  planVideoJobs,
   portraitPrompts,
   shotProgress,
   PREVIEW_REASON,
@@ -108,7 +111,6 @@ import {
   interruptStaleWork,
   newEpisode,
   sampleFilm,
-  offlineShots,
   textModel,
   STYLE_PRESETS,
   type FilmProject,
@@ -121,26 +123,19 @@ import {
   DIFFICULTY_LEGEND,
   FILM_TEMPLATES,
   missingIdentityLocks,
-  parseLooseJson,
-  qcFromModel,
   SHOT_SIZES,
   shotPerson,
 } from "../film/phase2";
 import { grokBridge } from "../grok-auth/transport";
 import { useGrokAccount, useGrokConnected, useGrokDenied } from "../grok-auth/useGrokConnected";
-import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
+import { videoActions, GENERATE_MODEL, type VideoAction } from "./capabilities";
 import { Ic } from "./icons";
 import "./pro.css";
 import {
   failRunningVideoTasks,
   pruneCancelledJobs,
   canResumeTake,
-  prepareVideoQueue,
-  prepareBlockedVideoQueue,
-  generationTargets,
-  retryVideoTasks,
   retryableVideoTask,
-  videoTaskTarget,
   cancelVideoTask,
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
@@ -149,11 +144,7 @@ import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
-import {
-  detectDirectorCoverage,
-  directorPlanStatus,
-  sceneDisplayTitle,
-} from "../film/director-continuity";
+import { directorPlanStatus, sceneDisplayTitle } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
@@ -1105,71 +1096,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     supplementWarnings.current = [];
     unassignedDraft.current = [];
     const turn = pushTurn("director", asked.trim() || "把这一场拆成镜头");
-    const current = base.scenes.find((item) => item.id === scene);
-    if (!current) {
-      finishTurn(turn, "先写好这一场，再请导演。");
-      return;
-    }
-    const sceneId = current?.id ?? "scene-1";
-    const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
-    const thin = sceneNeedsSource(current?.text ?? "");
-    setNotice(`正在写「${current?.title ?? "这一场"}」的镜头。`);
-    const input = directorRequestInput(base, sceneId, story, current?.text ?? "");
-    const context = input.context;
-    let next: FilmShot[] | null = null;
-    let text: string;
-    const bridge = grokBridge();
+    let result: DirectorDraftResult;
     try {
-      if (!connected || !bridge) {
-        next = offlineShots(story, sceneId);
-        text = "没有登录，已用离线拆镜。点「写入分镜」才会写入。";
-      } else {
-        const first = await requestDirectorDraft(input, {
-          request: completeAgent,
-          progress: setNotice,
-          notify: emitNotice,
-          current: () => isTurnCurrent(turn) && filmRef.current?.id === film.id,
-        });
-        const parsed = first.shots;
-        if (!parsed) {
-          setPendingRetry({
-            role: "director",
-            origin,
-            context,
-            instruction:
-              '只返回 JSON，不要解释。格式：{"shots":[{"picture":"","size":"全景","seconds":5}]}',
-          });
-          const reason = first.detail || "导演这次没有给出能用的镜头。";
-          text = `${reason} 没有写入镜头。`;
-          noteAgent("director", "rejected", text);
-        } else {
-          setNotice(`已写 ${parsed.length} 镜，正在写表演。`);
-          next = await completeDirectorPlan(base, sceneId, parsed, () => isTurnCurrent(turn));
-          text = thin
-            ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「写入分镜」才会写入。"
-            : "导演拆好了。点「写入分镜」才会写入。";
-        }
-      }
-    } catch {
-      text = "模型没有返回。没有写入镜头。";
+      result = await planDirectorDraft(base, scene, asked, {
+        connected: connected && Boolean(grokBridge()),
+        request: completeAgent,
+        progress: setNotice,
+        notify: emitNotice,
+        current: () =>
+          scope === scopeRef.current && isTurnCurrent(turn) && filmRef.current?.id === base.id,
+        enrich: completeDirectorPlan,
+        warnings: () => supplementWarnings.current,
+      });
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
         setAsking(false);
       }
     }
-    if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
-    if (supplementWarnings.current.length)
-      text += ` ${[...new Set(supplementWarnings.current)].join(" ")}`;
-    const coverage = current && next ? detectDirectorCoverage(current, next) : null;
-    const budget = current && next ? directorPlanStatus(current, next).target : 16;
-    if (coverage && !coverage.ok) {
-      const message = coverageNotice(coverage);
-      text += ` ${message.text} ${message.detail}`;
-      emitNotice(message);
-    } else if (next && next.length > budget) {
-      text += ` 为保留全部台词和结尾，保留 ${next.length} 镜，超过建议 ${budget} 镜。`;
-    }
+    if (scope !== scopeRef.current || !isTurnCurrent(turn) || result.status === "stale") return;
+    const next = result.shots;
+    const text = result.notice;
+    if (result.retry) setPendingRetry({ ...result.retry, origin });
+    if (result.event === "rejected") noteAgent("director", "rejected", text);
+    if (result.coverageNotice) emitNotice(result.coverageNotice);
     if (!next) {
       setPending(null);
       setPendingRole(null);
@@ -1198,7 +1148,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       shots: next,
     });
     finishTurn(turn, text);
-    noteAgent("director", text.includes("导演拆好了") ? "shots" : "offline", text);
+    noteAgent("director", result.event ?? "offline", text);
   }
 
   async function retryPending() {
@@ -1670,7 +1620,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const { scenes, notice: text } = result;
     setPendingScenes(scenes);
     if (scenes) {
-      const draft: StoryDraft = { transaction: prepareWriterTransaction(base, scenes, result.writerPlan), origin };
+      const draft: StoryDraft = {
+        transaction: prepareWriterTransaction(base, scenes, result.writerPlan),
+        origin,
+      };
       storyDraft.current = draft;
       publishCard("writer", {
         storyDraft: draft,
@@ -2128,43 +2081,27 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const turn = pushTurn("qc", chat.trim() || "请审这一镜的文字。你看不到画面。");
     const current = shownShots[shot];
-    if (!current) {
-      finishTurn(turn, "先拆出镜头，再请审片。");
-      noteAgent("qc", "rejected", "先拆出镜头，再请审片。");
-      return;
-    }
-    const reviewContext = JSON.stringify({
-      shot_id: current.id,
-      picture: current.picture,
-      takes: current.takes.map((take) => ({ take_id: take.id, status: take.status })),
+    const result = await reviewShotText(film, current, {
+      request: completeAgent,
+      valid: () => isTurnCurrent(turn),
+      current: () => filmRef.current,
+      apply: rememberFilm,
     });
-    const reviewInput = captureReviewInput(film, [current.id], reviewContext);
-    const reply = await completeAgent(
-      "qc",
-      reviewContext,
-      "只审文字。没有提供任何帧图，你看不到画面。只输出 JSON，含 verdict、issues；若附 shots/takes 只能引用上下文已有 ID，seen_frames 必须为 false。建议不代表自动选版或修改。",
-    );
-    if (!isTurnCurrent(turn)) return;
-    const parsed = reply.text ? qcFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed) {
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
       setStructured([]);
-      const failed = `${reply.detail || "审片没有按格式返回。"} 还不能看画面，版本仍由你选。`;
-      finishTurn(turn, failed);
-      noteAgent("qc", "rejected", failed);
+      finishTurn(turn, result.notice);
+      noteAgent("qc", "rejected", result.notice);
       return;
     }
-    const live = filmRef.current;
-    if (!live) return;
-    const reviewed = applyTextReview(live, reviewInput, parseLooseJson(reply.text!));
-    if (reviewed.status !== "done") {
+    if (result.status === "blocked") {
       finishTurn(turn, NOTICE_TEXT.REQUEST_STALE);
       return;
     }
-    rememberFilm(reviewed.film);
-    setStructured(parsed.lines);
+    setStructured(result.lines);
     publishCard("qc", {
-      title: `审片意见 · 镜头 ${current.no}`,
-      rows: parsed.lines.map((line, index) => ({
+      title: `审片意见 · 镜头 ${current!.no}`,
+      rows: result.lines.map((line, index) => ({
         id: `qc-${index}`,
         mark: "意见",
         text: line,
@@ -2540,37 +2477,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   async function retryGenerationTasks(ids: string[]) {
     const current = filmRef.current;
     if (!current || generationRuns.current.has(current.id)) return;
-    const blocked = current.jobs.filter(
-      (job) => ids.includes(job.id) && job.kind === "video" && job.status === "blocked",
-    );
-    if (blocked.length) {
-      await submitGeneration(
-        current.shots.filter((shot) => blocked.some((job) => job.shotId === shot.id)),
-        false,
-        undefined,
-        blocked.map((job) => job.id),
-      );
+    const plan = prepareGenerationRetry(current, ids);
+    if (plan.kind === "empty") return;
+    if (plan.kind === "blocked") {
+      await submitGeneration(plan.targets, false, undefined, plan.blockedIds);
       return;
     }
-    const next = retryVideoTasks(current, ids);
-    const targets = next.shots.filter((row) =>
-      row.takes.some(
-        (take) =>
-          take.status === "queued" &&
-          ids.some((id) => videoTaskTarget(next, id)?.take.id === take.id),
-      ),
-    );
-    if (!targets.length) return;
-    applyLive(next);
+    applyLive(plan.film);
     pauseRef.current = false;
-    const retry = submitGeneration(
-      targets,
-      true,
-      ids.flatMap((id) => {
-        const take = videoTaskTarget(next, id)?.take;
-        return take ? [take.id] : [];
-      }),
-    );
+    const retry = submitGeneration(plan.targets, true, plan.takeIds);
     setPaused(false);
     await retry;
     if (
@@ -2625,14 +2540,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       filmRef.current?.id === generationProject &&
       runToken.current === mine &&
       (pipeline?.current() ?? true);
-    const selected = generationTargets(live, targets, resume, shownShots[shot]);
+    const preflight = generationPreflight(live, {
+      targets,
+      resume,
+      fallback: shownShots[shot],
+      modelIds,
+    });
+    const selected = preflight.selected;
     if (selected.length === 0) {
       setNotice("先在剧本里拆镜头。");
       return;
     }
     setNotice(generationEstimate(selected.length, requestedVersions, duration));
-    if (live.draft && modelIds.length > 0 && !modelIds.includes(VIDEO_DRAFT_MODEL)) {
-      setNotice(`模型列表里没有 ${VIDEO_DRAFT_MODEL}，不能先出草稿。`);
+    if (preflight.kind === "stopped") {
+      setNotice(preflight.notice);
       return;
     }
     const gate = actions.regenerate;
@@ -2642,27 +2563,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     live = filmRef.current ?? live;
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
-    const jobs = selected.flatMap((item) =>
-      planVideoJobs(item, requestedVersions, canSubmit, blocked),
-    );
-    if (!canSubmit) {
-      if (resume || blockedIds) {
-        setNotice(blocked);
-        return;
-      }
-      await applyGeneration({
-        ...live,
-        jobs: [
-          ...live.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
-          ...jobs,
-        ],
-      });
-      setNotice(blocked);
+    const preparation = prepareGeneration(live, selected, {
+      versions: requestedVersions,
+      resume,
+      takeIds,
+      blockedIds,
+      canSubmit,
+      blockedReason: blocked,
+    });
+    if (preparation.kind === "blocked") {
+      if (preparation.apply) await applyGeneration(preparation.film);
+      setNotice(preparation.notice);
       return;
     }
-    const prepared = blockedIds
-      ? prepareBlockedVideoQueue(live, blockedIds)
-      : prepareVideoQueue(live, selected, requestedVersions, resume, takeIds);
+    const prepared = preparation.prepared;
     const next = prepared.film;
     const groups = prepared.groups;
     await applyGeneration(next);
