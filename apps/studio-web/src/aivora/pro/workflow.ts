@@ -1,3 +1,4 @@
+import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
 import { withLocationLayout } from "../film/location-reference";
 import { setFilmStyle, withStyleBible } from "../film/style-bible";
 import type { artFromModel } from "../film/phase2";
@@ -270,8 +271,12 @@ export async function requestShotStill(
   const made = await requestStill(
     film.seriesId,
     withStyleBible(
-      withLocationLayout(
-        prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+      withShotCostumes(
+        withLocationLayout(
+          prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+          film,
+          shot,
+        ),
         film,
         shot,
       ),
@@ -349,7 +354,8 @@ export function applyArtDraft(
   film: FilmProject,
   parsed: NonNullable<ReturnType<typeof artFromModel>>,
 ): FilmProject {
-  const next = { ...(parsed.styleZh ? setFilmStyle(film, parsed.styleZh) : film) };
+  let next = { ...(parsed.styleZh ? setFilmStyle(film, parsed.styleZh) : film) };
+  if (parsed.costumes) next = mergeCostumes(next, parsed.costumes);
   const used = new Set(next.characters.map((person) => person.voiceId).filter(Boolean));
   next.characters = next.characters.map((person) => {
     const found = parsed.identities.find((item) => item.name === person.name);

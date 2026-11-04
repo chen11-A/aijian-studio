@@ -1,3 +1,4 @@
+import { withShotCostumes } from "./costume-rules";
 import { writerElements } from "./writer-elements";
 import { performancePlanPrompt } from "./performance-plan";
 import { actionPlanPrompt } from "./action-plan";
@@ -1501,8 +1502,12 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
   return {
     narration: line || "。",
     prompt: withStyleBible(
-      withLocationLayout(
-        `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+      withShotCostumes(
+        withLocationLayout(
+          `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+          film,
+          shot,
+        ),
         film,
         shot,
       ),

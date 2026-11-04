@@ -1,3 +1,4 @@
+import type { CostumeRule, CostumeRisk } from "./costume-rules";
 import type { WriterElement } from "./writer-elements";
 import type { ShotPerformancePlan, PerformanceState } from "./performance-plan";
 import type { ShotActionPlan, SceneActionState } from "./action-plan";
@@ -232,6 +233,8 @@ export type FilmShot = {
 };
 
 export type FilmProject = {
+  costumes?: CostumeRule[];
+  costumeRisks?: CostumeRisk[];
   pipeline?: PipelineProgress;
   productionPipeline?: ProductionPipeline;
   productionInputFingerprint?: string;

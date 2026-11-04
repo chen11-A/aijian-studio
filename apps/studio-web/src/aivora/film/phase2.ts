@@ -1,3 +1,4 @@
+import { parseCostumes, type CostumeRule } from "./costume-rules";
 import {
   normalizeGender,
   normalizeAgeBand,
@@ -658,6 +659,7 @@ export function directedSpeech(line: string, delivery: string): { text: string; 
 }
 
 export function artFromModel(value: unknown): {
+  costumes?: CostumeRule[];
   styleZh: string;
   identities: {
     name: string;
@@ -715,14 +717,23 @@ export function artFromModel(value: unknown): {
         return [{ name, note: typeof prop.note === "string" ? prop.note.trim() : "" }];
       })
     : [];
+  const costumes = parseCostumes(row.costumes);
   const lines = [
+    ...costumes.map((costume) => `服装 ${costume.name}：${costume.title}`),
     styleZh ? `画风：${styleZh}` : "",
     ...identities.map((item) => `${item.name}：${identityLock(item.identity)}`),
     ...places.map((item) => `场景 ${item.name}`),
     ...props.map((item) => `道具 ${item.name}`),
   ].filter(Boolean);
   if (lines.length === 0) return null;
-  return { styleZh, identities, places, props, lines };
+  return {
+    styleZh,
+    identities,
+    places,
+    props,
+    lines,
+    ...(Array.isArray(row.costumes) ? { costumes } : {}),
+  };
 }
 
 export function prompterFromModel(value: unknown): { zh: string; en: string } | null {
