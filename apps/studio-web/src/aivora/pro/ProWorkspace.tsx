@@ -3115,7 +3115,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onFilm={setFilm}
                   role={role}
                   onRole={chooseRole}
-                  onNotice={setNotice}
                   onPortraits={makePortraits}
                   onAllPortraits={() => confirmPortraits()}
                   portraitBusy={portraitBusy}
@@ -4376,7 +4375,6 @@ function CastPage({
   onFilm,
   role,
   onRole,
-  onNotice,
   onPortraits,
   onAllPortraits,
   portraitBusy,
@@ -4391,7 +4389,6 @@ function CastPage({
   onFilm: (film: FilmProject) => void;
   role: Role;
   onRole: (role: Role) => void;
-  onNotice: (text: string) => void;
   onPortraits: (id: string) => Promise<void>;
   onAllPortraits: () => Promise<void>;
   portraitBusy: boolean;
