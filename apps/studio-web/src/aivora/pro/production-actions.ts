@@ -9,7 +9,7 @@ import {
   type RepairRequest,
 } from "./director-workflow";
 import { makeAllPortraits as generatePortraits } from "./portrait-workflow";
-import { requestStill } from "./workflow";
+import { requestFilmStill } from "./workflow";
 
 /** Functional host API for Claude's controls; no display or alternate execution engine. */
 export function createProductionActions(host: {
@@ -32,8 +32,7 @@ export function createProductionActions(host: {
         current: host.current,
         isCurrent: valid,
         apply: host.apply,
-        generate: (prompt) =>
-          requestStill(base.seriesId, prompt, base.aspectRatio === "16:9" ? "16:9" : "9:16"),
+        generate: (prompt) => requestFilmStill(base, prompt),
         progress: (batch) => {
           if (valid())
             host.notify({

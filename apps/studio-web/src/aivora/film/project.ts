@@ -5,6 +5,7 @@ import type {
   SceneSound,
   ContinuityNote,
 } from "./contracts3j";
+import { withStyleBible } from "./style-bible";
 import type { ProductionPipeline } from "./production-pipeline";
 import { normalizeAgeBand, normalizeGender } from "./cast-traits";
 import {
@@ -191,6 +192,7 @@ export type FilmShot = {
   userFields: string[];
   poster: string;
   posterPosition: string;
+  regenerationRequired?: { code: "STYLE_CHANGED"; styleRevision: number };
   takes: FilmTake[];
   stills: FilmStill[];
   selectedTakeId: string;
@@ -210,6 +212,7 @@ export type FilmProject = {
   title: string;
   stylePreset: string;
   styleZh: string;
+  styleRevision?: number;
   characters: FilmCharacter[];
   scenes: FilmScene[];
   shots: FilmShot[];
@@ -299,6 +302,7 @@ export function newEpisode(current: FilmProject): FilmProject {
   next.title = next.seriesTitle;
   next.stylePreset = current.stylePreset;
   next.styleZh = current.styleZh;
+  next.styleRevision = current.styleRevision;
   next.narrationVoiceId = current.narrationVoiceId;
   next.backendProjectId = current.backendProjectId;
   next.aspectRatio = current.aspectRatio === "16:9" ? "16:9" : "9:16";
@@ -452,7 +456,7 @@ export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
       ? picture
       : `${picture}。`
     : framedKeyframe(shot, film, picture);
-  return lockKeyframe(base, shot, film);
+  return withStyleBible(lockKeyframe(base, shot, film), film.styleZh);
 }
 
 function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): string {
@@ -465,8 +469,8 @@ function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): str
   const action = shot.action.trim().replace(/。$/, "");
   if (action && action !== picture.replace(/。$/, "")) bits.push(`动作要点${action}`);
   if (shot.performance.trim()) bits.push(`表演${shot.performance.trim().replace(/。$/, "")}`);
-  const style = (shot.styleNote || film.styleZh).trim().replace(/。$/, "");
-  if (style && !bits.join("").includes(style)) bits.push(style);
+  if (shot.styleNote?.trim() && !film.styleZh.includes(shot.styleNote.trim()))
+    bits.push(shot.styleNote.trim());
   return `${bits.filter(Boolean).join("。")}。`;
 }
 

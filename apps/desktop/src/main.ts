@@ -846,6 +846,15 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
     },
     copy: (source, destination) => copyFile(source, destination),
   },
+  (detail) =>
+    createAgentLog(join(app.getPath("userData"), "logs", "agents.log")).write({
+      ...detail,
+      agent: "video",
+      model: "grok-imagine-video",
+      endpoint: "video-submit",
+      httpStatus: 0,
+      requestDispatched: true,
+    }),
 );
 registerTaskProgressHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -939,6 +948,8 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     reveal: (path) => revealSavedFile(path),
     open: (path) => shell.openPath(path),
     logStill: ({
+      styleCharacters,
+      styleSha256,
       ok,
       referenceImageCount,
       selectedReferenceImageCount,
@@ -949,6 +960,8 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
       requestChars,
     }) => {
       createAgentLog(join(app.getPath("userData"), "logs", "agents.log")).write({
+        styleCharacters,
+        styleSha256,
         agent: "image",
         model: "grok-imagine-image-2.0",
         endpoint: selectedReferenceImageCount ? "image-edit" : "quality-medium",

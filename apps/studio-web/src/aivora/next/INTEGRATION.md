@@ -659,3 +659,9 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 3. Claude 提供步骤进度、精确目标重试、uncertain 风险确认、真实人工审片及独立 checkpoint 的继续/取消操作。显示文案由 Claude 定，后台 code 不直接显示给用户。
 4. 旧 footer 的“继续出视频”当前直接调用 `queueBatch`；启用新入口时必须改接上述 checkpoint 操作，不能旁路审片和原文覆盖。GPT 配合提供业务回调，Claude 修改 JSX。
 5. 宿主、保存协调、真实 save→upgrade→hydrate→recover 及 ProWorkspace 打开作品回归已补；真实会员全流程仍待验收。旧入口未切换，需完成第 3、4 项 Claude 交互后再启用，4A-B01 仍为部分完成，不发布 4a tag。
+
+## 4A-B02 画风说明（已提供）
+
+- `styleZh` 为唯一持久化美术说明，保持原文；`styleRevision` 标识修改。角色页既有画风修改与美术写入均经过逻辑层，旧镜头增加 `regenerationRequired={code:"STYLE_CHANGED",styleRevision}`，不删媒体、不覆盖手改。Claude 可据此显示“需要重新生成”；单张图生成不会擅自清除视频过期标记。
+- 定妆、场景、首帧、候选、连续镜头和视频请求均带完整画风块。只去重构造器专用块，不删对白和叙述中的同词。视频的单镜说明也完整保留；旧的 400 字截断 style_block 不再发送。描述不能完整容纳时返回 `STYLE_BIBLE_TOO_LONG` 或 `MEDIA_DESCRIPTION_TOO_LONG` 短提示，不截台词或动作尾部。
+- 按用户确认的隐私规则，默认日志不记完整画风或原文。桌面从实际请求块计算 `styleCharacters`（Unicode 字符数）与 `styleSha256`；首帧和逐镜视频提交已接线。视频日志仅表示向本地服务提交，不能证明供应商收到；没有伪造模型验收或图片质量证据。

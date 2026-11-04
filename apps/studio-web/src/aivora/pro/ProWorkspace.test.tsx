@@ -59,6 +59,34 @@ describe("professional workspace", () => {
     expect(window.aijian!.createProject).not.toHaveBeenCalled();
   });
 
+  it("marks existing shots stale when the character page changes style without deleting their media", async () => {
+    installDesktop();
+    const film = sampleFilm();
+    film.shots[0]!.picture = "手工保留的画面。";
+    film.shots[0]!.poster = "/tmp/original-frame.png";
+    film.shots[0]!.userFields = ["picture"];
+    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace />);
+    await screen.findAllByText(film.title);
+    fireEvent.click(stageTab("角色与场景"));
+    fireEvent.change(screen.getByLabelText("画风"), { target: { value: "黑白悬疑" } });
+    await waitFor(() => {
+      const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+        FilmProject | undefined;
+      expect(saved?.styleRevision).toBe(1);
+      expect(saved?.styleZh).toContain("黑白悬疑");
+      expect(saved?.shots.every((shot) => shot.regenerationRequired?.styleRevision === 1)).toBe(
+        true,
+      );
+      expect(saved?.shots[0]).toMatchObject({
+        picture: "手工保留的画面。",
+        poster: "/tmp/original-frame.png",
+        userFields: ["picture"],
+      });
+    });
+  });
+
   it("keeps the real imported novel across pages and after synchronous offline cast extraction", async () => {
     const source = readFileSync(
       resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),

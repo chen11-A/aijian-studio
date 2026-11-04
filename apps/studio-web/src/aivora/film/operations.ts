@@ -1,4 +1,5 @@
 import { sceneDisplayTitle } from "./director-continuity";
+import { withStyleBible } from "./style-bible";
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 import { emptySoundPlan } from "./audio";
 import { durationFromSpeech, speechSeconds, plainCue } from "./phase2";
@@ -716,7 +717,6 @@ export function portraitPrompts(
   styleZh: string,
 ): { view: string; prompt: string }[] {
   const who = identity.trim() || name.trim() || "人物";
-  const style = styleZh.replace(/。$/, "");
   const views = [
     ["正面", "正面半身，看向镜头，作为定妆锚定"],
     ["侧面", "正侧面半身，同一张脸，同一套衣服"],
@@ -725,7 +725,10 @@ export function portraitPrompts(
   ];
   return views.map(([view, pose]) => ({
     view: view!,
-    prompt: `角色定妆照，不要画成某一场的动作。${who}。按这句话里的性别和年龄来画，不要改成另一种性别。${pose}。${style}。`,
+    prompt: withStyleBible(
+      `角色定妆照，不要画成某一场的动作。${who}。按这句话里的性别和年龄来画，不要改成另一种性别。${pose}。`,
+      styleZh,
+    ),
   }));
 }
 
@@ -741,7 +744,7 @@ export function shotProgress(shot: FilmShot): "视频已出" | "画面已出" | 
 }
 
 export function locationPlate(where: string, styleZh: string, variant: string): string {
-  return `空镜，没有人物。${where || "地点"}。${variant}。${styleZh}`;
+  return withStyleBible(`空镜，没有人物。${where || "地点"}。${variant}。`, styleZh);
 }
 
 export type ExtractedCast = {
@@ -1076,9 +1079,9 @@ export function performanceLine(picture: string): string {
 }
 
 export function keyframeVariants(shot: FilmShot, film: FilmProject): string[] {
-  const base = keyframePrompt(shot, film).replace(/。$/, "");
-  return ["构图偏左", "构图偏右", "光线更暗，脸仍清楚", "再近一些"].map(
-    (twist) => `${base}。${twist}。`,
+  const base = keyframePrompt(shot, film);
+  return ["构图偏左", "构图偏右", "光线更暗，脸仍清楚", "再近一些"].map((twist) =>
+    withStyleBible(`${base}\n${twist}。`, film.styleZh),
   );
 }
 
@@ -1089,7 +1092,10 @@ export function continuityPrompt(
 ): string {
   const base = keyframePrompt(shot, film);
   if (!previous?.picture.trim()) return base;
-  return `接上一镜的结尾：${previous.picture.replace(/。$/, "")}。${base}`;
+  return withStyleBible(
+    `接上一镜的结尾：${previous.picture.replace(/。$/, "")}。${base}`,
+    film.styleZh,
+  );
 }
 
 export function addShot(film: FilmProject, sceneId: string): FilmProject {
@@ -1451,7 +1457,11 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
   const refs = shotReference(shot, film);
   return {
     narration: line || "。",
-    prompt: clip(`${imageCue(refs.references, draft)}${motionPrompt(shot)}`, 2000),
+    prompt: withStyleBible(
+      `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+      film.styleZh,
+      2000,
+    ),
     subtitle: line.slice(0, 500),
     duration_seconds: Math.max(1, Math.min(15, Math.round(shot.seconds) || 3)),
     size: shot.size.slice(0, 20),
@@ -1492,9 +1502,8 @@ export function storyFilmBatches(
       provider: "grok_subscription",
       confirmed: true,
       voice_id: film.narrationVoiceId || film.characters[0]?.voiceId || "eve",
-      style_block: (slice.length === 1 ? slice[0]?.styleNote?.trim() || film.styleZh : film.styleZh)
-        .trim()
-        .slice(0, 400),
+      // The complete bible and per-shot note are in each prompt. The legacy
+      // 400-character style_block would send a conflicting truncated copy.
       aspect_ratio: film.aspectRatio === "16:9" ? "16:9" : "9:16",
       shots: (slice.length > 0 ? slice : rows)
         .slice(0, 10)

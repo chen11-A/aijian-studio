@@ -1,3 +1,4 @@
+import { setFilmStyle, withStyleBible } from "../film/style-bible";
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
@@ -224,6 +225,20 @@ export function isVoiceFile(path: string): boolean {
   );
 }
 
+/** Use for portrait, location and prop image requests that already have a film snapshot. */
+export async function requestFilmStill(
+  film: FilmProject,
+  prompt: string,
+  references: string[] = [],
+): Promise<{ url: string; reason: string }> {
+  return requestStill(
+    film.seriesId,
+    withStyleBible(prompt, film.styleZh),
+    film.aspectRatio,
+    references,
+  );
+}
+
 export async function requestShotStill(
   film: FilmProject,
   shot: FilmShot,
@@ -247,7 +262,10 @@ export async function requestShotStill(
   const references = firstFrameReferences(film, shot);
   const made = await requestStill(
     film.seriesId,
-    prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+    withStyleBible(
+      prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+      film.styleZh,
+    ),
     film.aspectRatio === "16:9" ? "16:9" : "9:16",
     references,
   );
@@ -303,8 +321,7 @@ export function applyArtDraft(
   film: FilmProject,
   parsed: NonNullable<ReturnType<typeof artFromModel>>,
 ): FilmProject {
-  const next = { ...film };
-  if (parsed.styleZh) next.styleZh = parsed.styleZh;
+  const next = { ...(parsed.styleZh ? setFilmStyle(film, parsed.styleZh) : film) };
   next.characters = next.characters.map((person) => {
     if (person.userFields.includes("identity")) return person;
     const found = parsed.identities.find((item) => item.name === person.name);

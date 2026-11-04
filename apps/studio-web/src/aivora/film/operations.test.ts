@@ -377,7 +377,10 @@ describe("film operations", () => {
       "grok-imagine-video-1.5",
     );
     film.shots[0]!.styleNote = "冷色雨夜";
-    expect(storyFilmBatches(film, [film.shots[0]!], false)[0]?.style_block).toContain("冷色雨夜");
+    const request = storyFilmBatches(film, [film.shots[0]!], false)[0]!;
+    expect(request.shots[0]!.prompt).toContain("冷色雨夜");
+    expect(request.shots[0]!.prompt).toContain(film.styleZh);
+    expect(request).not.toHaveProperty("style_block");
   });
 
   it("reads names and a rainy alley from the script, and keeps names the user already wrote", () => {

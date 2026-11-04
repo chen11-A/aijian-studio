@@ -124,13 +124,18 @@ it("keeps image reference limits in diagnostics and gives a short actionable rea
   const generate = vi.fn(async () => ({ path: "/tmp/still.png", reason: "" }));
   window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
   const made = await requestShotStill(film, shot, "frame");
-  expect(generate).toHaveBeenCalledWith(film.seriesId, "frame", "9:16", [
-    "https://example.test/0/0.png",
-    "https://example.test/1/0.png",
-    "https://example.test/0/1.png",
-    "https://example.test/1/1.png",
-    "https://example.test/0/2.png",
-  ]);
+  expect(generate).toHaveBeenCalledWith(
+    film.seriesId,
+    `frame\n【画风说明】\n${film.styleZh}\n【画风说明结束】`,
+    "9:16",
+    [
+      "https://example.test/0/0.png",
+      "https://example.test/1/0.png",
+      "https://example.test/0/1.png",
+      "https://example.test/1/1.png",
+      "https://example.test/0/2.png",
+    ],
+  );
   expect(made.reason).toBe("画面已生成。");
   expect(made.diagnostics).toEqual({ referenceCount: 5, imageLimit: 5, videoReferenceLimit: 13 });
   film.characters = Array.from({ length: 6 }, (_, index) => ({

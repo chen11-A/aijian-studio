@@ -2,6 +2,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
+import { styleDiagnostics } from "./style-diagnostics";
 import { createAgentLog } from "./agent-log";
 import { registerFilmLibraryHandlers, type FilmLibraryHost } from "./film-library-ipc";
 
@@ -50,7 +51,7 @@ it.each([
   const result = await handlers.get("film:still")?.(
     true,
     "film_series0000000001",
-    "私密小说原文",
+    "私密小说原文\n【画风说明】\n秘密冷色\n【画风说明结束】",
     "16:9",
     [...references, references[0]],
   );
@@ -59,12 +60,13 @@ it.each([
   await vi.waitFor(async () => {
     const text = await readFile(path, "utf8");
     expect(JSON.parse(text)).toMatchObject({
+      ...styleDiagnostics("【画风说明】\n秘密冷色\n【画风说明结束】"),
       selectedReferenceImageCount: scenario.selected,
       referenceImageCount: scenario.dispatched ? scenario.selected : 0,
       requestDispatched: scenario.dispatched,
       imageLimit: 5,
       videoReferenceLimit: 13,
     });
-    expect(text).not.toMatch(/私密|小说|private|example\.invalid|fake-token|detail|body/);
+    expect(text).not.toMatch(/秘密|私密|小说|private|example\.invalid|fake-token|detail|body/);
   });
 });

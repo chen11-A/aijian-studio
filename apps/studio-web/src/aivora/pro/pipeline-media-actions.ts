@@ -1,3 +1,4 @@
+import { withStyleBible } from "../film/style-bible";
 import type { ProductionResult } from "../film/production-pipeline";
 import type { FilmProject } from "../film/project";
 import { dialogueTracks } from "../film/operations";
@@ -37,7 +38,8 @@ export async function makePipelinePortraits(
     current: context.current,
     isCurrent: () => valid(context),
     apply: context.commitPartial,
-    generate: (prompt) => generate(film.seriesId, prompt, film.aspectRatio),
+    generate: (prompt) =>
+      generate(film.seriesId, withStyleBible(prompt, film.styleZh), film.aspectRatio),
     progress: () => undefined, // The existing task feed reports each image's progress.
   });
   if (!valid(context) || result.cancelled) return stale();

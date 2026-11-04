@@ -1,3 +1,4 @@
+import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
 import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
 import { createFilmPersistence } from "./film-persistence";
 import { stillFailureNotice } from "./workflow";
@@ -9,7 +10,7 @@ import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
   actionBeats,
   adaptToShortDrama,
@@ -157,7 +158,7 @@ import {
   isVoiceFile,
   assistantInputVersion,
   fileMediaUrl,
-  requestStill,
+  requestFilmStill,
   middlePath,
   shotFrame,
   applyArtDraft,
@@ -409,7 +410,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const connected = useGrokConnected();
   const membershipDenied = useGrokDenied();
   const account = useGrokAccount();
-  const [film, setFilm] = useState<FilmProject | null>(null);
+  const [film, setFilmState] = useState<FilmProject | null>(null);
   const [stage, setStage] = useState<Stage>("script");
   const [scene, setScene] = useState("02");
   const [role, setRole] = useState<Role>("director");
@@ -500,6 +501,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const filmRef = useRef<FilmProject | null>(null);
+  function setFilm(update: SetStateAction<FilmProject | null>) {
+    const previous = filmRef.current;
+    let next = typeof update === "function" ? update(previous) : update;
+    if (previous && next && previous.id === next.id && previous.styleZh !== next.styleZh) {
+      next = setFilmStyle(
+        { ...next, styleZh: previous.styleZh, styleRevision: previous.styleRevision },
+        next.styleZh,
+      );
+    }
+    filmRef.current = next;
+    setFilmState(next);
+  }
   const persistence = useMemo(
     () => createFilmPersistence({ current: () => filmRef.current, write: writeFilm }),
     [],
@@ -1504,8 +1517,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           applyLive(next);
           await saveFilm(next);
         },
-        generate: (prompt) =>
-          requestStill(current.seriesId, prompt, current.aspectRatio === "16:9" ? "16:9" : "9:16"),
+        generate: (prompt) => requestFilmStill(current, prompt),
         progress: (batch) => {
           if (valid())
             emitNotice({
@@ -2696,22 +2708,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }
     } catch (error) {
       if (!valid()) return;
+      const styleFailure = styleFailureNotice(error);
       const reason =
-        error instanceof Error && error.message === "TASK_TIMEOUT"
+        styleFailure?.text ??
+        (error instanceof Error && error.message === "TASK_TIMEOUT"
           ? "等待结果超时，请先核对会员端结果。"
           : error instanceof Error && error.message === "VIDEO_CANCELLED"
             ? "已取消"
             : error instanceof Error &&
                 (error.message.includes("首帧未完成") || /VOICE_.*REQUIRED/.test(error.message))
               ? error.message
-              : "没有生成成功，可以重试。";
+              : "没有生成成功，可以重试。");
       const latest = filmRef.current ?? next;
       await applyGeneration(failRunningVideoTasks(latest, groups, reason));
       if (latest.shots.some((row) => row.takes.some(canResumeTake))) {
         pauseRef.current = true;
         setPaused(true);
       }
-      if (error instanceof Error && error.message === "TASK_TIMEOUT")
+      if (styleFailure) emitNotice(styleFailure);
+      else if (error instanceof Error && error.message === "TASK_TIMEOUT")
         emitNotice({ code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT, detail: reason });
       else setNotice(reason);
     }

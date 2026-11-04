@@ -119,7 +119,7 @@ describe("film project", () => {
     const prefixed = sampleFilm();
     prefixed.shots[0]!.picture = "这一镜的起始画面，雨停了";
     expect(keyframePrompt(prefixed.shots[0]!, prefixed)).toBe(
-      `这一镜的起始画面，雨停了。${prefixed.characters[0]?.identity}。`,
+      `这一镜的起始画面，雨停了。${prefixed.characters[0]?.identity}。\n【画风说明】\n${prefixed.styleZh}\n【画风说明结束】`,
     );
     const inserted = parseDirectorShots(
       '{"shots":[{"action":"手按在刀上","size":"插入","line":"另写一句"}]}',

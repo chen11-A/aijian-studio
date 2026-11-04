@@ -1,3 +1,4 @@
+import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import {
@@ -37,18 +38,20 @@ export type FilmLibraryHost = {
   copyFile: (source: string, destination: string) => Promise<void>;
   reveal: (path: string) => void;
   open: (path: string) => Promise<string>;
-  logStill?: (detail: {
-    ok: boolean;
-    detail: string;
-    referenceImageCount: number;
-    selectedReferenceImageCount: number;
-    /** A transport attempt, not confirmation that the provider received or accepted it. */
-    requestDispatched: boolean;
-    imageLimit: number;
-    videoReferenceLimit: number;
-    durationMs: number;
-    requestChars: number;
-  }) => void;
+  logStill?: (
+    detail: StyleDiagnostics & {
+      ok: boolean;
+      detail: string;
+      referenceImageCount: number;
+      selectedReferenceImageCount: number;
+      /** A transport attempt, not confirmation that the provider received or accepted it. */
+      requestDispatched: boolean;
+      imageLimit: number;
+      videoReferenceLimit: number;
+      durationMs: number;
+      requestChars: number;
+    },
+  ) => void;
 };
 
 function oneId(args: unknown[]): string {
@@ -252,6 +255,7 @@ export function registerFilmLibraryHandlers<TEvent>(
       ...(args[2] === "9:16" || args[2] === "16:9" ? { aspectRatio: args[2] } : {}),
     });
     host.logStill?.({
+      ...styleDiagnostics(args[1]),
       referenceImageCount: requestDispatched ? selectedReferenceImageCount : 0,
       selectedReferenceImageCount,
       requestDispatched,
