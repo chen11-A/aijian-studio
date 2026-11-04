@@ -689,3 +689,11 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 首帧最多五张、视频首帧另加最多十三张参考，均人物优先，余位追加场景图；满额时不挤掉人物。过期画风图不作为参考。HTTPS 地址可持久化但不等于已下载本地；实际出图桥返回已保存路径，文件验证仍在桌面边界。真实会员背景一致性未验。
 
 画幅：新建作品数据默认横屏 `16:9`，显式竖屏和新集继承继续支持；旧无画幅存档维持原竖屏解释。生成请求沿已有画幅链传入。Claude 新建选择及预览适配、双画幅居中裁切导出仍未完成，不能将此编号整体标已修。
+
+## 4A-B11 选择、差异与撤销（纯逻辑已提供，宿主未接）
+
+- `pro/actions/editor-context.ts`：`resolveEditorContext(film,{projectId,page,sceneId?,shotId?})` 精确解析实际选择；缺选择不代选第一场，跨作品/场镜不符明确拒绝。`editorAgentContext` 仅投影选中原文、镜头文本/台词及人物身份，排除媒体路径、URL、任务及流水线元数据；不截断原文，后续请求继续使用既有分批机制。不要把完整界面快照直接发给供应商。
+- `pro/actions/editor-changes.ts`：`diffEditorSuggestion(base,proposed,selection)` 给出按实体字段的 before/after；`applyEditorSuggestion(latest,suggestion)` 在字段仍等于 base 时原子应用并给 receipt。建议产生时保留 base，不可应用时偷换成 latest。结构新增/删/重排显式 unsupported，不能绕过检查。
+- `undoEditorReceipt(latest,receipt)` 只恢复仍等于该次写入结果的字段，保留后续手改、生成资产和任务；冲突逐项返回。`createPageUndoHistory()` 按作品和页面 record/canUndo/undo，不跨作品恢复。宿主须在成功保存后登记 receipt，并执行角色选声、画风过期等业务校验。
+
+上述函数与 14 项回归已提供；页面回调、请求接线、结构性事务、redo 和持久化历史尚未实现。现有全作品撤销尚未替换，不把这些纯函数说成用户可用入口。Claude 可先据接口准备差异显示，具体宿主接线由 GPT 继续完成。
