@@ -55,10 +55,17 @@ export type TaskCenterProps = {
   onCheck?: () => void;
   /** 「接着做 N 段」: send the queue, including the jobs that were never sent. */
   onResume?: () => void;
+  /** Says what onResume does when it only lifts the pause, for example 「继续排队」. */
+  resumeLabel?: string;
   onPause?: () => void;
   onRetry?: (taskId: string, wording: "same" | "suggestion") => void;
+  /** Which failed jobs onRetry can send again. Without it, every failed job can. */
+  canRetry?: (task: TaskItem) => boolean;
   onRetryFailed?: () => void;
+  /** Takes a queued job out of the queue, or stops one that is running. */
   onRemove?: (taskId: string) => void;
+  /** Which jobs onRemove can take out or stop. Without it, every queued job can. */
+  canRemove?: (task: TaskItem) => boolean;
   onReload?: () => void;
   onOpenStoryboard?: () => void;
 };
@@ -165,11 +172,23 @@ function rowNote(task: TaskItem): string {
 
 type Primary = { label: string; onClick?: () => void; disabled?: boolean };
 
-/** The one blue button on this screen, or none. */
+/**
+ * The one blue button on this screen, or none. Retrying every failed job is the main action
+ * only when nothing about the queue needs deciding first.
+ */
 export function primaryAction(
   props: Pick<
     TaskCenterProps,
-    "tasks" | "recovery" | "paused" | "error" | "onCheck" | "onResume" | "onReload" | "loading"
+    | "tasks"
+    | "recovery"
+    | "paused"
+    | "error"
+    | "onCheck"
+    | "onResume"
+    | "resumeLabel"
+    | "onReload"
+    | "loading"
+    | "onRetryFailed"
   >,
 ): Primary | null {
   if (props.loading) return null;
@@ -179,7 +198,14 @@ export function primaryAction(
   if (phase === "needs-check") return { label: "查一下，再接着做", onClick: props.onCheck };
   if (phase === "checking") return { label: "正在查…", disabled: true };
   if ((phase === "checked" || props.paused) && pending.length > 0) {
-    return { label: `接着做 ${pending.length} ${unitFor(pending)}`, onClick: props.onResume };
+    return {
+      label: props.resumeLabel ?? `接着做 ${pending.length} ${unitFor(pending)}`,
+      onClick: props.onResume,
+    };
+  }
+  const failed = props.tasks.filter((task) => task.status === "failed").length;
+  if (failed > 0 && props.onRetryFailed) {
+    return { label: `失败的全部重试（${failed}）`, onClick: props.onRetryFailed };
   }
   return null;
 }
@@ -325,7 +351,7 @@ function Summary({
       </div>
       <div className="nx-row">
         {others.length > 0 ? <span className="nx-faint">{others.join(" · ")}</span> : null}
-        {failed > 0 && onRetryFailed ? (
+        {failed > 0 && onRetryFailed && !action?.label.startsWith("失败的全部重试") ? (
           <button type="button" className="nx-btn" onClick={onRetryFailed}>
             失败的全部重试（{failed}）
           </button>
@@ -341,23 +367,34 @@ function Summary({
   );
 }
 
+function retryable(task: TaskItem, props: Pick<TaskCenterProps, "onRetry" | "canRetry">) {
+  return Boolean(props.onRetry) && (props.canRetry?.(task) ?? true);
+}
+
+function removable(task: TaskItem, props: Pick<TaskCenterProps, "onRemove" | "canRemove">) {
+  if (!props.onRemove) return false;
+  return props.canRemove ? props.canRemove(task) : isPending(task);
+}
+
 function rowAction(
   task: TaskItem,
-  props: Pick<TaskCenterProps, "onRetry" | "onRemove">,
+  props: Pick<TaskCenterProps, "onRetry" | "canRetry" | "onRemove" | "canRemove">,
 ): { label: string; ghost?: boolean; run: () => void } | null {
-  if (task.status === "blocked" && props.onRetry) {
-    const { onRetry } = props;
+  const { onRetry, onRemove } = props;
+  if (task.status === "blocked" && onRetry && retryable(task, props)) {
     return { label: "再试一次", run: () => onRetry(task.id, "same") };
   }
-  if (task.status === "failed" && props.onRetry) {
-    const { onRetry } = props;
+  if (task.status === "failed" && onRetry && retryable(task, props)) {
     return task.suggestion
       ? { label: "改描述再试", run: () => onRetry(task.id, "suggestion") }
       : { label: "再试一次", run: () => onRetry(task.id, "same") };
   }
-  if (isPending(task) && props.onRemove) {
-    const { onRemove } = props;
-    return { label: "移出队列", ghost: true, run: () => onRemove(task.id) };
+  if ((isPending(task) || task.status === "running") && onRemove && removable(task, props)) {
+    return {
+      label: task.status === "running" ? "停下这一次" : "移出队列",
+      ghost: true,
+      run: () => onRemove(task.id),
+    };
   }
   return null;
 }
@@ -405,11 +442,15 @@ function TaskRow({
 function TaskDetail({
   task,
   onRetry,
+  canRetry,
   onRemove,
+  canRemove,
 }: {
   task: TaskItem | undefined;
   onRetry?: TaskCenterProps["onRetry"];
+  canRetry?: TaskCenterProps["canRetry"];
   onRemove?: TaskCenterProps["onRemove"];
+  canRemove?: TaskCenterProps["canRemove"];
 }) {
   if (!task) {
     return (
@@ -422,6 +463,8 @@ function TaskDetail({
     );
   }
   const tag = STATUS_TAG[task.status];
+  const retry = retryable(task, { onRetry, canRetry }) ? onRetry : undefined;
+  const remove = removable(task, { onRemove, canRemove }) ? onRemove : undefined;
   return (
     <aside className="nx-panel nx-task-detail" aria-label="任务详情">
       <div className="nx-panel-head">
@@ -446,35 +489,34 @@ function TaskDetail({
             <p>{task.suggestion}</p>
           </div>
         ) : null}
-        {task.status === "blocked" && onRetry ? (
+        {task.status === "blocked" && retry ? (
           <div className="nx-detail-acts">
-            <button type="button" className="nx-btn" onClick={() => onRetry(task.id, "same")}>
+            <button type="button" className="nx-btn" onClick={() => retry(task.id, "same")}>
               按原样再试
             </button>
           </div>
         ) : null}
-        {task.status === "failed" && onRetry ? (
+        {task.status === "failed" && retry ? (
           <div className="nx-detail-acts">
             {task.suggestion ? (
-              <button
-                type="button"
-                className="nx-btn"
-                onClick={() => onRetry(task.id, "suggestion")}
-              >
+              <button type="button" className="nx-btn" onClick={() => retry(task.id, "suggestion")}>
                 用这句描述再试
               </button>
             ) : null}
-            <button type="button" className="nx-btn" onClick={() => onRetry(task.id, "same")}>
+            <button type="button" className="nx-btn" onClick={() => retry(task.id, "same")}>
               按原样再试
             </button>
           </div>
         ) : null}
-        {isPending(task) && onRemove ? (
+        {(isPending(task) || task.status === "running") && remove ? (
           <div className="nx-detail-acts">
-            <button type="button" className="nx-btn" onClick={() => onRemove(task.id)}>
-              移出队列
+            <button type="button" className="nx-btn" onClick={() => remove(task.id)}>
+              {task.status === "running" ? "停下这一次" : "移出队列"}
             </button>
           </div>
+        ) : null}
+        {task.status === "running" && remove ? (
+          <p className="nx-faint">已经发给 Grok 的这一次不一定停得下来。</p>
         ) : null}
         {task.status === "failed" ? (
           <p className="nx-faint">
@@ -554,9 +596,11 @@ export function TaskCenter(props: TaskCenterProps) {
         <section className="nx-panel nx-tasks-empty">
           <h2>现在没有任务</h2>
           <p className="nx-muted">
-            在首页点「一键出片」，或者在分镜里点「生成」，要做的画面、视频和配音会排在这里。
+            在首页点「一键成片」，或者在分镜里点「生成」，要做的画面、视频和配音会排在这里。
           </p>
-          <p className="nx-faint">关掉软件也不会丢：重新打开后，没做完的会接着排在这里。</p>
+          <p className="nx-faint">
+            关掉软件也不会丢：重新打开后，没做完的会标成「已中断」，在这里重试。
+          </p>
           {props.onOpenStoryboard ? (
             <button type="button" className="nx-btn nx-primary" onClick={props.onOpenStoryboard}>
               去分镜
@@ -654,7 +698,9 @@ export function TaskCenter(props: TaskCenterProps) {
         <TaskDetail
           task={loading ? undefined : selected}
           onRetry={props.onRetry}
+          canRetry={props.canRetry}
           onRemove={props.onRemove}
+          canRemove={props.canRemove}
         />
       </div>
     </div>

@@ -352,3 +352,57 @@ describe("lip-sync and export tasks", () => {
     expect(screen.getByText(/导出 1\/1/)).toBeInTheDocument();
   });
 });
+
+describe("what the host can and cannot do with each job", () => {
+  const rows: TaskItem[] = [
+    task({ id: "video-1", title: "第 1 场第 1 个镜头", status: "failed", reason: "没有生成成功" }),
+    task({ id: "portrait-1", title: "林晚 · 正面", kind: "image", status: "failed" }),
+    task({ id: "video-2", title: "第 1 场第 2 个镜头", status: "running" }),
+    task({ id: "video-3", title: "第 1 场第 3 个镜头", status: "queued" }),
+  ];
+
+  it("offers retry and stop only on the jobs the host can act on", () => {
+    const onRetry = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <TaskCenter
+        title="晚照书店"
+        tasks={rows}
+        onRetry={onRetry}
+        canRetry={(row) => row.kind === "video"}
+        onRemove={onRemove}
+        canRemove={(row) => row.id !== "video-3"}
+      />,
+    );
+    const list = screen.getByRole("region", { name: "任务列表" });
+    const rowOf = (name: string) => within(list).getByText(name).closest("li") as HTMLElement;
+    fireEvent.click(within(rowOf("第 1 场第 1 个镜头")).getByRole("button", { name: "再试一次" }));
+    expect(onRetry).toHaveBeenCalledWith("video-1", "same");
+    expect(within(rowOf("林晚 · 正面")).queryByRole("button", { name: "再试一次" })).toBeNull();
+    fireEvent.click(
+      within(rowOf("第 1 场第 2 个镜头")).getByRole("button", { name: "停下这一次" }),
+    );
+    expect(onRemove).toHaveBeenCalledWith("video-2");
+    expect(within(rowOf("第 1 场第 3 个镜头")).queryByRole("button")).toHaveAttribute(
+      "aria-pressed",
+    );
+  });
+
+  it("makes 失败的全部重试 the one blue button when nothing else needs deciding", () => {
+    const onRetryFailed = vi.fn();
+    render(<TaskCenter title="晚照书店" tasks={rows} onRetryFailed={onRetryFailed} />);
+    const blue = document.querySelectorAll(".nx-primary");
+    expect(blue).toHaveLength(1);
+    expect(blue[0]).toHaveTextContent("失败的全部重试（2）");
+    fireEvent.click(blue[0]!);
+    expect(onRetryFailed).toHaveBeenCalled();
+    expect(screen.getAllByRole("button", { name: /失败的全部重试/ })).toHaveLength(1);
+  });
+
+  it("says 继续排队 when resuming only lifts the pause", () => {
+    expect(
+      primaryAction({ tasks: rows, paused: true, resumeLabel: "继续排队", onResume: () => {} })
+        ?.label,
+    ).toBe("继续排队");
+  });
+});

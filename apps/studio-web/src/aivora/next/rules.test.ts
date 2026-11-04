@@ -1,8 +1,9 @@
 // Checks rules every file in next/ keeps: CSS uses only pro.css custom properties and no
 // literal colors, every selector is scoped, nothing calls the desktop bridge, the network or
 // storage, and imports stay within react and next/, except that volume.ts and adapters/ use the
-// film helpers whose data they convert. CSS is read from disk: with vitest's default css
-// setting a CSS import, even with ?raw, comes back as an empty string.
+// film helpers whose data they convert, and wiring/ connects the workspace to GPT's task feed
+// (window.aijian.onTask and nothing else of the bridge). CSS is read from disk: with vitest's
+// default css setting a CSS import, even with ?raw, comes back as an empty string.
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -84,13 +85,24 @@ describe("next/ styles", () => {
   });
 });
 
+/** GPT's interfaces that wiring/ hooks connect the workspace to (3J-B17). */
+const WIRING = [
+  "@aijian/contracts/task-progress",
+  "../../film/project",
+  "../../film/task-progress",
+];
+
 /** The test novel, which the full-page layout check uses as its project. */
 const NOVEL = "../../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt?raw";
 
 describe("next/ components", () => {
   it("talk to nothing but their props: no bridge, IPC, network or storage", () => {
     for (const file of load().own.filter((item) => /\.tsx?$/.test(item.path))) {
-      expect(file.text, file.path).not.toMatch(
+      // wiring/ may listen to the task feed through window.aijian.onTask, and nothing else.
+      const text = file.path.startsWith("wiring/")
+        ? file.text.replace(/window\.aijian\??\.onTask/g, "")
+        : file.text;
+      expect(text, file.path).not.toMatch(
         /window\.aijian|ipcRenderer|\bfetch\(|XMLHttpRequest|localStorage|sessionStorage|WebSocket/,
       );
     }
@@ -100,6 +112,7 @@ describe("next/ components", () => {
     for (const file of load().own.filter((item) => /\.tsx?$/.test(item.path))) {
       const story = file.path.startsWith("stories/");
       const adapter = file.path.startsWith("adapters/");
+      const wiring = file.path.startsWith("wiring/");
       for (const match of file.text.matchAll(/(?:import|from)\s+["']([^"']+)["']/g)) {
         const spec = match[1]!;
         const allowed =
@@ -112,7 +125,8 @@ describe("next/ components", () => {
           (adapter && /^\.\.\/[A-Za-z]+$/.test(spec)) ||
           (adapter &&
             /^\.\.\/\.\.\/film\/(audio|director-continuity|operations|project)$/.test(spec)) ||
-          (file.path === "adapters/novelProject.ts" && spec === NOVEL);
+          (file.path === "adapters/novelProject.ts" && spec === NOVEL) ||
+          (wiring && WIRING.includes(spec));
         expect(allowed, `${file.path} imports ${spec}`).toBe(true);
       }
     }

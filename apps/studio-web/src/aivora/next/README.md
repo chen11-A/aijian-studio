@@ -1,8 +1,12 @@
 # next 组件
 
 按 `docs/design/` 第二版设计稿做的 6 个独立 React 组件，加上把 `project.json` 转成它们
-props 的适配层 `adapters/`。软件里还没有任何地方引用它们。数据从 props 进来，操作通过回调
-交给调用方；组件和适配层都不调用 IPC（`window.aijian`）、网络或本地存储。
+props 的适配层 `adapters/`，和把工作区接到 GPT 接口上的 `wiring/`。数据从 props 进来，操作
+通过回调交给调用方；组件和适配层都不调用 IPC（`window.aijian`）、网络或本地存储。`wiring/`
+只订阅任务进度（`window.aijian.onTask`，网页里用 `film/task-progress.ts` 的
+`subscribeTasks`），不发请求。
+
+专业工作区已经用上的：`TaskCenter`（状态栏「后台生成」打开）。
 
 接到专业工作区的哪个面板、由什么事件触发、还缺哪些接口，见 `INTEGRATION.md`。
 
@@ -29,6 +33,9 @@ props 的适配层 `adapters/`。软件里还没有任何地方引用它们。�
 - props：`title`、`tasks`、`recovery`、`paused`、`loading`、`error`。
 - 回调：`onCheck`、`onResume`、`onPause`、`onRetry(taskId, "same" | "suggestion")`、
   `onRetryFailed`、`onRemove`、`onReload`、`onOpenStoryboard`。
+- 调用方做不了的事可以关掉：`canRetry(task)` 为假的任务不给「再试一次」；`canRemove(task)`
+  决定哪些任务能「移出队列」，正在跑的任务能「停下这一次」；不传时只有排队的能移出。
+- `resumeLabel` 换掉「接着做 N 段」的字样。工作区的「继续」只是解除暂停，所以写「继续排队」。
 - 每个任务：`id`、`shotId`、`title`、`version`、`kind`（`video` / `image` / `voice` / `lipsync` /
   `export`，后两种有这类任务时才出现在筛选里）、
   `status`、`attempt`、`reason`、`suggestion`、`waitedSeconds`。
@@ -52,10 +59,13 @@ props 的适配层 `adapters/`。软件里还没有任何地方引用它们。�
 2. `error`：「重新读取」。
 3. `needs-check`：「查一下，再接着做」，调用 `onCheck`。
 4. `checking`：「正在查…」，不能点。
-5. `checked` 或 `paused`，并且还有排队的任务：「接着做 N 段」，调用 `onResume`。
+5. `checked` 或 `paused`，并且还有排队的任务：「接着做 N 段」（或 `resumeLabel`），调用
+   `onResume`。
    - N 是 `queued` 和 `requeued` 的数量。
    - 单位按种类分：视频「段」、图片「张」、配音「句」，混在一起用「个」。
-6. 其他情况没有主按钮。
+6. 有失败的任务并且传了 `onRetryFailed`：「失败的全部重试（N）」。这时它就是那个主按钮，不再
+   另放一个同名按钮。
+7. 其他情况没有主按钮。
 
 没有任务时，传了 `onOpenStoryboard` 就显示「去分镜」，这是那时唯一的主按钮。
 
@@ -298,24 +308,25 @@ pnpm --filter @aijian/studio-web test
 
 ## 文件
 
-| 文件                                  | 内容                                                           |
-| ------------------------------------- | -------------------------------------------------------------- |
-| `*.tsx` / `*.css`                     | 6 个组件和各自的样式                                           |
-| `*.test.tsx`                          | 组件测试，用 vitest 和 @testing-library                        |
-| `*.story.tsx`                         | 示例页，用假 props                                             |
-| `next.css`                            | 共用的按钮、面板、标签、横幅、输入框、开关和画面占位           |
-| `qcReport.ts`                         | 检查报告的类型、`readQcReport`、问题类型的中文名、`detailRows` |
-| `volume.ts`                           | 音量和 dB 的换算、四层默认值                                   |
-| `shot.ts`                             | 镜头 id 换成「第 N 场第 M 个镜头」、时间和时长的写法           |
-| `radio.ts`                            | 单选组里方向键的移动                                           |
-| `stories/`                            | 示例页外框、示例数据、入口页面和布局检查脚本                   |
-| `adapters/*.ts`                       | 适配层：读 `project.json`，给出每个组件的数据 props            |
-| `adapters/sampleProject.ts`           | 示例作品和它的示例检查报告，给测试和示例页用                   |
-| `adapters/novelProject.ts`            | 测试小说《晚照书店》做成的作品，给工作区的布局检查用           |
-| `adapters/*.test.ts(x)`               | 适配层的测试，每个都用适配结果把组件画一遍                     |
-| `INTEGRATION.md`                      | 接线清单：放在哪、什么事件、还缺什么接口                       |
-| `helpers.test.ts`、`qcReport.test.ts` | 换算函数和报告校验的测试                                       |
-| `stories.test.tsx`、`rules.test.ts`   | 示例页的测试，和上面「样式规则」的检查                         |
+| 文件                                  | 内容                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| `*.tsx` / `*.css`                     | 6 个组件和各自的样式                                                     |
+| `*.test.tsx`                          | 组件测试，用 vitest 和 @testing-library                                  |
+| `*.story.tsx`                         | 示例页，用假 props                                                       |
+| `next.css`                            | 共用的按钮、面板、标签、横幅、输入框、开关和画面占位                     |
+| `qcReport.ts`                         | 检查报告的类型、`readQcReport`、问题类型的中文名、`detailRows`           |
+| `volume.ts`                           | 音量和 dB 的换算、四层默认值                                             |
+| `shot.ts`                             | 镜头 id 换成「第 N 场第 M 个镜头」、时间和时长的写法                     |
+| `radio.ts`                            | 单选组里方向键的移动                                                     |
+| `stories/`                            | 示例页外框、示例数据、入口页面和布局检查脚本                             |
+| `adapters/*.ts`                       | 适配层：读 `project.json`，给出每个组件的数据 props                      |
+| `adapters/sampleProject.ts`           | 示例作品和它的示例检查报告，给测试和示例页用                             |
+| `adapters/novelProject.ts`            | 测试小说《晚照书店》做成的作品，给工作区的布局检查用                     |
+| `adapters/*.test.ts(x)`               | 适配层的测试，每个都用适配结果把组件画一遍                               |
+| `wiring/taskFeed.ts`                  | `useTaskFeed`：订阅任务进度；`namedTasks` 把镜头任务写成第几场第几个镜头 |
+| `INTEGRATION.md`                      | 接线清单：放在哪、什么事件、还缺什么接口                                 |
+| `helpers.test.ts`、`qcReport.test.ts` | 换算函数和报告校验的测试                                                 |
+| `stories.test.tsx`、`rules.test.ts`   | 示例页的测试，和上面「样式规则」的检查                                   |
 
 ## 和 aivora-next-components.zip 相比
 

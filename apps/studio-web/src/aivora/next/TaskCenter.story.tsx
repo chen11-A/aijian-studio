@@ -48,7 +48,7 @@ export function startQueue(tasks: readonly TaskItem[]): TaskItem[] {
 type Start = { title: string; tasks: TaskItem[]; recovery: TaskRecovery | null };
 
 function initial(state: string): Start {
-  const title = "第 1 集 · 一键出片";
+  const title = "第 1 集 · 一键成片";
   if (state === "empty") return { title, tasks: [], recovery: null };
   if (state === "project") {
     const adapted = taskCenterData(sampleProjectJson(), { now: PROJECT_NOW });
