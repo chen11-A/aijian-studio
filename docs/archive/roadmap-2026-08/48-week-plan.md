@@ -1,5 +1,7 @@
 # 48 周软件开发与影片生产联合路线图
 
+> 已归档（2026-11-04）：这是 2026 年 8 月旧产品线的计划，不再执行，只留着查历史。现在执行的计划是 [docs/aivora/开发计划.md](../../aivora/开发计划.md)。
+
 ## 发布口径
 
 - W24：Creator Beta，Windows 11 x64、单机、一个题材、`text/image/video/TTS` 各一个认证供应商、混合 motion-comic、Assembly Editor。

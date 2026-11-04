@@ -64,8 +64,8 @@ AI Agent 负责提出方案和生成结构化产物；确定性工作流负责�
 - [系统架构与部署](docs/architecture/system-architecture.md)
 - [确定性工作流与 Agent 协作](docs/architecture/workflow-and-agents.md)
 - [GitHub 开源项目审计](docs/research/github-landscape-2026-08.md)
-- [48 周交付路线图](docs/roadmap/48-week-plan.md)
-- [首个 8 周可执行任务](docs/roadmap/phase-0-backlog.md)
+- [AIVORA 开发计划（现在执行的计划）](docs/aivora/开发计划.md)
+- [2026 年 8 月的旧路线图（已归档）](docs/archive/roadmap-2026-08/README.md)
 - [安全模型](docs/security/security-model.md)
 - [质量基线](docs/quality/quality-baseline-v0.md)
 

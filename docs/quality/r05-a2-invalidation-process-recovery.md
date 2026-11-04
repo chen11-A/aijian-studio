@@ -8,7 +8,7 @@
 - 仅新增本文件和 `services/api/tests/test_invalidation_process_recovery.py`，不改生产代码、已有测试、依赖、配置、迁移或保护目录。
 - 已测试代码 SHA-256：`22B5E3075CF602F8E64428EFF183E8B1A6F7C55BE4D13D1D10BC458CAEAC2508`。独立验证前后相同；本记录所在原子提交标识最终交付，提交 SHA 与文档哈希由主控账本记录。
 - 环境：Python `3.12.13`、SQLite `3.53.1`、Windows `10.0.19045`（`Windows-10-10.0.19045-SP0`）。仅用已安装环境，`UV_NO_SYNC=1`、`UV_OFFLINE=1`。
-- 需求对应 [48 周计划](../roadmap/48-week-plan.md) 的恢复条件、[Phase 0 F05/W8](../roadmap/phase-0-backlog.md) 的正确影响报告与人工后代保留，以及[只读报告契约](../specs/invalidation-report-read-v1.md)。
+- 需求对应 [48 周计划](../archive/roadmap-2026-08/48-week-plan.md) 的恢复条件、[Phase 0 F05/W8](../archive/roadmap-2026-08/phase-0-backlog.md) 的正确影响报告与人工后代保留，以及[只读报告契约](../specs/invalidation-report-read-v1.md)。
 
 ## 两个真实检查点
 

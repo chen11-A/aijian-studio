@@ -7,7 +7,7 @@
 - 分支 `codex/r03-integration`，精确基线 `6c1ac2b1ea6cc571d191670455725b4306b3aa0c`；编辑前工作树 clean。
 - 只新增本记录和 `services/api/tests/test_invalidation_migration_process_recovery.py`。生产逻辑、既有测试、迁移 Schema、配置、依赖和覆盖率门槛均未改。
 - 冻结测试文件 SHA-256：`9E61F9BCDF835DD8C2E72FF27F04D9402D51C860D3C080A2DAB3FF74569358EA`。
-- 对应 [ADR-0004](../architecture/ADR-0004-recovery-and-migrations.md) 的迁移中断恢复要求，以及 [Phase 0](../roadmap/phase-0-backlog.md) 的迁移/恢复验证；不是新的生产能力。
+- 对应 [ADR-0004](../architecture/ADR-0004-recovery-and-migrations.md) 的迁移中断恢复要求，以及 [Phase 0](../archive/roadmap-2026-08/phase-0-backlog.md) 的迁移/恢复验证；不是新的生产能力。
 
 ## 检查点与证据边界
 

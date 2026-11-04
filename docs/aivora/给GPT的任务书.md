@@ -51,8 +51,15 @@
 - 只写类型、先不实现：导出检查报告（沿用 aivora-qc v1）+ `ShotSpan[]`；四层声音 `sound={mood,master,lanes:{dialogue,ambience,sfx,score},duckMusic}`；版本 `TakeOption` + `aiChoiceId`；口型 `take.lipSync: "none"|"pending"|"done"|"failed"` + `lipSyncReason`；一键成片 `pipeline.steps[]`；场记 `shot.continuity[]`。
 - 字幕样式 id 统一为 `white / bar / yellow / film`：4b 时把 `aivora-media/subtitles.mjs:1` 的 `variety` 换成 `film`（小一号字、柔和阴影），这次先在类型里定下来。
 
+**3J-B18 聊天里露出 COVERAGE_INCOMPLETE（界面评审）。** 没登录时「让导演拆镜头」的回复把 code 拼进了文字（`ProWorkspace` 离线拆镜分支，98f2ab0 第 930 行），前后两句也对不上。改：不拼 code，用 `missingLines` / `missingTail` 写清是哪句没分到镜头；code 只记日志。验收：聊天和状态栏里没有大写英文 code。
+
+**3J-B19 给开发看的原因不进提示（界面评审）。** `pro/workflow.ts` 出图结果的 `reason` 带着「首帧选用 0 张定妆照（图片模型上限 5）……」，被当成 detail 显示在状态栏。改：detail 只放人名、场名、数量；参考图数量和上限记进任务详情或日志。验收：状态栏没有“模型”“上限”字样。
+
 ## 4a 新加：画幅（4A-B10，不在 3j 范围）
 新建作品时选横屏 16:9（默认）或竖屏 9:16，存进作品；出图、视频请求按画幅；导出可另出另一种画幅（居中裁切）。界面（新建对话框、预览）归 Claude（4A-U07）。验收：横屏、竖屏各一个作品走到导出，比例都对，“两种都要”得到两个视频。
+
+## 4a 新加：界面评审要的文字和接口（4A-B11）
+① 按 copy-zh.md 改 `film/*.ts` 和服务端给用户的字；② `film/operations.ts` 里「这一镜会接着上一镜的结尾来写。生成时不会把上一镜的最后一帧传过去。」前后矛盾，改成一句话或者不显示；③ 按当前页面分派的撤销回调；④ 助手建议和现状的差别，以及放进去以后的撤销回调；⑤ 把选中的场或镜头当上下文传给智能体。界面归 Claude（4A-U08、4A-U10、4A-U11、4C-U08）。验收：INTEGRATION.md 的“已提供”一栏列出 ③④⑤。
 
 ## 不要做
 - 不改界面样式和文案（交给 Claude）；不改 next/ 组件内容。
@@ -62,10 +69,7 @@
 ## 交付和报告格式
 1. tag：`aivora-desktop-v0.3.0-phase3j`，附提交号。
 2. Release 里放 `AIVORA-Desktop-0.3.0-linux-x64.tar.gz` 和 `AIVORA-Setup-0.3.0-win-x64.exe`，报告两个文件的大小和 SHA256。
-3. 已修/未修表：每行“编号 | 状态（已修/部分/未修）| 改了哪些文件:行 | 对应测试名 | 备注”，覆盖 3J-B01 到 3J-B17。
+3. 已修/未修表：每行“编号 | 状态（已修/部分/未修）| 改了哪些文件:行 | 对应测试名 | 备注”，覆盖 3J-B01 到 3J-B19。
 4. 检查结果：eslint、prettier、tsc、vitest（desktop 和 studio-web，附覆盖率）、ruff、mypy、pytest；注明哪些失败是原来就有的。
 5. 合入的 Claude zip 的 SHA 列表。
 6. 你认为我实测时要特别看的地方（最多 5 条）。
-
-## 界面评审里归 GPT 的
-见 `界面评审任务.md`：UIR-02、UIR-03 的原因文字、UIR-07 里 `film/*.ts` 和服务端的字、UIR-11 最后一条；UIR-09、UIR-10、UIR-19 里写了要你配合的接口。
