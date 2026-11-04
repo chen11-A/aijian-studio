@@ -106,13 +106,20 @@ describe("structured business notices", () => {
     });
   });
 
-  it("exposes the generic fallback honestly without hashing or implying success", () => {
+  it("shows caller guidance without inventing a generic success or losing details", () => {
     expect(normalizeNotice("供应商返回了一种尚未登记的新状态")).toEqual({
       code: "OPERATION_STATUS",
-      text: "请查看操作详情。",
-      detail: "供应商返回了一种尚未登记的新状态",
+      text: "供应商返回了一种尚未登记的新状态",
     });
     expect(normalizeNotice({ code: "bad code", text: "invalid" }).code).toBe("OPERATION_STATUS");
+    expect(
+      normalizeNotice({
+        code: "EDITOR_GUIDANCE",
+        text: "先选中要修改的镜头。",
+        detail: "只影响当前场次",
+      }),
+    ).toEqual({ code: "EDITOR_GUIDANCE", text: "先选中要修改的镜头。", detail: "只影响当前场次" });
+    expect(normalizeNotice("UNREGISTERED_FAILURE_CODE").text).toBe(NOTICE_TEXT.OPERATION_STATUS);
     for (const text of Object.values(NOTICE_TEXT)) expect(text.length).toBeLessThanOrEqual(32);
   });
 });
