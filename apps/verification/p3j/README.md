@@ -77,4 +77,40 @@
 | Linux 本地包      | 打包成功；bundled Electron contracts、FFmpeg 8.1.3、Python health 与父进程退出关闭 sidecar 检查通过；随包 FFmpeg 4/4 真实拼接测试通过。                         |
 | Linux 真实窗口    | 临时 Xvfb 下 Electron 成功启动；health=ok，name=AIVORA，version=0.3.0。原 snapshot 依赖源被网络拦截，改用环境允许的 Debian 官方源临时提取测试工具，无系统安装。 |
 
-Python 全量及发布门禁仍待最终记录。本地验证包并非 GitHub release 附件，不能用其哈希冒充发布验收。
+Python 全量及覆盖率门禁未通过，详见下节。本地验证包并非 GitHub release 附件，不能用其哈希冒充发布验收。
+
+## Linux 验证包与发布阻碍
+
+源码提交：`4fbbf8bbc7b736c100acb67c9fc362281ef59ffb`。该提交已推送，未修改 main、未合并、未创建 PR。
+
+本地最终 Linux 包：`/tmp/p3j-final/AIVORA-Desktop-0.3.0-linux-x64.tar.gz`，370116293 字节。构建器报告与独立 `sha256sum` 一致：
+
+```text
+db00d7bef63bc2fcd31aded1ac01a8b6c9d23972b2351a22483e5fe9e6607769
+```
+
+该确切包的 Electron 窗口 health 与随包 FFmpeg 4 项测试再次通过。此文件**未上传 release**。Windows 安装包未构建，因此没有可提供的 SHA-256。
+
+命令行 GitHub Actions API 请求返回 `Forbidden`；可用 GitHub 连接器能只读监控，但没有首次 workflow_dispatch 或创建 release/上传附件能力。两个安装包流程仅支持指定 PR 或手动触发，不因本分支普通 push 自动运行。本次不会创建 PR 来绕过用户约束。
+
+普通 push 已触发 [ci #402](https://github.com/chen11-A/aijian-studio/actions/runs/41807483626)，head_sha 精确为上述源码提交；Windows/Ubuntu quality 不等于安装包发布流程。正式 `aivora-desktop-v0.3.0-phase3j` tag 尚未创建，release 尚未发布。
+
+## Python 全量失败与待授权项
+
+`pnpm test:py` 实际 exit 1：**5119 passed、3 failed、6 skipped**，耗时 2346.04 秒。失败全部在 `test_film_agents.py`：
+
+- `test_offline_director_uses_the_users_lines_not_the_fight_cast`
+- `test_director_repairs_once_then_reports_a_plain_reason`
+- `test_director_json_becomes_shots_and_names_only_from_the_reply`
+
+共同原因：`services/api/src/aijian_api/agents/prompts/director.md` 没有 `agent_version: 2`，`agent_runner.prompt_version` 抛出 ValueError。已用 `git show` 核实固定基线该文件也缺此字段；本次 services 没有任何差异。最小修复是在该文件增加上述版本行，**当前未执行**，已请求范围授权，不能把未回复视为同意。
+
+独立执行 Python 覆盖率门禁也 exit 1：行覆盖率 **91.94% ≥ 90%**，分支覆盖率 **83.32% < 83.5%**。没有降低门槛、屏蔽失败或改写测试为通过。
+
+此外，审计 P1-08 的服务端直接 HTTP 自动首帧路径需要 `story_film.py`、`xai_media.py` 及相应回归的修改授权；本次仅修复并防护桌面应用路径。两项 services 授权问题均尚未收到答复。
+
+## 组件 ZIP 后续对齐依据（未导入）
+
+只读核对的 QC 基准提交是 `7c0eea58b218456f59d1f3ba93eddc791fdad894`。实际报告顶层为 `schemaVersion: 1`、`media: {duration,width,height}`、`audio: {present,integratedLufs,truePeakDbtp}`、`assumptions`、`issues`。问题项使用 `id/severity/time/timeLabel/end/type/message/suggestion/action/detail`，按类型可另有 `scope/cue/estimated/nextCue`；不是猜测一个新 report 接口。
+
+字幕 id 应固定为 `white / bar / variety / yellow`，对应中文显示名为“清楚白字 / 底条字幕 / 电影字幕 / 醒目黄字”。由于 ZIP 未找到，没有创建 `next/README.md`、修改 `qcReport.ts`，也没有产生要求署名 chen11-A / Co-authored-by Claude 的独立导入提交。

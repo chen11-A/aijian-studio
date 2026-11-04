@@ -1,0 +1,8 @@
+$ pnpm lint:ts && pnpm lint:py && pnpm format:check
+$ eslint .
+$ uv run ruff check services/api scripts
+All checks passed!
+$ prettier --check . && uv run ruff format --check services/api scripts
+Checking formatting...
+All matched files use Prettier code style!
+554 files already formatted
