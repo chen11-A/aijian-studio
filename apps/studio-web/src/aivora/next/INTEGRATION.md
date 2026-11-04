@@ -723,3 +723,11 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### 4A-B08 服装范围（部分提供）
 
 `FilmProject.costumes/costumeRisks` 保存真实 ranges 声明及核对风险。只有未改正文、可靠段号完整覆盖整场时，首帧/视频请求注入服装块；用户外貌/服装/镜头锁优先。场内换装仍返回 `COSTUME_WITHIN_SCENE_CHANGE`，不会按镜头序号猜。没有生成对应服装定妆照，不能声称该功能全流程完成。
+
+### 4A-B11 最小工作台接线（部分已接）
+
+提示词请求实际采用固定镜头基线、字段CAS与既有保存队列，RoleCard.editorDiff供界面呈现。普通撤销/重做已使用按作品页面的字段receipt；纯场/镜头结构走结构CAS，混合结构保守阻止，不恢复旧整作品快照。其他角色确认仍逐项接入，不表示所有建议都可展示差异；Claude JSX未改。
+
+### 4A-B08 导演与表演补充
+
+`shot.directorPlan.segments` 保留镜头意图、站位和对白节奏；合镜保留原段，时长变化只停精确时间，自动表演补写不抹掉空间规则。referenceHints仅是声明，verifiedSourceParagraphIds仅是解析时场归属证据。表演 `performanceState.voiceReviews` 保存不唯一说话人的语气核对事项；多人分别配音和精确音频排程仍未实现。
