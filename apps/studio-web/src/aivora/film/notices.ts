@@ -358,6 +358,7 @@ export type NoticeCode = keyof typeof NOTICE_TEXT;
 
 /** Ordered rules: distinguish cancellation requests and failures before progress/success. */
 const RULES: readonly [NoticeCode, RegExp][] = [
+  ["SAVE_FAILED", /^没有写到应用数据目录，可以重试。$/u],
   ["USER_EDIT_PRESERVED", /台词或时长已修改，保留了你的修改/u],
   ["SELECTION_MISMATCH", /当前选择已改变，请回到美术建议/u],
   ["EDITOR_EDIT_CONFLICT", /内容后来改过，这次美术建议没有覆盖/u],

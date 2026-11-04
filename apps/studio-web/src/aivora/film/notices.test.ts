@@ -74,6 +74,15 @@ describe("structured business notices", () => {
     });
   });
 
+  it("classifies application-data save failures without confusing them with generation failures", () => {
+    expect(normalizeNotice("没有写到应用数据目录，可以重试。")).toEqual({
+      code: "SAVE_FAILED",
+      text: NOTICE_TEXT.SAVE_FAILED,
+      detail: "没有写到应用数据目录，可以重试。",
+    });
+    expect(normalizeNotice("没有生成成功，可以重试。").code).toBe("GENERATION_FAILED");
+  });
+
   it("has a non-generic business code for every direct static workspace notice", () => {
     const source = readFileSync(resolve(__dirname, "../pro/ProWorkspace.tsx"), "utf8");
     const literals = [...source.matchAll(/setNotice\("([^"\n]*)"\)/gu)].map((match) => match[1]!);
