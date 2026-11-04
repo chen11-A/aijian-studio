@@ -1098,6 +1098,7 @@ body:has(.pro-root) {
   min-height: min-content;
   align-self: start;
   display: block;
+  text-align: left;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
