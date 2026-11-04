@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -65,7 +66,12 @@ def test_download_is_bounded_https_and_hash_checked(tmp_path, monkeypatch, archi
     else:
         with pytest.raises(ValueError):
             prepare.download_archive(path)
-        assert path.exists(), "failed input remains available for diagnosis"
+        assert not path.exists(), "invalid bytes must never become the cached archive"
+        staged = list(tmp_path.glob(".archive.7z.download-*"))
+        if fault == "redirect":
+            assert staged == [], "an insecure redirect must be rejected before writing"
+        else:
+            assert len(staged) == 1, "invalid input stays in its staging file for diagnosis"
 
 
 def test_only_two_locked_executables_are_requested_from_archive(tmp_path, monkeypatch, archive):
@@ -105,3 +111,87 @@ def test_distribution_profile_is_never_admitted(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="cannot authorize distribution"):
         prepare.verify_tools(tmp_path, windows=True)
     discovery.assert_not_called()
+
+
+def test_transient_http_failure_retries_then_publishes_verified_archive(
+    tmp_path, monkeypatch, archive
+):
+    path = tmp_path / "archive.7z"
+    response = io.BytesIO(archive)
+    response.url = prepare.WINDOWS_ARCHIVE_URL
+    network = Mock(
+        side_effect=[
+            urllib.error.HTTPError(prepare.WINDOWS_ARCHIVE_URL, 503, "unavailable", {}, None),
+            response,
+        ]
+    )
+    sleep = Mock()
+    monkeypatch.setattr(prepare.urllib.request, "urlopen", network)
+    monkeypatch.setattr(prepare.time, "sleep", sleep)
+    prepare.download_archive(path)
+    assert network.call_count == 2
+    sleep.assert_called_once_with(2)
+    assert path.read_bytes() == archive
+    assert list(tmp_path.glob(".archive.7z.download-*")) == []
+
+
+def test_interrupted_stream_retries_without_publishing_partial_bytes(
+    tmp_path, monkeypatch, archive
+):
+    path = tmp_path / "archive.7z"
+
+    class Interrupted(io.BytesIO):
+        url = prepare.WINDOWS_ARCHIVE_URL
+        reads = 0
+
+        def read(self, size=-1):
+            self.reads += 1
+            assert not path.exists()
+            if self.reads == 1:
+                return b"partial"
+            raise ConnectionResetError("interrupted")
+
+    good = io.BytesIO(archive)
+    good.url = prepare.WINDOWS_ARCHIVE_URL
+    network = Mock(side_effect=[Interrupted(), good])
+    monkeypatch.setattr(prepare.urllib.request, "urlopen", network)
+    monkeypatch.setattr(prepare.time, "sleep", Mock())
+    prepare.download_archive(path)
+    assert path.read_bytes() == archive
+    assert network.call_count == 2
+    assert list(tmp_path.glob(".archive.7z.download-*")) == []
+
+
+@pytest.mark.parametrize("status, attempts", [(503, 3), (403, 1), (404, 1)])
+def test_http_retries_are_bounded_and_permission_failures_are_not_retried(
+    tmp_path, monkeypatch, status, attempts
+):
+    path = tmp_path / "archive.7z"
+    network = Mock(
+        side_effect=urllib.error.HTTPError(prepare.WINDOWS_ARCHIVE_URL, status, "failure", {}, None)
+    )
+    sleep = Mock()
+    monkeypatch.setattr(prepare.urllib.request, "urlopen", network)
+    monkeypatch.setattr(prepare.time, "sleep", sleep)
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        prepare.download_archive(path)
+    assert raised.value.code == status
+    assert network.call_count == attempts
+    assert sleep.call_count == attempts - 1
+    assert not path.exists()
+
+
+def test_hash_failure_is_not_retried_or_admitted(tmp_path, monkeypatch, archive):
+    path = tmp_path / "archive.7z"
+    response = io.BytesIO(b"wrong")
+    response.url = prepare.WINDOWS_ARCHIVE_URL
+    network = Mock(return_value=response)
+    monkeypatch.setattr(prepare.urllib.request, "urlopen", network)
+    monkeypatch.setattr(prepare.time, "sleep", Mock(side_effect=AssertionError("must not retry")))
+    with pytest.raises(ValueError, match="pinned bytes"):
+        prepare.download_archive(path)
+    assert network.call_count == 1
+    assert not path.exists()
+    staged = list(tmp_path.glob(".archive.7z.download-*"))
+    assert len(staged) == 1
+    assert staged[0].read_bytes() == b"wrong"
