@@ -1,5 +1,5 @@
 普通实际命令：/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/aijian-studio/assets/audio-library/check.py --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe
 严格分类要求：仅普通实际检查通过且manifest SHA256未变化后，调用同一check.py.strict_requirements追加；复用同一轮已验证有效素材，不重复解码。
-清单SHA256：c56b159ceed6207028ee6efad2be3fcdea4b53dc07326669396a8f5bc8b85056
+清单SHA256：f2da4f1d44a8f1f57d218541e615ff8787eedde1a2e0768fa0786443fbe58250
 普通退出码：0
 严格退出码：1

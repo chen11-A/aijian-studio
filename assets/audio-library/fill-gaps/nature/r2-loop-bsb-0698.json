@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-bsb-0698",
+  "sourceId": "bsb-0698",
+  "sourceSha256": "bf3d671f1a35bfede601c2c089b4d8e4934c24ef71a63bebc64d93fca1256d91",
+  "outputSha256": "ae4709f2dc53d9dbd28e582685344b6ed97247f39587b24e53fe64fd3b79ca0e",
+  "source": "https://bigsoundbank.com/sea-waves-s0698.html",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -20.37,
+  "truePeak": -5.12,
+  "samplePeak": -5.134012581258772,
+  "targetLufs": -20,
+  "constantGainDb": -4.09,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 166.7654375,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 1.0773958333333333,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.013787806034088135,
+        "adjacentDifferenceP99": 0.06070384383201599,
+        "leftRightRmsRatio": 1.0718395865088493,
+        "seamNearbyRmsRatio": 0.9846998704070553,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "Joseph SARDIN",
+  "license": "CC0-1.0",
+  "sourceCatalogSha256": "bf3d671f1a35bfede601c2c089b4d8e4934c24ef71a63bebc64d93fca1256d91"
+}

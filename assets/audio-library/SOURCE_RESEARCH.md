@@ -28,3 +28,12 @@
 继续补齐需要能够核验原始授权页面及获得对应原始音频，或提供自带原作者授权声明的合法素材包。候选镜像不是已完成授权核验的交付物。
 
 钥匙候选的确切受阻操作：读取原作者许可页面 `https://opengameart.org/content/100-cc0-metal-and-wood-sfx` 时，网页工具返回 `restricted URL`。未改用其他线路读取该受限页面，也未把已取得的镜像音频加入清单。这是访问限制，不是已证实该素材许可不合格。
+
+
+## 2026-11-04 继续补缺的最终结果
+
+新增38条，完整来源和处理见 `fill-gaps/` 及集中副本 `licenses/fill-gaps/`。Freesound正常可访问的新原页核对成功后才收录对应固定GitHub镜像，不以镜像根许可证推定授权。BigSoundBank天气/自然声从此前已找到的QuietField官方发布包提取，源SHA与该项目目录吻合；其原作者网页独立核实。不是通过代理重试被拒的BigSoundBank下载。
+
+仍缺雨伞开合、连续夜街、小巷、准确钢管击打和拖地、人体落水泥及医院走廊。已经找到的RutgerMuller钢管104353/104354/104355原页为CC0，但没有取得准确匹配文件。医院候诊室bassboybg201638为CC0，但研究仓库仅有与病患呼吸混合的数据，未拿它冒充纯环境声。详情见各补缺目录的研究记录。
+
+额外代码搜索尝试 `gh search code '104353 RutgerMuller' --limit 5 --json repository,path,url` 返回：`Get "https://api.github.com/search/code?page=1&per_page=5&q=%22104353+RutgerMuller%22": Forbidden`。停止该操作，没有换端点、账户或路线重试。BigSoundBank命令行访问返回403，等待环境网络设置放行；没有将普通工具内部错误一概宣称为政策拒绝。

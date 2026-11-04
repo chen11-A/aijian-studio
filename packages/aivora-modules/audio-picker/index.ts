@@ -38,12 +38,25 @@ export function fillDuration(assets: AudioAsset[], duration: number): Segment[] 
   }
   return segments;
 }
+function monitorState(text: string): 'steady' | 'accelerating' | 'continuous' | undefined {
+  if (/停搏|死亡|长鸣|持续鸣|心脏停止|心跳停止/.test(text)) return 'continuous';
+  if (/心率.{0,4}加快|心跳.{0,4}加快|加速|心率升高|心率过快/.test(text)) return 'accelerating';
+  if (/规律|正常|平稳|稳定/.test(text)) return 'steady';
+  return undefined;
+}
 function effectFor(assets: AudioAsset[], label: string, context: string): AudioAsset | undefined {
   const keys = concepts(label);
   // 具体动作优先：拖地不能选击打，划伤可退到明确刀挥砍，但不选择厨刀刮擦。
   const preferred = keys.includes('钢管拖地') ? ['钢管拖地'] : keys.includes('刀划伤') ? ['刀划伤', '刀挥砍'] : keys;
   if (!preferred.length) return choose(assets, label)[0];
   let matches = assets.filter(a => preferred.some(key => a.tags.includes(key) || a.category === key));
+  if (keys.includes('心电监护仪')) {
+    const requested = monitorState(label) ?? monitorState(context) ?? 'steady';
+    const stateOf = (a: AudioAsset) => monitorState([a.name, ...a.tags].join(' '));
+    const stateMatches = matches.filter(a => stateOf(a) === requested);
+    // 普通医院场景不能默认长鸣；明确异常状态缺素材时告缺，不拿相反状态替代。
+    matches = stateMatches.length ? stateMatches : requested === 'steady' ? matches.filter(a => stateOf(a) === undefined) : [];
+  }
   if (keys.includes('脚步')) {
     const wet = /雨|湿/.test(context), hard = /医院|病房|走廊|水泥|小巷|街道/.test(context);
     if (wet && matches.some(a => a.tags.includes('湿地面脚步'))) matches = matches.filter(a => a.tags.includes('湿地面脚步'));

@@ -1,0 +1,10 @@
+{
+  "source": "https://freesound.org/people/Nox_Sound/sounds/554906/",
+  "author": "Nox_Sound",
+  "license": "CC0-1.0",
+  "licenseExcerpt": "Creative Commons 0",
+  "verifiedDate": "2026-11-04",
+  "downloadSource": "https://github.com/crafter-games/the-ones-game/releases/download/v0.7.3/TheOnes-win64.zip",
+  "sourceSha256": "101c6c175186ce54afeef662dc7d12b8d232c58e9fb3020b3a3a2473751e218b",
+  "matchingEvidence": "原作者页面许可独立核实；发布包CREDITS明确映射原编号/作者/文件名；从未加密Godot PCK读取AudioStreamMP3内嵌字节，仅移除资源容器头尾，未运行程序。MP3时长与原录音时长差约0.03秒，符合编码填充。"
+}

@@ -50,7 +50,28 @@
       "shots": [
         {
           "index": 1,
-          "ambience": [],
+          "ambience": [
+            {
+              "assetId": "gap-weather-1019",
+              "path": "fill-gaps/weather/gap-weather-1019.ogg",
+              "time": 0,
+              "end": 45,
+              "gainDb": -6,
+              "reason": "按环境关键词选取并连续铺满镜头",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "gap-weather-1019",
+                  "path": "fill-gaps/weather/gap-weather-1019.ogg",
+                  "time": 0,
+                  "end": 45,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
           "effects": [
             {
               "assetId": "sfx-phone-hand-double",
@@ -75,9 +96,7 @@
           ]
         }
       ],
-      "warnings": [
-        "第1镜头缺少匹配的环境音，请补充真实素材"
-      ],
+      "warnings": [],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
     }
   },
@@ -183,19 +202,19 @@
               ]
             },
             {
-              "assetId": "r2-knife-slice-01",
-              "path": "round2/r2-knife-slice-01.ogg",
+              "assetId": "gap-knife-slash-1",
+              "path": "fill-gaps/actions/knife-slash-1.ogg",
               "time": 3,
-              "end": 3.599542,
+              "end": 3.36,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "r2-knife-slice-01",
-                  "path": "round2/r2-knife-slice-01.ogg",
+                  "assetId": "gap-knife-slash-1",
+                  "path": "fill-gaps/actions/knife-slash-1.ogg",
                   "time": 3,
-                  "end": 3.599542,
+                  "end": 3.36,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -295,13 +314,68 @@
                   "fadeOut": 0
                 }
               ]
+            },
+            {
+              "assetId": "sfx-monitor-steady",
+              "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+              "time": 0,
+              "end": 45,
+              "gainDb": -6,
+              "reason": "根据场景设备安排声音",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 0,
+                  "end": 10.9,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 10.4,
+                  "end": 21.3,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 20.8,
+                  "end": 31.700000000000003,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 31.200000000000003,
+                  "end": 42.1,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 41.6,
+                  "end": 45,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0
+                }
+              ]
             }
           ]
         }
       ],
       "warnings": [
-        "第1镜头缺少匹配的环境音，请补充真实素材",
-        "第1镜头缺少“心电监护仪”素材"
+        "第1镜头缺少匹配的环境音，请补充真实素材"
       ],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
     }

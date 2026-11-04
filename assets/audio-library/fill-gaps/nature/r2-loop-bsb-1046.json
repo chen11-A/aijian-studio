@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-bsb-1046",
+  "sourceId": "bsb-1046",
+  "sourceSha256": "108546848717aeab4bf60f184b718f7ddb9e479ca77f9f400a620c3835ba4f81",
+  "outputSha256": "46fe207eed117e8bcb16ab15d95ac421b1ca5accb2f820c3e57f540fc778c95e",
+  "source": "https://bigsoundbank.com/small-waves-facing-the-ocean-s1046.html",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -22.26,
+  "truePeak": -2.91,
+  "samplePeak": -2.906270531144765,
+  "targetLufs": -20,
+  "constantGainDb": 6.9,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 137.57597916666666,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 2.3326041666666666,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.011340148746967316,
+        "adjacentDifferenceP99": 0.088137187063694,
+        "leftRightRmsRatio": 0.9145207267582113,
+        "seamNearbyRmsRatio": 0.9970963039574132,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "Joseph SARDIN",
+  "license": "CC0-1.0",
+  "sourceCatalogSha256": "108546848717aeab4bf60f184b718f7ddb9e479ca77f9f400a620c3835ba4f81"
+}

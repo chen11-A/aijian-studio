@@ -95,3 +95,35 @@ it('硬地行走与奔跑按动作区分',()=>{
  const lib=[asset('run','sfx',['脚步','水泥地奔跑'],'动作'),asset('walk','sfx',['脚步','水泥地'],'动作')];
  expect(pickAudio(s,lib).shots[0].effects.map(e=>e.assetId)).toEqual(['walk','run']);
 });
+
+const monitorLibrary = [
+  { ...asset('a-continuous', 'sfx', ['心电监护仪'], '道具'), name: '监护仪持续长鸣' },
+  { ...asset('b-speed-up', 'sfx', ['心电监护仪'], '道具'), name: '监护仪逐渐加速提示音' },
+  { ...asset('z-steady', 'sfx', ['心电监护仪'], '道具'), name: '监护仪规律提示音' },
+];
+const monitorScene = (description: string): Scene => ({ emotions: [], description, duration: 15, shots: [{ duration: 15, hasDialogue: true, actions: [] }] });
+it.each([
+  ['医院走廊，心电监护仪，脚步', 'z-steady'],
+  ['心电监护仪正常滴滴', 'z-steady'],
+  ['心电监护仪显示停搏', 'a-continuous'],
+  ['病人死亡，心电监护仪', 'a-continuous'],
+  ['心电监护仪长鸣', 'a-continuous'],
+  ['心率加快，心电监护仪', 'b-speed-up'],
+])('监护仪状态遵循场景语义：%s', (description, id) => {
+  const out = pickAudio(monitorScene(description), monitorLibrary);
+  expect(out.shots[0].effects[0].assetId).toBe(id);
+  expect(out.shots[0].effects[0].end).toBe(15);
+});
+it('动作明确的监护状态优先于场景，设备动作不重复', () => {
+  const input = monitorScene('病人心率加快，心电监护仪');
+  input.shots[0].actions = [{ time: 2, label: '心电监护仪恢复正常' }];
+  expect(pickAudio(input, monitorLibrary).shots[0].effects.map(e => e.assetId)).toEqual(['z-steady']);
+});
+it('缺少对应监护状态时不使用相反状态冒充', () => {
+  const normal = pickAudio(monitorScene('心电监护仪'), monitorLibrary.slice(0, 2));
+  expect(normal.shots[0].effects).toEqual([]);
+  expect(normal.warnings.some(w => w.includes('心电监护仪'))).toBe(true);
+  const abnormal = pickAudio(monitorScene('停搏，心电监护仪'), [monitorLibrary[2]]);
+  expect(abnormal.shots[0].effects).toEqual([]);
+  expect(abnormal.warnings.some(w => w.includes('心电监护仪'))).toBe(true);
+});

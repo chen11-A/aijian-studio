@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-bsb-1447",
+  "sourceId": "bsb-1447",
+  "sourceSha256": "301a34ea42d193498fcb5ce5346d27447fcd6618e43417a7c7cc3bef3020f7f3",
+  "outputSha256": "82362aa4b8fa5933d7ad735673d845cb3764d4b185b323c70153d81d836ec922",
+  "source": "https://bigsoundbank.com/small-waves-froth-and-beach-s1447.html",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -22.17,
+  "truePeak": -1.59,
+  "samplePeak": -1.62820875622149,
+  "targetLufs": -20,
+  "constantGainDb": -3.05,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 97.6,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 1.795375,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.00123538076877594,
+        "adjacentDifferenceP99": 0.07295095920562744,
+        "leftRightRmsRatio": 0.9604541314236573,
+        "seamNearbyRmsRatio": 1.0394470331456653,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "Joseph SARDIN",
+  "license": "CC0-1.0",
+  "sourceCatalogSha256": "301a34ea42d193498fcb5ce5346d27447fcd6618e43417a7c7cc3bef3020f7f3"
+}

@@ -1,6 +1,6 @@
 # 音频来源与许可
 
-所有收录文件的许可证均为 CC0-1.0。第三方 manifest.source 链接到固定提交的原始文件，自制条目链接到本分支的生成脚本，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
+当前收录为173条 CC0-1.0 和1条 Public Domain，具体以每条清单为准。第三方 manifest.source 链接到固定提交的原始文件，自制条目链接到本分支的生成脚本，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
 
 ## 配乐
 
@@ -41,3 +41,14 @@ CC0 说明：https://creativecommons.org/publicdomain/zero/1.0/
 所有当前清单条目已补原作者 author，固定衰减/转码不改变来源许可。第二轮9条拟音的逐包原作者声明保存在 round2/licenses/，具体来源见 round2/entries.json。8个设备环境循环沿用 Benjamin Burnes Fans and Drones 的独立录音与随包CC0声明；9个音乐循环分别沿用 effacestudios 对应原曲的CC0声明。循环派生版没有被计成新的原曲。
 
 原雨/风/喘息短采样、其两条短循环及重复刮擦/玻璃声已撤下；前文保留历史来源说明，是否在当前库以 manifest.json 为准。完整删除清单在 ROUND2_CHANGES.json。没有将缺失原作者许可的包按合集根授权收录。
+
+## 继续补齐38条
+
+- 真实天气8条：`fill-gaps/weather/README.md` 及每条 `*-source.json`，原作者Joseph SARDIN、Pierre SIBANARCO，CC0；GitHub QuietField正式发布包中的独立WAV与目录SHA对应。
+- 森林、海浪、虫鸣9条：`fill-gaps/nature/LICENSE_EVIDENCE.md` 与 `sources.json`，逐项原页核实；Lisa Redfern的SoundBible虫鸣为Public Domain，其余CC0。
+- 两条喘息及一条倒吸气：`fill-gaps/weather-extra/README.md`，原作者Nox_Sound、jcdeegs123、jawbutch，Freesound原页CC0。
+- 湿脚步、小刀挥动和刀划伤拟音7条：`fill-gaps/actions/SOURCES.md`，Freesound原作者CC0；刀划伤为西瓜拟音。
+- 人群、监护仪、车辆9条：`fill-gaps/public-spaces/README.md` 及 `licenses/`，原页CC0，作者与固定镜像逐项关联；医院监护音不是现场医院录音。
+- 悲伤音乐2首：`fill-gaps/music/LICENSE_EVIDENCE.md`。依据HoliznaCC0明确整音乐档案的CC0额外授权；Bandcamp通用按钮另指向CC-BY4.0，FMA直接请求403、逐曲CC0依据官方搜索索引，均已披露，不声称只存在CC0标记。
+
+本次没有执行下载包中的应用，只读取其中音频。未进行人工试听；原站未提供原文件哈希时，不声称已完成原站字节比对。下载镜像SHA和最终派生SHA均记录在对应报告。

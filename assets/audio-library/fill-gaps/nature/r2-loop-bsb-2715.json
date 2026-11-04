@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-bsb-2715",
+  "sourceId": "bsb-2715",
+  "sourceSha256": "79ca81aa11e27173ab83df44a53a0969a99f3c6a4d54a461f5a82e81cfd6317c",
+  "outputSha256": "55156d4b4d45a6a087f222b2efff98e8b232444ca02058cb4a953151443e0336",
+  "source": "https://bigsoundbank.com/forest-3-s2715.html",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -25.47,
+  "truePeak": -1.78,
+  "samplePeak": -1.983066173941791,
+  "targetLufs": -20,
+  "constantGainDb": 6.720000000000001,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 160.6001875,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 1.2782291666666667,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.004613013938069344,
+        "adjacentDifferenceP99": 0.10045730322599411,
+        "leftRightRmsRatio": 1.1755607427517847,
+        "seamNearbyRmsRatio": 0.8098722352386756,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "Pierre SIBANARCO",
+  "license": "CC0-1.0",
+  "sourceCatalogSha256": "79ca81aa11e27173ab83df44a53a0969a99f3c6a4d54a461f5a82e81cfd6317c"
+}
