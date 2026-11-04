@@ -4,8 +4,11 @@ import "./ExportCheck.css";
 import { detailRows, QC_TYPE_LABEL, readQcReport, type QcIssue, type QcReport } from "./qcReport";
 import { clockLabel, durationLabel, shotLabel } from "./shot";
 
-/** Where a shot sits in the export, in seconds, so an issue can name its shot. */
-export type ShotSpan = { id: string; start: number; end: number };
+/**
+ * Where a shot sits in the export, in seconds, so an issue can name its shot. label is how the
+ * shot is named on screen; without it the name comes from an id like scene-2-shot-17.
+ */
+export type ShotSpan = { id: string; start: number; end: number; label?: string };
 
 export type ExportCheckProps = {
   /**
@@ -30,7 +33,12 @@ type Where = { text: string; code: string };
 export function issueWhere(issue: QcIssue, shots: readonly ShotSpan[] = []): Where {
   if (issue.scope === "program") return { text: "整片", code: "" };
   const shot = shots.find((span) => issue.time >= span.start && issue.time < span.end);
-  if (shot) return { text: shotLabel(shot.id), code: `${shot.id} · ${clockLabel(issue.time)}` };
+  if (shot) {
+    return {
+      text: shot.label ?? shotLabel(shot.id),
+      code: `${shot.id} · ${clockLabel(issue.time)}`,
+    };
+  }
   return { text: issue.timeLabel, code: clockLabel(issue.time) };
 }
 

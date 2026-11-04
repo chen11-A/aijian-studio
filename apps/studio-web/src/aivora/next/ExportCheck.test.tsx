@@ -160,4 +160,13 @@ describe("issueWhere", () => {
       code: "16:39",
     });
   });
+
+  it("prefers the label the caller gives the shot", () => {
+    const issue = { ...SAMPLE_QC_REPORT.issues[2]!, time: 4 };
+    const named = [{ id: "02-shot-1", start: 0, end: 5, label: "第 2 场第 1 个镜头" }];
+    expect(issueWhere(issue, named)).toEqual({
+      text: "第 2 场第 1 个镜头",
+      code: "02-shot-1 · 0:04",
+    });
+  });
 });
