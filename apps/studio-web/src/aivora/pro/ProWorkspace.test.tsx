@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sampleFilm } from "../film/project";
+import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
 import { ProWorkspace } from "./ProWorkspace";
 
 const PROJECT_ID = `prj_${"a".repeat(32)}`;
@@ -1105,6 +1106,56 @@ it("asks action and performance, then writes those fields on the shot", async ()
   fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "雨夜巷战测试" } });
   fireEvent.keyDown(screen.getByLabelText("作品名"), { key: "Enter" });
   expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("雨夜巷战测试");
+});
+
+it("warns about a scene end with no shot and lets an unplaced action go onto a shot", async () => {
+  const film = sampleFilm();
+  const scene = film.scenes.find((item) => item.id === "02")!;
+  scene.coverage = {
+    sceneId: "02",
+    ok: false,
+    lastLine: "雨太大，我听不清。",
+    missingLines: [],
+    missingTail: "林骁侧身让过铁棍。",
+  };
+  film.unassignedBeats = [
+    { sceneId: "02", text: "林骁抹掉脸上的雨水" },
+    { sceneId: "02", text: "刀疤挥铁棍砸向林骁" },
+    { sceneId: "01", text: "别的场的动作" },
+  ];
+  window.aijian = {
+    listFilmSeries: vi.fn(async () => [
+      { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
+    ]),
+    readFilmProject: vi.fn(async () => film),
+    writeFilmProject: vi.fn(async (value: unknown) => value),
+  } as unknown as Window["aijian"];
+  render(<ProWorkspace />);
+  await screen.findAllByText(film.title);
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
+  expect(await screen.findByText("这一场结尾还没拍到：「林骁侧身让过铁棍。」")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "有 2 个动作没对上镜头" }));
+  // A dialogue shot (镜头 3) does not take a fight action: GPT's rule decides.
+  const cards = () => [...document.querySelectorAll<HTMLElement>(".pb.grid .card")];
+  const drop = (index: number, beat: number) =>
+    fireEvent.drop(cards()[index]!, {
+      dataTransfer: { getData: (type: string) => (type === BEAT_DRAG_TYPE ? String(beat) : "") },
+    });
+  drop(2, 1);
+  expect(await screen.findByText(/镜头 3 只有对白，放不了这个动作/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "有 2 个动作没对上镜头" })).toBeInTheDocument();
+  // An ordinary action goes onto the picked shot with the button.
+  fireEvent.click(cards()[3]!);
+  fireEvent.click(screen.getAllByRole("button", { name: "放到镜头 4" })[0]!);
+  expect(await screen.findByText("已放到镜头 4。")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "有 1 个动作没对上镜头" })).toBeInTheDocument();
+  // 「补上结尾」 asks GPT's fixCoverage; without a sign-in the end stays missing and says so.
+  fireEvent.click(screen.getByRole("button", { name: "补上结尾" }));
+  await waitFor(() =>
+    expect(document.querySelector(".status-note")?.textContent).toMatch(/有的场结尾还没拍到/),
+  );
+  expect(screen.getByRole("button", { name: "补上结尾" })).toBeEnabled();
 });
 
 it("makes every missing portrait from one button and shows each slot's state", async () => {

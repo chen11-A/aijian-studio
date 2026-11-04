@@ -525,25 +525,32 @@ coverEditorData(film, { mediaUrl: fileMediaUrl });
   - `production-actions.ts` 的定妆照进度把 `JSON.stringify(batch)` 放进 `detail`，`text` 是「定妆照队列进度已更新。」。界面不显示 JSON（已经滤掉），请改成给人看的话，比如 `text: "定妆照 5/28"`，`detail` 写失败的是谁的哪一张。
   - `updateCharacterTraits` 没把 `gender`、`ageBand` 记进 `userFields`。用户选「未写」时，`castTraits` 会按外貌再猜一次，选择被盖掉。
 
+## 分镜页：结尾漏拍和没对上镜头的动作（3J-U10）
+
+- 组件：`next/SceneAlerts.tsx`，只收 props，放在分镜页中间那栏标题下面、镜头卡片上面。都没问题时什么都不画。
+- 结尾漏拍：读场次上存的 `scene.coverage`（GPT 在导演写入和 `fixCoverage` 后存），`ok=false` 时黄条写「这一场结尾还没拍到：「…」」；只缺台词时写「这一场还有 N 句台词没拍到」。界面不在每次改动后重算。「补上结尾」调 `production.fixCoverage(sceneId)`，等的时候按钮写「正在补…」。
+- 没对上镜头的动作：读 `film.unassignedBeats` 里这一场的，「有 N 个动作没对上镜头」点开是列表。可以拖到镜头卡片上，也可以先选镜头再点「放到镜头 N」。放的时候调 GPT 的 `assignActionBeats(shots, sceneId, [{text, shotId}])`，只有对白的镜头不收打斗动作，这时提示换一个镜头；放进去的镜头 `userFields` 记上 `action`。
+- 要 GPT 配合：`detectDirectorCoverage` 要求这一场原文最后一段**一字不差**出现在某个镜头里，导演改写过就算漏拍；示例作品第 2 场就是这样。黄条只在 GPT 存了 `coverage.ok=false` 时出现，判得太严会一直挂着，请按「意思到了就算」或按最后一句判。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。
 
-| 接口（按任务书）                                                                        | 界面用在哪                                     | 界面现在怎么处理                                                                                            | 已提供（GPT 填）             |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `window.aijian.onTask(cb(tasks, batches))`，`TaskItem` 加 `lipsync`、`export`           | TaskCenter（4A-U04），生成画面的进度（3J-U07） | TaskCenter 认识这两种任务；现在从 project.json 算                                                           |                              |
-| `BatchProgress = {batchId, label, done, total, failed, running}`                        | 定妆照「5/28」（3J-U06），一键成片（4A-U01）   | 还没有显示的地方                                                                                            |                              |
-| 提示 `{code, text, detail?}`                                                            | 状态栏和聊天（3J-U04）                         | 已接：`wiring/statusNotice.ts` 听 `aivora-notice`，按 `wiring/noticeCopy.ts` 显示，5 秒淡出；历史在任务中心 | `film/notices.ts`（a9b53ca） |
-| 人物 `gender`、`ageBand`                                                                | 角色页性别、年龄段下拉（3J-U05）               | 还没做；适配层也还不读                                                                                      |                              |
-| `coverage = {sceneId, ok, lastLine, missingLines, missingTail}`、`fixCoverage(sceneId)` | 场次结尾漏拍的提示和「补上结尾」（3J-U10）     | 还没做                                                                                                      |                              |
-| `film.unassignedBeats = [{sceneId, text}]`                                              | 「有 N 个动作没对上镜头」（3J-U10）            | 还没做                                                                                                      |                              |
-| aivora-qc v1 报告 + `ShotSpan[]`                                                        | ExportCheck（4B-U05）                          | `exportCheckData` 按这个格式出；`ShotSpan` 多了可选的 `label`                                               |                              |
-| `sound = {mood, master, lanes:{dialogue, ambience, sfx, score}, duckMusic}`             | SoundPanel（4B-U01）                           | `soundPanelData` 现在从镜头和 audioClips 推，没有的显示「还没有」                                           |                              |
-| `TakeOption` + `aiChoiceId` + `selectedId`                                              | TakePicker（4A-U03）                           | `aiChoiceId` 现在给 `null`，`selectedId` 按 `chosenExport` 算                                               |                              |
-| `take.lipSync`、`lipSyncReason`                                                         | 口型标记（4B-U07）                             | 还没做                                                                                                      |                              |
-| `pipeline.steps = [{id, label, status, done, total}]`                                   | 一键成片步骤条（4A-U01）                       | 还没做                                                                                                      |                              |
-| `shot.continuity = [{kind, text}]`                                                      | 场记提醒（4A-U05）                             | 还没做                                                                                                      |                              |
-| 字幕样式 id `white / bar / yellow / film`                                               | SubtitleStyle（4B-U03）                        | 已经改成这四个                                                                                              |                              |
+| 接口（按任务书）                                                                        | 界面用在哪                                     | 界面现在怎么处理                                                                                            | 已提供（GPT 填）                                           |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `window.aijian.onTask(cb(tasks, batches))`，`TaskItem` 加 `lipsync`、`export`           | TaskCenter（4A-U04），生成画面的进度（3J-U07） | TaskCenter 认识这两种任务；现在从 project.json 算                                                           |                                                            |
+| `BatchProgress = {batchId, label, done, total, failed, running}`                        | 定妆照「5/28」（3J-U06），一键成片（4A-U01）   | 还没有显示的地方                                                                                            |                                                            |
+| 提示 `{code, text, detail?}`                                                            | 状态栏和聊天（3J-U04）                         | 已接：`wiring/statusNotice.ts` 听 `aivora-notice`，按 `wiring/noticeCopy.ts` 显示，5 秒淡出；历史在任务中心 | `film/notices.ts`（a9b53ca）                               |
+| 人物 `gender`、`ageBand`                                                                | 角色页性别、年龄段下拉（3J-U05）               | 还没做；适配层也还不读                                                                                      |                                                            |
+| `coverage = {sceneId, ok, lastLine, missingLines, missingTail}`、`fixCoverage(sceneId)` | 场次结尾漏拍的提示和「补上结尾」（3J-U10）     | 已接：`SceneAlerts` 读 `scene.coverage`，按钮调 `fixCoverage`                                               | `director-workflow.ts`、`production-actions.ts`（a9b53ca） |
+| `film.unassignedBeats = [{sceneId, text}]`                                              | 「有 N 个动作没对上镜头」（3J-U10）            | 已接：列表可拖到镜头，放的时候用 `assignActionBeats`                                                        | `film/operations.ts`（a9b53ca）                            |
+| aivora-qc v1 报告 + `ShotSpan[]`                                                        | ExportCheck（4B-U05）                          | `exportCheckData` 按这个格式出；`ShotSpan` 多了可选的 `label`                                               |                                                            |
+| `sound = {mood, master, lanes:{dialogue, ambience, sfx, score}, duckMusic}`             | SoundPanel（4B-U01）                           | `soundPanelData` 现在从镜头和 audioClips 推，没有的显示「还没有」                                           |                                                            |
+| `TakeOption` + `aiChoiceId` + `selectedId`                                              | TakePicker（4A-U03）                           | `aiChoiceId` 现在给 `null`，`selectedId` 按 `chosenExport` 算                                               |                                                            |
+| `take.lipSync`、`lipSyncReason`                                                         | 口型标记（4B-U07）                             | 还没做                                                                                                      |                                                            |
+| `pipeline.steps = [{id, label, status, done, total}]`                                   | 一键成片步骤条（4A-U01）                       | 还没做                                                                                                      |                                                            |
+| `shot.continuity = [{kind, text}]`                                                      | 场记提醒（4A-U05）                             | 还没做                                                                                                      |                                                            |
+| 字幕样式 id `white / bar / yellow / film`                                               | SubtitleStyle（4B-U03）                        | 已经改成这四个                                                                                              |                                                            |
 
 上面各节「要 GPT 补的」里还有几条不在 3J-B17 里，需要另外排：
 

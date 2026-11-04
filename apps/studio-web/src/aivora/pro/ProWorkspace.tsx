@@ -121,6 +121,7 @@ import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useStatusNotice } from "../next/wiring/statusNotice";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
+import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
 import { createProductionActions } from "./production-actions";
 import {
   AGE_BANDS,
@@ -3214,6 +3215,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   turns={turns}
                   onRetry={pendingRetry ? () => void retryPending() : undefined}
                   assistPulse={assistPulse}
+                  onFixCoverage={(sceneId) => production.fixCoverage(sceneId)}
                   structured={structured}
                   card={
                     roleCards[role]?.shots &&
@@ -5030,6 +5032,7 @@ function BoardPage({
   onRedoRange,
   onDismiss,
   onRetry,
+  onFixCoverage,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -5069,6 +5072,8 @@ function BoardPage({
   qcCard?: RoleCard | null;
   onRedoRange: () => void;
   onDismiss: () => void;
+  /** 3J-U10: 「补上结尾」, GPT fixCoverage (C9). Settles when the director is done. */
+  onFixCoverage: (sceneId: string) => Promise<unknown>;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
@@ -5084,6 +5089,37 @@ function BoardPage({
   }, [assistPulse, lastTurnRole]);
   const current = shots[shot];
   const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
+  // 3J-U10: what the scene on show still misses (C9) and the actions that fit no shot (C10).
+  const [fixing, setFixing] = useState("");
+  const sceneRow = film.scenes.find((item) => item.id === current?.sceneId);
+  // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
+  // does not run the check again on every edit.
+  const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
+  const allBeats = film.unassignedBeats ?? [];
+  const sceneBeats = allBeats.filter((beat) => beat.sceneId === sceneRow?.id);
+  const placeBeat = (index: number, target: FilmShot) => {
+    const beat = sceneBeats[index];
+    if (!beat) return;
+    // GPT's rule decides: a shot with only dialogue never takes a fight action.
+    const placed = assignActionBeats(film.shots, beat.sceneId, [
+      { text: beat.text, shotId: target.id },
+    ]);
+    if (placed.unassignedBeats.length > 0) {
+      onNotice(`镜头 ${target.no} 只有对白，放不了这个动作。换一个有动作的镜头。`);
+      return;
+    }
+    const at = allBeats.indexOf(beat);
+    onFilm({
+      ...film,
+      shots: placed.shots.map((item) =>
+        item.id === target.id
+          ? { ...item, userFields: [...new Set([...item.userFields, "action"])] }
+          : item,
+      ),
+      unassignedBeats: allBeats.filter((_, position) => position !== at),
+    });
+    onNotice(`已放到镜头 ${target.no}。`);
+  };
   const focused = shots[shot];
   const toolNote = turns
     .filter((item) => (item.role === "prompter" || item.role === "qc") && item.who === "agent")
@@ -5170,12 +5206,35 @@ function BoardPage({
             生成这一场
           </button>
         </div>
+        {sceneRow && (
+          <SceneAlerts
+            missingTail={coverage?.missingTail ?? null}
+            missingLines={coverage?.missingLines ?? []}
+            beats={sceneBeats.map((beat) => beat.text)}
+            fixing={fixing === sceneRow.id}
+            onFixEnding={() => {
+              setFixing(sceneRow.id);
+              void onFixCoverage(sceneRow.id).finally(() => setFixing(""));
+            }}
+            pickedShot={current ? `镜头 ${current.no}` : ""}
+            onPlaceBeat={(index) => current && placeBeat(index, current)}
+          />
+        )}
         <div className="pb grid">
           {shots.map((item, index) => (
             <button
               key={item.id}
               className={index === shot ? "card sel" : "card"}
               onClick={() => onShot(index)}
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                const raw = event.dataTransfer.getData(BEAT_DRAG_TYPE);
+                if (!raw) return;
+                event.preventDefault();
+                placeBeat(Number(raw), item);
+              }}
             >
               <div style={{ position: "relative" }}>
                 <FrameThumb shot={item} />
