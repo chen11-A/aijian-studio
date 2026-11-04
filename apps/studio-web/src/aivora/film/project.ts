@@ -5,6 +5,7 @@ import type {
   SceneSound,
   ContinuityNote,
 } from "./contracts3j";
+import type { ProductionPipeline } from "./production-pipeline";
 import { normalizeAgeBand, normalizeGender } from "./cast-traits";
 import {
   mergeAdjacentShots,
@@ -197,6 +198,8 @@ export type FilmShot = {
 
 export type FilmProject = {
   pipeline?: PipelineProgress;
+  productionPipeline?: ProductionPipeline;
+  productionInputFingerprint?: string;
   unassignedBeats?: { sceneId: string; text: string }[];
   schemaVersion: number;
   id: string;

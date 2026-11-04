@@ -34,6 +34,9 @@ describe("film library IPC", () => {
     await expect(handlers.get("film:still")?.(false, series, "巷口")).rejects.toThrow(
       "not authorized",
     );
+    for (const channel of ["film:prepare", "film:write"]) {
+      await expect(handlers.get(channel)?.(false, {})).rejects.toThrow("not authorized");
+    }
     expect(token).not.toHaveBeenCalled();
   });
 
@@ -52,6 +55,14 @@ describe("film library IPC", () => {
       open: vi.fn(async () => ""),
     };
     const handlers = handlersFor(host);
+    await expect(handlers.get("film:prepare")?.(true)).rejects.toThrow("Invalid film");
+    const prepared = await handlers.get("film:prepare")?.(true, {
+      id: episode,
+      seriesId: series,
+      poster: "data:image/png;base64,YWJj",
+    });
+    expect(prepared).toMatchObject({ poster: expect.stringContaining("media") });
+    expect(await handlers.get("film:read")?.(true, episode)).toBeNull();
     await handlers.get("film:write")?.(true, {
       id: episode,
       seriesId: series,

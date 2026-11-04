@@ -1,0 +1,136 @@
+import { expect, it, vi } from "vitest";
+import { sampleFilm } from "../film/project";
+import {
+  assemblePipelineFilm,
+  makePipelinePortraits,
+  makePipelineStill,
+  type PipelineMediaContext,
+} from "./pipeline-media-actions";
+import { requestShotStill } from "./workflow";
+import type * as Workflow from "./workflow";
+
+vi.mock("./workflow", async (original) => ({
+  ...(await original<typeof Workflow>()),
+  requestShotStill: vi.fn(),
+}));
+
+function fixture() {
+  let film = sampleFilm();
+  film = {
+    ...film,
+    characters: [{ ...film.characters[0]!, identity: "青年女性，短发", portraits: [] }],
+    shots: [{ ...film.shots[0]!, poster: "", stills: [], takes: [] }],
+  };
+  const context: PipelineMediaContext = {
+    signal: new AbortController().signal,
+    isCurrent: () => true,
+    current: () => film,
+    commitPartial: async (next) => {
+      film = next;
+    },
+  };
+  return { film, context };
+}
+
+it("persists exactly the requested portrait angle before completing its target", async () => {
+  const { film, context } = fixture();
+  let finish!: () => void;
+  const durable = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const commit = context.commitPartial;
+  context.commitPartial = vi.fn(async (next) => {
+    await durable;
+    await commit(next);
+  });
+  const generate = vi.fn(async () => ({ url: "https://example.invalid/front.png", reason: "" }));
+  let completed = false;
+  const pending = makePipelinePortraits(
+    film,
+    `${film.characters[0]!.id}@正面`,
+    context,
+    generate,
+  ).then((result) => {
+    completed = true;
+    return result;
+  });
+  await vi.waitFor(() => expect(context.commitPartial).toHaveBeenCalledOnce());
+  expect(completed).toBe(false);
+  expect(context.current().characters[0]!.portraits).toEqual([]);
+  finish();
+  expect(await pending).toMatchObject({ status: "done" });
+  expect(generate).toHaveBeenCalledOnce();
+  expect(context.current().characters[0]!.portraits.map((item) => item.view)).toEqual(["正面"]);
+  await makePipelinePortraits(
+    context.current(),
+    `${film.characters[0]!.id}@正面`,
+    context,
+    generate,
+  );
+  expect(generate).toHaveBeenCalledOnce();
+});
+
+it("retains the portrait queue's single retry and never marks a failed angle done", async () => {
+  const { film, context } = fixture();
+  const generate = vi.fn(async () => ({ url: "", reason: "fixture refusal" }));
+  expect(
+    await makePipelinePortraits(film, `${film.characters[0]!.id}@脸部`, context, generate),
+  ).toMatchObject({ status: "failed", code: "PORTRAIT_BATCH_PARTIAL" });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(context.current().characters[0]!.portraits).toEqual([]);
+});
+
+it("waits for the still's durable write before reporting success", async () => {
+  const { film, context } = fixture();
+  vi.mocked(requestShotStill).mockResolvedValueOnce({
+    url: "https://example.invalid/still.png",
+    reason: "",
+    diagnostics: { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 },
+  });
+  let finish!: () => void;
+  const durable = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const commit = context.commitPartial;
+  context.commitPartial = vi.fn(async (next) => {
+    await durable;
+    await commit(next);
+  });
+  let completed = false;
+  const pending = makePipelineStill(film, film.shots[0]!.id, context).then((result) => {
+    completed = true;
+    return result;
+  });
+  await vi.waitFor(() => expect(context.commitPartial).toHaveBeenCalledOnce());
+  expect(completed).toBe(false);
+  finish();
+  expect(await pending).toMatchObject({ status: "done" });
+  expect(context.current().shots[0]!.poster).toBe("https://example.invalid/still.png");
+});
+
+it("does not assemble a subset and still uses the audio path for a single clip", async () => {
+  const { film, context } = fixture();
+  const assemble = vi.fn(async () => ({ path: "/fixture/final.mp4", reason: "" }));
+  expect(await assemblePipelineFilm(film, [], context, assemble)).toMatchObject({
+    status: "blocked",
+    code: "PIPELINE_MISSING_VIDEO",
+  });
+  expect(assemble).not.toHaveBeenCalled();
+  expect(await assemblePipelineFilm(film, ["/fixture/shot.mp4"], context, assemble)).toMatchObject({
+    status: "done",
+    path: "/fixture/final.mp4",
+  });
+  expect(assemble).toHaveBeenCalledOnce();
+});
+
+it("keeps a partial assembly available without claiming that audio succeeded", async () => {
+  const { film, context } = fixture();
+  const assemble = vi.fn(async () => ({
+    path: "/fixture/partial.mp4",
+    reason: "fixture audio failure",
+  }));
+  const result = await assemblePipelineFilm(film, ["/fixture/shot.mp4"], context, assemble);
+  expect(result).toMatchObject({ status: "needs-input", code: "ASSEMBLY_PARTIAL" });
+  expect(result.film?.assemblyPath).toBe("/fixture/partial.mp4");
+  expect(result.detail).not.toContain("fixture audio failure");
+});

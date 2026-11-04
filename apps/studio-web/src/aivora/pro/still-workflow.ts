@@ -8,7 +8,7 @@ import { requestShotStill } from "./workflow";
 type StillHost = {
   current: () => FilmProject | null;
   valid: () => boolean;
-  apply: (film: FilmProject) => void;
+  apply: (film: FilmProject) => void | Promise<void>;
 };
 
 export async function makeFourStills(base: FilmProject, shot: FilmShot, host: StillHost) {
@@ -38,7 +38,7 @@ export async function makeFourStills(base: FilmProject, shot: FilmShot, host: St
           if (!made.url) throw new Error(made.reason || "STILL_FAILED");
           const latest = live.shots.find((item) => item.id === shot.id);
           if (!latest) throw new Error("WORK_STALE");
-          host.apply(
+          await host.apply(
             updateShot(live, shot.id, {
               stills: [...latest.stills, { id: crypto.randomUUID(), prompt, url: made.url }],
               poster: made.url,
@@ -83,7 +83,7 @@ export async function ensureShotFrame(
       if (!made.url) throw new Error(`镜头 ${shot.no} 首帧未完成：${made.reason}`);
       const latest = live.shots.find((item) => item.id === shot.id);
       if (!latest) throw new Error("WORK_STALE");
-      host.apply(updateShot(live, shot.id, { poster: made.url }));
+      await host.apply(updateShot(live, shot.id, { poster: made.url }));
       return { ...latest, poster: made.url };
     },
   );

@@ -183,6 +183,12 @@ type RoleCard = {
 };
 type FixAction = VideoAction;
 
+type PipelineGenerationHost = {
+  current: () => boolean;
+  apply: (film: FilmProject) => Promise<void>;
+  versions: number;
+};
+
 const STAGES: { id: Stage; label: string }[] = [
   { id: "script", label: "剧本" },
   { id: "cast", label: "角色与场景" },
@@ -2397,12 +2403,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     resume = false,
     takeIds?: string[],
     blockedIds?: string[],
+    pipeline?: PipelineGenerationHost,
   ) {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id)) return;
     generationRuns.current.add(id);
     try {
-      await runGeneration(targets, resume, takeIds, blockedIds);
+      await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
     } finally {
       generationRuns.current.delete(id);
     }
@@ -2417,20 +2424,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     resume = false,
     takeIds?: string[],
     blockedIds?: string[],
+    pipeline?: PipelineGenerationHost,
   ) {
     const mine = ++runToken.current;
+    const requestedVersions = pipeline?.versions ?? versions;
+    const applyGeneration = async (next: FilmProject) => {
+      if (pipeline) await pipeline.apply(next);
+      else applyLive(next);
+    };
     stopRef.current = false;
     let live = filmRef.current ?? film;
     if (!live) return;
     pruneCancelledJobs(live, cancelledJobs.current);
     const generationProject = live.id;
-    const valid = () => filmRef.current?.id === generationProject && runToken.current === mine;
+    const valid = () =>
+      filmRef.current?.id === generationProject &&
+      runToken.current === mine &&
+      (pipeline?.current() ?? true);
     const selected = generationTargets(live, targets, resume, shownShots[shot]);
     if (selected.length === 0) {
       setNotice("先在剧本里拆镜头。");
       return;
     }
-    setNotice(generationEstimate(selected.length, versions, duration));
+    setNotice(generationEstimate(selected.length, requestedVersions, duration));
     if (live.draft && modelIds.length > 0 && !modelIds.includes(VIDEO_DRAFT_MODEL)) {
       setNotice(`模型列表里没有 ${VIDEO_DRAFT_MODEL}，不能先出草稿。`);
       return;
@@ -2442,13 +2458,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     live = filmRef.current ?? live;
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
-    const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
+    const jobs = selected.flatMap((item) =>
+      planVideoJobs(item, requestedVersions, canSubmit, blocked),
+    );
     if (!canSubmit) {
       if (resume || blockedIds) {
         setNotice(blocked);
         return;
       }
-      applyLive({
+      await applyGeneration({
         ...live,
         jobs: [
           ...live.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
@@ -2460,23 +2478,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const prepared = blockedIds
       ? prepareBlockedVideoQueue(live, blockedIds)
-      : prepareVideoQueue(live, selected, versions, resume, takeIds);
+      : prepareVideoQueue(live, selected, requestedVersions, resume, takeIds);
     const next = prepared.film;
     const groups = prepared.groups;
-    const queueStopped = () => {
+    const queueStopped = async () => {
       const interrupted = videoQueueInterruption(
         filmRef.current ?? next,
         stopRef.current,
         pauseRef.current,
       );
       if (!interrupted) return false;
-      applyLive(interrupted.film);
+      await applyGeneration(interrupted.film);
       setNotice(interrupted.notice);
       return true;
     };
-    applyLive(next);
+    await applyGeneration(next);
     try {
-      await saveFilm(next);
+      if (!pipeline) await saveFilm(next);
       if (!valid()) return;
       for (const group of groups) {
         for (let index = 0; index < group.takes.length; index += 1) {
@@ -2485,35 +2503,37 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           if (!valid()) return;
           const current = filmRef.current ?? next;
           if (cancelledJobs.current.has(jobId)) {
-            applyLive(cancelVideoTask(current, take.id).film);
+            await applyGeneration(cancelVideoTask(current, take.id).film);
             continue;
           }
-          if (queueStopped()) return;
+          if (await queueStopped()) return;
           const targetShot = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
           const shotNow = await ensureShotFrame(current, targetShot, {
             current: () => filmRef.current,
             valid,
-            apply: applyLive,
+            apply: applyGeneration,
           });
           if (!valid()) return;
           const liveBeforeSend = filmRef.current ?? current;
           if (cancelledJobs.current.has(jobId)) {
-            applyLive(cancelVideoTask(liveBeforeSend, take.id).film);
+            await applyGeneration(cancelVideoTask(liveBeforeSend, take.id).film);
             continue;
           }
-          if (queueStopped()) return;
+          if (await queueStopped()) return;
           const dispatched = setVideoTaskState(liveBeforeSend, take.id, "running");
-          applyLive(dispatched);
-          await saveFilm(dispatched);
+          await applyGeneration(dispatched);
+          if (!pipeline) await saveFilm(dispatched);
           if (!valid()) return;
           if (cancelledJobs.current.has(jobId) || stopRef.current) {
-            applyLive(cancelVideoTask(filmRef.current ?? dispatched, take.id).film);
-            if (queueStopped()) return;
+            await applyGeneration(cancelVideoTask(filmRef.current ?? dispatched, take.id).film);
+            if (await queueStopped()) return;
             continue;
           }
           if (pauseRef.current) {
-            applyLive(setVideoTaskState(filmRef.current ?? dispatched, take.id, "queued"));
-            queueStopped();
+            await applyGeneration(
+              setVideoTaskState(filmRef.current ?? dispatched, take.id, "queued"),
+            );
+            await queueStopped();
             return;
           }
           const body = storyFilmBatches(dispatched, [shotNow], current.draft)[0];
@@ -2527,7 +2547,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           );
           if (!valid()) return;
           if (cancelledJobs.current.has(jobId)) {
-            applyLive(cancelVideoTask(filmRef.current ?? current, take.id).film);
+            await applyGeneration(cancelVideoTask(filmRef.current ?? current, take.id).film);
             continue;
           }
           const data = response.data ?? {};
@@ -2618,7 +2638,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 : job,
             ),
           };
-          applyLive(saved);
+          await applyGeneration(saved);
           if (done && group.shot.id === openShotRef.current) setPlaying(true);
           setNotice((current) =>
             current.startsWith("已暂停")
@@ -2641,7 +2661,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ? error.message
               : "没有生成成功，可以重试。";
       const latest = filmRef.current ?? next;
-      applyLive(failRunningVideoTasks(latest, groups, reason));
+      await applyGeneration(failRunningVideoTasks(latest, groups, reason));
       if (latest.shots.some((row) => row.takes.some(canResumeTake))) {
         pauseRef.current = true;
         setPaused(true);

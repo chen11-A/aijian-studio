@@ -567,6 +567,7 @@ contextBridge.exposeInMainWorld("aijian", {
   listFilmSeries: () => ipcRenderer.invoke("film:list-series"),
   listFilmEpisodes: (seriesId: string) => ipcRenderer.invoke("film:list-episodes", seriesId),
   readFilmProject: (id: string) => ipcRenderer.invoke("film:read", id),
+  prepareFilmProject: (film: unknown) => ipcRenderer.invoke("film:prepare", film),
   writeFilmProject: (film: unknown) => ipcRenderer.invoke("film:write", film),
   deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
   renameFilmSeries: (seriesId: string, title: string) =>

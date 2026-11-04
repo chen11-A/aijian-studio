@@ -9,6 +9,7 @@ import {
   mediaUrlPath,
   mixMusic,
   prepareVoiceFile,
+  prepareProject,
   listEpisodes,
   listSeries,
   readMedia,
@@ -97,6 +98,12 @@ export function registerFilmLibraryHandlers<TEvent>(
   handle("film:read", async (event, ...args) => {
     guard(event);
     return readProject(host.filmsRoot(), oneId(args));
+  });
+
+  handle("film:prepare", async (event, ...args) => {
+    guard(event);
+    if (args.length !== 1) throw new Error("Invalid film");
+    return prepareProject(host.filmsRoot(), args[0]);
   });
 
   handle("film:write", async (event, ...args) => {

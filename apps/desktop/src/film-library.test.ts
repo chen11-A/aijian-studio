@@ -19,6 +19,7 @@ import {
   safeExportName,
   trustedMediaPath,
   writeProject,
+  prepareProject,
 } from "./film-library";
 
 const series = "film_series0000000001";
@@ -41,6 +42,29 @@ function film(id: string, seriesId: string, no: number) {
 }
 
 describe("film library", () => {
+  it("prepares media without publishing and saves prepared paths unchanged", async () => {
+    const root = mkdtempSync(join(tmpdir(), "aivora-prepare-"));
+    const original = {
+      ...film(first, series, 1),
+      poster: "data:image/png;base64,YWJj",
+      assemblyUrl: "blob:temporary-preview",
+    };
+    const before = structuredClone(original);
+    const prepared = await prepareProject(root, original);
+    expect(original).toEqual(before);
+    expect(await readProject(root, first)).toBeNull();
+    expect(await listSeries(root)).toEqual([]);
+    expect(await readFile(String(prepared.poster), "utf8")).toBe("abc");
+    expect(prepared.assemblyUrl).toBe("");
+    expect(prepared.savedAt).toBeUndefined();
+    expect(await prepareProject(root, prepared)).toEqual(prepared);
+    const saved = await writeProject(root, prepared);
+    expect(saved).toEqual({ ...prepared, savedAt: expect.any(String) });
+    const diskBefore = await readProject(root, first);
+    await prepareProject(root, { ...original, title: "not saved" });
+    expect(await readProject(root, first)).toEqual(diskBefore);
+  });
+
   it("keeps two episodes on disk, then deletes one and the series", async () => {
     const root = mkdtempSync(join(tmpdir(), "aivora-films-"));
     await writeProject(root, film(first, series, 1));

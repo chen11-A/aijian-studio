@@ -637,3 +637,25 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 桌面 `agents.log` 的图片请求记录增加 `selectedReferenceImageCount`、`requestDispatched`、`imageLimit`、`videoReferenceLimit`。`referenceImageCount` 只计入已尝试调用传输的参考图；未登录或超限而没有调用传输时为 0，已选数量另存。`requestDispatched=true` 仅表示尝试发起请求，不证明供应商收到、接受或生成成功。重复参考图先去重计数。
 
 这些字段仅为数值/布尔诊断，不加入状态栏、聊天或用户失败文案。原文、提示词、图片地址、凭据和供应商正文仍不写日志。B18 的 `coverageNotice` 和 B19 的 `stillFailureNotice` 保持现有接线；无需新增界面组件。
+
+## 4A-B01 后台流水线（部分提供，尚未替换现有入口）
+
+此节属于 3j-r1 出包后的 4a 工作。现有“一键成片”按钮尚未接下面的新控制器，不能将模块回归通过说成界面全流程完成。
+
+### 已提供
+
+- `pro/film-pipeline-controller.ts` 的 `createFilmPipelineController(host)` 提供 `run(options)`、`recover()`；`film.productionPipeline` 保存逐步、逐目标状态，`film.pipeline` 是 C12 显示投影。步骤为 writer、art、portraits、director、action、performance、prompter、stills、review、video、assembly。
+- 编剧分场与角色提取分别保存；定妆照目标是 `${characterId}@${view}`，每个角度保存后才推进。导演逐场，动作按镜头 ID，表演拒绝缺失镜头 ID 的回复，提示词逐镜。状态与业务结果同次保存，失败不继续下一个目标。
+- `pro/pipeline-media-actions.ts` 提供 `makePipelinePortraits`、`makePipelineStill`、`assemblePipelineFilm`；复用会员出图和现有桌面合成。合成有缺失音轨等部分成功原因时不会标成完整成功。没有引入口型、四层调音或付费服务。
+- 重开时 `recover()` 把中断的 running 标成 uncertain，绝不自动重发。完成目标保留；重试必须用 `productionTargetKey(step, target)` 生成的精确键，例如 `portraits/character-1@正面`。`run({retryTargets:[key]})` 只重试用户选中的目标。
+- 没有已验证的看图能力时，review 返回 needs-input，不写 AI 评分或 AI 选中版本。用户真的审过后才能调用 `run({acceptInputs:[{key:productionTargetKey("review", "all"),reason}]})`；人工状态记为 accepted，区别于自动完成。
+- 审片后仍停在独立 checkpoint，含镜头数、时长、预计请求数、覆盖及风险。用户再次明确确认才调用 `run({continue:true})`。后台不把人工审片和继续视频合成一个自动动作。
+- 取消通过 `run({signal})` 传入 AbortSignal；晚到结果不写回。作品切换、源文或业务数据被编辑、相同作品并发执行均有守卫。媒体路径记录与可选 `verifyMedia` 是不同层次，未提供探测时不能声称文件已经实际播放验证。
+
+### 接线前必须处理（GPT 逻辑与 Claude 4A-U01 配合）
+
+1. GPT 宿主必须先完成作品 ID 准备，再启动控制器；请求使用独立的流水线有效性守卫，不能借用助手聊天的 activeTurn 生命周期。
+2. 宿主先通过准备接口将内联媒体物化，再计算输入摘要并原子保存。不能忽略桌面保存返回的媒体路径变化。原有 400 毫秒自动保存和退出刷新也必须与流水线保存协调，避免旧快照覆盖新状态。
+3. Claude 提供步骤进度、精确目标重试、uncertain 风险确认、真实人工审片及独立 checkpoint 的继续/取消操作。显示文案由 Claude 定，后台 code 不直接显示给用户。
+4. 旧 footer 的“继续出视频”当前直接调用 `queueBatch`；启用新入口时必须改接上述 checkpoint 操作，不能旁路审片和原文覆盖。GPT 配合提供业务回调，Claude 修改 JSX。
+5. 启用前补宿主接线回归和真实会员验收；仅模块测试不能证明小说已在桌面跑完整流程。因此 4A-B01 暂记部分完成，不发布 4a tag。

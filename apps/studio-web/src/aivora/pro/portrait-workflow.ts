@@ -14,6 +14,8 @@ export type PortraitBatchOptions = {
   current: () => FilmProject | null;
   apply: (film: FilmProject) => void | Promise<void>;
   generate: (prompt: string) => Promise<{ url: string; reason: string }>;
+  /** Pipeline work can address one angle; ordinary whole-cast calls retain all angles. */
+  views?: readonly string[];
   progress: (result: PortraitBatchResult) => void;
   isCurrent?: () => boolean;
   characterIds?: string[];
@@ -29,6 +31,7 @@ export async function makeAllPortraits(
     .filter((person) => !options.characterIds || options.characterIds.includes(person.id))
     .flatMap((person) =>
       portraitPrompts(person.name, person.identity, base.styleZh)
+        .filter((item) => !options.views || options.views.includes(item.view))
         .filter(
           (item) =>
             !person.portraits.some((portrait) => portrait.view === item.view && portrait.url),

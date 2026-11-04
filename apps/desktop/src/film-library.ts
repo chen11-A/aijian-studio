@@ -269,16 +269,21 @@ export async function writeProject(root: string, value: unknown): Promise<FilmRe
   return enqueueWrite(`film:${root}`, () => writeProjectNow(root, value));
 }
 
-async function writeProjectNow(root: string, value: unknown): Promise<FilmRecord> {
-  const seriesId =
-    value &&
-    typeof value === "object" &&
-    typeof (value as { seriesId?: unknown }).seriesId === "string"
-      ? (value as { seriesId: string }).seriesId
-      : "";
-  const directory = seriesId ? seriesDir(root, seriesId) : root;
+/** Materialize session media without publishing a project or changing its save time. */
+export async function prepareProject(root: string, value: unknown): Promise<FilmRecord> {
+  if (!value || typeof value !== "object") throw new Error("Invalid film");
+  const identity = value as FilmRecord;
+  // Reject invalid identities before writing any media.
+  assertId(identity.id);
+  assertId(identity.seriesId);
+  const directory = seriesDir(root, identity.seriesId);
   const storedMedia = await materializeMedia(value, directory);
-  const film = withoutSessionUrls(asFilm(storedMedia));
+  return { ...withoutSessionUrls(asFilm(storedMedia)), directory };
+}
+
+async function writeProjectNow(root: string, value: unknown): Promise<FilmRecord> {
+  const film = await prepareProject(root, value);
+  const directory = seriesDir(root, film.seriesId);
   const savedAt = new Date().toISOString();
   const stored: FilmRecord = { ...film, savedAt, directory };
   await mkdir(dirname(episodePath(root, film.seriesId, film.id)), { recursive: true });

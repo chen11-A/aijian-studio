@@ -971,6 +971,7 @@ export interface AijianDesktopBridge
     }[]
   >;
   readFilmProject?: (id: string) => Promise<Record<string, unknown> | null>;
+  prepareFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
