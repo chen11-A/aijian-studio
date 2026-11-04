@@ -1,3 +1,4 @@
+import { stillFailureNotice } from "./workflow";
 import { coverageNotice } from "../film/coverage-notice";
 import { awaitVideoResult } from "./video-request";
 import { SceneCoverage } from "../next/wiring/SceneCoverage";
@@ -2297,12 +2298,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         },
       );
     } catch (error) {
-      if (valid())
-        emitNotice({
-          code: "STILL_FAILED",
-          text: "画面未生成，可以重试。",
-          detail: error instanceof Error ? error.message : undefined,
-        });
+      if (valid()) emitNotice(stillFailureNotice(error));
     } finally {
       release();
     }

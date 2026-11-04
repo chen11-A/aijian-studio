@@ -1,6 +1,6 @@
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
-import { NOTICE_TEXT } from "../film/notices";
+import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
 import type { FilmProject, FilmPortrait, FilmShot, FilmTake } from "../film/project";
 import { dialogueTracks, firstFrameReferences, portraitPrompts } from "../film/operations";
 
@@ -228,7 +228,11 @@ export async function requestShotStill(
   film: FilmProject,
   shot: FilmShot,
   prompt: string,
-): Promise<{ url: string; reason: string }> {
+): Promise<{
+  url: string;
+  reason: string;
+  diagnostics: { referenceCount: number; imageLimit: number; videoReferenceLimit: number };
+}> {
   const visible = film.characters.filter(
     (person) =>
       shot.characters.includes(person.name) && person.portraits.some((portrait) => portrait.url),
@@ -236,8 +240,8 @@ export async function requestShotStill(
   if (visible.length > 5)
     return {
       url: "",
-      reason:
-        "这一镜有超过 5 位角色需要定妆照；当前图片模型最多接收 5 张，请拆镜后重试。视频仍支持最多 13 张定妆照加首帧。",
+      reason: NOTICE_TEXT.STILL_CAST_LIMIT,
+      diagnostics: { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 },
     };
   // One portrait per visible person before extra views, never silently omit a person.
   const references = firstFrameReferences(film, shot);
@@ -249,7 +253,7 @@ export async function requestShotStill(
   );
   return {
     ...made,
-    reason: `${made.reason} 首帧选用 ${references.length} 张定妆照（图片模型上限 5）；视频保留最多 13 张定妆照加首帧。`,
+    diagnostics: { referenceCount: references.length, imageLimit: 5, videoReferenceLimit: 13 },
   };
 }
 
@@ -362,4 +366,19 @@ export async function assembleCurrentFilm(
   } catch {
     if (valid() && current()?.id === base.id) notice("多镜头没有接上，没有导出。");
   }
+}
+
+/** Status copy is one canonical sentence; provider/selection diagnostics stay separate. */
+export function stillFailureNotice(error: unknown): UiNotice {
+  const parsed = normalizeNotice(error instanceof Error ? error.message : "");
+  const code = [
+    "DESKTOP_REQUIRED",
+    "GROK_MEMBERSHIP_REQUIRED",
+    "REAUTH_REQUIRED",
+    "STILL_CAST_LIMIT",
+    "TASK_TIMEOUT",
+  ].includes(parsed.code)
+    ? parsed.code
+    : "STILL_FAILED";
+  return { code, text: NOTICE_TEXT[code as keyof typeof NOTICE_TEXT] };
 }

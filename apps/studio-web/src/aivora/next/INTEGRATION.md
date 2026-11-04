@@ -573,3 +573,7 @@ GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名�
 ## UIR-02 覆盖原因文字
 
 按 aivora/dev@f717e89 的对应条目，仅修改覆盖提示逻辑。聊天、连续拆镜完成通知和补尾结果共用 coverageNotice：从 missingLines/missingTail 给出原文证据与再拆/补镜头的下一步；归属风险仍单独提示。覆盖不足时不声称已保留全部内容。布局检查使用有效正则 `/\b[A-Z]{3,}(?:_[A-Z0-9]+)+\b/` 检查下划线形式的内部代码，修正文档示例 `{3,}*` 的重复量词，避免误报 AIVORA 等产品名称；没有合入整个文档分支。
+
+## UIR-03 出图原因文字
+
+requestShotStill 的 reason 不再拼参考图数量或模型上限，diagnostics 独立提供 referenceCount/imageLimit/videoReferenceLimit，供任务详情使用；实际发送参考张数继续由桌面请求日志记录，不记录原文。状态栏只收到规范的一句话提示，无 detail 重复兜底；新增 STILL_CAST_LIMIT 表示人物太多、应拆镜重试。未修改 Claude 的状态栏 JSX/CSS，也未处理其他 UIR 项。

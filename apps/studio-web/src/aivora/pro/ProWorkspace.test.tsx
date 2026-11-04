@@ -137,7 +137,12 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "加镜头" }));
     expect(screen.getByText(/已加一个镜头/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
-    expect(await screen.findByText(/请打开安装好的 AIVORA 再出图/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.querySelector(".status-note")?.textContent).toBe("请在桌面版继续。"),
+    );
+    expect(document.querySelector(".status-note")?.textContent).not.toMatch(
+      /模型|上限|首帧选用|\d/,
+    );
     fireEvent.click(
       screen
         .getAllByRole("button", { name: /剪辑/ })

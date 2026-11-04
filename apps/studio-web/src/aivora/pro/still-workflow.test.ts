@@ -4,12 +4,13 @@ import { taskSnapshot } from "../film/task-progress";
 import { requestShotStill } from "./workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
 vi.mock("./workflow", () => ({ requestShotStill: vi.fn() }));
+const diagnostics = { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 };
 
 it("queues candidates immediately and discards a delayed image after project switch", async () => {
   const base = sampleFilm();
   let current = base;
   const shot = base.shots[0]!;
-  let resolve!: (result: { url: string; reason: string }) => void;
+  let resolve!: (result: Awaited<ReturnType<typeof requestShotStill>>) => void;
   vi.mocked(requestShotStill).mockImplementationOnce(
     () =>
       new Promise((done) => {
@@ -29,7 +30,7 @@ it("queues candidates immediately and discards a delayed image after project swi
   ).toBe(true);
   await Promise.resolve();
   current = { ...base, id: "new-project" };
-  resolve({ url: "late.png", reason: "" });
+  resolve({ url: "late.png", reason: "", diagnostics });
   const result = await pending;
   expect(apply).not.toHaveBeenCalled();
   expect(result).toMatchObject({ done: 0, cancelled: true });
@@ -42,8 +43,8 @@ it("keeps successful candidates when another fails and reports partial completio
   const count = shot.stills.length;
   vi.mocked(requestShotStill)
     .mockReset()
-    .mockResolvedValueOnce({ url: "", reason: "supplier denied" })
-    .mockResolvedValue({ url: "candidate.png", reason: "" });
+    .mockResolvedValueOnce({ url: "", reason: "supplier denied", diagnostics })
+    .mockResolvedValue({ url: "candidate.png", reason: "", diagnostics });
   const result = await makeFourStills(base, shot, {
     current: () => current,
     valid: () => true,
@@ -72,7 +73,7 @@ it("publishes a video preframe as an image task and protects a late response", a
   const base = sampleFilm();
   const shot = { ...base.shots[0]!, poster: "", stills: [] };
   let valid = true;
-  let resolve!: (result: { url: string; reason: string }) => void;
+  let resolve!: (result: Awaited<ReturnType<typeof requestShotStill>>) => void;
   vi.mocked(requestShotStill).mockImplementationOnce(
     () =>
       new Promise((done) => {
@@ -89,7 +90,7 @@ it("publishes a video preframe as an image task and protects a late response", a
   ).toBe(true);
   await Promise.resolve();
   valid = false;
-  resolve({ url: "late.png", reason: "" });
+  resolve({ url: "late.png", reason: "", diagnostics });
   await expect(pending).rejects.toThrow("WORK_STALE");
   expect(apply).not.toHaveBeenCalled();
 });

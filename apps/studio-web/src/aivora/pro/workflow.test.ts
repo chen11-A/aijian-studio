@@ -107,7 +107,7 @@ describe("generation recovery", () => {
   });
 });
 
-it("sends a first-frame request with references from every visible person and discloses the five-image limit", async () => {
+it("keeps image reference limits in diagnostics and gives a short actionable reason", async () => {
   const { requestShotStill } = await import("./workflow");
   const film = sampleFilm();
   film.characters = [0, 1].map((index) => ({
@@ -131,7 +131,8 @@ it("sends a first-frame request with references from every visible person and di
     "https://example.test/1/1.png",
     "https://example.test/0/2.png",
   ]);
-  expect(made.reason).toContain("首帧选用 5 张");
+  expect(made.reason).toBe("画面已生成。");
+  expect(made.diagnostics).toEqual({ referenceCount: 5, imageLimit: 5, videoReferenceLimit: 13 });
   film.characters = Array.from({ length: 6 }, (_, index) => ({
     ...film.characters[0]!,
     name: `person${index}`,
@@ -139,8 +140,48 @@ it("sends a first-frame request with references from every visible person and di
   shot.characters = film.characters.map((person) => person.name);
   const rejected = await requestShotStill(film, shot, "frame");
   expect(rejected.url).toBe("");
-  expect(rejected.reason).toContain("超过 5 位角色");
+  expect(rejected.reason).toBe("这一镜人物太多，请拆成更少人物的镜头后重试。");
+  expect(rejected.reason).not.toMatch(/模型|上限|首帧|\d/u);
+  expect(rejected.diagnostics).toEqual({
+    referenceCount: 0,
+    imageLimit: 5,
+    videoReferenceLimit: 13,
+  });
   expect(generate).toHaveBeenCalledTimes(1);
+});
+
+it("keeps an unavailable desktop reason free of reference diagnostics", async () => {
+  const { requestShotStill } = await import("./workflow");
+  const previous = window.aijian;
+  try {
+    delete window.aijian;
+    const film = sampleFilm();
+    const made = await requestShotStill(film, film.shots[0]!, "frame");
+    expect(made.url).toBe("");
+    expect(made.reason).toBe("请打开安装好的 AIVORA 再出图。");
+    expect(made.reason).not.toMatch(/模型|上限|首帧|\d/u);
+    expect(made.diagnostics).toMatchObject({ imageLimit: 5, videoReferenceLimit: 13 });
+  } finally {
+    window.aijian = previous;
+  }
+});
+
+it("preserves the image failure reason without adding reference counts", async () => {
+  const { requestShotStill } = await import("./workflow");
+  const previous = window.aijian;
+  try {
+    window.aijian = {
+      generateFilmStill: vi.fn(async () => ({ path: "", reason: "请重新登录后重试。" })),
+    } as unknown as Window["aijian"];
+    const film = sampleFilm();
+    const made = await requestShotStill(film, film.shots[0]!, "frame");
+    expect(made.url).toBe("");
+    expect(made.reason).toBe("请重新登录后重试。");
+    expect(made.reason).not.toMatch(/模型|上限|首帧|\d/u);
+    expect(made.diagnostics).toMatchObject({ imageLimit: 5, videoReferenceLimit: 13 });
+  } finally {
+    window.aijian = previous;
+  }
 });
 
 it("does not write a late assembled cut into another project", async () => {
@@ -222,5 +263,21 @@ it("propagates cancellation without retrying or leaving deadline timers", async 
     expect(vi.getTimerCount()).toBe(0);
   } finally {
     vi.useRealTimers();
+  }
+});
+
+it("UIR-03 emits one short status sentence without technical details or duplicate fallback", async () => {
+  const { stillFailureNotice } = await import("./workflow");
+  const { normalizeNotice, NOTICE_TEXT } = await import("../film/notices");
+  for (const reason of [
+    "请打开安装好的 AIVORA 再出图。",
+    NOTICE_TEXT.STILL_CAST_LIMIT,
+    "图片模型不可用，上限 5 张；最多 13 张参考图。",
+    "请重新登录会员。",
+  ]) {
+    const result = normalizeNotice(stillFailureNotice(new Error(reason)));
+    expect(result.detail).toBeUndefined();
+    expect(result.text).not.toMatch(/模型|上限|首帧选用|\d/);
+    expect(result.text.match(/。/g)).toHaveLength(1);
   }
 });
