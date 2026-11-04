@@ -731,3 +731,11 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### 4A-B08 导演与表演补充
 
 `shot.directorPlan.segments` 保留镜头意图、站位和对白节奏；合镜保留原段，时长变化只停精确时间，自动表演补写不抹掉空间规则。referenceHints仅是声明，verifiedSourceParagraphIds仅是解析时场归属证据。表演 `performanceState.voiceReviews` 保存不唯一说话人的语气核对事项；多人分别配音和精确音频排程仍未实现。
+
+### 4A-B11 美术确认（已接逻辑，差异呈现待Claude）
+
+`RoleCard.artDiff` 保存固定请求基线的美术事务，确认时核对字段、锁及新增实体，任何冲突原子拒绝。新增地点已有参考图后不能由撤销删除；画风过期与服装风险从最新数据重新派生，不拿旧镜头覆盖新媒体。事务通过现有保存队列落盘并进入当前页撤销。
+
+### 4A-B08 审片意见存储（已接，仅文字）
+
+`FilmProject.reviewReports` 保留逐镜/版本问题及建议，`evidence=text-only`、`visualVerified=false`始终明确；模型seen_frames声明不能改变实际证据。只接受输入中的ID，未知和重复项在rejected中保留。镜头、版本或关联原文改变后旧回包不写入；不自动改提示词、选版或裁剪。
