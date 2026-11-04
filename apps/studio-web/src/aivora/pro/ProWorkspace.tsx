@@ -3993,6 +3993,18 @@ function Assistant({
   );
 }
 
+/** Who last wrote a shot, for the small mark on its card. 属性 holds the details. */
+function shotSource(shot: FilmShot): { tone: string; label: string } {
+  if (shot.source === "user" || shot.userFields.length > 0) {
+    return { tone: "src-user", label: "你改过" };
+  }
+  if (shot.source === "agent:action") return { tone: "role-a", label: "动作指导写的" };
+  if (shot.source === "agent:performance") return { tone: "role-e", label: "表演指导写的" };
+  if (shot.source.endsWith("director")) return { tone: "role-d", label: "导演写的" };
+  if (shot.source === "template") return { tone: "src-other", label: "来自模板" };
+  return { tone: "src-other", label: "原来就有" };
+}
+
 /** The line under a scene's title in the scene lists: 「内景 · 夜 · 10 镜」. */
 function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
   const count = shots.filter((item) => item.sceneId === scene.id).length;
@@ -4899,31 +4911,20 @@ function BoardPage({
               <div className="cb">
                 <div className="ct">
                   镜头 {item.no} <span>{item.size}</span>
+                  <i
+                    className={`src ${shotSource(item).tone}`}
+                    title={shotSource(item).label}
+                    aria-hidden="true"
+                  />
                 </div>
-                <p title={item.picture}>{item.picture}</p>
-                {item.performance ? <p title={item.performance}>{item.performance}</p> : null}
-                <div className="shot-tags">
-                  <span className="tag">
-                    {shotPerson(
-                      item.characters,
-                      item.picture,
-                      film.characters.map((person) => person.name),
-                    )}
-                  </span>
-                  {appearanceMark(
-                    item.promptZh || keyframePrompt(item, film),
-                    item.characters,
-                    film.characters,
-                  ) ? (
-                    <span className="tag">
-                      {appearanceMark(
-                        item.promptZh || keyframePrompt(item, film),
-                        item.characters,
-                        film.characters,
-                      )}
-                    </span>
-                  ) : null}
-                </div>
+                <p className="pic" title={item.picture}>
+                  {item.picture}
+                </p>
+                {item.line.trim() ? (
+                  <p className="line" title={item.line}>
+                    {item.line.split("\n")[0]}
+                  </p>
+                ) : null}
               </div>
             </button>
           ))}
@@ -5278,6 +5279,11 @@ function BoardPage({
                       film.characters.map((person) => person.name),
                     )}
                   </span>
+                  {appearanceMark(focusedPrompt, current.characters, film.characters) ? (
+                    <span className="tag">
+                      {appearanceMark(focusedPrompt, current.characters, film.characters)}
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <div className="field">

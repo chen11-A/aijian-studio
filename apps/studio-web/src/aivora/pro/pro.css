@@ -1097,18 +1097,48 @@ body:has(.pro-root) {
   color: var(--accent);
   font-size: 12px;
 }
+/* 3J-U01: a card shows one picture sentence (two lines) and the first line of dialogue (one
+   line); the rest is in the tooltip and in 属性. */
 .pro-root .cb p {
   font-size: 12px;
   color: var(--text-2);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  max-height: 4.5em;
+  -webkit-line-clamp: 2;
+  max-height: 3em;
   overflow: hidden;
-  margin: 3px 0 7px;
+  margin: 3px 0 0;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+.pro-root .cb p.line {
+  display: block;
+  max-height: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.pro-root .cb p.line::before {
+  content: "「";
+}
+.pro-root .cb p.line::after {
+  content: "」";
+}
+.pro-root .ct .src {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: auto;
+  align-self: center;
+  background: currentColor;
+  flex: none;
+}
+.pro-root .ct .src.src-user {
+  color: var(--ok);
+}
+.pro-root .ct .src.src-other {
+  color: var(--text-3);
 }
 .pro-root .cb .tag {
   height: 20px;

@@ -2311,3 +2311,24 @@ it("starts each page with its own helper", async () => {
   fireEvent.click(stageTab("剧本"));
   expect(helper()).toBe("writer");
 });
+
+it("keeps a storyboard card to its size, length, picture sentence and first line", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const card = document.querySelectorAll(".pb.grid .card")[3] as HTMLElement;
+  const shot = sampleFilm().shots[3]!;
+  expect(within(card).getByText(shot.picture)).toHaveAttribute("title", shot.picture);
+  expect(within(card).getByText(shot.line)).toHaveAttribute("title", shot.line);
+  expect(card.textContent).toContain(shot.size);
+  expect(card.textContent).toContain(`${shot.seconds}s`);
+  expect(card.textContent).not.toContain(shot.performance);
+  expect(card.querySelector(".src")).toHaveAttribute("title", "原来就有");
+  fireEvent.click(card);
+  fireEvent.change(screen.getByLabelText("分镜画面"), { target: { value: "林骁抬眼看雨" } });
+  expect(document.querySelectorAll(".pb.grid .card")[3]?.querySelector(".src")).toHaveAttribute(
+    "title",
+    "你改过",
+  );
+  expect(screen.getByLabelText("表演")).toHaveValue(shot.performance);
+});
