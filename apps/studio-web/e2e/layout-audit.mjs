@@ -427,6 +427,7 @@ function layoutProbe() {
   }
 
   const jargon = [
+    ["internal notice code", /\b[A-Z]{3,}(?:_[A-Z0-9]+)+\b/],
     ["DRAFT", /\bDRAFT\b/],
     ["run", /\brun\b/i],
     ["TEXT", /\bTEXT\b/],

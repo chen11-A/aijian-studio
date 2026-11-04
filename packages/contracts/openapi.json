@@ -22995,6 +22995,28 @@
         "title": "StoryBibleVersionSummaryData",
         "type": "object"
       },
+      "StoryDialogueBody": {
+        "additionalProperties": false,
+        "properties": {
+          "speaker": {
+            "maxLength": 100,
+            "title": "Speaker",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "speaker",
+          "text"
+        ],
+        "title": "StoryDialogueBody",
+        "type": "object"
+      },
       "StoryEntityDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -23219,6 +23241,16 @@
               }
             ],
             "title": "Task Id"
+          },
+          "user_message": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "voice_path": {
             "anyOf": [
@@ -23673,6 +23705,14 @@
             "maxLength": 200,
             "title": "Identity",
             "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/StoryDialogueBody"
+            },
+            "maxItems": 100,
+            "title": "Lines",
+            "type": "array"
           },
           "move": {
             "default": "",
@@ -25481,6 +25521,29 @@
           "changes"
         ],
         "title": "UpdateProjectSettingsRequestV1",
+        "type": "object"
+      },
+      "UserMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "UserMessage",
         "type": "object"
       },
       "ValidationError": {

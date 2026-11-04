@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import base64
 import json
+import re
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
@@ -23,6 +25,7 @@ from aijian_api.model_config import VIDEO_MODEL as VIDEO_MODEL
 XAI_API_ORIGIN = "https://api.x.ai"
 _USER_AGENT = "AIVORA/0.3.0"
 IMAGE_GENERATION_PATH = "/v1/images/generations"
+IMAGE_EDIT_PATH = "/v1/images/edits"
 VIDEO_GENERATION_PATH = "/v1/videos/generations"
 VIDEO_EDIT_PATH = "/v1/videos/edits"
 VIDEO_EXTEND_PATH = "/v1/videos/extensions"
@@ -110,18 +113,26 @@ class XaiMediaClient:
         prompt: str,
         model: str = IMAGE_MODEL,
         aspect_ratio: str | None = None,
+        reference_images: tuple[str, ...] = (),
     ) -> XaiImage:
+        references = tuple(dict.fromkeys(reference_images))
+        if len(references) > 5:
+            raise XaiMediaError("IMAGE_REFERENCE_LIMIT", "首帧最多使用 5 张参考图。")
+        if any(not valid_image_reference(url) for url in references):
+            raise XaiMediaError("IMAGE_REFERENCE_INVALID", "参考图无法读取。")
         body: dict[str, object] = {
             "model": model,
-            "prompt": prompt,
+            "prompt": image_prompt(prompt),
             "n": 1,
             "response_format": "url",
             "quality": "medium",
         }
         if aspect_ratio in {"9:16", "16:9", "1:1"}:
             body["aspect_ratio"] = aspect_ratio
+        if references:
+            body["images"] = [{"type": "image_url", "url": url} for url in references]
         payload = self._post_json(
-            IMAGE_GENERATION_PATH,
+            IMAGE_EDIT_PATH if references else IMAGE_GENERATION_PATH,
             body,
             "image",
         )
@@ -159,8 +170,11 @@ class XaiMediaClient:
             body["generate_audio"] = generate_audio
         if resolution:
             body["resolution"] = resolution
-        if reference_images:
-            body["reference_images"] = [{"url": url} for url in reference_images]
+        references = tuple(dict.fromkeys(reference_images))[:13]
+        if references:
+            if any(not valid_image_reference(url) for url in references):
+                raise XaiMediaError("IMAGE_REFERENCE_INVALID", "参考图无法读取。")
+            body["reference_images"] = [{"url": url} for url in references]
         if last_frame_url:
             body["last_frame"] = {"url": last_frame_url}
         payload = self._post_json(VIDEO_GENERATION_PATH, body, "video_submit")
@@ -355,6 +369,14 @@ class XaiMediaClient:
         return self._json_body(response)
 
     def _send(self, request: XaiHttpRequest, event: str) -> XaiHttpResponse:
+        started = time.monotonic()
+        request_bytes = len(request.body or b"")
+        reference_count = 0
+        if request.body:
+            payload = json.loads(request.body)
+            if isinstance(payload, dict):
+                references = payload.get("images", payload.get("reference_images", []))
+                reference_count = len(references) if isinstance(references, list) else 0
         try:
             response = self._transport.send(request)
         except Exception as error:
@@ -364,6 +386,9 @@ class XaiMediaClient:
                 http_status=None,
                 error_stage=_event_stage(event),
                 error_code="NETWORK",
+                request_bytes=request_bytes,
+                duration_ms=int((time.monotonic() - started) * 1000),
+                reference_image_count=reference_count,
             )
             raise XaiMediaError("NETWORK", "生成服务没有连上。") from error
         ok = 200 <= response.status < 300
@@ -373,6 +398,10 @@ class XaiMediaClient:
             http_status=response.status,
             error_stage=None if ok else _event_stage(event),
             error_code=None if ok else "UPSTREAM_HTTP",
+            request_bytes=request_bytes,
+            response_bytes=len(response.body),
+            duration_ms=int((time.monotonic() - started) * 1000),
+            reference_image_count=reference_count,
         )
         return response
 
@@ -384,6 +413,10 @@ class XaiMediaClient:
         http_status: int | None,
         error_stage: str | None = None,
         error_code: str | None = None,
+        request_bytes: int = 0,
+        response_bytes: int = 0,
+        duration_ms: int = 0,
+        reference_image_count: int = 0,
     ) -> None:
         if self._log is not None:
             self._log(
@@ -392,6 +425,10 @@ class XaiMediaClient:
                 http_status=http_status,
                 error_stage=error_stage,
                 error_code=error_code,
+                request_bytes=request_bytes,
+                response_bytes=response_bytes,
+                duration_ms=duration_ms,
+                reference_image_count=reference_image_count,
             )
             return
         append_grok_status(
@@ -400,6 +437,10 @@ class XaiMediaClient:
             http_status=http_status,
             error_stage=error_stage,
             error_code=error_code,
+            request_bytes=request_bytes,
+            response_bytes=response_bytes,
+            duration_ms=duration_ms,
+            reference_image_count=reference_image_count,
         )
 
     def _json_headers(self) -> dict[str, str]:
@@ -482,3 +523,21 @@ def _video_url(payload: Mapping[str, object], status: str) -> str | None:
         if isinstance(candidate, str) and candidate.startswith("https://"):
             return candidate
     return None
+
+
+def valid_image_reference(source: str) -> bool:
+    if source.startswith("data:image/"):
+        return bool(re.fullmatch(r"data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+", source))
+    parsed = urlsplit(source)
+    return (
+        parsed.scheme == "https"
+        and bool(parsed.netloc)
+        and not parsed.username
+        and not parsed.password
+    )
+
+
+def image_prompt(prompt: str) -> str:
+    """Reference declarations belong to video prompts, not first-frame descriptions."""
+    cleaned = re.sub(r"<IMAGE_\d+>\s*(?:是|为)[^。！？!?\n]*(?:[。！？!?\n]|$)", "", prompt)
+    return re.sub(r"<IMAGE_\d+>", "", cleaned).strip()

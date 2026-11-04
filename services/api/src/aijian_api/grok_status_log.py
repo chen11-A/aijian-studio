@@ -26,6 +26,10 @@ def append_grok_status(
     http_status: int | None = None,
     error_stage: str | None = None,
     error_code: str | None = None,
+    request_bytes: int = 0,
+    response_bytes: int = 0,
+    duration_ms: int = 0,
+    reference_image_count: int = 0,
 ) -> None:
     raw = os.environ.get("AIVORA_GROK_LOGIN_LOG", "")
     if not raw or "\n" in raw or "\x00" in raw:
@@ -47,6 +51,16 @@ def append_grok_status(
         payload["error_stage"] = stage
     if failure:
         payload["error_code"] = failure
+    for key, value in (
+        ("requestBytes", request_bytes),
+        ("responseBytes", response_bytes),
+        ("durationMs", duration_ms),
+        ("referenceImageCount", reference_image_count),
+    ):
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            payload[key] = value
+    if os.environ.get("AIVORA_AGENT_DEBUG") == "1":
+        payload["debug"] = True  # Explicit opt-in never enables response or prompt logging.
     line = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if _SECRET.search(line):
         line = json.dumps(

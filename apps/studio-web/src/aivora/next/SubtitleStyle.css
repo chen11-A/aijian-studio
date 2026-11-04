@@ -1,0 +1,208 @@
+.nx-root .nx-subs-cols {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.nx-root .nx-subs-list {
+  min-height: 0;
+}
+
+.nx-root .nx-subs-options {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 10px;
+}
+
+.nx-root .nx-sub-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-root .nx-sub-card[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.nx-root .nx-sub-thumb {
+  display: grid;
+  place-items: end center;
+  height: 64px;
+  padding-bottom: 8px;
+}
+
+.nx-root .nx-sub-thumb .nx-sub-text {
+  font-size: 12px;
+}
+
+.nx-root .nx-sub-name {
+  font-weight: 700;
+}
+
+.nx-root .nx-sub-desc {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.nx-root .nx-subs-preview {
+  min-height: 0;
+}
+
+.nx-root .nx-sub-source {
+  flex: none;
+  white-space: nowrap;
+}
+
+.nx-root .nx-subs-stage {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  min-height: 0;
+  padding: 12px;
+  container-type: size;
+}
+
+.nx-root .nx-subs-shot {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.nx-root .nx-subs-wide {
+  width: min(calc(100cqh - 32px), calc((100cqw - 20px) / 1.5625));
+  aspect-ratio: 16 / 9;
+  container-type: size;
+}
+
+.nx-root .nx-subs-tall {
+  height: min(calc(100cqh - 32px), calc((100cqw - 20px) / 1.5625));
+  aspect-ratio: 9 / 16;
+  container-type: size;
+}
+
+.nx-root .nx-subs-wide .nx-sub-text,
+.nx-root .nx-subs-tall .nx-sub-text {
+  position: absolute;
+  right: 7%;
+  left: 7%;
+  display: grid;
+  justify-items: center;
+}
+
+.nx-root .nx-subs-wide .nx-sub-text {
+  bottom: 9%;
+  font-size: max(13px, 5cqh);
+}
+
+.nx-root .nx-subs-tall .nx-sub-text {
+  bottom: 24%;
+  font-size: max(13px, 3.4cqh);
+}
+
+.nx-root .nx-sub-text {
+  margin: 0;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* white: white with a dark outline */
+.nx-root .nx-look-white {
+  color: var(--text);
+  font-weight: 700;
+  text-shadow:
+    -1px -1px 0 var(--bg),
+    1px -1px 0 var(--bg),
+    -1px 1px 0 var(--bg),
+    1px 1px 0 var(--bg),
+    0 2px 6px var(--bg);
+}
+
+/* bar: white on a translucent dark strip */
+.nx-root .nx-look-bar {
+  color: var(--text);
+}
+
+.nx-root .nx-look-bar > span {
+  padding: 2px 10px;
+  border-radius: var(--r-s);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  box-decoration-break: clone;
+}
+
+/* film: smaller, soft shadow */
+.nx-root .nx-look-film {
+  color: var(--text-2);
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 6px var(--bg);
+}
+
+.nx-root .nx-subs-wide .nx-sub-text.nx-look-film {
+  font-size: max(12px, 4.3cqh);
+}
+
+.nx-root .nx-subs-tall .nx-sub-text.nx-look-film {
+  font-size: max(12px, 2.9cqh);
+}
+
+.nx-root .nx-subs-wide .nx-sub-text.nx-look-yellow {
+  font-size: max(14px, 5.8cqh);
+}
+
+.nx-root .nx-subs-tall .nx-sub-text.nx-look-yellow {
+  font-size: max(14px, 4cqh);
+}
+
+/* yellow: large yellow with a heavy outline */
+.nx-root .nx-look-yellow {
+  color: var(--warn);
+  font-weight: 700;
+  text-shadow:
+    -2px -2px 0 var(--bg),
+    2px -2px 0 var(--bg),
+    -2px 2px 0 var(--bg),
+    2px 2px 0 var(--bg),
+    0 3px 8px var(--bg);
+}
+
+.nx-root .nx-safe {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  height: 19%;
+  border-top: 1px dashed color-mix(in srgb, var(--warn) 80%, transparent);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--warn) 16%, transparent) 0 6px,
+    color-mix(in srgb, var(--warn) 6%, transparent) 6px 12px
+  );
+  color: var(--warn);
+  font-size: 12px;
+  text-align: center;
+}
+
+.nx-root .nx-subs-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}

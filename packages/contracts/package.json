@@ -96,6 +96,10 @@
     "./script-write-recovery": {
       "types": "./src/script-write-recovery.ts",
       "default": "./src/script-write-recovery.ts"
+    },
+    "./task-progress": {
+      "types": "./src/task-progress.ts",
+      "default": "./src/task-progress.ts"
     }
   },
   "scripts": {

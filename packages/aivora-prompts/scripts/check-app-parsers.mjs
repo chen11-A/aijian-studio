@@ -7,9 +7,8 @@
  * with TypeScript into a temporary folder (nothing in the repo is written), imports them and runs
  * parseWriterScenes, parseCastReply, artFromModel, parseDirectorShots, assignPerformance,
  * voiceDirectionFromModel, actionFromModel and qcFromModel. A field the prompt library relies on
- * that the parser drops or changes is a failure. Lines that the app adds on its own (its
- * attachScriptLines treats any quoted text as a line) are listed as notes, because that happens
- * in the app, not in the reply. Exits with 1 when anything fails.
+ * that the parser drops or changes is a failure. Adjacent merges are checked for content loss, and incomplete source
+ * coverage is reported honestly as notes. Exits with 1 when anything fails.
  */
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -23,7 +22,9 @@ import { loadLibrary } from "./validate.mjs";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const FILM = "apps/studio-web/src/aivora/film";
-const ENTRIES = ["operations.ts", "phase2.ts", "project.ts"].map((name) => join(REPO, FILM, name));
+const ENTRIES = ["operations.ts", "phase2.ts", "project.ts", "director-continuity.ts"].map((name) =>
+  join(REPO, FILM, name),
+);
 
 function loadTypeScript() {
   const where = process.env.AIVORA_TYPESCRIPT;
@@ -84,6 +85,7 @@ async function transpile(ts, out) {
     ...(await load("operations.ts")),
     ...(await load("phase2.ts")),
     ...(await load("project.ts")),
+    ...(await load("director-continuity.ts")),
   };
 }
 
@@ -91,7 +93,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 function checkWriter(app, library, example, report) {
   const { output, input } = example;
-  const novel = input.paragraphs.map((row) => row.text).join("\n\n");
+  const novel = input.paragraphs.map((row) => `[${row.id}] ${row.text}`).join("\n\n");
   const reply = JSON.stringify(output);
   const scenes = app.parseWriterScenes(reply, novel);
   const alone = app.parseWriterScenes(reply);
@@ -117,7 +119,12 @@ function checkWriter(app, library, example, report) {
       );
   });
   const cast = app.parseCastReply(reply);
-  const people = output.characters.map((row) => ({ name: row.name, identity: row.identity }));
+  const people = output.characters.map((row) => ({
+    name: row.name,
+    identity: row.identity,
+    gender: row.gender === "未知" ? "" : (row.gender ?? ""),
+    ageBand: row.age_band === "未知" ? "" : (row.age_band ?? ""),
+  }));
   if (!cast || !same(cast.characters, people))
     report.fail(`${example.id}：parseCastReply 读出的人物和 characters 不一致`);
   const places = output.locations.map((row) => ({ name: row.name, prompt: row.prompt }));
@@ -158,21 +165,39 @@ function checkDirector(app, example, writerScene, report) {
     ref,
   ]);
   const limit = app.shotBudget(ref.text);
-  const kept = limit == null ? plan.shots : plan.shots.slice(0, limit);
-  if (!shots || shots.length !== kept.length) {
-    report.fail(
-      `${example.id}：parseDirectorShots 读出 ${shots?.length ?? 0} 个镜头，应按每 40–60 字一镜、最多 16 镜留下 ${kept.length} 个`,
-    );
+  const kept = plan.shots;
+  const raw = app.parseDirectorShots(
+    JSON.stringify({ shots: plan.shots }),
+    plan.scene_id,
+    ref.text,
+    [],
+    false,
+  );
+  if (!shots || !raw || raw.length !== kept.length) {
+    report.fail(`${example.id}：未能无损解析全部原始镜头`);
     return;
   }
-  if (plan.shots.length > kept.length) {
-    report.note(
-      `${example.id}：示例有 ${plan.shots.length} 镜，软件按预算留下前 ${kept.length} 镜。`,
-    );
+  if (new Set(shots.map((shot) => shot.id)).size !== shots.length)
+    report.fail(`${example.id}：出现重复镜头 id`);
+  const represented = shots
+    .map((shot) => `${shot.picture}\n${shot.action}\n${shot.line}`)
+    .join("\n");
+  for (const original of plan.shots) {
+    for (const text of [original.picture, original.action, original.line].filter(Boolean))
+      if (!represented.includes(text)) report.fail(`${example.id}：合并丢失镜头内容`);
   }
+  const status = app.directorPlanStatus(ref, shots);
+  if (!status.coverage.ok)
+    report.note(
+      `${example.id}：真实示例覆盖检查尚缺 ${status.coverage.missingLines.length} 句台词，尾段${status.coverage.missingTail ? "未覆盖" : "已覆盖"}；软件须补尾，不自动伪造通过。`,
+    );
+  if (status.overBudget)
+    report.note(`${example.id}：建议${limit}镜，保留${shots.length}镜，需核对。`);
+  const absent = app.detectDirectorCoverage(ref, []);
+  if (absent.ok || !absent.missingTail) report.fail(`${example.id}：空镜头不应通过覆盖校验`);
   const added = [];
   kept.forEach((shot, index) => {
-    const got = shots[index];
+    const got = raw[index];
     const where = `${example.id} ${shot.id}`;
     if (got.id !== shot.id || got.sceneId !== plan.scene_id)
       report.fail(`${where}：镜头 id 读成 ${got.id}`);
@@ -244,6 +269,7 @@ function checkPerformance(app, example, report) {
 function checkAction(app, example, report) {
   const rows = app.actionFromModel(example.output);
   const want = example.output.beats.map((beat) => ({
+    ...(beat.shot_id || beat.id ? { shotId: beat.shot_id || beat.id } : {}),
     text: beat.text,
     feasibility: beat.feasibility,
     workaround: beat.workaround,
@@ -272,8 +298,10 @@ function checkWholeNovel(app, library, report) {
   });
   const novel = library.novel.paragraphs.map((row) => row.text).join("\n\n");
   const scenes = app.parseWriterScenes(reply, novel);
-  if (!scenes || scenes.length !== 3) {
-    report.fail(`整本小说：parseWriterScenes 读出 ${scenes?.length ?? 0} 场，应为 3 场`);
+  if (!scenes || scenes.length !== examples.length) {
+    report.fail(
+      `整本小说：parseWriterScenes 读出 ${scenes?.length ?? 0} 场，应为 ${examples.length} 场`,
+    );
     return;
   }
   examples.forEach((example, index) => {
@@ -309,7 +337,10 @@ async function main() {
     const library = await loadLibrary();
     const { roles } = library;
     checkWholeNovel(app, library, report);
-    for (let i = 0; i < 3; i += 1) {
+    const count = roles.writer.examples.length;
+    for (const name of ["art", "director", "performance", "action", "review"])
+      if (roles[name].examples.length !== count) report.fail(`${name}：示例数量与编剧场次不一致`);
+    for (let i = 0; i < count; i += 1) {
       const scenes = checkWriter(app, library, roles.writer.examples[i], report);
       checkArt(app, roles.art.examples[i], report);
       if (scenes[0]) checkDirector(app, roles.director.examples[i], scenes[0], report);
@@ -325,7 +356,7 @@ async function main() {
   for (const text of notes) console.log(`  · ${text}`);
   console.log(
     failures.length === 0
-      ? "全部读对：编剧、美术、导演、表演指导、动作指导、审片的示例输出都被软件读出。导演一场超过每 40 到 60 字一镜、最多 16 镜时，只留下前面的镜头。"
+      ? "全部读对：编剧、美术、导演、表演指导、动作指导、审片的示例输出都被软件读出。导演合并不丢内容；原文覆盖风险单独列出，不代表自动补尾或供应商验收已完成。"
       : `有 ${failures.length} 处没读对。`,
   );
   process.exitCode = failures.length === 0 ? 0 : 1;

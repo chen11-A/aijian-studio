@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { accessSync, constants, statSync } from "node:fs";
+import { extname, isAbsolute } from "node:path";
+import { mediaUrlPath, trustedMediaPath } from "./film-library";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 
 export type StoryFilmProvider = "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
@@ -20,6 +23,7 @@ export type StoryFilmShotInput = {
   reference?: string;
   references?: string[];
   delivery?: string;
+  lines?: { speaker: string; text: string }[];
 };
 
 export type StoryFilmCreateInput = {
@@ -56,10 +60,57 @@ function readable(value: unknown): value is { data: Record<string, unknown>; req
   );
 }
 
+/** Preserve supported remote frames; verify local frames before sending them to the service. */
+function requireReferencedStill(
+  shot: StoryFilmShotInput,
+  mediaRoots: string[],
+): StoryFilmShotInput {
+  if (
+    new Set(shot.lines?.filter((line) => line.text.trim()).map((line) => line.speaker.trim()))
+      .size > 1
+  ) {
+    throw Object.assign(new Error("这一镜需要分角色配音。台词与字幕已保留。"), {
+      code: "MULTI_VOICE_REQUIRED",
+    });
+  }
+  if (!shot.reference?.trim() && !shot.references?.some((item) => item.trim())) return shot;
+  // The server now creates a referenced first frame when no explicit frame was selected.
+  if (!shot.still?.trim()) return shot;
+  try {
+    const url = new URL(shot.still);
+    if (url.protocol === "https:" && url.hostname && !url.username && !url.password) return shot;
+  } catch {
+    /* Local paths are checked below. */
+  }
+  const source = mediaUrlPath(shot.still ?? "");
+  const missing = "请先用定妆照生成本地首帧，再生成视频。当前首帧不存在或无法读取。";
+  try {
+    if (shot.still?.startsWith("aivora-media:")) {
+      const url = new URL(shot.still);
+      if (!["", "/"].includes(url.pathname) || url.searchParams.get("path") !== source)
+        throw new Error(missing);
+    }
+    trustedMediaPath(mediaRoots, source);
+    if (
+      !isAbsolute(source) ||
+      ![".png", ".jpg", ".jpeg", ".webp"].includes(extname(source).toLowerCase())
+    )
+      throw new Error(missing);
+    const file = statSync(source);
+    if (!file.isFile() || file.size <= 0 || file.size > 12_000_000) throw new Error(missing);
+    accessSync(source, constants.R_OK);
+  } catch {
+    throw new Error(missing);
+  }
+  // Preserve the URL so the backend retains its own userData-root checks.
+  return shot;
+}
+
 export function createStoryFilmClient(
   fetcher: typeof fetch,
   session: Session,
   newId: () => string = randomUUID,
+  mediaRoots: string[] = [],
 ) {
   const origin = canonicalLoopbackOrigin(session.origin);
   if (!/^[A-Za-z0-9_-]{43,256}$/.test(session.token)) {
@@ -118,6 +169,10 @@ export function createStoryFilmClient(
     },
     create(projectId: string, input: StoryFilmCreateInput, mediaBearer?: string) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
+      const shots =
+        input.provider === "stub"
+          ? input.shots
+          : input.shots?.map((shot) => requireReferencedStill(shot, mediaRoots));
       const idempotencyKey = `story-film:v1:${newId()}`;
       const requestHeaders: Record<string, string> = {
         ...headers,
@@ -139,7 +194,7 @@ export function createStoryFilmClient(
           ...(input.regenerate ? { regenerate: true } : {}),
           ...(input.style_block ? { style_block: input.style_block } : {}),
           ...(input.aspect_ratio ? { aspect_ratio: input.aspect_ratio } : {}),
-          ...(input.shots && input.shots.length > 0 ? { shots: input.shots } : {}),
+          ...(shots && shots.length > 0 ? { shots } : {}),
         }),
       }).then(read);
     },
@@ -272,6 +327,7 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       "reference",
       "references",
       "delivery",
+      "lines",
     ];
     if (Object.keys(shot).some((key) => !allowed.includes(key))) {
       throw new Error("Invalid story film request");
@@ -313,6 +369,7 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
     const reference = optionalText(shot, "reference", 500);
     const delivery = optionalText(shot, "delivery", 400);
     const references = parseReferences(shot.references);
+    const lines = parseLines(shot.lines);
     return {
       narration: narration.trim(),
       prompt: prompt.trim(),
@@ -332,6 +389,26 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       ...(reference ? { reference } : {}),
       ...(references ? { references } : {}),
       ...(delivery ? { delivery } : {}),
+      ...(lines ? { lines } : {}),
     };
+  });
+}
+
+function parseLines(value: unknown): { speaker: string; text: string }[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 100) throw new Error("Invalid story film request");
+  return value.map((line: unknown) => {
+    if (!line || typeof line !== "object") throw new Error("Invalid story film request");
+    const row = line as Record<string, unknown>;
+    if (
+      Object.keys(row).some((key) => !["speaker", "text"].includes(key)) ||
+      typeof row.speaker !== "string" ||
+      row.speaker.length > 100 ||
+      typeof row.text !== "string" ||
+      !row.text.trim() ||
+      row.text.length > 2000
+    )
+      throw new Error("Invalid story film request");
+    return { speaker: row.speaker.trim(), text: row.text };
   });
 }

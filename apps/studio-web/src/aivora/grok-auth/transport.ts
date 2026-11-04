@@ -136,6 +136,8 @@ export function grokLoginFailureMessage(code: string): string {
     USERINFO_FAILED: "账号资料没有读成。若上面已显示已登录，可以继续；否则请重新登录。",
     MODELS_FAILED: "模型目录没有读成。登录状态请看上面的账号，不要把它当成推理失败。",
     TEXT_FAILED: "这次推理没有成功。若账号仍显示已登录，可以稍后重试，或改用密钥。",
+    TEXT_TIMEOUT: "模型等待超时，可以重试。已收到的进度不会被当作完成结果。",
+    TEXT_CANCELLED: "已取消这次文本生成。",
     TEXT_REJECTED: "这段文本或模型名称不能发送。没有调用 xAI。",
   };
   const message = messages[code] ?? `Grok 登录没有完成（${code}）。可以改用密钥（高级备用）。`;

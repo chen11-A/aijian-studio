@@ -227,14 +227,14 @@ describe("phase 2 shot language", () => {
 
   it("copies a spoken line onto a shot and rejects a question echoed as scenes", () => {
     const script = "雨夜巷口。刀疤说：东西交出来。";
-    expect(scriptDialogue(script)).toEqual([{ speaker: "刀疤", line: "东西交出来" }]);
+    expect(scriptDialogue(script)).toEqual([{ speaker: "刀疤", line: "东西交出来。" }]);
     const shots = attachScriptLines(
       [{ line: "", characters: ["刀疤"], picture: "刀疤开口" }],
       script,
       ["刀疤", "林骁"],
     );
     expect(shots[0]).toMatchObject({
-      line: "东西交出来",
+      line: "东西交出来。",
       characters: ["刀疤"],
       speaker: "刀疤",
     });
@@ -269,7 +269,7 @@ describe("phase 2 shot language", () => {
       "林晚：打烊了。\n纸条：本店月底停业\n沈砚：我不买书。\n“晚照书店”\n铁棍“当啷”落地。周烈啐了一口。",
       cast,
     );
-    expect(listed.map((shot) => shot.line)).toEqual(["打烊了", "我不买书"]);
+    expect(listed.map((shot) => shot.line)).toEqual(["打烊了。", "我不买书。"]);
     expect(listed.map((shot) => shot.speaker)).toEqual(["林晚", "沈砚"]);
     expect(
       scenesEchoRequest(

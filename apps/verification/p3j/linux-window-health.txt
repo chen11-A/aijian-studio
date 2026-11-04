@@ -1,0 +1,1 @@
+{"health":"ok","name":"AIVORA","version":"0.3.0","userData":"/tmp/aivora-linux-config-KdF4qW/AIVORA","storageBackend":"file_key","systemBackend":"unavailable"}

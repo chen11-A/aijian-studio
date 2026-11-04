@@ -61,3 +61,17 @@ builder v26 默认可能重建原生依赖，并对未找到的生产依赖只�
 **构建阻断项：**`installer.nsh` 已接入 v26 的 `customInit`，发现旧安装登记、旧版可执行文件或 `%APPDATA%/AIVORA` 留存目录就会在覆盖前中止；这是当前缺少一致性备份入口时的安全阻断，并非升级或保留数据后的重装已实现。须先实现并用旧版安装实测 NSIS 在覆盖旧版前完成数据备份、完整性校验和失败中止；再固定 `appId` 与旧安装身份兼容性、签名/权属、sidecar 独立可执行文件、媒体发行输入、Electron/NSIS 工具及其离线缓存 SHA。现有 `verify-windows-install.ps1` 只检查 QA 提供的安装前后文件证据，不会替安装器执行备份。
 
 独立 QA 应在无 Node/Python/FFmpeg 开发工具的环境验证安装、中文路径、sidecar 启停、保存重开、升级恢复和卸载后数据策略，并以同一安装包 SHA 记录结果。暂存检查、编译通过或本机开发运行不代替该验收。
+
+## 3j 实际安装包构建入口
+
+`.github/workflows/windows-integrated-installer.yml` 调用 `package-dev-core.py`，读取
+`electron-builder.dev-core.json` 并写入暂存区 `build/electron-builder.json`。
+electron-builder 在这里以 `--dir` 组装应用；最终 EXE 由 `nsis-dev-core.py` 生成，
+`bundle-locked-media.py` 加入固定 FFmpeg 后再次生成同一安装器。
+`electron-builder.v26.json` 是另一套旧发行暂存草案，不是上述工作流的实际入口。
+
+两套配置均明确 `oneClick=false`、`allowToChangeInstallationDirectory=true`、
+`createDesktopShortcut=true`、`runAfterFinish=true`。实际 NSIS 脚本提供中文欢迎页、
+组件页（桌面快捷方式可取消）、目录页、安装页和完成页；完成页默认勾选“启动 AIVORA”。
+静默安装不显示完成页、不自动启动程序。用户资料不在卸载删除清单中。
+这些配置与脚本检查不替代 Windows 上实际选择目录、取消快捷方式及启动的验收。

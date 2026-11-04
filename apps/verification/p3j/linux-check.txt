@@ -1,0 +1,4 @@
+PASS: bundled Electron CommonJS contracts
+PASS: bundled FFmpeg 8.1.3 linux-x86_64-btbn-gpl-shared-8.1.3
+PASS: bundled Python sidecar health
+PASS: sidecar shuts down after its parent pipe closes

@@ -1,3 +1,4 @@
+import type { TaskListener, TaskSnapshot } from "@aijian/contracts/task-progress";
 import type {
   LocalMediaReviewGateway,
   LOCAL_MEDIA_REVIEW_CHANNELS as SharedLocalReviewChannels,
@@ -276,7 +277,10 @@ contextBridge.exposeInMainWorld("aijianGrok", {
   completeText: (input) => ipcRenderer.invoke("grok-auth:text", input),
   speak: (input) => ipcRenderer.invoke("grok-auth:speech", input),
   recordAgent: (input) => ipcRenderer.invoke("grok-auth:agent-log", input),
-  cancelText: () => ipcRenderer.invoke("grok-auth:cancel-text"),
+  cancelText: (idempotencyKey) =>
+    idempotencyKey === undefined
+      ? ipcRenderer.invoke("grok-auth:cancel-text")
+      : ipcRenderer.invoke("grok-auth:cancel-text", idempotencyKey),
   cancelSpeech: () => ipcRenderer.invoke("grok-auth:cancel-speech"),
   onTextProgress: (callback: (update: { chars: number; shots: number }) => void) => {
     const listener = (_event: unknown, update: { chars: number; shots: number }) =>
@@ -583,8 +587,33 @@ contextBridge.exposeInMainWorld("aijian", {
   onFlush: (handler: () => void) => {
     ipcRenderer.on("aivora:flush", () => handler());
   },
-  generateFilmStill: (seriesId: string, prompt: string, aspectRatio?: "9:16" | "16:9") =>
-    ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio),
+  publishTasks: (tasks: TaskSnapshot["tasks"], batches: TaskSnapshot["batches"]) =>
+    ipcRenderer.invoke("film:tasks-publish", { tasks, batches }) as Promise<void>,
+  onTask: (handler: TaskListener) => {
+    let live = true;
+    let revision = 0;
+    const listener = (_event: unknown, snapshot: TaskSnapshot) => {
+      revision += 1;
+      if (live) handler(snapshot.tasks, snapshot.batches);
+    };
+    ipcRenderer.on("aivora:tasks", listener);
+    const initialRevision = revision;
+    void (ipcRenderer.invoke("film:tasks-read") as Promise<TaskSnapshot>)
+      .then((snapshot) => {
+        if (live && revision === initialRevision) handler(snapshot.tasks, snapshot.batches);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+      ipcRenderer.removeListener("aivora:tasks", listener);
+    };
+  },
+  generateFilmStill: (
+    seriesId: string,
+    prompt: string,
+    aspectRatio?: "9:16" | "16:9",
+    references: string[] = [],
+  ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
   exportFilmCut: (source: string, directory: string, name?: string) =>

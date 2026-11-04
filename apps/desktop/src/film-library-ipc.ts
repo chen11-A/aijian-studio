@@ -17,6 +17,7 @@ import {
   requestStill,
   safeExportName,
   stillPath,
+  stillReferenceImage,
   trustedMediaPath,
   writeProject,
 } from "./film-library";
@@ -35,7 +36,13 @@ export type FilmLibraryHost = {
   copyFile: (source: string, destination: string) => Promise<void>;
   reveal: (path: string) => void;
   open: (path: string) => Promise<string>;
-  logStill?: (detail: { ok: boolean; detail: string }) => void;
+  logStill?: (detail: {
+    ok: boolean;
+    detail: string;
+    referenceImageCount: number;
+    durationMs: number;
+    requestChars: number;
+  }) => void;
 };
 
 function oneId(args: unknown[]): string {
@@ -190,16 +197,35 @@ export function registerFilmLibraryHandlers<TEvent>(
   handle("film:still", async (event, ...args) => {
     guard(event);
     if (
-      (args.length !== 2 && args.length !== 3) ||
+      args.length < 2 ||
+      args.length > 4 ||
       typeof args[0] !== "string" ||
       typeof args[1] !== "string" ||
       !idPattern.test(args[0]) ||
-      (args.length === 3 && args[2] !== "9:16" && args[2] !== "16:9")
+      (args[2] !== undefined && args[2] !== "9:16" && args[2] !== "16:9") ||
+      (args[3] !== undefined &&
+        (!Array.isArray(args[3]) ||
+          args[3].length > 13 ||
+          args[3].some((item: unknown) => typeof item !== "string")))
     ) {
       throw new Error("Invalid film");
     }
+    const references: string[] = [];
+    if (Array.isArray(args[3])) {
+      try {
+        for (const source of args[3] as string[]) {
+          references.push(
+            await stillReferenceImage([host.filmsRoot(), host.storyFilmsRoot()], source),
+          );
+        }
+      } catch {
+        return { path: "", reason: "参考图无法读取，请重新选择。" };
+      }
+    }
     const token = await host.mediaToken();
+    const started = Date.now();
     const made = await requestStill({
+      references,
       prompt: args[1],
       token,
       fetcher: host.fetcher ?? globalThis.fetch,
@@ -207,6 +233,9 @@ export function registerFilmLibraryHandlers<TEvent>(
       ...(args[2] === "9:16" || args[2] === "16:9" ? { aspectRatio: args[2] } : {}),
     });
     host.logStill?.({
+      referenceImageCount: new Set(references).size,
+      durationMs: Date.now() - started,
+      requestChars: args[1].length,
       ok: Boolean(made.path),
       detail: made.path ? "定妆或起始画面已保存。" : made.reason || "出图没有成功。",
     });
@@ -227,7 +256,8 @@ export function registerFilmLibraryHandlers<TEvent>(
   handle("film:export", async (event, ...args) => {
     guard(event);
     if (
-      (args.length !== 2 && args.length !== 3) ||
+      args.length < 2 ||
+      args.length > 4 ||
       typeof args[0] !== "string" ||
       typeof args[1] !== "string"
     ) {

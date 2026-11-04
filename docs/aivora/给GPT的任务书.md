@@ -5,10 +5,11 @@
 > 用户决定：3J-B18、3J-B19 和 3J-U18–U22 放到 3j 出包后的下一轮处理，不作为本轮 3j 出包或打 tag 的前置条件，不阻挡 `aivora-desktop-v0.3.0-phase3j` tag。下文保留原编号、任务正文及统计归类；执行顺序以本说明为准。
 
 ## 基本要求
+
 - 仓库 chen11-A/aijian-studio，分支 `gpt/aivora-p3j`，从 tag `aivora-desktop-v0.3.0-phase3i`（提交 6efe12d）开。不合并 main，不开 PR 到 main。
 - 只用 Grok 会员，不接按次付费服务。
-- 新分工：你负责所有后端和逻辑、接口、测试、打包，**所有合并和打 tag 都由你做**（只有你合并）。Claude 做界面、智能体提示词和界面文案；Grok 审核、实测、写问题单，不改代码。交叉审核：你要按接口核对 Claude 的界面接线，Claude 会看你的后端改动。不合并 main、不强推、没有用户同意不删分支。3j 审核通过后从 `gpt/aivora-p3j` 建 `aivora/dev`，以后都合进它（见 docs/aivora/分支说明.md）。具体范围：后端和逻辑（services/api、apps/desktop、apps/studio-web/src/aivora/film/*.ts、智能体提示词和解析、ffmpeg、打包、测试），并负责把 Claude 的界面 zip 合进分支。界面显示、样式、文案归 Claude。
-- ProWorkspace.tsx 两边都会改：你只改第 449–2607 行的状态和处理函数，以及第 1–448 行里的 requestStill 等逻辑；第 2608 行以后的渲染部分和各页面组件归 Claude。需要界面配合的，在 `apps/studio-web/src/aivora/next/INTEGRATION.md` 写清你提供的数据和函数。
+- 新分工：你负责所有后端和逻辑、接口、测试、打包，**所有合并和打 tag 都由你做**（只有你合并）。Claude 做界面、智能体提示词和界面文案；Grok 审核、实测、写问题单，不改代码。交叉审核：你要按接口核对 Claude 的界面接线，Claude 会看你的后端改动。不合并 main、不强推、没有用户同意不删分支。`aivora/dev` 已存在；3j 审核通过后用 `git merge --no-ff` 将 `gpt/aivora-p3j` 合进现有分支，不重建、不重置，以后都合进它（见 docs/aivora/分支说明.md）。具体范围：后端和逻辑（services/api、apps/desktop、apps/studio-web/src/aivora/film/*.ts、智能体提示词和解析、ffmpeg、打包、测试），并负责把 Claude 的界面 zip 合进分支。界面显示、样式、文案归 Claude。
+- ProWorkspace.tsx 按业务函数与 JSX/CSS 职责分工，不按会变的行号：GPT 负责 `ProWorkspace` 的状态、处理函数和 `requestStill` 等业务逻辑；Claude 负责 BedAudio、PreviewVideo、Thumb、FrameThumb、主 `return (` 起的渲染及各页面组件。Claude 可在主 `return (` 前紧邻处调用 GPT 已提供的 hook/生产动作接口，不新增供应商调用或文件读写逻辑。新数据与回调通过 props 和 `apps/studio-web/src/aivora/next/INTEGRATION.md` 交接。
 - 你自己的审计报告 `gpt/audit-p3i@f9734de:docs/audit/p3i.md` 里的 9 个 P1、5 个 P2 都在下面的条目里，把那 37 条“证明缺陷存在”的测试改成“期望正确”的回归测试。
 - 用户界面上任何提示都不要直接写长句，改成返回 `{code, text}`（见 3J-B17），文案由 Claude 定。
 
@@ -46,7 +47,10 @@
 
 **3J-B16 合入 Claude 的交付。** ① `aivora-next-components.zip`（SHA-256 0a73fd2f9c0ee88a222fc45f9db67f76c025f12aff8a12254042daa5a23ee394，42 个文件，全在 `apps/studio-web/src/aivora/next/`）原样一个提交；② Claude 接下来会交 3j 界面 zip（改 ProWorkspace.tsx 渲染区、pro.css、next/ 适配层、docs/design/copy-zh.md、docs/qa/acceptance-3j.md），先核对 SHA 再合，一个 zip 一个提交，提交说明写 SHA；冲突由你解决并写明。zip 由用户转给你。
 
+3j 交付方式更新：按用户同意的 Git 交付替代上述 ZIP 等待，由 GPT 用 `git merge --no-ff` 保留 Claude 分支历史、核对提交 SHA 和文件清单并记录冲突处理。原 ZIP 的预期 SHA 与42文件要求保留为历史来源，未取得原始字节不能声称已核验 ZIP。无法推送时由 Claude 导出补丁并附 SHA-256。
+
 **3J-B17 给界面准备接口（写进 next/INTEGRATION.md 的“已提供”栏）。**
+
 - 任务进度：`window.aijian.onTask(cb(tasks: TaskItem[], batches: BatchProgress[]))`，`TaskItem` 与 `next/TaskCenter.tsx` 一致，kind 增加 `"lipsync"`、`"export"`；`BatchProgress = {batchId,label,done,total,failed,running}`。每个任务最终必须落到 done 或 failed。
 - 提示代码：所有给用户的提示改成 `{code, text, detail?}`，列出全部 code 和现在的中文（含 `story_film.py:1306` “草稿成片已经保存…”、`shot_plan.py:17` “…不是实拍”这类，交给 Claude 改文案）。
 - 人物属性（3J-B04）、原文覆盖 coverage（3J-B01）、未分配动作 unassignedBeats（3J-B02）、`fixCoverage(sceneId)` 函数。
@@ -58,20 +62,26 @@
 **3J-B19 给开发看的原因不进提示（界面评审，不挡 3j 打 tag，下一轮必修）。** `pro/workflow.ts` 出图结果的 `reason` 带着「首帧选用 0 张定妆照（图片模型上限 5）……」，被当成 detail 显示在状态栏。改：detail 只放人名、场名、数量；参考图数量和上限记进任务详情或日志。验收：状态栏没有“模型”“上限”字样。
 
 ## 4a 新加：画幅（4A-B10，不在 3j 范围）
+
 新建作品时选横屏 16:9（默认）或竖屏 9:16，存进作品；出图、视频请求按画幅；导出可另出另一种画幅（居中裁切）。界面（新建对话框、预览）归 Claude（4A-U07）。验收：横屏、竖屏各一个作品走到导出，比例都对，“两种都要”得到两个视频。
 
 ## 4a 新加：界面评审要的文字和接口（4A-B11）
+
 ① 按 copy-zh.md 改 `film/*.ts` 和服务端给用户的字；② `film/operations.ts` 里「这一镜会接着上一镜的结尾来写。生成时不会把上一镜的最后一帧传过去。」前后矛盾，改成一句话或者不显示；③ 按当前页面分派的撤销回调；④ 助手建议和现状的差别，以及放进去以后的撤销回调；⑤ 把选中的场或镜头当上下文传给智能体。界面归 Claude（4A-U08、4A-U10、4A-U11、4C-U08）。验收：INTEGRATION.md 的“已提供”一栏列出 ③④⑤。
 
 ## 不要做
+
 - 不改界面样式和文案（交给 Claude）；不改 next/ 组件内容。
 - 不做 4a/4b 的功能（一键成片全流程、口型、声音混合），只准备接口。
 - 不用按次付费服务；不碰 main。
 
 ## 交付和报告格式
+
+一个提交只做一个编号，格式“类型(范围): 中文说明 [编号]”，作者 chen11-A，保留已知真实邮箱。报告分支名及每笔提交完整 SHA。Git 合并交付记录源分支 SHA；ZIP 或补丁仅在实际取得并核验时报告 SHA-256。
+
 1. tag：`aivora-desktop-v0.3.0-phase3j`，附提交号。
 2. Release 里放 `AIVORA-Desktop-0.3.0-linux-x64.tar.gz` 和 `AIVORA-Setup-0.3.0-win-x64.exe`，报告两个文件的大小和 SHA256。
 3. 已修/未修表：每行“编号 | 状态（已修/部分/未修）| 改了哪些文件:行 | 对应测试名 | 备注”，覆盖 3J-B01 到 3J-B17；B18、B19 做了就一起报，没做的标“下一轮”。
 4. 检查结果：eslint、prettier、tsc、vitest（desktop 和 studio-web，附覆盖率）、ruff、mypy、pytest；注明哪些失败是原来就有的。
-5. 合入的 Claude zip 的 SHA 列表。
+5. 合入的 Claude 分支提交 SHA 列表；如实际使用 ZIP/补丁，再附各文件的 SHA-256，不把 Git 树核对冒充 ZIP 哈希核验。
 6. 你认为我实测时要特别看的地方（最多 5 条）。

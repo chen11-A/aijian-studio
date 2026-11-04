@@ -1,0 +1,64 @@
+/* Story pages only. .pro-root comes from ../../pro/pro.css and fills the window. */
+.pro-root.nx-story {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.pro-root.nx-story .nx-story-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.pro-root.nx-story .nx-story-sample {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--warn) 60%, transparent);
+  border-radius: var(--r-s);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--warn);
+}
+
+.pro-root.nx-story .nx-story-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pro-root.nx-story .nx-story-nav {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.pro-root.nx-story .nx-story-nav a {
+  padding: 2px 8px;
+  border-radius: var(--r-s);
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pro-root.nx-story .nx-story-nav a:hover {
+  background: var(--panel-3);
+  color: var(--text);
+}
+
+.pro-root.nx-story .nx-story-nav a[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.pro-root.nx-story .nx-story-body {
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+}

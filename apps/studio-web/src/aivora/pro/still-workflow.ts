@@ -1,0 +1,90 @@
+import { keyframePrompt } from "../film/project";
+import { withIdentityLocks } from "../film/phase2";
+import type { FilmProject, FilmShot } from "../film/project";
+import { keyframeVariants, shotReference, updateShot } from "../film/operations";
+import { runTask } from "../film/task-progress";
+import { requestShotStill } from "./workflow";
+
+type StillHost = {
+  current: () => FilmProject | null;
+  valid: () => boolean;
+  apply: (film: FilmProject) => void;
+};
+
+export async function makeFourStills(base: FilmProject, shot: FilmShot, host: StillHost) {
+  let done = 0;
+  const failures: string[] = [];
+  const prompts = keyframeVariants(shot, base);
+  for (const [index, prompt] of prompts.entries()) {
+    if (!host.valid()) break;
+    try {
+      await runTask(
+        {
+          id: `candidate:${shot.id}:${index}`,
+          projectId: base.id,
+          shotId: shot.id,
+          kind: "image",
+          title: `候选画面 ${index + 1}/4`,
+        },
+        async (signal) => {
+          const made = await requestShotStill(
+            base,
+            shot,
+            withIdentityLocks(prompt, base.characters, shot.characters).prompt,
+          );
+          const live = host.current();
+          if (signal.aborted || !host.valid() || live?.id !== base.id)
+            throw new Error("WORK_STALE");
+          if (!made.url) throw new Error(made.reason || "STILL_FAILED");
+          const latest = live.shots.find((item) => item.id === shot.id);
+          if (!latest) throw new Error("WORK_STALE");
+          host.apply(
+            updateShot(live, shot.id, {
+              stills: [...latest.stills, { id: crypto.randomUUID(), prompt, url: made.url }],
+              poster: made.url,
+            }),
+          );
+          done++;
+        },
+      );
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : "STILL_FAILED");
+    }
+  }
+  return {
+    done,
+    failed: failures.length,
+    failures,
+    cancelled: !host.valid(),
+    notice: failures.length
+      ? `已生成 ${done} 张候选画面，${failures.length} 张失败。${failures.join("；")}`
+      : "4 张候选画面已生成。点一张作为这一镜的画面。",
+  };
+}
+
+export async function ensureShotFrame(
+  base: FilmProject,
+  shot: FilmShot,
+  host: StillHost,
+): Promise<FilmShot> {
+  if (shotReference(shot, base).still) return shot;
+  return runTask(
+    {
+      id: `preframe:${shot.id}`,
+      projectId: base.id,
+      shotId: shot.id,
+      kind: "image",
+      title: "视频首帧",
+    },
+    async (signal) => {
+      const made = await requestShotStill(base, shot, keyframePrompt(shot, base));
+      const live = host.current();
+      if (signal.aborted || !host.valid() || live?.id !== base.id) throw new Error("WORK_STALE");
+      if (!made.url) throw new Error(`镜头 ${shot.no} 首帧未完成：${made.reason}`);
+      const latest = live.shots.find((item) => item.id === shot.id);
+      if (!latest) throw new Error("WORK_STALE");
+      host.apply(updateShot(live, shot.id, { poster: made.url }));
+      return { ...latest, poster: made.url };
+    },
+  );
+}

@@ -11,6 +11,8 @@ import { authorizeGrokInBrowser } from "./grok-auth-callback";
 import type { AgentLog } from "./agent-log";
 import {
   completeGrokText,
+  TEXT_IDLE_MS,
+  TEXT_TOTAL_MS,
   speakGrokLine,
   exchangeAuthorizationCode,
   GrokTextFailure,
@@ -82,7 +84,7 @@ export type GrokRuntime = GrokLoginBridge & {
   restore(): Promise<void>;
   /** Main-process only. Never send this value across IPC. */
   mediaAccessToken(): Promise<string | null>;
-  cancelWork(): void;
+  cancelWork(idempotencyKey?: string): void;
 };
 
 export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
@@ -312,10 +314,15 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
   }
 
   const textJobs = new Set<AbortController>();
+  const textJobKeys = new WeakMap<AbortController, string>();
   const speechJobs = new Set<AbortController>();
 
-  function beginJob(jobs: Set<AbortController>): { signal: AbortSignal; finish: () => void } {
+  function beginJob(
+    jobs: Set<AbortController>,
+    key?: string,
+  ): { signal: AbortSignal; finish: () => void } {
     const controller = new AbortController();
+    if (key) textJobKeys.set(controller, key);
     jobs.add(controller);
     const finish = () => {
       jobs.delete(controller);
@@ -335,8 +342,12 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     return { kind: "CANCELLED", status: status() };
   }
 
-  function cancelWork(): void {
-    [...textJobs].at(-1)?.abort();
+  function cancelWork(idempotencyKey?: string): void {
+    if (idempotencyKey !== undefined) {
+      for (const job of textJobs) {
+        if (textJobKeys.get(job) === idempotencyKey) job.abort();
+      }
+    } else [...textJobs].at(-1)?.abort();
   }
 
   async function cancelSpeech(): Promise<{ kind: string }> {
@@ -399,6 +410,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     projectId?: string;
     idempotencyKey?: string;
     agent?: string;
+    deadlineAt?: number;
     onProgress?: (update: { chars: number; shots: number }) => void;
   }): Promise<GrokLoginTextResult> {
     if (slowTextFixture()) {
@@ -426,32 +438,63 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           headers: { "content-type": "text/event-stream" },
         });
       };
-      const text = await completeGrokText(fetch, {
-        accessToken: "fixture",
-        model: input.model || "grok-4.7",
-        text: input.text || "拆镜头",
-        onProgress: (partial) =>
-          input.onProgress?.({
-            chars: partial.length,
-            shots: (partial.match(/"picture"/g) ?? []).length,
-          }),
-      });
-      return { kind: "OK", text, billingAccountKind: "grok_login", model: input.model };
+      const job = beginJob(textJobs, input.idempotencyKey);
+      try {
+        const text = await completeGrokText(fetch, {
+          accessToken: "fixture",
+          model: input.model || "grok-4.7",
+          text: input.text || "拆镜头",
+          signal: job.signal,
+          limits: {
+            idleMs: TEXT_IDLE_MS,
+            totalMs: Math.max(
+              1,
+              Math.min(
+                TEXT_TOTAL_MS,
+                (input.deadlineAt ?? Date.now() + TEXT_TOTAL_MS) - Date.now(),
+              ),
+            ),
+          },
+          onProgress: (partial) =>
+            input.onProgress?.({
+              chars: partial.length,
+              shots: (partial.match(/"picture"/g) ?? []).length,
+            }),
+        });
+        return { kind: "OK", text, billingAccountKind: "grok_login", model: input.model };
+      } finally {
+        job.finish();
+      }
     }
     if (
       input.text.length === 0 ||
-      input.text.length > 8000 ||
+      input.text.length > 100_000 ||
       input.model.length === 0 ||
-      input.model.length > 200
+      input.model.length > 200 ||
+      (input.deadlineAt !== undefined &&
+        (!Number.isSafeInteger(input.deadlineAt) || input.deadlineAt <= 0))
     ) {
       return { kind: "ERROR", code: "TEXT_REJECTED", billingAccountKind: "grok_login" };
     }
     const ledger = dependencies.ledger;
     let dispatchId: string | null = null;
     const started = Date.now();
+    const deadlineAt = Math.min(
+      input.deadlineAt ?? started + TEXT_TOTAL_MS,
+      started + TEXT_TOTAL_MS,
+    );
+    // Register before asynchronous preparation so cancellation cannot miss a not-yet-dispatched call.
+    const job = beginJob(textJobs, input.idempotencyKey);
+    const assertActive = () => {
+      if (job.signal.aborted) throw new GrokAuthError("TEXT_CANCELLED");
+      if (Date.now() >= deadlineAt) throw new GrokAuthError("TEXT_TIMEOUT");
+    };
     try {
+      assertActive();
       await restore();
+      assertActive();
       await ensureFresh();
+      assertActive();
       if (!session) throw new GrokAuthError("NOT_CONNECTED");
       if (ledger) {
         if (!input.projectId || !input.idempotencyKey)
@@ -469,7 +512,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           throw new GrokAuthError("DISPATCH_ALREADY_FINISHED");
         }
       }
-      const job = beginJob(textJobs);
+      assertActive();
       try {
         const text = await completeGrokText(dependencies.fetch, {
           accessToken: session.accessToken,
@@ -477,12 +520,14 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           text: input.text,
           endpoints,
           signal: job.signal,
+          limits: { idleMs: TEXT_IDLE_MS, totalMs: Math.max(1, deadlineAt - Date.now()) },
           onProgress: (partial) =>
             input.onProgress?.({
               chars: partial.length,
               shots: (partial.match(/"picture"/g) ?? []).length,
             }),
         });
+        assertActive();
         dependencies.agentLog?.write({
           agent: input.agent ?? "",
           model: input.model,
@@ -490,7 +535,8 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           httpStatus: 200,
           durationMs: Date.now() - started,
           parsed: "text",
-          body: text,
+          responseChars: text.length,
+          requestChars: input.text.length,
         });
         if (ledger && dispatchId && input.projectId) {
           await ledger.finish({
@@ -523,6 +569,9 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         "QUOTA_UNAVAILABLE",
         "RATE_UNAVAILABLE",
         "TEXT_FAILED",
+        "TEXT_TIMEOUT",
+        "STALL_RETRYING",
+        "TEXT_CANCELLED",
       ].includes(code)
         ? code
         : "TEXT_FAILED";
@@ -545,7 +594,9 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
             httpStatus: attempt.httpStatus,
             durationMs: Date.now() - started,
             parsed: "error",
-            body: attempt.body,
+            responseChars: attempt.body.length,
+            requestChars: input.text.length,
+            errorCode: safe,
           });
         }
       } else {
@@ -556,7 +607,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           httpStatus: 0,
           durationMs: Date.now() - started,
           parsed: "error",
-          body: safe,
+          errorCode: safe,
         });
       }
       if (safe === "ENTITLEMENT_DENIED" && session) {
@@ -565,12 +616,13 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       } else if (safe === "REAUTH_REQUIRED") {
         lastError = safe;
       }
-      if (safe === "TEXT_FAILED" && error instanceof GrokTextFailure) {
+      if (
+        ["TEXT_FAILED", "TEXT_TIMEOUT", "TEXT_CANCELLED", "STALL_RETRYING"].includes(safe) &&
+        error instanceof GrokTextFailure
+      ) {
         const last = error.attempts[error.attempts.length - 1];
         const waited =
-          last?.body.startsWith("很久") ||
-          last?.body.startsWith("这次") ||
-          last?.body.startsWith("已取消");
+          safe === "TEXT_TIMEOUT" || safe === "TEXT_CANCELLED" || safe === "STALL_RETRYING";
         const status = waited
           ? (last?.body ?? "文本接口没有返回正文")
           : last?.httpStatus
@@ -589,6 +641,8 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         };
       }
       return { kind: "ERROR", code: safe, billingAccountKind: "grok_login" };
+    } finally {
+      job.finish();
     }
   }
 
@@ -730,7 +784,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         endpoint: "parse",
         httpStatus: input.status === "ok" ? 200 : 0,
         parsed: input.parsed,
-        body: input.detail,
+        responseChars: input.detail.length,
       });
     },
     mediaAccessToken,

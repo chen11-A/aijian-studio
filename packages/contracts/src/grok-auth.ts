@@ -73,6 +73,8 @@ export type GrokLoginBridge = {
     projectId?: string;
     idempotencyKey?: string;
     agent?: string;
+    /** Absolute epoch milliseconds, shared by all batches and the one retry. */
+    deadlineAt?: number;
   }): Promise<GrokLoginTextResult>;
   /** Optional until a desktop build exposes POST /v1/tts. */
   speak?(input: {
@@ -83,8 +85,8 @@ export type GrokLoginBridge = {
     /** 0.7 to 1.5. Omitted means the voice's normal speed. */
     speed?: number;
   }): Promise<GrokSpeechResult>;
-  /** Aborts text requests. Does not sign out and does not stop speech. */
-  cancelText?(): Promise<{ kind: string }>;
+  /** A key cancels only that dispatch; omission retains the latest-text cancellation behavior. */
+  cancelText?(idempotencyKey?: string): Promise<{ kind: string }>;
   /** Aborts speech requests. Does not stop a text call that is still running. */
   cancelSpeech?(): Promise<{ kind: string }>;
   /** Live text, so a long reply can show progress instead of looking stuck. */

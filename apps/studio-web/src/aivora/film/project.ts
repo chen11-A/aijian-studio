@@ -1,3 +1,17 @@
+import type {
+  SceneCoverage,
+  LipSyncState,
+  PipelineProgress,
+  SceneSound,
+  ContinuityNote,
+} from "./contracts3j";
+import { normalizeAgeBand, normalizeGender } from "./cast-traits";
+import {
+  mergeAdjacentShots,
+  sceneDisplayTitle,
+  shotLines,
+  suggestedShotCount,
+} from "./director-continuity";
 import action from "../../../../../services/api/src/aijian_api/agents/prompts/action.md?raw";
 import art from "../../../../../services/api/src/aijian_api/agents/prompts/art.md?raw";
 import director from "../../../../../services/api/src/aijian_api/agents/prompts/director.md?raw";
@@ -53,6 +67,9 @@ const PROMPTS: Record<AgentId, string> = {
 
 export type FilmJob = {
   id: string;
+  attempt?: number;
+  takeId?: string;
+  interruptedFrom?: "queued" | "running";
   shotId: string;
   kind: "video" | "keyframe" | "portrait";
   take: number;
@@ -87,6 +104,9 @@ export type FilmStill = {
 };
 
 export type FilmTake = {
+  interruptedFrom?: "queued" | "running";
+  lipSync?: LipSyncState;
+  lipSyncReason?: string;
   id: string;
   shotId: string;
   index: number;
@@ -103,8 +123,9 @@ export type FilmCharacter = {
   id: string;
   name: string;
   identity: string;
-  gender?: string;
-  ageBand?: string;
+  gender?: "男" | "女" | "";
+  ageBand?: "儿童" | "少年" | "青年" | "中年" | "老年" | "";
+  voiceCode?: string;
   voiceId: string;
   source: string;
   userFields: string[];
@@ -112,6 +133,8 @@ export type FilmCharacter = {
 };
 
 export type FilmScene = {
+  sound?: SceneSound;
+  coverage?: SceneCoverage;
   id: string;
   no: number;
   title: string;
@@ -123,9 +146,17 @@ export type FilmScene = {
   userFields: string[];
   /** Writer tags such as 打斗 or 哭戏. Empty when the scene was typed in by hand. */
   tags?: string[];
+  paragraphCoverage?: {
+    ok: boolean;
+    missingParagraphs: string[];
+    duplicateParagraphs: string[];
+    invalidParagraphs: string[];
+    crossSceneRisk: boolean;
+  };
 };
 
 export type FilmShot = {
+  continuity?: ContinuityNote;
   id: string;
   sceneId: string;
   no: number;
@@ -136,10 +167,13 @@ export type FilmShot = {
   picture: string;
   action: string;
   performance: string;
+  performanceSource?: string;
   /** Optional per-shot style. Empty means the project style bible. */
   styleNote?: string;
   characters: string[];
   line: string;
+  /** Ordered dialogue; line remains a newline-joined compatibility view. */
+  lines?: { speaker: string; text: string }[];
   /** Who says the line. Empty means the line names them, or the narrator. */
   speaker?: string;
   /** How this line should be spoken: tone, pace, pauses, emotion. */
@@ -162,6 +196,8 @@ export type FilmShot = {
 };
 
 export type FilmProject = {
+  pipeline?: PipelineProgress;
+  unassignedBeats?: { sceneId: string; text: string }[];
   schemaVersion: number;
   id: string;
   seriesId: string;
@@ -222,7 +258,7 @@ export function blankFilm(): FilmProject {
       {
         id: "scene-1",
         no: 1,
-        title: "第 1 场",
+        title: "地点待定 · 时间待定",
         where: "",
         text: "",
         ambience: "",
@@ -508,7 +544,11 @@ export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: str
 
 export function agentRequest(agentId: AgentId, context: string, user: string): string {
   const system = (PROMPTS[agentId] ?? "").trim();
-  const body = `${system}\n\n上下文：\n${context.trim()}\n\n用户：\n${user.trim()}`;
+  const coverage =
+    agentId === "director"
+      ? "\n本次镜头数上限是合并节拍的建议预算，不是截断原文的许可。每句台词和每场末段必须完整覆盖；无法合并时保留全部镜头并说明超额，不得省略剧情。"
+      : "";
+  const body = `${system}${coverage}\n\n上下文：\n${context.trim()}\n\n用户：\n${user.trim()}`;
   return body;
 }
 
@@ -538,14 +578,13 @@ function matchDirectorScene(
   if (byPlace.length === 1) return byPlace[0];
   if (scenes.length === 1) return scenes[0];
   const requested = scenes.find((item) => item.id === requestedId);
-  if (requested && byPlace.length !== 1) return requested;
   return scenes[index] ?? requested;
 }
 
-/** About one shot per 40–60 source characters, and never more than 16. Short text is not cut. */
+/** Suggested pacing only. Never discard source material to meet this budget. */
 export function shotBudget(sceneText: string): number | null {
   const length = sceneText.trim().length;
-  if (length < 80) return null;
+  if (!length) return null;
   return Math.min(16, Math.max(1, Math.round(length / 50)));
 }
 
@@ -554,6 +593,7 @@ export function parseDirectorShots(
   sceneId: string,
   sceneText = "",
   scenes: DirectorSceneRef[] = [],
+  preserveSource = true,
 ): FilmShot[] | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -577,10 +617,19 @@ export function parseDirectorShots(
         JSON.stringify({ shots: record.shots ?? [] }),
         target?.id ?? sceneId,
         target?.text ?? sceneText,
+        [],
+        false,
       );
       if (nested) all.push(...nested);
     });
-    return all.length > 0 ? all : null;
+    if (!all.length) return null;
+    return [...new Set(all.map((shot) => shot.sceneId))].flatMap((id) =>
+      completeDirectorCoverage(
+        all.filter((shot) => shot.sceneId === id),
+        id,
+        scenes.find((scene) => scene.id === id)?.text ?? sceneText,
+      ),
+    );
   }
   if (!("shots" in value)) return null;
   const rows = (value as { shots?: unknown }).shots;
@@ -589,14 +638,25 @@ export function parseDirectorShots(
   rows.forEach((row, index) => {
     if (!row || typeof row !== "object") return;
     const record = row as Record<string, unknown>;
-    const spoken = Array.isArray(record.dialogue)
-      ? record.dialogue.find(
-          (item): item is { line: string; speaker?: string } =>
-            Boolean(item) &&
-            typeof item === "object" &&
-            typeof (item as { line?: unknown }).line === "string",
-        )
-      : undefined;
+    const rawLines = Array.isArray(record.lines)
+      ? record.lines
+      : Array.isArray(record.dialogue)
+        ? record.dialogue
+        : [];
+    const parsedLines = rawLines.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const value = item as Record<string, unknown>;
+      const text =
+        typeof value.text === "string"
+          ? value.text
+          : typeof value.line === "string"
+            ? value.line
+            : "";
+      const valid = lineInScript(sceneText, text);
+      return valid
+        ? [{ speaker: typeof value.speaker === "string" ? value.speaker.trim() : "", text: valid }]
+        : [];
+    });
     const picture = [
       record.picture,
       record.video_prompt,
@@ -605,24 +665,25 @@ export function parseDirectorShots(
       record.action,
     ].find((item) => typeof item === "string" && item.trim());
     if (typeof picture !== "string") return;
-    const told = picture.trim();
-    const action = typeof record.action === "string" ? record.action.trim() : "";
+    const told = plainCue(picture.trim());
+    const action = typeof record.action === "string" ? plainCue(record.action.trim()) : "";
     const seconds = typeof record.seconds === "number" ? record.seconds : 3;
     const sized = classifyShotSize(typeof record.size === "string" ? record.size : "中景");
     const tag = typeof record.tag === "string" && record.tag.trim() ? record.tag.trim() : sized.tag;
-    const proposed =
-      typeof record.line === "string" && record.line.trim() ? record.line : (spoken?.line ?? "");
+    const proposed = typeof record.line === "string" && record.line.trim() ? record.line : "";
     const performance = typeof record.performance === "string" ? record.performance.trim() : "";
     const size = sized.size;
     const characters = Array.isArray(record.characters)
       ? record.characters.filter((item): item is string => typeof item === "string")
       : [];
-    const line = lineInScript(sceneText, proposed);
+    const line = parsedLines.length
+      ? parsedLines.map((item) => item.text).join("\n")
+      : lineInScript(sceneText, proposed);
     const named =
       typeof record.speaker === "string" && record.speaker.trim()
         ? record.speaker.trim()
-        : typeof spoken?.speaker === "string"
-          ? spoken.speaker.trim()
+        : parsedLines.length && new Set(parsedLines.map((item) => item.speaker)).size === 1
+          ? (parsedLines[0]?.speaker ?? "")
           : "";
     const speaker = named || (line && characters.length === 1 ? characters[0]!.trim() : "");
     shots.push({
@@ -641,6 +702,7 @@ export function parseDirectorShots(
       performance: plainCue(performance),
       characters,
       line,
+      lines: parsedLines.length ? parsedLines : line ? [{ speaker, text: line }] : [],
       speaker,
       delivery: typeof record.delivery === "string" ? record.delivery.trim() : "",
       blocking: Array.isArray(record.blocking)
@@ -682,10 +744,19 @@ export function parseDirectorShots(
           seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
         }))
       : shots;
-  const budget = shotBudget(sceneText);
-  const capped = budget !== null && varied.length > budget ? varied.slice(0, budget) : varied;
-  const known = capped.flatMap((shot) => shot.characters);
-  return capped.length > 0 ? attachScriptLines(capped, sceneText, known) : null;
+  if (!varied.length) return null;
+  return preserveSource ? completeDirectorCoverage(varied, sceneId, sceneText) : varied;
+}
+
+function completeDirectorCoverage(
+  shots: FilmShot[],
+  sceneId: string,
+  sceneText: string,
+): FilmShot[] {
+  return mergeAdjacentShots(
+    shots.map((shot) => ({ ...shot, sceneId })),
+    sceneText.trim() ? suggestedShotCount(sceneText) : 16,
+  );
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {
@@ -732,12 +803,26 @@ export function interruptStaleWork(film: FilmProject): { film: FilmProject; inte
     film: {
       ...film,
       jobs: film.jobs.map((job) =>
-        pending(job.status) ? { ...job, status: "failed", reason: "已中断" } : job,
+        pending(job.status)
+          ? {
+              ...job,
+              interruptedFrom: job.status as "queued" | "running",
+              status: "failed",
+              reason: "已中断",
+            }
+          : job,
       ),
       shots: film.shots.map((shot) => ({
         ...shot,
         takes: shot.takes.map((take) =>
-          pending(take.status) ? { ...take, status: "failed", reason: "已中断，可以重试。" } : take,
+          pending(take.status)
+            ? {
+                ...take,
+                interruptedFrom: take.status as "queued" | "running",
+                status: "failed",
+                reason: "已中断，可以重试。",
+              }
+            : take,
         ),
       })),
     },
@@ -758,15 +843,22 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
       episodeTitle: value.episodeTitle || "第 1 集",
       characters: (value.characters ?? []).map((item) => ({
         ...item,
+        gender: normalizeGender(item.gender),
+        ageBand: normalizeAgeBand(item.ageBand),
         portraits: item.portraits ?? [],
       })),
       scenes: (value.scenes?.length ? value.scenes : base.scenes).map((item) => ({
         ...item,
         ambience: item.ambience ?? "",
+        title: sceneDisplayTitle(item.title, item.where, item.text),
       })),
       shots: (value.shots ?? []).map((shot) => ({
         ...shot,
-        line: shot.line ?? "",
+        lines: shotLines({
+          ...shot,
+          line: shot.line ?? (shot.lines ?? []).map((line) => line.text).join("\n"),
+        }),
+        line: shot.line ?? (shot.lines ?? []).map((line) => line.text).join("\n"),
         angle: shot.angle ?? "平视",
         sound: normalizeSoundPlan(shot.sound),
         size: classifyShotSize(shot.size || "中景").size,

@@ -1,0 +1,153 @@
+.nx-root.nx-takes {
+  gap: 12px;
+}
+
+.nx-root .nx-takes-head {
+  display: grid;
+  flex: none;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nx-root .nx-takes-head strong {
+  font-size: 14px;
+}
+
+.nx-root .nx-takes-grid {
+  display: grid;
+  flex: 1 1 auto;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0;
+}
+
+.nx-root .nx-takes-grid.nx-count-1 {
+  grid-template-columns: minmax(0, 360px);
+}
+
+.nx-root .nx-takes-grid.nx-count-2 {
+  grid-template-columns: repeat(2, minmax(0, 360px));
+}
+
+.nx-root .nx-takes-grid.nx-count-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.nx-root .nx-take {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-take.nx-in-use {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px var(--ok);
+}
+
+.nx-root .nx-take-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nx-root .nx-take-head strong {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.nx-root .nx-take-media {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  border-radius: var(--r);
+  background: var(--bg);
+  container-type: size;
+}
+
+.nx-root .nx-take-media .nx-tall {
+  height: min(100cqh, calc(100cqw * 16 / 9));
+  aspect-ratio: 9 / 16;
+}
+
+.nx-root .nx-take-media .nx-wide {
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  aspect-ratio: 16 / 9;
+}
+
+.nx-root .nx-take-state {
+  position: absolute;
+  inset: auto 8px 8px;
+  padding: 4px 8px;
+  border-radius: var(--r-s);
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  text-align: center;
+}
+
+.nx-root .nx-take-notes {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.nx-root .nx-take-notes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--text-2);
+}
+
+.nx-root .nx-note-ok > span {
+  color: var(--ok);
+}
+
+.nx-root .nx-note-warn > span {
+  color: var(--warn);
+}
+
+.nx-root .nx-note-bad > span {
+  color: var(--err);
+}
+
+.nx-root .nx-take-use {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.nx-root .nx-take-use .nx-btn {
+  flex: 1 1 auto;
+}
+
+.nx-root .nx-take-use .nx-tag {
+  flex: 1 1 auto;
+  justify-content: center;
+  height: 30px;
+}
+
+.nx-root .nx-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: var(--r-s);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.nx-root .nx-takes-foot {
+  flex: none;
+}

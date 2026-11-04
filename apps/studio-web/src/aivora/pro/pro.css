@@ -179,11 +179,12 @@ body:has(.pro-root) {
   white-space: nowrap;
 }
 .pro-root .tab .n {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 1px solid var(--line-2);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1;
   display: grid;
   place-items: center;
   color: var(--text-3);
@@ -441,13 +442,15 @@ body:has(.pro-root) {
 }
 .pro-root .scene {
   display: grid;
-  grid-template-columns: 24px 1fr auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
+  width: 100%;
   height: 44px;
   padding: 0 8px;
   border-radius: var(--r);
   color: var(--text-2);
+  text-align: left;
 }
 .pro-root .scene.place {
   grid-template-columns: minmax(0, 1fr);
@@ -472,12 +475,12 @@ body:has(.pro-root) {
 }
 .pro-root .scene .t small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   line-height: 1.3;
 }
 .pro-root .scene .c {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
 }
 .pro-root .pfoot {
@@ -493,6 +496,11 @@ body:has(.pro-root) {
   color: var(--text);
   font-weight: 500;
 }
+/* Two short lines rather than one that breaks in the middle of a number. */
+.pro-root .pfoot.stack {
+  flex-direction: column;
+  gap: 2px;
+}
 
 /* form fields (属性) */
 .pro-root .field {
@@ -504,6 +512,11 @@ body:has(.pro-root) {
   font-size: 12px;
   color: var(--text-3);
   margin-bottom: 5px;
+}
+/* Text boxes in 属性 take the full width of the column. */
+.pro-root .field .area {
+  display: block;
+  width: 100%;
 }
 .pro-root .input {
   display: flex;
@@ -534,6 +547,34 @@ body:has(.pro-root) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+.pro-root .row3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.pro-root .row3 .input {
+  width: 100%;
+  min-width: 0;
+}
+/* 时长: the usual lengths and 「自定义」 share one row; the box for other lengths opens below. */
+.pro-root .field .seg {
+  flex-wrap: wrap;
+}
+.pro-root .field .seg button {
+  flex: 1 0 auto;
+  justify-content: center;
+}
+.pro-root .seconds-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.pro-root .seconds-box .input {
+  width: 72px;
 }
 .pro-root .tagrow {
   display: flex;
@@ -567,7 +608,7 @@ body:has(.pro-root) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   margin-left: 6px;
 }
@@ -581,7 +622,7 @@ body:has(.pro-root) {
   color: var(--accent);
 }
 .pro-root .sec {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   letter-spacing: 0.5px;
   padding: 14px 14px 0;
@@ -628,6 +669,38 @@ body:has(.pro-root) {
   font-size: 12px;
   color: var(--text-3);
   border-bottom: 1px solid var(--line);
+}
+/* 「正在和：导演 ▾」: one row instead of a grid of role tiles, so the chat keeps the height. */
+.pro-root .role-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 12.5px;
+  flex: none;
+}
+.pro-root .role-pick select {
+  width: auto;
+  min-width: 112px;
+}
+.pro-root .adv {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pro-root .adv .role-desc {
+  padding: 0;
+  border: 0;
+}
+.pro-root .pane.ai > details.role-desc {
+  flex: none;
+}
+.pro-root .pane.ai > details.role-desc[open] > p {
+  max-height: 30vh;
+  overflow: auto;
 }
 .pro-root .chat {
   padding: 12px;
@@ -722,6 +795,7 @@ body:has(.pro-root) {
   flex-wrap: nowrap;
   overflow: hidden;
   padding: 8px 12px 0;
+  flex: none;
 }
 .pro-root .quick span,
 .pro-root .quick button {
@@ -802,7 +876,7 @@ body:has(.pro-root) {
   height: 20px;
   padding: 0 7px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -835,7 +909,7 @@ body:has(.pro-root) {
   padding: 0 6px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.65);
-  font: 11px/18px var(--mono);
+  font: 12px/18px var(--mono);
   color: #fff;
 }
 
@@ -853,6 +927,8 @@ body:has(.pro-root) {
 .pro-root .pb.doc {
   display: flex;
   flex-direction: column;
+  /* .doc below asks for the full height; inside a pane the box must shrink and scroll. */
+  min-height: 0;
 }
 .pro-root .doc {
   padding: 12px 16px 16px;
@@ -1015,12 +1091,19 @@ body:has(.pro-root) {
 }
 .pro-root .grid {
   display: grid;
+  grid-auto-rows: max-content;
+  align-items: start;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 12px;
   padding: 14px;
   align-content: start;
 }
 .pro-root .card {
+  height: auto;
+  min-height: min-content;
+  align-self: start;
+  display: block;
+  text-align: left;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1053,19 +1136,52 @@ body:has(.pro-root) {
   color: var(--accent);
   font-size: 12px;
 }
+/* 3J-U01: a card shows one picture sentence (two lines) and the first line of dialogue (one
+   line); the rest is in the tooltip and in 属性. */
 .pro-root .cb p {
   font-size: 12px;
   color: var(--text-2);
   line-height: 1.5;
-  height: auto;
-  overflow: visible;
-  margin: 3px 0 7px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-height: 3em;
+  overflow: hidden;
+  margin: 3px 0 0;
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.pro-root .cb p.line {
+  display: block;
+  max-height: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.pro-root .cb p.line::before {
+  content: "「";
+}
+.pro-root .cb p.line::after {
+  content: "」";
+}
+.pro-root .ct .src {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: auto;
+  align-self: center;
+  background: currentColor;
+  flex: none;
+}
+.pro-root .ct .src.src-user {
+  color: var(--ok);
+}
+.pro-root .ct .src.src-other {
+  color: var(--text-3);
+}
 .pro-root .cb .tag {
   height: 20px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .pro-root .prev {
   margin: 12px 14px 0;
@@ -1081,6 +1197,21 @@ body:has(.pro-root) {
   gap: 8px;
   flex: none;
 }
+/* 3J-U07: one row, at most three buttons; the primary one follows the shot's state. */
+.pro-root .pfoot2.one {
+  display: flex;
+}
+.pro-root .pfoot2.one > .btn.primary {
+  flex: 1;
+  justify-content: center;
+}
+.pro-root .more-wrap {
+  position: relative;
+}
+.pro-root .menu.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
 .pro-root .field .area {
   min-height: 0;
 }
@@ -1091,7 +1222,7 @@ body:has(.pro-root) {
 }
 .pro-root {
   --hs: 36px;
-  --hv: 70px;
+  --hv: 66px;
   --ha: 52px;
 }
 @media (min-width: 1600px) {
@@ -1127,7 +1258,7 @@ body:has(.pro-root) {
   padding: 5px 0;
   border-radius: 6px;
   color: var(--text-2);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 .pro-root .mtabs button.on {
   background: var(--panel-3);
@@ -1152,7 +1283,7 @@ body:has(.pro-root) {
   box-shadow: inset 0 0 0 2px rgba(91, 140, 255, 0);
 }
 .pro-root .bin .it p {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-2);
   margin-top: 4px;
   white-space: nowrap;
@@ -1311,11 +1442,12 @@ body:has(.pro-root) {
   display: flex;
   gap: 4px;
 }
+/* 3J-U12: a long film scrolls sideways inside the timeline, not off the edge of the window. */
 .pro-root .tracks {
   position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
 }
 .pro-root .ruler {
   height: 26px;
@@ -1328,7 +1460,7 @@ body:has(.pro-root) {
 .pro-root .ruler span {
   position: absolute;
   top: 4px;
-  font: 10.5px var(--mono);
+  font: 12px var(--mono);
   color: var(--text-3);
   transform: translateX(3px);
 }
@@ -1342,7 +1474,7 @@ body:has(.pro-root) {
   bottom: 5px;
   border-radius: 5px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
   padding: 0 6px;
   display: flex;
@@ -1368,7 +1500,7 @@ body:has(.pro-root) {
   background: rgba(0, 0, 0, 0.55);
   padding: 0 5px;
   border-radius: 3px;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 16px;
 }
 .pro-root .clip.v.sel {
@@ -1437,19 +1569,31 @@ body:has(.pro-root) {
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* The playhead box is as wide as its cap, so nothing hangs outside it; the line is drawn in
+   the middle. */
 .pro-root .playhead {
   position: absolute;
   top: 0;
   bottom: 0;
+  width: 12px;
+  margin-left: -5px;
+  z-index: 5;
+  pointer-events: none;
+}
+.pro-root .playhead::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
   width: 2px;
   background: #fff;
-  z-index: 5;
 }
 .pro-root .playhead::before {
   content: "";
   position: absolute;
   top: 0;
-  left: -5px;
+  left: 0;
   border: 6px solid transparent;
   border-top: 8px solid #fff;
 }
@@ -1469,9 +1613,12 @@ body:has(.pro-root) {
 .pro-root .sec-t .sp {
   flex: 1;
 }
+/* Seven people do not fit in the 单镜 column; the strip scrolls sideways in its own row. */
 .pro-root .refs {
   display: flex;
   gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 .pro-root .ref {
   width: 48px;
@@ -1484,7 +1631,7 @@ body:has(.pro-root) {
   border: 1px solid var(--line-2);
 }
 .pro-root .ref p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-2);
   text-align: center;
   margin-top: 2px;
@@ -1545,7 +1692,7 @@ body:has(.pro-root) {
   gap: 6px;
 }
 .pro-root .genbar .note {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-3);
   text-align: center;
 }
@@ -1691,7 +1838,7 @@ body:has(.pro-root) {
   display: block;
 }
 .pro-root .shotrow small {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   display: flex;
   gap: 4px;
@@ -1810,7 +1957,7 @@ body:has(.pro-root) {
 }
 .pro-root .act small {
   display: block;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -1828,7 +1975,7 @@ body:has(.pro-root) {
   color: #f28b8b;
 }
 .pro-root .act .soon {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-3);
   border: 1px solid var(--line-2);
   border-radius: 8px;
@@ -1920,7 +2067,7 @@ body:has(.pro-root) {
   border-radius: 4px;
   padding: 0 5px;
   height: 18px;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 16px;
 }
 .pro-root .th .lane-controls input[type="range"] {
@@ -1933,11 +2080,43 @@ body:has(.pro-root) {
   height: 14px;
   border-radius: 2px;
 }
+/* 3J-U12: a long film scrolls sideways inside the timeline, not off the edge of the window. */
 .pro-root .tracks {
   position: relative;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+}
+.pro-root .track-area {
+  position: relative;
+  min-width: 100%;
   display: flex;
   flex-direction: column;
+}
+.pro-root .lane-empty {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pro-root .hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pro-root .hint .q {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  cursor: help;
 }
 .pro-root .ruler {
   height: 26px;
@@ -1950,7 +2129,7 @@ body:has(.pro-root) {
 .pro-root .ruler span {
   position: absolute;
   top: 4px;
-  font: 10.5px var(--mono);
+  font: 12px var(--mono);
   color: var(--text-3);
   transform: translateX(3px);
 }
@@ -1965,7 +2144,7 @@ body:has(.pro-root) {
   bottom: 4px;
   border-radius: 5px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
   padding: 0 6px;
   display: flex;
@@ -1991,7 +2170,7 @@ body:has(.pro-root) {
   background: rgba(0, 0, 0, 0.6);
   padding: 0 5px;
   border-radius: 3px;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 16px;
   display: flex;
   align-items: center;
@@ -2062,19 +2241,31 @@ body:has(.pro-root) {
     0 100%
   );
 }
+/* The playhead box is as wide as its cap, so nothing hangs outside it; the line is drawn in
+   the middle. */
 .pro-root .playhead {
   position: absolute;
   top: 0;
   bottom: 0;
+  width: 12px;
+  margin-left: -5px;
+  z-index: 5;
+  pointer-events: none;
+}
+.pro-root .playhead::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
   width: 2px;
   background: #fff;
-  z-index: 5;
 }
 .pro-root .playhead::before {
   content: "";
   position: absolute;
   top: 0;
-  left: -5px;
+  left: 0;
   border: 6px solid transparent;
   border-top: 8px solid #fff;
 }
@@ -2095,7 +2286,7 @@ body:has(.pro-root) {
   padding: 0 5px;
   background: var(--accent);
   color: #fff;
-  font: 10.5px/20px var(--mono);
+  font: 12px/20px var(--mono);
   border-radius: 3px;
   white-space: nowrap;
 }
@@ -2151,7 +2342,7 @@ body:has(.pro-root) {
   padding: 7px 0;
   border-radius: 6px;
   color: var(--text-2);
-  font-size: 11px;
+  font-size: 12px;
 }
 .pro-root .rail button.on {
   background: var(--panel-3);
@@ -2181,7 +2372,7 @@ body:has(.pro-root) {
   border-radius: 4px;
 }
 .pro-root .mini-cmp p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   margin-top: 2px;
 }
@@ -2265,7 +2456,7 @@ body:has(.pro-root) {
   border: 1px solid var(--line-2);
 }
 .pro-root .composer2 .att .lab {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
 }
 .pro-root .pill {
@@ -2303,7 +2494,7 @@ body:has(.pro-root) {
   position: absolute;
   left: 3px;
   bottom: 2px;
-  font-size: 10px;
+  font-size: 12px;
   background: rgba(0, 0, 0, 0.6);
   padding: 0 4px;
   border-radius: 3px;
@@ -2337,7 +2528,7 @@ body:has(.pro-root) {
 .pro-root .trim .rg .h {
   position: absolute;
   top: -10px;
-  font: 10.5px/16px var(--mono);
+  font: 12px/16px var(--mono);
   background: var(--accent);
   color: #fff;
   padding: 0 5px;
@@ -2392,7 +2583,7 @@ body:has(.pro-root) {
 }
 .pro-root .tile small {
   margin-left: auto;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-3);
 }
 .pro-root .wide16 {
@@ -2505,6 +2696,33 @@ body:has(.pro-root) {
 .pro-root .menu button:hover {
   background: var(--panel-3);
 }
+/* 4A-U04: 后台生成 opens the task center over the whole workspace, under the top bar. */
+.pro-root .task-back {
+  position: absolute;
+  inset: 48px 0 24px;
+  z-index: 6;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px 12px;
+}
+.pro-root .task-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  flex: none;
+}
+.pro-root .task-head h2 {
+  font-size: 14px;
+}
+.pro-root .task-head .sp {
+  flex: 1;
+}
+.pro-root .task-back > .nx-root {
+  flex: 1;
+  min-height: 0;
+}
 .pro-root .dialog-back {
   position: absolute;
   inset: 48px 0 24px;
@@ -2579,4 +2797,93 @@ body:has(.pro-root) {
 .pro-root button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.pro-root .shot-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pro-root #cast-id {
+  min-height: 7em;
+  height: auto;
+  field-sizing: content;
+}
+/* 3J-U11 export dialog: the path box takes the row with 「浏览」 beside it; a long path shows
+   its start and end with the middle cut out until the box is being typed in. */
+.pro-root .dialog.export {
+  width: 620px;
+}
+.pro-root .dialog.export .field {
+  padding: 0;
+}
+.pro-root .pathrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pro-root .pathfield {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.pro-root .pathfield .input {
+  width: 100%;
+}
+.pro-root .pathfield:not(:focus-within) .input {
+  color: transparent;
+}
+.pro-root .pathshow {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.pro-root .pathfield:focus-within .pathshow {
+  display: none;
+}
+.pro-root .export-line {
+  margin-top: 14px;
+  color: var(--text);
+  font-size: 13px;
+}
+.pro-root .missing {
+  margin-top: 8px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+.pro-root .missing summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+.pro-root .missing ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 160px;
+  overflow: auto;
+}
+.pro-root .missing li {
+  display: flex;
+  gap: 8px;
+  padding: 3px 0;
+}
+.pro-root .missing li b {
+  flex: none;
+  font-weight: 500;
+  color: var(--text);
+}
+.pro-root .dialog.export .acts {
+  margin-top: 16px;
+  align-items: center;
+}
+.pro-root .dialog.export .acts .sp {
+  flex: 1;
 }

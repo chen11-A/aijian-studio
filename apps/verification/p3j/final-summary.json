@@ -1,0 +1,57 @@
+{
+  "sourceCommit": "79e126d096331005634d72b339b763d131b713a2",
+  "desktop": {
+    "files": 109,
+    "passed": 1958,
+    "coveragePercent": {
+      "statements": 90.68,
+      "branches": 91.29,
+      "functions": 93.36,
+      "lines": 92.21
+    },
+    "scope": "repository configured include, not all desktop source"
+  },
+  "studioWeb": {
+    "files": 218,
+    "passed": 3150,
+    "coveragePercent": {
+      "statements": 90.07,
+      "branches": 86.47,
+      "functions": 91.26,
+      "lines": 92.83
+    },
+    "command": "vitest run --coverage --maxWorkers=1"
+  },
+  "supplierCalls": 0,
+  "importedClaudeZips": [],
+  "python": {
+    "passed": 5128,
+    "skipped": 6,
+    "exitCode": 0,
+    "seconds": 1971.56,
+    "coverage": {
+      "covered_lines": 33210,
+      "num_statements": 36051,
+      "percent_covered": 90.33459692793129,
+      "percent_covered_display": "90",
+      "missing_lines": 2841,
+      "excluded_lines": 128,
+      "percent_statements_covered": 92.11949737871349,
+      "percent_statements_covered_display": "92",
+      "num_branches": 9586,
+      "num_partial_branches": 1246,
+      "covered_branches": 8016,
+      "missing_branches": 1570,
+      "percent_branches_covered": 83.62194867515126,
+      "percent_branches_covered_display": "84"
+    }
+  },
+  "unverifiedFollowup": {
+    "reason": "User instructed stopping tests and CI waiting; no tests or static checks run for followup changes.",
+    "items": [
+      "B01/B17 final director coverage and budget notice",
+      "B05/B13 portrait request edit guards",
+      "B13/B17 coverage repair snapshot guards"
+    ]
+  }
+}
