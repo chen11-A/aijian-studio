@@ -1006,10 +1006,12 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  cancelFilmExport?: (requestId: string) => Promise<{ ok: boolean }>;
   exportFilmCut?: (
     source: string,
     directory: string,
     name?: string,
+    options?: { aspectRatio?: "16:9" | "9:16"; requestId?: string },
   ) => Promise<{ ok: boolean; path: string }>;
   revealFilmPath?: (path: string) => Promise<{ ok: boolean }>;
   openFilmPath?: (path: string) => Promise<{ ok: boolean; error: string }>;

@@ -697,3 +697,9 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 - `undoEditorReceipt(latest,receipt)` 只恢复仍等于该次写入结果的字段，保留后续手改、生成资产和任务；冲突逐项返回。`createPageUndoHistory()` 按作品和页面 record/canUndo/undo，不跨作品恢复。宿主须在成功保存后登记 receipt，并执行角色选声、画风过期等业务校验。
 
 上述函数与 14 项回归已提供；页面回调、请求接线、结构性事务、redo 和持久化历史尚未实现。现有全作品撤销尚未替换，不把这些纯函数说成用户可用入口。Claude 可先据接口准备差异显示，具体宿主接线由 GPT 继续完成。
+
+### 4A-B10 双画幅导出后端（已提供，选择器未接）
+
+`exportFilmTask(base,paths,directory,host,{aspectRatio:"16:9"|"9:16"})` 使用本地 FFmpeg 居中裁切，并原样复制音轨；省略 options 维持原比例复制。分别调用两个比例即可得到 `-16x9.mp4`、`-9x16.mp4`，不会覆盖源视频。底层 `exportFilmCut(source,directory,name?,{aspectRatio?,requestId?})` 与 `cancelFilmExport(requestId)` 已提供。输出在目标目录临时文件生成、校验后原子发布；失败不留下半成品。
+
+取消会阻止最终发布并在进程结束后清理临时文件；现有 FFmpeg 宿主没有中止进程接口，不能声称点击取消立即终止编码。真实 FFmpeg 回归验证两种比例、中心像素、音轨字节一致和源文件不变。Claude 仍需导出比例选择器和“两种都要”交互；本提交不改 JSX，也未新增 4b 声音混合/导出检查。

@@ -1,7 +1,8 @@
+import { exportFilmFile, filmExportOptions } from "./film-export";
 import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
 import { extractFilmLastFrame } from "./film-last-frame";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import {
   applyDialogue,
   assemblyPath,
@@ -18,7 +19,6 @@ import {
   readProject,
   renameSeries,
   requestStill,
-  safeExportName,
   stillPath,
   stillReferenceImage,
   trustedMediaPath,
@@ -71,6 +71,7 @@ export function registerFilmLibraryHandlers<TEvent>(
   host: FilmLibraryHost,
 ): void {
   const exported = new Set<string>();
+  const exportsInProgress = new Map<string, { cancelled: boolean }>();
   const guard = (event: TEvent) => {
     if (!authorized(event)) throw new Error("Film IPC sender is not authorized");
   };
@@ -335,14 +336,35 @@ export function registerFilmLibraryHandlers<TEvent>(
     }
     const source = trustedMediaPath([host.filmsRoot(), host.storyFilmsRoot()], args[0]);
     if (!source.toLowerCase().endsWith(".mp4")) throw new Error("Invalid film path");
-    if (args[1].length === 0 || args[1].length > 4096 || args[1].includes("\0")) {
-      throw new Error("Invalid film path");
+    const options = filmExportOptions(args[3]);
+    const state = { cancelled: false };
+    if (options.requestId && exportsInProgress.has(options.requestId))
+      throw new Error("EXPORT_ALREADY_RUNNING");
+    if (options.requestId) exportsInProgress.set(options.requestId, state);
+    let destination: string;
+    try {
+      destination = await exportFilmFile(
+        source,
+        args[1],
+        typeof args[2] === "string" ? args[2] : undefined,
+        options,
+        host.runFfmpeg,
+        () => state.cancelled,
+      );
+    } finally {
+      if (options.requestId) exportsInProgress.delete(options.requestId);
     }
-    const suggested = typeof args[2] === "string" ? args[2] : basename(source);
-    const destination = join(args[1], safeExportName(suggested));
-    await host.copyFile(source, destination);
     exported.add(realpathSync(destination));
     return { ok: true, path: destination };
+  });
+
+  handle("film:cancel-export", async (event, ...args) => {
+    guard(event);
+    const options = filmExportOptions({ requestId: args[0] });
+    if (args.length !== 1 || !options.requestId) throw new Error("EXPORT_OPTIONS_INVALID");
+    const state = exportsInProgress.get(options.requestId);
+    if (state) state.cancelled = true;
+    return { ok: true };
   });
 
   handle("film:reveal", async (event, ...args) => {
