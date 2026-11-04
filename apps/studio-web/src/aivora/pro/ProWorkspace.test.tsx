@@ -1190,6 +1190,23 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
   expect(screen.getByRole("button", { name: "补上结尾" })).toBeEnabled();
 });
 
+it("keeps one primary button per page, export only on 剪辑", async () => {
+  installDesktop();
+  await openSample();
+  const primaries = () =>
+    [...document.querySelectorAll<HTMLElement>(".app .btn.primary")].map((item) =>
+      item.textContent?.trim(),
+    );
+  fireEvent.click(stageTab("剧本"));
+  expect(primaries()).toEqual(["让导演拆镜头"]);
+  fireEvent.click(stageTab("剪辑"));
+  expect(primaries()).toContain("导出成片");
+  fireEvent.click(stageTab("分镜"));
+  expect(primaries()).not.toContain("导出成片");
+  expect(screen.getByRole("button", { name: /生成这一场/ })).not.toHaveClass("primary");
+  expect(screen.queryByRole("button", { name: "下一步：剪辑" })).toBeNull();
+});
+
 it("makes every missing portrait from one button and shows each slot's state", async () => {
   installDesktop();
   await openSample();
@@ -1203,7 +1220,9 @@ it("makes every missing portrait from one button and shows each slot's state", a
   fireEvent.click(all);
   await waitFor(() => expect(screen.getAllByText("已完成")).toHaveLength(4));
   expect(document.querySelector(".portrait-progress")).toHaveTextContent("都齐了");
-  expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeDisabled();
+  // Everyone is done: the one primary button now moves on to the storyboard.
+  expect(screen.queryByRole("button", { name: "给所有人出定妆照" })).toBeNull();
+  expect(screen.getByRole("button", { name: "下一步：分镜" })).toHaveClass("primary");
   expect(screen.queryByRole("button", { name: "补这个人的" })).toBeNull();
   expect(screen.getAllByText("定妆照齐了").length).toBeGreaterThan(0);
 });

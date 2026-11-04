@@ -123,6 +123,7 @@ import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
 import { HomeStart, type Aspect } from "../next/HomeStart";
+import { stageProgress } from "../next/adapters/stageProgress";
 import { createProductionActions } from "./production-actions";
 import {
   AGE_BANDS,
@@ -3014,7 +3015,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               {soundOn ? "声音开" : "声音关"}
             </button>
             <button
-              className="btn primary"
+              className={open && stage === "edit" ? "btn primary" : "btn"}
               onClick={() => {
                 setExportOpen(true);
                 if (!exportDir) {
@@ -3147,6 +3148,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                   onOneClick={() => void oneClickFilm()}
                   onTemplate={applyTemplate}
+                  onNext={() => setStage("cast")}
                 />
               )}
               {stage === "cast" && (
@@ -3158,6 +3160,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onPortraits={makePortraits}
                   onTraits={(id, traits) => void production.updateCharacterTraits(id, traits)}
                   onAllPortraits={(ids) => void production.makeAllPortraits(ids)}
+                  onNext={() => setStage("board")}
                   portraits={portraitFeed(feed, film.id)}
                   portraitBusy={portraitBusy}
                   voices={voiceChoices}
@@ -3217,6 +3220,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRetry={pendingRetry ? () => void retryPending() : undefined}
                   assistPulse={assistPulse}
                   onFixCoverage={(sceneId) => production.fixCoverage(sceneId)}
+                  onNext={() => setStage("edit")}
                   structured={structured}
                   card={
                     roleCards[role]?.shots &&
@@ -4205,6 +4209,7 @@ function ScriptPage({
   onOneClick,
   onTemplate,
   onRetry,
+  onNext,
 }: {
   film: FilmProject;
   scene: string;
@@ -4237,12 +4242,16 @@ function ScriptPage({
   turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
   /** 3J-U04: retry for the reply that just failed; the button sits under that reply. */
   onRetry?: () => void;
+  /** 「下一步：角色与场景」, the primary button once every scene has shots. */
+  onNext?: () => void;
   card: RoleCard | null;
   onRedoRange: () => void;
   onDismiss: () => void;
   onOneClick: () => void;
   onTemplate: (name: string) => void;
 }) {
+  // The primary button moves on once the director has gone through every scene.
+  const done = stageProgress(film).script;
   const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
   const words = film.scenes.reduce((sum, item) => sum + item.text.length, 0);
   return (
@@ -4323,13 +4332,22 @@ function ScriptPage({
             <button className="on">场景</button>
           </div>
           <span className="sp" />
-          <button className="btn primary" onClick={onPlan} disabled={asking}>
+          <button
+            className={done && onNext ? "btn" : "btn primary"}
+            onClick={onPlan}
+            disabled={asking}
+          >
             <Ic name="clap" size={15} />
             {asking ? "正在写" : "让导演拆镜头"}
           </button>
           <button className="btn" type="button" onClick={onOneClick} disabled={asking}>
             {asking ? "正在做" : "一键成片"}
           </button>
+          {done && onNext ? (
+            <button className="btn primary" type="button" onClick={onNext}>
+              下一步：角色与场景
+            </button>
+          ) : null}
           <select
             className="input"
             aria-label="从模板开始"
@@ -4441,6 +4459,7 @@ function CastPage({
   onPortraits,
   onTraits,
   onAllPortraits,
+  onNext,
   portraits,
   portraitBusy,
   voices,
@@ -4460,6 +4479,8 @@ function CastPage({
   portraitBusy: boolean;
   /** 3J-U06: one queue for every missing angle of these people (GPT makeAllPortraits). */
   onAllPortraits: (characterIds: string[]) => void;
+  /** 「下一步：分镜」, the primary button once everyone has all four portraits. */
+  onNext?: () => void;
   /** 3J-U06: the run in progress and each slot's state, from the task feed. */
   portraits: PortraitFeed;
   voices: { id: string; label: string }[];
@@ -4565,14 +4586,20 @@ function CastPage({
           )}
           {side === "people" && film.characters.length > 0 && (
             <div className="portrait-all">
-              <button
-                className="btn primary sm"
-                type="button"
-                disabled={busy || missing === 0}
-                onClick={() => onAllPortraits(ready.map((person) => person.id))}
-              >
-                {busy ? "正在出定妆照" : "给所有人出定妆照"}
-              </button>
+              {stageProgress(film).cast && onNext ? (
+                <button className="btn primary sm" type="button" onClick={onNext}>
+                  下一步：分镜
+                </button>
+              ) : (
+                <button
+                  className="btn primary sm"
+                  type="button"
+                  disabled={busy || missing === 0}
+                  onClick={() => onAllPortraits(ready.map((person) => person.id))}
+                >
+                  {busy ? "正在出定妆照" : "给所有人出定妆照"}
+                </button>
+              )}
               <span className="portrait-progress" title="这一轮出好的张数 / 要出的张数">
                 {batch?.running
                   ? progress
@@ -5034,6 +5061,7 @@ function BoardPage({
   onDismiss,
   onRetry,
   onFixCoverage,
+  onNext,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -5075,6 +5103,8 @@ function BoardPage({
   onDismiss: () => void;
   /** 3J-U10: 「补上结尾」, GPT fixCoverage (C9). Settles when the director is done. */
   onFixCoverage: (sceneId: string) => Promise<unknown>;
+  /** 「下一步：剪辑」, the primary button once every shot has a video. */
+  onNext?: () => void;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
@@ -5092,6 +5122,8 @@ function BoardPage({
   const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
   // 3J-U10: what the scene on show still misses (C9) and the actions that fit no shot (C10).
   const [fixing, setFixing] = useState("");
+  // One primary button per screen: the shot's own action, or 「下一步：剪辑」 when all are made.
+  const allMade = stageProgress(film).board && Boolean(onNext);
   const sceneRow = film.scenes.find((item) => item.id === current?.sceneId);
   // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
   // does not run the check again on every edit.
@@ -5202,10 +5234,15 @@ function BoardPage({
           <button className="btn" onClick={onGenerate}>
             单镜
           </button>
-          <button className="btn primary" onClick={onBatch}>
+          <button className="btn" onClick={onBatch}>
             <Ic name="spark" size={14} />
             生成这一场
           </button>
+          {allMade ? (
+            <button className="btn primary" type="button" onClick={onNext}>
+              下一步：剪辑
+            </button>
+          ) : null}
         </div>
         {sceneRow && (
           <SceneAlerts
@@ -5771,7 +5808,11 @@ function BoardPage({
                   生成画面
                 </button>
               ) : (
-                <button className="btn primary" type="button" onClick={onGenerate}>
+                <button
+                  className={allMade ? "btn" : "btn primary"}
+                  type="button"
+                  onClick={onGenerate}
+                >
                   生成视频
                 </button>
               )}
