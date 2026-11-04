@@ -14,6 +14,10 @@ export type AgentLogLine = {
   responseChars?: number;
   requestChars?: number;
   referenceImageCount?: number;
+  selectedReferenceImageCount?: number;
+  requestDispatched?: boolean;
+  imageLimit?: number;
+  videoReferenceLimit?: number;
   errorCode?: string;
 };
 
@@ -106,6 +110,16 @@ export function createAgentLog(filePath: string, options: { debug?: boolean } = 
         responseChars: count(line.responseChars),
         requestChars: count(line.requestChars),
         referenceImageCount: count(line.referenceImageCount),
+        ...(line.selectedReferenceImageCount !== undefined
+          ? { selectedReferenceImageCount: count(line.selectedReferenceImageCount) }
+          : {}),
+        ...(typeof line.requestDispatched === "boolean"
+          ? { requestDispatched: line.requestDispatched }
+          : {}),
+        ...(line.imageLimit !== undefined ? { imageLimit: count(line.imageLimit) } : {}),
+        ...(line.videoReferenceLimit !== undefined
+          ? { videoReferenceLimit: count(line.videoReferenceLimit) }
+          : {}),
         ...(options.debug === true ? { debug: true } : {}),
         errorCode: errorCodes.has(line.errorCode ?? "") ? line.errorCode : undefined,
       });

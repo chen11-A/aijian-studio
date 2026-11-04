@@ -40,6 +40,11 @@ export type FilmLibraryHost = {
     ok: boolean;
     detail: string;
     referenceImageCount: number;
+    selectedReferenceImageCount: number;
+    /** A transport attempt, not confirmation that the provider received or accepted it. */
+    requestDispatched: boolean;
+    imageLimit: number;
+    videoReferenceLimit: number;
     durationMs: number;
     requestChars: number;
   }) => void;
@@ -224,16 +229,27 @@ export function registerFilmLibraryHandlers<TEvent>(
     }
     const token = await host.mediaToken();
     const started = Date.now();
+    const selectedReferenceImageCount = new Set(references).size;
+    let requestDispatched = false;
     const made = await requestStill({
       references,
       prompt: args[1],
       token,
-      fetcher: host.fetcher ?? globalThis.fetch,
+      fetcher: (input, init) => {
+        // Validation and sign-in failures never reach this transport boundary.
+        // A failed network attempt still does not prove provider acceptance.
+        if (init?.method === "POST") requestDispatched = true;
+        return (host.fetcher ?? globalThis.fetch)(input, init);
+      },
       destination: stillPath(host.filmsRoot(), args[0]),
       ...(args[2] === "9:16" || args[2] === "16:9" ? { aspectRatio: args[2] } : {}),
     });
     host.logStill?.({
-      referenceImageCount: new Set(references).size,
+      referenceImageCount: requestDispatched ? selectedReferenceImageCount : 0,
+      selectedReferenceImageCount,
+      requestDispatched,
+      imageLimit: 5,
+      videoReferenceLimit: 13,
       durationMs: Date.now() - started,
       requestChars: args[1].length,
       ok: Boolean(made.path),

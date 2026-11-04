@@ -631,3 +631,9 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### B17 仅原文归属风险的持久提示
 
 `SceneAlerts.coverageWarning?: string` 接收现有 `coverageNotice(coverage).detail`，仅在当前场 `coverage.ok=false` 且 `missingLines` 为空、`missingTail` 为空时提供。即使没有未分配动作，风险说明也留在分镜页，换页回来仍能看见。它不制造缺失台词，不把归属风险说成结尾漏拍，也不显示“补上结尾”按钮；现有说明给出核对原文与重新拆镜的下一步。对应 SceneAlerts 与 ProWorkspace 回归已通过；最终全量和 CI 结果另见阶段报告。
+
+# 下一轮补充：B19 数值诊断（已提供）
+
+桌面 `agents.log` 的图片请求记录增加 `selectedReferenceImageCount`、`requestDispatched`、`imageLimit`、`videoReferenceLimit`。`referenceImageCount` 只计入已尝试调用传输的参考图；未登录或超限而没有调用传输时为 0，已选数量另存。`requestDispatched=true` 仅表示尝试发起请求，不证明供应商收到、接受或生成成功。重复参考图先去重计数。
+
+这些字段仅为数值/布尔诊断，不加入状态栏、聊天或用户失败文案。原文、提示词、图片地址、凭据和供应商正文仍不写日志。B18 的 `coverageNotice` 和 B19 的 `stillFailureNotice` 保持现有接线；无需新增界面组件。
