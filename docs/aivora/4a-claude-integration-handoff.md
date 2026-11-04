@@ -5,7 +5,7 @@
 ## 基线与职责
 
 - 集成分支 `aivora/dev`：`7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11`，仍是已发布3j-r1代码。
-- GPT 交接基线 `gpt/work-4a`：`a7b5249f4354a97b73fcbdbc387d6f2c5c5225e1`。此前完整交付点 `b1afb5958efcaae25b708d57afc411ede2341857`；新提交只增加B01纯数据适配与测试。后续GPT提交仍须保留。
+- GPT 代码交接基线 `gpt/work-4a`：`9e8e9dda10146bc8e35ae26088ba20aeb26ccb0f`（包含本轮B01、B08补修）。此前完整交付点 `b1afb5958efcaae25b708d57afc411ede2341857`；本轮B01适配为 `a7b5249`，B08设计声明为 `9e8e9dd`。后续GPT提交仍须保留。
 - 已发现 `claude/work@caf50e27b50cdbf7571e85d28d5dc4319efa6d82`，它直接基于3j-r1，已经提供 PipelineSteps 和模板入口，**不需要重做组件**。其代码尚未含GPT的4a逻辑。
 - 旧 `claude/aivora-readme-docs-sa77rk@5ba2b82302a6bd035353e30f11eb1f1c922997a4` 的四笔改动 `9d89db8 → 2d7acb7 → d894dc3 → 5ba2b82` 仍未合入。它们与新claude/work不是同一条连续历史，后续整合需逐项保留，不要丢弃或重复覆盖。
 - ProWorkspace 按业务职责拆分，不按旧行号：GPT保留 `pipelineWorkspace`、保存协调、请求守卫、角色事务、generation队列等逻辑；Claude改JSX/CSS/页面props/最终文案。冲突时不整文件取任一边，不复制3j版本的处理函数覆盖4a。`pro/actions/**`、`film/*.ts` 归GPT。
@@ -34,7 +34,7 @@
 新 `pro/pipeline-view.ts`：
 
 - `pipelineView(film)` 返回 `kind: empty | invalid | ready`。empty显示空状态；invalid带错误code，不伪造进度。
-- ready有 `status/current/code/steps/checkpoint/busy/canAcceptReview/canContinue`。每步保留真实状态；每个target有 `id/status/attempt/code/detail/key/retryable/requiresOutcomeConfirmation`。副本可供展示，不修改project.json。
+- ready有 `status/current/code/steps/checkpoint/busy/canAcceptReview/canContinue`。每步保留真实状态；每个target有 `id/status/attempt/code/detail/key/retryable/requiresOutcomeConfirmation`。副本可供展示，不修改project.json。step没有最终中文label；请由Claude的步骤名称表补label并扩展状态类型，不直接把内部id当界面文字。
 - `pipelineRetryKey(film, stepId, targetId, outcomeConfirmed)` 返回精确key或null。只允许当前未完成步骤的可重试目标；uncertain须显式确认；完成目标、运行中、未知目标均返回null。返回值仍需传给宿主，宿主再次验证输入和保存状态。
 - `film.productionPipeline` 是完整持久化状态；`film.pipeline` 是C12投影。类型定义在 `film/production-pipeline.ts`、`film/contracts3j.ts`。
 - 状态必须支持 `queued/running/done/failed/blocked/needs-input/uncertain/accepted`，整体另有 `checkpoint/cancelled`。`accepted` 是人工确认，不能显示成AI自动完成；`assembly` 是实际合成步骤，也须显示。
@@ -73,7 +73,7 @@ pnpm exec vitest run src/aivora/next/wiring/noticeCopy.test.ts
 - B01：本轮已独立补状态/精确重试适配，37项流水线相关回归、tsc、ESLint、Prettier通过。剩下是上述界面操作和真实全流程验收。
 - B02/B03/B04/B07：逻辑已提供；真实会员画风、人脸、连续画面效果未验。默认日志只记计数/摘要，不记录完整原文，保留用户隐私取舍。
 - B05/B06：缺已登录真实会员环境，不能用模拟测试宣称看图可用或英文更好。
-- B08：仍有GPT可独立完成的美术可选设计字段持久化，正在继续；不能将这项标成等待Claude。24份是设计示例，不是已收集的真实Grok回复；sound/continuity六例无独立执行器，不额外引入4b音频或新场记智能体。
+- B08：本轮发现并完成独立的美术可选设计字段持久化 `9e8e9dda10146bc8e35ae26088ba20aeb26ccb0f`，52项相关测试和91项完整工作区回归通过，类型/lint/格式通过；未将这项推给Claude。普通字段 `artDesign/artDesignBaseline` 保留设计与声明，实际图片仍只看portraits/referenceImage等真实产物。24份是设计示例，不是已收集的真实Grok回复；sound/continuity六例无独立执行器，不额外引入4b音频或新场记智能体。
 - B09/B11：主要异步业务已拆入actions；宿主仍保留状态、生命周期、事务与薄回调。最新编导/拆镜/按页撤销接线 `4b3cc81ec9a608fc60eb532da626b19f480c20f6`，161项相关回归通过。Claude保留 `RoleCard.editorDiff/artDiff/directionDiff/storyDraft` 和原请求页面信息，差异展示读取这些固定建议，不从当前内容重造基线。
 - B10：场景参考和双画幅后端已提供，入口、画幅选择器和真实画面验收仍待整合。
 

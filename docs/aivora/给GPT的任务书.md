@@ -250,3 +250,9 @@ Linux Python 全量 5138 通过、0 失败、6 项 Windows 专用路径/共享�
 `a7b5249f4354a97b73fcbdbc387d6f2c5c5225e1` 提供 `pro/pipeline-view.ts`：保留完整状态与目标key，限制精确重试、不自动重发uncertain，人工审片和独立checkpoint分别判定；37项流水线相关回归、tsc、ESLint、Prettier通过。仅数据适配，未启用旧入口，B01整体仍部分完成。
 
 只读核对发现 `claude/work@caf50e27b50cdbf7571e85d28d5dc4319efa6d82` 已提供步骤组件，但仍用旧queueBatch继续，缺人工审片及uncertain精确重试交互。具体交接见 `4a-claude-integration-handoff.md`；没有合并。101个提示码差集重新核对仍一致，单文件11项中10通过、1完整映射失败。B08美术设计声明持久化仍有独立GPT工作，继续实施，不归为Claude阻塞。
+
+### B08 美术声明持久化补修
+
+`9e8e9dda10146bc8e35ae26088ba20aeb26ccb0f` 已修本轮发现的独立缺口：普通字段artDesign/artDesignBaseline保留美术元数据、人物/场景/道具声明和定妆照计划；手动与流水线共用applyArtDraft，先前AI基线可更新，用户手改和未知旧值保留；确认/撤销CAS保护。三份真实设计示例逐字段、真实saveFilm→readSaved→hydrate与指纹验证包括在52项相关回归中；另91项完整ProWorkspace通过，类型/lint/格式通过。声明不创建实际素材，不自动用英文、不改画幅。真实输出没有顶层asset_ids，其支持由明确合成测试验证。B08仍未取得真实Grok回复的验收证据，sound/continuity无独立执行器及服装专用出图未冒充完成。
+
+可转给Claude的最终交接见 `4a-claude-integration-handoff.md`。本轮未合并任何分支，未调用付费服务；101代码映射仍需Claude补齐，不打4a tag。

@@ -758,3 +758,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### B01 最新界面适配与交接
 
 `pro/pipeline-view.ts` 的 `pipelineView(film)` 给出真实状态、目标key、retryable、requiresOutcomeConfirmation、canAcceptReview、canContinue；`pipelineRetryKey` 只解析用户明确选定目标，uncertain须先核对。控制器仍在执行时验证输入和保存归属。实现 `a7b5249`，相关37项回归通过。详细按钮映射、`claude/work@caf50e2` 已实现范围与冲突注意事项见 `docs/aivora/4a-claude-integration-handoff.md`，不要把stepId或旧queueBatch直接当新流水线重试/继续。
+
+### B08 美术设计声明（已提供，非生成素材）
+
+`FilmProject.artDesign/artDesignBaseline` 保存色板、年代、光线、镜头、备用英文描述及模型声明的人物/地点/道具/定妆照计划；与真实portraits/referenceImage分离。新图显示仍取实际生成结果，不能因asset_id存在就显示已完成。由applyArtDraft统一合并，artDiff纳入CAS与撤销。实现 `9e8e9dd`，52项相关与91项工作区回归通过；不要求Claude接新的生成入口。
