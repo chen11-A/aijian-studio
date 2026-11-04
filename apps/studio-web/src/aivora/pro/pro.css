@@ -1192,6 +1192,21 @@ body:has(.pro-root) {
   gap: 8px;
   flex: none;
 }
+/* 3J-U07: one row, at most three buttons; the primary one follows the shot's state. */
+.pro-root .pfoot2.one {
+  display: flex;
+}
+.pro-root .pfoot2.one > .btn.primary {
+  flex: 1;
+  justify-content: center;
+}
+.pro-root .more-wrap {
+  position: relative;
+}
+.pro-root .menu.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
 .pro-root .field .area {
   min-height: 0;
 }

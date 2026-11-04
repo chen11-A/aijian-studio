@@ -173,8 +173,8 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
     expect(screen.getByText(/已写入这一镜|你改过的/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "属性" }));
-    fireEvent.click(screen.getByRole("button", { name: "前移" }));
-    fireEvent.click(screen.getByRole("button", { name: "后移" }));
+    moreAction("前移");
+    moreAction("后移");
     fireEvent.click(stageTab("角色与场景"));
     fireEvent.click(screen.getByRole("button", { name: /刀疤/ }));
     fireEvent.change(screen.getByLabelText("人物名字"), { target: { value: "老刀" } });
@@ -460,11 +460,12 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText(/画面已生成。/)).toBeInTheDocument();
       expect(screen.getAllByText("画面已出").length).toBeGreaterThan(0);
-      fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+      expect(screen.getByRole("button", { name: "生成视频" })).toHaveClass("primary");
+      moreAction("重新生成画面");
       expect(await screen.findByText(/模型拒绝了这一张。/)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+      moreAction("重新生成画面");
       expect(await screen.findByText(/出图没有成功，可以重试。/)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+      moreAction("重新生成画面");
       expect(await screen.findByText(/画面已生成。/)).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
       fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
@@ -864,7 +865,7 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     expect(speak).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "高级" }));
     expect(screen.getByText("英文提示词还没写。请提示词工程师写。")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "出 4 张候选" }));
+    moreAction("出 4 张候选");
     expect(document.querySelector(".statusbar")?.textContent).toMatch(/确认这 4 张/);
     fireEvent.click(screen.getByRole("button", { name: "确认这 4 张" }));
     expect(await screen.findByText(/4 张候选画面已生成/)).toBeInTheDocument();
@@ -1222,6 +1223,12 @@ function pickHelper(name: string) {
   const option = [...select.options].find((item) => item.textContent === name);
   if (!option) throw new Error(`没有「${name}」这位助手`);
   fireEvent.change(select, { target: { value: option.value } });
+}
+
+/** Picks an item from 「更多」 under the shot's properties on 分镜. */
+function moreAction(name: string) {
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
+  fireEvent.click(screen.getByRole("button", { name }));
 }
 
 /** Opens 分镜 → 属性 → 高级, where 提示词 and 审片 run. */
@@ -2364,4 +2371,28 @@ it("shows one row of shot lengths with 自定义, a three-line picture box and s
     "placeholder",
     "不写就用整部作品的画风：写实电影感",
   );
+});
+
+it("keeps one primary button under a shot that follows its state, the rest under 更多", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const footer = () => document.querySelector(".pfoot2") as HTMLElement;
+  expect(within(footer()).getAllByRole("button").length).toBeLessThanOrEqual(3);
+  expect(footer().querySelectorAll(".btn.primary")).toHaveLength(1);
+  expect(within(footer()).getByRole("button", { name: "生成画面" })).toHaveClass("primary");
+  fireEvent.click(within(footer()).getByRole("button", { name: "更多操作" }));
+  expect(
+    within(screen.getByRole("menu", { name: "这一镜的更多操作" }))
+      .getAllByRole("button")
+      .map((item) => item.textContent),
+  ).toEqual(["前移", "后移", "出 4 张候选", "删除这一镜"]);
+  fireEvent.click(within(footer()).getByRole("button", { name: "更多操作" }));
+  fireEvent.click(within(footer()).getByRole("button", { name: "生成画面" }));
+  expect(within(footer()).getByRole("button", { name: "正在生成画面" })).toBeDisabled();
+  expect(document.querySelector(".card.sel .badge")?.textContent).toBe("正在生成画面");
+  expect(await screen.findByText(/画面已生成。/)).toBeInTheDocument();
+  expect(within(footer()).getByRole("button", { name: "生成视频" })).toHaveClass("primary");
+  fireEvent.click(within(footer()).getByRole("button", { name: "更多操作" }));
+  expect(screen.getByRole("button", { name: "重新生成画面" })).toBeInTheDocument();
 });

@@ -4798,6 +4798,7 @@ function BoardPage({
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
   const [customSeconds, setCustomSeconds] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const seenAssist = useRef(assistPulse);
   const lastTurnRole = turns.at(-1)?.role;
   useEffect(() => {
@@ -5354,35 +5355,91 @@ function BoardPage({
                 )}
               </div>
             </div>
-            <div className="pfoot2">
-              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, -1))}>
-                前移
-              </button>
-              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, 1))}>
-                后移
-              </button>
-              <button
-                className="btn"
-                onClick={() => {
-                  onFilm(removeShot(film, current.id));
-                  onNotice("已删除这一镜。");
-                }}
-              >
-                删除
-              </button>
-              <button
-                className="btn"
-                onClick={onStills}
-                disabled={Boolean(stillProgress[current.id])}
-              >
-                {stillProgress[current.id] || "生成画面"}
-              </button>
-              <button className="btn" type="button" onClick={onFour}>
-                {fourArmed && current && fourArmed === current.id ? "确认这 4 张" : "出 4 张候选"}
-              </button>
-              <button className="btn primary" onClick={onGenerate}>
-                生成视频
-              </button>
+            <div className="pfoot2 one">
+              <div className="more-wrap">
+                <button
+                  className="btn"
+                  type="button"
+                  aria-label="更多操作"
+                  aria-expanded={moreOpen}
+                  onClick={() => setMoreOpen((open) => !open)}
+                >
+                  更多
+                </button>
+                {moreOpen ? (
+                  <div className="menu up" role="menu" aria-label="这一镜的更多操作">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        onFilm(moveShot(film, current.id, -1));
+                      }}
+                    >
+                      前移
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        onFilm(moveShot(film, current.id, 1));
+                      }}
+                    >
+                      后移
+                    </button>
+                    {fourArmed !== current.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoreOpen(false);
+                          onFour();
+                        }}
+                      >
+                        出 4 张候选
+                      </button>
+                    ) : null}
+                    {shotProgress(current) !== "未生成" ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(stillProgress[current.id])}
+                        onClick={() => {
+                          setMoreOpen(false);
+                          onStills();
+                        }}
+                      >
+                        重新生成画面
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        onFilm(removeShot(film, current.id));
+                        onNotice("已删除这一镜。");
+                      }}
+                    >
+                      删除这一镜
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              {fourArmed === current.id ? (
+                <button className="btn" type="button" onClick={onFour}>
+                  确认这 4 张
+                </button>
+              ) : null}
+              {stillProgress[current.id] ? (
+                <button className="btn primary" type="button" disabled>
+                  {stillProgress[current.id]}
+                </button>
+              ) : shotProgress(current) === "未生成" ? (
+                <button className="btn primary" type="button" onClick={onStills}>
+                  生成画面
+                </button>
+              ) : (
+                <button className="btn primary" type="button" onClick={onGenerate}>
+                  生成视频
+                </button>
+              )}
             </div>
           </>
         ) : (
