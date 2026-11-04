@@ -16,7 +16,7 @@ export const SUBTITLE_STYLES: readonly SubtitleStyleOption[] = [
 const LOOKS = new Set(SUBTITLE_STYLES.map((style) => style.id));
 
 export type SubtitleStyleProps = {
-  /** The chosen style id. */
+  /** The chosen style id. An id that is not among styles means none is chosen yet. */
   value: string;
   /** A line from the script to preview, for example 「你来晚了。这家店，下个月就没了。」. */
   sampleLine: string;
@@ -68,6 +68,7 @@ export function SubtitleStyle({
   const cards = useRef(new Map<string, HTMLButtonElement>());
   const look = lookOf(value);
   const ids = styles.map((style) => style.id);
+  const chosen = ids.includes(value);
   const tallLines = wrapLine(sampleLine, tallLineLength);
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -102,7 +103,7 @@ export function SubtitleStyle({
                 type="button"
                 role="radio"
                 aria-checked={style.id === value}
-                tabIndex={style.id === value ? 0 : -1}
+                tabIndex={style.id === value || (!chosen && style.id === ids[0]) ? 0 : -1}
                 className="nx-sub-card"
                 onClick={() => onChange(style.id)}
               >
@@ -148,8 +149,15 @@ export function SubtitleStyle({
           </div>
           {onApply ? (
             <div className="nx-subs-foot">
-              <span className="nx-faint">整部作品的字幕一起换，可以撤销。</span>
-              <button type="button" className="nx-btn nx-primary" onClick={() => onApply(value)}>
+              <span className="nx-faint">
+                {chosen ? "整部作品的字幕一起换，可以撤销。" : "先在左边选一套样式。"}
+              </span>
+              <button
+                type="button"
+                className="nx-btn nx-primary"
+                disabled={!chosen}
+                onClick={() => onApply(value)}
+              >
                 用这个样式
               </button>
             </div>

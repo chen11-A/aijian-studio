@@ -63,6 +63,21 @@ describe("SubtitleStyle", () => {
     expect(onApply).toHaveBeenCalledWith("bold");
   });
 
+  it("waits for a choice before it can apply", () => {
+    const onApply = vi.fn();
+    renderStyle({ value: "", onApply });
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toHaveAttribute("aria-checked", "false");
+    }
+    expect(screen.getByRole("radio", { name: /清楚白字/ })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("radio", { name: /底条字幕/ })).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByText("先在左边选一套样式。")).toBeInTheDocument();
+    const apply = screen.getByRole("button", { name: "用这个样式" });
+    expect(apply).toBeDisabled();
+    fireEvent.click(apply);
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
   it("draws an unknown style with the plain look and hides apply without a handler", () => {
     renderStyle({
       value: "mine",
