@@ -1,3 +1,4 @@
+import { isLocationImage } from "../film/location-reference";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import type { PipelineProgress, UiNotice } from "../film/contracts3j";
 import { detectDirectorCoverage, shotLines } from "../film/director-continuity";
@@ -77,6 +78,7 @@ class SnapshotPreparationError extends Error {
 // These are the media fields transformed by desktop film-library.materializeMedia.
 // Source text and prompts remain business content, even if they mention data/blob URLs.
 const transientMediaKeys = new Set([
+  "referenceImage",
   "poster",
   "stillUrl",
   "videoUrl",
@@ -168,11 +170,20 @@ export function filmPipelineTargets(film: FilmProject, step: ProductionStepId): 
     case "art":
       return ["art"];
     case "portraits":
-      return film.characters.flatMap((person) =>
-        portraitPrompts(person.name, person.identity, film.styleZh).map(
-          ({ view }) => `${person.id}@${view}`,
+      return [
+        ...film.characters.flatMap((person) =>
+          portraitPrompts(person.name, person.identity, film.styleZh).map(
+            ({ view }) => `${person.id}@${view}`,
+          ),
         ),
-      );
+        ...film.locations
+          .filter(
+            (location) =>
+              location.name.trim() &&
+              film.scenes.some((scene) => scene.where.trim() === location.name.trim()),
+          )
+          .map((location) => `location:${location.id}`),
+      ];
     case "director":
       return film.scenes.map((scene) => scene.id);
     case "action":
@@ -495,6 +506,19 @@ async function executeMedia(
     const characterId = targetId.slice(0, split);
     const view = targetId.slice(split + 1);
     const complete = async (value: FilmProject) => {
+      if (targetId.startsWith("location:")) {
+        const location = value.locations.find(
+          (item) => item.id === targetId.slice("location:".length),
+        );
+        return Boolean(
+          location &&
+          isLocationImage(location.referenceImage) &&
+          value.locations.filter((item) => item.name.trim() === location.name.trim()).length ===
+            1 &&
+          location.referenceStyleRevision === (value.styleRevision ?? 0) &&
+          (await validMedia(location.referenceImage, "image")),
+        );
+      }
       const person = value.characters.find((person) => person.id === characterId);
       if (
         !person ||
@@ -515,7 +539,13 @@ async function executeMedia(
     if (result.status !== "done") return { ...result, film: next };
     return (await complete(next))
       ? { ...result, film: next }
-      : { ...failure("PORTRAITS_INCOMPLETE", "failed"), film: next };
+      : {
+          ...failure(
+            targetId.startsWith("location:") ? "LOCATION_IMAGE_INCOMPLETE" : "PORTRAITS_INCOMPLETE",
+            "failed",
+          ),
+          film: next,
+        };
   }
   if (step === "stills" || step === "video") {
     const shot = film.shots.find((shot) => shot.id === targetId);

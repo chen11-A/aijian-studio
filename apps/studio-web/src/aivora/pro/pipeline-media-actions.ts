@@ -1,3 +1,4 @@
+import { makeLocationReferences } from "../film/location-reference";
 import { withStyleBible } from "../film/style-bible";
 import type { ProductionResult } from "../film/production-pipeline";
 import type { FilmProject } from "../film/project";
@@ -22,6 +23,27 @@ export async function makePipelinePortraits(
   context: PipelineMediaContext,
   generate: typeof requestStill = requestStill,
 ): Promise<MediaResult> {
+  if (targetId.startsWith("location:")) {
+    const locationId = targetId.slice("location:".length);
+    if (!film.locations.some((item) => item.id === locationId))
+      return { status: "blocked", code: "LOCATION_TARGET_INVALID" };
+    if (!valid(context)) return stale();
+    const result = await makeLocationReferences({
+      base: film,
+      locationIds: [locationId],
+      current: context.current,
+      isCurrent: () => valid(context),
+      apply: context.commitPartial,
+      generate: (prompt, references) =>
+        generate(film.seriesId, withStyleBible(prompt, film.styleZh), film.aspectRatio, references),
+    });
+    if (!valid(context) || result.cancelled) return stale();
+    return {
+      film: context.current(),
+      status: result.failed ? "failed" : "done",
+      code: result.failed ? result.failures[0]!.code : "LOCATION_IMAGE_DONE",
+    };
+  }
   const separator = targetId.lastIndexOf("@");
   const characterId = targetId.slice(0, separator);
   const view = targetId.slice(separator + 1);

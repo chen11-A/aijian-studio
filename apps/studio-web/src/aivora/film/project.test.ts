@@ -142,6 +142,7 @@ describe("film project", () => {
     prefixed.characters[0]!.portraits = [
       { view: "正面", prompt: "定妆", url: "data:image/png;base64,aa" },
     ];
+    prefixed.aspectRatio = "9:16";
     const episode = newEpisode(prefixed);
     expect(episode.aspectRatio).toBe("9:16");
     prefixed.aspectRatio = "16:9";
@@ -220,7 +221,7 @@ describe("film project", () => {
     expect([...new Set(selected?.map((shot) => shot.sceneId))]).toEqual(["scene-1"]);
     expect(selected?.[0]?.performance).toContain("停 0.4 秒");
     expect(selected?.[0]?.performance).not.toContain("hold_s");
-    expect(blankFilm().aspectRatio).toBe("9:16");
+    expect(blankFilm().aspectRatio).toBe("16:9");
     film.aspectRatio = "16:9";
     writeFilm(window.localStorage, film);
     expect(readFilm(window.localStorage)?.aspectRatio).toBe("16:9");

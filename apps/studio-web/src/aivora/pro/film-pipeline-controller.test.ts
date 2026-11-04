@@ -724,3 +724,102 @@ it("validates the saved fingerprint before interrupting only owned video work du
   expect(env.host.video).not.toHaveBeenCalled();
   expect(runPipelineAgentAction).not.toHaveBeenCalled();
 });
+
+it("plans locations after characters and resumes only the failed location target", async () => {
+  const film = fixture();
+  film.locations = [
+    { id: "one", name: "书店", prompt: "书架", ambience: "" },
+    { id: "two", name: "街道", prompt: "路灯", ambience: "" },
+    { id: "unused", name: "医院", prompt: "走廊", ambience: "" },
+  ];
+  film.scenes[0]!.where = "书店";
+  film.scenes.push({ ...film.scenes[0]!, id: "scene-two", where: "街道" });
+  expect(filmPipelineTargets(film, "portraits")).not.toContain("location:unused");
+  expect(filmPipelineTargets(film, "portraits").slice(-2)).toEqual([
+    "location:one",
+    "location:two",
+  ]);
+  const env = setup(await prime(film, "portraits"));
+  let refuse = true;
+  env.host.generatePortraits = vi.fn<NonNullable<FilmPipelineHost["generatePortraits"]>>(
+    async (_base, target, ctx) => {
+      if (target === "location:two" && refuse)
+        return { status: "failed", code: "LOCATION_IMAGE_FAILED" };
+      const live = ctx.current();
+      await ctx.commitPartial({
+        ...live,
+        locations: live.locations.map((location) =>
+          target === `location:${location.id}`
+            ? {
+                ...location,
+                referenceImage: `/media/${location.id}.png`,
+                referenceStyleRevision: live.styleRevision ?? 0,
+              }
+            : location,
+        ),
+      });
+      return { status: "done", film: ctx.current() };
+    },
+  );
+  expect((await env.controller().run()).status).toBe("failed");
+  expect(env.disk.at(-1)?.locations[0]!.referenceImage).toBe("/media/one.png");
+  refuse = false;
+  await env.controller().run({ retryTargets: ["portraits/location:two"] });
+  expect(vi.mocked(env.host.generatePortraits!).mock.calls.map((call) => call[1])).toEqual([
+    "location:one",
+    "location:two",
+    "location:two",
+  ]);
+  const target = env
+    .live()
+    .productionPipeline!.steps.find((step) => step.id === "portraits")!
+    .targets.find((item) => item.id === "location:two");
+  expect(target?.status).toBe("done");
+});
+
+it("reuses verified location images but rejects stale styles and false success", async () => {
+  for (const mode of ["valid", "missing", "stale"] as const) {
+    const film = fixture();
+    film.locations = [
+      {
+        id: "one",
+        name: "书店",
+        prompt: "书架",
+        ambience: "",
+        referenceImage: "/media/place.png",
+        referenceStyleRevision: mode === "stale" ? 99 : (film.styleRevision ?? 0),
+      },
+    ];
+    film.scenes[0]!.where = "书店";
+    const env = setup(await prime(film, "portraits"));
+    env.host.verifyMedia = async (path) => !(mode === "missing" && path === "/media/place.png");
+    env.host.generatePortraits = vi.fn<NonNullable<FilmPipelineHost["generatePortraits"]>>(
+      async (base) => ({ status: "done", film: base }),
+    );
+    await env.controller().run();
+    const target = env
+      .live()
+      .productionPipeline!.steps.find((step) => step.id === "portraits")!
+      .targets.find((item) => item.id === "location:one");
+    if (mode === "valid") {
+      expect(target?.status).toBe("done");
+      expect(env.host.generatePortraits).not.toHaveBeenCalled();
+    } else {
+      expect(target?.status).toBe("failed");
+      expect(target?.code).toBe("LOCATION_IMAGE_INCOMPLETE");
+    }
+  }
+});
+
+it("does not queue empty, unused or partially matching location names", () => {
+  const film = fixture();
+  film.scenes[0]!.where = "旧书店";
+  film.locations = [
+    { id: "empty", name: "", prompt: "", ambience: "" },
+    { id: "partial", name: "书店", prompt: "", ambience: "" },
+    { id: "unused", name: "医院", prompt: "", ambience: "" },
+  ];
+  expect(
+    filmPipelineTargets(film, "portraits").filter((target) => target.startsWith("location:")),
+  ).toEqual([]);
+});

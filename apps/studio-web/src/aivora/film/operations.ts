@@ -1,3 +1,4 @@
+import { locationReference } from "./location-reference";
 import { parseAgentReplyText } from "./agent-reply-compat";
 import { sceneDisplayTitle } from "./director-continuity";
 import { withStyleBible } from "./style-bible";
@@ -1321,13 +1322,17 @@ export function firstFrameReferences(film: FilmProject, shot: FilmShot): string[
       .filter((portrait) => usableImage(portrait.url))
       .sort((a, b) => Number(b.view === "正面") - Number(a.view === "正面")),
   );
+  const location = locationReference(film, shot);
   return [
     ...new Set(
       [0, 1, 2, 3]
         .flatMap((index) => portraits.map((views) => views[index]?.url ?? ""))
         .filter(Boolean),
     ),
-  ].slice(0, 5);
+    ...(location ? [location.url] : []),
+  ]
+    .filter((url, index, all) => all.indexOf(url) === index)
+    .slice(0, 5);
 }
 
 export function shotReference(
@@ -1335,7 +1340,7 @@ export function shotReference(
   film: FilmProject,
 ): {
   still: string;
-  references: { url: string; who: string }[];
+  references: { url: string; who: string; kind?: "location" }[];
 } {
   const picked =
     [shot.poster, ...shot.stills.map((item) => item.url)].find((url) => usableImage(url)) ?? "";
@@ -1355,21 +1360,27 @@ export function shotReference(
   // A portrait is a reference, never a generated first frame, regardless of URL scheme.
   const pinned = picked;
   const seen = new Set<string>(pinned ? [pinned] : []);
-  const references: { url: string; who: string }[] = [];
+  const references: { url: string; who: string; kind?: "location" }[] = [];
   for (const item of ranked) {
     if (seen.has(item.url)) continue;
     seen.add(item.url);
     references.push({ url: item.url.slice(0, 500), who: item.who });
     if (references.length === 13) break;
   }
+  const location = locationReference(film, shot);
+  if (location && references.length < 13 && !seen.has(location.url)) references.push(location);
   return { still: pinned.slice(0, 500), references };
 }
 
-function imageCue(references: { who: string }[], draft: boolean): string {
+function imageCue(references: { who: string; kind?: "location" }[], draft: boolean): string {
   const parts = ["<IMAGE_0> 是这一镜的起始画面。"];
   if (!draft) {
     references.forEach((item, index) => {
-      parts.push(`<IMAGE_${index + 1}> 是${item.who}的定妆照。`);
+      parts.push(
+        item.kind === "location"
+          ? `<IMAGE_${index + 1}> 是${item.who}的场景空镜，保持背景一致，不添加人物。`
+          : `<IMAGE_${index + 1}> 是${item.who}的定妆照。`,
+      );
     });
   }
   return parts.join("");

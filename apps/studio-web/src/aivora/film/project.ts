@@ -82,6 +82,8 @@ export type FilmJob = {
 };
 
 export type FilmLocation = {
+  referenceImage?: string;
+  referenceStyleRevision?: number;
   id: string;
   name: string;
   prompt: string;
@@ -300,7 +302,7 @@ export function blankFilm(): FilmProject {
     narrationVoiceId: "",
     audioClips: [],
     backendProjectId: "",
-    aspectRatio: "9:16",
+    aspectRatio: "16:9",
   };
 }
 

@@ -549,9 +549,9 @@ describe("film operations", () => {
     expect(batch.shots[0]?.prompt).toContain("<IMAGE_0>");
     expect(batch.shots[0]?.prompt).toContain("<IMAGE_1>");
     expect(batch.shots[0]?.prompt).toContain("定妆照");
-    expect(batch.aspect_ratio).toBe("9:16");
-    expect(storyFilmBatches({ ...film, aspectRatio: "16:9" }, [shot], false)[0]?.aspect_ratio).toBe(
-      "16:9",
+    expect(batch.aspect_ratio).toBe("16:9");
+    expect(storyFilmBatches({ ...film, aspectRatio: "9:16" }, [shot], false)[0]?.aspect_ratio).toBe(
+      "9:16",
     );
     expect(draftFaceWarning(true)).toContain("脸可能会变");
     expect(draftFaceWarning(false)).toBe("");

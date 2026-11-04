@@ -151,3 +151,58 @@ it("keeps a partial assembly available without claiming that audio succeeded", a
   expect(result.film?.assemblyPath).toBe("/fixture/partial.mp4");
   expect(result.detail).not.toContain("fixture audio failure");
 });
+
+it("generates only the selected location through the actual bridge, with no images and the complete style", async () => {
+  const { film, context } = fixture();
+  film.styleZh = "完整画风：雨夜冷光，木质纹理，保留胶片颗粒。";
+  film.locations = [
+    { id: "one", name: "书店", prompt: "书架", ambience: "" },
+    { id: "two", name: "街道", prompt: "路灯", ambience: "" },
+  ];
+  const generateFilmStill = vi.fn<
+    NonNullable<NonNullable<typeof window.aijian>["generateFilmStill"]>
+  >(async () => ({ path: "/media/street.png", reason: "" }));
+  const previous = window.aijian;
+  window.aijian = { ...previous, generateFilmStill } as typeof window.aijian;
+  try {
+    expect(await makePipelinePortraits(film, "location:two", context)).toMatchObject({
+      status: "done",
+      code: "LOCATION_IMAGE_DONE",
+    });
+    expect(generateFilmStill).toHaveBeenCalledOnce();
+    expect(generateFilmStill.mock.calls[0]).toEqual([
+      film.seriesId,
+      expect.stringContaining(film.styleZh),
+      film.aspectRatio,
+      [],
+    ]);
+    expect(String(generateFilmStill.mock.calls[0]?.[1])).toContain("空镜，没有人物。街道。路灯");
+    expect(context.current().locations[0]!.referenceImage).toBeUndefined();
+    expect(context.current().locations[1]!.referenceImage).toContain("street.png");
+    expect(await makePipelinePortraits(context.current(), "location:two", context)).toMatchObject({
+      status: "done",
+    });
+    expect(generateFilmStill).toHaveBeenCalledOnce();
+  } finally {
+    window.aijian = previous;
+  }
+});
+
+it("never completes failed or cancelled location generation", async () => {
+  const { film, context } = fixture();
+  film.locations = [{ id: "one", name: "书店", prompt: "书架", ambience: "" }];
+  const refused = vi.fn(async () => ({ url: "", reason: "private refusal" }));
+  expect(await makePipelinePortraits(film, "location:one", context, refused)).toMatchObject({
+    status: "failed",
+    code: "LOCATION_IMAGE_FAILED",
+  });
+  expect(refused).toHaveBeenCalledTimes(2);
+  const controller = new AbortController();
+  context.signal = controller.signal;
+  const result = await makePipelinePortraits(film, "location:one", context, async () => {
+    controller.abort();
+    return { url: "/media/late.png", reason: "" };
+  });
+  expect(result).toMatchObject({ status: "uncertain", code: "PIPELINE_REQUEST_STALE" });
+  expect(context.current().locations[0]!.referenceImage).toBeUndefined();
+});
