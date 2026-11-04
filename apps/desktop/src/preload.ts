@@ -277,7 +277,10 @@ contextBridge.exposeInMainWorld("aijianGrok", {
   completeText: (input) => ipcRenderer.invoke("grok-auth:text", input),
   speak: (input) => ipcRenderer.invoke("grok-auth:speech", input),
   recordAgent: (input) => ipcRenderer.invoke("grok-auth:agent-log", input),
-  cancelText: () => ipcRenderer.invoke("grok-auth:cancel-text"),
+  cancelText: (idempotencyKey) =>
+    idempotencyKey === undefined
+      ? ipcRenderer.invoke("grok-auth:cancel-text")
+      : ipcRenderer.invoke("grok-auth:cancel-text", idempotencyKey),
   cancelSpeech: () => ipcRenderer.invoke("grok-auth:cancel-speech"),
   onTextProgress: (callback: (update: { chars: number; shots: number }) => void) => {
     const listener = (_event: unknown, update: { chars: number; shots: number }) =>

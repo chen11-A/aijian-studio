@@ -1,0 +1,11 @@
+$ pnpm typecheck:ts && pnpm typecheck:py
+$ pnpm -r --if-present typecheck
+Scope: 3 of 4 workspace projects
+packages/contracts typecheck$ tsc --noEmit -p tsconfig.json
+packages/contracts typecheck: Done
+apps/desktop typecheck$ tsc --noEmit -p tsconfig.json
+apps/studio-web typecheck$ tsc -b --pretty false
+apps/studio-web typecheck: Done
+apps/desktop typecheck: Done
+$ uv run mypy
+Success: no issues found in 310 source files

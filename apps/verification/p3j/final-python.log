@@ -1,0 +1,645 @@
+$ uv run pytest --cov=aijian_api --cov-report=term-missing --cov-report=json:coverage-python.json && uv run python scripts/check_python_coverage.py coverage-python.json
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /workspace/aijian-studio
+configfile: pyproject.toml
+testpaths: services/api/tests
+plugins: anyio-4.14.2, cov-7.1.0
+collected 5134 items
+
+services/api/tests/test_agent_proposal_validator.py .............        [  0%]
+services/api/tests/test_agent_run_store.py ..........                    [  0%]
+services/api/tests/test_agent_skill_catalog_api.py ....                  [  0%]
+services/api/tests/test_agent_skill_contracts.py ............            [  0%]
+services/api/tests/test_agent_skill_registry_context.py ................ [  1%]
+.                                                                        [  1%]
+services/api/tests/test_app_preferences_persistence.py ......            [  1%]
+services/api/tests/test_artifact_invalidation_domain.py ...............  [  1%]
+services/api/tests/test_artifact_invalidation_ledger.py ................ [  1%]
+......                                                                   [  1%]
+services/api/tests/test_artifact_proposal_api.py ....                    [  2%]
+services/api/tests/test_artifact_proposal_store.py ...............       [  2%]
+services/api/tests/test_artifact_repository.py ............              [  2%]
+services/api/tests/test_artifacts.py .....                               [  2%]
+services/api/tests/test_assembly_media_boundaries.py ................... [  2%]
+..........................                                               [  3%]
+services/api/tests/test_assembly_runtime_type_contracts.py ........      [  3%]
+services/api/tests/test_assembly_script_provenance.py .................  [  3%]
+services/api/tests/test_assembly_storyboard_provenance.py .......        [  4%]
+services/api/tests/test_audio_asset_probe.py ........................... [  4%]
+.                                                                        [  4%]
+services/api/tests/test_audio_inspection_boundaries.py ................. [  5%]
+...............                                                          [  5%]
+services/api/tests/test_character_reference_assets.py .................. [  5%]
+......                                                                   [  5%]
+services/api/tests/test_ci_media_tools.py ..........                     [  5%]
+services/api/tests/test_coverage_gate.py .....                           [  6%]
+services/api/tests/test_creative_reference_rights.py ...                 [  6%]
+services/api/tests/test_credential_vault.py .........                    [  6%]
+services/api/tests/test_desktop_subscription_dispatch.py ....            [  6%]
+services/api/tests/test_dev_commands.py .                                [  6%]
+services/api/tests/test_development_export_boundaries.py ............... [  6%]
+.....................                                                    [  7%]
+services/api/tests/test_dialogue_annotations.py ........                 [  7%]
+services/api/tests/test_dispatch_billing.py ............................ [  7%]
+.....                                                                    [  7%]
+services/api/tests/test_documentation_role_invariants.py ....            [  7%]
+services/api/tests/test_draft_encoder_boundaries.py .................... [  8%]
+........................................................................ [  9%]
+......                                                                   [  9%]
+services/api/tests/test_draft_export_encoder.py ...................      [ 10%]
+services/api/tests/test_draft_export_routes.py ..                        [ 10%]
+services/api/tests/test_draft_export_runtime.py ..........               [ 10%]
+services/api/tests/test_draft_review_notes.py ................           [ 10%]
+services/api/tests/test_draft_review_revision.py ....................... [ 11%]
+....                                                                     [ 11%]
+services/api/tests/test_draft_review_revision_helpers_stdlib.py .......  [ 11%]
+services/api/tests/test_draft_review_revision_schema_stdlib.py ...       [ 11%]
+services/api/tests/test_draft_subtitles.py ...........                   [ 11%]
+services/api/tests/test_draft_verification_boundaries.py ............... [ 12%]
+....................                                                     [ 12%]
+services/api/tests/test_engineering_ledger_boundaries.py ............... [ 12%]
+......................................................                   [ 13%]
+services/api/tests/test_episode_api.py ................................. [ 14%]
+.........                                                                [ 14%]
+services/api/tests/test_episode_assembly_readiness.py .................. [ 14%]
+.........                                                                [ 15%]
+services/api/tests/test_episode_media_assembly.py ................       [ 15%]
+services/api/tests/test_episode_repository.py .......................... [ 15%]
+..........                                                               [ 16%]
+services/api/tests/test_episode_script_dependency_integrity.py .......   [ 16%]
+services/api/tests/test_episode_story_contracts.py ..................... [ 16%]
+...                                                                      [ 16%]
+services/api/tests/test_episode_storyboard.py .......................... [ 17%]
+.......                                                                  [ 17%]
+services/api/tests/test_external_media_boundaries.py ................... [ 17%]
+.......................................                                  [ 18%]
+services/api/tests/test_external_media_cleanup_boundaries.py ........... [ 18%]
+.......................                                                  [ 19%]
+services/api/tests/test_external_media_process.py ...................... [ 19%]
+...................................................                      [ 20%]
+services/api/tests/test_fake_agent_executor.py ......................... [ 21%]
+.......                                                                  [ 21%]
+services/api/tests/test_fake_executor_protocol_boundaries.py ........... [ 21%]
+............................                                             [ 21%]
+services/api/tests/test_fake_media_package.py .......................... [ 22%]
+........................................                                 [ 23%]
+services/api/tests/test_fake_media_recovery_boundaries.py .............. [ 23%]
+....................                                                     [ 23%]
+services/api/tests/test_fake_provider.py .......ssss........             [ 24%]
+services/api/tests/test_fake_provider_protocol_boundaries.py ........... [ 24%]
+................                                                         [ 24%]
+services/api/tests/test_fake_provider_worker.py ......................   [ 25%]
+services/api/tests/test_fake_timeline_run_api.py .............           [ 25%]
+services/api/tests/test_fake_timeline_workflow_api.py ...                [ 25%]
+services/api/tests/test_fault_injection.py ..                            [ 25%]
+services/api/tests/test_film_agents.py ..........                        [ 25%]
+services/api/tests/test_g1_d00_independent_qa.py ..............          [ 26%]
+services/api/tests/test_g5_storyboard_consumption.py ................... [ 26%]
+..                                                                       [ 26%]
+services/api/tests/test_gateway_transport.py ..........                  [ 26%]
+services/api/tests/test_health.py ....                                   [ 26%]
+services/api/tests/test_ingestion.py .........                           [ 26%]
+services/api/tests/test_invalidation_api.py ............................ [ 27%]
+...................                                                      [ 27%]
+services/api/tests/test_invalidation_consumer.py ....                    [ 27%]
+services/api/tests/test_invalidation_migration_process_recovery.py ....  [ 27%]
+services/api/tests/test_invalidation_process_recovery.py ..              [ 28%]
+services/api/tests/test_local_executor.py ............                   [ 28%]
+services/api/tests/test_local_media_original_identity.py .......         [ 28%]
+services/api/tests/test_local_media_reviews.py ......................... [ 28%]
+..                                                                       [ 28%]
+services/api/tests/test_local_media_toolchain.py ...............         [ 29%]
+services/api/tests/test_local_review_contract_boundaries.py ............ [ 29%]
+.                                                                        [ 29%]
+services/api/tests/test_manual_media_candidates.py ..................... [ 29%]
+....                                                                     [ 29%]
+services/api/tests/test_media_asset_read_boundaries.py ................. [ 30%]
+............................................                             [ 31%]
+services/api/tests/test_media_asset_route_boundaries.py ................ [ 31%]
+.......                                                                  [ 31%]
+services/api/tests/test_media_asset_store_boundaries.py ................ [ 31%]
+........................                                                 [ 32%]
+services/api/tests/test_media_budget_policy.py ......................... [ 32%]
+...........................                                              [ 33%]
+services/api/tests/test_media_budget_reservation.py .................... [ 33%]
+...                                                                      [ 33%]
+services/api/tests/test_media_contracts.py ............................. [ 34%]
+..................                                                       [ 34%]
+services/api/tests/test_media_execution_plan_boundaries.py ............. [ 34%]
+........................................................................ [ 36%]
+.............................                                            [ 36%]
+services/api/tests/test_media_fixtures.py .............                  [ 37%]
+services/api/tests/test_media_preparation.py .....................       [ 37%]
+services/api/tests/test_media_probe.py .......s......................... [ 38%]
+...........................                                              [ 38%]
+services/api/tests/test_media_proxy.py ..........s.............          [ 39%]
+services/api/tests/test_media_proxy_evidence.py .......                  [ 39%]
+services/api/tests/test_media_rights_store_boundaries.py ............... [ 39%]
+.................                                                        [ 40%]
+services/api/tests/test_media_toolchain.py .........................     [ 40%]
+services/api/tests/test_media_type_narrowing.py ..................       [ 40%]
+services/api/tests/test_migrations.py .................................. [ 41%]
+..............                                                           [ 41%]
+services/api/tests/test_mlt_adapter_type_boundaries.py ..............    [ 42%]
+services/api/tests/test_mlt_execution_receipt.py ....                    [ 42%]
+services/api/tests/test_mlt_frozen_contract_boundaries.py .............. [ 42%]
+.........................................                                [ 43%]
+services/api/tests/test_mlt_selection_authority_boundaries.py .......... [ 43%]
+........................................................................ [ 44%]
+..............                                                           [ 45%]
+services/api/tests/test_mlt_selection_read_boundaries.py ............... [ 45%]
+..........................................                               [ 46%]
+services/api/tests/test_mlt_worker_boundaries.py ....................... [ 46%]
+.........................................................                [ 47%]
+services/api/tests/test_native_media_probe_roundtrip.py ..               [ 47%]
+services/api/tests/test_native_preview_materials.py .........            [ 47%]
+services/api/tests/test_native_preview_owner_boundaries.py ............. [ 48%]
+.................................................                        [ 49%]
+services/api/tests/test_native_preview_parent_pipe.py .................  [ 49%]
+services/api/tests/test_native_preview_plan.py ..............            [ 49%]
+services/api/tests/test_native_preview_windows_job.py .................. [ 50%]
+................................                                         [ 50%]
+services/api/tests/test_official_director_authority.py ................. [ 51%]
+......                                                                   [ 51%]
+services/api/tests/test_official_director_integrity.py ................. [ 51%]
+......                                                                   [ 51%]
+services/api/tests/test_official_director_routes.py ....                 [ 51%]
+services/api/tests/test_official_director_task.py ...................... [ 52%]
+......................................                                   [ 52%]
+services/api/tests/test_official_director_workflow.py .................. [ 53%]
+...................                                                      [ 53%]
+services/api/tests/test_official_text_proposals.py .......               [ 53%]
+services/api/tests/test_p3j_references.py ......                         [ 53%]
+services/api/tests/test_persisted_production_boundaries.py ............. [ 54%]
+...........                                                              [ 54%]
+services/api/tests/test_probe_store_boundaries.py ...................... [ 54%]
+.............                                                            [ 55%]
+services/api/tests/test_product_coordinator_boundaries.py .............. [ 55%]
+...........                                                              [ 55%]
+services/api/tests/test_product_encoder_boundaries.py .................. [ 55%]
+.......................                                                  [ 56%]
+services/api/tests/test_product_export_job_boundaries.py ............... [ 56%]
+....................                                                     [ 56%]
+services/api/tests/test_product_export_subtitle_boundary.py ..           [ 57%]
+services/api/tests/test_product_media_preflight_boundaries.py .......... [ 57%]
+.................                                                        [ 57%]
+services/api/tests/test_product_output_verify_boundaries.py ............ [ 57%]
+..........                                                               [ 57%]
+services/api/tests/test_product_plan_boundaries.py ..................... [ 58%]
+.........                                                                [ 58%]
+services/api/tests/test_product_store_boundaries.py .................... [ 58%]
+............                                                             [ 59%]
+services/api/tests/test_product_timeline_preflight_boundaries.py ....... [ 59%]
+.....                                                                    [ 59%]
+services/api/tests/test_production_brief.py ............................ [ 59%]
+........                                                                 [ 60%]
+services/api/tests/test_production_brief_api.py .....                    [ 60%]
+services/api/tests/test_production_brief_repository.py .....             [ 60%]
+services/api/tests/test_project_aspect_ratios.py ................        [ 60%]
+services/api/tests/test_project_character_details.py .................   [ 60%]
+services/api/tests/test_project_creative_library.py .......              [ 61%]
+services/api/tests/test_project_environment.py ......................... [ 61%]
+........                                                                 [ 61%]
+services/api/tests/test_project_settings_contract_boundaries.py ........ [ 61%]
+...................                                                      [ 62%]
+services/api/tests/test_project_settings_persistence.py ...............  [ 62%]
+services/api/tests/test_projects_api.py .........                        [ 62%]
+services/api/tests/test_proposal_run_api.py ...                          [ 62%]
+services/api/tests/test_proposal_run_create_api.py ..................... [ 63%]
+.................................................                        [ 64%]
+services/api/tests/test_provider_connection_runtime_baseline.py ........ [ 64%]
+..................................                                       [ 64%]
+services/api/tests/test_provider_connections_api.py .........            [ 65%]
+services/api/tests/test_provider_contract_boundaries.py ................ [ 65%]
+...............................                                          [ 66%]
+services/api/tests/test_provider_credential_cleanup.py ................. [ 66%]
+.....                                                                    [ 66%]
+services/api/tests/test_provider_origin_mode_schema.py ................. [ 66%]
+........................................................................ [ 68%]
+....................................                                     [ 68%]
+services/api/tests/test_provider_repository_boundaries.py .............. [ 69%]
+...........................                                              [ 69%]
+services/api/tests/test_provider_service_boundaries.py ................. [ 70%]
+..                                                                       [ 70%]
+services/api/tests/test_qa_source_text_f33.py .                          [ 70%]
+services/api/tests/test_remote_accounting_boundaries.py ................ [ 70%]
+.............                                                            [ 70%]
+services/api/tests/test_remote_execution_authorization.py .............. [ 70%]
+...................................................                      [ 71%]
+services/api/tests/test_remote_execution_evidence_contracts.py .....     [ 72%]
+services/api/tests/test_remote_execution_evidence_verifier.py .......... [ 72%]
+                                                                         [ 72%]
+services/api/tests/test_remote_lease_boundaries.py ..................... [ 72%]
+........                                                                 [ 72%]
+services/api/tests/test_remote_operation_boundaries.py ................. [ 73%]
+....................................                                     [ 73%]
+services/api/tests/test_remote_recovery_atomicity.py ........            [ 73%]
+services/api/tests/test_remote_worker_failure_boundaries.py ............ [ 74%]
+.........................................                                [ 75%]
+services/api/tests/test_repository.py .....                              [ 75%]
+services/api/tests/test_repository_authority_boundaries.py ............. [ 75%]
+..............................................                           [ 76%]
+services/api/tests/test_review_repository.py ................            [ 76%]
+services/api/tests/test_runtime_baseline_migrations.py ...............   [ 76%]
+services/api/tests/test_runtime_episode_scope.py ..                      [ 76%]
+services/api/tests/test_saved_composition_preview.py ...                 [ 76%]
+services/api/tests/test_script_confirmation_impact_boundaries.py ...     [ 77%]
+services/api/tests/test_script_confirmation_impact_domain.py ..          [ 77%]
+services/api/tests/test_script_confirmation_impact_materialization.py .  [ 77%]
+services/api/tests/test_script_confirmation_impacts.py ...........       [ 77%]
+services/api/tests/test_script_store_boundaries.py ..................... [ 77%]
+.......                                                                  [ 77%]
+services/api/tests/test_script_write_recovery.py ...........             [ 78%]
+services/api/tests/test_settings_spec_invariants.py ...                  [ 78%]
+services/api/tests/test_shot_outline_contracts.py ...................... [ 78%]
+........................................................................ [ 79%]
+.......................................................                  [ 81%]
+services/api/tests/test_shot_outline_draft_acceptance.py .........       [ 81%]
+services/api/tests/test_shot_outline_worker.py ..........                [ 81%]
+services/api/tests/test_shot_plan.py ....                                [ 81%]
+services/api/tests/test_shot_plan_migration.py ......                    [ 81%]
+services/api/tests/test_shot_plan_proposals.py ......................... [ 82%]
+.......                                                                  [ 82%]
+services/api/tests/test_shot_plan_routes.py ...                          [ 82%]
+services/api/tests/test_sidecar.py ........                              [ 82%]
+services/api/tests/test_sidecar_boundaries.py .......................... [ 82%]
+.................                                                        [ 83%]
+services/api/tests/test_sidecar_security.py ..............               [ 83%]
+services/api/tests/test_source_extract_worker.py ....                    [ 83%]
+services/api/tests/test_source_extraction_read_boundaries.py ........... [ 83%]
+................                                                         [ 84%]
+services/api/tests/test_source_manifest.py ....                          [ 84%]
+services/api/tests/test_source_manifest_api.py ..............            [ 84%]
+services/api/tests/test_source_runtime_boundaries.py ................... [ 84%]
+............................................................             [ 86%]
+services/api/tests/test_stale_local_executions.py ..                     [ 86%]
+services/api/tests/test_story_bible.py ................................. [ 86%]
+......                                                                   [ 86%]
+services/api/tests/test_story_bible_api.py .......                       [ 86%]
+services/api/tests/test_story_bible_drafts.py ....                       [ 87%]
+services/api/tests/test_story_bible_validation.py .............          [ 87%]
+services/api/tests/test_story_film.py ....................               [ 87%]
+services/api/tests/test_story_graph_boundaries.py ...................... [ 88%]
+...                                                                      [ 88%]
+services/api/tests/test_story_workshop_acceptance.py ..                  [ 88%]
+services/api/tests/test_storyboard_character_bindings.py ............    [ 88%]
+services/api/tests/test_storyboard_environment.py ....................   [ 88%]
+services/api/tests/test_storyboard_planning.py ........                  [ 88%]
+services/api/tests/test_sub2api_dispatch_retired.py .                    [ 88%]
+services/api/tests/test_sub2api_frozen_scope_boundaries.py ............. [ 89%]
+...................                                                      [ 89%]
+services/api/tests/test_sub2api_runtime_type_contracts.py .............. [ 89%]
+..                                                                       [ 89%]
+services/api/tests/test_sub2api_store_boundaries.py .................... [ 90%]
+........................................................................ [ 91%]
+.............                                                            [ 91%]
+services/api/tests/test_sub2api_transport_boundaries.py ................ [ 92%]
+.............................................................            [ 93%]
+services/api/tests/test_task_completion_lease_expiry.py ....             [ 93%]
+services/api/tests/test_task_enqueue_boundaries.py .......               [ 93%]
+services/api/tests/test_task_ledger.py .........................         [ 94%]
+services/api/tests/test_task_ledger_recovery.py ...............          [ 94%]
+services/api/tests/test_task_ledger_snapshots.py .........               [ 94%]
+services/api/tests/test_task_queue_api.py ....                           [ 94%]
+services/api/tests/test_task_queue_presentation.py ................      [ 95%]
+services/api/tests/test_timeline.py ........................             [ 95%]
+services/api/tests/test_timeline_api.py ....                             [ 95%]
+services/api/tests/test_timeline_export.py ............................. [ 96%]
+...................                                                      [ 96%]
+services/api/tests/test_timeline_export_boundary_contracts.py .......... [ 96%]
+...................                                                      [ 97%]
+services/api/tests/test_timeline_golden_evidence.py .....                [ 97%]
+services/api/tests/test_timeline_render_plan.py ....                     [ 97%]
+services/api/tests/test_visual_bible_contract_boundaries.py ............ [ 97%]
+......................                                                   [ 97%]
+services/api/tests/test_visual_bible_g5.py .............                 [ 98%]
+services/api/tests/test_visual_bible_history.py ..                       [ 98%]
+services/api/tests/test_visual_environment_g5.py ....................    [ 98%]
+services/api/tests/test_visual_review_receipts.py ........               [ 98%]
+services/api/tests/test_workflow_schema.py .....                         [ 98%]
+services/api/tests/test_workflow_tasks.py ...........................    [ 99%]
+services/api/tests/test_workspace_backup_draft.py ........               [ 99%]
+services/api/tests/test_workspace_lock_failure_boundaries.py ........... [ 99%]
+....                                                                     [ 99%]
+services/api/tests/test_xai_media.py .....                               [ 99%]
+services/api/tests/test_xai_media_e2e.py ....                            [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.14-final-0 _______________
+
+Name                                                                       Stmts   Miss Branch BrPart  Cover   Missing
+----------------------------------------------------------------------------------------------------------------------
+services/api/src/aijian_api/__init__.py                                        1      0      0      0   100%
+services/api/src/aijian_api/agent_context_builder.py                         153     11     44     11    89%   45, 47, 94, 136, 140, 146, 148, 152, 157, 206, 355
+services/api/src/aijian_api/agent_proposal_validator.py                      146     15     50     12    84%   65-78, 109, 116, 126, 138, 196, 206, 212-213, 221, 224, 227, 269, 273
+services/api/src/aijian_api/agent_run_store.py                               187     13     48     11    90%   82, 129, 199, 290, 297, 356, 365-367, 441, 479, 483, 549
+services/api/src/aijian_api/agent_runner.py                                  110     23     48     13    72%   35, 42-43, 53-54, 64, 66, 68-76, 82->80, 84, 89, 92, 96, 99, 155, 175
+services/api/src/aijian_api/agent_skill_builtins.py                           34      0      0      0   100%
+services/api/src/aijian_api/agent_skill_catalog_routes.py                     21      0      0      0   100%
+services/api/src/aijian_api/agent_skill_contracts.py                         353     11     60     12    94%   155->157, 158, 232, 238, 261, 375, 379, 381, 395, 512, 518, 524
+services/api/src/aijian_api/agent_skill_registry.py                           96      4     30      4    94%   83, 92, 132, 166
+services/api/src/aijian_api/app_preferences_contracts.py                      60      8     22      8    80%   30, 37, 57, 59, 62, 68, 70, 73
+services/api/src/aijian_api/app_preferences_routes.py                         36     17      0      0    53%   27, 54-64, 77-93
+services/api/src/aijian_api/app_preferences_schema.py                          2      0      0      0   100%
+services/api/src/aijian_api/app_preferences_store.py                          69      4     16      4    91%   78, 95, 100, 140
+services/api/src/aijian_api/application_errors.py                             16      0      0      0   100%
+services/api/src/aijian_api/artifact_invalidation_domain.py                  243      8     80      8    95%   121, 125, 135, 176, 277, 287, 368, 377
+services/api/src/aijian_api/artifact_invalidation_ledger.py                  348     16    130      7    94%   214-218, 261-264, 398, 440, 656, 658, 812, 931, 933
+services/api/src/aijian_api/artifact_proposal_acceptance.py                  132     18     24      2    83%   108, 320, 399-400, 431-502
+services/api/src/aijian_api/artifact_proposal_rejection.py                   105      5     20      3    94%   84, 169, 284, 336-337
+services/api/src/aijian_api/artifact_proposal_rejection_input.py              13      1      6      1    89%   25
+services/api/src/aijian_api/artifact_proposal_review_truth.py                 98     27     32      7    68%   63, 76, 192, 218, 245-246, 277, 295, 298-299, 306, 316-383
+services/api/src/aijian_api/artifact_proposal_routes.py                       37      0      4      0   100%
+services/api/src/aijian_api/artifact_proposal_store.py                       147     16     50     14    85%   71, 96, 194, 206, 223-225, 236, 329, 338, 343, 351, 359, 367, 369, 379
+services/api/src/aijian_api/artifacts.py                                       7      0      0      0   100%
+services/api/src/aijian_api/assembly_manual_candidate_provenance.py           42      1     18      3    93%   39->49, 51->61, 88
+services/api/src/aijian_api/assembly_script_provenance.py                     80      8     32      1    90%   108-114, 119, 138-139, 190-192
+services/api/src/aijian_api/assembly_storyboard_provenance.py                 61      6     12      0    92%   72-73, 105-106, 117-118
+services/api/src/aijian_api/assembly_subtitles.py                             15      0      4      0   100%
+services/api/src/aijian_api/audio_asset_probe_routes.py                       91     13      4      0    86%   126-130, 161-162, 165-166, 179-182
+services/api/src/aijian_api/audio_asset_probe_store.py                        65      4     10      2    92%   44, 95, 112-113
+services/api/src/aijian_api/contracts.py                                     685      3      6      3    99%   326, 361, 597
+services/api/src/aijian_api/creative_reference_verification.py                29      0      8      0   100%
+services/api/src/aijian_api/credential_vault.py                               37      0      4      0   100%
+services/api/src/aijian_api/desktop_subscription_dispatch.py                 128     15     34     11    83%   88, 100, 131, 137, 144, 206, 208, 210, 227, 242-243, 257-259, 290
+services/api/src/aijian_api/desktop_subscription_routes.py                    53     12      0      0    77%   72-76, 89-100, 127
+services/api/src/aijian_api/desktop_subscription_schema.py                     1      0      0      0   100%
+services/api/src/aijian_api/development_timeline_export.py                   289     21     62     13    90%   189-190, 192, 210, 223, 234, 268, 276-277, 380, 384, 390, 439, 528-529, 542, 546, 554-555, 569, 583
+services/api/src/aijian_api/development_timeline_export_routes.py             19      4      0      0    79%   44-46, 62
+services/api/src/aijian_api/dialogue_annotations.py                           59      2     14      2    95%   82, 88
+services/api/src/aijian_api/dispatch_billing.py                              172      4     74      4    97%   229, 252, 418, 439
+services/api/src/aijian_api/dispatch_billing_schema.py                         1      0      0      0   100%
+services/api/src/aijian_api/domain.py                                        281      0      0      0   100%
+services/api/src/aijian_api/draft_export_contracts.py                         54      3      8      3    90%   60, 64, 66
+services/api/src/aijian_api/draft_export_encoder.py                          567     18    242      7    97%   204, 208, 328, 479->481, 712-714, 736, 787-796, 811-812, 1001-1002
+services/api/src/aijian_api/draft_export_routes.py                            59     13      8      2    72%   33-34, 40-49, 76-77, 88-89, 118-119
+services/api/src/aijian_api/draft_export_runtime.py                          326     45     82     20    84%   67, 119, 138, 148-149, 229, 235-236, 245, 291, 323, 338, 348, 353, 370-371, 419-427, 440-450, 459->461, 469, 471-472, 515, 520, 526, 532, 552, 562, 571, 607-608, 617-618, 622-623, 638
+services/api/src/aijian_api/draft_export_schema.py                             1      0      0      0   100%
+services/api/src/aijian_api/draft_export_toolchain.py                         18     12      8      0    23%   18-38
+services/api/src/aijian_api/draft_review_contracts.py                         70      1      4      1    97%   80
+services/api/src/aijian_api/draft_review_revision_contracts.py               142      2      6      2    97%   92, 178
+services/api/src/aijian_api/draft_review_revision_output.py                   60     17     32      6    68%   43, 52, 55, 67, 109-114, 123-136
+services/api/src/aijian_api/draft_review_revision_routes.py                   47      5      2      0    90%   63-64, 134, 154, 175
+services/api/src/aijian_api/draft_review_revision_schema.py                    1      0      0      0   100%
+services/api/src/aijian_api/draft_review_revision_store.py                   321     25    116     29    88%   127, 135, 155->163, 176, 208, 210, 226, 259, 265, 275, 293, 301, 312, 314->318, 319->321, 342, 363, 416->415, 501, 545, 595, 603, 650, 655, 669, 674, 739, 742, 751
+services/api/src/aijian_api/draft_review_routes.py                            34      4      0      0    88%   48-51
+services/api/src/aijian_api/draft_review_schema.py                             1      0      0      0   100%
+services/api/src/aijian_api/draft_review_store.py                            134     11     40      9    89%   72, 74, 82, 115, 156, 178-179, 222, 224, 270, 277
+services/api/src/aijian_api/draft_subtitles.py                               171     40     54      9    73%   40, 51, 77, 92-93, 99-117, 121-125, 129-146, 154-155, 175, 196->190, 206, 233-235, 240-241, 260
+services/api/src/aijian_api/engineering_test_export_contracts.py              50      3      6      3    89%   62, 64, 66
+services/api/src/aijian_api/engineering_test_export_schema.py                  1      0      0      0   100%
+services/api/src/aijian_api/engineering_test_export_store.py                 193      2     36      2    98%   57, 112
+services/api/src/aijian_api/episode_assembly_readiness_contracts.py           35      2      4      2    90%   53, 56
+services/api/src/aijian_api/episode_assembly_readiness_routes.py              32      5      0      0    84%   72, 76-77, 87-88
+services/api/src/aijian_api/episode_assembly_readiness_service.py            124      6     48      5    94%   68->75, 220, 247, 252, 268-269, 326
+services/api/src/aijian_api/episode_contracts.py                              65      3     14      3    92%   18, 20, 80
+services/api/src/aijian_api/episode_media_assembly_contracts.py              192     11     36     11    90%   104, 106, 108, 110, 131, 141, 155, 237, 240, 243, 255
+services/api/src/aijian_api/episode_media_assembly_routes.py                 120     47     12      4    58%   82, 84, 86, 114-119, 144-156, 186, 197, 199, 202-203, 222-250, 271-278
+services/api/src/aijian_api/episode_media_assembly_store.py                  286     32    106     18    86%   68, 168, 224-239, 279, 413, 417, 430-446, 455, 557, 564, 581-582, 616, 618, 620, 648, 678, 705, 715, 732, 758-759
+services/api/src/aijian_api/episode_media_execution_plan.py                  127      1     72      1    99%   380
+services/api/src/aijian_api/episode_routes.py                                 48      2      0      0    96%   36-37
+services/api/src/aijian_api/episode_schema.py                                  1      0      0      0   100%
+services/api/src/aijian_api/episode_script_confirmation_contracts.py          53      2      4      2    93%   32, 63
+services/api/src/aijian_api/episode_script_confirmation_routes.py             61     19      2      1    68%   73-94, 105, 120, 147, 156-178
+services/api/src/aijian_api/episode_script_confirmation_schema.py              1      0      0      0   100%
+services/api/src/aijian_api/episode_script_confirmation_store.py             154     20     38      9    85%   51, 80-81, 97, 157, 174-175, 219-220, 239, 241, 293, 307-308, 337, 392, 402, 436-438
+services/api/src/aijian_api/episode_script_contracts.py                      128     14     28     14    82%   48, 50, 52, 70, 72, 74, 102, 104, 106, 109, 122, 124, 148, 156
+services/api/src/aijian_api/episode_script_routes.py                          79     31      2      0    59%   86-103, 118-137, 178, 195-234
+services/api/src/aijian_api/episode_script_schema.py                           1      0      0      0   100%
+services/api/src/aijian_api/episode_script_store.py                          197      7     58      3    96%   186, 256-257, 432-439, 478
+services/api/src/aijian_api/episode_story_contracts.py                       102      0     32      0   100%
+services/api/src/aijian_api/episode_storyboard_contracts.py                  204      7     38      7    94%   91, 203, 215, 234, 257, 284, 308
+services/api/src/aijian_api/episode_storyboard_routes.py                      70      9      2      0    88%   90-91, 117-125, 172, 192-193
+services/api/src/aijian_api/episode_storyboard_schema.py                       1      0      0      0   100%
+services/api/src/aijian_api/episode_storyboard_store.py                      194     19     54      7    90%   80, 88, 216-224, 301-302, 316, 324-326, 339, 341, 382-383, 387, 412, 466, 492-493
+services/api/src/aijian_api/external_media_process.py                        430     15    186     10    96%   202, 220->exit, 277-282, 316-319, 347, 423, 442->exit, 444, 445->442, 530->exit, 556, 768->759
+services/api/src/aijian_api/fake_agent_executor.py                           238     14     72      6    94%   119, 202-205, 216-217, 230, 235, 291, 305, 310-311, 321->317, 341
+services/api/src/aijian_api/fake_agent_subprocess.py                          39     39     10      0     0%   3-93
+services/api/src/aijian_api/fake_media_package.py                            711     31    172      8    95%   349, 418->exit, 450-468, 474, 483, 495, 500, 534, 554, 696->700, 708, 956-957, 1110, 1114, 1118, 1253-1255
+services/api/src/aijian_api/fake_provider.py                                 203      8     60      3    96%   120, 148-149, 152-156, 192
+services/api/src/aijian_api/fake_provider_paths.py                            60     11     24      4    80%   42, 61, 63, 66, 93-99
+services/api/src/aijian_api/fake_provider_worker.py                          170      7     66      5    95%   73, 92, 152-153, 155, 248, 330
+services/api/src/aijian_api/fake_timeline_run.py                             235     32     60     23    80%   123, 127, 167, 187, 273-274, 338, 368, 392, 398->exit, 401, 405, 412, 414, 423, 442->447, 466, 502, 559, 572, 648-685, 689->exit, 692->695, 696, 700-703
+services/api/src/aijian_api/fake_timeline_run_query.py                        80     45     14      0    37%   69, 75-78, 85, 88-113, 123-222
+services/api/src/aijian_api/fake_timeline_run_query_routes.py                 16      2      0      0    88%   52-53
+services/api/src/aijian_api/fake_timeline_run_routes.py                       17      0      0      0   100%
+services/api/src/aijian_api/fake_timeline_workflow.py                         21      1      6      1    93%   63
+services/api/src/aijian_api/fake_timeline_workflow_routes.py                  16      0      0      0   100%
+services/api/src/aijian_api/fault_injection.py                                19      0      8      0   100%
+services/api/src/aijian_api/film_project.py                                  222      8     40      3    94%   144->143, 263-266, 417->exit, 431-434
+services/api/src/aijian_api/gate_policy.py                                    44      1      8      0    98%   83
+services/api/src/aijian_api/gateway_transport.py                             186     16     42      9    89%   51, 136, 165-166, 182, 186, 197-198, 206, 246, 256, 262, 279-280, 284, 310
+services/api/src/aijian_api/grok_status_log.py                                50      4     22      4    89%   39, 60->54, 66, 72->74, 79-80
+services/api/src/aijian_api/ingestion.py                                      71      0     12      0   100%
+services/api/src/aijian_api/invalidation_consumer.py                         102      6     24      8    89%   94, 113->126, 119, 133, 148->188, 155, 166, 203
+services/api/src/aijian_api/invalidation_contracts.py                         76      0     10      0   100%
+services/api/src/aijian_api/invalidation_routes.py                            65      1      6      0    99%   96
+services/api/src/aijian_api/invalidation_schema.py                            36      2     12      2    92%   195, 216
+services/api/src/aijian_api/local_executor.py                                 33      0      6      0   100%
+services/api/src/aijian_api/local_media_original.py                          136     10     52     10    89%   46, 79, 91, 93, 95, 100, 125, 146, 163, 167
+services/api/src/aijian_api/local_media_review_contracts.py                  204      7     36      7    94%   96, 103, 115, 173, 198, 209, 227
+services/api/src/aijian_api/local_media_review_routes.py                      80     22     10      3    70%   37-49, 90-91, 106-113, 133-134, 157-158, 183, 200-211, 241
+services/api/src/aijian_api/local_media_review_schema.py                       1      0      0      0   100%
+services/api/src/aijian_api/local_media_review_store.py                      242     28     78     23    83%   70-75, 86, 113, 133, 146, 159, 171, 229, 314, 324, 337, 383, 392, 401, 530, 534, 549, 558, 587-588, 621, 630->632, 664, 674, 693, 702-703
+services/api/src/aijian_api/local_media_toolchain.py                         176     18     40      6    87%   98-120, 154, 192-193, 250, 313, 316, 357->360
+services/api/src/aijian_api/local_media_toolchain_routes.py                   19      0      0      0   100%
+services/api/src/aijian_api/main.py                                          475     32     26      3    92%   303-320, 419, 428-437, 446, 453, 456, 461-462, 465, 659, 684-699, 708, 719, 730, 741, 795, 806, 911, 982, 1200
+services/api/src/aijian_api/managed_local_paths.py                            49     14     24      4    64%   32-45, 53, 68, 74
+services/api/src/aijian_api/manual_media_candidate_contracts.py               81      3      6      3    93%   32, 44, 68
+services/api/src/aijian_api/manual_media_candidate_routes.py                  58     35      4      0    37%   47-54, 73-80, 108-160, 184-191
+services/api/src/aijian_api/manual_media_candidate_schema.py                   2      0      0      0   100%
+services/api/src/aijian_api/manual_media_candidate_store.py                  157     29     46     16    78%   61, 75, 111, 126, 137, 153, 172, 208-209, 216, 231, 261, 284, 302, 315-319, 355, 368-375, 386, 413-414
+services/api/src/aijian_api/manual_media_original.py                          25      2     12      2    89%   40, 47
+services/api/src/aijian_api/media_asset_audio_inspection.py                  119      2     44      2    98%   140, 143
+services/api/src/aijian_api/media_asset_contracts.py                          52      0      0      0   100%
+services/api/src/aijian_api/media_asset_probe_routes.py                       90     17      4      1    81%   127-131, 155, 162-163, 166-167, 177-183
+services/api/src/aijian_api/media_asset_probe_schema.py                        1      0      0      0   100%
+services/api/src/aijian_api/media_asset_probe_store.py                       146      1     32      1    99%   318
+services/api/src/aijian_api/media_asset_rights_contracts.py                  102     10     18      7    84%   60, 68-75, 103, 120, 154, 156, 158
+services/api/src/aijian_api/media_asset_rights_reader.py                      97      9     34      3    91%   61, 70-71, 149, 154-155, 174, 203-204
+services/api/src/aijian_api/media_asset_rights_routes.py                     102     44      8      0    53%   87, 91-95, 99, 113, 121-126, 145-161, 181-191, 207-221, 236-240, 256-263
+services/api/src/aijian_api/media_asset_rights_schema.py                       1      0      0      0   100%
+services/api/src/aijian_api/media_asset_rights_store.py                      141     11     44      7    90%   125-126, 148, 152, 164-165, 198, 257, 260, 292, 368
+services/api/src/aijian_api/media_asset_routes.py                            118      1     18      1    99%   133
+services/api/src/aijian_api/media_asset_schema.py                              1      0      0      0   100%
+services/api/src/aijian_api/media_asset_selected_reader.py                   215     30     62     12    85%   88-89, 100, 105-106, 108, 111, 131, 166, 215-216, 233-236, 238, 240, 242, 247, 262-265, 272, 296, 301-302, 323, 350-351
+services/api/src/aijian_api/media_asset_store.py                             321     28    110     18    89%   59-60, 62, 68, 72-73, 75, 83, 126, 132, 137, 146-147, 161, 165-166, 257, 261, 272, 281, 286, 301, 316, 376, 448, 520, 581-582
+services/api/src/aijian_api/media_budget_policy.py                            65      0     28      0   100%
+services/api/src/aijian_api/media_budget_schema.py                             1      0      0      0   100%
+services/api/src/aijian_api/media_budget_store.py                            292      1     96      1    99%   203
+services/api/src/aijian_api/media_contracts.py                               125      0     30      0   100%
+services/api/src/aijian_api/media_execution_plan_contracts.py                298      4     96      4    98%   54, 60, 356, 359
+services/api/src/aijian_api/media_preparation_contracts.py                   112      7     28      7    90%   58, 87, 109, 112, 123, 133, 136
+services/api/src/aijian_api/media_preparation_routes.py                       56     16      2      1    71%   53-54, 73-80, 110, 120-142
+services/api/src/aijian_api/media_preparation_schema.py                        1      0      0      0   100%
+services/api/src/aijian_api/media_preparation_store.py                       166      9     50      7    93%   168, 182, 243, 258, 319, 372, 393, 420-421
+services/api/src/aijian_api/media_preview_plan_routes.py                      57      2      6      1    95%   67->66, 133-134
+services/api/src/aijian_api/media_probe.py                                   467     69    150     20    84%   141, 269-335, 340, 346, 348-350, 364, 380, 385, 389, 391, 399-401, 403, 406-412, 508, 515, 648, 662, 682, 705, 717, 732, 834, 846, 865-866
+services/api/src/aijian_api/media_proxy.py                                   171     18     62     15    86%   72, 86, 94, 98, 110, 112, 131, 146, 149-150, 163, 221-222, 268->281, 332, 335, 339, 346, 376
+services/api/src/aijian_api/media_toolchain.py                               174      0     40      0   100%
+services/api/src/aijian_api/mlt_execution_adapter.py                         292     16    116      6    95%   208, 262, 332-333, 366, 371-372, 374, 448-449, 464, 488, 492-494, 530
+services/api/src/aijian_api/mlt_execution_worker.py                          350     10    116      5    97%   254-255, 347, 350, 356, 360, 464, 547, 651-652
+services/api/src/aijian_api/mlt_test_execution_entry.py                       29     29      8      0     0%   7-114
+services/api/src/aijian_api/mlt_test_selection_resolver.py                   318     24     92      4    92%   322, 378, 439, 473-474, 476, 500-521
+services/api/src/aijian_api/model_config.py                                    9      0      0      0   100%
+services/api/src/aijian_api/native_preview_materials.py                      104      8     30      8    88%   55, 58, 63, 92, 135, 140, 154, 164
+services/api/src/aijian_api/native_preview_owner.py                          252      0     82      1    99%   276->278
+services/api/src/aijian_api/native_preview_parent_pipe.py                     62      7     18      3    88%   44, 47, 52, 65->109, 96-99
+services/api/src/aijian_api/native_preview_private_contracts.py               85      9     26      7    86%   63, 66, 74, 94, 111-113, 135, 149
+services/api/src/aijian_api/native_preview_windows_job.py                    276      1    130      2    99%   310, 351->350
+services/api/src/aijian_api/official_director_adoption.py                     68      0     24      0   100%
+services/api/src/aijian_api/official_director_completion.py                   81      0     28      0   100%
+services/api/src/aijian_api/official_director_constraints.py                  17      0      6      0   100%
+services/api/src/aijian_api/official_director_contracts.py                   136      0     12      0   100%
+services/api/src/aijian_api/official_director_prompt.py                       39      0     10      0   100%
+services/api/src/aijian_api/official_director_query.py                        73      0     26      0   100%
+services/api/src/aijian_api/official_director_routes.py                       68      0      2      0   100%
+services/api/src/aijian_api/official_director_schema.py                        1      0      0      0   100%
+services/api/src/aijian_api/official_director_store.py                       143      0     26      0   100%
+services/api/src/aijian_api/official_director_task.py                        104      0     42      0   100%
+services/api/src/aijian_api/official_text_adoption.py                         34      3     10      3    86%   46, 51, 74
+services/api/src/aijian_api/official_text_contracts.py                        79      3      6      3    93%   48, 63, 66
+services/api/src/aijian_api/official_text_routes.py                           58     11      2      1    80%   40, 66-67, 77-83, 100-101, 131, 148
+services/api/src/aijian_api/official_text_schema.py                            1      0      0      0   100%
+services/api/src/aijian_api/official_text_store.py                           138     11     44      7    90%   50-51, 66, 83, 126, 149, 178, 186, 197-198, 338
+services/api/src/aijian_api/product_export_claim.py                          173    102     58      2    39%   62->exit, 104, 148-191, 205-217, 226-231, 242-505
+services/api/src/aijian_api/product_export_contracts.py                       78      5     10      5    89%   65, 85, 130, 132, 134
+services/api/src/aijian_api/product_export_encoder.py                        158      2     50      0    99%   241-242
+services/api/src/aijian_api/product_export_operation_coordinator.py           93     10     20      0    89%   59, 68, 72, 80, 145-154, 172, 182
+services/api/src/aijian_api/product_export_operation_routes.py                70     34      8      0    46%   60-64, 68, 92-137, 150-167, 185-202
+services/api/src/aijian_api/product_export_output_verify.py                  101      5     26      2    94%   96, 110, 142-143, 208
+services/api/src/aijian_api/product_export_render_plan.py                     87      0     32      1    99%   74->79
+services/api/src/aijian_api/product_export_runtime.py                         54     21     14      2    51%   49-67, 70-76, 79-85, 92, 98
+services/api/src/aijian_api/product_export_schema.py                           1      0      0      0   100%
+services/api/src/aijian_api/product_export_single_video_service.py           121     51     26      3    52%   58-131, 194-233, 248, 257-262, 268, 279, 282
+services/api/src/aijian_api/product_export_store.py                          207     10     48      4    95%   46, 60, 146-148, 382, 416-418, 438
+services/api/src/aijian_api/product_export_windows_job.py                    274     19     84      2    93%   136-222, 228, 302, 424, 566-568, 586-587, 591-592
+services/api/src/aijian_api/product_timeline_export.py                        81      1     18      1    98%   124
+services/api/src/aijian_api/product_timeline_export_contracts.py              63      0      0      0   100%
+services/api/src/aijian_api/product_timeline_export_media_preflight.py        52      0     20      0   100%
+services/api/src/aijian_api/product_timeline_export_routes.py                 14      1      0      0    93%   41
+services/api/src/aijian_api/production_brief.py                              162     11     38     11    89%   50, 68, 97, 103, 136, 138, 153, 181, 196, 200, 214
+services/api/src/aijian_api/production_brief_routes.py                        46      0      2      0   100%
+services/api/src/aijian_api/project_character_details_contracts.py            40      0      4      0   100%
+services/api/src/aijian_api/project_creative_library_contracts.py            194      8     60      8    94%   64, 91, 113, 115, 211, 244, 246, 270
+services/api/src/aijian_api/project_creative_library_routes.py                69     12      2      0    83%   86-94, 110-118, 163, 170, 183-184
+services/api/src/aijian_api/project_creative_library_schema.py                 1      0      0      0   100%
+services/api/src/aijian_api/project_creative_library_store.py                126     20     34      8    82%   78, 107-108, 119, 127-131, 145, 147, 154, 170, 192-193, 197, 214, 232-233, 284, 307-308
+services/api/src/aijian_api/project_environment_contracts.py                  34      0      4      0   100%
+services/api/src/aijian_api/project_management.py                             39     10     10      5    69%   39, 43, 47, 49-50, 59, 64-67
+services/api/src/aijian_api/project_management_contracts.py                   23      2      4      2    85%   27, 34
+services/api/src/aijian_api/project_management_routes.py                      37     10      4      2    71%   34-38, 71, 84, 97-112
+services/api/src/aijian_api/project_settings_contracts.py                     85      0     10      0   100%
+services/api/src/aijian_api/project_settings_routes.py                        36      0      0      0   100%
+services/api/src/aijian_api/project_settings_schema.py                         1      0      0      0   100%
+services/api/src/aijian_api/project_settings_store.py                         83      3     14      2    95%   82, 105, 158
+services/api/src/aijian_api/proposal_run_factory.py                           19      1      2      0    95%   64
+services/api/src/aijian_api/proposal_run_routes.py                            51      6     10      2    84%   147->202, 172-180, 235
+services/api/src/aijian_api/provider_connection_repository.py                330      0     82      0   100%
+services/api/src/aijian_api/provider_connection_routes.py                     39      0      0      0   100%
+services/api/src/aijian_api/provider_connections.py                          115      0     26      0   100%
+services/api/src/aijian_api/provider_contracts.py                            210      0     68      0   100%
+services/api/src/aijian_api/provider_credential_cleanup_schema.py              1      0      0      0   100%
+services/api/src/aijian_api/provider_credential_ref_schema.py                  1      0      0      0   100%
+services/api/src/aijian_api/provider_origin_mode_schema.py                    21      0      2      0   100%
+services/api/src/aijian_api/provider_schema.py                                 5      0      0      0   100%
+services/api/src/aijian_api/remote_call_accounting.py                        102     13     46     11    84%   80, 94, 100, 115, 128, 135-137, 194, 242, 253, 260, 267
+services/api/src/aijian_api/remote_execution_authorization.py                607     46    180     22    91%   279-298, 412, 419, 622-623, 798, 863, 872-873, 912, 1038, 1155, 1207, 1299, 1316, 1362, 1367, 1398-1399, 1416, 1437-1438, 1443, 1513, 1562, 1579, 1585, 1595, 1610, 1685, 1689
+services/api/src/aijian_api/remote_execution_evidence_contracts.py           167      6     28      6    94%   79, 128, 130, 167, 171, 220
+services/api/src/aijian_api/remote_execution_evidence_verifier.py             58      5     30      5    89%   115, 122, 136, 178, 185
+services/api/src/aijian_api/remote_settlement_contracts.py                    63      3      6      3    91%   37, 52, 71
+services/api/src/aijian_api/remote_source_extract_operation_contracts.py      53      1      2      1    96%   39
+services/api/src/aijian_api/remote_source_extract_operation_query.py          79      8     20      4    86%   84, 203, 206-222, 272
+services/api/src/aijian_api/remote_source_extract_operation_routes.py         28      9      0      0    68%   33-37, 66-87
+services/api/src/aijian_api/remote_source_extract_runtime.py                 140      0     38      0   100%
+services/api/src/aijian_api/remote_source_extract_worker.py                  218      0     56      0   100%
+services/api/src/aijian_api/repository.py                                    906     30    286     29    95%   1204->1206, 1217, 1247, 1251->exit, 1273, 1303, 1649, 1925, 1974, 1995, 2094, 2100, 2113->2115, 2310, 2445, 2530, 2567, 2581, 2587, 2592, 2650, 2827, 2832-2833, 3106, 3111-3112, 3245, 3288, 3317, 3322, 3595, 3619
+services/api/src/aijian_api/runtime_resources.py                              40     24     14      2    33%   19, 28, 30-53, 58-63
+services/api/src/aijian_api/script_confirmation_impact_contracts.py          175     11     22     11    89%   68, 70, 82, 100, 102, 180, 187, 196, 199, 251, 253
+services/api/src/aijian_api/script_confirmation_impact_projection.py         134     14     84     19    85%   154, 157, 190, 199, 210->207, 261, 274, 278, 279->276, 282, 298, 309->307, 317->307, 355, 368, 380, 387->404, 406, 411
+services/api/src/aijian_api/script_confirmation_impact_routes.py              56     22      0      0    61%   58-66, 81-93, 112-130, 188-189
+services/api/src/aijian_api/script_confirmation_impact_schema.py               1      0      0      0   100%
+services/api/src/aijian_api/script_confirmation_impact_store.py              249     35    110     35    81%   89, 106, 153, 165, 169, 196, 208, 228, 231, 268, 287, 302, 374, 396, 405, 418, 420, 424, 448, 455, 464, 467, 469, 478, 486, 493, 496, 507, 510, 539, 565, 574, 651, 658, 718
+services/api/src/aijian_api/security.py                                       28      0      6      0   100%
+services/api/src/aijian_api/shot_outline_contracts.py                         83      0     40      0   100%
+services/api/src/aijian_api/shot_outline_run_factory.py                      117     12     14      4    86%   108, 136-141, 167, 172, 212-213, 339-340, 344
+services/api/src/aijian_api/shot_outline_worker.py                           105     11     20      9    84%   62, 67, 88, 117, 126, 138, 189, 193-194, 234, 248
+services/api/src/aijian_api/shot_pipeline.py                                  89      3     40      4    95%   64->66, 68-69, 93, 94->96
+services/api/src/aijian_api/shot_plan.py                                      67      2     16      2    95%   152, 172
+services/api/src/aijian_api/shot_plan_contracts.py                           221     11     38     11    92%   56, 96, 118, 153, 155, 178, 214, 216, 220, 233, 235
+services/api/src/aijian_api/shot_plan_projection.py                           55      5     24      5    87%   55, 91, 93, 95, 162
+services/api/src/aijian_api/shot_plan_proposal_store.py                      206     23     62     15    86%   92-93, 95-96, 98-99, 109, 120, 131, 162, 220, 252, 298, 330-332, 381, 399, 433, 448, 477, 504, 513, 522
+services/api/src/aijian_api/shot_plan_routes.py                               88     13      4      1    85%   76-77, 108-109, 130-131, 155-156, 203-204, 227, 241-242
+services/api/src/aijian_api/shot_plan_schema.py                                1      0      0      0   100%
+services/api/src/aijian_api/shot_plan_validation.py                           96      7     42      7    90%   57, 108, 111, 125, 133, 162, 193
+services/api/src/aijian_api/sidecar.py                                       353     19    114      8    94%   119, 135, 144, 223, 257, 286, 319-321, 329, 334-335, 343-351, 565-566, 571->573
+services/api/src/aijian_api/source_extract_run_factory.py                    248     23     46     10    88%   233, 238-244, 253, 260, 267, 317, 391-393, 454, 466, 494-495, 530-531, 542, 549-550, 696, 766-767, 772
+services/api/src/aijian_api/source_extract_worker.py                         185     29     42     13    81%   86, 93, 124, 150, 159, 171, 231-233, 244-245, 295-312, 421, 455, 459, 465->exit, 468, 493->511, 496, 547-548, 550, 554->544
+services/api/src/aijian_api/source_extraction_contracts.py                    47      1      2      1    96%   48
+services/api/src/aijian_api/source_extraction_routes.py                      116      8     34      7    90%   91, 107, 122, 144, 168, 178, 206, 211
+services/api/src/aijian_api/source_manifest.py                                52      3     12      3    91%   44, 48, 64
+services/api/src/aijian_api/source_manifest_routes.py                        115      5     18      3    94%   198-199, 203, 211, 215
+services/api/src/aijian_api/source_proposal_acceptance_query.py               75     33      6      0    52%   72-151, 170-174, 188-214
+services/api/src/aijian_api/source_text_contracts.py                          13      0      0      0   100%
+services/api/src/aijian_api/story_bible.py                                   441      8    204      7    97%   440, 468->470, 478, 482-484, 515, 518, 586
+services/api/src/aijian_api/story_bible_drafts.py                            211      6     36      5    96%   196, 198, 200, 237, 281->280, 324-325
+services/api/src/aijian_api/story_bible_routes.py                            108      8     14      1    93%   158, 215, 226-227, 266-267, 320-321
+services/api/src/aijian_api/story_bible_validation.py                         46      0     32      1    99%   71->74
+services/api/src/aijian_api/story_film.py                                   1075     96    338     44    90%   185, 191-192, 203-204, 206, 222, 384, 387-388, 396, 410, 441-442, 451->463, 484->486, 541, 573-574, 580-581, 588, 625-626, 819-820, 822, 886, 915-919, 979, 989-995, 1002, 1019, 1116, 1122, 1137, 1158-1159, 1164-1165, 1169-1170, 1175-1176, 1282->1292, 1303-1306, 1407, 1468-1477, 1498, 1501-1502, 1521-1522, 1524, 1539, 1565, 1586, 1609-1610, 1671-1672, 1676->1660, 1686, 1778, 1781-1782, 1784, 1789, 1796, 1972-1973, 1977, 1991, 2009, 2058, 2080, 2115-2117, 2144, 2215
+services/api/src/aijian_api/story_film_routes.py                             166     11     16      6    90%   94, 96, 98->107, 100, 103, 267-268, 282-283, 301-303
+services/api/src/aijian_api/storyboard_character_bindings.py                  19      0     12      0   100%
+services/api/src/aijian_api/storyboard_environment_bindings.py                19      0     10      0   100%
+services/api/src/aijian_api/storyboard_visual_bible.py                        45      4     28      4    89%   61, 81, 103, 109
+services/api/src/aijian_api/style_bible.py                                    22      3      4      1    85%   90, 96-97
+services/api/src/aijian_api/sub2api_connection_readiness.py                   60     13     14      6    72%   66, 71-76, 80, 85, 88-90, 94, 98-99, 101
+services/api/src/aijian_api/sub2api_connection_readiness_routes.py            29      7      0      0    76%   54-68
+services/api/src/aijian_api/sub2api_dispatch_contracts.py                     15      0      0      0   100%
+services/api/src/aijian_api/sub2api_source_extract_contracts.py               86      6     12      6    88%   46, 67, 92, 117, 135, 137
+services/api/src/aijian_api/sub2api_source_extract_invocation.py              54      9     14      7    76%   38, 42, 81, 84, 99, 110, 116-117, 138
+services/api/src/aijian_api/sub2api_source_extract_policy.py                  69      7     12      5    85%   64, 105, 107, 109, 117, 120-121
+services/api/src/aijian_api/sub2api_source_extract_proposal.py                25      5      6      3    74%   33, 36-37, 39, 42
+services/api/src/aijian_api/sub2api_source_extract_routes.py                  56      8      6      2    84%   68, 128-135, 154, 182-189
+services/api/src/aijian_api/sub2api_source_extract_run_factory.py            160     21     22      9    82%   179, 208-211, 242, 249, 274-275, 281, 297, 299-300, 310, 318-319, 328, 430, 492-493, 498
+services/api/src/aijian_api/sub2api_source_extract_runtime.py                120      0     36      0   100%
+services/api/src/aijian_api/sub2api_source_extract_schema.py                   2      0      0      0   100%
+services/api/src/aijian_api/sub2api_source_extract_store.py                  469     25    182     22    93%   137, 202, 247, 261, 266, 312, 432, 458, 462, 529, 566, 710, 722, 729, 803, 845-847, 862, 882, 884, 959, 962, 1061, 1323
+services/api/src/aijian_api/sub2api_source_extract_worker.py                  82     12     18      7    81%   118, 123, 133, 149, 152, 177-178, 197, 213, 234-240
+services/api/src/aijian_api/sub2api_text_transport.py                        221     17     70      9    91%   70-78, 87, 89, 157, 168, 204->209, 222->224, 264, 277, 287-288, 316->318
+services/api/src/aijian_api/task_ledger.py                                   168      0     40      0   100%
+services/api/src/aijian_api/task_ledger_agent_runs.py                         45      9     18      7    75%   24, 54, 68, 100, 115, 147, 175-176, 185
+services/api/src/aijian_api/task_ledger_cancellation.py                       91     10     50     10    86%   76, 81, 94, 179, 213, 236, 260, 263, 270, 302
+services/api/src/aijian_api/task_ledger_completion.py                         33      0      8      0   100%
+services/api/src/aijian_api/task_ledger_enqueue.py                           152      0     46      0   100%
+services/api/src/aijian_api/task_ledger_events.py                              8      0      0      0   100%
+services/api/src/aijian_api/task_ledger_failure.py                            23      4      4      1    81%   76, 96-98
+services/api/src/aijian_api/task_ledger_models.py                             55      0      2      0   100%
+services/api/src/aijian_api/task_ledger_proposal_completion.py                37      4      8      4    82%   46, 48, 61, 105
+services/api/src/aijian_api/task_ledger_recovery.py                          178      0     44      0   100%
+services/api/src/aijian_api/task_ledger_snapshots.py                         100     13     50     14    82%   43, 45, 47, 50, 52, 54, 56, 64, 68, 135, 147, 153, 201, 221->exit
+services/api/src/aijian_api/task_queue_presentation.py                        31      1     28      1    97%   18
+services/api/src/aijian_api/task_queue_read.py                               172     11     58      8    92%   76, 78, 89, 91, 93, 97, 157, 178-180, 287
+services/api/src/aijian_api/task_queue_routes.py                              19      0      0      0   100%
+services/api/src/aijian_api/timeline.py                                      166      0     48      0   100%
+services/api/src/aijian_api/timeline_export.py                               371      5    148      3    98%   330-331, 333, 394, 601
+services/api/src/aijian_api/timeline_routes.py                                74      5      2      1    92%   53, 90-91, 148-149
+services/api/src/aijian_api/user_messages.py                                  10      0      2      0   100%
+services/api/src/aijian_api/visual_bible_authority.py                         50      5     20      5    86%   59, 63, 93, 112, 130
+services/api/src/aijian_api/visual_bible_contracts.py                        288      1     52      1    99%   325
+services/api/src/aijian_api/visual_bible_integrity.py                        114     11     52     12    86%   44, 77, 79, 103, 117->119, 155, 162, 165, 169, 171, 175, 247
+services/api/src/aijian_api/visual_bible_routes.py                           278     66     86     19    72%   80, 85-86, 115, 127, 158, 224, 249, 259, 267, 270, 317, 329-333, 345-377, 441, 460, 492, 500, 510, 523, 540, 551-558, 589-605, 643, 705, 712, 729-740
+services/api/src/aijian_api/visual_bible_schema.py                             1      0      0      0   100%
+services/api/src/aijian_api/visual_bible_store.py                             96      7     24      5    90%   91, 152, 155, 158, 188, 245-246
+services/api/src/aijian_api/visual_environment_scope.py                       25      1     12      1    95%   14
+services/api/src/aijian_api/visual_media_inspection_store.py                  55      6     12      4    85%   42, 44-45, 78, 91, 115
+services/api/src/aijian_api/visual_review_contracts.py                       137      0      0      0   100%
+services/api/src/aijian_api/workflow_schema.py                                13      0      0      0   100%
+services/api/src/aijian_api/workflow_tasks.py                                207      2    106      3    98%   221, 386->395, 432
+services/api/src/aijian_api/workspace_owner_lock.py                          113     13     34      7    86%   52, 63-64, 68, 81, 86-91, 101-104, 152, 157
+services/api/src/aijian_api/xai_media.py                                     284     38    102     25    82%   104, 141, 144, 176, 183, 231, 238, 241, 254, 262, 267, 280, 285, 288, 326, 329, 377->380, 382-393, 422-433, 456, 463-464, 466, 477, 482-483, 485, 490-496, 508, 516, 523->522
+services/api/src/aijian_api/xai_media_transport.py                            26      2      0      0    92%   43-44
+----------------------------------------------------------------------------------------------------------------------
+TOTAL                                                                      36051   2841   9586   1246    90%
+Coverage JSON written to file coverage-python.json
+================= 5128 passed, 6 skipped in 1971.56s (0:32:51) =================
+Python coverage: line=92.12% (min 90.0%), branch=83.62% (min 83.5%)

@@ -103,7 +103,7 @@ import { useGrokAccount, useGrokConnected, useGrokDenied } from "../grok-auth/us
 import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
 import { Ic } from "./icons";
 import "./pro.css";
-import { normalizeNotice } from "../film/notices";
+import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
 import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
@@ -135,6 +135,7 @@ import {
   assembleCurrentFilm,
   retryDirectorTimeout,
   type AgentReply,
+  type AgentRequestControl,
 } from "./workflow";
 
 type Stage = "script" | "cast" | "board" | "edit";
@@ -872,9 +873,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text = "没有登录，已用离线拆镜。点「写入分镜」才会写入。";
       } else {
         const first = await retryDirectorTimeout(
-          () => completeAgent("director", context, "把这一场拆成镜头"),
+          (control) => completeAgent("director", context, "把这一场拆成镜头", control),
           setNotice,
           emitNotice,
+          { current: () => isTurnCurrent(turn) && filmRef.current?.id === film.id },
         );
         const parsed = first.text
           ? parseDirectorShots(first.text, sceneId, current?.text ?? "", sceneRefs)
@@ -1125,7 +1127,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function completeAgent(agent: Role, context: string, user: string): Promise<AgentReply> {
+  async function completeAgent(
+    agent: Role,
+    context: string,
+    user: string,
+    control?: AgentRequestControl,
+  ): Promise<AgentReply> {
     const bridge = grokBridge();
     if (!connected || !bridge || !film) return { text: null, detail: "没有登录。" };
     const requestProjectId = film.id;
@@ -1136,6 +1143,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       billingProject: ensureBillingProject,
       current: () => filmRef.current?.id === requestProjectId && activeTurn.current === requestTurn,
       modelsChanged: setModelIds,
+      control,
     });
   }
 
@@ -1825,13 +1833,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(`正在写第 ${sceneIndex + 1}/${directedScenes.length} 场「${sceneRow.title}」`);
       const story = sceneRow.text.trim() || next.title;
       const directorReply = await retryDirectorTimeout(
-        () =>
+        (control) =>
           completeAgent(
             "director",
             `画风：${next.styleZh}\n场次 id：${sceneRow.id}\n人物：\n${names}\n这一场：${sceneRow.title} ${sceneRow.where}\n剧本：\n${story}`,
             "把这一场拆成镜头",
+            control,
           ),
         setNotice,
+        emitNotice,
+        { current: valid },
       );
       const parsed = directorReply.text
         ? parseDirectorShots(directorReply.text, sceneRow.id, sceneRow.text || story, [
@@ -1886,9 +1897,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     writing.current = false;
     setAsking(false);
     setOneClickReady(true);
-    setNotice(
-      `停在分镜。点继续才出视频。这一步没有生成视频。${supplementWarnings.current.join(" ")}`,
-    );
+    const planStatus = next.scenes.map((scene) => ({
+      title: scene.title,
+      ...directorPlanStatus(scene, next.shots),
+    }));
+    const code = planStatus.some((status) => !status.coverage.ok)
+      ? "COVERAGE_INCOMPLETE"
+      : planStatus.some((status) => status.overBudget)
+        ? "DIRECTOR_OVER_BUDGET"
+        : "STORYBOARD_READY";
+    setNotice({
+      code,
+      text: NOTICE_TEXT[code],
+      detail: [
+        ...planStatus
+          .filter((status) => !status.coverage.ok || status.overBudget)
+          .map((status) => `${status.title}：${status.shotCount}/${status.target}`),
+        ...supplementWarnings.current,
+      ].join("；"),
+    });
   }
 
   function applyTemplate(name: string) {

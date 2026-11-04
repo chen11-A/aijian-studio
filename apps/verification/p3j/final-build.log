@@ -1,0 +1,42 @@
+$ pnpm -r --if-present build
+Scope: 3 of 4 workspace projects
+apps/desktop build$ tsc -p tsconfig.json
+apps/studio-web build$ tsc -b && vite build
+apps/studio-web build: vite v8.2.0 building client environment for production...
+apps/studio-web build: [2K
+apps/studio-web build: img/key.jpg referenced in img/key.jpg didn't resolve at build time, it will remain unchanged to be resolved at runtime
+apps/studio-web build: transforming...✓ 389 modules transformed.
+apps/studio-web build: rendering chunks...
+apps/studio-web build: computing gzip size...
+apps/studio-web build: dist/index.html                                      0.91 kB │ gzip:   0.55 kB
+apps/studio-web build: dist/assets/sea-5-gih3Qt.jpg                         4.71 kB
+apps/studio-web build: dist/assets/morning-C9689rzv.jpg                     5.12 kB
+apps/studio-web build: dist/assets/town-C7GrbVTc.jpg                        5.50 kB
+apps/studio-web build: dist/assets/character-DRYsXEyd.jpg                   6.10 kB
+apps/studio-web build: dist/assets/male-eTSa501X.png                        9.04 kB
+apps/studio-web build: dist/assets/rival-B9qfqmN1.png                      10.47 kB
+apps/studio-web build: dist/assets/avatar-DwMD3kNX.png                     11.81 kB
+apps/studio-web build: dist/assets/medical-BZvEmOak.png                    12.09 kB
+apps/studio-web build: dist/assets/workwear-ulXCvwDx.png                   12.84 kB
+apps/studio-web build: dist/assets/homewear-2dOEUsdQ.png                   12.85 kB
+apps/studio-web build: dist/assets/multiview-BHTQOCTh.jpg                  25.88 kB
+apps/studio-web build: dist/assets/back-Bl6X4ZSd.png                      157.35 kB
+apps/studio-web build: dist/assets/side-Bwprgf9Y.png                      158.84 kB
+apps/studio-web build: dist/assets/coat-9U1nLuBU.png                      167.46 kB
+apps/studio-web build: dist/assets/city-wide-5ytdUTeo.png                 333.54 kB
+apps/studio-web build: dist/assets/street-BEggPxHH.png                    363.55 kB
+apps/studio-web build: dist/assets/story-art-4I-esOsq.png                 526.90 kB
+apps/studio-web build: dist/assets/city-DEdL2W8P.png                      528.97 kB
+apps/studio-web build: dist/assets/portrait-DYeAE-At.png                  690.27 kB
+apps/studio-web build: dist/assets/NotoSansCJKsc-Regular-DxgKpThH.otf  16,437.36 kB
+apps/studio-web build: dist/assets/NotoSansCJKsc-Bold-Btc5k62G.otf     17,002.24 kB
+apps/studio-web build: dist/assets/index-BrzgugZQ.css                     285.91 kB │ gzip:  49.28 kB
+apps/studio-web build: dist/assets/index-DhRMz96p.js                    1,708.98 kB │ gzip: 505.22 kB
+apps/studio-web build: ✓ built in 1.92s
+apps/studio-web build: [plugin builtin:vite-reporter]
+apps/studio-web build: (!) Some chunks are larger than 500 kB after minification. Consider:
+apps/studio-web build: - Using dynamic import() to code-split the application
+apps/studio-web build: - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+apps/studio-web build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+apps/studio-web build: Done
+apps/desktop build: Done

@@ -36,7 +36,7 @@ Claude 的六个组件（与 `aivora-next-components.zip` 相同，SHA-256 `0a73
 - `../film/operations.ts`：`assignActionBeats` 返回 shots 和 unassignedBeats，仅接受明确镜头 ID；人物属性归一化位于 `cast-traits.ts`，持久化字段为 gender/ageBand。
 - `../film/request-batches.ts`：`completeAgentBatched` 按正文段落分批，保留顺序与编号，合并合法结构；不完整或相互矛盾的模型结构返回 BATCH_RESPONSE_INVALID。格式失败不能解释成正文被截断。
 
-本段描述可调用的逻辑接口，不能代替 Claude 的按钮、角色下拉框、提示面板接线验收；组件 ZIP 未到。
+本段描述可调用的逻辑接口，不能代替 Claude 的按钮、角色下拉框、提示面板接线验收；组件 ZIP 已上传，但执行器两次下载失败，未核验或导入。
 
 ## 仅类型：不代表已实现或接线
 
@@ -48,6 +48,7 @@ Claude 的六个组件（与 `aivora-next-components.zip` 相同，SHA-256 `0a73
 | C3   | `SceneSound`：mood、master、lanes.dialogue/ambience/sfx/score、duckMusic；音量 0–100 |
 | C4   | `TakeOption`、`TakeSelection`：options、aiChoiceId、selectedId                       |
 | C5   | `SubtitleStyleId = "white" \| "bar" \| "yellow" \| "film"`                           |
+| C6   | `CoverInput`：title、subtitle、aiMark、backgroundUrl（未选背景时为空串）             |
 | C11  | `LipSyncState`：lipSync、lipSyncReason                                               |
 | C12  | `PipelineProgress`、`PipelineStep`                                                   |
 | C13  | `ContinuityNote`                                                                     |
@@ -210,6 +211,18 @@ QC schema 对照 `gpt/aivora-qc@7c0eea58b218456f59d1f3ba93eddc791fdad894` 实际
 服务兼容结果还可能返回 `FILM_SUCCEEDED`、`FILM_BLOCKED`、`FILM_FAILED`：text 为原状态消息的前40字，完整原因在 detail。Claude 可为这三个状态提供统一文案，不能只因有该字段就把被拦截任务显示为成功。
 
 现有重配音和导出通过 `../pro/media-tasks.ts` 进入 voice/export 任务，取消/失败为 failed，成功后才 done；仅包裹已有执行路径，没有实现 4b 新导出功能。四候选与视频首帧通过 `still-workflow.ts` 发出 image 任务；已有 HTTPS 镜头首帧直接复用。纯试听属于预览，不是持久化生成任务，当前不承诺试听 metadata 等待也出现在 TaskCenter。
+
+## 停止测试后的接口补充
+
+按用户最新要求，以下追加逻辑未经测试：`fixCoverage(sceneId)` 在等待期间目标场次或镜头被修改/删除时返回 null 并通知 REQUEST_STALE，不覆盖用户的新编辑。定妆照队列保留等待期间已填写的角度，角色或画风变更使旧任务失败且不重试。连续拆镜结束会按实际保存结果发 COVERAGE_INCOMPLETE / DIRECTOR_OVER_BUDGET / STORYBOARD_READY；沿用现有 code 与兜底短句，最终显示由 Claude 决定。
+
+## B08 总体截止与取消（代码已补，未经测试）
+
+`retryDirectorTimeout(request, progress, notify?, options?)` 给 request 传入 `{deadlineAt, signal}`。同一轮导演请求从首次调用起最多5分钟，登录/作品准备、全部文本批次、响应头等待、正文接收以及至多一次停顿重试共用截止时间；重试不会重置时钟。到期返回 TEXT_TIMEOUT，不再发第二次请求；取消返回 TEXT_CANCELLED，不重试。`options.current` 失效时以 REQUEST_STALE 停止，监听和定时器结束时清理。
+
+`completeMembershipAgent` 将绝对截止时间传到 `completeText`，监听 AbortSignal 并调用 `cancelText(idempotencyKey)`；桌面进程在异步准备前登记请求，按该标识取消，避免误停其他请求。现有无参数取消入口保持取消最新文本请求的行为，不改界面。桌面 HTTP 层使用剩余时限，原有响应头超时保护保持有效。
+
+C6 `CoverInput` 仅为输入契约。`aiMark` 对应未来媒体接口的 `aiLabel`；title/subtitle/backgroundUrl 保留用户输入，未选背景不制造占位图。该类型没有实现 `createCovers`、裁切、封面生成或导出接线。上述本次修改遵照用户要求不运行测试、lint、类型检查，不等待CI。
 
 # 第二部分：界面接线（Claude）
 

@@ -1,6 +1,7 @@
 import type { FilmCharacter, FilmProject } from "../film/project";
 import { autoVoiceForCharacter } from "../film/operations";
 import type { UiNotice } from "../film/contracts3j";
+import { NOTICE_TEXT } from "../film/notices";
 import {
   fixCoverage as repairCoverage,
   RequestSequences,
@@ -48,9 +49,20 @@ export function createProductionActions(host: {
     },
     async fixCoverage(sceneId: string) {
       const base = host.current();
-      if (!base) return null;
-      const valid = begin(base, `coverage:${sceneId}`);
+      if (!base || !base.scenes.some((scene) => scene.id === sceneId)) return null;
+      const owned = begin(base, `coverage:${sceneId}`);
+      const snapshot = (film: FilmProject | null) =>
+        JSON.stringify({
+          scene: film?.scenes.find((scene) => scene.id === sceneId),
+          shots: film?.shots.filter((shot) => shot.sceneId === sceneId),
+        });
+      const original = snapshot(base);
+      const valid = () => owned() && snapshot(host.current()) === original;
       const result = await repairCoverage(base, sceneId, host.requestDirector, valid);
+      if (!valid()) {
+        if (owned()) host.notify({ code: "REQUEST_STALE", text: NOTICE_TEXT.REQUEST_STALE });
+        return null;
+      }
       if (valid()) {
         const latest = host.current();
         if (latest)
@@ -67,10 +79,11 @@ export function createProductionActions(host: {
                 : latest.shots.filter((shot) => shot.sceneId === scene.id),
             ),
           });
-        host.notify({
-          code: result.coverage?.ok ? "COVERAGE_COMPLETE" : "COVERAGE_INCOMPLETE",
-          text: result.coverage?.ok ? "台词和结尾已覆盖。" : "台词或结尾仍有缺失。",
-        });
+        if (owned())
+          host.notify({
+            code: result.coverage?.ok ? "COVERAGE_COMPLETE" : "COVERAGE_INCOMPLETE",
+            text: result.coverage?.ok ? "台词和结尾已覆盖。" : "台词或结尾仍有缺失。",
+          });
       }
       return result.coverage;
     },

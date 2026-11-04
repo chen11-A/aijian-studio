@@ -1,25 +1,79 @@
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
+import { NOTICE_TEXT } from "../film/notices";
 import type { FilmProject, FilmPortrait, FilmShot, FilmTake } from "../film/project";
 import { dialogueTracks, firstFrameReferences, portraitPrompts } from "../film/operations";
 
 export type AgentReply = { text: string | null; detail: string; code?: string };
+export type AgentRequestControl = { deadlineAt: number; signal: AbortSignal };
 
 export async function retryDirectorTimeout(
-  request: () => Promise<AgentReply>,
+  request: (control: AgentRequestControl) => Promise<AgentReply>,
   progress: (message: string) => void,
   notify?: (message: UiNotice) => void,
+  options: { signal?: AbortSignal; current?: () => boolean; totalMs?: number } = {},
 ): Promise<AgentReply> {
-  const first = await request();
-  if (!["TEXT_TIMEOUT", "TEXT_STALLED", "STALL_RETRYING"].includes(first.code ?? "")) return first;
-  const message = {
-    code: "STALL_RETRYING",
-    text: "导演等待超时，正在重试。",
-    detail: "第 2 / 2 次",
+  const totalMs = Number.isFinite(options.totalMs) ? Math.floor(options.totalMs!) : 300_000;
+  const deadlineAt = Date.now() + Math.max(1, Math.min(totalMs, 300_000));
+  const controller = new AbortController();
+  let settle!: (reply: AgentReply) => void;
+  const stopped = new Promise<AgentReply>((resolve) => {
+    settle = resolve;
+  });
+  const stop = (reason: string) => {
+    if (controller.signal.aborted) return;
+    controller.abort();
+    settle({
+      text: null,
+      detail:
+        reason === "TEXT_TIMEOUT"
+          ? NOTICE_TEXT.TEXT_TIMEOUT
+          : reason === "REQUEST_STALE"
+            ? NOTICE_TEXT.REQUEST_STALE
+            : NOTICE_TEXT.OPERATION_CANCELLED,
+      code: reason,
+    });
   };
-  notify?.(message);
-  progress(`${message.text}（${message.detail}）`);
-  return request();
+  const cancel = () => stop("TEXT_CANCELLED");
+  const timer = setTimeout(() => stop("TEXT_TIMEOUT"), Math.max(0, deadlineAt - Date.now()));
+  const watch = options.current
+    ? setInterval(() => {
+        if (!options.current?.()) stop("REQUEST_STALE");
+      }, 100)
+    : undefined;
+  const check = () => {
+    if (options.signal?.aborted) cancel();
+    else if (options.current && !options.current()) stop("REQUEST_STALE");
+    else if (Date.now() >= deadlineAt) stop("TEXT_TIMEOUT");
+    return controller.signal.aborted;
+  };
+  options.signal?.addEventListener("abort", cancel, { once: true });
+  const attempt = async () => {
+    if (check()) return stopped;
+    const result = await Promise.race([
+      request({ deadlineAt, signal: controller.signal }),
+      stopped,
+    ]);
+    return check() ? stopped : result;
+  };
+  try {
+    const first = await attempt();
+    if (check()) return stopped;
+    if (!["TEXT_TIMEOUT", "TEXT_STALLED", "STALL_RETRYING"].includes(first.code ?? ""))
+      return first;
+    const message = {
+      code: "STALL_RETRYING",
+      text: "导演等待超时，正在重试。",
+      detail: "第 2 / 2 次",
+    };
+    notify?.(message);
+    progress(`${message.text}（${message.detail}）`);
+    return await attempt();
+  } finally {
+    clearTimeout(timer);
+    clearInterval(watch);
+    options.signal?.removeEventListener("abort", cancel);
+  }
 }
 
 export function portraitReferences(film: FilmProject, shot?: FilmShot): string[] {

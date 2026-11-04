@@ -97,3 +97,12 @@ export type ContinuityNote = {
 };
 /** Actual media preset replacement is deferred to 4b. */
 export type SubtitleStyleId = "white" | "bar" | "yellow" | "film";
+
+/** C6: UI input only. No cover rendering or media service is implemented in 3j. */
+export type CoverInput = {
+  title: string;
+  subtitle: string;
+  aiMark: boolean;
+  /** Empty when no background has been selected. */
+  backgroundUrl: string;
+};
