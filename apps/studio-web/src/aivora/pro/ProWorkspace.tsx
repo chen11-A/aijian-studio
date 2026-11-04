@@ -1,3 +1,4 @@
+import { captureReviewInput, applyTextReview } from "../film/review-report";
 import { generateShotStill } from "./actions/shot-still";
 import { createEditorPageHistory } from "./actions/page-history";
 import { createEditorHost } from "./actions/editor-host";
@@ -1843,10 +1844,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("qc", "rejected", "先拆出镜头，再请审片。");
       return;
     }
+    const reviewContext = JSON.stringify({
+      shot_id: current.id,
+      picture: current.picture,
+      takes: current.takes.map((take) => ({ take_id: take.id, status: take.status })),
+    });
+    const reviewInput = captureReviewInput(film, [current.id], reviewContext);
     const reply = await completeAgent(
       "qc",
-      current.picture,
-      "只审文字。你看不到画面。只输出 JSON。",
+      reviewContext,
+      "只审文字。没有提供任何帧图，你看不到画面。只输出 JSON，含 verdict、issues；若附 shots/takes 只能引用上下文已有 ID，seen_frames 必须为 false。建议不代表自动选版或修改。",
     );
     if (!isTurnCurrent(turn)) return;
     const parsed = reply.text ? qcFromModel(parseLooseJson(reply.text)) : null;
@@ -1857,6 +1864,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("qc", "rejected", failed);
       return;
     }
+    const live = filmRef.current;
+    if (!live) return;
+    const reviewed = applyTextReview(live, reviewInput, parseLooseJson(reply.text!));
+    if (reviewed.status !== "done") {
+      finishTurn(turn, NOTICE_TEXT.REQUEST_STALE);
+      return;
+    }
+    rememberFilm(reviewed.film);
     setStructured(parsed.lines);
     publishCard("qc", {
       title: `审片意见 · 镜头 ${current.no}`,

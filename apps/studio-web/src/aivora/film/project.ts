@@ -1,3 +1,4 @@
+import type { TextReviewReport } from "./review-report";
 import {
   directorPlanPrompt,
   parseDirectorPlan,
@@ -240,6 +241,7 @@ export type FilmShot = {
 };
 
 export type FilmProject = {
+  reviewReports?: TextReviewReport[];
   costumes?: CostumeRule[];
   costumeRisks?: CostumeRisk[];
   pipeline?: PipelineProgress;
