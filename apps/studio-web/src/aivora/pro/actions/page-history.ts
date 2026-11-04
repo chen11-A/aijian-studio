@@ -1,3 +1,8 @@
+import {
+  applyShotDirection,
+  undoShotDirection,
+  type ShotDirectionTransaction,
+} from "./shot-direction-transaction";
 import { applyArtTransaction, undoArtTransaction, type ArtTransaction } from "./art-transaction";
 import {
   diffEditorStructure,
@@ -19,7 +24,8 @@ type Entry =
   | (EditorReceipt & { protectLocks?: boolean })
   | { blocked: true }
   | { structure: EditorStructureTransaction }
-  | { art: ArtTransaction };
+  | { art: ArtTransaction }
+  | { direction: ShotDirectionTransaction };
 export function createEditorPageHistory() {
   const past = new Map<string, Entry[]>(),
     future = new Map<string, Entry[]>();
@@ -64,6 +70,16 @@ export function createEditorPageHistory() {
     if (!receipt) return { film: current, conflicts: ["NOTHING_TO_UNDO"] };
     if ("blocked" in receipt)
       return { film: current, conflicts: ["STRUCTURAL_HISTORY_UNSUPPORTED"] };
+    if ("direction" in receipt) {
+      const result = inverse
+        ? undoShotDirection(current, receipt.direction)
+        : applyShotDirection(current, receipt.direction);
+      if (result.receipt) {
+        stack!.pop();
+        to.set(id, [...(to.get(id) ?? []), { direction: result.receipt }]);
+      }
+      return { film: result.film, conflicts: result.conflicts };
+    }
     if ("art" in receipt) {
       const result = inverse
         ? undoArtTransaction(current, receipt.art)
@@ -108,6 +124,11 @@ export function createEditorPageHistory() {
   }
   return {
     record,
+    recordDirection: (direction: ShotDirectionTransaction) => {
+      const id = key(direction.selection);
+      past.set(id, [...(past.get(id) ?? []), { direction: structuredClone(direction) }].slice(-50));
+      future.delete(id);
+    },
     recordArt: (art: ArtTransaction) => {
       const id = key(art.selection);
       past.set(id, [...(past.get(id) ?? []), { art: structuredClone(art) }].slice(-50));

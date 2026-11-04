@@ -1,3 +1,8 @@
+import {
+  prepareShotDirection,
+  applyShotDirection,
+  type ShotDirectionTransaction,
+} from "./actions/shot-direction-transaction";
 import { retryDirectorDraft } from "./actions/director-retry";
 import { historyCheckpoint } from "./actions/history-checkpoint";
 import {
@@ -177,6 +182,7 @@ type Stage = "script" | "cast" | "board" | "edit";
 type Role = "writer" | "director" | "action" | "performance" | "art" | "prompter" | "qc";
 
 type RoleCard = {
+  directionDiff?: ShotDirectionTransaction;
   artDiff?: ArtTransaction;
   editorDiff?: EditorSuggestion;
   title: string;
@@ -1251,63 +1257,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         only.source === "agent:action" ||
         only.source === "agent:performance")
     ) {
-      const isPerformance = role === "performance" || only.source === "agent:performance";
-      const existing = film.shots.find((item) => item.id === only.id);
-      if (!existing || existing.sceneId !== only.sceneId) {
-        setNotice("镜头已变更，请重新生成建议。");
-        return;
-      }
-      if (
-        existing &&
-        (isPerformance
-          ? existing.userFields.includes("performance") ||
-            existing.userFields.includes("performancePlan")
-          : existing.userFields.includes("action"))
-      ) {
-        setNotice("这一镜是你改过的，没有盖掉。");
-        return;
-      }
-      setFilm(
-        updateShot(
-          {
-            ...film,
-            scenes: film.scenes.map((item) => {
-              if (item.id !== only.sceneId) return item;
-              if (isPerformance && card?.performanceState)
-                return { ...item, performanceState: card.performanceState };
-              if (!isPerformance && card?.actionState)
-                return { ...item, actionState: card.actionState };
-              return item;
-            }),
-            unassignedBeats: isPerformance
-              ? film.unassignedBeats
-              : [
-                  ...(film.unassignedBeats ?? []).filter((item) => item.sceneId !== only.sceneId),
-                  ...unassignedDraft.current,
-                ],
-          },
-          only.id,
-          {
-            ...(isPerformance
-              ? {
-                  performance: only.performance,
-                  performancePlan: only.performancePlan,
-                  performanceSource: only.performanceSource,
-                  delivery: existing?.userFields.includes("delivery")
-                    ? existing.delivery
-                    : only.delivery,
-                }
-              : {
-                  action: only.action,
-                  actionPlan: only.actionPlan,
-                  sound: only.sound,
-                }),
-            source: only.source,
-          },
-        ),
-      );
-      markApplied(role);
-      setNotice("已写入这一镜。你改过的字没有被盖掉。");
+      void applyPendingDirection(card?.directionDiff);
       return;
     }
     const sceneId =
@@ -1671,11 +1621,28 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const turn = pushTurn("action", chat.trim() || "请给这一镜设计动作，标出难度。");
     const current = shownShots[shot];
-    const result = await planActionDraft(film, current, {
-      request: completeAgent,
-      current: () => isTurnCurrent(turn),
-      connected,
-    });
+    const base = structuredClone(filmRef.current ?? film);
+    const selection = {
+      ...editorSelection.current,
+      sceneId: current?.sceneId,
+      shotId: current?.id,
+    };
+    if (
+      !current ||
+      !base.shots.some((row) => row.id === current.id && row.sceneId === current.sceneId)
+    ) {
+      finishTurn(turn, "先拆出镜头，再请动作指导。");
+      return;
+    }
+    const result = await planActionDraft(
+      base,
+      current ? base.shots.find((row) => row.id === current.id) : undefined,
+      {
+        request: completeAgent,
+        current: () => isTurnCurrent(turn),
+        connected,
+      },
+    );
     if (!isTurnCurrent(turn) || result.status === "stale") return;
     if (result.status === "rejected") {
       finishTurn(turn, result.notice);
@@ -1688,6 +1655,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setPending([actionShot]);
     setPendingRole("action");
     publishCard("action", {
+      directionDiff: prepareShotDirection(
+        base,
+        actionShot,
+        selection,
+        "action",
+        result.actionState,
+        result.unassigned,
+      ),
       title: `动作设计 · 镜头 ${actionShot.no}`,
       rows: result.notes.map((line, index) => ({
         id: `${actionShot.id}-beat-${index}`,
@@ -1718,7 +1693,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("performance", "rejected", "先拆出镜头，再请表演指导。");
       return;
     }
-    const result = await planPerformanceDraft(current, {
+    const base = structuredClone(filmRef.current ?? film);
+    const selection = { ...editorSelection.current, sceneId: current.sceneId, shotId: current.id };
+    const capturedShot = base.shots.find(
+      (row) => row.id === current.id && row.sceneId === current.sceneId,
+    );
+    if (!capturedShot) {
+      finishTurn(turn, "镜头已变更，请重新生成建议。");
+      return;
+    }
+    const result = await planPerformanceDraft(capturedShot, {
       request: completeAgent,
       current: () => isTurnCurrent(turn),
       connected,
@@ -1734,6 +1718,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setPending([performanceShot]);
     setPendingRole("performance");
     publishCard("performance", {
+      directionDiff: prepareShotDirection(
+        base,
+        performanceShot,
+        selection,
+        "performance",
+        result.performanceState,
+      ),
       title: `表演 · 镜头 ${current.no}`,
       performanceState: result.performanceState,
       rows: line ? [{ id: current.id, mark: "表演", text: line, tail: "" }] : [],
@@ -1744,6 +1735,53 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     });
     finishTurn(turn, result.notice);
     noteAgent("performance", result.event, result.notice);
+  }
+
+  const applyingDirection = useRef(false);
+  async function applyPendingDirection(transaction: ShotDirectionTransaction | undefined) {
+    const live = filmRef.current;
+    if (!transaction || !live || applyingDirection.current) return;
+    const expected = transaction.selection,
+      selected = editorSelection.current;
+    if (
+      selected.projectId !== expected.projectId ||
+      selected.page !== expected.page ||
+      selected.sceneId !== expected.sceneId ||
+      shownShots[shot]?.id !== expected.shotId
+    ) {
+      setNotice("镜头已变更，请重新生成建议。");
+      return;
+    }
+    const result = applyShotDirection(live, transaction);
+    if (!result.receipt) {
+      setNotice(
+        result.conflicts.includes("FIELD_LOCKED")
+          ? "这一镜是你改过的，没有盖掉。"
+          : "镜头已变更，请重新生成建议。",
+      );
+      return;
+    }
+    applyingDirection.current = true;
+    try {
+      if (committed.current?.id === live.id)
+        pageHistory.record(committed.current, live, historyScope.current);
+      applyLive(result.film);
+      const applied = filmRef.current!;
+      pageHistory.recordDirection(result.receipt);
+      committed.current = applied;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      markApplied(transaction.role);
+      const stored = await persistence.save(applied);
+      if (filmRef.current?.id === live.id)
+        setNotice(
+          stored ? "已写入这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
+        );
+    } catch {
+      if (filmRef.current?.id === live.id) setNotice("没有写到应用数据目录，可以重试。");
+    } finally {
+      applyingDirection.current = false;
+    }
   }
 
   async function applyPendingArt() {

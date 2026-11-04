@@ -3675,3 +3675,83 @@ it.each(["success", "failure"] as const)(
     );
   },
 );
+
+it("B11 confirms and undoes single-shot action while preserving a frame generated after the draft", async () => {
+  installDesktop();
+  Object.assign(window.aijian!, {
+    generateFilmStill: vi.fn(async () => ({ path: "/tmp/b11-action-frame.png", reason: "" })),
+  });
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  pickHelper("动作指导");
+  fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
+  await screen.findByText(/动作设计 · 镜头/);
+  fireEvent.click(screen.getByRole("button", { name: "属性" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  expect(await screen.findByText(/画面出好了/)).toBeInTheDocument();
+  const latest = () =>
+    vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject | undefined;
+  await waitFor(() =>
+    expect(latest()?.shots.some((shot) => shot.poster.includes("b11-action-frame"))).toBe(true),
+  );
+  const previous = structuredClone(latest()!);
+  const target = previous.shots.find((shot) => shot.poster.includes("b11-action-frame"))!;
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+  await waitFor(() =>
+    expect(latest()?.shots.find((shot) => shot.id === target.id)?.source).toBe("agent:action"),
+  );
+  expect(latest()?.shots.find((shot) => shot.id === target.id)?.poster).toBe(target.poster);
+  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  await waitFor(() =>
+    expect(latest()?.shots.find((shot) => shot.id === target.id)?.action).toBe(target.action),
+  );
+  expect(latest()?.shots.find((shot) => shot.id === target.id)?.poster).toBe(target.poster);
+});
+
+it("B11 confirms performance while retaining a user-locked delivery", async () => {
+  const { completeText } = installDesktop();
+  const film = sampleFilm();
+  film.backendProjectId = PROJECT_ID;
+  const target = film.shots[0]!;
+  target.delivery = "用户指定轻声";
+  target.userFields = ["delivery"];
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  completeText.mockResolvedValue({
+    kind: "OK",
+    text: JSON.stringify([
+      {
+        shot_id: target.id,
+        who: target.characters[0],
+        emotion: "冷静",
+        face: ["眼神一沉"],
+        eyes: "看向前方",
+        voice: { tone: "严厉", pace: "快", pauses: "短停顿", emotion: "紧张" },
+      },
+    ]),
+  });
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findAllByText(film.title);
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: new RegExp(film.scenes.find((scene) => scene.id === target.sceneId)!.title),
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  pickHelper("表演指导");
+  fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "写这一镜的表演" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  await screen.findByText(/表演 · 镜头/);
+  fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+  await waitFor(() => {
+    const last = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      FilmProject | undefined;
+    const saved = last?.shots.find((shot) => shot.id === target.id);
+    expect(saved?.performance).toContain("眼神一沉");
+    expect(saved?.delivery).toBe("用户指定轻声");
+    expect(saved?.userFields).toContain("delivery");
+  });
+});
