@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { sampleFilm, type FilmProject } from "../../film/project";
+import { blankFilm, sampleFilm, type FilmProject } from "../../film/project";
 import { splitNovel } from "../../film/operations";
 import { createProductionPipeline } from "../../film/production-pipeline";
 import {
@@ -255,3 +255,40 @@ it("restores multiple obsolete scene storyboards atomically and rejects conflict
   expect(redo.conflicts.length).toBeGreaterThan(0);
   expect(redo.film).toBe(changed);
 });
+
+it("splits the initial manuscript while retaining its verbatim source through atomic undo and redo", () => {
+  const film = blankFilm();
+  film.scenes[0]!.text = "  第一场 书店\n林晚说：今晚打烊了。\n\n第二场 码头\n周烈放下钢条。  ";
+  film.scenes[0]!.userFields = ["text"];
+  const scenes = splitNovel(film.scenes[0]!.text).scenes;
+  const tx = prepareWriterTransaction(film, scenes);
+  expect(tx.unsupported).toEqual([]);
+  const applied = applyStoryStructureTransaction(film, tx);
+  expect(applied.conflicts).toEqual([]);
+  expect(applied.film.scenes).toHaveLength(scenes.length);
+  expect(applied.film.sourceText).toBe(film.scenes[0]!.text);
+  const undone = undoStoryStructureTransaction(applied.film, applied.receipt!);
+  expect(undone.film).toEqual(film);
+  expect(applyStoryStructureTransaction(undone.film, applied.receipt!).film).toEqual(applied.film);
+  const late = { ...applied.film, sourceText: "确认后补充的原文" };
+  expect(undoStoryStructureTransaction(late, applied.receipt!).film).toBe(late);
+  const edited = structuredClone(film);
+  edited.scenes[0]!.text += "请求期间手改";
+  expect(applyStoryStructureTransaction(edited, tx).film).toBe(edited);
+});
+
+it.each(["title", "state", "additionalScene", "source"])(
+  "does not treat an existing authored scene with %s as the initial manuscript",
+  (kind) => {
+    const film = blankFilm();
+    film.scenes[0]!.text = "第一场 书店\n林晚留在书店。\n第二场 码头\n周烈回到码头。";
+    // No text lock: require explicit protection instead of relying on applyScenes retaining it.
+    if (kind === "title") film.scenes[0]!.title = "人工书店场";
+    if (kind === "state") film.scenes[0]!.performanceState = { unassigned: [] };
+    if (kind === "additionalScene") film.scenes.push({ ...film.scenes[0]!, id: "authored", no: 2 });
+    if (kind === "source") film.sourceText = "此前独立保存的原作";
+    const tx = prepareWriterTransaction(film, splitNovel(film.scenes[0]!.text).scenes);
+    expect(tx.unsupported).toContain("SCENE_STATE_PROTECTED:scene-1");
+    expect(applyStoryStructureTransaction(film, tx).film).toBe(film);
+  },
+);

@@ -18,6 +18,8 @@ export type StoryStructureTransaction = {
   structure: EditorStructureTransaction;
   /** Source evidence is a CAS dependency, not a field patch. */
   sourceBefore: unknown;
+  /** Initial manuscript retained verbatim when its placeholder scene is split. */
+  sourceAfter?: string;
   coverage?: { before: Coverage; after: Coverage };
   beats?: {
     before: Beats;
@@ -241,7 +243,30 @@ export function prepareWriterTransaction(
   base: FilmProject,
   scenes: FilmScene[],
 ): StoryStructureTransaction {
-  const proposed = applyScenes(base, scenes);
+  const initial = base.scenes[0];
+  const initialManuscript =
+    base.scenes.length === 1 &&
+    initial?.id === "scene-1" &&
+    initial.no === 1 &&
+    initial.title === "地点待定 · 时间待定" &&
+    initial.source === "user" &&
+    !initial.where &&
+    !initial.ambience &&
+    initial.text.trim().length > 0 &&
+    initial.userFields.every((field) => field === "text") &&
+    Object.keys(initial).every((key) =>
+      ["id", "no", "title", "where", "text", "ambience", "source", "userFields"].includes(key),
+    ) &&
+    !base.shots.length &&
+    !base.jobs.length &&
+    !base.audioClips.length &&
+    !sceneWork(base, initial.id) &&
+    (!base.sourceText || base.sourceText === initial.text);
+  // The initial text box is the writer's manuscript input, not an existing authored scene.
+  // Keep its exact text in the same receipt, including whitespace omitted by scene splitting.
+  const proposed = initialManuscript
+    ? { ...base, scenes: scenes.map((scene, index) => ({ ...scene, no: index + 1 })) }
+    : applyScenes(base, scenes);
   const affected = base.scenes.filter(
     (scene) =>
       !same(
@@ -256,8 +281,8 @@ export function prepareWriterTransaction(
     const next = proposed.scenes.find((row) => row.id === scene.id);
     // State without a replacement is not silently discarded, even if it has no media yet.
     if (
-      scene.userFields.length ||
-      (scene.source === "user" && scene.text.trim()) ||
+      (!initialManuscript &&
+        (scene.userFields.length || (scene.source === "user" && scene.text.trim()))) ||
       (["actionState", "performanceState", "sound"] as const).some(
         (field) => scene[field] !== undefined && !same(scene[field], next?.[field]),
       )
@@ -297,6 +322,7 @@ export function prepareWriterTransaction(
     "writer",
     base.scenes[0]?.id ?? "",
   );
+  if (initialManuscript) tx.sourceAfter = initial.text;
   tx.unsupported.push(...unsupported);
   if (shotChanges.length) tx.shotChanges = structuredClone(shotChanges);
   if (!scenes.length) tx.unsupported.push("EMPTY_PROPOSAL");
@@ -383,7 +409,12 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     )
   )
     return reject(["SHOT_NUMBER_CHANGED"]);
-  if (!same(source(current, tx.kind, tx.sceneId), tx.sourceBefore))
+  if (
+    !same(
+      source(current, tx.kind, tx.sceneId),
+      inverse ? (tx.sourceAfter ?? tx.sourceBefore) : tx.sourceBefore,
+    )
+  )
     return reject(["SOURCE_CHANGED"]);
   if (!same(workSnapshot(current, tx.structure), inverse ? tx.workAfter : tx.workBefore))
     return reject(["TASKS_CHANGED"]);
@@ -420,6 +451,8 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     : applyEditorStructure(prepared, tx.structure);
   if (changed.conflicts.length) return reject(changed.conflicts);
   let film = changed.film;
+  if (tx.sourceAfter !== undefined)
+    film = { ...film, sourceText: inverse ? (tx.sourceBefore as string) : tx.sourceAfter };
   if (tx.numbering?.length) {
     const numbers = new Map(
       tx.numbering.map((change) => [change.id, inverse ? change.before : change.after]),
