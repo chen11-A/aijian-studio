@@ -3993,6 +3993,9 @@ function Assistant({
   );
 }
 
+/** The usual shot lengths; 「自定义」 takes any whole second from 1 to 15. */
+const SECONDS_CHOICES = [2, 3, 4, 5, 6, 10];
+
 /** Who last wrote a shot, for the small mark on its card. 属性 holds the details. */
 function shotSource(shot: FilmShot): { tone: string; label: string } {
   if (shot.source === "user" || shot.userFields.length > 0) {
@@ -4794,6 +4797,7 @@ function BoardPage({
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
+  const [customSeconds, setCustomSeconds] = useState(false);
   const seenAssist = useRef(assistPulse);
   const lastTurnRole = turns.at(-1)?.role;
   useEffect(() => {
@@ -4992,7 +4996,7 @@ function BoardPage({
             </div>
             <div className="pb">
               <div className="field">
-                <div className="row2">
+                <div className="row3">
                   <div>
                     <label>景别</label>
                     <select
@@ -5036,31 +5040,47 @@ function BoardPage({
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label>角度</label>
+                    <div className="input">{current.angle || "平视"}</div>
+                  </div>
                 </div>
               </div>
               <div className="field">
-                <div className="row2">
-                  <div>
-                    <label htmlFor="shot-seconds">时长</label>
-                    <div className="seg" aria-label="时长">
-                      {[2, 3, 4, 5, 6, 10].map((seconds) => (
-                        <button
-                          key={seconds}
-                          type="button"
-                          className={current.seconds === seconds ? "on" : ""}
-                          onClick={() =>
-                            onFilm(
-                              updateShot(film, current.id, {
-                                seconds,
-                                userFields: [...new Set([...current.userFields, "seconds"])],
-                              }),
-                            )
-                          }
-                        >
-                          {seconds} 秒
-                        </button>
-                      ))}
-                    </div>
+                <label htmlFor="shot-seconds">时长（秒）</label>
+                <div className="seg" aria-label="时长">
+                  {SECONDS_CHOICES.map((seconds) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      aria-label={`${seconds} 秒`}
+                      className={!customSeconds && current.seconds === seconds ? "on" : ""}
+                      onClick={() => {
+                        setCustomSeconds(false);
+                        onFilm(
+                          updateShot(film, current.id, {
+                            seconds,
+                            userFields: [...new Set([...current.userFields, "seconds"])],
+                          }),
+                        );
+                      }}
+                    >
+                      {seconds}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={
+                      customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? "on" : ""
+                    }
+                    aria-pressed={customSeconds || !SECONDS_CHOICES.includes(current.seconds)}
+                    onClick={() => setCustomSeconds(true)}
+                  >
+                    自定义
+                  </button>
+                </div>
+                {customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? (
+                  <div className="seconds-box">
                     <input
                       id="shot-seconds"
                       className="input"
@@ -5080,49 +5100,15 @@ function BoardPage({
                         );
                       }}
                     />
-                    <span>{current.seconds} 秒</span>
+                    <span>秒，1 到 15 秒</span>
                   </div>
-                  <div>
-                    <label>角度</label>
-                    <div className="input">{current.angle || "平视"}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="shot-style">画风</label>
-                <select
-                  id="shot-style"
-                  className="input"
-                  aria-label="画风"
-                  value={film.stylePreset}
-                  onChange={(event) => {
-                    const preset =
-                      STYLE_PRESETS.find((item) => item.name === event.target.value) ??
-                      STYLE_PRESETS[0]!;
-                    onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
-                  }}
-                >
-                  {STYLE_PRESETS.map((item) => (
-                    <option key={item.name} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-                <textarea
-                  className="area"
-                  aria-label="这一镜的画风"
-                  style={{ marginTop: 8 }}
-                  placeholder="不写就用整部作品的画风"
-                  value={current.styleNote ?? ""}
-                  onChange={(event) =>
-                    onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
-                  }
-                />
+                ) : null}
               </div>
               <div className="field">
                 <label>画面描述</label>
                 <textarea
                   className="area"
+                  rows={3}
                   aria-label="分镜画面"
                   value={current.picture}
                   onChange={(event) =>
@@ -5145,6 +5131,17 @@ function BoardPage({
                 </button>
                 {showEnglish ? (
                   <div className="adv">
+                    <label htmlFor="shot-style-note">这一镜的画风</label>
+                    <textarea
+                      id="shot-style-note"
+                      className="area"
+                      aria-label="这一镜的画风"
+                      placeholder={`不写就用整部作品的画风：${film.stylePreset}`}
+                      value={current.styleNote ?? ""}
+                      onChange={(event) =>
+                        onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
+                      }
+                    />
                     <p className="role-desc">
                       {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
                     </p>

@@ -508,6 +508,11 @@ body:has(.pro-root) {
   color: var(--text-3);
   margin-bottom: 5px;
 }
+/* Text boxes in 属性 take the full width of the column. */
+.pro-root .field .area {
+  display: block;
+  width: 100%;
+}
 .pro-root .input {
   display: flex;
   align-items: center;
@@ -537,6 +542,34 @@ body:has(.pro-root) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+.pro-root .row3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.pro-root .row3 .input {
+  width: 100%;
+  min-width: 0;
+}
+/* 时长: the usual lengths and 「自定义」 share one row; the box for other lengths opens below. */
+.pro-root .field .seg {
+  flex-wrap: wrap;
+}
+.pro-root .field .seg button {
+  flex: 1 0 auto;
+  justify-content: center;
+}
+.pro-root .seconds-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.pro-root .seconds-box .input {
+  width: 72px;
 }
 .pro-root .tagrow {
   display: flex;

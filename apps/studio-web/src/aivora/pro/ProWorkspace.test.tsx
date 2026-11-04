@@ -452,9 +452,11 @@ describe("professional workspace", () => {
     } as unknown as Window["aijian"];
     try {
       await openSample();
-      fireEvent.click(stageTab("分镜"));
-      fireEvent.change(screen.getByLabelText("这一镜的画风"), { target: { value: "冷色雨夜" } });
+      fireEvent.click(stageTab("角色与场景"));
       fireEvent.change(screen.getByLabelText("画风"), { target: { value: "赛博夜景" } });
+      fireEvent.click(stageTab("分镜"));
+      fireEvent.click(screen.getByRole("button", { name: "高级" }));
+      fireEvent.change(screen.getByLabelText("这一镜的画风"), { target: { value: "冷色雨夜" } });
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText(/画面已生成。/)).toBeInTheDocument();
       expect(screen.getAllByText("画面已出").length).toBeGreaterThan(0);
@@ -484,7 +486,7 @@ describe("professional workspace", () => {
         expect(play).toHaveBeenCalled();
       }
       fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
-      expect(screen.getAllByText("4 秒").length).toBeGreaterThan(0);
+      expect(screen.getByRole("button", { name: "4 秒" })).toHaveClass("on");
       fireEvent.click(stageTab("剪辑"));
       expect(screen.getAllByText("未生成").length).toBeGreaterThan(0);
       fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
@@ -735,6 +737,7 @@ it("keeps a focused duration field, a full shot list, and a typed export path", 
     expect(document.querySelector(".shotlist")?.textContent).toContain(`第${index}镜的巷口`);
   fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
   fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "自定义" }));
   const box = screen.getByLabelText("时长秒数");
   box.focus();
   if (box instanceof HTMLInputElement) box.select();
@@ -984,6 +987,7 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   fireEvent.click(screen.getByRole("button", { name: "按台词定时长" }));
   expect(document.querySelector(".statusbar")?.textContent).toMatch(/这一镜没有台词/);
   fireEvent.click(screen.getByRole("button", { name: /镜头 1/ }));
+  fireEvent.click(screen.getByRole("button", { name: "自定义" }));
   fireEvent.change(screen.getByLabelText("时长秒数"), { target: { value: "4" } });
   fireEvent.click(screen.getByRole("button", { name: "按台词定时长" }));
   expect(await screen.findByText(/没有覆盖/)).toBeInTheDocument();
@@ -2331,4 +2335,33 @@ it("keeps a storyboard card to its size, length, picture sentence and first line
     "你改过",
   );
   expect(screen.getByLabelText("表演")).toHaveValue(shot.performance);
+});
+
+it("shows one row of shot lengths with 自定义, a three-line picture box and style under 高级", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const lengths = screen.getByLabelText("时长");
+  expect(
+    within(lengths)
+      .getAllByRole("button")
+      .map((item) => item.textContent),
+  ).toEqual(["2", "3", "4", "5", "6", "10", "自定义"]);
+  fireEvent.click(within(lengths).getByRole("button", { name: "3 秒" }));
+  expect(screen.queryByLabelText("时长秒数")).not.toBeInTheDocument();
+  expect(within(lengths).getByRole("button", { name: "3 秒" })).toHaveClass("on");
+  fireEvent.click(within(lengths).getByRole("button", { name: "自定义" }));
+  fireEvent.change(screen.getByLabelText("时长秒数"), { target: { value: "7" } });
+  expect(screen.getByLabelText("时长秒数")).toHaveValue(7);
+  fireEvent.click(screen.getByRole("button", { name: /镜头 2/ }));
+  fireEvent.click(screen.getByRole("button", { name: /镜头 1/ }));
+  expect(screen.getByLabelText("时长秒数")).toHaveValue(7);
+  expect(screen.getByLabelText("分镜画面")).toHaveAttribute("rows", "3");
+  expect(screen.queryByLabelText("画风")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("这一镜的画风")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "高级" }));
+  expect(screen.getByLabelText("这一镜的画风")).toHaveAttribute(
+    "placeholder",
+    "不写就用整部作品的画风：写实电影感",
+  );
 });
