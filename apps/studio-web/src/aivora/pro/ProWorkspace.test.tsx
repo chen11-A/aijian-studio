@@ -3538,7 +3538,58 @@ it("B11 keeps prompter undo on its page and restores only the applied prompt fie
   openBoardTools();
   expect(screen.getByText("page scoped prompt")).toBeInTheDocument();
   fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  await waitFor(() => {
+    const latest = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      FilmProject | undefined;
+    expect(latest?.shots.some((shot) => shot.promptEn === "page scoped prompt")).toBe(false);
+  });
   await waitFor(() => expect(screen.queryByText("page scoped prompt")).not.toBeInTheDocument());
+});
+
+it("B11 applies and undoes a fixed art proposal without losing a subsequently generated frame", async () => {
+  const { completeText } = installDesktop();
+  completeText.mockResolvedValueOnce({
+    kind: "OK",
+    text: JSON.stringify({
+      prompt_block_zh: "B11美术新画风",
+      identities: [],
+      locations: [{ name: "B11新场景", prompt: "窗边书架", ambience: "雨声" }],
+      props: [],
+    }),
+  });
+  Object.assign(window.aijian!, {
+    generateFilmStill: vi.fn(async () => ({ path: "/tmp/b11-later-frame.png", reason: "" })),
+  });
+  await openSample();
+  pickHelper("美术");
+  fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
+  expect(await screen.findByText(/美术写好了/)).toBeInTheDocument();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  expect(await screen.findByText(/画面出好了/)).toBeInTheDocument();
+  fireEvent.click(stageTab("剧本"));
+  pickHelper("美术");
+  fireEvent.click(await screen.findByRole("button", { name: "写入分镜" }));
+  expect(await screen.findByText(/已写入画风、外貌、场景和道具/)).toBeInTheDocument();
+  const writes = () =>
+    vi.mocked(window.aijian!.writeFilmProject!).mock.calls.map(([film]) => film as FilmProject);
+  const applied = writes()
+    .filter((film) => film.styleZh === "B11美术新画风")
+    .at(-1);
+  expect(
+    applied?.shots.some(
+      (shot) => shot.poster === "aivora-media://local/?path=%2Ftmp%2Fb11-later-frame.png",
+    ),
+  ).toBe(true);
+  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  await waitFor(() => expect(writes().at(-1)?.styleZh).not.toBe("B11美术新画风"));
+  expect(
+    writes()
+      .at(-1)
+      ?.shots.some(
+        (shot) => shot.poster === "aivora-media://local/?path=%2Ftmp%2Fb11-later-frame.png",
+      ),
+  ).toBe(true);
 });
 
 it("keeps a same-project scene edit and source when an imported book finishes late", async () => {

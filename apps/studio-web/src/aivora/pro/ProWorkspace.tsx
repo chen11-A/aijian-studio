@@ -1,3 +1,9 @@
+import { historyCheckpoint } from "./actions/history-checkpoint";
+import {
+  prepareArtTransaction,
+  applyArtTransaction,
+  type ArtTransaction,
+} from "./actions/art-transaction";
 import {
   captureBookImportInput,
   prepareBookImport,
@@ -171,6 +177,7 @@ type Stage = "script" | "cast" | "board" | "edit";
 type Role = "writer" | "director" | "action" | "performance" | "art" | "prompter" | "qc";
 
 type RoleCard = {
+  artDiff?: ArtTransaction;
   editorDiff?: EditorSuggestion;
   title: string;
   rows: { id: string; mark: string; text: string; tail: string }[];
@@ -623,7 +630,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
   const openShotRef = useRef("");
-  const artDraft = useRef<FilmProject | null>(null);
+  const artDraft = useRef<ArtTransaction | null>(null);
+  const applyingArt = useRef(false);
   const suggestionSnapshot = {
     origin: { projectId: film?.id ?? "", page: stage, sceneId: scene },
     roleCards,
@@ -729,15 +737,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       skipHistory.current = false;
       committed.current = film;
     } else {
-      timer = window.setTimeout(() => {
-        if (filmRef.current?.id !== film.id || committed.current?.id !== film.id) return;
-        const previous = committed.current;
-        if (previous && filmSignature(previous) !== filmSignature(film)) {
-          pageHistory.record(previous, film, historyScope.current);
-          setHistoryTick((value) => value + 1);
-        }
-        committed.current = film;
-      }, 500);
+      timer = window.setTimeout(
+        historyCheckpoint(film, editorSelection.current, {
+          current: () => filmRef.current,
+          selection: () => editorSelection.current,
+          commit: (snapshot, scope) => {
+            if (committed.current?.id !== snapshot.id) return;
+            const previous = committed.current;
+            if (filmSignature(previous) !== filmSignature(snapshot)) {
+              pageHistory.record(previous, snapshot, scope);
+              setHistoryTick((value) => value + 1);
+            }
+            committed.current = snapshot;
+          },
+        }),
+        500,
+      );
     }
     return () => {
       window.removeEventListener("beforeunload", flush);
@@ -1229,10 +1244,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     if (artDraft.current && (role === "art" || card?.mode === "art")) {
-      setFilm(artDraft.current);
-      artDraft.current = null;
-      markApplied("art");
-      setNotice("已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。");
+      void applyPendingArt();
       return;
     }
     const incoming = card?.shots ?? (pendingRole === role ? pending : null);
@@ -1742,6 +1754,52 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     noteAgent("performance", result.event, result.notice);
   }
 
+  async function applyPendingArt() {
+    const transaction = artDraft.current;
+    const live = filmRef.current;
+    if (!transaction || !live || applyingArt.current) return;
+    const selection = editorSelection.current;
+    const expected = transaction.selection;
+    if (
+      selection.projectId !== expected.projectId ||
+      selection.page !== expected.page ||
+      selection.sceneId !== expected.sceneId ||
+      selection.shotId !== expected.shotId
+    ) {
+      setNotice("当前选择已改变，请回到美术建议所在页面再应用。");
+      return;
+    }
+    const result = applyArtTransaction(live, transaction);
+    if (!result.receipt) {
+      setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
+      return;
+    }
+    applyingArt.current = true;
+    try {
+      if (committed.current?.id === live.id)
+        pageHistory.record(committed.current, live, historyScope.current);
+      applyLive(result.film);
+      const applied = filmRef.current!;
+      pageHistory.recordArt(result.receipt);
+      committed.current = applied;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      artDraft.current = null;
+      markApplied("art");
+      const stored = await persistence.save(applied);
+      if (filmRef.current?.id === live.id)
+        setNotice(
+          stored
+            ? "已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。"
+            : "美术建议已应用，但还没有保存。",
+        );
+    } catch {
+      if (filmRef.current?.id === live.id) setNotice("美术建议已应用，但还没有保存。");
+    } finally {
+      applyingArt.current = false;
+    }
+  }
+
   function planArt() {
     return withForeground(planArtWork, "PLANART_FAILED");
   }
@@ -1749,7 +1807,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   async function planArtWork() {
     if (!film) return;
     const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
-    const result = await planArtDraft(film, {
+    const base = structuredClone(filmRef.current ?? film);
+    const selection = structuredClone(editorSelection.current);
+    const result = await planArtDraft(base, {
       request: completeAgent,
       current: () => isTurnCurrent(turn),
     });
@@ -1760,8 +1820,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("art", "rejected", result.notice);
       return;
     }
+    const transaction = prepareArtTransaction(base, result.draft, selection);
+    artDraft.current = transaction;
     setStructured(result.lines);
     publishCard("art", {
+      artDiff: transaction,
       title: "美术 · 画风和外貌",
       rows: result.lines.map((line, index) => ({
         id: `art-${index}`,
@@ -1775,7 +1838,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     });
     finishTurn(turn, "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
     noteAgent("art", "art", "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
-    artDraft.current = result.draft;
+
     setPending(null);
     setPendingRole(null);
   }

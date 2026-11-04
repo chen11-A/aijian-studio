@@ -1,3 +1,4 @@
+import { applyArtTransaction, undoArtTransaction, type ArtTransaction } from "./art-transaction";
 import {
   diffEditorStructure,
   applyEditorStructure,
@@ -17,7 +18,8 @@ import type { EditorSelection } from "./editor-context";
 type Entry =
   | (EditorReceipt & { protectLocks?: boolean })
   | { blocked: true }
-  | { structure: EditorStructureTransaction };
+  | { structure: EditorStructureTransaction }
+  | { art: ArtTransaction };
 export function createEditorPageHistory() {
   const past = new Map<string, Entry[]>(),
     future = new Map<string, Entry[]>();
@@ -62,6 +64,16 @@ export function createEditorPageHistory() {
     if (!receipt) return { film: current, conflicts: ["NOTHING_TO_UNDO"] };
     if ("blocked" in receipt)
       return { film: current, conflicts: ["STRUCTURAL_HISTORY_UNSUPPORTED"] };
+    if ("art" in receipt) {
+      const result = inverse
+        ? undoArtTransaction(current, receipt.art)
+        : applyArtTransaction(current, receipt.art);
+      if (result.receipt) {
+        stack!.pop();
+        to.set(id, [...(to.get(id) ?? []), { art: result.receipt }]);
+      }
+      return { film: result.film, conflicts: result.conflicts };
+    }
     if ("structure" in receipt) {
       const result = inverse
         ? undoEditorStructure(current, receipt.structure)
@@ -96,6 +108,11 @@ export function createEditorPageHistory() {
   }
   return {
     record,
+    recordArt: (art: ArtTransaction) => {
+      const id = key(art.selection);
+      past.set(id, [...(past.get(id) ?? []), { art: structuredClone(art) }].slice(-50));
+      future.delete(id);
+    },
     recordReceipt: (receipt: EditorReceipt) => {
       const id = key(receipt.selection);
       past.set(
