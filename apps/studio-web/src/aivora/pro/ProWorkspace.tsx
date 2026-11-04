@@ -109,7 +109,12 @@ import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
-import { detectDirectorCoverage, directorPlanStatus, shotLines } from "../film/director-continuity";
+import {
+  detectDirectorCoverage,
+  directorPlanStatus,
+  sceneDisplayTitle,
+  shotLines,
+} from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs, runTask } from "../film/task-progress";
 import {
@@ -4021,6 +4026,12 @@ function Assistant({
   );
 }
 
+/** The line under a scene's title in the scene lists: 「内景 · 夜 · 10 镜」. */
+function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
+  const count = shots.filter((item) => item.sceneId === scene.id).length;
+  return [scene.where, count > 0 ? `${count} 镜` : ""].filter(Boolean).join(" · ");
+}
+
 function ScriptPage({
   film,
   scene,
@@ -4113,7 +4124,7 @@ function ScriptPage({
                   {
                     id,
                     no: film.scenes.length + 1,
-                    title: `第 ${film.scenes.length + 1} 场`,
+                    title: sceneDisplayTitle(""),
                     where: "",
                     text: "",
                     ambience: "",
@@ -4138,9 +4149,8 @@ function ScriptPage({
               <span className="no">{String(item.no).padStart(2, "0")}</span>
               <span className="t">
                 {item.title}
-                <small>{item.where}</small>
+                <small>{sceneMeta(item, film.shots)}</small>
               </span>
-              <span className="c" />
             </button>
           ))}
         </div>
@@ -4200,9 +4210,6 @@ function ScriptPage({
         <div className="pb doc">
           <div className="page">
             {current?.where ? <div className="sh">{current.where}</div> : null}
-            <label className="ac" htmlFor="scene-text">
-              这一场
-            </label>
             <textarea
               id="scene-text"
               className="area"
@@ -4848,25 +4855,21 @@ function BoardPage({
               <span className="no">{String(item.no).padStart(2, "0")}</span>
               <span className="t">
                 {item.title}
-                <small>{item.where}</small>
-              </span>
-              <span className="c">
-                {film.shots.filter((shotItem) => shotItem.sceneId === item.id).length} 镜
+                <small>{sceneMeta(item, film.shots)}</small>
               </span>
             </button>
           ))}
         </div>
         <div className="pfoot">
           <span>
-            画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b> /{" "}
+            全片：画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b>/
             {film.shots.length}
             {" · "}
-            视频 <b>
-              {film.shots.filter((item) => shotProgress(item) === "视频已出").length}
-            </b> / {film.shots.length}
+            视频 <b>{film.shots.filter((item) => shotProgress(item) === "视频已出").length}</b>/
+            {film.shots.length}
           </span>
           <span>
-            约 <b>{seconds} 秒</b>
+            约 <b>{film.shots.reduce((sum, item) => sum + item.seconds, 0)} 秒</b>
           </span>
         </div>
       </section>

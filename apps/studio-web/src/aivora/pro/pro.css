@@ -442,13 +442,15 @@ body:has(.pro-root) {
 }
 .pro-root .scene {
   display: grid;
-  grid-template-columns: 24px 1fr auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
+  width: 100%;
   height: 44px;
   padding: 0 8px;
   border-radius: var(--r);
   color: var(--text-2);
+  text-align: left;
 }
 .pro-root .scene.place {
   grid-template-columns: minmax(0, 1fr);
