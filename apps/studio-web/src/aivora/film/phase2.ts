@@ -1,3 +1,4 @@
+import { parseArtDesign, type ArtDesign } from "./art-design";
 import { parseCostumes, type CostumeRule } from "./costume-rules";
 import {
   normalizeGender,
@@ -697,6 +698,7 @@ export function directedSpeech(line: string, delivery: string): { text: string; 
 }
 
 export function artFromModel(value: unknown): {
+  design?: ArtDesign;
   costumes?: CostumeRule[];
   styleZh: string;
   identities: {
@@ -763,8 +765,10 @@ export function artFromModel(value: unknown): {
     ...places.map((item) => `场景 ${item.name}`),
     ...props.map((item) => `道具 ${item.name}`),
   ].filter(Boolean);
-  if (lines.length === 0) return null;
+  const design = parseArtDesign(row);
+  if (lines.length === 0 && !design) return null;
   return {
+    ...(design ? { design } : {}),
     styleZh,
     identities,
     places,

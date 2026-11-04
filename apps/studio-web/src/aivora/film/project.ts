@@ -1,3 +1,4 @@
+import type { ArtDesign } from "./art-design";
 import type { TextReviewReport } from "./review-report";
 import {
   directorPlanPrompt,
@@ -241,6 +242,8 @@ export type FilmShot = {
 };
 
 export type FilmProject = {
+  artDesign?: ArtDesign;
+  artDesignBaseline?: ArtDesign;
   reviewReports?: TextReviewReport[];
   costumes?: CostumeRule[];
   costumeRisks?: CostumeRisk[];

@@ -16,7 +16,7 @@ export type ArtTransaction = {
   recomputeCostumes: boolean;
 };
 const fields = {
-  project: ["styleZh", "costumes"],
+  project: ["styleZh", "costumes", "artDesign", "artDesignBaseline"],
   characters: ["identity", "gender", "ageBand", "voiceId", "voiceCode"],
   locations: [
     "name",

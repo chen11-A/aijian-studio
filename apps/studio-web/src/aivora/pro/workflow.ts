@@ -1,3 +1,4 @@
+import { mergeArtDesign } from "../film/art-design";
 import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
 import { withLocationLayout } from "../film/location-reference";
 import { setFilmStyle, withStyleBible } from "../film/style-bible";
@@ -355,6 +356,8 @@ export function applyArtDraft(
   parsed: NonNullable<ReturnType<typeof artFromModel>>,
 ): FilmProject {
   let next = { ...(parsed.styleZh ? setFilmStyle(film, parsed.styleZh) : film) };
+  if (parsed.design)
+    next = { ...next, ...mergeArtDesign(film.artDesign, film.artDesignBaseline, parsed.design) };
   if (parsed.costumes) next = mergeCostumes(next, parsed.costumes);
   const used = new Set(next.characters.map((person) => person.voiceId).filter(Boolean));
   next.characters = next.characters.map((person) => {
