@@ -26,7 +26,7 @@ const ENTRIES = ["operations.ts", "phase2.ts", "project.ts", "director-continuit
   join(REPO, FILM, name),
 );
 
-function loadTypeScript() {
+export function loadTypeScript() {
   const where = process.env.AIVORA_TYPESCRIPT;
   const base = where ? join(resolve(where), "package.json") : join(REPO, "package.json");
   const require = createRequire(base);
@@ -50,7 +50,7 @@ function resolveImport(from, spec) {
 }
 
 /** Transpiles the parser files and everything they import into out/, keeping the folder layout. */
-async function transpile(ts, out) {
+export async function transpile(ts, out) {
   const done = new Set();
   const target = (file, raw) =>
     join(out, relative(REPO, file)).replace(raw ? /$/u : /\.ts$/u, raw ? ".raw.mjs" : ".mjs");
@@ -133,7 +133,7 @@ function checkWriter(app, library, example, report) {
   return scenes;
 }
 
-function checkArt(app, example, report) {
+export function checkArt(app, example, report) {
   const { output } = example;
   const art = app.artFromModel(output);
   if (!art) {
@@ -141,12 +141,20 @@ function checkArt(app, example, report) {
     return;
   }
   if (art.styleZh !== output.prompt_block_zh) report.fail(`${example.id}：画风段落读错了`);
-  const identities = output.identities.map((row) => ({ name: row.name, identity: row.identity }));
+  const identities = output.identities.map((row) => ({
+    name: row.name,
+    identity: row.identity,
+    ...(["男", "女"].includes(row.gender) ? { gender: row.gender } : {}),
+    ...(["儿童", "少年", "青年", "中年", "老年"].includes(row.age_band)
+      ? { ageBand: row.age_band }
+      : {}),
+  }));
   if (!same(art.identities, identities)) report.fail(`${example.id}：identities 读错了`);
   const places = output.locations.map((row) => ({
     name: row.name,
     prompt: row.prompt,
     ambience: row.ambience,
+    ...(typeof row.layout === "string" ? { layout: row.layout } : {}),
   }));
   if (!same(art.places, places)) report.fail(`${example.id}：locations 读错了`);
   const props = output.props.map((row) => ({ name: row.name, note: row.note }));
@@ -266,16 +274,60 @@ function checkPerformance(app, example, report) {
     report.fail(`${example.id}：voiceDirectionFromModel 读不出`);
 }
 
-function checkAction(app, example, report) {
+export function checkAction(app, example, report) {
   const rows = app.actionFromModel(example.output);
-  const want = example.output.beats.map((beat) => ({
-    ...(beat.shot_id || beat.id ? { shotId: beat.shot_id || beat.id } : {}),
-    text: beat.text,
-    feasibility: beat.feasibility,
-    workaround: beat.workaround,
-    at: beat.at_seconds,
-  }));
-  if (!rows || !same(rows, want)) report.fail(`${example.id}：actionFromModel 读出的 beats 不一致`);
+  // Nodes carry shot ownership and timing; beats enrich the matching node rather than
+  // replacing its physical description. Check both sources independently for content loss.
+  const nodes = (example.output.shots ?? []).flatMap((shot) =>
+    (shot.nodes ?? []).map((node) => ({ shotId: shot.shot_id, node })),
+  );
+  const beats = example.output.beats ?? [];
+  const extraBeats = beats.filter(
+    (beat) => !nodes.some(({ node }) => node.node_id === beat.node_id),
+  );
+  const expected = [
+    ...nodes.map(({ shotId, node }) => {
+      const matched = beats.filter((beat) => beat.node_id === node.node_id);
+      const last = matched.at(-1) ?? node;
+      return {
+        shotId,
+        at: node.at_seconds,
+        feasibility: last.feasibility ?? "稳",
+        workaround: last.workaround ?? "",
+        parts: [
+          node.text,
+          node.actor,
+          node.move,
+          node.target,
+          node.body_part,
+          node.direction,
+          node.reaction,
+          ...matched.map((beat) => beat.text),
+        ].filter((part) => typeof part === "string" && part.trim()),
+      };
+    }),
+    ...extraBeats.map((beat) => ({
+      shotId: beat.shot_id || beat.id,
+      at: beat.at_seconds,
+      feasibility: beat.feasibility ?? "稳",
+      workaround: beat.workaround ?? "",
+      parts: [beat.text],
+    })),
+  ];
+  if (!rows || rows.length !== expected.length) {
+    report.fail(
+      `${example.id}：actionFromModel 动作数量不一致，应为 ${expected.length}，实际 ${rows?.length ?? 0}`,
+    );
+    return;
+  }
+  expected.forEach((want, index) => {
+    const got = rows[index];
+    for (const key of ["shotId", "at", "feasibility", "workaround"])
+      if (got[key] !== want[key]) report.fail(`${example.id} 动作 ${index + 1}：${key} 读错了`);
+    for (const part of want.parts)
+      if (!got.text.includes(part))
+        report.fail(`${example.id} 动作 ${index + 1}：缺少原始内容「${part}」`);
+  });
 }
 
 function checkReview(app, example, report) {
@@ -362,4 +414,4 @@ async function main() {
   process.exitCode = failures.length === 0 ? 0 : 1;
 }
 
-await main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
