@@ -131,7 +131,7 @@
 
 ## 4A-B08 当前进度：部分完成
 
-提交 `ce74c47984f65dbdef548ac080c99fb24b9129a5`。编剧/导演数组与对象回复、动作混合 beats/nodes、表演兼容及题材节奏规则已接，原 24 份 Claude 示例按源提交 `6a77ebddc74af492baaf1bec19288706980e81f4` 保存并逐值核对。相关 web 68、Python 10 项通过，类型、ESLint、Prettier 通过。Python 原版本断言 2 与本次提示词升级版本 3 不符，已按实际新版本更新后通过，失败日志保留。逐例支持范围见 `film/fixtures/claude-6a77ebd-examples.md`；部分可选字段投影与真实 Grok 回复验证尚未完成，不能宣称“不丢所有字段”已验收。设计 sound/continuity 角色不冒充已接执行器。
+提交 `ce74c47984f65dbdef548ac080c99fb24b9129a5`。编剧/导演数组与对象回复、动作混合 beats/nodes、表演兼容及题材节奏规则已接，原 24 份 Claude 示例按源提交 `6a77ebddc74af492baaf1bec19288706980e81f4` 保存并逐值核对。相关 web 68、Python 10 项通过，类型、ESLint、Prettier 通过。Python 原版本断言 2 与本次提示词升级版本 3 不符，已按实际新版本更新后通过，失败日志保留。逐例支持范围见 `film/fixtures/claude-6a77ebd-examples.md`；部分可选字段投影与真实 Grok 回复验证尚未完成，不能宣称“不丢所有字段”已验收。设计 sound/continuity 角色不冒充已接执行器。 后续 `3ef813c7977a9a33a8802510a6f2add4c8f0cb1a` 已分别保存并消费导演首帧/视频描述，合镜保留顺序、用户手改优先；新增 3 项及相关 42 项（共 45）回归通过，类型/lint/格式通过。其他可选结构仍在继续补齐。
 
 ## 4A-B09 当前进度：部分完成
 
