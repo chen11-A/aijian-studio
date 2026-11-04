@@ -6,6 +6,7 @@ import hashlib
 import os
 import stat
 import struct
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,13 +51,119 @@ def validate_draft_subtitles(content: EpisodeMediaAssemblyContentV1) -> None:
         raise DraftSubtitleError("SUBTITLE_OVERLAP", "DRAFT subtitle cues must not overlap")
 
 
-def _font_root() -> Path:
+def escape_drawtext_path(path: str) -> str:
+    """Escape a font path for ffmpeg drawtext.
+
+    The filtergraph parser and the drawtext option parser each consume one
+    backslash. A Windows path has to survive both, or the colon after the
+    drive letter ends the ``fontfile`` option.
+    """
+
+    option = path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'").replace(",", "\\,")
+    return (
+        option.replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace(",", "\\,")
+        .replace(";", "\\;")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+    )
+
+
+def _font_candidates() -> list[Path]:
     if getattr(sys, "frozen", False):
-        # This validates the installed root against the actual sidecar executable.
-        return media_toolchain_lock_path().parent.parent / "fonts"
+        # The Windows installer sets the resource root to the folder that
+        # contains sidecar/, config/, media/, and fonts/.
+        return [media_toolchain_lock_path().parent.parent / "fonts"]
     root = Path(__file__).resolve().parents[4]
-    packaged = root / "fonts"
-    return packaged if packaged.exists() else root / "apps/studio-web/src/aivora/assets/v2"
+    return [
+        root / "fonts",
+        root / "resources" / "fonts",
+        root / "apps/studio-web/src/aivora/assets/v2",
+    ]
+
+
+def _font_root() -> Path:
+    for candidate in _font_candidates():
+        font = candidate / SUBTITLE_FONT_NAME
+        license_file = candidate / "Noto-LICENSE.txt"
+        if font.is_file() and license_file.is_file():
+            return candidate
+    candidates = _font_candidates()
+    return candidates[0] if candidates else Path(__file__).resolve().parent
+
+
+def _system_cjk_font() -> Path | None:
+    """A local Chinese font, used only when the bundled face is not installed."""
+
+    named = (
+        Path(r"C:\Windows\Fonts\msyh.ttc"),
+        Path(r"C:\Windows\Fonts\msyh.ttf"),
+        Path(r"C:\Windows\Fonts\simhei.ttf"),
+        Path(r"C:\Windows\Fonts\simsun.ttc"),
+        Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+        Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"),
+        Path("/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"),
+        Path("/System/Library/Fonts/PingFang.ttc"),
+        Path("/Library/Fonts/Arial Unicode.ttf"),
+    )
+    found = [path for path in named if _usable_font(path)]
+    if os.name != "nt":
+        found.extend(_fontconfig_cjk_files())
+    for path in found:
+        if _usable_font(path):
+            return path
+    return None
+
+
+def _usable_font(path: Path) -> bool:
+    try:
+        info = path.stat()
+    except OSError:
+        return False
+    return path.is_file() and not path.is_symlink() and 0 < info.st_size <= 32 * 1024**2
+
+
+def _fontconfig_cjk_files() -> list[Path]:
+    try:
+        completed = subprocess.run(
+            ["fc-list", ":lang=zh", "file"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if completed.returncode != 0:
+        return []
+    paths: list[Path] = []
+    for line in completed.stdout.splitlines():
+        raw = line.split(":", 1)[0].strip()
+        if raw:
+            paths.append(Path(raw))
+    return paths
+
+
+def _bundled_font() -> tuple[bytes, str] | None:
+    seen: set[Path] = set()
+    for root in (_font_root(), *_font_candidates()):
+        try:
+            key = root.resolve()
+        except OSError:
+            key = root
+        if key in seen:
+            continue
+        seen.add(key)
+        font_path = root / SUBTITLE_FONT_NAME
+        license_path = root / "Noto-LICENSE.txt"
+        if not font_path.exists() and not license_path.exists():
+            continue
+        font = _read_pinned(font_path, SUBTITLE_FONT_SHA256)
+        _read_pinned(license_path, SUBTITLE_LICENSE_SHA256)
+        return font, SUBTITLE_FONT_SHA256
+    return None
 
 
 def _read_pinned(path: Path, expected: str) -> bytes:
@@ -114,17 +221,36 @@ class PreparedSubtitles:
 def prepare_subtitles(content: EpisodeMediaAssemblyContentV1, directory: Path) -> PreparedSubtitles:
     """Write only controlled names in a caller-owned private temporary directory."""
     validate_draft_subtitles(content)
-    root = _font_root()
-    font = _read_pinned(root / SUBTITLE_FONT_NAME, SUBTITLE_FONT_SHA256)
-    _read_pinned(root / "Noto-LICENSE.txt", SUBTITLE_LICENSE_SHA256)
-    coverage = _covered_characters(font)
-    # Conservative character limit and scale leave at least two ems at either side.
-    size = max(1, min(content.canvas_width // 32, content.canvas_height // 18))
-    border = max(1, size // 16)
+    loaded = _bundled_font()
+    font_name = SUBTITLE_FONT_NAME
+    if loaded is None:
+        system = _system_cjk_font()
+        if system is None:
+            raise DraftSubtitleError(
+                "SUBTITLE_FONT_UNAVAILABLE",
+                "Pinned subtitle font or its OFL license is missing or changed",
+            )
+        font = system.read_bytes()
+        font_hash = hashlib.sha256(font).hexdigest()
+        font_name = system.name
+    else:
+        font, font_hash = loaded
+    try:
+        coverage = _covered_characters(font)
+    except (struct.error, IndexError, ValueError) as error:
+        raise DraftSubtitleError(
+            "SUBTITLE_FONT_INVALID", "Pinned font lacks its expected Unicode cmap"
+        ) from error
+    # About 4.8% of the frame height, still narrow enough to stay inside the width.
+    size = max(1, min(round(content.canvas_height * 0.048), content.canvas_width // 12))
+    border = max(2, size // 12)
+    box = max(4, size // 5)
     spacing = max(1, size // 4)
-    hashes = [("font.otf", SUBTITLE_FONT_SHA256)]
-    with (directory / "font.otf").open("xb") as stream:
+    hashes = [("font.otf", font_hash)]
+    font_file = directory / "font.otf"
+    with font_file.open("xb") as stream:
         stream.write(font)
+    font_option = escape_drawtext_path(str(font_file.resolve()))
     filters = []
     cues = []
     for index, cue in enumerate(content.subtitle_segments):
@@ -143,9 +269,10 @@ def prepare_subtitles(content: EpisodeMediaAssemblyContentV1, directory: Path) -
         # Only fixed filenames, profile constants and validated integer geometry.
         # expansion=none makes %, backslashes, brackets and braces literal text.
         filters.append(
-            f"drawtext=fontfile=font.otf:textfile={filename}:expansion=none:text_shaping=0:"
-            f"fontsize={size}:fontcolor=white:borderw={border}:bordercolor=black:text_align=C:"
-            f"x=(w-text_w)/2:y=h-text_h-{size}:line_spacing={spacing}:"
+            f"drawtext=fontfile={font_option}:textfile={filename}:expansion=none:text_shaping=0:"
+            f"fontsize={size}:fontcolor=white:borderw={border}:bordercolor=black@0.9:"
+            f"box=1:boxcolor=black@0.55:boxborderw={box}:text_align=C:"
+            f"x=(w-text_w)/2:y=h-text_h-h/10:line_spacing={spacing}:"
             f"enable='gte(n,{cue.start_frame})*lt(n,{cue.end_frame})'"
         )
         cues.append(
@@ -161,19 +288,21 @@ def prepare_subtitles(content: EpisodeMediaAssemblyContentV1, directory: Path) -
         filters=",".join(filters),
         evidence={
             "render_profile": SUBTITLE_PROFILE,
-            "font_name": SUBTITLE_FONT_NAME,
-            "font_sha256": SUBTITLE_FONT_SHA256,
+            "font_name": font_name,
+            "font_sha256": font_hash,
             "font_license": "OFL-1.1",
             "font_license_sha256": SUBTITLE_LICENSE_SHA256,
             "renderer": "ffmpeg_drawtext_literal_textfile",
             "frame_enable": "start_inclusive_end_exclusive",
             "fontsize_px": size,
             "border_px": border,
+            "box_px": box,
+            "boxcolor": "black@0.55",
             "line_spacing_px": spacing,
-            "bottom_margin_px": size,
+            "bottom_margin": "h/10",
             "fontcolor": "white",
-            "bordercolor": "black",
-            "alignment": "bottom_center",
+            "bordercolor": "black@0.9",
+            "alignment": "lower_third",
             "line_alignment": "center",
             "text_shaping": False,
             "cues": cues,

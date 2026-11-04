@@ -15,6 +15,7 @@ export type RemoteSourceExtractCreateInput = {
     end_byte: number;
   };
   selection: { connection_id: string; connection_revision: number; model_id: string };
+  billing_account_kind?: "gpt_login" | "grok_login";
 };
 export type RemoteSourceExtractCreateCommand = {
   operation_id: string;
@@ -215,7 +216,12 @@ export function isRemoteSourceExtractCreateCommand(
     !exact(value, ["operation_id", "input"]) ||
     typeof value.operation_id !== "string" ||
     !UUID.test(value.operation_id) ||
-    !exact(value.input, ["source", "selection"])
+    !(
+      exact(value.input, ["source", "selection"]) ||
+      (exact(value.input, ["billing_account_kind", "selection", "source"]) &&
+        (value.input.billing_account_kind === "gpt_login" ||
+          value.input.billing_account_kind === "grok_login"))
+    )
   )
     return false;
   const { source, selection } = value.input;

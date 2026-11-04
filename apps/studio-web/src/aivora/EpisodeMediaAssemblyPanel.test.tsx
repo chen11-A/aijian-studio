@@ -340,7 +340,7 @@ describe("native local-media episode assembly panel", () => {
     await waitFor(() => expect(screen.getByLabelText("选择已导入素材版本")).toBeEnabled());
     await add("image");
     await add("audio");
-    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
     await screen.findByText("已从项目重新读回装配版本。");
     const old = env.stored()!;
     fireEvent.click(screen.getByText(/^对白轨 ·/, { selector: "summary" }));
@@ -357,7 +357,7 @@ describe("native local-media episode assembly panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "撤销" }));
     expect(screen.getByText("已撤销本地修改。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重做" }));
-    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
     await screen.findByText("已从项目重新读回装配版本。");
     const audio = env.stored()!.data.content.audio_segments[0]!;
     expect(audio).toMatchObject({
@@ -399,7 +399,7 @@ describe("native local-media episode assembly panel", () => {
     );
     const boundVersion = env.stored()!;
     fireEvent.click(screen.getByRole("button", { name: "改为 BGM 并移除对白绑定" }));
-    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
     await screen.findByText("已从项目重新读回装配版本。");
     expect(env.stored()!.data.content.audio_segments[0]).toMatchObject({
       track_kind: "BGM",
@@ -499,7 +499,7 @@ describe("native local-media episode assembly panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "撤销" }));
     fireEvent.click(screen.getByRole("button", { name: "重做" }));
     await add("audio");
-    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
     await waitFor(() => expect(screen.getByText("已从项目重新读回装配版本。")).toBeInTheDocument());
     const saved = env.stored()!.data.content;
     expect(saved.sequence_timebase.frame_rate).toEqual({ num: 30000, den: 1001 });
@@ -530,12 +530,12 @@ describe("native local-media episode assembly panel", () => {
     );
     await waitFor(() => expect(screen.getByLabelText("选择已导入素材版本")).toBeEnabled());
     await add("video");
-    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("先前写入结果未知"));
     view.unmount();
     render(<EpisodeMediaAssemblyPanel projectId={projectId} episodeId={episodeId} {...env} />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "保存这一集" })).toBeDisabled();
     expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
   });
   it.each(["replaced", "removed"])(
@@ -838,10 +838,10 @@ it("saves literal subtitle IDs and exact frames, protects unapplied input, and r
   });
   fireEvent.change(screen.getByLabelText("字幕入点（帧）"), { target: { value: "3" } });
   fireEvent.change(screen.getByLabelText("字幕出点（不含此帧）"), { target: { value: "20" } });
-  expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "保存这一集" })).toBeDisabled();
   expect(unloadPrevented()).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "应用字幕" }));
-  fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
   await waitFor(() => expect(env.stored()?.data.content.subtitle_segments).toHaveLength(1));
   await screen.findByText("已从项目重新读回装配版本。");
   const first = env.stored()!.data.content.subtitle_segments[0]!;
@@ -860,7 +860,7 @@ it("saves literal subtitle IDs and exact frames, protects unapplied input, and r
   fireEvent.click(screen.getByRole("button", { name: "编辑字幕" }));
   fireEvent.change(screen.getByLabelText("字幕文字"), { target: { value: "修改字幕" } });
   fireEvent.click(screen.getByRole("button", { name: "应用字幕" }));
-  fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
   await waitFor(() => expect(env.stored()?.data.head_revision).toBe(2));
   await screen.findByText("已从项目重新读回装配版本。");
   expect(env.stored()!.data.content.subtitle_segments[0]!.segment_id).toBe(first.segment_id);
@@ -889,9 +889,9 @@ it("rejects unsupported subtitle text and overlap without silently saving or cli
   fireEvent.change(screen.getByLabelText("字幕文字"), { target: { value: "重叠条目" } });
   fireEvent.click(screen.getByRole("button", { name: "应用字幕" }));
   expect(screen.getByText("字幕范围不能重叠；请调整入点或出点。")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "保存这一集" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "放弃字幕输入" }));
-  expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "保存这一集" })).toBeEnabled();
 });
 
 it.each(["lower-revision", "missing-head", "contradictory-identity"] as const)(
@@ -1011,7 +1011,7 @@ it("resizes the mounted original without losing trim, subtitle or timecode draft
     expect(code).toHaveValue("00:00:01:09");
     expect(screen.getByLabelText("剪切位置（序列帧）")).toHaveValue(29);
     expect(within(region).getByText("2×")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "保存这一集" })).toBeDisabled();
     expect(unloadPrevented()).toBe(true);
   }
   fireEvent.click(screen.getByRole("button", { name: "应用裁剪" }));
@@ -1038,7 +1038,7 @@ it("keeps the full original UNKNOWN journal and one UUID across layout toggles a
   const view = render(<EpisodeMediaAssemblyPanel {...props} />);
   await waitFor(() => expect(screen.getByLabelText("选择已导入素材版本")).toBeEnabled());
   await add("image");
-  fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
   await screen.findByText("先前写入结果未知；保存已锁定，请准确核对原保存。");
   const before = Object.fromEntries(
     Object.keys(localStorage).map((key) => [key, localStorage.getItem(key)]),
@@ -1058,5 +1058,5 @@ it("keeps the full original UNKNOWN journal and one UUID across layout toggles a
   ).toEqual(before);
   expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
   expect(env.assembly.getOriginal).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "保存这一集" })).toBeDisabled();
 });

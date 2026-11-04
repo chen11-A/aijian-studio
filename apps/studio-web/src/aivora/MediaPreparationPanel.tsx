@@ -24,6 +24,7 @@ import {
   type PreparationJournal,
 } from "./adapters/mediaPreparation";
 import { Button } from "./Common";
+import { Select } from "./Select";
 
 type Gateway = Partial<MediaPreparationGateway & StoryboardGateway>;
 // Session anchor survives page/episode remounts; SQLite remains the content truth.
@@ -349,15 +350,13 @@ export function MediaPreparationPanel({
       <div className="v2-visual-card" style={{ padding: 24 }}>
         <h2>镜头制作请求</h2>
         <p>完整保存画面输入。真实生成仍需验证服务、逐次内容授权和费用批准。</p>
-        <p>
-          作品 {p} · 分集 {e}
-        </p>
+        <p>当前作品的这一集</p>
         {input && (
           <fieldset disabled={blocked}>
             <legend>新请求输入</legend>
             <label>
               已保存镜头
-              <select
+              <Select
                 aria-label="已保存镜头"
                 value={input.shot_id}
                 onChange={(ev) => {
@@ -374,11 +373,11 @@ export function MediaPreparationPanel({
                     {s.ordinal}. {s.title}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               画面意图
-              <select
+              <Select
                 aria-label="画面意图"
                 value={input.capability_intent}
                 onChange={(ev) =>
@@ -394,7 +393,7 @@ export function MediaPreparationPanel({
               >
                 <option value="IMAGE">图片</option>
                 <option value="VIDEO">视频</option>
-              </select>
+              </Select>
             </label>
             <label>
               完整提示词

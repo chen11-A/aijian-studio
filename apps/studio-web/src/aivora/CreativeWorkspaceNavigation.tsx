@@ -1,6 +1,7 @@
 import { Button } from "./Common";
 import { Icon } from "./Icon";
 import { useDemo } from "./model";
+import { Select } from "./Select";
 
 /** Project and episode changes use the same guarded authoritative selection path as the main shell. */
 export function CreativeWorkspaceNavigation() {
@@ -35,7 +36,7 @@ export function CreativeWorkspaceNavigation() {
     <div className="cw-project-navigation">
       <label className="cw-project-select">
         作品
-        <select
+        <Select
           aria-label="作品选择"
           value={d.value("projectId")}
           onChange={(event) => {
@@ -48,7 +49,7 @@ export function CreativeWorkspaceNavigation() {
               {project.name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <div className="cw-section-label">
         <span>

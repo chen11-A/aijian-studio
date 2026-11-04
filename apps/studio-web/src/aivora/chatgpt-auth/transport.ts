@@ -124,8 +124,8 @@ export function chatGPTErrorMessage(code: string): string {
       "系统安全凭据库不可用。请在桌面系统解锁凭据库后重试；不会改为明文保存。",
     SECURE_STORAGE_INVALID: "保存的账号记录无法安全读取。保留现有文件，请检查桌面凭据库。",
     SECURE_STORAGE_WRITE_FAILED: "凭据保存未能确认。请重新核对账号状态，暂不使用套餐。",
-    AUTH_CANCELLED: "已取消登录。可以继续使用 API 连接。",
-    AUTH_DENIED: "你未授予这次权限。可以重新授权或使用 API。",
+    AUTH_CANCELLED: "已取消登录。可以继续使用密钥连接。",
+    AUTH_DENIED: "你未授予这次权限。可以重新授权或使用密钥。",
     AUTH_ATTEMPT_EXPIRED:
       "等待官方网页返回已超时，尚未确认登录。请先确认网页能正常打开，再回来手动开始一次登录。",
     BROWSER_OPEN_FAILED: "系统浏览器未能打开。请检查这台电脑的默认浏览器，再手动重试。",
@@ -144,5 +144,5 @@ export function chatGPTErrorMessage(code: string): string {
     CONNECTION_UNAVAILABLE:
       "尚未确认连接。若官方网页提示无法访问，请先排查这台电脑访问 auth.openai.com 的浏览器连接，再手动重试。",
   };
-  return messages[code] ?? "操作未通过验证，未确认成功。请重新核对连接或使用 API。";
+  return messages[code] ?? "操作未通过验证，未确认成功。请重新核对连接或使用密钥。";
 }

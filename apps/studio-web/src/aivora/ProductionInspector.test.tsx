@@ -26,7 +26,7 @@ describe("production inspector honesty", () => {
       expect(screen.getByLabelText("真实作品属性面板")).toBeInTheDocument();
       expect(screen.getByText("真实作品")).toBeInTheDocument();
       expect(screen.getByText("真实剧集")).toBeInTheDocument();
-      expect(screen.getByRole("status")).toHaveTextContent("尚未接入");
+      expect(screen.getByRole("status")).toHaveTextContent("详细属性");
       expect(screen.queryByText(/演示属性|Shot 000|Aivora-Video Pro/)).not.toBeInTheDocument();
       expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
       expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

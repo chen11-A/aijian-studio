@@ -126,7 +126,7 @@ export function StoryboardVisualBiblePin({
       unknownSource ||
       missing.length ||
       !window.confirm(
-        `固定G5视觉 v${target.visual.version.version_number} 和其共享设定版本？全体 ${content.shots.length} 个镜头文字、时长和原选用保留；仍须逐镜选择批准范围内的角色/服装参考，保存时重新核对批准证据。`,
+        `固定视觉版本 v${target.visual.version.version_number} 和其共享设定版本？全体 ${content.shots.length} 个镜头文字、时长和原选用保留；仍须逐镜选择批准范围内的角色/服装参考，保存时重新核对批准证据。`,
       )
     )
       return;
@@ -147,25 +147,25 @@ export function StoryboardVisualBiblePin({
     );
   }
   return (
-    <section aria-label="G5视觉批准版本引用">
-      <h4>G5视觉批准版本</h4>
+    <section aria-label="视觉版本引用">
+      <h4>视觉版本</h4>
       {pin ? (
         <>
           <p>
             固定版本 {pin.version_id} · {pin.content_hash.slice(0, 12)} ·{" "}
             {visualAuthorityLabel(authority)}
           </p>
-          <p>批准证据变化或版本替代会阻止新的分镜保存、装配保存和DRAFT导出；历史内容保留。</p>
+          <p>批准证据变化或版本替代会阻止新的分镜保存、装配保存和草稿导出；历史内容保留。</p>
         </>
       ) : (
-        <p>尚未固定G5批准版本。手工分镜可继续保存，不表示已完成视觉审签。</p>
+        <p>尚未固定视觉版本。手工分镜可继续保存，不表示已完成视觉审签。</p>
       )}
       <Button disabled={locked || busy} onClick={() => void inspect()}>
-        检查当前批准G5版本
+        检查当前批准的视觉版本
       </Button>
       {message && <p role="status">{message}</p>}
       {unapprovedEnvironment && (
-        <p>此草稿含独立环境状态/参考，现有G5合同未覆盖，不能将它们视为已批准或自动清空后改绑。</p>
+        <p>此草稿含独立环境状态/参考，现有视觉约定未覆盖，不能将它们视为已批准或自动清空后改绑。</p>
       )}
       {target && (
         <>
@@ -205,7 +205,7 @@ export function StoryboardVisualBiblePin({
             if (
               !locked &&
               window.confirm(
-                "解除当前草稿的G5批准引用？镜头选用和历史版本保留；此草稿不再声明固定视觉批准。",
+                "解除当前草稿的视觉版本引用？镜头选用和历史版本保留；此草稿不再声明固定视觉批准。",
               )
             )
               edit((v) =>
@@ -213,7 +213,7 @@ export function StoryboardVisualBiblePin({
               );
           }}
         >
-          解除G5批准引用
+          解除视觉版本引用
         </Button>
       )}
     </section>

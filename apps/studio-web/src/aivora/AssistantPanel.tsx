@@ -12,6 +12,8 @@ import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { useOptionalAssistantSelection } from "./assistantSelection";
 import { AssistantChatConversation } from "./AssistantChatConversation";
 import { assistantChatBridge } from "./assistantChatTransport";
+import { useModelCenter } from "./account/CurrentModelLink";
+import { useGrokConnected } from "./grok-auth/useGrokConnected";
 import "./v2-assistant.css";
 import "./assistant-workbench.css";
 
@@ -27,17 +29,21 @@ export function AssistantPanel() {
 function ProductionAssistantPanel() {
   const d = useDemo();
   const account = useOfficialConnection();
+  const grokConnected = useGrokConnected();
+  const grokText = useModelCenter().choices.TEXT;
+  const grokModel =
+    grokConnected && grokText?.provider === "GROK_LOGIN"
+      ? grokText.modelId
+      : grokConnected
+        ? "grok-4.7"
+        : null;
   const selection = useOptionalAssistantSelection();
   const [tab, setTab] = useState("对话");
   const pageLabel = pages[d.page][0];
   const chosen = account?.resolve(d.backendProjectId ?? "");
   const profileId = account?.catalogProfileId ?? null;
   const closeAssistant = () => {
-    if (d.professional) d.selectRightTab("inspector");
-    else {
-      d.setAiOpen(false);
-      d.put("managementAI", "false");
-    }
+    d.selectRightTab("inspector");
   };
   return (
     <aside className="assistant-panel v2-assistant assistant-workbench" aria-label="Aivora AI 助手">
@@ -49,6 +55,7 @@ function ProductionAssistantPanel() {
             {assistantServiceLabel(
               d.providerSettings.state,
               account ? assessChatGPTConnection(account.connection) : undefined,
+              grokConnected,
             )}
           </p>
         </div>
@@ -61,11 +68,6 @@ function ProductionAssistantPanel() {
         >
           {tab === "对话" ? pageLabel : tab}
         </button>
-        {!d.professional && (
-          <button className="assistant-collapse" onClick={closeAssistant} aria-label="收起助手面板">
-            收起
-          </button>
-        )}
         <Dropdown
           className="v2-ai-menu"
           label="助手工具"
@@ -89,9 +91,7 @@ function ProductionAssistantPanel() {
                 {value}
               </button>
             ))}
-            <button onClick={closeAssistant}>
-              {d.professional ? "查看对象属性" : "收起助手面板"}
-            </button>
+            <button onClick={closeAssistant}>查看对象属性</button>
           </nav>
         </Dropdown>
       </div>
@@ -111,6 +111,7 @@ function ProductionAssistantPanel() {
             publication={selection?.publication ?? { kind: "NONE" }}
             included={selection?.included ?? false}
             setIncluded={(included) => selection?.setIncluded(included)}
+            grokModel={grokModel}
             onOpenServices={() => d.go("services")}
             onOpenEditor={() =>
               d.go(

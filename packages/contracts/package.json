@@ -21,6 +21,10 @@
       "types": "./src/chatgpt-auth.ts",
       "default": "./src/chatgpt-auth.ts"
     },
+    "./grok-auth": {
+      "types": "./src/grok-auth.ts",
+      "default": "./src/grok-auth.ts"
+    },
     "./official-text": {
       "types": "./src/official-text.ts",
       "default": "./src/official-text.ts"

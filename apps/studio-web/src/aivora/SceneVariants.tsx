@@ -5,6 +5,7 @@ import type { CreativeContent } from "./adapters/creativeLibrary";
 import { removeSceneVariant, withCreativeEnvironment } from "./adapters/creativeEnvironment";
 import type { SceneVariant } from "./adapters/creativeEnvironment";
 import { EnvironmentReferences } from "./EnvironmentReferences";
+import { Select } from "./Select";
 
 export type EnvironmentEditorProps = {
   content: CreativeContent;
@@ -93,7 +94,7 @@ export function SceneVariants(props: EnvironmentEditorProps) {
       <p>状态随同一作品设定版本保存，旧版保留。状态与实际参考仍需明确选用，保存不表示制作批准。</p>
       <label>
         查看场景状态
-        <select
+        <Select
           value={selectedId}
           disabled={locked}
           onChange={(event) => select(event.currentTarget.value)}
@@ -105,7 +106,7 @@ export function SceneVariants(props: EnvironmentEditorProps) {
               {item.name || "未命名状态"} · {item.variant_id}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {selectedId && !selected && <p role="alert">所选状态不存在于当前设定，未回退或关联参考。</p>}
       {selected && (

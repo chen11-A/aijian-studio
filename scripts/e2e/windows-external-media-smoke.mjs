@@ -207,11 +207,11 @@ export async function runWindowsSmoke(values) {
   const executable = plain(resolve(values.exe));
   const resources = plain(join(dirname(executable), "resources"), "directory");
   const mediaRoot = plain(resolve(values["media-root"]), "directory");
-  const userData = plain(join(process.env.APPDATA, "AIVORA Dev Core"), "directory");
+  const userData = plain(join(process.env.APPDATA, "AIVORA"), "directory");
   const reportPath = resolve(values.report);
   const workRoot = plain(join(process.env.RUNNER_TEMP, "aivora-external-media-test"), "directory");
   const outputRoot = join(workRoot, "native-outputs");
-  assert.equal(basename(executable), "AIVORA Dev Core.exe");
+  assert.equal(basename(executable), "AIVORA.exe");
   for (const path of [executable, mediaRoot, reportPath, values.inputs, values["core-report"]])
     assert.ok(inside(process.env.RUNNER_TEMP, path), "Require isolated fresh runner paths");
   assert.equal(existsSync(reportPath), false, "Never overwrite earlier evidence");
@@ -370,7 +370,7 @@ export async function runWindowsSmoke(values) {
       preferences: BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences(),
     }));
     assert.equal(identity.packaged, true);
-    assert.equal(identity.name, "AIVORA Dev Core");
+    assert.equal(identity.name, "AIVORA");
     assert.equal(identity.electron, "43.2.0");
     assert.equal(resolve(identity.userData).toLowerCase(), userData.toLowerCase());
     assert.equal(resolve(identity.resources).toLowerCase(), resources.toLowerCase());
@@ -478,7 +478,7 @@ export async function runWindowsSmoke(values) {
   }
   async function settings() {
     await route("settings");
-    await page.getByRole("button", { name: "本地媒体工具 · DRAFT", exact: true }).click();
+    await page.getByRole("button", { name: "本地媒体工具", exact: true }).click();
   }
   async function selectTools() {
     await settings();

@@ -71,9 +71,10 @@ def evaluate_media_budget(
 ) -> BudgetAssessment:
     """Assess a snapshot, not a permit, reservation, quote or provider cost guarantee.
 
-    Project totals already include the episode. A future dispatch consumer must
-    bind the scope/revision, obtain trustworthy cost bounds, and reserve inside
-    its ledger transaction; a stale assessment alone must never permit a call.
+    Project totals already include the episode. MediaBudgetStore is the consumer:
+    it binds the current budget revision, rejects unknown amounts, and reserves
+    inside the same SQLite transaction before a no-network stub. A stale
+    assessment alone must never permit a call.
     """
     project_available = project.available_micro if project is not None else None
     episode_available = episode.available_micro if episode is not None else None

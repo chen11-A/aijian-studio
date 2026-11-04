@@ -12,6 +12,7 @@ type Sub2APIReadinessClient = {
   ): Promise<Sub2APIConfiguredReadinessResult>;
 };
 
+/** Read-only historical readiness. The settings UI no longer asks for it. */
 export function registerSub2APIConfiguredReadinessHandler<TEvent>(
   handle: (
     channel: string,

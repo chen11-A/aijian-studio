@@ -12,6 +12,7 @@ import type { AssemblyScriptGateway } from "./useAssemblyScriptSources";
 import type { AssemblyContent, AssemblySubtitleSegment } from "./adapters/episodeMediaAssembly";
 import "./assembly-subtitles.css";
 
+import { Select } from "./Select";
 type Fields = {
   id: string;
   text: string;
@@ -102,7 +103,7 @@ export function AssemblySubtitleEditor({
     const text = scriptSubtitleText(candidate.block.text);
     if (text === null) {
       setNotice(
-        "此对白超出当前 DRAFT 字幕长度或字形范围；没有截断或替换。请在剧本中明确调整后另行确认。",
+        "此对白超出当前 草稿 字幕长度或字形范围；没有截断或替换。请在剧本中明确调整后另行确认。",
       );
       return;
     }
@@ -205,7 +206,7 @@ export function AssemblySubtitleEditor({
         </Button>
         <label>
           已确认剧本字幕对白
-          <select
+          <Select
             value={sourceChoice.key === sourceKey ? sourceChoice.blockId : ""}
             disabled={locked || confirmed.source.state !== "ready" || !content.total_frames}
             onChange={(e) => setSourceChoice({ key: sourceKey, blockId: e.target.value })}
@@ -216,7 +217,7 @@ export function AssemblySubtitleEditor({
                 {d.block.speaker}：{d.block.text}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <Button disabled={locked || !candidate || !content.total_frames} onClick={fromScript}>
           将所选剧本对白设为字幕

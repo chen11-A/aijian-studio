@@ -1,5 +1,6 @@
 import { Button } from "./Common";
 import type { ScriptBlock, ScriptScene } from "./adapters/episodeScript";
+import { Select } from "./Select";
 
 function moveBlock(items: ScriptBlock[], index: number, offset: number): ScriptBlock[] {
   const target = index + offset;
@@ -25,7 +26,7 @@ export function ScriptSceneBlocks({
         <div key={block.block_id}>
           <label>
             段落类型
-            <select
+            <Select
               value={block.kind}
               disabled={locked}
               onChange={(event) => {
@@ -47,7 +48,7 @@ export function ScriptSceneBlocks({
             >
               <option value="ACTION">动作</option>
               <option value="DIALOGUE">对白</option>
-            </select>
+            </Select>
           </label>
           {block.kind === "DIALOGUE" && (
             <>
@@ -69,7 +70,7 @@ export function ScriptSceneBlocks({
               </label>
               <label>
                 对白呈现
-                <select
+                <Select
                   value={block.delivery ?? ""}
                   disabled={locked}
                   onChange={(event) => {
@@ -87,7 +88,7 @@ export function ScriptSceneBlocks({
                   </option>
                   <option value="ON_SCREEN">画内</option>
                   <option value="OFF_SCREEN">画外</option>
-                </select>
+                </Select>
               </label>
             </>
           )}

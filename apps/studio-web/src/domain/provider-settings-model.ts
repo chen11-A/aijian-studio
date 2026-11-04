@@ -16,6 +16,11 @@ export function isLiteralSub2APILoopbackOrigin(value: string): boolean {
   return match !== null && Number(match[1]) <= 65535;
 }
 
+/** Kinds the settings form may offer. SUB2API stays in providerPresets for historical records. */
+export function isUserFacingProviderKind(kind: string): boolean {
+  return kind !== "SUB2API";
+}
+
 export const capabilityLabels: Record<Capability, string> = {
   TEXT: "剧本",
   IMAGE: "图片",
@@ -46,8 +51,8 @@ export const providerPresets: Record<
     keyRequired: true,
   },
   SUB2API: {
-    label: "Sub2API",
-    description: "首批仅支持文本来源抽取；可选公网 HTTPS 或本机 loopback 网关，须填写业务密钥",
+    label: "文本网关",
+    description: "已停用。历史连接仍可解析，设置页不再提供新建或派发。",
     baseUrl: "",
     keyRequired: true,
   },

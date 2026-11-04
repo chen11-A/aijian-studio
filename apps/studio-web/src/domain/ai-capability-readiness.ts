@@ -27,7 +27,7 @@ export const readinessLabels: Record<ConnectionReadiness, string> = {
   PLAN_REQUIRED: "已登录 · 套餐使用未授权",
   AUTHORIZED_UNVERIFIED: "套餐已授权 · 推理待验证",
   DISABLED: "连接已停用",
-  CREDENTIAL_UNAVAILABLE: "系统凭据暂不可用",
+  CREDENTIAL_UNAVAILABLE: "本机凭据暂时不可用",
   CREDENTIAL_MISSING: "尚未配置调用凭据",
   MODEL_MISSING: "尚未登记模型",
   CONFIGURED_UNVERIFIED: "本地已配置 · 调用待验证",

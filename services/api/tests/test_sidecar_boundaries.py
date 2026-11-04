@@ -65,7 +65,6 @@ SHUTDOWN = [
     ("jobs", "shutdown_and_wait"),
     ("product", "join_workers"),
     ("draft", "join_workers"),
-    ("sub2", "stop"),
     ("remote", "stop"),
     ("timeline", "stop"),
     ("fake", "stop"),
@@ -105,8 +104,11 @@ def test_normal_cleanup_releases_owner_only_after_every_runtime_stops(process):
     parent.attach_mock(process.listener.close, "close_listener")
     parent.attach_mock(process.owner.release, "release_owner")
     sidecar.run()
-    for name in ("fake", "timeline", "remote", "sub2"):
+    for name in ("fake", "timeline", "remote"):
         process.resources[name].start.assert_called_once_with()
+    process.substitutions["create_sub2api_source_extract_runtime"].assert_called_once()
+    process.resources["sub2"].start.assert_not_called()
+    process.resources["sub2"].stop.assert_not_called()
     for name, operation in SHUTDOWN:
         getattr(process.resources[name], operation).assert_called_once_with()
     process.listener.close.assert_called_once_with()

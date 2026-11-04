@@ -32,6 +32,7 @@ import {
   useOfficialConnection,
 } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { DESKTOP_REQUIRED } from "./chatgpt-auth/transport";
+import { selectCenteredModel } from "./account/model-center";
 
 const profileId = "11111111-1111-4111-8111-111111111111";
 function AccountProbe() {
@@ -90,12 +91,15 @@ async function models() {
   await ready();
   await waitFor(() => expect(screen.getByTestId("account-state")).toHaveTextContent("ready"));
   fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-  await screen.findByRole("option", { name: "Fixture official model" });
-  expect(screen.getByLabelText("官方模型")).toHaveValue("");
-  fireEvent.change(screen.getByLabelText("官方模型"), { target: { value: "" } });
-  fireEvent.change(screen.getByLabelText("官方模型"), {
-    target: { value: "fixture-official-model" },
+  await screen.findByText(/Fixture official model/);
+  expect(screen.getByText("尚未选择官方文本模型")).toBeInTheDocument();
+  act(() => {
+    selectCenteredModel("TEXT", {
+      provider: "CHATGPT_OFFICIAL",
+      modelId: "fixture-official-model",
+    });
   });
+  await screen.findByText("本项目已覆盖默认模型");
 }
 beforeEach(() => {
   vi.stubGlobal("crypto", webcrypto);
@@ -132,10 +136,14 @@ describe("compact native-only AI director review", () => {
     rtlRender(<OfficialDirectorProposalPanel {...fixture.input} />);
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-    await screen.findByRole("option", { name: "Fixture official model" });
-    fireEvent.change(screen.getByLabelText("官方模型"), {
-      target: { value: "fixture-official-model" },
+    await screen.findByText(/Fixture official model/);
+    act(() => {
+      selectCenteredModel("TEXT", {
+        provider: "CHATGPT_OFFICIAL",
+        modelId: "fixture-official-model",
+      });
     });
+    await screen.findByText(/fixture-official-model/);
     expect(screen.getByRole("button", { name: "审阅输入并生成一次" })).toBeDisabled();
     expect(fixture.bridge.generate).not.toHaveBeenCalled();
   });
@@ -297,10 +305,13 @@ describe("compact native-only AI director review", () => {
     await ready();
     expect(screen.getByText("COVERAGE_INVALID：对白覆盖缺失")).toBeInTheDocument();
     expect(screen.queryByLabelText("AI 导演镜头计划只读预览")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("本集操作记录（最近记录）"), {
+    const history = screen.getByLabelText("本集操作记录（最近记录）");
+    await waitFor(() => expect(history).toHaveValue(invalid.request.operation_id));
+    fireEvent.change(history, {
       target: { value: blocked.request.operation_id },
     });
-    expect(screen.getByText(/阻断 · FRACTIONAL_RATE/)).toBeInTheDocument();
+    expect(await screen.findByText(/阻断 · FRACTIONAL_RATE/)).toBeInTheDocument();
+    expect(history).toHaveValue(blocked.request.operation_id);
     expect(screen.getByRole("button", { name: "明确采纳为新分镜版本" })).toBeDisabled();
   });
   it("shows missing native gateway and unavailable storage as disabled states", async () => {
@@ -429,12 +440,14 @@ describe("compact native-only AI director review", () => {
     expect(screen.getByLabelText("人工驳回理由")).toHaveValue("原始理由");
     fireEvent.click(screen.getByRole("button", { name: "核对原操作（只读）" }));
     await screen.findByText(/人工驳回理由：原始理由/);
-    expect(fixture.input.onWorkStateChange).toHaveBeenLastCalledWith({
-      dirty: false,
-      pending: false,
-      busy: false,
-      storyboardPending: false,
-    });
+    await waitFor(() =>
+      expect(fixture.input.onWorkStateChange).toHaveBeenLastCalledWith({
+        dirty: false,
+        pending: false,
+        busy: false,
+        storyboardPending: false,
+      }),
+    );
     expect(reject).toHaveBeenCalledTimes(1);
   });
   it("preserves a malformed journal seen on focus and reports truncated recent history explicitly", async () => {

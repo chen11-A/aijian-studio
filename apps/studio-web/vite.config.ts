@@ -24,7 +24,10 @@ export default defineConfig({
   test: {
     // pnpm runs desktop and renderer suites together; share CPU capacity.
     // https://v4.vitest.dev/config/maxworkers
-    maxWorkers: Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2))),
+    maxWorkers:
+      process.env.RUNNER_OS === "Windows"
+        ? 1
+        : Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2))),
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
     coverage: {

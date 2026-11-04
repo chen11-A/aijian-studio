@@ -483,11 +483,11 @@ it("never labels an unapproved newly saved candidate with the old version's appr
     }),
   );
   render(<VisualBibleEditor projectId={p} setNavigationGuard={setter} />);
-  await screen.findByText("G5当前批准");
+  await screen.findByText("视觉版本已批准");
   fireEvent.change(screen.getByLabelText("共享改动原因"), { target: { value: "另存新候选" } });
   fireEvent.click(screen.getByRole("button", { name: "另存视觉候选版本" }));
-  await screen.findByText("已保存不可变视觉候选；尚未获得G5批准。");
-  expect(screen.queryByText("G5当前批准")).toBeNull();
+  await screen.findByText("已保存不可变视觉候选；尚未获得视觉版本批准。");
+  expect(screen.queryByText("视觉版本已批准")).toBeNull();
   expect(screen.getByText(/批准依据状态/).textContent).toContain("未核对");
   expect(screen.getByText(/批准依据状态/).textContent).not.toContain("dec_" + "a".repeat(32));
   expect(g.prepareVisualReview).not.toHaveBeenCalled();

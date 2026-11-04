@@ -11,6 +11,8 @@ export type ChatGPTTextCommand = {
   text: string;
   instructions?: string;
   approvalContext?: string;
+  /** Workspace project that owns the billing row. The token is not part of this command. */
+  billingProjectId?: string;
 };
 export type ChatGPTTextReservation = {
   operationId: string;

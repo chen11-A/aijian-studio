@@ -5,6 +5,7 @@ import { useDemo } from "./model";
 import { flow, pages } from "./data";
 import { V2ImageViewer } from "./V2ImageViewer";
 import { v2PageCopy } from "./v2-page-copy";
+import { Select } from "./Select";
 
 export function Button({
   children,
@@ -98,6 +99,7 @@ export function FlowFooter({
   reason,
   secondaryLabel,
   secondaryAction,
+  hideSecondary,
 }: {
   label?: string;
   action?: () => void;
@@ -105,6 +107,7 @@ export function FlowFooter({
   reason?: string;
   secondaryLabel?: string;
   secondaryAction?: () => void;
+  hideSecondary?: boolean;
 }) {
   const d = useDemo();
   const index = flow.indexOf(d.page);
@@ -112,12 +115,14 @@ export function FlowFooter({
   const previous = flow[index - 1];
   return (
     <footer className="flow-footer">
-      <Button
-        icon={secondaryAction ? "edit" : "back"}
-        onClick={secondaryAction ?? (() => (previous ? d.go(previous) : d.back()))}
-      >
-        {secondaryLabel ?? "上一步"}
-      </Button>
+      {!hideSecondary && (
+        <Button
+          icon={secondaryAction ? "edit" : "back"}
+          onClick={secondaryAction ?? (() => (previous ? d.go(previous) : d.back()))}
+        >
+          {secondaryLabel ?? "上一步"}
+        </Button>
+      )}
       <span>
         <Icon name="check" size={18} />
         {reason ?? "演示内容 · 你的决定始终保留"}
@@ -317,11 +322,11 @@ export function EditorDialog() {
             <label key={field.key}>
               {field.label}
               {field.options ? (
-                <select name={field.key} defaultValue={field.value}>
+                <Select name={field.key} defaultValue={field.value}>
                   {field.options.map((option) => (
                     <option key={option}>{option}</option>
                   ))}
-                </select>
+                </Select>
               ) : field.type === "textarea" ? (
                 <textarea name={field.key} defaultValue={field.value} required={field.required} />
               ) : (

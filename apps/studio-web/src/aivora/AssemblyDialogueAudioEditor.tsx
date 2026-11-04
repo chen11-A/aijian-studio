@@ -4,6 +4,7 @@ import { bindAssemblyDialogue } from "./adapters/assemblyDialogue";
 import type { AssemblyContent } from "./adapters/episodeMediaAssembly";
 import { useAssemblyScriptSources, type AssemblyScriptGateway } from "./useAssemblyScriptSources";
 import { useConfirmedAssemblyScript } from "./useConfirmedAssemblyScript";
+import { Select } from "./Select";
 
 /** Binds imported audio to one immutable saved script block; no voice generation. */
 export function AssemblyDialogueAudioEditor({
@@ -145,7 +146,7 @@ export function AssemblyDialogueAudioEditor({
             )}
             <label>
               对白来源版本
-              <select
+              <Select
                 disabled={locked || sourceUnavailable}
                 value={
                   sourceChoice.scope === scope && sourceChoice.confirmed ? "confirmed" : "draft"
@@ -156,13 +157,13 @@ export function AssemblyDialogueAudioEditor({
               >
                 <option value="draft">最新已保存草稿</option>
                 <option value="confirmed">最近人工确认的精确版本</option>
-              </select>
+              </Select>
             </label>
             {latest.version && (
               <>
                 <label>
                   本集已保存剧本对白
-                  <select
+                  <Select
                     value={blockId}
                     disabled={locked || sourceUnavailable}
                     onChange={(event) => setChoice({ key: choiceKey, blockId: event.target.value })}
@@ -175,7 +176,7 @@ export function AssemblyDialogueAudioEditor({
                         {item.block.text.slice(0, 80)}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 {!latest.dialogues.length && (
                   <p>

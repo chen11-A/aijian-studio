@@ -180,6 +180,7 @@ async function generate(
     text: request.input_text,
     instructions: request.instructions,
     approvalContext: `AI 导演建议\n项目：${project}\n分集：${episode}\n已确认剧本：${request.authority.script.version_id} / ${request.authority.script.content_hash}\n制作简报：${request.authority.production_brief.version_id} / ${request.authority.production_brief.content_hash}\n仅产生待人工审阅的结构化建议，不执行媒体生成、剪辑或导出。`,
+    billingProjectId: project,
   };
   let reservationAttempted = false;
   let reserved = false;

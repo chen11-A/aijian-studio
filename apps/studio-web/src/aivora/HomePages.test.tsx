@@ -1,11 +1,10 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { useEffect } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { HomePages } from "./HomePages";
 import { StoryPages } from "./StoryPages";
-import { DemoApp } from "./DemoApp";
 import { EditorDialog } from "./Common";
 import { createAivoraSampleFixture, DemoProvider, useDemo } from "./model";
 
@@ -137,7 +136,7 @@ describe("project centre filtering", () => {
           <ProjectHarness />
         </DemoProvider>,
       );
-      await screen.findByRole("button", { name: "本地工作区已连接" });
+      await screen.findByRole("status", { name: "本地工作区已连接" });
       fireEvent.click(screen.getAllByRole("button", { name: "新建项目" })[0]!);
       expect(screen.getByLabelText("项目画幅")).toHaveValue("16:9");
       fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: aspect } });
@@ -171,7 +170,7 @@ describe("project centre filtering", () => {
         <ProjectHarness />
       </DemoProvider>,
     );
-    await screen.findByRole("button", { name: "本地工作区已连接" });
+    await screen.findByRole("status", { name: "本地工作区已连接" });
     fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
     fireEvent.change(screen.getByLabelText("作品名称"), { target: { value: "未提交作品" } });
     fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: "1:1" } });
@@ -268,7 +267,7 @@ describe("project centre filtering", () => {
     const project = await screen.findByRole("button", { name: "管理真实项目记录" });
     fireEvent.click(project);
     fireEvent.change(screen.getByLabelText("操作"), {
-      target: { value: "收藏 / 取消收藏（待接入）" },
+      target: { value: "收藏 / 取消收藏（还不能用）" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存真实项目修改" }));
     expect(
@@ -500,7 +499,7 @@ describe("project centre filtering", () => {
       target: { value: "已归档" },
     });
     fireEvent.click(screen.getByRole("button", { name: "管理真实项目记录" }));
-    fireEvent.change(screen.getByLabelText("操作"), { target: { value: "删除（待影响核对）" } });
+    fireEvent.change(screen.getByLabelText("操作"), { target: { value: "删除（还不能用）" } });
     fireEvent.click(screen.getByRole("button", { name: "保存真实项目修改" }));
     await waitFor(() =>
       expect(
@@ -621,10 +620,18 @@ it("restores a saved episode through its exact ID even when the current list pag
     listSources: vi.fn().mockRejectedValue(new Error("source unavailable")),
   };
   window.aijian = desktop as unknown as NonNullable<Window["aijian"]>;
-  render(<DemoApp />);
+  render(
+    <DemoProvider>
+      <ProjectHarness />
+    </DemoProvider>,
+  );
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledWith(projectId, episodeId));
-  expect(await screen.findByRole("option", { name: "列表外恢复集" })).toHaveValue(episodeId);
-  expect(screen.getByLabelText("剧集选择")).toHaveValue(episodeId);
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: episodeId }),
+  );
+  expect(screen.queryByLabelText("剧集选择")).not.toBeInTheDocument();
   expect(desktop.listSources).toHaveBeenCalledWith(projectId);
 });
 
@@ -900,16 +907,28 @@ it("clears a failed refreshed project view but retains and restores the exact sa
     createEpisode: vi.fn(),
   };
   window.aijian = desktop as unknown as NonNullable<Window["aijian"]>;
-  render(<DemoApp />);
+  render(
+    <DemoProvider>
+      <ProjectHarness />
+    </DemoProvider>,
+  );
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledWith(projectId, episode.id));
-  expect(screen.getByLabelText("作品选择")).not.toHaveValue("");
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: episode.id }),
+  );
 
   failProjects = true;
-  fireEvent.click(screen.getByRole("button", { name: "本地工作区已连接" }));
+  fireEvent.click(screen.getByRole("button", { name: "重新读取本地项目" }));
   expect(
     await screen.findByRole("heading", { name: "本地工作区暂时无法读取" }),
   ).toBeInTheDocument();
-  expect((screen.getByLabelText("作品选择") as HTMLSelectElement).value).toBe("");
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: null, projects: [] }),
+  );
   expect(
     JSON.parse(window.localStorage.getItem("aivora.c2b.workspace-selection.v1") ?? "{}"),
   ).toMatchObject({
@@ -919,7 +938,11 @@ it("clears a failed refreshed project view but retains and restores the exact sa
   failProjects = false;
   fireEvent.click(screen.getByRole("button", { name: "连接本地工作区" }));
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledTimes(2));
-  expect(screen.getByLabelText("作品选择")).not.toHaveValue("");
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: episode.id }),
+  );
   expect(desktop.getEpisode).toHaveBeenLastCalledWith(projectId, episode.id);
 });
 it("persists a newly created project and automatically restores its exact default episode", async () => {
@@ -1036,9 +1059,16 @@ it("persists a newly created project and automatically restores its exact defaul
   });
   cleanup();
   window.history.replaceState({}, "", "#project");
-  render(<DemoApp />);
-  expect(await screen.findByRole("option", { name: "B 默认剧集" })).toHaveValue(defaultB.id);
-  expect(screen.getByLabelText("剧集选择")).toHaveValue(defaultB.id);
+  render(
+    <DemoProvider>
+      <ProjectHarness />
+    </DemoProvider>,
+  );
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: defaultB.id }),
+  );
 });
 
 it("preserves the exact selected episode when the same real project is reopened from project centre", async () => {
@@ -1130,4 +1160,72 @@ it("preserves the exact selected episode when the same real project is reopened 
       selectedEpisodeId: second.id,
     });
   });
+});
+
+it("starts a film from the empty workspace sample or one sentence", async () => {
+  window.localStorage.clear();
+  window.history.replaceState({}, "", "#home");
+  const desktop = bridge();
+  const created = {
+    aspect_ratio: "16:9" as const,
+    target_duration_seconds: 60,
+    source_language: "zh-CN" as const,
+    status: "active" as const,
+    revision: 1,
+    created_at: "2026-10-22T00:00:00Z",
+    updated_at: "2026-10-22T00:00:00Z",
+  };
+  desktop.listProjects = vi.fn().mockResolvedValue({ request_id: "projects", data: [] });
+  desktop.createProject = vi.fn().mockImplementation(async (input: { name: string }) => ({
+    request_id: "created",
+    data: { ...created, id: `prj_${"c".repeat(32)}`, name: input.name },
+  }));
+  window.aijian = desktop;
+  render(
+    <DemoProvider>
+      <HomePages />
+      <EditorDialog />
+    </DemoProvider>,
+  );
+  await screen.findByRole("status", { name: "本地工作区已连接" });
+  fireEvent.click(screen.getByRole("button", { name: "写一句话开始" }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText("这一句"), { target: { value: "   \n  " } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存演示修改" }));
+  await waitFor(() => expect(desktop.createProject).not.toHaveBeenCalled());
+  const sentence = `${"雾".repeat(45)}\u007f城`;
+  fireEvent.change(within(dialog).getByLabelText("这一句"), { target: { value: sentence } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存演示修改" }));
+  await waitFor(() =>
+    expect(desktop.createProject).toHaveBeenCalledWith({
+      name: "雾".repeat(40),
+      aspect_ratio: "16:9",
+      target_duration_seconds: 60,
+      source_language: "zh-CN",
+    }),
+  );
+  cleanup();
+  window.localStorage.clear();
+  window.history.replaceState({}, "", "#home");
+  desktop.createProject = vi.fn().mockResolvedValue({
+    request_id: "sample",
+    data: { ...created, id: `prj_${"d".repeat(32)}`, name: "雾城来信" },
+  });
+  window.aijian = desktop;
+  render(
+    <DemoProvider>
+      <HomePages />
+      <EditorDialog />
+    </DemoProvider>,
+  );
+  await screen.findByRole("status", { name: "本地工作区已连接" });
+  fireEvent.click(screen.getAllByRole("button", { name: "打开示例" })[0]!);
+  await waitFor(() =>
+    expect(desktop.createProject).toHaveBeenCalledWith({
+      name: "雾城来信",
+      aspect_ratio: "16:9",
+      target_duration_seconds: 60,
+      source_language: "zh-CN",
+    }),
+  );
 });

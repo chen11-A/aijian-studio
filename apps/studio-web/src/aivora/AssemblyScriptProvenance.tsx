@@ -64,7 +64,7 @@ export function AssemblyScriptProvenance({
             {pin.script_content_hash}
           </p>
         ) : (
-          <p>当前为未确认 DRAFT 来源，不计为声音或成片批准。</p>
+          <p>当前为未确认 草稿 来源，不计为声音或成片批准。</p>
         )}
         {saved && (
           <p>
@@ -134,13 +134,13 @@ export function AssemblyScriptProvenance({
                   if (
                     !locked &&
                     window.confirm(
-                      "明确转回未确认 DRAFT 来源？现有片段与历史版本保留，后续保存不再计为已确认来源；需另行保存。",
+                      "明确转回未确认 草稿 来源？现有片段与历史版本保留，后续保存不再计为已确认来源；需另行保存。",
                     )
                   )
                     onEdit({ ...content, script_provenance: { mode: "DRAFT" } });
                 }}
               >
-                转回未确认 DRAFT 来源
+                转回未确认 草稿 来源
               </Button>
             )}
           </>

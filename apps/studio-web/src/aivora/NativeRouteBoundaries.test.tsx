@@ -124,9 +124,9 @@ describe("production routes without demo fixtures", () => {
     );
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     expect(
-      screen.getByText("请先选择真实项目和剧集，再读取此分集的草稿、批注和修改计划。"),
+      screen.getByText("还没有打开作品。打开示例「雾城来信」后，才能查看这一集的草稿和修改。"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "选择项目和剧集" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "确认并执行" })).not.toBeInTheDocument();
     expect(screen.queryByRole("slider", { name: "审片时间轴" })).not.toBeInTheDocument();
   });

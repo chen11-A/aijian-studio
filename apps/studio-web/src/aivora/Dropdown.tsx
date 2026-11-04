@@ -51,6 +51,8 @@ export function Dropdown({
       ref={root}
       className={className}
       open={open}
+      role={label ? "group" : undefined}
+      aria-label={label}
       onClick={(event) => {
         if (event.target instanceof Element && event.target.closest("button, a")) {
           setOpen(false);

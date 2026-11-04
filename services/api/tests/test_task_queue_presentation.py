@@ -61,6 +61,8 @@ def _record(**changes: object) -> TaskQueueRecord:
             "本地步骤失败，可安全重试",
         ),
         ({"attempt_status": "FAILED"}, "执行失败"),
+        ({"attempt_status": "FAILED", "error_code": "STALE_SESSION"}, "上一次没有做完，已经结束"),
+        ({"attempt_status": "FAILED", "superseded": True}, "已被后来的成片取代"),
         ({"attempt_status": "SUCCEEDED"}, "已完成"),
         ({"attempt_status": "NOT_SUBMITTED"}, "供应商已确认未受理"),
         ({"attempt_status": "CANCEL_REQUESTED"}, "正在请求取消"),
@@ -73,3 +75,38 @@ def test_task_presentation_maps_technical_state_to_film_language(
     expected: str,
 ) -> None:
     assert task_presentation(_record(**changes))[0] == expected
+
+
+def test_later_local_success_supersedes_an_earlier_failure() -> None:
+    from aijian_api.task_queue_read import _with_superseded
+
+    earlier = datetime(2026, 8, 4, 9, 0, tzinfo=UTC)
+    later = datetime(2026, 8, 4, 10, 0, tzinfo=UTC)
+    failed = _record(
+        attempt_status="FAILED",
+        error_code="STORY_FILM_FAILED",
+        task_kind="local.story_film.v1",
+        started_at=earlier,
+        attempt_id="att_" + "a" * 32,
+        task_id="task_" + "a" * 32,
+    )
+    done = _record(
+        attempt_status="SUCCEEDED",
+        task_kind="local.story_film.v1",
+        started_at=later,
+        attempt_id="att_" + "b" * 32,
+        task_id="task_" + "b" * 32,
+    )
+    newer = _record(
+        attempt_status="FAILED",
+        task_kind="local.story_film.v1",
+        started_at=datetime(2026, 8, 4, 11, 0, tzinfo=UTC),
+        attempt_id="att_" + "c" * 32,
+        task_id="task_" + "c" * 32,
+    )
+    marked = _with_superseded([failed, done, newer])
+    assert marked[0].superseded is True
+    assert marked[0].is_attention is False
+    assert task_presentation(marked[0]) == ("已被后来的成片取代", "无需处理")
+    assert marked[2].superseded is False
+    assert task_presentation(marked[2])[0] == "执行失败"

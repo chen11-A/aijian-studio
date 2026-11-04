@@ -7,7 +7,7 @@ No formal export, licence, product release or real-AI approval is added.
 
 ## Selection and capability
 
-Settings → 本地媒体工具 · DRAFT opens a native main-owned directory picker.
+Settings → 本地媒体工具 opens a native main-owned directory picker.
 Renderer IPC takes no path arguments. Main checks the original window, frame,
 document and authenticated client before and after asynchronous work. Navigation,
 renderer destruction, duplicate actions, cancellation, timeouts and unknown

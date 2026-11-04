@@ -20,6 +20,21 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ["apps/studio-web/e2e/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        window: "readonly",
+        document: "readonly",
+        Element: "readonly",
+        HTMLElement: "readonly",
+        Node: "readonly",
+        getComputedStyle: "readonly",
+      },
+    },
+  },
+  {
     files: ["**/*.ts", "**/*.tsx"],
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
