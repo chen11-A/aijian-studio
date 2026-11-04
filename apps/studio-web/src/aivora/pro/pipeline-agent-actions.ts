@@ -1,3 +1,4 @@
+import { writerNumberedScript, writerSceneContext } from "../film/writer-elements";
 import { applyActionPlan } from "../film/action-plan";
 import type { UiNotice } from "../film/contracts3j";
 import { shotLines } from "../film/director-continuity";
@@ -174,7 +175,10 @@ export async function runPipelineAgentAction(
     const shots = film.shots.filter((shot) => shot.sceneId === scene.id);
     const story = `${scene.title}\n${scene.where}\n${scene.text}`;
     if (target.step === "director") {
-      const context = `画风：${film.styleZh}\n场次 id：${scene.id}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}\n原文段落：\n${numberedScript(scene.text)}`;
+      const script =
+        writerNumberedScript(scene, scene.text) ??
+        `本地段号（不是原文来源段号）：\n${numberedScript(scene.text)}`;
+      const context = `画风：${film.styleZh}\n场次 id：${scene.id}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}\n原文段落：\n${script}${writerSceneContext(scene)}`;
       const reply = await retryDirectorTimeout(
         (control) =>
           request(

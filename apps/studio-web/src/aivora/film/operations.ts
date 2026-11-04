@@ -1,3 +1,4 @@
+import { writerElements } from "./writer-elements";
 import { actionPlanPrompt } from "./action-plan";
 import { locationReference, withLocationLayout } from "./location-reference";
 import { parseAgentReplyText } from "./agent-reply-compat";
@@ -383,6 +384,7 @@ export function rebuildFromParagraphs(
   const paragraphs = numberParagraphs(source);
   if (paragraphs.length === 0 || scenes.length === 0) return scenes;
   const groups = scenes.map(() => [] as string[]);
+  const reliable = scenes.map(() => [] as string[]);
   const explicit = records.map(listedParagraphs);
   const present = new Set(paragraphs.map((item) => item.id));
   const claimed = records.some((record) => Array.isArray(record.source_paragraphs));
@@ -424,6 +426,8 @@ export function rebuildFromParagraphs(
         risks[listed]!.crossSceneRisk = true;
       }
       cursor = listed;
+      if (!risks[listed]!.duplicateParagraphs.includes(paragraph.id))
+        reliable[listed]!.push(paragraph.id);
     } else if (claimed) {
       risks[cursor]?.missingParagraphs.push(paragraph.id);
       if (/^第[0-9０-９一二三四五六七八九十百千零两]+场/u.test(paragraph.text))
@@ -441,8 +445,15 @@ export function rebuildFromParagraphs(
         }))
         .filter((item) => item.lines || item.hit);
       hits.sort((a, b) => Number(b.lines) - Number(a.lines) || a.length - b.length);
-      if (hits[0]) cursor = hits[0].index;
-      else risks[cursor]?.missingParagraphs.push(paragraph.id);
+      if (hits[0]) {
+        cursor = hits[0].index;
+        // A short matching fragment is insufficient evidence of scene ownership.
+        const exact = scenes
+          .map((_, index) => ({ text: asText(records[index]?.text), index }))
+          .filter(({ text }) => text.includes(paragraph.text));
+        if (exact.length === 1 && exact[0]!.index === cursor) reliable[cursor]!.push(paragraph.id);
+        else risks[cursor]?.missingParagraphs.push(paragraph.id);
+      } else risks[cursor]?.missingParagraphs.push(paragraph.id);
     }
     groups[cursor]?.push(paragraph.id);
   }
@@ -459,7 +470,15 @@ export function rebuildFromParagraphs(
       !risk.duplicateParagraphs.length &&
       !risk.invalidParagraphs.length &&
       !risk.crossSceneRisk;
-    return { ...scene, text, paragraphCoverage: risk };
+    return {
+      ...scene,
+      text,
+      paragraphCoverage: risk,
+      sourceParagraphIds: reliable[index],
+      writerSourceText: text,
+      writerParagraphIds: groups[index],
+      elements: writerElements(records[index] ?? {}, paragraphs, reliable[index] ?? []),
+    };
   });
 }
 
@@ -554,7 +573,7 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
           headings[index]?.title ||
           sceneDisplayTitle("", headingWhere(record), story);
     const where = headingWhere(record);
-    const dialogue = elementLines(record).filter((line) => !body.includes(line));
+    const dialogue = source ? [] : elementLines(record).filter((line) => !body.includes(line));
     const withLines = [body.trim(), ...dialogue].filter(Boolean).join("\n");
     if (!withLines) return;
     const explicit = typeof record.id === "string" ? record.id.trim() : "";
@@ -569,6 +588,7 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
       ...scene(no, title, withLines, where),
       id: /^scene-\d+$/.test(explicit) ? explicit : `scene-${no}`,
       source: "agent:writer",
+      elements: writerElements(record, [], []),
       ...(tags.length > 0 ? { tags } : {}),
     });
     kept.push(record);

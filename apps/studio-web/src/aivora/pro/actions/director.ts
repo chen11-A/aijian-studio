@@ -1,3 +1,4 @@
+import { writerNumberedScript, writerSceneContext } from "../../film/writer-elements";
 import { numberedScript } from "../../film/operations";
 import { parseDirectorShots, type FilmProject } from "../../film/project";
 import type { UiNotice } from "../../film/contracts3j";
@@ -9,11 +10,15 @@ export function directorRequestInput(
   story: string,
   sourceText: string,
 ) {
+  const scene = film.scenes.find((item) => item.id === sceneId);
+  const script =
+    writerNumberedScript(scene, story) ??
+    `本地段号（不是原文来源段号）：\n${numberedScript(story)}`;
   const names = film.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
   return {
     sceneId,
     sourceText,
-    context: `画风：${film.styleZh}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${numberedScript(story)}`,
+    context: `画风：${film.styleZh}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${script}${writerSceneContext(scene)}`,
     sceneRefs: film.scenes.map((item) => ({
       id: item.id,
       title: item.title,

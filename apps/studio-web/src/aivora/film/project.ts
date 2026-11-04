@@ -1,3 +1,4 @@
+import type { WriterElement } from "./writer-elements";
 import type { ShotActionPlan, SceneActionState } from "./action-plan";
 import { parseAgentReplyText } from "./agent-reply-compat";
 import type {
@@ -145,6 +146,13 @@ export type FilmCharacter = {
 };
 
 export type FilmScene = {
+  elements?: WriterElement[];
+  /** Only uniquely attributable source paragraphs, in original order. */
+  sourceParagraphIds?: string[];
+  /** Snapshot invalidates writer annotations after a scene edit. */
+  writerSourceText?: string;
+  /** Original paragraph order in the rebuilt text; ownership may still need review. */
+  writerParagraphIds?: string[];
   actionState?: SceneActionState;
   sound?: SceneSound;
   coverage?: SceneCoverage;
