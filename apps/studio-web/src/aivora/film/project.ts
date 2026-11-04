@@ -542,6 +542,13 @@ function matchDirectorScene(
   return scenes[index] ?? requested;
 }
 
+/** About one shot per 40–60 source characters, and never more than 16. Short text is not cut. */
+export function shotBudget(sceneText: string): number | null {
+  const length = sceneText.trim().length;
+  if (length < 80) return null;
+  return Math.min(16, Math.max(1, Math.round(length / 50)));
+}
+
 export function parseDirectorShots(
   text: string,
   sceneId: string,
@@ -675,8 +682,10 @@ export function parseDirectorShots(
           seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
         }))
       : shots;
-  const known = varied.flatMap((shot) => shot.characters);
-  return varied.length > 0 ? attachScriptLines(varied, sceneText, known) : null;
+  const budget = shotBudget(sceneText);
+  const capped = budget !== null && varied.length > budget ? varied.slice(0, budget) : varied;
+  const known = capped.flatMap((shot) => shot.characters);
+  return capped.length > 0 ? attachScriptLines(capped, sceneText, known) : null;
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {

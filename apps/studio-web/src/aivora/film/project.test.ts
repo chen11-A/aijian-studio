@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { offlineRotation } from "../shot-plan";
 import {
@@ -12,6 +14,7 @@ import {
   newFilmId,
   offlineShots,
   parseDirectorShots,
+  shotBudget,
   readFilm,
   sampleFilm,
   textModel,
@@ -72,6 +75,9 @@ describe("film project", () => {
     expect(prompt).toContain("这一场怎么写");
     expect(prompt).toContain("不要改作品");
     expect(agentRequest("director", "画风", "拆开")).toContain("你是 AIVORA 的导演");
+    expect(agentRequest("director", "画风", "拆开")).toContain(
+      "大约每 40 到 60 个字一个镜头，一场最多 16 个",
+    );
     expect(assistantPrompt("   ", null)).toContain("短剧助手");
     const novel = "雨夜旧书店。林晚说：“我叫沈砚。”".padEnd(2075, "雨");
     const request = agentRequest("director", novel, "把这一场拆成镜头");
@@ -207,6 +213,42 @@ describe("film project", () => {
     expect(readFilm(window.localStorage)?.aspectRatio).toBe("16:9");
     expect(parsed?.[0]?.performance).toBe("皱眉");
     expect(parsed?.[0]?.size).toBe("中景");
+    const novel = readFileSync(
+      resolve(__dirname, "../../../../../packages/aivora-prompts/fixtures/test-novel-2000.txt"),
+      "utf8",
+    );
+    const bookstore = novel.slice(0, novel.indexOf("第二场")).trim();
+    const budget = shotBudget(bookstore);
+    expect(budget).toBe(Math.min(16, Math.round(bookstore.length / 50)));
+    expect(budget).toBeLessThanOrEqual(16);
+    const many = parseDirectorShots(
+      JSON.stringify({
+        shots: Array.from({ length: 19 }, (_, index) => ({
+          id: `scene-1-shot-${index + 1}`,
+          picture: `画面${index + 1}`,
+          size: "中景",
+          seconds: 3,
+        })),
+      }),
+      "scene-1",
+      bookstore,
+    );
+    expect(many).toHaveLength(budget ?? 0);
+    expect(many?.at(-1)?.id).toBe(`scene-1-shot-${budget}`);
+    expect(shotBudget("雨".repeat(2000))).toBe(16);
+    expect(
+      parseDirectorShots(
+        JSON.stringify({
+          shots: Array.from({ length: 20 }, (_, index) => ({
+            picture: `画面${index + 1}`,
+            seconds: 3,
+          })),
+        }),
+        "scene-1",
+        "雨".repeat(2000),
+      ),
+    ).toHaveLength(16);
+    expect(shotBudget("短")).toBeNull();
     expect(parsed?.[0]?.sound.source).toBe("native");
     expect(parsed?.[0]?.characters).toEqual(["林骁"]);
     expect(restored?.audioClips).toEqual([]);

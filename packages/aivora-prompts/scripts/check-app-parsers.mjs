@@ -157,14 +157,21 @@ function checkDirector(app, example, writerScene, report) {
   const shots = app.parseDirectorShots(JSON.stringify(example.output), plan.scene_id, ref.text, [
     ref,
   ]);
-  if (!shots || shots.length !== plan.shots.length) {
+  const limit = app.shotBudget(ref.text);
+  const kept = limit == null ? plan.shots : plan.shots.slice(0, limit);
+  if (!shots || shots.length !== kept.length) {
     report.fail(
-      `${example.id}：parseDirectorShots 读出 ${shots?.length ?? 0} 个镜头，应为 ${plan.shots.length}`,
+      `${example.id}：parseDirectorShots 读出 ${shots?.length ?? 0} 个镜头，应按每 40–60 字一镜、最多 16 镜留下 ${kept.length} 个`,
     );
     return;
   }
+  if (plan.shots.length > kept.length) {
+    report.note(
+      `${example.id}：示例有 ${plan.shots.length} 镜，软件按预算留下前 ${kept.length} 镜。`,
+    );
+  }
   const added = [];
-  plan.shots.forEach((shot, index) => {
+  kept.forEach((shot, index) => {
     const got = shots[index];
     const where = `${example.id} ${shot.id}`;
     if (got.id !== shot.id || got.sceneId !== plan.scene_id)
@@ -318,7 +325,7 @@ async function main() {
   for (const text of notes) console.log(`  · ${text}`);
   console.log(
     failures.length === 0
-      ? "全部读对：编剧、美术、导演、表演指导、动作指导、审片的示例输出都被软件原样读出。"
+      ? "全部读对：编剧、美术、导演、表演指导、动作指导、审片的示例输出都被软件读出。导演一场超过每 40 到 60 字一镜、最多 16 镜时，只留下前面的镜头。"
       : `有 ${failures.length} 处没读对。`,
   );
   process.exitCode = failures.length === 0 ? 0 : 1;
