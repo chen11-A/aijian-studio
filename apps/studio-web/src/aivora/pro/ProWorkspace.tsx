@@ -1,3 +1,5 @@
+import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
+import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
 import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
 import { captureReviewInput, applyTextReview } from "../film/review-report";
 import { generateShotStill } from "./actions/shot-still";
@@ -93,15 +95,12 @@ import {
   appearanceMark,
   classifyShotSize,
   DIFFICULTY_LEGEND,
-  durationFromSpeech,
   FILM_TEMPLATES,
   missingIdentityLocks,
   parseLooseJson,
   qcFromModel,
   SHOT_SIZES,
   shotPerson,
-  speechSeconds,
-  splitSpokenLine,
 } from "../film/phase2";
 import { grokBridge } from "../grok-auth/transport";
 import { useGrokAccount, useGrokConnected, useGrokDenied } from "../grok-auth/useGrokConnected";
@@ -470,6 +469,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [assistPulse, setAssistPulse] = useState(0);
   const [hearing, setHearing] = useState(false);
   const previewAudio = useRef<HTMLAudioElement | null>(null);
+  const previewSession = useRef<VoicePreview | null>(null);
+  const previewEpoch = useRef(0);
+  useEffect(
+    () => () => {
+      previewEpoch.current += 1;
+      setHearing(false);
+      previewSession.current?.dispose();
+      previewSession.current = null;
+      previewAudio.current = null;
+    },
+    [film?.id, soundOn],
+  );
   const [roleCards, setRoleCards] = useState<Partial<Record<Role, RoleCard>>>({});
   const [stillArmed, setStillArmed] = useState("");
   const selectedEditorShot =
@@ -1967,31 +1978,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function previewVoice(voiceId: string, line: string) {
-    if (!soundOn) {
-      if (previewAudio.current) {
-        try {
-          previewAudio.current.pause();
-        } catch {
-          /* a test player may not pause */
-        }
-        previewAudio.current = null;
-        setHearing(false);
-      }
-      setNotice("声音关着。打开顶栏的声音再试听。");
-      return;
-    }
-    if (hearing) {
-      try {
-        previewAudio.current?.pause();
-      } catch {
-        /* a test player may not pause */
-      }
-      previewAudio.current = null;
+    const epoch = ++previewEpoch.current;
+    previewSession.current?.dispose();
+    previewSession.current = null;
+    previewAudio.current = null;
+    if (!soundOn || hearing) {
       setHearing(false);
-      const cancel = (window.aijianGrok as { cancelSpeech?: () => Promise<unknown> } | undefined)
-        ?.cancelSpeech;
-      void cancel?.();
-      setNotice("已停止试听。");
+      if (hearing) void window.aijianGrok?.cancelSpeech?.();
+      setNotice(!soundOn ? "声音关着。打开顶栏的声音再试听。" : "已停止试听。");
       return;
     }
     const spoken = line.trim();
@@ -1999,47 +1993,70 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("先在剧本里给 TA 写一句台词。");
       return;
     }
+    const project = filmRef.current?.id;
+    const valid = () =>
+      Boolean(project && filmRef.current?.id === project && previewEpoch.current === epoch);
     const bridge = grokBridge();
-    const billingProject = await ensureBillingProject();
-    if (!bridge?.speak || !billingProject) {
+    if (!bridge?.speak) {
       setNotice(connected ? PREVIEW_REASON : "配音需要 Grok 会员。");
       return;
     }
     setHearing(true);
-    const result = await bridge.speak({
-      voiceId,
-      text: spoken,
-      projectId: billingProject,
-      idempotencyKey: crypto.randomUUID(),
-    });
-    if (result.kind !== "OK") {
-      setHearing(false);
-      setNotice(result.detail || "配音没有成功。");
-      return;
-    }
-    const binary = atob(result.audioBase64);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-    const url = URL.createObjectURL(new Blob([bytes], { type: result.mime || "audio/mpeg" }));
-    const audio = new Audio(url);
-    previewAudio.current = audio;
-    const seconds = await new Promise<number>((resolve) => {
-      audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? audio.duration : 0);
-      audio.onerror = () => resolve(0);
-    });
-    const heard = result.seconds ?? (seconds > 0 ? seconds : null);
+    let preview: VoicePreview | undefined;
     try {
-      await audio.play();
-      setHearing(true);
-      audio.onended = () => setHearing(false);
-    } catch {
+      preview = await prepareVoicePreview(voiceId, spoken, {
+        speak: bridge.speak.bind(bridge),
+        billing: ensureBillingProject,
+        valid,
+      });
+      if (!valid()) {
+        preview.dispose();
+        return;
+      }
+      previewSession.current = preview;
+      previewAudio.current = preview.audio;
+      await preview.audio.play();
+      if (!valid()) {
+        preview.dispose();
+        return;
+      }
+      const playing = preview;
+      preview.audio.onended = () => {
+        playing.dispose();
+        if (valid()) {
+          previewSession.current = null;
+          previewAudio.current = null;
+          setHearing(false);
+        }
+      };
+      preview.audio.onerror = () => {
+        playing.dispose();
+        if (valid()) {
+          previewSession.current = null;
+          previewAudio.current = null;
+          setHearing(false);
+          setNotice("配音文件到了，这一页没有播出来。");
+        }
+      };
+      const timing = preview.timestamps ? "带回了每个字的时间。" : "这一次没有返回每个字的时间。";
+      setNotice(
+        `正在试听。${timing}${preview.seconds ? `大约 ${preview.seconds.toFixed(1)} 秒。` : ""}`,
+      );
+      return preview.seconds;
+    } catch (error) {
+      preview?.dispose();
+      if (!valid()) return;
+      previewSession.current = null;
+      previewAudio.current = null;
       setHearing(false);
-      setNotice("配音文件到了，这一页没有播出来。");
-      return;
+      setNotice(
+        error instanceof Error && error.message === "VOICE_METADATA_TIMEOUT"
+          ? "配音加载超时，可以重试。"
+          : preview
+            ? "配音文件到了，这一页没有播出来。"
+            : "配音没有成功，可以重试。",
+      );
     }
-    const timing = result.timestamps ? "带回了每个字的时间。" : "这一次没有返回每个字的时间。";
-    setNotice(`正在试听。${timing}${heard ? `大约 ${heard.toFixed(1)} 秒。` : ""}`);
-    return heard;
   }
 
   async function timeShotFromLine(shotId: string) {
@@ -2060,6 +2077,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `duration:${shotId}`,
       () => filmRef.current?.id ?? "",
     );
+    const measurementEpoch = previewEpoch.current + 1;
     const measured = await previewVoice(
       shot.characters.length > 0
         ? current.characters.find((item) => item.name === shot.characters[0])?.voiceId ||
@@ -2067,34 +2085,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : current.narrationVoiceId,
       line,
     );
-    if (!valid()) return;
-    const plan = durationFromSpeech(speechSeconds(line, measured ?? null), shot.seconds);
-    if (!plan.fits) {
-      const parts = splitSpokenLine(line);
-      if (!parts) {
-        setNotice(plan.note);
-        return;
-      }
-      const first = durationFromSpeech(speechSeconds(parts[0], null), 2);
-      const second = durationFromSpeech(speechSeconds(parts[1], null), 2);
-      const splitShots = [
-        {
-          ...shot,
-          line: parts[0],
-          picture: parts[0],
-          seconds: first.seconds,
-          sound: { ...shot.sound, source: "dub" as const },
-        },
-        {
-          ...shot,
-          id: `${shot.id}-b`,
-          no: shot.no + 1,
-          line: parts[1],
-          picture: parts[1],
-          seconds: second.seconds,
-          sound: { ...shot.sound, source: "dub" as const },
-        },
-      ];
+    if (!valid() || previewEpoch.current !== measurementEpoch) return;
+    const latest = filmRef.current?.shots.find((item) => item.id === shotId);
+    if (!latest || !durationInputUnchanged(shot, latest)) {
+      setNotice("台词或时长已修改，保留了你的修改。");
+      return;
+    }
+    const plan = planShotDuration(latest, measured);
+    if (plan.kind === "notice") {
+      setNotice(plan.notice);
+      return;
+    }
+    if (plan.kind === "split") {
+      const splitShots = plan.shots;
       setPending(splitShots);
       setPendingRole("director");
       publishCard("director", {
@@ -2116,14 +2119,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setFilm(
       updateShot(filmRef.current ?? current, shot.id, {
         seconds: plan.seconds,
-        sound: { ...shot.sound, source: "dub" },
+        sound: { ...latest.sound, source: "dub" },
       }),
     );
-    setNotice(
-      measured === null || measured === undefined
-        ? `${plan.note} 配音没有播出来，时长按字数估算。`
-        : plan.note,
-    );
+    setNotice(plan.notice);
   }
 
   function sendChat() {
