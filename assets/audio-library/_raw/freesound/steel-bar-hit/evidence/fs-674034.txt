@@ -1,0 +1,8 @@
+title: 230104-043_normalized_metal_pipe_hit.wav by mmmtoop
+author: mmmtoop
+pageUrl: https://freesound.org/people/mmmtoop/sounds/674034/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

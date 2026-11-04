@@ -1,0 +1,8 @@
+title: MetalPipe.wav by derjuli
+author: derjuli
+pageUrl: https://freesound.org/people/derjuli/sounds/824117/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

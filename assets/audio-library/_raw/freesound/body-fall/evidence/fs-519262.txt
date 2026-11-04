@@ -1,0 +1,8 @@
+title: Fall Impacts by SeanPorio
+author: SeanPorio
+pageUrl: https://freesound.org/people/SeanPorio/sounds/519262/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

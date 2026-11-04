@@ -1,0 +1,8 @@
+title: Ambience: City at Night by Sheyvan
+author: Sheyvan
+pageUrl: https://freesound.org/people/Sheyvan/sounds/540223/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

@@ -1,0 +1,8 @@
+title: hospital corridor low ceiling consultation rooms conversations with patients and light activity.flac by kyles
+author: kyles
+pageUrl: https://freesound.org/people/kyles/sounds/451883/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04
