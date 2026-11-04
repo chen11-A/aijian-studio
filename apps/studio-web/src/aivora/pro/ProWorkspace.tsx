@@ -1,3 +1,4 @@
+import { applyContinuityChecks } from "../film/continuity-rules";
 import { ensureContinuityFrame, continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
 import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
@@ -511,6 +512,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         next.styleZh,
       );
     }
+    if (next) next = applyContinuityChecks(next);
     filmRef.current = next;
     setFilmState(next);
   }

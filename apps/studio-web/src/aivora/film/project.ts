@@ -165,7 +165,7 @@ export type FilmShot = {
     sourceVideoPath: string;
     path: string;
   };
-  continuity?: ContinuityNote;
+  continuity?: ContinuityNote[];
   id: string;
   sceneId: string;
   no: number;
@@ -815,10 +815,12 @@ function completeDirectorCoverage(
     if (group.length === 1 && previous && previous.sceneId === shot.sceneId && explicitMatches) {
       clean.continuityFromShotId = previous.id;
     } else {
-      clean.continuity = {
-        kind: "cut",
-        text: "未自动衔接：首镜、合镜或前镜标识不明确，请确认紧邻前镜后重试。",
-      };
+      clean.continuity = [
+        {
+          kind: "cut",
+          text: "未自动衔接：首镜、合镜或前镜标识不明确，请确认紧邻前镜后重试。",
+        },
+      ];
     }
     return clean;
   });
@@ -894,6 +896,24 @@ export function interruptStaleWork(film: FilmProject): { film: FilmProject; inte
   };
 }
 
+/** Read pre-C13 single reminders as arrays without losing existing director cut notes. */
+function upgradeContinuity(value: unknown): ContinuityNote[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .filter((item): item is ContinuityNote => {
+      if (!item || typeof item !== "object") return false;
+      const note = item as Record<string, unknown>;
+      return (
+        typeof note.kind === "string" &&
+        ["missing_look", "prop", "gaze", "axis", "cut"].includes(note.kind) &&
+        typeof note.text === "string" &&
+        Boolean(note.text.trim())
+      );
+    })
+    .map(({ kind, text }) => ({ kind, text }));
+}
+
 export function upgradeFilm(value: Partial<FilmProject> | null | undefined): FilmProject | null {
   if (!value || typeof value !== "object" || !value.title) return null;
   try {
@@ -919,6 +939,7 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
       })),
       shots: (value.shots ?? []).map((shot) => ({
         ...shot,
+        continuity: upgradeContinuity(shot.continuity),
         lines: shotLines({
           ...shot,
           line: shot.line ?? (shot.lines ?? []).map((line) => line.text).join("\n"),

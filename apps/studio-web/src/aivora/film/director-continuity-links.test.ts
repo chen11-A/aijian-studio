@@ -77,7 +77,7 @@ describe("director previous-frame connections", () => {
     const shots = parse([row(), row({ connect_previous: true })], "短场");
     expect(shots).toHaveLength(1);
     expect(shots[0]!.continuityFromShotId).toBeUndefined();
-    expect(shots[0]!.continuity?.text).toContain("合镜");
+    expect(shots[0]!.continuity?.[0]?.text).toContain("合镜");
   });
 
   it("connects a singleton to the final merged predecessor but rejects ambiguous explicit IDs", () => {

@@ -1,3 +1,4 @@
+import { applyContinuityChecks } from "../film/continuity-rules";
 import type { PipelineProgress, UiNotice } from "../film/contracts3j";
 import { detectDirectorCoverage, shotLines } from "../film/director-continuity";
 import { isFightScene, portraitPrompts } from "../film/operations";
@@ -120,8 +121,9 @@ function businessContent(film: FilmProject): string {
 export async function filmPipelineFingerprint(film: FilmProject): Promise<string> {
   // readSaved upgrades persisted films and hydrateFilm derives playback URLs. Hash that
   // stable business shape, while the running owner guard still compares raw businessContent.
-  const normalized = upgradeFilm(structuredClone(film));
-  if (!normalized) throw new Error("PIPELINE_INPUT_INVALID");
+  const upgraded = upgradeFilm(structuredClone(film));
+  if (!upgraded) throw new Error("PIPELINE_INPUT_INVALID");
+  const normalized = applyContinuityChecks(upgraded);
   normalized.shots = normalized.shots.map((shot) => ({
     ...shot,
     takes: shot.takes.map((take) => ({

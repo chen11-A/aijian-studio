@@ -1,3 +1,4 @@
+import { applyContinuityChecks } from "../film/continuity-rules";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import { prepareFilmSnapshot } from "../film/library";
 import type { FilmProject, FilmShot } from "../film/project";
@@ -69,7 +70,8 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
         current: host.current,
         apply: host.apply,
         save: lease.save,
-        prepareSnapshot: prepareFilmSnapshot,
+        prepareSnapshot: async (film, current) =>
+          applyContinuityChecks(await prepareFilmSnapshot(film, current)),
         notify: host.notify,
         labels: host.labels,
         verifyMedia: host.verifyMedia,

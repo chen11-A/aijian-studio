@@ -675,3 +675,9 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 导演可返回 `connect_previous:true`，解析器在合镜和重编 ID 后解析 `continuityFromShotId`，仅接受同场紧邻前镜；歧义保留提醒，不按错误 ID 猜。实际视频提交前，`ensureContinuityFrame` 通过 `window.aijian.extractFilmLastFrame(seriesId,videoPath)` 提取前镜已选完成版本的最后解码帧，保存 `poster` 和 `continuityFrame={sourceShotId,sourceTakeId,sourceVideoPath,path}` 后才提交视频。前镜失败后重做会选中新完成版本，下一镜据此衔接。预览出图阶段不提取不存在的视频。
 
 本地 FFmpeg 解码与 PNG 校验不调用供应商。拒绝跨场、无完成版本、过期回包和不可信路径；媒体限制为现有短镜头 MP4（最多 80 MiB、60 秒），结果最多 12 MiB。失败返回 `CONTINUITY_*` code 与短提示，界面不显示原始 code。真实 FFmpeg 回归比较实际末帧像素；会员生成视频的视觉连续性仍需实测。
+
+## 4A-B07 场记规则（已提供）
+
+`film/continuity-rules.ts` 提供 `continuityRisks(film)`、`applyContinuityChecks(film)`；每镜 `continuity: ContinuityNote[]`，旧单对象存档自动迁移。工作区业务修改时更新并保存；流水线在准备快照和计算摘要前统一检查，重开不会因派生提醒误判内容变化。修正文本后仅清除本规则生成的提醒，保留导演或用户的其他说明。
+
+五类为 `missing_look / prop / gaze / axis / cut`：固定外貌句遗漏、明确同人物持物换手、明确视线反向、明确轴线侧改变、末帧来源不匹配。只根据文字与记录提出核对建议，不声称已看图或能判定真实镜头物理连续性。模糊描述、否定句与引述不作持物/视线证据。Claude 可按 C13 在镜头卡显示多条提醒；本提交不改其 JSX/CSS。

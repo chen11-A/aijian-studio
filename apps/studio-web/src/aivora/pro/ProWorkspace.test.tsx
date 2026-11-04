@@ -87,6 +87,43 @@ describe("professional workspace", () => {
     });
   });
 
+  it("persists continuity reminders and clears only repaired rule notes after a shot edit", async () => {
+    installDesktop();
+    const film = sampleFilm();
+    const person = film.characters[0]!;
+    person.identity = "固定外貌：灰衣短发";
+    const shot = film.shots[0]!;
+    shot.characters = [person.name];
+    shot.promptZh = "";
+    shot.picture = "雨中站着一个人。";
+    shot.continuity = [{ kind: "cut", text: "导演保留的衔接说明" }];
+    film.shots = [shot];
+    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace />);
+    const latest = () =>
+      vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject | undefined;
+    await waitFor(() =>
+      expect(latest()?.shots[0]?.continuity).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: "missing_look" }),
+          { kind: "cut", text: "导演保留的衔接说明" },
+        ]),
+      ),
+    );
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: new RegExp(film.scenes.find((scene) => scene.id === shot.sceneId)!.title),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "属性" }));
+    fireEvent.change(screen.getByLabelText("分镜画面"), { target: { value: person.identity } });
+    await waitFor(() =>
+      expect(latest()?.shots[0]?.continuity).toEqual([{ kind: "cut", text: "导演保留的衔接说明" }]),
+    );
+  });
+
   it.each([false, true])(
     "uses the preceding selected video last frame (regenerate source: %s)",
     async (regenerateSource) => {
