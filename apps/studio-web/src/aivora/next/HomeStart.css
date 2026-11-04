@@ -1,0 +1,165 @@
+/* 3J-U13: the home page. Fits 1280×800 without the page scrolling; only the list of saved
+   works scrolls inside itself. */
+.nx-root.nx-home {
+  align-items: center;
+  overflow: hidden;
+  padding: 32px 24px 16px;
+}
+
+.nx-root .nx-home-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 880px;
+  min-height: 0;
+  height: 100%;
+}
+
+.nx-root .nx-home-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.nx-root .nx-home-ways {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.nx-root .nx-home-way {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-home-way h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.nx-root .nx-home-idea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.6;
+  resize: none;
+}
+
+.nx-root .nx-home-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.nx-root .nx-home-aspect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.nx-root .nx-home-aspect legend {
+  float: left;
+  margin-right: 4px;
+}
+
+.nx-root .nx-home-aspect label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.nx-root .nx-home-aspect input {
+  display: inline-block;
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.nx-root .nx-home-recent {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.nx-root .nx-home-recent h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.nx-root .nx-home-recent ul {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.nx-root .nx-home-recent li + li {
+  border-top: 1px solid var(--line);
+}
+
+.nx-root .nx-home-recent li button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-root .nx-home-recent li button:hover {
+  background: var(--panel-2);
+}
+
+.nx-root .nx-home-recent-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-root .nx-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .nx-root .nx-home-ways {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

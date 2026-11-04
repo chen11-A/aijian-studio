@@ -472,7 +472,7 @@ export function ShortFilmGuide() {
       <header className="page-title v2-home-heading">
         <div>
           <h1>{steps[step]}</h1>
-          <p>四步做成片：故事、画面、声音、成片。这是草稿，还不是正式发行。</p>
+          <p>四步做成片：故事、画面、声音、成片。先出的是试做版。</p>
         </div>
       </header>
       {d.projects.length === 0 && (
@@ -610,7 +610,7 @@ export function ShortFilmGuide() {
           <p>
             将用「{choice.label}」把「{scene || SAMPLE_SCENE}」做成大约两秒的草稿视频。
             {shots.length > 0 ? `已拆成 ${shots.length} 个镜头，接在一起。` : ""}
-            {choice.billing}。这是草稿，不是正式发行。画面和声音由 AI 生成，不是实拍。
+            {choice.billing}。先出的是试做版，画面和声音都是 AI 做的。
           </p>
         )}
         {!d.backendProjectId && (

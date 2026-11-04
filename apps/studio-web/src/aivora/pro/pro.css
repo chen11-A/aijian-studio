@@ -308,6 +308,16 @@ body:has(.pro-root) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-2);
+  transition: opacity 0.4s ease;
+}
+.pro-root .statusbar .status-detail {
+  margin-left: 8px;
+  color: var(--text-3);
+}
+/* 3J-U04: the message fades out after five seconds. */
+.pro-root .statusbar .status-note.fading {
+  opacity: 0;
 }
 .pro-root .statusbar .sp {
   flex: 1;
@@ -720,6 +730,11 @@ body:has(.pro-root) {
 .pro-root .msg-a {
   display: flex;
   gap: 8px;
+}
+/* 3J-U04: the only retry button, under the reply that failed. */
+.pro-root .msg-retry {
+  display: flex;
+  margin-top: -6px;
 }
 .pro-root .msg-a .ri {
   width: 24px;
@@ -2723,6 +2738,51 @@ body:has(.pro-root) {
   flex: 1;
   min-height: 0;
 }
+/* 3J-U04: messages that left the status bar stay here. */
+.pro-root .notice-log {
+  flex: none;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.pro-root .notice-log-toggle {
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.pro-root .notice-log-toggle:hover {
+  color: var(--text);
+}
+.pro-root .notice-log ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 132px;
+  overflow-y: auto;
+}
+.pro-root .notice-log li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  column-gap: 8px;
+  padding: 3px 0;
+}
+.pro-root .notice-log time {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.pro-root .notice-log small {
+  grid-column: 2;
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
 .pro-root .dialog-back {
   position: absolute;
   inset: 48px 0 24px;
@@ -2804,10 +2864,25 @@ body:has(.pro-root) {
   flex-wrap: wrap;
   gap: 4px;
 }
+/* 3J-U05: the appearance box starts at four lines and grows with the text up to eight; only
+   past that does it scroll inside. */
 .pro-root #cast-id {
-  min-height: 7em;
+  min-height: calc(4 * 1.6em + 18px);
+  max-height: calc(8 * 1.6em + 18px);
   height: auto;
   field-sizing: content;
+  overflow-y: auto;
+  resize: none;
+}
+/* 3J-U05: name, gender and age band on one row. */
+.pro-root .cast-id-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 96px;
+  gap: 8px;
+  align-items: end;
+}
+.pro-root .cast-id-row .input {
+  width: 100%;
 }
 /* 3J-U11 export dialog: the path box takes the row with 「浏览」 beside it; a long path shows
    its start and end with the middle cut out until the box is being typed in. */
@@ -2886,4 +2961,122 @@ body:has(.pro-root) {
 }
 .pro-root .dialog.export .acts .sp {
   flex: 1;
+}
+
+/* 3J-U06: the character page. One primary button on top of the people list with the run's
+   progress; the middle pane puts the details on the left and the four portraits on the right,
+   so a wide window has no empty half. */
+.pro-root .portrait-all {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 6px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.pro-root .portrait-progress {
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.pro-root .portrait-skip {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pro-root .cast-sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr);
+  align-items: start;
+  gap: 20px;
+  max-width: 1120px;
+}
+.pro-root .cast-sheet .field {
+  padding: 0;
+}
+.pro-root .cast-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pro-root .cast-info > .btn,
+.pro-root .cast-info > select {
+  justify-self: start;
+  align-self: flex-start;
+}
+.pro-root .cast-looks {
+  min-width: 0;
+  position: sticky;
+  top: 0;
+}
+.pro-root .looks-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+}
+.pro-root .looks-head .sec-t {
+  margin: 0;
+}
+.pro-root .looks-head .sp {
+  flex: 1;
+}
+.pro-root .refs4.slots {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.pro-root .slot {
+  margin: 0;
+  min-width: 0;
+}
+.pro-root .slot .thumb,
+.pro-root .slot-empty {
+  aspect-ratio: 3/4;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.pro-root .slot-empty {
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+  color: var(--text-3);
+  font-size: 13px;
+}
+.pro-root .slot[data-state="running"] .slot-empty,
+.pro-root .slot[data-state="queued"] .slot-empty {
+  border-color: var(--accent);
+}
+.pro-root .slot[data-state="failed"] .slot-empty {
+  border-color: var(--warn);
+}
+.pro-root .slot figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 22px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.pro-root .slot-state {
+  color: var(--accent);
+}
+.pro-root .slot-state.done {
+  color: var(--text-3);
+}
+.pro-root .slot-state.bad {
+  color: var(--warn);
+}
+.pro-root .slot .link-btn {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
 }

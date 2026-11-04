@@ -9,9 +9,7 @@ import { DemoProvider, createAivoraSampleFixture, useDemo } from "./model";
 afterEach(() => cleanup());
 
 function expectProfessionalShell() {
-  expect(
-    screen.getByRole("heading", { name: "写下你的故事，或者一句话的想法" }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "把故事做成短剧" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "新建作品" })).toBeInTheDocument();
   for (const stage of ["剧本", "角色与场景", "分镜", "剪辑"]) {

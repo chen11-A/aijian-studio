@@ -1,0 +1,107 @@
+import { useState } from "react";
+import "./next.css";
+import "./SceneAlerts.css";
+
+/** The drag type a beat carries, so shot cards can tell it from other drags. */
+export const BEAT_DRAG_TYPE = "application/x-aivora-beat";
+
+export type SceneAlertsProps = {
+  /** The end of the scene that no shot shows yet (C9 missingTail). */
+  missingTail: string | null;
+  /** Project and scene identity prevents a drag from being applied in another scene. */
+  dragScope?: string;
+  repairFailed?: boolean;
+  /** Lines of dialogue no shot speaks yet (C9 missingLines). */
+  missingLines: readonly string[];
+  /** Actions the action director wrote that fit no shot (C10). */
+  beats: readonly string[];
+  /** 「补上结尾」: asks the director for the missing part only. */
+  onFixEnding?: () => void;
+  fixing?: boolean;
+  /** Where 「放到选中的镜头」 puts a beat, for example 「镜头 3」; empty when no shot is picked. */
+  pickedShot?: string;
+  onPlaceBeat?: (index: number) => void;
+};
+
+const clip = (text: string, size = 18) => (text.length > size ? `${text.slice(0, size)}…` : text);
+
+/**
+ * 3J-U10: the two warnings above the shots of a scene. A yellow strip when the end of the
+ * scene, or some of its lines, have no shot yet; and 「有 N 个动作没对上镜头」, a list whose
+ * items can be dragged onto a shot card or put on the picked shot. Draws nothing when both are
+ * fine, so a finished scene has no extra row.
+ */
+export function SceneAlerts(props: SceneAlertsProps) {
+  const [open, setOpen] = useState(false);
+  const { missingTail, missingLines, beats } = props;
+  const uncovered = Boolean(missingTail) || missingLines.length > 0;
+  if (!uncovered && beats.length === 0) return null;
+  const sentence = missingTail
+    ? `这一场结尾还没拍到：「${clip(missingTail)}」`
+    : `这一场还有 ${missingLines.length} 句台词没拍到：「${clip(missingLines[0] ?? "")}」`;
+  const full = [missingTail, ...missingLines].filter(Boolean).join("\n");
+  return (
+    <div className="nx-root nx-scene-alerts">
+      {props.repairFailed && <span role="alert">未完成，可以重试。</span>}
+      {uncovered && (
+        <div className="nx-alert warn">
+          <span className="nx-alert-text" title={full}>
+            {sentence}
+          </span>
+          {props.onFixEnding && (
+            <button
+              type="button"
+              className="nx-btn"
+              disabled={props.fixing}
+              onClick={props.onFixEnding}
+            >
+              {props.fixing ? "正在补…" : "补上结尾"}
+            </button>
+          )}
+        </div>
+      )}
+      {beats.length > 0 && (
+        <div className="nx-alert">
+          <button
+            type="button"
+            className="nx-alert-toggle"
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            有 {beats.length} 个动作没对上镜头
+          </button>
+          <span className="nx-alert-hint">拖到下面的镜头上，或者先选一个镜头再放</span>
+          {open && (
+            <ul className="nx-beats">
+              {beats.map((beat, index) => (
+                <li
+                  key={`${index}-${beat}`}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData(
+                      BEAT_DRAG_TYPE,
+                      JSON.stringify({ scope: props.dragScope, index, text: beat }),
+                    );
+                    event.dataTransfer.effectAllowed = "move";
+                  }}
+                >
+                  <span className="nx-beat-text" title={beat}>
+                    {beat}
+                  </span>
+                  <button
+                    type="button"
+                    className="nx-btn"
+                    disabled={!props.pickedShot || !props.onPlaceBeat}
+                    onClick={() => props.onPlaceBeat?.(index)}
+                  >
+                    {props.pickedShot ? `放到${props.pickedShot}` : "先选一个镜头"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

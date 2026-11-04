@@ -1,8 +1,6 @@
 import { stillFailureNotice } from "./workflow";
 import { coverageNotice } from "../film/coverage-notice";
 import { awaitVideoResult } from "./video-request";
-import { SceneCoverage } from "../next/wiring/SceneCoverage";
-import { CharacterTraits, type TraitPatch } from "../next/wiring/CharacterTraits";
 import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
@@ -139,6 +137,19 @@ import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs, runTask } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
+import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
+import { useStatusNotice } from "../next/wiring/statusNotice";
+import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
+import { NoticeLog } from "../next/NoticeLog";
+import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
+import { HomeStart, type Aspect } from "../next/HomeStart";
+import {
+  AGE_BANDS,
+  GENDERS,
+  voiceGroups,
+  type AgeBand,
+  type Gender,
+} from "../next/adapters/voices";
 import {
   dialogueMuted,
   isVoiceFile,
@@ -1384,7 +1395,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function confirmPortraits(characterId?: string) {
+  async function confirmPortraits(selection?: string | string[]) {
+    const characterId = typeof selection === "string" ? selection : undefined;
     const current = filmRef.current;
     const character = current?.characters.find((item) => item.id === characterId);
     if (!current || (characterId && !character)) return;
@@ -1402,7 +1414,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       );
       await makeAllPortraits({
         base: current,
-        characterIds: characterId ? [characterId] : undefined,
+        characterIds: Array.isArray(selection)
+          ? selection
+          : characterId
+            ? [characterId]
+            : undefined,
         current: () => filmRef.current,
         isCurrent: valid,
         apply: async (next) => {
@@ -2748,6 +2764,51 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (4A-U04): the live task list for 后台生成 and the task center.
   const feed = useTaskFeed();
   const feedNow = feedProgress(feed);
+  // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
+  // past messages are listed in the task center.
+  const status = useStatusNotice(notice);
+  // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
+  // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
+  const openSaved = (id: string) => {
+    void readSaved(id).then((saved) => {
+      if (!saved) {
+        setNotice("没有打开这部作品。");
+        return;
+      }
+      const settled = interruptStaleWork(saved);
+      applyLive(settled.film);
+      setScene(settled.film.scenes[0]?.id ?? "scene-1");
+      setShot(0);
+      setPlaying(false);
+      setMenu(null);
+      setNotice(
+        settled.interrupted
+          ? "上次有生成没做完，已标成已中断。可以重试。"
+          : `已打开${saved.seriesTitle || saved.title}。`,
+      );
+    });
+  };
+  const startWork = (aspect: Aspect, idea = "") => {
+    const next = blankFilm();
+    next.aspectRatio = aspect;
+    if (idea)
+      next.scenes = next.scenes.map((item, index) =>
+        index === 0 ? { ...item, text: idea } : item,
+      );
+    setFilm(next);
+    setScene(next.scenes[0]?.id ?? "scene-1");
+    setStage("script");
+    return next;
+  };
+  const oneClickFromHome = useRef("");
+  useEffect(() => {
+    if (!film || oneClickFromHome.current !== film.id) return;
+    oneClickFromHome.current = "";
+    void oneClickFilm();
+  }, [film]);
+  useEffect(() => {
+    if (!open) void listFilms().then(setSeriesList);
+  }, [open]);
   // UI wiring (3J-U02): each page opens with its own helper in the assistant. Only a page
   // change picks it; chooseRole is a new function on every render.
   useEffect(() => {
@@ -2858,28 +2919,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   打开示例
                 </button>
                 {seriesList.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      void readSaved(item.id).then((saved) => {
-                        if (!saved) {
-                          setNotice("没有打开这部作品。");
-                          return;
-                        }
-                        const settled = interruptStaleWork(saved);
-                        applyLive(settled.film);
-                        setScene(settled.film.scenes[0]?.id ?? "scene-1");
-                        setShot(0);
-                        setPlaying(false);
-                        setMenu(null);
-                        setNotice(
-                          settled.interrupted
-                            ? "上次有生成没做完，已标成已中断。可以重试。"
-                            : `已打开${saved.seriesTitle || saved.title}。`,
-                        );
-                      });
-                    }}
-                  >
+                  <button key={item.id} onClick={() => openSaved(item.id)}>
                     {item.title}
                   </button>
                 ))}
@@ -3094,55 +3134,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         </header>
         <main className={wsClass}>
           {!open || !film ? (
-            <section className="pane" style={{ gridColumn: "1 / -1" }}>
-              <div className="empty-center">
-                <div>
-                  <h2>写下你的故事，或者一句话的想法</h2>
-                  <p>还没有作品。可以新建，也可以先打开示例看看整条流程。</p>
-                  <div className="acts">
-                    {!connected && (
-                      <button className="btn primary" onClick={() => void signInGrok()}>
-                        用 Grok 会员登录
-                      </button>
-                    )}
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        const next = blankFilm();
-                        setFilm(next);
-                        setScene(next.scenes[0]?.id ?? "scene-1");
-                        setStage("script");
-                        setNotice("从一句故事开始。");
-                      }}
-                    >
-                      新建作品
-                    </button>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        const next = blankFilm();
-                        next.aspectRatio = "16:9";
-                        setFilm(next);
-                        setScene(next.scenes[0]?.id ?? "scene-1");
-                        setStage("script");
-                        setNotice("已新建横屏作品。");
-                      }}
-                    >
-                      新建横屏
-                    </button>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        setFilm(sampleFilm());
-                        setScene("02");
-                        setNotice("已打开示例「雨夜巷战」。");
-                      }}
-                    >
-                      打开示例
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <section className="pane home-pane" style={{ gridColumn: "1 / -1" }}>
+              <HomeStart
+                connected={connected}
+                recent={seriesList}
+                onOneClick={(idea, aspect) => {
+                  oneClickFromHome.current = startWork(aspect, idea).id;
+                }}
+                onImport={(aspect) => {
+                  startWork(aspect);
+                  setNotice({
+                    code: "EDITOR_GUIDANCE",
+                    text: "选一个小说文件。读好以后点「放入剧本」，再点「一键成片」。",
+                  });
+                  fileRef.current?.click();
+                }}
+                onBlank={(aspect) => {
+                  startWork(aspect);
+                  if (aspect === "16:9") setNotice("已新建横屏作品。");
+                  else setNotice("已新建作品（竖屏）。");
+                }}
+                onOpen={openSaved}
+                onSignIn={() => void signInGrok()}
+                onSample={() => {
+                  setFilm(sampleFilm());
+                  setScene("02");
+                  setNotice("已打开示例「雨夜巷战」。");
+                }}
+              />
             </section>
           ) : (
             <>
@@ -3185,6 +3204,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onToggleRoles={() => setShowRoles((value) => !value)}
                   structured={structured}
                   turns={turns}
+                  onRetry={pendingRetry ? () => void retryPending() : undefined}
                   card={
                     roleCards[role]?.shots &&
                     roleCards[role]?.shots.every((item) => item.sceneId !== scene)
@@ -3211,8 +3231,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   role={role}
                   onRole={chooseRole}
                   onPortraits={makePortraits}
-                  onAllPortraits={() => confirmPortraits()}
-                  onTraits={(id, patch) => void productionActions.updateCharacterTraits(id, patch)}
+                  onTraits={(id, traits) =>
+                    void productionActions.updateCharacterTraits(id, traits)
+                  }
+                  onAllPortraits={(ids) => void confirmPortraits(ids)}
+                  portraits={portraitFeed(feed, film.id)}
                   portraitBusy={portraitBusy}
                   voices={voiceChoices}
                   onPreview={(voiceId, line) => void previewVoice(voiceId, line)}
@@ -3236,7 +3259,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onNotice={setNotice}
                   onGenerate={() => setBench(true)}
                   onBatch={askBatch}
-                  onRepairCoverage={productionActions.fixCoverage}
                   activeSceneId={scene}
                   stills={[]}
                   fourArmed={stillArmed}
@@ -3270,7 +3292,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onChat={setChat}
                   onSend={sendChat}
                   turns={turns}
+                  onRetry={pendingRetry ? () => void retryPending() : undefined}
                   assistPulse={assistPulse}
+                  onFixCoverage={productionActions.fixCoverage}
                   structured={structured}
                   card={
                     roleCards[role]?.shots &&
@@ -3502,11 +3526,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           }}
         />
         <footer className="statusbar">
-          {pendingRetry && (
-            <button type="button" onClick={() => void retryPending()}>
-              再用普通对话问一次
-            </button>
-          )}
           {oneClickReady && (
             <button
               type="button"
@@ -3520,7 +3539,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 setOneClickReady(false);
               }}
             >
-              继续
+              继续出视频
             </button>
           )}
           {asking && (
@@ -3538,7 +3557,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
           )}
           <span
-            className="status-note"
+            className={status.fading ? "status-note fading" : "status-note"}
+            role="status"
+            title={
+              status.line
+                ? [status.line.text, status.line.detail].filter(Boolean).join("\n")
+                : undefined
+            }
             style={{
               minWidth: 0,
               overflow: "hidden",
@@ -3546,18 +3571,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               whiteSpace: "nowrap",
             }}
           >
-            {notice}
+            {status.line?.text ?? ""}
+            {status.line?.detail ? (
+              <span className="status-detail">{status.line.detail.replace(/\n/g, " · ")}</span>
+            ) : null}
           </span>
           <button className="task" onClick={() => setMenu(menu === "queue" ? null : "queue")}>
             <Ic name="loader" size={12} />
             后台生成：
             {asking
-              ? "正在问模型"
+              ? "AI 在写"
               : feedNow.active > 0
                 ? `正在做 ${feedNow.active} 个`
                 : portraitBusy
                   ? "正在出定妆照"
-                  : "没有正在生成的内容"}
+                  : "没有在做的"}
             <span className="bar">
               <i style={{ width: `${feed.tasks.length > 0 ? feedNow.percent : progress}%` }} />
             </span>
@@ -3567,8 +3595,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             {savedDirectory
               ? "作品保存在"
               : savingDisk
-                ? "正在写入应用数据目录"
-                : diskError || (filmDiskReady() ? "作品在应用数据目录" : BROWSER_DIRECTORY)}{" "}
+                ? "正在保存…"
+                : diskError || (filmDiskReady() ? "已保存在这台电脑上" : BROWSER_DIRECTORY)}{" "}
             <b>{savedDirectory || film?.title || ""}</b>
           </span>
         </footer>
@@ -3749,6 +3777,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 setStage("board");
               }}
             />
+            <NoticeLog log={status.log} />
           </div>
         ) : null}
         {exportOpen && (
@@ -3901,6 +3930,7 @@ function Assistant({
   onRedoRange,
   onDismiss,
   busy = false,
+  onRetry,
 }: {
   role: Role;
   onRole: (role: Role) => void;
@@ -3908,6 +3938,8 @@ function Assistant({
   pendingScenes?: FilmScene[] | null;
   onApply: () => void;
   onApplyScenes?: () => void;
+  /** 3J-U04: set while the last request failed; shows 「换个问法再问一次」 under that reply. */
+  onRetry?: () => void;
   shots: FilmShot[];
   chat: string;
   onChat: (value: string) => void;
@@ -3983,6 +4015,13 @@ function Assistant({
             {item.text}
           </div>
         ))}
+        {onRetry && chatTurns.at(-1)?.who === "agent" ? (
+          <div className="msg-retry">
+            <button className="btn sm" type="button" onClick={onRetry}>
+              换个问法再问一次
+            </button>
+          </div>
+        ) : null}
         <div className="msg-a">
           <span className="ri">
             <Ic name="clap" size={13} />
@@ -4235,6 +4274,7 @@ function ScriptPage({
   onDismiss,
   onOneClick,
   onTemplate,
+  onRetry,
 }: {
   film: FilmProject;
   scene: string;
@@ -4265,6 +4305,8 @@ function ScriptPage({
   onToggleRoles: () => void;
   structured: string[];
   turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  /** 3J-U04: retry for the reply that just failed; the button sits under that reply. */
+  onRetry?: () => void;
   card: RoleCard | null;
   onRedoRange: () => void;
   onDismiss: () => void;
@@ -4445,6 +4487,7 @@ function ScriptPage({
           structured={structured}
           turns={turns}
           card={card}
+          onRetry={onRetry}
           onRedoRange={onRedoRange}
           onDismiss={onDismiss}
           busy={asking}
@@ -4466,8 +4509,9 @@ function CastPage({
   role,
   onRole,
   onPortraits,
-  onAllPortraits,
   onTraits,
+  onAllPortraits,
+  portraits,
   portraitBusy,
   voices,
   onPreview,
@@ -4481,9 +4525,13 @@ function CastPage({
   role: Role;
   onRole: (role: Role) => void;
   onPortraits: (id: string) => Promise<void>;
-  onAllPortraits: () => Promise<void>;
-  onTraits: (id: string, patch: TraitPatch) => void;
+  /** 3J-U05: gender or age changed; GPT keeps the data and picks the voice again (C8). */
+  onTraits: (id: string, traits: { gender: Gender; ageBand: AgeBand }) => void;
   portraitBusy: boolean;
+  /** 3J-U06: one queue for every missing angle of these people (GPT makeAllPortraits). */
+  onAllPortraits: (characterIds: string[]) => void;
+  /** 3J-U06: the run in progress and each slot's state, from the task feed. */
+  portraits: PortraitFeed;
   voices: { id: string; label: string }[];
   onPreview: (voiceId: string, line: string) => void;
   hearing: boolean;
@@ -4495,6 +4543,26 @@ function CastPage({
   const [place, setPlace] = useState(0);
   const [side, setSide] = useState<"people" | "places" | "props">("people");
   const character = film.characters[who];
+  const VIEWS = ["正面", "侧面", "背面", "脸部"];
+  const has = (person: (typeof film.characters)[number], view: string) =>
+    person.portraits.some((portrait) => portrait.view === view && portrait.url);
+  const ready = film.characters.filter((person) => person.identity.trim());
+  const noLook = film.characters.filter((person) => !person.identity.trim());
+  const missing = ready.reduce(
+    (sum, person) => sum + VIEWS.filter((view) => !has(person, view)).length,
+    0,
+  );
+  const batch = portraits.batch;
+  const busy = portraitBusy || Boolean(batch?.running);
+  const progress = batch
+    ? `${batch.done + batch.failed}/${batch.total}${batch.failed ? ` · 失败 ${batch.failed}` : ""}`
+    : "";
+  const voiceGroup = voiceGroups(
+    voices,
+    character?.gender ?? "",
+    character?.ageBand ?? "",
+    character?.voiceId,
+  );
   return (
     <>
       <section className="pane">
@@ -4565,6 +4633,32 @@ function CastPage({
               />
             </div>
           )}
+          {side === "people" && film.characters.length > 0 && (
+            <div className="portrait-all">
+              <button
+                className="btn primary sm"
+                type="button"
+                disabled={busy || missing === 0}
+                onClick={() => onAllPortraits(ready.map((person) => person.id))}
+              >
+                {busy ? "正在出定妆照" : "给所有人出定妆照"}
+              </button>
+              <span className="portrait-progress" title="这一轮出好的张数 / 要出的张数">
+                {batch?.running
+                  ? progress
+                  : missing === 0 && noLook.length === 0
+                    ? "都齐了"
+                    : batch
+                      ? `上一轮 ${progress}`
+                      : `还缺 ${missing} 张`}
+              </span>
+              {noLook.length > 0 && (
+                <p className="portrait-skip" title={noLook.map((person) => person.name).join("、")}>
+                  还没写外貌，先跳过：{noLook.map((person) => person.name).join("、")}
+                </p>
+              )}
+            </div>
+          )}
           {side === "people" &&
             film.characters.map((item, index) => (
               <button
@@ -4576,19 +4670,9 @@ function CastPage({
                 <span className="t">
                   {item.name}
                   <small>
-                    {["正面", "侧面", "背面", "脸部"].filter(
-                      (view) =>
-                        !item.portraits.some((portrait) => portrait.view === view && portrait.url),
-                    ).length === 0
-                      ? "定妆齐了"
-                      : `还缺${["正面", "侧面", "背面", "脸部"]
-                          .filter(
-                            (view) =>
-                              !item.portraits.some(
-                                (portrait) => portrait.view === view && portrait.url,
-                              ),
-                          )
-                          .join("、")}`}
+                    {VIEWS.every((view) => has(item, view))
+                      ? "定妆照齐了"
+                      : `定妆照 ${VIEWS.filter((view) => has(item, view)).length}/4`}
                   </small>
                 </span>
               </button>
@@ -4607,197 +4691,227 @@ function CastPage({
           <h3>{character?.name ?? "人物"}</h3>
           <span className="meta">同一张脸，同一套衣服</span>
         </div>
-        <div className="pb sheet">
-          {character && (
-            <CharacterTraits
-              character={character}
-              onChange={(patch) => onTraits(character.id, patch)}
-            />
-          )}
-          <div className="field" style={{ padding: 0 }}>
-            <label htmlFor="cast-name">名字</label>
-            <input
-              id="cast-name"
-              className="input"
-              aria-label="人物名字"
-              value={character?.name ?? ""}
-              onChange={(event) => {
-                const name = event.target.value;
-                if (!character) {
-                  onFilm({
-                    ...film,
-                    characters: [
-                      {
-                        id: "char-1",
-                        name,
-                        identity: name,
-                        voiceId: "leo",
-                        source: "user",
-                        userFields: ["name"],
-                        portraits: [],
-                      },
-                    ],
-                  });
-                  return;
-                }
-                onFilm({
-                  ...film,
-                  characters: film.characters.map((item) =>
-                    item.id === character.id
-                      ? {
-                          ...item,
-                          name,
-                          source: "user",
-                          userFields: [...new Set([...item.userFields, "name"])],
-                        }
-                      : item,
-                  ),
-                  shots: film.shots.map((item) => ({
-                    ...item,
-                    characters: item.characters.map((person) =>
-                      person === character.name ? name : person,
-                    ),
-                  })),
-                });
-              }}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="cast-id">外貌</label>
-            <textarea
-              id="cast-id"
-              className="area"
-              aria-label="外貌"
-              rows={4}
-              value={character?.identity ?? ""}
-              onChange={(event) => {
-                if (!character) return;
-                onFilm({
-                  ...film,
-                  characters: film.characters.map((item) =>
-                    item.id === character.id
-                      ? {
-                          ...item,
-                          identity: event.target.value,
-                          source: "user",
-                          userFields: [...new Set([...item.userFields, "identity"])],
-                        }
-                      : item,
-                  ),
-                });
-              }}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="style-preset">画风</label>
-            <select
-              id="style-preset"
-              className="input"
-              aria-label="画风"
-              value={film.stylePreset}
-              onChange={(event) => {
-                const preset =
-                  STYLE_PRESETS.find((item) => item.name === event.target.value) ??
-                  STYLE_PRESETS[0]!;
-                onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
-              }}
-            >
-              {STYLE_PRESETS.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="sec-t" style={{ marginTop: 12 }}>
-            参考图
-          </div>
-          <div className="refs4">
-            {(character
-              ? portraitPrompts(character.name, character.identity, film.styleZh)
-              : []
-            ).map((item) => (
-              <div key={item.view}>
-                <Thumb
-                  src={character?.portraits.find((portrait) => portrait.view === item.view)?.url}
-                  rain={!character?.portraits.find((portrait) => portrait.view === item.view)?.url}
+        <div className="pb sheet cast-sheet">
+          <div className="cast-info">
+            <div className="cast-id-row">
+              <div className="field" style={{ padding: 0 }}>
+                <label htmlFor="cast-name">名字</label>
+                <input
+                  id="cast-name"
+                  className="input"
+                  aria-label="人物名字"
+                  value={character?.name ?? ""}
+                  onChange={(event) => {
+                    const name = event.target.value;
+                    if (!character) {
+                      onFilm({
+                        ...film,
+                        characters: [
+                          {
+                            id: "char-1",
+                            name,
+                            identity: name,
+                            voiceId: "leo",
+                            source: "user",
+                            userFields: ["name"],
+                            portraits: [],
+                          },
+                        ],
+                      });
+                      return;
+                    }
+                    onFilm({
+                      ...film,
+                      characters: film.characters.map((item) =>
+                        item.id === character.id
+                          ? {
+                              ...item,
+                              name,
+                              source: "user",
+                              userFields: [...new Set([...item.userFields, "name"])],
+                            }
+                          : item,
+                      ),
+                      shots: film.shots.map((item) => ({
+                        ...item,
+                        characters: item.characters.map((person) =>
+                          person === character.name ? name : person,
+                        ),
+                      })),
+                    });
+                  }}
                 />
-                <p>{item.view}</p>
               </div>
-            ))}
-          </div>
-          <button
-            className="btn sm"
-            type="button"
-            disabled={portraitBusy}
-            onClick={() => {
-              if (!character) return;
-              void onPortraits(character.id);
-            }}
-          >
-            {portraitBusy ? "正在生成定妆照" : "生成定妆照"}
-          </button>
-          <button
-            className="btn sm"
-            type="button"
-            disabled={portraitBusy}
-            onClick={() => {
-              void onAllPortraits();
-            }}
-          >
-            给所有人出定妆照
-          </button>
-          <div className="sec-t" style={{ marginTop: 12 }}>
-            声音
-          </div>
-          <p className="role-desc">
-            {character?.voiceId ? `已选：${voiceLabel(character.voiceId)}` : "还没有选定声音。"}
-          </p>
-          {voices.length === 0 ? (
-            <p className="role-desc">还没有读到声音名单。登录后会从接口读取。</p>
-          ) : (
-            <div className="row2">
-              <select
-                className="input"
-                aria-label="角色声音"
-                value={character?.voiceId ?? ""}
+              <div className="field" style={{ padding: 0 }}>
+                <label htmlFor="cast-gender">性别</label>
+                <select
+                  id="cast-gender"
+                  className="input"
+                  aria-label="性别"
+                  disabled={!character}
+                  value={character?.gender ?? ""}
+                  onChange={(event) => {
+                    if (!character) return;
+                    onTraits(character.id, {
+                      gender: event.target.value as Gender,
+                      ageBand: character.ageBand ?? "",
+                    });
+                  }}
+                >
+                  <option value="">未写</option>
+                  {GENDERS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ padding: 0 }}>
+                <label htmlFor="cast-age">年龄段</label>
+                <select
+                  id="cast-age"
+                  className="input"
+                  aria-label="年龄段"
+                  disabled={!character}
+                  value={character?.ageBand ?? ""}
+                  onChange={(event) => {
+                    if (!character) return;
+                    onTraits(character.id, {
+                      gender: character.gender ?? "",
+                      ageBand: event.target.value as AgeBand,
+                    });
+                  }}
+                >
+                  <option value="">未写</option>
+                  {AGE_BANDS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="cast-id">外貌</label>
+              <textarea
+                id="cast-id"
+                className="area"
+                aria-label="外貌"
+                rows={4}
+                value={character?.identity ?? ""}
                 onChange={(event) => {
                   if (!character) return;
-                  const voiceId = event.target.value;
                   onFilm({
                     ...film,
                     characters: film.characters.map((item) =>
                       item.id === character.id
                         ? {
                             ...item,
-                            voiceId,
-                            userFields: [...new Set([...item.userFields, "voiceId"])],
+                            identity: event.target.value,
+                            source: "user",
+                            userFields: [...new Set([...item.userFields, "identity"])],
                           }
                         : item,
                     ),
                   });
                 }}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="style-preset">画风</label>
+              <select
+                id="style-preset"
+                className="input"
+                aria-label="画风"
+                value={film.stylePreset}
+                onChange={(event) => {
+                  const preset =
+                    STYLE_PRESETS.find((item) => item.name === event.target.value) ??
+                    STYLE_PRESETS[0]!;
+                  onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
+                }}
               >
-                <option value="">还没有选定</option>
-                <optgroup label="旁白感">
-                  {voices
-                    .filter((voice) => /温和|平静|清楚|温暖|沉稳|耐心|安心/.test(voice.label))
-                    .map((voice) => (
-                      <option key={voice.id} value={voice.id}>
-                        {voice.label}
-                      </option>
-                    ))}
-                </optgroup>
-                <optgroup label="角色">
-                  {voices
-                    .filter((voice) => !/温和|平静|清楚|温暖|沉稳|耐心|安心/.test(voice.label))
-                    .map((voice) => (
-                      <option key={voice.id} value={voice.id}>
-                        {voice.label}
-                      </option>
-                    ))}
-                </optgroup>
+                {STYLE_PRESETS.map((item) => (
+                  <option key={item.name} value={item.name}>
+                    {item.name}
+                  </option>
+                ))}
               </select>
+            </div>
+            <div className="sec-t" style={{ marginTop: 12 }}>
+              声音
+            </div>
+            <p className="role-desc">
+              {character?.voiceId
+                ? `已选：${voiceLabel(character.voiceId)}`
+                : character && !character.gender
+                  ? "性别没写，请先选一下，声音会按性别列出。"
+                  : "还没有选定声音。"}
+            </p>
+            {voices.length === 0 ? (
+              <p className="role-desc">登录 Grok 会员后才能看到声音名单。</p>
+            ) : (
+              <div className="row2">
+                <select
+                  className="input"
+                  aria-label="角色声音"
+                  value={character?.voiceId ?? ""}
+                  onChange={(event) => {
+                    if (!character) return;
+                    const voiceId = event.target.value;
+                    // Picked by hand: GPT keeps it when gender or age change later.
+                    onFilm({
+                      ...film,
+                      characters: film.characters.map((item) =>
+                        item.id === character.id
+                          ? {
+                              ...item,
+                              voiceId,
+                              userFields: [...new Set([...item.userFields, "voiceId"])],
+                            }
+                          : item,
+                      ),
+                    });
+                  }}
+                >
+                  <option value="">还没有选定</option>
+                  {voiceGroup.fitting.length > 0 && (
+                    <optgroup label={`适合${character?.ageBand ?? ""}${character?.gender ?? ""}性`}>
+                      {voiceGroup.fitting.map((voice) => (
+                        <option key={voice.id} value={voice.id}>
+                          {voice.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {voiceGroup.others.length > 0 && (
+                    <optgroup label={character?.gender ? `其他${character.gender}声` : "全部声音"}>
+                      {voiceGroup.others.map((voice) => (
+                        <option key={voice.id} value={voice.id}>
+                          {voice.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <button
+                  className="btn sm"
+                  type="button"
+                  aria-label="试听"
+                  onClick={() => {
+                    if (!character) return;
+                    const line =
+                      film.shots.find(
+                        (item) => item.line.trim() && item.characters.includes(character.name),
+                      )?.line ?? "";
+                    onPreview(character.voiceId, line);
+                  }}
+                >
+                  {hearing ? "停止" : "试听"}
+                </button>
+              </div>
+            )}
+            {voices.length === 0 ? (
               <button
                 className="btn sm"
                 type="button"
@@ -4813,77 +4927,123 @@ function CastPage({
               >
                 {hearing ? "停止" : "试听"}
               </button>
-            </div>
-          )}
-          {voices.length === 0 ? (
+            ) : null}
+            <label htmlFor="narration-voice">旁白</label>
+            <select
+              id="narration-voice"
+              className="input"
+              aria-label="旁白声音"
+              value={film.narrationVoiceId}
+              onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
+            >
+              <option value="">还没有选旁白</option>
+              {voices.map((voice) => (
+                <option key={voice.id} value={voice.id}>
+                  {voice.label}
+                </option>
+              ))}
+              {film.narrationVoiceId &&
+              !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
+                <option value={film.narrationVoiceId}>{voiceLabel(film.narrationVoiceId)}</option>
+              ) : null}
+            </select>
             <button
               className="btn sm"
               type="button"
-              aria-label="试听"
-              onClick={() => {
-                if (!character) return;
-                const line =
-                  film.shots.find(
-                    (item) => item.line.trim() && item.characters.includes(character.name),
-                  )?.line ?? "";
-                onPreview(character.voiceId, line);
-              }}
+              aria-label="试听旁白"
+              onClick={() =>
+                onPreview(
+                  film.narrationVoiceId,
+                  film.shots.find((item) => item.line.trim())?.line ?? "",
+                )
+              }
             >
-              {hearing ? "停止" : "试听"}
+              {hearing ? "停止" : "试听旁白"}
             </button>
-          ) : null}
-          <label htmlFor="narration-voice">旁白</label>
-          <select
-            id="narration-voice"
-            className="input"
-            aria-label="旁白声音"
-            value={film.narrationVoiceId}
-            onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
-          >
-            <option value="">还没有选旁白</option>
-            {voices.map((voice) => (
-              <option key={voice.id} value={voice.id}>
-                {voice.label}
-              </option>
-            ))}
-            {film.narrationVoiceId &&
-            !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
-              <option value={film.narrationVoiceId}>{voiceLabel(film.narrationVoiceId)}</option>
-            ) : null}
-          </select>
-          <button
-            className="btn sm"
-            type="button"
-            aria-label="试听旁白"
-            onClick={() =>
-              onPreview(
-                film.narrationVoiceId,
-                film.shots.find((item) => item.line.trim())?.line ?? "",
-              )
-            }
-          >
-            {hearing ? "停止" : "试听旁白"}
-          </button>
-          {side === "places" && film.locations[place] && (
-            <div className="field">
-              <label htmlFor="place-ambience">环境音</label>
-              <textarea
-                id="place-ambience"
-                className="area"
-                aria-label="环境音"
-                value={film.locations[place]?.ambience ?? ""}
-                onChange={(event) => {
-                  const ambience = event.target.value;
-                  onFilm({
-                    ...film,
-                    locations: film.locations.map((item, index) =>
-                      index === place ? { ...item, ambience } : item,
-                    ),
-                  });
-                }}
-              />
+            {side === "places" && film.locations[place] && (
+              <div className="field">
+                <label htmlFor="place-ambience">环境音</label>
+                <textarea
+                  id="place-ambience"
+                  className="area"
+                  aria-label="环境音"
+                  value={film.locations[place]?.ambience ?? ""}
+                  onChange={(event) => {
+                    const ambience = event.target.value;
+                    onFilm({
+                      ...film,
+                      locations: film.locations.map((item, index) =>
+                        index === place ? { ...item, ambience } : item,
+                      ),
+                    });
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          <div className="cast-looks">
+            <div className="looks-head">
+              <span className="sec-t">定妆照</span>
+              <span className="sp" />
+              {character && VIEWS.some((view) => !has(character, view)) ? (
+                <button
+                  className="btn sm"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onPortraits(character.id)}
+                >
+                  补这个人的
+                </button>
+              ) : null}
             </div>
-          )}
+            <div className="refs4 slots">
+              {(character
+                ? portraitPrompts(character.name, character.identity, film.styleZh)
+                : []
+              ).map((item) => {
+                const url = character?.portraits.find(
+                  (portrait) => portrait.view === item.view && portrait.url,
+                )?.url;
+                const slot = character
+                  ? portraits.slots[`${character.id}:${item.view}`]
+                  : undefined;
+                const state = url ? "done" : (slot?.state ?? "empty");
+                return (
+                  <figure key={item.view} className="slot" data-state={state}>
+                    {url ? (
+                      <Thumb src={url} />
+                    ) : (
+                      <div className="slot-empty" aria-label={`${item.view}还没有`}>
+                        {item.view}
+                      </div>
+                    )}
+                    <figcaption>
+                      {url ? <span>{item.view}</span> : null}
+                      {state === "running" && <span className="slot-state">生成中…</span>}
+                      {state === "queued" && <span className="slot-state">排队中</span>}
+                      {state === "done" && <span className="slot-state done">已完成</span>}
+                      {state === "failed" && (
+                        <>
+                          <span className="slot-state bad" title={slot?.reason || undefined}>
+                            失败
+                          </span>
+                          <button
+                            className="link-btn"
+                            type="button"
+                            disabled={busy}
+                            aria-label={`重试${item.view}`}
+                            onClick={() => character && void onPortraits(character.id)}
+                          >
+                            重试
+                          </button>
+                        </>
+                      )}
+                    </figcaption>
+                  </figure>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </section>
       <section className="pane ai">
@@ -4916,7 +5076,6 @@ function BoardPage({
   onNotice,
   onGenerate,
   onBatch,
-  onRepairCoverage,
   activeSceneId,
   stills,
   onStills,
@@ -4944,6 +5103,8 @@ function BoardPage({
   qcCard = null,
   onRedoRange,
   onDismiss,
+  onRetry,
+  onFixCoverage,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -4954,7 +5115,6 @@ function BoardPage({
   onNotice: (text: string) => void;
   onGenerate: () => void;
   onBatch: () => void;
-  onRepairCoverage: (sceneId: string) => Promise<unknown>;
   activeSceneId: string;
   stills: string[];
   onStills: () => void;
@@ -4976,6 +5136,8 @@ function BoardPage({
   onChat: (value: string) => void;
   onSend: () => void;
   turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  /** 3J-U04: retry for the reply that just failed; the button sits under that reply. */
+  onRetry?: () => void;
   assistPulse: number;
   structured: string[];
   card: RoleCard | null;
@@ -4983,6 +5145,8 @@ function BoardPage({
   qcCard?: RoleCard | null;
   onRedoRange: () => void;
   onDismiss: () => void;
+  /** 3J-U10: 「补上结尾」, GPT fixCoverage (C9). Settles when the director is done. */
+  onFixCoverage: (sceneId: string) => Promise<unknown>;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
@@ -4998,6 +5162,38 @@ function BoardPage({
   }, [assistPulse, lastTurnRole]);
   const current = shots[shot];
   const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
+  // 3J-U10: what the scene on show still misses (C9) and the actions that fit no shot (C10).
+  const sceneKey = `${film.id}:${activeSceneId}`;
+  const repair = useCoverageRepair(sceneKey, () => onFixCoverage(activeSceneId));
+  const sceneRow = film.scenes.find((item) => item.id === activeSceneId);
+  // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
+  // does not run the check again on every edit.
+  const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
+  const allBeats = film.unassignedBeats ?? [];
+  const sceneBeats = allBeats.filter((beat) => beat.sceneId === sceneRow?.id);
+  const placeBeat = (index: number, target: FilmShot) => {
+    const beat = sceneBeats[index];
+    if (!beat || target.sceneId !== activeSceneId || beat.sceneId !== activeSceneId) return;
+    // GPT's rule decides: a shot with only dialogue never takes a fight action.
+    const placed = assignActionBeats(film.shots, beat.sceneId, [
+      { text: beat.text, shotId: target.id },
+    ]);
+    if (placed.unassignedBeats.length > 0) {
+      onNotice(`镜头 ${target.no} 只有对白，放不了这个动作。换一个有动作的镜头。`);
+      return;
+    }
+    const at = allBeats.indexOf(beat);
+    onFilm({
+      ...film,
+      shots: placed.shots.map((item) =>
+        item.id === target.id
+          ? { ...item, userFields: [...new Set([...item.userFields, "action"])] }
+          : item,
+      ),
+      unassignedBeats: allBeats.filter((_, position) => position !== at),
+    });
+    onNotice(`已放到镜头 ${target.no}。`);
+  };
   const focused = shots[shot];
   const toolNote = turns
     .filter((item) => (item.role === "prompter" || item.role === "qc") && item.who === "agent")
@@ -5020,8 +5216,7 @@ function BoardPage({
             className="icon-btn sm"
             aria-label="加一场"
             onClick={() => {
-              const sceneId = current?.sceneId ?? film.scenes[0]?.id ?? "scene-1";
-              onFilm(addShot(film, sceneId));
+              onFilm(addShot(film, activeSceneId));
               onNotice("已加一个镜头。");
             }}
           >
@@ -5060,14 +5255,8 @@ function BoardPage({
         </div>
       </section>
       <section className="pane">
-        <SceneCoverage
-          film={film}
-          key={`${film.id}:${activeSceneId}`}
-          sceneId={activeSceneId}
-          onRepair={onRepairCoverage}
-        />
         <div className="tool">
-          <h3>{film.scenes.find((item) => item.id === current?.sceneId)?.title ?? "镜头"}</h3>
+          <h3>{sceneRow?.title ?? "镜头"}</h3>
           <span className="meta">
             {shots.length} 个镜头 · {seconds} 秒
           </span>
@@ -5075,8 +5264,7 @@ function BoardPage({
           <button
             className="btn"
             onClick={() => {
-              const sceneId = current?.sceneId ?? film.scenes[0]?.id ?? "scene-1";
-              onFilm(addShot(film, sceneId));
+              onFilm(addShot(film, activeSceneId));
               onNotice("已加一个镜头。");
             }}
           >
@@ -5090,12 +5278,47 @@ function BoardPage({
             生成这一场
           </button>
         </div>
+        {sceneRow && (
+          <SceneAlerts
+            key={sceneKey}
+            dragScope={sceneKey}
+            repairFailed={repair.failed}
+            missingTail={coverage?.missingTail ?? null}
+            missingLines={coverage?.missingLines ?? []}
+            beats={sceneBeats.map((beat) => beat.text)}
+            fixing={repair.fixing}
+            onFixEnding={() => void repair.run()}
+            pickedShot={current ? `镜头 ${current.no}` : ""}
+            onPlaceBeat={(index) => current && placeBeat(index, current)}
+          />
+        )}
         <div className="pb grid">
           {shots.map((item, index) => (
             <button
               key={item.id}
               className={index === shot ? "card sel" : "card"}
               onClick={() => onShot(index)}
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                const raw = event.dataTransfer.getData(BEAT_DRAG_TYPE);
+                if (!raw) return;
+                event.preventDefault();
+                try {
+                  const payload = JSON.parse(raw) as {
+                    scope?: string;
+                    index?: number;
+                    text?: string;
+                  };
+                  if (payload.scope !== sceneKey || !Number.isInteger(payload.index)) return;
+                  const index = payload.index!;
+                  if (sceneBeats[index]?.text !== payload.text) return;
+                  placeBeat(index, item);
+                } catch {
+                  // Ignore foreign or outdated drags; never guess which action they refer to.
+                }
+              }}
             >
               <div style={{ position: "relative" }}>
                 <FrameThumb shot={item} />
@@ -5181,6 +5404,7 @@ function BoardPage({
             turns={turns}
             structured={structured}
             card={card}
+            onRetry={onRetry}
             onRedoRange={onRedoRange}
             onDismiss={onDismiss}
           />
