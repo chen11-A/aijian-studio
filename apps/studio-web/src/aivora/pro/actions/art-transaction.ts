@@ -9,7 +9,8 @@ export type ArtTransaction = {
   selection: EditorSelection;
   changes: EditorFieldChange[];
   additions: (
-    { collection: "locations"; row: FilmLocation } | { collection: "props"; row: FilmProp }
+    | { collection: "locations"; row: FilmLocation; referencingSceneIds?: string[] }
+    | { collection: "props"; row: FilmProp }
   )[];
   unsupported: string[];
   recomputeCostumes: boolean;
@@ -99,7 +100,13 @@ export function prepareArtTransaction(
     for (const row of next.filter((row) => !existing.has(row.id))) {
       if (collection === "characters") tx.unsupported.push("characters:ADDED");
       else if (collection === "locations")
-        tx.additions.push({ collection, row: structuredClone(row as FilmLocation) });
+        tx.additions.push({
+          collection,
+          row: structuredClone(row as FilmLocation),
+          referencingSceneIds: base.scenes
+            .filter((scene) => scene.where.trim() === row.name.trim())
+            .map((scene) => scene.id),
+        });
       else tx.additions.push({ collection, row: structuredClone(row as FilmProp) });
     }
   }
@@ -204,6 +211,17 @@ function change(current: FilmProject, tx: ArtTransaction, inverse: boolean) {
     );
     if (inverse ? matches.length !== 1 || !same(matches[0], addition.row) : matches.length > 0)
       return reject("ADDED_ENTITY_CHANGED");
+    // A later edit on another page may now depend on this otherwise unchanged row.
+    if (
+      inverse &&
+      addition.collection === "locations" &&
+      current.scenes.some(
+        (scene) =>
+          scene.where.trim() === addition.row.name.trim() &&
+          !addition.referencingSceneIds?.includes(scene.id),
+      )
+    )
+      return reject("ADDED_ENTITY_REFERENCED");
   }
   let film = structuredClone(current);
   for (const item of tx.changes) {

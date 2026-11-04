@@ -97,3 +97,27 @@ it("preserves costume rule metadata and recomputes risks from the latest scenes"
   live.characters[0]!.userFields.push("costumes");
   expect(applyArtTransaction(live, tx).conflicts).toContain("FIELD_LOCKED:costumes");
 });
+
+it("atomically refuses undo after another page references the added location", async () => {
+  const { base, tx } = await fixture();
+  const applied = applyArtTransaction(base, tx);
+  applied.film.scenes[0]!.where = " 新增书店 ";
+  const result = undoArtTransaction(applied.film, tx);
+  expect(result.conflicts).toEqual(["ADDED_ENTITY_REFERENCED"]);
+  expect(result.film).toBe(applied.film);
+  expect(result.receipt).toBeNull();
+  expect(result.film.styleZh).toBe("新的画风");
+  expect(result.film.locations.some((row) => row.name === "新增书店")).toBe(true);
+});
+
+it("allows undo when the location reference already existed before the art request", async () => {
+  const { base, proposed } = await fixture();
+  base.scenes[0]!.where = "新增书店";
+  proposed.scenes[0]!.where = "新增书店";
+  const tx = prepareArtTransaction(base, proposed, { projectId: base.id, page: "cast" });
+  const applied = applyArtTransaction(base, tx);
+  const result = undoArtTransaction(applied.film, tx);
+  expect(result.conflicts).toEqual([]);
+  expect(result.film.scenes).toEqual(base.scenes);
+  expect(result.film.locations).toEqual(base.locations);
+});
