@@ -174,6 +174,7 @@ type RoleCard = {
   mode: "scenes" | "shots" | "art" | "qc";
   scenes?: FilmScene[];
   shots?: FilmShot[];
+  actionState?: FilmScene["actionState"];
 };
 type FixAction = VideoAction;
 
@@ -1206,6 +1207,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         updateShot(
           {
             ...film,
+            scenes:
+              only.source === "agent:action" && card?.actionState
+                ? film.scenes.map((item) =>
+                    item.id === only.sceneId ? { ...item, actionState: card.actionState } : item,
+                  )
+                : film.scenes,
             unassignedBeats: [
               ...(film.unassignedBeats ?? []).filter((item) => item.sceneId !== only.sceneId),
               ...unassignedDraft.current,
@@ -1214,6 +1221,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           only.id,
           {
             action: only.action,
+            ...(only.source === "agent:action"
+              ? { actionPlan: only.actionPlan, sound: only.sound }
+              : {}),
             performance: only.performance,
             performanceSource: only.performanceSource,
             source: only.source,
@@ -1677,6 +1687,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       applied: false,
       mode: "shots",
       shots: [actionShot],
+      actionState: result.actionState,
     });
     finishTurn(turn, result.notice);
     noteAgent("action", result.event, result.notice);

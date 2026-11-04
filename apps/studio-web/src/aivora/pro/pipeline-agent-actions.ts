@@ -1,3 +1,4 @@
+import { applyActionPlan } from "../film/action-plan";
 import type { UiNotice } from "../film/contracts3j";
 import { shotLines } from "../film/director-continuity";
 import {
@@ -217,15 +218,20 @@ export async function runPipelineAgentAction(
       const parsed = actionFromModel(parseLooseJson(reply.text));
       if (!parsed?.length) return failed("ACTION_PARSE_FAILED");
       const assigned = assignActionBeats(film.shots, scene.id, parsed);
-      const next = {
-        ...film,
-        shots: assigned.shots.map((shot) => {
-          const original = film.shots.find((item) => item.id === shot.id);
-          return original?.userFields.includes("action") ? original : shot;
-        }),
-        unassignedBeats: [...(film.unassignedBeats ?? []), ...assigned.unassignedBeats],
-      };
-      return next.unassignedBeats.some((beat) => beat.sceneId === scene.id)
+      const next = applyActionPlan(
+        {
+          ...film,
+          shots: assigned.shots.map((shot) => {
+            const original = film.shots.find((item) => item.id === shot.id);
+            return original?.userFields.includes("action") ? original : shot;
+          }),
+          unassignedBeats: [...(film.unassignedBeats ?? []), ...assigned.unassignedBeats],
+        },
+        scene.id,
+        parseLooseJson(reply.text),
+      );
+      return next.scenes.find((item) => item.id === scene.id)?.actionState?.unassigned.length ||
+        next.unassignedBeats?.some((beat) => beat.sceneId === scene.id)
         ? blocked("ACTION_UNASSIGNED", next)
         : done(next);
     }

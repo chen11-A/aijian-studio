@@ -1,3 +1,4 @@
+import type { ShotActionPlan, SceneActionState } from "./action-plan";
 import { parseAgentReplyText } from "./agent-reply-compat";
 import type {
   SceneCoverage,
@@ -142,6 +143,7 @@ export type FilmCharacter = {
 };
 
 export type FilmScene = {
+  actionState?: SceneActionState;
   sound?: SceneSound;
   coverage?: SceneCoverage;
   id: string;
@@ -165,6 +167,7 @@ export type FilmScene = {
 };
 
 export type FilmShot = {
+  actionPlan?: ShotActionPlan;
   continuityFromShotId?: string;
   continuityFrame?: {
     sourceShotId: string;

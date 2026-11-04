@@ -7,7 +7,7 @@ it("uses explicit shot IDs within the one-shot manual scope and preserves unassi
   const current = film.shots[0]!;
   current.picture = "沈砚打斗闪避。";
   current.action = "";
-  current.userFields = ["picture", "action", "line"];
+  current.userFields = ["picture", "line"];
   film.scenes.find((scene) => scene.id === current.sceneId)!.text = "铁棍挥来。";
   const snapshot = structuredClone(film);
   const request = vi.fn<ActionDraftHost["request"]>().mockResolvedValue({
@@ -56,7 +56,8 @@ it("does not place combat into a dialogue shot even when the model names its ID"
     expect(result.shot.sound.sfx).toEqual([]);
     expect(result.notes).toEqual([]);
     expect(result.unassigned).toEqual([{ sceneId: shot.sceneId, text: "挥铁棍" }]);
-    expect(result.notice).toContain("ACTION_UNASSIGNED");
+    expect(result.notice).toBe("有动作没对上镜头，去分镜看看。");
+    expect(result.notice).not.toMatch(/\b[A-Z]{3,}(?:_[A-Z0-9]+)+\b/);
   }
 });
 

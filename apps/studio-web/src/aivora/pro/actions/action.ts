@@ -1,3 +1,4 @@
+import { applyActionPlan, type SceneActionState } from "../../film/action-plan";
 import { actionBeats, assignActionBeats, fightConstraints } from "../../film/operations";
 import { actionFromModel, difficultyLabel, parseLooseJson } from "../../film/phase2";
 import { shotLines } from "../../film/director-continuity";
@@ -18,6 +19,7 @@ export type ActionDraftResult =
       notice: string;
       event: "beats" | "offline";
       unassigned?: FilmProject["unassignedBeats"];
+      actionState?: SceneActionState;
     };
 /** Manual assistant scope is exactly one selected shot; never use array position as model identity. */
 export async function planActionDraft(
@@ -37,11 +39,13 @@ export async function planActionDraft(
   const context = `人物：${film.characters.map((item) => item.name).join("、")}\n当前镜头 id：${current?.id ?? ""}；只返回这个 id 的动作。\n${fightConstraints(film.scenes.find((item) => item.id === current?.sceneId)?.text ?? "")}\n镜头：${JSON.stringify(current ? [{ id: current.id, no: current.no, size: current.size, picture: current.picture, line: current.line, lines: shotLines(current) }] : [])}`;
   const reply = await host.request("action", context, text);
   if (!host.current()) return { status: "stale" };
-  let parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
+  let structured = reply.text ? parseLooseJson(reply.text) : null;
+  let parsed = actionFromModel(structured);
   if (!parsed && host.connected) {
     const again = await host.request("action", context, `${text}\n只输出 JSON，不要解释。`);
     if (!host.current()) return { status: "stale" };
-    parsed = again.text ? actionFromModel(parseLooseJson(again.text)) : null;
+    structured = again.text ? parseLooseJson(again.text) : null;
+    parsed = actionFromModel(structured);
     if (!parsed) {
       return {
         status: "rejected",
@@ -60,7 +64,7 @@ export async function planActionDraft(
     );
     sentence = assigned.shots[0]?.action ?? current.action;
     note = assigned.unassignedBeats.length
-      ? "ACTION_UNASSIGNED：有动作无法归属，已保留供核对。"
+      ? "有动作没对上镜头，去分镜看看。"
       : "动作指导写好了。点「写入分镜」写到这一镜。";
   }
   if (!current) {
@@ -74,12 +78,18 @@ export async function planActionDraft(
     : sentence
       ? [sentence]
       : [];
+  const planned = applyActionPlan({ ...film, shots: [current] }, current.sceneId, structured);
+  const actionState = planned.scenes.find((scene) => scene.id === current.sceneId)?.actionState;
+  const actionLocked =
+    current.userFields.includes("action") || current.userFields.includes("actionPlan");
+  if (actionState?.unassigned.length) note = "有动作没对上镜头，去分镜看看。";
   const actionShot = {
     ...current,
-    action: sentence,
-    sound: { ...current.sound, sfx: cues },
-    source: "agent:action",
-    userFields: current.userFields.filter((field) => field !== "action"),
+    actionPlan: planned.shots[0]?.actionPlan,
+    action: actionLocked ? current.action : sentence,
+    sound: actionLocked ? current.sound : { ...current.sound, sfx: cues },
+    source: actionLocked ? current.source : "agent:action",
+    userFields: current.userFields,
   };
   return {
     status: "ready",
@@ -88,5 +98,6 @@ export async function planActionDraft(
     notice: note,
     event: parsed ? "beats" : "offline",
     ...(unassigned ? { unassigned } : {}),
+    ...(actionState ? { actionState } : {}),
   };
 }

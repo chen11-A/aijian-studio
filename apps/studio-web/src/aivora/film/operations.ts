@@ -1,3 +1,4 @@
+import { actionPlanPrompt } from "./action-plan";
 import { locationReference } from "./location-reference";
 import { parseAgentReplyText } from "./agent-reply-compat";
 import { sceneDisplayTitle } from "./director-continuity";
@@ -1263,6 +1264,8 @@ export function motionPrompt(shot: FilmShot): string {
       shot.promptZh?.trim() ||
       "";
   let visual = prompted || picture;
+  const constraints = actionPlanPrompt(shot);
+  if (constraints) visual = [visual, constraints].filter(Boolean).join("。 ");
   const acted = shot.performance.trim();
   if (acted && visual && !visual.includes(acted) && !isBeatList(acted)) {
     visual = `${visual}。表演：${acted}`;

@@ -3317,3 +3317,71 @@ it("discards a late writer proposal after changing assistant scope", async () =>
   expect(screen.queryByText("迟到编剧场次")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "让导演拆镜头" })).not.toBeDisabled();
 });
+
+it("saves the confirmed action plan and scene end state without assigning it to another shot", async () => {
+  window.localStorage.clear();
+  const { completeText } = installDesktop();
+  const film = sampleFilm();
+  film.backendProjectId = PROJECT_ID;
+  const target = film.shots[0]!;
+  target.userFields = [];
+  target.picture = "两人交手，铁棍撞向墙面。";
+  target.action = "铁棍挥向墙面。";
+  target.lines = [];
+  target.line = "";
+  target.speaker = "";
+  const person = film.characters[0]!.name;
+  completeText.mockResolvedValue({
+    kind: "OK",
+    text: JSON.stringify({
+      shots: [
+        {
+          shot_id: target.id,
+          nodes: [
+            {
+              node_id: "n1",
+              at_seconds: 0,
+              duration_seconds: 1,
+              actor: person,
+              move: "挥铁棍",
+              target: "墙面",
+              contact: true,
+              force: 2,
+            },
+          ],
+        },
+      ],
+      props_after: [{ name: person, left: null, right: "铁棍" }],
+    }),
+  });
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findAllByText(film.title);
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: new RegExp(film.scenes.find((scene) => scene.id === target.sceneId)!.title),
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  pickHelper("动作指导");
+  fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
+  await screen.findByText(/动作设计 · 镜头/);
+  const saved = () =>
+    vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject | undefined;
+  expect(saved()?.shots.find((shot) => shot.id === target.id)?.actionPlan).toBeUndefined();
+  fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
+  await waitFor(() => {
+    const last = saved();
+    expect(last?.shots.find((shot) => shot.id === target.id)?.actionPlan?.nodes[0]?.move).toBe(
+      "挥铁棍",
+    );
+    expect(
+      last?.scenes.find((scene) => scene.id === target.sceneId)?.actionState?.propsAfter[0]?.right,
+    ).toBe("铁棍");
+    expect(
+      last?.shots.filter((shot) => shot.id !== target.id).every((shot) => !shot.actionPlan),
+    ).toBe(true);
+  });
+});
