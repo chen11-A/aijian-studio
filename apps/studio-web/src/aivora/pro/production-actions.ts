@@ -98,7 +98,11 @@ export function createProductionActions(host: {
         characters: film.characters.map((person) =>
           person.id === characterId
             ? autoVoiceForCharacter(
-                { ...person, ...patch },
+                {
+                  ...person,
+                  ...patch,
+                  userFields: [...new Set([...person.userFields, "gender", "ageBand"])],
+                },
                 new Set(
                   film.characters
                     .filter((other) => other.id !== characterId)

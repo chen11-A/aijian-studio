@@ -41,6 +41,20 @@ describe("professional workspace", () => {
     expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeEnabled();
   });
 
+  it("persists character trait controls and clears an automatic voice for unknown traits", async () => {
+    installDesktop();
+    await openSample();
+    fireEvent.click(stageTab("角色与场景"));
+    fireEvent.change(screen.getByLabelText("人物性别"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("人物年龄段"), { target: { value: "老年" } });
+    await waitFor(() => {
+      const saved = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.at(-1)![0] as FilmProject;
+      expect(saved.characters[0]).toMatchObject({ gender: "", ageBand: "老年", voiceId: "" });
+    });
+  });
+
   it("starts a landscape film from the empty screen", () => {
     render(<ProWorkspace />);
     fireEvent.click(screen.getByRole("button", { name: "新建横屏" }));

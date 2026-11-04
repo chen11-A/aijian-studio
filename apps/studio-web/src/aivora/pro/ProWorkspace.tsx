@@ -1,3 +1,5 @@
+import { CharacterTraits, type TraitPatch } from "../next/wiring/CharacterTraits";
+import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
@@ -477,6 +479,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const filmRef = useRef<FilmProject | null>(null);
+  const productionActions = useProductionActions({
+    current: () => filmRef.current,
+    apply: async (next) => {
+      applyLive(next);
+      await saveFilm(next);
+    },
+    notify: emitNotice,
+    requestDirector: (context, instruction) =>
+      retryDirectorTimeout(
+        (control) => completeAgent("director", context, instruction, control),
+        setNotice,
+        emitNotice,
+      ),
+  });
   const pastRef = useRef<FilmProject[]>([]);
   const futureRef = useRef<FilmProject[]>([]);
   const committed = useRef<FilmProject | null>(null);
@@ -3154,6 +3170,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRole={chooseRole}
                   onPortraits={makePortraits}
                   onAllPortraits={() => confirmPortraits()}
+                  onTraits={(id, patch) => void productionActions.updateCharacterTraits(id, patch)}
                   portraitBusy={portraitBusy}
                   voices={voiceChoices}
                   onPreview={(voiceId, line) => void previewVoice(voiceId, line)}
@@ -4404,6 +4421,7 @@ function CastPage({
   onRole,
   onPortraits,
   onAllPortraits,
+  onTraits,
   portraitBusy,
   voices,
   onPreview,
@@ -4418,6 +4436,7 @@ function CastPage({
   onRole: (role: Role) => void;
   onPortraits: (id: string) => Promise<void>;
   onAllPortraits: () => Promise<void>;
+  onTraits: (id: string, patch: TraitPatch) => void;
   portraitBusy: boolean;
   voices: { id: string; label: string }[];
   onPreview: (voiceId: string, line: string) => void;
@@ -4543,6 +4562,12 @@ function CastPage({
           <span className="meta">同一张脸，同一套衣服</span>
         </div>
         <div className="pb sheet">
+          {character && (
+            <CharacterTraits
+              character={character}
+              onChange={(patch) => onTraits(character.id, patch)}
+            />
+          )}
           <div className="field" style={{ padding: 0 }}>
             <label htmlFor="cast-name">名字</label>
             <input
@@ -4696,7 +4721,13 @@ function CastPage({
                   onFilm({
                     ...film,
                     characters: film.characters.map((item) =>
-                      item.id === character.id ? { ...item, voiceId } : item,
+                      item.id === character.id
+                        ? {
+                            ...item,
+                            voiceId,
+                            userFields: [...new Set([...item.userFields, "voiceId"])],
+                          }
+                        : item,
                     ),
                   });
                 }}
