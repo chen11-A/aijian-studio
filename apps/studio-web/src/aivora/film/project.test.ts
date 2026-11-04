@@ -156,8 +156,30 @@ describe("film project", () => {
         { id: "scene-3", title: "医院走廊", where: "医院走廊", text: "林晚哭着说：「你还活着。」" },
       ],
     );
-    expect(wrapped?.map((shot) => shot.sceneId)).toEqual(["scene-1", "scene-3"]);
-    expect(wrapped?.[1]?.line).toBe("你还活着");
+    expect(wrapped?.map((shot) => shot.sceneId)).toEqual(["scene-9", "scene-9"]);
+    const selected = parseDirectorShots(
+      JSON.stringify({
+        scene_id: "晚照书店_周烈上门",
+        shots: [
+          {
+            picture: "门被撞开",
+            action: "周烈停在门口",
+            performance: "看向店内，hold_s 0.4",
+            seconds: 4,
+            characters: ["周烈"],
+          },
+        ],
+      }),
+      "scene-1",
+      "我叫沈砚。门被撞开。",
+      [
+        { id: "scene-1", title: "雨夜旧书店", where: "老城区青石巷·晚照书店", text: "我叫沈砚" },
+        { id: "scene-2", title: "书店被闯", where: "晚照书店", text: "门被撞开" },
+      ],
+    );
+    expect(selected?.map((shot) => shot.sceneId)).toEqual(["scene-1"]);
+    expect(selected?.[0]?.performance).toContain("停0.4秒");
+    expect(selected?.[0]?.performance).not.toContain("hold_s");
     expect(blankFilm().aspectRatio).toBe("9:16");
     film.aspectRatio = "16:9";
     writeFilm(window.localStorage, film);

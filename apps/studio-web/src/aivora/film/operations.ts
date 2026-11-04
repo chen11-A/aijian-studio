@@ -222,6 +222,39 @@ function asText(value: unknown): string {
     .join("\n");
 }
 
+const NOVEL_HEADING = /^第[0-9０-９一二三四五六七八九十百千零两]+场[ \t\u3000]*([^\n]*)/gm;
+
+/** The novel's own 第X场 headings, each a contiguous non-overlapping slice. */
+export function novelHeadingSlices(source: string): { title: string; text: string }[] {
+  const text = source.replace(/\r\n/g, "\n").trim();
+  const found = [...text.matchAll(NOVEL_HEADING)];
+  if (found.length < 2) return [];
+  return found.map((match, index) => {
+    const start = index === 0 ? 0 : (match.index ?? 0);
+    const end = index + 1 < found.length ? (found[index + 1]?.index ?? text.length) : text.length;
+    return { title: (match[1] ?? "").trim(), text: text.slice(start, end).trim() };
+  });
+}
+
+function quoteAt(chunk: string, probes: string[], after: number): number {
+  let best = -1;
+  for (const probe of probes) {
+    const needle = probe.trim().slice(0, 14);
+    if (needle.length < 6) continue;
+    const at = chunk.indexOf(needle, Math.max(0, after));
+    if (at >= 0 && (best < 0 || at < best)) best = at;
+  }
+  return best;
+}
+
+function rowProbes(record: Record<string, unknown>): string[] {
+  return [asText(record.text), asText(record.beats), asText(record.key_event)]
+    .join("\n")
+    .split(/[\n。！？]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 6);
+}
+
 /** Cut the novel at each scene's place so the dialogue stays with that scene. */
 export function sliceNovel(source: string, markers: string[]): string[] {
   const text = source.trim();
@@ -231,12 +264,26 @@ export function sliceNovel(source: string, markers: string[]): string[] {
     .map((marker, index) => ({ index, at: marker.trim() ? text.indexOf(marker.trim()) : -1 }))
     .filter((item) => item.at >= 0)
     .sort((a, b) => a.at - b.at);
+  if (found.length < markers.filter((item) => item.trim()).length) return slices;
   for (let cursor = 0; cursor < found.length; cursor += 1) {
     const start = found[cursor]!.at;
     const end = cursor + 1 < found.length ? found[cursor + 1]!.at : text.length;
     slices[found[cursor]!.index] = text.slice(start, end).trim();
   }
   return slices;
+}
+
+function subsplit(chunk: string, group: Record<string, unknown>[]): string[] {
+  const ordered = group
+    .map((record) => ({ record, at: quoteAt(chunk, rowProbes(record), 0) }))
+    .sort((a, b) => (a.at < 0 ? 1 : b.at < 0 ? -1 : a.at - b.at));
+  const points = ordered.map((item, index) => (index === 0 ? 0 : item.at));
+  return ordered.map((item, index) => {
+    const start = points[index] ?? -1;
+    if (start < 0) return "";
+    const next = points.slice(index + 1).find((point) => point > start);
+    return chunk.slice(start, next ?? chunk.length).trim();
+  });
 }
 
 export function parseWriterScenes(text: string, source = ""): FilmScene[] | null {
@@ -252,23 +299,73 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
   if (!value || typeof value !== "object" || !("scenes" in value)) return null;
   const rows = (value as { scenes?: unknown }).scenes;
   if (!Array.isArray(rows)) return null;
-  const markers = rows.map((row) => {
-    if (!row || typeof row !== "object") return "";
-    const record = row as Record<string, unknown>;
-    const place = typeof record.place === "string" ? record.place.trim() : "";
-    const title = typeof record.title === "string" ? record.title.trim() : "";
-    return place || title;
-  });
-  const slices = sliceNovel(source, markers);
+  const records = rows.filter(
+    (row): row is Record<string, unknown> => Boolean(row) && typeof row === "object",
+  );
+  const headings = novelHeadingSlices(source);
+  const slices = records.map(() => "");
+  if (headings.length >= 2) {
+    const groups = headings.map(() => [] as Record<string, unknown>[]);
+    const loose: Record<string, unknown>[] = [];
+    for (const record of records) {
+      const title = typeof record.title === "string" ? record.title : "";
+      const place = typeof record.place === "string" ? record.place : "";
+      const hit = headings.findIndex(
+        (heading) =>
+          heading.title &&
+          (title.includes(heading.title) ||
+            heading.title.includes(title) ||
+            place.includes(heading.title)),
+      );
+      if (hit >= 0) groups[hit]!.push(record);
+      else loose.push(record);
+    }
+    for (const record of loose) {
+      let best = -1;
+      let at = Number.POSITIVE_INFINITY;
+      headings.forEach((heading, index) => {
+        const found = quoteAt(heading.text, rowProbes(record), 0);
+        if (found >= 0 && found < at) {
+          at = found;
+          best = index;
+        }
+      });
+      (best >= 0 ? groups[best] : groups[groups.length - 1])!.push(record);
+    }
+    groups.forEach((group, index) => {
+      if (group.length === 0) return;
+      const parts = subsplit(headings[index]!.text, group);
+      const ordered = group
+        .map((record) => ({ record, at: quoteAt(headings[index]!.text, rowProbes(record), 0) }))
+        .sort((a, b) => (a.at < 0 ? 1 : b.at < 0 ? -1 : a.at - b.at));
+      ordered.forEach((item, part) => {
+        const rowIndex = records.indexOf(item.record);
+        if (rowIndex >= 0) slices[rowIndex] = parts[part] ?? "";
+      });
+    });
+  } else {
+    const markers = records.map((record) => {
+      const place = typeof record.place === "string" ? record.place.trim() : "";
+      const title = typeof record.title === "string" ? record.title.trim() : "";
+      return place || title;
+    });
+    sliceNovel(source, markers).forEach((item, index) => {
+      slices[index] = item;
+    });
+  }
   const scenes: FilmScene[] = [];
-  rows.forEach((row, index) => {
-    if (!row || typeof row !== "object") return;
-    const record = row as Record<string, unknown>;
+  records.forEach((record, index) => {
     const beats = asText(record.beats);
     const written = [asText(record.text), asText(record.dialogue), asText(record.lines)]
       .filter(Boolean)
       .join("\n");
-    const slice = slices[index] ?? "";
+    let slice = slices[index] ?? "";
+    const extraHeading = [...slice.matchAll(NOVEL_HEADING)];
+    if (extraHeading.length >= 2)
+      slice = slice.slice(0, extraHeading[1]?.index ?? slice.length).trim();
+    if (slice.length > 0 && source && slice.length > source.length * 0.75 && records.length > 1) {
+      slice = "";
+    }
     const key = asText(record.key_event);
     const story = slice || written;
     const outline = [beats, story ? "" : key].filter(Boolean).join("\n");
@@ -298,17 +395,37 @@ export function sceneNeedsSource(text: string): boolean {
 }
 
 export function isFightScene(text: string): boolean {
-  return /打|斗|刀|钢|拳|砍|挥|踢/.test(text);
+  return /打斗|打架|挥棍|铁棍|钢条|钢管|折叠刀|刀|拳|砍|踢|肘击|小臂/.test(text);
 }
+
+const FIGHT_WORDS = [
+  "铁棍",
+  "钢条",
+  "钢管",
+  "钢棒",
+  "折叠刀",
+  "刀",
+  "小臂",
+  "前臂",
+  "肘击",
+  "划开",
+];
 
 /** Keep weapons and injuries from the novel when the action pass softens them. */
 export function keepFightDetails(source: string, beats: string): string {
-  const words = ["钢条", "钢管", "钢棒", "刀", "前臂", "划开", "砍"].filter((word) =>
-    source.includes(word),
-  );
+  const words = FIGHT_WORDS.filter((word) => source.includes(word));
   const missing = words.filter((word) => !beats.includes(word));
   const kept = missing.length > 0 ? `保留原文：${missing.join("、")}` : "";
   return [beats.trim(), kept].filter(Boolean).join("。");
+}
+
+/** One shot gets the beats that name it, never the whole fight list. */
+export function beatsForShot(beats: { text: string }[], shotNo: number): string {
+  const own = beats.filter((item) => new RegExp(`镜头\\s*${shotNo}(?!\\d)`).test(item.text));
+  if (own.length > 0) return own.map((item) => item.text).join("。");
+  const numbered = beats.some((item) => /镜头\s*\d+/.test(item.text));
+  if (numbered) return "";
+  return beats[shotNo - 1]?.text ?? "";
 }
 
 export function applyScenes(film: FilmProject, incoming: FilmScene[]): FilmProject {
@@ -421,34 +538,60 @@ export function parseCastReply(text: string): ExtractedCast | null {
   }
 }
 
-const WOMAN = ["ara", "eve", "luna", "carina", "aurora", "liora", "celeste"];
-const MAN = ["leo", "rex", "orion", "atlas", "perseus", "zagan", "sal", "lux"];
+const WOMAN = ["ara", "eve", "luna", "carina", "celeste"];
+const MAN = ["leo", "rex", "atlas", "perseus", "zagan", "sal", "lux"];
 const YOUNG_WOMAN = ["iris", "sirius", "cosmo", "helix"];
 const YOUNG_MAN = ["helios", "castor", "kepler", "zenith"];
 const GIRL = ["iris", "sirius", "cosmo", "lumen"];
 const BOY = ["helios", "castor", "lumen", "zenith"];
-const ELDER_WOMAN = ["naksh", "ursa", "aurora"];
-const ELDER_MAN = ["orion", "lux", "ursa"];
+const ELDER_WOMAN = ["naksh", "ursa"];
+const ELDER_MAN = ["orion", "lux"];
+
+const CN_DIGIT: Record<string, number> = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+};
+
+function ageYears(text: string): number | null {
+  const digits = text.match(/(\d{1,2})\s*岁/);
+  if (digits) return Number(digits[1]);
+  const tens = text.match(/([一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
+  if (tens) return (CN_DIGIT[tens[1]!] ?? 0) * 10 + (tens[2] ? (CN_DIGIT[tens[2]] ?? 0) : 0);
+  const ten = text.match(/(?<![一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
+  if (ten) return 10 + (ten[1] ? (CN_DIGIT[ten[1]] ?? 0) : 0);
+  const one = text.match(/([一二三四五六七八九])\s*岁/);
+  return one ? (CN_DIGIT[one[1]!] ?? null) : null;
+}
 
 function voicePool(text: string, index: number): string[] {
-  const female = /女|她|小姐|姑娘|妈妈|母亲|姐姐|妹妹|少女|妻子/.test(text);
+  const female = /女|她|小姐|姑娘|妈妈|母亲|姐姐|妹妹|少女|妻子|婆|奶/.test(text);
   const male =
-    /男|先生|爸爸|父亲|哥哥|弟弟|少年|小伙|丈夫/.test(text) ||
+    /男|先生|爸爸|父亲|之父|哥哥|弟弟|少年|小伙|丈夫|爷爷|老爷|寸头|打手|领头|金链/.test(text) ||
     (/他/.test(text) && !/她/.test(text));
-  const child = /小孩|孩子|儿童|幼童|孩童|宝宝|七岁|六岁|五岁|八岁|九岁|十岁/.test(text);
-  const elder = /老人|长者|爷爷|奶奶|婆婆|老爷/.test(text);
-  const young = /少年|少女|年轻|青年/.test(text);
+  const years = ageYears(text);
+  const child =
+    (years !== null && years < 13) ||
+    (years === null && /小孩|孩子|儿童|幼童|孩童|宝宝/.test(text));
+  const elder = years !== null ? years >= 60 : /老人|长者|爷爷|奶奶|婆婆|阿婆|老爷/.test(text);
+  const young = years !== null ? years < 18 : /少年|少女|年轻|青年/.test(text);
   if (child && female) return GIRL;
   if (child && male) return BOY;
   if (child) return index % 2 === 0 ? GIRL : BOY;
   if (elder && female) return ELDER_WOMAN;
   if (elder && male) return ELDER_MAN;
   if (elder) return index % 2 === 0 ? ELDER_WOMAN : ELDER_MAN;
-  if (young && female) return YOUNG_WOMAN;
-  if (young && male) return YOUNG_MAN;
+  if (young && female && years === null) return YOUNG_WOMAN;
+  if (young && male && years === null) return YOUNG_MAN;
   if (female) return WOMAN;
   if (male) return MAN;
-  return index % 2 === 0 ? WOMAN : MAN;
+  return MAN;
 }
 
 /** A free preset voice. The user can change it afterwards. */
@@ -773,14 +916,14 @@ function shotReference(
   still: string;
   references: { url: string; who: string }[];
 } {
-  const chosen =
+  const picked =
     [shot.poster, ...shot.stills.map((item) => item.url)].find((url) => usableImage(url)) ?? "";
   const people = film.characters.filter(
     (person) => shot.characters.includes(person.name) || person.name === shot.speaker,
   );
   const ranked = people.flatMap((person) =>
     person.portraits
-      .filter((item) => usableImage(item.url) && item.url !== chosen)
+      .filter((item) => usableImage(item.url))
       .map((item) => ({
         url: item.url,
         who: person.name || "角色",
@@ -788,7 +931,8 @@ function shotReference(
       })),
   );
   ranked.sort((a, b) => b.rank - a.rank);
-  const seen = new Set<string>();
+  const pinned = picked || ranked[0]?.url || "";
+  const seen = new Set<string>(pinned ? [pinned] : []);
   const references: { url: string; who: string }[] = [];
   for (const item of ranked) {
     if (seen.has(item.url)) continue;
@@ -796,7 +940,7 @@ function shotReference(
     references.push({ url: item.url.slice(0, 500), who: item.who });
     if (references.length === 14) break;
   }
-  return { still: chosen.slice(0, 500), references };
+  return { still: pinned.slice(0, 500), references };
 }
 
 function imageCue(references: { who: string }[], draft: boolean): string {

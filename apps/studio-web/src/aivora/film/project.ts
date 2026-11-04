@@ -13,6 +13,7 @@ import {
   gazeHandoff,
   identityLock,
   lineInScript,
+  plainCue,
   soundFromDirector,
   type AgentId,
 } from "./phase2";
@@ -482,6 +483,7 @@ export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: str
   }
   if (groups.size === 0) return film;
   let shots = film.shots;
+  const sceneOrder = new Map(film.scenes.map((item, index) => [item.id, index]));
   for (const [id, fresh] of groups) {
     const kept = shots.filter(
       (shot) => shot.sceneId !== id || shot.userFields.length > 0 || shot.source === "user",
@@ -489,6 +491,14 @@ export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: str
     const locked = new Set(kept.filter((shot) => shot.sceneId === id).map((shot) => shot.id));
     shots = [...kept, ...fresh.filter((shot) => !locked.has(shot.id))];
   }
+  shots = shots
+    .map((shot, index) => ({ shot, index }))
+    .sort((a, b) => {
+      const sceneDelta =
+        (sceneOrder.get(a.shot.sceneId) ?? 99) - (sceneOrder.get(b.shot.sceneId) ?? 99);
+      return sceneDelta || a.shot.no - b.shot.no || a.index - b.index;
+    })
+    .map((item) => item.shot);
   return { ...film, shots };
 }
 
@@ -503,24 +513,11 @@ export type DirectorSceneRef = { id: string; title: string; where: string; text:
 function matchDirectorScene(
   block: Record<string, unknown>,
   scenes: DirectorSceneRef[],
-  index: number,
+  requestedId: string,
 ): DirectorSceneRef | undefined {
   const id = typeof block.scene_id === "string" ? block.scene_id.trim() : "";
-  const title =
-    (typeof block.title === "string" && block.title.trim()) ||
-    (typeof block.place === "string" && block.place.trim()) ||
-    "";
   return (
-    scenes.find((item) => id && (item.id === id || item.title === id || item.where === id)) ??
-    scenes.find(
-      (item) =>
-        title &&
-        (item.title.includes(title) ||
-          item.where.includes(title) ||
-          title.includes(item.title) ||
-          title.includes(item.where)),
-    ) ??
-    scenes[index]
+    scenes.find((item) => id && item.id === id) ?? scenes.find((item) => item.id === requestedId)
   );
 }
 
@@ -543,10 +540,10 @@ export function parseDirectorShots(
   const wrapped = (value as { scenes?: unknown; shots?: unknown }).scenes;
   if (Array.isArray(wrapped) && !Array.isArray((value as { shots?: unknown }).shots)) {
     const all: FilmShot[] = [];
-    wrapped.forEach((block, index) => {
+    wrapped.forEach((block) => {
       if (!block || typeof block !== "object") return;
       const record = block as Record<string, unknown>;
-      const target = scenes.length > 0 ? matchDirectorScene(record, scenes, index) : undefined;
+      const target = scenes.length > 0 ? matchDirectorScene(record, scenes, sceneId) : undefined;
       const nested = parseDirectorShots(
         JSON.stringify({ shots: record.shots ?? [] }),
         target?.id ?? sceneId,
@@ -595,7 +592,7 @@ export function parseDirectorShots(
       seconds: storedShotSeconds(seconds),
       picture: told,
       action: action && action !== told ? action : "",
-      performance,
+      performance: plainCue(performance),
       characters,
       line,
       speaker,
@@ -620,7 +617,10 @@ export function parseDirectorShots(
           seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
         }))
       : shots;
-  return varied.length > 0 ? attachScriptLines(varied, sceneText) : null;
+  const length = sceneText.trim().length;
+  const budget = length >= 80 ? Math.max(4, Math.min(12, Math.round(length / 60))) : varied.length;
+  const capped = varied.length > budget ? varied.slice(0, budget) : varied;
+  return capped.length > 0 ? attachScriptLines(capped, sceneText) : null;
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {

@@ -324,6 +324,20 @@ function performanceRows(value: unknown): Record<string, unknown>[] {
   );
 }
 
+/** Turn model field names into words a person can read. */
+export function plainCue(text: string): string {
+  return text
+    .replace(/hold_s\s*([0-9.]+)/gi, "停$1秒")
+    .replace(/\b(shot_id|scene_id|at_seconds|feasibility|workaround)\b\s*[:=：]?\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function spokenBit(value: string): string {
+  const text = plainCue(value);
+  return /^(无|无台词|无配音|空|没有)$/.test(text) ? "" : text;
+}
+
 function noteFromRow(
   row: Record<string, unknown>,
   names: string[],
@@ -340,20 +354,17 @@ function noteFromRow(
       : typeof row.pause === "string"
         ? row.pause.trim()
         : "";
-  const bit = [emotion, face, eyes, hands, breath].filter(Boolean).join("，");
+  const bit = [emotion, face, eyes, hands, breath].map(spokenBit).filter(Boolean).join("，");
   const gaze = gazeHandoff(names);
   const performance = bit ? (gaze && !bit.includes("视线") ? `${bit}。${gaze}` : bit) : "";
   const voice =
     row.voice && typeof row.voice === "object" ? (row.voice as Record<string, unknown>) : row;
-  const tone = typeof voice.tone === "string" ? voice.tone.trim() : "";
-  const pace = typeof voice.pace === "string" ? voice.pace.trim() : "";
-  const pauses =
-    typeof voice.pauses === "string"
-      ? voice.pauses.trim()
-      : typeof voice.pause === "string"
-        ? voice.pause.trim()
-        : "";
-  const voiceEmotion = typeof voice.emotion === "string" ? voice.emotion.trim() : "";
+  const tone = spokenBit(typeof voice.tone === "string" ? voice.tone : "");
+  const pace = spokenBit(typeof voice.pace === "string" ? voice.pace : "");
+  const pauses = spokenBit(
+    typeof voice.pauses === "string" ? voice.pauses : typeof voice.pause === "string" ? voice.pause : "",
+  );
+  const voiceEmotion = spokenBit(typeof voice.emotion === "string" ? voice.emotion : "");
   const delivery = [
     tone ? `语气${tone}` : "",
     pace ? `语速${pace}` : "",

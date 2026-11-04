@@ -22,6 +22,7 @@ import {
   offlineScreenplay,
   parseWriterScenes,
   sceneNeedsSource,
+  beatsForShot,
   isFightScene,
   keepFightDetails,
   performanceLine,
@@ -950,20 +951,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const sceneRow = base.scenes.find((item) => item.id === sceneId);
       const story = `${sceneRow?.title ?? ""}\n${sceneRow?.where ?? ""}\n${sceneRow?.text ?? ""}`;
       if (!sceneRow || !isFightScene(story)) continue;
-      const reply = await completeAgent(
-        "action",
-        story,
-        "按原文里的兵器和受伤来写拍，不要改轻。只输出 JSON。",
-      );
-      const parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
-      const beats = parsed ? actionSentence(parsed) : "";
-      const action = keepFightDetails(story, beats);
-      if (!action) continue;
-      next = next.map((shot) =>
-        shot.sceneId === sceneId && !shot.action.includes(action)
-          ? { ...shot, action: [shot.action, action].filter(Boolean).join("。") }
-          : shot,
-      );
+      try {
+        const reply = await completeAgent(
+          "action",
+          story,
+          "按镜头编号写拍，每一拍只属于一个镜头。保留原文里的铁棍、刀和小臂伤。只输出 JSON。",
+        );
+        const parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
+        const rows = parsed ?? [];
+        const covered = keepFightDetails(story, rows.map((item) => item.text).join(""));
+        let first = true;
+        next = next.map((shot) => {
+          if (shot.sceneId !== sceneId) return shot;
+          const own = beatsForShot(rows, shot.no);
+          const note = covered.includes("保留原文")
+            ? covered.slice(covered.indexOf("保留原文"))
+            : "";
+          const action = [own, first ? note : ""].filter(Boolean).join("。");
+          first = false;
+          if (!action || shot.action.includes(action)) return shot;
+          return { ...shot, action: [shot.action, action].filter(Boolean).join("。") };
+        });
+      } catch {
+        continue;
+      }
     }
     return next;
   }
@@ -975,6 +986,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const sceneId = current?.id ?? "scene-1";
     const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
     const thin = sceneNeedsSource(current?.text ?? "");
+    setNotice(`正在写「${current?.title ?? "这一场"}」的镜头。`);
     const names = film.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
     const context = `画风：${film.styleZh}\n人物：\n${names}\n剧本：\n${story}`;
     const sceneRefs = film.scenes.map((item) => ({
@@ -1006,6 +1018,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           text = `${reason} 没有写入镜头。`;
           noteAgent("director", "rejected", text);
         } else {
+          setNotice(`已写 ${parsed.length} 镜，正在写表演。`);
           next = await fillFight(film, await fillPerformance(film, parsed));
           text = thin
             ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「写入分镜」才会写入。"
@@ -1150,6 +1163,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     void fillCast(placed);
     markApplied(role);
     setNotice("已写入分镜。你改过的镜头没有被盖掉。");
+    const placedTurns = turnsRef.current.map((item) =>
+      item.who === "agent" && item.text.includes("才会写入")
+        ? { ...item, text: "镜头已经写入分镜。" }
+        : item,
+    );
+    turnsRef.current = placedTurns;
+    setTurns(placedTurns);
   }
 
   const billingPromises = useRef(new Map<string, Promise<string>>());
@@ -1411,8 +1431,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     setPortraitBusy(true);
-    const prompts = portraitPrompts(character.name, identity, current.styleZh);
-    setNotice(`正在出定妆照。将按这句话出图：${identity}`);
+    const prompts = portraitPrompts(character.name, identity, current.styleZh).filter(
+      (item) =>
+        !character.portraits.some((portrait) => portrait.view === item.view && portrait.url),
+    );
+    if (prompts.length === 0) {
+      setNotice(`${character.name}的四张定妆照都有了。`);
+      return;
+    }
+    setNotice(`正在出${character.name}还缺的定妆照。将按这句话出图：${identity}`);
     const portraits: FilmPortrait[] = character.portraits.filter((item) => item.url);
     try {
       for (const item of prompts) {
@@ -1848,7 +1875,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `画风：${film.styleZh}`,
       `写成短剧：\n${idea}`,
     );
-    const scenes = writerReply.text ? parseWriterScenes(writerReply.text) : null;
+    const scenes = writerReply.text ? parseWriterScenes(writerReply.text, idea) : null;
     if (!scenes) {
       writing.current = false;
       setAsking(false);
@@ -1866,7 +1893,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const names = next.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
     const scenesWithText = next.scenes.filter((item) => item.text.trim());
     const directedScenes = scenesWithText.length > 0 ? scenesWithText : next.scenes.slice(0, 1);
-    for (const sceneRow of directedScenes) {
+    for (const [sceneIndex, sceneRow] of directedScenes.entries()) {
+      setNotice(`正在写第 ${sceneIndex + 1}/${directedScenes.length} 场「${sceneRow.title}」`);
       const story = sceneRow.text.trim() || next.title;
       const directorReply = await completeAgent(
         "director",
@@ -1893,6 +1921,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         );
         return;
       }
+      setNotice(
+        `第 ${sceneIndex + 1}/${directedScenes.length} 场已写 ${parsed.length} 镜，正在写表演。`,
+      );
       const performed = await fillFight(next, await fillPerformance(next, parsed));
       next = applyShots(next, performed, sceneRow.id);
       filmRef.current = next;
@@ -2972,7 +3003,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <ScriptPage
                   film={film}
                   scene={scene}
-                  onScene={setScene}
+                  onScene={(id) => {
+                    setScene(id);
+                    setPending((current) =>
+                      current && current.every((item) => item.sceneId !== id) ? null : current,
+                    );
+                  }}
                   onFilm={setFilm}
                   asking={asking}
                   onPlan={() => {
@@ -3002,7 +3038,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onToggleRoles={() => setShowRoles((value) => !value)}
                   structured={structured}
                   turns={turns}
-                  card={roleCards[role] ?? null}
+                  card={
+                    roleCards[role]?.shots &&
+                    roleCards[role]?.shots.every((item) => item.sceneId !== scene)
+                      ? null
+                      : (roleCards[role] ?? null)
+                  }
                   onRedoRange={() => {
                     setStage("edit");
                     setRange(true);
@@ -3142,7 +3183,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   turns={turns}
                   assistPulse={assistPulse}
                   structured={structured}
-                  card={roleCards[role] ?? null}
+                  card={
+                    roleCards[role]?.shots &&
+                    roleCards[role]?.shots.every((item) => item.sceneId !== scene)
+                      ? null
+                      : (roleCards[role] ?? null)
+                  }
                   onRedoRange={() => {
                     setStage("edit");
                     setRange(true);
@@ -4302,7 +4348,7 @@ function CastPage({
   onFilm,
   role,
   onRole,
-  onNotice: _onNotice,
+  onNotice,
   onPortraits,
   onConfirmPortraits,
   portraitReady,
@@ -4412,7 +4458,21 @@ function CastPage({
                 <span className="no">{String(index + 1).padStart(2, "0")}</span>
                 <span className="t">
                   {item.name}
-                  <small>人物</small>
+                  <small>
+                    {["正面", "侧面", "背面", "脸部"].filter(
+                      (view) =>
+                        !item.portraits.some((portrait) => portrait.view === view && portrait.url),
+                    ).length === 0
+                      ? "定妆齐了"
+                      : `还缺${["正面", "侧面", "背面", "脸部"]
+                          .filter(
+                            (view) =>
+                              !item.portraits.some(
+                                (portrait) => portrait.view === view && portrait.url,
+                              ),
+                          )
+                          .join("、")}`}
+                  </small>
                 </span>
               </button>
             ))}
@@ -4564,6 +4624,31 @@ function CastPage({
               开始出定妆照
             </button>
           )}
+          <button
+            className="btn sm"
+            type="button"
+            onClick={() => {
+              const missing = film.characters.filter((person) =>
+                ["正面", "侧面", "背面", "脸部"].some(
+                  (view) =>
+                    !person.portraits.some((portrait) => portrait.view === view && portrait.url),
+                ),
+              );
+              if (missing.length === 0) {
+                onNotice("主要人物的定妆照都有了。");
+                return;
+              }
+              onNotice(`开始补${missing.map((person) => person.name).join("、")}还缺的定妆照。`);
+              void (async () => {
+                for (const person of missing) {
+                  if (!person.identity.trim()) await onPortraits(person.id);
+                  await onConfirmPortraits(person.id);
+                }
+              })();
+            }}
+          >
+            补全缺少的定妆照
+          </button>
           <div className="sec-t" style={{ marginTop: 12 }}>
             声音
           </div>

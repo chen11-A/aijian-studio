@@ -2000,7 +2000,7 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
     ],
   };
   const createStoryFilm = vi.fn(
-    async (_projectId: string, body: { shots?: { references?: string[] }[] }) => ({
+    async (_projectId: string, body: { shots?: { still?: string; references?: string[] }[] }) => ({
       data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
       body,
     }),
@@ -2056,5 +2056,6 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
   const sent = createStoryFilm.mock.calls[0]?.[1];
-  expect(sent?.shots?.[0]?.references?.some((item) => item.includes("still.png"))).toBe(true);
+  expect(sent?.shots?.[0]?.still).toContain("still.png");
+  expect(sent?.shots?.[0]?.references ?? []).not.toContain(sent?.shots?.[0]?.still);
 });
