@@ -739,3 +739,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### 4A-B08 审片意见存储（已接，仅文字）
 
 `FilmProject.reviewReports` 保留逐镜/版本问题及建议，`evidence=text-only`、`visualVerified=false`始终明确；模型seen_frames声明不能改变实际证据。只接受输入中的ID，未知和重复项在rejected中保留。镜头、版本或关联原文改变后旧回包不写入；不自动改提示词、选版或裁剪。
+
+### 4a 文案映射缺口（待 Claude）
+
+固定4fcd198全量web为3872通过、1失败、0跳过；唯一失败是NOTICE_COPY缺101个新增代码。完整code与后端短句已列在 `docs/aivora/4a-notice-handoff.md`，请Claude补最终文案及其表格。后端未改界面文案表，完整性测试保留；此项阻挡阶段全绿与4a发布。
