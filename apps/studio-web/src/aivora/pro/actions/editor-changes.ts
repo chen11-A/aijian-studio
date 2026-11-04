@@ -26,7 +26,9 @@ const fields = {
     "seconds",
     "picture",
     "action",
+    "actionPlan",
     "performance",
+    "performancePlan",
     "performanceSource",
     "styleNote",
     "characters",
@@ -48,7 +50,9 @@ const fields = {
   locations: ["name", "prompt", "ambience"],
   props: ["name", "note"],
   audioClips: ["startSeconds", "durationSeconds", "offsetSeconds", "gainDb", "label"],
-} satisfies Record<string, string[]>;
+} satisfies {
+  project: (keyof FilmProject)[];
+} & { [K in Collection]: (keyof FilmProject[K][number])[] };
 const pages: Record<EditorPage, readonly (Collection | "project")[]> = {
   script: ["project", "scenes"],
   cast: ["project", "characters", "locations", "props"],
@@ -82,7 +86,8 @@ const value = (row: Record<string, unknown>, field: string) => ({
   value: structuredClone(row[field]),
 });
 const allowed = (selection: EditorSelection, target: EditorTarget, field: string) =>
-  pages[selection.page].includes(target.collection) && fields[target.collection].includes(field);
+  pages[selection.page].includes(target.collection) &&
+  (fields[target.collection] as readonly string[]).includes(field);
 
 /** Field transactions only. Structural changes are explicit blockers, never silently flattened. */
 export function diffEditorSuggestion(
