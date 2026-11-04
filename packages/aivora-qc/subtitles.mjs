@@ -39,7 +39,7 @@ export function checkSubtitles(source, width, height, options = {}) {
     autoWrap: false,
     safeMargin: 0.1,
     bottomMargin: 0.12,
-    fontSizePx: height * 0.04,
+    fontSizePx: Math.min(width, height) * 0.05,
     lineHeight: 1.2,
     maxLineUnits: 20,
     ...options,
@@ -80,9 +80,9 @@ export function checkSubtitles(source, width, height, options = {}) {
           "subtitle_line_length",
           cue.start,
           cue.end,
-          `第 ${cue.index} 条字幕单行超过 ${layout.maxLineUnits} 个全角等效字符。`,
-          "精简文字或手动分行，必要时拆为多条字幕。",
-          extra,
+          `第 ${cue.index} 条字幕一行字太多，不容易读完。`,
+          "在字幕编辑里删短文字、换行，或拆成两条字幕。",
+          { ...extra, detail: { lineUnits: units, maxLineUnits: layout.maxLineUnits } },
         ),
       );
     const bottom = height * (1 - layout.bottomMargin);
@@ -97,9 +97,21 @@ export function checkSubtitles(source, width, height, options = {}) {
           "subtitle_safe_area",
           cue.start,
           cue.end,
-          `第 ${cue.index} 条字幕按假设布局估算超出画面安全区。`,
-          "缩小字号、增加底边距或分行，并在实际渲染样式下人工确认。",
-          { ...extra, estimated: true },
+          `第 ${cue.index} 条字幕可能太靠边，播放时容易被挡住。`,
+          "在字幕编辑里缩小文字、往画面中间移或换行，再预览确认。",
+          {
+            ...extra,
+            estimated: true,
+            detail: {
+              estimated: true,
+              widthsPx: widths,
+              topPx: top,
+              bottomPx: bottom,
+              width,
+              height,
+              layout,
+            },
+          },
         ),
       );
     }
@@ -110,9 +122,13 @@ export function checkSubtitles(source, width, height, options = {}) {
           "subtitle_overlap",
           next.start,
           Math.min(cue.end, next.end),
-          `第 ${cue.index} 条字幕与下一条（第 ${next.index} 条）时间重叠。`,
-          "将上一条结束时间调至下一条开始时间之前或合并字幕。",
-          { ...extra, nextCue: next.index },
+          `第 ${cue.index} 条和第 ${next.index} 条字幕同时出现了。`,
+          "在字幕时间轴上缩短上一条的显示时间，或把两条合在一起。",
+          {
+            ...extra,
+            nextCue: next.index,
+            detail: { overlapSeconds: Math.min(cue.end, next.end) - next.start },
+          },
         ),
       );
   }

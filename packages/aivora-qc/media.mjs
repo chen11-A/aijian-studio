@@ -11,6 +11,11 @@ export async function run(binary, args, { signal, timeoutMs = 600000 } = {}) {
       signal,
     });
   } catch (error) {
+    if (error.code === "ENOENT") {
+      const missing = new Error("找不到视频检查工具，请安装工具或在设置中指定正确位置。");
+      missing.code = "FFMPEG_NOT_FOUND";
+      throw missing;
+    }
     // Do not relay raw FFmpeg diagnostics, which may include input paths or subtitle text.
     const failure = new Error(
       `${binary} 检测失败（${error.code ?? (error.killed ? "timeout" : "unknown")}）`,

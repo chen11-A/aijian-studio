@@ -1,3 +1,4 @@
+import process from "node:process";
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { run, readIntervals, loudness } from "./media.mjs";
@@ -21,13 +22,19 @@ export async function checkExport(mp4Path, options = {}) {
   )
     throw new Error("dialogue 必须为有效的 {start,end} 秒区间数组");
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("timeoutMs 必须为正数");
+  const ffmpegPath = options.ffmpegPath ?? process.env.AIVORA_FFMPEG ?? "ffmpeg";
+  const ffprobePath = options.ffprobePath ?? process.env.AIVORA_FFPROBE ?? "ffprobe";
+  for (const toolPath of [ffmpegPath, ffprobePath]) {
+    if (typeof toolPath !== "string" || !toolPath.trim())
+      throw new Error("工具路径必须为非空字符串");
+  }
   const input = resolve(mp4Path);
   if (!(await stat(input)).isFile()) throw new Error("输入必须为本地常规文件");
   const execution = { signal, timeoutMs };
   const probe = JSON.parse(
     (
       await run(
-        "ffprobe",
+        ffprobePath,
         ["-v", "error", "-show_format", "-show_streams", "-of", "json", input],
         execution,
       )
@@ -67,7 +74,7 @@ export async function checkExport(mp4Path, options = {}) {
   ];
   const visual = (
     await run(
-      "ffmpeg",
+      ffmpegPath,
       [
         ...common,
         "-map",
@@ -90,7 +97,7 @@ export async function checkExport(mp4Path, options = {}) {
   if (audioStream) {
     const audioLog = (
       await run(
-        "ffmpeg",
+        ffmpegPath,
         [
           ...common,
           "-map",
@@ -109,7 +116,7 @@ export async function checkExport(mp4Path, options = {}) {
     issues.push(
       ...intervalIssues("silence", readIntervals(audioLog, "silence", duration), duration),
     );
-  } else issues.push(...intervalIssues("silence", [{ start: 0, end: duration }], duration));
+  }
   issues.push(...audioIssues(audio, duration), ...(subtitles?.issues ?? []));
   issues.sort((a, b) => a.time - b.time || a.type.localeCompare(b.type));
   return {
@@ -120,7 +127,7 @@ export async function checkExport(mp4Path, options = {}) {
       streams: "首条非封面视频轨和首条音轨，时间相对成片起点；不检测其他音轨或烧录字幕。",
       black: "blackdetect: pix_th=0.10, pic_th=0.98；片头/片尾≤0.5秒黑区间作为短淡入淡出代理豁免。",
       freeze: "freezedetect: noise=-60dB；整个静止区间被台词时间段覆盖才放宽至2秒。",
-      silence: "silencedetect: 全声道≤−50dB，缺轨/音轨空缺视为静音。",
+      silence: "silencedetect: 全声道≤−50dB，音轨空缺视为静音，缺少整条音轨单独报告no_audio。",
       loudness: "loudnorm 输入测量；全片问题time=0；无法测量/负无穷用null表示。",
       subtitleLayout: subtitles?.layout ?? null,
     },

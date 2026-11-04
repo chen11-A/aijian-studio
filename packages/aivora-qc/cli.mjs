@@ -7,7 +7,7 @@ try {
   const args = process.argv.slice(2);
   if (args.length === 1 && args[0] === "--help") {
     process.stdout.write(
-      "用法: node cli.mjs 成片.mp4 [--srt 字幕.srt] [--dialogue 台词.json] [--layout 布局.json]\n",
+      "用法: node cli.mjs 成片.mp4 [--srt 字幕.srt] [--dialogue 台词.json] [--layout 布局.json] [--ffmpeg 工具路径] [--ffprobe 工具路径]\n",
     );
   } else {
     const input = args.shift();
@@ -18,10 +18,16 @@ try {
     while (args.length) {
       const flag = args.shift();
       const value = args.shift();
-      if (!["--srt", "--dialogue", "--layout"].includes(flag) || !value || seen.has(flag))
+      if (
+        !["--srt", "--dialogue", "--layout", "--ffmpeg", "--ffprobe"].includes(flag) ||
+        !value ||
+        seen.has(flag)
+      )
         throw new Error("参数无效、缺少值或重复");
       seen.add(flag);
       if (flag === "--srt") options.srtPath = value;
+      else if (flag === "--ffmpeg") options.ffmpegPath = value;
+      else if (flag === "--ffprobe") options.ffprobePath = value;
       else
         options[flag === "--dialogue" ? "dialogue" : "subtitleLayout"] = JSON.parse(
           await readFile(value, "utf8"),

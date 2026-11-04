@@ -1,11 +1,35 @@
 const descriptions = {
-  black: ["画面出现持续黑屏。", "检查素材缺失或转场，裁去黑帧或补齐画面。"],
-  freeze: ["画面持续静止超过允许时长。", "缩短停顿，替换冻结帧或添加合适的画面运动。"],
-  silence: ["音轨持续无声至少两秒。", "检查音轨断点，补录对白或添加适当的环境声。"],
+  black: ["这里黑了一会儿，画面看不到内容。", "在时间轴上剪掉这段黑画面，或补上缺少的视频。"],
+  freeze: ["这里的画面停住不动了。", "在时间轴上缩短这段停顿，或重新生成这个镜头。"],
+  silence: ["这里有至少两秒听不到声音。", "在时间轴上检查这段声音，补上对白或背景音乐。"],
+};
+const actions = {
+  black: "trim",
+  freeze: "regenerate_shot",
+  silence: "adjust_volume",
+  no_audio: "adjust_volume",
+  loudness: "adjust_volume",
+  true_peak: "adjust_volume",
+  subtitle_safe_area: "edit_subtitle",
+  subtitle_line_length: "edit_subtitle",
+  subtitle_overlap: "edit_subtitle",
 };
 
 export function issue(type, start, end, message, suggestion, extra = {}) {
-  return { time: Math.max(0, start), end, type, message, suggestion, ...extra };
+  const time = Math.max(0, start);
+  return {
+    id: `${type}-${time.toFixed(2)}-${end}${extra.cue === undefined ? "" : `-cue${extra.cue}`}`,
+    severity: type === "true_peak" ? "block" : "warn",
+    time,
+    timeLabel: `第 ${time.toFixed(1)} 秒`,
+    end,
+    type,
+    message,
+    suggestion,
+    action: actions[type] ?? "none",
+    detail: {},
+    ...extra,
+  };
 }
 
 function covered(start, end, dialogue) {
@@ -29,11 +53,32 @@ export function intervalIssues(type, intervals, duration, dialogue = []) {
     if (length + 1e-6 < limit) return [];
     if (type === "black" && length <= 0.5 + 1e-6 && (start <= 1e-6 || end >= duration - 1e-6))
       return [];
-    return [issue(type, start, end, ...descriptions[type])];
+    return [
+      issue(type, start, end, ...descriptions[type], {
+        detail: {
+          durationSeconds: length,
+          thresholdSeconds: limit,
+          ...(type === "black"
+            ? { pixelThreshold: 0.1, blackPixelRatio: 0.98 }
+            : { noiseDb: type === "freeze" ? -60 : -50 }),
+        },
+      }),
+    ];
   });
 }
 
-export function audioIssues({ integratedLufs, truePeakDbtp }, duration) {
+export function audioIssues({ present = true, integratedLufs, truePeakDbtp }, duration) {
+  if (!present)
+    return [
+      issue(
+        "no_audio",
+        0,
+        duration,
+        "这段视频没有声音。",
+        "在时间轴上添加对白或背景音乐，并在导出时勾选声音。",
+        { scope: "program", detail: { audioStreamPresent: false } },
+      ),
+    ];
   const issues = [];
   if (integratedLufs === null || integratedLufs < -17 || integratedLufs > -15) {
     issues.push(
@@ -42,10 +87,12 @@ export function audioIssues({ integratedLufs, truePeakDbtp }, duration) {
         0,
         duration,
         integratedLufs === null
-          ? "全片无法获得有效综合响度（可能无声或音频太短）。"
-          : `全片综合响度为 ${integratedLufs} LUFS，不在 −16±1 LUFS 范围内。`,
-        "检查音轨并将综合响度归一化至 −16 LUFS，再复测真峰值。",
-        { scope: "program" },
+          ? "整片声音无法检查，可能没有声音或声音太短。"
+          : integratedLufs < -17
+            ? "整片声音偏小，听起来会比别的视频轻。"
+            : "整片声音偏大，听起来会比别的视频响。",
+        "先预览确认有声音，再在导出时打开‘自动调整音量’。",
+        { scope: "program", detail: { integratedLufs, targetLufs: -16, toleranceLu: 1 } },
       ),
     );
   }
@@ -55,9 +102,9 @@ export function audioIssues({ integratedLufs, truePeakDbtp }, duration) {
         "true_peak",
         0,
         duration,
-        `全片真峰值为 ${truePeakDbtp} dBTP，高于 −1 dBTP。`,
-        "使用真峰值限制器将上限设为 −1 dBTP 或更低并重新导出。",
-        { scope: "program" },
+        "有几处声音太响，可能破音。",
+        "在声音设置里调低音量，导出后再听一遍最响的地方。",
+        { scope: "program", detail: { truePeakDbtp, maxTruePeakDbtp: -1 } },
       ),
     );
   }

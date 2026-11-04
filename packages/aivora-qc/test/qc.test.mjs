@@ -1,22 +1,41 @@
-/* global AbortController */
+/* global AbortController, URL */
 import process from "node:process";
-import { URL } from "node:url";
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, mkdir, copyFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { checkExport } from "../index.mjs";
 import { intervalIssues, audioIssues } from "../rules.mjs";
 import { checkSubtitles } from "../subtitles.mjs";
+
+const ffmpeg = process.env.AIVORA_FFMPEG ?? "ffmpeg";
+const ffprobe = process.env.AIVORA_FFPROBE ?? "ffprobe";
+
+function missingMediaTools(t) {
+  for (const binary of [ffmpeg, ffprobe]) {
+    const check = spawnSync(binary, ["-version"], { encoding: "utf8" });
+    if (check.error?.code === "ENOENT") {
+      t.skip("未找到 ffmpeg 或 ffprobe，跳过需要本地合成媒体的测试；纯逻辑测试继续运行。");
+      return true;
+    }
+    assert.equal(
+      check.status,
+      0,
+      `${binary} 已找到但无法运行：${check.error?.code ?? check.stderr}`,
+    );
+  }
+  return false;
+}
 
 function synth(path, video, audio, duration) {
   const args = ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", video];
   if (audio) args.push("-f", "lavfi", "-i", audio);
   args.push("-t", String(duration), "-c:v", "mpeg4", "-q:v", "2");
   if (audio) args.push("-c:a", "aac");
-  execFileSync("ffmpeg", [...args, "-y", path]);
+  execFileSync(ffmpeg, [...args, "-y", path]);
 }
 const types = (report) => report.issues.map((issue) => issue.type);
 
@@ -80,7 +99,8 @@ test("SRT handles BOM, CRLF, unordered cues, multiline, tags and adjacent overla
   );
 });
 
-test("real ffmpeg synthetic fixtures and CLI", async () => {
+test("real ffmpeg synthetic fixtures and CLI", async (t) => {
+  if (missingMediaTools(t)) return;
   const dir = await mkdtemp(join(tmpdir(), "aivora-qc-"));
   try {
     const media = join(dir, "合成 video.mp4");
@@ -111,7 +131,7 @@ test("real ffmpeg synthetic fixtures and CLI", async () => {
     );
     const missing = join(dir, "missing.mp4");
     synth(missing, "testsrc2=s=160x90:r=20", null, 2.5);
-    assert.ok(types(await checkExport(missing)).includes("silence"));
+    assert.deepEqual(types(await checkExport(missing)), ["no_audio"]);
     const silent = join(dir, "silent.mp4");
     synth(silent, "testsrc2=s=160x90:r=20", "anullsrc=r=48000:cl=stereo", 2.5);
     const silentReport = await checkExport(silent);
@@ -125,7 +145,7 @@ test("real ffmpeg synthetic fixtures and CLI", async () => {
     const cli = JSON.parse(
       execFileSync(
         process.execPath,
-        [new URL("../cli.mjs", import.meta.url).pathname, media, "--srt", srt],
+        [fileURLToPath(new URL("../cli.mjs", import.meta.url)), media, "--srt", srt],
         { encoding: "utf8" },
       ),
     );
@@ -141,7 +161,8 @@ test("real ffmpeg synthetic fixtures and CLI", async () => {
   }
 });
 
-test("synthetic edge black runs, full black EOF, silence at start and valid loudness", async () => {
+test("synthetic edge black runs, full black EOF, silence at start and valid loudness", async (t) => {
+  if (missingMediaTools(t)) return;
   const dir = await mkdtemp(join(tmpdir(), "aivora-qc-boundaries-"));
   try {
     for (const [name, video, expected] of [
@@ -180,7 +201,7 @@ test("synthetic edge black runs, full black EOF, silence at start and valid loud
     assert.throws(() =>
       execFileSync(
         process.execPath,
-        [new URL("../cli.mjs", import.meta.url).pathname, normal, "--invalid"],
+        [fileURLToPath(new URL("../cli.mjs", import.meta.url)), normal, "--invalid"],
         { stdio: "pipe" },
       ),
     );
@@ -189,7 +210,7 @@ test("synthetic edge black runs, full black EOF, silence at start and valid loud
   }
 });
 
-test("reject invalid options, audio-only media; accept empty subtitles and CLI help", async () => {
+test("pure validation, empty subtitles and CLI help do not require media tools", async () => {
   await assert.rejects(checkExport(""), /mp4Path/);
   await assert.rejects(checkExport("not-used", { timeoutMs: 0 }), /timeoutMs/);
   await assert.rejects(checkExport("."), /常规文件/);
@@ -197,13 +218,20 @@ test("reject invalid options, audio-only media; accept empty subtitles and CLI h
   assert.throws(() => checkSubtitles("1\n00:70:00,000 --> 00:00:01,000\na", 320, 180), /时间码/);
   assert.throws(() => checkSubtitles("", 320, 180, { fontSizePx: -1 }), /subtitleLayout/);
   assert.throws(() => checkSubtitles("", 320, 180, { safeMargin: 0.5 }), /subtitleLayout/);
-  const cliPath = new URL("../cli.mjs", import.meta.url).pathname;
+  const cliPath = fileURLToPath(new URL("../cli.mjs", import.meta.url));
   assert.match(execFileSync(process.execPath, [cliPath, "--help"], { encoding: "utf8" }), /用法/);
   assert.throws(() => execFileSync(process.execPath, [cliPath], { stdio: "pipe" }));
+  await assert.rejects(checkExport("unused", { dialogue: [{ start: 2, end: 1 }] }), /dialogue/);
+  await assert.rejects(checkExport("unused", { ffmpegPath: "" }), /工具路径/);
+});
+
+test("audio-only media, missing tail and CLI options", async (t) => {
+  if (missingMediaTools(t)) return;
+  const cliPath = fileURLToPath(new URL("../cli.mjs", import.meta.url));
   const dir = await mkdtemp(join(tmpdir(), "aivora-qc-audio-"));
   try {
     const audioOnly = join(dir, "audio.mp4");
-    execFileSync("ffmpeg", [
+    execFileSync(ffmpeg, [
       "-v",
       "error",
       "-f",
@@ -219,7 +247,7 @@ test("reject invalid options, audio-only media; accept empty subtitles and CLI h
     await assert.rejects(checkExport(audioOnly), /视频轨/);
     const video = join(dir, "tail.mp4");
     // Short audio track: absence after 0.5 seconds must be included in silence QC.
-    execFileSync("ffmpeg", [
+    execFileSync(ffmpeg, [
       "-v",
       "error",
       "-f",
@@ -248,6 +276,116 @@ test("reject invalid options, audio-only media; accept empty subtitles and CLI h
       { encoding: "utf8" },
     );
     assert.equal(JSON.parse(output).schemaVersion, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("portrait sizing and stable actionable plain-language issues", () => {
+  const caption = (count) => `1\n00:00:03,000 --> 00:00:04,000\n${"字".repeat(count)}`;
+  assert.equal(checkSubtitles(caption(15), 1080, 1920).layout.fontSizePx, 54);
+  assert.deepEqual(checkSubtitles(caption(15), 1080, 1920).issues, []);
+  assert.deepEqual(
+    checkSubtitles(caption(20), 1080, 1920).issues.map((x) => x.type),
+    ["subtitle_safe_area"],
+  );
+  const issues = [
+    ...["black", "freeze", "silence"].flatMap((type) =>
+      intervalIssues(type, [{ start: 3, end: 6 }], 10),
+    ),
+    ...audioIssues({ present: false, integratedLufs: null, truePeakDbtp: null }, 10),
+    ...audioIssues({ integratedLufs: -20, truePeakDbtp: 0 }, 10),
+    ...audioIssues({ integratedLufs: -12, truePeakDbtp: -2 }, 10),
+    ...audioIssues({ integratedLufs: null, truePeakDbtp: null }, 10),
+    ...checkSubtitles(caption(45) + "\n\n2\n00:00:03,500 --> 00:00:05,000\n短", 1080, 1920).issues,
+  ];
+  for (const entry of issues) {
+    assert.ok(entry.id.startsWith(entry.type + "-"));
+    assert.ok(["warn", "block"].includes(entry.severity));
+    assert.match(entry.timeLabel, /^第 \d+\.\d 秒$/);
+    assert.ok(
+      ["trim", "regenerate_shot", "adjust_volume", "edit_subtitle", "none"].includes(entry.action),
+    );
+    assert.ok(Object.keys(entry.detail).length > 0);
+    assert.doesNotMatch(
+      entry.message + entry.suggestion,
+      /LUFS|dBTP|真峰值|归一化|限制器|全角等效|假设布局|帧/,
+    );
+  }
+  const first = intervalIssues("black", [{ start: 3, end: 4 }], 10)[0];
+  assert.equal(first.id, intervalIssues("black", [{ start: 3, end: 4 }], 10)[0].id);
+  assert.equal(first.severity, "warn");
+  const duplicateTimes = checkSubtitles(
+    caption(45) + "\n\n2\n00:00:03,000 --> 00:00:04,000\n" + "字".repeat(45),
+    1080,
+    1920,
+  ).issues;
+  assert.equal(new Set(duplicateTimes.map((x) => x.id)).size, duplicateTimes.length);
+});
+
+test("missing probe returns FFMPEG_NOT_FOUND even without installed tools", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "aivora-qc-missing-tool-"));
+  try {
+    const input = join(dir, "unused.mp4");
+    await writeFile(input, "not decoded because probe is absent");
+    await assert.rejects(checkExport(input, { ffprobePath: join(dir, "absent-probe") }), {
+      code: "FFMPEG_NOT_FOUND",
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("explicit and environment tool paths, including spaces and Chinese characters", async (t) => {
+  if (missingMediaTools(t)) return;
+  const dir = await mkdtemp(join(tmpdir(), "aivora-qc-tools-"));
+  try {
+    const spaced = join(dir, "含空格 和中文");
+    await mkdir(spaced);
+    // Resolve actual executable locations without assuming /usr/bin or a shell.
+    const { default: which } = await import("./which.mjs");
+    const extension = process.platform === "win32" ? ".exe" : "";
+    const ffmpegPath = join(spaced, "ffmpeg" + extension);
+    const ffprobePath = join(spaced, "ffprobe" + extension);
+    await copyFile(which(ffmpeg), ffmpegPath);
+    await copyFile(which(ffprobe), ffprobePath);
+    await chmod(ffmpegPath, 0o755);
+    await chmod(ffprobePath, 0o755);
+    const video = join(dir, "sample.mp4");
+    synth(video, "testsrc2=s=160x90:r=20", null, 1);
+    const options = { ffmpegPath, ffprobePath };
+    assert.deepEqual(types(await checkExport(video, options)), ["no_audio"]);
+    await assert.rejects(checkExport(video, { ...options, ffmpegPath: join(dir, "absent") }), {
+      code: "FFMPEG_NOT_FOUND",
+    });
+    const cli = fileURLToPath(new URL("../cli.mjs", import.meta.url));
+    const invalidEnv = {
+      ...process.env,
+      AIVORA_FFMPEG: join(dir, "bad"),
+      AIVORA_FFPROBE: join(dir, "bad"),
+    };
+    const output = execFileSync(
+      process.execPath,
+      [cli, video, "--ffmpeg", ffmpegPath, "--ffprobe", ffprobePath],
+      { encoding: "utf8", env: invalidEnv },
+    );
+    assert.deepEqual(types(JSON.parse(output)), ["no_audio"]);
+    const envOutput = execFileSync(process.execPath, [cli, video], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: dir, AIVORA_FFMPEG: ffmpegPath, AIVORA_FFPROBE: ffprobePath },
+    });
+    assert.deepEqual(types(JSON.parse(envOutput)), ["no_audio"]);
+    const invalidEnvironment = spawnSync(process.execPath, [cli, video], {
+      encoding: "utf8",
+      env: invalidEnv,
+    });
+    assert.equal(invalidEnvironment.status, 1);
+    assert.equal(JSON.parse(invalidEnvironment.stderr).error.code, "FFMPEG_NOT_FOUND");
+    const failed = spawnSync(process.execPath, [cli, video, "--ffprobe", join(dir, "absent")], {
+      encoding: "utf8",
+    });
+    assert.equal(failed.status, 1);
+    assert.equal(JSON.parse(failed.stderr).error.code, "FFMPEG_NOT_FOUND");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
