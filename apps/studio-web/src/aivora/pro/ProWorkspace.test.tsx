@@ -244,7 +244,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /无镜头末场/ }));
     expect(document.querySelectorAll(".pb.grid .card")).toHaveLength(0);
     expect(screen.getByText(/这一场结尾还没拍到/)).toHaveAttribute("title", empty.text);
-    fireEvent.click(screen.getByRole("button", { name: "有 1 个动作没对上镜头" }));
+    expect(screen.getByText("有 1 个动作没对上镜头")).toBeInTheDocument();
     expect(screen.getByText("末场待分配动作")).toBeInTheDocument();
     expect(screen.queryByText("别场动作不要混进来")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "补上结尾" }));
@@ -1532,7 +1532,7 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
   expect(await screen.findByText("这一场结尾还没拍到：「林骁侧身让过铁棍。」")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "有 2 个动作没对上镜头" }));
+  expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
   // A drag from another scene must never use this scene's same numeric index.
   const firstCard = document.querySelector(".pb.grid .card")!;
   fireEvent.drop(firstCard, {
@@ -1541,7 +1541,7 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
         JSON.stringify({ scope: `${film.id}:01`, index: 0, text: "林骁抹掉脸上的雨水" }),
     },
   });
-  expect(screen.getByRole("button", { name: "有 2 个动作没对上镜头" })).toBeInTheDocument();
+  expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
   // A dialogue shot (镜头 3) does not take a fight action: GPT's rule decides.
   const cards = () => [...document.querySelectorAll<HTMLElement>(".pb.grid .card")];
   const drop = (index: number, beat: number) =>
@@ -1558,13 +1558,13 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
       },
     });
   drop(2, 1);
-  expect(await screen.findByText(/镜头 3 只有对白，放不了这个动作/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "有 2 个动作没对上镜头" })).toBeInTheDocument();
+  expect(await screen.findByText(/镜头 3 的画面里没有打斗，放不了这个动作/)).toBeInTheDocument();
+  expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
   // An ordinary action goes onto the picked shot with the button.
   fireEvent.click(cards()[3]!);
   fireEvent.click(screen.getAllByRole("button", { name: "放到镜头 4" })[0]!);
   expect(await screen.findByText("已放到镜头 4。")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "有 1 个动作没对上镜头" })).toBeInTheDocument();
+  expect(screen.getByText("有 1 个动作没对上镜头")).toBeInTheDocument();
   // 「补上结尾」 asks GPT's fixCoverage; without a sign-in the end stays missing and says so.
   fireEvent.click(screen.getByRole("button", { name: "补上结尾" }));
   await waitFor(() =>

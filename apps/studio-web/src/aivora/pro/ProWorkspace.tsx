@@ -5311,6 +5311,9 @@ function BoardPage({
   const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
   const allBeats = film.unassignedBeats ?? [];
   const sceneBeats = allBeats.filter((beat) => beat.sceneId === sceneRow?.id);
+  // 3JR-U04: while an action is dragged the cards show where it can go.
+  const [beatDrag, setBeatDrag] = useState(false);
+  const [dropAt, setDropAt] = useState(-1);
   const placeBeat = (index: number, target: FilmShot) => {
     const beat = sceneBeats[index];
     if (!beat || target.sceneId !== activeSceneId || beat.sceneId !== activeSceneId) return;
@@ -5319,7 +5322,9 @@ function BoardPage({
       { text: beat.text, shotId: target.id },
     ]);
     if (placed.unassignedBeats.length > 0) {
-      onNotice(`镜头 ${target.no} 只有对白，放不了这个动作。换一个有动作的镜头。`);
+      onNotice(
+        `镜头 ${target.no} 的画面里没有打斗，放不了这个动作。换一个有打斗的镜头，或者先改这一镜的画面。`,
+      );
       return;
     }
     const at = allBeats.indexOf(beat);
@@ -5378,6 +5383,13 @@ function BoardPage({
               <span className="t">
                 {item.title}
                 <small>{sceneMeta(item, film.shots)}</small>
+                {(() => {
+                  // 3JR-U04: which scene still has actions to place, seen from any scene.
+                  const waiting = allBeats.filter((beat) => beat.sceneId === item.id).length;
+                  return waiting > 0 ? (
+                    <small className="beat-flag">{waiting} 个动作没对上镜头</small>
+                  ) : null;
+                })()}
               </span>
             </button>
           ))}
@@ -5435,21 +5447,38 @@ function BoardPage({
             onFixEnding={() => void repair.run()}
             pickedShot={current ? `镜头 ${current.no}` : ""}
             onPlaceBeat={(index) => current && placeBeat(index, current)}
+            onDragChange={(dragging) => {
+              setBeatDrag(dragging);
+              if (!dragging) setDropAt(-1);
+            }}
           />
         )}
-        <div className="pb grid">
+        <div className={beatDrag ? "pb grid dropping" : "pb grid"}>
           {shots.map((item, index) => (
             <button
               key={item.id}
-              className={index === shot ? "card sel" : "card"}
+              className={[
+                "card",
+                index === shot ? "sel" : "",
+                beatDrag && dropAt === index ? "drop-over" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               onClick={() => onShot(index)}
               onDragOver={(event) => {
-                if (event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) event.preventDefault();
+                if (!event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) return;
+                event.preventDefault();
+                if (dropAt !== index) setDropAt(index);
+              }}
+              onDragLeave={() => {
+                if (dropAt === index) setDropAt(-1);
               }}
               onDrop={(event) => {
                 const raw = event.dataTransfer.getData(BEAT_DRAG_TYPE);
                 if (!raw) return;
                 event.preventDefault();
+                setBeatDrag(false);
+                setDropAt(-1);
                 try {
                   const payload = JSON.parse(raw) as {
                     scope?: string;

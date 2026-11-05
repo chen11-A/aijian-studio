@@ -3223,3 +3223,16 @@ body:has(.pro-root) {
   color: var(--text);
   font-weight: 500;
 }
+
+/* 3JR-U04: while an action from 「有 N 个动作没对上镜头」 is dragged, every card is a place it
+   can go and the one under the pointer is marked. */
+.pro-root .pb.grid.dropping .card {
+  outline: 1px dashed var(--line-2);
+  outline-offset: 2px;
+}
+.pro-root .pb.grid.dropping .card.drop-over {
+  outline: 2px dashed var(--accent);
+}
+.pro-root .scene .t small.beat-flag {
+  color: var(--warn);
+}
