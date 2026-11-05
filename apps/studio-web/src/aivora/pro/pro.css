@@ -3034,8 +3034,22 @@ body:has(.pro-root) {
 .pro-root .looks-head .sp {
   flex: 1;
 }
+/* 4A-U06: the front portrait large on top, the three made from it small underneath. */
 .pro-root .refs4.slots {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pro-root .refs4.slots .slot.front {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  width: min(80%, 230px);
+}
+.pro-root .refs4.slots .slots-note {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: left;
 }
 .pro-root .slot {
   margin: 0;

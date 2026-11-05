@@ -1659,6 +1659,9 @@ it("makes every missing portrait from one button and shows each slot's state", a
   expect(screen.queryByRole("button", { name: "生成定妆照" })).toBeNull();
   expect(screen.queryByRole("button", { name: "补全缺少的定妆照" })).toBeNull();
   expect(document.querySelectorAll(".slot-empty")).toHaveLength(4);
+  // 4A-U06: the front is the big one; the other three are made from it.
+  expect(document.querySelector(".slot.front")).toHaveTextContent("正面");
+  expect(screen.getByText(/侧面、背面、脸部按正面这张改出来/)).toBeInTheDocument();
   expect(document.querySelector(".refs4 .rain")).toBeNull();
   fireEvent.click(all);
   await waitFor(() => expect(screen.getAllByText("已完成")).toHaveLength(4));

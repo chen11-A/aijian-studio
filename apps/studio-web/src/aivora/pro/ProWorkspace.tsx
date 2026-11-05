@@ -5090,6 +5090,9 @@ function CastPage({
               ) : null}
             </div>
             <div className="refs4 slots">
+              {character ? (
+                <p className="slots-note">侧面、背面、脸部按正面这张改出来，脸和衣服跟正面一样。</p>
+              ) : null}
               {(character
                 ? portraitPrompts(character.name, character.identity, film.styleZh)
                 : []
@@ -5101,8 +5104,13 @@ function CastPage({
                   ? portraits.slots[`${character.id}:${item.view}`]
                   : undefined;
                 const state = url ? "done" : (slot?.state ?? "empty");
+                const front = item.view === "正面";
                 return (
-                  <figure key={item.view} className="slot" data-state={state}>
+                  <figure
+                    key={item.view}
+                    className={front ? "slot front" : "slot"}
+                    data-state={state}
+                  >
                     {url ? (
                       <Thumb src={url} />
                     ) : (
