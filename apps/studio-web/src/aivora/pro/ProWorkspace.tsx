@@ -610,11 +610,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       await saveFilm(next);
     },
     notify: emitNotice,
-    requestDirector: (context, instruction) =>
+    requestDirector: (context, instruction, control) =>
       retryDirectorTimeout(
         (control) => completeAgent("director", context, instruction, control),
         setNotice,
         emitNotice,
+        {
+          signal: control?.signal,
+          totalMs: Math.min(240_000, (control?.deadlineAt ?? Date.now() + 240_000) - Date.now()),
+        },
       ),
   });
   const pageHistory = useMemo(() => createEditorPageHistory(), []);
