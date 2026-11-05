@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { offlineShots, type FilmShot } from "../film/project";
 import { withShotActions } from "../film/shot-actions";
 import { repairDirectorCoverage } from "./director-workflow";
@@ -168,4 +168,17 @@ describe("3JR-B04 repair keeps every movement and safe identities", () => {
     expect(result.shots[2]!.continuityFromShotId).toBe(second.id);
     expect(result.shots[2]!.id).not.toBe("scene-2-shot-3");
   });
+});
+
+it("does not guess media ownership when protected legacy shots share an id", async () => {
+  const existing = [
+    { ...shot("duplicate", "门口。", ["抬手。"]), poster: "/first.png" },
+    { ...shot("duplicate", "巷子。", ["退后。"]), poster: "/second.png" },
+  ];
+  const request = vi.fn(reply([tail]));
+  const result = await repairDirectorCoverage(scene, existing, request);
+  expect(request).not.toHaveBeenCalled();
+  expect(result.repaired).toBe(false);
+  expect(result.shots).toBe(existing);
+  expect(result.shots.map((item) => item.poster)).toEqual(["/first.png", "/second.png"]);
 });

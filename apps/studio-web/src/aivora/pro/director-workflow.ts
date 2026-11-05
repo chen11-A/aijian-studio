@@ -44,6 +44,15 @@ export async function repairDirectorCoverage(
   current: () => boolean = () => true,
 ): Promise<DirectorRepairResult> {
   const coverage = detectDirectorCoverage(scene, shots);
+  const protectedShot = (shot: FilmShot) =>
+    shot.userFields.length ||
+    shot.poster ||
+    shot.stills.length ||
+    shot.takes.length ||
+    shot.selectedTakeId ||
+    shot.continuityFrame;
+  if (shots.some(protectedShot) && new Set(shots.map((shot) => shot.id)).size !== shots.length)
+    return { shots, coverage, repaired: false };
   const overLimit = shots.filter((shot) => shot.sceneId === scene.id).length > 16;
   if ((coverage.ok && !overLimit) || !current()) return { shots, coverage, repaired: false };
   try {
@@ -92,13 +101,6 @@ export async function repairDirectorCoverage(
       a.picture === b.picture &&
       actionText(a) === actionText(b) &&
       JSON.stringify(shotLines(a)) === JSON.stringify(shotLines(b));
-    const protectedShot = (shot: FilmShot) =>
-      shot.userFields.length ||
-      shot.poster ||
-      shot.stills.length ||
-      shot.takes.length ||
-      shot.selectedTakeId ||
-      shot.continuityFrame;
     if (
       shots.some(
         (shot) => protectedShot(shot) && !parsed.some((candidate) => sameContent(shot, candidate)),
