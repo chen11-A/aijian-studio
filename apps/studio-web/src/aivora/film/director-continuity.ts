@@ -26,7 +26,7 @@ export function dialogueSentences(text: string): string[] {
 /** Formatting is not missing story: keep every word/number, ignore only punctuation and spacing. */
 const coverageText = (text: string) => text.normalize("NFKC").replace(/[\p{P}\p{Z}\s]/gu, "");
 
-function tailNarration(tail: string): string[] {
+function tailNarration(tail: string): { narration: string[]; printed: string[] } {
   const dialogue = extractScriptLines(tail).map((line) => coverageText(line.text));
   const printed: string[] = [];
   let narration = tail.replace(/“([^”]*)”|「([^」]*)」|"([^"\n]*)"/gu, (_match, a, b, c) => {
@@ -41,13 +41,53 @@ function tailNarration(tail: string): string[] {
       for (const line of lines) narration = narration.replace(line.text, "");
     }
   }
-  return [
-    ...narration
+  return {
+    narration: narration
       .split(/[，,。！？!?；;\n]+/u)
       .map(coverageText)
-      .filter(Boolean),
-    ...printed,
-  ];
+      .filter((part) => part && !CONNECTIVE.test(part)),
+    printed,
+  };
+}
+
+// 3JR-B03: a time connective is not something a shot shows.
+const CONNECTIVE =
+  /^(?:就在这时|就在此时|这时|此时|这时候|随即|随后|接着|然后|忽然|突然|同时|下一秒)$/u;
+const pairs = (text: string) => [
+  ...new Set(Array.from({ length: Math.max(0, text.length - 1) }, (_, i) => text.slice(i, i + 2))),
+];
+
+/** Everything a shot puts on screen or in the sound, not only its picture. */
+function shotEvidence(shot: FilmShot): string {
+  return [
+    shot.picture,
+    shotActionText(shot),
+    shot.performance,
+    shot.blocking,
+    shot.sound?.ambience,
+    ...(shot.sound?.sfx ?? []).map((cue) => cue.text),
+    ...shotLines(shot).map((line) => line.text),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * 3JR-B03: the last paragraph is shot when its words are there — verbatim anywhere in the
+ * scene, or, as a director rewords them ("带着人钻进雨里" → "带人钻进雨里"), when at least half of
+ * the narration's two-character pieces appear in the scene's last four shots. Written text
+ * shown on screen (a sign, a note) must still appear word for word.
+ */
+function tailCovered(tail: string, shots: readonly FilmShot[]): boolean {
+  const { narration, printed } = tailNarration(tail);
+  const all = coverageText(shots.map(shotEvidence).join("\n"));
+  if (printed.some((part) => !all.includes(part))) return false;
+  if (narration.every((part) => all.includes(part))) return true;
+  const recent = coverageText(shots.slice(-4).map(shotEvidence).join("\n"));
+  const grams = narration.flatMap(pairs);
+  return (
+    grams.length > 0 && grams.filter((gram) => recent.includes(gram)).length / grams.length >= 0.5
+  );
 }
 
 /** Strict evidence check: no source text is inserted and no semantic coverage is guessed. */
@@ -76,15 +116,7 @@ export function detectDirectorCoverage(
       .map((line) => line.trim())
       .filter(Boolean)
       .at(-1) ?? "";
-  const evidence = current
-    .map((shot) =>
-      [shot.picture, shotActionText(shot), ...shotLines(shot).map((line) => line.text)].join("\n"),
-    )
-    .join("\n");
-  const normalizedEvidence = coverageText(evidence);
-  const missingTail = tailNarration(tail).some((part) => !normalizedEvidence.includes(part))
-    ? tail
-    : null;
+  const missingTail = tail && !tailCovered(tail, current) ? tail : null;
   return {
     sceneId: scene.id,
     ok: scene.paragraphCoverage?.ok !== false && !missingLines.length && !missingTail,

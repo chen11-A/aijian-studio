@@ -42,7 +42,12 @@ describe("3JR-B03 tail coverage uses dialogue and narration evidence separately"
       false,
     )!;
     expect(detectDirectorCoverage({ id: "scene-2", text }, shots).ok).toBe(true);
+    // 3JR-B03: two of the three narration clauses are shot, the leaving into the rain among
+    // them; only where he vanishes is left out. That is no longer reported as an unshot ending.
     shots[1]!.action = "";
+    expect(detectDirectorCoverage({ id: "scene-2", text }, shots).missingTail).toBeNull();
+    // Most of the ending gone is still reported.
+    shots[1]!.picture = "雨水顺着屋檐流下";
     expect(detectDirectorCoverage({ id: "scene-2", text }, shots)).toMatchObject({
       ok: false,
       missingLines: [],
@@ -65,5 +70,58 @@ describe("3JR-B03 tail coverage uses dialogue and narration evidence separately"
       detectDirectorCoverage({ id: "scene-2", text: "周烈：“算你狠。别再来了。”" }, shots)
         .missingLines,
     ).toContain("别再来了。");
+  });
+
+  // 3JR-B03: the scene ends of test-novel-2000 as a director would write them.
+  const bookstoreEnd = "就在这时，门外传来刺耳的刹车声。两束车灯穿透雨幕，直直打在玻璃门上。";
+  it("counts a reworded ending, with its sound in the sound design, as shot", () => {
+    const shots = parseDirectorShots(
+      JSON.stringify({
+        shots: [
+          { picture: "林晚低头整理发票", speaker: "林晚", line: "你来晚了。" },
+          { picture: "两束车灯穿透雨幕，打在书店玻璃门上" },
+        ],
+      }),
+      "scene-1",
+      bookstoreEnd,
+      [],
+      false,
+    )!;
+    shots[1]!.sound = { ...shots[1]!.sound, sfx: [{ atSeconds: 0, text: "门外刺耳的刹车声" }] };
+    expect(
+      detectDirectorCoverage({ id: "scene-1", text: bookstoreEnd }, shots).missingTail,
+    ).toBeNull();
+  });
+  it("still reports an ending that the last shots do not show", () => {
+    const shots = parseDirectorShots(
+      JSON.stringify({
+        shots: [{ picture: "沈砚环顾四周" }, { picture: "墙上一张泛黄的合影" }],
+      }),
+      "scene-1",
+      bookstoreEnd,
+      [],
+      false,
+    )!;
+    expect(detectDirectorCoverage({ id: "scene-1", text: bookstoreEnd }, shots).missingTail).toBe(
+      bookstoreEnd,
+    );
+  });
+  it("counts the warehouse ending reworded into one shot", () => {
+    const text = "“算你狠。”周烈啐了一口，带着人钻进雨里，消失在仓库后门。";
+    const shots = parseDirectorShots(
+      JSON.stringify({
+        shots: [
+          { picture: "周烈啐了一口，带人消失在后门的雨里", speaker: "周烈", line: "算你狠。" },
+        ],
+      }),
+      "scene-2",
+      text,
+      [],
+      false,
+    )!;
+    expect(detectDirectorCoverage({ id: "scene-2", text }, shots)).toMatchObject({
+      ok: true,
+      missingTail: null,
+    });
   });
 });

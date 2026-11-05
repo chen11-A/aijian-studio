@@ -1800,12 +1800,14 @@ it("asks action and performance, then writes those fields on the shot", async ()
 it("warns about a scene end with no shot and lets an unplaced action go onto a shot", async () => {
   const film = sampleFilm();
   const scene = film.scenes.find((item) => item.id === "02")!;
+  // An ending no sample shot shows (3JR-B03: 「林骁侧身让过铁棍」 is shot by 镜头 5).
+  scene.text = `${scene.text}\n巷口亮起警灯，打手们四散逃开。`;
   scene.coverage = {
     sceneId: "02",
     ok: false,
     lastLine: "雨太大，我听不清。",
     missingLines: [],
-    missingTail: "林骁侧身让过铁棍。",
+    missingTail: "巷口亮起警灯，打手们四散逃开。",
   };
   film.unassignedBeats = [
     { sceneId: "02", text: "林骁抹掉脸上的雨水" },
@@ -1823,7 +1825,9 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
   await screen.findAllByText(film.title);
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
-  expect(await screen.findByText("这一场结尾还没拍到：「林骁侧身让过铁棍。」")).toBeInTheDocument();
+  expect(
+    await screen.findByText("这一场结尾还没拍到：「巷口亮起警灯，打手们四散逃开。」"),
+  ).toBeInTheDocument();
   expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
   // A drag from another scene must never use this scene's same numeric index.
   const firstCard = document.querySelector(".pb.grid .card")!;
