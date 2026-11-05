@@ -32,6 +32,7 @@ export type DirectorRequestHost = {
   progress: (message: string) => void;
   notify?: (message: UiNotice) => void;
   current: () => boolean;
+  control?: AgentRequestControl;
 };
 /** Only transport/retry and parsing. Enrichment, coverage notices, ownership and saving stay with the caller. */
 export async function requestDirectorDraft(
@@ -43,7 +44,11 @@ export async function requestDirectorDraft(
     (control) => host.request("director", input.context, instruction, control),
     host.progress,
     host.notify,
-    { current: host.current },
+    {
+      current: host.current,
+      signal: host.control?.signal,
+      totalMs: Math.min(240_000, (host.control?.deadlineAt ?? Date.now() + 240_000) - Date.now()),
+    },
   );
   return {
     shots: reply.text

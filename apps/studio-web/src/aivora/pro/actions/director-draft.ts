@@ -1,3 +1,6 @@
+import { directorBudget } from "../director-budget";
+import type { AgentRequestControl } from "../workflow";
+import { NOTICE_TEXT } from "../../film/notices";
 import { offlineShots } from "../../film/project";
 import { sceneNeedsSource } from "../../film/operations";
 import type { FilmProject, FilmShot } from "../../film/project";
@@ -16,7 +19,7 @@ export type DirectorDraftResult =
       coverage: SceneCoverage | null;
       coverageNotice?: UiNotice;
       target: number;
-      event?: "shots" | "offline" | "rejected";
+      event?: "shots" | "offline" | "rejected" | "partial";
     };
 
 /** Result policy only: caller retains request ownership, draft storage and confirmation. */
@@ -31,6 +34,7 @@ export async function planDirectorDraft(
       sceneId: string,
       shots: FilmShot[],
       current: () => boolean,
+      control?: AgentRequestControl,
     ) => Promise<FilmShot[]>;
     warnings: () => string[];
   },
@@ -47,9 +51,12 @@ export async function planDirectorDraft(
     };
   const story = [scene.text.trim() || base.title, asked.trim()].filter(Boolean).join("\n");
   const input = directorRequestInput(base, sceneId, story, scene.text);
-  const progress = (message: string) => {
-    if (host.current()) host.progress(message);
-  };
+  const budget = directorBudget({
+    current: host.current,
+    control: host.control,
+    progress: host.progress,
+  });
+  const progress = budget.progress;
   progress(`正在写「${scene.title}」的镜头。`);
   let shots: FilmShot[] | null = null;
   let notice: string;
@@ -61,13 +68,17 @@ export async function planDirectorDraft(
       notice = "没有登录，已用离线拆镜。点「写入分镜」才会写入。";
       event = "offline";
     } else {
-      const first = await requestDirectorDraft(input, {
-        ...host,
-        progress,
-        notify: (message) => {
-          if (host.current()) host.notify?.(message);
-        },
-      });
+      const first = await budget.run(() =>
+        requestDirectorDraft(input, {
+          ...host,
+          current: budget.current,
+          control: budget.control,
+          progress,
+          notify: (message) => {
+            if (budget.current()) host.notify?.(message);
+          },
+        }),
+      );
       if (!host.current()) return { status: "stale" };
       if (!first.shots) {
         retry = {
@@ -80,7 +91,10 @@ export async function planDirectorDraft(
         event = "rejected";
       } else {
         progress(`已写 ${first.shots.length} 镜，正在写表演。`);
-        shots = await host.enrich(base, sceneId, first.shots, host.current);
+        shots = first.shots;
+        shots = await budget.run(() =>
+          host.enrich(base, sceneId, first.shots!, budget.current, budget.control),
+        );
         notice = sceneNeedsSource(scene.text)
           ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「写入分镜」才会写入。"
           : "导演拆好了。点「写入分镜」才会写入。";
@@ -88,9 +102,18 @@ export async function planDirectorDraft(
       }
     }
   } catch {
-    notice = "模型没有返回。没有写入镜头。";
+    notice =
+      budget.reason() === "TEXT_TIMEOUT"
+        ? `${NOTICE_TEXT.TEXT_TIMEOUT}${shots ? " 已保留导演初稿，补充尚未完成。" : ""}`
+        : "模型没有返回。没有写入镜头。";
+    if (shots) event = "partial";
+    if (budget.reason() === "TEXT_TIMEOUT" && host.current())
+      host.notify?.({ code: "TEXT_TIMEOUT", text: NOTICE_TEXT.TEXT_TIMEOUT });
+  } finally {
+    budget.dispose();
   }
-  if (!host.current()) return { status: "stale" };
+  if (!host.current() || ["REQUEST_STALE", "TEXT_CANCELLED"].includes(budget.reason()))
+    return { status: "stale" };
   const warnings = host.warnings();
   if (warnings.length) notice += ` ${[...new Set(warnings)].join(" ")}`;
   const coverage = shots ? detectDirectorCoverage(scene, shots) : null;

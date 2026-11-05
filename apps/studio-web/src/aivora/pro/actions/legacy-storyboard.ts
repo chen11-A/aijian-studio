@@ -1,3 +1,5 @@
+import { directorBudget } from "../director-budget";
+import { NOTICE_TEXT } from "../../film/notices";
 import { parseWriterPlan } from "../../film/writer-plan";
 import { applyWriterPlan } from "../../film/operations";
 import { applyContinuityChecks } from "../../film/continuity-rules";
@@ -22,6 +24,7 @@ export type LegacyStoryboardHost = {
     sceneId: string,
     shots: FilmShot[],
     valid: () => boolean,
+    control?: AgentRequestControl,
   ) => Promise<FilmShot[]>;
   merge: (film: FilmProject, sceneId: string, shots: FilmShot[]) => FilmProject;
   progress: DirectorRequestHost["progress"];
@@ -105,28 +108,46 @@ export async function buildLegacyStoryboard(
   const withText = next.scenes.filter((item) => item.text.trim());
   const directed = withText.length ? withText : next.scenes.slice(0, 1);
   for (const [index, scene] of directed.entries()) {
-    host.progress(`正在写第 ${index + 1}/${directed.length} 场「${scene.title}」`);
-    const story = scene.text.trim() || next.title;
-    const reply = await requestDirectorDraft(
-      directorRequestInput(next, scene.id, story, scene.text || story),
-      { request: host.request, progress: host.progress, notify: host.notify, current: unchanged },
-    );
-    if (!unchanged()) return stopped();
-    if (!reply.shots)
-      return {
-        kind: "stopped",
-        text:
-          reply.detail ||
-          `「${scene.title}」导演没有按格式返回，已停。没有写入这一场的离线镜头。点「继续」再试。`,
-      };
-    host.progress(
-      `第 ${index + 1}/${directed.length} 场已写 ${reply.shots.length} 镜，正在写表演。`,
-    );
-    const performed = await host.enrich(next, scene.id, reply.shots, unchanged);
-    if (!unchanged()) return stopped();
-    apply(host.merge(host.current()!, scene.id, performed));
-    next = host.current()!;
+    const budget = directorBudget({ current: unchanged, progress: host.progress });
+    budget.progress(`正在写第 ${index + 1}/${directed.length} 场「${scene.title}」`);
+    try {
+      const story = scene.text.trim() || next.title;
+      const reply = await budget.run(() =>
+        requestDirectorDraft(directorRequestInput(next, scene.id, story, scene.text || story), {
+          request: host.request,
+          progress: budget.progress,
+          notify: host.notify,
+          current: budget.current,
+          control: budget.control,
+        }),
+      );
+      if (!unchanged()) return stopped();
+      if (!reply.shots)
+        return {
+          kind: "stopped",
+          text:
+            reply.detail ||
+            `「${scene.title}」导演没有按格式返回，已停。没有写入这一场的离线镜头。点「继续」再试。`,
+        };
+      budget.progress(
+        `第 ${index + 1}/${directed.length} 场已写 ${reply.shots.length} 镜，正在写表演。`,
+      );
+      const performed = await budget.run(() =>
+        host.enrich(next, scene.id, reply.shots!, budget.current, budget.control),
+      );
+      if (!unchanged()) return stopped();
+      apply(host.merge(host.current()!, scene.id, performed));
+      next = host.current()!;
+    } catch (error) {
+      if (!unchanged()) return stopped();
+      if (budget.reason() !== "TEXT_TIMEOUT") throw error;
+      host.notify?.({ code: "TEXT_TIMEOUT", text: NOTICE_TEXT.TEXT_TIMEOUT });
+      return { kind: "stopped", text: NOTICE_TEXT.TEXT_TIMEOUT };
+    } finally {
+      budget.dispose();
+    }
   }
+
   next = {
     ...next,
     shots: [...next.shots]

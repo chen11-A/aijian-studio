@@ -151,6 +151,7 @@ it("still feeds the existing enrichment repair without losing the first shot, di
     "director",
     expect.any(String),
     expect.stringContaining("只补这一场缺失台词与结尾"),
+    expect.objectContaining({ deadlineAt: expect.any(Number), signal: expect.any(AbortSignal) }),
   );
   expect(repaired.map((shot) => shot.picture).join("\n")).toContain("林晚抬眼。");
   expect(detectDirectorCoverage(scene, repaired).ok).toBe(true);

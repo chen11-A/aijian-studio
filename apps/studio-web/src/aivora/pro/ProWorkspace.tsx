@@ -1071,9 +1071,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     sceneId: string,
     shots: FilmShot[],
     valid: () => boolean,
+    control?: AgentRequestControl,
   ) {
     return enrichDirectorPlan(base, sceneId, shots, {
       valid,
+      control,
+      progress: (message) => {
+        if (valid()) setNotice(message);
+      },
       request: completeAgent,
       warning: (text) => {
         if (valid()) supplementWarnings.current.push(text);
