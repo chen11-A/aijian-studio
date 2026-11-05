@@ -3236,6 +3236,12 @@ body:has(.pro-root) {
 .pro-root .scene .t small.beat-flag {
   color: var(--warn);
 }
+/* A scene row that carries that third line grows to hold it instead of spilling over the next. */
+.pro-root .scene:has(.beat-flag) {
+  height: auto;
+  min-height: 44px;
+  padding-block: 4px;
+}
 
 /* 4A-U07: a portrait (9:16) work. The previews take its real shape; thumbnails keep their
    tiles and show the whole frame inside them instead of cutting it. */
