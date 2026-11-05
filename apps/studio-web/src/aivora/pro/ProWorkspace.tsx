@@ -79,8 +79,15 @@ import {
   timelineSeconds,
   xAtSeconds,
 } from "./edit-timeline";
-import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from "react";
-
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import {
   addShot,
   clock,
@@ -181,6 +188,12 @@ import { continuityNotes } from "../next/adapters/continuity";
 import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
 import { stageProgress, stageTabs } from "../next/adapters/stageProgress";
 import { exportLead } from "../next/adapters/primaryAction";
+import type { SuggestionItem } from "../next/adapters/suggestionDiff";
+import { SuggestionCard } from "../next/SuggestionCard";
+import { useAssistantKey } from "../next/wiring/assistantKey";
+import { videoLine } from "../next/shot";
+import { SoundPanel, type Mood } from "../next/SoundPanel";
+import { soundPanelData } from "../next/adapters/soundPanel";
 import {
   AGE_BANDS,
   GENDERS,
@@ -226,6 +239,9 @@ type RoleCard = {
 type FixAction = VideoAction;
 
 type PipelineGenerationHost = PipelineVideoHost;
+
+/** 4A-U11: notices after an assistant's suggestion was put in; the status bar offers 撤销. */
+const APPLIED_CODES = new Set(["SCRIPT_APPLIED", "ART_APPLIED", "SHOT_APPLIED", "SHOTS_APPLIED"]);
 
 const STAGES: { id: Stage; label: string }[] = [
   { id: "script", label: "剧本" },
@@ -2948,6 +2964,51 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : account.state === "REAUTH_REQUIRED"
           ? "需要重新登录"
           : "未登录";
+  // 4A-U11: 分镜, 单镜 and 剪辑 show the same assistant, with the same card for this scene.
+  const sceneCard =
+    roleCards[role]?.shots && roleCards[role]?.shots.every((item) => item.sceneId !== scene)
+      ? null
+      : (roleCards[role] ?? null);
+  const redoFromReview = () => {
+    setStage("edit");
+    setRange(true);
+    setNotice("已选中这一镜。在时间线上点「重新生成」。");
+  };
+  const keepReview = () => {
+    markApplied("qc");
+    setNotice("已记下审片意见。版本仍由你选。");
+  };
+  const shotAssistant = (
+    <Assistant
+      role={role}
+      onRole={chooseRole}
+      pending={pendingRole === role ? pending : null}
+      onApply={applyPending}
+      onReject={() => markApplied(role)}
+      shots={shownShots}
+      chat={chat}
+      onChat={setChat}
+      onSend={sendChat}
+      onQuick={(label) => {
+        if (label.includes("动作")) {
+          chooseRole("action");
+          void planAction();
+        } else if (label.includes("表演")) {
+          chooseRole("performance");
+          void planPerformance();
+        } else if (label.includes("美术")) {
+          chooseRole("art");
+          void planArt();
+        } else sendChat();
+      }}
+      turns={turns}
+      structured={structured}
+      card={sceneCard}
+      onRetry={pendingRetry ? () => void retryPending() : undefined}
+      onRedoRange={redoFromReview}
+      onDismiss={keepReview}
+    />
+  );
   // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -3061,6 +3122,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   打开示例
+                </button>
+                {/* 4A-U11: 导入小说 moved here from the assistant's quick suggestions. */}
+                <button
+                  onClick={() => {
+                    setMenu(null);
+                    setBench(false);
+                    setStage("script");
+                    fileRef.current?.click();
+                  }}
+                >
+                  导入小说
                 </button>
                 {seriesList.map((item) => (
                   <button key={item.id} onClick={() => openSaved(item.id)}>
@@ -3313,6 +3385,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <ScriptPage
                   quiet={exportView.lead}
                   onNext={() => setStage("cast")}
+                  onReject={() => markApplied(role)}
                   film={film}
                   scene={scene}
                   onScene={(id) => {
@@ -3443,28 +3516,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   assistPulse={assistPulse}
                   onFixCoverage={productionActions.fixCoverage}
                   structured={structured}
-                  card={
-                    roleCards[role]?.shots &&
-                    roleCards[role]?.shots.every((item) => item.sceneId !== scene)
-                      ? null
-                      : (roleCards[role] ?? null)
-                  }
+                  card={sceneCard}
                   qcCard={roleCards.qc ?? null}
-                  onRedoRange={() => {
-                    setStage("edit");
-                    setRange(true);
-                    setNotice("已选中这一镜。在时间线上点「只重做这一段」。");
-                  }}
-                  onDismiss={() => {
-                    markApplied("qc");
-                    setNotice("已记下审片意见。版本仍由你选。");
-                  }}
+                  onRedoRange={redoFromReview}
+                  onDismiss={keepReview}
+                  onReject={() => markApplied(role)}
                 />
               )}
               {stage === "board" && bench && (
                 <GeneratePage
                   quiet={exportView.lead}
                   onMute={() => setSoundOn((value) => !value)}
+                  assistant={shotAssistant}
                   onBack={() => setBench(false)}
                   film={film}
                   shots={shownShots}
@@ -3507,6 +3570,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               {stage === "edit" && (
                 <EditPage
                   onMute={() => setSoundOn((value) => !value)}
+                  assistant={shotAssistant}
+                  onSceneMood={(sceneId, mood) => {
+                    const ids = new Set(
+                      film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
+                    );
+                    setFilm({
+                      ...film,
+                      shots: film.shots.map((item) =>
+                        ids.has(item.id)
+                          ? { ...item, sound: { ...item.sound, musicMood: mood } }
+                          : item,
+                      ),
+                    });
+                  }}
+                  onSceneVoice={(sceneId, db) => {
+                    const ids = new Set(
+                      film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
+                    );
+                    setFilm({
+                      ...film,
+                      audioClips: film.audioClips.map((clip) =>
+                        clip.lane === "dialogue" && ids.has(clip.shotId)
+                          ? { ...clip, gainDb: db }
+                          : clip,
+                      ),
+                    });
+                    setNotice("音量已记下，导出时用这个音量。");
+                  }}
                   film={film}
                   shot={shot}
                   onShot={setShot}
@@ -3707,6 +3798,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           >
             {status.line?.text ?? ""}
           </span>
+          {/* 4A-U11: what the assistant put in can be taken back from the status bar. */}
+          {status.line && !status.fading && APPLIED_CODES.has(status.line.code) ? (
+            <button
+              type="button"
+              className="status-undo"
+              aria-label="撤销刚才放进去的"
+              onClick={undoEdit}
+            >
+              撤销
+            </button>
+          ) : null}
           <button
             className="task"
             data-menu="queue"
@@ -4087,6 +4189,21 @@ const PAGE_ROLE: Partial<Record<Stage, Role>> = {
   board: "director",
 };
 
+/** A shot as one line of a suggestion: who is in it, the picture, its length. */
+function shotItem(shot: FilmShot): SuggestionItem {
+  return {
+    id: shot.id,
+    who: shotPerson(shot.characters, shot.picture, []),
+    text: shot.picture,
+    tail: `${shot.seconds}s`,
+  };
+}
+
+/** A scene as one line of a suggestion: where it happens, or its title. */
+function sceneItem(scene: FilmScene): SuggestionItem {
+  return { id: scene.id, text: scene.where || scene.title };
+}
+
 function Assistant({
   role,
   onRole,
@@ -4107,6 +4224,10 @@ function Assistant({
   onDismiss,
   busy = false,
   onRetry,
+  shots,
+  currentScenes = [],
+  onReject,
+  solo = false,
 }: {
   role: Role;
   onRole: (role: Role) => void;
@@ -4129,16 +4250,38 @@ function Assistant({
   onRedoRange?: () => void;
   onDismiss?: () => void;
   busy?: boolean;
+  /** The work's scenes now, so a 分场 suggestion can say what it changes (4A-U11). */
+  currentScenes?: FilmScene[];
+  /** 「不要」: drop the suggestion; nothing changes. */
+  onReject?: () => void;
+  /** The assistant is the only thing in the right column: Ctrl+J moves into its input. */
+  solo?: boolean;
 }) {
   const pickId = useId();
-  const scenes = role === "writer" ? pendingScenes : null;
-  const list = pending ?? [];
+  const input = useRef<HTMLTextAreaElement>(null);
+  // 4A-U11: a suggestion that replaces a list (the director's shots, the writer's scenes) is
+  // shown as a change to what is there now; a card about one shot keeps its own rows.
+  const listScenes =
+    card?.mode === "scenes"
+      ? (card.scenes ?? null)
+      : card || role !== "writer"
+        ? null
+        : (pendingScenes ?? null);
+  const listShots =
+    card?.mode === "shots" && role === "director" ? (card.shots ?? null) : card ? null : pending;
+  // 4A-U11: Ctrl+J opens and closes the assistant; here that means its input.
+  useAssistantKey(() => {
+    const box = input.current;
+    if (!box) return;
+    if (document.activeElement === box) box.blur();
+    else box.focus();
+  }, solo);
   const talking = CHAT_ROLES.find((item) => item.id === role) ?? CHAT_ROLES[1]!;
   const chatTurns = turns.filter((item) => inChat(item.role));
   const lastRole = turns.at(-1)?.role;
   const chips =
     role === "writer"
-      ? ["让编剧分场", "改成短剧", "导入小说"]
+      ? ["让编剧分场", "改成短剧"]
       : role === "action"
         ? ["请动作指导看看"]
         : role === "performance"
@@ -4176,21 +4319,16 @@ function Assistant({
         )}
       </div>
       <div className="pb chat">
-        {(chatTurns.length > 0
-          ? chatTurns.slice(-8)
-          : [
-              {
-                id: "hint",
-                role,
-                who: "user" as const,
-                text: "跟这位助手说说你的想法。确认之前不会改你写过的字。",
-              },
-            ]
-        ).map((item) => (
-          <div key={item.id} className={item.who === "user" ? "msg-u" : "msg-a"}>
-            {item.text}
-          </div>
-        ))}
+        {/* 4A-U11: the opening note is gray text, not a bubble the person seems to have sent. */}
+        {chatTurns.length === 0 ? (
+          <p className="chat-hint">跟这位助手说说你的想法。放进去之前不会改你写过的字。</p>
+        ) : (
+          chatTurns.slice(-8).map((item) => (
+            <div key={item.id} className={item.who === "user" ? "msg-u" : "msg-a"}>
+              {item.text}
+            </div>
+          ))
+        )}
         {onRetry && chatTurns.at(-1)?.who === "agent" ? (
           <div className="msg-retry">
             <button className="btn sm" type="button" onClick={onRetry}>
@@ -4198,76 +4336,48 @@ function Assistant({
             </button>
           </div>
         ) : null}
-        <div className="msg-a">
-          <span className="ri">
-            <Ic name="clap" size={13} />
-          </span>
-          <div className="bubble">
-            <div className="h">
-              {card
-                ? card.title
-                : scenes
-                  ? `建议写成 ${scenes.length} 场`
-                  : pending
-                    ? `建议拆成 ${pending.length} 个镜头`
-                    : busy
-                      ? "正在写"
-                      : list.length > 0
-                        ? "当前镜头"
-                        : "还没有建议"}{" "}
-              <span>
-                {card
-                  ? card.rows.length || card.notes.length
-                  : scenes
-                    ? scenes.length
-                    : list.length}{" "}
-                条
-              </span>
-            </div>
-            {role === "action" && card ? <p className="role-desc">{DIFFICULTY_LEGEND}</p> : null}
-            <div className="shotlist">
-              {card
-                ? card.rows.map((item) => (
-                    <div key={item.id}>
-                      <span>{item.mark}</span>
-                      <span />
-                      <span>{item.text}</span>
-                      <span>{item.tail}</span>
-                    </div>
-                  ))
-                : scenes
-                  ? scenes.map((item) => (
-                      <div key={item.id}>
-                        <span>{item.no}</span>
-                        <span>场</span>
-                        <span>{item.where || item.title}</span>
-                        <span />
-                      </div>
-                    ))
-                  : list.map((item, index) => (
-                      <div key={item.id}>
-                        <span>{index + 1}</span>
-                        <span>{shotPerson(item.characters, item.picture, [])}</span>
-                        <span>{item.picture}</span>
-                        <span>{item.seconds}s</span>
-                      </div>
-                    ))}
-            </div>
-            {structured.length > 0 && (!lastRole || inChat(lastRole)) && (
+        {listScenes || listShots ? (
+          // 4A-U11: 「现在 6 个 → 建议 4 个」, each line marked, and 放进 / 换一个 / 不要.
+          <SuggestionCard
+            unit={listScenes ? "scene" : "shot"}
+            current={
+              listScenes
+                ? currentScenes.map(sceneItem)
+                : shots
+                    .filter((item) =>
+                      (listShots ?? []).some((next) => next.sceneId === item.sceneId),
+                    )
+                    .map(shotItem)
+            }
+            proposed={listScenes ? listScenes.map(sceneItem) : (listShots ?? []).map(shotItem)}
+            applied={card?.applied}
+            busy={busy}
+            onApply={listScenes && onApplyScenes ? onApplyScenes : onApply}
+            onAnother={onSend}
+            onReject={onReject}
+          />
+        ) : card ? (
+          <div className="msg-a">
+            <span className="ri">
+              <Ic name="clap" size={13} />
+            </span>
+            <div className="bubble">
+              <div className="h">
+                {card.title} <span>{card.rows.length || card.notes.length} 条</span>
+              </div>
+              {role === "action" ? <p className="role-desc">{DIFFICULTY_LEGEND}</p> : null}
               <div className="shotlist">
-                {structured.map((line) => (
-                  <div key={line}>
+                {card.rows.map((item) => (
+                  <div key={item.id}>
+                    <span>{item.mark}</span>
                     <span />
-                    <span />
-                    <span>{line}</span>
-                    <span />
+                    <span>{item.text}</span>
+                    <span>{item.tail}</span>
                   </div>
                 ))}
               </div>
-            )}
-            {list.length === 0 && !card && !scenes && !pending ? null : (
               <div className="acts">
-                {card?.mode === "qc" ? (
+                {card.mode === "qc" ? (
                   <>
                     <button className="btn accent sm" type="button" onClick={onRedoRange}>
                       按意见重做这一镜
@@ -4282,34 +4392,51 @@ function Assistant({
                     </button>
                   </>
                 ) : (
-                  <button
-                    className="btn accent sm"
-                    type="button"
-                    disabled={card?.applied}
-                    onClick={
-                      card?.mode === "scenes" && onApplyScenes
-                        ? onApplyScenes
-                        : card
-                          ? onApply
-                          : scenes && onApplyScenes
-                            ? onApplyScenes
-                            : onApply
-                    }
-                  >
-                    {card?.applied
-                      ? "已放进去"
-                      : card?.mode === "scenes" || scenes
-                        ? "放进剧本"
-                        : "放进分镜"}
-                  </button>
+                  <>
+                    <button
+                      className="btn accent sm"
+                      type="button"
+                      disabled={card.applied}
+                      onClick={card.mode === "scenes" && onApplyScenes ? onApplyScenes : onApply}
+                    >
+                      {card.applied ? "已放进去" : card.mode === "scenes" ? "放进剧本" : "放进分镜"}
+                    </button>
+                    {card.applied ? null : (
+                      <>
+                        <button className="btn sm" type="button" disabled={busy} onClick={onSend}>
+                          换一个
+                        </button>
+                        {onReject ? (
+                          <button className="btn ghost sm" type="button" onClick={onReject}>
+                            不要
+                          </button>
+                        ) : null}
+                      </>
+                    )}
+                  </>
                 )}
-                <button className="btn sm" type="button" onClick={onSend}>
-                  返回修改
-                </button>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        ) : busy ? (
+          <p className="chat-hint">正在写…</p>
+        ) : null}
+        {structured.length > 0 && (!lastRole || inChat(lastRole)) && (
+          <div className="msg-a">
+            <div className="bubble">
+              <div className="shotlist">
+                {structured.map((line) => (
+                  <div key={line}>
+                    <span />
+                    <span />
+                    <span>{line}</span>
+                    <span />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div className="quick">
         {chips.map((label) => (
@@ -4320,6 +4447,7 @@ function Assistant({
       </div>
       <div className="composer">
         <textarea
+          ref={input}
           className="ph-t"
           aria-label="跟助手说"
           value={chat}
@@ -4427,6 +4555,7 @@ function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
 function ScriptPage({
   quiet = false,
   onNext,
+  onReject,
   film,
   scene,
   onScene,
@@ -4497,6 +4626,8 @@ function ScriptPage({
   quiet?: boolean;
   /** 「下一步：角色与场景」, the primary button once the director has gone through every scene. */
   onNext?: () => void;
+  /** 4A-U11: 「不要」 on the assistant's suggestion. */
+  onReject?: () => void;
 }) {
   const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
   const words = film.scenes.reduce((sum, item) => sum + item.text.length, 0);
@@ -4598,6 +4729,15 @@ function ScriptPage({
         </div>
         <div className="pb doc">
           <div className="page">
+            {/* 4A-U11: with no script yet, 导入小说 sits here instead of in the assistant. */}
+            {words === 0 ? (
+              <div className="script-empty">
+                <span>还没有剧本。直接在下面写，或者</span>
+                <button className="btn sm" type="button" onClick={onImport}>
+                  导入小说
+                </button>
+              </div>
+            ) : null}
             {current?.where ? <div className="sh">{current.where}</div> : null}
             <textarea
               id="scene-text"
@@ -4625,15 +4765,15 @@ function ScriptPage({
         </div>
       </section>
       <section className="pane ai">
-        <div className="ph">
-          <Ic name="spark" size={16} />
-          <h3>AI 助手</h3>
-          <span className="sp" />
-          <button className="icon-btn sm" aria-label="更多">
-            <Ic name="more" size={16} />
-          </button>
+        {/* 4A-U11: the assistant sits in the same right-column tab on every page; 剧本 has no
+            属性, so it is the only tab. */}
+        <div className="ptabs">
+          <span className="tab-only">AI 助手</span>
         </div>
         <Assistant
+          solo
+          currentScenes={film.scenes}
+          onReject={onReject}
           role={role}
           onRole={onRole}
           pending={pending}
@@ -5438,11 +5578,13 @@ function CastPage({
         </div>
       </section>
       <section className="pane ai">
-        <div className="ph">
-          <Ic name="spark" size={16} />
-          <h3>AI 助手</h3>
+        {/* 4A-U11: the same right-column tab as every page; the form in the middle is this
+            page's 属性. */}
+        <div className="ptabs">
+          <span className="tab-only">AI 助手</span>
         </div>
         <Assistant
+          solo
           role={role}
           onRole={onRole}
           pending={null}
@@ -5460,6 +5602,7 @@ function CastPage({
 function BoardPage({
   quiet = false,
   onNext,
+  onReject,
   film,
   shots,
   shot,
@@ -5544,8 +5687,12 @@ function BoardPage({
   quiet?: boolean;
   /** 「下一步：剪辑」, once every shot has a video. */
   onNext?: () => void;
+  /** 4A-U11: 「不要」 on the assistant's suggestion. */
+  onReject?: () => void;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
+  // 4A-U11: Ctrl+J switches between 属性 and AI 助手.
+  useAssistantKey(() => setTab((now) => (now === "ai" ? "props" : "ai")));
   const [showEnglish, setShowEnglish] = useState(false);
   const [customSeconds, setCustomSeconds] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -5885,6 +6032,7 @@ function BoardPage({
             onRetry={onRetry}
             onRedoRange={onRedoRange}
             onDismiss={onDismiss}
+            onReject={onReject}
           />
         ) : current ? (
           <>
@@ -6381,6 +6529,7 @@ function MuteButton({ muted, onMute }: { muted: boolean; onMute: () => void }) {
 function GeneratePage({
   quiet = false,
   onMute,
+  assistant = null,
   film,
   shots,
   shot,
@@ -6414,7 +6563,12 @@ function GeneratePage({
   quiet?: boolean;
   /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
   onMute?: () => void;
+  /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
+  assistant?: ReactNode;
 }) {
+  // 4A-U11: 属性 | AI 助手 in the right column, like every page; Ctrl+J switches.
+  const [side, setSide] = useState<"props" | "ai">("props");
+  useAssistantKey(() => setSide((now) => (now === "ai" ? "props" : "ai")));
   const current = shots[shot];
   const prompt = current ? keyframePrompt(current, film) : "先在剧本里拆镜头。";
   const takes = current?.takes ?? [];
@@ -6522,141 +6676,155 @@ function GeneratePage({
         </div>
       </section>
       <section className="pane">
-        <div className="ph">
-          <h3>生成视频</h3>
-          <span className="meta">{current ? `镜头 ${current.no}` : "还没有镜头"}</span>
-        </div>
-        <div className="pb" style={{ padding: "12px 14px" }}>
-          <div className="sec-t">
-            起始画面<span className="from role-d">这一镜自己的画面</span>
-            <span className="sp" />
-            <span>不是定妆照</span>
-          </div>
-          <div className="startf">
-            <FrameThumb shot={current} />
-            <div>
-              <b>{current ? `镜头 ${current.no} · ${current.size}` : "还没有镜头"}</b>
-              先出这一镜的图，再让它动起来
-            </div>
-          </div>
-          <div className="sec-t" style={{ marginTop: 12 }}>
-            角色定妆照
-            <span className="sp" />
-            <span>人物外貌会写进画面说明</span>
-          </div>
-          <div className="refs">
-            {film.characters.map((item) => (
-              <div className="ref" key={item.id}>
-                <Thumb src={item.portraits.find((portrait) => portrait.url)?.url} />
-                <p>{item.name}</p>
-              </div>
-            ))}
-          </div>
-          <div className="sec-t" style={{ marginTop: 12 }}>
-            画面描述
-            <span className="sp" />
-            <span className="from role-a">包括这一镜的画面和人物外貌</span>
-          </div>
-          <textarea
-            className="area"
-            aria-label="画面描述"
-            style={{ height: 74 }}
-            value={current?.picture ?? ""}
-            onChange={(event) => {
-              if (!current) return;
-              onFilm({
-                ...film,
-                shots: film.shots.map((item) =>
-                  item.id === current.id
-                    ? {
-                        ...item,
-                        picture: event.target.value,
-                        action: event.target.value,
-                        promptZh: "",
-                        source: "user",
-                        userFields: [...new Set([...item.userFields, "picture"])],
-                      }
-                    : item,
-                ),
-              });
-            }}
-          />
-          {/* 3JR-U05: the whole text the model gets stays folded; the description above is what
-              people write. */}
-          <details className="full-prompt">
-            <summary>看 AI 会收到的完整说明</summary>
-            <p className="role-desc" data-testid="keyframe-prompt">
-              {current ? continuityPrompt(shots[shot - 1], current, film) : prompt}
-            </p>
-            <p className="role-desc">{CONTINUITY_REASON}</p>
-          </details>
-          <div className="row2" style={{ marginTop: 12 }}>
-            <div>
-              <div className="sec-t">时长</div>
-              <div className="seg">
-                {[2, 3, 4, 5, 6, 10].map((seconds) => (
-                  <button
-                    key={seconds}
-                    className={(current?.seconds ?? duration) === seconds ? "on" : ""}
-                    onClick={() => onDuration(seconds)}
-                  >
-                    {seconds} 秒
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="row2" style={{ marginTop: 10 }}>
-            <div>
-              <div className="sec-t">清晰度</div>
-              <div className="seg">
-                <button
-                  className={film.draft ? "on" : ""}
-                  onClick={() => onFilm({ ...film, draft: true })}
-                >
-                  较快的一版
-                </button>
-                <button
-                  className={film.draft ? "" : "on"}
-                  onClick={() => onFilm({ ...film, draft: false })}
-                >
-                  直接出成片
-                </button>
-              </div>
-            </div>
-            <div>
-              <div className="sec-t">一次出几个</div>
-              <div className="seg">
-                {[1, 2, 4].map((count) => (
-                  <button
-                    key={count}
-                    type="button"
-                    className={versions === count ? "on" : ""}
-                    onClick={() => onVersions(count)}
-                  >
-                    {count}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="genbar">
-          <div className="model">
-            <Ic name="spark" size={14} />
-            <span>Grok 会员</span>
-            <small title={GENERATE_MODEL}>成片</small>
-            <span className="sp" />
-            <small>不另外收费</small>
-          </div>
-          <button className={quiet ? "btn block" : "btn primary block"} onClick={onCreate}>
-            <Ic name="video" size={16} />
-            生成 {versions} 个版本
+        <div className="ptabs">
+          <button className={side === "props" ? "on" : ""} onClick={() => setSide("props")}>
+            属性
           </button>
-          <div className="note" data-testid="generation-estimate">
-            {generationEstimate(1, versions, duration)}
-          </div>
+          <button className={side === "ai" ? "on" : ""} onClick={() => setSide("ai")}>
+            AI 助手
+          </button>
         </div>
+        {side === "ai" ? (
+          assistant
+        ) : (
+          <>
+            <div className="ph">
+              <h3>生成视频</h3>
+              <span className="meta">{current ? `镜头 ${current.no}` : "还没有镜头"}</span>
+            </div>
+            <div className="pb" style={{ padding: "12px 14px" }}>
+              <div className="sec-t">
+                起始画面<span className="from role-d">这一镜自己的画面</span>
+                <span className="sp" />
+                <span>不是定妆照</span>
+              </div>
+              <div className="startf">
+                <FrameThumb shot={current} />
+                <div>
+                  <b>{current ? `镜头 ${current.no} · ${current.size}` : "还没有镜头"}</b>
+                  先出这一镜的图，再让它动起来
+                </div>
+              </div>
+              <div className="sec-t" style={{ marginTop: 12 }}>
+                角色定妆照
+                <span className="sp" />
+                <span>人物外貌会写进画面说明</span>
+              </div>
+              <div className="refs">
+                {film.characters.map((item) => (
+                  <div className="ref" key={item.id}>
+                    <Thumb src={item.portraits.find((portrait) => portrait.url)?.url} />
+                    <p>{item.name}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="sec-t" style={{ marginTop: 12 }}>
+                画面描述
+                <span className="sp" />
+                {/* 4A-U12: a plain note in gray; orange-red is kept for things to fix. */}
+                <span className="from">包括这一镜的画面和人物外貌</span>
+              </div>
+              <textarea
+                className="area"
+                aria-label="画面描述"
+                style={{ height: 74, width: "100%" }}
+                value={current?.picture ?? ""}
+                onChange={(event) => {
+                  if (!current) return;
+                  onFilm({
+                    ...film,
+                    shots: film.shots.map((item) =>
+                      item.id === current.id
+                        ? {
+                            ...item,
+                            picture: event.target.value,
+                            action: event.target.value,
+                            promptZh: "",
+                            source: "user",
+                            userFields: [...new Set([...item.userFields, "picture"])],
+                          }
+                        : item,
+                    ),
+                  });
+                }}
+              />
+              {/* 3JR-U05: the whole text the model gets stays folded; the description above is what
+              people write. */}
+              <details className="full-prompt">
+                <summary>看 AI 会收到的完整说明</summary>
+                <p className="role-desc" data-testid="keyframe-prompt">
+                  {current ? continuityPrompt(shots[shot - 1], current, film) : prompt}
+                </p>
+                <p className="role-desc">{CONTINUITY_REASON}</p>
+              </details>
+              <div className="row2" style={{ marginTop: 12 }}>
+                <div>
+                  <div className="sec-t">时长</div>
+                  <div className="seg">
+                    {[2, 3, 4, 5, 6, 10].map((seconds) => (
+                      <button
+                        key={seconds}
+                        className={(current?.seconds ?? duration) === seconds ? "on" : ""}
+                        onClick={() => onDuration(seconds)}
+                      >
+                        {seconds} 秒
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="row2" style={{ marginTop: 10 }}>
+                <div>
+                  <div className="sec-t">清晰度</div>
+                  <div className="seg">
+                    <button
+                      className={film.draft ? "on" : ""}
+                      onClick={() => onFilm({ ...film, draft: true })}
+                    >
+                      较快的一版
+                    </button>
+                    <button
+                      className={film.draft ? "" : "on"}
+                      onClick={() => onFilm({ ...film, draft: false })}
+                    >
+                      直接出成片
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <div className="sec-t">一次出几个</div>
+                  <div className="seg">
+                    {[1, 2, 4].map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        className={versions === count ? "on" : ""}
+                        onClick={() => onVersions(count)}
+                      >
+                        {count}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="genbar">
+              <div className="model">
+                <Ic name="spark" size={14} />
+                <span>Grok 会员</span>
+                <small title={GENERATE_MODEL}>成片</small>
+              </div>
+              <button className={quiet ? "btn block" : "btn primary block"} onClick={onCreate}>
+                <Ic name="video" size={16} />
+                生成 {versions} 个版本
+              </button>
+              {/* 4A-U12: what one click makes, from the length that is selected. */}
+              <div className="note" data-testid="generation-estimate">
+                {videoLine(versions, current?.seconds ?? duration)}
+              </div>
+            </div>
+          </>
+        )}
       </section>
     </>
   );
@@ -6664,6 +6832,9 @@ function GeneratePage({
 
 function EditPage({
   onMute,
+  assistant = null,
+  onSceneMood,
+  onSceneVoice,
   film,
   shot,
   onShot,
@@ -6728,7 +6899,16 @@ function EditPage({
   hearLane?: "" | "dialogue" | "score";
   /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
   onMute?: () => void;
+  /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
+  assistant?: ReactNode;
+  /** 4B-U01: 这场的情绪, written to every shot of the scene (shot.sound.musicMood). */
+  onSceneMood?: (sceneId: string, mood: Mood) => void;
+  /** 4B-U01: the scene's voice level, written to its voice clips (gainDb). */
+  onSceneVoice?: (sceneId: string, db: number) => void;
 }) {
+  const [monitor, setMonitor] = useState<"preview" | "sound">("preview");
+  // 4A-U11: Ctrl+J switches between 属性 and AI 助手.
+  useAssistantKey(() => onTab(rightTab === "ai" ? "props" : "ai"));
   const [mediaTime, setMediaTime] = useState(0);
   const [cutLength, setCutLength] = useState(0);
   const [takeLength, setTakeLength] = useState(0);
@@ -6744,6 +6924,11 @@ function EditPage({
   const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
+  // 4B-U01: the sound of the scene the shown shot is in; worked out only while it is shown.
+  const sceneSound = useMemo(
+    () => (monitor === "sound" && current ? soundPanelData(film, current.sceneId) : null),
+    [monitor, film, current],
+  );
   const chosenTake =
     current?.takes.find((item) => item.id === current.selectedTakeId) ??
     current?.takes.find((item) => item.status === "done");
@@ -6941,105 +7126,123 @@ function EditPage({
             </div>
           </section>
           <section className="pane monitor">
+            {/* 4B-U01: the scene's sound takes the preview's place, one click away. */}
             <div className="ph">
-              <h3>预览</h3>
+              <div className="seg monitor-tabs">
+                <button
+                  type="button"
+                  className={monitor === "preview" ? "on" : ""}
+                  onClick={() => setMonitor("preview")}
+                >
+                  预览
+                </button>
+                <button
+                  type="button"
+                  className={monitor === "sound" ? "on" : ""}
+                  onClick={() => {
+                    onPlaying(false);
+                    setMonitor("sound");
+                  }}
+                >
+                  声音
+                </button>
+              </div>
               <span className="meta">{film.title}</span>
               <span className="sp" />
             </div>
-            <div className="screen">
-              {previewSrc ? (
-                <PreviewVideo
-                  src={previewSrc}
-                  voice={voiceSrc}
-                  music={musicSrc}
-                  playing={playing}
-                  audible={audible && mix.hearVideo}
-                  sound={audible}
-                  onPlaying={onPlaying}
-                  onTime={showTime}
-                  seek={seek}
-                  onDuration={joined ? setCutLength : setTakeLength}
-                />
-              ) : (
-                <div className="frame rain">
-                  <span className="subt">
-                    {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
-                      ? ROUGH_CUT_REASON
-                      : "还没有可以播放的视频。"}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="ctrl">
-              <span className="tc">
-                <b>{clock(headSeconds)}</b> / {clock(total)}
-              </span>
-              <div className="pc">
-                <button
-                  className="icon-btn"
-                  aria-label="上一个"
-                  onClick={() => onShot(Math.max(0, shot - 1))}
-                >
-                  <Ic name="skipb" />
-                </button>
-                <button
-                  className="playb"
-                  aria-label={playing ? "暂停" : "播放"}
-                  onClick={onTogglePlay}
-                >
-                  <Ic name={playing ? "pause" : "play"} size={16} />
-                </button>
-                <button
-                  className="icon-btn"
-                  aria-label="下一个"
-                  onClick={() => onShot(Math.min(shots.length - 1, shot + 1))}
-                >
-                  <Ic name="skipf" />
-                </button>
+            {monitor === "sound" ? (
+              <div className="pb sound-pane">
+                {sceneSound?.ok ? (
+                  <SoundPanel
+                    {...sceneSound.props}
+                    onMoodChange={(mood) => {
+                      if (current) onSceneMood?.(current.sceneId, mood);
+                    }}
+                    onMasterChange={() => undefined}
+                    onLaneChange={(lane, _volume, db) => {
+                      if (current && lane === "dialogue") onSceneVoice?.(current.sceneId, db);
+                    }}
+                  />
+                ) : (
+                  <p className="role-desc">
+                    {sceneSound
+                      ? `${sceneSound.empty.title}。${sceneSound.empty.detail}`
+                      : "先在左边选一个镜头。"}
+                  </p>
+                )}
               </div>
-              {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
-            </div>
+            ) : (
+              <>
+                <div className="screen">
+                  {previewSrc ? (
+                    <PreviewVideo
+                      src={previewSrc}
+                      voice={voiceSrc}
+                      music={musicSrc}
+                      playing={playing}
+                      audible={audible && mix.hearVideo}
+                      sound={audible}
+                      onPlaying={onPlaying}
+                      onTime={showTime}
+                      seek={seek}
+                      onDuration={joined ? setCutLength : setTakeLength}
+                    />
+                  ) : (
+                    <div className="frame rain">
+                      <span className="subt">
+                        {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
+                          ? ROUGH_CUT_REASON
+                          : "还没有可以播放的视频。"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="ctrl">
+                  <span className="tc">
+                    <b>{clock(headSeconds)}</b> / {clock(total)}
+                  </span>
+                  <div className="pc">
+                    <button
+                      className="icon-btn"
+                      aria-label="上一个"
+                      onClick={() => onShot(Math.max(0, shot - 1))}
+                    >
+                      <Ic name="skipb" />
+                    </button>
+                    <button
+                      className="playb"
+                      aria-label={playing ? "暂停" : "播放"}
+                      onClick={onTogglePlay}
+                    >
+                      <Ic name={playing ? "pause" : "play"} size={16} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      aria-label="下一个"
+                      onClick={() => onShot(Math.min(shots.length - 1, shot + 1))}
+                    >
+                      <Ic name="skipf" />
+                    </button>
+                  </div>
+                  {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
+                </div>
+              </>
+            )}
           </section>
         </>
       )}
       <section className="pane">
+        {/* 4A-U11: 属性 | AI 助手 like every page; 修改这一段 is part of 属性 now. */}
         <div className="ptabs">
-          <button className={rightTab === "props" ? "on" : ""} onClick={() => onTab("props")}>
+          <button className={rightTab !== "ai" ? "on" : ""} onClick={() => onTab("props")}>
             属性
-          </button>
-          <button className={rightTab === "fix" ? "on" : ""} onClick={() => onTab("fix")}>
-            修改这一段
           </button>
           <button className={rightTab === "ai" ? "on" : ""} onClick={() => onTab("ai")}>
             AI 助手
           </button>
         </div>
-        {rightTab === "fix" ? (
-          <>
-            <div className="selinfo">
-              <b>
-                镜头 {current?.no ?? ""} · {current?.move || "固定"}
-              </b>
-              <small>
-                {clock(start)} – {clock(start + (current?.seconds ?? 0))} · {current?.seconds ?? 0}{" "}
-                秒
-              </small>
-            </div>
-            <div className="pb">
-              <div style={{ padding: "12px 12px 0" }}>
-                <div className="sec-t">这一镜的描述</div>
-                <textarea
-                  className="area"
-                  aria-label="改这一镜的描述"
-                  style={{ height: 62 }}
-                  value={current?.picture ?? ""}
-                  onChange={(event) => onRewrite(event.target.value)}
-                />
-                {/* 4A-U10: the actions on this part are on the timeline bar below, once. */}
-                <p className="role-desc">重做、换配音、剪掉，用下面时间线上的按钮。</p>
-              </div>
-            </div>
-          </>
+        {rightTab === "ai" ? (
+          assistant
         ) : (
           <div className="pb">
             <div className="field">
@@ -7062,6 +7265,18 @@ function EditPage({
                   <div className="input">{current?.move || "固定"}</div>
                 </div>
               </div>
+            </div>
+            <div className="field">
+              <div className="sec-t">这一镜的描述</div>
+              <textarea
+                className="area"
+                aria-label="改这一镜的描述"
+                style={{ height: 62 }}
+                value={current?.picture ?? ""}
+                onChange={(event) => onRewrite(event.target.value)}
+              />
+              {/* 4A-U10: the actions on this part are on the timeline bar below, once. */}
+              <p className="role-desc">重做、换配音、剪掉，用下面时间线上的按钮。</p>
             </div>
             <p className="role-desc hint">
               有台词时，导出会把配乐压低

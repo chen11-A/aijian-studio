@@ -373,6 +373,8 @@ exportCheckData(film, report, { checking, error, clipSeconds });
 
 ## 3. SoundPanel
 
+**4B-U01 已接（claude/work）**：剪辑页中间那栏标题换成「预览 | 声音」两个切换，点「声音」SoundPanel 换掉预览（暂停播放），点「预览」换回来；显示当前镜头所在那一场，`soundPanelData(film, current.sceneId)` 只在打开时算。「这场的情绪」写这一场每个镜头的 `shot.sound.musicMood`（和分镜页「配乐情绪」同一个字段）；「细调」里只有配音有滑块，写这一场配音片段的 `gainDb`，状态栏「音量已记下」。整场音量、环境音、音效、配乐在面板里写原因，不出假滑块，等 GPT 4B-B04 存 `scene.sound` 以后改成读写它。轨头上没有另加「声音」按钮（4A-U10：一个动作一个入口）。
+
 **放在哪**
 
 - 剪辑页中间那一栏（1280 下约 700×450）。从时间线「配音」或「音乐」轨头（:6155、:6177）点「声音」，SoundPanel 换掉预览，再点一次换回来。
@@ -678,7 +680,12 @@ onUndo; // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(f
 // （createEditorPageHistory，按页记），claude/work 上先接 undoEdit
 ```
 
-- 在整合以前，接线方式（等 3J-U18–U22 推完再改 `Assistant` 的渲染）：`current` 用这一场现在的镜头，`proposed` 用 `pending`（或分场时的 `pendingScenes`），其余如上。
+- 已接进 `Assistant`（4A-U11）：导演的镜头建议（`card.mode === "shots"` 且是导演，或者 `pending`）和编剧的分场建议（`card.mode === "scenes"` 或 `pendingScenes`）都画成 `SuggestionCard`；`current` 用这一场现在的镜头 / 现在的场次（`currentScenes`）。动作、表演、美术、审片这些只关于一个镜头的卡片保留原来的行，按钮改成「放进分镜 / 换一个 / 不要」（审片仍是「按意见重做这一镜 / 知道了」）。「换一个」= `sendChat`（同一位助手再出一版），「不要」= `markApplied(role)`（它只清掉建议，不改作品）。
+- 放进去以后状态栏出「撤销」（读屏名「撤销刚才放进去的」），只在提示码是 SCRIPT_APPLIED / ART_APPLIED / SHOT_APPLIED / SHOTS_APPLIED 且提示还没淡出时出现，现在调 `undoEdit`；整合 gpt/work-4a 后改调按页撤销。
+- 右栏每一页都是同一个标签条：剧本、角色与场景只有「AI 助手」（属性分别是中间的正文和表单）；分镜、单镜、剪辑是「属性 | AI 助手」，三页用同一个助手（主组件里的 `shotAssistant`，卡片按这一场筛）。剪辑页的「修改这一段」并进「属性」（描述框在属性里）。`rightTab` 的 "fix" 值照旧可以设，画出来就是属性。
+- Ctrl+J（⌘J）：有两个标签的页面在「属性」和「AI 助手」之间切；只有助手的页面进出助手的输入框（`next/wiring/assistantKey.ts`）。
+- 开场说明「跟这位助手说说你的想法。放进去之前不会改你写过的字。」是灰色小字，不再画成用户气泡；没有建议时不画卡片（以前的「还没有建议 0 条」去掉了），在写的时候只有一行灰字「正在写…」。
+- 「导入小说」从编剧的快捷建议里拿掉，放到「作品」菜单里，剧本还是空的时候正文上面也有一个。
 
 ## 一件事一个入口（4A-U10，要 4A-B11 ③）
 
@@ -689,6 +696,13 @@ onUndo; // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(f
 - 对比只用 TakePicker 选版本：「保留旧版」「用新版替换」拿掉，换成「关掉对比」；原来 `onReplace` 的逻辑由 `onChooseTake` 代替。
 - `fixAction` 状态现在没人读，只留 setter（`const [, setFixAction]`），`runAction` 不用改。
 - 要 GPT 提供（4A-B11 ③）：按当前页面分派的撤销。`gpt/work-4a` 的 4b3cc81 已经有了（`createEditorPageHistory()` 的 `undo / redo / canUndo / canRedo`，按 `{ projectId, page }` 分开记，page 是 script / cast / board / edit），顶栏这一组整合后调它，`page` 用当前页签（单镜页算 board）。整合以前顶栏接现在的 `undoEdit` / `redoEdit`（撤的是整部作品的改动，剧本和时间线的改动也在里面），所以拿掉另外两组不会少功能。
+
+## 单镜页的说明文字（4A-U12）
+
+- 拼好的整段说明默认收起，写「看 AI 会收到的完整说明」（3JR-U05 已做，这里核对过）。
+- 「包括这一镜的画面和人物外貌」改灰色（去掉 `role-a`），橙红只留给要处理的问题。
+- 生成按钮下面那句改成 `next/shot.ts` 的 `videoLine(versions, current.seconds)`：「1 段 2 秒的视频 · 用 Grok 会员额度，不另外收费」。以前用的是 `generationEstimate(1, versions, duration)`，`duration` 是上一次点的时长，换镜头以后会和这一镜选中的秒数对不上（选 2 秒写「约 3 秒」）。`generationEstimate` 在 GPT 的确认和提示里照旧用，没动。上面「Grok 会员 · 成片」那一行去掉了重复的「不另外收费」。
+- 左边镜头卡片撑满列宽（`.shotrow` 宽 100%），画面描述框也撑满。
 
 ## 和 GPT 的接口对照（3J-B17）
 

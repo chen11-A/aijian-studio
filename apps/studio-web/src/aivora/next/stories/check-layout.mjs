@@ -305,6 +305,8 @@ const pages = [
   },
   { name: "单镜", button: "单镜" },
   { name: "剪辑", tab: "剪辑" },
+  // 4B-U01: the scene's sound in place of the preview, then back.
+  { name: "剪辑 声音", button: "声音", close: "预览" },
   { name: "导出对话框", button: "导出成片", close: "关闭" },
   { name: "任务中心", button: /后台生成/ },
 ];
