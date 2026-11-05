@@ -1,3 +1,4 @@
+import { shotActions, shotActionText, withShotActions } from "./shot-actions";
 import { sceneWriterPlan, type WriterPlan } from "./writer-plan";
 import { directorPlanPrompt } from "./director-plan";
 import { withShotCostumes } from "./costume-rules";
@@ -671,7 +672,7 @@ export function beatsForShot(
 
 /** Text evidence excludes spoken mentions; it never uses shot order or number. */
 function actionVisual(shot: FilmShot): string {
-  let visual = `${shot.picture} ${shot.action}`.replace(/[“「"][^”」"]*[”」"]/g, "");
+  let visual = `${shot.picture} ${shotActionText(shot)}`.replace(/[“「"][^”」"]*[”」"]/g, "");
   for (const line of [...(shot.lines ?? []), { text: shot.line }])
     if (line.text) visual = visual.replaceAll(line.text, "");
   return visual;
@@ -752,10 +753,10 @@ export function assignActionBeats(
     shots: shots.map((shot) => {
       const parts = accepted.get(shot.id);
       return parts
-        ? {
-            ...shot,
-            action: plainCue([...new Set([shot.action, ...parts].filter(Boolean))].join("。")),
-          }
+        ? withShotActions(
+            shot,
+            [...new Set([...shotActions(shot), ...parts].filter(Boolean))].map(plainCue),
+          )
         : shot;
     }),
     unassignedBeats,
@@ -1577,7 +1578,7 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
     size: shot.size.slice(0, 20),
     angle: (shot.angle || "平视").slice(0, 20),
     move: (shot.move || "固定").slice(0, 20),
-    action: clip(shot.action, 1000),
+    action: clip(shotActionText(shot), 1000),
     performance: clip(shot.performance, 1000),
     identity: shotIdentity(shot, film).slice(0, 200),
     voice_id: shotVoiceId(shot, film).slice(0, 64),

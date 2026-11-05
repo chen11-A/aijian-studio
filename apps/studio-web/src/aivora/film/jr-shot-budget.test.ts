@@ -1,3 +1,4 @@
+import { shotActionText } from "./shot-actions";
 import { describe, expect, it } from "vitest";
 import { parseDirectorShots } from "./project";
 import { detectDirectorCoverage, mergeAdjacentShots, shotLines } from "./director-continuity";
@@ -24,7 +25,7 @@ describe("3JR-B01 lossless scene compression (synthetic director replies)", () =
       );
       for (const row of raw) {
         expect(result.map((shot) => shot.picture).join("\n")).toContain(row.picture);
-        expect(result.map((shot) => shot.action).join("\n")).toContain(row.action);
+        expect(result.map(shotActionText).join("\n")).toContain(row.action);
       }
       expect(result.reduce((sum, shot) => sum + shot.seconds, 0)).toBe(count * 3);
       expect(detectDirectorCoverage({ id: "scene-1", text: source }, result).ok).toBe(true);

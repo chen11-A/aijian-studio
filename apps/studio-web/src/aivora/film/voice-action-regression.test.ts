@@ -1,3 +1,4 @@
+import { shotActionText } from "./shot-actions";
 import { describe, expect, it } from "vitest";
 import { blankFilm, sampleFilm, readFilm, writeFilm } from "./project";
 import {
@@ -172,8 +173,8 @@ it("stores all unassigned beats and refuses combat on dialogue shots even with a
     { shotId: "fight", text: "周烈挥棍。。保留原文：沈砚肘击。" },
   ]);
   expect(result.shots[0]?.action).toBe("");
-  expect(result.shots[1]?.action).toContain("沈砚肘击");
-  expect(result.shots[1]?.action).not.toMatch(/保留原文|。。/);
+  expect(shotActionText(result.shots[1]!)).toContain("沈砚肘击");
+  expect(shotActionText(result.shots[1]!)).not.toMatch(/保留原文|。。/);
   expect(result.unassignedBeats).toEqual([
     { sceneId: "scene", text: "周烈挥动铁棍" },
     { sceneId: "scene", text: "沈砚肘击" },

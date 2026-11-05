@@ -26,6 +26,7 @@ const fields = {
     "seconds",
     "picture",
     "action",
+    "actionBeats",
     "actionPlan",
     "performance",
     "performancePlan",

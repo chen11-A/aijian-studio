@@ -1,3 +1,4 @@
+import { shotActions, withShotActions } from "./shot-actions";
 import type { WriterPlan, SceneWriterPlan, WriterCharacterPlan } from "./writer-plan";
 import type { ArtDesign } from "./art-design";
 import type { TextReviewReport } from "./review-report";
@@ -212,6 +213,7 @@ export type FilmShot = {
   seconds: number;
   picture: string;
   action: string;
+  actionBeats?: string[];
   performance: string;
   performanceSource?: string;
   /** Optional per-shot style. Empty means the project style bible. */
@@ -857,7 +859,7 @@ export function parseDirectorShots(
       scenes.find((scene) => scene.id === sceneId && scene.text === sceneText),
     );
     if (plan) parsed.directorPlan = plan;
-    shots.push(parsed);
+    shots.push(withShotActions(parsed, [parsed.action]));
   });
   const varied =
     shots.length > 0 && shots.every((shot) => shot.seconds === 8)
@@ -890,7 +892,7 @@ function completeDirectorCoverage(
     originals.slice(start, starts[index + 1] ?? originals.length),
   );
   return merged.map((shot, index) => {
-    const clean = { ...shot };
+    const clean = { ...shot, id: `${sceneId}-shot-${index + 1}` };
     delete clean[directorConnection];
     const group = groups[index] ?? [];
     const requested = group.some((item) => {
@@ -911,7 +913,7 @@ function completeDirectorCoverage(
           (item) => item.id === meta.explicit || item[directorConnection]?.rawId === meta.explicit,
         ));
     if (group.length === 1 && previous && previous.sceneId === shot.sceneId && explicitMatches) {
-      clean.continuityFromShotId = previous.id;
+      clean.continuityFromShotId = `${sceneId}-shot-${index}`;
     } else {
       clean.continuity = [
         {
@@ -1036,7 +1038,7 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
         title: sceneDisplayTitle(item.title, item.where, item.text),
       })),
       shots: (value.shots ?? []).map((shot) => ({
-        ...shot,
+        ...(shot.userFields?.includes("action") ? shot : withShotActions(shot, shotActions(shot))),
         continuity: upgradeContinuity(shot.continuity),
         lines: shotLines({
           ...shot,

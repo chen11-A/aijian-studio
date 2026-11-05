@@ -82,6 +82,7 @@ export function editorAgentContext(film: FilmProject, selection: EditorSelection
         size: shot.size,
         picture: shot.picture,
         action: shot.action,
+        actionBeats: [...(shot.actionBeats ?? [])],
         performance: shot.performance,
         characters: [...shot.characters],
         // Preserve both representations: later user edits may make the legacy scalar authoritative.

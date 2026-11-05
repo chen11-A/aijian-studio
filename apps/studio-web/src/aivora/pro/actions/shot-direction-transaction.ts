@@ -21,7 +21,7 @@ const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b
 const unique = <T>(rows: T[]) =>
   rows.filter((row, index) => rows.findIndex((other) => equal(other, row)) === index);
 const fields = {
-  action: ["action", "actionPlan", "sound", "source"],
+  action: ["action", "actionBeats", "actionPlan", "sound", "source"],
   performance: ["performance", "performancePlan", "performanceSource", "delivery", "source"],
 } satisfies Record<"action" | "performance", (keyof FilmShot)[]>;
 const field = (row: FilmShot, key: keyof FilmShot) => ({
@@ -32,6 +32,7 @@ function directionInput(film: FilmProject, shot: FilmShot) {
   return structuredClone({
     picture: shot.picture,
     action: shot.action,
+    actionBeats: shot.actionBeats,
     performance: shot.performance,
     line: shot.line,
     lines: shot.lines,

@@ -1,3 +1,4 @@
+import { shotActions, shotActionText, withShotActions } from "./shot-actions";
 import { mergeDirectorPlans } from "./director-plan";
 import { extractScriptLines, type ScriptLine } from "./phase2";
 import type { FilmShot } from "./project";
@@ -77,7 +78,7 @@ export function detectDirectorCoverage(
       .at(-1) ?? "";
   const evidence = current
     .map((shot) =>
-      [shot.picture, shot.action, ...shotLines(shot).map((line) => line.text)].join("\n"),
+      [shot.picture, shotActionText(shot), ...shotLines(shot).map((line) => line.text)].join("\n"),
     )
     .join("\n");
   const normalizedEvidence = coverageText(evidence);
@@ -110,7 +111,7 @@ export function coverageRepairContext(
       .map((shot) => ({
         id: shot.id,
         picture: shot.picture,
-        action: shot.action,
+        action: shotActionText(shot),
         lines: shotLines(shot),
       })),
     missing_lines: coverage.missingLines,
@@ -192,7 +193,8 @@ export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): 
           }
         : {}),
       ...(left.promptEn || right.promptEn ? { promptEn: join(left.promptEn, right.promptEn) } : {}),
-      action: join(left.action, right.action),
+      action: shotActions(left)[0] || shotActions(right)[0] || "",
+      actionBeats: [...shotActions(left), ...shotActions(right)],
       performance: join(left.performance, right.performance),
       blocking: join(left.blocking, right.blocking),
       facing: join(left.facing, right.facing),
@@ -211,9 +213,10 @@ export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): 
         ],
       },
     };
-    const plan = mergeDirectorPlans(left, right, merged);
-    if (plan) merged.directorPlan = plan;
-    next.splice(index, 2, { ...merged, lines });
+    const compact = withShotActions(merged, [...shotActions(left), ...shotActions(right)]);
+    const plan = mergeDirectorPlans(left, right, compact);
+    if (plan) compact.directorPlan = plan;
+    next.splice(index, 2, { ...compact, lines });
   }
   const reserved = new Set(next.map((shot) => shot.id).filter(Boolean));
   const used = new Set<string>();
