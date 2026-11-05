@@ -7,7 +7,7 @@
 - 集成分支 `aivora/dev`：`7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11`，仍是已发布3j-r1代码。
 - GPT 代码交接基线 `gpt/work-4a`：`05c59c74ce6a15875a0c39191e8bfb49496d8984`（包含本轮B01、B08、B09、B11补修）。此前完整交付点 `b1afb5958efcaae25b708d57afc411ede2341857`；本轮B01适配为 `a7b5249`，B08设计声明为 `9e8e9dd`。后续GPT提交仍须保留。
 - 已发现 `claude/work@caf50e27b50cdbf7571e85d28d5dc4319efa6d82`，它直接基于3j-r1，已经提供 PipelineSteps 和模板入口，**不需要重做组件**。其代码尚未含GPT的4a逻辑。
-- 旧 `claude/aivora-readme-docs-sa77rk@5ba2b82302a6bd035353e30f11eb1f1c922997a4` 的四笔改动 `9d89db8 → 2d7acb7 → d894dc3 → 5ba2b82` 仍未合入。它们与新claude/work不是同一条连续历史，后续整合需逐项保留，不要丢弃或重复覆盖。
+- 用户更新的旧界面提交分工：`2d7acb7`、`d894dc3` 由用户摘入 `claude/work`；`9d89db8`、`5ba2b82` 由另一会话在 `4A-U09`、`4A-U11` 中处理。GPT 不再从旧 `claude/aivora-readme-docs-sa77rk` 合并或摘取这四笔提交。后续阶段整合只核对实际交付内容及历史，避免重复实现或覆盖；此处分工不代表这些摘取已经完成。
 - ProWorkspace 按业务职责拆分，不按旧行号：GPT保留 `pipelineWorkspace`、保存协调、请求守卫、角色事务、generation队列等逻辑；Claude改JSX/CSS/页面props/最终文案。冲突时不整文件取任一边，不复制3j版本的处理函数覆盖4a。`pro/actions/**`、`film/*.ts` 归GPT。
 
 ## B01：在现有 PipelineSteps 上补接什么
