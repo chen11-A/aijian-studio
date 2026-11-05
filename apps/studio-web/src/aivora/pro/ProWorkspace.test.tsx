@@ -1642,6 +1642,26 @@ it("puts a yellow dot on a shot with a continuity reminder and explains it in �
   expect(screen.queryByRole("region", { name: "场记提醒" })).toBeNull();
 });
 
+it("follows the work's aspect and offers 比例 only where the desktop can crop (4A-U07)", async () => {
+  installDesktop();
+  await openSample();
+  const root = document.querySelector(".pro-root")!;
+  expect(["9:16", "16:9"]).toContain(root.getAttribute("data-aspect"));
+  fireEvent.click(screen.getByRole("button", { name: /导出成片/ }));
+  expect(screen.queryByLabelText("比例")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+  Object.assign(window.aijian!, { cancelFilmExport: vi.fn(async () => ({ ok: true })) });
+  fireEvent.click(screen.getByRole("button", { name: /导出成片/ }));
+  const aspect = screen.getByLabelText("比例") as HTMLSelectElement;
+  expect([...aspect.options].map((option) => option.textContent)).toEqual(
+    root.getAttribute("data-aspect") === "16:9"
+      ? ["横屏 16:9（作品的画幅）", "竖屏 9:16（从画面中间裁）", "两种都要"]
+      : ["竖屏 9:16（作品的画幅）", "横屏 16:9（从画面中间裁）", "两种都要"],
+  );
+  fireEvent.change(aspect, { target: { value: "both" } });
+  expect(aspect).toHaveValue("both");
+});
+
 it("opens 后台生成 as a drawer that closes on a press outside it (4A-U04)", async () => {
   installDesktop();
   await openSample();

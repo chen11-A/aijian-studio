@@ -2833,6 +2833,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (4A-U04): the live task list for 后台生成 and the task center.
   const feed = useTaskFeed();
   const feedNow = feedProgress(feed);
+  // 4A-U07: the export dialog's 比例. Shown only by a desktop that can crop to the other
+  // aspect (it brings cancelFilmExport with it); the export call reads it once GPT wires it.
+  const [exportAspects, setExportAspects] = useState<"work" | "other" | "both">("work");
+  const canCropAspect =
+    typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
   // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
   useDismiss(menu === "queue", () => setMenu(null), '[data-menu="queue"]');
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
@@ -2915,6 +2920,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       className="pro-root"
       style={{ overflow: "hidden", maxWidth: "100vw", width: "100%" }}
       data-stage={stage}
+      data-aspect={film ? (film.aspectRatio === "16:9" ? "16:9" : "9:16") : undefined}
       data-sample={open ? "open" : "empty"}
       data-generate={actions.regenerate.enabled ? "on" : "off"}
     >
@@ -3917,6 +3923,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     : "未命名"}
                 </div>
               </div>
+              {canCropAspect && film ? (
+                <div className="field">
+                  <label htmlFor="export-aspect">比例</label>
+                  <select
+                    id="export-aspect"
+                    className="input"
+                    aria-label="比例"
+                    value={exportAspects}
+                    onChange={(event) =>
+                      setExportAspects(event.target.value as "work" | "other" | "both")
+                    }
+                  >
+                    <option value="work">
+                      {film.aspectRatio === "16:9"
+                        ? "横屏 16:9（作品的画幅）"
+                        : "竖屏 9:16（作品的画幅）"}
+                    </option>
+                    <option value="other">
+                      {film.aspectRatio === "16:9"
+                        ? "竖屏 9:16（从画面中间裁）"
+                        : "横屏 16:9（从画面中间裁）"}
+                    </option>
+                    <option value="both">两种都要</option>
+                  </select>
+                </div>
+              ) : null}
               <div className="field">
                 <label htmlFor="export-dir">保存到</label>
                 <div className="pathrow">
