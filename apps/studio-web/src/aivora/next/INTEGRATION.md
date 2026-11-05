@@ -677,11 +677,11 @@ const view = pipelineView(film);
 - 三个按钮的回调：
 
 ```ts
-onApply   // 原来的 onApply / onApplyScenes（gpt/work-4a 上是 applyStoryConfirmation 那一套）
-onAnother // 同一位助手、同一个范围再出一版，现在的镜头不动：重发上一句话
-onReject  // 丢掉这条建议，现在的镜头不动：setPending(null)（分场时 setPendingScenes(null)）
-onUndo    // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(film, selection)
-          // （createEditorPageHistory，按页记），claude/work 上先接 undoEdit
+onApply; // 原来的 onApply / onApplyScenes（gpt/work-4a 上是 applyStoryConfirmation 那一套）
+onAnother; // 同一位助手、同一个范围再出一版，现在的镜头不动：重发上一句话
+onReject; // 丢掉这条建议，现在的镜头不动：setPending(null)（分场时 setPendingScenes(null)）
+onUndo; // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(film, selection)
+// （createEditorPageHistory，按页记），claude/work 上先接 undoEdit
 ```
 
 - 已接进 `Assistant`（4A-U11）：导演的镜头建议（`card.mode === "shots"` 且是导演，或者 `pending`）和编剧的分场建议（`card.mode === "scenes"` 或 `pendingScenes`）都画成 `SuggestionCard`；`current` 用这一场现在的镜头 / 现在的场次（`currentScenes`）。动作、表演、美术、审片这些只关于一个镜头的卡片保留原来的行，按钮改成「放进分镜 / 换一个 / 不要」（审片仍是「按意见重做这一镜 / 知道了」）。「换一个」= `sendChat`（同一位助手再出一版），「不要」= `markApplied(role)`（它只清掉建议，不改作品）。
