@@ -46,6 +46,7 @@ const stories = [
   "pipeline-steps",
   "suggestion-card",
   "history-list",
+  "context-menu",
 ];
 
 // Runs inside the page. Returns a list of problems in Chinese.

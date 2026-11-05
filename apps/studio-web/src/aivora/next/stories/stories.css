@@ -6,8 +6,9 @@
 
 .pro-root.nx-story .nx-story-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 6px 12px;
   min-width: 0;
   padding: 8px 16px;
   border-bottom: 1px solid var(--line);

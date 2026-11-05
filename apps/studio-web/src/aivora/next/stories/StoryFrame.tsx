@@ -13,6 +13,7 @@ export const STORY_PAGES = [
   { id: "pipeline-steps", name: "一键成片步骤" },
   { id: "suggestion-card", name: "助手建议" },
   { id: "history-list", name: "历史版本" },
+  { id: "context-menu", name: "右键菜单" },
 ] as const;
 
 export type StoryId = (typeof STORY_PAGES)[number]["id"];

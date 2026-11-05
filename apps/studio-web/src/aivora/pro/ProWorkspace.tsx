@@ -24,7 +24,7 @@ import {
   timelineSeconds,
   xAtSeconds,
 } from "./edit-timeline";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   actionBeats,
   adaptToShortDrama,
@@ -156,6 +156,7 @@ import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
 import { useStatusNotice } from "../next/wiring/statusNotice";
 import { useDismiss } from "../next/wiring/dismiss";
+import { ContextMenu, useContextMenu, type ContextMenuItem } from "../next/ContextMenu";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
@@ -6226,6 +6227,34 @@ function BoardPage({
   useDismiss(moreOpen, () => setMoreOpen(false), ".more-wrap");
   const shownShotId = current?.id ?? "";
   useEffect(() => setMoreOpen(false), [shownShotId]);
+  // 5-3-02: right-click on a card or a scene. The card's menu is the same list as 「更多」.
+  const cardMenu = useContextMenu();
+  const sceneMenu = useContextMenu();
+  const shotMenu: ContextMenuItem[] = current
+    ? [
+        { label: "前移", onSelect: () => onFilm(moveShot(film, current.id, -1)) },
+        { label: "后移", onSelect: () => onFilm(moveShot(film, current.id, 1)) },
+        ...(fourArmed !== current.id ? [{ label: "出 4 张候选", onSelect: onFour }] : []),
+        ...(shotProgress(current) !== "未生成"
+          ? [
+              {
+                label: "重新生成画面",
+                onSelect: onStills,
+                disabledReason: stillProgress[current.id] ? "画面正在生成" : undefined,
+              },
+            ]
+          : []),
+        {
+          label: "删除这一镜",
+          danger: true,
+          divided: true,
+          onSelect: () => {
+            onFilm(removeShot(film, current.id));
+            onNotice("已删除这一镜。");
+          },
+        },
+      ]
+    : [];
   // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
   // does not run the check again on every edit.
   const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
@@ -6298,6 +6327,12 @@ function BoardPage({
                 onScene(item.id);
                 onShot(0);
               }}
+              onContextMenu={(event) => {
+                onScene(item.id);
+                onShot(0);
+                cardMenu.close();
+                sceneMenu.open(event);
+              }}
             >
               <span className="no">{String(item.no).padStart(2, "0")}</span>
               <span className="t">
@@ -6314,6 +6349,32 @@ function BoardPage({
             </button>
           ))}
         </div>
+        {/* 5-3-02: the scene's menu holds the scene's buttons above the cards. */}
+        <ContextMenu
+          at={sceneMenu.at}
+          label={`${sceneRow?.title ?? "这一场"}的操作`}
+          items={
+            sceneRow
+              ? [
+                  {
+                    label: "加镜头",
+                    onSelect: () => {
+                      onFilm(addShot(film, sceneRow.id));
+                      onNotice("已加一个镜头。");
+                    },
+                  },
+                  { label: "生成这一场", onSelect: onBatch },
+                ]
+              : []
+          }
+          onClose={sceneMenu.close}
+        />
+        <ContextMenu
+          at={cardMenu.at}
+          label={`镜头 ${current?.no ?? ""} 的操作`}
+          items={shotMenu}
+          onClose={cardMenu.close}
+        />
         <div className="pfoot stack">
           <span>
             全片：画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b>/
@@ -6391,6 +6452,12 @@ function BoardPage({
               // 4C-U05: the card's state is the label on its picture; who wrote it is in here.
               title={`镜头 ${item.no} · ${shotSource(item).label}`}
               onClick={() => onShot(index)}
+              onContextMenu={(event) => {
+                onShot(index);
+                setMoreOpen(false);
+                sceneMenu.close();
+                cardMenu.open(event);
+              }}
               onDragOver={(event) => {
                 if (!event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) return;
                 event.preventDefault();
@@ -6936,59 +7003,22 @@ function BoardPage({
                 </button>
                 {moreOpen ? (
                   <div className="menu up" role="menu" aria-label="这一镜的更多操作">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        onFilm(moveShot(film, current.id, -1));
-                      }}
-                    >
-                      前移
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        onFilm(moveShot(film, current.id, 1));
-                      }}
-                    >
-                      后移
-                    </button>
-                    {fourArmed !== current.id ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMoreOpen(false);
-                          onFour();
-                        }}
-                      >
-                        出 4 张候选
-                      </button>
-                    ) : null}
-                    {shotProgress(current) !== "未生成" ? (
-                      <button
-                        type="button"
-                        disabled={Boolean(stillProgress[current.id])}
-                        onClick={() => {
-                          setMoreOpen(false);
-                          onStills();
-                        }}
-                      >
-                        重新生成画面
-                      </button>
-                    ) : null}
-                    <div className="menu-sep" role="separator" />
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        onFilm(removeShot(film, current.id));
-                        onNotice("已删除这一镜。");
-                      }}
-                    >
-                      删除这一镜
-                    </button>
+                    {shotMenu.map((item) => (
+                      <Fragment key={item.label}>
+                        {item.divided ? <div className="menu-sep" role="separator" /> : null}
+                        <button
+                          type="button"
+                          className={item.danger ? "danger" : undefined}
+                          disabled={Boolean(item.disabledReason)}
+                          onClick={() => {
+                            setMoreOpen(false);
+                            item.onSelect();
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      </Fragment>
+                    ))}
                   </div>
                 ) : null}
               </div>
@@ -7601,6 +7631,21 @@ function EditPage({
   const [zoom, setZoom] = useState<number>(PX_PER_SECOND);
   const clips = editClipLayout(shots, readyCount > 0 && !unfolded, zoom);
   const zoomBy = (direction: 1 | -1) => setZoom((now) => stepZoom(now, direction));
+  // 5-3-02: right-click on a clip picks it and offers what the bar above it offers.
+  const clipMenu = useContextMenu();
+  const clipItems: ContextMenuItem[] = [
+    {
+      label: "重新生成",
+      onSelect: onRangeGenerate,
+      disabledReason: actions.regenerate.enabled ? undefined : actions.regenerate.reason,
+    },
+    {
+      label: "换配音",
+      onSelect: () => onAction("voice"),
+      disabledReason: actions.voice.enabled ? undefined : actions.voice.reason,
+    },
+    { label: "剪掉", onSelect: () => onAction("cut"), danger: true, divided: true },
+  ];
   const zoomToFit = () =>
     setZoom(
       fitZoom(
@@ -7633,7 +7678,7 @@ function EditPage({
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Delete" && event.key !== "Backspace") return;
       if (event.metaKey || event.ctrlKey || event.altKey || typingInField(event)) return;
-      if (document.querySelector('[role="dialog"]')) return;
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
       if (cutKey.current()) event.preventDefault();
     };
     window.addEventListener("keydown", onKey);
@@ -8446,6 +8491,12 @@ function EditPage({
                   );
                 })}
               </div>
+              <ContextMenu
+                at={clipMenu.at}
+                label={`镜头 ${current?.no ?? shot + 1} 的操作`}
+                items={clipItems}
+                onClose={clipMenu.close}
+              />
               <div className="lane" style={{ height: "var(--hv)" }}>
                 {clips.map((clip, index) => {
                   const item = shots[index];
@@ -8466,6 +8517,11 @@ function EditPage({
                         seekTo(event.detail === 0 ? clip.left : areaX(event.clientX));
                         onShot(index);
                         onPickClip();
+                      }}
+                      onContextMenu={(event) => {
+                        onShot(index);
+                        onPickClip();
+                        clipMenu.open(event);
                       }}
                     >
                       {clip.folded ? null : <span className="lb">{ready ? name : "未生成"}</span>}

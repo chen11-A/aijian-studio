@@ -3694,6 +3694,67 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("right-clicks a card, a scene or a clip for the same things as 「更多」 (5-3-02)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const cards = () => [...document.querySelectorAll<HTMLElement>(".grid .card")];
+  // Shots are numbered by place, so the size on each card tells them apart.
+  const sizes = () => cards().map((card) => card.querySelector(".ct span")?.textContent);
+  const before = sizes();
+  expect(before[1]).not.toBe(before[2]);
+  fireEvent.contextMenu(cards()[1]!, { clientX: 300, clientY: 200 });
+  expect(cards()[1]).toHaveClass("sel");
+  const menu = screen.getByRole("menu", { name: /^镜头 \d+ 的操作$/ });
+  expect(
+    within(menu)
+      .getAllByRole("menuitem")
+      .map((item) => item.textContent),
+  ).toEqual(["前移", "后移", "出 4 张候选", "删除这一镜"]);
+  // The same list as 「更多」. A press anywhere else closes the right-click menu.
+  fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }));
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
+  expect(screen.queryByRole("menu", { name: /的操作$/ })).toBeNull();
+  expect(
+    within(screen.getByRole("menu", { name: "这一镜的更多操作" }))
+      .getAllByRole("button")
+      .map((item) => item.textContent),
+  ).toEqual(["前移", "后移", "出 4 张候选", "删除这一镜"]);
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
+  fireEvent.contextMenu(cards()[1]!);
+  fireEvent.click(screen.getByRole("menuitem", { name: "后移" }));
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(sizes().slice(0, 3)).toEqual([before[0], before[2], before[1]]);
+  // A scene: its own two buttons.
+  const scene = document.querySelectorAll<HTMLElement>(".scenes .scene")[1]!;
+  fireEvent.contextMenu(scene);
+  expect(scene).toHaveClass("on");
+  const sceneMenu = screen.getByRole("menu", { name: /的操作$/ });
+  expect(
+    within(sceneMenu)
+      .getAllByRole("menuitem")
+      .map((item) => item.textContent),
+  ).toEqual(["加镜头", "生成这一场"]);
+  const shotsInScene = cards().length;
+  fireEvent.click(within(sceneMenu).getByRole("menuitem", { name: "加镜头" }));
+  expect(cards()).toHaveLength(shotsInScene + 1);
+  // A clip on 剪辑: what the bar over the picked clip offers.
+  fireEvent.click(stageTab("剪辑"));
+  const clips = () => document.querySelectorAll<HTMLElement>(".clip.v");
+  const count = clips().length;
+  fireEvent.contextMenu(clips()[2]!);
+  expect(document.querySelector(".selbar")).not.toBeNull();
+  const clipMenu = screen.getByRole("menu", { name: /^镜头 \d+ 的操作$/ });
+  expect(
+    within(clipMenu)
+      .getAllByRole("menuitem")
+      .map((item) => item.textContent),
+  ).toEqual(["重新生成", "换配音", "剪掉"]);
+  fireEvent.click(within(clipMenu).getByRole("menuitem", { name: "剪掉" }));
+  expect(clips()).toHaveLength(count - 1);
+  expect(screen.getByText(/已剪掉这一段/)).toBeInTheDocument();
+});
+
 it("plays with J / K / L and moves by cut with ↑ / ↓ on 剪辑 (5-3-09)", async () => {
   installDesktop();
   await openSample();

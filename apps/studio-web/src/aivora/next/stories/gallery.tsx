@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { ContextMenuStory } from "../ContextMenu.story";
 import { CoverEditorStory } from "../CoverEditor.story";
 import { ExportCheckStory } from "../ExportCheck.story";
 import { HistoryListStory } from "../HistoryList.story";
@@ -20,6 +21,7 @@ export const STORIES: Record<StoryId, ComponentType<{ state?: string }>> = {
   "pipeline-steps": PipelineStepsStory,
   "suggestion-card": SuggestionCardStory,
   "history-list": HistoryListStory,
+  "context-menu": ContextMenuStory,
 };
 
 /** Reads ?story=…&state=… . An unknown story falls back to the first one. */

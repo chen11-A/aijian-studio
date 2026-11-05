@@ -47,6 +47,7 @@ describe("story pages", () => {
     ],
     ["suggestion-card", ["change", "new", "scenes", "busy", "applied"]],
     ["history-list", ["list", "restoring", "empty", "none"]],
+    ["context-menu", ["open", "first", "closed"]],
   ])("%s renders every example state", (story, states) => {
     for (const state of states) {
       const view = render(<StoryGallery search={`?story=${story}&state=${state}`} />);
