@@ -495,7 +495,8 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "再短一点" } });
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
     expect((await screen.findAllByText(/编剧写好了/)).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "返回修改" }));
+    // 4A-U11: 「换一个」 asks the same assistant again; nothing changes until 放进.
+    fireEvent.click(screen.getByRole("button", { name: "换一个" }));
     expect((await screen.findAllByText(/编剧写好了/)).length).toBeGreaterThan(0);
     pickHelper("动作指导");
     fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
@@ -554,7 +555,9 @@ describe("professional workspace", () => {
     expect(screen.queryByRole("button", { name: "用新版替换" })).toBeNull();
     expect(screen.queryByRole("button", { name: "保留旧版" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "关掉对比" }));
-    fireEvent.click(screen.getByRole("button", { name: "修改这一段" }));
+    // 4A-U11: 修改这一段 is part of 属性; the right column is 属性 | AI 助手 like every page.
+    expect(screen.queryByRole("button", { name: "修改这一段" })).toBeNull();
+    expect(screen.getByLabelText("改这一镜的描述")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "属性" }));
     fireEvent.click(screen.getByRole("button", { name: "取消选择" }));
     fireEvent.click(screen.getByRole("button", { name: "删除" }));
@@ -946,7 +949,9 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
     expect(await screen.findByText(/没有按格式返回/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "放进分镜" })).not.toBeInTheDocument();
-    expect(screen.getByText("还没有建议")).toBeInTheDocument();
+    // 4A-U11: no suggestion, no empty card.
+    expect(screen.queryByText("还没有建议")).toBeNull();
+    expect(document.querySelector(".nx-suggest")).toBeNull();
     completeText.mockImplementation(async ({ text }: { text: string }) => {
       if (text.includes("抽出人物")) {
         return {
@@ -1141,9 +1146,12 @@ it("keeps a focused duration field, a full shot list, and a typed export path", 
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
   expect(await screen.findByText(/导演拆好了/)).toBeInTheDocument();
-  expect(document.querySelectorAll(".shotlist > div").length).toBeLessThanOrEqual(9);
+  // 4A-U11: the suggestion lists every new shot against the scene's shots now.
+  expect(
+    document.querySelectorAll(".nx-suggest-row:not([data-kind=removed])").length,
+  ).toBeLessThanOrEqual(9);
   for (let index = 1; index <= 9; index += 1)
-    expect(document.querySelector(".shotlist")?.textContent).toContain(`第${index}镜的巷口`);
+    expect(document.querySelector(".nx-suggest-rows")?.textContent).toContain(`第${index}镜的巷口`);
   fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "自定义" }));
@@ -1834,12 +1842,10 @@ it("keeps a separate review card and confirms the shots before video", async () 
   expect(screen.queryByRole("button", { name: "已记下" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "审一下这一镜的文字" }));
   fireEvent.click(await screen.findByRole("button", { name: "按意见重做这一镜" }));
-  expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/只重做这一段/);
-  const redo = screen.queryByRole("button", { name: "只重做这一段" });
-  if (redo) {
-    fireEvent.click(redo);
-    expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/确认表/);
-  }
+  expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/重新生成/);
+  // 4A-U10: one shot's 重新生成 opens its 单镜 panel.
+  fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+  expect(screen.getByRole("button", { name: "返回分镜" })).toBeInTheDocument();
   fireEvent.click(stageTab("角色与场景"));
   fireEvent.change(screen.getByLabelText("角色声音"), { target: { value: "leo" } });
   expect(screen.getByText(/已选：威严有力/)).toBeInTheDocument();
@@ -3235,6 +3241,73 @@ it("gives each action one place: undo, sign-in and the preview's sound (4A-U10)"
   expect(mute()).toHaveAttribute("aria-pressed", "true");
   fireEvent.click(mute());
   expect(mute()).toHaveAttribute("aria-pressed", "false");
+});
+
+it("keeps the assistant in one place and shows a suggestion as a change (4A-U11)", async () => {
+  const { completeText } = installDesktop();
+  completeText.mockImplementation(async ({ text }: { text: string }) => {
+    if (text.includes("把这一场拆成镜头")) {
+      const shots = Array.from({ length: 4 }, (_, index) => ({
+        picture: `第${index + 1}镜的巷口`,
+        size: "中景",
+        seconds: 2,
+      }));
+      return { kind: "OK", text: JSON.stringify({ shots }) };
+    }
+    return { kind: "OK", text: "好", model: "grok-4.7" };
+  });
+  await openSample();
+  const tabs = () => [...document.querySelectorAll(".ptabs")].map((item) => item.textContent);
+  for (const tab of ["剧本", "角色与场景", "分镜", "剪辑"]) {
+    fireEvent.click(stageTab(tab));
+    expect(
+      tabs().filter((text) => text?.includes("AI 助手")),
+      tab,
+    ).toHaveLength(1);
+  }
+  // Ctrl+J switches 属性 and AI 助手 where both are there.
+  fireEvent.click(stageTab("剪辑"));
+  expect(screen.queryByLabelText("跟助手说")).toBeNull();
+  fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+  expect(screen.getByLabelText("跟助手说")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+  expect(screen.getByLabelText("改这一镜的描述")).toBeInTheDocument();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+  expect(screen.getByLabelText("跟助手说")).toBeInTheDocument();
+  // 剧本: the opening note is gray text, and 导入小说 is not a quick suggestion.
+  fireEvent.click(stageTab("剧本"));
+  pickHelper("编剧");
+  expect(document.querySelector(".chat-hint")).toHaveTextContent("跟这位助手说说你的想法");
+  expect(document.querySelector(".pane.ai .msg-u")).toBeNull();
+  expect(
+    within(document.querySelector(".quick") as HTMLElement).queryByText("导入小说"),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  expect(
+    within(screen.getByRole("menu", { name: "作品菜单" })).getByRole("button", {
+      name: "导入小说",
+    }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  // The director's suggestion says what it changes; 不要 changes nothing.
+  pickHelper("导演");
+  const before = document.querySelectorAll(".scene").length;
+  fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+  expect(await screen.findByText(/^现在 6 个 → 建议 \d+ 个$/)).toBeInTheDocument();
+  expect(document.querySelectorAll(".nx-suggest-row[data-kind]").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "不要" }));
+  expect(document.querySelector(".nx-suggest")).toBeNull();
+  expect(document.querySelectorAll(".scene")).toHaveLength(before);
+  // 放进分镜, then 撤销 from the status bar.
+  fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+  fireEvent.click(await screen.findByRole("button", { name: "放进分镜" }));
+  fireEvent.click(await screen.findByRole("button", { name: "撤销刚才放进去的" }));
+  fireEvent.click(stageTab("分镜"));
+  // 单镜 was left open above; the storyboard is one step back.
+  fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+  expect(document.querySelectorAll(".pb.grid .card")).toHaveLength(6);
 });
 
 it("gives both sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
