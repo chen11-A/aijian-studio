@@ -52,3 +52,24 @@ describe("3JR-B01 lossless scene compression (synthetic director replies)", () =
     expect(result.at(-1)!.picture).toBe("节拍18");
   });
 });
+
+it("compresses alternating speakers above sixteen without dropping or reassigning dialogue", () => {
+  const raw = Array.from({ length: 21 }, (_, i) => ({
+    picture: i === 20 ? "警笛渐近，周烈离开。" : `第${i + 1}个画面。`,
+    action: `第${i + 1}个动作`,
+    seconds: 3,
+    speaker: i % 2 ? "沈砚" : "林晚",
+    line: `第${i + 1}句话。`,
+  }));
+  const source =
+    raw.map((row) => `${row.speaker}：“${row.line}”`).join("\n") + "\n警笛渐近，周烈离开。";
+  const shots = parseDirectorShots(JSON.stringify({ shots: raw }), "scene-1", source)!;
+  expect(shots.length).toBeLessThanOrEqual(16);
+  expect(shots.flatMap(shotLines)).toEqual(
+    raw.map((row) => ({ speaker: row.speaker, text: row.line })),
+  );
+  expect(shots.reduce((sum, shot) => sum + shot.seconds, 0)).toBe(63);
+  expect(shots.map(shotActionText).join("\n")).toContain("第21个动作");
+  expect(detectDirectorCoverage({ id: "scene-1", text: source }, shots).ok).toBe(true);
+  expect(shots.map((s) => s.id)).toEqual(shots.map((_, i) => `scene-1-shot-${i + 1}`));
+});
