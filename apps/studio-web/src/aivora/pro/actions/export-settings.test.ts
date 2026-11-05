@@ -126,13 +126,11 @@ describe("4B-B09 export settings", () => {
       ...(options.subtitles?.mode === "srt" ? { subtitlePath: "/out/film.srt" } : {}),
       coverPath: "/out/film-封面.png",
     }));
-    const assemble = vi
-      .fn()
-      .mockResolvedValue({
-        path: "/films/assembly.mp4",
-        reason: "",
-        ...(durations ? { durations } : {}),
-      });
+    const assemble = vi.fn().mockResolvedValue({
+      path: "/films/assembly.mp4",
+      reason: "",
+      ...(durations ? { durations } : {}),
+    });
     window.aijian = {
       pickFilmFolder: vi.fn().mockResolvedValue("/out"),
       exportFilmCut: cut,
