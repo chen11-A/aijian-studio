@@ -39,3 +39,5 @@ web唯一失败为 `next/wiring/noticeCopy.test.ts > has a line for every code G
 全仓TypeScript、ESLint、Prettier通过：`/workspace/jr-current-types.log`、`/workspace/jr-current-eslint.log`、`/workspace/jr-current-format.log`。B02相关44项、B18相关63项、B19相关43项均通过，属于相交的回归集合，不将它们累加为独立测试总数。本轮没有额外修改Python或desktop源代码，也未重跑其全量；此前相关验证见上文。
 
 用户最新分工已同步交接文档：2d7acb7、d894dc3由用户摘入claude/work；9d89db8、5ba2b82由另一个会话处理4A-U09/U11。GPT不从旧界面分支重复合并这四笔提交。没有真实会员验收、没有阶段合并或发版。
+
+持续核查新增4c16472（交替对白压缩）、87354e7（少年年龄存盘）、91dcced（修复回复新增情节保护）。逐项B01–B10矩阵已写回任务书。21/23/78/54项相关回归通过（范围有重叠），web tsc与目标ESLint/Prettier通过；没有重跑本轮增量后的完整web，不能借用6cb8cd4全量数作为当前提交结果。真实会员验收边界保持。
