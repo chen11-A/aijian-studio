@@ -74,9 +74,11 @@ function shotEvidence(shot: FilmShot): string {
 
 /**
  * 3JR-B03: the last paragraph is shot when its words are there — verbatim anywhere in the
- * scene, or, as a director rewords them ("带着人钻进雨里" → "带人钻进雨里"), when at least half of
- * the narration's two-character pieces appear in the scene's last four shots. Written text
- * shown on screen (a sign, a note) must still appear word for word.
+ * scene, or, as a director rewords them ("带着人钻进雨里" → "带人钻进雨里"), when in the scene's
+ * last four shots every narration clause has some of its two-character pieces and at least
+ * half of all the pieces appear. A clause with none of its words ("警笛响起" when only the door
+ * opening is shot) is an event left out. Written text shown on screen (a sign, a note) must
+ * still appear word for word.
  */
 function tailCovered(tail: string, shots: readonly FilmShot[]): boolean {
   const { narration, printed } = tailNarration(tail);
@@ -84,9 +86,13 @@ function tailCovered(tail: string, shots: readonly FilmShot[]): boolean {
   if (printed.some((part) => !all.includes(part))) return false;
   if (narration.every((part) => all.includes(part))) return true;
   const recent = coverageText(shots.slice(-4).map(shotEvidence).join("\n"));
-  const grams = narration.flatMap(pairs);
+  const clauses = narration.map(pairs).filter((grams) => grams.length);
+  const hits = clauses.map((grams) => grams.filter((gram) => recent.includes(gram)).length);
+  const total = clauses.reduce((sum, grams) => sum + grams.length, 0);
   return (
-    grams.length > 0 && grams.filter((gram) => recent.includes(gram)).length / grams.length >= 0.5
+    total > 0 &&
+    hits.every((count) => count > 0) &&
+    hits.reduce((sum, count) => sum + count, 0) / total >= 0.5
   );
 }
 

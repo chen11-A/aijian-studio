@@ -42,12 +42,7 @@ describe("3JR-B03 tail coverage uses dialogue and narration evidence separately"
       false,
     )!;
     expect(detectDirectorCoverage({ id: "scene-2", text }, shots).ok).toBe(true);
-    // 3JR-B03: two of the three narration clauses are shot, the leaving into the rain among
-    // them; only where he vanishes is left out. That is no longer reported as an unshot ending.
     shots[1]!.action = "";
-    expect(detectDirectorCoverage({ id: "scene-2", text }, shots).missingTail).toBeNull();
-    // Most of the ending gone is still reported.
-    shots[1]!.picture = "雨水顺着屋檐流下";
     expect(detectDirectorCoverage({ id: "scene-2", text }, shots)).toMatchObject({
       ok: false,
       missingLines: [],
@@ -105,6 +100,17 @@ describe("3JR-B03 tail coverage uses dialogue and narration evidence separately"
     expect(detectDirectorCoverage({ id: "scene-1", text: bookstoreEnd }, shots).missingTail).toBe(
       bookstoreEnd,
     );
+  });
+  it("reports an ending event with none of its words shot, even when half the words are there", () => {
+    const text = "门打开了。警笛响起。";
+    const shots = parseDirectorShots(
+      '{"shots":[{"picture":"门打开了。","seconds":3}]}',
+      "scene-1",
+      text,
+      [],
+      false,
+    )!;
+    expect(detectDirectorCoverage({ id: "scene-1", text }, shots).missingTail).toBe(text);
   });
   it("counts the warehouse ending reworded into one shot", () => {
     const text = "“算你狠。”周烈啐了一口，带着人钻进雨里，消失在仓库后门。";
