@@ -3552,6 +3552,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onNotice={setNotice}
                   onGenerate={() => setBench(true)}
                   onBatch={askBatch}
+                  onBatchShots={queueBatch}
                   activeSceneId={scene}
                   stills={[]}
                   fourArmed={stillArmed}
@@ -6115,6 +6116,7 @@ function ShotView({ one, onAll, onOne }: { one: boolean; onAll: () => void; onOn
 }
 
 function BoardPage({
+  onBatchShots,
   quiet = false,
   onNext,
   onReject,
@@ -6166,6 +6168,8 @@ function BoardPage({
   onNotice: (text: string) => void;
   onGenerate: () => void;
   onBatch: () => void;
+  /** 5-3-06: the confirm table for the cards picked with Shift or Ctrl. */
+  onBatchShots?: (shots: FilmShot[]) => void;
   activeSceneId: string;
   stills: string[];
   onStills: () => void;
@@ -6267,6 +6271,19 @@ function BoardPage({
   // 5-3-05: a card dragged to another place in the scene; a bar shows where it will land.
   const [movingId, setMovingId] = useState("");
   const [moveOver, setMoveOver] = useState(-1);
+  // 5-3-06: cards picked with Ctrl (one more or one less) or Shift (a run from the shot on show).
+  const [picked, setPicked] = useState<string[]>([]);
+  const pickedShots = shots.filter((item) => picked.includes(item.id));
+  const multi = pickedShots.length >= 2;
+  useEffect(() => setPicked([]), [sceneKey]);
+  useEffect(() => {
+    if (!multi) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPicked([]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [multi]);
   const movingFrom = movingId ? shots.findIndex((item) => item.id === movingId) : -1;
   const placeBeat = (index: number, target: FilmShot) => {
     const beat = sceneBeats[index];
@@ -6449,7 +6466,7 @@ function BoardPage({
               key={item.id}
               className={[
                 "card",
-                index === shot ? "sel" : "",
+                (multi ? picked.includes(item.id) : index === shot) ? "sel" : "",
                 beatDrag && dropAt === index ? "drop-over" : "",
                 item.id === movingId ? "moving" : "",
                 movingFrom >= 0 && moveOver === index && index !== movingFrom
@@ -6475,8 +6492,28 @@ function BoardPage({
               }}
               // 4C-U05: the card's state is the label on its picture; who wrote it is in here.
               title={`镜头 ${item.no} · ${shotSource(item).label}`}
-              onClick={() => onShot(index)}
+              aria-pressed={multi ? picked.includes(item.id) : undefined}
+              onClick={(event) => {
+                if (event.shiftKey) {
+                  const from = Math.min(shot, index);
+                  const to = Math.max(shot, index);
+                  setPicked(shots.slice(from, to + 1).map((other) => other.id));
+                  return;
+                }
+                if (event.ctrlKey || event.metaKey) {
+                  setPicked((now) => {
+                    const base = now.length > 0 ? now : current ? [current.id] : [];
+                    return base.includes(item.id)
+                      ? base.filter((id) => id !== item.id)
+                      : [...base, item.id];
+                  });
+                  return;
+                }
+                setPicked([]);
+                onShot(index);
+              }}
               onContextMenu={(event) => {
+                setPicked([]);
                 onShot(index);
                 setMoreOpen(false);
                 sceneMenu.close();
@@ -6660,6 +6697,73 @@ function BoardPage({
             scope={scopeOf(film, activeSceneId, current)}
             mentions={mentionsOf(film, shots)}
           />
+        ) : multi ? (
+          // 5-3-06: what can be done to every picked shot at once.
+          <>
+            <div className="shot-h">
+              选了 {pickedShots.length} 个镜头{" "}
+              <span>共 {pickedShots.reduce((sum, item) => sum + item.seconds, 0)} 秒</span>
+            </div>
+            <div className="pb multi-pick">
+              <p className="multi-list">镜头 {pickedShots.map((item) => item.no).join("、")}</p>
+              <div className="field">
+                <label>时长都改成（秒）</label>
+                <div className="seg" aria-label="时长都改成">
+                  {SECONDS_CHOICES.map((seconds) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      aria-label={`都改成 ${seconds} 秒`}
+                      className={pickedShots.every((item) => item.seconds === seconds) ? "on" : ""}
+                      onClick={() => {
+                        onFilm(
+                          pickedShots.reduce(
+                            (next, item) =>
+                              updateShot(next, item.id, {
+                                seconds,
+                                userFields: [...new Set([...item.userFields, "seconds"])],
+                              }),
+                            film,
+                          ),
+                        );
+                        onNotice(`已把 ${pickedShots.length} 个镜头都改成 ${seconds} 秒。`);
+                      }}
+                    >
+                      {seconds}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="role-desc">
+                按住 Ctrl 点卡片，加一个或去掉一个；按住 Shift 点卡片，选一串。按 Esc 取消。
+              </p>
+            </div>
+            <div className="pfoot2 one">
+              <button className="btn" type="button" onClick={() => setPicked([])}>
+                取消多选
+              </button>
+              <button
+                className="btn danger"
+                type="button"
+                onClick={() => {
+                  const count = pickedShots.length;
+                  onFilm(pickedShots.reduce((next, item) => removeShot(next, item.id), film));
+                  setPicked([]);
+                  onShot(0);
+                  onNotice(`已删除 ${count} 个镜头。Ctrl+Z 可以撤回。`);
+                }}
+              >
+                删除这 {pickedShots.length} 个
+              </button>
+              {onBatchShots ? (
+                <button className="btn" type="button" onClick={() => onBatchShots(pickedShots)}>
+                  {pickedShots.every((item) => shotProgress(item) === "未生成")
+                    ? `生成这 ${pickedShots.length} 个`
+                    : `重新生成这 ${pickedShots.length} 个`}
+                </button>
+              ) : null}
+            </div>
+          </>
         ) : current ? (
           <>
             <div className="shot-h">

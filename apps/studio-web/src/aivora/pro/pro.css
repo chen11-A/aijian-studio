@@ -3718,6 +3718,15 @@ body:has(.pro-root) {
 .pro-root .card.move-after {
   box-shadow: 4px 0 0 var(--accent);
 }
+/* 5-3-06: several shots picked; their numbers, and a red 删除. */
+.pro-root .multi-pick .multi-list {
+  margin: 0 0 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .pfoot2 .btn.danger {
+  color: var(--err);
+}
 .pro-root .scene .t small.beat-flag {
   color: var(--warn);
 }

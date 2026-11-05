@@ -3694,6 +3694,50 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("picks several cards with Shift or Ctrl and does one thing to all of them (5-3-06)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const cards = () => [...document.querySelectorAll<HTMLElement>(".grid .card")];
+  const chosen = () =>
+    cards().flatMap((card, index) => (card.classList.contains("sel") ? [index] : []));
+  const count = cards().length;
+  fireEvent.click(cards()[1]!);
+  fireEvent.click(cards()[3]!, { shiftKey: true });
+  expect(chosen()).toEqual([1, 2, 3]);
+  expect(screen.getByText(/选了 3 个镜头/)).toBeInTheDocument();
+  expect(screen.getByText("镜头 2、3、4")).toBeInTheDocument();
+  // Ctrl takes one away, and adds one.
+  fireEvent.click(cards()[2]!, { ctrlKey: true });
+  fireEvent.click(cards()[5]!, { metaKey: true });
+  expect(chosen()).toEqual([1, 3, 5]);
+  fireEvent.click(screen.getByRole("button", { name: "都改成 10 秒" }));
+  expect(screen.getByText("已把 3 个镜头都改成 10 秒。")).toBeInTheDocument();
+  for (const index of [1, 3, 5]) {
+    expect(cards()[index]!.querySelector(".dur")).toHaveTextContent("10s");
+  }
+  // One confirm table for the picked shots.
+  fireEvent.click(screen.getByRole("button", { name: /^(重新)?生成这 3 个$/ }));
+  expect(await screen.findByTestId("batch-estimate")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "先不生成" }));
+  // Esc lets go of all but the shot on show.
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(chosen()).toEqual([1]);
+  expect(screen.queryByText(/选了 \d+ 个镜头/)).toBeNull();
+  fireEvent.click(cards()[0]!, { ctrlKey: true });
+  expect(chosen()).toEqual([0, 1]);
+  fireEvent.click(screen.getByRole("button", { name: "删除这 2 个" }));
+  expect(cards()).toHaveLength(count - 2);
+  expect(screen.getByText("已删除 2 个镜头。Ctrl+Z 可以撤回。")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  expect(cards()).toHaveLength(count);
+  // A plain click is one card again.
+  fireEvent.click(cards()[0]!, { ctrlKey: true });
+  fireEvent.click(cards()[4]!, { ctrlKey: true });
+  fireEvent.click(cards()[2]!);
+  expect(chosen()).toEqual([2]);
+});
+
 it("drags a card to another place in its scene, marks where it lands, and undoes (5-3-05)", async () => {
   installDesktop();
   await openSample();
