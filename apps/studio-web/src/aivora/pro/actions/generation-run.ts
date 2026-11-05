@@ -1,3 +1,4 @@
+import { shotLines } from "../../film/director-continuity";
 import type { AijianDesktopBridge } from "../../../api/studio";
 import type { FilmProject, FilmShot, FilmTake } from "../../film/project";
 import type { UiNotice } from "../../film/contracts3j";
@@ -127,12 +128,26 @@ export function applyVideoResponse(
   };
   if (done && frame) saved = updateShot(saved, shot.id, { poster: frame });
   const voicePath = typeof data.voice_path === "string" ? data.voice_path : "";
-  if (done && isVoiceFile(voicePath) && shot.line.trim()) {
+  if (done && isVoiceFile(voicePath) && shotLines(shot).length) {
     saved = {
       ...saved,
-      shots: saved.shots.map((item) =>
-        item.id === shot.id ? { ...item, sound: { ...item.sound, source: "dub" } } : item,
-      ),
+      shots: saved.shots.map((item) => {
+        if (item.id !== shot.id) return item;
+        const lines = shotLines(item);
+        return {
+          ...item,
+          ...(!item.line.trim()
+            ? {
+                line: lines.map((line) => line.text).join("\n"),
+                speaker:
+                  new Set(lines.map((line) => line.speaker)).size === 1
+                    ? (lines[0]?.speaker ?? "")
+                    : "",
+              }
+            : {}),
+          sound: { ...item.sound, source: "dub" as const },
+        };
+      }),
       audioClips: [
         ...saved.audioClips.filter(
           (clip) => !(clip.lane === "dialogue" && clip.shotId === shot.id),

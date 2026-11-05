@@ -305,3 +305,42 @@ it("keeps the timing failure and next step in the actual failed job without leak
   expect(result.message).not.toContain("DIALOGUE_VIDEO_LIMIT");
   expect(result.film.jobs.find((job) => job.shotId === shot.id)!.reason).toBe(result.message);
 });
+
+it.each(["甲", "乙"])(
+  "3JR-B07 writes a real voice track for canonical lines with empty legacy line (%s)",
+  (secondSpeaker) => {
+    const { queue } = setup();
+    const shot = queue.film.shots[0]!;
+    shot.line = "";
+    shot.speaker = "过时的人物";
+    shot.lines = [
+      { speaker: "甲", text: "第一句。还有一句。" },
+      { speaker: secondSpeaker, text: "最后一句。" },
+    ];
+    const result = applyVideoResponse(queue.film, shot, shot.takes[0]!, {
+      status: "SUCCEEDED",
+      output_path: "/films/dialogue.mp4",
+      voice_path: "/films/dialogue.wav",
+      duration_seconds: 8,
+    });
+    expect(result.film.audioClips.find((clip) => clip.shotId === shot.id)).toMatchObject({
+      lane: "dialogue",
+      path: "/films/dialogue.wav",
+      durationSeconds: 8,
+      takeId: shot.takes[0]!.id,
+    });
+    expect(result.film.shots[0]).toMatchObject({
+      line: "第一句。还有一句。\n最后一句。",
+      lines: shot.lines,
+      speaker: secondSpeaker === "甲" ? "甲" : "",
+      sound: { source: "dub" },
+    });
+    writeFilm(localStorage, result.film);
+    const restored = readFilm(localStorage)!;
+    expect(restored.shots[0]!.line).toBe("第一句。还有一句。\n最后一句。");
+    expect(restored.shots[0]!.lines).toEqual(shot.lines);
+    expect(restored.audioClips.find((clip) => clip.shotId === shot.id)?.path).toBe(
+      "/films/dialogue.wav",
+    );
+  },
+);
