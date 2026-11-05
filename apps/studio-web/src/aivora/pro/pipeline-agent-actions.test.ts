@@ -259,3 +259,38 @@ it("keeps sanitized rejected combat separate from multiple ID-bound pipeline sho
   expect(result.film?.unassignedBeats).toContainEqual({ sceneId: scene.id, text: "挥铁棍" });
   expect(JSON.stringify(result.film)).not.toContain("保留原文：");
 });
+
+it.each([false, true])(
+  "3JR-B01 accepts only a lossless in-budget compression (compressed=%s)",
+  async (compressed) => {
+    const film = blankFilm();
+    const scene = film.scenes[0]!;
+    const shots = Array.from({ length: 17 }, (_, i) => ({
+      picture: `第${i + 1}段原文动作。`,
+      seconds: 15,
+    }));
+    scene.text = shots.map((shot) => shot.picture).join("\n");
+    const combined = [
+      { ...shots[0]!, picture: shots[0]!.picture + shots[1]!.picture },
+      ...shots.slice(2),
+    ];
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(ok({ shots }))
+      .mockResolvedValueOnce(ok({ shots: compressed ? combined : shots }));
+    const result = await runPipelineAgentAction(
+      film,
+      { step: "director", targetId: scene.id },
+      { request, valid: () => true },
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls[0]![2]).toContain("最多16镜");
+    expect(request.mock.calls[1]![2]).toContain("最多16镜");
+    expect(result.status).toBe(compressed ? "done" : "blocked");
+    if (!compressed) expect(result.code).toBe("DIRECTOR_OVER_BUDGET");
+    expect(result.film!.shots).toHaveLength(compressed ? 16 : 17);
+    expect(result.film!.scenes[0]!.coverage?.ok).toBe(true);
+    const represented = result.film!.shots.map((shot) => shot.picture).join("\n");
+    for (const shot of shots) expect(represented).toContain(shot.picture);
+  },
+);

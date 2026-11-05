@@ -21,6 +21,21 @@ export type DirectorRepairResult = {
 };
 export type RepairRequest = (context: string, instruction: string) => Promise<AgentReply>;
 
+/** Match occurrences, not a set: repeated dialogue and speaker ownership must survive. */
+function containsDialogueInOrder(
+  expected: ReturnType<typeof shotLines>,
+  actual: ReturnType<typeof shotLines>,
+): boolean {
+  let cursor = 0;
+  return expected.every((line) => {
+    while (cursor < actual.length) {
+      const candidate = actual[cursor++]!;
+      if (candidate.speaker === line.speaker && candidate.text === line.text) return true;
+    }
+    return false;
+  });
+}
+
 /** One repair attempt; a failed or lossy answer never replaces the existing plan. */
 export async function repairDirectorCoverage(
   scene: Pick<FilmScene, "id" | "text" | "title" | "where">,
@@ -29,16 +44,21 @@ export async function repairDirectorCoverage(
   current: () => boolean = () => true,
 ): Promise<DirectorRepairResult> {
   const coverage = detectDirectorCoverage(scene, shots);
-  if (coverage.ok || !current()) return { shots, coverage, repaired: false };
+  const overLimit = shots.filter((shot) => shot.sceneId === scene.id).length > 16;
+  if ((coverage.ok && !overLimit) || !current()) return { shots, coverage, repaired: false };
   try {
     const reply = await request(
       coverageRepairContext(scene, shots),
-      "只补这一场缺失台词与结尾，返回按原文顺序的完整镜头；合并节拍，绝不截断。",
+      overLimit
+        ? "把这一场相邻镜头合并到最多16镜，同时补齐缺失台词与结尾。返回完整镜头；全部台词及说话人逐条按序保留，原画面与动作按序保留，绝不截断或删减。"
+        : "只补这一场缺失台词与结尾，返回按原文顺序的完整镜头；合并节拍，绝不截断。",
     );
     if (!current() || !reply.text) return { shots, coverage, repaired: false };
     const parsed = parseDirectorShots(reply.text, scene.id, scene.text, [scene]);
     if (!parsed) return { shots, coverage, repaired: false };
     const repairedCoverage = detectDirectorCoverage(scene, parsed);
+    if (overLimit && (parsed.length > 16 || !repairedCoverage.ok))
+      return { shots, coverage, repaired: false };
     const containsInOrder = (expected: string[], actual: string) => {
       let cursor = 0;
       return expected.filter(Boolean).every((text) => {
@@ -57,13 +77,7 @@ export async function repairDirectorCoverage(
         parsed.map((shot) => shot.picture).join("\n"),
       ) ||
       !containsInOrder(shots.map(actionText), parsed.map(actionText).join("")) ||
-      !containsInOrder(
-        shots.flatMap(shotLines).map((line) => line.text),
-        parsed
-          .flatMap(shotLines)
-          .map((line) => line.text)
-          .join("\n"),
-      );
+      !containsDialogueInOrder(shots.flatMap(shotLines), parsed.flatMap(shotLines));
     const losesCoverage =
       losesShotContent ||
       repairedCoverage.missingLines.some(

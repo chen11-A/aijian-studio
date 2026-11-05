@@ -5,7 +5,7 @@ import { writerNumberedScript, writerSceneContext } from "../film/writer-element
 import { applyPerformancePlans, performancePlanPrompt } from "../film/performance-plan";
 import { applyActionPlan } from "../film/action-plan";
 import type { UiNotice } from "../film/contracts3j";
-import { shotLines } from "../film/director-continuity";
+import { shotLines, suggestedShotCount } from "../film/director-continuity";
 import {
   applyScenes,
   assignActionBeats,
@@ -197,7 +197,7 @@ export async function runPipelineAgentAction(
               request(
                 "director",
                 context,
-                "把这一场拆成镜头；合并相邻节拍，不能截断台词或结尾。只输出 JSON。",
+                `把这一场拆成镜头，目标${suggestedShotCount(scene.text)}镜，最多16镜；合并相邻节拍，不能截断台词或结尾。只输出 JSON。`,
                 { ...control, deadlineAt: budget.control.deadlineAt },
               ),
             budget.progress,
@@ -227,9 +227,11 @@ export async function runPipelineAgentAction(
         );
         if (!current()) return stale();
         const next = applyDirectorPlan(film, repaired.shots, scene.id, film.unassignedBeats ?? []);
-        return next.scenes.find((item) => item.id === scene.id)?.coverage?.ok
-          ? done(next)
-          : blocked("COVERAGE_INCOMPLETE", next);
+        if (!next.scenes.find((item) => item.id === scene.id)?.coverage?.ok)
+          return blocked("COVERAGE_INCOMPLETE", next);
+        return next.shots.filter((shot) => shot.sceneId === scene.id).length > 16
+          ? blocked("DIRECTOR_OVER_BUDGET", next)
+          : done(next);
       } catch (error) {
         if (!current()) return stale();
         const code = budget.reason() || (error instanceof Error ? error.message : "");
