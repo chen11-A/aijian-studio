@@ -162,7 +162,8 @@ import { takePickerData } from "../next/adapters/takePicker";
 import { needsRestyle } from "../next/adapters/restyle";
 import { continuityNotes } from "../next/adapters/continuity";
 import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
-import { stageTabs } from "../next/adapters/stageProgress";
+import { stageProgress, stageTabs } from "../next/adapters/stageProgress";
+import { exportLead } from "../next/adapters/primaryAction";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2918,6 +2919,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const helper = PAGE_ROLE[stage];
     if (helper) chooseRole(helper);
   }, [stage]);
+  // 4A-U09: one primary button per screen. 导出成片 leads on 剪辑 and once every shot has its
+  // video; then each page's own primary button steps back (quiet).
+  const exportView = exportLead(
+    open ? film : null,
+    stage,
+    stage === "edit" && (range || comparing),
+  );
 
   return (
     <div
@@ -3204,8 +3212,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             >
               {soundOn ? "声音开" : "声音关"}
             </button>
+            {exportView.ready ? null : (
+              <span className="export-why" id="export-why">
+                {exportView.why}
+              </span>
+            )}
             <button
-              className="btn primary"
+              className={exportView.lead ? "btn primary" : exportView.ready ? "btn" : "btn off"}
+              aria-describedby={exportView.ready ? undefined : "export-why"}
               onClick={() => {
                 setExportOpen(true);
                 if (!exportDir) {
@@ -3309,6 +3323,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <>
               {stage === "script" && (
                 <ScriptPage
+                  quiet={exportView.lead}
+                  onNext={() => setStage("cast")}
                   film={film}
                   scene={scene}
                   onScene={(id) => {
@@ -3367,6 +3383,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "cast" && (
                 <CastPage
+                  quiet={exportView.lead}
+                  onNext={() => setStage("board")}
                   film={film}
                   onFilm={setFilm}
                   role={role}
@@ -3388,6 +3406,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && !bench && (
                 <BoardPage
+                  quiet={exportView.lead}
+                  onNext={() => setStage("edit")}
                   film={film}
                   shots={shownShots}
                   shot={shownShots.length === 0 ? 0 : Math.min(shot, shownShots.length - 1)}
@@ -3457,6 +3477,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && bench && (
                 <GeneratePage
+                  quiet={exportView.lead}
                   onBack={() => setBench(false)}
                   film={film}
                   shots={shownShots}
@@ -4277,7 +4298,7 @@ function Assistant({
               <div className="acts">
                 {card?.mode === "qc" ? (
                   <>
-                    <button className="btn primary sm" type="button" onClick={onRedoRange}>
+                    <button className="btn accent sm" type="button" onClick={onRedoRange}>
                       按意见重做这一镜
                     </button>
                     <button
@@ -4291,7 +4312,7 @@ function Assistant({
                   </>
                 ) : (
                   <button
-                    className="btn primary sm"
+                    className="btn accent sm"
                     type="button"
                     disabled={card?.applied}
                     onClick={
@@ -4433,6 +4454,8 @@ function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
 }
 
 function ScriptPage({
+  quiet = false,
+  onNext,
   film,
   scene,
   onScene,
@@ -4503,9 +4526,14 @@ function ScriptPage({
   onRedoRange: () => void;
   onDismiss: () => void;
   onOneClick: () => void;
+  /** 4A-U09: 导出成片 is this screen's primary button, so this page's steps back. */
+  quiet?: boolean;
+  /** 「下一步：角色与场景」, the primary button once the director has gone through every scene. */
+  onNext?: () => void;
 }) {
   const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
   const words = film.scenes.reduce((sum, item) => sum + item.text.length, 0);
+  const done = stageProgress(film).script && Boolean(onNext);
   return (
     <>
       <section className="pane">
@@ -4582,7 +4610,11 @@ function ScriptPage({
           <span className="vsep" />
           <span className="tool-hint">左边选一场，这里写这一场</span>
           <span className="sp" />
-          <button className="btn primary" onClick={onPlan} disabled={asking}>
+          <button
+            className={quiet || done ? "btn" : "btn primary"}
+            onClick={onPlan}
+            disabled={asking}
+          >
             <Ic name="clap" size={15} />
             {asking ? "正在写" : "让导演拆镜头"}
           </button>
@@ -4595,7 +4627,13 @@ function ScriptPage({
           >
             {asking ? "正在做" : "一键成片"}
           </button>
-          <span className="tool-hint">会在分镜后停下，等你确认</span>
+          {done ? (
+            <button className={quiet ? "btn" : "btn primary"} type="button" onClick={onNext}>
+              下一步：角色与场景
+            </button>
+          ) : (
+            <span className="tool-hint">会在分镜后停下，等你确认</span>
+          )}
         </div>
         <div className="pb doc">
           <div className="page">
@@ -4684,6 +4722,8 @@ function ScriptPage({
 }
 
 function CastPage({
+  quiet = false,
+  onNext,
   film,
   onFilm,
   role,
@@ -4718,6 +4758,10 @@ function CastPage({
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
+  /** 4A-U09: 导出成片 is this screen's primary button, so this page's steps back. */
+  quiet?: boolean;
+  /** 「下一步：分镜」, the primary button once everyone has an appearance and four portraits. */
+  onNext?: () => void;
 }) {
   const [who, setWho] = useState(0);
   const [place, setPlace] = useState(0);
@@ -4858,14 +4902,24 @@ function CastPage({
           )}
           {side === "people" && film.characters.length > 0 && (
             <div className="portrait-all">
-              <button
-                className="btn primary sm"
-                type="button"
-                disabled={busy || missing === 0}
-                onClick={() => onAllPortraits(ready.map((person) => person.id))}
-              >
-                {busy ? "正在出定妆照" : "给所有人出定妆照"}
-              </button>
+              {stageProgress(film).cast && onNext ? (
+                <button
+                  className={quiet ? "btn sm" : "btn primary sm"}
+                  type="button"
+                  onClick={onNext}
+                >
+                  下一步：分镜
+                </button>
+              ) : (
+                <button
+                  className={quiet ? "btn sm" : "btn primary sm"}
+                  type="button"
+                  disabled={busy || missing === 0}
+                  onClick={() => onAllPortraits(ready.map((person) => person.id))}
+                >
+                  {busy ? "正在出定妆照" : "给所有人出定妆照"}
+                </button>
+              )}
               <span className="portrait-progress" title="这一轮出好的张数 / 要出的张数">
                 {batch?.running
                   ? progress
@@ -5443,6 +5497,8 @@ function CastPage({
 }
 
 function BoardPage({
+  quiet = false,
+  onNext,
   film,
   shots,
   shot,
@@ -5523,6 +5579,10 @@ function BoardPage({
   onDismiss: () => void;
   /** 3J-U10: 「补上结尾」, GPT fixCoverage (C9). Settles when the director is done. */
   onFixCoverage: (sceneId: string) => Promise<unknown>;
+  /** 4A-U09: 导出成片 is this screen's primary button, so 生成这一场 steps back. */
+  quiet?: boolean;
+  /** 「下一步：剪辑」, once every shot has a video. */
+  onNext?: () => void;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
@@ -5665,10 +5725,15 @@ function BoardPage({
           <button className="btn" onClick={onGenerate}>
             单镜
           </button>
-          <button className="btn primary" onClick={onBatch}>
+          <button className={quiet ? "btn" : "btn primary"} onClick={onBatch}>
             <Ic name="spark" size={14} />
             生成这一场
           </button>
+          {stageProgress(film).board && onNext ? (
+            <button className="btn" type="button" onClick={onNext}>
+              下一步：剪辑
+            </button>
+          ) : null}
         </div>
         {sceneRow && (
           <SceneAlerts
@@ -6306,16 +6371,17 @@ function BoardPage({
                   确认这 4 张
                 </button>
               ) : null}
+              {/* 4A-U09: 生成这一场 above is the page's primary button; this one is plain. */}
               {stillProgress[current.id] ? (
-                <button className="btn primary" type="button" disabled>
+                <button className="btn" type="button" disabled>
                   {stillProgress[current.id]}
                 </button>
               ) : shotProgress(current) === "未生成" ? (
-                <button className="btn primary" type="button" onClick={onStills}>
+                <button className="btn" type="button" onClick={onStills}>
                   生成画面
                 </button>
               ) : (
-                <button className="btn primary" type="button" onClick={onGenerate}>
+                <button className="btn" type="button" onClick={onGenerate}>
                   生成视频
                 </button>
               )}
@@ -6330,6 +6396,7 @@ function BoardPage({
 }
 
 function GeneratePage({
+  quiet = false,
   film,
   shots,
   shot,
@@ -6359,6 +6426,8 @@ function GeneratePage({
   playing: boolean;
   onPlaying: (value: boolean) => void;
   audible: boolean;
+  /** 4A-U09: 导出成片 is this screen's primary button, so 生成 steps back. */
+  quiet?: boolean;
 }) {
   const current = shots[shot];
   const prompt = current ? keyframePrompt(current, film) : "先在剧本里拆镜头。";
@@ -6593,7 +6662,7 @@ function GeneratePage({
             <span className="sp" />
             <small>不另外收费</small>
           </div>
-          <button className="btn primary block" onClick={onCreate}>
+          <button className={quiet ? "btn block" : "btn primary block"} onClick={onCreate}>
             <Ic name="video" size={16} />
             生成 {versions} 个版本
           </button>
@@ -7008,7 +7077,8 @@ function EditPage({
                 />
                 <div className="row2" style={{ marginTop: 8 }}>
                   <div className="input">一次出 {film.takesPerShot || 1} 个</div>
-                  <button className="btn primary" onClick={() => onAction(fixAction)}>
+                  {/* 4A-U09: the page's primary is 导出成片, or 重新生成 on a selected range. */}
+                  <button className="btn" onClick={() => onAction(fixAction)}>
                     <Ic name="spark" size={14} />
                     生成新版本
                   </button>

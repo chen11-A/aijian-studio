@@ -142,7 +142,8 @@ describe("professional workspace", () => {
         ),
       ).toBe(true);
     });
-    expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeDisabled();
+    // 4A-U09: everyone has all four, so the primary button moves on to the storyboard.
+    expect(await screen.findByRole("button", { name: "下一步：分镜" })).toHaveClass("primary");
   });
 
   it("shares one busy queue between whole-cast portraits and the single-character button", async () => {
@@ -850,7 +851,8 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
       expect(screen.getAllByText("画面已出").length).toBeGreaterThan(0);
-      expect(screen.getByRole("button", { name: "生成视频" })).toHaveClass("primary");
+      // 4A-U09: 生成这一场 is the page's primary button; this one is plain.
+      expect(screen.getByRole("button", { name: "生成视频" })).not.toHaveClass("primary");
       moreAction("重新生成画面");
       expect(
         await screen.findByText("这张画面未获准生成，请调整画面描述后重试。"),
@@ -1743,7 +1745,9 @@ it("makes every missing portrait from one button and shows each slot's state", a
   expect(document.querySelector(".portrait-progress")).toHaveTextContent("都齐了");
   // 3J-U19: a coded message is one sentence; the counts stay in the tooltip.
   expect(document.querySelector(".status-note")?.textContent ?? "").not.toMatch(/\d+\/\d+/);
-  expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeDisabled();
+  // 4A-U09: everyone is done, so the one primary button moves on to the storyboard.
+  expect(screen.queryByRole("button", { name: "给所有人出定妆照" })).toBeNull();
+  expect(screen.getByRole("button", { name: "下一步：分镜" })).toHaveClass("primary");
   expect(screen.queryByRole("button", { name: /^补齐.+的定妆照（还缺 \d 张）$/ })).toBeNull();
   expect(screen.getAllByText("定妆照齐了").length).toBeGreaterThan(0);
 });
@@ -3104,14 +3108,16 @@ it("shows one row of shot lengths with 自定义, a three-line picture box and s
   );
 });
 
-it("keeps one primary button under a shot that follows its state, the rest under 更多", async () => {
+it("keeps one button under a shot that follows its state, the rest under 更多", async () => {
   installDesktop();
   await openSample();
   fireEvent.click(stageTab("分镜"));
   const footer = () => document.querySelector(".pfoot2") as HTMLElement;
   expect(within(footer()).getAllByRole("button").length).toBeLessThanOrEqual(3);
-  expect(footer().querySelectorAll(".btn.primary")).toHaveLength(1);
-  expect(within(footer()).getByRole("button", { name: "生成画面" })).toHaveClass("primary");
+  // 4A-U09: 生成这一场 is the page's primary button; the one under the shot is plain.
+  expect(footer().querySelectorAll(".btn.primary")).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "生成这一场" })).toHaveClass("primary");
+  expect(within(footer()).getByRole("button", { name: "生成画面" })).toBeInTheDocument();
   fireEvent.click(within(footer()).getByRole("button", { name: "更多操作" }));
   expect(
     within(screen.getByRole("menu", { name: "这一镜的更多操作" }))
@@ -3123,9 +3129,47 @@ it("keeps one primary button under a shot that follows its state, the rest under
   expect(within(footer()).getByRole("button", { name: "正在生成画面" })).toBeDisabled();
   expect(document.querySelector(".card.sel .badge")?.textContent).toBe("正在生成画面");
   expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
-  expect(within(footer()).getByRole("button", { name: "生成视频" })).toHaveClass("primary");
+  expect(within(footer()).getByRole("button", { name: "生成视频" })).not.toHaveClass("primary");
   fireEvent.click(within(footer()).getByRole("button", { name: "更多操作" }));
   expect(screen.getByRole("button", { name: "重新生成画面" })).toBeInTheDocument();
+});
+
+it("keeps one filled primary button per page; 导出成片 leads only when it can (4A-U09)", async () => {
+  installDesktop(
+    vi.fn(async () => ({
+      data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
+    })),
+  );
+  await openSample();
+  const primaries = () =>
+    [...document.querySelectorAll<HTMLElement>(".pro-root .btn.primary")]
+      .filter((item) => !item.closest(".dialog"))
+      .map((item) => item.textContent?.trim());
+  const exportButton = () => screen.getByRole("button", { name: "导出成片" });
+  // Nothing to export yet: grayed, with the reason beside it; a click still explains.
+  expect(exportButton()).toHaveClass("off");
+  expect(exportButton()).toHaveAccessibleDescription("还没有视频可导出");
+  fireEvent.click(stageTab("剧本"));
+  expect(primaries()).toHaveLength(1);
+  fireEvent.click(stageTab("角色与场景"));
+  expect(primaries()).toEqual(["给所有人出定妆照"]);
+  fireEvent.click(stageTab("分镜"));
+  expect(primaries()).toEqual(["生成这一场"]);
+  fireEvent.click(stageTab("剪辑"));
+  expect(primaries().length).toBeLessThanOrEqual(1);
+  expect(primaries()).not.toContain("导出成片");
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  expect(primaries()).toEqual(["生成 1 个版本"]);
+  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
+  // One video: export is plain on the shot page and the one primary on 剪辑.
+  expect(exportButton()).not.toHaveClass("off");
+  expect(exportButton()).not.toHaveClass("primary");
+  expect(screen.queryByText("还没有视频可导出")).toBeNull();
+  fireEvent.click(stageTab("剪辑"));
+  expect(primaries()).toEqual(["导出成片"]);
 });
 
 it("gives both sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {

@@ -265,6 +265,23 @@ body:has(.pro-root) {
   color: #fff;
   font-weight: 500;
 }
+/* 4A-U09: one filled primary per screen. accent is outlined, for the assistant's 放进; off is
+   grayed when there is nothing to do yet (a click still explains why). */
+.pro-root .btn.accent {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+.pro-root .btn.off {
+  color: var(--text-3);
+  border-color: var(--line);
+  background: none;
+}
+.pro-root .export-why {
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .pro-root .btn.ghost {
   background: none;
   border-color: transparent;

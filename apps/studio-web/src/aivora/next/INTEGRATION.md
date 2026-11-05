@@ -650,6 +650,15 @@ const view = pipelineView(film);
 - 渲染部分里几处 `setNotice("…")` 改成了 `setNotice({ code, text })`（作品设置说明 EDITOR_GUIDANCE、换构图 COMPOSITION_SELECTED、暂停 GENERATION_PAUSED、取消 GENERATION_CANCEL_REQUESTED、会员用不了 ENTITLEMENT_DENIED），这样不用改 `film/notices.ts` 按字面认 code 的规则，显示走 NOTICE_COPY。
 - `e2e/layout-audit.mjs` 的术语黑名单加了：模型、接口、提示词、离线、写入、画面自带、单独配音。GPT 那边的句子换完以前，这个检查会报出它们。
 
+## 一屏一个主按钮（4A-U09）
+
+- 顶栏「导出成片」由 `next/adapters/primaryAction.ts` 的 `exportLead(film, stage, focused)` 决定样子：平时普通按钮；在剪辑页、或者所有镜头都有选定的视频时变成主按钮（剪辑页选了一段或在对比时，让那一段的「重新生成」「用新版替换」当主按钮）；一个能导出的视频都没有时变灰，旁边灰字「还没有视频可导出」（`aria-describedby`）。点灰的按钮仍会打开导出对话框，里面按场列出还缺哪些镜头，这就是原因说明。
+- 导出成为主按钮时，各页把自己的主按钮降成普通按钮（`quiet`）。
+- 各页的主按钮：剧本「让导演拆镜头」，每一场有字的都拆好镜头后换成「下一步：角色与场景」；角色与场景「给所有人出定妆照」，每个人外貌和四张定妆照都齐了换成「下一步：分镜」；分镜「生成这一场」，属性栏底部那个（生成画面 / 生成视频）改普通按钮，镜头都有视频后多一个普通的「下一步：剪辑」；单镜「生成 N 个版本」。判断「这一页做完了」用 `next/adapters/stageProgress.ts`（9d89db8 的做法，按新规矩改了分镜页）。
+- 助手卡里的「放进分镜」「按意见重做这一镜」改成描边强调色（`.btn.accent`），不算实心主按钮。
+- 布局检查每个工作区页面都数一次：对话框以外看得见的 `.btn.primary` 最多一个。
+- GPT 接 `pipelineView` 以后，检查点上的「继续生成」（`nx-primary`）出现时，分镜页的「生成这一场」也应降成普通按钮：传 `quiet={exportView.lead || pipelineAtCheckpoint}`。
+
 ## 助手建议卡（4A-U11，要 4A-B11 ④）
 
 - 新组件 `SuggestionCard`（`next/SuggestionCard.tsx`，示例页「助手建议」）：标题「现在 6 个 → 建议 4 个」（没有镜头时「建议拆成 4 个镜头」，分场写「现在 3 场 → 建议 4 场」），下面一行「改了 2 · 删掉 2」，每行标「新增 / 改了 / 删掉」，改了的行下面灰字「原来：…」，删掉的行划掉。按钮「放进分镜 / 放进剧本」「换一个」「不要」；放进去以后卡片写「已放进去。」加「撤销」。没有建议时整张卡不画，不再出现「还没有建议 0 条」。
