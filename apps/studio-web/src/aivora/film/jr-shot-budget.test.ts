@@ -1,6 +1,7 @@
 import { shotActionText } from "./shot-actions";
+import { storyFilmBatches } from "./operations";
 import { describe, expect, it } from "vitest";
-import { parseDirectorShots } from "./project";
+import { parseDirectorShots, sampleFilm } from "./project";
 import { detectDirectorCoverage, mergeAdjacentShots, shotLines } from "./director-continuity";
 
 describe("3JR-B01 lossless scene compression (synthetic director replies)", () => {
@@ -53,7 +54,7 @@ describe("3JR-B01 lossless scene compression (synthetic director replies)", () =
   });
 });
 
-it("compresses alternating speakers above sixteen without dropping or reassigning dialogue", () => {
+it("keeps alternating speakers separate until video supports per-line voice tracks", () => {
   const raw = Array.from({ length: 21 }, (_, i) => ({
     picture: i === 20 ? "警笛渐近，周烈离开。" : `第${i + 1}个画面。`,
     action: `第${i + 1}个动作`,
@@ -64,10 +65,20 @@ it("compresses alternating speakers above sixteen without dropping or reassignin
   const source =
     raw.map((row) => `${row.speaker}：“${row.line}”`).join("\n") + "\n警笛渐近，周烈离开。";
   const shots = parseDirectorShots(JSON.stringify({ shots: raw }), "scene-1", source)!;
-  expect(shots.length).toBeLessThanOrEqual(16);
+  expect(shots).toHaveLength(21);
   expect(shots.flatMap(shotLines)).toEqual(
     raw.map((row) => ({ speaker: row.speaker, text: row.line })),
   );
+  const film = sampleFilm();
+  film.characters = ["林晚", "沈砚"].map((name, i) => ({
+    ...film.characters[0]!,
+    id: `person-${i}`,
+    name,
+    gender: i ? "男" : "女",
+    ageBand: "青年",
+    voiceId: i ? "leo" : "eve",
+  }));
+  expect(() => storyFilmBatches(film, shots, false)).not.toThrow();
   expect(shots.reduce((sum, shot) => sum + shot.seconds, 0)).toBe(63);
   expect(shots.map(shotActionText).join("\n")).toContain("第21个动作");
   expect(detectDirectorCoverage({ id: "scene-1", text: source }, shots).ok).toBe(true);

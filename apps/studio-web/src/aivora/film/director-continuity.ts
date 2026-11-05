@@ -132,10 +132,8 @@ export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): 
       const right = next[i + 1];
       return Boolean(
         right &&
-        (next.length > 16 ||
-          new Set(
-            [...left.lines, ...right.lines].map((line) => line.speaker.trim()).filter(Boolean),
-          ).size <= 1) &&
+        new Set([...left.lines, ...right.lines].map((line) => line.speaker.trim()).filter(Boolean))
+          .size <= 1 &&
         left.sceneId === right.sceneId &&
         (reframe ||
           (left.size === right.size &&

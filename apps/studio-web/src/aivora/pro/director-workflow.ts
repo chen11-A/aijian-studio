@@ -65,6 +65,19 @@ export async function repairDirectorCoverage(
     if (!current() || !reply.text) return { shots, coverage, repaired: false };
     const parsed = parseDirectorShots(reply.text, scene.id, scene.text, [scene]);
     if (!parsed) return { shots, coverage, repaired: false };
+    // The current video contract has one voice per shot. A compression must not
+    // introduce a multi-speaker shot that cannot be submitted for generation.
+    if (
+      parsed.some(
+        (shot) =>
+          new Set(
+            shotLines(shot)
+              .map((line) => line.speaker.trim())
+              .filter(Boolean),
+          ).size > 1,
+      )
+    )
+      return { shots, coverage, repaired: false };
     const repairedCoverage = detectDirectorCoverage(scene, parsed);
     if (overLimit && (parsed.length > 16 || !repairedCoverage.ok))
       return { shots, coverage, repaired: false };

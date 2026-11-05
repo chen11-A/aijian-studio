@@ -108,7 +108,7 @@ it("keeps the complete original if compression fails or becomes stale", async ()
   expect(result.shots).toBe(shots);
 });
 
-it("preserves repeated lines with their speakers in successful compression", async () => {
+it("keeps original dialogue when compression would require unsupported multi-speaker video", async () => {
   const shots = originals();
   shots[0]!.lines = [{ speaker: "甲", text: "再说一遍。" }];
   shots[1]!.lines = [{ speaker: "乙", text: "再说一遍。" }];
@@ -116,7 +116,8 @@ it("preserves repeated lines with their speakers in successful compression", asy
   const result = await repairDirectorCoverage(dialogueScene, shots, async () =>
     answer(compressed(shots)),
   );
-  expect(result.repaired).toBe(true);
+  expect(result.repaired).toBe(false);
+  expect(result.shots).toBe(shots);
   expect(result.shots.flatMap((s) => s.lines ?? [])).toEqual(shots.flatMap((s) => s.lines ?? []));
 });
 
