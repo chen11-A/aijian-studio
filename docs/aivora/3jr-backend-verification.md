@@ -29,3 +29,13 @@ web唯一失败为 `next/wiring/noticeCopy.test.ts > has a line for every code G
 最新 B08 完整工作台与场景/队列相关4文件111项通过，0失败/跳过（`/workspace/jr-b08-host-recheck.log`）。此前与导出测试合跑的一轮136通过/1失败，为“使用上一镜尾帧”等待视频调用超时；该两用例未改代码或放宽超时，单独复跑2通过、随后完整工作台通过。保留`/workspace/jr-4a-host-final.log`及`/workspace/jr-b08-last-frame.log`，不将一次复跑通过当作已定位偶发超时原因。
 
 4A导出协调`ac0a989`已在收到“优先3JR”的追加指令前完成推送；后续4A开发已暂停，相关31项web、14项desktop（真实本地ffmpeg）通过。该增量不是上表c3cd585固定全量的一部分。
+
+## 本轮 B02 / B18 / B19 固定代码验证
+
+代码基线 `6cb8cd4`（后续至 `30f36eb` 仅文档），完整 web：**4282通过、1失败、0跳过**，330文件，369.04秒。唯一失败仍为 `next/wiring/noticeCopy.test.ts` 的102条映射缺口（101条已由Claude交付尚未合并，另1条LOCATION_SOURCE_REQUIRED需补齐）。本轮没有其他失败；此前中止运行和偶发宿主等待超时记录保留，不据此虚称已定位其根因。
+
+`/workspace/jr-current-full.log` 保留完整结果；本次启用 `--coverage.reportOnFailure`，覆盖率为语句90.95%、分支87.37%、函数92.90%、行93.52%，未报告覆盖率门槛失败。测试整体仍因文案检查失败而exit1，不能写为全绿。没有跳过、弱化测试或放宽超时。
+
+全仓TypeScript、ESLint、Prettier通过：`/workspace/jr-current-types.log`、`/workspace/jr-current-eslint.log`、`/workspace/jr-current-format.log`。B02相关44项、B18相关63项、B19相关43项均通过，属于相交的回归集合，不将它们累加为独立测试总数。本轮没有额外修改Python或desktop源代码，也未重跑其全量；此前相关验证见上文。
+
+用户最新分工已同步交接文档：2d7acb7、d894dc3由用户摘入claude/work；9d89db8、5ba2b82由另一个会话处理4A-U09/U11。GPT不从旧界面分支重复合并这四笔提交。没有真实会员验收、没有阶段合并或发版。
