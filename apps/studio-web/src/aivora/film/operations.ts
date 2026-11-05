@@ -1,3 +1,4 @@
+import { sourceCharacterEvidence } from "./character-source";
 import { shotActions, shotActionText, withShotActions } from "./shot-actions";
 import { sceneWriterPlan, type WriterPlan } from "./writer-plan";
 import { directorPlanPrompt } from "./director-plan";
@@ -868,6 +869,7 @@ export function parseCastReply(text: string): ExtractedCast | null {
         gender?: unknown;
         age_band?: unknown;
         ageBand?: unknown;
+        age?: unknown;
       }[];
       locations?: { name?: unknown; prompt?: unknown }[];
     };
@@ -886,7 +888,9 @@ export function parseCastReply(text: string): ExtractedCast | null {
       const rawAge = item.ageBand ?? item.age_band;
       const ageBand = typeof rawAge === "string" ? rawAge.trim() : "";
       person.gender = normalizeGender(gender);
-      person.ageBand = normalizeAgeBand(ageBand);
+      const statedYears = explicitAgeYears(item.age) ?? explicitAgeYears(rawAge);
+      person.ageBand =
+        statedYears === null ? normalizeAgeBand(ageBand) : ageBandForYears(statedYears);
       return [person];
     });
     const locations = (value.locations ?? [])
@@ -924,14 +928,34 @@ const CN_DIGIT: Record<string, number> = {
 };
 
 function ageYears(text: string): number | null {
-  const digits = text.match(/(\d{1,2})\s*岁/);
-  if (digits) return Number(digits[1]);
+  const digits = text.match(/(?<![\d.])(\d{1,3})\s*岁/);
+  if (digits) return Number(digits[1]) <= 120 ? Number(digits[1]) : null;
   const tens = text.match(/([一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
   if (tens) return (CN_DIGIT[tens[1]!] ?? 0) * 10 + (tens[2] ? (CN_DIGIT[tens[2]] ?? 0) : 0);
   const ten = text.match(/(?<![一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
   if (ten) return 10 + (ten[1] ? (CN_DIGIT[ten[1]] ?? 0) : 0);
   const one = text.match(/([一二三四五六七八九])\s*岁/);
   return one ? (CN_DIGIT[one[1]!] ?? null) : null;
+}
+
+function ageBandForYears(years: number): CharacterAgeBand {
+  return years < 13
+    ? "儿童"
+    : years < 18
+      ? "少年"
+      : years < 40
+        ? "青年"
+        : years < 60
+          ? "中年"
+          : "老年";
+}
+
+function explicitAgeYears(value: unknown): number | null {
+  if (typeof value === "number")
+    return Number.isInteger(value) && value >= 0 && value <= 120 ? value : null;
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  return /^[0-9]{1,3}$/.test(raw) ? explicitAgeYears(Number(raw)) : ageYears(raw);
 }
 
 export function castTraits(
@@ -943,6 +967,7 @@ export function castTraits(
 ): { gender: CharacterGender; ageBand: CharacterAgeBand } {
   gender = normalizeGender(gender);
   ageBand = normalizeAgeBand(ageBand);
+  const evidence = sourceCharacterEvidence(source, name);
   // Use only a name-adjacent relationship from the source, never a whole paragraph's pronouns.
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const relation =
@@ -964,6 +989,7 @@ export function castTraits(
     (!gender && /丈夫|父亲|爸爸|之父|爷爷/.test(ownRole || text));
   const inferredGender =
     normalizeGender(gender) ||
+    evidence.gender ||
     (male
       ? "男"
       : female || /女|她|姑娘|小姐/.test(text)
@@ -972,7 +998,9 @@ export function castTraits(
           ? "男"
           : "");
   const years = ageYears(text);
+  const sourceYears = ageYears(evidence.ageText || adjacentAge);
   const inferredAge =
+    (sourceYears !== null ? ageBandForYears(sourceYears) : "") ||
     normalizeAgeBand(ageBand) ||
     (years !== null
       ? years < 13
@@ -1047,6 +1075,7 @@ export function autoVoiceForCharacter(
 }
 
 export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProject {
+  const sourceText = film.sourceText.trim() || film.scenes.map((scene) => scene.text).join("\n\n");
   const known = new Set(film.characters.map((item) => item.name));
   const used = new Set(film.characters.map((item) => item.voiceId).filter(Boolean));
   const characters: FilmCharacter[] = film.characters.map((item) => {
@@ -1054,18 +1083,27 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
     const traits = castTraits(
       incoming?.identity || item.identity,
       item.name,
-      film.sourceText,
+      sourceText,
       item.gender || incoming?.gender,
       item.ageBand || incoming?.ageBand,
     );
-    const updated = autoVoiceForCharacter({ ...item, ...traits }, used, film.sourceText);
+    const updated = autoVoiceForCharacter(
+      {
+        ...item,
+        ...traits,
+        ...(item.userFields.includes("gender") ? { gender: item.gender } : {}),
+        ...(item.userFields.includes("ageBand") ? { ageBand: item.ageBand } : {}),
+      },
+      used,
+      sourceText,
+    );
     used.add(updated.voiceId);
     return updated;
   });
   for (const item of extracted.characters) {
     if (!item.name || known.has(item.name)) continue;
     known.add(item.name);
-    const traits = castTraits(item.identity, item.name, film.sourceText, item.gender, item.ageBand);
+    const traits = castTraits(item.identity, item.name, sourceText, item.gender, item.ageBand);
     const voiceId = assignVoice(item.identity, item.name, used, traits.gender, traits.ageBand);
     used.add(voiceId);
     characters.push({
