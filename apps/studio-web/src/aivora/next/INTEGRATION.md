@@ -771,6 +771,13 @@ restoreFilmHistory(projectId: string, entryId: string): Promise<FilmProject>;
 - 新手模式打开时把 `versions` 设成 1。一键成片和批量生成本来就按 `versions` 出，不用改；GPT 如果有别处读 `film.takesPerShot`，新手模式下也应当按 1。
 - 想把这些偏好存到桌面版的应用数据目录（换浏览器也在），GPT 可以给 `readAppPrefs / writeAppPrefs`，`pro/prefs.ts` 换成调它们。
 
+## 分镜属性分组（4C-U05）
+
+- 分镜页属性栏分三组（`<details>`，组件 `PropGroup`）：「画面」（景别、运镜、角度、时长、描述、出场角色、候选画面）默认展开；「声音」（台词、声音来源、环境音、配乐情绪、按台词定时长）和「高级」（这一镜的画风、英文画面说明、审片、站位、朝向、动作要点、表演）默认收起。每组上次开着还是关着记在这台电脑上（`pro/prefs.ts` 的 `readGroupOpen / writeGroupOpen`，localStorage 的 `aivora.board.groups`）。
+- 时长：当前值不在 2–10 里时（比如 1.5 秒）「自定义」高亮并显示数值，原来就是这样，这次核对过。
+- 「单镜」「返回分镜」两个按钮换成同一个分段切换「全部镜头 | 单个镜头」（`ShotView`），测试、布局检查跟着改了按钮名。
+- 分镜卡标题行右边的来源小圆点去掉了，状态只看画面左上角的标签；「原来就有 / 你改过 / 来自哪位助手」写进卡片的悬停说明。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

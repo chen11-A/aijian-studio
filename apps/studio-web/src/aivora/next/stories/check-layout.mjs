@@ -1,4 +1,4 @@
-/* global document, getComputedStyle, innerWidth, innerHeight, Node, SVGElement, URL, localStorage */
+/* global document, getComputedStyle, NodeFilter, innerWidth, innerHeight, Node, SVGElement, URL, localStorage */
 /**
  * Layout check for the next/ story pages and for the whole workspace. It looks at every state
  * of every story, then at the workspace pages with the test novel loaded (adapters/
@@ -10,7 +10,7 @@
  * text or controls overlap (a dialog or menu over the page is fine; so is text drawn on a
  * picture frame, .nx-frame or [data-layer]), no text is smaller than 12px, every button has a
  * name, the console stays clean, and each workspace page shows at most one filled primary
- * button outside dialogs (4A-U09).
+ * button outside dialogs (4A-U09) and none of the words the copy table rules out (4C-U04).
  *
  * Start the dev server first, then run from the repository root:
  *   pnpm --filter @aijian/studio-web dev
@@ -304,7 +304,7 @@ const pages = [
       return problems;
     },
   },
-  { name: "单镜", button: "单镜" },
+  { name: "单镜", button: "单个镜头" },
   { name: "剪辑", tab: "剪辑" },
   // 4B-U01: the scene's sound in place of the preview, then back.
   { name: "剪辑 声音", button: "声音", close: "预览" },
@@ -340,6 +340,26 @@ const pages = [
   },
   { name: "任务中心", button: /后台生成/ },
 ];
+
+// 4C-U04: words the copy table (docs/design/copy-zh.md) says the screen never uses.
+function plainWords() {
+  const BANNED = /模型|接口|提示词|离线|写入|画面自带|单独配音|JSON|token|prompt/i;
+  const root = document.querySelector(".pro-root");
+  if (!root) return [];
+  const found = new Set();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.textContent ?? "";
+    const parent = node.parentElement;
+    if (!parent || !BANNED.test(text)) continue;
+    const box = parent.getBoundingClientRect();
+    if (box.width === 0 || box.height === 0 || getComputedStyle(parent).visibility === "hidden") {
+      continue;
+    }
+    found.add(text.trim().slice(0, 30));
+  }
+  return [...found].map((text) => `界面上不该出现的词：「${text}」`);
+}
 
 // 4A-U09: one filled primary button per screen; a dialog's own buttons do not count.
 function onePrimary() {
@@ -381,6 +401,7 @@ async function checkPages(browser, size) {
     const extra = [
       ...(step.rules ? await page.evaluate(step.rules) : []),
       ...(await page.evaluate(onePrimary)),
+      ...(await page.evaluate(plainWords)),
     ];
     for (const [label, found] of await inspectPage(page, ".pro-root")) {
       const where = `页面 ${step.name}${label} ${size.width}×${size.height}`;

@@ -201,7 +201,7 @@ import { subtitleStyleData } from "../next/adapters/subtitleStyle";
 import { CoverEditor } from "../next/CoverEditor";
 import { coverEditorData } from "../next/adapters/coverEditor";
 import { HistoryList } from "../next/HistoryList";
-import { readPrefs, writePrefs, type AppPrefs } from "./prefs";
+import { readGroupOpen, readPrefs, writeGroupOpen, writePrefs, type AppPrefs } from "./prefs";
 import {
   AGE_BANDS,
   GENDERS,
@@ -247,6 +247,18 @@ type RoleCard = {
 type FixAction = VideoAction;
 
 type PipelineGenerationHost = PipelineVideoHost;
+
+/** 4C-U04: the keys the workspace answers to, as 设置 lists them. */
+const SHORTCUTS: readonly (readonly [string, string])[] = [
+  ["1 – 4", "换到剧本、角色与场景、分镜、剪辑"],
+  ["Ctrl+Z", "撤销"],
+  ["Ctrl+Shift+Z", "重做"],
+  ["Ctrl+J", "打开或收起 AI 助手"],
+  ["空格", "剪辑页播放 / 暂停"],
+  ["I / O", "剪辑页设入点 / 出点"],
+  ["M", "预览静音 / 有声"],
+  ["Esc", "关掉菜单和对话框"],
+];
 
 /** 4A-U11: notices after an assistant's suggestion was put in; the status bar offers 撤销. */
 const APPLIED_CODES = new Set(["SCRIPT_APPLIED", "ART_APPLIED", "SHOT_APPLIED", "SHOTS_APPLIED"]);
@@ -3290,6 +3302,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   key={item.id}
                   className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
                   aria-current={on ? "page" : undefined}
+                  title={`${item.label}（按 ${index + 1}）`}
                   onClick={() => {
                     setStage(item.id);
                     setMenu(null);
@@ -4155,6 +4168,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   />
                   新手模式：每个镜头只出 1 个版本
                 </label>
+              </section>
+              <section className="ws-sec" aria-label="快捷键">
+                <h3>快捷键</h3>
+                {/* 4C-U04: only keys that do something; the same words as the buttons' tooltips. */}
+                <dl className="keys">
+                  {SHORTCUTS.map(([key, what]) => (
+                    <div key={key}>
+                      <dt>
+                        <kbd>{key}</kbd>
+                      </dt>
+                      <dd>{what}</dd>
+                    </div>
+                  ))}
+                </dl>
               </section>
               <section className="ws-sec" aria-label="用量">
                 <h3>用量</h3>
@@ -5915,6 +5942,53 @@ function CastPage({
   );
 }
 
+/**
+ * 4C-U05: one group of a shot's properties. Folded or open as the person left it last time
+ * (pro/prefs.ts keeps it), starting from defaultOpen.
+ */
+function PropGroup({
+  id,
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  id: string;
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(() => readGroupOpen(id, defaultOpen));
+  return (
+    <details
+      className="pgroup"
+      open={open}
+      onToggle={(event) => {
+        const next = event.currentTarget.open;
+        if (next === open) return;
+        setOpen(next);
+        writeGroupOpen(id, next);
+      }}
+    >
+      <summary>{title}</summary>
+      <div className="pgroup-body">{children}</div>
+    </details>
+  );
+}
+
+/** 4C-U05: 「全部镜头 | 单个镜头」, where 单镜 and 返回分镜 used to be two separate buttons. */
+function ShotView({ one, onAll, onOne }: { one: boolean; onAll: () => void; onOne: () => void }) {
+  return (
+    <div className="seg view-seg" role="group" aria-label="看全部镜头还是一个">
+      <button type="button" className={one ? "" : "on"} aria-pressed={!one} onClick={onAll}>
+        全部镜头
+      </button>
+      <button type="button" className={one ? "on" : ""} aria-pressed={one} onClick={onOne}>
+        单个镜头
+      </button>
+    </div>
+  );
+}
+
 function BoardPage({
   quiet = false,
   onNext,
@@ -6009,7 +6083,6 @@ function BoardPage({
   const [tab, setTab] = useState<"props" | "ai">("props");
   // 4A-U11: Ctrl+J switches between 属性 and AI 助手.
   useAssistantKey(() => setTab((now) => (now === "ai" ? "props" : "ai")));
-  const [showEnglish, setShowEnglish] = useState(false);
   const [customSeconds, setCustomSeconds] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const seenAssist = useRef(assistPulse);
@@ -6147,9 +6220,8 @@ function BoardPage({
           >
             加镜头
           </button>
-          <button className="btn" onClick={onGenerate}>
-            单镜
-          </button>
+          {/* 4C-U05: all shots or one shot, the same switch on both views. */}
+          <ShotView one={false} onAll={() => undefined} onOne={onGenerate} />
           <button className={quiet ? "btn" : "btn primary"} onClick={onBatch}>
             <Ic name="spark" size={14} />
             生成这一场
@@ -6199,6 +6271,8 @@ function BoardPage({
               ]
                 .filter(Boolean)
                 .join(" ")}
+              // 4C-U05: the card's state is the label on its picture; who wrote it is in here.
+              title={`镜头 ${item.no} · ${shotSource(item).label}`}
               onClick={() => onShot(index)}
               onDragOver={(event) => {
                 if (!event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) return;
@@ -6267,11 +6341,6 @@ function BoardPage({
                       </span>
                     ) : null;
                   })()}
-                  <i
-                    className={`src ${shotSource(item).tone}`}
-                    title={shotSource(item).label}
-                    aria-hidden="true"
-                  />
                 </div>
                 <p className="pic" title={item.picture}>
                   {item.picture}
@@ -6379,338 +6448,153 @@ function BoardPage({
               </section>
             ) : null}
             <div className="pb">
-              <div className="field">
-                <div className="row3">
-                  <div>
-                    <label>景别</label>
-                    <select
-                      className="input"
-                      aria-label="景别"
-                      value={
-                        SHOT_SIZES.includes(current.size as (typeof SHOT_SIZES)[number])
-                          ? current.size
-                          : classifyShotSize(current.size).size
-                      }
-                      onChange={(event) =>
-                        onFilm(
-                          updateShot(film, current.id, {
-                            size: event.target.value,
-                            userFields: [...new Set([...current.userFields, "size"])],
-                          }),
-                        )
-                      }
-                    >
-                      {SHOT_SIZES.map((item) => (
-                        <option key={item}>{item}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>镜头怎么动</label>
-                    <select
-                      className="input"
-                      aria-label="运镜"
-                      value={
-                        ["固定", "跟拍", "推", "拉", "摇", "慢镜"].includes(current.move)
-                          ? current.move
-                          : "固定"
-                      }
-                      onChange={(event) =>
-                        onFilm(updateShot(film, current.id, { move: event.target.value }))
-                      }
-                    >
-                      {["固定", "跟拍", "推", "拉", "摇", "慢镜"].map((item) => (
-                        <option key={item}>{item}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>角度</label>
-                    <div className="input">{current.angle || "平视"}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="shot-seconds">时长（秒）</label>
-                <div className="seg" aria-label="时长">
-                  {SECONDS_CHOICES.map((seconds) => (
-                    <button
-                      key={seconds}
-                      type="button"
-                      aria-label={`${seconds} 秒`}
-                      className={!customSeconds && current.seconds === seconds ? "on" : ""}
-                      onClick={() => {
-                        setCustomSeconds(false);
-                        onFilm(
-                          updateShot(film, current.id, {
-                            seconds,
-                            userFields: [...new Set([...current.userFields, "seconds"])],
-                          }),
-                        );
-                      }}
-                    >
-                      {seconds}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className={
-                      customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? "on" : ""
-                    }
-                    aria-pressed={customSeconds || !SECONDS_CHOICES.includes(current.seconds)}
-                    onClick={() => setCustomSeconds(true)}
-                  >
-                    自定义
-                  </button>
-                </div>
-                {customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? (
-                  <div className="seconds-box">
-                    <input
-                      id="shot-seconds"
-                      className="input"
-                      type="number"
-                      min={1}
-                      max={15}
-                      aria-label="时长秒数"
-                      value={current.seconds}
-                      onChange={(event) => {
-                        const seconds = Number(event.target.value);
-                        if (!Number.isFinite(seconds)) return;
-                        onFilm(
-                          updateShot(film, current.id, {
-                            seconds: Math.max(1, Math.min(15, seconds)),
-                            userFields: [...new Set([...current.userFields, "seconds"])],
-                          }),
-                        );
-                      }}
-                    />
-                    <span>秒，1 到 15 秒</span>
-                  </div>
-                ) : null}
-              </div>
-              <div className="field">
-                <label>画面描述</label>
-                <textarea
-                  className="area"
-                  rows={3}
-                  aria-label="分镜画面"
-                  value={current.picture}
-                  onChange={(event) =>
-                    onFilm(
-                      updateShot(film, current.id, {
-                        picture: event.target.value,
-                        promptZh: "",
-                        source: "user",
-                        userFields: [...new Set([...current.userFields, "picture"])],
-                      }),
-                    )
-                  }
-                />
-                <button
-                  className="btn sm"
-                  type="button"
-                  onClick={() => setShowEnglish((value) => !value)}
-                >
-                  高级
-                </button>
-                {showEnglish ? (
-                  <div className="adv">
-                    <label htmlFor="shot-style-note">这一镜的画风</label>
-                    <textarea
-                      id="shot-style-note"
-                      className="area"
-                      aria-label="这一镜的画风"
-                      placeholder={`不写就用整部作品的画风：${film.stylePreset}`}
-                      value={current.styleNote ?? ""}
-                      onChange={(event) =>
-                        onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
-                      }
-                    />
-                    <p className="role-desc">
-                      {current.promptEn || "还没有英文画面说明。可以让「画面说明」助手写。"}
-                    </p>
-                    <div className="acts">
-                      <button className="btn sm" type="button" onClick={onPrompter}>
-                        写英文画面说明
-                      </button>
-                      <button className="btn sm" type="button" onClick={onQc}>
-                        审一下这一镜的文字
-                      </button>
+              {/* 4C-U05: 画面 open; 声音 and 高级 folded until opened, and each remembers. */}
+              <PropGroup id="picture" title="画面" defaultOpen>
+                <div className="field">
+                  <div className="row3">
+                    <div>
+                      <label>景别</label>
+                      <select
+                        className="input"
+                        aria-label="景别"
+                        value={
+                          SHOT_SIZES.includes(current.size as (typeof SHOT_SIZES)[number])
+                            ? current.size
+                            : classifyShotSize(current.size).size
+                        }
+                        onChange={(event) =>
+                          onFilm(
+                            updateShot(film, current.id, {
+                              size: event.target.value,
+                              userFields: [...new Set([...current.userFields, "size"])],
+                            }),
+                          )
+                        }
+                      >
+                        {SHOT_SIZES.map((item) => (
+                          <option key={item}>{item}</option>
+                        ))}
+                      </select>
                     </div>
-                    {toolNote ? <p className="role-desc">{toolNote}</p> : null}
-                    {qcCard ? (
-                      <div className="bubble">
-                        <div className="h">{qcCard.title}</div>
-                        <div className="shotlist">
-                          {qcCard.rows.map((item) => (
-                            <div key={item.id}>
-                              <span>{item.mark}</span>
-                              <span />
-                              <span title={item.text}>{item.text}</span>
-                              <span />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="acts">
-                          <button className="btn sm" type="button" onClick={onRedoRange}>
-                            按意见重做这一镜
-                          </button>
-                          <button
-                            className="btn sm"
-                            type="button"
-                            disabled={qcCard.applied}
-                            onClick={onDismiss}
-                          >
-                            {qcCard.applied ? "已记下" : "知道了"}
-                          </button>
-                        </div>
-                      </div>
+                    <div>
+                      <label>镜头怎么动</label>
+                      <select
+                        className="input"
+                        aria-label="运镜"
+                        value={
+                          ["固定", "跟拍", "推", "拉", "摇", "慢镜"].includes(current.move)
+                            ? current.move
+                            : "固定"
+                        }
+                        onChange={(event) =>
+                          onFilm(updateShot(film, current.id, { move: event.target.value }))
+                        }
+                      >
+                        {["固定", "跟拍", "推", "拉", "摇", "慢镜"].map((item) => (
+                          <option key={item}>{item}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label>角度</label>
+                      <div className="input">{current.angle || "平视"}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="shot-seconds">时长（秒）</label>
+                  <div className="seg" aria-label="时长">
+                    {SECONDS_CHOICES.map((seconds) => (
+                      <button
+                        key={seconds}
+                        type="button"
+                        aria-label={`${seconds} 秒`}
+                        className={!customSeconds && current.seconds === seconds ? "on" : ""}
+                        onClick={() => {
+                          setCustomSeconds(false);
+                          onFilm(
+                            updateShot(film, current.id, {
+                              seconds,
+                              userFields: [...new Set([...current.userFields, "seconds"])],
+                            }),
+                          );
+                        }}
+                      >
+                        {seconds}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className={
+                        customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? "on" : ""
+                      }
+                      aria-pressed={customSeconds || !SECONDS_CHOICES.includes(current.seconds)}
+                      onClick={() => setCustomSeconds(true)}
+                    >
+                      自定义
+                    </button>
+                  </div>
+                  {customSeconds || !SECONDS_CHOICES.includes(current.seconds) ? (
+                    <div className="seconds-box">
+                      <input
+                        id="shot-seconds"
+                        className="input"
+                        type="number"
+                        min={1}
+                        max={15}
+                        aria-label="时长秒数"
+                        value={current.seconds}
+                        onChange={(event) => {
+                          const seconds = Number(event.target.value);
+                          if (!Number.isFinite(seconds)) return;
+                          onFilm(
+                            updateShot(film, current.id, {
+                              seconds: Math.max(1, Math.min(15, seconds)),
+                              userFields: [...new Set([...current.userFields, "seconds"])],
+                            }),
+                          );
+                        }}
+                      />
+                      <span>秒，1 到 15 秒</span>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="field">
+                  <label>画面描述</label>
+                  <textarea
+                    className="area"
+                    rows={3}
+                    aria-label="分镜画面"
+                    value={current.picture}
+                    onChange={(event) =>
+                      onFilm(
+                        updateShot(film, current.id, {
+                          picture: event.target.value,
+                          promptZh: "",
+                          source: "user",
+                          userFields: [...new Set([...current.userFields, "picture"])],
+                        }),
+                      )
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label>出场角色</label>
+                  <div className="tagrow">
+                    <span className="tag">
+                      {shotPerson(
+                        current.characters,
+                        current.picture,
+                        film.characters.map((person) => person.name),
+                      )}
+                    </span>
+                    {appearanceMark(focusedPrompt, current.characters, film.characters) ? (
+                      <span className="tag">
+                        {appearanceMark(focusedPrompt, current.characters, film.characters)}
+                      </span>
                     ) : null}
                   </div>
-                ) : null}
-              </div>
-              <div className="field">
-                <label htmlFor="shot-blocking">站位</label>
-                <textarea
-                  id="shot-blocking"
-                  className="area"
-                  aria-label="站位"
-                  placeholder="谁在画左，谁在画右"
-                  value={current.blocking ?? ""}
-                  onChange={(event) =>
-                    onFilm(updateShot(film, current.id, { blocking: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="shot-facing">朝向</label>
-                <input
-                  id="shot-facing"
-                  className="input"
-                  aria-label="朝向"
-                  placeholder="看向画左或画右"
-                  value={current.facing ?? ""}
-                  onChange={(event) =>
-                    onFilm(updateShot(film, current.id, { facing: event.target.value }))
-                  }
-                />
-              </div>
-              {current.tag ? <p className="role-desc">镜头类型：{current.tag}</p> : null}
-              {missingLocks.length > 0 && (
-                <p className="role-desc">这一镜的画面说明漏了{missingLocks.join("、")}的外貌。</p>
-              )}
-              <div className="field">
-                <label>声音</label>
-                <p className="role-desc">台词：{current.line || "这一镜没有台词"}</p>
-                <select
-                  className="input"
-                  aria-label="声音来源"
-                  value={current.sound.source}
-                  onChange={(event) =>
-                    onFilm(
-                      updateShot(film, current.id, {
-                        sound: {
-                          ...current.sound,
-                          source: event.target.value === "dub" ? "dub" : "native",
-                        },
-                      }),
-                    )
-                  }
-                >
-                  <option value="native">用视频里的声音</option>
-                  <option value="dub">另外配音</option>
-                </select>
-                <textarea
-                  className="area"
-                  aria-label="这一镜的环境音"
-                  value={current.sound.ambience}
-                  placeholder="环境音"
-                  onChange={(event) =>
-                    onFilm(
-                      updateShot(film, current.id, {
-                        sound: { ...current.sound, ambience: event.target.value },
-                      }),
-                    )
-                  }
-                />
-                <input
-                  className="input"
-                  aria-label="配乐情绪"
-                  value={current.sound.musicMood}
-                  placeholder="配乐情绪"
-                  onChange={(event) =>
-                    onFilm(
-                      updateShot(film, current.id, {
-                        sound: { ...current.sound, musicMood: event.target.value },
-                      }),
-                    )
-                  }
-                />
-                <button className="btn sm" type="button" onClick={() => onTimeLine(current.id)}>
-                  按台词定时长
-                </button>
-              </div>
-              <div className="field">
-                <label>出场角色</label>
-                <div className="tagrow">
-                  <span className="tag">
-                    {shotPerson(
-                      current.characters,
-                      current.picture,
-                      film.characters.map((person) => person.name),
-                    )}
-                  </span>
-                  {appearanceMark(focusedPrompt, current.characters, film.characters) ? (
-                    <span className="tag">
-                      {appearanceMark(focusedPrompt, current.characters, film.characters)}
-                    </span>
-                  ) : null}
                 </div>
-              </div>
-              <div className="field">
-                <label>
-                  动作要点
-                  {current.source === "agent:action" && !current.userFields.includes("action") ? (
-                    <span className="from role-a">来自动作指导</span>
-                  ) : null}
-                </label>
-                <textarea
-                  className="area"
-                  aria-label="动作要点"
-                  placeholder="没有就留空"
-                  value={current.action}
-                  onChange={(event) =>
-                    onFilm(
-                      updateShot(film, current.id, {
-                        action: event.target.value,
-                        userFields: [...new Set([...current.userFields, "action"])],
-                      }),
-                    )
-                  }
-                />
-              </div>
-              <div className="field">
-                <label>
-                  表演
-                  {current.source === "agent:performance" &&
-                  !current.userFields.includes("performance") ? (
-                    <span className="from role-e">来自表演指导</span>
-                  ) : null}
-                </label>
-                <textarea
-                  className="area"
-                  aria-label="表演"
-                  value={current.performance}
-                  placeholder="还没有表演提示。"
-                  onChange={(event) =>
-                    onFilm(
-                      updateShot(film, current.id, {
-                        performance: event.target.value,
-                        userFields: [...new Set([...current.userFields, "performance"])],
-                      }),
-                    )
-                  }
-                />
                 {current.stills.some((item) => item.url) && (
                   <div className="shotlist">
                     {current.stills
@@ -6736,7 +6620,189 @@ function BoardPage({
                     ))}
                   </div>
                 )}
-              </div>
+                {current.tag ? <p className="role-desc">镜头类型：{current.tag}</p> : null}
+                {missingLocks.length > 0 && (
+                  <p className="role-desc">这一镜的画面说明漏了{missingLocks.join("、")}的外貌。</p>
+                )}
+              </PropGroup>
+              <PropGroup id="sound" title="声音">
+                <div className="field">
+                  <p className="role-desc">台词：{current.line || "这一镜没有台词"}</p>
+                  <select
+                    className="input"
+                    aria-label="声音来源"
+                    value={current.sound.source}
+                    onChange={(event) =>
+                      onFilm(
+                        updateShot(film, current.id, {
+                          sound: {
+                            ...current.sound,
+                            source: event.target.value === "dub" ? "dub" : "native",
+                          },
+                        }),
+                      )
+                    }
+                  >
+                    <option value="native">用视频里的声音</option>
+                    <option value="dub">另外配音</option>
+                  </select>
+                  <textarea
+                    className="area"
+                    aria-label="这一镜的环境音"
+                    value={current.sound.ambience}
+                    placeholder="环境音"
+                    onChange={(event) =>
+                      onFilm(
+                        updateShot(film, current.id, {
+                          sound: { ...current.sound, ambience: event.target.value },
+                        }),
+                      )
+                    }
+                  />
+                  <input
+                    className="input"
+                    aria-label="配乐情绪"
+                    value={current.sound.musicMood}
+                    placeholder="配乐情绪"
+                    onChange={(event) =>
+                      onFilm(
+                        updateShot(film, current.id, {
+                          sound: { ...current.sound, musicMood: event.target.value },
+                        }),
+                      )
+                    }
+                  />
+                  <button className="btn sm" type="button" onClick={() => onTimeLine(current.id)}>
+                    按台词定时长
+                  </button>
+                </div>
+              </PropGroup>
+              <PropGroup id="advanced" title="高级">
+                <div className="adv">
+                  <label htmlFor="shot-style-note">这一镜的画风</label>
+                  <textarea
+                    id="shot-style-note"
+                    className="area"
+                    aria-label="这一镜的画风"
+                    placeholder={`不写就用整部作品的画风：${film.stylePreset}`}
+                    value={current.styleNote ?? ""}
+                    onChange={(event) =>
+                      onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
+                    }
+                  />
+                  <p className="role-desc">
+                    {current.promptEn || "还没有英文画面说明。可以让「画面说明」助手写。"}
+                  </p>
+                  <div className="acts">
+                    <button className="btn sm" type="button" onClick={onPrompter}>
+                      写英文画面说明
+                    </button>
+                    <button className="btn sm" type="button" onClick={onQc}>
+                      审一下这一镜的文字
+                    </button>
+                  </div>
+                  {toolNote ? <p className="role-desc">{toolNote}</p> : null}
+                  {qcCard ? (
+                    <div className="bubble">
+                      <div className="h">{qcCard.title}</div>
+                      <div className="shotlist">
+                        {qcCard.rows.map((item) => (
+                          <div key={item.id}>
+                            <span>{item.mark}</span>
+                            <span />
+                            <span title={item.text}>{item.text}</span>
+                            <span />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="acts">
+                        <button className="btn sm" type="button" onClick={onRedoRange}>
+                          按意见重做这一镜
+                        </button>
+                        <button
+                          className="btn sm"
+                          type="button"
+                          disabled={qcCard.applied}
+                          onClick={onDismiss}
+                        >
+                          {qcCard.applied ? "已记下" : "知道了"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="field">
+                  <label htmlFor="shot-blocking">站位</label>
+                  <textarea
+                    id="shot-blocking"
+                    className="area"
+                    aria-label="站位"
+                    placeholder="谁在画左，谁在画右"
+                    value={current.blocking ?? ""}
+                    onChange={(event) =>
+                      onFilm(updateShot(film, current.id, { blocking: event.target.value }))
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="shot-facing">朝向</label>
+                  <input
+                    id="shot-facing"
+                    className="input"
+                    aria-label="朝向"
+                    placeholder="看向画左或画右"
+                    value={current.facing ?? ""}
+                    onChange={(event) =>
+                      onFilm(updateShot(film, current.id, { facing: event.target.value }))
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label>
+                    动作要点
+                    {current.source === "agent:action" && !current.userFields.includes("action") ? (
+                      <span className="from role-a">来自动作指导</span>
+                    ) : null}
+                  </label>
+                  <textarea
+                    className="area"
+                    aria-label="动作要点"
+                    placeholder="没有就留空"
+                    value={current.action}
+                    onChange={(event) =>
+                      onFilm(
+                        updateShot(film, current.id, {
+                          action: event.target.value,
+                          userFields: [...new Set([...current.userFields, "action"])],
+                        }),
+                      )
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label>
+                    表演
+                    {current.source === "agent:performance" &&
+                    !current.userFields.includes("performance") ? (
+                      <span className="from role-e">来自表演指导</span>
+                    ) : null}
+                  </label>
+                  <textarea
+                    className="area"
+                    aria-label="表演"
+                    value={current.performance}
+                    placeholder="还没有表演提示。"
+                    onChange={(event) =>
+                      onFilm(
+                        updateShot(film, current.id, {
+                          performance: event.target.value,
+                          userFields: [...new Set([...current.userFields, "performance"])],
+                        }),
+                      )
+                    }
+                  />
+                </div>
+              </PropGroup>
             </div>
             <div className="pfoot2 one">
               <div className="more-wrap">
@@ -6961,9 +7027,7 @@ function GeneratePage({
           <span className="meta">选一个最好的，会放进剪辑</span>
           <span className="sp" />
           {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
-          <button className="btn sm" onClick={onBack}>
-            返回分镜
-          </button>
+          <ShotView one onAll={onBack} onOne={() => undefined} />
         </div>
         <div className="cand-wrap">
           <div className="bigprev">
@@ -7684,6 +7748,7 @@ function EditPage({
                     <button
                       className="playb"
                       aria-label={playing ? "暂停" : "播放"}
+                      title={playing ? "暂停（空格）" : "播放（空格）"}
                       onClick={onTogglePlay}
                     >
                       <Ic name={playing ? "pause" : "play"} size={16} />
@@ -7811,13 +7876,13 @@ function EditPage({
           </div>
         ) : (
           <div className="ttool">
-            <button className="icon-btn on" aria-label="选择" title="选择 (V)">
+            <button className="icon-btn on" aria-label="选择" title="选择">
               <Ic name="cursor" />
             </button>
             <button
               className="icon-btn"
               aria-label="删除"
-              title="删除 (Del)"
+              title="删除选中的镜头"
               onClick={() => onAction("cut")}
             >
               <Ic name="trash" />
