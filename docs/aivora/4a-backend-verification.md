@@ -37,10 +37,12 @@ Python全量重跑最终5138通过、0失败、6跳过，用时2042.59秒；ruff
 
 ## 仍需协作或真实供应商验证
 
-- Claude：B01新流水线完整入口、精确目标重试、uncertain核对、人工审片与独立检查点；B10场景参考/画幅入口；B11最终文案及统一差异展示。101个代码的精确名单与测试在 [4a-notice-handoff.md](4a-notice-handoff.md)，未修改其文案表或弱化完整性测试。
+- Claude：B01新流水线完整入口、精确目标重试、uncertain核对、人工审片与独立检查点；B10场景参考/画幅入口；B11统一差异展示及文案整合。101条最终文案已由Claude的48a5825交付，尚未联合验证；101个代码的精确名单与测试在 [4a-notice-handoff.md](4a-notice-handoff.md)，未修改其文案表或弱化完整性测试。
 - 会员验证：B05看图能力、B06中英文对比及B02/B03/B04/B08/B10实际效果。没有已登录真实会员环境；未用模拟测试宣称供应商已通过。
 - B09核心业务迁移按职责完成；剩余保存/所有权/界面生命周期不机械搬出。B08这次要求的writer/director/performance字段缺口已补，未扩大到服装生产或新增智能体。
 
 可直接转Claude的接口交接：[4a-claude-integration-handoff.md](4a-claude-integration-handoff.md)。已只读核对 `claude/work@d1209d1e390dad5e5f965fb10b901aed823b2eea`，旧四笔未合入提交也保留清单；`aivora/dev`仍为`7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11`。没有本轮4a tag、安装包或阶段通过声明。
 
 最终记录另补跑当前工作树的仓库文本/角色约定检查，4项全部通过，覆盖本轮新增文档（`/workspace/4a-final-doc-check.log`）。最终文档经Prettier及git diff --check检查。
+
+更新：Claude的101条文案已在48a5825交付；以上05c固定检查的失败保留为历史结果，不能再解释成Claude尚未交付。GPT后端`ed83803`独立同步了已交付兜底，并修复同文案代码分类兼容，246项相关回归和全类型、目标lint/格式通过。尚未合并Claude，未重跑整合全量。当前剩余范围详见任务书及交接文档最新节。

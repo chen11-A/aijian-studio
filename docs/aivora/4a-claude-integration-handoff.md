@@ -56,9 +56,9 @@
 
 完整清单及每条后端兜底文字：`docs/aivora/4a-notice-handoff.md`。
 来源：`apps/studio-web/src/aivora/film/notices.ts` 导出的 `NOTICE_TEXT` 与 `next/wiring/noticeCopy.ts` 的 `NOTICE_COPY` 差集，排除约定的 `OPERATION_STATUS/EDITOR_GUIDANCE`。
-本轮重新核对：GPT当前代码和 `claude/work@caf50e2` 均缺101项，清单逐项完全一致。不是101条新缺陷，也不是要求修改后端code名。
+此前核对：GPT当时的代码和 `claude/work@caf50e2` 均缺101项，清单逐项完全一致。现Claude已在48a5825交付全部映射，待阶段整合检查。不是101条新缺陷，也不是要求修改后端code名。
 
-Claude负责补 `apps/studio-web/src/aivora/next/wiring/noticeCopy.ts` 和 `docs/design/copy-zh.md` 最终文案；短句与详情分开，不显示内部代码/JSON/模型术语。不要用展开整个NOTICE_TEXT的方式绕过最终文案审阅，不删除完整性或术语检查。
+Claude已交付 `apps/studio-web/src/aivora/next/wiring/noticeCopy.ts` 和 `docs/design/copy-zh.md` 最终文案；短句与详情分开，不显示内部代码/JSON/模型术语。不要用展开整个NOTICE_TEXT的方式绕过最终文案审阅，不删除完整性或术语检查。
 
 在 `apps/studio-web` 执行：
 
@@ -81,9 +81,9 @@ pnpm exec vitest run src/aivora/next/wiring/noticeCopy.test.ts
 
 ## 最后一次远端复核补充
 
-交接整理期间 `claude/work` 又推进到 `ceef82629c22f9fc7e1bab7edb577e501248157d`（4A-U02画风卡），父提交仍为caf50e2。它只改画风卡、样式、测试及接口文档，没有补B01或NOTICE_COPY；上述101项差集及B01接线差异仍适用。
+交接整理期间 `claude/work` 又推进到 `ceef82629c22f9fc7e1bab7edb577e501248157d`（4A-U02画风卡），父提交仍为caf50e2。它只改画风卡、样式、测试及接口文档，没有补B01或NOTICE_COPY；该段记录ceef826时的历史状态；最新48a5825已补文案，B01接线差异仍适用。
 
-画风卡目前用 `styleAtOpen` 判断改变，跨页/重开会重置，不能表示持久失效。请读GPT已保存的 `shot.regenerationRequired`，保留 `setFilmStyle` 的版本与媒体保护；不要在合并时用Claude基于3j的setFilm/处理函数覆盖这些逻辑。最终状态的中文展示仍由Claude决定。本轮没有擅自修改该组件。
+画风卡在ceef826时用 `styleAtOpen` 判断改变，跨页/重开会重置，不能表示持久失效。请读GPT已保存的 `shot.regenerationRequired`，保留 `setFilmStyle` 的版本与媒体保护；不要在合并时用Claude基于3j的setFilm/处理函数覆盖这些逻辑。最终状态的中文展示仍由Claude决定。本轮没有擅自修改该组件。
 
 ### 本轮追加核对
 
@@ -91,4 +91,12 @@ pnpm exec vitest run src/aivora/next/wiring/noticeCopy.test.ts
 
 GPT新增：B08 `528d850`编剧/导演声明与原子确认、`11229ca`表演null/主配角；B09 `9b3af94`导演/审片/视频任务准备；B11 `cdfc2f5`迟到保存完成守卫、`c6d4273`保存失败分类、`05c59c7`实际编剧/美术选择快照接线。完整字段矩阵在 `4a-field-audit.md`；无新界面生成入口要求。请保留actions调用和固定事务，不将基于3j的处理函数整段覆盖。
 
-固定adff全web3970通过/2失败（NOTICE_COPY101码和已修的保存分类）；最新代码05c全web4029通过/1失败（仍是101码缺口），类型/lint/格式通过；Python隔离重跑5138通过/6跳过，覆盖率门槛通过。这不是阶段通过，仍需Claude最终文案、流水线完整交互与真实会员验收。
+固定adff全web3970通过/2失败（NOTICE_COPY101码和已修的保存分类）；最新代码05c全web4029通过/1失败（仍是101码缺口），类型/lint/格式通过；Python隔离重跑5138通过/6跳过，覆盖率门槛通过。这不是阶段通过，仍需整合已交付的Claude文案、完成流水线交互与真实会员验收。
+
+### 48a5825已交付，尚未阶段整合
+
+只读核对48a5825的101条NOTICE_COPY与交接集合完全对应，已交付而非尚待编写。GPT在`ed83803`仅同步film/notices.ts后端兜底，保留旧文本兼容；246项通知/完整工作台回归、全类型及目标lint/格式通过。固定契约fixture记录原提交和每条文字，不直接从当前实现生成测试期望。两个代码同文案时，纯文字输入保留旧分类，结构化code仍精确选择。
+
+同一分支的`99047c5`已解决styleAtOpen问题：画风卡及分镜读取needsRestyle/regenerationRequired，不需重复修复。B01仍仅四种步骤状态、摘要检查点，continueOneClick仍调用queueBatch；精确目标重试、真实checkpoint、人工审片未接。
+
+阶段整合时需同步扩展film/notices.test.ts的文案表契约：当前旧表118个受支持条目，48a5825新表219个；保留旧118条的纯文字兼容检查，新101条按明确code和旧别名逐条验证（多个code可同一句最终文案，不能反推唯一code）。不要只改小于/大于数量断言或删除语义检查。新增后端notice-copy-contract.test.ts已对101条及碰撞情况覆盖，联合NOTICE_COPY/文案表检查仍需在整合后实际执行。当前不合并分支，不声明4a完成。
