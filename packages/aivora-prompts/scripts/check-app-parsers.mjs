@@ -187,12 +187,14 @@ function checkDirector(app, example, writerScene, report) {
   }
   if (new Set(shots.map((shot) => shot.id)).size !== shots.length)
     report.fail(`${example.id}：出现重复镜头 id`);
-  const represented = shots
-    .map((shot) => `${shot.picture}\n${shot.action}\n${shot.line}`)
-    .join("\n");
+  const compact = (text) => text.replace(/\s+/gu, "");
+  const actions = (shot) => (shot.actionBeats?.length ? shot.actionBeats.join("\n") : shot.action);
+  const represented = compact(
+    shots.map((shot) => `${shot.picture}\n${actions(shot)}\n${shot.line}`).join("\n"),
+  );
   for (const original of plan.shots) {
     for (const text of [original.picture, original.action, original.line].filter(Boolean))
-      if (!represented.includes(text)) report.fail(`${example.id}：合并丢失镜头内容`);
+      if (!represented.includes(compact(text))) report.fail(`${example.id}：合并丢失镜头内容`);
   }
   const status = app.directorPlanStatus(ref, shots);
   if (!status.coverage.ok)
@@ -224,7 +226,9 @@ function checkDirector(app, example, writerScene, report) {
     }
     if (got.tag !== shot.tag) report.fail(`${where}：tag 读成了 ${got.tag}`);
     const action = shot.action !== shot.picture ? shot.action : "";
-    if (got.action !== action) report.fail(`${where}：action 读错了`);
+    if (compact(actions(got)) !== compact(action)) report.fail(`${where}：action 完整序列读错了`);
+    if (got.actionBeats?.length && got.action !== got.actionBeats[0])
+      report.fail(`${where}：主动作和完整序列不一致`);
     if (shot.line) {
       if (got.line !== shot.line)
         report.fail(`${where}：台词「${shot.line}」被读成「${got.line}」`);
