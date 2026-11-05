@@ -27,7 +27,7 @@ describe("soundPanelData", () => {
       master: null,
       lanes: { dialogue: 100 },
       laneNotes: {
-        ambience: "还没有环境声的声音文件。",
+        ambience: "还没有环境音的声音文件。",
         sfx: "还没有音效的声音文件。",
         score: "配乐是整部片子一起调的，在时间线的音乐轨上调。",
       },
@@ -66,7 +66,7 @@ describe("soundPanelData", () => {
       music: null,
     });
     expect(ready(value, "scene-1").laneNotes).toMatchObject({
-      dialogue: "这一场各镜头的台词音量不一样。",
+      dialogue: "这一场各镜头的对白音量不一样。",
       score: "还没有导入配乐。",
     });
     const noGain = edited((project) => {
@@ -117,7 +117,7 @@ describe("soundPanelData", () => {
     expect(screen.getByRole("radio", { name: "不安" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByText("还不能单独调。")).toBeInTheDocument();
     expect(screen.getAllByRole("slider")).toHaveLength(1);
-    fireEvent.change(screen.getByRole("slider", { name: /台词/ }), { target: { value: "50" } });
+    fireEvent.change(screen.getByRole("slider", { name: /对白/ }), { target: { value: "50" } });
     expect(onLaneChange).toHaveBeenCalledWith("dialogue", 50, -6);
     expect(screen.getByText("配乐是整部片子一起调的，在时间线的音乐轨上调。")).toBeInTheDocument();
   });

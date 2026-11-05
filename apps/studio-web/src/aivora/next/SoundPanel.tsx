@@ -174,7 +174,7 @@ export function SoundPanel({
               {fineOpen ? "收起细调" : "细调"}
             </button>
             <span className="nx-faint nx-one-line">
-              {fineOpen ? "只改这一场，其他场不受影响" : "台词、环境声、音效、配乐各自的大小"}
+              {fineOpen ? "只改这一场，其他场不受影响" : "对白、环境音、音效、配乐各自的大小"}
             </span>
           </div>
           {fineOpen ? (

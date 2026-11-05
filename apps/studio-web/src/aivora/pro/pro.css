@@ -45,6 +45,8 @@
   --t-voice: #2fa978;
   --t-sub: #c4902f;
   --t-music: #8a63e8;
+  --t-amb: #3fa7b5;
+  --t-sfx: #d9895a;
   --r-s: 4px;
   --r: 6px;
   --r-l: 10px;
@@ -1326,16 +1328,17 @@ body:has(.pro-root) {
   grid-template-rows: minmax(0, 1fr) 272px;
   grid-template-columns: 280px 1fr 300px;
 }
+/* 4B-U02: four audio tracks fit the 272px timeline at 1280×800 (each at least 28px). */
 .pro-root {
-  --hs: 36px;
-  --hv: 66px;
-  --ha: 52px;
+  --hs: 28px;
+  --hv: 54px;
+  --ha: 30px;
 }
 @media (min-width: 1600px) {
   .pro-root {
-    --hs: 44px;
-    --hv: 110px;
-    --ha: 56px;
+    --hs: 40px;
+    --hv: 90px;
+    --ha: 40px;
   }
   .pro-root .ws {
     grid-template-rows: minmax(0, 1fr) 360px;
@@ -2363,6 +2366,51 @@ body:has(.pro-root) {
   background: rgba(138, 99, 232, 0.2);
   border: 1px solid rgba(138, 99, 232, 0.55);
   color: #cdb9ff;
+}
+/* 4B-U02: 环境音 and 音效. Dashed while only the words exist, with no sound file yet. */
+.pro-root .clip.amb {
+  background: color-mix(in srgb, var(--t-amb) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--t-amb) 55%, transparent);
+  color: color-mix(in srgb, var(--t-amb) 55%, var(--text));
+}
+.pro-root .clip.fx {
+  background: color-mix(in srgb, var(--t-sfx) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--t-sfx) 55%, transparent);
+  color: color-mix(in srgb, var(--t-sfx) 55%, var(--text));
+}
+.pro-root .clip.plan {
+  background: none;
+  border-style: dashed;
+}
+.pro-root .clip.plan.fx {
+  width: auto;
+  max-width: 120px;
+  padding-right: 4px;
+}
+/* The strip an audio clip keeps for its waveform (GPT C3); empty until the peaks come. */
+.pro-root .clip svg.wave {
+  position: absolute;
+  left: 2px;
+  top: 3px;
+  width: calc(100% - 4px);
+  height: calc(100% - 6px);
+  pointer-events: none;
+  opacity: 0.45;
+}
+.pro-root .clip span.wave {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  border-bottom: 1px dashed currentColor;
+  pointer-events: none;
+  opacity: 0.25;
+}
+.pro-root .clip svg.wave polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
 }
 .pro-root .clip .tx {
   position: relative;

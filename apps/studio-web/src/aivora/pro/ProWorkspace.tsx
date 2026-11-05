@@ -64,7 +64,7 @@ import {
   subtitleCues,
   updateShot,
 } from "../film/operations";
-import { dbToVolumePercent, volumePercentToDb } from "../film/audio";
+import { dbToVolumePercent, volumePercentToDb, type AudioClip } from "../film/audio";
 import {
   activeFilmId,
   BROWSER_DIRECTORY,
@@ -3651,9 +3651,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       const next = current === lane ? "" : lane;
                       setNotice(
                         next === "score"
-                          ? "只听音乐。音量没有改。"
+                          ? "只听配乐。音量没有改。"
                           : next === "dialogue"
-                            ? "只听配音。音量没有改。"
+                            ? "只听对白。音量没有改。"
                             : "所有声音一起听。",
                       );
                       return next;
@@ -6830,6 +6830,104 @@ function GeneratePage({
   );
 }
 
+/**
+ * 4B-U02: the room left in an audio clip for its waveform. GPT's C3 gives the peaks
+ * (`waveform`, 0–1, evenly spaced); until then the strip stays empty.
+ */
+function Wave({ clip }: { clip: AudioClip }) {
+  const peaks = (clip as AudioClip & { waveform?: number[] }).waveform;
+  if (!peaks || peaks.length < 2) return <span className="wave" aria-hidden="true" />;
+  const points = peaks
+    .map((peak, index) => {
+      const x = (index / (peaks.length - 1)) * 100;
+      const y = 50 - Math.max(0, Math.min(1, peak)) * 48;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  return (
+    <svg className="wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} />
+    </svg>
+  );
+}
+
+/**
+ * 4B-U02: the 环境音 or 音效 track. Sound files go where their shot is; without files it shows
+ * what the director wrote for each shot (环境音 over the shot, 音效 at its moment), dashed,
+ * with a note that there is no sound yet.
+ */
+function PlanLane({
+  lane,
+  film,
+  shots,
+  clips,
+}: {
+  lane: "ambience" | "sfx";
+  film: FilmProject;
+  shots: FilmShot[];
+  clips: { id: string; left: number; width: number }[];
+}) {
+  const files = film.audioClips.filter((item) => item.lane === lane && item.path);
+  const name = lane === "ambience" ? "环境音" : "音效";
+  const planned =
+    lane === "ambience"
+      ? shots.flatMap((item) => {
+          const clip = clips.find((row) => row.id === item.id);
+          const text = item.sound.ambience.trim();
+          return clip && text ? [{ id: item.id, left: clip.left, width: clip.width, text }] : [];
+        })
+      : shots.flatMap((item) => {
+          const clip = clips.find((row) => row.id === item.id);
+          if (!clip) return [];
+          return item.sound.sfx
+            .filter((cue) => cue.text.trim())
+            .map((cue, index) => ({
+              id: `${item.id}-${index}`,
+              left:
+                clip.left +
+                Math.min(clip.width - 8, (cue.atSeconds / Math.max(1, item.seconds)) * clip.width),
+              width: 0,
+              text: cue.text.trim(),
+            }));
+        });
+  return (
+    <div className="lane" style={{ height: "var(--ha)" }}>
+      {files.length === 0 && planned.length === 0 ? (
+        <span className="lane-empty">这一轨还没有内容</span>
+      ) : null}
+      {files.map((item) => (
+        <div
+          key={item.id}
+          className={`clip ${lane === "ambience" ? "amb" : "fx"}`}
+          style={{
+            left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
+            width: Math.max(32, Math.round((item.durationSeconds || 2) * 52) - 2),
+          }}
+        >
+          <Wave clip={item} />
+          <span className="tx">{name}</span>
+        </div>
+      ))}
+      {files.length === 0
+        ? planned.map((item) => (
+            <div
+              key={item.id}
+              className={`clip plan ${lane === "ambience" ? "amb" : "fx"}`}
+              title={`${item.text}（只有文字，还没有声音文件）`}
+              style={
+                lane === "ambience"
+                  ? { left: item.left, width: Math.max(24, item.width - 2) }
+                  : { left: item.left }
+              }
+            >
+              <span className="tx">{item.text}</span>
+            </div>
+          ))
+        : null}
+    </div>
+  );
+}
+
 function EditPage({
   onMute,
   assistant = null,
@@ -7380,11 +7478,11 @@ function EditPage({
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-voice)" }} />
               <Ic name="mic" size={13} />
-              配音
+              对白
               <span className="lane-controls">
                 <button
                   type="button"
-                  aria-label="静音配音"
+                  aria-label="静音对白"
                   onClick={() => {
                     const muted = film.audioClips.some(
                       (clip) => clip.lane === "dialogue" && clip.gainDb <= -40,
@@ -7394,12 +7492,12 @@ function EditPage({
                 >
                   静音
                 </button>
-                <button type="button" aria-label="单听配音" onClick={() => onSolo?.("dialogue")}>
+                <button type="button" aria-label="单听对白" onClick={() => onSolo?.("dialogue")}>
                   单听
                 </button>
                 <input
-                  aria-label="配音音量"
-                  title={`配音音量 ${dbToVolumePercent(dialogueGain)}`}
+                  aria-label="对白音量"
+                  title={`对白音量 ${dbToVolumePercent(dialogueGain)}`}
                   type="range"
                   min={0}
                   max={100}
@@ -7410,14 +7508,26 @@ function EditPage({
                 />
               </span>
             </div>
+            {/* 4B-U02: 环境音 and 音效 have their own tracks; until there are sound files they
+                only show what was written for each shot. */}
+            <div className="th" style={{ height: "var(--ha)" }}>
+              <span className="sw" style={{ background: "var(--t-amb)" }} />
+              <Ic name="vol" size={13} />
+              环境音
+            </div>
+            <div className="th" style={{ height: "var(--ha)" }}>
+              <span className="sw" style={{ background: "var(--t-sfx)" }} />
+              <Ic name="spark" size={13} />
+              音效
+            </div>
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-music)" }} />
               <Ic name="music" size={13} />
-              音乐
+              配乐
               <span className="lane-controls">
                 <button
                   type="button"
-                  aria-label="静音音乐"
+                  aria-label="静音配乐"
                   onClick={() => {
                     const muted = film.audioClips.some(
                       (clip) => clip.lane === "score" && clip.gainDb <= -40,
@@ -7427,12 +7537,12 @@ function EditPage({
                 >
                   静音
                 </button>
-                <button type="button" aria-label="单听音乐" onClick={() => onSolo?.("score")}>
+                <button type="button" aria-label="单听配乐" onClick={() => onSolo?.("score")}>
                   单听
                 </button>
                 <input
-                  aria-label="音乐音量"
-                  title={`音乐音量 ${dbToVolumePercent(musicGain)}`}
+                  aria-label="配乐音量"
+                  title={`配乐音量 ${dbToVolumePercent(musicGain)}`}
                   type="range"
                   min={0}
                   max={100}
@@ -7559,10 +7669,13 @@ function EditPage({
                         width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
                       }}
                     >
-                      <span className="tx">{item.label || "配音"}</span>
+                      <Wave clip={item} />
+                      <span className="tx">{item.label || "对白"}</span>
                     </div>
                   ))}
               </div>
+              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} />
+              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} />
               <div className="lane" style={{ height: "var(--ha)" }}>
                 {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
@@ -7581,9 +7694,10 @@ function EditPage({
                         ),
                       }}
                     >
+                      <Wave clip={item} />
                       <span className="tx">
                         导入的音乐
-                        {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
+                        {shots.some((shotItem) => shotItem.line.trim()) ? " · 说话时变小" : ""}
                       </span>
                     </div>
                   ))}

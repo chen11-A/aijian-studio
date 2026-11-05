@@ -2596,15 +2596,15 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
     target: { files: [new File(["song"], "bed.mp3", { type: "audio/mpeg" })] },
   });
   expect(await screen.findByText(/已导入音乐/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "静音配音" }));
+  fireEvent.click(screen.getByRole("button", { name: "静音对白" }));
   expect(screen.getByText("这一轨已静音。")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "静音配音" }));
-  fireEvent.click(screen.getByRole("button", { name: "单听配音" }));
-  fireEvent.click(screen.getByRole("button", { name: "静音音乐" }));
-  fireEvent.click(screen.getByRole("button", { name: "静音音乐" }));
-  fireEvent.click(screen.getByRole("button", { name: "单听音乐" }));
-  expect(screen.getByText("只听音乐。音量没有改。")).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("音乐音量"), { target: { value: "50" } });
+  fireEvent.click(screen.getByRole("button", { name: "静音对白" }));
+  fireEvent.click(screen.getByRole("button", { name: "单听对白" }));
+  fireEvent.click(screen.getByRole("button", { name: "静音配乐" }));
+  fireEvent.click(screen.getByRole("button", { name: "静音配乐" }));
+  fireEvent.click(screen.getByRole("button", { name: "单听配乐" }));
+  expect(screen.getByText("只听配乐。音量没有改。")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("配乐音量"), { target: { value: "50" } });
   expect(screen.getByText("音量已记下，导出时用这个音量。")).toBeInTheDocument();
   expect(desktop.assembleFilm).toBeDefined();
 });
@@ -3359,11 +3359,21 @@ it("opens the scene's sound in place of the preview on 剪辑 (4B-U01)", async (
   expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
 });
 
-it("gives both sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
+it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();
+  // 4B-U02: what the director wrote for a shot's 环境音 shows on its track until there is a file.
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.change(screen.getByLabelText("这一镜的环境音"), { target: { value: "雨打在铁皮上" } });
   fireEvent.click(stageTab("剪辑"));
-  for (const lane of ["配音", "音乐"]) {
+  const heads = [...document.querySelectorAll(".theads .th")].map((item) =>
+    item.textContent?.replace(/静音|单听/g, "").trim(),
+  );
+  expect(heads).toEqual(["字幕", "视频", "对白", "环境音", "音效", "配乐"]);
+  const planned = document.querySelector(".clip.plan.amb") as HTMLElement;
+  expect(planned).toHaveTextContent("雨打在铁皮上");
+  expect(planned).toHaveAttribute("title", expect.stringContaining("还没有声音文件"));
+  for (const lane of ["对白", "配乐"]) {
     expect(screen.getByRole("button", { name: `静音${lane}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `单听${lane}` })).toBeInTheDocument();
     expect(screen.getByLabelText(`${lane}音量`)).toHaveAttribute(
@@ -3371,7 +3381,7 @@ it("gives both sound tracks a name, mute, solo and volume, and says when a track
       expect.stringMatching(new RegExp(`^${lane}音量 \\d+$`)),
     );
   }
-  expect(screen.getAllByText("这一轨还没有内容")).toHaveLength(2);
+  expect(screen.getAllByText("这一轨还没有内容")).toHaveLength(3);
   const ruler = [...document.querySelectorAll(".ruler span")].map((item) => item.textContent);
   expect(ruler.slice(0, 3)).toEqual(["00:00.0", "00:05.0", "00:10.0"]);
   expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
