@@ -1528,6 +1528,15 @@ body:has(.pro-root) {
   color: #fff;
   font-weight: 500;
 }
+/* 5-3-09: 倒放 / 快放 and how fast, next to the clock. */
+.pro-root .tc .speed {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--r);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+}
 .pro-root .pc {
   display: flex;
   align-items: center;

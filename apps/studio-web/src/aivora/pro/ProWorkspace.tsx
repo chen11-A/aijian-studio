@@ -229,12 +229,18 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ["Ctrl+Shift+Z", "重做"],
   ["Ctrl+J", "打开或收起 AI 助手"],
   ["空格", "剪辑页播放 / 暂停"],
+  ["J / K / L", "剪辑页倒放 / 停 / 播放，再按 J 或 L 更快"],
+  ["← / →", "剪辑页退一帧 / 进一帧，按住 Shift 一次一秒"],
+  ["↑ / ↓", "剪辑页跳到上一个 / 下一个镜头的开头"],
   ["I / O", "剪辑页设入点 / 出点"],
   ["Delete", "剪辑页剪掉选中的片段"],
   ["Ctrl+滚轮", "剪辑页时间线放大 / 缩小"],
   ["M", "预览静音 / 有声"],
   ["Esc", "关掉菜单和对话框"],
 ];
+
+/** 5-3-09: ← / → move the playhead one frame at 30 frames a second. */
+const FRAME_SECONDS = 1 / 30;
 
 /** 4A-U11: notices after an assistant's suggestion was put in; the status bar offers 撤销. */
 const APPLIED_CODES = new Set(["SCRIPT_APPLIED", "ART_APPLIED", "SHOT_APPLIED", "SHOTS_APPLIED"]);
@@ -293,8 +299,11 @@ function togglePlayback(setPlaying: (value: boolean | ((value: boolean) => boole
   setPlaying((value) => !value);
 }
 
-function BedAudio({ src, playing }: { src: string; playing: boolean }) {
+function BedAudio({ src, playing, rate = 1 }: { src: string; playing: boolean; rate?: number }) {
   const ref = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.playbackRate = rate;
+  }, [rate, src]);
   useEffect(() => {
     const audio = ref.current;
     if (!audio) return;
@@ -321,6 +330,7 @@ function PreviewVideo({
   onTime,
   seek = null,
   onDuration,
+  rate = 1,
 }: {
   src: string;
   voice?: string;
@@ -334,8 +344,13 @@ function PreviewVideo({
   seek?: { seconds: number } | null;
   /** The real length of the video, once the player knows it. */
   onDuration?: (seconds: number) => void;
+  /** 5-3-09: 1, 2 or 4 times as fast (L pressed again). */
+  rate?: number;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.playbackRate = rate;
+  }, [rate, src]);
   const onPlayingRef = useRef(onPlaying);
   const onTimeRef = useRef(onTime);
   const onDurationRef = useRef(onDuration);
@@ -437,8 +452,8 @@ function PreviewVideo({
         }}
         onError={() => onPlayingRef.current(false)}
       />
-      <BedAudio src={voice} playing={playing && sound} />
-      <BedAudio src={music} playing={playing && sound} />
+      <BedAudio src={voice} playing={playing && sound} rate={rate} />
+      <BedAudio src={music} playing={playing && sound} rate={rate} />
     </>
   );
 }
@@ -7782,6 +7797,93 @@ function EditPage({
       box.scrollLeft = Math.max(0, headLeft - margin);
     }
   }, [headLeft, playing]);
+  // 5-3-09: J / K / L play backwards, stop and play (J or L again goes faster), ← / → move one
+  // frame (Shift: one second), ↑ / ↓ go to the cut before or after, as in other editors.
+  const [rate, setRate] = useState(1);
+  const [backwards, setBackwards] = useState(0);
+  useEffect(() => {
+    if (playing) setBackwards(0);
+    else setRate(1);
+  }, [playing]);
+  const cuts = shots.reduce<number[]>(
+    (list, item) => [...list, (list[list.length - 1] ?? 0) + item.seconds],
+    [0],
+  );
+  const goTo = (seconds: number) =>
+    seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, seconds))));
+  const goToCut = (index: number) => {
+    if (index >= shots.length) {
+      const last = clips[clips.length - 1];
+      if (last) seekTo(last.left + last.width);
+      return;
+    }
+    if (joined) {
+      const at = cutTimeAt(segments, shots, index, 0);
+      if (at !== null) jump(at);
+    } else if (index === shot) jump(0);
+    if (index !== shot) onShot(index);
+  };
+  const transport = useRef<{
+    key: (event: KeyboardEvent) => boolean;
+    back: (seconds: number) => boolean;
+  }>({ key: () => false, back: () => false });
+  transport.current.back = (seconds) => {
+    if (headSeconds <= 0.01) return false;
+    goTo(headSeconds - seconds);
+    return true;
+  };
+  transport.current.key = (event) => {
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (key === "k") {
+      onPlaying(false);
+      setBackwards(0);
+      return true;
+    }
+    if (key === "l") {
+      setBackwards(0);
+      if (playing) setRate((now) => Math.min(4, now * 2));
+      else onPlaying(true);
+      return true;
+    }
+    if (key === "j") {
+      if (playing) onPlaying(false);
+      setBackwards((now) => (now ? Math.min(4, now * 2) : 1));
+      return true;
+    }
+    if (key === "ArrowLeft" || key === "ArrowRight") {
+      onPlaying(false);
+      setBackwards(0);
+      const step = event.shiftKey ? 1 : FRAME_SECONDS;
+      goTo(headSeconds + (key === "ArrowLeft" ? -step : step));
+      return true;
+    }
+    if (key === "ArrowUp" || key === "ArrowDown") {
+      const later = key === "ArrowDown";
+      const index = later
+        ? cuts.findIndex((at) => at > headSeconds + 0.05)
+        : cuts.filter((at) => at < headSeconds - 0.05).length - 1;
+      if (index >= 0) goToCut(index);
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    if (!backwards) return;
+    const timer = window.setInterval(() => {
+      if (!transport.current.back(0.1 * backwards)) setBackwards(0);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [backwards]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      // The ruler moves itself with the arrows when it has the focus.
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (typingInField(event) || document.querySelector('[role="dialog"]')) return;
+      if (transport.current.key(event)) event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <>
       {comparing ? (
@@ -7950,6 +8052,7 @@ function EditPage({
                       onTime={showTime}
                       seek={seek}
                       onDuration={joined ? setCutLength : setTakeLength}
+                      rate={rate}
                     />
                   ) : (
                     <div className="frame rain">
@@ -7965,6 +8068,15 @@ function EditPage({
                 <div className="ctrl">
                   <span className="tc">
                     <b>{clock(headSeconds)}</b> / {clock(total)}
+                    {backwards ? (
+                      <span className="speed" role="status">
+                        倒放 {backwards}×
+                      </span>
+                    ) : playing && rate > 1 ? (
+                      <span className="speed" role="status">
+                        快放 {rate}×
+                      </span>
+                    ) : null}
                   </span>
                   <div className="pc">
                     <button

@@ -3694,6 +3694,62 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("plays with J / K / L and moves by cut with ↑ / ↓ on 剪辑 (5-3-09)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  const clock = () => document.querySelector(".ctrl .tc b")?.textContent;
+  const shotLabel = () => document.querySelector(".pane .field label")?.textContent ?? "";
+  expect(shotLabel()).toMatch(/^镜头 1 ·/);
+  // ↓ goes to the next shot's start, ↑ back.
+  fireEvent.keyDown(window, { key: "ArrowDown" });
+  expect(shotLabel()).toMatch(/^镜头 2 ·/);
+  expect(clock()).not.toBe("00:00.0");
+  fireEvent.keyDown(window, { key: "ArrowUp" });
+  expect(shotLabel()).toMatch(/^镜头 1 ·/);
+  expect(clock()).toBe("00:00.0");
+  fireEvent.keyDown(window, { key: "ArrowUp" });
+  expect(shotLabel()).toMatch(/^镜头 1 ·/);
+  // L plays, again goes faster, up to 4×; K stops and the speed goes back to 1×.
+  fireEvent.keyDown(window, { key: "l" });
+  expect(screen.getByRole("button", { name: "暂停" })).toBeInTheDocument();
+  expect(document.querySelector(".ctrl .speed")).toBeNull();
+  fireEvent.keyDown(window, { key: "l" });
+  expect(document.querySelector(".ctrl .speed")).toHaveTextContent("快放 2×");
+  fireEvent.keyDown(window, { key: "L" });
+  fireEvent.keyDown(window, { key: "l" });
+  expect(document.querySelector(".ctrl .speed")).toHaveTextContent("快放 4×");
+  fireEvent.keyDown(window, { key: "k" });
+  expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
+  expect(document.querySelector(".ctrl .speed")).toBeNull();
+  fireEvent.keyDown(window, { key: "l" });
+  expect(document.querySelector(".ctrl .speed")).toBeNull();
+  // J stops the forward play and plays backwards; again goes faster.
+  fireEvent.keyDown(window, { key: "ArrowDown" });
+  fireEvent.keyDown(window, { key: "j" });
+  expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
+  expect(document.querySelector(".ctrl .speed")).toHaveTextContent("倒放 1×");
+  fireEvent.keyDown(window, { key: "j" });
+  expect(document.querySelector(".ctrl .speed")).toHaveTextContent("倒放 2×");
+  fireEvent.keyDown(window, { key: "k" });
+  expect(document.querySelector(".ctrl .speed")).toBeNull();
+  // Ctrl+J stays the assistant's key; typing keeps the letters.
+  fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+  expect(document.querySelector(".ctrl .speed")).toBeNull();
+  expect(screen.getByLabelText("跟助手说")).toBeInTheDocument();
+  const field = screen.getByLabelText("跟助手说");
+  field.focus();
+  fireEvent.keyDown(field, { key: "l" });
+  expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
+  field.blur();
+  fireEvent.click(screen.getByRole("button", { name: "账号" }));
+  fireEvent.click(screen.getByRole("button", { name: "设置" }));
+  const keys = within(screen.getByRole("region", { name: "快捷键" }));
+  for (const key of ["J / K / L", "← / →", "↑ / ↓", "Delete", "Ctrl+滚轮"]) {
+    expect(keys.getByText(key)).toBeInTheDocument();
+  }
+});
+
 it("takes out the picked clip with Delete or Backspace, and only then (5-3-10)", async () => {
   installDesktop();
   await openSample();
