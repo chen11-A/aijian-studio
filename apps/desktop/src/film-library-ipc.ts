@@ -1,5 +1,8 @@
+import { exportFilmFile, filmExportOptions } from "./film-export";
+import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { extractFilmLastFrame } from "./film-last-frame";
+import { dirname, join, resolve } from "node:path";
 import {
   applyDialogue,
   assemblyPath,
@@ -9,13 +12,13 @@ import {
   mediaUrlPath,
   mixMusic,
   prepareVoiceFile,
+  prepareProject,
   listEpisodes,
   listSeries,
   readMedia,
   readProject,
   renameSeries,
   requestStill,
-  safeExportName,
   stillPath,
   stillReferenceImage,
   trustedMediaPath,
@@ -36,13 +39,20 @@ export type FilmLibraryHost = {
   copyFile: (source: string, destination: string) => Promise<void>;
   reveal: (path: string) => void;
   open: (path: string) => Promise<string>;
-  logStill?: (detail: {
-    ok: boolean;
-    detail: string;
-    referenceImageCount: number;
-    durationMs: number;
-    requestChars: number;
-  }) => void;
+  logStill?: (
+    detail: StyleDiagnostics & {
+      ok: boolean;
+      detail: string;
+      referenceImageCount: number;
+      selectedReferenceImageCount: number;
+      /** A transport attempt, not confirmation that the provider received or accepted it. */
+      requestDispatched: boolean;
+      imageLimit: number;
+      videoReferenceLimit: number;
+      durationMs: number;
+      requestChars: number;
+    },
+  ) => void;
 };
 
 function oneId(args: unknown[]): string {
@@ -61,6 +71,7 @@ export function registerFilmLibraryHandlers<TEvent>(
   host: FilmLibraryHost,
 ): void {
   const exported = new Set<string>();
+  const exportsInProgress = new Map<string, { cancelled: boolean }>();
   const guard = (event: TEvent) => {
     if (!authorized(event)) throw new Error("Film IPC sender is not authorized");
   };
@@ -94,6 +105,12 @@ export function registerFilmLibraryHandlers<TEvent>(
     return readProject(host.filmsRoot(), oneId(args));
   });
 
+  handle("film:prepare", async (event, ...args) => {
+    guard(event);
+    if (args.length !== 1) throw new Error("Invalid film");
+    return prepareProject(host.filmsRoot(), args[0]);
+  });
+
   handle("film:write", async (event, ...args) => {
     guard(event);
     if (args.length !== 1) throw new Error("Invalid film");
@@ -120,6 +137,48 @@ export function registerFilmLibraryHandlers<TEvent>(
     guard(event);
     if (args.length !== 1 || typeof args[0] !== "string") throw new Error("Invalid film path");
     return readMedia([host.filmsRoot(), host.storyFilmsRoot()], args[0]);
+  });
+
+  handle("film:last-frame", async (event, ...args) => {
+    guard(event);
+    const failed = (code: string, text: string) => ({ path: "", sourceVideoPath: "", code, text });
+    if (
+      args.length !== 2 ||
+      typeof args[0] !== "string" ||
+      !idPattern.test(args[0]) ||
+      typeof args[1] !== "string" ||
+      !args[1] ||
+      args[1].length > 4096 ||
+      args[1].includes("\0")
+    )
+      return failed("CONTINUITY_REQUEST_INVALID", "末帧提取参数不完整。");
+    if (!host.probeDuration)
+      return failed("CONTINUITY_PROBE_UNAVAILABLE", "当前无法读取视频时长。");
+    try {
+      return await extractFilmLastFrame(args[0], args[1], {
+        roots: [host.filmsRoot(), host.storyFilmsRoot()],
+        filmsRoot: host.filmsRoot(),
+        runFfmpeg: host.runFfmpeg,
+        probeDuration: host.probeDuration,
+        current: () => authorized(event),
+      });
+    } catch (error) {
+      const messages: Record<string, string> = {
+        CONTINUITY_VIDEO_INVALID: "请使用作品内可读取的本地视频。",
+        CONTINUITY_PROBE_FAILED: "视频时长没有读到。",
+        CONTINUITY_DURATION_INVALID: "视频时长不适合提取末帧。",
+        CONTINUITY_DESTINATION_INVALID: "末帧保存位置不可用。",
+        CONTINUITY_FRAME_INVALID: "提取的末帧无效。",
+        CONTINUITY_REQUEST_STALE: "本次末帧提取已停止。",
+        CONTINUITY_EXTRACTION_FAILED: "末帧没有提取成功。",
+      };
+      const received = error instanceof Error && "code" in error ? error.code : undefined;
+      const code =
+        typeof received === "string" && Object.hasOwn(messages, received)
+          ? received
+          : "CONTINUITY_EXTRACTION_FAILED";
+      return failed(code, messages[code]!);
+    }
   });
 
   handle("film:assemble", async (event, ...args) => {
@@ -224,16 +283,28 @@ export function registerFilmLibraryHandlers<TEvent>(
     }
     const token = await host.mediaToken();
     const started = Date.now();
+    const selectedReferenceImageCount = new Set(references).size;
+    let requestDispatched = false;
     const made = await requestStill({
       references,
       prompt: args[1],
       token,
-      fetcher: host.fetcher ?? globalThis.fetch,
+      fetcher: (input, init) => {
+        // Validation and sign-in failures never reach this transport boundary.
+        // A failed network attempt still does not prove provider acceptance.
+        if (init?.method === "POST") requestDispatched = true;
+        return (host.fetcher ?? globalThis.fetch)(input, init);
+      },
       destination: stillPath(host.filmsRoot(), args[0]),
       ...(args[2] === "9:16" || args[2] === "16:9" ? { aspectRatio: args[2] } : {}),
     });
     host.logStill?.({
-      referenceImageCount: new Set(references).size,
+      ...styleDiagnostics(args[1]),
+      referenceImageCount: requestDispatched ? selectedReferenceImageCount : 0,
+      selectedReferenceImageCount,
+      requestDispatched,
+      imageLimit: 5,
+      videoReferenceLimit: 13,
       durationMs: Date.now() - started,
       requestChars: args[1].length,
       ok: Boolean(made.path),
@@ -265,14 +336,35 @@ export function registerFilmLibraryHandlers<TEvent>(
     }
     const source = trustedMediaPath([host.filmsRoot(), host.storyFilmsRoot()], args[0]);
     if (!source.toLowerCase().endsWith(".mp4")) throw new Error("Invalid film path");
-    if (args[1].length === 0 || args[1].length > 4096 || args[1].includes("\0")) {
-      throw new Error("Invalid film path");
+    const options = filmExportOptions(args[3]);
+    const state = { cancelled: false };
+    if (options.requestId && exportsInProgress.has(options.requestId))
+      throw new Error("EXPORT_ALREADY_RUNNING");
+    if (options.requestId) exportsInProgress.set(options.requestId, state);
+    let destination: string;
+    try {
+      destination = await exportFilmFile(
+        source,
+        args[1],
+        typeof args[2] === "string" ? args[2] : undefined,
+        options,
+        host.runFfmpeg,
+        () => state.cancelled,
+      );
+    } finally {
+      if (options.requestId) exportsInProgress.delete(options.requestId);
     }
-    const suggested = typeof args[2] === "string" ? args[2] : basename(source);
-    const destination = join(args[1], safeExportName(suggested));
-    await host.copyFile(source, destination);
     exported.add(realpathSync(destination));
     return { ok: true, path: destination };
+  });
+
+  handle("film:cancel-export", async (event, ...args) => {
+    guard(event);
+    const options = filmExportOptions({ requestId: args[0] });
+    if (args.length !== 1 || !options.requestId) throw new Error("EXPORT_OPTIONS_INVALID");
+    const state = exportsInProgress.get(options.requestId);
+    if (state) state.cancelled = true;
+    return { ok: true };
   });
 
   handle("film:reveal", async (event, ...args) => {

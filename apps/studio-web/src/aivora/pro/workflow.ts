@@ -1,8 +1,19 @@
+import { mergeArtDesign } from "../film/art-design";
+import { constrainVisualPrompt, onScreenCharacters } from "../film/on-screen-characters";
+import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
+import { locationReference, withLocationLayout } from "../film/location-reference";
+import { setFilmStyle, withStyleBible } from "../film/style-bible";
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
 import type { FilmProject, FilmPortrait, FilmShot, FilmTake } from "../film/project";
-import { dialogueTracks, firstFrameReferences, portraitPrompts } from "../film/operations";
+import {
+  autoVoiceForCharacter,
+  locationPlate,
+  dialogueTracks,
+  firstFrameReferences,
+  portraitPrompts,
+} from "../film/operations";
 
 export type AgentReply = { text: string | null; detail: string; code?: string };
 export type AgentRequestControl = { deadlineAt: number; signal: AbortSignal };
@@ -165,11 +176,17 @@ export async function requestStill(
   }
   try {
     const result = await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
-    if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
+    if (!result.path) {
+      const providerReason = result.reason || "";
+      return {
+        url: "",
+        reason: stillFailureNotice(new Error(providerReason)).text,
+      };
+    }
     const url = fileMediaUrl(result.path);
     return { url: url || result.path, reason: "画面已生成。" };
-  } catch {
-    return { url: "", reason: "出图没有成功，可以重试。" };
+  } catch (error) {
+    return { url: "", reason: stillFailureNotice(error).text };
   }
 }
 
@@ -224,6 +241,20 @@ export function isVoiceFile(path: string): boolean {
   );
 }
 
+/** Use for portrait, location and prop image requests that already have a film snapshot. */
+export async function requestFilmStill(
+  film: FilmProject,
+  prompt: string,
+  references: string[] = [],
+): Promise<{ url: string; reason: string }> {
+  return requestStill(
+    film.seriesId,
+    withStyleBible(prompt, film.styleZh),
+    film.aspectRatio,
+    references,
+  );
+}
+
 export async function requestShotStill(
   film: FilmProject,
   shot: FilmShot,
@@ -233,21 +264,37 @@ export async function requestShotStill(
   reason: string;
   diagnostics: { referenceCount: number; imageLimit: number; videoReferenceLimit: number };
 }> {
-  const visible = film.characters.filter(
-    (person) =>
-      shot.characters.includes(person.name) && person.portraits.some((portrait) => portrait.url),
+  const visualFilm = { ...film, characters: onScreenCharacters(film, shot) };
+  const visible = visualFilm.characters.filter((person) =>
+    person.portraits.some((portrait) => portrait.url),
   );
-  if (visible.length > 5)
+  const portraitLimit = locationReference(visualFilm, shot) ? 4 : 5;
+  if (visible.length > portraitLimit)
     return {
       url: "",
       reason: NOTICE_TEXT.STILL_CAST_LIMIT,
       diagnostics: { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 },
     };
   // One portrait per visible person before extra views, never silently omit a person.
-  const references = firstFrameReferences(film, shot);
+  const references = firstFrameReferences(visualFilm, shot);
   const made = await requestStill(
     film.seriesId,
-    prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+    withStyleBible(
+      constrainVisualPrompt(
+        withShotCostumes(
+          withLocationLayout(
+            prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+            film,
+            shot,
+          ),
+          film,
+          shot,
+        ),
+        film,
+        shot,
+      ),
+      film.styleZh,
+    ),
     film.aspectRatio === "16:9" ? "16:9" : "9:16",
     references,
   );
@@ -299,32 +346,136 @@ export function replaceTakes(
   };
 }
 
+function mergeArtField(
+  field: string,
+  current: string,
+  incoming: string,
+  baseline: string | undefined,
+  locks: Set<string>,
+  knownDefault = false,
+): { value: string; baseline?: string } {
+  if (locks.has(field)) return { value: current, baseline };
+  if (baseline !== undefined && current !== baseline) {
+    locks.add(field);
+    return { value: current, baseline };
+  }
+  if (baseline === undefined && current.trim() && !knownDefault) return { value: current };
+  return incoming.trim() ? { value: incoming, baseline: incoming } : { value: current, baseline };
+}
+
 export function applyArtDraft(
   film: FilmProject,
   parsed: NonNullable<ReturnType<typeof artFromModel>>,
 ): FilmProject {
-  const next = { ...film };
-  if (parsed.styleZh) next.styleZh = parsed.styleZh;
+  let next = { ...(parsed.styleZh ? setFilmStyle(film, parsed.styleZh) : film) };
+  if (parsed.design)
+    next = { ...next, ...mergeArtDesign(film.artDesign, film.artDesignBaseline, parsed.design) };
+  if (parsed.costumes) next = mergeCostumes(next, parsed.costumes);
+  const used = new Set(next.characters.map((person) => person.voiceId).filter(Boolean));
   next.characters = next.characters.map((person) => {
-    if (person.userFields.includes("identity")) return person;
     const found = parsed.identities.find((item) => item.name === person.name);
-    return found ? { ...person, identity: found.identity } : person;
+    if (!found) return person;
+    const updated = {
+      ...person,
+      identity: person.userFields.includes("identity")
+        ? person.identity
+        : found.identity || person.identity,
+      gender: person.userFields.includes("gender") ? person.gender : person.gender || found.gender,
+      ageBand: person.userFields.includes("ageBand")
+        ? person.ageBand
+        : person.ageBand || found.ageBand,
+    };
+    const voiced = autoVoiceForCharacter(updated, used, film.sourceText);
+    used.add(voiced.voiceId);
+    return voiced;
   });
-  const places = [...next.locations];
+  const styleChanged = next.styleZh !== film.styleZh;
+  const places = next.locations.map((place) =>
+    styleChanged && place.referenceImage ? { ...place, referenceStyleRevision: -1 } : place,
+  );
   for (const place of parsed.places) {
-    if (places.some((item) => item.name === place.name)) continue;
-    places.push({
-      id: `loc-${places.length + 1}`,
-      name: place.name,
-      prompt: place.prompt,
-      ambience: place.ambience,
-    });
+    const index = places.findIndex((item) => item.name === place.name);
+    if (index >= 0) {
+      const previous = places[index]!;
+      const locks = new Set(previous.userFields ?? []);
+      const prompt = mergeArtField(
+        "prompt",
+        previous.prompt,
+        place.prompt,
+        previous.artFields?.prompt,
+        locks,
+        previous.prompt === locationPlate(previous.name, film.styleZh, "夜"),
+      );
+      const ambience = mergeArtField(
+        "ambience",
+        previous.ambience,
+        place.ambience,
+        previous.artFields?.ambience,
+        locks,
+      );
+      const layout = mergeArtField(
+        "layout",
+        previous.layout ?? "",
+        place.layout ?? "",
+        previous.artFields?.layout,
+        locks,
+      );
+      places[index] = {
+        ...previous,
+        ...(layout.value ? { layout: layout.value } : {}),
+        prompt: prompt.value,
+        ambience: ambience.value,
+        userFields: [...locks],
+        artFields: {
+          ...previous.artFields,
+          ...(layout.baseline !== undefined ? { layout: layout.baseline } : {}),
+          ...(prompt.baseline !== undefined ? { prompt: prompt.baseline } : {}),
+          ...(ambience.baseline !== undefined ? { ambience: ambience.baseline } : {}),
+        },
+        ...((prompt.value !== previous.prompt || layout.value !== (previous.layout ?? "")) &&
+        previous.referenceImage
+          ? { referenceStyleRevision: -1 }
+          : {}),
+      };
+    } else {
+      places.push({
+        id: `loc-${places.length + 1}`,
+        name: place.name,
+        prompt: place.prompt,
+        ambience: place.ambience,
+        ...(place.layout ? { layout: place.layout } : {}),
+        artFields: {
+          prompt: place.prompt,
+          ambience: place.ambience,
+          ...(place.layout ? { layout: place.layout } : {}),
+        },
+      });
+    }
   }
   next.locations = places;
   const props = [...next.props];
   for (const prop of parsed.props) {
-    if (props.some((item) => item.name === prop.name)) continue;
-    props.push({ id: `prop-${props.length + 1}`, name: prop.name, note: prop.note });
+    const index = props.findIndex((item) => item.name === prop.name);
+    if (index >= 0) {
+      const previous = props[index]!;
+      const locks = new Set(previous.userFields ?? []);
+      const note = mergeArtField("note", previous.note, prop.note, previous.artFields?.note, locks);
+      props[index] = {
+        ...previous,
+        note: note.value,
+        userFields: [...locks],
+        artFields: {
+          ...previous.artFields,
+          ...(note.baseline !== undefined ? { note: note.baseline } : {}),
+        },
+      };
+    } else
+      props.push({
+        id: `prop-${props.length + 1}`,
+        name: prop.name,
+        note: prop.note,
+        artFields: { note: prop.note },
+      });
   }
   next.props = props;
   return next;
@@ -370,7 +521,22 @@ export async function assembleCurrentFilm(
 
 /** Status copy is one canonical sentence; provider/selection diagnostics stay separate. */
 export function stillFailureNotice(error: unknown): UiNotice {
+  if (
+    error instanceof Error &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    error.code.startsWith("LOCATION_")
+  ) {
+    return {
+      code: error.code,
+      text:
+        NOTICE_TEXT[error.code as keyof typeof NOTICE_TEXT] ??
+        NOTICE_TEXT.LOCATION_IMAGE_INCOMPLETE,
+    };
+  }
   const reason = error instanceof Error ? error.message : "";
+  if (reason === "TASK_TIMEOUT" || (error instanceof Error && error.name === "TimeoutError"))
+    return { code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT };
   if (/拒绝|未获准/u.test(reason))
     return { code: "STILL_REJECTED", text: NOTICE_TEXT.STILL_REJECTED };
   const parsed = normalizeNotice(reason);

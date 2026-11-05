@@ -72,9 +72,15 @@ export function exportFilmTask(
   paths: string[],
   directory: string,
   host: MediaHost,
+  options?: { aspectRatio?: "16:9" | "9:16"; signal?: AbortSignal },
 ) {
   return runTask(
-    { id: `export:${base.id}`, projectId: base.id, kind: "export", title: "导出成片" },
+    {
+      id: `export:${base.id}${options?.aspectRatio ? `:${options.aspectRatio}` : ""}`,
+      projectId: base.id,
+      kind: "export",
+      title: "导出成片",
+    },
     async (signal) => {
       const bridge = window.aijian;
       if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) throw new Error("导出需要桌面版。");
@@ -100,9 +106,22 @@ export function exportFilmTask(
       assertCurrent(base, host, signal);
       if (!target) throw Object.assign(new Error("没有选择文件夹。"), { code: "EXPORT_CANCELLED" });
       const name = filmFileName(base.seriesTitle || base.title, base.episodeTitle || "第1集");
-      const result = await bridge.exportFilmCut(source, target, name);
+      const requestId = crypto.randomUUID();
+      const cancel = () => {
+        void bridge.cancelFilmExport?.(requestId).catch(() => undefined);
+      };
+      signal.addEventListener("abort", cancel, { once: true });
+      let result: { ok: boolean; path: string };
+      try {
+        result = await bridge.exportFilmCut(source, target, name, {
+          ...(options?.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
+          requestId,
+        });
+      } finally {
+        signal.removeEventListener("abort", cancel);
+      }
       const latest = assertCurrent(base, host, signal);
-      if (!result.path) throw new Error("没有导出成功，可以重试。");
+      if (result.ok === false || !result.path) throw new Error("没有导出成功，可以重试。");
       host.apply({
         ...latest,
         ...(assemblyPath ? { assemblyPath, assemblyUrl: fileMediaUrl(assemblyPath) } : {}),
@@ -110,5 +129,6 @@ export function exportFilmTask(
       });
       return { path: result.path, directory: target };
     },
+    { signal: options?.signal },
   );
 }

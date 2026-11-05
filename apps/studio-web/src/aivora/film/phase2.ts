@@ -1,3 +1,12 @@
+import { parseArtDesign, type ArtDesign } from "./art-design";
+import { parseCostumes, type CostumeRule } from "./costume-rules";
+import {
+  normalizeGender,
+  normalizeAgeBand,
+  type CharacterGender,
+  type CharacterAgeBand,
+} from "./cast-traits";
+import { bindPerformanceRows, normalizeAgentReply } from "./agent-reply-compat";
 import { emptySoundPlan, shotSecondsForLine, type ShotSoundPlan } from "./audio";
 
 /** Seven standard shot sizes. An insert is a tag, never a size. */
@@ -335,20 +344,28 @@ type ActionRow = {
 };
 
 function actionText(row: Record<string, unknown>): string {
-  if (typeof row.text === "string" && row.text.trim()) return row.text.trim();
-  return [row.actor, row.body_part, row.direction, row.reaction]
-    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    .join("，");
+  // Normalize once before assignment and rejection filtering, so sound cues and card notes
+  // cannot retain raw internal prefixes or bypass comparison with sanitized unassigned beats.
+  if (typeof row.text === "string" && row.text.trim()) return plainCue(row.text);
+  return plainCue(
+    [row.actor, row.move, row.target, row.body_part, row.direction, row.reaction]
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .join("，"),
+  );
 }
 
 export function actionFromModel(value: unknown): ActionRow[] | null {
+  value = normalizeAgentReply("action", value);
   if (agentIssues("action", value).length > 0 || !value || typeof value !== "object") return null;
   const rows: ActionRow[] = [];
+  const nodeRows = new Map<string, number>();
   const push = (row: Record<string, unknown>, shotId = "") => {
     const text = actionText(row);
     if (!text) return;
     const feasibility =
       row.feasibility === "难" || row.feasibility === "看运气" ? row.feasibility : "稳";
+    if (typeof row.node_id === "string" && row.node_id && !nodeRows.has(row.node_id))
+      nodeRows.set(row.node_id, rows.length);
     rows.push({
       text,
       feasibility,
@@ -376,7 +393,6 @@ export function actionFromModel(value: unknown): ActionRow[] | null {
   }
   const beats = (value as { beats?: unknown }).beats;
   if (Array.isArray(beats) && beats.length > 0) {
-    const onlyBeats: ActionRow[] = [];
     for (const item of beats) {
       if (!item || typeof item !== "object") continue;
       const row = item as Record<string, unknown>;
@@ -390,15 +406,27 @@ export function actionFromModel(value: unknown): ActionRow[] | null {
           : typeof row.id === "string"
             ? row.id.trim()
             : "";
-      onlyBeats.push({
+      const existing = typeof row.node_id === "string" ? nodeRows.get(row.node_id) : undefined;
+      if (existing !== undefined) {
+        const node = rows[existing]!;
+        node.text = node.text.includes(text)
+          ? node.text
+          : text.includes(node.text)
+            ? text
+            : `${text}，${node.text}`;
+        node.feasibility = feasibility;
+        node.workaround =
+          typeof row.workaround === "string" ? row.workaround.trim() : node.workaround;
+        continue;
+      }
+      rows.push({
         ...(shotId ? { shotId } : {}),
         text,
         feasibility,
         workaround: typeof row.workaround === "string" ? row.workaround.trim() : "",
-        at: typeof row.at_seconds === "number" ? row.at_seconds : onlyBeats.length,
+        at: typeof row.at_seconds === "number" ? row.at_seconds : rows.length,
       });
     }
-    return onlyBeats.length > 0 ? onlyBeats : null;
   }
   return rows.length > 0 ? rows : null;
 }
@@ -521,28 +549,66 @@ function notePieces(row: Record<string, unknown>): string[] {
   return bits.filter(Boolean);
 }
 
+type PerformanceVoiceScope = {
+  id: string;
+  speaker?: string;
+  lines?: { speaker: string; text: string }[];
+};
+export type PerformanceVoiceRisk = "SPEAKER_UNSPECIFIED" | "MULTIPLE_SPEAKERS" | "VOICE_NOT_UNIQUE";
+function nestedVoice(
+  row: Record<string, unknown>,
+  shot: PerformanceVoiceScope,
+): { voice: Record<string, unknown>; risk?: PerformanceVoiceRisk } | null {
+  if (!Array.isArray(row.performances)) return null;
+  const candidates = row.performances.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const person = raw as Record<string, unknown>;
+    const voices = Array.isArray(person.voice) ? person.voice : [person.voice];
+    return voices
+      .filter((v): v is Record<string, unknown> => Boolean(v) && typeof v === "object")
+      .filter((v) =>
+        [v.tone, v.pace, v.pauses, v.pause, v.emotion].some(
+          (part) => typeof part === "string" && part.trim(),
+        ),
+      )
+      .map((voice) => ({
+        name:
+          typeof (person.who ?? person.name) === "string"
+            ? String(person.who ?? person.name).trim()
+            : "",
+        voice,
+      }));
+  });
+  if (!candidates.length) return null;
+  const speakers = new Set(
+    [
+      shot.speaker?.trim() ?? "",
+      ...(shot.lines ?? []).filter((line) => line.text.trim()).map((line) => line.speaker.trim()),
+    ].filter(Boolean),
+  );
+  if (speakers.size !== 1)
+    return { voice: {}, risk: speakers.size ? "MULTIPLE_SPEAKERS" : "SPEAKER_UNSPECIFIED" };
+  const matches = candidates.filter((candidate) => speakers.has(candidate.name));
+  return matches.length === 1
+    ? { voice: matches[0]!.voice }
+    : { voice: {}, risk: "VOICE_NOT_UNIQUE" };
+}
+
 function noteFromRow(
   row: Record<string, unknown>,
   names: string[],
-): { performance: string; delivery: string } {
+  shot: PerformanceVoiceScope,
+): { performance: string; delivery: string; voiceRisk?: PerformanceVoiceRisk } {
   const bit = notePieces(row).join("。");
   const emotion = typeof row.emotion === "string" ? row.emotion : "";
   const gaze = gazeHandoff(names);
   const performance = bit ? (gaze && !bit.includes("视线") ? `${bit}。${gaze}` : bit) : "";
-  const nested = Array.isArray(row.performances) ? row.performances : [];
-  const nestedVoice = nested
-    .map((person) =>
-      person && typeof person === "object" ? (person as { voice?: unknown }).voice : undefined,
-    )
-    .find((voice) => voice && typeof voice === "object");
-  const voice = (Array.isArray(nestedVoice) ? nestedVoice[0] : nestedVoice) as
-    Record<string, unknown> | undefined;
-  const voiceRow =
-    voice && typeof voice === "object"
-      ? voice
-      : row.voice && typeof row.voice === "object"
-        ? (row.voice as Record<string, unknown>)
-        : row;
+  const selected = nestedVoice(row, shot);
+  const voiceRow = selected
+    ? selected.voice
+    : row.voice && typeof row.voice === "object"
+      ? (row.voice as Record<string, unknown>)
+      : row;
   const tone = spokenBit(typeof voiceRow.tone === "string" ? voiceRow.tone : "");
   const pace = spokenBit(typeof voiceRow.pace === "string" ? voiceRow.pace : "");
   const pauses = spokenBit(
@@ -561,28 +627,26 @@ function noteFromRow(
   ]
     .filter(Boolean)
     .join("，");
-  return { performance, delivery };
+  return { performance, delivery, ...(selected?.risk ? { voiceRisk: selected.risk } : {}) };
 }
 
-/** Map a performance reply onto our shot ids. Unknown ids fall back to order. */
+/** Exact performance IDs first; use only unambiguous one-to-one scope compatibility. */
 export function assignPerformance(
   value: unknown,
-  shots: { id: string }[],
+  shots: PerformanceVoiceScope[],
   names: string[] = [],
-): { id: string; performance: string; delivery: string }[] {
+): { id: string; performance: string; delivery: string; voiceRisk?: PerformanceVoiceRisk }[] {
   const rows = performanceRows(value);
-  const used = new Set<number>();
-  return shots.map((shot, index) => {
-    const found = rows.findIndex((row, rowIndex) => {
-      if (used.has(rowIndex)) return false;
-      const id =
-        typeof row.shot_id === "string" ? row.shot_id : typeof row.id === "string" ? row.id : "";
-      return id === shot.id;
-    });
-    const rowIndex = found >= 0 ? found : !used.has(index) && rows[index] ? index : -1;
-    if (rowIndex >= 0) used.add(rowIndex);
+  const bindings = bindPerformanceRows(
+    rows.map((row) =>
+      typeof row.shot_id === "string" ? row.shot_id : typeof row.id === "string" ? row.id : "",
+    ),
+    shots.map((shot) => shot.id),
+  );
+  return shots.map((shot) => {
+    const rowIndex = bindings.findIndex((row) => row.targetId === shot.id);
     const row = rowIndex >= 0 ? rows[rowIndex] : undefined;
-    const note = row ? noteFromRow(row, names) : { performance: "", delivery: "" };
+    const note = row ? noteFromRow(row, names, shot) : { performance: "", delivery: "" };
     return { id: shot.id, ...note };
   });
 }
@@ -634,9 +698,16 @@ export function directedSpeech(line: string, delivery: string): { text: string; 
 }
 
 export function artFromModel(value: unknown): {
+  design?: ArtDesign;
+  costumes?: CostumeRule[];
   styleZh: string;
-  identities: { name: string; identity: string }[];
-  places: { name: string; prompt: string; ambience: string }[];
+  identities: {
+    name: string;
+    identity: string;
+    gender?: CharacterGender;
+    ageBand?: CharacterAgeBand;
+  }[];
+  places: { name: string; prompt: string; ambience: string; layout?: string }[];
   props: { name: string; note: string }[];
   lines: string[];
 } | null {
@@ -654,7 +725,11 @@ export function artFromModel(value: unknown): {
             : typeof person.identity_block_en === "string"
               ? person.identity_block_en.trim()
               : "";
-        return name && identity ? [{ name, identity }] : [];
+        const gender = normalizeGender(person.gender);
+        const ageBand = normalizeAgeBand(person.ageBand ?? person.age_band);
+        return name && (identity || gender || ageBand)
+          ? [{ name, identity, ...(gender ? { gender } : {}), ...(ageBand ? { ageBand } : {}) }]
+          : [];
       })
     : [];
   const places = Array.isArray(row.locations)
@@ -668,6 +743,7 @@ export function artFromModel(value: unknown): {
             name,
             prompt: typeof place.prompt === "string" ? place.prompt.trim() : "",
             ambience: typeof place.ambience === "string" ? place.ambience.trim() : "",
+            ...(typeof place.layout === "string" ? { layout: place.layout.trim() } : {}),
           },
         ];
       })
@@ -681,14 +757,25 @@ export function artFromModel(value: unknown): {
         return [{ name, note: typeof prop.note === "string" ? prop.note.trim() : "" }];
       })
     : [];
+  const costumes = parseCostumes(row.costumes);
   const lines = [
+    ...costumes.map((costume) => `服装 ${costume.name}：${costume.title}`),
     styleZh ? `画风：${styleZh}` : "",
     ...identities.map((item) => `${item.name}：${identityLock(item.identity)}`),
     ...places.map((item) => `场景 ${item.name}`),
     ...props.map((item) => `道具 ${item.name}`),
   ].filter(Boolean);
-  if (lines.length === 0) return null;
-  return { styleZh, identities, places, props, lines };
+  const design = parseArtDesign(row);
+  if (lines.length === 0 && !design) return null;
+  return {
+    ...(design ? { design } : {}),
+    styleZh,
+    identities,
+    places,
+    props,
+    lines,
+    ...(Array.isArray(row.costumes) ? { costumes } : {}),
+  };
 }
 
 export function prompterFromModel(value: unknown): { zh: string; en: string } | null {

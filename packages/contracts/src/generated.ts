@@ -10029,6 +10029,11 @@ export interface components {
             speaker: string;
             /** Text */
             text: string;
+            /**
+             * Voice Id
+             * @default
+             */
+            voice_id: string;
         };
         /** StoryEntityDraftV1 */
         StoryEntityDraftV1: {

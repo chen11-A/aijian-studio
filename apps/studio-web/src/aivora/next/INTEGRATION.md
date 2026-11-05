@@ -631,3 +631,151 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### B17 仅原文归属风险的持久提示
 
 `SceneAlerts.coverageWarning?: string` 接收现有 `coverageNotice(coverage).detail`，仅在当前场 `coverage.ok=false` 且 `missingLines` 为空、`missingTail` 为空时提供。即使没有未分配动作，风险说明也留在分镜页，换页回来仍能看见。它不制造缺失台词，不把归属风险说成结尾漏拍，也不显示“补上结尾”按钮；现有说明给出核对原文与重新拆镜的下一步。对应 SceneAlerts 与 ProWorkspace 回归已通过；最终全量和 CI 结果另见阶段报告。
+
+# 下一轮补充：B19 数值诊断（已提供）
+
+桌面 `agents.log` 的图片请求记录增加 `selectedReferenceImageCount`、`requestDispatched`、`imageLimit`、`videoReferenceLimit`。`referenceImageCount` 只计入已尝试调用传输的参考图；未登录或超限而没有调用传输时为 0，已选数量另存。`requestDispatched=true` 仅表示尝试发起请求，不证明供应商收到、接受或生成成功。重复参考图先去重计数。
+
+这些字段仅为数值/布尔诊断，不加入状态栏、聊天或用户失败文案。原文、提示词、图片地址、凭据和供应商正文仍不写日志。B18 的 `coverageNotice` 和 B19 的 `stillFailureNotice` 保持现有接线；无需新增界面组件。
+
+## 4A-B01 后台流水线（部分提供，尚未替换现有入口）
+
+此节属于 3j-r1 出包后的 4a 工作。现有“一键成片”按钮尚未接下面的新控制器，不能将模块回归通过说成界面全流程完成。
+
+### 已提供
+
+- `pro/film-pipeline-controller.ts` 的 `createFilmPipelineController(host)` 提供 `run(options)`、`recover()`；`film.productionPipeline` 保存逐步、逐目标状态，`film.pipeline` 是 C12 显示投影。步骤为 writer、art、portraits、director、action、performance、prompter、stills、review、video、assembly。
+- 编剧分场与角色提取分别保存；定妆照目标是 `${characterId}@${view}`，每个角度保存后才推进。导演逐场，动作只按镜头 ID；表演精确 ID 优先，仅无重复且可一一对应时兼容顺序并保存来源，歧义待核对；提示词逐镜。状态与业务结果同次保存，失败不继续下一个目标。
+- `pro/pipeline-media-actions.ts` 提供 `makePipelinePortraits`、`makePipelineStill`、`assemblePipelineFilm`；复用会员出图和现有桌面合成。合成有缺失音轨等部分成功原因时不会标成完整成功。没有引入口型、四层调音或付费服务。
+- 重开时 `recover()` 把中断的 running 标成 uncertain，绝不自动重发。完成目标保留；重试必须用 `productionTargetKey(step, target)` 生成的精确键，例如 `portraits/character-1@正面`。`run({retryTargets:[key]})` 只重试用户选中的目标。
+- 没有已验证的看图能力时，review 返回 needs-input，不写 AI 评分或 AI 选中版本。用户真的审过后才能调用 `run({acceptInputs:[{key:productionTargetKey("review", "all"),reason}]})`；人工状态记为 accepted，区别于自动完成。
+- 审片后仍停在独立 checkpoint，含镜头数、时长、预计请求数、覆盖及风险。用户再次明确确认才调用 `run({continue:true})`。后台不把人工审片和继续视频合成一个自动动作。
+- 取消通过 `run({signal})` 传入 AbortSignal；晚到结果不写回。作品切换、源文或业务数据被编辑、相同作品并发执行均有守卫。媒体路径记录与可选 `verifyMedia` 是不同层次，未提供探测时不能声称文件已经实际播放验证。
+
+### 接线前必须处理（GPT 逻辑与 Claude 4A-U01 配合）
+
+1. 已提供并实例化 `pipelineWorkspace`：`start()`、`recover()`、`retry(keys)`、`acceptReview(reason)`、`continue()`、`cancel()`。宿主先完成作品 ID 准备，采用独立会员请求与有效性守卫，不依赖聊天 activeTurn；video 提交复用预先准备的 billingProjectId。
+2. 已接 `film-persistence`：按作品排队、流水线取得独占保存租约前排空已发旧写入；自动保存与退出刷新不能覆盖检查点，停止期间的新用户编辑会保存。媒体准备先于摘要和原子写盘；摘要按真实重载规范计算，源文及真实媒体修改仍拒绝续跑。作品打开只恢复 running→uncertain，不重发；切换作品与卸载取消旧宿主。
+3. Claude 提供步骤进度、精确目标重试、uncertain 风险确认、真实人工审片及独立 checkpoint 的继续/取消操作。显示文案由 Claude 定，后台 code 不直接显示给用户。
+4. 旧 footer 的“继续出视频”当前直接调用 `queueBatch`；启用新入口时必须改接上述 checkpoint 操作，不能旁路审片和原文覆盖。GPT 配合提供业务回调，Claude 修改 JSX。
+5. 宿主、保存协调、真实 save→upgrade→hydrate→recover 及 ProWorkspace 打开作品回归已补；真实会员全流程仍待验收。旧入口未切换，需完成第 3、4 项 Claude 交互后再启用，4A-B01 仍为部分完成，不发布 4a tag。
+
+## 4A-B02 画风说明（已提供）
+
+- `styleZh` 为唯一持久化美术说明，保持原文；`styleRevision` 标识修改。角色页既有画风修改与美术写入均经过逻辑层，旧镜头增加 `regenerationRequired={code:"STYLE_CHANGED",styleRevision}`，不删媒体、不覆盖手改。Claude 可据此显示“需要重新生成”；单张图生成不会擅自清除视频过期标记。
+- 定妆、场景、首帧、候选、连续镜头和视频请求均带完整画风块。只去重构造器专用块，不删对白和叙述中的同词。视频的单镜说明也完整保留；旧的 400 字截断 style_block 不再发送。描述不能完整容纳时返回 `STYLE_BIBLE_TOO_LONG` 或 `MEDIA_DESCRIPTION_TOO_LONG` 短提示，不截台词或动作尾部。
+- 按用户确认的隐私规则，默认日志不记完整画风或原文。桌面从实际请求块计算 `styleCharacters`（Unicode 字符数）与 `styleSha256`；首帧和逐镜视频提交已接线。视频日志仅表示向本地服务提交，不能证明供应商收到；没有伪造模型验收或图片质量证据。
+
+## 4A-B03 正面锚点定妆（已提供）
+
+全体、单人和流水线入口统一使用 `generate(prompt,references)`：先生成并保存正面全身图，侧面/背面/脸部仅用该人物正面图改图。缺正面时，单角补全自动增加一个前置任务并计入总数。正面失败重试一次，依赖角度标失败且不发请求，继续其他角色；正面被更换时丢弃旧回包。错误保留 `PORTRAIT_ANCHOR_REQUIRED` code，详情为“先补好正面照，再生成这个角度。”。画质沿用 medium。回归验证请求确实带同人物参考图；没有以此代替真实会员同脸视觉验收。
+
+## 4A-B04 前镜末帧衔接（已提供）
+
+导演可返回 `connect_previous:true`，解析器在合镜和重编 ID 后解析 `continuityFromShotId`，仅接受同场紧邻前镜；歧义保留提醒，不按错误 ID 猜。实际视频提交前，`ensureContinuityFrame` 通过 `window.aijian.extractFilmLastFrame(seriesId,videoPath)` 提取前镜已选完成版本的最后解码帧，保存 `poster` 和 `continuityFrame={sourceShotId,sourceTakeId,sourceVideoPath,path}` 后才提交视频。前镜失败后重做会选中新完成版本，下一镜据此衔接。预览出图阶段不提取不存在的视频。
+
+本地 FFmpeg 解码与 PNG 校验不调用供应商。拒绝跨场、无完成版本、过期回包和不可信路径；媒体限制为现有短镜头 MP4（最多 80 MiB、60 秒），结果最多 12 MiB。失败返回 `CONTINUITY_*` code 与短提示，界面不显示原始 code。真实 FFmpeg 回归比较实际末帧像素；会员生成视频的视觉连续性仍需实测。
+
+## 4A-B07 场记规则（已提供）
+
+`film/continuity-rules.ts` 提供 `continuityRisks(film)`、`applyContinuityChecks(film)`；每镜 `continuity: ContinuityNote[]`，旧单对象存档自动迁移。工作区业务修改时更新并保存；流水线在准备快照和计算摘要前统一检查，重开不会因派生提醒误判内容变化。修正文本后仅清除本规则生成的提醒，保留导演或用户的其他说明。
+
+五类为 `missing_look / prop / gaze / axis / cut`：固定外貌句遗漏、明确同人物持物换手、明确视线反向、明确轴线侧改变、末帧来源不匹配。只根据文字与记录提出核对建议，不声称已看图或能判定真实镜头物理连续性。模糊描述、否定句与引述不作持物/视线证据。Claude 可按 C13 在镜头卡显示多条提醒；本提交不改其 JSX/CSS。
+
+## 4A-B10 场景参考与画幅（部分提供，任务书重复编号分开记录）
+
+场景参考：`FilmLocation.referenceImage/referenceStyleRevision` 保存真实生成地址和画风版本。新流水线 portraits 阶段在人物之后安排实际场次使用的 `location:<id>`；精确重试键为 `portraits/location:<id>`。逐图保存、失败重试一次、取消不标完成，已有有效图复用。地点只按 `scene.where` 精确匹配，歧义不猜。`makeLocationReferences` 也提供独立宿主接口；旧页面尚无生成场景图入口，需 Claude 接入新流水线后才有可见流程。
+
+首帧最多五张、视频首帧另加最多十三张参考，均人物优先，余位追加场景图；满额时不挤掉人物。过期画风图不作为参考。HTTPS 地址可持久化但不等于已下载本地；实际出图桥返回已保存路径，文件验证仍在桌面边界。真实会员背景一致性未验。
+
+画幅：新建作品数据默认横屏 `16:9`，显式竖屏和新集继承继续支持；旧无画幅存档维持原竖屏解释。生成请求沿已有画幅链传入。Claude 新建选择及预览适配仍未完成；双画幅居中裁切后端见下文补充，不能将此编号整体标已修。
+
+## 4A-B11 选择、差异与撤销（初始接口；实际接线见后文）
+
+- `pro/actions/editor-context.ts`：`resolveEditorContext(film,{projectId,page,sceneId?,shotId?})` 精确解析实际选择；缺选择不代选第一场，跨作品/场镜不符明确拒绝。`editorAgentContext` 仅投影选中原文、镜头文本/台词及人物身份，排除媒体路径、URL、任务及流水线元数据；不截断原文，后续请求继续使用既有分批机制。不要把完整界面快照直接发给供应商。
+- `pro/actions/editor-changes.ts`：`diffEditorSuggestion(base,proposed,selection)` 给出按实体字段的 before/after；`applyEditorSuggestion(latest,suggestion)` 在字段仍等于 base 时原子应用并给 receipt。建议产生时保留 base，不可应用时偷换成 latest。结构新增/删/重排显式 unsupported，不能绕过检查。
+- `undoEditorReceipt(latest,receipt)` 只恢复仍等于该次写入结果的字段，保留后续手改、生成资产和任务；冲突逐项返回。`createPageUndoHistory()` 按作品和页面 record/canUndo/undo，不跨作品恢复。宿主须在成功保存后登记 receipt，并执行角色选声、画风过期等业务校验。
+
+上述函数与 14 项回归已提供；页面回调、请求接线、redo 和持久化历史尚未实现；结构性事务见下文补充。现有全作品撤销尚未替换，不把这些纯函数说成用户可用入口。Claude 可先据接口准备差异显示，具体宿主接线由 GPT 继续完成。
+
+### 4A-B10 双画幅导出后端（已提供，选择器未接）
+
+`exportFilmTask(base,paths,directory,host,{aspectRatio:"16:9"|"9:16"})` 使用本地 FFmpeg 居中裁切，并原样复制音轨；省略 options 维持原比例复制。分别调用两个比例即可得到 `-16x9.mp4`、`-9x16.mp4`，不会覆盖源视频。底层 `exportFilmCut(source,directory,name?,{aspectRatio?,requestId?})` 与 `cancelFilmExport(requestId)` 已提供。输出在目标目录临时文件生成、校验后原子发布；失败不留下半成品。
+
+取消会阻止最终发布并在进程结束后清理临时文件；现有 FFmpeg 宿主没有中止进程接口，不能声称点击取消立即终止编码。真实 FFmpeg 回归验证两种比例、中心像素、音轨字节一致和源文件不变。Claude 仍需导出比例选择器和“两种都要”交互；本提交不改 JSX，也未新增 4b 声音混合/导出检查。
+
+### 4A-B11 结构事务补充（初始接口；实际接线见后文）
+
+`pro/actions/editor-structure.ts` 提供 `diffEditorStructure`、`applyEditorStructure`、`undoEditorStructure`。仅接受明确审核的连续场/镜头范围，原结构与关联任务、音频、衔接引用均作比较；不删除带资产或依赖的对象，不替换媒体。结构 receipt 必须交给 `undoEditorStructure`，不可塞进字段撤销历史。10 项回归通过；保存协调、页面回调和 Claude 差异呈现仍需接线。
+
+### 4A-B08 场景布局与编剧来源（已提供）
+
+`FilmLocation.layout/referenceLayout` 保存空间关系及参考图生成时的快照；改布局使旧图失效。布局实际进入首帧和视频描述。`FilmScene.elements/sourceParagraphIds/writerParagraphIds/writerSourceText` 保存编剧对白与来源；只有可靠归属供导演可信上下文，正文编辑后旧结构失效，原始段号不与本地重编段号混用。无需界面把这些结构原样显示给用户。
+
+### 4A-B08 表演结构（已提供）
+
+`FilmShot.performancePlan` 保存人物/本镜表演及绑定来源，`FilmScene.performanceState` 保存未分配项。`binding=scope-order` 代表明确的一一对应兼容，不能宣称语义已核实；动作仍禁止顺序回退。手动回复只写建议卡，确认后才保存该镜与对应场景，保留用户锁及动作字段；视频描述实际消费结构。真实会员表演效果未验证。
+
+### 4A-B11 建议宿主协调（已提供，页面接线进行中）
+
+`createEditorHost` 通过 `capture → preview → apply(id)` 固定基线并核对作品、页面、选中镜头、请求序号和字段锁。宿主注入现有保存通道；延后或保存失败返回 `applied_unsaved`，不能显示已保存。`canUndo/undo` 只处理本作品本页 receipt，保留生成媒体和后续修改。现有常规历史仍待迁移，纯接口不等同于所有页面已接。
+
+### 4A-B08 服装范围（部分提供）
+
+`FilmProject.costumes/costumeRisks` 保存真实 ranges 声明及核对风险。只有未改正文、可靠段号完整覆盖整场时，首帧/视频请求注入服装块；用户外貌/服装/镜头锁优先。场内换装仍返回 `COSTUME_WITHIN_SCENE_CHANGE`，不会按镜头序号猜。没有生成对应服装定妆照，不能声称该功能全流程完成。
+
+### 4A-B11 最小工作台接线（部分已接）
+
+提示词请求实际采用固定镜头基线、字段CAS与既有保存队列，RoleCard.editorDiff供界面呈现。普通撤销/重做已使用按作品页面的字段receipt；纯场/镜头结构走结构CAS，混合结构保守阻止，不恢复旧整作品快照。其他角色确认仍逐项接入，不表示所有建议都可展示差异；Claude JSX未改。
+
+### 4A-B08 导演与表演补充
+
+`shot.directorPlan.segments` 保留镜头意图、站位和对白节奏；合镜保留原段，时长变化只停精确时间，自动表演补写不抹掉空间规则。referenceHints仅是声明，verifiedSourceParagraphIds仅是解析时场归属证据。表演 `performanceState.voiceReviews` 保存不唯一说话人的语气核对事项；多人分别配音和精确音频排程仍未实现。
+
+### 4A-B11 美术确认（已接逻辑，差异呈现待Claude）
+
+`RoleCard.artDiff` 保存固定请求基线的美术事务，确认时核对字段、锁及新增实体，任何冲突原子拒绝。新增地点已有参考图后不能由撤销删除；画风过期与服装风险从最新数据重新派生，不拿旧镜头覆盖新媒体。事务通过现有保存队列落盘并进入当前页撤销。
+
+### 4A-B08 审片意见存储（已接，仅文字）
+
+`FilmProject.reviewReports` 保留逐镜/版本问题及建议，`evidence=text-only`、`visualVerified=false`始终明确；模型seen_frames声明不能改变实际证据。只接受输入中的ID，未知和重复项在rejected中保留。镜头、版本或关联原文改变后旧回包不写入；不自动改提示词、选版或裁剪。
+
+### 4a 文案映射缺口（待 Claude）
+
+固定4fcd198全量web为3872通过、1失败、0跳过；唯一失败是NOTICE_COPY缺101个新增代码。完整code与后端短句已列在 `docs/aivora/4a-notice-handoff.md`，请Claude补最终文案及其表格。后端未改界面文案表，完整性测试保留；此项阻挡阶段全绿与4a发布。
+
+### 4A-B11 单镜与结构建议确认（已提供逻辑，差异呈现待 Claude）
+
+- `RoleCard.directionDiff` 是固定请求基线的单镜动作/表演事务；应用时检查身份、用户锁、原字段和场景状态，拒绝把其他镜头或后续修改覆盖掉。
+- `RoleCard.storyDraft={transaction,origin}` 同时保留请求时的编剧/导演结构建议和真正发起请求的页面选择；使用 `applyStoryConfirmation` 原子确认。已知场次的多场导演建议作为一个组合执行，一场冲突则全部不写；未知场次或重复镜头 ID 拒绝。
+- `prepareExplicitShotSplitTransaction` 专用于用户确认的台词拆镜：保留同场其他镜头，后续编号独立比较，不把两个新镜头当作整场替换。
+- 编剧首次从空作品原文框分场时，原文逐字保存到 `sourceText`；替换旧自动分镜须无人工修改、媒体、任务、音轨和衔接依赖。撤销原子恢复场次及被移除的完整镜头。
+- `createEditorPageHistory().recordStory(receipt,origin)` 将撤销留在请求原页面；不持久化全作品快照，不恢复旧媒体。返回旧页面的建议恢复沿用现有作用域缓存。
+- `editorCompletionCurrent` 仅限制保存完成提示：原页面或作品版本已变就不显示旧成功/失败提示，已授权的落盘仍继续。美术新增地点被其他页面新引用后，撤销保留该地点并返回冲突。
+
+这些接口没有新增 JSX、CSS 或最终文案；助手差异展示仍由 Claude 接线。全量文案契约缺口及 B01 检查点界面仍阻挡阶段验收。
+
+### B01 最新界面适配与交接
+
+`pro/pipeline-view.ts` 的 `pipelineView(film)` 给出真实状态、目标key、retryable、requiresOutcomeConfirmation、canAcceptReview、canContinue；`pipelineRetryKey` 只解析用户明确选定目标，uncertain须先核对。控制器仍在执行时验证输入和保存归属。实现 `a7b5249`，相关37项回归通过。详细按钮映射、`claude/work@caf50e2` 已实现范围与冲突注意事项见 `docs/aivora/4a-claude-integration-handoff.md`，不要把stepId或旧queueBatch直接当新流水线重试/继续。
+
+### B08 美术设计声明（已提供，非生成素材）
+
+`FilmProject.artDesign/artDesignBaseline` 保存色板、年代、光线、镜头、备用英文描述及模型声明的人物/地点/道具/定妆照计划；与真实portraits/referenceImage分离。新图显示仍取实际生成结果，不能因asset_id存在就显示已完成。由applyArtDraft统一合并，artDiff纳入CAS与撤销。实现 `9e8e9dd`，52项相关与91项工作区回归通过；不要求Claude接新的生成入口。
+
+### B08/B09/B11 后端补修与已提供接口
+
+- B08（`528d850`、`11229ca`）：`FilmProject.writerPlan`、`FilmScene.writerPlan`、`FilmCharacter.writerPlan`保存编剧原声明，导演segments保留sceneDeclaration与原no/seconds，表演people.declarations保存主配角来源及显式null。声明不是实际产物或核实过的时长/覆盖率；不要求新增服装生产或智能体。编剧同一回复的人物/地点随原确认事务一起应用和撤销，有并发修改则整笔拒绝。
+- B09（`9b3af94`）：导演策略、审片和视频任务准备进一步迁入actions，工作台现有回调名称与职责保留。合并Claude界面时保留这些函数调用，不复制3j旧函数覆盖。
+- B11（`05c59c74ce6a15875a0c39191e8bfb49496d8984`）：`actions/editor-request-context.ts`的`globalEditorRequest(base,selection,request)`已接实际手动编剧与美术请求。选择取请求前快照，仅白名单文本；编剧引用场ID而不重传正文，美术附选中内容但仍处理全项目。无效选择不猜第一场。其他角色原有明确当前场/镜头输入保留，自动流水线不读取UI选择。
+- B11（`cdfc2f5`）：提示词保存完成后再次验证作品版本及原页面选择；迟到结果不在新页面提示成功，已授权的保存仍继续。按页撤销及固定建议的before/after数据已提供，统一差异展示仍由Claude接线。
+
+### 3JR-B08 场景参考实际入口（已提供）
+
+`pro/actions/scene-references.ts` 的 `prepareShotSceneReferences(base, shots, host)`
+由单镜生成、四张候选和视频生成的业务处理函数调用。只准备所选镜头所属场次，
+即使角色提取没有给出 locations，也按真实 sceneId 建立场景描述记录；记录本身不算图片完成。
+场景记录先存盘，再生成空镜，再立即保存图片。已有且输入未变化的引用直接复用。
+单张失败重试一次，仍失败阻止依赖的镜头生成，任务落 failed；不会伪造引用。
+`LOCATION_SOURCE_REQUIRED` 表示场次缺少环境原文或地点，兜底短句为“这一场还没有可用的环境描述。”
+Claude 可为该 code 定最终文案。未运行真实会员生成，提供的是本地模拟回归证据。

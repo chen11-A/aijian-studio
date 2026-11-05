@@ -14,6 +14,12 @@ export type AgentLogLine = {
   responseChars?: number;
   requestChars?: number;
   referenceImageCount?: number;
+  selectedReferenceImageCount?: number;
+  requestDispatched?: boolean;
+  imageLimit?: number;
+  videoReferenceLimit?: number;
+  styleCharacters?: number;
+  styleSha256?: string;
   errorCode?: string;
 };
 
@@ -46,6 +52,7 @@ const agents = new Set([
   "qc",
   "probe",
   "image",
+  "video",
 ]);
 const endpoints = new Set([
   "responses",
@@ -61,6 +68,7 @@ const endpoints = new Set([
   "tts-timestamps",
   "image-edit",
   "quality-medium",
+  "video-submit",
 ]);
 const parsedKinds = new Set([
   "text",
@@ -106,6 +114,22 @@ export function createAgentLog(filePath: string, options: { debug?: boolean } = 
         responseChars: count(line.responseChars),
         requestChars: count(line.requestChars),
         referenceImageCount: count(line.referenceImageCount),
+        ...(line.selectedReferenceImageCount !== undefined
+          ? { selectedReferenceImageCount: count(line.selectedReferenceImageCount) }
+          : {}),
+        ...(typeof line.requestDispatched === "boolean"
+          ? { requestDispatched: line.requestDispatched }
+          : {}),
+        ...(line.imageLimit !== undefined ? { imageLimit: count(line.imageLimit) } : {}),
+        ...(line.videoReferenceLimit !== undefined
+          ? { videoReferenceLimit: count(line.videoReferenceLimit) }
+          : {}),
+        ...(line.styleCharacters !== undefined
+          ? { styleCharacters: count(line.styleCharacters) }
+          : {}),
+        ...(typeof line.styleSha256 === "string" && /^[a-f0-9]{64}$/.test(line.styleSha256)
+          ? { styleSha256: line.styleSha256 }
+          : {}),
         ...(options.debug === true ? { debug: true } : {}),
         errorCode: errorCodes.has(line.errorCode ?? "") ? line.errorCode : undefined,
       });

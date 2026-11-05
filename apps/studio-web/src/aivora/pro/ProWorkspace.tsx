@@ -1,49 +1,92 @@
+import { prepareShotSceneReferences } from "./actions/scene-references";
+import {
+  generationPreflight,
+  prepareGeneration,
+  prepareGenerationRetry,
+} from "./actions/generation-prepare";
+import { editorCompletionCurrent } from "./actions/editor-completion";
+import {
+  prepareDirectorConfirmation,
+  applyStoryConfirmation,
+  type StoryConfirmation,
+} from "./actions/story-confirmation";
+import {
+  prepareExplicitShotSplitTransaction,
+  prepareWriterTransaction,
+} from "./actions/story-structure-transaction";
+import {
+  prepareShotDirection,
+  applyShotDirection,
+  type ShotDirectionTransaction,
+} from "./actions/shot-direction-transaction";
+import { retryDirectorDraft } from "./actions/director-retry";
+import { historyCheckpoint } from "./actions/history-checkpoint";
+import {
+  captureBookImportInput,
+  prepareBookImport,
+  applyBookImportSource,
+  bookImportInputUnchanged,
+} from "./actions/book-import";
+import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
+import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
+import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
+import {
+  prepareArtTransaction,
+  applyArtTransaction,
+  type ArtTransaction,
+} from "./actions/art-transaction";
+import { generateShotStill } from "./actions/shot-still";
+import { reviewShotText } from "./actions/text-review";
+import { createEditorPageHistory } from "./actions/page-history";
+import { createEditorHost } from "./actions/editor-host";
+import type { EditorSuggestion } from "./actions/editor-changes";
+import type { EditorSelection } from "./actions/editor-context";
+import { runPreparedGeneration } from "./actions/generation-run";
+import { buildLegacyStoryboard } from "./actions/legacy-storyboard";
+import { preparePortraitIdentity } from "./actions/portrait-identity";
+import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
+import { planDirectorDraft, type DirectorDraftResult } from "./actions/director-draft";
+import { planWriterDraft, writerDraftInput, type WriterDraftResult } from "./actions/writer";
+import { planActionDraft } from "./actions/action";
+import { planPerformanceDraft } from "./actions/performance";
+import { planPrompterDraft } from "./actions/prompter";
+import { planArtDraft } from "./actions/art";
+import { globalEditorRequest } from "./actions/editor-request-context";
+import { applyContinuityChecks } from "../film/continuity-rules";
+import { continuityFailureNotice } from "./continuity-frame";
+import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
+import { createPipelineControls } from "./pipeline-controls";
+import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
+import { createFilmPersistence } from "./film-persistence";
 import { stillFailureNotice } from "./workflow";
 import { coverageNotice } from "../film/coverage-notice";
-import { awaitVideoResult } from "./video-request";
 import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
-import { ensureShotFrame, makeFourStills } from "./still-workflow";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { makeFourStills } from "./still-workflow";
+import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
-  actionBeats,
-  adaptToShortDrama,
   addShot,
-  applyScenes,
   clipLayout,
   clock,
   continuityPrompt,
   CONTINUITY_REASON,
   DESKTOP_REASON,
   ensureLocations,
-  extractCastOffline,
   chosenExport,
   confirmEstimate,
   filmFileName,
-  mergeCast,
-  parseCastReply,
-  extractBookText,
   LOUDNESS_NOTE,
-  offlineScreenplay,
-  numberedScript,
-  parseWriterScenes,
-  sceneNeedsSource,
   assignActionBeats,
-  fightConstraints,
-  performanceLine,
   moveShot,
-  planVideoJobs,
   portraitPrompts,
   shotProgress,
   PREVIEW_REASON,
   voiceLabel,
   removeShot,
-  splitNovel,
   generationEstimate,
-  storyFilmBatches,
   spokenLine,
   draftFaceWarning,
   dialogueTracks,
@@ -61,7 +104,7 @@ import {
   listFilms,
   readSaved,
   renameFilm,
-  saveFilm,
+  saveFilm as writeFilm,
   type EpisodeEntry,
   type FilmIndexEntry,
 } from "../film/library";
@@ -70,9 +113,7 @@ import {
   keyframePrompt,
   interruptStaleWork,
   newEpisode,
-  parseDirectorShots,
   sampleFilm,
-  offlineShots,
   textModel,
   STYLE_PRESETS,
   type FilmProject,
@@ -80,61 +121,36 @@ import {
   type FilmShot,
 } from "../film/project";
 import {
-  actionFromModel,
   appearanceMark,
-  artFromModel,
   classifyShotSize,
   DIFFICULTY_LEGEND,
-  difficultyLabel,
-  durationFromSpeech,
   FILM_TEMPLATES,
-  gazeHandoff,
   missingIdentityLocks,
-  parseLooseJson,
-  performanceFromModel,
-  voiceDirectionFromModel,
-  prompterFromModel,
-  qcFromModel,
-  scenesEchoRequest,
   SHOT_SIZES,
   shotPerson,
-  speechSeconds,
-  splitSpokenLine,
-  withIdentityLocks,
 } from "../film/phase2";
 import { grokBridge } from "../grok-auth/transport";
 import { useGrokAccount, useGrokConnected, useGrokDenied } from "../grok-auth/useGrokConnected";
-import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
+import { videoActions, GENERATE_MODEL, type VideoAction } from "./capabilities";
 import { Ic } from "./icons";
 import "./pro.css";
 import {
   failRunningVideoTasks,
+  failQueuedVideoPrerequisites,
   pruneCancelledJobs,
   canResumeTake,
-  prepareVideoQueue,
-  prepareBlockedVideoQueue,
-  generationTargets,
-  retryVideoTasks,
   retryableVideoTask,
-  videoTaskTarget,
-  setVideoTaskState,
   cancelVideoTask,
-  videoQueueInterruption,
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
-import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
+import { presentNotice, NOTICE_TEXT } from "../film/notices";
 import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
-import {
-  detectDirectorCoverage,
-  directorPlanStatus,
-  sceneDisplayTitle,
-  shotLines,
-} from "../film/director-continuity";
+import { directorPlanStatus, sceneDisplayTitle } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
-import { publishFilmJobs, runTask } from "../film/task-progress";
+import { publishFilmJobs } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
@@ -155,14 +171,11 @@ import {
   isVoiceFile,
   assistantInputVersion,
   fileMediaUrl,
-  requestStill,
+  requestFilmStill,
   middlePath,
   shotFrame,
-  applyArtDraft,
   hydrateFilm,
   filmSignature,
-  replaceTakes,
-  requestShotStill,
   assembleCurrentFilm,
   retryDirectorTimeout,
   type AgentReply,
@@ -172,7 +185,12 @@ import {
 type Stage = "script" | "cast" | "board" | "edit";
 type Role = "writer" | "director" | "action" | "performance" | "art" | "prompter" | "qc";
 
+type StoryDraft = { transaction: StoryConfirmation; origin: EditorSelection };
 type RoleCard = {
+  storyDraft?: StoryDraft;
+  directionDiff?: ShotDirectionTransaction;
+  artDiff?: ArtTransaction;
+  editorDiff?: EditorSuggestion;
   title: string;
   rows: { id: string; mark: string; text: string; tail: string }[];
   notes: string[];
@@ -180,8 +198,12 @@ type RoleCard = {
   mode: "scenes" | "shots" | "art" | "qc";
   scenes?: FilmScene[];
   shots?: FilmShot[];
+  actionState?: FilmScene["actionState"];
+  performanceState?: FilmScene["performanceState"];
 };
 type FixAction = VideoAction;
+
+type PipelineGenerationHost = PipelineVideoHost;
 
 const STAGES: { id: Stage; label: string }[] = [
   { id: "script", label: "剧本" },
@@ -405,7 +427,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const connected = useGrokConnected();
   const membershipDenied = useGrokDenied();
   const account = useGrokAccount();
-  const [film, setFilm] = useState<FilmProject | null>(null);
+  const [film, setFilmState] = useState<FilmProject | null>(null);
   const [stage, setStage] = useState<Stage>("script");
   const [scene, setScene] = useState("02");
   const [role, setRole] = useState<Role>("director");
@@ -424,6 +446,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     role: Role;
     context: string;
     instruction: string;
+    origin?: EditorSelection;
   } | null>(null);
   const [confirmSignIn, setConfirmSignIn] = useState(false);
   const [oneClickReady, setOneClickReady] = useState(false);
@@ -438,12 +461,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const setNotice = (next: string | UiNotice | ((current: string) => string)) => {
     noticeEpoch.current += 1;
     const value = typeof next === "function" ? next(noticeRef.current) : next;
-    const structured = normalizeNotice(value);
+    const { notice: structured, text: rendered } = presentNotice(value);
     window.dispatchEvent(new CustomEvent("aivora-notice", { detail: structured }));
-    const rendered =
-      typeof value === "string"
-        ? value
-        : [structured.text, structured.detail].filter(Boolean).join(" ");
     noticeRef.current = rendered;
     setNoticeState(rendered);
   };
@@ -468,9 +487,37 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [assistPulse, setAssistPulse] = useState(0);
   const [hearing, setHearing] = useState(false);
   const previewAudio = useRef<HTMLAudioElement | null>(null);
+  const previewSession = useRef<VoicePreview | null>(null);
+  const previewEpoch = useRef(0);
+  useEffect(
+    () => () => {
+      previewEpoch.current += 1;
+      setHearing(false);
+      previewSession.current?.dispose();
+      previewSession.current = null;
+      previewAudio.current = null;
+    },
+    [film?.id, soundOn],
+  );
   const [roleCards, setRoleCards] = useState<Partial<Record<Role, RoleCard>>>({});
   const [stillArmed, setStillArmed] = useState("");
-  const assistantScope = `${film?.id ?? ""}:${stage}:${scene}:${assistantInputVersion(film, scene)}`;
+  const selectedEditorShot =
+    stage === "board" || stage === "edit"
+      ? film?.shots
+          .filter(
+            (item) => item.sceneId === scene || !film.scenes.some((row) => row.id === item.sceneId),
+          )
+          .slice()
+          .sort((a, b) => a.no - b.no)[shot]
+      : undefined;
+  const editorSelection = useRef<EditorSelection>({ projectId: "", page: stage });
+  editorSelection.current = {
+    projectId: film?.id ?? "",
+    page: stage,
+    sceneId: scene,
+    ...(selectedEditorShot ? { shotId: selectedEditorShot.id } : {}),
+  };
+  const assistantScope = `${film?.id ?? ""}:${stage}:${scene}:${selectedEditorShot?.id ?? ""}:${assistantInputVersion(film, scene)}`;
   const scopeRef = useRef(assistantScope);
   scopeRef.current = assistantScope;
   const [versions, setVersions] = useState(1);
@@ -496,6 +543,70 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const filmRef = useRef<FilmProject | null>(null);
+  function setFilm(update: SetStateAction<FilmProject | null>) {
+    const previous = filmRef.current;
+    let next = typeof update === "function" ? update(previous) : update;
+    if (previous && next && previous.id === next.id && previous.styleZh !== next.styleZh) {
+      next = setFilmStyle(
+        { ...next, styleZh: previous.styleZh, styleRevision: previous.styleRevision },
+        next.styleZh,
+      );
+    }
+    if (next) next = applyContinuityChecks(next);
+    filmRef.current = next;
+    setFilmState(next);
+  }
+  const persistence = useMemo(
+    () => createFilmPersistence({ current: () => filmRef.current, write: writeFilm }),
+    [],
+  );
+  const saveFilm = (next: FilmProject) => persistence.save(next);
+  const editorHost = useMemo(
+    () =>
+      createEditorHost({
+        current: () => filmRef.current,
+        selection: () => editorSelection.current,
+        applyLive: (next) => {
+          const live = filmRef.current;
+          if (live && committed.current?.id === live.id)
+            pageHistory.record(committed.current, live, historyScope.current);
+          applyLive(next);
+        },
+        applied: (receipt) => {
+          pageHistory.recordReceipt(receipt);
+          skipHistory.current = true;
+          committed.current = filmRef.current;
+          setHistoryTick((value) => value + 1);
+        },
+        save: (next) => {
+          // setFilm applies continuity normalization; save that exact live result through the existing queue.
+          const live = filmRef.current;
+          return live?.id === next.id ? persistence.save(live) : Promise.resolve(null);
+        },
+      }),
+    [persistence],
+  );
+  const pipelineLive = useRef({ connected, modelIds, ensureBillingProject, submitGeneration });
+  pipelineLive.current = { connected, modelIds, ensureBillingProject, submitGeneration };
+  const pipelineWorkspace = useMemo(() => {
+    const workspace = createPipelineWorkspaceHost({
+      current: () => filmRef.current,
+      apply: applyLive,
+      ensureBillingProject: () => pipelineLive.current.ensureBillingProject(),
+      acquireSaveOwnership: persistence.acquire,
+      bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
+      modelIds: () => pipelineLive.current.modelIds,
+      modelsChanged: setModelIds,
+      submitGeneration: (shots, control) =>
+        pipelineLive.current.submitGeneration(shots, false, undefined, undefined, control),
+      notify: emitNotice,
+    });
+    return createPipelineControls({
+      current: () => filmRef.current,
+      workspace,
+      notify: emitNotice,
+    });
+  }, [persistence]);
   const productionActions = useProductionActions({
     current: () => filmRef.current,
     apply: async (next) => {
@@ -503,15 +614,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       await saveFilm(next);
     },
     notify: emitNotice,
-    requestDirector: (context, instruction) =>
+    requestDirector: (context, instruction, control) =>
       retryDirectorTimeout(
         (control) => completeAgent("director", context, instruction, control),
         setNotice,
         emitNotice,
+        {
+          signal: control?.signal,
+          totalMs: Math.min(240_000, (control?.deadlineAt ?? Date.now() + 240_000) - Date.now()),
+        },
       ),
   });
-  const pastRef = useRef<FilmProject[]>([]);
-  const futureRef = useRef<FilmProject[]>([]);
+  const pageHistory = useMemo(() => createEditorPageHistory(), []);
+  const historyScope = useRef(editorSelection.current);
   const committed = useRef<FilmProject | null>(null);
   const skipHistory = useRef(false);
   const pauseRef = useRef(false);
@@ -529,7 +644,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
   const openShotRef = useRef("");
-  const artDraft = useRef<FilmProject | null>(null);
+  const storyDraft = useRef<StoryDraft | null>(null);
+  const applyingStory = useRef(false);
+  const artDraft = useRef<ArtTransaction | null>(null);
+  const applyingArt = useRef(false);
   const suggestionSnapshot = {
     origin: { projectId: film?.id ?? "", page: stage, sceneId: scene },
     roleCards,
@@ -540,6 +658,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     structured,
     turns,
     art: artDraft.current,
+    story: storyDraft.current,
   };
 
   const [historyTick, setHistoryTick] = useState(0);
@@ -570,7 +689,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const id = activeFilmId() || rows[0]?.id || "";
       const stored = id ? await readSaved(id) : null;
       if (!live || !stored || filmRef.current) return;
-      const settled = interruptStaleWork(await hydrateFilm(stored));
+      const settled = settleOpenedFilm(await hydrateFilm(stored));
       filmRef.current = settled.film;
       committed.current = settled.film;
       setFilm(settled.film);
@@ -583,15 +702,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     };
   }, []);
 
+  function settleOpenedFilm(value: FilmProject) {
+    // Pipeline recovery validates its saved input before changing interrupted media.
+    return value.productionPipeline
+      ? { film: value, interrupted: false }
+      : interruptStaleWork(value);
+  }
+
   const saveGeneration = useRef(0);
   useEffect(() => {
     filmRef.current = film;
     if (!film) return;
+    if (historyScope.current.page !== stage && committed.current?.id === film.id) {
+      pageHistory.record(committed.current, film, historyScope.current);
+      committed.current = film;
+    }
+    historyScope.current = editorSelection.current;
     const generation = ++saveGeneration.current;
     const savingId = film.id;
     const flush = () => {
-      const current = filmRef.current;
-      if (current) void saveFilm(current);
+      void persistence.flush().catch(() => undefined);
     };
     window.addEventListener("beforeunload", flush);
     setSavingDisk(true);
@@ -599,6 +729,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       void saveFilm(film)
         .then((stored) => {
           if (generation !== saveGeneration.current) return;
+          if (!stored) {
+            setSavingDisk(false);
+            return;
+          }
           if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
             setDiskFilmId(savingId);
             setDiskPath(stored.directory);
@@ -620,23 +754,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       skipHistory.current = false;
       committed.current = film;
     } else {
-      timer = window.setTimeout(() => {
-        if (filmRef.current?.id !== film.id || committed.current?.id !== film.id) return;
-        const previous = committed.current;
-        if (previous && filmSignature(previous) !== filmSignature(film)) {
-          pastRef.current = [...pastRef.current, previous].slice(-50);
-          futureRef.current = [];
-          setHistoryTick((value) => value + 1);
-        }
-        committed.current = film;
-      }, 500);
+      timer = window.setTimeout(
+        historyCheckpoint(film, editorSelection.current, {
+          current: () => filmRef.current,
+          selection: () => editorSelection.current,
+          commit: (snapshot, scope) => {
+            if (committed.current?.id !== snapshot.id) return;
+            const previous = committed.current;
+            if (filmSignature(previous) !== filmSignature(snapshot)) {
+              pageHistory.record(previous, snapshot, scope);
+              setHistoryTick((value) => value + 1);
+            }
+            committed.current = snapshot;
+          },
+        }),
+        500,
+      );
     }
     return () => {
       window.removeEventListener("beforeunload", flush);
       window.clearTimeout(handle);
       if (timer) window.clearTimeout(timer);
     };
-  }, [film]);
+  }, [film, stage]);
 
   const queueProject = film?.id ?? "";
   useEffect(() => {
@@ -648,10 +788,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, [queueProject]);
 
   useEffect(() => {
+    pipelineWorkspace.projectChanged();
+    if (filmRef.current?.productionPipeline) {
+      void pipelineWorkspace.recover().catch(() => {
+        emitNotice({ code: "PIPELINE_RECOVERY_FAILED", text: "进度未能恢复，请重试。" });
+      });
+    }
+    return () => pipelineWorkspace.cancel();
+  }, [film?.id, pipelineWorkspace]);
+
+  useEffect(() => {
     window.aijian?.onFlush?.(() => {
-      const current = filmRef.current;
-      const done = current ? saveFilm(current) : Promise.resolve(null);
-      void done.finally(() => window.aijian?.flushed?.());
+      void persistence.flush().then(
+        () => window.aijian?.flushed?.(),
+        () => {
+          setDiskError("没有写到应用数据目录，可以重试。");
+          window.aijian?.flushed?.();
+        },
+      );
     });
   }, []);
 
@@ -693,14 +847,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function resetHistory(current: FilmProject) {
-    pastRef.current = [];
-    futureRef.current = [];
+    pageHistory.clear();
+    historyScope.current = editorSelection.current;
     skipHistory.current = false;
     committed.current = current;
     setHistoryTick((value) => value + 1);
   }
 
-  function undoEdit() {
+  function movePageHistory(inverse: boolean) {
     const current = filmRef.current;
     const baseline = committed.current;
     if (!current) return;
@@ -709,39 +863,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     if (filmSignature(current) !== filmSignature(baseline)) {
-      skipHistory.current = true;
-      rememberFilm(baseline);
+      const conflicts = pageHistory.record(baseline, current, historyScope.current);
+      if (conflicts.length) {
+        setNotice("这次改动不能安全撤销，已保留当前内容。");
+        committed.current = current;
+        return;
+      }
+      committed.current = current;
+    }
+    const result = inverse
+      ? pageHistory.undo(current, editorSelection.current)
+      : pageHistory.redo(current, editorSelection.current);
+    if (result.film === current) {
+      if (result.conflicts[0] !== "NOTHING_TO_UNDO") setNotice("内容后来改过，这次没有覆盖。");
       return;
     }
-    const previous = pastRef.current.pop();
-    if (!previous) return;
-    if (previous.id !== current.id) {
-      resetHistory(current);
-      return;
-    }
-    futureRef.current.push(current);
     skipHistory.current = true;
+    committed.current = result.film;
     setHistoryTick((value) => value + 1);
-    rememberFilm(previous);
+    rememberFilm(result.film);
   }
-
+  function undoEdit() {
+    movePageHistory(true);
+  }
   function redoEdit() {
-    const current = filmRef.current;
-    if (!current) return;
-    if (committed.current?.id !== current.id) {
-      resetHistory(current);
-      return;
-    }
-    const next = futureRef.current.pop();
-    if (!next) return;
-    if (next.id !== current.id) {
-      resetHistory(current);
-      return;
-    }
-    pastRef.current.push(current);
-    skipHistory.current = true;
-    setHistoryTick((value) => value + 1);
-    rememberFilm(next);
+    movePageHistory(false);
   }
 
   const open = film !== null;
@@ -929,9 +1075,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     sceneId: string,
     shots: FilmShot[],
     valid: () => boolean,
+    control?: AgentRequestControl,
   ) {
     return enrichDirectorPlan(base, sceneId, shots, {
       valid,
+      control,
+      progress: (message) => {
+        if (valid()) setNotice(message);
+      },
       request: completeAgent,
       warning: (text) => {
         if (valid()) supplementWarnings.current.push(text);
@@ -948,87 +1099,52 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planDirector(asked = "") {
     if (!film) return;
+    const base = structuredClone(filmRef.current ?? film);
+    const origin = structuredClone(editorSelection.current);
+    storyDraft.current = null;
     const scope = scopeRef.current;
     supplementWarnings.current = [];
     unassignedDraft.current = [];
     const turn = pushTurn("director", asked.trim() || "把这一场拆成镜头");
-    const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
-    const sceneId = current?.id ?? "scene-1";
-    const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
-    const thin = sceneNeedsSource(current?.text ?? "");
-    setNotice(`正在写「${current?.title ?? "这一场"}」的镜头。`);
-    const names = film.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
-    const context = `画风：${film.styleZh}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${numberedScript(story)}`;
-    const sceneRefs = film.scenes.map((item) => ({
-      id: item.id,
-      title: item.title,
-      where: item.where,
-      text: item.text,
-    }));
-    let next: FilmShot[] | null = null;
-    let text: string;
-    const bridge = grokBridge();
+    let result: DirectorDraftResult;
     try {
-      if (!connected || !bridge) {
-        next = offlineShots(story, sceneId);
-        text = "没有登录，已用离线拆镜。点「写入分镜」才会写入。";
-      } else {
-        const first = await retryDirectorTimeout(
-          (control) => completeAgent("director", context, "把这一场拆成镜头", control),
-          setNotice,
-          emitNotice,
-          { current: () => isTurnCurrent(turn) && filmRef.current?.id === film.id },
-        );
-        const parsed = first.text
-          ? parseDirectorShots(first.text, sceneId, current?.text ?? "", sceneRefs)
-          : null;
-        if (!parsed) {
-          setPendingRetry({
-            role: "director",
-            context,
-            instruction:
-              '只返回 JSON，不要解释。格式：{"shots":[{"picture":"","size":"全景","seconds":5}]}',
-          });
-          const reason = first.detail || "导演这次没有给出能用的镜头。";
-          text = `${reason} 没有写入镜头。`;
-          noteAgent("director", "rejected", text);
-        } else {
-          setNotice(`已写 ${parsed.length} 镜，正在写表演。`);
-          next = await completeDirectorPlan(film, sceneId, parsed, () => isTurnCurrent(turn));
-          text = thin
-            ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「写入分镜」才会写入。"
-            : "导演拆好了。点「写入分镜」才会写入。";
-        }
-      }
-    } catch {
-      text = "模型没有返回。没有写入镜头。";
+      result = await planDirectorDraft(base, scene, asked, {
+        connected: connected && Boolean(grokBridge()),
+        request: completeAgent,
+        progress: setNotice,
+        notify: emitNotice,
+        current: () =>
+          scope === scopeRef.current && isTurnCurrent(turn) && filmRef.current?.id === base.id,
+        enrich: completeDirectorPlan,
+        warnings: () => supplementWarnings.current,
+      });
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
         setAsking(false);
       }
     }
-    if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
-    if (supplementWarnings.current.length)
-      text += ` ${[...new Set(supplementWarnings.current)].join(" ")}`;
-    const coverage = current && next ? detectDirectorCoverage(current, next) : null;
-    const budget = current && next ? directorPlanStatus(current, next).target : 16;
-    if (coverage && !coverage.ok) {
-      const message = coverageNotice(coverage);
-      text += ` ${message.text} ${message.detail}`;
-      emitNotice(message);
-    } else if (next && next.length > budget) {
-      text += ` 为保留全部台词和结尾，保留 ${next.length} 镜，超过建议 ${budget} 镜。`;
-    }
+    if (scope !== scopeRef.current || !isTurnCurrent(turn) || result.status === "stale") return;
+    const next = result.shots;
+    const text = result.notice;
+    if (result.retry) setPendingRetry({ ...result.retry, origin });
+    if (result.event === "rejected") noteAgent("director", "rejected", text);
+    if (result.coverageNotice) emitNotice(result.coverageNotice);
     if (!next) {
       setPending(null);
       setPendingRole(null);
       finishTurn(turn, text);
       return;
     }
+    const draft: StoryDraft = {
+      transaction: prepareDirectorConfirmation(base, next, unassignedDraft.current),
+      origin,
+    };
+    storyDraft.current = draft;
     setPending(next);
     setPendingRole("director");
     publishCard("director", {
+      storyDraft: draft,
       title: `建议拆成 ${next.length} 个镜头`,
       rows: next.map((shot) => ({
         id: shot.id,
@@ -1042,7 +1158,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       shots: next,
     });
     finishTurn(turn, text);
-    noteAgent("director", text.includes("导演拆好了") ? "shots" : "offline", text);
+    noteAgent("director", result.event ?? "offline", text);
   }
 
   async function retryPending() {
@@ -1051,44 +1167,66 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!job) return;
     setPendingRetry(null);
     const turn = pushTurn(job.role, "再问一次");
+    const base = filmRef.current ? structuredClone(filmRef.current) : null;
+    const origin = structuredClone(editorSelection.current);
+    storyDraft.current = null;
+    const scope = scopeRef.current;
+    const valid = () =>
+      isTurnCurrent(turn) && filmRef.current?.id === base?.id && scopeRef.current === scope;
     try {
-      const reply = await completeAgent(job.role, job.context, job.instruction);
-      if (!isTurnCurrent(turn)) return;
-      if (job.role === "director" && film) {
-        const sceneId =
-          film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
-        if (!isTurnCurrent(turn)) return;
-        const parsed = reply.text
-          ? parseDirectorShots(
-              reply.text,
-              sceneId,
-              film.scenes.find((item) => item.id === sceneId)?.text ?? "",
-              film.scenes.map((item) => ({
-                id: item.id,
-                title: item.title,
-                where: item.where,
-                text: item.text,
-              })),
-            )
-          : null;
-        if (parsed) {
-          const ready = await completeDirectorPlan(film, sceneId, parsed, () =>
-            isTurnCurrent(turn),
-          );
-          if (!isTurnCurrent(turn)) return;
-          setPending(ready);
+      if (job.role === "director" && base) {
+        const sceneId = origin.sceneId;
+        if (
+          !sceneId ||
+          !base.scenes.some((row) => row.id === sceneId) ||
+          (job.origin && JSON.stringify(job.origin) !== JSON.stringify(origin))
+        ) {
+          finishTurn(turn, "镜头已变更，请重新生成建议。");
+          return;
+        }
+        const result = await retryDirectorDraft(base, sceneId, job, {
+          request: completeAgent,
+          progress: setNotice,
+          notify: emitNotice,
+          current: valid,
+          enrich: completeDirectorPlan,
+        });
+        if (!valid() || result.kind === "stale") return;
+        if (result.kind === "ready") {
+          const draft: StoryDraft = {
+            transaction: prepareDirectorConfirmation(base, result.shots, unassignedDraft.current),
+            origin,
+          };
+          storyDraft.current = draft;
+          publishCard("director", {
+            storyDraft: draft,
+            title: `建议拆成 ${result.shots.length} 个镜头`,
+            rows: result.shots.map((row) => ({
+              id: row.id,
+              mark: row.size,
+              text: row.picture,
+              tail: `${row.seconds}s`,
+            })),
+            notes: [],
+            applied: false,
+            mode: "shots",
+            shots: result.shots,
+          });
+          setPending(result.shots);
           setPendingRole("director");
           finishTurn(
             turn,
-            `导演拆好了。点「写入分镜」才会写入。${supplementWarnings.current.join(" ")}`,
+            result.partial
+              ? `${NOTICE_TEXT.TEXT_TIMEOUT} 已保留导演初稿，补充尚未完成。`
+              : `导演拆好了。点「写入分镜」才会写入。${supplementWarnings.current.join(" ")}`,
           );
-          return;
-        }
+        } else finishTurn(turn, `${result.detail} 没有写入镜头。`);
+        return;
       }
-      const failed = reply.detail || "模型没有按格式返回。";
-      finishTurn(turn, `${failed} 没有写入镜头。`);
+      const reply = await completeAgent(job.role, job.context, job.instruction);
+      if (valid()) finishTurn(turn, `${reply.detail || "模型没有按格式返回。"} 没有写入镜头。`);
     } catch {
-      finishTurn(turn, "这次没有写完。没有写入镜头。");
+      if (valid()) finishTurn(turn, "这次没有写完。没有写入镜头。");
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
@@ -1104,29 +1242,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     if (card?.mode === "scenes" && card.scenes && film) {
-      const next = applyScenes(film, card.scenes);
-      applyLive(next);
-      void fillCast(next);
-      const first =
-        next.scenes.find((item) => card.scenes?.some((sceneRow) => sceneRow.title === item.title))
-          ?.id ?? next.scenes[0]?.id;
-      if (first) setScene(first);
-      markApplied(role);
-      setNotice("已放入剧本。你改过的场没有被盖掉。");
-      const placed = turnsRef.current.map((item) =>
-        item.who === "agent" && item.text.includes("才会写入")
-          ? { ...item, text: "剧本已经写入。" }
-          : item,
-      );
-      turnsRef.current = placed;
-      setTurns(placed);
+      void applyPendingStory(card.storyDraft);
       return;
     }
     if (artDraft.current && (role === "art" || card?.mode === "art")) {
-      setFilm(artDraft.current);
-      artDraft.current = null;
-      markApplied("art");
-      setNotice("已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。");
+      void applyPendingArt();
       return;
     }
     const incoming = card?.shots ?? (pendingRole === role ? pending : null);
@@ -1135,52 +1255,131 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const only = incoming.length === 1 ? incoming[0] : undefined;
-    if (only && (only.source === "agent:action" || only.source === "agent:performance")) {
-      const existing = film.shots.find((item) => item.id === only.id);
-      if (
-        existing &&
-        (existing.userFields.includes("action") || existing.userFields.includes("performance"))
-      ) {
-        setNotice("这一镜是你改过的，没有盖掉。");
-        return;
-      }
-      setFilm(
-        updateShot(
-          {
-            ...film,
-            unassignedBeats: [
-              ...(film.unassignedBeats ?? []).filter((item) => item.sceneId !== only.sceneId),
-              ...unassignedDraft.current,
-            ],
-          },
-          only.id,
-          {
-            action: only.action,
-            performance: only.performance,
-            performanceSource: only.performanceSource,
-            source: only.source,
-          },
-        ),
-      );
-      markApplied(role);
-      setNotice("已写入这一镜。你改过的字没有被盖掉。");
+    if (
+      only &&
+      (role === "performance" ||
+        only.source === "agent:action" ||
+        only.source === "agent:performance")
+    ) {
+      void applyPendingDirection(card?.directionDiff);
       return;
     }
-    const sceneId =
-      film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
-    const placed = applyDirectorPlan(film, incoming, sceneId, unassignedDraft.current);
-    applyLive(placed);
-    setShot(0);
-    void fillCast(placed);
-    markApplied(role);
-    setNotice("已写入分镜。你改过的镜头没有被盖掉。");
-    const placedTurns = turnsRef.current.map((item) =>
-      item.who === "agent" && item.text.includes("才会写入")
-        ? { ...item, text: "镜头已经写入分镜。" }
-        : item,
+    void applyPendingStory(
+      card?.storyDraft ??
+        (pendingRole === "director" ? (storyDraft.current ?? undefined) : undefined),
     );
-    turnsRef.current = placedTurns;
-    setTurns(placedTurns);
+  }
+
+  async function applyPendingStory(draft: StoryDraft | undefined) {
+    const live = filmRef.current;
+    if (!draft || !live || applyingStory.current) {
+      if (!draft) setNotice("镜头已变更，请重新生成建议。");
+      return;
+    }
+    const current = editorSelection.current,
+      origin = draft.origin;
+    if (
+      storyDraft.current !== draft ||
+      current.projectId !== origin.projectId ||
+      current.page !== origin.page ||
+      current.sceneId !== origin.sceneId ||
+      current.shotId !== origin.shotId
+    ) {
+      setNotice("镜头已变更，请重新生成建议。");
+      return;
+    }
+    const result = applyStoryConfirmation(live, draft.transaction);
+    if (result.code === "NO_CHANGES") {
+      storyDraft.current = null;
+      markApplied(draft.transaction.kind);
+      setNotice("这一步已经放入。");
+      return;
+    }
+    if (!result.receipt) {
+      const code = result.conflicts.some((item) =>
+        /DEPENDENT|DEPENDENCIES|TASKS_CHANGED/.test(item),
+      )
+        ? "DEPENDENT_WORK_EXISTS"
+        : "STRUCTURE_STALE";
+      emitNotice({ code, text: NOTICE_TEXT[code] });
+      return;
+    }
+    let appliedVersion: FilmProject | null = null;
+    let completionOrigin = origin;
+    applyingStory.current = true;
+    try {
+      if (committed.current?.id === live.id)
+        pageHistory.record(committed.current, live, historyScope.current);
+      applyLive(result.film);
+      const applied = filmRef.current!;
+      appliedVersion = applied;
+      const expectedScene = applied.scenes.some((row) => row.id === origin.sceneId)
+        ? origin.sceneId
+        : applied.scenes[0]?.id;
+      const expectedShot =
+        origin.page === "board" || origin.page === "edit"
+          ? applied.shots
+              .filter((row) => row.sceneId === expectedScene)
+              .slice()
+              .sort((a, b) => a.no - b.no)[draft.transaction.kind === "director" ? 0 : shot]?.id
+          : undefined;
+      completionOrigin = { ...origin, sceneId: expectedScene, shotId: expectedShot };
+      pageHistory.recordStory(result.receipt, origin);
+      committed.current = applied;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      storyDraft.current = null;
+      markApplied(draft.transaction.kind);
+      if (draft.transaction.kind === "director") setShot(0);
+      else if (!applied.scenes.some((row) => row.id === scene))
+        setScene(applied.scenes[0]?.id ?? "");
+      const stored = await persistence.save(applied);
+      if (
+        !editorCompletionCurrent(
+          applied,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      ) {
+        return;
+      }
+      if (!stored) {
+        setNotice("没有写到应用数据目录，可以重试。");
+        return;
+      }
+      const latest = filmRef.current;
+      if (!latest) return;
+      void fillCast(latest);
+      setNotice(
+        draft.transaction.kind === "writer"
+          ? "已放入剧本。你改过的场没有被盖掉。"
+          : "已写入分镜。你改过的镜头没有被盖掉。",
+      );
+      const placed = turnsRef.current.map((item) =>
+        item.who === "agent" && item.text.includes("才会写入")
+          ? {
+              ...item,
+              text: draft.transaction.kind === "writer" ? "剧本已经写入。" : "镜头已经写入分镜。",
+            }
+          : item,
+      );
+      turnsRef.current = placed;
+      setTurns(placed);
+    } catch {
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice("没有写到应用数据目录，可以重试。");
+    } finally {
+      applyingStory.current = false;
+    }
   }
 
   const billingPromises = useRef(new Map<string, Promise<string>>());
@@ -1190,46 +1389,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const live = filmRef.current;
     const filmId = live?.id ?? "";
     const stored = live?.backendProjectId ?? "";
-    if (/^prj_[0-9a-f]{32}$/.test(stored)) return stored;
+    if (isBillingProjectId(stored)) return stored;
     if (
-      /^prj_[0-9a-f]{32}$/.test(projectId ?? "") &&
+      isBillingProjectId(projectId) &&
       filmId &&
       (!propFilmId.current || propFilmId.current === filmId)
     ) {
       propFilmId.current = filmId;
-      if (live && !stored) applyLive({ ...live, backendProjectId: projectId ?? "" });
-      return projectId ?? "";
+      if (live) applyLive({ ...live, backendProjectId: projectId });
+      return projectId;
     }
     const api = window.aijian;
     if (!api?.createProject || !filmId) return "";
-    let pending = billingPromises.current.get(filmId);
-    if (!pending) {
-      const name = (live?.seriesTitle || live?.title || "未命名作品").slice(0, 80) || "未命名作品";
-      pending = api
-        .createProject({
-          name,
-          aspect_ratio: "9:16",
-          source_language: "zh-CN",
-          target_duration_seconds: 90,
-        })
-        .then((response) => {
-          const id = response.data?.id ?? "";
-          if (!/^prj_[0-9a-f]{32}$/.test(id)) throw new Error("bad project");
-          const current = filmRef.current;
-          if (current?.id === filmId) applyLive({ ...current, backendProjectId: id });
-          return id;
-        })
-        .catch((error: unknown) => {
-          billingPromises.current.delete(filmId);
-          throw error;
-        });
-      billingPromises.current.set(filmId, pending);
-    }
-    try {
-      return await pending;
-    } catch {
-      return "";
-    }
+    const id = await resolveBillingProject({
+      filmId,
+      name: live?.seriesTitle || live?.title || "未命名作品",
+      aspectRatio: live?.aspectRatio,
+      pending: billingPromises.current,
+      isCurrent: () => filmRef.current?.id === filmId,
+      create: (input) => api.createProject!(input),
+    });
+    const current = filmRef.current;
+    if (!id || current?.id !== filmId) return "";
+    // Another caller may already have bound this project while creation was pending.
+    if (isBillingProjectId(current.backendProjectId)) return current.backendProjectId;
+    applyLive({ ...current, backendProjectId: id });
+    return id;
   }
 
   async function completeAgent(
@@ -1276,9 +1461,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     return activeTurn.current === id && assistantScope === scopeRef.current;
   }
 
-  function finishTurn(id: string, text: string) {
+  function finishTurn(id: string, value: string | UiNotice) {
     if (!isTurnCurrent(id)) return;
-    window.dispatchEvent(new CustomEvent("aivora-notice", { detail: normalizeNotice(text) }));
+    const { notice, text } = presentNotice(value);
+    window.dispatchEvent(new CustomEvent("aivora-notice", { detail: notice }));
     writing.current = false;
     const next = turnsRef.current.map((item) => (item.id === `${id}-a` ? { ...item, text } : item));
     turnsRef.current = next;
@@ -1314,6 +1500,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setAsking(false);
       writing.current = false;
       artDraft.current = cached?.art ?? null;
+      storyDraft.current = cached?.story ?? null;
       setPending(cached?.pending ?? null);
       setPendingRole(cached?.pendingRole ?? null);
       setPendingScenes(cached?.pendingScenes ?? null);
@@ -1339,43 +1526,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function fillCast(base: FilmProject) {
-    if (base.characters.length > 0 && base.locations.length > 0) return;
-    const story = base.scenes
-      .map((item) => item.text)
-      .filter(Boolean)
-      .join("\n");
-    if (!story.trim()) return;
+    const story = castExtractionStory(base);
+    if (story === null) return;
     const epoch = noticeEpoch.current;
     const requestVersion = ++castEpoch.current;
-    let extracted = connected ? null : extractCastOffline(story);
-    if (connected) {
-      const reply = await completeAgent(
-        "writer",
-        story,
-        '抽出人物和场景，只返回 JSON：{"characters":[{"name":"","identity":"","gender":"male/female/unknown","age_band":"child/young/adult/elder/unknown"}],"locations":[{"name":"","prompt":""}]}',
-      ).catch(() => ({ text: null, detail: "人物提取失败，可以重试。" }));
-      if (filmRef.current?.id !== base.id || requestVersion !== castEpoch.current) return;
-      const parsed = reply.text ? parseCastReply(reply.text) : null;
-      if (parsed && (parsed.characters.length > 0 || parsed.locations.length > 0))
-        extracted = parsed;
-      else {
-        if (noticeEpoch.current === epoch)
-          setNotice(reply.detail || "没有认出人物和场景，没有写入猜测。");
-        return;
-      }
-    }
-    if (!extracted || filmRef.current?.id !== base.id || requestVersion !== castEpoch.current)
-      return;
-    const merged = mergeCast(filmRef.current, extracted);
-    if (merged === (filmRef.current ?? base)) {
-      if (base.characters.length === 0 && base.locations.length === 0) {
-        setNotice("这一场还没有认出人物和场景。");
-      }
-      return;
-    }
-    applyLive(merged);
-    const names = merged.characters.map((item) => item.name).filter(Boolean);
-    if (names.length > 0) setNotice(`已记下人物：${names.join("、")}。`);
+    return extractAndMergeCast(base, story, {
+      connected,
+      request: completeAgent,
+      current: () => filmRef.current,
+      valid: () => filmRef.current?.id === base.id && requestVersion === castEpoch.current,
+      noticeCurrent: () => noticeEpoch.current === epoch,
+      apply: applyLive,
+      notice: setNotice,
+    });
   }
 
   async function makePortraits(characterId: string) {
@@ -1387,39 +1550,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `portrait-identity:${characterId}`,
       () => filmRef.current?.id ?? "",
     );
-    try {
-      const identity = character.identity.trim();
-      if (!identity) {
-        setNotice("正在从剧本里看这个人的外貌。");
-        const story =
-          current.scenes
-            .map((item) => item.text)
-            .filter(Boolean)
-            .join("\n") || current.title;
-        const reply = await completeAgent(
-          "writer",
-          story,
-          `只写「${character.name}」的一句外貌，必须写明性别和大致年龄。看不出来就只写：性别未写明。`,
-        );
-        if (!valid()) return;
-        const line = (reply.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
-        if (!line || line.includes("性别未写明")) {
-          setNotice("先写下外貌，再出定妆照。");
-          return;
-        }
-        const latest = filmRef.current;
-        if (!latest || latest.id !== current.id) return;
-        applyLive({
-          ...latest,
-          characters: latest.characters.map((item) =>
-            item.id === character.id ? { ...item, identity: line } : item,
-          ),
-        });
-      }
-      if (valid()) await confirmPortraits(character.id);
-    } catch {
-      if (valid()) emitNotice({ code: "PORTRAIT_FAILED", text: "定妆照未完成，可以重试。" });
-    }
+    await preparePortraitIdentity(current, character.id, {
+      current: () => filmRef.current,
+      valid,
+      request: completeAgent,
+      apply: applyLive,
+      confirm: confirmPortraits,
+      notice: setNotice,
+      failed: () => emitNotice({ code: "PORTRAIT_FAILED", text: "定妆照未完成，可以重试。" }),
+    });
   }
 
   async function confirmPortraits(selection?: string | string[]) {
@@ -1453,8 +1592,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           applyLive(next);
           await saveFilm(next);
         },
-        generate: (prompt) =>
-          requestStill(current.seriesId, prompt, current.aspectRatio === "16:9" ? "16:9" : "9:16"),
+        generate: (prompt, references) => requestFilmStill(current, prompt, references),
         progress: (batch) => {
           if (valid())
             emitNotice({
@@ -1475,49 +1613,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planWriter(kind: "write" | "adapt") {
     if (!film) return;
-    const story =
-      film.scenes
-        .map((item) => item.text)
-        .filter(Boolean)
-        .join("\n") || film.title;
-    const idea = chat.trim() || story;
-    const asked =
-      chat.trim() || (kind === "adapt" ? "把现有内容改成短剧" : "按地点和时间把现有剧本分成几场");
+    const base = structuredClone(filmRef.current ?? film);
+    const origin = structuredClone(editorSelection.current);
+    const scoped = globalEditorRequest(base, origin, completeAgent);
+    if (!scoped.ok) {
+      emitNotice({ code: scoped.code, text: "选中内容已失效，请重新选择。" });
+      return;
+    }
+    storyDraft.current = null;
+    const input = writerDraftInput(base, kind, chat);
     const scope = scopeRef.current;
-    const turn = pushTurn("writer", asked);
+    const turn = pushTurn("writer", input.asked);
     setPendingScenes(null);
-    let scenes: FilmScene[] | null = null;
-    let text = "没有登录，已用离线编剧。点「放入剧本」才会写入。";
+    let result: WriterDraftResult;
     try {
-      if (!connected) {
-        scenes = kind === "adapt" ? adaptToShortDrama(idea, 60) : offlineScreenplay(idea, 60);
-        text =
-          kind === "adapt" ? "没有登录，已按大约 60 秒收成短剧。点「放入剧本」才会写入。" : text;
-      }
-      const reply = await completeAgent(
-        "writer",
-        `画风：${film.styleZh}\n目标大约 60 秒。\n原文段落：\n${numberedScript(story)}`,
-        `${kind === "adapt" ? "把原文改成短剧" : "写成短剧，按地点和时间分场"}，保留全部台词与结尾。${chat.trim()}`,
-      );
-      if (reply.text) {
-        const parsed = parseWriterScenes(reply.text, story);
-        const echo = parsed ? scenesEchoRequest(parsed, asked) : false;
-        if (parsed && !echo) {
-          scenes = parsed;
-          text = "编剧写好了。点「放入剧本」才会写入。";
-        } else if (connected) {
-          scenes = null;
-          text = echo
-            ? "模型把请求原文当成了结果，这次没有改剧本。"
-            : "模型没有按格式返回，这次没有改剧本。";
-        }
-      } else if (connected) {
-        scenes = null;
-        text = `${reply.detail} 这次没有改剧本。`;
-      }
-    } catch {
-      scenes = null;
-      text = "编剧请求失败，没有改动剧本，可以重试。";
+      result = await planWriterDraft(input, { connected, request: scoped.request });
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
@@ -1525,9 +1635,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }
     }
     if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
+    const { scenes, notice: text } = result;
     setPendingScenes(scenes);
     if (scenes) {
+      const draft: StoryDraft = {
+        transaction: prepareWriterTransaction(base, scenes, result.writerPlan),
+        origin,
+      };
+      storyDraft.current = draft;
       publishCard("writer", {
+        storyDraft: draft,
         title: `建议写成 ${scenes.length} 场`,
         rows: scenes.map((item) => ({
           id: item.id,
@@ -1542,7 +1659,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       });
     }
     finishTurn(turn, text);
-    noteAgent("writer", scenes && connected ? "scenes" : connected ? "rejected" : "offline", text);
+    noteAgent("writer", result.event, text);
   }
 
   function applyPendingScenes() {
@@ -1550,54 +1667,58 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("还没有可放入的场次。");
       return;
     }
-    const next = applyScenes(film, pendingScenes);
-    applyLive(next);
-    void fillCast(next);
-    const first =
-      next.scenes.find((item) => pendingScenes.some((sceneRow) => sceneRow.title === item.title))
-        ?.id ?? next.scenes[0]?.id;
-    if (first) setScene(first);
-    markApplied("writer");
-    setNotice("已放入剧本。你改过的场没有被盖掉。");
-    const placed = turnsRef.current.map((item) =>
-      item.who === "agent" && item.text.includes("才会写入")
-        ? { ...item, text: "剧本已经写入。" }
-        : item,
+    void applyPendingStory(
+      storyDraft.current?.transaction.kind === "writer" ? storyDraft.current : undefined,
     );
-    turnsRef.current = placed;
-    setTurns(placed);
   }
 
   async function importBook(file: File) {
+    const input = captureBookImportInput(filmRef.current);
+    const turn = activeTurn.current;
     const valid = requestSequences.current.begin(
       filmRef.current?.id ?? "",
       "import",
       () => filmRef.current?.id ?? "",
     );
+    const current = () =>
+      valid() && activeTurn.current === turn && bookImportInputUnchanged(input, filmRef.current);
     try {
-      const book = await extractBookText(file.name, new Uint8Array(await file.arrayBuffer()));
-      if (!valid()) return;
-      if (!book.text.trim()) {
-        setNotice(book.note);
+      const result = await prepareBookImport(file);
+      if (!current()) return;
+      if (result.kind === "notice") {
+        setNotice(result.notice);
         return;
       }
-      const split = splitNovel(book.text);
-      if (split.scenes.length === 0) {
-        setNotice(split.note || "没有读到场次。");
-        return;
-      }
-      setPendingScenes(split.scenes);
-      if (filmRef.current) {
-        const withSource = { ...filmRef.current, sourceText: book.text };
-        filmRef.current = withSource;
-        setFilm(withSource);
+      const applied = applyBookImportSource(input, result, filmRef.current);
+      if (applied.kind === "stale") return;
+      setPendingScenes(result.scenes);
+      if (applied.film) {
+        filmRef.current = applied.film;
+        setFilm(applied.film);
+        const draft: StoryDraft = {
+          transaction: prepareWriterTransaction(structuredClone(filmRef.current!), result.scenes),
+          origin: structuredClone(editorSelection.current),
+        };
+        storyDraft.current = draft;
+        publishCard("writer", {
+          storyDraft: draft,
+          title: `建议写成 ${result.scenes.length} 场`,
+          rows: result.scenes.map((row) => ({
+            id: row.id,
+            mark: "场",
+            text: row.where || row.title,
+            tail: "",
+          })),
+          notes: [],
+          applied: false,
+          mode: "scenes",
+          scenes: result.scenes,
+        });
       }
       setRole("writer");
-      setNotice(
-        `${book.note}${split.note} 读到 ${split.scenes.length} 场。点「放入剧本」才会写入。`,
-      );
+      setNotice(result.notice);
     } catch {
-      if (valid()) emitNotice({ code: "IMPORT_FAILED", text: "没有读到文件，请重试。" });
+      if (current()) emitNotice({ code: "IMPORT_FAILED", text: "没有读到文件，请重试。" });
     }
   }
 
@@ -1627,67 +1748,51 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const turn = pushTurn("action", chat.trim() || "请给这一镜设计动作，标出难度。");
     const current = shownShots[shot];
-    const text = current?.picture || current?.action || film.title;
-    let sentence = actionBeats(text)
-      .map(
-        (beat) =>
-          `${beat.text}（${beat.feasibility}${beat.workaround ? `，${beat.workaround}` : ""}，来自动作指导）`,
-      )
-      .join("");
-    let note = "没有登录，已用离线动作指导。点「写入分镜」写到这一镜。";
-    const context = `人物：${film.characters.map((item) => item.name).join("、")}\n当前镜头 id：${current?.id ?? ""}；只返回这个 id 的动作。\n${fightConstraints(film.scenes.find((item) => item.id === current?.sceneId)?.text ?? "")}\n镜头：${JSON.stringify(current ? [{ id: current.id, no: current.no, size: current.size, picture: current.picture, line: current.line, lines: shotLines(current) }] : [])}`;
-    const reply = await completeAgent("action", context, text);
-    if (!isTurnCurrent(turn)) return;
-    let parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed && connected) {
-      const again = await completeAgent("action", context, `${text}\n只输出 JSON，不要解释。`);
-      if (!isTurnCurrent(turn)) return;
-      parsed = again.text ? actionFromModel(parseLooseJson(again.text)) : null;
-      if (!parsed) {
-        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
-        return;
-      }
-    }
-    if (parsed && current) {
-      const assigned = assignActionBeats([current], current.sceneId, parsed);
-      unassignedDraft.current = assigned.unassignedBeats;
-      parsed = parsed.filter(
-        (row) =>
-          row.shotId === current.id &&
-          !assigned.unassignedBeats.some((item) => item.text === row.text),
-      );
-      sentence = assigned.shots[0]?.action ?? current.action;
-      note = assigned.unassignedBeats.length
-        ? "ACTION_UNASSIGNED：有动作无法归属，已保留供核对。"
-        : "动作指导写好了。点「写入分镜」写到这一镜。";
-    }
-    if (!current) {
+    const base = structuredClone(filmRef.current ?? film);
+    const selection = {
+      ...editorSelection.current,
+      sceneId: current?.sceneId,
+      shotId: current?.id,
+    };
+    if (
+      !current ||
+      !base.shots.some((row) => row.id === current.id && row.sceneId === current.sceneId)
+    ) {
       finishTurn(turn, "先拆出镜头，再请动作指导。");
-      noteAgent("action", "rejected", "先拆出镜头，再请动作指导。");
       return;
     }
-    const cues = parsed
-      ? parsed.filter((row) => row.text).map((row) => ({ atSeconds: row.at, text: row.text }))
-      : current.sound.sfx;
-    const actionNotes = parsed
-      ? parsed.map((row) => `难度：${difficultyLabel(row.feasibility)} · ${row.text}`)
-      : sentence
-        ? [sentence]
-        : [];
+    const result = await planActionDraft(
+      base,
+      current ? base.shots.find((row) => row.id === current.id) : undefined,
+      {
+        request: completeAgent,
+        current: () => isTurnCurrent(turn),
+        connected,
+      },
+    );
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
+      finishTurn(turn, result.notice);
+      if (result.logRejection) noteAgent("action", "rejected", result.notice);
+      return;
+    }
+    if (result.unassigned) unassignedDraft.current = result.unassigned;
+    const actionShot = result.shot;
     setStructured([]);
-    const actionShot = {
-      ...current,
-      action: sentence,
-      sound: { ...current.sound, sfx: cues },
-      source: "agent:action",
-      userFields: current.userFields.filter((field) => field !== "action"),
-    };
     setPending([actionShot]);
     setPendingRole("action");
     publishCard("action", {
-      title: `动作设计 · 镜头 ${current.no}`,
-      rows: actionNotes.map((line, index) => ({
-        id: `${current.id}-beat-${index}`,
+      directionDiff: prepareShotDirection(
+        base,
+        actionShot,
+        selection,
+        "action",
+        result.actionState,
+        result.unassigned,
+      ),
+      title: `动作设计 · 镜头 ${actionShot.no}`,
+      rows: result.notes.map((line, index) => ({
+        id: `${actionShot.id}-beat-${index}`,
         mark: "难度",
         text: line,
         tail: "",
@@ -1696,9 +1801,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       applied: false,
       mode: "shots",
       shots: [actionShot],
+      actionState: result.actionState,
     });
-    finishTurn(turn, note);
-    noteAgent("action", parsed ? "beats" : "offline", note);
+    finishTurn(turn, result.structuredNotice ?? result.notice);
+    noteAgent("action", result.event, result.notice);
   }
 
   function planPerformance() {
@@ -1714,53 +1820,181 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("performance", "rejected", "先拆出镜头，再请表演指导。");
       return;
     }
-    const gaze = gazeHandoff(current.characters);
-    let line = `${performanceLine(current.picture)}${gaze ? ` ${gaze}` : ""}`;
-    let note = "没有登录，已用离线表演指导。点「写入分镜」写到这一镜。";
-    const reply = await completeAgent("performance", current.picture, "写这一镜的表演");
-    if (!isTurnCurrent(turn)) return;
-    let raw = reply.text ? parseLooseJson(reply.text) : null;
-    let parsed = raw ? performanceFromModel(raw, current.characters) : null;
-    if (!parsed && connected) {
-      const again = await completeAgent(
-        "performance",
-        current.picture,
-        "写这一镜的表演。只输出 JSON，不要解释。",
-      );
-      if (!isTurnCurrent(turn)) return;
-      raw = again.text ? parseLooseJson(again.text) : null;
-      parsed = raw ? performanceFromModel(raw, current.characters) : null;
-      if (!parsed) {
-        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
-        return;
-      }
+    const base = structuredClone(filmRef.current ?? film);
+    const selection = { ...editorSelection.current, sceneId: current.sceneId, shotId: current.id };
+    const capturedShot = base.shots.find(
+      (row) => row.id === current.id && row.sceneId === current.sceneId,
+    );
+    if (!capturedShot) {
+      finishTurn(turn, "镜头已变更，请重新生成建议。");
+      return;
     }
-    const direction = raw ? voiceDirectionFromModel(raw) : "";
-    if (parsed) {
-      line = parsed;
-      note = "表演指导写好了。点「写入分镜」写到这一镜。";
+    const result = await planPerformanceDraft(capturedShot, {
+      request: completeAgent,
+      current: () => isTurnCurrent(turn),
+      connected,
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
+      finishTurn(turn, result.notice);
+      return;
     }
+    const performanceShot = result.shot;
+    const line = result.line;
     setStructured(line ? [line] : []);
-    const performanceShot = {
-      ...current,
-      performance: line,
-      performanceSource: "agent:performance",
-      delivery: direction || current.delivery,
-      source: "agent:performance",
-      userFields: current.userFields.filter((field) => field !== "performance"),
-    };
     setPending([performanceShot]);
     setPendingRole("performance");
     publishCard("performance", {
+      directionDiff: prepareShotDirection(
+        base,
+        performanceShot,
+        selection,
+        "performance",
+        result.performanceState,
+      ),
       title: `表演 · 镜头 ${current.no}`,
+      performanceState: result.performanceState,
       rows: line ? [{ id: current.id, mark: "表演", text: line, tail: "" }] : [],
       notes: [],
       applied: false,
       mode: "shots",
       shots: [performanceShot],
     });
-    finishTurn(turn, note);
-    noteAgent("performance", parsed ? "performance" : "offline", note);
+    finishTurn(turn, result.notice);
+    noteAgent("performance", result.event, result.notice);
+  }
+
+  const applyingDirection = useRef(false);
+  async function applyPendingDirection(transaction: ShotDirectionTransaction | undefined) {
+    const live = filmRef.current;
+    if (!transaction || !live || applyingDirection.current) return;
+    const expected = transaction.selection,
+      selected = editorSelection.current;
+    if (
+      selected.projectId !== expected.projectId ||
+      selected.page !== expected.page ||
+      selected.sceneId !== expected.sceneId ||
+      shownShots[shot]?.id !== expected.shotId
+    ) {
+      setNotice("镜头已变更，请重新生成建议。");
+      return;
+    }
+    const result = applyShotDirection(live, transaction);
+    if (!result.receipt) {
+      setNotice(
+        result.conflicts.includes("FIELD_LOCKED")
+          ? "这一镜是你改过的，没有盖掉。"
+          : "镜头已变更，请重新生成建议。",
+      );
+      return;
+    }
+    const completionOrigin = structuredClone(editorSelection.current);
+    let appliedVersion: FilmProject | null = null;
+    applyingDirection.current = true;
+    try {
+      if (committed.current?.id === live.id)
+        pageHistory.record(committed.current, live, historyScope.current);
+      applyLive(result.film);
+      const applied = filmRef.current!;
+      appliedVersion = applied;
+      pageHistory.recordDirection(result.receipt);
+      committed.current = applied;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      markApplied(transaction.role);
+      const stored = await persistence.save(applied);
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice(
+          stored ? "已写入这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
+        );
+    } catch {
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice("没有写到应用数据目录，可以重试。");
+    } finally {
+      applyingDirection.current = false;
+    }
+  }
+
+  async function applyPendingArt() {
+    const transaction = artDraft.current;
+    const live = filmRef.current;
+    if (!transaction || !live || applyingArt.current) return;
+    const selection = editorSelection.current;
+    const expected = transaction.selection;
+    if (
+      selection.projectId !== expected.projectId ||
+      selection.page !== expected.page ||
+      selection.sceneId !== expected.sceneId ||
+      selection.shotId !== expected.shotId
+    ) {
+      setNotice("当前选择已改变，请回到美术建议所在页面再应用。");
+      return;
+    }
+    const result = applyArtTransaction(live, transaction);
+    if (!result.receipt) {
+      setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
+      return;
+    }
+    const completionOrigin = structuredClone(editorSelection.current);
+    let appliedVersion: FilmProject | null = null;
+    applyingArt.current = true;
+    try {
+      if (committed.current?.id === live.id)
+        pageHistory.record(committed.current, live, historyScope.current);
+      applyLive(result.film);
+      const applied = filmRef.current!;
+      appliedVersion = applied;
+      pageHistory.recordArt(result.receipt);
+      committed.current = applied;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      artDraft.current = null;
+      markApplied("art");
+      const stored = await persistence.save(applied);
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice(
+          stored
+            ? "已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。"
+            : "美术建议已应用，但还没有保存。",
+        );
+    } catch {
+      if (
+        appliedVersion &&
+        editorCompletionCurrent(
+          appliedVersion,
+          completionOrigin,
+          filmRef.current,
+          editorSelection.current,
+        )
+      )
+        setNotice("美术建议已应用，但还没有保存。");
+    } finally {
+      applyingArt.current = false;
+    }
   }
 
   function planArt() {
@@ -1769,27 +2003,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planArtWork() {
     if (!film) return;
-    const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
-    const reply = await completeAgent(
-      "art",
-      `画风：${film.styleZh}\n人物：${film.characters.map((item) => item.name).join("、")}`,
-      "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
-    );
-    if (!isTurnCurrent(turn)) return;
-    const parsed = reply.text ? artFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed) {
-      setStructured([]);
-      const failed = reply.text
-        ? "美术没有按格式返回，这次没有改作品。"
-        : `${reply.detail} 这次没有改作品。`;
-      finishTurn(turn, failed);
-      noteAgent("art", "rejected", failed);
+    const base = structuredClone(filmRef.current ?? film);
+    const selection = structuredClone(editorSelection.current);
+    const scoped = globalEditorRequest(base, selection, completeAgent);
+    if (!scoped.ok) {
+      emitNotice({ code: scoped.code, text: "选中内容已失效，请重新选择。" });
       return;
     }
-    setStructured(parsed.lines);
+    const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
+    const result = await planArtDraft(base, {
+      request: scoped.request,
+      current: () => isTurnCurrent(turn),
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
+      setStructured([]);
+      finishTurn(turn, result.notice);
+      noteAgent("art", "rejected", result.notice);
+      return;
+    }
+    const transaction = prepareArtTransaction(base, result.draft, selection);
+    artDraft.current = transaction;
+    setStructured(result.lines);
     publishCard("art", {
+      artDiff: transaction,
       title: "美术 · 画风和外貌",
-      rows: parsed.lines.map((line, index) => ({
+      rows: result.lines.map((line, index) => ({
         id: `art-${index}`,
         mark: "",
         text: line,
@@ -1801,8 +2040,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     });
     finishTurn(turn, "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
     noteAgent("art", "art", "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
-    const next = applyArtDraft(film, parsed);
-    artDraft.current = next;
+
     setPending(null);
     setPendingRole(null);
   }
@@ -1813,44 +2051,44 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planPrompterWork() {
     if (!film) return;
-    const current = shownShots[shot] ?? film.shots[shot] ?? film.shots[0];
+    const current = shownShots[shot];
+    const request = editorHost.capture();
     const turn = pushTurn("prompter", chat.trim() || `写镜头 ${current?.no ?? shot + 1} 的提示词`);
-    if (!current) {
+    if (!current || !request || request.selection.shotId !== current.id) {
       finishTurn(turn, "先拆出镜头，再请提示词工程师。");
       noteAgent("prompter", "rejected", "先拆出镜头，再请提示词工程师。");
       return;
     }
-    const locked = withIdentityLocks(
-      keyframePrompt(current, film),
-      film.characters,
-      current.characters,
-    );
-    const reply = await completeAgent(
-      "prompter",
-      locked.prompt,
-      "写成这一镜的提示词。只输出 JSON。",
-    );
-    if (!isTurnCurrent(turn)) return;
-    const parsed = reply.text ? prompterFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed) {
-      const failed = reply.text ? "提示词没有按格式返回。" : reply.detail;
-      finishTurn(turn, failed);
-      noteAgent("prompter", "rejected", failed);
+    const result = await planPrompterDraft(request.base, current, {
+      request: completeAgent,
+      current: () => isTurnCurrent(turn),
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
+      finishTurn(turn, result.notice);
+      noteAgent("prompter", "rejected", result.notice);
       return;
     }
-    const zh = withIdentityLocks(parsed.zh || locked.prompt, film.characters, current.characters);
-    setFilm(
-      updateShot(film, current.id, {
-        promptZh: zh.prompt,
-        promptEn: parsed.en,
-      }),
-    );
-    setStructured([zh.prompt, parsed.en ? `英文：${parsed.en}` : "英文还没写。"].filter(Boolean));
-    const missed = zh.missing.length > 0 ? `已补上${zh.missing.join("、")}的外貌描述。` : "";
+    const editorDiff = editorHost.preview(request, result.film);
+    const applied = await editorHost.apply(request.id);
+    if (!isTurnCurrent(turn) || applied.completionCurrent === false) return;
+    if (applied.status !== "saved") {
+      finishTurn(
+        turn,
+        applied.status === "applied_unsaved"
+          ? "提示词已应用，但还没有保存。"
+          : "镜头已变更，这次建议没有写入。",
+      );
+      return;
+    }
+    setStructured([result.zh, result.en ? `英文：${result.en}` : "英文还没写。"].filter(Boolean));
+    const missed =
+      result.missing.length > 0 ? `已补上${result.missing.join("、")}的外貌描述。` : "";
     publishCard("prompter", {
+      editorDiff: editorDiff ?? undefined,
       title: `提示词 · 镜头 ${current.no}`,
-      rows: [{ id: current.id, mark: "中文", text: zh.prompt, tail: "" }],
-      notes: parsed.en ? [`英文：${parsed.en}`] : [],
+      rows: [{ id: current.id, mark: "中文", text: result.zh, tail: "" }],
+      notes: result.en ? [`英文：${result.en}`] : [],
       applied: true,
       mode: "shots",
     });
@@ -1866,29 +2104,27 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const turn = pushTurn("qc", chat.trim() || "请审这一镜的文字。你看不到画面。");
     const current = shownShots[shot];
-    if (!current) {
-      finishTurn(turn, "先拆出镜头，再请审片。");
-      noteAgent("qc", "rejected", "先拆出镜头，再请审片。");
-      return;
-    }
-    const reply = await completeAgent(
-      "qc",
-      current.picture,
-      "只审文字。你看不到画面。只输出 JSON。",
-    );
-    if (!isTurnCurrent(turn)) return;
-    const parsed = reply.text ? qcFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed) {
+    const result = await reviewShotText(film, current, {
+      request: completeAgent,
+      valid: () => isTurnCurrent(turn),
+      current: () => filmRef.current,
+      apply: rememberFilm,
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
       setStructured([]);
-      const failed = `${reply.detail || "审片没有按格式返回。"} 还不能看画面，版本仍由你选。`;
-      finishTurn(turn, failed);
-      noteAgent("qc", "rejected", failed);
+      finishTurn(turn, result.notice);
+      noteAgent("qc", "rejected", result.notice);
       return;
     }
-    setStructured(parsed.lines);
+    if (result.status === "blocked") {
+      finishTurn(turn, NOTICE_TEXT.REQUEST_STALE);
+      return;
+    }
+    setStructured(result.lines);
     publishCard("qc", {
-      title: `审片意见 · 镜头 ${current.no}`,
-      rows: parsed.lines.map((line, index) => ({
+      title: `审片意见 · 镜头 ${current!.no}`,
+      rows: result.lines.map((line, index) => ({
         id: `qc-${index}`,
         mark: "意见",
         text: line,
@@ -1914,93 +2150,27 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setAsking(true);
     setOneClickReady(false);
     setNotice("正在让编剧和导演写到分镜。还不会出视频。");
-    const idea =
-      film.scenes
-        .map((item) => item.text)
-        .filter(Boolean)
-        .join("\n") || film.title;
-    const writerReply = await completeAgent(
-      "writer",
-      `画风：${film.styleZh}`,
-      `写成短剧：\n${numberedScript(idea)}`,
-    );
-    if (!valid()) return;
-    const scenes = writerReply.text ? parseWriterScenes(writerReply.text, idea) : null;
-    if (!scenes) {
+    const result = await buildLegacyStoryboard(film, {
+      current: () => filmRef.current,
+      valid,
+      request: completeAgent,
+      apply: setFilm,
+      fillCast,
+      enrich: completeDirectorPlan,
+      merge: (base, sceneId, shots) =>
+        applyDirectorPlan(base, shots, sceneId, unassignedDraft.current),
+      progress: setNotice,
+      notify: emitNotice,
+    });
+    if (result.kind === "stale") return;
+    if (result.kind === "stopped") {
       writing.current = false;
       setAsking(false);
       setOneClickReady(true);
-      setNotice(
-        writerReply.detail || "编剧没有按格式返回，已停。没有写入离线剧本。点「继续」再试。",
-      );
+      setNotice(result.text);
       return;
     }
-    let next = applyScenes(film, scenes);
-    filmRef.current = next;
-    setFilm(next);
-    await fillCast(next);
-    if (!valid()) return;
-    next = filmRef.current ?? next;
-    const names = next.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
-    const scenesWithText = next.scenes.filter((item) => item.text.trim());
-    const directedScenes = scenesWithText.length > 0 ? scenesWithText : next.scenes.slice(0, 1);
-    for (const [sceneIndex, sceneRow] of directedScenes.entries()) {
-      setNotice(`正在写第 ${sceneIndex + 1}/${directedScenes.length} 场「${sceneRow.title}」`);
-      const story = sceneRow.text.trim() || next.title;
-      const directorReply = await retryDirectorTimeout(
-        (control) =>
-          completeAgent(
-            "director",
-            `画风：${next.styleZh}\n场次 id：${sceneRow.id}\n人物：\n${names}\n这一场：${sceneRow.title} ${sceneRow.where}\n剧本：\n${story}`,
-            "把这一场拆成镜头",
-            control,
-          ),
-        setNotice,
-        emitNotice,
-        { current: valid },
-      );
-      const parsed = directorReply.text
-        ? parseDirectorShots(directorReply.text, sceneRow.id, sceneRow.text || story, [
-            {
-              id: sceneRow.id,
-              title: sceneRow.title,
-              where: sceneRow.where,
-              text: sceneRow.text,
-            },
-          ])
-        : null;
-      if (!parsed) {
-        writing.current = false;
-        setAsking(false);
-        setOneClickReady(true);
-        setNotice(
-          directorReply.detail ||
-            `「${sceneRow.title}」导演没有按格式返回，已停。没有写入这一场的离线镜头。点「继续」再试。`,
-        );
-        return;
-      }
-      setNotice(
-        `第 ${sceneIndex + 1}/${directedScenes.length} 场已写 ${parsed.length} 镜，正在写表演。`,
-      );
-      const performed = await completeDirectorPlan(next, sceneRow.id, parsed, valid);
-      if (!valid()) return;
-      next = applyDirectorPlan(next, performed, sceneRow.id, unassignedDraft.current);
-      filmRef.current = next;
-      setFilm(next);
-    }
-    next = {
-      ...next,
-      shots: [...next.shots]
-        .sort((a, b) => {
-          const sceneOrder =
-            next.scenes.findIndex((item) => item.id === a.sceneId) -
-            next.scenes.findIndex((item) => item.id === b.sceneId);
-          return sceneOrder || a.no - b.no;
-        })
-        .map((shot, index) => ({ ...shot, no: index + 1 })),
-    };
-    filmRef.current = next;
-    setFilm(next);
+    const next = result.film;
     const shown = next.scenes.find((item) =>
       next.shots.some((shotItem) => shotItem.sceneId === item.id),
     );
@@ -2060,31 +2230,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function previewVoice(voiceId: string, line: string) {
-    if (!soundOn) {
-      if (previewAudio.current) {
-        try {
-          previewAudio.current.pause();
-        } catch {
-          /* a test player may not pause */
-        }
-        previewAudio.current = null;
-        setHearing(false);
-      }
-      setNotice("声音关着。打开顶栏的声音再试听。");
-      return;
-    }
-    if (hearing) {
-      try {
-        previewAudio.current?.pause();
-      } catch {
-        /* a test player may not pause */
-      }
-      previewAudio.current = null;
+    const epoch = ++previewEpoch.current;
+    previewSession.current?.dispose();
+    previewSession.current = null;
+    previewAudio.current = null;
+    if (!soundOn || hearing) {
       setHearing(false);
-      const cancel = (window.aijianGrok as { cancelSpeech?: () => Promise<unknown> } | undefined)
-        ?.cancelSpeech;
-      void cancel?.();
-      setNotice("已停止试听。");
+      if (hearing) void window.aijianGrok?.cancelSpeech?.();
+      setNotice(!soundOn ? "声音关着。打开顶栏的声音再试听。" : "已停止试听。");
       return;
     }
     const spoken = line.trim();
@@ -2092,47 +2245,70 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("先在剧本里给 TA 写一句台词。");
       return;
     }
+    const project = filmRef.current?.id;
+    const valid = () =>
+      Boolean(project && filmRef.current?.id === project && previewEpoch.current === epoch);
     const bridge = grokBridge();
-    const billingProject = await ensureBillingProject();
-    if (!bridge?.speak || !billingProject) {
+    if (!bridge?.speak) {
       setNotice(connected ? PREVIEW_REASON : "配音需要 Grok 会员。");
       return;
     }
     setHearing(true);
-    const result = await bridge.speak({
-      voiceId,
-      text: spoken,
-      projectId: billingProject,
-      idempotencyKey: crypto.randomUUID(),
-    });
-    if (result.kind !== "OK") {
-      setHearing(false);
-      setNotice(result.detail || "配音没有成功。");
-      return;
-    }
-    const binary = atob(result.audioBase64);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-    const url = URL.createObjectURL(new Blob([bytes], { type: result.mime || "audio/mpeg" }));
-    const audio = new Audio(url);
-    previewAudio.current = audio;
-    const seconds = await new Promise<number>((resolve) => {
-      audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? audio.duration : 0);
-      audio.onerror = () => resolve(0);
-    });
-    const heard = result.seconds ?? (seconds > 0 ? seconds : null);
+    let preview: VoicePreview | undefined;
     try {
-      await audio.play();
-      setHearing(true);
-      audio.onended = () => setHearing(false);
-    } catch {
+      preview = await prepareVoicePreview(voiceId, spoken, {
+        speak: bridge.speak.bind(bridge),
+        billing: ensureBillingProject,
+        valid,
+      });
+      if (!valid()) {
+        preview.dispose();
+        return;
+      }
+      previewSession.current = preview;
+      previewAudio.current = preview.audio;
+      await preview.audio.play();
+      if (!valid()) {
+        preview.dispose();
+        return;
+      }
+      const playing = preview;
+      preview.audio.onended = () => {
+        playing.dispose();
+        if (valid()) {
+          previewSession.current = null;
+          previewAudio.current = null;
+          setHearing(false);
+        }
+      };
+      preview.audio.onerror = () => {
+        playing.dispose();
+        if (valid()) {
+          previewSession.current = null;
+          previewAudio.current = null;
+          setHearing(false);
+          setNotice("配音文件到了，这一页没有播出来。");
+        }
+      };
+      const timing = preview.timestamps ? "带回了每个字的时间。" : "这一次没有返回每个字的时间。";
+      setNotice(
+        `正在试听。${timing}${preview.seconds ? `大约 ${preview.seconds.toFixed(1)} 秒。` : ""}`,
+      );
+      return preview.seconds;
+    } catch (error) {
+      preview?.dispose();
+      if (!valid()) return;
+      previewSession.current = null;
+      previewAudio.current = null;
       setHearing(false);
-      setNotice("配音文件到了，这一页没有播出来。");
-      return;
+      setNotice(
+        error instanceof Error && error.message === "VOICE_METADATA_TIMEOUT"
+          ? "配音加载超时，可以重试。"
+          : preview
+            ? "配音文件到了，这一页没有播出来。"
+            : "配音没有成功，可以重试。",
+      );
     }
-    const timing = result.timestamps ? "带回了每个字的时间。" : "这一次没有返回每个字的时间。";
-    setNotice(`正在试听。${timing}${heard ? `大约 ${heard.toFixed(1)} 秒。` : ""}`);
-    return heard;
   }
 
   async function timeShotFromLine(shotId: string) {
@@ -2153,6 +2329,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `duration:${shotId}`,
       () => filmRef.current?.id ?? "",
     );
+    const requestBase = structuredClone(current);
+    const origin = structuredClone(editorSelection.current);
+    const measurementEpoch = previewEpoch.current + 1;
     const measured = await previewVoice(
       shot.characters.length > 0
         ? current.characters.find((item) => item.name === shot.characters[0])?.voiceId ||
@@ -2160,37 +2339,28 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : current.narrationVoiceId,
       line,
     );
-    if (!valid()) return;
-    const plan = durationFromSpeech(speechSeconds(line, measured ?? null), shot.seconds);
-    if (!plan.fits) {
-      const parts = splitSpokenLine(line);
-      if (!parts) {
-        setNotice(plan.note);
-        return;
-      }
-      const first = durationFromSpeech(speechSeconds(parts[0], null), 2);
-      const second = durationFromSpeech(speechSeconds(parts[1], null), 2);
-      const splitShots = [
-        {
-          ...shot,
-          line: parts[0],
-          picture: parts[0],
-          seconds: first.seconds,
-          sound: { ...shot.sound, source: "dub" as const },
-        },
-        {
-          ...shot,
-          id: `${shot.id}-b`,
-          no: shot.no + 1,
-          line: parts[1],
-          picture: parts[1],
-          seconds: second.seconds,
-          sound: { ...shot.sound, source: "dub" as const },
-        },
-      ];
+    if (!valid() || previewEpoch.current !== measurementEpoch) return;
+    const latest = filmRef.current?.shots.find((item) => item.id === shotId);
+    if (!latest || !durationInputUnchanged(shot, latest)) {
+      setNotice("台词或时长已修改，保留了你的修改。");
+      return;
+    }
+    const plan = planShotDuration(latest, measured);
+    if (plan.kind === "notice") {
+      setNotice(plan.notice);
+      return;
+    }
+    if (plan.kind === "split") {
+      const splitShots = plan.shots;
+      const draft: StoryDraft = {
+        transaction: prepareExplicitShotSplitTransaction(requestBase, shotId, splitShots),
+        origin,
+      };
+      storyDraft.current = draft;
       setPending(splitShots);
       setPendingRole("director");
       publishCard("director", {
+        storyDraft: draft,
         title: `建议拆成 ${splitShots.length} 个镜头`,
         rows: splitShots.map((item) => ({
           id: item.id,
@@ -2209,14 +2379,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setFilm(
       updateShot(filmRef.current ?? current, shot.id, {
         seconds: plan.seconds,
-        sound: { ...shot.sound, source: "dub" },
+        sound: { ...latest.sound, source: "dub" },
       }),
     );
-    setNotice(
-      measured === null || measured === undefined
-        ? `${plan.note} 配音没有播出来，时长按字数估算。`
-        : plan.note,
-    );
+    setNotice(plan.notice);
   }
 
   function sendChat() {
@@ -2248,6 +2414,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (film) publishFilmJobs(film);
   }, [film]);
 
+  async function prepareSceneMedia(
+    base: FilmProject,
+    shots: FilmShot[],
+    valid: () => boolean,
+    pipeline?: PipelineGenerationHost,
+  ) {
+    if (!window.aijian?.generateFilmStill) throw new Error(NOTICE_TEXT.DESKTOP_REQUIRED);
+    return prepareShotSceneReferences(base, shots, {
+      current: () => filmRef.current,
+      valid,
+      apply: async (next) => {
+        if (!valid()) throw new Error("WORK_STALE");
+        if (pipeline) await pipeline.apply(next);
+        else {
+          applyLive(next);
+          const live = filmRef.current;
+          if (!live || !(await saveFilm(live)))
+            throw Object.assign(new Error(NOTICE_TEXT.LOCATION_IMAGE_INCOMPLETE), {
+              code: "LOCATION_SAVE_FAILED",
+            });
+        }
+      },
+    });
+  }
+
   async function generateFourStills() {
     const current = shownShots[shot];
     const base = filmRef.current;
@@ -2269,12 +2460,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
     const release = workOwners.begin(base.id, `still:${current.id}`, "正在生成候选画面");
     try {
-      const result = await makeFourStills(base, current, {
-        current: () => filmRef.current,
-        valid,
-        apply: applyLive,
-      });
+      const ready = await prepareSceneMedia(base, [current], valid);
+      const result = await makeFourStills(
+        ready,
+        ready.shots.find((row) => row.id === current.id) ?? current,
+        {
+          current: () => filmRef.current,
+          valid,
+          apply: applyLive,
+        },
+      );
       if (valid()) setNotice(result.notice);
+    } catch (error) {
+      if (valid()) emitNotice(stillFailureNotice(error));
     } finally {
       release();
     }
@@ -2314,34 +2512,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       () => filmRef.current?.id ?? "",
     );
     try {
-      await runTask(
+      const ready = await prepareSceneMedia(base, [current], valid);
+      const result = await generateShotStill(
+        ready,
+        ready.shots.find((row) => row.id === current.id) ?? current,
         {
-          id: `still:${current.id}`,
-          projectId: base.id,
-          shotId: current.id,
-          kind: "image",
-          title: "生成画面",
-        },
-        async (signal) => {
-          const made = await requestShotStill(base, current, keyframePrompt(current, base));
-          if (signal.aborted) throw new Error("TASK_TIMEOUT");
-          const live = filmRef.current;
-          if (!live || !valid()) throw new Error("WORK_STALE");
-          if (!made.url) throw new Error(made.reason || "STILL_FAILED");
-          applyLive(
-            updateShot(live, current.id, {
-              poster: made.url,
-              stills: [
-                ...current.stills,
-                { id: crypto.randomUUID(), prompt: current.picture, url: made.url },
-              ],
-            }),
-          );
-          setNotice(made.reason);
+          current: () => filmRef.current,
+          valid,
+          apply: applyLive,
         },
       );
+      if (valid()) setNotice(result.notice);
     } catch (error) {
-      if (valid()) emitNotice(stillFailureNotice(error));
+      if (valid()) {
+        if (error instanceof Error && "code" in error && error.code === "SHOT_STILL_INPUT_CHANGED")
+          emitNotice({ code: "SHOT_STILL_INPUT_CHANGED", text: error.message });
+        else emitNotice(stillFailureNotice(error));
+      }
     } finally {
       release();
     }
@@ -2350,37 +2537,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   async function retryGenerationTasks(ids: string[]) {
     const current = filmRef.current;
     if (!current || generationRuns.current.has(current.id)) return;
-    const blocked = current.jobs.filter(
-      (job) => ids.includes(job.id) && job.kind === "video" && job.status === "blocked",
-    );
-    if (blocked.length) {
-      await submitGeneration(
-        current.shots.filter((shot) => blocked.some((job) => job.shotId === shot.id)),
-        false,
-        undefined,
-        blocked.map((job) => job.id),
-      );
+    const plan = prepareGenerationRetry(current, ids);
+    if (plan.kind === "empty") return;
+    if (plan.kind === "blocked") {
+      await submitGeneration(plan.targets, false, undefined, plan.blockedIds);
       return;
     }
-    const next = retryVideoTasks(current, ids);
-    const targets = next.shots.filter((row) =>
-      row.takes.some(
-        (take) =>
-          take.status === "queued" &&
-          ids.some((id) => videoTaskTarget(next, id)?.take.id === take.id),
-      ),
-    );
-    if (!targets.length) return;
-    applyLive(next);
+    applyLive(plan.film);
     pauseRef.current = false;
-    const retry = submitGeneration(
-      targets,
-      true,
-      ids.flatMap((id) => {
-        const take = videoTaskTarget(next, id)?.take;
-        return take ? [take.id] : [];
-      }),
-    );
+    const retry = submitGeneration(plan.targets, true, plan.takeIds);
     setPaused(false);
     await retry;
     if (
@@ -2397,12 +2562,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     resume = false,
     takeIds?: string[],
     blockedIds?: string[],
+    pipeline?: PipelineGenerationHost,
   ) {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id)) return;
     generationRuns.current.add(id);
     try {
-      await runGeneration(targets, resume, takeIds, blockedIds);
+      await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
     } finally {
       generationRuns.current.delete(id);
     }
@@ -2417,209 +2583,94 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     resume = false,
     takeIds?: string[],
     blockedIds?: string[],
+    pipeline?: PipelineGenerationHost,
   ) {
     const mine = ++runToken.current;
+    const requestedVersions = pipeline?.versions ?? versions;
+    const applyGeneration = async (next: FilmProject) => {
+      if (pipeline) await pipeline.apply(next);
+      else applyLive(next);
+    };
     stopRef.current = false;
     let live = filmRef.current ?? film;
     if (!live) return;
     pruneCancelledJobs(live, cancelledJobs.current);
     const generationProject = live.id;
-    const valid = () => filmRef.current?.id === generationProject && runToken.current === mine;
-    const selected = generationTargets(live, targets, resume, shownShots[shot]);
+    const valid = () =>
+      filmRef.current?.id === generationProject &&
+      runToken.current === mine &&
+      (pipeline?.current() ?? true);
+    const preflight = generationPreflight(live, {
+      targets,
+      resume,
+      fallback: shownShots[shot],
+      modelIds,
+    });
+    const selected = preflight.selected;
     if (selected.length === 0) {
       setNotice("先在剧本里拆镜头。");
       return;
     }
-    setNotice(generationEstimate(selected.length, versions, duration));
-    if (live.draft && modelIds.length > 0 && !modelIds.includes(VIDEO_DRAFT_MODEL)) {
-      setNotice(`模型列表里没有 ${VIDEO_DRAFT_MODEL}，不能先出草稿。`);
+    setNotice(generationEstimate(selected.length, requestedVersions, duration));
+    if (preflight.kind === "stopped") {
+      setNotice(preflight.notice);
       return;
     }
     const gate = actions.regenerate;
     const bridge = window.aijian;
-    const billingProject = await ensureBillingProject();
+    const billingProject = pipeline?.billingProjectId ?? (await ensureBillingProject());
     if (!valid()) return;
     live = filmRef.current ?? live;
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
-    const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
-    if (!canSubmit) {
-      if (resume || blockedIds) {
-        setNotice(blocked);
-        return;
-      }
-      applyLive({
-        ...live,
-        jobs: [
-          ...live.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
-          ...jobs,
-        ],
-      });
-      setNotice(blocked);
+    const preparation = prepareGeneration(live, selected, {
+      versions: requestedVersions,
+      resume,
+      takeIds,
+      blockedIds,
+      canSubmit,
+      blockedReason: blocked,
+    });
+    if (preparation.kind === "blocked") {
+      if (preparation.apply) await applyGeneration(preparation.film);
+      setNotice(preparation.notice);
       return;
     }
-    const prepared = blockedIds
-      ? prepareBlockedVideoQueue(live, blockedIds)
-      : prepareVideoQueue(live, selected, versions, resume, takeIds);
+    const prepared = preparation.prepared;
     const next = prepared.film;
     const groups = prepared.groups;
-    const queueStopped = () => {
-      const interrupted = videoQueueInterruption(
-        filmRef.current ?? next,
-        stopRef.current,
-        pauseRef.current,
-      );
-      if (!interrupted) return false;
-      applyLive(interrupted.film);
-      setNotice(interrupted.notice);
-      return true;
-    };
-    applyLive(next);
+    await applyGeneration(next);
     try {
-      await saveFilm(next);
-      if (!valid()) return;
-      for (const group of groups) {
-        for (let index = 0; index < group.takes.length; index += 1) {
-          const take = group.takes[index]!;
-          const jobId = `video:${take.id}`;
-          if (!valid()) return;
-          const current = filmRef.current ?? next;
-          if (cancelledJobs.current.has(jobId)) {
-            applyLive(cancelVideoTask(current, take.id).film);
-            continue;
-          }
-          if (queueStopped()) return;
-          const targetShot = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
-          const shotNow = await ensureShotFrame(current, targetShot, {
-            current: () => filmRef.current,
-            valid,
-            apply: applyLive,
-          });
-          if (!valid()) return;
-          const liveBeforeSend = filmRef.current ?? current;
-          if (cancelledJobs.current.has(jobId)) {
-            applyLive(cancelVideoTask(liveBeforeSend, take.id).film);
-            continue;
-          }
-          if (queueStopped()) return;
-          const dispatched = setVideoTaskState(liveBeforeSend, take.id, "running");
-          applyLive(dispatched);
-          await saveFilm(dispatched);
-          if (!valid()) return;
-          if (cancelledJobs.current.has(jobId) || stopRef.current) {
-            applyLive(cancelVideoTask(filmRef.current ?? dispatched, take.id).film);
-            if (queueStopped()) return;
-            continue;
-          }
-          if (pauseRef.current) {
-            applyLive(setVideoTaskState(filmRef.current ?? dispatched, take.id, "queued"));
-            queueStopped();
-            return;
-          }
-          const body = storyFilmBatches(dispatched, [shotNow], current.draft)[0];
-          const response = await awaitVideoResult(
-            () =>
-              bridge!.createStoryFilm!(billingProject, {
-                ...body!,
-                regenerate: index > 0 || group.hadTakes,
-              }),
-            () => !valid() || stopRef.current || cancelledJobs.current.has(jobId),
-          );
-          if (!valid()) return;
-          if (cancelledJobs.current.has(jobId)) {
-            applyLive(cancelVideoTask(filmRef.current ?? current, take.id).film);
-            continue;
-          }
-          const data = response.data ?? {};
-          const message = typeof data.message === "string" ? data.message : "";
-          const output = typeof data.output_path === "string" ? data.output_path : "";
-          const preview = typeof data.preview_image === "string" ? data.preview_image : "";
-          const reportedRaw = data.duration_seconds;
-          const reported =
-            typeof reportedRaw === "number"
-              ? reportedRaw
-              : typeof reportedRaw === "string"
-                ? Number(reportedRaw)
-                : 0;
-          const ok = data.status === "SUCCEEDED";
-          const videoUrl = ok ? fileMediaUrl(output) : "";
-          const done = ok && Boolean(videoUrl || preview || output);
-          if (!valid()) return;
-          const latest = filmRef.current ?? current;
-          const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
-            (item) =>
-              item.id === take.id
-                ? {
-                    ...item,
-                    status: done ? ("done" as const) : ("failed" as const),
-                    videoPath: output,
-                    videoUrl,
-                    stillUrl: preview,
-                    reason: message,
-                  }
-                : item,
-          );
-          const frame =
-            preview.startsWith("data:") || preview.startsWith("blob:") || preview.startsWith("http")
-              ? preview
-              : "";
-          let saved = replaceTakes(
-            latest,
-            group.shot.id,
-            takes,
-            latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ||
-              (done ? take.id : ""),
-          );
-          if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
-          const voicePath = typeof data.voice_path === "string" ? data.voice_path : "";
-          if (done && isVoiceFile(voicePath) && group.shot.line.trim()) {
-            saved = {
-              ...saved,
-              shots: saved.shots.map((item) =>
-                item.id === group.shot.id
-                  ? { ...item, sound: { ...item.sound, source: "dub" } }
-                  : item,
-              ),
-              audioClips: [
-                ...saved.audioClips.filter(
-                  (clip) => !(clip.lane === "dialogue" && clip.shotId === group.shot.id),
-                ),
-                {
-                  id: `voice-${group.shot.id}`,
-                  lane: "dialogue",
-                  shotId: group.shot.id,
-                  takeId: take.id,
-                  label: "配音",
-                  startSeconds: 0,
-                  durationSeconds: group.shot.seconds,
-                  offsetSeconds: 0,
-                  gainDb: 0,
-                  path: voicePath,
-                },
-              ],
-            };
-          }
-          if (done && Number.isFinite(reported) && reported > 0.4) {
-            const shown = Math.max(1, Math.min(15, Math.round(reported)));
-            const chosen = saved.shots.find((item) => item.id === group.shot.id)?.seconds ?? 0;
-            if (Math.abs(shown - chosen) >= 1) {
-              saved = updateShot(saved, group.shot.id, { seconds: shown });
-            }
-          }
-          saved = {
-            ...saved,
-            jobs: saved.jobs.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    status: done ? ("done" as const) : ("failed" as const),
-                    reason: message,
-                  }
-                : job,
-            ),
-          };
-          applyLive(saved);
-          if (done && group.shot.id === openShotRef.current) setPlaying(true);
+      try {
+        await prepareSceneMedia(next, selected, valid, pipeline);
+      } catch (error) {
+        if (!valid()) return;
+        if (
+          error instanceof Error &&
+          ["WORK_STALE", "VIDEO_CANCELLED", "REQUEST_CANCELLED"].includes(error.message)
+        )
+          throw error;
+        const notice = stillFailureNotice(error);
+        const failed = failQueuedVideoPrerequisites(filmRef.current ?? next, groups, notice.text);
+        await applyGeneration(failed);
+        if (!pipeline && valid() && filmRef.current) await saveFilm(filmRef.current);
+        if (valid()) emitNotice(notice);
+        return;
+      }
+      await runPreparedGeneration(prepared, {
+        current: () => filmRef.current,
+        valid,
+        apply: applyGeneration,
+        persist: async (snapshot) => {
+          if (!pipeline) await saveFilm(snapshot);
+        },
+        stopped: () => stopRef.current,
+        paused: () => pauseRef.current,
+        cancelled: (jobId) => cancelledJobs.current.has(jobId),
+        request: (body) => bridge!.createStoryFilm!(billingProject, body),
+        notice: emitNotice,
+        completed: ({ shotId, done, message }) => {
+          if (done && shotId === openShotRef.current) setPlaying(true);
           setNotice((current) =>
             current.startsWith("已暂停")
               ? current
@@ -2627,26 +2678,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 ? "这一版已经生成。"
                 : message || "没有生成成功，可以重试。",
           );
-        }
-      }
+        },
+      });
     } catch (error) {
       if (!valid()) return;
+      const styleFailure = styleFailureNotice(error) ?? continuityFailureNotice(error);
       const reason =
-        error instanceof Error && error.message === "TASK_TIMEOUT"
+        styleFailure?.text ??
+        (error instanceof Error && error.message === "TASK_TIMEOUT"
           ? "等待结果超时，请先核对会员端结果。"
           : error instanceof Error && error.message === "VIDEO_CANCELLED"
             ? "已取消"
             : error instanceof Error &&
                 (error.message.includes("首帧未完成") || /VOICE_.*REQUIRED/.test(error.message))
               ? error.message
-              : "没有生成成功，可以重试。";
+              : "没有生成成功，可以重试。");
       const latest = filmRef.current ?? next;
-      applyLive(failRunningVideoTasks(latest, groups, reason));
+      await applyGeneration(failRunningVideoTasks(latest, groups, reason));
       if (latest.shots.some((row) => row.takes.some(canResumeTake))) {
         pauseRef.current = true;
         setPaused(true);
       }
-      if (error instanceof Error && error.message === "TASK_TIMEOUT")
+      if (styleFailure) emitNotice(styleFailure);
+      else if (error instanceof Error && error.message === "TASK_TIMEOUT")
         emitNotice({ code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT, detail: reason });
       else setNotice(reason);
     }
@@ -2775,8 +2829,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     film !== null &&
     committed.current !== null &&
     liveSignature !== filmSignature(committed.current);
-  const canUndo = historyTick >= 0 && (pastRef.current.length > 0 || dirty);
-  const canRedo = futureRef.current.length > 0;
+  const canUndo =
+    historyTick >= 0 &&
+    (pageHistory.canUndo(editorSelection.current) ||
+      (dirty && historyScope.current.page === stage));
+  const canRedo = pageHistory.canRedo(editorSelection.current);
   const tracked =
     film?.jobs.filter(
       (job) =>
@@ -2802,7 +2859,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         setNotice("没有打开这部作品。");
         return;
       }
-      const settled = interruptStaleWork(saved);
+      const settled = settleOpenedFilm(saved);
       applyLive(settled.film);
       setScene(settled.film.scenes[0]?.id ?? "scene-1");
       setShot(0);
@@ -2970,7 +3027,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     onClick={() => {
                       void readSaved(item.id).then((saved) => {
                         if (!saved) return;
-                        const settled = interruptStaleWork(saved);
+                        const settled = settleOpenedFilm(saved);
                         applyLive(settled.film);
                         setScene(settled.film.scenes[0]?.id ?? scene);
                         setPlaying(false);

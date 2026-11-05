@@ -75,8 +75,18 @@ describe("film project", () => {
     expect(prompt).toContain("这一场怎么写");
     expect(prompt).toContain("不要改作品");
     expect(agentRequest("director", "画风", "拆开")).toContain("你是 AIVORA 的导演");
+    const directorRules = agentRequest("director", "画风", "拆开");
+    for (const rule of [
+      "打斗动作优先 1–2 秒",
+      "悬疑 3–5 秒",
+      "情感 3–4 秒",
+      "每连续 3–4 个镜头",
+      "台词说完和原文动作完整优先",
+      "不能无损合并就保留全部镜头",
+    ])
+      expect(directorRules).toContain(rule);
     expect(agentRequest("director", "画风", "拆开")).toContain(
-      "大约每 40 到 60 个字一个镜头，一场最多 16 个",
+      "大约每 40 到 60 个字一个镜头，一场以 16 个为合并节拍的目标",
     );
     expect(assistantPrompt("   ", null)).toContain("短剧助手");
     const novel = "雨夜旧书店。林晚说：“我叫沈砚。”".padEnd(2075, "雨");
@@ -119,7 +129,7 @@ describe("film project", () => {
     const prefixed = sampleFilm();
     prefixed.shots[0]!.picture = "这一镜的起始画面，雨停了";
     expect(keyframePrompt(prefixed.shots[0]!, prefixed)).toBe(
-      `这一镜的起始画面，雨停了。${prefixed.characters[0]?.identity}。`,
+      `这一镜的起始画面，雨停了。${prefixed.characters[0]?.identity}。\n【画风说明】\n${prefixed.styleZh}\n【画风说明结束】`,
     );
     const inserted = parseDirectorShots(
       '{"shots":[{"action":"手按在刀上","size":"插入","line":"另写一句"}]}',
@@ -132,6 +142,7 @@ describe("film project", () => {
     prefixed.characters[0]!.portraits = [
       { view: "正面", prompt: "定妆", url: "data:image/png;base64,aa" },
     ];
+    prefixed.aspectRatio = "9:16";
     const episode = newEpisode(prefixed);
     expect(episode.aspectRatio).toBe("9:16");
     prefixed.aspectRatio = "16:9";
@@ -210,7 +221,7 @@ describe("film project", () => {
     expect([...new Set(selected?.map((shot) => shot.sceneId))]).toEqual(["scene-1"]);
     expect(selected?.[0]?.performance).toContain("停 0.4 秒");
     expect(selected?.[0]?.performance).not.toContain("hold_s");
-    expect(blankFilm().aspectRatio).toBe("9:16");
+    expect(blankFilm().aspectRatio).toBe("16:9");
     film.aspectRatio = "16:9";
     writeFilm(window.localStorage, film);
     expect(readFilm(window.localStorage)?.aspectRatio).toBe("16:9");

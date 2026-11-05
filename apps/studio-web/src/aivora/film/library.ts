@@ -25,6 +25,7 @@ export type EpisodeEntry = {
 type FilmBridge = {
   listFilmSeries?: () => Promise<FilmIndexEntry[]>;
   readFilmProject?: (id: string) => Promise<FilmProject | null>;
+  prepareFilmProject?: (film: FilmProject) => Promise<FilmProject>;
   writeFilmProject?: (film: FilmProject) => Promise<FilmProject>;
   deleteFilmProject?: (id: string) => Promise<void>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<void>;
@@ -218,4 +219,26 @@ export function activeFilmId(storage: Storage = window.localStorage): string {
 export function mediaUrl(bytes: Uint8Array, mime: string): string {
   const copy = Uint8Array.from(bytes);
   return URL.createObjectURL(new Blob([copy], { type: mime }));
+}
+
+/** Prepare stable media paths without saving or applying a project snapshot. */
+export async function prepareFilmSnapshot(
+  film: FilmProject,
+  isCurrent: () => boolean = () => true,
+): Promise<FilmProject> {
+  const guard = () => {
+    if (!isCurrent()) {
+      throw Object.assign(new Error("作品已变更。"), { code: "PIPELINE_OWNER_CHANGED" });
+    }
+  };
+  guard();
+  const api = window.aijian as FilmBridge | undefined;
+  if (!api?.prepareFilmProject) {
+    throw Object.assign(new Error("请在桌面应用中继续。"), {
+      code: "PIPELINE_PREPARATION_REQUIRED",
+    });
+  }
+  const prepared = await api.prepareFilmProject(film);
+  guard();
+  return prepared;
 }

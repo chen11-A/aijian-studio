@@ -62,6 +62,7 @@ class StoryDialogueBody(BaseModel):
 
     speaker: str = Field(max_length=100)
     text: str = Field(min_length=1, max_length=2000)
+    voice_id: str = Field(default="", max_length=64, pattern=r"^(?:[^\s\x00-\x1f\x7f]{1,64})?$")
 
 
 class StoryShotBody(BaseModel):
@@ -339,7 +340,8 @@ def create_story_film_router(
                         references=tuple(shot.references),
                         delivery=shot.delivery.strip(),
                         lines=tuple(
-                            StoryDialogue(line.speaker.strip(), line.text) for line in shot.lines
+                            StoryDialogue(line.speaker.strip(), line.text, line.voice_id)
+                            for line in shot.lines
                         ),
                     )
                     for shot in payload.shots
@@ -352,12 +354,19 @@ def create_story_film_router(
     return router
 
 
+FILM_STATUS_TEXT = {
+    "SUCCEEDED": "试做版已经保存，可以在播放器里打开看看。",
+    "BLOCKED": "这一片被拦下了，没有生成。",
+    "FAILED": "这一片没做成，可以再试一次。",
+}
+
+
 def _data(result: StoryFilmResult) -> StoryFilmData:
     return StoryFilmData(
         status=result.status,
         message=result.message,
         user_message=result.user_message
-        or user_message(f"FILM_{result.status}", result.message[:40], result.message),
+        or user_message(f"FILM_{result.status}", FILM_STATUS_TEXT[result.status], result.message),
         provider_label=result.provider_label,
         billing_label=result.billing_label,
         suggested_provider=result.suggested_provider,

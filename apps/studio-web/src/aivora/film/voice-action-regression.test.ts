@@ -1,3 +1,4 @@
+import { shotActionText } from "./shot-actions";
 import { describe, expect, it } from "vitest";
 import { blankFilm, sampleFilm, readFilm, writeFilm } from "./project";
 import {
@@ -36,7 +37,8 @@ describe("phase3j cast, actions and reference regressions", () => {
     );
     expect(JSON.parse(JSON.stringify(parsed)).characters[0]).toMatchObject({
       gender: "女",
-      ageBand: "中年",
+      ageBand: "",
+      voiceDefault: { basis: "adult-default", evidenceSource: "character-reply", evidence: "成年" },
     });
     expect(castTraits("", "林国栋", "她想起父亲林国栋。")).toEqual({
       gender: "男",
@@ -151,7 +153,11 @@ it("normalizes metadata and preserves a manual voice lock across edits", () => {
   expect(
     parseCastReply('{"characters":[{"name":"甲","gender":"male","age_band":"adult"}]}')
       ?.characters[0],
-  ).toMatchObject({ gender: "男", ageBand: "中年" });
+  ).toMatchObject({
+    gender: "男",
+    ageBand: "",
+    voiceDefault: { basis: "adult-default", evidenceSource: "character-reply", evidence: "adult" },
+  });
 });
 
 it("stores all unassigned beats and refuses combat on dialogue shots even with a valid id", () => {
@@ -172,10 +178,9 @@ it("stores all unassigned beats and refuses combat on dialogue shots even with a
     { shotId: "fight", text: "周烈挥棍。。保留原文：沈砚肘击。" },
   ]);
   expect(result.shots[0]?.action).toBe("");
-  expect(result.shots[1]?.action).toContain("沈砚肘击");
-  expect(result.shots[1]?.action).not.toMatch(/保留原文|。。/);
+  expect(shotActionText(result.shots[1]!)).toContain("沈砚肘击");
+  expect(shotActionText(result.shots[1]!)).not.toMatch(/保留原文|。。/);
   expect(result.unassignedBeats).toEqual([
-    { sceneId: "scene", text: "周烈挥动铁棍" },
     { sceneId: "scene", text: "周烈挥动铁棍" },
     { sceneId: "scene", text: "沈砚肘击" },
   ]);
@@ -241,5 +246,24 @@ it("keeps a lone local portrait as a reference until a shot first frame is gener
   expect(shotReference({ ...shot, poster: "/tmp/generated-shot.png" }, film)).toEqual({
     still: "/tmp/generated-shot.png",
     references: [{ url: "/tmp/portrait.png", who: film.characters[0]!.name }],
+  });
+});
+
+it.each([
+  ["男", "少年"],
+  ["女", "少女"],
+])("preserves %s adolescent identity instead of persisting youth", (gender, identity) => {
+  const film = mergeCast(blankFilm(), {
+    characters: [{ name: "小陈", identity, gender }],
+    locations: [],
+  });
+  const person = film.characters[0]!;
+  expect(person.ageBand).toBe("少年");
+  expect(person.voiceId).not.toBe("");
+  writeFilm(localStorage, film);
+  expect(readFilm(localStorage)?.characters[0]).toMatchObject({
+    ageBand: "少年",
+    gender,
+    voiceId: person.voiceId,
   });
 });

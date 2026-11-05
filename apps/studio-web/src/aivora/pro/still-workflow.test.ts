@@ -1,9 +1,13 @@
+import type * as WorkflowModule from "./workflow";
 import { expect, it, vi } from "vitest";
 import { sampleFilm } from "../film/project";
 import { taskSnapshot } from "../film/task-progress";
-import { requestShotStill } from "./workflow";
+import { requestShotStill, stillFailureNotice } from "./workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
-vi.mock("./workflow", () => ({ requestShotStill: vi.fn() }));
+vi.mock("./workflow", async (importOriginal) => ({
+  ...(await importOriginal<typeof WorkflowModule>()),
+  requestShotStill: vi.fn(),
+}));
 const diagnostics = { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 };
 
 it("queues candidates immediately and discards a delayed image after project switch", async () => {
@@ -92,5 +96,32 @@ it("publishes a video preframe as an image task and protects a late response", a
   valid = false;
   resolve({ url: "late.png", reason: "", diagnostics });
   await expect(pending).rejects.toThrow("WORK_STALE");
+  expect(apply).not.toHaveBeenCalled();
+});
+
+it("3J-B19 reports repeated candidate failure once without provider diagnostics", async () => {
+  const base = sampleFilm();
+  const reason = "首帧选用 5 张参考图，模型上限 13；请求失败。";
+  vi.mocked(requestShotStill).mockReset().mockResolvedValue({ url: "", reason, diagnostics });
+  const result = await makeFourStills(base, base.shots[0]!, {
+    current: () => base,
+    valid: () => true,
+    apply: vi.fn(),
+  });
+  expect(result).toMatchObject({ done: 0, failed: 4 });
+  expect(result.notice).toBe(stillFailureNotice(new Error(reason)).text);
+  expect(result.notice).not.toMatch(/模型|上限|首帧|\d/u);
+  expect(result.failures).toEqual(Array(4).fill(reason));
+});
+
+it("3J-B19 video preframe failure does not forward developer diagnostics", async () => {
+  const base = sampleFilm();
+  const shot = { ...base.shots[0]!, poster: "", stills: [] };
+  const reason = "首帧选用 5 张参考图，模型上限 13；请求失败。";
+  vi.mocked(requestShotStill).mockReset().mockResolvedValue({ url: "", reason, diagnostics });
+  const apply = vi.fn();
+  await expect(
+    ensureShotFrame(base, shot, { current: () => base, valid: () => true, apply }),
+  ).rejects.toThrow(`镜头 ${shot.no} 首帧未完成：${stillFailureNotice(new Error(reason)).text}`);
   expect(apply).not.toHaveBeenCalled();
 });

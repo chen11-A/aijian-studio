@@ -971,10 +971,20 @@ export interface AijianDesktopBridge
     }[]
   >;
   readFilmProject?: (id: string) => Promise<Record<string, unknown> | null>;
+  prepareFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
   readFilmMedia?: (path: string) => Promise<Uint8Array>;
+  extractFilmLastFrame?: (
+    seriesId: string,
+    videoPath: string,
+  ) => Promise<{
+    path: string;
+    sourceVideoPath: string;
+    code?: string;
+    text?: string;
+  }>;
   assembleFilm?: (
     seriesId: string,
     sources: string[],
@@ -996,10 +1006,12 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  cancelFilmExport?: (requestId: string) => Promise<{ ok: boolean }>;
   exportFilmCut?: (
     source: string,
     directory: string,
     name?: string,
+    options?: { aspectRatio?: "16:9" | "9:16"; requestId?: string },
   ) => Promise<{ ok: boolean; path: string }>;
   revealFilmPath?: (path: string) => Promise<{ ok: boolean }>;
   openFilmPath?: (path: string) => Promise<{ ok: boolean; error: string }>;

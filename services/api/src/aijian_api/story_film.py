@@ -95,18 +95,21 @@ class StoryFilmError(RuntimeError):
         *,
         ffmpeg_stage: str | None = None,
         exit_code: int | None = None,
+        detail: dict[str, int | float | None] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.ffmpeg_stage = ffmpeg_stage
         self.exit_code = exit_code
+        self.detail = detail
 
 
 @dataclass(frozen=True, slots=True)
 class StoryDialogue:
     speaker: str
     text: str
+    voice_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +155,8 @@ class StoryFilmRequest:
     move: str = ""
     delivery: str = ""
     aspect_ratio: str = "9:16"
+    dialogue_lines: tuple[StoryDialogue, ...] = ()
+    shot_index: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -361,20 +366,29 @@ class StoryFilmService:
         self._shot_captions = None
         clear_film_cancel(project_id)
         provider_label, billing_label = provider_copy(request.provider)
-        if any(
-            len({line.speaker for line in shot.lines if line.text.strip()}) > 1
-            for shot in request.shots
-        ):
-            return replace(
-                _blocked(
-                    "这一镜有多位说话人，请先拆分配音。", provider_label, billing_label, None, None
-                ),
-                user_message=user_message(
-                    "MULTI_VOICE_REQUIRED",
-                    "这一镜需要分角色配音。",
-                    "台词与字幕保留；请先拆分配音后重试。",
-                ),
+        dialogue_groups = [
+            (shot.lines, shot.voice_id or request.voice_id) for shot in request.shots
+        ]
+        dialogue_groups.append((request.dialogue_lines, request.voice_id))
+        for lines, fallback_voice in dialogue_groups:
+            spoken_lines = tuple(line for line in lines if line.text.strip())
+            multiple = len({line.speaker for line in spoken_lines}) > 1
+            missing_voice = any(
+                not re.fullmatch(
+                    r"[^\s\x00-\x1f\x7f]{1,64}",
+                    line.voice_id or ("" if multiple else fallback_voice),
+                )
+                for line in spoken_lines
             )
+            if missing_voice or (multiple and request.provider != "grok_subscription"):
+                code = "MULTI_VOICE_REQUIRED" if missing_voice else "MULTI_VOICE_PROVIDER_REQUIRED"
+                text = (
+                    "请为每句台词选择角色声音。" if missing_voice else "分角色配音需要 Grok 会员。"
+                )
+                return replace(
+                    _blocked(text, provider_label, billing_label, None, None),
+                    user_message=user_message(code, text),
+                )
         blocked = self._preflight(project_id, request, media_token)
         if blocked is not None:
             return blocked
@@ -424,6 +438,8 @@ class StoryFilmService:
             chosen = (
                 sum(max(1, min(int(shot.duration_seconds), 15)) for shot in request.shots)
                 if request.shots
+                and request.provider != "grok_subscription"
+                and not any(shot.lines for shot in request.shots)
                 else None
             )
             result = self._assemble_and_export(
@@ -460,7 +476,7 @@ class StoryFilmService:
                     error_stage=failure_stage if isinstance(failure_stage, str) else "assemble",
                     error_code=code,
                 )
-            return _failed(
+            failed = _failed(
                 message,
                 provider_label,
                 billing_label,
@@ -470,6 +486,26 @@ class StoryFilmService:
                 fix="可以重试。" if grok else "请改用本地占位再试一次。",
                 preview_image=preview if isinstance(preview, str) else None,
             )
+            if isinstance(error, StoryFilmError) and error.code in {
+                "DIALOGUE_VIDEO_LIMIT",
+                "VIDEO_TOO_SHORT",
+                "DIALOGUE_VIDEO_REQUIRED",
+            }:
+                detail = ""
+                if error.detail:
+                    shot_index = error.detail.get("shot_index")
+                    required = error.detail.get("requiredSeconds")
+                    maximum = error.detail.get("maxSeconds")
+                    label = f"第 {shot_index} 镜" if shot_index is not None else "这一镜"
+                    if isinstance(required, int | float) and isinstance(maximum, int | float):
+                        detail = (
+                            f"{label}对白约 {required:g} 秒，视频最多 {maximum:g} 秒；请拆分对白。"
+                        )
+                return replace(
+                    failed,
+                    user_message=user_message(error.code, error.message, detail),
+                )
+            return failed
         self._ledger.complete_local_task(
             running, output_version_id=result.artifact_version_id or ""
         )
@@ -503,6 +539,7 @@ class StoryFilmService:
             draft=True,
             live_call=live_call,
             preview_image=preview if isinstance(preview, str) else None,
+            voice_path=result.voice_path,
         )
 
     def _preflight(
@@ -770,6 +807,8 @@ class StoryFilmService:
                     voice_id=shot.voice_id or request.voice_id,
                     regenerate=request.regenerate or shot.regenerate,
                     delivery=shot.delivery,
+                    dialogue_lines=shot.lines,
+                    shot_index=index,
                     shots=(),
                 )
                 if request.provider == "grok_subscription":
@@ -801,6 +840,15 @@ class StoryFilmService:
                 audio_path = directory / f"shot-{index}{_audio_suffix(speech)}"
                 clip_path.write_bytes(clip)
                 chosen = max(1, min(int(shot.duration_seconds), 15))
+                audio_path.write_bytes(speech)
+                if shot.lines or request.provider == "grok_subscription":
+                    chosen = max(
+                        chosen,
+                        math.ceil(
+                            _media_duration(tools.ffprobe_path, audio_path)
+                            + _NARRATION_TAIL_SECONDS
+                        ),
+                    )
                 source_dir = Path(self._repository.database_path).parent / "story-films"
                 source_dir.mkdir(parents=True, exist_ok=True)
                 stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
@@ -813,6 +861,7 @@ class StoryFilmService:
                     clip_path,
                     audio_path,
                     chosen,
+                    shot_index=index,
                 )
                 actual = _media_duration(tools.ffprobe_path, clip_path)
                 if actual > chosen + 0.35:
@@ -887,6 +936,19 @@ class StoryFilmService:
         bundle = None if request.regenerate else self._saved_bundle(project_id, request)
         if bundle is not None:
             image_bytes, saved_clip, saved_speech = bundle
+            with tempfile.TemporaryDirectory(prefix="aivora-cache-duration-") as temporary:
+                cached_video = Path(temporary) / "video.mp4"
+                cached_voice = Path(temporary) / f"voice{_audio_suffix(saved_speech)}"
+                cached_video.write_bytes(saved_clip)
+                cached_voice.write_bytes(saved_speech)
+                tools = self._tools()
+                if (
+                    _media_duration(tools.ffprobe_path, cached_voice)
+                    > _media_duration(tools.ffprobe_path, cached_video) + 1
+                ):
+                    raise StoryFilmError(
+                        "VIDEO_TOO_SHORT", "已保存的视频不够长，请重新生成更长的视频。"
+                    )
             append_grok_status("image_saved", code="reused")
             append_grok_status("video_submit", code="reused")
             append_grok_status("video_poll", code="reused")
@@ -961,6 +1023,48 @@ class StoryFilmService:
                 )
         self._ensure_running(project_id)
         kept = bool(image.data)
+        model = request.video_model or VIDEO_MODEL
+        cap = 10 if model == "grok-imagine-video" and (reference_images or reference_url) else 15
+        duration = min(duration, cap)
+        speech: bytes | None = None
+        if request.dialogue_lines or _spoken_line(request.narration):
+            mark_film_progress(project_id, "speech", "正在生成配音。", image_saved=kept)
+            saved_voice = self._saved_voice(
+                self._image_directory(), self._image_stem(project_id, request)
+            )
+            if saved_voice is not None:
+                speech = saved_voice.read_bytes()
+            else:
+                speech = self._dialogue_speech(client, request, project_id)
+                # A newly synthesized voice must never pair with an older cached clip.
+                (
+                    self._image_directory() / f"{self._image_stem(project_id, request)}-clip.mp4"
+                ).unlink(missing_ok=True)
+                for suffix in (".wav", ".mp3"):
+                    if suffix != _audio_suffix(speech):
+                        (
+                            self._image_directory()
+                            / f"{self._image_stem(project_id, request)}-voice{suffix}"
+                        ).unlink(missing_ok=True)
+                self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
+            with tempfile.TemporaryDirectory(prefix="aivora-speech-duration-") as temporary:
+                speech_file = Path(temporary) / f"speech{_audio_suffix(speech)}"
+                speech_file.write_bytes(speech)
+                spoken_seconds = _media_duration(self._tools().ffprobe_path, speech_file)
+            duration = max(
+                min(duration, cap), min(cap, math.ceil(spoken_seconds + _NARRATION_TAIL_SECONDS))
+            )
+            if spoken_seconds > cap:
+                raise StoryFilmError(
+                    "DIALOGUE_VIDEO_LIMIT",
+                    "这段对白超过单个视频可容纳的长度，请拆分镜头后重试。",
+                    detail={
+                        "requiredSeconds": spoken_seconds,
+                        "maxSeconds": cap,
+                        "shot_index": request.shot_index,
+                    },
+                )
+            self._ensure_running(project_id)
         mark_film_progress(project_id, "video", shot_label or "正在生成视频。", image_saved=kept)
         clip, video_note = self._live_video(
             client,
@@ -974,30 +1078,23 @@ class StoryFilmService:
         )
         self._ensure_running(project_id)
         mark_film_progress(project_id, "speech", shot_label or "正在生成配音。", image_saved=kept)
-        spoken = _spoken_line(request.narration)
-        if not spoken:
-            speech = _silent_wav()
-        else:
-            directed, speed = directed_speech(spoken, request.delivery)
-            try:
-                speech = client.synthesize(
-                    text=directed,
-                    voice_id=request.voice_id or "eve",
-                    language="zh",
-                    speed=speed,
-                )
-            except XaiMediaError as error:
-                if clip is None:
-                    raise StoryFilmError(
-                        "MEDIA_INCOMPLETE",
-                        "画面已生成，视频和配音这一步没有成功，可以重试",
-                    ) from error
+        try:
+            if speech is None:
+                speech = self._dialogue_speech(client, request, project_id)
+        except XaiMediaError as error:
+            if clip is None:
                 raise StoryFilmError(
-                    "SPEECH_FAILED",
-                    "画面已生成，配音这一步没有成功，可以重试",
+                    "MEDIA_INCOMPLETE", "画面已生成，视频和配音这一步没有成功，可以重试"
                 ) from error
+            raise StoryFilmError(
+                "SPEECH_FAILED", "画面已生成，配音这一步没有成功，可以重试"
+            ) from error
         real_clip = clip is not None
         if clip is None:
+            if request.dialogue_lines:
+                raise StoryFilmError(
+                    "DIALOGUE_VIDEO_REQUIRED", "视频没有生成成功，已保留完整对白，请重试视频。"
+                )
             if not image.data:
                 raise StoryFilmError(
                     "MEDIA_INCOMPLETE",
@@ -1013,6 +1110,76 @@ class StoryFilmService:
             self._store_part(project_id, request, clip, "-clip.mp4")
             self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
         return picture, clip, speech
+
+    def _dialogue_speech(
+        self, client: XaiMediaClient, request: StoryFilmRequest, project_id: str
+    ) -> bytes:
+        lines = tuple(line for line in request.dialogue_lines if line.text.strip())
+        if not lines:
+            spoken = _spoken_line(request.narration)
+            if not spoken:
+                return _silent_wav()
+            directed, speed = directed_speech(spoken, request.delivery)
+            self._ensure_running(project_id)
+            audio = client.synthesize(
+                text=directed, voice_id=request.voice_id or "eve", language="zh", speed=speed
+            )
+            self._ensure_running(project_id)
+            return audio
+        multiple = len({line.speaker for line in lines}) > 1
+        voices = [line.voice_id or ("" if multiple else request.voice_id) for line in lines]
+        if any(not re.fullmatch(r"[^\s\x00-\x1f\x7f]{1,64}", voice) for voice in voices):
+            raise StoryFilmError("MULTI_VOICE_REQUIRED", "请为每句台词选择角色声音。")
+        tools = self._tools()
+        with tempfile.TemporaryDirectory(prefix="aivora-dialogue-") as temporary:
+            directory = Path(temporary)
+            entries = []
+            for index, (line, voice) in enumerate(zip(lines, voices, strict=True)):
+                self._ensure_running(project_id)
+                directed, speed = directed_speech(line.text, request.delivery)
+                audio = client.synthesize(text=directed, voice_id=voice, language="zh", speed=speed)
+                self._ensure_running(project_id)
+                source = directory / f"line-{index}{_audio_suffix(audio)}"
+                target = directory / f"line-{index}-pcm.wav"
+                source.write_bytes(audio)
+                _ffmpeg(
+                    tools.ffmpeg_path,
+                    [
+                        "-i",
+                        str(source),
+                        "-vn",
+                        "-ar",
+                        "48000",
+                        "-ac",
+                        "1",
+                        "-c:a",
+                        "pcm_s16le",
+                        str(target),
+                    ],
+                    stage="dialogue_decode",
+                )
+                entries.append(f"file '{target.name}'")
+            self._ensure_running(project_id)
+            manifest = directory / "lines.txt"
+            manifest.write_text("\n".join(entries), encoding="utf-8")
+            target = directory / "dialogue.wav"
+            _ffmpeg(
+                tools.ffmpeg_path,
+                [
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "1",
+                    "-i",
+                    str(manifest),
+                    "-c:a",
+                    "pcm_s16le",
+                    str(target),
+                ],
+                stage="dialogue_concat",
+            )
+            self._ensure_running(project_id)
+            return target.read_bytes()
 
     def _ensure_running(self, project_id: str) -> None:
         if project_id and film_cancel_requested(project_id):
@@ -1033,6 +1200,11 @@ class StoryFilmService:
                 request.scene_label,
                 request.narration,
                 request.voice_id or "eve",
+                request.delivery,
+                json.dumps(
+                    [(line.speaker, line.text, line.voice_id) for line in request.dialogue_lines],
+                    ensure_ascii=False,
+                ),
             )
         ).encode()
         return hashlib.sha256(raw).hexdigest()[:16]
@@ -1147,7 +1319,16 @@ class StoryFilmService:
                 ),
                 image=image,
                 model=request.video_model or VIDEO_MODEL,
-                duration=max(1, min(duration, 15)),
+                duration=max(
+                    1,
+                    min(
+                        duration,
+                        10
+                        if (request.video_model or VIDEO_MODEL) == "grok-imagine-video"
+                        and reference_images
+                        else 15,
+                    ),
+                ),
                 generate_audio=False,
                 reference_images=references_for_model(
                     request.video_model or VIDEO_MODEL, reference_images
@@ -1237,7 +1418,12 @@ class StoryFilmService:
         clip_path.write_bytes(clip)
         audio_path.write_bytes(speech)
         width, height, frames, voiced = _normalize_film_media(
-            tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path, max_seconds
+            tools.ffmpeg_path,
+            tools.ffprobe_path,
+            clip_path,
+            audio_path,
+            max_seconds,
+            tail_seconds=0 if request.shots else _NARRATION_TAIL_SECONDS,
         )
         store = MediaAssetStore(self._repository)
         image_asset = store.import_local(project_id, image_path, display_filename="关键画面.png")
@@ -1808,13 +1994,16 @@ def _normalize_film_media(
     clip_path: Path,
     audio_path: Path,
     max_seconds: int | None = None,
+    *,
+    tail_seconds: float = _NARRATION_TAIL_SECONDS,
+    shot_index: int | None = None,
 ) -> tuple[int, int, int, Path]:
     """Loudness-normalize the narration and hold the last frame instead of cutting it.
 
     Without a chosen length, the film is at least as long as the narration plus
     a short tail. A longer video is kept, and the narration is padded with
-    silence rather than trimmed. When the user chose a length, that length is
-    the longest the picture is allowed to be.
+    silence rather than trimmed. A chosen length must accommodate all speech.
+    Frame holds are limited to one second; insufficient video fails explicitly.
     """
 
     payload = _ffprobe(ffprobe, ["-show_streams", "-of", "json", str(clip_path)])
@@ -1873,13 +2062,29 @@ def _normalize_film_media(
         stage="normalize_voice",
     )
     narration_seconds = _media_duration(ffprobe, normalized)
+    if max_seconds is not None and narration_seconds > max_seconds + 1e-6:
+        raise StoryFilmError(
+            "DIALOGUE_VIDEO_LIMIT", "画面时长不够容纳完整对白，请增加时长或拆分镜头。"
+        )
     target_frames = max(
         frames,
-        math.ceil((narration_seconds + _NARRATION_TAIL_SECONDS) * _FRAME_RATE - 1e-6),
+        math.ceil((narration_seconds + tail_seconds) * _FRAME_RATE - 1e-6),
     )
     if max_seconds is not None:
         cap_frames = max(1, math.floor(max_seconds * _FRAME_RATE + 1e-6))
         target_frames = min(target_frames, cap_frames)
+    if math.ceil(narration_seconds * _FRAME_RATE - 1e-6) - frames > _FRAME_RATE:
+        raise StoryFilmError(
+            "VIDEO_TOO_SHORT",
+            "视频比完整对白短太多，请重新生成更长的视频。",
+            detail={
+                "requiredSeconds": narration_seconds,
+                "maxSeconds": frames / _FRAME_RATE + 1,
+                "shot_index": shot_index,
+            },
+        )
+    # Reduce optional silence, never dialogue, to keep the actual frame hold <= one second.
+    target_frames = min(target_frames, frames + _FRAME_RATE)
     if target_frames > frames:
         extra = (target_frames - frames) / _FRAME_RATE
         held = clip_path.with_name(f"{clip_path.stem}-hold.mp4")

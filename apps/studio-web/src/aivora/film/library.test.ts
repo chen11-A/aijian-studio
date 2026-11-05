@@ -1,11 +1,58 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { newEpisode, sampleFilm, writeFilm } from "./project";
-import { listEpisodes, listFilms, readSaved, removeFilm, renameFilm } from "./library";
+import {
+  prepareFilmSnapshot,
+  listEpisodes,
+  listFilms,
+  readSaved,
+  removeFilm,
+  renameFilm,
+} from "./library";
 
 describe("film library", () => {
   beforeEach(() => {
     window.localStorage.clear();
     delete window.aijian;
+  });
+
+  it("prepares through the desktop bridge without writing or remembering a snapshot", async () => {
+    const film = sampleFilm();
+    const prepared = { ...film, assemblyUrl: "/media/prepared.mp4" };
+    const prepare = vi.fn(async () => prepared);
+    const write = vi.fn();
+    window.aijian = {
+      prepareFilmProject: prepare,
+      writeFilmProject: write,
+    } as unknown as Window["aijian"];
+    expect(await prepareFilmSnapshot(film)).toBe(prepared);
+    expect(prepare).toHaveBeenCalledWith(film);
+    expect(write).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("rejects stale preparation before dispatch and after materialization", async () => {
+    const film = sampleFilm();
+    let current = true;
+    const prepare = vi.fn(async () => {
+      current = false;
+      return film;
+    });
+    window.aijian = { prepareFilmProject: prepare } as unknown as Window["aijian"];
+    await expect(prepareFilmSnapshot(film, () => false)).rejects.toMatchObject({
+      code: "PIPELINE_OWNER_CHANGED",
+    });
+    expect(prepare).not.toHaveBeenCalled();
+    await expect(prepareFilmSnapshot(film, () => current)).rejects.toMatchObject({
+      code: "PIPELINE_OWNER_CHANGED",
+    });
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("requires preparation support instead of pretending session media is durable", async () => {
+    await expect(prepareFilmSnapshot(sampleFilm())).rejects.toMatchObject({
+      code: "PIPELINE_PREPARATION_REQUIRED",
+    });
   });
 
   it("keeps two episodes in one series and does not overwrite another series", async () => {

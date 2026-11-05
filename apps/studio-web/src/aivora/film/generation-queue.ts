@@ -194,6 +194,31 @@ export function cancelQueuedVideoTasks(film: FilmProject) {
   return next;
 }
 
+/** A scene prerequisite failed before these versions were sent to the provider. */
+export function failQueuedVideoPrerequisites(
+  film: FilmProject,
+  groups: { takes: FilmTake[] }[],
+  reason: string,
+) {
+  const ids = new Set(groups.flatMap((group) => group.takes.map((take) => take.id)));
+  return {
+    ...film,
+    shots: film.shots.map((shot) => ({
+      ...shot,
+      takes: shot.takes.map((take) =>
+        ids.has(take.id) && take.status === "queued"
+          ? { ...take, status: "failed" as const, interruptedFrom: "queued" as const, reason }
+          : take,
+      ),
+    })),
+    jobs: film.jobs.map((job) =>
+      job.kind === "video" && job.takeId && ids.has(job.takeId) && job.status === "queued"
+        ? { ...job, status: "failed" as const, interruptedFrom: "queued" as const, reason }
+        : job,
+    ),
+  };
+}
+
 export function failRunningVideoTasks(
   film: FilmProject,
   groups: { takes: FilmTake[] }[],

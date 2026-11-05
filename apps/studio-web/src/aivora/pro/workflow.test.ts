@@ -1,5 +1,6 @@
+import { NOTICE_TEXT } from "../film/notices";
 import { describe, it, expect, vi } from "vitest";
-import { sampleFilm } from "../film/project";
+import { blankFilm, FILM_KEY, readFilm, sampleFilm } from "../film/project";
 import {
   assembleCurrentFilm,
   generateMissingPortraits,
@@ -124,13 +125,18 @@ it("keeps image reference limits in diagnostics and gives a short actionable rea
   const generate = vi.fn(async () => ({ path: "/tmp/still.png", reason: "" }));
   window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
   const made = await requestShotStill(film, shot, "frame");
-  expect(generate).toHaveBeenCalledWith(film.seriesId, "frame", "9:16", [
-    "https://example.test/0/0.png",
-    "https://example.test/1/0.png",
-    "https://example.test/0/1.png",
-    "https://example.test/1/1.png",
-    "https://example.test/0/2.png",
-  ]);
+  expect(generate).toHaveBeenCalledWith(
+    film.seriesId,
+    `frame\n【画风说明】\n${film.styleZh}\n【画风说明结束】`,
+    "16:9",
+    [
+      "https://example.test/0/0.png",
+      "https://example.test/1/0.png",
+      "https://example.test/0/1.png",
+      "https://example.test/1/1.png",
+      "https://example.test/0/2.png",
+    ],
+  );
   expect(made.reason).toBe("画面已生成。");
   expect(made.diagnostics).toEqual({ referenceCount: 5, imageLimit: 5, videoReferenceLimit: 13 });
   film.characters = Array.from({ length: 6 }, (_, index) => ({
@@ -148,6 +154,71 @@ it("keeps image reference limits in diagnostics and gives a short actionable rea
     videoReferenceLimit: 13,
   });
   expect(generate).toHaveBeenCalledTimes(1);
+});
+
+it("3JR-B06 excludes an explicitly offscreen speaker from the actual still request", async () => {
+  const { requestShotStill } = await import("./workflow");
+  const film = sampleFilm();
+  film.characters = ["林晚", "沈砚"].map((name, index) => ({
+    ...film.characters[0]!,
+    id: `person-${index}`,
+    name,
+    identity: `${name}，独特外貌${index}`,
+    portraits: [{ view: "正面", prompt: "", url: `https://images.test/${index}.png` }],
+  }));
+  const shot = {
+    ...film.shots[0]!,
+    picture: "林晚看着照片。沈砚不入画。",
+    action: "林晚抬头。",
+    performance: "",
+    blocking: "",
+    characters: ["林晚", "沈砚"],
+    speaker: "沈砚",
+    lines: [{ speaker: "沈砚", text: "你来晚了。" }],
+    line: "你来晚了。",
+  };
+  const before = structuredClone(shot);
+  const generate = vi.fn(async () => ({ path: "/tmp/still.png", reason: "" }));
+  window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
+  const result = await requestShotStill(film, shot, "林晚看着照片。沈砚，黑风衣，站在她身后。");
+  expect(generate).toHaveBeenCalledTimes(1);
+  const [, prompt, , references] = generate.mock.calls[0]! as unknown as [
+    string,
+    string,
+    string,
+    string[],
+  ];
+  expect(prompt).toContain("林晚看着照片");
+  expect(prompt).toContain("沈砚不入画");
+  expect(prompt).not.toContain("黑风衣");
+  expect(references).toEqual(["https://images.test/0.png"]);
+  expect(result.diagnostics.referenceCount).toBe(1);
+  expect(shot).toEqual(before);
+});
+
+it("3JR-B06 counts only visible portraits against the first-frame limit", async () => {
+  const { requestShotStill } = await import("./workflow");
+  const film = sampleFilm();
+  film.characters = Array.from({ length: 6 }, (_, index) => ({
+    ...film.characters[0]!,
+    id: `person-${index}`,
+    name: `person${index}`,
+    portraits: [{ view: "正面", prompt: "", url: `https://images.test/${index}.png` }],
+  }));
+  const shot = {
+    ...film.shots[0]!,
+    characters: film.characters.map((person) => person.name),
+    picture: "person5不入画。其他五人站在门口。",
+    speaker: "person5",
+    lines: [],
+  };
+  const generate = vi.fn(async () => ({ path: "/tmp/still.png", reason: "" }));
+  window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
+  const result = await requestShotStill(film, shot, shot.picture);
+  expect(generate).toHaveBeenCalledTimes(1);
+  const sent = generate.mock.calls[0]! as unknown as [string, string, string, string[]];
+  expect(sent[3]).not.toContain("https://images.test/5.png");
+  expect(result.diagnostics.referenceCount).toBe(5);
 });
 
 it("keeps an unavailable desktop reason free of reference diagnostics", async () => {
@@ -176,7 +247,7 @@ it("preserves the image failure reason without adding reference counts", async (
     const film = sampleFilm();
     const made = await requestShotStill(film, film.shots[0]!, "frame");
     expect(made.url).toBe("");
-    expect(made.reason).toBe("请重新登录后重试。");
+    expect(made.reason).toBe(NOTICE_TEXT.REAUTH_REQUIRED);
     expect(made.reason).not.toMatch(/模型|上限|首帧|\d/u);
     expect(made.diagnostics).toMatchObject({ imageLimit: 5, videoReferenceLimit: 13 });
   } finally {
@@ -291,6 +362,75 @@ it("keeps rejection distinct from an ordinary still failure in plain status copy
   });
   expect(stillFailureNotice(new Error("出图没有成功，可以重试。"))).toEqual({
     code: "STILL_FAILED",
-    text: "画面未完成，可以重试。",
+    text: "画面没出成，可以再试一次。",
   });
+});
+
+it("starts new projects in landscape", () => {
+  expect(blankFilm().aspectRatio).toBe("16:9");
+});
+
+it.each(["9:16", undefined] as const)(
+  "preserves legacy portrait projects and still requests when saved aspect is %s",
+  async (aspectRatio) => {
+    const { requestShotStill } = await import("./workflow");
+    const previousApi = window.aijian;
+    const previousFilm = localStorage.getItem(FILM_KEY);
+    const saved = { ...sampleFilm(), aspectRatio };
+    const generate = vi.fn(async () => ({ path: "/tmp/portrait.png", reason: "" }));
+    try {
+      localStorage.setItem(FILM_KEY, JSON.stringify(saved));
+      const restored = readFilm(localStorage);
+      expect(restored?.aspectRatio).toBe("9:16");
+      if (!restored) throw new Error("legacy project was not restored");
+      window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
+      await requestShotStill(restored, restored.shots[0]!, "legacy frame");
+      expect(generate).toHaveBeenCalledExactlyOnceWith(
+        restored.seriesId,
+        expect.stringContaining("legacy frame"),
+        "9:16",
+        expect.any(Array),
+      );
+    } finally {
+      window.aijian = previousApi;
+      if (previousFilm === null) localStorage.removeItem(FILM_KEY);
+      else localStorage.setItem(FILM_KEY, previousFilm);
+    }
+  },
+);
+
+it.each([
+  ["首帧选用 5 张参考图，模型上限 13；请求失败。", "STILL_FAILED"],
+  ["模型拒绝了这一张，参考图 5 张。", "STILL_REJECTED"],
+  ["请重新登录后重试，模型上限 13。", "REAUTH_REQUIRED"],
+])("3J-B19 classifies provider details without forwarding them: %s", async (reason, code) => {
+  const { requestShotStill } = await import("./workflow");
+  const previous = window.aijian;
+  try {
+    window.aijian = {
+      generateFilmStill: vi.fn(async () => ({ path: "", reason })),
+    } as unknown as Window["aijian"];
+    const film = sampleFilm();
+    const result = await requestShotStill(film, film.shots[0]!, "frame");
+    expect(result.url).toBe("");
+    expect(result.reason).toBe(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]);
+    expect(result.reason).not.toMatch(/模型|上限|首帧|\d/u);
+    expect(result.diagnostics).toMatchObject({ imageLimit: 5, videoReferenceLimit: 13 });
+    expect(JSON.stringify(result)).not.toContain(reason);
+  } finally {
+    window.aijian = previous;
+  }
+});
+
+it("3J-B19 preserves timeout classification when the image bridge rejects", async () => {
+  const { requestStill } = await import("./workflow");
+  const previous = window.aijian;
+  try {
+    window.aijian = {
+      generateFilmStill: vi.fn().mockRejectedValue(new Error("TASK_TIMEOUT")),
+    } as unknown as Window["aijian"];
+    expect((await requestStill("series", "frame")).reason).toBe(NOTICE_TEXT.TASK_TIMEOUT);
+  } finally {
+    window.aijian = previous;
+  }
 });

@@ -1,4 +1,27 @@
-import { sceneDisplayTitle } from "./director-continuity";
+import {
+  adultAgeLabel,
+  adultVoiceEvidence,
+  provisionalAdultVoice,
+  type AdultVoiceDefault,
+} from "./adult-voice-default";
+import { sourceSupportsActionShot, type ActionSourceScene } from "./action-source-evidence";
+import { shotActions, shotActionText, withShotActions } from "./shot-actions";
+import {
+  constrainVisualPrompt,
+  onScreenCharacters,
+  withoutOffscreenVisuals,
+} from "./on-screen-characters";
+import { sceneWriterPlan, type WriterPlan } from "./writer-plan";
+import { sourceCharacterEvidence } from "./character-source";
+import { directorPlanPrompt } from "./director-plan";
+import { withShotCostumes } from "./costume-rules";
+import { writerElements } from "./writer-elements";
+import { performancePlanPrompt } from "./performance-plan";
+import { actionPlanPrompt } from "./action-plan";
+import { locationReference, withLocationLayout } from "./location-reference";
+import { parseAgentReplyText } from "./agent-reply-compat";
+import { shotLines, sceneDisplayTitle } from "./director-continuity";
+import { withStyleBible } from "./style-bible";
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 import { emptySoundPlan } from "./audio";
 import { durationFromSpeech, speechSeconds, plainCue } from "./phase2";
@@ -21,8 +44,11 @@ import {
 
 export const QC_REASON = "审片还不能看图打分。版本由你来选，不会自动重做。";
 export const PORTRAIT_REASON = "请打开安装好的 AIVORA 再出图。";
-export const CONTINUITY_REASON =
-  "这一镜会接着上一镜的结尾来写。生成时不会把上一镜的最后一帧传过去。";
+export const CONTINUITY_NOTICE = {
+  code: "CONTINUITY_LINK_INFO",
+  text: "标记为连续动作的镜头，会在出视频前提取前镜末帧。",
+};
+export const CONTINUITY_REASON = CONTINUITY_NOTICE.text;
 export const PREVIEW_REASON =
   "单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。";
 export const LOUDNESS_NOTE =
@@ -107,6 +133,7 @@ export type StoryFilmBody = {
     reference?: string;
     references?: string[];
     delivery?: string;
+    lines?: { speaker: string; text: string; voice_id: string }[];
   }[];
   video_model?: string;
 };
@@ -376,6 +403,7 @@ export function rebuildFromParagraphs(
   const paragraphs = numberParagraphs(source);
   if (paragraphs.length === 0 || scenes.length === 0) return scenes;
   const groups = scenes.map(() => [] as string[]);
+  const reliable = scenes.map(() => [] as string[]);
   const explicit = records.map(listedParagraphs);
   const present = new Set(paragraphs.map((item) => item.id));
   const claimed = records.some((record) => Array.isArray(record.source_paragraphs));
@@ -417,6 +445,8 @@ export function rebuildFromParagraphs(
         risks[listed]!.crossSceneRisk = true;
       }
       cursor = listed;
+      if (!risks[listed]!.duplicateParagraphs.includes(paragraph.id))
+        reliable[listed]!.push(paragraph.id);
     } else if (claimed) {
       risks[cursor]?.missingParagraphs.push(paragraph.id);
       if (/^第[0-9０-９一二三四五六七八九十百千零两]+场/u.test(paragraph.text))
@@ -434,8 +464,15 @@ export function rebuildFromParagraphs(
         }))
         .filter((item) => item.lines || item.hit);
       hits.sort((a, b) => Number(b.lines) - Number(a.lines) || a.length - b.length);
-      if (hits[0]) cursor = hits[0].index;
-      else risks[cursor]?.missingParagraphs.push(paragraph.id);
+      if (hits[0]) {
+        cursor = hits[0].index;
+        // A short matching fragment is insufficient evidence of scene ownership.
+        const exact = scenes
+          .map((_, index) => ({ text: asText(records[index]?.text), index }))
+          .filter(({ text }) => text.includes(paragraph.text));
+        if (exact.length === 1 && exact[0]!.index === cursor) reliable[cursor]!.push(paragraph.id);
+        else risks[cursor]?.missingParagraphs.push(paragraph.id);
+      } else risks[cursor]?.missingParagraphs.push(paragraph.id);
     }
     groups[cursor]?.push(paragraph.id);
   }
@@ -452,20 +489,20 @@ export function rebuildFromParagraphs(
       !risk.duplicateParagraphs.length &&
       !risk.invalidParagraphs.length &&
       !risk.crossSceneRisk;
-    return { ...scene, text, paragraphCoverage: risk };
+    return {
+      ...scene,
+      text,
+      paragraphCoverage: risk,
+      sourceParagraphIds: reliable[index],
+      writerSourceText: text,
+      writerParagraphIds: groups[index],
+      elements: writerElements(records[index] ?? {}, paragraphs, reliable[index] ?? []),
+    };
   });
 }
 
 export function parseWriterScenes(text: string, source = ""): FilmScene[] | null {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  let value: unknown;
-  try {
-    value = JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
-  }
+  const value = parseAgentReplyText("writer", text);
   if (!value || typeof value !== "object" || !("scenes" in value)) return null;
   const rows = (value as { scenes?: unknown }).scenes;
   if (!Array.isArray(rows)) return null;
@@ -555,7 +592,7 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
           headings[index]?.title ||
           sceneDisplayTitle("", headingWhere(record), story);
     const where = headingWhere(record);
-    const dialogue = elementLines(record).filter((line) => !body.includes(line));
+    const dialogue = source ? [] : elementLines(record).filter((line) => !body.includes(line));
     const withLines = [body.trim(), ...dialogue].filter(Boolean).join("\n");
     if (!withLines) return;
     const explicit = typeof record.id === "string" ? record.id.trim() : "";
@@ -570,6 +607,8 @@ export function parseWriterScenes(text: string, source = ""): FilmScene[] | null
       ...scene(no, title, withLines, where),
       id: /^scene-\d+$/.test(explicit) ? explicit : `scene-${no}`,
       source: "agent:writer",
+      elements: writerElements(record, [], []),
+      writerPlan: sceneWriterPlan(record),
       ...(tags.length > 0 ? { tags } : {}),
     });
     kept.push(record);
@@ -645,27 +684,106 @@ export function beatsForShot(
     .replace(/。{2,}/g, "。");
 }
 
+/** Text evidence excludes spoken mentions; it never uses shot order or number. */
+function actionVisual(shot: FilmShot): string {
+  let visual = `${shot.picture} ${shotActionText(shot)}`.replace(/[“「"][^”」"]*[”」"]/g, "");
+  for (const line of [...(shot.lines ?? []), { text: shot.line }])
+    if (line.text) visual = visual.replaceAll(line.text, "");
+  return visual;
+}
+
+const PHYSICAL_ACTION =
+  /打斗|挥|砍|刺|肘击|拳|踢|格挡|划|追打|搏斗|闪避|躲闪|侧身|扣住|一拧|抓住|推倒|抄起|扑|矮身|跪倒|掏出|抬手|顶|飞|爬起|脱下|脱掉|脱去|卷起|拖|钻进|逃|砸|落地|落下|擦|溅|正中|滑进/;
+const actionEvidence = (text: string) =>
+  plainCue(text)
+    .replace(/[“「"][^”」"]*[”」"]/g, "")
+    .replace(/^镜头\s*\d+\s*[·:：]?\s*(?:攻|防|攻击|防守)?[·:：]?/u, "")
+    .replace(/猛地|顺势|慢慢|正在|一个|一把|立刻|随即/gu, "")
+    .replace(/挥动(?:一根)?铁棍|挥起(?:一根)?铁棍|挥铁棍/gu, "挥棍")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+
+/** Require substantial literal overlap, not merely the same person or weapon. */
+function actionOverlap(cue: string, evidence: string): boolean {
+  if (cue.length < 4 || !PHYSICAL_ACTION.test(cue)) return false;
+  if (evidence.includes(cue)) return true;
+  const grams = [...new Set(Array.from({ length: cue.length - 1 }, (_, i) => cue.slice(i, i + 2)))];
+  const shared = grams.filter((gram) => evidence.includes(gram)).length;
+  const window = Math.min(6, cue.length - 1);
+  const hasRun = Array.from({ length: cue.length - window + 1 }, (_, i) =>
+    cue.slice(i, i + window),
+  ).some((part) => evidence.includes(part));
+  return shared >= 3 && shared / grams.length >= 0.8 && hasRun;
+}
+
+/** Resolve exact identity first; only missing/stale IDs may use unique source overlap. */
+export function resolveActionBeatShot(
+  shots: readonly FilmShot[],
+  sceneId: string,
+  beat: { text: string; shotId?: string },
+  sourceText = "",
+  sourceScene?: ActionSourceScene,
+): FilmShot | undefined {
+  const explicit = beat.shotId ? shots.find((shot) => shot.id === beat.shotId) : undefined;
+  if (explicit)
+    return explicit.sceneId === sceneId &&
+      !explicit.userFields.includes("action") &&
+      !explicit.userFields.includes("actionPlan")
+      ? explicit
+      : undefined;
+  const cue = actionEvidence(beat.text);
+  if (sourceText && !actionOverlap(cue, actionEvidence(sourceText))) return undefined;
+  const eligible = shots.filter(
+    (shot) =>
+      shot.sceneId === sceneId &&
+      !shot.userFields.includes("action") &&
+      !shot.userFields.includes("actionPlan"),
+  );
+  const direct = eligible.filter((shot) => actionOverlap(cue, actionEvidence(actionVisual(shot))));
+  // A direct visual match is stronger than another shot's shared source sentence.
+  if (direct.length) return direct.length === 1 ? direct[0] : undefined;
+  const candidates = eligible.filter((shot) =>
+    sourceSupportsActionShot(
+      shot,
+      beat.text,
+      sourceText,
+      sourceScene,
+      actionOverlap,
+      actionEvidence,
+    ),
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
 export function assignActionBeats(
   shots: FilmShot[],
   sceneId: string,
   beats: { text: string; shotId?: string }[],
+  sourceText = "",
+  sourceScene?: ActionSourceScene,
 ): { shots: FilmShot[]; unassignedBeats: { sceneId: string; text: string }[] } {
   const unassignedBeats: { sceneId: string; text: string }[] = [];
   const accepted = new Map<string, string[]>();
   for (const beat of beats) {
     const text = plainCue(beat.text);
     if (!text) continue;
-    const target = shots.find((shot) => shot.sceneId === sceneId && shot.id === beat.shotId);
+    const target = resolveActionBeatShot(shots, sceneId, beat, sourceText, sourceScene);
     // Spoken mentions of weapons do not turn a dialogue shot into a fight shot.
     const fightAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|铁棍|钢条|钢管|折叠刀/.test(text);
-    let visual = target
-      ? `${target.picture} ${target.action}`.replace(/[“「"][^”」"]*[”」"]/g, "")
-      : "";
-    for (const line of target?.lines ?? (target?.line ? [{ text: target.line }] : [])) {
-      if (line.text) visual = visual.replaceAll(line.text, "");
-    }
-    const hasPhysicalAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|追打|搏斗|闪避|躲闪/.test(visual);
-    if (!target || (fightAction && !hasPhysicalAction)) {
+    const visual = target ? actionVisual(target) : "";
+    const hasPhysicalAction = PHYSICAL_ACTION.test(visual);
+    if (
+      !target ||
+      (fightAction &&
+        !hasPhysicalAction &&
+        !sourceSupportsActionShot(
+          target,
+          text,
+          sourceText,
+          sourceScene,
+          actionOverlap,
+          actionEvidence,
+        ))
+    ) {
       unassignedBeats.push({ sceneId, text });
       continue;
     }
@@ -675,10 +793,10 @@ export function assignActionBeats(
     shots: shots.map((shot) => {
       const parts = accepted.get(shot.id);
       return parts
-        ? {
-            ...shot,
-            action: plainCue([...new Set([shot.action, ...parts].filter(Boolean))].join("。")),
-          }
+        ? withShotActions(
+            shot,
+            [...new Set([...shotActions(shot), ...parts].filter(Boolean))].map(plainCue),
+          )
         : shot;
     }),
     unassignedBeats,
@@ -716,16 +834,18 @@ export function portraitPrompts(
   styleZh: string,
 ): { view: string; prompt: string }[] {
   const who = identity.trim() || name.trim() || "人物";
-  const style = styleZh.replace(/。$/, "");
   const views = [
-    ["正面", "正面半身，看向镜头，作为定妆锚定"],
+    ["正面", "正面全身，看向镜头，作为定妆锚定"],
     ["侧面", "正侧面半身，同一张脸，同一套衣服"],
     ["背面", "背面全身，能看见衣服和发型"],
     ["脸部", "脸部特写，眼睛清楚，不要文字"],
   ];
   return views.map(([view, pose]) => ({
     view: view!,
-    prompt: `角色定妆照，不要画成某一场的动作。${who}。按这句话里的性别和年龄来画，不要改成另一种性别。${pose}。${style}。`,
+    prompt: withStyleBible(
+      `角色定妆照，不要画成某一场的动作。${who}。按这句话里的性别和年龄来画，不要改成另一种性别。${pose}。`,
+      styleZh,
+    ),
   }));
 }
 
@@ -741,11 +861,17 @@ export function shotProgress(shot: FilmShot): "视频已出" | "画面已出" | 
 }
 
 export function locationPlate(where: string, styleZh: string, variant: string): string {
-  return `空镜，没有人物。${where || "地点"}。${variant}。${styleZh}`;
+  return withStyleBible(`空镜，没有人物。${where || "地点"}。${variant}。`, styleZh);
 }
 
 export type ExtractedCast = {
-  characters: { name: string; identity: string; gender?: string; ageBand?: string }[];
+  characters: {
+    name: string;
+    identity: string;
+    gender?: string;
+    ageBand?: string;
+    voiceDefault?: AdultVoiceDefault;
+  }[];
   locations: { name: string; prompt: string }[];
 };
 
@@ -788,6 +914,7 @@ export function parseCastReply(text: string): ExtractedCast | null {
         gender?: unknown;
         age_band?: unknown;
         ageBand?: unknown;
+        age?: unknown;
       }[];
       locations?: { name?: unknown; prompt?: unknown }[];
     };
@@ -798,7 +925,7 @@ export function parseCastReply(text: string): ExtractedCast | null {
         (typeof item.identity_lock === "string" && item.identity_lock.trim()) ||
         "";
       if (!name) return [];
-      const person: { name: string; identity: string; gender?: string; ageBand?: string } = {
+      const person: ExtractedCast["characters"][number] = {
         name,
         identity,
       };
@@ -806,7 +933,15 @@ export function parseCastReply(text: string): ExtractedCast | null {
       const rawAge = item.ageBand ?? item.age_band;
       const ageBand = typeof rawAge === "string" ? rawAge.trim() : "";
       person.gender = normalizeGender(gender);
-      person.ageBand = normalizeAgeBand(ageBand);
+      const statedYears = explicitAgeYears(item.age) ?? explicitAgeYears(rawAge);
+      person.ageBand =
+        statedYears === null ? normalizeAgeBand(ageBand) : ageBandForYears(statedYears);
+      if (adultAgeLabel(rawAge))
+        person.voiceDefault = {
+          basis: "adult-default",
+          evidenceSource: "character-reply",
+          evidence: String(rawAge).trim(),
+        };
       return [person];
     });
     const locations = (value.locations ?? [])
@@ -844,14 +979,34 @@ const CN_DIGIT: Record<string, number> = {
 };
 
 function ageYears(text: string): number | null {
-  const digits = text.match(/(\d{1,2})\s*岁/);
-  if (digits) return Number(digits[1]);
+  const digits = text.match(/(?<![\d.])(\d{1,3})\s*岁/);
+  if (digits) return Number(digits[1]) <= 120 ? Number(digits[1]) : null;
   const tens = text.match(/([一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
   if (tens) return (CN_DIGIT[tens[1]!] ?? 0) * 10 + (tens[2] ? (CN_DIGIT[tens[2]] ?? 0) : 0);
   const ten = text.match(/(?<![一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
   if (ten) return 10 + (ten[1] ? (CN_DIGIT[ten[1]] ?? 0) : 0);
   const one = text.match(/([一二三四五六七八九])\s*岁/);
   return one ? (CN_DIGIT[one[1]!] ?? null) : null;
+}
+
+function ageBandForYears(years: number): CharacterAgeBand {
+  return years < 13
+    ? "儿童"
+    : years < 18
+      ? "少年"
+      : years < 40
+        ? "青年"
+        : years < 60
+          ? "中年"
+          : "老年";
+}
+
+function explicitAgeYears(value: unknown): number | null {
+  if (typeof value === "number")
+    return Number.isInteger(value) && value >= 0 && value <= 120 ? value : null;
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  return /^[0-9]{1,3}$/.test(raw) ? explicitAgeYears(Number(raw)) : ageYears(raw);
 }
 
 export function castTraits(
@@ -863,6 +1018,7 @@ export function castTraits(
 ): { gender: CharacterGender; ageBand: CharacterAgeBand } {
   gender = normalizeGender(gender);
   ageBand = normalizeAgeBand(ageBand);
+  const evidence = sourceCharacterEvidence(source, name);
   // Use only a name-adjacent relationship from the source, never a whole paragraph's pronouns.
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const relation =
@@ -884,6 +1040,7 @@ export function castTraits(
     (!gender && /丈夫|父亲|爸爸|之父|爷爷/.test(ownRole || text));
   const inferredGender =
     normalizeGender(gender) ||
+    evidence.gender ||
     (male
       ? "男"
       : female || /女|她|姑娘|小姐/.test(text)
@@ -892,7 +1049,9 @@ export function castTraits(
           ? "男"
           : "");
   const years = ageYears(text);
+  const sourceYears = ageYears(evidence.ageText || adjacentAge);
   const inferredAge =
+    (sourceYears !== null ? ageBandForYears(sourceYears) : "") ||
     normalizeAgeBand(ageBand) ||
     (years !== null
       ? years < 13
@@ -910,17 +1069,21 @@ export function castTraits(
           ? "中年"
           : /儿童|幼童|小孩/.test(text)
             ? "儿童"
-            : /少年|少女|青年|年轻/.test(text)
-              ? "青年"
-              : /成年|成人|中年/.test(text)
-                ? "中年"
-                : "");
+            : /少年|少女/.test(text)
+              ? "少年"
+              : /青年|年轻/.test(text)
+                ? "青年"
+                : /中年/.test(text)
+                  ? "中年"
+                  : "");
   return { gender: inferredGender, ageBand: inferredAge };
 }
 
 function voicePool(identity: string, name: string, gender = "", ageBand = ""): string[] {
   const traits = castTraits(identity, name, "", gender, ageBand);
-  if (!traits.gender || !traits.ageBand) return [];
+  if (!traits.gender) return [];
+  if (!traits.ageBand)
+    return adultVoiceEvidence(name, identity, "") ? (traits.gender === "女" ? WOMAN : MAN) : [];
   const female = traits.gender === "女";
   if (/儿童|幼年|child/i.test(traits.ageBand)) return female ? GIRL : BOY;
   if (/老年|elder|senior/i.test(traits.ageBand)) return female ? ELDER_WOMAN : ELDER_MAN;
@@ -955,18 +1118,37 @@ export function autoVoiceForCharacter(
   if (character.userFields.includes("gender")) traits.gender = normalizeGender(character.gender);
   if (character.userFields.includes("ageBand"))
     traits.ageBand = normalizeAgeBand(character.ageBand);
-  if (character.userFields.includes("voiceId")) return { ...character, ...traits, voiceCode: "" };
+  if (character.userFields.includes("voiceId"))
+    return { ...character, ...traits, voiceDefault: undefined, voiceCode: "" };
+  const voiceDefault =
+    !traits.ageBand && !character.userFields.includes("ageBand")
+      ? (adultVoiceEvidence(character.name, character.identity, source, character.voiceDefault) ??
+        (traits.gender
+          ? provisionalAdultVoice(character.name, character.identity, source)
+          : undefined))
+      : undefined;
   const pool =
     traits.gender && traits.ageBand
       ? voicePool(character.identity, character.name, traits.gender, traits.ageBand)
-      : [];
+      : traits.gender && voiceDefault
+        ? traits.gender === "女"
+          ? WOMAN
+          : MAN
+        : [];
   const voiceId = pool.includes(character.voiceId)
     ? character.voiceId
     : (pool.find((id) => !used.has(id)) ?? pool[0] ?? "");
-  return { ...character, ...traits, voiceId, voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED" };
+  return {
+    ...character,
+    ...traits,
+    voiceDefault: voiceId ? voiceDefault : undefined,
+    voiceId,
+    voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED",
+  };
 }
 
 export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProject {
+  const sourceText = film.sourceText.trim() || film.scenes.map((scene) => scene.text).join("\n\n");
   const known = new Set(film.characters.map((item) => item.name));
   const used = new Set(film.characters.map((item) => item.voiceId).filter(Boolean));
   const characters: FilmCharacter[] = film.characters.map((item) => {
@@ -974,31 +1156,65 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
     const traits = castTraits(
       incoming?.identity || item.identity,
       item.name,
-      film.sourceText,
+      sourceText,
       item.gender || incoming?.gender,
       item.ageBand || incoming?.ageBand,
     );
-    const updated = autoVoiceForCharacter({ ...item, ...traits }, used, film.sourceText);
+    const updated = autoVoiceForCharacter(
+      {
+        ...item,
+        ...(incoming?.voiceDefault
+          ? { voiceDefault: incoming.voiceDefault }
+          : incoming && adultAgeLabel(incoming.ageBand)
+            ? {
+                voiceDefault: {
+                  basis: "adult-default" as const,
+                  evidenceSource: "character-reply" as const,
+                  evidence: incoming.ageBand!,
+                },
+              }
+            : {}),
+        ...traits,
+        ...(item.userFields.includes("gender") ? { gender: item.gender } : {}),
+        ...(item.userFields.includes("ageBand") ? { ageBand: item.ageBand } : {}),
+      },
+      used,
+      sourceText,
+    );
     used.add(updated.voiceId);
     return updated;
   });
   for (const item of extracted.characters) {
     if (!item.name || known.has(item.name)) continue;
     known.add(item.name);
-    const traits = castTraits(item.identity, item.name, film.sourceText, item.gender, item.ageBand);
-    const voiceId = assignVoice(item.identity, item.name, used, traits.gender, traits.ageBand);
-    used.add(voiceId);
-    characters.push({
-      id: `cast-${characters.length + 1}`,
-      name: item.name,
-      identity: item.identity,
-      ...traits,
-      voiceId,
-      voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED",
-      source: "script",
-      userFields: [],
-      portraits: [],
-    });
+    const traits = castTraits(item.identity, item.name, sourceText, item.gender, item.ageBand);
+    const character = autoVoiceForCharacter(
+      {
+        id: `cast-${characters.length + 1}`,
+        name: item.name,
+        identity: item.identity,
+        ...traits,
+        voiceId: "",
+        ...(item.voiceDefault
+          ? { voiceDefault: item.voiceDefault }
+          : adultAgeLabel(item.ageBand)
+            ? {
+                voiceDefault: {
+                  basis: "adult-default" as const,
+                  evidenceSource: "character-reply" as const,
+                  evidence: item.ageBand!,
+                },
+              }
+            : {}),
+        source: "script",
+        userFields: [],
+        portraits: [],
+      },
+      used,
+      sourceText,
+    );
+    used.add(character.voiceId);
+    characters.push(character);
   }
   const knownPlaces = new Set(film.locations.map((item) => item.name));
   const locations: FilmLocation[] = [...film.locations];
@@ -1022,7 +1238,8 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
       item.voiceId !== film.characters[index]?.voiceId ||
       item.gender !== film.characters[index]?.gender ||
       item.ageBand !== film.characters[index]?.ageBand ||
-      item.voiceCode !== film.characters[index]?.voiceCode,
+      item.voiceCode !== film.characters[index]?.voiceCode ||
+      JSON.stringify(item.voiceDefault) !== JSON.stringify(film.characters[index]?.voiceDefault),
   );
   if (
     !voicesChanged &&
@@ -1076,9 +1293,9 @@ export function performanceLine(picture: string): string {
 }
 
 export function keyframeVariants(shot: FilmShot, film: FilmProject): string[] {
-  const base = keyframePrompt(shot, film).replace(/。$/, "");
-  return ["构图偏左", "构图偏右", "光线更暗，脸仍清楚", "再近一些"].map(
-    (twist) => `${base}。${twist}。`,
+  const base = keyframePrompt(shot, film);
+  return ["构图偏左", "构图偏右", "光线更暗，脸仍清楚", "再近一些"].map((twist) =>
+    withStyleBible(`${base}\n${twist}。`, film.styleZh),
   );
 }
 
@@ -1088,8 +1305,16 @@ export function continuityPrompt(
   film: FilmProject,
 ): string {
   const base = keyframePrompt(shot, film);
-  if (!previous?.picture.trim()) return base;
-  return `接上一镜的结尾：${previous.picture.replace(/。$/, "")}。${base}`;
+  if (
+    !previous?.picture.trim() ||
+    shot.continuityFromShotId !== previous.id ||
+    previous.sceneId !== shot.sceneId
+  )
+    return base;
+  return withStyleBible(
+    `接上一镜的末帧。前镜内容：${previous.picture.replace(/。$/, "")}。${base}`,
+    film.styleZh,
+  );
 }
 
 export function addShot(film: FilmProject, sceneId: string): FilmProject {
@@ -1233,7 +1458,9 @@ function clip(value: string, max: number): string {
 
 /** The line is spoken. The picture is never used as narration. */
 export function spokenLine(shot: FilmShot): string {
-  return (shot.lines?.length ? shot.lines.map((line) => line.text).join("\n") : shot.line)
+  return shotLines(shot)
+    .map((line) => line.text)
+    .join("\n")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1246,9 +1473,20 @@ export function isBeatList(text: string): boolean {
 export function motionPrompt(shot: FilmShot): string {
   const picture = shot.picture.trim();
   const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
-  const prompted = edited ? "" : shot.promptZh?.trim() || "";
+  // The prompter produces keyframe.prompt_zh, not a replacement video action plan.
+  // An explicit user edit of promptZh remains authoritative for legacy prompt editing.
+  const prompted = edited
+    ? ""
+    : (shot.userFields.includes("promptZh") ? shot.promptZh?.trim() : "") ||
+      shot.directorVideoPrompt?.trim() ||
+      shot.promptZh?.trim() ||
+      "";
   let visual = prompted || picture;
-  const acted = shot.performance.trim();
+  const directorNotes = directorPlanPrompt(shot, "video");
+  if (directorNotes) visual = [visual, directorNotes].filter(Boolean).join("\n");
+  const constraints = actionPlanPrompt(shot);
+  if (constraints) visual = [visual, constraints].filter(Boolean).join("。 ");
+  const acted = performancePlanPrompt(shot) || shot.performance.trim();
   if (acted && visual && !visual.includes(acted) && !isBeatList(acted)) {
     visual = `${visual}。表演：${acted}`;
   }
@@ -1258,7 +1496,11 @@ export function motionPrompt(shot: FilmShot): string {
 
 export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
   const speakers = [
-    ...new Set(shot.lines?.map((line) => line.speaker.trim()).filter(Boolean) ?? []),
+    ...new Set(
+      shotLines(shot)
+        .map((line) => line.speaker.trim())
+        .filter(Boolean),
+    ),
   ];
   if (speakers.length > 1) return "";
   const named = speakers[0] || shot.speaker?.trim() || "";
@@ -1299,21 +1541,23 @@ function usableImage(url: string): boolean {
 /** Front views first, with the speaker ahead of other visible characters. */
 export function firstFrameReferences(film: FilmProject, shot: FilmShot): string[] {
   const speakers = new Set([shot.speaker ?? "", ...(shot.lines ?? []).map((line) => line.speaker)]);
-  const people = film.characters
-    .filter((person) => shot.characters.includes(person.name) || speakers.has(person.name))
-    .sort((a, b) => Number(speakers.has(b.name)) - Number(speakers.has(a.name)));
+  const people = onScreenCharacters(film, shot).sort(
+    (a, b) => Number(speakers.has(b.name)) - Number(speakers.has(a.name)),
+  );
   const portraits = people.map((person) =>
     person.portraits
       .filter((portrait) => usableImage(portrait.url))
       .sort((a, b) => Number(b.view === "正面") - Number(a.view === "正面")),
   );
-  return [
+  const location = locationReference(film, shot);
+  const peopleUrls = [
     ...new Set(
       [0, 1, 2, 3]
         .flatMap((index) => portraits.map((views) => views[index]?.url ?? ""))
-        .filter(Boolean),
+        .filter((url) => Boolean(url) && url !== location?.url),
     ),
-  ].slice(0, 5);
+  ].slice(0, location ? 4 : 5);
+  return [...peopleUrls, ...(location ? [location.url] : [])];
 }
 
 export function shotReference(
@@ -1321,13 +1565,11 @@ export function shotReference(
   film: FilmProject,
 ): {
   still: string;
-  references: { url: string; who: string }[];
+  references: { url: string; who: string; kind?: "location" }[];
 } {
   const picked =
     [shot.poster, ...shot.stills.map((item) => item.url)].find((url) => usableImage(url)) ?? "";
-  const people = film.characters.filter(
-    (person) => shot.characters.includes(person.name) || person.name === shot.speaker,
-  );
+  const people = onScreenCharacters(film, shot);
   const ranked = people.flatMap((person) =>
     person.portraits
       .filter((item) => usableImage(item.url))
@@ -1341,21 +1583,28 @@ export function shotReference(
   // A portrait is a reference, never a generated first frame, regardless of URL scheme.
   const pinned = picked;
   const seen = new Set<string>(pinned ? [pinned] : []);
-  const references: { url: string; who: string }[] = [];
+  const references: { url: string; who: string; kind?: "location" }[] = [];
+  const location = locationReference(film, shot);
+  const reserveLocation = location && !seen.has(location.url);
   for (const item of ranked) {
-    if (seen.has(item.url)) continue;
+    if (seen.has(item.url) || item.url === location?.url) continue;
     seen.add(item.url);
     references.push({ url: item.url.slice(0, 500), who: item.who });
-    if (references.length === 13) break;
+    if (references.length === (reserveLocation ? 12 : 13)) break;
   }
+  if (location && reserveLocation) references.push(location);
   return { still: pinned.slice(0, 500), references };
 }
 
-function imageCue(references: { who: string }[], draft: boolean): string {
+function imageCue(references: { who: string; kind?: "location" }[], draft: boolean): string {
   const parts = ["<IMAGE_0> 是这一镜的起始画面。"];
   if (!draft) {
     references.forEach((item, index) => {
-      parts.push(`<IMAGE_${index + 1}> 是${item.who}的定妆照。`);
+      parts.push(
+        item.kind === "location"
+          ? `<IMAGE_${index + 1}> 是${item.who}的场景空镜，保持背景一致，不添加人物。`
+          : `<IMAGE_${index + 1}> 是${item.who}的定妆照。`,
+      );
     });
   }
   return parts.join("");
@@ -1438,29 +1687,48 @@ export function confirmEstimate(shots: { seconds: number }[], versions: number):
 }
 
 function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
-  if (new Set(shot.lines?.map((line) => line.speaker.trim()).filter(Boolean) ?? []).size > 1) {
-    throw Object.assign(new Error("同镜多位说话人的配音需要逐句音轨，请先拆分配音。"), {
-      code: "MULTI_VOICE_REQUIRED",
-    });
-  }
+  const dialogue = shotLines(shot).map((line) => ({
+    ...line,
+    voice_id: shotVoiceId({ ...shot, line: line.text, speaker: line.speaker, lines: [line] }, film),
+  }));
   const line = spokenLine(shot);
-  if (line && !shotVoiceId(shot, film))
+  if (line && (dialogue.length ? dialogue.some((row) => !row.voice_id) : !shotVoiceId(shot, film)))
     throw Object.assign(new Error("请先确认说话人的性别、年龄与声音。"), {
-      code: "VOICE_TRAITS_REQUIRED",
+      code:
+        new Set(dialogue.map((row) => row.speaker.trim()).filter(Boolean)).size > 1
+          ? "MULTI_VOICE_REQUIRED"
+          : "VOICE_TRAITS_REQUIRED",
     });
   const refs = shotReference(shot, film);
   return {
     narration: line || "。",
-    prompt: clip(`${imageCue(refs.references, draft)}${motionPrompt(shot)}`, 2000),
+    prompt: withStyleBible(
+      constrainVisualPrompt(
+        withShotCostumes(
+          withLocationLayout(
+            `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+            film,
+            shot,
+          ),
+          film,
+          shot,
+        ),
+        film,
+        shot,
+      ),
+      film.styleZh,
+      2000,
+    ),
     subtitle: line.slice(0, 500),
     duration_seconds: Math.max(1, Math.min(15, Math.round(shot.seconds) || 3)),
     size: shot.size.slice(0, 20),
     angle: (shot.angle || "平视").slice(0, 20),
     move: (shot.move || "固定").slice(0, 20),
-    action: clip(shot.action, 1000),
-    performance: clip(shot.performance, 1000),
+    action: clip(withoutOffscreenVisuals(shotActionText(shot), film, shot), 1000),
+    performance: clip(withoutOffscreenVisuals(shot.performance, film, shot), 1000),
     identity: shotIdentity(shot, film).slice(0, 200),
-    voice_id: shotVoiceId(shot, film).slice(0, 64),
+    voice_id: (dialogue[0]?.voice_id ?? shotVoiceId(shot, film)).slice(0, 64),
+    ...(dialogue.length ? { lines: dialogue } : {}),
     ...(refs.still ? { still: refs.still } : {}),
     ...(!draft && refs.references.length > 0
       ? { references: refs.references.map((item) => item.url) }
@@ -1492,9 +1760,8 @@ export function storyFilmBatches(
       provider: "grok_subscription",
       confirmed: true,
       voice_id: film.narrationVoiceId || film.characters[0]?.voiceId || "eve",
-      style_block: (slice.length === 1 ? slice[0]?.styleNote?.trim() || film.styleZh : film.styleZh)
-        .trim()
-        .slice(0, 400),
+      // The complete bible and per-shot note are in each prompt. The legacy
+      // 400-character style_block would send a conflicting truncated copy.
       aspect_ratio: film.aspectRatio === "16:9" ? "16:9" : "9:16",
       shots: (slice.length > 0 ? slice : rows)
         .slice(0, 10)
@@ -1618,4 +1885,52 @@ export async function extractBookText(
   return pages.length
     ? { text: pages.join("\n\n"), note: "已从电子书里抽出正文。" }
     : { text: "", note: "电子书里没有正文。请另存为 txt 再导入。" };
+}
+
+/** Same-reply writer metadata and cast projection. Existing media and user locks are preserved. */
+export function applyWriterPlan(film: FilmProject, plan: WriterPlan | undefined): FilmProject {
+  if (!plan) return film;
+  const prepared = {
+    ...film,
+    characters: film.characters.map((person) => {
+      const incoming = plan.characters.find((row) => row.name === person.name);
+      if (!incoming) return person;
+      const locked = (field: string) => person.userFields.includes(field);
+      return {
+        ...person,
+        writerPlan: incoming,
+        ...(!locked("identity") && !person.portraits.length && incoming.identity !== undefined
+          ? { identity: incoming.identity }
+          : {}),
+        ...(!locked("gender") && normalizeGender(incoming.gender)
+          ? { gender: normalizeGender(incoming.gender) }
+          : {}),
+        ...(!locked("ageBand") && normalizeAgeBand(incoming.ageBand)
+          ? { ageBand: normalizeAgeBand(incoming.ageBand) }
+          : {}),
+      };
+    }),
+  };
+  const merged = mergeCast(prepared, {
+    characters: plan.characters.map((row) => ({ ...row, identity: row.identity ?? "" })),
+    locations: plan.locations.map((row) => ({ name: row.name, prompt: row.prompt ?? "" })),
+  });
+  return {
+    ...merged,
+    writerPlan: structuredClone(plan),
+    characters: merged.characters.map((person) => {
+      const incoming = plan.characters.find((row) => row.name === person.name);
+      return incoming
+        ? { ...person, writerPlan: structuredClone(incoming) }
+        : (film.characters.find((row) => row.id === person.id) ?? person);
+    }),
+    locations: merged.locations.map((place) => {
+      const incoming = plan.locations.find((row) => row.name === place.name);
+      return incoming?.prompt !== undefined &&
+        !place.referenceImage &&
+        !place.userFields?.includes("prompt")
+        ? { ...place, prompt: incoming.prompt }
+        : place;
+    }),
+  };
 }
