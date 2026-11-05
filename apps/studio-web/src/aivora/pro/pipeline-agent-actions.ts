@@ -1,3 +1,4 @@
+import { directorBudget } from "./director-budget";
 import { parseWriterPlan } from "../film/writer-plan";
 import { applyWriterPlan } from "../film/operations";
 import { writerNumberedScript, writerSceneContext } from "../film/writer-elements";
@@ -182,33 +183,66 @@ export async function runPipelineAgentAction(
         writerNumberedScript(scene, scene.text) ??
         `本地段号（不是原文来源段号）：\n${numberedScript(scene.text)}`;
       const context = `画风：${film.styleZh}\n场次 id：${scene.id}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}\n原文段落：\n${script}${writerSceneContext(scene)}`;
-      const reply = await retryDirectorTimeout(
-        (control) =>
-          request(
-            "director",
-            context,
-            "把这一场拆成镜头；合并相邻节拍，不能截断台词或结尾。只输出 JSON。",
-            control,
-          ),
-        () => undefined,
-        host.notify,
-        { current, signal: host.signal },
-      );
-      if (!current()) return stale();
-      if (!reply.text) return replyFailure(reply);
-      const parsed = parseDirectorShots(reply.text, scene.id, scene.text, [scene]);
-      if (!parsed?.length) return failed("DIRECTOR_PARSE_FAILED");
-      const repaired = await repairDirectorCoverage(
-        scene,
-        parsed,
-        (context, instruction) => request("director", context, instruction),
+      const budget = directorBudget({
         current,
-      );
-      if (!current()) return stale();
-      const next = applyDirectorPlan(film, repaired.shots, scene.id, film.unassignedBeats ?? []);
-      return next.scenes.find((item) => item.id === scene.id)?.coverage?.ok
-        ? done(next)
-        : blocked("COVERAGE_INCOMPLETE", next);
+        control: host.signal ? { signal: host.signal, deadlineAt: Infinity } : undefined,
+        progress: (text) => host.notify?.({ code: "DIRECTOR_PROGRESS", text, detail: text }),
+      });
+      let draft: ReturnType<typeof parseDirectorShots> = null;
+      try {
+        budget.progress("正在拆镜头。");
+        const reply = await budget.run(() =>
+          retryDirectorTimeout(
+            (control) =>
+              request(
+                "director",
+                context,
+                "把这一场拆成镜头；合并相邻节拍，不能截断台词或结尾。只输出 JSON。",
+                { ...control, deadlineAt: budget.control.deadlineAt },
+              ),
+            budget.progress,
+            host.notify,
+            {
+              current: budget.current,
+              signal: budget.control.signal,
+              totalMs: budget.control.deadlineAt - Date.now(),
+            },
+          ),
+        );
+        if (!current()) return stale();
+        if (!reply.text) return replyFailure(reply);
+        const parsed = parseDirectorShots(reply.text, scene.id, scene.text, [scene]);
+        if (!parsed?.length) return failed("DIRECTOR_PARSE_FAILED");
+        draft = parsed;
+        const repaired = await budget.run(() =>
+          repairDirectorCoverage(
+            scene,
+            parsed,
+            (context, instruction) => {
+              budget.progress("正在检查并补齐镜头。");
+              return budget.run(() => request("director", context, instruction, budget.control));
+            },
+            budget.current,
+          ),
+        );
+        if (!current()) return stale();
+        const next = applyDirectorPlan(film, repaired.shots, scene.id, film.unassignedBeats ?? []);
+        return next.scenes.find((item) => item.id === scene.id)?.coverage?.ok
+          ? done(next)
+          : blocked("COVERAGE_INCOMPLETE", next);
+      } catch (error) {
+        if (!current()) return stale();
+        const code = budget.reason() || (error instanceof Error ? error.message : "");
+        if (code === "TEXT_TIMEOUT" && draft?.length) {
+          return blocked(
+            "TEXT_TIMEOUT",
+            applyDirectorPlan(film, draft, scene.id, film.unassignedBeats ?? []),
+          );
+        }
+        return failed(code === "TEXT_TIMEOUT" ? "TEXT_TIMEOUT" : "DIRECTOR_FAILED");
+      } finally {
+        budget.dispose();
+      }
     }
     if (target.step === "action") {
       if (!isFightScene(story, (scene.tags ?? []).join(" ")))
