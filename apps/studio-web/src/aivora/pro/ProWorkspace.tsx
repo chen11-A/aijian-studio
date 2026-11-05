@@ -135,6 +135,7 @@ import { Ic } from "./icons";
 import "./pro.css";
 import {
   failRunningVideoTasks,
+  failQueuedVideoPrerequisites,
   pruneCancelledJobs,
   canResumeTake,
   retryableVideoTask,
@@ -2635,7 +2636,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const groups = prepared.groups;
     await applyGeneration(next);
     try {
-      await prepareSceneMedia(next, selected, valid, pipeline);
+      try {
+        await prepareSceneMedia(next, selected, valid, pipeline);
+      } catch (error) {
+        if (!valid()) return;
+        if (
+          error instanceof Error &&
+          ["WORK_STALE", "VIDEO_CANCELLED", "REQUEST_CANCELLED"].includes(error.message)
+        )
+          throw error;
+        const notice = stillFailureNotice(error);
+        const failed = failQueuedVideoPrerequisites(filmRef.current ?? next, groups, notice.text);
+        await applyGeneration(failed);
+        if (!pipeline && valid() && filmRef.current) await saveFilm(filmRef.current);
+        if (valid()) emitNotice(notice);
+        return;
+      }
       await runPreparedGeneration(prepared, {
         current: () => filmRef.current,
         valid,

@@ -3982,3 +3982,28 @@ it("3JR-B08 failed scene reference stops the first-click shot request", async ()
   for (const call of generate.mock.calls) expect(call[1]).toContain("空镜，没有人物");
   expect(screen.queryByRole("button", { name: "重新生成画面" })).not.toBeInTheDocument();
 });
+
+it("3JR-B08 terminates this batch's queued videos when scene preparation fails", async () => {
+  const video = vi.fn();
+  installDesktop(video);
+  vi.mocked(window.aijian!.generateFilmStill!).mockResolvedValue({ path: "", reason: "失败" });
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      FilmProject | undefined;
+    const jobs = saved?.jobs.filter((job) => job.kind === "video") ?? [];
+    expect(jobs.length).toBeGreaterThan(0);
+    expect(jobs.every((job) => job.status === "failed" && job.interruptedFrom === "queued")).toBe(
+      true,
+    );
+    const takes = saved!.shots.flatMap((shot) => shot.takes);
+    expect(takes.length).toBeGreaterThan(0);
+    expect(
+      takes.every((take) => take.status === "failed" && take.interruptedFrom === "queued"),
+    ).toBe(true);
+  });
+  expect(video).not.toHaveBeenCalled();
+});
