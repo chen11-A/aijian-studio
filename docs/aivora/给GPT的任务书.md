@@ -388,3 +388,5 @@ B01/B05/B10三个增量按编号独立提交推送；B18/B19此前76d5544、6cb8
 - 4A-B01 `d040aa1`：已提供PipelineSteps对应的宿主props与校验当前状态的回调，已装入ProWorkspace业务对象；仍部分完成，用户入口未切换。Claude已到d3bc76e，需阶段整合时同批连接start、PipelineSteps和检查点continue，禁止旧queueBatch绕过检查点。精确文件/函数/步骤见[交接](4a-claude-integration-handoff.md)。
 
 本次7文件46项及工作台定向3项通过（96项未选），web tsc与目标lint/格式通过。上一轮4300通过/1失败及覆盖率固定于0dd16fc，不能作为这些增量之后的全量。没有合并、付费请求或阶段发版。当前文案缺口仍103（101已交付未整合+2新增），未删测试。
+
+B01用户新增限制实现于9a020d9：所有实际对白先TTS测时长再请求视频，超接口上限不发视频，末帧追加≤1秒，缓存不绕过；scene.shotBudget返回具体合并阻碍并贯通保存/撤销。相关web116通过、Python42及新增边界所在17项通过（重叠），类型/lint/格式通过。真实《晚照书店》导演及19条动作捕获仍缺，镜头数与未挂数不臆填，见[真实回放状态表](3jr-backend-verification.md)。最新用户已授权将两个工作分支整合到aivora/dev，只有全量/CI通过才打新tag；不移动旧tag、不碰main。
