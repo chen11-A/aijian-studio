@@ -1,4 +1,9 @@
-import { exportFilmFile, filmExportOptions } from "./film-export";
+import {
+  exportFilmFile,
+  filmExportOptions,
+  type FilmExportExtras,
+  type RunFfmpeg,
+} from "./film-export";
 import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
 import { extractFilmLastFrame } from "./film-last-frame";
@@ -30,8 +35,10 @@ const idPattern = /^film_[a-z0-9]{16,40}$/;
 export type FilmLibraryHost = {
   filmsRoot: () => string;
   storyFilmsRoot: () => string;
-  runFfmpeg: (args: string[]) => Promise<void>;
+  runFfmpeg: RunFfmpeg;
   probeDuration?: (path: string) => Promise<number>;
+  /** 4B-B09: the shipped subtitle face, for burned subtitles and the cover's words. */
+  subtitleFont?: () => string | undefined;
   mediaToken: () => Promise<string | null>;
   fetcher?: typeof fetch;
   pickDirectory: () => Promise<string | null>;
@@ -227,20 +234,30 @@ export function registerFilmLibraryHandlers<TEvent>(
         ),
       );
     }
+    // 4B-B09: how long each shot lasts in the joined film, to place its subtitles.
+    const durations = host.probeDuration
+      ? await Promise.all(voiced.map((path) => host.probeDuration!(path)))
+      : [];
+    const timed = <T extends object>(result: T) =>
+      durations.length === voiced.length && durations.every((value) => value > 0)
+        ? { ...result, durations }
+        : result;
     const joined = await joinClips(voiced, destination, host.runFfmpeg);
     const music = typeof args[2] === "string" ? args[2] : "";
-    if (!music) return joined;
+    if (!music) return timed(joined);
     const track = trustedMediaPath(roots, music);
     try {
-      return await mixMusic(
-        joined.path,
-        track,
-        host.runFfmpeg,
-        typeof args[3] === "number" && Number.isFinite(args[3]) ? args[3] : -14,
-        host.probeDuration,
+      return timed(
+        await mixMusic(
+          joined.path,
+          track,
+          host.runFfmpeg,
+          typeof args[3] === "number" && Number.isFinite(args[3]) ? args[3] : -14,
+          host.probeDuration,
+        ),
       );
     } catch {
-      return { path: joined.path, reason: "视频已接上。配乐没有混进去。" };
+      return timed({ path: joined.path, reason: "视频已接上。配乐没有混进去。" });
     }
   });
 
@@ -337,11 +354,24 @@ export function registerFilmLibraryHandlers<TEvent>(
     const source = trustedMediaPath([host.filmsRoot(), host.storyFilmsRoot()], args[0]);
     if (!source.toLowerCase().endsWith(".mp4")) throw new Error("Invalid film path");
     const options = filmExportOptions(args[3]);
+    // The cover's picture must be one of the work's own saved stills.
+    let coverStill: string | undefined;
+    if (options.cover?.still) {
+      try {
+        coverStill = trustedMediaPath(
+          [host.filmsRoot(), host.storyFilmsRoot()],
+          mediaUrlPath(options.cover.still),
+        );
+      } catch {
+        coverStill = undefined;
+      }
+    }
     const state = { cancelled: false };
     if (options.requestId && exportsInProgress.has(options.requestId))
       throw new Error("EXPORT_ALREADY_RUNNING");
     if (options.requestId) exportsInProgress.set(options.requestId, state);
     let destination: string;
+    let extras: FilmExportExtras = {};
     try {
       destination = await exportFilmFile(
         source,
@@ -350,12 +380,16 @@ export function registerFilmLibraryHandlers<TEvent>(
         options,
         host.runFfmpeg,
         () => state.cancelled,
+        { fontFile: host.subtitleFont?.(), ...(coverStill ? { coverStill } : {}) },
+        (value) => {
+          extras = value;
+        },
       );
     } finally {
       if (options.requestId) exportsInProgress.delete(options.requestId);
     }
     exported.add(realpathSync(destination));
-    return { ok: true, path: destination };
+    return { ok: true, path: destination, ...extras };
   });
 
   handle("film:cancel-export", async (event, ...args) => {

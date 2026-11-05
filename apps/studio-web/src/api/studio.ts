@@ -819,6 +819,20 @@ export interface StudioTransport {
   ): Promise<Sub2APIRotationReadResult>;
 }
 
+/** 4B-B09: what the desktop export does with the film besides cropping. */
+export type FilmExportCutOptions = {
+  aspectRatio?: "16:9" | "9:16";
+  requestId?: string;
+  canvas?: "16:9" | "9:16";
+  quality?: "1080p" | "720p";
+  subtitles?: {
+    mode: "burn" | "srt" | "none";
+    style: "white" | "bar" | "yellow" | "film";
+    cues: { text: string; start: number; end: number }[];
+  };
+  cover?: { title: string; subtitle: string; aiMark: boolean; still?: string };
+};
+
 export interface AijianDesktopBridge
   extends
     Partial<VisualGateway>,
@@ -991,7 +1005,7 @@ export interface AijianDesktopBridge
     musicPath?: string,
     duck?: boolean | number,
     dialogue?: string[],
-  ) => Promise<{ path: string; reason: string }>;
+  ) => Promise<{ path: string; reason: string; durations?: number[] }>;
   importMusic?: (seriesId: string, source: string) => Promise<{ path: string }>;
   filePath?: (file: File) => string;
   flushed?: () => void;
@@ -1011,8 +1025,8 @@ export interface AijianDesktopBridge
     source: string,
     directory: string,
     name?: string,
-    options?: { aspectRatio?: "16:9" | "9:16"; requestId?: string },
-  ) => Promise<{ ok: boolean; path: string }>;
+    options?: FilmExportCutOptions,
+  ) => Promise<{ ok: boolean; path: string; subtitlePath?: string; coverPath?: string }>;
   revealFilmPath?: (path: string) => Promise<{ ok: boolean }>;
   openFilmPath?: (path: string) => Promise<{ ok: boolean; error: string }>;
   getProject(projectId: string): Promise<ProjectResponse>;

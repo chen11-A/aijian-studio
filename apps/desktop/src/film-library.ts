@@ -513,6 +513,27 @@ export function bundledTool(
   );
 }
 
+/**
+ * 4B-B09: the subtitle face the installers ship — resources/fonts on Windows, the package
+ * root's fonts/ on Linux — or the repository copy while developing.
+ */
+export function bundledSubtitleFont(
+  resourcesPath: string,
+  extra: { execPath?: string; repositoryRoot?: string } = {},
+): string | undefined {
+  const name = "NotoSansCJKsc-Regular.otf";
+  const candidates: string[] = [];
+  if (resourcesPath)
+    for (const up of [[], [".."], ["..", ".."]])
+      candidates.push(join(resourcesPath, ...up, "fonts", name));
+  if (extra.execPath)
+    for (const up of [[], [".."], ["..", ".."]])
+      candidates.push(join(dirname(extra.execPath), ...up, "fonts", name));
+  if (extra.repositoryRoot)
+    candidates.push(join(extra.repositoryRoot, "apps/studio-web/src/aivora/assets/v2", name));
+  return candidates.find((path) => existsSync(path));
+}
+
 export function bundledFfmpeg(
   resourcesPath: string,
   platform: NodeJS.Platform,

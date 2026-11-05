@@ -70,6 +70,7 @@ import type { AssistantChatBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import type { StoryFilmCreateInput } from "./story-film-client";
+import type { FilmExportOptions } from "./film-export";
 import type {
   DraftExportPreviewResult,
   DraftExportRevealResult,
@@ -619,12 +620,8 @@ contextBridge.exposeInMainWorld("aijian", {
   ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
-  exportFilmCut: (
-    source: string,
-    directory: string,
-    name?: string,
-    options?: { aspectRatio?: "16:9" | "9:16"; requestId?: string },
-  ) => ipcRenderer.invoke("film:export", source, directory, name, options),
+  exportFilmCut: (source: string, directory: string, name?: string, options?: FilmExportOptions) =>
+    ipcRenderer.invoke("film:export", source, directory, name, options),
   cancelFilmExport: (requestId: string) => ipcRenderer.invoke("film:cancel-export", requestId),
   revealFilmPath: (path: string) => ipcRenderer.invoke("film:reveal", path),
   openFilmPath: (path: string) => ipcRenderer.invoke("film:open", path),
