@@ -121,3 +121,21 @@ it("allows undo when the location reference already existed before the art reque
   expect(result.film.scenes).toEqual(base.scenes);
   expect(result.film.locations).toEqual(base.locations);
 });
+
+it("applies and undoes provisional voice provenance through art confirmation", () => {
+  const base = sampleFilm();
+  const proposed = structuredClone(base);
+  proposed.characters[0]!.voiceDefault = {
+    basis: "adult-default",
+    evidenceSource: "casting-default",
+    evidence: "年龄未注明，暂用成人声音，可调整。",
+  };
+  const tx = prepareArtTransaction(base, proposed, { projectId: base.id, page: "cast" });
+  expect(tx.unsupported).toEqual([]);
+  const applied = applyArtTransaction(base, tx);
+  expect(applied.receipt).not.toBeNull();
+  expect(applied.film.characters[0]!.voiceDefault).toEqual(proposed.characters[0]!.voiceDefault);
+  const undone = undoArtTransaction(applied.film, tx);
+  expect(undone.conflicts).toEqual([]);
+  expect(undone.film.characters[0]!.voiceDefault).toBeUndefined();
+});

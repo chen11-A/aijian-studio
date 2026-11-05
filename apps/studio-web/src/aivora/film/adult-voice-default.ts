@@ -1,7 +1,7 @@
 /** A casting default, never a claim that the character is middle-aged. */
 export type AdultVoiceDefault = {
   basis: "adult-default";
-  evidenceSource: "source" | "character-reply";
+  evidenceSource: "source" | "character-reply" | "casting-default";
   evidence: string;
 };
 export function adultAgeLabel(value: unknown): boolean {
@@ -45,4 +45,22 @@ export function adultVoiceEvidence(
   return declared?.basis === "adult-default" && declared.evidenceSource === "character-reply"
     ? declared
     : undefined;
+}
+
+/** Provisional voice casting only: this does not populate the character's factual age band. */
+export function provisionalAdultVoice(
+  name: string,
+  identity: string,
+  source: string,
+): AdultVoiceDefault | undefined {
+  const young = /未成年|儿童|幼童|小孩|少年|少女/u;
+  const at = name.trim() ? source.indexOf(name) : -1;
+  const local =
+    at < 0 ? "" : (source.slice(at, at + name.length + 12).split(/[。！？\n]/u)[0] ?? "");
+  if (young.test(identity) || young.test(local)) return undefined;
+  return {
+    basis: "adult-default",
+    evidenceSource: "casting-default",
+    evidence: "年龄未注明，暂用成人声音，可调整。",
+  };
 }

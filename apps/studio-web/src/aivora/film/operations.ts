@@ -1,4 +1,9 @@
-import { adultAgeLabel, adultVoiceEvidence, type AdultVoiceDefault } from "./adult-voice-default";
+import {
+  adultAgeLabel,
+  adultVoiceEvidence,
+  provisionalAdultVoice,
+  type AdultVoiceDefault,
+} from "./adult-voice-default";
 import { sourceSupportsActionShot, type ActionSourceScene } from "./action-source-evidence";
 import { shotActions, shotActionText, withShotActions } from "./shot-actions";
 import {
@@ -1117,7 +1122,10 @@ export function autoVoiceForCharacter(
     return { ...character, ...traits, voiceDefault: undefined, voiceCode: "" };
   const voiceDefault =
     !traits.ageBand && !character.userFields.includes("ageBand")
-      ? adultVoiceEvidence(character.name, character.identity, source, character.voiceDefault)
+      ? (adultVoiceEvidence(character.name, character.identity, source, character.voiceDefault) ??
+        (traits.gender
+          ? provisionalAdultVoice(character.name, character.identity, source)
+          : undefined))
       : undefined;
   const pool =
     traits.gender && traits.ageBand

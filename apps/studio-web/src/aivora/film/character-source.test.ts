@@ -103,9 +103,10 @@ describe("3JR-B05 explicit source age and persisted voice", () => {
       expect(person).toMatchObject({
         gender: "男",
         ageBand: "",
-        voiceId: "",
-        voiceCode: "VOICE_TRAITS_REQUIRED",
+        voiceCode: "",
+        voiceDefault: { evidenceSource: "casting-default" },
       });
+    expect(film.characters.slice(1).every((person) => Boolean(person.voiceId))).toBe(true);
   });
 
   it.each([

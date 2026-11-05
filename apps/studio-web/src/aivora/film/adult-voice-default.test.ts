@@ -87,3 +87,20 @@ it("persists changed default provenance even when the chosen voice does not chan
     evidence: "甲：男人",
   });
 });
+
+it("gives unknown-age known-gender speakers a marked provisional voice without inventing age", () => {
+  const film = mergeCast(blankFilm(), {
+    characters: [{ name: "打手甲", identity: "", gender: "男" }],
+    locations: [],
+  });
+  expect(film.characters[0]).toMatchObject({
+    ageBand: "",
+    voiceDefault: { evidenceSource: "casting-default" },
+  });
+  expect(film.characters[0]!.voiceId).not.toBe("");
+  const minor = mergeCast(blankFilm(), {
+    characters: [{ name: "甲", identity: "未成年打手", gender: "男" }],
+    locations: [],
+  });
+  expect(minor.characters[0]!.voiceId).toBe("");
+});

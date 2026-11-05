@@ -17,7 +17,7 @@ export type ArtTransaction = {
 };
 const fields = {
   project: ["styleZh", "costumes", "artDesign", "artDesignBaseline"],
-  characters: ["identity", "gender", "ageBand", "voiceId", "voiceCode"],
+  characters: ["identity", "gender", "ageBand", "voiceId", "voiceCode", "voiceDefault"],
   locations: [
     "name",
     "prompt",
