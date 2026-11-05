@@ -14,7 +14,7 @@ export function normalizeAgeBand(value: unknown): CharacterAgeBand {
   if (/^(儿童|幼年|幼童|child|children)$/i.test(text)) return "儿童";
   if (/^(少年|teen|teenager|adolescent)$/i.test(text)) return "少年";
   if (/^(青年|年轻|young|young_adult)$/i.test(text)) return "青年";
-  if (/^(中年|成年|成人|adult|middle_aged|middle-aged)$/i.test(text)) return "中年";
+  if (/^(中年|middle_aged|middle-aged)$/i.test(text)) return "中年";
   if (/^(老年|elder|elderly|senior)$/i.test(text)) return "老年";
   return "";
 }

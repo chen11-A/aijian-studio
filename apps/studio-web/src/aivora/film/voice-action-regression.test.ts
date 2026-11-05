@@ -37,7 +37,8 @@ describe("phase3j cast, actions and reference regressions", () => {
     );
     expect(JSON.parse(JSON.stringify(parsed)).characters[0]).toMatchObject({
       gender: "女",
-      ageBand: "中年",
+      ageBand: "",
+      voiceDefault: { basis: "adult-default", evidenceSource: "character-reply", evidence: "成年" },
     });
     expect(castTraits("", "林国栋", "她想起父亲林国栋。")).toEqual({
       gender: "男",
@@ -152,7 +153,11 @@ it("normalizes metadata and preserves a manual voice lock across edits", () => {
   expect(
     parseCastReply('{"characters":[{"name":"甲","gender":"male","age_band":"adult"}]}')
       ?.characters[0],
-  ).toMatchObject({ gender: "男", ageBand: "中年" });
+  ).toMatchObject({
+    gender: "男",
+    ageBand: "",
+    voiceDefault: { basis: "adult-default", evidenceSource: "character-reply", evidence: "adult" },
+  });
 });
 
 it("stores all unassigned beats and refuses combat on dialogue shots even with a valid id", () => {

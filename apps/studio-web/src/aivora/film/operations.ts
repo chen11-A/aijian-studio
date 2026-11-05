@@ -1,3 +1,4 @@
+import { adultAgeLabel, adultVoiceEvidence, type AdultVoiceDefault } from "./adult-voice-default";
 import { sourceSupportsActionShot, type ActionSourceScene } from "./action-source-evidence";
 import { shotActions, shotActionText, withShotActions } from "./shot-actions";
 import {
@@ -858,7 +859,13 @@ export function locationPlate(where: string, styleZh: string, variant: string): 
 }
 
 export type ExtractedCast = {
-  characters: { name: string; identity: string; gender?: string; ageBand?: string }[];
+  characters: {
+    name: string;
+    identity: string;
+    gender?: string;
+    ageBand?: string;
+    voiceDefault?: AdultVoiceDefault;
+  }[];
   locations: { name: string; prompt: string }[];
 };
 
@@ -912,7 +919,7 @@ export function parseCastReply(text: string): ExtractedCast | null {
         (typeof item.identity_lock === "string" && item.identity_lock.trim()) ||
         "";
       if (!name) return [];
-      const person: { name: string; identity: string; gender?: string; ageBand?: string } = {
+      const person: ExtractedCast["characters"][number] = {
         name,
         identity,
       };
@@ -923,6 +930,12 @@ export function parseCastReply(text: string): ExtractedCast | null {
       const statedYears = explicitAgeYears(item.age) ?? explicitAgeYears(rawAge);
       person.ageBand =
         statedYears === null ? normalizeAgeBand(ageBand) : ageBandForYears(statedYears);
+      if (adultAgeLabel(rawAge))
+        person.voiceDefault = {
+          basis: "adult-default",
+          evidenceSource: "character-reply",
+          evidence: String(rawAge).trim(),
+        };
       return [person];
     });
     const locations = (value.locations ?? [])
@@ -1054,7 +1067,7 @@ export function castTraits(
               ? "少年"
               : /青年|年轻/.test(text)
                 ? "青年"
-                : /成年|成人|中年/.test(text)
+                : /中年/.test(text)
                   ? "中年"
                   : "");
   return { gender: inferredGender, ageBand: inferredAge };
@@ -1062,7 +1075,9 @@ export function castTraits(
 
 function voicePool(identity: string, name: string, gender = "", ageBand = ""): string[] {
   const traits = castTraits(identity, name, "", gender, ageBand);
-  if (!traits.gender || !traits.ageBand) return [];
+  if (!traits.gender) return [];
+  if (!traits.ageBand)
+    return adultVoiceEvidence(name, identity, "") ? (traits.gender === "女" ? WOMAN : MAN) : [];
   const female = traits.gender === "女";
   if (/儿童|幼年|child/i.test(traits.ageBand)) return female ? GIRL : BOY;
   if (/老年|elder|senior/i.test(traits.ageBand)) return female ? ELDER_WOMAN : ELDER_MAN;
@@ -1097,15 +1112,30 @@ export function autoVoiceForCharacter(
   if (character.userFields.includes("gender")) traits.gender = normalizeGender(character.gender);
   if (character.userFields.includes("ageBand"))
     traits.ageBand = normalizeAgeBand(character.ageBand);
-  if (character.userFields.includes("voiceId")) return { ...character, ...traits, voiceCode: "" };
+  if (character.userFields.includes("voiceId"))
+    return { ...character, ...traits, voiceDefault: undefined, voiceCode: "" };
+  const voiceDefault =
+    !traits.ageBand && !character.userFields.includes("ageBand")
+      ? adultVoiceEvidence(character.name, character.identity, source, character.voiceDefault)
+      : undefined;
   const pool =
     traits.gender && traits.ageBand
       ? voicePool(character.identity, character.name, traits.gender, traits.ageBand)
-      : [];
+      : traits.gender && voiceDefault
+        ? traits.gender === "女"
+          ? WOMAN
+          : MAN
+        : [];
   const voiceId = pool.includes(character.voiceId)
     ? character.voiceId
     : (pool.find((id) => !used.has(id)) ?? pool[0] ?? "");
-  return { ...character, ...traits, voiceId, voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED" };
+  return {
+    ...character,
+    ...traits,
+    voiceDefault: voiceId ? voiceDefault : undefined,
+    voiceId,
+    voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED",
+  };
 }
 
 export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProject {
@@ -1124,6 +1154,17 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
     const updated = autoVoiceForCharacter(
       {
         ...item,
+        ...(incoming?.voiceDefault
+          ? { voiceDefault: incoming.voiceDefault }
+          : incoming && adultAgeLabel(incoming.ageBand)
+            ? {
+                voiceDefault: {
+                  basis: "adult-default" as const,
+                  evidenceSource: "character-reply" as const,
+                  evidence: incoming.ageBand!,
+                },
+              }
+            : {}),
         ...traits,
         ...(item.userFields.includes("gender") ? { gender: item.gender } : {}),
         ...(item.userFields.includes("ageBand") ? { ageBand: item.ageBand } : {}),
@@ -1138,19 +1179,33 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
     if (!item.name || known.has(item.name)) continue;
     known.add(item.name);
     const traits = castTraits(item.identity, item.name, sourceText, item.gender, item.ageBand);
-    const voiceId = assignVoice(item.identity, item.name, used, traits.gender, traits.ageBand);
-    used.add(voiceId);
-    characters.push({
-      id: `cast-${characters.length + 1}`,
-      name: item.name,
-      identity: item.identity,
-      ...traits,
-      voiceId,
-      voiceCode: voiceId ? "" : "VOICE_TRAITS_REQUIRED",
-      source: "script",
-      userFields: [],
-      portraits: [],
-    });
+    const character = autoVoiceForCharacter(
+      {
+        id: `cast-${characters.length + 1}`,
+        name: item.name,
+        identity: item.identity,
+        ...traits,
+        voiceId: "",
+        ...(item.voiceDefault
+          ? { voiceDefault: item.voiceDefault }
+          : adultAgeLabel(item.ageBand)
+            ? {
+                voiceDefault: {
+                  basis: "adult-default" as const,
+                  evidenceSource: "character-reply" as const,
+                  evidence: item.ageBand!,
+                },
+              }
+            : {}),
+        source: "script",
+        userFields: [],
+        portraits: [],
+      },
+      used,
+      sourceText,
+    );
+    used.add(character.voiceId);
+    characters.push(character);
   }
   const knownPlaces = new Set(film.locations.map((item) => item.name));
   const locations: FilmLocation[] = [...film.locations];
@@ -1174,7 +1229,8 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
       item.voiceId !== film.characters[index]?.voiceId ||
       item.gender !== film.characters[index]?.gender ||
       item.ageBand !== film.characters[index]?.ageBand ||
-      item.voiceCode !== film.characters[index]?.voiceCode,
+      item.voiceCode !== film.characters[index]?.voiceCode ||
+      JSON.stringify(item.voiceDefault) !== JSON.stringify(film.characters[index]?.voiceDefault),
   );
   if (
     !voicesChanged &&

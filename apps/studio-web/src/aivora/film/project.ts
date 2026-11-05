@@ -1,3 +1,4 @@
+import type { AdultVoiceDefault } from "./adult-voice-default";
 import { shotActions, withShotActions } from "./shot-actions";
 import { constrainVisualPrompt, onScreenCharacters } from "./on-screen-characters";
 import type { WriterPlan, SceneWriterPlan, WriterCharacterPlan } from "./writer-plan";
@@ -157,6 +158,8 @@ export type FilmCharacter = {
   gender?: "男" | "女" | "";
   ageBand?: "儿童" | "少年" | "青年" | "中年" | "老年" | "";
   voiceCode?: string;
+  /** Adult casting fallback; ageBand remains unknown, not middle-aged. */
+  voiceDefault?: AdultVoiceDefault;
   voiceId: string;
   source: string;
   userFields: string[];

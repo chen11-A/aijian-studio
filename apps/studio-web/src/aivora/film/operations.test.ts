@@ -672,7 +672,11 @@ describe("film operations", () => {
     );
     const voiced = mergeCast(blankFilm(), cast ?? { characters: [], locations: [] });
     expect(voiced.characters.find((item) => item.name === "林晚")?.gender).toBe("女");
-    expect(voiced.characters.find((item) => item.name === "林晚")?.ageBand).toBe("中年");
+    expect(voiced.characters.find((item) => item.name === "林晚")?.ageBand).toBe("");
+    expect(voiced.characters.find((item) => item.name === "林晚")?.voiceDefault).toMatchObject({
+      basis: "adult-default",
+      evidenceSource: "character-reply",
+    });
     expect(["ara", "eve", "luna", "carina", "celeste"]).toContain(
       voiced.characters.find((item) => item.name === "林晚")?.voiceId,
     );
