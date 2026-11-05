@@ -95,20 +95,21 @@ export function suggestedShotCount(text: string): number {
 export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): FilmShot[] {
   const next = shots.map((shot) => ({ ...shot, lines: shotLines(shot) }));
   while (next.length > Math.max(1, target)) {
-    const index = next.findIndex((left, i) => {
+    const compatible = (left: (typeof next)[number], i: number, reframe = false) => {
       const right = next[i + 1];
       return Boolean(
         right &&
         new Set([...left.lines, ...right.lines].map((line) => line.speaker.trim()).filter(Boolean))
           .size <= 1 &&
         left.sceneId === right.sceneId &&
-        left.size === right.size &&
-        left.angle === right.angle &&
-        left.tag === right.tag &&
+        (reframe ||
+          (left.size === right.size &&
+            left.angle === right.angle &&
+            left.tag === right.tag &&
+            left.move === right.move)) &&
         left.sound.source === right.sound.source &&
         left.sound.musicMood === right.sound.musicMood &&
         left.styleNote === right.styleNote &&
-        left.move === right.move &&
         left.seconds + right.seconds <= 15 &&
         !left.takes.length &&
         !right.takes.length &&
@@ -119,7 +120,12 @@ export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): 
         !left.userFields.length &&
         !right.userFields.length,
       );
-    });
+    };
+    // Different framing must not prevent a lossless compression pass above the scene limit.
+    // Keep the first frame's camera choice; retain every narrative field and timed cue.
+    let index = next.findIndex((left, i) => compatible(left, i));
+    if (index < 0 && next.length > 16)
+      index = next.findIndex((left, i) => compatible(left, i, true));
     if (index < 0) break;
     const left = next[index]!;
     const right = next[index + 1]!;
