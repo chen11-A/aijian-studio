@@ -22,6 +22,33 @@ export function dialogueSentences(text: string): string[] {
     .filter(Boolean);
 }
 
+/** Formatting is not missing story: keep every word/number, ignore only punctuation and spacing. */
+const coverageText = (text: string) => text.normalize("NFKC").replace(/[\p{P}\p{Z}\s]/gu, "");
+
+function tailNarration(tail: string): string[] {
+  const dialogue = extractScriptLines(tail).map((line) => coverageText(line.text));
+  const printed: string[] = [];
+  let narration = tail.replace(/“([^”]*)”|「([^」]*)」|"([^"\n]*)"/gu, (_match, a, b, c) => {
+    const content = coverageText(a ?? b ?? c ?? "");
+    if (content && !dialogue.includes(content)) printed.push(content);
+    return "";
+  });
+  if (narration === tail && /^[^：:\n]{1,12}[：:]/u.test(tail)) {
+    const lines = extractScriptLines(tail);
+    if (lines.length) {
+      narration = tail.replace(/^[^：:\n]{1,12}[：:]\s*/u, "");
+      for (const line of lines) narration = narration.replace(line.text, "");
+    }
+  }
+  return [
+    ...narration
+      .split(/[，,。！？!?；;\n]+/u)
+      .map(coverageText)
+      .filter(Boolean),
+    ...printed,
+  ];
+}
+
 /** Strict evidence check: no source text is inserted and no semantic coverage is guessed. */
 export function detectDirectorCoverage(
   scene: { id: string; text: string; paragraphCoverage?: { ok: boolean } },
@@ -31,14 +58,15 @@ export function detectDirectorCoverage(
   const current = shots.filter((shot) => shot.sceneId === scene.id);
   const spoken = current
     .flatMap(shotLines)
-    .map((line) => line.text)
+    .map((line) => coverageText(line.text))
     .join("\n");
   const missingLines: string[] = [];
   let cursor = 0;
   for (const line of expected) {
-    const at = spoken.indexOf(line, cursor);
+    const normalized = coverageText(line);
+    const at = spoken.indexOf(normalized, cursor);
     if (at < 0) missingLines.push(line);
-    else cursor = at + line.length;
+    else cursor = at + normalized.length;
   }
   const tail =
     scene.text
@@ -52,7 +80,10 @@ export function detectDirectorCoverage(
       [shot.picture, shot.action, ...shotLines(shot).map((line) => line.text)].join("\n"),
     )
     .join("\n");
-  const missingTail = tail && !evidence.includes(tail) ? tail : null;
+  const normalizedEvidence = coverageText(evidence);
+  const missingTail = tailNarration(tail).some((part) => !normalizedEvidence.includes(part))
+    ? tail
+    : null;
   return {
     sceneId: scene.id,
     ok: scene.paragraphCoverage?.ok !== false && !missingLines.length && !missingTail,
