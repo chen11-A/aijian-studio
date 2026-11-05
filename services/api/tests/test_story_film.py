@@ -12,8 +12,10 @@ from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.story_film import (
+    StoryFilmCue,
     StoryFilmRequest,
     StoryFilmService,
+    _export_cues,
     _fit_clip_length,
     _local_image,
     _media_duration,
@@ -141,7 +143,30 @@ def test_stub_pipeline_writes_a_playable_mp4_with_picture_and_sound(tmp_path):
     assert result.task_id and result.attempt_id and result.artifact_version_id
     duration = float(result.duration_seconds or "0")
     assert 1.5 <= duration <= 3.2
+    # 4B-B09: the same film without its burned subtitle, and the subtitle's own times.
+    assert result.clean_output_path and result.clean_output_path != result.output_path
+    assert Path(result.clean_output_path).is_file()
+    assert result.subtitle_cues and result.subtitle_cues[0].text == "雾城来信"
+    assert _data(result).clean_output_path == result.clean_output_path
+    assert _data(result).subtitle_cues[0].text == "雾城来信"  # type: ignore[index]
     tools = toolchain()
+    clean_probe = subprocess.run(
+        [
+            str(tools.ffprobe_path),
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_type",
+            "-of",
+            "json",
+            result.clean_output_path,
+        ],
+        check=True,
+        capture_output=True,
+    )
+    assert {"video", "audio"} <= {
+        stream["codec_type"] for stream in json.loads(clean_probe.stdout)["streams"]
+    }
     probe = subprocess.run(
         [
             str(tools.ffprobe_path),
@@ -186,6 +211,21 @@ def test_missing_font_saves_srt_and_still_makes_the_film(tmp_path, monkeypatch):
     srt = Path(result.output_path).with_suffix(".srt")
     assert "雾城来信" in srt.read_text(encoding="utf-8")
     assert result.has_video and result.has_audio
+    # Nothing was burned, so the film itself is the clean one; the cue is still reported.
+    assert result.clean_output_path == result.output_path
+    assert result.subtitle_cues and result.subtitle_cues[0].text == "雾城来信"
+
+
+def test_export_cues_take_the_wrapping_back_out_and_use_seconds():
+    assert _export_cues(None) == ()
+    assert _export_cues(
+        [
+            {"text": "雾散之前，不要回头。\n后半句", "start_frame": 12, "end_frame": 60},
+            {"text": "", "start_frame": 60, "end_frame": 72},
+            {"text": "坏的", "start_frame": 80, "end_frame": 70},
+            "not a cue",
+        ]
+    ) == (StoryFilmCue(text="雾散之前，不要回头。后半句", start_seconds=0.5, end_seconds=2.5),)
 
 
 def test_story_film_route_explains_the_provider_before_any_call(tmp_path):

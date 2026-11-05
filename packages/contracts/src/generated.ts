@@ -10062,6 +10062,15 @@ export interface components {
              */
             request_id: string;
         };
+        /** StoryFilmCueData */
+        StoryFilmCueData: {
+            /** End Seconds */
+            end_seconds: number;
+            /** Start Seconds */
+            start_seconds: number;
+            /** Text */
+            text: string;
+        };
         /** StoryFilmData */
         StoryFilmData: {
             /** Artifact Version Id */
@@ -10070,6 +10079,8 @@ export interface components {
             attempt_id?: string | null;
             /** Billing Label */
             billing_label: string;
+            /** Clean Output Path */
+            clean_output_path?: string | null;
             /**
              * Draft
              * @default true
@@ -10109,6 +10120,8 @@ export interface components {
              * @enum {string}
              */
             status: "SUCCEEDED" | "BLOCKED" | "FAILED";
+            /** Subtitle Cues */
+            subtitle_cues?: components["schemas"]["StoryFilmCueData"][] | null;
             /** Suggested Provider */
             suggested_provider?: ("stub" | "grok_subscription") | null;
             /** Task Id */

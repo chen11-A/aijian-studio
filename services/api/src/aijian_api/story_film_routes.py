@@ -129,6 +129,14 @@ class CreateStoryFilmBody(BaseModel):
     shots: list[StoryShotBody] = Field(default_factory=list, max_length=10)
 
 
+class StoryFilmCueData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    start_seconds: float
+    end_seconds: float
+
+
 class StoryFilmData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -151,6 +159,8 @@ class StoryFilmData(BaseModel):
     live_call: bool = False
     preview_image: str | None = None
     voice_path: str | None = None
+    clean_output_path: str | None = None
+    subtitle_cues: list[StoryFilmCueData] | None = None
 
 
 class StoryFilmProgressData(BaseModel):
@@ -383,4 +393,13 @@ def _data(result: StoryFilmResult) -> StoryFilmData:
         live_call=result.live_call,
         preview_image=result.preview_image,
         voice_path=result.voice_path,
+        clean_output_path=result.clean_output_path,
+        subtitle_cues=[
+            StoryFilmCueData(
+                text=cue.text, start_seconds=cue.start_seconds, end_seconds=cue.end_seconds
+            )
+            for cue in result.subtitle_cues
+        ]
+        if result.subtitle_cues
+        else None,
     )

@@ -23102,6 +23102,30 @@
         "title": "StoryFilmCancelResponse",
         "type": "object"
       },
+      "StoryFilmCueData": {
+        "additionalProperties": false,
+        "properties": {
+          "end_seconds": {
+            "title": "End Seconds",
+            "type": "number"
+          },
+          "start_seconds": {
+            "title": "Start Seconds",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "start_seconds",
+          "end_seconds"
+        ],
+        "title": "StoryFilmCueData",
+        "type": "object"
+      },
       "StoryFilmData": {
         "additionalProperties": false,
         "properties": {
@@ -23130,6 +23154,17 @@
           "billing_label": {
             "title": "Billing Label",
             "type": "string"
+          },
+          "clean_output_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clean Output Path"
           },
           "draft": {
             "default": true,
@@ -23222,6 +23257,20 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "subtitle_cues": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/StoryFilmCueData"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle Cues"
           },
           "suggested_provider": {
             "anyOf": [

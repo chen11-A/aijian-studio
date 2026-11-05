@@ -160,6 +160,15 @@ class StoryFilmRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class StoryFilmCue:
+    """One burned subtitle, in seconds from the start of this film."""
+
+    text: str
+    start_seconds: float
+    end_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
 class StoryFilmResult:
     status: FilmStatus
     message: str
@@ -180,6 +189,9 @@ class StoryFilmResult:
     preview_image: str | None = None
     voice_path: str | None = None
     user_message: UserMessage | None = None
+    # 4B-B09: the same film without burned subtitles, for an export in another look or none.
+    clean_output_path: str | None = None
+    subtitle_cues: tuple[StoryFilmCue, ...] | None = None
 
 
 def user_data_root() -> Path | None:
@@ -540,6 +552,8 @@ class StoryFilmService:
             live_call=live_call,
             preview_image=preview if isinstance(preview, str) else None,
             voice_path=result.voice_path,
+            clean_output_path=result.clean_output_path,
+            subtitle_cues=result.subtitle_cues,
         )
 
     def _preflight(
@@ -1485,7 +1499,18 @@ class StoryFilmService:
             self._toolchain_provider,
             ProductExportJobManager() if sys.platform == "win32" else None,
         )
+        export_cues = _export_cues(content.get("subtitle_segments"))
         subtitle_note = _save_subtitle_without_blocking(content, output, subtitle, frames)
+        burned = "subtitle_segments" in content
+        # 4B-B09: first the same film without burned subtitles (so the subtitled one stays the
+        # assembly head as before). A failure here keeps the take; the export then says why.
+        clean = (
+            self._export_clean_copy(
+                project_id, episode_id, content, directory / f"{stem}-film-clean.mp4", runtime
+            )
+            if burned
+            else None
+        )
         assembly, job = self._export_story_assembly(
             project_id, episode_id, content, output, runtime
         )
@@ -1557,7 +1582,31 @@ class StoryFilmService:
             draft=True,
             live_call=False,
             voice_path=str(voiced) if voiced.is_file() else None,
+            clean_output_path=str(clean) if clean else (None if burned else job.output_path),
+            subtitle_cues=export_cues or None,
         )
+
+    def _export_clean_copy(
+        self,
+        project_id: str,
+        episode_id: str,
+        content: dict[str, object],
+        output: Path,
+        runtime: DraftExportRuntime,
+    ) -> Path | None:
+        clean_content = {key: value for key, value in content.items() if key != "subtitle_segments"}
+        try:
+            _assembly, job = self._export_story_assembly(
+                project_id, episode_id, clean_content, output, runtime
+            )
+            if job.status != "SUCCEEDED" or job.output_path is None:
+                return None
+            path = Path(job.output_path)
+            tools = self._tools()
+            _tag_ai_generated(tools.ffmpeg_path, tools.ffprobe_path, path)
+            return path if path.is_file() else None
+        except Exception:  # noqa: BLE001 - the subtitled film is still the take
+            return None
 
     def _export_story_assembly(
         self,
@@ -2298,6 +2347,29 @@ def _caption_segments(
         )
         cursor = end_frame
     return cues
+
+
+def _export_cues(segments: object) -> tuple[StoryFilmCue, ...]:
+    """The burned cues in seconds, with the 16-character wrapping taken back out."""
+
+    if not isinstance(segments, list):
+        return ()
+    cues: list[StoryFilmCue] = []
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        text = str(segment.get("text") or "").replace("\n", "").strip()
+        start = segment.get("start_frame")
+        end = segment.get("end_frame")
+        if text and isinstance(start, int) and isinstance(end, int) and end > start >= 0:
+            cues.append(
+                StoryFilmCue(
+                    text=text,
+                    start_seconds=round(start / _FRAME_RATE, 3),
+                    end_seconds=round(end / _FRAME_RATE, 3),
+                )
+            )
+    return tuple(cues)
 
 
 def _tag_ai_generated(ffmpeg: Path, ffprobe: Path, path: Path) -> None:
