@@ -1586,6 +1586,9 @@ it("keeps the style of the whole work above the characters and warns which shots
     },
   ];
   shot.selectedTakeId = "take-made";
+  // GPT's setFilmStyle marks every shot; only the made one counts.
+  for (const item of film.shots)
+    Object.assign(item, { regenerationRequired: { code: "STYLE_CHANGED", styleRevision: 2 } });
   window.aijian = {
     listFilmSeries: vi.fn(async () => [
       { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
@@ -1599,14 +1602,13 @@ it("keeps the style of the whole work above the characters and warns which shots
   const card = screen.getByRole("region", { name: "整部作品的画风" });
   expect(within(card).getByLabelText("画风")).toBeInTheDocument();
   expect(within(card).getByLabelText("画风说明")).toHaveValue(film.styleZh);
-  expect(screen.queryByText(/要重新生成才会变/)).toBeNull();
-  fireEvent.change(within(card).getByLabelText("画风说明"), {
-    target: { value: "黑白胶片，颗粒感重" },
-  });
   expect(
-    await screen.findByText("已有 1 个镜头是按原来的画风做的，要重新生成才会变。"),
+    screen.getByText("已有 1 个镜头是按原来的画风做的，要重新生成才会变。"),
   ).toBeInTheDocument();
   expect(document.querySelector(".cast-info #style-preset")).toBeNull();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
+  expect(screen.getAllByText("画风变了")).toHaveLength(1);
 });
 
 it("makes every missing portrait from one button and shows each slot's state", async () => {

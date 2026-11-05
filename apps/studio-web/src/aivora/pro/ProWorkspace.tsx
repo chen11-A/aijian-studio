@@ -146,6 +146,7 @@ import { HomeStart, type Aspect } from "../next/HomeStart";
 import { PipelineSteps } from "../next/PipelineSteps";
 import { TakePicker } from "../next/TakePicker";
 import { takePickerData } from "../next/adapters/takePicker";
+import { needsRestyle } from "../next/adapters/restyle";
 import {
   AGE_BANDS,
   GENDERS,
@@ -4592,10 +4593,8 @@ function CastPage({
   const [place, setPlace] = useState(0);
   const [side, setSide] = useState<"people" | "places" | "props">("people");
   const character = film.characters[who];
-  // 4A-U02: shots already made keep the style they were made with until they are made again.
-  const [styleAtOpen] = useState(film.styleZh);
-  const styleChanged = film.styleZh.trim() !== styleAtOpen.trim();
-  const madeShots = film.shots.filter((shot) => shotProgress(shot) !== "未生成").length;
+  // 4A-U02: shots made before the style changed, as GPT marks them (kept in project.json).
+  const restyle = film.shots.filter(needsRestyle).length;
   const VIEWS = ["正面", "侧面", "背面", "脸部"];
   const has = (person: (typeof film.characters)[number], view: string) =>
     person.portraits.some((portrait) => portrait.view === view && portrait.url);
@@ -4776,9 +4775,9 @@ function CastPage({
               placeholder="还没有画风说明。选一个画风，或者请右边的美术写。"
               onChange={(event) => onFilm({ ...film, styleZh: event.target.value })}
             />
-            {styleChanged && madeShots > 0 ? (
+            {restyle > 0 ? (
               <p className="style-warn">
-                已有 {madeShots} 个镜头是按原来的画风做的，要重新生成才会变。
+                已有 {restyle} 个镜头是按原来的画风做的，要重新生成才会变。
               </p>
             ) : null}
           </section>
@@ -5407,6 +5406,11 @@ function BoardPage({
               <div className="cb">
                 <div className="ct">
                   镜头 {item.no} <span>{item.size}</span>
+                  {needsRestyle(item) ? (
+                    <span className="restyle" title="画风改过，这一镜要重新生成才会变">
+                      画风变了
+                    </span>
+                  ) : null}
                   <i
                     className={`src ${shotSource(item).tone}`}
                     title={shotSource(item).label}
