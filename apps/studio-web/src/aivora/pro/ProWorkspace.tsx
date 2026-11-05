@@ -2952,6 +2952,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const helper = PAGE_ROLE[stage];
     if (helper) chooseRole(helper);
   }, [stage]);
+  // 4C-U08: something is being made, so the status bar shows it in the middle.
+  const busy = asking || feedNow.active > 0 || portraitBusy || finished < tracked.length;
   // 4A-U09: one primary button per screen. 导出成片 leads on 剪辑 and once every shot has its
   // video; then each page's own primary button steps back (quiet).
   const exportView = exportLead(
@@ -3051,6 +3053,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       onRetry={pendingRetry ? () => void retryPending() : undefined}
       onRedoRange={redoFromReview}
       onDismiss={keepReview}
+      scope={film ? scopeOf(film, scene, shownShots[shot] ?? null) : ""}
+      mentions={film ? mentionsOf(film, shownShots) : []}
     />
   );
   // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
@@ -3819,79 +3823,95 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             if (file) void importBook(file);
           }}
         />
+        {/* 4C-U08: the latest message on the left, work in progress in the middle (only a
+            small button when there is none), and where the work is kept on the right. */}
         <footer className="statusbar">
-          {asking && (
-            <button
-              type="button"
-              onClick={() => {
-                void (
-                  window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined
-                )?.cancelText?.();
-                setAsking(false);
-                setNotice("已取消。");
+          <div className="sb-left">
+            {asking && (
+              <button
+                type="button"
+                onClick={() => {
+                  void (
+                    window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined
+                  )?.cancelText?.();
+                  setAsking(false);
+                  setNotice("已取消。");
+                }}
+              >
+                取消
+              </button>
+            )}
+            <span
+              className={status.fading ? "status-note fading" : "status-note"}
+              role="status"
+              title={
+                status.line
+                  ? [status.line.text, status.line.detail].filter(Boolean).join("\n")
+                  : undefined
+              }
+              style={{
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
-              取消
-            </button>
-          )}
-          <span
-            className={status.fading ? "status-note fading" : "status-note"}
-            role="status"
-            title={
-              status.line
-                ? [status.line.text, status.line.detail].filter(Boolean).join("\n")
-                : undefined
-            }
-            style={{
-              minWidth: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {status.line?.text ?? ""}
-          </span>
-          {/* 4A-U11: what the assistant put in can be taken back from the status bar. */}
-          {status.line && !status.fading && APPLIED_CODES.has(status.line.code) ? (
-            <button
-              type="button"
-              className="status-undo"
-              aria-label="撤销刚才放进去的"
-              onClick={undoEdit}
-            >
-              撤销
-            </button>
-          ) : null}
-          <button
-            className="task"
-            data-menu="queue"
-            onClick={() => setMenu(menu === "queue" ? null : "queue")}
-          >
-            <Ic name="loader" size={12} />
-            后台生成：
-            {asking
-              ? "AI 在写"
-              : feedNow.active > 0
-                ? `正在做 ${feedNow.active} 个`
-                : portraitBusy
-                  ? "正在出定妆照"
-                  : "没有在做的"}
-            {/* UIR-04: no bar when nothing is being made; it used to stay full after a failure. */}
-            {feedNow.active > 0 || finished < tracked.length ? (
-              <span className="bar">
-                <i style={{ width: `${feedNow.active > 0 ? feedNow.percent : progress}%` }} />
-              </span>
+              {status.line?.text ?? ""}
+            </span>
+            {/* 4A-U11: what the assistant put in can be taken back from the status bar. */}
+            {status.line && !status.fading && APPLIED_CODES.has(status.line.code) ? (
+              <button
+                type="button"
+                className="status-undo"
+                aria-label="撤销刚才放进去的"
+                onClick={undoEdit}
+              >
+                撤销
+              </button>
             ) : null}
-          </button>
-          <span className="sp" />
-          <span className="where">
-            {savedDirectory
-              ? "作品保存在"
-              : savingDisk
-                ? "正在保存…"
-                : diskError || (filmDiskReady() ? "已保存在这台电脑上" : BROWSER_DIRECTORY)}{" "}
-            <b>{savedDirectory || film?.title || ""}</b>
-          </span>
+          </div>
+          <div className="sb-mid">
+            <button
+              className={busy ? "task" : "task idle"}
+              data-menu="queue"
+              aria-label={busy ? undefined : "后台生成：没有在做的"}
+              title={busy ? undefined : "任务和提示记录"}
+              onClick={() => setMenu(menu === "queue" ? null : "queue")}
+            >
+              <Ic name="loader" size={12} />
+              {busy ? "后台生成：" : null}
+              {!busy
+                ? null
+                : asking
+                  ? "AI 在写"
+                  : feedNow.active > 0
+                    ? `正在做 ${feedNow.active} 个`
+                    : portraitBusy
+                      ? "正在出定妆照"
+                      : "没有在做的"}
+              {/* UIR-04: no bar when nothing is being made; it used to stay full after a failure. */}
+              {feedNow.active > 0 || finished < tracked.length ? (
+                <span className="bar">
+                  <i style={{ width: `${feedNow.active > 0 ? feedNow.percent : progress}%` }} />
+                </span>
+              ) : null}
+            </button>
+          </div>
+          <div className="sb-right">
+            <span className="where">
+              {savedDirectory
+                ? "作品保存在"
+                : savingDisk
+                  ? "正在保存…"
+                  : diskError ||
+                    (filmDiskReady()
+                      ? "已保存在这台电脑上"
+                      : import.meta.env.DEV
+                        ? BROWSER_DIRECTORY
+                        : "")}{" "}
+              <b>{savedDirectory || film?.title || ""}</b>
+            </span>
+          </div>
         </footer>
         {confirmSignIn && (
           <div className="dialog-back">
@@ -4525,6 +4545,21 @@ const PAGE_ROLE: Partial<Record<Stage, Role>> = {
   board: "director",
 };
 
+/** 4C-U08: what the assistant is looking at: 「第 2 场第 3 个镜头」, or the scene. */
+function scopeOf(film: FilmProject, sceneId: string, shot?: FilmShot | null): string {
+  const scene = film.scenes.find((item) => item.id === (shot?.sceneId || sceneId));
+  if (!scene) return "";
+  return shot ? `第 ${scene.no} 场第 ${shot.no} 个镜头` : `第 ${scene.no} 场「${scene.title}」`;
+}
+
+/** 4C-U08: what can be named with @: the people, then this scene's shots. */
+function mentionsOf(film: FilmProject, shots: readonly FilmShot[]): string[] {
+  return [
+    ...film.characters.map((person) => `@${person.name}`).filter((name) => name.length > 1),
+    ...shots.slice(0, 12).map((item) => `@镜头 ${item.no}`),
+  ];
+}
+
 /** A shot as one line of a suggestion: who is in it, the picture, its length. */
 function shotItem(shot: FilmShot): SuggestionItem {
   return {
@@ -4564,6 +4599,8 @@ function Assistant({
   currentScenes = [],
   onReject,
   solo = false,
+  scope = "",
+  mentions = [],
 }: {
   role: Role;
   onRole: (role: Role) => void;
@@ -4592,7 +4629,13 @@ function Assistant({
   onReject?: () => void;
   /** The assistant is the only thing in the right column: Ctrl+J moves into its input. */
   solo?: boolean;
+  /** 4C-U08: what the assistant is looking at, like 「第 2 场第 3 个镜头」. */
+  scope?: string;
+  /** 4C-U08: what can be named with @ in the message: people, then this scene's shots. */
+  mentions?: string[];
 }) {
+  const [mentioning, setMentioning] = useState(false);
+  useDismiss(mentioning, () => setMentioning(false), "[data-mention]");
   const pickId = useId();
   const input = useRef<HTMLTextAreaElement>(null);
   // 4A-U11: a suggestion that replaces a list (the director's shots, the writer's scenes) is
@@ -4781,6 +4824,45 @@ function Assistant({
           </button>
         ))}
       </div>
+      {scope || mentions.length > 0 ? (
+        <div className="chat-context">
+          {scope ? <span className="chat-scope">正在看：{scope}</span> : null}
+          <span className="sp" />
+          {mentions.length > 0 ? (
+            <span className="mention-wrap" data-mention>
+              <button
+                className="btn sm"
+                type="button"
+                aria-label="提到角色或镜头"
+                title="提到角色或镜头（@）"
+                aria-expanded={mentioning}
+                onClick={() => setMentioning((open) => !open)}
+              >
+                @
+              </button>
+              {mentioning ? (
+                <div className="menu mention-menu" role="menu" aria-label="提到谁">
+                  {mentions.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        const gap = chat && !/\s$/.test(chat) ? " " : "";
+                        onChat(`${chat}${gap}${item} `);
+                        setMentioning(false);
+                        input.current?.focus();
+                      }}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="composer">
         <textarea
           ref={input}
@@ -5126,6 +5208,11 @@ function ScriptPage({
         </div>
         <Assistant
           solo
+          scope={current ? scopeOf(film, current.id) : ""}
+          mentions={mentionsOf(
+            film,
+            film.shots.filter((item) => item.sceneId === current?.id),
+          )}
           currentScenes={film.scenes}
           onReject={onReject}
           role={role}
@@ -6436,6 +6523,8 @@ function BoardPage({
             onRedoRange={onRedoRange}
             onDismiss={onDismiss}
             onReject={onReject}
+            scope={scopeOf(film, activeSceneId, current)}
+            mentions={mentionsOf(film, shots)}
           />
         ) : current ? (
           <>

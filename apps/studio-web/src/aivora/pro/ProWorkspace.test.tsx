@@ -894,7 +894,8 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
       expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /后台生成/ }).textContent).toContain("没有在做的");
+      // 4C-U08: nothing in progress: a small button, still named for screen readers.
+      expect(screen.getByRole("button", { name: "后台生成：没有在做的" })).toHaveClass("idle");
       const preview = document.querySelector("video.frame");
       if (preview) {
         fireEvent.timeUpdate(preview);
@@ -1089,7 +1090,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
     expect(await screen.findByText(/已标成已中断|上次关软件时还有镜头没做完/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有在做的");
+    expect(screen.getByRole("button", { name: "后台生成：没有在做的" })).toHaveClass("idle");
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
     expect(screen.getByRole("button", { name: /已中断/ })).toBeInTheDocument();
   }, 20_000);
@@ -3668,6 +3669,31 @@ it("keeps the work's settings together and fixes the small 剪辑 things (4C-U07
   expect(screen.getByLabelText("这一场的环境音")).toBeInTheDocument();
 });
 
+it("splits the status bar in three and tells the assistant what it is looking at (4C-U08)", async () => {
+  installDesktop();
+  await openSample();
+  const bar = document.querySelector(".statusbar")!;
+  expect([...bar.children].map((item) => item.className)).toEqual([
+    "sb-left",
+    "sb-mid",
+    "sb-right",
+  ]);
+  expect(bar.querySelector(".sb-mid .task")).toHaveClass("idle");
+  // 剧本: the assistant names the scene; @ puts a person or a shot into the message.
+  fireEvent.click(stageTab("剧本"));
+  expect(screen.getByText(/^正在看：第 \d+ 场「.+」$/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "提到角色或镜头" }));
+  const people = within(screen.getByRole("menu", { name: "提到谁" })).getAllByRole("menuitem");
+  expect(people[0]?.textContent).toMatch(/^@/);
+  fireEvent.click(people[0]!);
+  expect(screen.getByLabelText("跟助手说")).toHaveValue(`${people[0]!.textContent} `);
+  expect(screen.queryByRole("menu", { name: "提到谁" })).toBeNull();
+  // 分镜 → AI 助手: the scope is the selected shot.
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();
@@ -3724,7 +3750,7 @@ it("sums the export in one line, lists missing shots by scene, and offers the fi
 it("opens the task center from 后台生成 with nothing to do yet, and goes to the storyboard", () => {
   render(<ProWorkspace />);
   fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
-  expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有在做的");
+  expect(screen.getByRole("button", { name: "后台生成：没有在做的" })).toHaveClass("idle");
   fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
   expect(screen.getByText("现在没有任务")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "去分镜" }));

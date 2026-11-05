@@ -344,7 +344,9 @@ body:has(.pro-root) {
   height: 24px;
 }
 .pro-root .statusbar {
-  display: flex;
+  /* 4C-U08: three areas: message, work in progress, where the work is kept. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 18px;
   padding: 0 12px;
@@ -356,6 +358,19 @@ body:has(.pro-root) {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+.pro-root .statusbar .sb-left,
+.pro-root .statusbar .sb-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pro-root .statusbar .sb-right {
+  justify-content: flex-end;
+}
+.pro-root .statusbar .task.idle {
+  color: var(--text-3);
 }
 .pro-root .statusbar .status-note {
   min-width: 0;
@@ -510,6 +525,34 @@ body:has(.pro-root) {
   margin-bottom: -1px;
   font-weight: 500;
   white-space: nowrap;
+}
+/* 4C-U08: above the assistant's input, what it is looking at and the @ list. */
+.pro-root .chat-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 12px 0;
+  font-size: 12px;
+}
+.pro-root .chat-scope {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pro-root .mention-wrap {
+  position: relative;
+  flex: none;
+}
+.pro-root .mention-menu {
+  top: auto;
+  right: 0;
+  bottom: 30px;
+  left: auto;
+  max-height: 240px;
+  overflow-y: auto;
 }
 .pro-root .chat-hint {
   margin: 0;
