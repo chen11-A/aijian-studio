@@ -167,7 +167,7 @@ import { presentNotice, NOTICE_TEXT } from "../film/notices";
 import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
-import { applyDirectorPlan, RequestSequences } from "./director-workflow";
+import { RequestSequences } from "./director-workflow";
 import { sceneShotBudget, formatShotBudget, sceneDisplayTitle } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs } from "../film/task-progress";
