@@ -424,8 +424,10 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         assert "灯塔夜班" not in text
         assert _REVISED not in text
         names = [item["event"] for item in _events(log_path)]
-        assert names[:5] == ["image", "image_saved", "video_submit", "video_poll", "video_poll"]
-        assert "tts" in names and "compose" in names
+        # 3JR-B01: the voice is made and measured before the video is asked for, so the video
+        # is long enough for the whole line; it is made once.
+        assert names[:5] == ["image", "image_saved", "tts", "video_submit", "video_poll"]
+        assert names.count("tts") == 1 and "compose" in names
         again = service.produce(
             project_id, _request("grok_subscription"), media_token="subscription-token"
         )

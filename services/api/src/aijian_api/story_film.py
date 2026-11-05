@@ -1077,7 +1077,11 @@ class StoryFilmService:
             ),
         )
         self._ensure_running(project_id)
-        mark_film_progress(project_id, "speech", shot_label or "正在生成配音。", image_saved=kept)
+        # A voice made before the video (3JR-B01) is not reported as being made again.
+        if speech is None:
+            mark_film_progress(
+                project_id, "speech", shot_label or "正在生成配音。", image_saved=kept
+            )
         try:
             if speech is None:
                 speech = self._dialogue_speech(client, request, project_id)
