@@ -263,7 +263,13 @@ export async function runPipelineAgentAction(
       const pending = (film.unassignedBeats ?? [])
         .filter((beat) => beat.sceneId === scene.id)
         .map((beat) => ({ text: beat.text }));
-      const assigned = assignActionBeats(film.shots, scene.id, [...pending, ...parsed], scene.text);
+      const assigned = assignActionBeats(
+        film.shots,
+        scene.id,
+        [...pending, ...parsed],
+        scene.text,
+        scene,
+      );
       const next = applyActionPlan(
         {
           ...film,

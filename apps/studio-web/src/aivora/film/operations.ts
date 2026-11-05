@@ -1,3 +1,4 @@
+import { sourceSupportsActionShot, type ActionSourceScene } from "./action-source-evidence";
 import { shotActions, shotActionText, withShotActions } from "./shot-actions";
 import {
   constrainVisualPrompt,
@@ -713,6 +714,7 @@ export function resolveActionBeatShot(
   sceneId: string,
   beat: { text: string; shotId?: string },
   sourceText = "",
+  sourceScene?: ActionSourceScene,
 ): FilmShot | undefined {
   const explicit = beat.shotId ? shots.find((shot) => shot.id === beat.shotId) : undefined;
   if (explicit)
@@ -723,12 +725,24 @@ export function resolveActionBeatShot(
       : undefined;
   const cue = actionEvidence(beat.text);
   if (sourceText && !actionOverlap(cue, actionEvidence(sourceText))) return undefined;
-  const candidates = shots.filter(
+  const eligible = shots.filter(
     (shot) =>
       shot.sceneId === sceneId &&
       !shot.userFields.includes("action") &&
-      !shot.userFields.includes("actionPlan") &&
-      actionOverlap(cue, actionEvidence(actionVisual(shot))),
+      !shot.userFields.includes("actionPlan"),
+  );
+  const direct = eligible.filter((shot) => actionOverlap(cue, actionEvidence(actionVisual(shot))));
+  // A direct visual match is stronger than another shot's shared source sentence.
+  if (direct.length) return direct.length === 1 ? direct[0] : undefined;
+  const candidates = eligible.filter((shot) =>
+    sourceSupportsActionShot(
+      shot,
+      beat.text,
+      sourceText,
+      sourceScene,
+      actionOverlap,
+      actionEvidence,
+    ),
   );
   return candidates.length === 1 ? candidates[0] : undefined;
 }
@@ -738,18 +752,31 @@ export function assignActionBeats(
   sceneId: string,
   beats: { text: string; shotId?: string }[],
   sourceText = "",
+  sourceScene?: ActionSourceScene,
 ): { shots: FilmShot[]; unassignedBeats: { sceneId: string; text: string }[] } {
   const unassignedBeats: { sceneId: string; text: string }[] = [];
   const accepted = new Map<string, string[]>();
   for (const beat of beats) {
     const text = plainCue(beat.text);
     if (!text) continue;
-    const target = resolveActionBeatShot(shots, sceneId, beat, sourceText);
+    const target = resolveActionBeatShot(shots, sceneId, beat, sourceText, sourceScene);
     // Spoken mentions of weapons do not turn a dialogue shot into a fight shot.
     const fightAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|铁棍|钢条|钢管|折叠刀/.test(text);
     const visual = target ? actionVisual(target) : "";
     const hasPhysicalAction = PHYSICAL_ACTION.test(visual);
-    if (!target || (fightAction && !hasPhysicalAction)) {
+    if (
+      !target ||
+      (fightAction &&
+        !hasPhysicalAction &&
+        !sourceSupportsActionShot(
+          target,
+          text,
+          sourceText,
+          sourceScene,
+          actionOverlap,
+          actionEvidence,
+        ))
+    ) {
       unassignedBeats.push({ sceneId, text });
       continue;
     }

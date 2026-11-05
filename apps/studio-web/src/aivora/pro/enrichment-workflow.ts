@@ -107,7 +107,7 @@ export async function enrichDirectorPlan(
         if (!valid()) return shots;
         const parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
         if (!parsed) throw new Error(reply.detail || "动作指导没有返回可用内容。");
-        const assigned = assignActionBeats(next, sceneId, parsed, sceneRow.text);
+        const assigned = assignActionBeats(next, sceneId, parsed, sceneRow.text, sceneRow);
         next = assigned.shots;
         options.unassigned(sceneId, assigned.unassignedBeats);
       } catch {

@@ -62,13 +62,14 @@ export async function planActionDraft(
     }
   }
   if (parsed && current) {
-    const source = film.scenes.find((scene) => scene.id === current.sceneId)?.text ?? "";
-    const assigned = assignActionBeats([current], current.sceneId, parsed, source);
+    const sourceScene = film.scenes.find((scene) => scene.id === current.sceneId);
+    const source = sourceScene?.text ?? "";
+    const assigned = assignActionBeats([current], current.sceneId, parsed, source, sourceScene);
     unassigned = assigned.unassignedBeats;
     parsed = parsed.filter(
       (row) =>
-        resolveActionBeatShot([current], current.sceneId, row, source)?.id === current.id &&
-        !assigned.unassignedBeats.some((item) => item.text === row.text),
+        resolveActionBeatShot([current], current.sceneId, row, source, sourceScene)?.id ===
+          current.id && !assigned.unassignedBeats.some((item) => item.text === row.text),
     );
     sentence = assigned.shots[0]?.action ?? current.action;
     resolvedActions = shotActions(assigned.shots[0] ?? current);

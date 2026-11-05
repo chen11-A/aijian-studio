@@ -183,7 +183,8 @@ export function parseActionPlan(value: unknown): {
 
 export function applyActionPlan(film: FilmProject, sceneId: string, value: unknown): FilmProject {
   const parsed = parseActionPlan(value);
-  const source = film.scenes.find((scene) => scene.id === sceneId)?.text ?? "";
+  const sourceScene = film.scenes.find((scene) => scene.id === sceneId);
+  const source = sourceScene?.text ?? "";
   const resolved: typeof parsed.shots = [];
   for (const entry of parsed.shots) {
     // Never reinterpret a valid ID from another scene, or metadata without an action.
@@ -207,7 +208,7 @@ export function applyActionPlan(film: FilmProject, sceneId: string, value: unkno
       ]
         .filter(Boolean)
         .join("，");
-      const target = resolveActionBeatShot(film.shots, sceneId, { text: cue }, source);
+      const target = resolveActionBeatShot(film.shots, sceneId, { text: cue }, source, sourceScene);
       if (target) groups.set(target.id, [...(groups.get(target.id) ?? []), node]);
       else unmatched.push(node);
     }
@@ -248,10 +249,22 @@ export function applyActionPlan(film: FilmProject, sceneId: string, value: unkno
     const accepted: ActionNode[] = [];
     const rejected: ActionNode[] = [];
     for (const node of entry.plan.nodes) {
-      const cue = [node.actor, node.move, node.bodyPart, node.direction, node.reaction]
+      const cue = [
+        node.move.includes(node.actor) ? "" : node.actor,
+        node.move,
+        node.bodyPart,
+        node.direction,
+        node.reaction,
+      ]
         .filter(Boolean)
         .join("，");
-      const check = assignActionBeats([shot!], sceneId, [{ shotId: entry.shotId, text: cue }]);
+      const check = assignActionBeats(
+        [shot!],
+        sceneId,
+        [{ shotId: entry.shotId, text: cue }],
+        source,
+        sourceScene,
+      );
       (check.unassignedBeats.length ? rejected : accepted).push(node);
     }
     if (rejected.length)
