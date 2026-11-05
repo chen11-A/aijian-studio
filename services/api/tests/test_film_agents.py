@@ -172,7 +172,7 @@ def test_offline_director_uses_the_users_lines_not_the_fight_cast() -> None:
     assert "巷口只有一个人站住" in blob
     curated = plan_shots("雨夜巷战")
     assert any("林夏" in shot.narration for shot in curated)
-    assert prompt_version("director") == 2
+    assert prompt_version("director") == 4
     assert prompt_version("writer") == 1
 
 

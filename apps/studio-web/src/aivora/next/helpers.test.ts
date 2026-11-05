@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AUDIO_LANE_GAIN_DB, dbToVolumePercent, volumePercentToDb } from "../film/audio";
 import { stepChoice } from "./radio";
-import { clockLabel, durationLabel, shotLabel } from "./shot";
+import { clockLabel, durationLabel, shotLabel, videoLine } from "./shot";
 import { clampVolume, dbToVolume, DEFAULT_LANE_VOLUMES, SOUND_LANES, volumeToDb } from "./volume";
 
 describe("shot labels", () => {
@@ -85,5 +85,13 @@ describe("radio groups", () => {
     expect(stepChoice(items, "a", "Enter")).toBeNull();
     expect(stepChoice(items, "x" as never, "ArrowRight")).toBe("a");
     expect(stepChoice([], "a", "ArrowRight")).toBeNull();
+  });
+});
+
+describe("videoLine", () => {
+  it("says how many videos of the selected length one click makes", () => {
+    expect(videoLine(1, 2)).toBe("1 段 2 秒的视频 · 用 Grok 会员额度，不另外收费");
+    expect(videoLine(4, 3)).toBe("4 段 3 秒的视频 · 用 Grok 会员额度，不另外收费");
+    expect(videoLine(0, Number.NaN)).toBe("1 段 0 秒的视频 · 用 Grok 会员额度，不另外收费");
   });
 });

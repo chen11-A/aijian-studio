@@ -1,0 +1,162 @@
+/* 4A-U01: a thin bar under the top bar while 一键成片 runs or waits at the storyboard. */
+.nx-root.nx-pipeline {
+  flex: none;
+  gap: 6px;
+  height: auto;
+  min-height: 40px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.nx-root .nx-pipeline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  min-width: 0;
+}
+
+.nx-root .nx-pipeline-steps {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+.nx-root .nx-pipeline-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.nx-root .nx-pipeline-step[data-status="done"],
+.nx-root .nx-pipeline-step[data-status="accepted"] {
+  color: var(--text-2);
+}
+
+.nx-root .nx-pipeline-step[data-status="running"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.nx-root .nx-pipeline-step[data-status="failed"],
+.nx-root .nx-pipeline-step[data-status="blocked"] {
+  color: var(--err);
+}
+
+.nx-root .nx-pipeline-step[data-status="needs-input"],
+.nx-root .nx-pipeline-step[data-status="uncertain"] {
+  color: var(--warn);
+}
+
+.nx-root .nx-pipeline-arrow {
+  color: var(--text-3);
+}
+
+.nx-root .nx-pipeline-step[data-status="done"] .nx-pipeline-mark,
+.nx-root .nx-pipeline-step[data-status="accepted"] .nx-pipeline-mark {
+  color: var(--ok);
+}
+
+.nx-root .nx-pipeline-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.nx-root .nx-pipeline-summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-root .nx-pipeline-acts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.nx-root .nx-pipeline-acts .nx-btn {
+  height: 28px;
+}
+
+.nx-root .nx-pipeline-why {
+  color: var(--warn);
+}
+
+.nx-root .nx-pipeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px 0 2px;
+  border-top: 1px solid var(--line);
+}
+
+.nx-root .nx-pipeline-review {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.nx-root .nx-pipeline-review textarea {
+  width: 100%;
+  max-width: 720px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  resize: none;
+}
+
+.nx-root .nx-pipeline-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nx-root .nx-pipeline-issues li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--text-2);
+}
+
+.nx-root .nx-pipeline-issues li[data-tone="block"] {
+  color: var(--err);
+}
+
+.nx-root .nx-pipeline-issues li[data-tone="manual"] {
+  color: var(--warn);
+}
+
+.nx-root .nx-pipeline-target {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nx-root .nx-pipeline-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+}
+
+.nx-root .nx-pipeline-issues .nx-btn {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}

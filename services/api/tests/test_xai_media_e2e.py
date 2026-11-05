@@ -424,8 +424,10 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         assert "灯塔夜班" not in text
         assert _REVISED not in text
         names = [item["event"] for item in _events(log_path)]
-        assert names[:5] == ["image", "image_saved", "video_submit", "video_poll", "video_poll"]
-        assert "tts" in names and "compose" in names
+        # 3JR-B01: the voice is made and measured before the video is asked for, so the video
+        # is long enough for the whole line; it is made once.
+        assert names[:5] == ["image", "image_saved", "tts", "video_submit", "video_poll"]
+        assert names.count("tts") == 1 and "compose" in names
         again = service.produce(
             project_id, _request("grok_subscription"), media_token="subscription-token"
         )
@@ -452,7 +454,10 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         assert forced.status == "SUCCEEDED", forced.message
         assert script.image_posts == 3
         assert len(script.video_bodies) == 3
-        assert script.tts == 3
+        # 3JR-B01 (9a020d9): the voice is cached by line, voice and delivery. A new version makes
+        # a new picture and video but reuses the same line's voice, keeping versions in sync and
+        # not spending the subscription twice; a changed line (above) is voiced again.
+        assert script.tts == 2
         tasks = TaskQueueReader(tmp_path / "workspace.db").list_project_tasks(project_id)
         films = [item for item in tasks if item.node_type == "story_film"]
         assert len(films) == 4

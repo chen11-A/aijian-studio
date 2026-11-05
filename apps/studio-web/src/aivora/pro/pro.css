@@ -45,6 +45,8 @@
   --t-voice: #2fa978;
   --t-sub: #c4902f;
   --t-music: #8a63e8;
+  --t-amb: #3fa7b5;
+  --t-sfx: #d9895a;
   --r-s: 4px;
   --r: 6px;
   --r-l: 10px;
@@ -189,6 +191,13 @@ body:has(.pro-root) {
   place-items: center;
   color: var(--text-3);
 }
+/* UIR-06: a tab not done yet says how far it got, e.g. 角色与场景 0/8. */
+.pro-root .tab .tab-count {
+  margin-left: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
 .pro-root .tab.done .n {
   background: rgba(53, 194, 138, 0.16);
   border-color: transparent;
@@ -235,6 +244,35 @@ body:has(.pro-root) {
   font-size: 12px;
   color: #fff;
 }
+/* 4A-U10: the membership state on the avatar: green connected, amber waiting or signed out. */
+.pro-root .avatar {
+  position: relative;
+}
+.pro-root .avatar-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--panel);
+  background: var(--warn);
+}
+.pro-root .avatar-dot[data-state="ok"] {
+  background: var(--ok);
+}
+.pro-root .avatar-dot[data-state="denied"] {
+  background: var(--err);
+}
+.pro-root .menu .menu-note {
+  margin: 0;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .pro-root .btn {
   display: inline-flex;
   align-items: center;
@@ -257,6 +295,23 @@ body:has(.pro-root) {
   border-color: transparent;
   color: #fff;
   font-weight: 500;
+}
+/* 4A-U09: one filled primary per screen. accent is outlined, for the assistant's 放进; off is
+   grayed when there is nothing to do yet (a click still explains why). */
+.pro-root .btn.accent {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+.pro-root .btn.off {
+  color: var(--text-3);
+  border-color: var(--line);
+  background: none;
+}
+.pro-root .export-why {
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
 }
 .pro-root .btn.ghost {
   background: none;
@@ -444,6 +499,44 @@ body:has(.pro-root) {
 .pro-root .ptabs button.on {
   color: #fff;
   border-color: var(--accent);
+}
+/* 4A-U11: a page whose right column only has the assistant shows the same tab, alone. */
+.pro-root .ptabs .tab-only {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--text);
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: -1px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pro-root .chat-hint {
+  margin: 0;
+  padding: 2px 2px 6px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.pro-root .chat .nx-suggest {
+  margin: 4px 0;
+}
+.pro-root .status-undo {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-s);
+  color: var(--accent);
+  font-size: 12px;
+}
+.pro-root .script-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--text-3);
+  font-size: 12px;
+  flex: none;
 }
 
 /* scene list (剧本 / 分镜 left) */
@@ -1235,16 +1328,17 @@ body:has(.pro-root) {
   grid-template-rows: minmax(0, 1fr) 272px;
   grid-template-columns: 280px 1fr 300px;
 }
+/* 4B-U02: four audio tracks fit the 272px timeline at 1280×800 (each at least 28px). */
 .pro-root {
-  --hs: 36px;
-  --hv: 66px;
-  --ha: 52px;
+  --hs: 28px;
+  --hv: 54px;
+  --ha: 30px;
 }
 @media (min-width: 1600px) {
   .pro-root {
-    --hs: 44px;
-    --hv: 110px;
-    --ha: 56px;
+    --hs: 40px;
+    --hv: 90px;
+    --ha: 40px;
   }
   .pro-root .ws {
     grid-template-rows: minmax(0, 1fr) 360px;
@@ -1356,6 +1450,32 @@ body:has(.pro-root) {
   padding: 0 12px;
   border-top: 1px solid var(--line);
   flex: none;
+}
+/* 4B-U01: 预览 | 声音 on the edit page's middle column; the sound panel scrolls in place. */
+.pro-root .monitor-tabs button {
+  height: 24px;
+}
+.pro-root .sound-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+/* 4A-U10: 预览静音 (M) sits at the right of the player controls; muted draws a slash. */
+.pro-root .ctrl .mute {
+  justify-self: end;
+}
+.pro-root .icon-btn.mute {
+  position: relative;
+}
+.pro-root .icon-btn.mute.on::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: rotate(-45deg);
 }
 .pro-root .tc {
   font: 12px var(--mono);
@@ -1833,7 +1953,10 @@ body:has(.pro-root) {
   grid-column: 1/-1;
   width: auto;
 }
+/* 4A-U12: each shot card on 单镜 fills the column. */
 .pro-root .shotrow {
+  width: 100%;
+  text-align: left;
   display: grid;
   grid-template-columns: 72px 1fr;
   gap: 8px;
@@ -2148,6 +2271,18 @@ body:has(.pro-root) {
   color: var(--text-3);
   transform: translateX(3px);
 }
+/* 3JR-U01: the ruler is where you click or drag to move the preview; arrow keys step a second. */
+.pro-root .ruler {
+  cursor: pointer;
+  touch-action: none;
+}
+.pro-root .ruler:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.pro-root .ruler span {
+  pointer-events: none;
+}
 .pro-root .lane {
   position: relative;
   border-bottom: 1px solid var(--line);
@@ -2196,6 +2331,20 @@ body:has(.pro-root) {
   border: 1px dashed var(--line-2);
   color: var(--text-3);
 }
+/* 3JR-U02: shots still to make step back, and fold to narrow marks once anything has a video,
+   so the finished shots are what the track shows. */
+.pro-root .clip.v.empty {
+  opacity: 0.7;
+}
+.pro-root .clip.v.empty.folded,
+.pro-root .clip.s.folded {
+  padding: 0;
+  opacity: 0.45;
+}
+.pro-root .clip.v.empty.folded:hover,
+.pro-root .clip.v.empty.folded:focus-visible {
+  opacity: 0.9;
+}
 .pro-root .clip.v.gen {
   background: repeating-linear-gradient(135deg, #2a2416 0 6px, #231e13 6px 12px);
   border: 1px solid rgba(232, 163, 61, 0.6);
@@ -2217,6 +2366,51 @@ body:has(.pro-root) {
   background: rgba(138, 99, 232, 0.2);
   border: 1px solid rgba(138, 99, 232, 0.55);
   color: #cdb9ff;
+}
+/* 4B-U02: 环境音 and 音效. Dashed while only the words exist, with no sound file yet. */
+.pro-root .clip.amb {
+  background: color-mix(in srgb, var(--t-amb) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--t-amb) 55%, transparent);
+  color: color-mix(in srgb, var(--t-amb) 55%, var(--text));
+}
+.pro-root .clip.fx {
+  background: color-mix(in srgb, var(--t-sfx) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--t-sfx) 55%, transparent);
+  color: color-mix(in srgb, var(--t-sfx) 55%, var(--text));
+}
+.pro-root .clip.plan {
+  background: none;
+  border-style: dashed;
+}
+.pro-root .clip.plan.fx {
+  width: auto;
+  max-width: 120px;
+  padding-right: 4px;
+}
+/* The strip an audio clip keeps for its waveform (GPT C3); empty until the peaks come. */
+.pro-root .clip svg.wave {
+  position: absolute;
+  left: 2px;
+  top: 3px;
+  width: calc(100% - 4px);
+  height: calc(100% - 6px);
+  pointer-events: none;
+  opacity: 0.45;
+}
+.pro-root .clip span.wave {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  border-bottom: 1px dashed currentColor;
+  pointer-events: none;
+  opacity: 0.25;
+}
+.pro-root .clip svg.wave polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
 }
 .pro-root .clip .tx {
   position: relative;
@@ -2711,12 +2905,19 @@ body:has(.pro-root) {
 .pro-root .menu button:hover {
   background: var(--panel-3);
 }
-/* 4A-U04: 后台生成 opens the task center over the whole workspace, under the top bar. */
+/* 4A-U04: 后台生成 opens the task center as a drawer above the status bar, so the page
+   it was opened from stays in view. */
 .pro-root .task-back {
   position: absolute;
-  inset: 48px 0 24px;
+  left: 12px;
+  bottom: 28px;
+  width: min(940px, calc(100% - 24px));
+  height: min(560px, calc(100% - 96px));
   z-index: 6;
   background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
   padding: 0 12px 12px;
@@ -2889,6 +3090,181 @@ body:has(.pro-root) {
 .pro-root .dialog.export {
   width: 620px;
 }
+/* 4C-U02: 作品设置, one section after another. */
+.pro-root .dialog.work-settings {
+  width: 620px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+.pro-root .work-settings .ws-sec {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.pro-root .work-settings .ws-sec > * {
+  max-width: 100%;
+}
+.pro-root .work-settings .ws-sec .nx-history {
+  justify-self: stretch;
+}
+.pro-root .work-settings h3 {
+  font-size: 13px;
+}
+/* 4C-U05: a shot's properties in three groups; 画面 open, 声音 and 高级 folded. */
+.pro-root .pgroup {
+  border-bottom: 1px solid var(--line);
+}
+.pro-root .pgroup > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.pro-root .pgroup > summary::-webkit-details-marker {
+  display: none;
+}
+.pro-root .pgroup > summary::before {
+  content: "▸";
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+.pro-root .pgroup[open] > summary::before {
+  transform: rotate(90deg);
+}
+.pro-root .pgroup-body {
+  padding-bottom: 6px;
+}
+.pro-root .view-seg button {
+  height: 26px;
+  white-space: nowrap;
+}
+/* 4C-U04: the shortcut list in 设置, two columns of key and what it does. */
+.pro-root .work-settings .keys {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+  justify-self: stretch;
+  margin: 0;
+}
+.pro-root .work-settings .keys > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pro-root .work-settings .keys dt {
+  flex: none;
+  min-width: 92px;
+}
+.pro-root .work-settings .keys dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .work-settings kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: 12px var(--mono);
+  white-space: nowrap;
+}
+/* 4C-U03: a choice in 设置, the box and its words on one line. */
+.pro-root .check-row {
+  /* demo.css stacks every label in a column; this one is a row. */
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+.pro-root .work-settings .pathrow {
+  justify-self: stretch;
+}
+.pro-root .work-settings .pathrow .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* 4B-U04: the cover step widens the export dialog to show both covers and the settings. */
+.pro-root .dialog.export.wide {
+  width: min(1100px, calc(100% - 32px));
+}
+.pro-root .cover-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: min(600px, calc(100vh - 170px));
+  min-height: 0;
+}
+.pro-root .cover-step > .nx-cover-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* 4B-U06: the export's progress and result, inside the dialog. */
+.pro-root .export-progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .export-progress .bar {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--panel-3);
+}
+.pro-root .export-progress .bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: export-slide 1.4s ease-in-out infinite;
+}
+@keyframes export-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+.pro-root .export-done {
+  margin-top: 10px;
+  overflow: hidden;
+  color: var(--ok);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pro-root .cover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pro-root .cover-sum {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .pro-root .dialog.export .field {
   padding: 0;
 }
@@ -2992,6 +3368,7 @@ body:has(.pro-root) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr);
   align-items: start;
+  align-content: start;
   gap: 20px;
   max-width: 1120px;
 }
@@ -3026,8 +3403,22 @@ body:has(.pro-root) {
 .pro-root .looks-head .sp {
   flex: 1;
 }
+/* 4A-U06: the front portrait large on top, the three made from it small underneath. */
 .pro-root .refs4.slots {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pro-root .refs4.slots .slot.front {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  width: min(80%, 230px);
+}
+.pro-root .refs4.slots .slots-note {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: left;
 }
 .pro-root .slot {
   margin: 0;
@@ -3079,4 +3470,276 @@ body:has(.pro-root) {
   font-size: 12px;
   cursor: pointer;
   text-decoration: underline;
+}
+
+/* 4A-U01: room for the 一键成片 step bar between the top bar and the workspace. */
+.pro-root .app.with-pipeline {
+  grid-template-rows: var(--topbar) auto 1fr var(--status);
+}
+.pro-root .tool-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* 4A-U02: the style of the whole work sits above the character columns, not inside them. */
+.pro-root .style-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+}
+.pro-root .style-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pro-root .style-head .sec-t {
+  margin: 0;
+  color: var(--text-2);
+}
+.pro-root .style-head .meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pro-root .style-text {
+  width: 100%;
+  min-height: calc(2 * 1.6em + 18px);
+  max-height: calc(5 * 1.6em + 18px);
+  field-sizing: content;
+  overflow-y: auto;
+  resize: none;
+}
+.pro-root .style-warn {
+  font-size: 12px;
+  color: var(--warn);
+}
+
+/* 4A-U02: a shot made before the style changed. */
+.pro-root .card .ct .restyle {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--warn);
+  background: var(--panel-3);
+}
+
+/* 4C-U01: 「版本 2/3」 on a card and a clip; the note about a whole line in the selection bar. */
+.pro-root .ver {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  white-space: nowrap;
+}
+.pro-root .clip .ver {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  z-index: 1;
+  margin: 0;
+}
+.pro-root .sel-hint {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--warn);
+  background: var(--panel-3);
+  white-space: nowrap;
+}
+/* 4B-U07: 口型 on a shot card and its timeline clip; 口型未对上 in the warning color. */
+.pro-root .lips {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--ok);
+  background: var(--panel-3);
+  white-space: nowrap;
+}
+.pro-root .lips.failed {
+  color: var(--warn);
+}
+.pro-root .clip .lips {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 1;
+}
+/* 4A-U05: a continuity reminder on a shot: a yellow dot on the card, the words in 属性. */
+.pro-root .card .cont-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 2px var(--panel);
+}
+.pro-root .cont-notes {
+  margin: 0 12px 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  font-size: 12px;
+}
+.pro-root .cont-notes .cont-head {
+  margin-bottom: 4px;
+  color: var(--warn);
+}
+.pro-root .cont-notes li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-2);
+}
+.pro-root .cont-notes li + li {
+  margin-top: 6px;
+}
+.pro-root .cont-notes b {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* 3JR-U04: while an action from 「有 N 个动作没对上镜头」 is dragged, every card is a place it
+   can go and the one under the pointer is marked. */
+.pro-root .pb.grid.dropping .card {
+  outline: 1px dashed var(--line-2);
+  outline-offset: 2px;
+}
+.pro-root .pb.grid.dropping .card.drop-over {
+  outline: 2px dashed var(--accent);
+}
+.pro-root .scene .t small.beat-flag {
+  color: var(--warn);
+}
+/* A scene row that carries that third line grows to hold it instead of spilling over the next. */
+.pro-root .scene:has(.beat-flag) {
+  height: auto;
+  min-height: 44px;
+  padding-block: 4px;
+}
+
+/* 4A-U07: a portrait (9:16) work. The previews take its real shape; thumbnails keep their
+   tiles and show the whole frame inside them instead of cutting it. */
+.pro-root[data-aspect="9:16"] .bigprev .frame,
+.pro-root[data-aspect="9:16"] .screen .frame {
+  width: min(100cqw, calc(100cqh * 9 / 16)) !important;
+  aspect-ratio: 9/16;
+}
+.pro-root[data-aspect="9:16"] .prev {
+  aspect-ratio: 9/16;
+  width: min(calc(100% - 28px), 180px);
+  margin-inline: auto;
+}
+.pro-root[data-aspect="9:16"] .thumb {
+  background-size: contain;
+}
+.pro-root[data-aspect="9:16"] .thumb video,
+.pro-root[data-aspect="9:16"] .thumb .still {
+  object-fit: contain;
+  background-size: contain;
+}
+
+/* 3JR-U05: a card keeps two lines of picture and one line of dialogue; resting on its words
+   for a moment, or picking it with the keyboard, lays all of them over the card. */
+.pro-root .card {
+  position: relative;
+}
+.pro-root .cb p.line[data-more]::after {
+  content: "」等 " attr(data-more) " 句";
+}
+.pro-root .card .full {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 10px 12px;
+  overflow: auto;
+  background: var(--panel-2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    visibility 0s linear 0.12s;
+}
+.pro-root .card .cb:hover .full,
+.pro-root .card:focus-visible .full {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.12s ease 0.35s,
+    visibility 0s linear 0.35s;
+}
+.pro-root .card .full p {
+  display: block;
+  max-height: none;
+  -webkit-line-clamp: unset;
+  white-space: normal;
+}
+.pro-root .card .full p.line {
+  text-overflow: clip;
+}
+.pro-root .card .full p.line::after {
+  content: "」";
+}
+@media (prefers-reduced-motion: reduce) {
+  .pro-root .card .full,
+  .pro-root .card .cb:hover .full,
+  .pro-root .card:focus-visible .full {
+    transition: none;
+  }
+}
+.pro-root details.full-prompt {
+  margin-top: 6px;
+}
+.pro-root details.full-prompt > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* 3JR-U03: the 场景 and 道具 tabs edit their own things. A place's reference picture is a wide
+   background plate, so its frame is landscape. */
+.pro-root .slot.place-ref .thumb,
+.pro-root .slot.place-ref .slot-empty {
+  aspect-ratio: 16/9;
+}
+.pro-root .cast-looks > .slots-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pro-root .place-used {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.pro-root .prop-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* 3J-U18: a line before the destructive item of a menu, which is written in the warning color. */
+.pro-root .menu .menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+.pro-root .menu button.danger {
+  color: var(--err);
 }

@@ -1,9 +1,10 @@
+import { directorBudget } from "./director-budget";
 import type { FilmProject, FilmShot } from "../film/project";
 import { assignActionBeats, fightConstraints, isFightScene } from "../film/operations";
 import { actionFromModel, assignPerformance, parseLooseJson } from "../film/phase2";
 import { shotLines } from "../film/director-continuity";
 import { repairDirectorCoverage } from "./director-workflow";
-import type { AgentReply } from "./workflow";
+import type { AgentReply, AgentRequestControl } from "./workflow";
 
 export async function enrichDirectorPlan(
   base: FilmProject,
@@ -11,15 +12,28 @@ export async function enrichDirectorPlan(
   shots: FilmShot[],
   options: {
     valid: () => boolean;
+    control?: AgentRequestControl;
+    progress?: (message: string) => void;
     request: (
       role: "director" | "performance" | "action",
       context: string,
       instruction: string,
+      control?: AgentRequestControl,
     ) => Promise<AgentReply>;
     warning: (text: string) => void;
     unassigned: (sceneId: string, beats: NonNullable<FilmProject["unassignedBeats"]>) => void;
   },
 ): Promise<FilmShot[]> {
+  const budget = directorBudget({
+    current: options.valid,
+    control: options.control,
+    progress: options.progress,
+  });
+  const request = (
+    role: "director" | "performance" | "action",
+    context: string,
+    instruction: string,
+  ) => budget.run(() => options.request(role, context, instruction, budget.control));
   async function fillPerformance(
     base: FilmProject,
     shots: FilmShot[],
@@ -46,7 +60,7 @@ export async function enrichDirectorPlan(
         `镜头：${JSON.stringify(targets.map((shot) => ({ id: shot.id, picture: shot.picture, line: shot.line, speaker: shot.speaker })))}`,
       ].join("\n");
       try {
-        const reply = await options.request(
+        const reply = await request(
           "performance",
           context,
           "按给出的 id 为每一镜写表情、视线、手势，以及语气、语速、停顿和情绪。只输出 JSON 数组，每项的 id 必须用我给的 id。",
@@ -67,7 +81,7 @@ export async function enrichDirectorPlan(
           };
         });
       } catch {
-        options.warning("表演补充未完成，可重新请表演指导补充。");
+        if (valid()) options.warning("表演补充未完成，可重新请表演指导补充。");
       }
     }
     return filled;
@@ -85,7 +99,7 @@ export async function enrichDirectorPlan(
       const story = `${sceneRow?.title ?? ""}\n${sceneRow?.where ?? ""}\n${sceneRow?.text ?? ""}`;
       if (!sceneRow || !isFightScene(story, (sceneRow.tags ?? []).join(" "))) continue;
       try {
-        const reply = await options.request(
+        const reply = await request(
           "action",
           `${story}\n${fightConstraints(story)}\n镜头：${JSON.stringify(shots.filter((shot) => shot.sceneId === sceneId).map((shot) => ({ id: shot.id, no: shot.no, size: shot.size, picture: shot.picture, action: shot.action, line: shot.line, lines: shotLines(shot) })))}`,
           "按给出的镜头 id 写拍，每一拍只属于一个镜头。不要把打斗动作放进打斗开始之前的镜头。只输出 JSON。",
@@ -93,26 +107,33 @@ export async function enrichDirectorPlan(
         if (!valid()) return shots;
         const parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
         if (!parsed) throw new Error(reply.detail || "动作指导没有返回可用内容。");
-        const assigned = assignActionBeats(next, sceneId, parsed);
+        const assigned = assignActionBeats(next, sceneId, parsed, sceneRow.text, sceneRow);
         next = assigned.shots;
         options.unassigned(sceneId, assigned.unassignedBeats);
       } catch {
-        options.warning("动作补充未完成，可重新请动作指导补充。");
+        if (valid()) options.warning("动作补充未完成，可重新请动作指导补充。");
       }
     }
     return next;
   }
 
   const target = base.scenes.find((scene) => scene.id === sceneId);
-  if (!target || !options.valid()) return shots;
-  const repaired = await repairDirectorCoverage(
-    target,
-    shots,
-    (context, instruction) => options.request("director", context, instruction),
-    options.valid,
-  );
-  if (!options.valid()) return shots;
-  const performed = await fillPerformance(base, repaired.shots, options.valid);
-  if (!options.valid()) return shots;
-  return fillFight(base, performed, options.valid);
+  try {
+    if (!target || !budget.current()) return shots;
+    budget.progress("正在核对这一场的结尾。");
+    const repaired = await repairDirectorCoverage(
+      target,
+      shots,
+      (context, instruction) => request("director", context, instruction),
+      budget.current,
+    );
+    if (!budget.current()) return shots;
+    budget.progress("正在补充这一场的表演。");
+    const performed = await fillPerformance(base, repaired.shots, budget.current);
+    if (!budget.current()) return repaired.shots;
+    budget.progress("正在补充这一场的动作。");
+    return await fillFight(base, performed, budget.current);
+  } finally {
+    budget.dispose();
+  }
 }

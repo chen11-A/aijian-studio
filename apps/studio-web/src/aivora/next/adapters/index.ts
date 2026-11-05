@@ -17,6 +17,13 @@ export {
 export type { Adapted, EmptyState } from "./result";
 export { soundPanelData, type SoundPanelData } from "./soundPanel";
 export {
+  suggestionCounts,
+  suggestionDiff,
+  type SuggestionCounts,
+  type SuggestionItem,
+  type SuggestionRow,
+} from "./suggestionDiff";
+export {
   subtitleStyleData,
   type SubtitleStyleData,
   type SubtitleStyleOptions,

@@ -177,19 +177,19 @@ try {
   });
   await page.locator("nav.tabs").getByRole("button", { name: /剧本/ }).click();
   await page.getByRole("button", { name: "让导演拆镜头", exact: true }).click();
-  await page.getByRole("button", { name: "写入分镜", exact: true }).waitFor();
+  await page.getByRole("button", { name: "放进分镜", exact: true }).waitFor();
   await page
     .locator("nav.tabs")
     .getByRole("button", { name: /角色与场景/ })
     .click();
-  assert.equal(await page.getByRole("button", { name: "写入分镜", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "放进分镜", exact: true }).count(), 0);
   assert.equal(await page.getByText(/建议拆成 \d+ 个镜头/).count(), 0);
   await page.locator("nav.tabs").getByRole("button", { name: /剧本/ }).click();
-  assert.equal(await page.getByRole("button", { name: "写入分镜", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "放进分镜", exact: true }).count(), 0);
   await page.getByRole("button", { name: "让导演拆镜头", exact: true }).click();
-  await page.getByRole("button", { name: "写入分镜", exact: true }).waitFor();
+  await page.getByRole("button", { name: "放进分镜", exact: true }).waitFor();
   await page.locator(".scene").filter({ hasText: "雨夜·巷口" }).click();
-  assert.equal(await page.getByRole("button", { name: "写入分镜", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "放进分镜", exact: true }).count(), 0);
   results.push({ check: "director suggestions expire on page and scene changes", pass: true });
   await page.getByRole("button", { name: "导出成片", exact: true }).click();
   const exportPath =

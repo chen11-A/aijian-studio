@@ -428,3 +428,68 @@ it("counts only actionable failures in bulk retry and hides an unsupported bulk 
   );
   expect(screen.queryByRole("button", { name: /失败的全部重试/ })).not.toBeInTheDocument();
 });
+
+describe("4A-U04: right click and stages", () => {
+  const failed = task({ id: "s2-6-a", shotId: "s2-6", status: "failed", reason: "超时" });
+  const running = task({ id: "s2-7-a", shotId: "s2-7", status: "running" });
+  const queued = task({ id: "s2-8-a", shotId: "s2-8", status: "queued" });
+
+  it("offers 重试 / 看详情 on a failed task and 停止 on a running one, each doing that", () => {
+    const onRetry = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <TaskCenter
+        title="作品"
+        tasks={[failed, running, queued]}
+        onRetry={onRetry}
+        onRemove={onRemove}
+        canRemove={(item) => item.status === "running" || item.status === "queued"}
+      />,
+    );
+    const rowOf = (id: string) =>
+      [...document.querySelectorAll<HTMLElement>(".nx-job")].find((row) =>
+        row.textContent?.includes(id),
+      )!;
+    fireEvent.contextMenu(rowOf("s2-6-a"), { clientX: 20, clientY: 10 });
+    let menu = screen.getByRole("menu");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual(["重试", "看详情"]);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "重试" }));
+    expect(onRetry).toHaveBeenCalledWith("s2-6-a", "same");
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.contextMenu(rowOf("s2-7-a"));
+    menu = screen.getByRole("menu");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "停止" }));
+    expect(onRemove).toHaveBeenCalledWith("s2-7-a");
+
+    fireEvent.contextMenu(rowOf("s2-8-a"));
+    expect(screen.getByRole("menuitem", { name: "移出队列" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.contextMenu(rowOf("s2-6-a"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "看详情" }));
+    const detail = screen.getByRole("complementary", { name: "任务详情" });
+    const stages = within(detail).getByRole("list", { name: "进度" });
+    const items = within(stages).getAllByRole("listitem");
+    expect(items.map((item) => item.dataset.state)).toEqual(["done", "done", "stopped", "later"]);
+    expect(items[2]).toHaveTextContent("生成没做成");
+  });
+
+  it("marks a finished task done at every stage, and a blocked one as never sent", () => {
+    // With one task, the detail shows it without a click.
+    const { rerender } = render(<TaskCenter title="作品" tasks={[task({ id: "d1" })]} />);
+    const stateOf = () =>
+      within(screen.getByRole("list", { name: "进度" }))
+        .getAllByRole("listitem")
+        .map((item) => item.dataset.state);
+    expect(stateOf()).toEqual(["done", "done", "done", "done"]);
+    rerender(<TaskCenter title="作品" tasks={[task({ id: "d1", status: "blocked" })]} />);
+    expect(stateOf()).toEqual(["stopped", "later", "later", "later"]);
+    expect(screen.getByRole("list", { name: "进度" })).toHaveTextContent("没有发出去");
+  });
+});

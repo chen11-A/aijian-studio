@@ -147,7 +147,7 @@ export function CoverEditor({
               </p>
               {markOn ? null : (
                 <p className="nx-cover-warn" role="status">
-                  关掉以后，封面上不写「AI 生成」。发布前请确认平台的要求。
+                  关掉以后，封面上不写「AI 生成」。部分平台要求标注 AI 生成，发布前请确认。
                 </p>
               )}
             </div>

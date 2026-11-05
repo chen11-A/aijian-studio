@@ -27,7 +27,7 @@ import { registerGrokHandlers } from "./grok-auth-ipc";
 import { revealInFolder } from "./reveal-in-folder";
 import { registerStoryFilmHandlers } from "./story-film-ipc";
 import { registerFilmLibraryHandlers } from "./film-library-ipc";
-import { bundledFfmpeg, bundledTool, trustedMediaPath } from "./film-library";
+import { bundledFfmpeg, bundledSubtitleFont, bundledTool, trustedMediaPath } from "./film-library";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -846,6 +846,15 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
     },
     copy: (source, destination) => copyFile(source, destination),
   },
+  (detail) =>
+    createAgentLog(join(app.getPath("userData"), "logs", "agents.log")).write({
+      ...detail,
+      agent: "video",
+      model: "grok-imagine-video",
+      endpoint: "video-submit",
+      httpStatus: 0,
+      requestDispatched: true,
+    }),
 );
 registerTaskProgressHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -865,7 +874,7 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
   {
     filmsRoot: () => join(app.getPath("userData"), "films"),
     storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
-    runFfmpeg: (args) =>
+    runFfmpeg: (args, options) =>
       new Promise((resolve, reject) => {
         let bin: string;
         try {
@@ -877,12 +886,21 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
           reject(error instanceof Error ? error : new Error("没有找到安装包里的 ffmpeg。"));
           return;
         }
-        const child = spawn(bin, args, { stdio: "ignore" });
+        const child = spawn(bin, args, {
+          stdio: "ignore",
+          ...(options?.cwd ? { cwd: options.cwd } : {}),
+          ...(options?.env ? { env: { ...process.env, ...options.env } } : {}),
+        });
         child.on("error", reject);
         child.on("close", (code) => {
           if (code === 0) resolve();
           else reject(new Error("ffmpeg failed"));
         });
+      }),
+    subtitleFont: () =>
+      bundledSubtitleFont(process.resourcesPath ?? "", {
+        execPath: process.execPath,
+        repositoryRoot: resolve(__dirname, "../../.."),
       }),
     probeDuration: (path) =>
       new Promise((resolve) => {
@@ -938,14 +956,31 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     copyFile: (source, destination) => copyFile(source, destination),
     reveal: (path) => revealSavedFile(path),
     open: (path) => shell.openPath(path),
-    logStill: ({ ok, referenceImageCount, durationMs, requestChars }) => {
+    logStill: ({
+      styleCharacters,
+      styleSha256,
+      ok,
+      referenceImageCount,
+      selectedReferenceImageCount,
+      requestDispatched,
+      imageLimit,
+      videoReferenceLimit,
+      durationMs,
+      requestChars,
+    }) => {
       createAgentLog(join(app.getPath("userData"), "logs", "agents.log")).write({
+        styleCharacters,
+        styleSha256,
         agent: "image",
         model: "grok-imagine-image-2.0",
-        endpoint: referenceImageCount ? "image-edit" : "quality-medium",
+        endpoint: selectedReferenceImageCount ? "image-edit" : "quality-medium",
         httpStatus: ok ? 200 : 0,
         parsed: ok ? "image" : "error",
         referenceImageCount,
+        selectedReferenceImageCount,
+        requestDispatched,
+        imageLimit,
+        videoReferenceLimit,
         durationMs,
         requestChars,
         errorCode: ok ? undefined : "IMAGE_FAILED",

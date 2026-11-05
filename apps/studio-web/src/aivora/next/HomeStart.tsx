@@ -13,8 +13,10 @@ export type HomeStartProps = {
   onOneClick: (idea: string, aspect: Aspect) => void;
   /** 「导入小说…」: a new work, then the file picker. */
   onImport: (aspect: Aspect) => void;
-  /** 「新建作品」: a blank work. */
-  onBlank: (aspect: Aspect) => void;
+  /** 「新建作品」: a blank work, or one that starts from a story template (4A-U01). */
+  onBlank: (aspect: Aspect, template?: string) => void;
+  /** Story templates to start from; the box is left out when there are none. */
+  templates?: readonly string[];
   onOpen: (id: string) => void;
   onSignIn: () => void;
   /** Only when the app really ships an example work; leave it out otherwise. */
@@ -41,6 +43,8 @@ function savedLabel(savedAt: string): string {
 export function HomeStart(props: HomeStartProps) {
   const [idea, setIdea] = useState("");
   const [aspect, setAspect] = useState<Aspect>("16:9");
+  const [template, setTemplate] = useState("");
+  const templateId = useId();
   const ideaId = useId();
   const aspectName = useId();
   const start = () => {
@@ -89,8 +93,32 @@ export function HomeStart(props: HomeStartProps) {
           <section className="nx-home-way" aria-labelledby={`${ideaId}-b`}>
             <h3 id={`${ideaId}-b`}>从空白开始</h3>
             <p className="nx-muted">自己写剧本、定角色、拆镜头，每一步都能改，AI 在右边帮忙。</p>
+            {props.templates && props.templates.length > 0 ? (
+              <>
+                <label className="nx-faint" htmlFor={templateId}>
+                  从模板开始
+                </label>
+                <select
+                  id={templateId}
+                  className="nx-home-template"
+                  value={template}
+                  onChange={(event) => setTemplate(event.target.value)}
+                >
+                  <option value="">不用模板，从空白写</option>
+                  {props.templates.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : null}
             <div className="nx-home-acts">
-              <button type="button" className="nx-btn" onClick={() => props.onBlank(aspect)}>
+              <button
+                type="button"
+                className="nx-btn"
+                onClick={() => props.onBlank(aspect, template || undefined)}
+              >
                 新建作品
               </button>
             </div>

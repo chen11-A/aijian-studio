@@ -52,9 +52,13 @@ describe("SceneAlerts", () => {
         onPlaceBeat={place}
       />,
     );
-    const toggle = screen.getByRole("button", { name: "有 2 个动作没对上镜头" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    // 3JR-U04: open from the start, so there is something to drag.
+    expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "收起没对上镜头的动作" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(toggle);
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "展开没对上镜头的动作" }));
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "先选一个镜头" })[0]).toBeDisabled();
@@ -64,6 +68,7 @@ describe("SceneAlerts", () => {
       BEAT_DRAG_TYPE,
       JSON.stringify({ index: 1, text: "沈砚肘击反制" }),
     );
+    fireEvent.dragEnd(items[1]!);
     rerender(
       <SceneAlerts
         missingTail={null}

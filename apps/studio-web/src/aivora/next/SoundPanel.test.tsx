@@ -33,7 +33,7 @@ describe("SoundPanel", () => {
     expect(screen.getByText("为什么选它：从推倒书架开始进鼓。")).toBeInTheDocument();
     expect(screen.getAllByRole("slider")).toHaveLength(1);
     expect(screen.getByRole("slider", { name: "这一场的音量" })).toHaveValue("85");
-    expect(screen.queryByRole("slider", { name: /台词/ })).toBeNull();
+    expect(screen.queryByRole("slider", { name: /对白/ })).toBeNull();
     expect(container.textContent).not.toMatch(/分贝|dB/);
   });
 
@@ -46,13 +46,13 @@ describe("SoundPanel", () => {
       "aria-expanded",
       "true",
     );
-    expect(screen.getByRole("slider", { name: /台词/ })).toHaveValue("100");
-    expect(screen.getByRole("slider", { name: /环境声/ })).toHaveValue("50");
+    expect(screen.getByRole("slider", { name: /对白/ })).toHaveValue("100");
+    expect(screen.getByRole("slider", { name: /环境音/ })).toHaveValue("50");
     expect(screen.getByRole("slider", { name: /音效/ })).toHaveValue("80");
     expect(screen.getByRole("slider", { name: /配乐/ })).toHaveValue("30");
     expect(container.textContent).not.toMatch(/分贝|dB/);
     fireEvent.click(screen.getByRole("button", { name: "收起细调" }));
-    expect(screen.queryByRole("slider", { name: /台词/ })).toBeNull();
+    expect(screen.queryByRole("slider", { name: /对白/ })).toBeNull();
   });
 
   it("reports volumes on 0–100 together with the mixer gain", () => {
@@ -63,7 +63,7 @@ describe("SoundPanel", () => {
     expect(onMasterChange).toHaveBeenCalledWith(70, -3);
     fireEvent.change(screen.getByRole("slider", { name: /配乐/ }), { target: { value: "20" } });
     expect(onLaneChange).toHaveBeenCalledWith("score", 20, -14);
-    fireEvent.change(screen.getByRole("slider", { name: /台词/ }), { target: { value: "0" } });
+    fireEvent.change(screen.getByRole("slider", { name: /对白/ }), { target: { value: "0" } });
     expect(onLaneChange).toHaveBeenLastCalledWith("dialogue", 0, -40);
   });
 
@@ -126,8 +126,8 @@ describe("SoundPanel", () => {
     expect(screen.queryByRole("slider", { name: "这一场的音量" })).toBeNull();
     expect(screen.getByText("还不能单独调。")).toBeInTheDocument();
     expect(screen.getAllByRole("slider")).toHaveLength(1);
-    expect(screen.getByRole("slider", { name: /台词/ })).toHaveValue("80");
-    expect(screen.getByText("这一场没有环境声。")).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: /对白/ })).toHaveValue("80");
+    expect(screen.getByText("这一场没有环境音。")).toBeInTheDocument();
     expect(screen.getByText("这一场没有音效。")).toBeInTheDocument();
     expect(screen.getByText("配乐是整部片子一起调的，在时间线的音乐轨上调。")).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/分贝|dB/);

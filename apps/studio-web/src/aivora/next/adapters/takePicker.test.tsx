@@ -8,6 +8,8 @@ import { takePickerData } from "./takePicker";
 
 const still = (id: string) =>
   `aivora-media://local/?path=${encodeURIComponent(`/home/demo/.config/AIVORA/films/film_sample3jseries000001/stills/${id}.png`)}`;
+const video = (id: string) =>
+  `aivora-media://local/?path=${encodeURIComponent(`/home/demo/.config/AIVORA/films/film_sample3jseries000001/takes/${id}.mp4`)}`;
 
 function ready(...args: Parameters<typeof takePickerData>) {
   const adapted = takePickerData(...args);
@@ -35,8 +37,8 @@ describe("takePickerData", () => {
       shotCode: "scene-2-shot-1",
       description: "周烈挥棍砸向沈砚，沈砚侧身一让，铁棍砸在木箱上，木屑四溅。",
       takes: [
-        { id: "s2-1-t1", label: "第 1 版", imageUrl: still("s2-1-t1") },
-        { id: "s2-1-t2", label: "第 2 版", imageUrl: still("s2-1-t2") },
+        { id: "s2-1-t1", label: "第 1 版", imageUrl: still("s2-1-t1"), videoUrl: video("s2-1-t1") },
+        { id: "s2-1-t2", label: "第 2 版", imageUrl: still("s2-1-t2"), videoUrl: video("s2-1-t2") },
         {
           id: "s2-1-t3",
           label: "第 3 版",

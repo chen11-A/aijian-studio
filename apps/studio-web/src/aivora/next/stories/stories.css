@@ -62,3 +62,8 @@
   min-height: 0;
   padding: 16px;
 }
+
+/* A story drawn at the width of the workspace's right column. */
+.pro-root.nx-story .nx-story-narrow {
+  width: min(360px, 100%);
+}

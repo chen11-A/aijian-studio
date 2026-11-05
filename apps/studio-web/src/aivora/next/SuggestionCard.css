@@ -1,0 +1,119 @@
+.nx-root.nx-suggest {
+  height: auto;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-suggest-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.nx-root .nx-suggest-head strong {
+  font-size: 13px;
+}
+
+.nx-root .nx-suggest-head .nx-muted {
+  font-size: 12px;
+}
+
+.nx-root .nx-suggest-rows {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nx-root .nx-suggest-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: var(--r-s);
+}
+
+.nx-root .nx-suggest-row[data-kind="added"] {
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+
+.nx-root .nx-suggest-row[data-kind="changed"] {
+  background: var(--accent-soft);
+}
+
+.nx-root .nx-suggest-row[data-kind="removed"] {
+  color: var(--text-3);
+}
+
+.nx-root .nx-suggest-no {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.nx-root .nx-suggest-body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nx-root .nx-suggest-line {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nx-root .nx-suggest-who {
+  flex: none;
+  color: var(--text-2);
+}
+
+.nx-root .nx-suggest-row del {
+  text-decoration-color: var(--text-3);
+}
+
+.nx-root .nx-suggest-before {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.nx-root .nx-suggest-tail {
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.nx-root .nx-suggest-mark {
+  height: 20px;
+}
+
+.nx-root .nx-suggest-row[data-kind="added"] .nx-suggest-mark {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+}
+
+.nx-root .nx-suggest-row[data-kind="changed"] .nx-suggest-mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.nx-root .nx-suggest-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The page keeps its one filled primary button (4A-U09); 放进 is outlined in the accent. */
+.nx-root .nx-btn.nx-suggest-apply {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}

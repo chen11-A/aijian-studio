@@ -64,8 +64,8 @@ describe("production empty project state", () => {
       render(<DemoApp />);
 
       expectProfessionalShell();
-      expect(screen.queryByLabelText("媒体任务沙箱")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("配音方案沙箱")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("生成任务演示")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("配音演示")).not.toBeInTheDocument();
     },
   );
 

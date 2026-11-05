@@ -38,9 +38,16 @@ describe("HomeStart", () => {
     expect(props.onSignIn).toHaveBeenCalled();
     expect(props.onOneClick).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
-    expect(props.onBlank).toHaveBeenCalledWith("16:9");
+    expect(props.onBlank).toHaveBeenCalledWith("16:9", undefined);
     fireEvent.click(screen.getByRole("button", { name: "导入小说…" }));
     expect(props.onImport).toHaveBeenCalledWith("16:9");
+  });
+
+  it("starts a blank work from a chosen story template", () => {
+    const props = setup({ templates: ["雨夜巷战打斗", "旧书店"] });
+    fireEvent.change(screen.getByLabelText("从模板开始"), { target: { value: "旧书店" } });
+    fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
+    expect(props.onBlank).toHaveBeenCalledWith("16:9", "旧书店");
   });
 
   it("has a single primary button", () => {
