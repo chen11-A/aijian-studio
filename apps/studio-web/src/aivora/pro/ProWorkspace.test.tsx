@@ -571,10 +571,13 @@ describe("professional workspace", () => {
     expect(screen.getByRole("button", { name: "设置" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
     expect(await screen.findByText("已退出登录。")).toBeInTheDocument();
+    // 4C-U06: renaming lives in 作品设置, not in the menu.
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
+    fireEvent.click(screen.getByRole("button", { name: "作品设置" }));
     fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "巷战" } });
     fireEvent.click(screen.getByRole("button", { name: "保存名字" }));
     expect(screen.getByText("已改作品名。")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
     expect(await screen.findByText(/已打开第 2 集/)).toBeInTheDocument();
@@ -806,8 +809,11 @@ describe("professional workspace", () => {
     fireEvent.keyDown(window, { key: "o" });
     fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
+    fireEvent.click(screen.getByRole("button", { name: "作品设置" }));
     fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "   " } });
     fireEvent.click(screen.getByRole("button", { name: "保存名字" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
     expect(screen.getByText(/已新建作品/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
@@ -1531,6 +1537,7 @@ it("asks action and performance, then writes those fields on the shot", async ()
     ).toBe(true),
   );
   fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(screen.getByRole("button", { name: "作品设置" }));
   fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "雨夜巷战测试" } });
   fireEvent.keyDown(screen.getByLabelText("作品名"), { key: "Enter" });
   expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("雨夜巷战测试");
@@ -3614,6 +3621,25 @@ it("groups a shot's properties and switches between all shots and one (4C-U05)",
   } finally {
     window.localStorage.removeItem("aivora.board.groups");
   }
+});
+
+it("groups the 作品 menu and keeps deleting last, in red, behind a confirm (4C-U06)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  const menu = screen.getByRole("menu", { name: "作品菜单" });
+  expect([...menu.querySelectorAll(".menu-group")].map((item) => item.textContent)).toEqual([
+    "作品",
+    "这一部",
+  ]);
+  expect(within(menu).queryByLabelText("作品名")).toBeNull();
+  const buttons = within(menu).getAllByRole("button");
+  const last = buttons.slice(-2).map((item) => item.textContent);
+  expect(last).toEqual(["删除这一集", "删除这部作品"]);
+  for (const item of buttons.slice(-2)) expect(item).toHaveClass("danger");
+  expect(menu.querySelector(".menu-sep")).not.toBeNull();
+  fireEvent.click(within(menu).getByRole("button", { name: "删除这部作品" }));
+  expect(screen.getByRole("dialog")).toHaveTextContent(/删除/);
 });
 
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {

@@ -3120,6 +3120,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
             {menu === "project" && (
               <div className="menu" role="menu" aria-label="作品菜单" data-menu="project">
+                {/* 4C-U06: three groups: the works, this one, and deleting it last. */}
+                <p className="menu-group">作品</p>
                 <button
                   onClick={() => {
                     const next = blankFilm();
@@ -3183,20 +3185,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {item.title}
                   </button>
                 ))}
-                <button
-                  onClick={() => {
-                    if (!film) return;
-                    const next = newEpisode(film);
-                    applyLive(next);
-                    setScene(next.scenes[0]?.id ?? "scene-1");
-                    setBench(false);
-                    setStage("script");
-                    setMenu(null);
-                    setNotice(`已新建${next.episodeTitle}。`);
-                  }}
-                >
-                  新建一集
-                </button>
+                <p className="menu-group">这一部</p>
                 {episodes.map((item) => (
                   <button
                     key={item.id}
@@ -3219,33 +3208,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {item.title}
                   </button>
                 ))}
-                <input
-                  aria-label="作品名"
-                  value={rename}
-                  onChange={(event) => setRename(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-                    event.preventDefault();
-                    const name = event.currentTarget.value.trim();
-                    if (!film || !name) return;
-                    void renameFilm(film.seriesId, name);
-                    applyLive({ ...film, title: name, seriesTitle: name });
-                    setMenu(null);
-                    setNotice("已改作品名。");
-                  }}
-                />
                 <button
                   onClick={() => {
-                    if (!film || !rename.trim()) return;
-                    void renameFilm(film.seriesId, rename.trim());
-                    applyLive({ ...film, title: rename.trim(), seriesTitle: rename.trim() });
+                    if (!film) return;
+                    const next = newEpisode(film);
+                    applyLive(next);
+                    setScene(next.scenes[0]?.id ?? "scene-1");
+                    setBench(false);
+                    setStage("script");
                     setMenu(null);
-                    setNotice("已改作品名。");
+                    setNotice(`已新建${next.episodeTitle}。`);
                   }}
                 >
-                  保存名字
+                  新建一集
                 </button>
                 <button
+                  onClick={() => {
+                    setMenu(null);
+                    setWorkSettings(true);
+                  }}
+                >
+                  作品设置
+                </button>
+                <div className="menu-sep" role="separator" />
+                <button
+                  className="danger"
                   onClick={() => {
                     deleteTarget.current = "episode";
                     setMenu(null);
@@ -3255,6 +3242,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   删除这一集
                 </button>
                 <button
+                  className="danger"
                   onClick={() => {
                     deleteTarget.current = "series";
                     setMenu(null);
@@ -3262,14 +3250,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   删除这部作品
-                </button>
-                <button
-                  onClick={() => {
-                    setMenu(null);
-                    setWorkSettings(true);
-                  }}
-                >
-                  作品设置
                 </button>
               </div>
             )}
@@ -4203,6 +4183,38 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <div className="dialog-back">
             <div className="dialog work-settings" role="dialog" aria-label="作品设置">
               <h2>作品设置 · {film.seriesTitle || film.title}</h2>
+              <section className="ws-sec" aria-label="名字">
+                <h3>作品名</h3>
+                <div className="pathrow">
+                  <input
+                    className="input"
+                    aria-label="作品名"
+                    value={rename}
+                    onChange={(event) => setRename(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                      event.preventDefault();
+                      const name = event.currentTarget.value.trim();
+                      if (!film || !name) return;
+                      void renameFilm(film.seriesId, name);
+                      applyLive({ ...film, title: name, seriesTitle: name });
+                      setNotice("已改作品名。");
+                    }}
+                  />
+                  <button
+                    className="btn sm"
+                    type="button"
+                    onClick={() => {
+                      if (!film || !rename.trim()) return;
+                      void renameFilm(film.seriesId, rename.trim());
+                      applyLive({ ...film, title: rename.trim(), seriesTitle: rename.trim() });
+                      setNotice("已改作品名。");
+                    }}
+                  >
+                    保存名字
+                  </button>
+                </div>
+              </section>
               <section className="ws-sec" aria-label="画风">
                 <h3>画风</h3>
                 <p className="role-desc">

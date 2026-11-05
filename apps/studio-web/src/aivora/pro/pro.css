@@ -3743,3 +3743,10 @@ body:has(.pro-root) {
 .pro-root .menu button.danger {
   color: var(--err);
 }
+/* 4C-U06: the 作品 menu in groups, each with a small gray heading. */
+.pro-root .menu .menu-group {
+  margin: 0;
+  padding: 6px 10px 2px;
+  color: var(--text-3);
+  font-size: 12px;
+}
