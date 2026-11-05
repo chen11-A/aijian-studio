@@ -2148,6 +2148,18 @@ body:has(.pro-root) {
   color: var(--text-3);
   transform: translateX(3px);
 }
+/* 3JR-U01: the ruler is where you click or drag to move the preview; arrow keys step a second. */
+.pro-root .ruler {
+  cursor: pointer;
+  touch-action: none;
+}
+.pro-root .ruler:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.pro-root .ruler span {
+  pointer-events: none;
+}
 .pro-root .lane {
   position: relative;
   border-bottom: 1px solid var(--line);

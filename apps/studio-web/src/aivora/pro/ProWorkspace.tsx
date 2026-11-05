@@ -7,6 +7,15 @@ import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
+import {
+  cutPosition,
+  cutSegments,
+  cutTimeAt,
+  playheadX,
+  pointAt,
+  timelineSeconds,
+  xAtSeconds,
+} from "./edit-timeline";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   actionBeats,
@@ -270,6 +279,8 @@ function PreviewVideo({
   sound = true,
   onPlaying,
   onTime,
+  seek = null,
+  onDuration,
 }: {
   src: string;
   voice?: string;
@@ -279,12 +290,33 @@ function PreviewVideo({
   sound?: boolean;
   onPlaying: (value: boolean) => void;
   onTime: (seconds: number) => void;
+  /** 3JR-U01: jump here; a new object each time, even for the same second. */
+  seek?: { seconds: number } | null;
+  /** The real length of the video, once the player knows it. */
+  onDuration?: (seconds: number) => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const onPlayingRef = useRef(onPlaying);
   const onTimeRef = useRef(onTime);
+  const onDurationRef = useRef(onDuration);
   onPlayingRef.current = onPlaying;
   onTimeRef.current = onTime;
+  onDurationRef.current = onDuration;
+  useEffect(() => {
+    const video = ref.current;
+    if (!video || !seek) return;
+    const apply = () => {
+      const end = Number.isFinite(video.duration) ? video.duration : seek.seconds;
+      video.currentTime = Math.min(Math.max(0, seek.seconds), end);
+      onTimeRef.current(video.currentTime || 0);
+    };
+    if (video.readyState >= 1) {
+      apply();
+      return;
+    }
+    video.addEventListener("loadedmetadata", apply, { once: true });
+    return () => video.removeEventListener("loadedmetadata", apply);
+  }, [seek]);
   useEffect(() => {
     const video = ref.current;
     if (!video) return;
@@ -355,6 +387,10 @@ function PreviewVideo({
         playsInline
         preload="auto"
         onTimeUpdate={() => onTimeRef.current(ref.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => {
+          const length = ref.current?.duration ?? 0;
+          if (Number.isFinite(length) && length > 0) onDurationRef.current?.(length);
+        }}
         onEnded={() => {
           onTimeRef.current(ref.current?.currentTime ?? 0);
           onPlayingRef.current(false);
@@ -6345,6 +6381,13 @@ function EditPage({
   hearLane?: "" | "dialogue" | "score";
 }) {
   const [mediaTime, setMediaTime] = useState(0);
+  const [cutLength, setCutLength] = useState(0);
+  const [takeLength, setTakeLength] = useState(0);
+  const [seek, setSeek] = useState<{ seconds: number } | null>(null);
+  const timeRef = useRef(0);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const tracksRef = useRef<HTMLDivElement>(null);
+  const scrubbing = useRef(false);
   const clips = clipLayout(shots);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
@@ -6388,11 +6431,84 @@ function EditPage({
   });
   const voiceSrc = mix.voice;
   const musicSrc = mix.music;
+  // 3JR-U01: the joined cut plays the whole film, so its clock runs from the first shot with a
+  // video, not from the start of the chosen shot. The playhead follows the shot playing.
+  const joined = Boolean(film.assemblyUrl);
+  const segments = joined ? cutSegments(film.shots, cutLength) : [];
+  const total = shots.reduce((sum, item) => sum + item.seconds, 0);
+  const showTime = (seconds: number) => {
+    timeRef.current = seconds;
+    setMediaTime(seconds);
+  };
+  const jump = (seconds: number) => {
+    showTime(seconds);
+    setSeek({ seconds });
+  };
   useEffect(() => {
-    setMediaTime(0);
-  }, [shot, previewSrc]);
+    showTime(0);
+    setCutLength(0);
+    setTakeLength(0);
+  }, [previewSrc]);
+  useEffect(() => {
+    if (!joined) {
+      showTime(0);
+      return;
+    }
+    // Picking a shot (the bin, the arrows) moves the joined cut to it, unless a click on the
+    // timeline already put the playhead inside it.
+    const here = cutPosition(segments, timeRef.current);
+    if (here && here.shotId === shots[shot]?.id) return;
+    const at = cutTimeAt(segments, shots, shot, 0);
+    if (at !== null) jump(at);
+    // Only a new pick moves the cut; the segments change on every render.
+  }, [shot, joined]);
   const start = shots.slice(0, shot).reduce((sum, item) => sum + item.seconds, 0);
   const selected = clips[shot];
+  let headLeft = selected?.left ?? 1;
+  let headSeconds = start;
+  if (joined) {
+    const at = cutPosition(segments, mediaTime);
+    if (at) {
+      headLeft = playheadX(clips, shots, film.shots, at.shotId, at.fraction);
+      const index = shots.findIndex((item) => item.id === at.shotId);
+      headSeconds =
+        index >= 0
+          ? timelineSeconds(shots, index, at.fraction)
+          : headLeft <= (clips[0]?.left ?? 1)
+            ? 0
+            : total;
+    }
+  } else if (current && current.seconds > 0) {
+    const fraction = Math.min(1, mediaTime / (takeLength > 0 ? takeLength : current.seconds));
+    headLeft = (selected?.left ?? 1) + fraction * (selected?.width ?? 0);
+    headSeconds = start + fraction * current.seconds;
+  }
+  const seekTo = (x: number) => {
+    const point = pointAt(clips, x);
+    if (!point) return;
+    if (joined) {
+      const at = cutTimeAt(segments, shots, point.index, point.fraction);
+      if (at !== null) jump(at);
+      if (point.index !== shot) onShot(point.index);
+      return;
+    }
+    const target = shots[point.index];
+    if (point.index !== shot) onShot(point.index);
+    if (!target || !target.takes.some((take) => take.videoUrl || take.videoPath)) return;
+    jump(point.fraction * (point.index === shot && takeLength > 0 ? takeLength : target.seconds));
+  };
+  const areaX = (clientX: number) => clientX - (areaRef.current?.getBoundingClientRect().left ?? 0);
+  useEffect(() => {
+    const box = tracksRef.current;
+    if (!box || !playing) return;
+    const margin = 48;
+    if (
+      headLeft < box.scrollLeft + margin ||
+      headLeft > box.scrollLeft + box.clientWidth - margin
+    ) {
+      box.scrollLeft = Math.max(0, headLeft - margin);
+    }
+  }, [headLeft, playing]);
   const tiles: { id: FixAction; icon: string; label: string }[] = [
     { id: "regenerate", icon: "refresh", label: "重新生成" },
     { id: "rewrite", icon: "edit", label: "改描述再生成" },
@@ -6496,7 +6612,9 @@ function EditPage({
                   audible={audible && mix.hearVideo}
                   sound={audible}
                   onPlaying={onPlaying}
-                  onTime={setMediaTime}
+                  onTime={showTime}
+                  seek={seek}
+                  onDuration={joined ? setCutLength : setTakeLength}
                 />
               ) : (
                 <div className="frame rain">
@@ -6510,8 +6628,7 @@ function EditPage({
             </div>
             <div className="ctrl">
               <span className="tc">
-                <b>{clock(film.assemblyUrl ? mediaTime : start + mediaTime)}</b> /{" "}
-                {clock(shots.reduce((sum, item) => sum + item.seconds, 0))}
+                <b>{clock(headSeconds)}</b> / {clock(total)}
               </span>
               <div className="pc">
                 <button
@@ -6794,9 +6911,55 @@ function EditPage({
               </span>
             </div>
           </div>
-          <div className="tracks">
-            <div className="track-area" style={{ width: trackWidth }}>
-              <div className="ruler">
+          <div className="tracks" ref={tracksRef}>
+            <div
+              className="track-area"
+              ref={areaRef}
+              style={{ width: trackWidth }}
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                if ((event.target as HTMLElement).closest("button, input, label")) return;
+                scrubbing.current = true;
+                event.currentTarget.setPointerCapture?.(event.pointerId);
+                seekTo(areaX(event.clientX));
+              }}
+              onPointerMove={(event) => {
+                if (scrubbing.current) seekTo(areaX(event.clientX));
+              }}
+              onPointerUp={() => {
+                scrubbing.current = false;
+              }}
+              onPointerCancel={() => {
+                scrubbing.current = false;
+              }}
+            >
+              <div
+                className="ruler"
+                role="slider"
+                tabIndex={0}
+                aria-label="播放位置"
+                title="点或拖到这里，预览跳到这个时间"
+                aria-valuemin={0}
+                aria-valuemax={Math.round(total * 10) / 10}
+                aria-valuenow={Math.round(headSeconds * 10) / 10}
+                aria-valuetext={clock(headSeconds)}
+                onKeyDown={(event) => {
+                  const step = event.shiftKey ? 5 : 1;
+                  const to =
+                    event.key === "ArrowLeft"
+                      ? headSeconds - step
+                      : event.key === "ArrowRight"
+                        ? headSeconds + step
+                        : event.key === "Home"
+                          ? 0
+                          : event.key === "End"
+                            ? total
+                            : null;
+                  if (to === null) return;
+                  event.preventDefault();
+                  seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, to))));
+                }}
+              >
                 {rulerTicks(shots, clips).map((tick) => (
                   <span key={tick.seconds} style={{ left: tick.left }}>
                     {clock(tick.seconds)}
@@ -6827,7 +6990,9 @@ function EditPage({
                       key={clip.id}
                       className={ready ? "clip v" : "clip v empty"}
                       style={{ left: clip.left, width: clip.width }}
-                      onClick={() => {
+                      onClick={(event) => {
+                        // A keyboard press has no pointer position: go to the clip's start.
+                        seekTo(event.detail === 0 ? clip.left : areaX(event.clientX));
                         onShot(index);
                         onPickClip();
                       }}
@@ -6899,16 +7064,7 @@ function EditPage({
                   <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
                 </div>
               )}
-              <div
-                className="playhead"
-                style={{
-                  left:
-                    (selected?.left ?? 1) +
-                    (current && current.seconds > 0
-                      ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
-                      : 0),
-                }}
-              />
+              <div className="playhead" style={{ left: headLeft }} />
             </div>
           </div>
         </div>
