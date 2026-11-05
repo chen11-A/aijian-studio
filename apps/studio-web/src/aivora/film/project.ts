@@ -24,6 +24,8 @@ import type {
   PipelineProgress,
   SceneSound,
   ContinuityNote,
+  CoverInput,
+  SubtitleStyleId,
 } from "./contracts3j";
 import { withStyleBible } from "./style-bible";
 import type { ProductionPipeline } from "./production-pipeline";
@@ -135,9 +137,18 @@ export type FilmStill = {
   url: string;
 };
 
+/** 4B-B09: one subtitle burned into a take, in seconds from the start of that take. */
+export type TakeSubtitleCue = { text: string; start: number; end: number };
+
 export type FilmTake = {
   /** Measured final media length; may exceed the provider clip request after speech padding. */
   durationSeconds?: number;
+  /**
+   * 4B-B09: the same take without burned subtitles, for an export in another look, as .srt or
+   * with none. Takes made before this have only videoPath, with the subtitle in the picture.
+   */
+  cleanVideoPath?: string;
+  subtitleCues?: TakeSubtitleCue[];
   interruptedFrom?: "queued" | "running";
   lipSync?: LipSyncState;
   lipSyncReason?: string;
@@ -260,6 +271,10 @@ export type FilmShot = {
 };
 
 export type FilmProject = {
+  /** C5 / 4B-U03: the look of every subtitle; 「清楚白字」 when none was chosen. */
+  subtitleStyle?: SubtitleStyleId;
+  /** C6 / 4B-U04: the cover's words and picture; derived from the work until someone edits it. */
+  cover?: CoverInput;
   writerPlan?: WriterPlan;
   artDesign?: ArtDesign;
   artDesignBaseline?: ArtDesign;

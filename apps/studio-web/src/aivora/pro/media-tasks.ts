@@ -1,5 +1,14 @@
 import type { FilmProject, FilmShot } from "../film/project";
-import { dialogueTracks, filmFileName, shotVoiceId, spokenLine } from "../film/operations";
+import {
+  dialogueTracks,
+  filmFileName,
+  filmSubtitleCues,
+  shotVoiceId,
+  spokenLine,
+  subtitleExportPlan,
+  type ExportSubtitleMode,
+} from "../film/operations";
+import type { CoverInput, SubtitleStyleId } from "../film/contracts3j";
 import { directedSpeech } from "../film/phase2";
 import { runTask } from "../film/task-progress";
 import { grokBridge } from "../grok-auth/transport";
@@ -67,12 +76,20 @@ export function revoiceFilmShot(
   );
 }
 
+/** 4B-B09: the export dialog's 清晰度, 字幕 and the work's subtitle look and cover. */
+export type FilmExportSettings = {
+  quality: "1080p" | "720p";
+  subtitles: ExportSubtitleMode;
+  style: SubtitleStyleId;
+  cover: CoverInput;
+};
+
 export function exportFilmTask(
   base: FilmProject,
   paths: string[],
   directory: string,
   host: MediaHost,
-  options?: { aspectRatio?: "16:9" | "9:16"; signal?: AbortSignal },
+  options?: { aspectRatio?: "16:9" | "9:16"; signal?: AbortSignal; settings?: FilmExportSettings },
 ) {
   return runTask(
     {
@@ -84,15 +101,27 @@ export function exportFilmTask(
     async (signal) => {
       const bridge = window.aijian;
       if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) throw new Error("导出需要桌面版。");
+      const settings = options?.settings;
+      // 4B-B09: takes without burned subtitles where there are any, and their subtitle times.
+      const plan = settings ? subtitleExportPlan(base, settings.subtitles) : null;
+      if (plan && settings!.subtitles !== "burn" && plan.baked.length)
+        throw Object.assign(
+          new Error(
+            `${plan.baked.join("、")}是之前生成的，字幕已经在画面里，去不掉。重新生成这几个镜头，或者字幕改选「烧进画面」。`,
+          ),
+          { code: "EXPORT_SUBTITLES_BAKED" },
+        );
+      const sources = plan ? plan.paths : paths;
       const music = base.audioClips.find((clip) => clip.lane === "score" && clip.path);
       const voices = dialogueTracks(base);
-      let source = paths[0] ?? "";
+      let source = sources[0] ?? "";
       let assemblyPath = "";
-      if (paths.length > 1 || (bridge.assembleFilm && (music?.path || voices.some(Boolean)))) {
+      let seconds = plan?.seconds ?? [];
+      if (sources.length > 1 || (bridge.assembleFilm && (music?.path || voices.some(Boolean)))) {
         if (!bridge.assembleFilm) throw new Error("多镜头没有接上，没有导出。");
         const mixed = await bridge.assembleFilm(
           base.seriesId,
-          paths,
+          sources,
           music?.path ?? "",
           music ? music.gainDb : -14,
           voices,
@@ -100,6 +129,7 @@ export function exportFilmTask(
         assertCurrent(base, host, signal);
         source = mixed.path;
         assemblyPath = mixed.path;
+        if (mixed.durations?.length === sources.length) seconds = mixed.durations;
       }
       if (!source) throw new Error("没有导出成功，可以重试。");
       const target = directory || (await bridge.pickFilmFolder()) || "";
@@ -111,11 +141,28 @@ export function exportFilmTask(
         void bridge.cancelFilmExport?.(requestId).catch(() => undefined);
       };
       signal.addEventListener("abort", cancel, { once: true });
-      let result: { ok: boolean; path: string };
+      let result: { ok: boolean; path: string; subtitlePath?: string; coverPath?: string };
       try {
         result = await bridge.exportFilmCut(source, target, name, {
           ...(options?.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
           requestId,
+          ...(settings && plan
+            ? {
+                canvas: options?.aspectRatio ?? base.aspectRatio,
+                quality: settings.quality,
+                subtitles: {
+                  mode: settings.subtitles,
+                  style: settings.style,
+                  cues: settings.subtitles === "none" ? [] : filmSubtitleCues(plan.cues, seconds),
+                },
+                cover: {
+                  title: settings.cover.title,
+                  subtitle: settings.cover.subtitle,
+                  aiMark: settings.cover.aiMark,
+                  ...(settings.cover.backgroundUrl ? { still: settings.cover.backgroundUrl } : {}),
+                },
+              }
+            : {}),
         });
       } finally {
         signal.removeEventListener("abort", cancel);
@@ -127,7 +174,16 @@ export function exportFilmTask(
         ...(assemblyPath ? { assemblyPath, assemblyUrl: fileMediaUrl(assemblyPath) } : {}),
         exportPath: result.path,
       });
-      return { path: result.path, directory: target };
+      return {
+        path: result.path,
+        directory: target,
+        ...(result.subtitlePath ? { subtitlePath: result.subtitlePath } : {}),
+        ...(result.coverPath ? { coverPath: result.coverPath } : {}),
+        // Older takes keep the subtitle they were made with.
+        ...(plan && settings!.subtitles === "burn" && plan.baked.length
+          ? { note: `${plan.baked.join("、")}是之前生成的，字幕还是原来的样子。` }
+          : {}),
+      };
     },
     { signal: options?.signal },
   );

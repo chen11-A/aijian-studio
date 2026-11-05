@@ -54,6 +54,38 @@ function videoOutput(value: string): boolean {
 
 /** Merge only this version into the latest film, preserving selected successful versions
  * and unrelated edits made while the provider was working. */
+/**
+ * 4B-B09: the take without burned subtitles and the times of its subtitles, as the service
+ * reports them. Anything malformed is left out rather than guessed.
+ */
+function exportMedia(
+  data: Record<string, unknown>,
+): Pick<FilmTake, "cleanVideoPath" | "subtitleCues"> {
+  const clean = typeof data.clean_output_path === "string" ? data.clean_output_path.trim() : "";
+  const cues = Array.isArray(data.subtitle_cues)
+    ? data.subtitle_cues.flatMap((raw) => {
+        if (!raw || typeof raw !== "object") return [];
+        const cue = raw as Record<string, unknown>;
+        const text = typeof cue.text === "string" ? cue.text.trim() : "";
+        const start = cue.start_seconds;
+        const end = cue.end_seconds;
+        return text &&
+          typeof start === "number" &&
+          typeof end === "number" &&
+          Number.isFinite(start) &&
+          Number.isFinite(end) &&
+          end > start &&
+          start >= 0
+          ? [{ text, start, end }]
+          : [];
+      })
+    : [];
+  return {
+    ...(clean && /\.mp4$/i.test(clean) ? { cleanVideoPath: clean } : {}),
+    ...(cues.length ? { subtitleCues: cues } : {}),
+  };
+}
+
 export function applyVideoResponse(
   latest: FilmProject,
   shot: FilmShot,
@@ -102,6 +134,7 @@ export function applyVideoResponse(
           videoUrl,
           stillUrl: preview,
           reason: message,
+          ...(done ? exportMedia(data) : {}),
         }
       : item,
   );

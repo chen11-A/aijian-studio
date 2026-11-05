@@ -1,15 +1,25 @@
 import type { FilmProject } from "../../film/project";
-import { exportFilmTask } from "../media-tasks";
+import { exportFilmTask, type FilmExportSettings } from "../media-tasks";
 
 export type ExportAspectChoice = "work" | "other" | "both";
 export type ExportAspect = "16:9" | "9:16";
-export type ExportSelectionOutput = { aspectRatio: ExportAspect; path: string };
+export type ExportSelectionOutput = {
+  aspectRatio: ExportAspect;
+  path: string;
+  /** 4B-B09: written beside the film. */
+  subtitlePath?: string;
+  coverPath?: string;
+  note?: string;
+};
 export type ExportSelectionResult = {
   status: "done" | "partial" | "failed" | "cancelled" | "stale";
   outputs: ExportSelectionOutput[];
   primaryPath: string;
   directory: string;
-  error?: { code: "EXPORT_FAILED" | "EXPORT_CANCELLED" | "WORK_STALE"; detail?: string };
+  error?: {
+    code: "EXPORT_FAILED" | "EXPORT_CANCELLED" | "WORK_STALE" | "EXPORT_SUBTITLES_BAKED";
+    detail?: string;
+  };
 };
 type Host = Parameters<typeof exportFilmTask>[3] & { signal?: AbortSignal };
 
@@ -33,6 +43,7 @@ export async function exportFilmSelection(
   directory: string,
   host: Host,
   choice: ExportAspectChoice = "work",
+  settings?: FilmExportSettings,
 ): Promise<ExportSelectionResult> {
   const outputs: ExportSelectionOutput[] = [];
   let folder = directory;
@@ -72,7 +83,11 @@ export async function exportFilmSelection(
     for (const aspectRatio of plan) {
       assertCurrent();
       // The first export owns the folder picker; the second reuses its actual returned folder.
-      const options = { aspectRatio, signal: controller.signal };
+      const options = {
+        aspectRatio,
+        signal: controller.signal,
+        ...(settings ? { settings } : {}),
+      };
       const exported = await exportFilmTask(
         snapshot,
         [...selectedPaths],
@@ -93,6 +108,12 @@ export async function exportFilmSelection(
         options,
       );
       folder = exported.directory;
+      const written = outputs.find((output) => output.path === exported.path);
+      if (written) {
+        if (exported.subtitlePath) written.subtitlePath = exported.subtitlePath;
+        if (exported.coverPath) written.coverPath = exported.coverPath;
+        if (exported.note) written.note = exported.note;
+      }
     }
     assertCurrent();
     return result("done");
@@ -108,7 +129,13 @@ export async function exportFilmSelection(
     return result(
       stale ? "stale" : cancelled ? "cancelled" : outputs.length ? "partial" : "failed",
       {
-        code: stale ? "WORK_STALE" : cancelled ? "EXPORT_CANCELLED" : "EXPORT_FAILED",
+        code: stale
+          ? "WORK_STALE"
+          : cancelled
+            ? "EXPORT_CANCELLED"
+            : code === "EXPORT_SUBTITLES_BAKED"
+              ? "EXPORT_SUBTITLES_BAKED"
+              : "EXPORT_FAILED",
         detail,
       },
     );

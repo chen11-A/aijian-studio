@@ -2790,6 +2790,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const release = workOwners.begin(current.id, "export");
     setNotice("正在导出。");
     try {
+      // 4B-B09: the dialog's 清晰度 and 字幕, the work's subtitle look and its cover.
+      const coverStart = coverEditorData(current, { mediaUrl: fileMediaUrl });
       const result = await exportFilmSelection(
         current,
         plan.paths,
@@ -2800,6 +2802,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           apply: applyLive,
         },
         exportAspects,
+        {
+          quality: exportQuality,
+          subtitles: exportSubs,
+          style: current.subtitleStyle ?? "white",
+          cover: coverOf(current, coverStart.ok ? coverStart.props : null, prefs.aiMark),
+        },
       );
       if (!valid() || result.status === "stale") return;
       if (result.directory) setExportDir(result.directory);
@@ -2809,7 +2817,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           code: "EXPORT_DONE",
           text: NOTICE_TEXT.EXPORT_DONE,
           detail: result.outputs
-            .map((output) => `${output.aspectRatio}：${output.path}`)
+            .map((output) =>
+              [
+                `${output.aspectRatio}：${output.path}`,
+                output.subtitlePath ? `字幕文件：${output.subtitlePath}` : "",
+                output.coverPath ? `封面：${output.coverPath}` : "",
+                output.note ?? "",
+              ]
+                .filter(Boolean)
+                .join("，"),
+            )
             .join("；"),
         });
       else if (result.status === "partial")
@@ -2822,6 +2839,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         emitNotice({
           code: result.status === "cancelled" ? "EXPORT_FOLDER_REQUIRED" : "EXPORT_FAILED",
           text: result.status === "cancelled" ? "没有选择文件夹。" : NOTICE_TEXT.EXPORT_FAILED,
+          // 4B-B09: say why, e.g. older shots whose subtitle is in the picture.
+          ...(result.error?.code === "EXPORT_SUBTITLES_BAKED"
+            ? { detail: result.error.detail }
+            : {}),
         });
     } catch (error) {
       if (valid())

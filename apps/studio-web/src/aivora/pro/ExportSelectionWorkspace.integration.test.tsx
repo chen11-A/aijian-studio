@@ -108,3 +108,17 @@ it("UI keeps the first real output playable when the second aspect fails", async
     "已保存 1 个文件",
   );
 });
+
+it("UI hands the chosen 清晰度, 字幕 and the cover to the export (4B-B09)", async () => {
+  const f = await openExport("9:16");
+  fireEvent.change(within(f.dialog).getByLabelText("清晰度"), { target: { value: "720p" } });
+  fireEvent.click(within(f.dialog).getByRole("radio", { name: "单独文件" }));
+  fireEvent.click(within(f.dialog).getByRole("button", { name: "导出" }));
+  await waitFor(() => expect(f.exportFilmCut).toHaveBeenCalledTimes(1));
+  expect(f.exportFilmCut.mock.calls[0]![3]).toMatchObject({
+    canvas: "9:16",
+    quality: "720p",
+    subtitles: { mode: "srt", style: "white", cues: [] },
+    cover: { title: f.film.seriesTitle, aiMark: true },
+  });
+});

@@ -40,6 +40,7 @@ import {
   type FilmProject,
   type FilmScene,
   type FilmShot,
+  type TakeSubtitleCue,
 } from "./project";
 
 export const QC_REASON = "审片还不能看图打分。版本由你来选，不会自动重做。";
@@ -1716,6 +1717,77 @@ export function chosenExport(film: FilmProject): { paths: string[]; missing: str
     else missing.push(`镜头 ${shot.no}`);
   }
   return { paths, missing };
+}
+
+export type ExportSubtitleMode = "burn" | "srt" | "none";
+
+/**
+ * 4B-B09: what each chosen take puts into an export. A take with a copy made without burned
+ * subtitles uses that copy and its own subtitle times, so the export can burn them in any look,
+ * write them to a .srt or leave them out. An older take has only the subtitled film; it is used
+ * as it is, and when it has a line it is listed in `baked` (its subtitle cannot be taken out).
+ * Shots and takes are chosen exactly as chosenExport does.
+ */
+export function subtitleExportPlan(
+  film: FilmProject,
+  mode: ExportSubtitleMode,
+): {
+  paths: string[];
+  cues: TakeSubtitleCue[][];
+  seconds: number[];
+  baked: string[];
+  missing: string[];
+} {
+  const plan = {
+    paths: [] as string[],
+    cues: [] as TakeSubtitleCue[][],
+    seconds: [] as number[],
+    baked: [] as string[],
+    missing: [] as string[],
+  };
+  for (const shot of film.shots) {
+    const chosen = shot.selectedTakeId
+      ? shot.takes.find(
+          (take) => take.id === shot.selectedTakeId && take.status === "done" && take.videoPath,
+        )
+      : shot.takes.find((take) => take.status === "done" && take.videoPath);
+    if (!chosen?.videoPath) {
+      plan.missing.push(`镜头 ${shot.no}`);
+      continue;
+    }
+    const clean = chosen.cleanVideoPath?.trim();
+    plan.paths.push(clean || chosen.videoPath);
+    plan.cues.push(clean && mode !== "none" ? (chosen.subtitleCues ?? []) : []);
+    plan.seconds.push(
+      chosen.durationSeconds && chosen.durationSeconds > 0 ? chosen.durationSeconds : shot.seconds,
+    );
+    if (!clean && spokenLine(shot)) plan.baked.push(`镜头 ${shot.no}`);
+  }
+  return plan;
+}
+
+/** Each take's subtitles moved to their place in the joined film, never past their own shot. */
+export function filmSubtitleCues(
+  cues: readonly TakeSubtitleCue[][],
+  seconds: readonly number[],
+): TakeSubtitleCue[] {
+  let offset = 0;
+  const film: TakeSubtitleCue[] = [];
+  cues.forEach((shotCues, index) => {
+    const length = Math.max(0, seconds[index] ?? 0);
+    for (const cue of shotCues) {
+      const start = offset + Math.max(0, cue.start);
+      const end = offset + Math.min(length, cue.end);
+      if (end - start >= 0.05)
+        film.push({
+          text: cue.text,
+          start: Math.round(start * 1000) / 1000,
+          end: Math.round(end * 1000) / 1000,
+        });
+    }
+    offset += length;
+  });
+  return film;
 }
 
 export function confirmEstimate(shots: { seconds: number }[], versions: number): string {
