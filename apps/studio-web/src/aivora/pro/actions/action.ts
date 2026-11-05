@@ -92,20 +92,17 @@ export async function planActionDraft(
   const actionLocked =
     current.userFields.includes("action") || current.userFields.includes("actionPlan");
   if (actionState?.unassigned.length) note = "有动作没对上镜头，去分镜看看。";
-  const actionShot = withShotActions(
-    {
-      ...current,
-      actionPlan: planned.shots[0]?.actionPlan,
-      action: actionLocked ? current.action : sentence,
-      sound: actionLocked ? current.sound : { ...current.sound, sfx: cues },
-      source: actionLocked ? current.source : "agent:action",
-      userFields: current.userFields,
-    },
-    actionLocked ? shotActions(current) : (resolvedActions ?? [sentence]),
-  );
+  const actionShot = {
+    ...current,
+    actionPlan: planned.shots[0]?.actionPlan,
+    action: actionLocked ? current.action : sentence,
+    sound: actionLocked ? current.sound : { ...current.sound, sfx: cues },
+    source: actionLocked ? current.source : "agent:action",
+    userFields: current.userFields,
+  };
   return {
     status: "ready",
-    shot: actionShot,
+    shot: actionLocked ? actionShot : withShotActions(actionShot, resolvedActions ?? [sentence]),
     notes: actionNotes,
     notice: note,
     event: parsed ? "beats" : "offline",

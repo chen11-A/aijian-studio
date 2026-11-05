@@ -117,3 +117,21 @@ it("retains offline behavior and does not manufacture an unassigned update", asy
   }
   expect(request).toHaveBeenCalledOnce();
 });
+
+it("preserves a user-locked multiline action exactly when accepting an action draft", async () => {
+  const film = sampleFilm();
+  const shot = { ...film.shots[0]!, action: "守住门口。\n不要追赶。", userFields: ["action"] };
+  const result = await planActionDraft(film, shot, {
+    request: async () => ({
+      text: JSON.stringify({ beats: [{ shot_id: shot.id, text: "冲出门口" }] }),
+      detail: "",
+    }),
+    current: () => true,
+    connected: true,
+  });
+  expect(result.status).toBe("ready");
+  if (result.status !== "ready") throw new Error("Expected action draft");
+  expect(result.shot.action).toBe(shot.action);
+  expect(result.shot.actionBeats).toBeUndefined();
+  expect(result.shot.sound).toEqual(shot.sound);
+});
