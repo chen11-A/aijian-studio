@@ -3468,6 +3468,43 @@ it("marks lip sync on the card and the clip, and a failed one as 口型未对上
   ]);
 });
 
+it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U01)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  const [talk] = film.shots;
+  talk!.sceneId = film.scenes[0]!.id;
+  talk!.line = "你来晚了。这家店，下个月就没了。";
+  const made = (index: number) =>
+    ({
+      id: `${talk!.id}-take-${index}`,
+      shotId: talk!.id,
+      index,
+      status: "done",
+      stillUrl: "",
+      videoPath: `/tmp/${talk!.id}-${index}.mp4`,
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+    }) as FilmProject["shots"][number]["takes"][number];
+  talk!.takes = [made(1), made(2), made(3)];
+  talk!.selectedTakeId = `${talk!.id}-take-2`;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("分镜"));
+  expect(document.querySelector(".card .ver")).toHaveTextContent("版本 2/3");
+  fireEvent.click(stageTab("剪辑"));
+  expect(document.querySelector(".clip.v .ver")).toHaveTextContent("版本 2/3");
+  fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
+  expect(document.querySelector(".selbar .lab")).toHaveTextContent(/已选 镜头 \d+ · 00:00\.0–/);
+  expect(screen.getByText("这句台词会整句重来")).toHaveAttribute(
+    "title",
+    expect.stringContaining("这一整句都会重来"),
+  );
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();

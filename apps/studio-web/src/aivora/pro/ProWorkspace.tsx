@@ -161,6 +161,7 @@ import { TakePicker } from "../next/TakePicker";
 import { takePickerData } from "../next/adapters/takePicker";
 import { needsRestyle } from "../next/adapters/restyle";
 import { lipSyncTag } from "../next/adapters/lipSync";
+import { selection, takeBadge } from "../next/adapters/takeBadge";
 import { continuityNotes } from "../next/adapters/continuity";
 import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
 import { stageProgress, stageTabs } from "../next/adapters/stageProgress";
@@ -6099,6 +6100,7 @@ function BoardPage({
                       画风变了
                     </span>
                   ) : null}
+                  {takeBadge(item) ? <span className="ver">{takeBadge(item)}</span> : null}
                   {/* 4B-U07: lip sync on a close shot whose speaker talks on screen. */}
                   {(() => {
                     const lips = lipSyncTag(item);
@@ -7277,6 +7279,8 @@ function EditPage({
     // Only a new pick moves the cut; the segments change on every render.
   }, [shot, joined]);
   const start = shots.slice(0, shot).reduce((sum, item) => sum + item.seconds, 0);
+  // 4C-U01: the part between in and out.
+  const picked = selection(shots, span, shot);
   const selected = clips[shot];
   let headLeft = selected?.left ?? 1;
   let headSeconds = start;
@@ -7595,10 +7599,22 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
+            {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
             <span className="lab">
-              已选 {clock(start)}–{clock(start + (current?.seconds ?? 0))} · {current?.seconds ?? 0}{" "}
-              秒
+              已选{" "}
+              {picked.first === picked.last
+                ? `镜头 ${shots[picked.first]?.no ?? picked.first + 1}`
+                : `镜头 ${shots[picked.first]?.no ?? picked.first + 1}–${shots[picked.last]?.no ?? picked.last + 1}`}{" "}
+              · {clock(picked.start)}–{clock(picked.start + picked.seconds)} · {picked.seconds} 秒
             </span>
+            {picked.hasLine ? (
+              <span
+                className="sel-hint"
+                title="台词不会从中间切开：选到一句台词的一部分，重做时这一整句都会重来。"
+              >
+                这句台词会整句重来
+              </span>
+            ) : null}
             {/* 4A-U10: one 重新生成. One shot opens its 单镜 panel, a longer part is queued. */}
             <button
               className="btn primary"
@@ -7856,6 +7872,10 @@ function EditPage({
                       }}
                     >
                       {clip.folded ? null : <span className="lb">{ready ? name : "未生成"}</span>}
+                      {/* 4C-U01: which made version the cut uses, 「版本 2/3」. */}
+                      {!clip.folded && item && takeBadge(item) ? (
+                        <span className="ver">{takeBadge(item)}</span>
+                      ) : null}
                       {/* 4B-U07: the same 口型 mark on the clip. */}
                       {(() => {
                         const lips = !clip.folded && item ? lipSyncTag(item) : null;
