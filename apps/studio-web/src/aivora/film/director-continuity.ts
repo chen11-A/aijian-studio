@@ -216,7 +216,7 @@ const mergeReasonText: Record<ShotMergeBlockReason, string> = {
   MUSIC_MOOD_MISMATCH: "配乐安排不同",
   STYLE_MISMATCH: "画风不同",
   FRAMING_MISMATCH: "拍法不同",
-  SPEAKER_MISMATCH: "说话的人不同（一个镜头只能有一个人的声音）",
+  SPEAKER_MISMATCH: "说话的人不同",
 };
 export function formatShotBudget(report: SceneShotBudget, shots: readonly FilmShot[]): string {
   const number = (id: string) => {

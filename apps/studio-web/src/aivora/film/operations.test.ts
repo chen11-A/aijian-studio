@@ -527,7 +527,8 @@ describe("film operations", () => {
       userFields: [],
       line: "啊".repeat(90),
     });
-    expect(over.warning).toContain("截断");
+    expect(over.warning).toContain("不会提交");
+    expect(over.warning).not.toContain("截断");
     expect(over.shot.seconds).toBe(3);
     const kept = fitShotToLine({
       ...shot,
@@ -536,7 +537,13 @@ describe("film operations", () => {
       line: "啊".repeat(40),
     });
     expect(kept.shot.seconds).toBe(4);
-    expect(kept.warning).toContain("截断");
+    expect(kept.warning).toContain("会按配音加长");
+    expect(kept.warning).not.toContain("截断");
+    // A locked line too long for any video says so, instead of promising to lengthen it.
+    expect(
+      fitShotToLine({ ...shot, seconds: 4, userFields: ["seconds"], line: "啊".repeat(90) })
+        .warning,
+    ).toContain("不会提交");
     shot.speaker = film.characters[0]!.name;
     shot.poster = "/tmp/still.png";
     film.characters[0]!.portraits = [

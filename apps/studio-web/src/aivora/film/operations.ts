@@ -1519,15 +1519,23 @@ export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string
   const line = shot.line.trim();
   if (!line) return { shot, warning: "" };
   const plan = durationFromSpeech(speechSeconds(line, null), shot.seconds);
-  const clipped = !plan.fits || plan.seconds > shot.seconds;
+  // 3JR-B01: the service measures the voice before it asks for the video, lengthens the video to
+  // the voice (up to the video limit) and refuses, without submitting, a line that cannot fit.
+  // Dialogue is never cut, so the warnings say what will really happen.
+  if (!plan.fits) {
+    return {
+      shot,
+      warning: `镜头 ${shot.no} 的台词超过 15 秒，一个视频放不下，这一镜不会提交，请拆成两镜。`,
+    };
+  }
   if (shot.userFields.includes("seconds")) {
     return {
       shot,
-      warning: clipped ? `镜头 ${shot.no} 的台词超过这一镜的时长，生成时声音会被截断。` : "",
+      warning:
+        plan.seconds > shot.seconds
+          ? `镜头 ${shot.no} 你定的是 ${shot.seconds} 秒，台词约要 ${plan.seconds} 秒，生成时会按配音加长。`
+          : "",
     };
-  }
-  if (!plan.fits) {
-    return { shot, warning: `镜头 ${shot.no} 的台词超过 15 秒，生成时声音会被截断。` };
   }
   if (plan.seconds !== shot.seconds)
     return { shot: { ...shot, seconds: plan.seconds }, warning: "" };
