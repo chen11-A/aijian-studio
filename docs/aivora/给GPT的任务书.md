@@ -317,3 +317,5 @@ B06、B08 生产入口已接通，B10 风险持久化已接通；完整验收状
 继续4A的只读核查（2026-11-05）：`claude/work` 已到 `ed0409a641156f33a6a8894e9b47feebb33ffffa`，新增 `3d1600a`（PipelineSteps组件）、`1a98e41`（任务抽屉）、`6e5bec2`（场记）、`723736c`（定妆照展示）、`ed0409a`（画幅展示）。这些界面交付已存在、尚未合并。该分支仍明确用旧3j-r1流水线占位，INTEGRATION要求阶段整合时传入真实pipelineView和宿主操作、接exportAspects；不能误称Claude未做组件，也不能宣称用户入口已接通。`aivora/dev`仍为`7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11`。本轮没有合并Claude或发布4A。
 
 B04最终增量：`2794e81`更新设计样例校验为核对全部actionBeats及主动作一致性，保留尾段风险报告，相关4项通过；`c3cd585`保护手动锁定原始动作，23项通过。首次全web在收尾变更期间运行，4213通过、4失败（文案映射及三个已修正的新旧行为断言）；不作为最终固定提交全量通过证据。最新完整web已固定代码`c3cd585`重跑。Python本轮32项通过，ruff检查/格式、mypy310文件通过；全tsc和ESLint通过，最终格式检查收尾中。
+
+固定`c3cd585b6932893bca95640ca94de3f30ab57cd9`最终web4217通过、1失败、0跳过；唯一失败为102个未整合NOTICE_COPY（101已交付+本轮新增1）。全tsc/ESLint/Prettier、ruff/mypy通过；Python相关32通过。失败后未产生本轮coverage报告，不借用旧值。详见[3jr-backend-verification.md](3jr-backend-verification.md)。后续B08队列终态及4A-B10导出协调按独立增量继续验证。
