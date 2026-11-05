@@ -3112,6 +3112,40 @@ body:has(.pro-root) {
 .pro-root .work-settings h3 {
   font-size: 13px;
 }
+/* 4C-U04: the shortcut list in 设置, two columns of key and what it does. */
+.pro-root .work-settings .keys {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+  justify-self: stretch;
+  margin: 0;
+}
+.pro-root .work-settings .keys > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pro-root .work-settings .keys dt {
+  flex: none;
+  min-width: 92px;
+}
+.pro-root .work-settings .keys dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .work-settings kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: 12px var(--mono);
+  white-space: nowrap;
+}
 /* 4C-U03: a choice in 设置, the box and its words on one line. */
 .pro-root .check-row {
   /* demo.css stacks every label in a column; this one is a row. */

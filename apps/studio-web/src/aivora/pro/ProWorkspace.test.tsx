@@ -3542,6 +3542,22 @@ it("keeps the person's defaults in 设置: folder, 「AI 生成」, beginner mod
   }
 });
 
+it("names only shortcuts that work, on the tabs and in 设置 (4C-U04)", async () => {
+  installDesktop();
+  await openSample();
+  expect(stageTab("剧本")).toHaveAttribute("title", "剧本（按 1）");
+  expect(stageTab("剪辑")).toHaveAttribute("title", "剪辑（按 4）");
+  fireEvent.click(stageTab("剪辑"));
+  expect(screen.getByRole("button", { name: "播放" })).toHaveAttribute("title", "播放（空格）");
+  expect(document.querySelector('[title*="(V)"], [title*="(Del)"]')).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "账号" }));
+  fireEvent.click(screen.getByRole("button", { name: "设置" }));
+  const keys = within(screen.getByRole("region", { name: "快捷键" }));
+  for (const key of ["1 – 4", "Ctrl+Z", "Ctrl+J", "空格", "I / O", "M", "Esc"]) {
+    expect(keys.getByText(key)).toBeInTheDocument();
+  }
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();

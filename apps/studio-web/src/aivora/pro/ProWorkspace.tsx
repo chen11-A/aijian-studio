@@ -218,6 +218,18 @@ type RoleCard = {
 };
 type FixAction = VideoAction;
 
+/** 4C-U04: the keys the workspace answers to, as 设置 lists them. */
+const SHORTCUTS: readonly (readonly [string, string])[] = [
+  ["1 – 4", "换到剧本、角色与场景、分镜、剪辑"],
+  ["Ctrl+Z", "撤销"],
+  ["Ctrl+Shift+Z", "重做"],
+  ["Ctrl+J", "打开或收起 AI 助手"],
+  ["空格", "剪辑页播放 / 暂停"],
+  ["I / O", "剪辑页设入点 / 出点"],
+  ["M", "预览静音 / 有声"],
+  ["Esc", "关掉菜单和对话框"],
+];
+
 /** 4A-U11: notices after an assistant's suggestion was put in; the status bar offers 撤销. */
 const APPLIED_CODES = new Set(["SCRIPT_APPLIED", "ART_APPLIED", "SHOT_APPLIED", "SHOTS_APPLIED"]);
 
@@ -3273,6 +3285,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   key={item.id}
                   className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
                   aria-current={on ? "page" : undefined}
+                  title={`${item.label}（按 ${index + 1}）`}
                   onClick={() => {
                     setStage(item.id);
                     setMenu(null);
@@ -4154,6 +4167,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   />
                   新手模式：每个镜头只出 1 个版本
                 </label>
+              </section>
+              <section className="ws-sec" aria-label="快捷键">
+                <h3>快捷键</h3>
+                {/* 4C-U04: only keys that do something; the same words as the buttons' tooltips. */}
+                <dl className="keys">
+                  {SHORTCUTS.map(([key, what]) => (
+                    <div key={key}>
+                      <dt>
+                        <kbd>{key}</kbd>
+                      </dt>
+                      <dd>{what}</dd>
+                    </div>
+                  ))}
+                </dl>
               </section>
               <section className="ws-sec" aria-label="用量">
                 <h3>用量</h3>
@@ -7677,6 +7704,7 @@ function EditPage({
                     <button
                       className="playb"
                       aria-label={playing ? "暂停" : "播放"}
+                      title={playing ? "暂停（空格）" : "播放（空格）"}
                       onClick={onTogglePlay}
                     >
                       <Ic name={playing ? "pause" : "play"} size={16} />
@@ -7804,13 +7832,13 @@ function EditPage({
           </div>
         ) : (
           <div className="ttool">
-            <button className="icon-btn on" aria-label="选择" title="选择 (V)">
+            <button className="icon-btn on" aria-label="选择" title="选择">
               <Ic name="cursor" />
             </button>
             <button
               className="icon-btn"
               aria-label="删除"
-              title="删除 (Del)"
+              title="删除选中的镜头"
               onClick={() => onAction("cut")}
             >
               <Ic name="trash" />
