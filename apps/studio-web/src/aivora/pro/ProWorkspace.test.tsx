@@ -366,7 +366,7 @@ describe("professional workspace", () => {
         .getAllByRole("button", { name: /分镜/ })
         .find((item) => item.className.includes("tab"))!,
     );
-    fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     const prompt = screen.getByTestId("keyframe-prompt");
     expect(prompt.textContent).toContain("阿宁，短发，灰外套");
     expect(prompt.textContent).toContain("起始画面");
@@ -446,7 +446,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     expect(screen.getByTestId("batch-estimate").textContent).toContain("记在 Grok 会员额度里");
     fireEvent.click(screen.getByRole("button", { name: "先不生成" }));
-    fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     // 4A-U12: one video of the selected length, and how it is paid for.
     expect(screen.getByTestId("generation-estimate").textContent).toMatch(
       /^1 段 \d+ 秒的视频 · 用 Grok 会员额度，不另外收费$/,
@@ -624,7 +624,7 @@ describe("professional workspace", () => {
     const desktop = installDesktop(createStoryFilm);
     await openSample();
     fireEvent.click(stageTab("分镜"));
-    fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "5 秒" }));
     fireEvent.click(screen.getByRole("button", { name: "较快的一版" }));
     fireEvent.click(screen.getByRole("button", { name: "直接出成片" }));
@@ -636,7 +636,7 @@ describe("professional workspace", () => {
     expect(await screen.findByText("这一版已经生成。", {}, { timeout: 5_000 })).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /^用第 \d+ 版$/ })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "1" }));
-    fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     await waitFor(() => expect(createStoryFilm.mock.calls.length).toBeGreaterThanOrEqual(8));
@@ -672,7 +672,7 @@ describe("professional workspace", () => {
     installDesktop(createStoryFilm);
     await openSample();
     fireEvent.click(stageTab("分镜"));
-    fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -690,7 +690,7 @@ describe("professional workspace", () => {
       });
     });
     fireEvent.click(screen.getByRole("button", { name: "关上后台生成" }));
-    fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     await waitFor(() => expect(statusDetail()).toMatch(/已暂停。点继续再生成剩下的/));
@@ -740,7 +740,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
     expect(await screen.findByText(/没有能写字的模型/)).toBeInTheDocument();
     fireEvent.click(stageTab("分镜"));
-    fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "较快的一版" }));
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
@@ -749,7 +749,7 @@ describe("professional workspace", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText(/不能先出草稿/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
     fireEvent.click(stageTab("剪辑"));
     fireEvent.click(screen.getByRole("button", { name: "设入点" }));
     cleanup();
@@ -767,7 +767,7 @@ describe("professional workspace", () => {
         .getAllByRole("button")
         .filter((item) => item.className.includes("tab") && item.textContent?.includes("分镜"))[0]!,
     );
-    fireEvent.click(screen.getAllByRole("button", { name: "单镜" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "单个镜头" })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: "生成 1 个版本" })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: "开始生成" })[0]!);
     expect(await screen.findByText(/网页里不能直接出片/)).toBeInTheDocument();
@@ -859,7 +859,7 @@ describe("professional workspace", () => {
       fireEvent.click(stageTab("角色与场景"));
       fireEvent.change(screen.getByLabelText("画风"), { target: { value: "赛博夜景" } });
       fireEvent.click(stageTab("分镜"));
-      fireEvent.click(screen.getByRole("button", { name: "高级" }));
+      openGroup("高级");
       fireEvent.change(screen.getByLabelText("这一镜的画风"), { target: { value: "冷色雨夜" } });
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
@@ -883,7 +883,7 @@ describe("professional workspace", () => {
         expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
       );
       fireEvent.click(stageTab("分镜"));
-      fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+      fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -895,7 +895,7 @@ describe("professional workspace", () => {
         fireEvent.ended(preview);
         expect(play).toHaveBeenCalled();
       }
-      fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+      fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
       expect(screen.getByRole("button", { name: "4 秒" })).toHaveClass("on");
       fireEvent.click(stageTab("剪辑"));
       // 3JR-U02: with one shot made, the shots still to make fold to narrow marks until asked.
@@ -1116,7 +1116,7 @@ describe("professional workspace", () => {
     try {
       await openSample();
       fireEvent.click(stageTab("分镜"));
-      fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+      fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "1" }));
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -1280,12 +1280,12 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     expect(await screen.findByText(/提示词写好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "审一下这一镜的文字" }));
     expect(await screen.findByText(/没有看画面，版本仍由你选/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "高级" }));
+    openGroup("高级");
     fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
     fireEvent.click(screen.getByRole("button", { name: "按台词定时长" }));
     expect(await screen.findByText(/按配音长度/)).toBeInTheDocument();
     expect(speak).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "高级" }));
+    openGroup("高级");
     expect(screen.getByText("还没有英文画面说明。可以让「画面说明」助手写。")).toBeInTheDocument();
     moreAction("出 4 张候选");
     expect(document.querySelector(".statusbar")?.textContent).toMatch(/确认这 4 张/);
@@ -1684,7 +1684,7 @@ it("ticks a stage only when it is done, hides an idle progress bar, and points t
   // UIR-04: nothing is being made, so there is no progress bar.
   expect(document.querySelector(".statusbar .bar")).toBeNull();
   // UIR-05: the empty 单镜 says where the button is, once.
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   expect(screen.getByText("还没有版本。在右边点「生成 1 个版本」。")).toBeInTheDocument();
   expect(screen.queryByText("还没有版本")).toBeNull();
   expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeInTheDocument();
@@ -1853,7 +1853,7 @@ it("keeps a separate review card and confirms the shots before video", async () 
   expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/重新生成/);
   // 4A-U10: one shot's 重新生成 opens its 单镜 panel.
   fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
-  expect(screen.getByRole("button", { name: "返回分镜" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "全部镜头" })).toBeInTheDocument();
   fireEvent.click(stageTab("角色与场景"));
   fireEvent.change(screen.getByLabelText("角色声音"), { target: { value: "leo" } });
   expect(screen.getByText(/已选：威严有力/)).toBeInTheDocument();
@@ -1940,12 +1940,21 @@ function moreAction(name: string) {
 }
 
 /** Opens 分镜 → 属性 → 高级, where 提示词 and 审片 run. */
+/** 4C-U05: opens a group of a shot's properties (画面, 声音, 高级) if it is folded. */
+function openGroup(name: string) {
+  const summary = [...document.querySelectorAll<HTMLElement>(".pgroup > summary")].find(
+    (item) => item.textContent === name,
+  );
+  if (!summary) throw new Error(`no property group ${name}`);
+  if (!(summary.parentElement as HTMLDetailsElement).open) fireEvent.click(summary);
+}
+
 function openBoardTools() {
   fireEvent.click(stageTab("分镜"));
   const props = screen.queryByRole("button", { name: "属性" });
   if (props) fireEvent.click(props);
   if (!screen.queryByRole("button", { name: "写英文画面说明" })) {
-    fireEvent.click(screen.getByRole("button", { name: "高级" }));
+    openGroup("高级");
   }
 }
 
@@ -2000,7 +2009,7 @@ it("asks for the selected shot again after the confirm table", async () => {
   fireEvent.click(screen.getAllByRole("button", { name: "未生成" })[0]!);
   // 4A-U10: one shot's 重新生成 opens its 单镜 panel, the one place videos are made.
   fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
-  expect(screen.getByRole("button", { name: "返回分镜" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "全部镜头" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   expect(screen.getByTestId("confirm-table")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -2270,7 +2279,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   expect(await screen.findByText(/已导入音乐/)).toBeInTheDocument();
   expect(importMusic).toHaveBeenCalledWith(expect.any(String), "/tmp/song.mp3");
   fireEvent.click(stageTab("分镜"));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   fireEvent.click(screen.getByRole("button", { name: "1" }));
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -2289,7 +2298,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
     path: "/tmp/aivora/rough.mp4",
     reason: "视频已接上。配乐没有混进去。",
   }));
-  fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   fireEvent.click(stageTab("剪辑"));
@@ -2526,7 +2535,7 @@ it("stops the rest of a batch when a newer batch starts", async () => {
   installDesktop(createStoryFilm);
   await openSample();
   fireEvent.click(stageTab("分镜"));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   const counts = screen.getAllByRole("button", { name: "2" });
   fireEvent.click(counts[counts.length - 1]!);
   fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
@@ -2588,7 +2597,7 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
   expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /候选画面/ }));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
@@ -2627,7 +2636,7 @@ it("puts the spoken file on the dialogue lane and leaves a finished job alone", 
   await openSample();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
@@ -3117,12 +3126,14 @@ it("keeps a storyboard card to its size, length, picture sentence and first line
   expect(card.textContent).toContain(shot.size);
   expect(card.textContent).toContain(`${shot.seconds}s`);
   expect(card.textContent).not.toContain(shot.performance);
-  expect(card.querySelector(".src")).toHaveAttribute("title", "原来就有");
+  // 4C-U05: no dot on the card; who wrote it is in the card's tooltip.
+  expect(card.querySelector(".src")).toBeNull();
+  expect(card).toHaveAttribute("title", expect.stringContaining("原来就有"));
   fireEvent.click(card);
   fireEvent.change(screen.getByLabelText("分镜画面"), { target: { value: "林骁抬眼看雨" } });
-  expect(document.querySelectorAll(".pb.grid .card")[3]?.querySelector(".src")).toHaveAttribute(
+  expect(document.querySelectorAll(".pb.grid .card")[3]).toHaveAttribute(
     "title",
-    "你改过",
+    expect.stringContaining("你改过"),
   );
   expect(screen.getByLabelText("表演")).toHaveValue(shot.performance);
 });
@@ -3148,8 +3159,10 @@ it("shows one row of shot lengths with 自定义, a three-line picture box and s
   expect(screen.getByLabelText("时长秒数")).toHaveValue(7);
   expect(screen.getByLabelText("分镜画面")).toHaveAttribute("rows", "3");
   expect(screen.queryByLabelText("画风")).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("这一镜的画风")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "高级" }));
+  // 4C-U05: 高级 starts folded; opening it shows the shot's own style.
+  expect(screen.getByLabelText("这一镜的画风").closest("details")).not.toHaveAttribute("open");
+  openGroup("高级");
+  expect(screen.getByLabelText("这一镜的画风").closest("details")).toHaveAttribute("open");
   expect(screen.getByLabelText("这一镜的画风")).toHaveAttribute(
     "placeholder",
     "不写就用整部作品的画风：写实电影感",
@@ -3207,7 +3220,7 @@ it("keeps one filled primary button per page; 导出成片 leads only when it ca
   expect(primaries().length).toBeLessThanOrEqual(1);
   expect(primaries()).not.toContain("导出成片");
   fireEvent.click(stageTab("分镜"));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   expect(primaries()).toEqual(["生成 1 个版本"]);
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -3245,7 +3258,7 @@ it("gives each action one place: undo, sign-in and the preview's sound (4A-U10)"
   fireEvent.keyDown(window, { key: "m" });
   expect(mute()).toHaveAttribute("aria-pressed", "true");
   fireEvent.click(stageTab("分镜"));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   expect(mute()).toHaveAttribute("aria-pressed", "true");
   fireEvent.click(mute());
   expect(mute()).toHaveAttribute("aria-pressed", "false");
@@ -3281,7 +3294,7 @@ it("keeps the assistant in one place and shows a suggestion as a change (4A-U11)
   fireEvent.keyDown(window, { key: "j", ctrlKey: true });
   expect(screen.getByLabelText("改这一镜的描述")).toBeInTheDocument();
   fireEvent.click(stageTab("分镜"));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   fireEvent.keyDown(window, { key: "j", ctrlKey: true });
   expect(screen.getByLabelText("跟助手说")).toBeInTheDocument();
   // 剧本: the opening note is gray text, and 导入小说 is not a quick suggestion.
@@ -3314,7 +3327,7 @@ it("keeps the assistant in one place and shows a suggestion as a change (4A-U11)
   fireEvent.click(await screen.findByRole("button", { name: "撤销刚才放进去的" }));
   fireEvent.click(stageTab("分镜"));
   // 单镜 was left open above; the storyboard is one step back.
-  fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
   expect(document.querySelectorAll(".pb.grid .card")).toHaveLength(6);
 });
 
@@ -3322,7 +3335,7 @@ it("says plainly on 单镜 what one click makes, with the long text folded (4A-U
   installDesktop();
   await openSample();
   fireEvent.click(stageTab("分镜"));
-  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   const estimate = () => screen.getByTestId("generation-estimate").textContent;
   fireEvent.click(screen.getAllByRole("button", { name: "2 秒" })[0]!);
   expect(estimate()).toBe("1 段 2 秒的视频 · 用 Grok 会员额度，不另外收费");
@@ -3529,7 +3542,7 @@ it("keeps the person's defaults in 设置: folder, 「AI 生成」, beginner mod
     expect(screen.queryByRole("dialog", { name: "设置" })).toBeNull();
     // Beginner mode: one version per shot, 「一次出几个」 not offered.
     fireEvent.click(stageTab("分镜"));
-    fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     expect(screen.queryByText("一次出几个")).toBeNull();
     expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeInTheDocument();
     // The export dialog starts from the chosen folder, and a new cover without the mark.
@@ -3555,6 +3568,51 @@ it("names only shortcuts that work, on the tabs and in 设置 (4C-U04)", async (
   const keys = within(screen.getByRole("region", { name: "快捷键" }));
   for (const key of ["1 – 4", "Ctrl+Z", "Ctrl+J", "空格", "I / O", "M", "Esc"]) {
     expect(keys.getByText(key)).toBeInTheDocument();
+  }
+});
+
+it("groups a shot's properties and switches between all shots and one (4C-U05)", async () => {
+  installDesktop();
+  window.localStorage.removeItem("aivora.board.groups");
+  try {
+    await openSample();
+    fireEvent.click(stageTab("分镜"));
+    const group = (name: string) =>
+      [...document.querySelectorAll<HTMLDetailsElement>(".pgroup")].find(
+        (item) => item.querySelector("summary")?.textContent === name,
+      )!;
+    expect(group("画面").open).toBe(true);
+    expect(group("声音").open).toBe(false);
+    expect(group("高级").open).toBe(false);
+    // 站位 and 朝向 fold with 高级 now.
+    expect(group("高级")).toContainElement(screen.getByLabelText("站位"));
+    expect(group("高级")).toContainElement(screen.getByLabelText("朝向"));
+    expect(group("声音")).toContainElement(screen.getByLabelText("这一镜的环境音"));
+    openGroup("声音");
+    expect(group("声音").open).toBe(true);
+    // The browser says 「toggle」 a moment later; that is when the choice is kept.
+    await waitFor(() =>
+      expect(window.localStorage.getItem("aivora.board.groups")).toContain('"sound":true'),
+    );
+    // It remembers: the next time the page is drawn, 声音 is still open.
+    fireEvent.click(stageTab("剧本"));
+    fireEvent.click(stageTab("分镜"));
+    expect(group("声音").open).toBe(true);
+    // No dot on the card; 全部镜头 | 单个镜头 replaces 单镜 and 返回分镜.
+    expect(document.querySelector(".card .src")).toBeNull();
+    expect(screen.getByRole("button", { name: "全部镜头" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+    expect(screen.getByRole("button", { name: "单个镜头" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
+    expect(document.querySelectorAll(".pb.grid .card").length).toBeGreaterThan(0);
+  } finally {
+    window.localStorage.removeItem("aivora.board.groups");
   }
 });
 

@@ -37,3 +37,26 @@ export function writePrefs(next: AppPrefs): void {
     // A full or blocked storage keeps the choice for this session only.
   }
 }
+
+const GROUPS = "aivora.board.groups";
+
+/** 4C-U05: whether a group of a shot's properties was left open; defaultOpen until it was touched. */
+export function readGroupOpen(id: string, defaultOpen: boolean): boolean {
+  try {
+    const raw = window.localStorage.getItem(GROUPS);
+    const value = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    return typeof value[id] === "boolean" ? value[id] : defaultOpen;
+  } catch {
+    return defaultOpen;
+  }
+}
+
+export function writeGroupOpen(id: string, open: boolean): void {
+  try {
+    const raw = window.localStorage.getItem(GROUPS);
+    const value = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    window.localStorage.setItem(GROUPS, JSON.stringify({ ...value, [id]: open }));
+  } catch {
+    // A full or blocked storage keeps the group as it is for this session only.
+  }
+}

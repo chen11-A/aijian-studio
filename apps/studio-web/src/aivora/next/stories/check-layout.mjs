@@ -304,7 +304,7 @@ const pages = [
       return problems;
     },
   },
-  { name: "单镜", button: "单镜" },
+  { name: "单镜", button: "单个镜头" },
   { name: "剪辑", tab: "剪辑" },
   // 4B-U01: the scene's sound in place of the preview, then back.
   { name: "剪辑 声音", button: "声音", close: "预览" },
