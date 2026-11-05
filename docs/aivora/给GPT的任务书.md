@@ -2,6 +2,8 @@
 
 # AIVORA 阶段 3j：后端和逻辑任务书（GPT）
 
+> **2026-11-05 起这份任务书由 Claude 的后端会话接手**（GPT 已停止，交接见 `claude-handoff-2026-11-05.md`）。分支 `gpt/work-4a`；合并和打 tag 也由后端会话做；每次合并前的改动和测试结果写进 `3jr-backend-verification.md` 由用户审。
+
 > 用户决定：3J-B18、3J-B19 和 3J-U18–U22 放到 3j 出包后的下一轮处理，不作为本轮 3j 出包或打 tag 的前置条件，不阻挡 `aivora-desktop-v0.3.0-phase3j` tag。下文保留原编号、任务正文及统计归类；执行顺序以本说明为准。
 
 ## 基本要求
