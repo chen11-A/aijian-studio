@@ -151,9 +151,9 @@ import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
 import { useStatusNotice } from "../next/wiring/statusNotice";
+import { useDismiss } from "../next/wiring/dismiss";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
-import { useDismiss } from "../next/wiring/dismiss";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
 import { HomeStart, type Aspect } from "../next/HomeStart";
 import { PipelineSteps } from "../next/PipelineSteps";
@@ -162,6 +162,7 @@ import { takePickerData } from "../next/adapters/takePicker";
 import { needsRestyle } from "../next/adapters/restyle";
 import { continuityNotes } from "../next/adapters/continuity";
 import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
+import { stageTabs } from "../next/adapters/stageProgress";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2843,6 +2844,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
   // past messages are listed in the task center.
   const status = useStatusNotice(notice);
+  // 3J-U18: the 作品 and 账号 menus close on Esc or a press outside them.
+  useDismiss(menu === "project", () => setMenu(null), '[data-menu="project"]');
+  useDismiss(menu === "account", () => setMenu(null), '[data-menu="account"]');
   // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
   // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
   const openSaved = (id: string) => {
@@ -2934,6 +2938,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <span className="vsep" />
             <button
               className="proj"
+              data-menu="project"
               aria-label="作品"
               onClick={() => {
                 const opening = menu !== "project";
@@ -2970,7 +2975,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <Ic name="redo" />
             </button>
             {menu === "project" && (
-              <div className="menu" role="menu" aria-label="作品菜单">
+              <div className="menu" role="menu" aria-label="作品菜单" data-menu="project">
                 <button
                   onClick={() => {
                     const next = blankFilm();
@@ -3120,7 +3125,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
           <nav className="tabs" aria-label="创作阶段">
             {STAGES.map((item, index) => {
-              const done = open && index < STAGES.findIndex((stageItem) => stageItem.id === stage);
+              // UIR-06: ticked only when that part is done; otherwise how far it got.
+              const progress = open && film && item.id !== "edit" ? stageTabs(film)[item.id] : null;
+              const done = Boolean(progress?.done);
               const on = item.id === stage;
               return (
                 <button
@@ -3156,6 +3163,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {done && !on ? <Ic name="check" size={10} /> : index + 1}
                   </span>
                   {item.label}
+                  {progress && !done && progress.total > 0 ? (
+                    <small className="tab-count">
+                      {progress.have}/{progress.total}
+                    </small>
+                  ) : null}
                 </button>
               );
             })}
@@ -3208,6 +3220,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
             <button
               className="avatar"
+              data-menu="account"
               aria-label="账号"
               onClick={() => setMenu(menu === "account" ? null : "account")}
             >
@@ -3218,7 +3231,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
             </button>
             {menu === "account" && (
-              <div className="menu" role="menu" aria-label="账号菜单">
+              <div className="menu" role="menu" aria-label="账号菜单" data-menu="account">
                 {signingIn && (
                   <button
                     onClick={() => {
@@ -3701,9 +3714,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             }}
           >
             {status.line?.text ?? ""}
-            {status.line?.detail ? (
-              <span className="status-detail">{status.line.detail.replace(/\n/g, " · ")}</span>
-            ) : null}
           </span>
           <button
             className="task"
@@ -3719,9 +3729,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 : portraitBusy
                   ? "正在出定妆照"
                   : "没有在做的"}
-            <span className="bar">
-              <i style={{ width: `${feed.tasks.length > 0 ? feedNow.percent : progress}%` }} />
-            </span>
+            {/* UIR-04: no bar when nothing is being made; it used to stay full after a failure. */}
+            {feedNow.active > 0 || finished < tracked.length ? (
+              <span className="bar">
+                <i style={{ width: `${feedNow.active > 0 ? feedNow.percent : progress}%` }} />
+              </span>
+            ) : null}
           </button>
           <span className="sp" />
           <span className="where">
@@ -5529,6 +5542,10 @@ function BoardPage({
   const sceneKey = `${film.id}:${activeSceneId}`;
   const repair = useCoverageRepair(sceneKey, () => onFixCoverage(activeSceneId));
   const sceneRow = film.scenes.find((item) => item.id === activeSceneId);
+  // 3J-U18: 「更多」 closes on Esc, a press outside, choosing an item, or another shot.
+  useDismiss(moreOpen, () => setMoreOpen(false), ".more-wrap");
+  const shownShotId = current?.id ?? "";
+  useEffect(() => setMoreOpen(false), [shownShotId]);
   // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
   // does not run the check again on every edit.
   const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
@@ -6269,8 +6286,10 @@ function BoardPage({
                         重新生成画面
                       </button>
                     ) : null}
+                    <div className="menu-sep" role="separator" />
                     <button
                       type="button"
+                      className="danger"
                       onClick={() => {
                         setMoreOpen(false);
                         onFilm(removeShot(film, current.id));
@@ -6420,14 +6439,16 @@ function GeneratePage({
               />
             ) : (
               <div className="frame rain">
-                <span className="badge none">
-                  {takes.length === 0 ? "还没有版本" : picked?.reason || "这一版还没有画面"}
-                </span>
+                {takes.length > 0 ? (
+                  <span className="badge none">{picked?.reason || "这一版还没有画面"}</span>
+                ) : null}
               </div>
             )}
           </div>
           <div className="cands">
-            {takes.length === 0 && <p className="role-desc">还没有版本。点下面生成。</p>}
+            {takes.length === 0 && (
+              <p className="role-desc">还没有版本。在右边点「生成 {versions} 个版本」。</p>
+            )}
             {/* 4A-U03: the versions side by side, playing together; the pick goes to 剪辑. */}
             {current && takes.length > 0
               ? (() => {
