@@ -246,7 +246,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /无镜头末场/ }));
     expect(document.querySelectorAll(".pb.grid .card")).toHaveLength(0);
     expect(screen.getByText(/这一场结尾还没拍到/)).toHaveAttribute("title", empty.text);
-    fireEvent.click(screen.getByRole("button", { name: "有 1 个动作没对上镜头" }));
+    expect(screen.getByText("有 1 个动作没对上镜头")).toBeInTheDocument();
     expect(screen.getByText("末场待分配动作")).toBeInTheDocument();
     expect(screen.queryByText("别场动作不要混进来")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "补上结尾" }));
@@ -882,7 +882,12 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
       expect(screen.getByRole("button", { name: "4 秒" })).toHaveClass("on");
       fireEvent.click(stageTab("剪辑"));
+      // 3JR-U02: with one shot made, the shots still to make fold to narrow marks until asked.
+      expect(screen.getAllByRole("button", { name: "未生成" }).length).toBeGreaterThan(0);
+      expect(screen.queryByText("未生成")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /展开没生成的/ }));
       expect(screen.getAllByText("未生成").length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: "收起没生成的" }));
       fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
       fireEvent.click(screen.getByRole("button", { name: "浏览" }));
       expect(await screen.findByLabelText("导出文件夹")).toHaveValue("/tmp/aivora/export");
@@ -1272,6 +1277,9 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.change(screen.getByLabelText("环境音"), { target: { value: "雨声" } });
     expect(screen.getByLabelText("环境音")).toHaveValue("雨声");
+    // 3JR-U03: the person's form, and its 补齐…的定妆照, belong to the 角色 tab.
+    expect(screen.queryByRole("button", { name: /^补齐.+的定妆照/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "角色" }));
     fireEvent.click(screen.getByRole("button", { name: /^补齐.+的定妆照（还缺 \d 张）$/ }));
     await waitFor(() =>
       expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
@@ -1529,7 +1537,7 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
   expect(await screen.findByText("这一场结尾还没拍到：「林骁侧身让过铁棍。」")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "有 2 个动作没对上镜头" }));
+  expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
   // A drag from another scene must never use this scene's same numeric index.
   const firstCard = document.querySelector(".pb.grid .card")!;
   fireEvent.drop(firstCard, {
@@ -1538,7 +1546,7 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
         JSON.stringify({ scope: `${film.id}:01`, index: 0, text: "林骁抹掉脸上的雨水" }),
     },
   });
-  expect(screen.getByRole("button", { name: "有 2 个动作没对上镜头" })).toBeInTheDocument();
+  expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
   // A dialogue shot (镜头 3) does not take a fight action: GPT's rule decides.
   const cards = () => [...document.querySelectorAll<HTMLElement>(".pb.grid .card")];
   const drop = (index: number, beat: number) =>
@@ -1555,13 +1563,13 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
       },
     });
   drop(2, 1);
-  expect(await screen.findByText(/镜头 3 只有对白，放不了这个动作/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "有 2 个动作没对上镜头" })).toBeInTheDocument();
+  expect(await screen.findByText(/镜头 3 的画面里没有打斗，放不了这个动作/)).toBeInTheDocument();
+  expect(screen.getByText("有 2 个动作没对上镜头")).toBeInTheDocument();
   // An ordinary action goes onto the picked shot with the button.
   fireEvent.click(cards()[3]!);
   fireEvent.click(screen.getAllByRole("button", { name: "放到镜头 4" })[0]!);
   expect(await screen.findByText("已放到镜头 4。")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "有 1 个动作没对上镜头" })).toBeInTheDocument();
+  expect(screen.getByText("有 1 个动作没对上镜头")).toBeInTheDocument();
   // 「补上结尾」 asks GPT's fixCoverage; without a sign-in the end stays missing and says so.
   fireEvent.click(screen.getByRole("button", { name: "补上结尾" }));
   await waitFor(() =>
@@ -2965,14 +2973,43 @@ it("starts each page with its own helper", async () => {
   expect(helper()).toBe("writer");
 });
 
+it("edits the picked place on the 场景 tab, not the person picked before", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  expect(screen.getByLabelText("人物名字")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "场景" }));
+  // 3JR-U03: a place has its own form and reference picture.
+  expect(screen.queryByLabelText("人物名字")).not.toBeInTheDocument();
+  const place = screen.getByLabelText("场景名字") as HTMLInputElement;
+  expect(place.value).not.toBe("");
+  expect(screen.getByText("还没有参考图", { selector: ".slot-empty" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("场景里怎么摆"), { target: { value: "门在画左" } });
+  fireEvent.click(screen.getByRole("button", { name: "道具" }));
+  expect(screen.queryByLabelText("人物名字")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "场景" }));
+  expect(screen.getByLabelText("场景里怎么摆")).toHaveValue("门在画左");
+  fireEvent.click(screen.getByRole("button", { name: "角色" }));
+  expect(screen.getByLabelText("人物名字")).toBeInTheDocument();
+});
+
 it("keeps a storyboard card to its size, length, picture sentence and first line", async () => {
   installDesktop();
   await openSample();
   fireEvent.click(stageTab("分镜"));
   const card = document.querySelectorAll(".pb.grid .card")[3] as HTMLElement;
   const shot = sampleFilm().shots[3]!;
-  expect(within(card).getByText(shot.picture)).toHaveAttribute("title", shot.picture);
-  expect(within(card).getByText(shot.line)).toHaveAttribute("title", shot.line);
+  const picture = card.querySelector<HTMLElement>(".cb > p.pic")!;
+  expect(picture).toHaveTextContent(shot.picture);
+  expect(picture).toHaveAttribute("title", shot.picture);
+  const line = card.querySelector<HTMLElement>(".cb > p.line")!;
+  expect(line).toHaveTextContent(shot.line);
+  expect(line).toHaveAttribute("title", shot.line);
+  // 3JR-U05: all the words wait over the card, outside the card's accessible name.
+  const full = card.querySelector<HTMLElement>(".full")!;
+  expect(full).toHaveAttribute("aria-hidden", "true");
+  expect(full.textContent).toContain(shot.picture);
+  expect(full.textContent).toContain(shot.line);
   expect(card.textContent).toContain(shot.size);
   expect(card.textContent).toContain(`${shot.seconds}s`);
   expect(card.textContent).not.toContain(shot.performance);

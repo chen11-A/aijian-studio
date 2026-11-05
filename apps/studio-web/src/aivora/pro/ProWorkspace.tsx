@@ -7,13 +7,25 @@ import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
+import {
+  cutPosition,
+  cutSegments,
+  cutTimeAt,
+  editClipLayout,
+  playheadX,
+  pointAt,
+  shotReady,
+  spacedTicks,
+  ticksOutsideFolds,
+  timelineSeconds,
+  xAtSeconds,
+} from "./edit-timeline";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   actionBeats,
   adaptToShortDrama,
   addShot,
   applyScenes,
-  clipLayout,
   clock,
   continuityPrompt,
   CONTINUITY_REASON,
@@ -270,6 +282,8 @@ function PreviewVideo({
   sound = true,
   onPlaying,
   onTime,
+  seek = null,
+  onDuration,
 }: {
   src: string;
   voice?: string;
@@ -279,12 +293,33 @@ function PreviewVideo({
   sound?: boolean;
   onPlaying: (value: boolean) => void;
   onTime: (seconds: number) => void;
+  /** 3JR-U01: jump here; a new object each time, even for the same second. */
+  seek?: { seconds: number } | null;
+  /** The real length of the video, once the player knows it. */
+  onDuration?: (seconds: number) => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const onPlayingRef = useRef(onPlaying);
   const onTimeRef = useRef(onTime);
+  const onDurationRef = useRef(onDuration);
   onPlayingRef.current = onPlaying;
   onTimeRef.current = onTime;
+  onDurationRef.current = onDuration;
+  useEffect(() => {
+    const video = ref.current;
+    if (!video || !seek) return;
+    const apply = () => {
+      const end = Number.isFinite(video.duration) ? video.duration : seek.seconds;
+      video.currentTime = Math.min(Math.max(0, seek.seconds), end);
+      onTimeRef.current(video.currentTime || 0);
+    };
+    if (video.readyState >= 1) {
+      apply();
+      return;
+    }
+    video.addEventListener("loadedmetadata", apply, { once: true });
+    return () => video.removeEventListener("loadedmetadata", apply);
+  }, [seek]);
   useEffect(() => {
     const video = ref.current;
     if (!video) return;
@@ -355,6 +390,10 @@ function PreviewVideo({
         playsInline
         preload="auto"
         onTimeUpdate={() => onTimeRef.current(ref.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => {
+          const length = ref.current?.duration ?? 0;
+          if (Number.isFinite(length) && length > 0) onDurationRef.current?.(length);
+        }}
         onEnded={() => {
           onTimeRef.current(ref.current?.currentTime ?? 0);
           onPlayingRef.current(false);
@@ -4366,6 +4405,14 @@ function shotSource(shot: FilmShot): { tone: string; label: string } {
   return { tone: "src-other", label: "原来就有" };
 }
 
+/** The spoken lines of a shot as the card shows them, one per row. */
+function cardLines(shot: FilmShot): string[] {
+  return shot.line
+    .split("\n")
+    .map((text) => text.trim())
+    .filter(Boolean);
+}
+
 /** The line under a scene's title in the scene lists: 「内景 · 夜 · 10 镜」. */
 function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
   const count = shots.filter((item) => item.sceneId === scene.id).length;
@@ -4663,6 +4710,43 @@ function CastPage({
   const [place, setPlace] = useState(0);
   const [side, setSide] = useState<"people" | "places" | "props">("people");
   const character = film.characters[who];
+  // 3JR-U03: the 场景 tab edits the place picked on the left, not the person picked before.
+  // referenceImage, layout and sceneId come with GPT's 4A-B10 / 3JR-B08; until then they are
+  // simply absent and the form says the picture is made before the shots.
+  const location = film.locations[place] as
+    | (FilmProject["locations"][number] & {
+        referenceImage?: string;
+        layout?: string;
+        sceneId?: string;
+        userFields?: string[];
+      })
+    | undefined;
+  const editLocation = (
+    patch: { name?: string; prompt?: string; layout?: string; ambience?: string },
+    field: string,
+  ) =>
+    onFilm({
+      ...film,
+      locations: film.locations.map((item, index) =>
+        index === place
+          ? {
+              ...item,
+              ...patch,
+              userFields: [
+                ...new Set([...((item as { userFields?: string[] }).userFields ?? []), field]),
+              ],
+            }
+          : item,
+      ) as FilmProject["locations"],
+    });
+  const usedIn = location
+    ? film.scenes.filter(
+        (scene) =>
+          scene.id === location.sceneId ||
+          (location.name.trim() !== "" &&
+            (scene.where === location.name || scene.title.includes(location.name))),
+      )
+    : [];
   // 4A-U02: shots made before the style changed, as GPT marks them (kept in project.json).
   const restyle = film.shots.filter(needsRestyle).length;
   const VIEWS = ["正面", "侧面", "背面", "脸部"];
@@ -4718,7 +4802,11 @@ function CastPage({
               >
                 <span className="t">
                   {item.name}
-                  <small>空镜</small>
+                  <small>
+                    {(item as { referenceImage?: string }).referenceImage
+                      ? "有参考图"
+                      : "还没有参考图"}
+                  </small>
                 </span>
               </button>
             ))}
@@ -4810,8 +4898,20 @@ function CastPage({
       </section>
       <section className="pane">
         <div className="ph">
-          <h3>{character?.name ?? "人物"}</h3>
-          <span className="meta">同一张脸，同一套衣服</span>
+          <h3>
+            {side === "places"
+              ? location?.name || "场景"
+              : side === "props"
+                ? "道具"
+                : (character?.name ?? "人物")}
+          </h3>
+          <span className="meta">
+            {side === "places"
+              ? "同一个地方，前后镜头的背景对得上"
+              : side === "props"
+                ? "镜头里反复出现的东西"
+                : "同一张脸，同一套衣服"}
+          </span>
         </div>
         <div className="pb sheet cast-sheet">
           <section className="style-card" aria-label="整部作品的画风">
@@ -4851,346 +4951,462 @@ function CastPage({
               </p>
             ) : null}
           </section>
-          <div className="cast-info">
-            <div className="cast-id-row">
-              <div className="field" style={{ padding: 0 }}>
-                <label htmlFor="cast-name">名字</label>
-                <input
-                  id="cast-name"
-                  className="input"
-                  aria-label="人物名字"
-                  value={character?.name ?? ""}
-                  onChange={(event) => {
-                    const name = event.target.value;
-                    if (!character) {
-                      onFilm({
-                        ...film,
-                        characters: [
-                          {
-                            id: "char-1",
-                            name,
-                            identity: name,
-                            voiceId: "leo",
-                            source: "user",
-                            userFields: ["name"],
-                            portraits: [],
-                          },
-                        ],
-                      });
-                      return;
-                    }
-                    onFilm({
-                      ...film,
-                      characters: film.characters.map((item) =>
-                        item.id === character.id
-                          ? {
-                              ...item,
-                              name,
-                              source: "user",
-                              userFields: [...new Set([...item.userFields, "name"])],
-                            }
-                          : item,
-                      ),
-                      shots: film.shots.map((item) => ({
-                        ...item,
-                        characters: item.characters.map((person) =>
-                          person === character.name ? name : person,
-                        ),
-                      })),
-                    });
-                  }}
-                />
-              </div>
-              <div className="field" style={{ padding: 0 }}>
-                <label htmlFor="cast-gender">性别</label>
-                <select
-                  id="cast-gender"
-                  className="input"
-                  aria-label="性别"
-                  disabled={!character}
-                  value={character?.gender ?? ""}
-                  onChange={(event) => {
-                    if (!character) return;
-                    onTraits(character.id, {
-                      gender: event.target.value as Gender,
-                      ageBand: character.ageBand ?? "",
-                    });
-                  }}
-                >
-                  <option value="">未写</option>
-                  {GENDERS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field" style={{ padding: 0 }}>
-                <label htmlFor="cast-age">年龄段</label>
-                <select
-                  id="cast-age"
-                  className="input"
-                  aria-label="年龄段"
-                  disabled={!character}
-                  value={character?.ageBand ?? ""}
-                  onChange={(event) => {
-                    if (!character) return;
-                    onTraits(character.id, {
-                      gender: character.gender ?? "",
-                      ageBand: event.target.value as AgeBand,
-                    });
-                  }}
-                >
-                  <option value="">未写</option>
-                  {AGE_BANDS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="field">
-              <label htmlFor="cast-id">外貌</label>
-              <textarea
-                id="cast-id"
-                className="area"
-                aria-label="外貌"
-                rows={4}
-                value={character?.identity ?? ""}
-                onChange={(event) => {
-                  if (!character) return;
-                  onFilm({
-                    ...film,
-                    characters: film.characters.map((item) =>
-                      item.id === character.id
-                        ? {
-                            ...item,
-                            identity: event.target.value,
-                            source: "user",
-                            userFields: [...new Set([...item.userFields, "identity"])],
-                          }
-                        : item,
-                    ),
-                  });
-                }}
-              />
-            </div>
-            <div className="sec-t" style={{ marginTop: 12 }}>
-              声音
-            </div>
-            <p className="role-desc">
-              {character?.voiceId
-                ? `已选：${voiceLabel(character.voiceId)}`
-                : character && !character.gender
-                  ? "性别没写，请先选一下，声音会按性别列出。"
-                  : "还没有选定声音。"}
-            </p>
-            {voices.length === 0 ? (
-              <p className="role-desc">登录 Grok 会员后才能看到声音名单。</p>
-            ) : (
-              <div className="row2">
-                <select
-                  className="input"
-                  aria-label="角色声音"
-                  value={character?.voiceId ?? ""}
-                  onChange={(event) => {
-                    if (!character) return;
-                    const voiceId = event.target.value;
-                    // Picked by hand: GPT keeps it when gender or age change later.
-                    onFilm({
-                      ...film,
-                      characters: film.characters.map((item) =>
-                        item.id === character.id
-                          ? {
-                              ...item,
-                              voiceId,
-                              userFields: [...new Set([...item.userFields, "voiceId"])],
-                            }
-                          : item,
-                      ),
-                    });
-                  }}
-                >
-                  <option value="">还没有选定</option>
-                  {voiceGroup.fitting.length > 0 && (
-                    <optgroup label={`适合${character?.ageBand ?? ""}${character?.gender ?? ""}性`}>
-                      {voiceGroup.fitting.map((voice) => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {voiceGroup.others.length > 0 && (
-                    <optgroup label={character?.gender ? `其他${character.gender}声` : "全部声音"}>
-                      {voiceGroup.others.map((voice) => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <button
-                  className="btn sm"
-                  type="button"
-                  aria-label="试听"
-                  onClick={() => {
-                    if (!character) return;
-                    const line =
-                      film.shots.find(
-                        (item) => item.line.trim() && item.characters.includes(character.name),
-                      )?.line ?? "";
-                    onPreview(character.voiceId, line);
-                  }}
-                >
-                  {hearing ? "停止" : "试听"}
-                </button>
-              </div>
-            )}
-            {voices.length === 0 ? (
-              <button
-                className="btn sm"
-                type="button"
-                aria-label="试听"
-                onClick={() => {
-                  if (!character) return;
-                  const line =
-                    film.shots.find(
-                      (item) => item.line.trim() && item.characters.includes(character.name),
-                    )?.line ?? "";
-                  onPreview(character.voiceId, line);
-                }}
-              >
-                {hearing ? "停止" : "试听"}
-              </button>
-            ) : null}
-            <label htmlFor="narration-voice">旁白</label>
-            <select
-              id="narration-voice"
-              className="input"
-              aria-label="旁白声音"
-              value={film.narrationVoiceId}
-              onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
-            >
-              <option value="">还没有选旁白</option>
-              {voices.map((voice) => (
-                <option key={voice.id} value={voice.id}>
-                  {voice.label}
-                </option>
-              ))}
-              {film.narrationVoiceId &&
-              !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
-                <option value={film.narrationVoiceId}>{voiceLabel(film.narrationVoiceId)}</option>
-              ) : null}
-            </select>
-            <button
-              className="btn sm"
-              type="button"
-              aria-label="试听旁白"
-              onClick={() =>
-                onPreview(
-                  film.narrationVoiceId,
-                  film.shots.find((item) => item.line.trim())?.line ?? "",
-                )
-              }
-            >
-              {hearing ? "停止" : "试听旁白"}
-            </button>
-            {side === "places" && film.locations[place] && (
-              <div className="field">
-                <label htmlFor="place-ambience">环境音</label>
-                <textarea
-                  id="place-ambience"
-                  className="area"
-                  aria-label="环境音"
-                  value={film.locations[place]?.ambience ?? ""}
-                  onChange={(event) => {
-                    const ambience = event.target.value;
-                    onFilm({
-                      ...film,
-                      locations: film.locations.map((item, index) =>
-                        index === place ? { ...item, ambience } : item,
-                      ),
-                    });
-                  }}
-                />
-              </div>
-            )}
-          </div>
-          <div className="cast-looks">
-            <div className="looks-head">
-              <span className="sec-t">定妆照</span>
-              <span className="sp" />
-              {character && VIEWS.some((view) => !has(character, view)) ? (
-                <button
-                  className="btn sm"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onPortraits(character.id)}
-                >
-                  补齐{character.name}的定妆照（还缺{" "}
-                  {VIEWS.filter((view) => !has(character, view)).length} 张）
-                </button>
-              ) : null}
-            </div>
-            <div className="refs4 slots">
-              {character ? (
-                <p className="slots-note">侧面、背面、脸部按正面这张改出来，脸和衣服跟正面一样。</p>
-              ) : null}
-              {(character
-                ? portraitPrompts(character.name, character.identity, film.styleZh)
-                : []
-              ).map((item) => {
-                const url = character?.portraits.find(
-                  (portrait) => portrait.view === item.view && portrait.url,
-                )?.url;
-                const slot = character
-                  ? portraits.slots[`${character.id}:${item.view}`]
-                  : undefined;
-                const state = url ? "done" : (slot?.state ?? "empty");
-                const front = item.view === "正面";
-                return (
+          {side === "places" ? (
+            location ? (
+              <>
+                <div className="cast-info">
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="place-name">名字</label>
+                    <input
+                      id="place-name"
+                      className="input"
+                      aria-label="场景名字"
+                      value={location.name}
+                      onChange={(event) => editLocation({ name: event.target.value }, "name")}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="place-look">这个地方的样子</label>
+                    <textarea
+                      id="place-look"
+                      className="area"
+                      aria-label="场景的样子"
+                      rows={4}
+                      value={location.prompt}
+                      placeholder="比如：老城区的旧书店，木书架顶到天花板，门口挂着风铃。"
+                      onChange={(event) => editLocation({ prompt: event.target.value }, "prompt")}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="place-layout">里面怎么摆</label>
+                    <textarea
+                      id="place-layout"
+                      className="area"
+                      aria-label="场景里怎么摆"
+                      rows={2}
+                      value={location.layout ?? ""}
+                      placeholder="门在哪、窗在哪、人一般站在哪。写清楚了，前后镜头不会乱。"
+                      onChange={(event) => editLocation({ layout: event.target.value }, "layout")}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="place-ambience">环境音</label>
+                    <textarea
+                      id="place-ambience"
+                      className="area"
+                      aria-label="环境音"
+                      rows={2}
+                      value={location.ambience}
+                      placeholder="比如：雨打在玻璃上，远处有车开过。"
+                      onChange={(event) =>
+                        editLocation({ ambience: event.target.value }, "ambience")
+                      }
+                    />
+                  </div>
+                  {usedIn.length > 0 ? (
+                    <p className="place-used">
+                      用在：{usedIn.map((scene) => `第 ${scene.no} 场 ${scene.title}`).join("、")}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="cast-looks">
+                  <div className="looks-head">
+                    <span className="sec-t">参考图</span>
+                  </div>
                   <figure
-                    key={item.view}
-                    className={front ? "slot front" : "slot"}
-                    data-state={state}
+                    className="slot place-ref"
+                    data-state={location.referenceImage ? "done" : "empty"}
                   >
-                    {url ? (
-                      <Thumb src={url} />
+                    {location.referenceImage ? (
+                      <Thumb src={location.referenceImage} />
                     ) : (
-                      <div className="slot-empty" aria-label={`${item.view}还没有`}>
-                        {item.view}
+                      <div className="slot-empty" aria-label="参考图还没有">
+                        还没有参考图
                       </div>
                     )}
-                    <figcaption>
-                      {url ? <span>{item.view}</span> : null}
-                      {state === "running" && <span className="slot-state">生成中…</span>}
-                      {state === "queued" && <span className="slot-state">排队中</span>}
-                      {state === "done" && <span className="slot-state done">已完成</span>}
-                      {state === "failed" && (
-                        <>
-                          <span className="slot-state bad" title={slot?.reason || undefined}>
-                            失败
-                          </span>
-                          <button
-                            className="link-btn"
-                            type="button"
-                            disabled={busy}
-                            aria-label={`重试${item.view}`}
-                            onClick={() => character && void onPortraits(character.id)}
-                          >
-                            重试
-                          </button>
-                        </>
-                      )}
-                    </figcaption>
                   </figure>
-                );
-              })}
+                  <p className="slots-note">
+                    {location.referenceImage
+                      ? "这一场的镜头出画面时，用这张图对齐背景。"
+                      : "出这一场的镜头画面时，会先按左边写的样子做一张没有人物的参考图，前后镜头的背景就能对上。"}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="cast-info">
+                <p className="role-desc">还没有场景。剧本拆成场次以后，这里会按地点列出来。</p>
+              </div>
+            )
+          ) : side === "props" ? (
+            <div className="cast-info props-sheet">
+              {film.props.length === 0 ? (
+                <p className="role-desc">还没有道具。在左边加上名字，或者请右边的美术写。</p>
+              ) : (
+                film.props.map((item, index) => (
+                  <div className="prop-row" key={item.id}>
+                    <input
+                      className="input"
+                      aria-label={`第 ${index + 1} 个道具的名字`}
+                      value={item.name}
+                      onChange={(event) =>
+                        onFilm({
+                          ...film,
+                          props: film.props.map((row) =>
+                            row.id === item.id ? { ...row, name: event.target.value } : row,
+                          ),
+                        })
+                      }
+                    />
+                    <input
+                      className="input"
+                      aria-label={`${item.name || "这个道具"}的说明`}
+                      placeholder="谁的、长什么样"
+                      value={item.note}
+                      onChange={(event) =>
+                        onFilm({
+                          ...film,
+                          props: film.props.map((row) =>
+                            row.id === item.id ? { ...row, note: event.target.value } : row,
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                ))
+              )}
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="cast-info">
+                <div className="cast-id-row">
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="cast-name">名字</label>
+                    <input
+                      id="cast-name"
+                      className="input"
+                      aria-label="人物名字"
+                      value={character?.name ?? ""}
+                      onChange={(event) => {
+                        const name = event.target.value;
+                        if (!character) {
+                          onFilm({
+                            ...film,
+                            characters: [
+                              {
+                                id: "char-1",
+                                name,
+                                identity: name,
+                                voiceId: "leo",
+                                source: "user",
+                                userFields: ["name"],
+                                portraits: [],
+                              },
+                            ],
+                          });
+                          return;
+                        }
+                        onFilm({
+                          ...film,
+                          characters: film.characters.map((item) =>
+                            item.id === character.id
+                              ? {
+                                  ...item,
+                                  name,
+                                  source: "user",
+                                  userFields: [...new Set([...item.userFields, "name"])],
+                                }
+                              : item,
+                          ),
+                          shots: film.shots.map((item) => ({
+                            ...item,
+                            characters: item.characters.map((person) =>
+                              person === character.name ? name : person,
+                            ),
+                          })),
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="cast-gender">性别</label>
+                    <select
+                      id="cast-gender"
+                      className="input"
+                      aria-label="性别"
+                      disabled={!character}
+                      value={character?.gender ?? ""}
+                      onChange={(event) => {
+                        if (!character) return;
+                        onTraits(character.id, {
+                          gender: event.target.value as Gender,
+                          ageBand: character.ageBand ?? "",
+                        });
+                      }}
+                    >
+                      <option value="">未写</option>
+                      {GENDERS.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="cast-age">年龄段</label>
+                    <select
+                      id="cast-age"
+                      className="input"
+                      aria-label="年龄段"
+                      disabled={!character}
+                      value={character?.ageBand ?? ""}
+                      onChange={(event) => {
+                        if (!character) return;
+                        onTraits(character.id, {
+                          gender: character.gender ?? "",
+                          ageBand: event.target.value as AgeBand,
+                        });
+                      }}
+                    >
+                      <option value="">未写</option>
+                      {AGE_BANDS.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="cast-id">外貌</label>
+                  <textarea
+                    id="cast-id"
+                    className="area"
+                    aria-label="外貌"
+                    rows={4}
+                    value={character?.identity ?? ""}
+                    onChange={(event) => {
+                      if (!character) return;
+                      onFilm({
+                        ...film,
+                        characters: film.characters.map((item) =>
+                          item.id === character.id
+                            ? {
+                                ...item,
+                                identity: event.target.value,
+                                source: "user",
+                                userFields: [...new Set([...item.userFields, "identity"])],
+                              }
+                            : item,
+                        ),
+                      });
+                    }}
+                  />
+                </div>
+                <div className="sec-t" style={{ marginTop: 12 }}>
+                  声音
+                </div>
+                <p className="role-desc">
+                  {character?.voiceId
+                    ? `已选：${voiceLabel(character.voiceId)}`
+                    : character && !character.gender
+                      ? "性别没写，请先选一下，声音会按性别列出。"
+                      : "还没有选定声音。"}
+                </p>
+                {voices.length === 0 ? (
+                  <p className="role-desc">登录 Grok 会员后才能看到声音名单。</p>
+                ) : (
+                  <div className="row2">
+                    <select
+                      className="input"
+                      aria-label="角色声音"
+                      value={character?.voiceId ?? ""}
+                      onChange={(event) => {
+                        if (!character) return;
+                        const voiceId = event.target.value;
+                        // Picked by hand: GPT keeps it when gender or age change later.
+                        onFilm({
+                          ...film,
+                          characters: film.characters.map((item) =>
+                            item.id === character.id
+                              ? {
+                                  ...item,
+                                  voiceId,
+                                  userFields: [...new Set([...item.userFields, "voiceId"])],
+                                }
+                              : item,
+                          ),
+                        });
+                      }}
+                    >
+                      <option value="">还没有选定</option>
+                      {voiceGroup.fitting.length > 0 && (
+                        <optgroup
+                          label={`适合${character?.ageBand ?? ""}${character?.gender ?? ""}性`}
+                        >
+                          {voiceGroup.fitting.map((voice) => (
+                            <option key={voice.id} value={voice.id}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {voiceGroup.others.length > 0 && (
+                        <optgroup
+                          label={character?.gender ? `其他${character.gender}声` : "全部声音"}
+                        >
+                          {voiceGroup.others.map((voice) => (
+                            <option key={voice.id} value={voice.id}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <button
+                      className="btn sm"
+                      type="button"
+                      aria-label="试听"
+                      onClick={() => {
+                        if (!character) return;
+                        const line =
+                          film.shots.find(
+                            (item) => item.line.trim() && item.characters.includes(character.name),
+                          )?.line ?? "";
+                        onPreview(character.voiceId, line);
+                      }}
+                    >
+                      {hearing ? "停止" : "试听"}
+                    </button>
+                  </div>
+                )}
+                {voices.length === 0 ? (
+                  <button
+                    className="btn sm"
+                    type="button"
+                    aria-label="试听"
+                    onClick={() => {
+                      if (!character) return;
+                      const line =
+                        film.shots.find(
+                          (item) => item.line.trim() && item.characters.includes(character.name),
+                        )?.line ?? "";
+                      onPreview(character.voiceId, line);
+                    }}
+                  >
+                    {hearing ? "停止" : "试听"}
+                  </button>
+                ) : null}
+                <label htmlFor="narration-voice">旁白</label>
+                <select
+                  id="narration-voice"
+                  className="input"
+                  aria-label="旁白声音"
+                  value={film.narrationVoiceId}
+                  onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
+                >
+                  <option value="">还没有选旁白</option>
+                  {voices.map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.label}
+                    </option>
+                  ))}
+                  {film.narrationVoiceId &&
+                  !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
+                    <option value={film.narrationVoiceId}>
+                      {voiceLabel(film.narrationVoiceId)}
+                    </option>
+                  ) : null}
+                </select>
+                <button
+                  className="btn sm"
+                  type="button"
+                  aria-label="试听旁白"
+                  onClick={() =>
+                    onPreview(
+                      film.narrationVoiceId,
+                      film.shots.find((item) => item.line.trim())?.line ?? "",
+                    )
+                  }
+                >
+                  {hearing ? "停止" : "试听旁白"}
+                </button>
+              </div>
+              <div className="cast-looks">
+                <div className="looks-head">
+                  <span className="sec-t">定妆照</span>
+                  <span className="sp" />
+                  {character && VIEWS.some((view) => !has(character, view)) ? (
+                    <button
+                      className="btn sm"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void onPortraits(character.id)}
+                    >
+                      补齐{character.name}的定妆照（还缺{" "}
+                      {VIEWS.filter((view) => !has(character, view)).length} 张）
+                    </button>
+                  ) : null}
+                </div>
+                <div className="refs4 slots">
+                  {character ? (
+                    <p className="slots-note">
+                      侧面、背面、脸部按正面这张改出来，脸和衣服跟正面一样。
+                    </p>
+                  ) : null}
+                  {(character
+                    ? portraitPrompts(character.name, character.identity, film.styleZh)
+                    : []
+                  ).map((item) => {
+                    const url = character?.portraits.find(
+                      (portrait) => portrait.view === item.view && portrait.url,
+                    )?.url;
+                    const slot = character
+                      ? portraits.slots[`${character.id}:${item.view}`]
+                      : undefined;
+                    const state = url ? "done" : (slot?.state ?? "empty");
+                    const front = item.view === "正面";
+                    return (
+                      <figure
+                        key={item.view}
+                        className={front ? "slot front" : "slot"}
+                        data-state={state}
+                      >
+                        {url ? (
+                          <Thumb src={url} />
+                        ) : (
+                          <div className="slot-empty" aria-label={`${item.view}还没有`}>
+                            {item.view}
+                          </div>
+                        )}
+                        <figcaption>
+                          {url ? <span>{item.view}</span> : null}
+                          {state === "running" && <span className="slot-state">生成中…</span>}
+                          {state === "queued" && <span className="slot-state">排队中</span>}
+                          {state === "done" && <span className="slot-state done">已完成</span>}
+                          {state === "failed" && (
+                            <>
+                              <span className="slot-state bad" title={slot?.reason || undefined}>
+                                失败
+                              </span>
+                              <button
+                                className="link-btn"
+                                type="button"
+                                disabled={busy}
+                                aria-label={`重试${item.view}`}
+                                onClick={() => character && void onPortraits(character.id)}
+                              >
+                                重试
+                              </button>
+                            </>
+                          )}
+                        </figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
       <section className="pane ai">
@@ -5318,6 +5534,9 @@ function BoardPage({
   const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
   const allBeats = film.unassignedBeats ?? [];
   const sceneBeats = allBeats.filter((beat) => beat.sceneId === sceneRow?.id);
+  // 3JR-U04: while an action is dragged the cards show where it can go.
+  const [beatDrag, setBeatDrag] = useState(false);
+  const [dropAt, setDropAt] = useState(-1);
   const placeBeat = (index: number, target: FilmShot) => {
     const beat = sceneBeats[index];
     if (!beat || target.sceneId !== activeSceneId || beat.sceneId !== activeSceneId) return;
@@ -5326,7 +5545,9 @@ function BoardPage({
       { text: beat.text, shotId: target.id },
     ]);
     if (placed.unassignedBeats.length > 0) {
-      onNotice(`镜头 ${target.no} 只有对白，放不了这个动作。换一个有动作的镜头。`);
+      onNotice(
+        `镜头 ${target.no} 的画面里没有打斗，放不了这个动作。换一个有打斗的镜头，或者先改这一镜的画面。`,
+      );
       return;
     }
     const at = allBeats.indexOf(beat);
@@ -5385,6 +5606,13 @@ function BoardPage({
               <span className="t">
                 {item.title}
                 <small>{sceneMeta(item, film.shots)}</small>
+                {(() => {
+                  // 3JR-U04: which scene still has actions to place, seen from any scene.
+                  const waiting = allBeats.filter((beat) => beat.sceneId === item.id).length;
+                  return waiting > 0 ? (
+                    <small className="beat-flag">{waiting} 个动作没对上镜头</small>
+                  ) : null;
+                })()}
               </span>
             </button>
           ))}
@@ -5442,21 +5670,38 @@ function BoardPage({
             onFixEnding={() => void repair.run()}
             pickedShot={current ? `镜头 ${current.no}` : ""}
             onPlaceBeat={(index) => current && placeBeat(index, current)}
+            onDragChange={(dragging) => {
+              setBeatDrag(dragging);
+              if (!dragging) setDropAt(-1);
+            }}
           />
         )}
-        <div className="pb grid">
+        <div className={beatDrag ? "pb grid dropping" : "pb grid"}>
           {shots.map((item, index) => (
             <button
               key={item.id}
-              className={index === shot ? "card sel" : "card"}
+              className={[
+                "card",
+                index === shot ? "sel" : "",
+                beatDrag && dropAt === index ? "drop-over" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               onClick={() => onShot(index)}
               onDragOver={(event) => {
-                if (event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) event.preventDefault();
+                if (!event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) return;
+                event.preventDefault();
+                if (dropAt !== index) setDropAt(index);
+              }}
+              onDragLeave={() => {
+                if (dropAt === index) setDropAt(-1);
               }}
               onDrop={(event) => {
                 const raw = event.dataTransfer.getData(BEAT_DRAG_TYPE);
                 if (!raw) return;
                 event.preventDefault();
+                setBeatDrag(false);
+                setDropAt(-1);
                 try {
                   const payload = JSON.parse(raw) as {
                     scope?: string;
@@ -5510,10 +5755,27 @@ function BoardPage({
                   {item.picture}
                 </p>
                 {item.line.trim() ? (
-                  <p className="line" title={item.line}>
-                    {item.line.split("\n")[0]}
+                  <p
+                    className="line"
+                    title={item.line}
+                    data-more={cardLines(item).length > 1 ? cardLines(item).length : undefined}
+                  >
+                    {cardLines(item)[0]}
                   </p>
                 ) : null}
+                {/* 3JR-U05: resting on the words, or picking the card with the keyboard, shows
+                    all of them over the card; the grid does not move. */}
+                <div className="full" aria-hidden="true">
+                  <div className="ct">
+                    镜头 {item.no} <span>{item.size}</span>
+                  </div>
+                  <p>{item.picture}</p>
+                  {cardLines(item).map((text, line) => (
+                    <p key={line} className="line">
+                      {text}
+                    </p>
+                  ))}
+                </div>
               </div>
             </button>
           ))}
@@ -6242,10 +6504,15 @@ function GeneratePage({
               });
             }}
           />
-          <p className="role-desc" data-testid="keyframe-prompt">
-            {current ? continuityPrompt(shots[shot - 1], current, film) : prompt}
-          </p>
-          <p className="role-desc">{CONTINUITY_REASON}</p>
+          {/* 3JR-U05: the whole text the model gets stays folded; the description above is what
+              people write. */}
+          <details className="full-prompt">
+            <summary>看 AI 会收到的完整说明</summary>
+            <p className="role-desc" data-testid="keyframe-prompt">
+              {current ? continuityPrompt(shots[shot - 1], current, film) : prompt}
+            </p>
+            <p className="role-desc">{CONTINUITY_REASON}</p>
+          </details>
           <div className="row2" style={{ marginTop: 12 }}>
             <div>
               <div className="sec-t">时长</div>
@@ -6391,7 +6658,18 @@ function EditPage({
   hearLane?: "" | "dialogue" | "score";
 }) {
   const [mediaTime, setMediaTime] = useState(0);
-  const clips = clipLayout(shots);
+  const [cutLength, setCutLength] = useState(0);
+  const [takeLength, setTakeLength] = useState(0);
+  const [seek, setSeek] = useState<{ seconds: number } | null>(null);
+  const timeRef = useRef(0);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const tracksRef = useRef<HTMLDivElement>(null);
+  const scrubbing = useRef(false);
+  // 3JR-U02: once anything has a video, the shots still to make fold down to narrow marks.
+  const [unfolded, setUnfolded] = useState(false);
+  const readyCount = shots.filter(shotReady).length;
+  const waitingCount = shots.length - readyCount;
+  const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
   const chosenTake =
@@ -6434,11 +6712,84 @@ function EditPage({
   });
   const voiceSrc = mix.voice;
   const musicSrc = mix.music;
+  // 3JR-U01: the joined cut plays the whole film, so its clock runs from the first shot with a
+  // video, not from the start of the chosen shot. The playhead follows the shot playing.
+  const joined = Boolean(film.assemblyUrl);
+  const segments = joined ? cutSegments(film.shots, cutLength) : [];
+  const total = shots.reduce((sum, item) => sum + item.seconds, 0);
+  const showTime = (seconds: number) => {
+    timeRef.current = seconds;
+    setMediaTime(seconds);
+  };
+  const jump = (seconds: number) => {
+    showTime(seconds);
+    setSeek({ seconds });
+  };
   useEffect(() => {
-    setMediaTime(0);
-  }, [shot, previewSrc]);
+    showTime(0);
+    setCutLength(0);
+    setTakeLength(0);
+  }, [previewSrc]);
+  useEffect(() => {
+    if (!joined) {
+      showTime(0);
+      return;
+    }
+    // Picking a shot (the bin, the arrows) moves the joined cut to it, unless a click on the
+    // timeline already put the playhead inside it.
+    const here = cutPosition(segments, timeRef.current);
+    if (here && here.shotId === shots[shot]?.id) return;
+    const at = cutTimeAt(segments, shots, shot, 0);
+    if (at !== null) jump(at);
+    // Only a new pick moves the cut; the segments change on every render.
+  }, [shot, joined]);
   const start = shots.slice(0, shot).reduce((sum, item) => sum + item.seconds, 0);
   const selected = clips[shot];
+  let headLeft = selected?.left ?? 1;
+  let headSeconds = start;
+  if (joined) {
+    const at = cutPosition(segments, mediaTime);
+    if (at) {
+      headLeft = playheadX(clips, shots, film.shots, at.shotId, at.fraction);
+      const index = shots.findIndex((item) => item.id === at.shotId);
+      headSeconds =
+        index >= 0
+          ? timelineSeconds(shots, index, at.fraction)
+          : headLeft <= (clips[0]?.left ?? 1)
+            ? 0
+            : total;
+    }
+  } else if (current && current.seconds > 0) {
+    const fraction = Math.min(1, mediaTime / (takeLength > 0 ? takeLength : current.seconds));
+    headLeft = (selected?.left ?? 1) + fraction * (selected?.width ?? 0);
+    headSeconds = start + fraction * current.seconds;
+  }
+  const seekTo = (x: number) => {
+    const point = pointAt(clips, x);
+    if (!point) return;
+    if (joined) {
+      const at = cutTimeAt(segments, shots, point.index, point.fraction);
+      if (at !== null) jump(at);
+      if (point.index !== shot) onShot(point.index);
+      return;
+    }
+    const target = shots[point.index];
+    if (point.index !== shot) onShot(point.index);
+    if (!target || !target.takes.some((take) => take.videoUrl || take.videoPath)) return;
+    jump(point.fraction * (point.index === shot && takeLength > 0 ? takeLength : target.seconds));
+  };
+  const areaX = (clientX: number) => clientX - (areaRef.current?.getBoundingClientRect().left ?? 0);
+  useEffect(() => {
+    const box = tracksRef.current;
+    if (!box || !playing) return;
+    const margin = 48;
+    if (
+      headLeft < box.scrollLeft + margin ||
+      headLeft > box.scrollLeft + box.clientWidth - margin
+    ) {
+      box.scrollLeft = Math.max(0, headLeft - margin);
+    }
+  }, [headLeft, playing]);
   const tiles: { id: FixAction; icon: string; label: string }[] = [
     { id: "regenerate", icon: "refresh", label: "重新生成" },
     { id: "rewrite", icon: "edit", label: "改描述再生成" },
@@ -6542,7 +6893,9 @@ function EditPage({
                   audible={audible && mix.hearVideo}
                   sound={audible}
                   onPlaying={onPlaying}
-                  onTime={setMediaTime}
+                  onTime={showTime}
+                  seek={seek}
+                  onDuration={joined ? setCutLength : setTakeLength}
                 />
               ) : (
                 <div className="frame rain">
@@ -6556,8 +6909,7 @@ function EditPage({
             </div>
             <div className="ctrl">
               <span className="tc">
-                <b>{clock(film.assemblyUrl ? mediaTime : start + mediaTime)}</b> /{" "}
-                {clock(shots.reduce((sum, item) => sum + item.seconds, 0))}
+                <b>{clock(headSeconds)}</b> / {clock(total)}
               </span>
               <div className="pc">
                 <button
@@ -6757,6 +7109,21 @@ function EditPage({
               <Ic name="redo" />
             </button>
             <span className="sp" />
+            {readyCount > 0 && waitingCount > 0 ? (
+              <button
+                type="button"
+                className="btn sm"
+                aria-pressed={unfolded}
+                title={
+                  unfolded
+                    ? "没生成的镜头收成细条，做好的镜头更好找"
+                    : "没生成的镜头按计划的长度摆出来"
+                }
+                onClick={() => setUnfolded((value) => !value)}
+              >
+                {unfolded ? "收起没生成的" : `展开没生成的 ${waitingCount} 个`}
+              </button>
+            ) : null}
             {importMusic}
           </div>
         )}
@@ -6840,10 +7207,56 @@ function EditPage({
               </span>
             </div>
           </div>
-          <div className="tracks">
-            <div className="track-area" style={{ width: trackWidth }}>
-              <div className="ruler">
-                {rulerTicks(shots, clips).map((tick) => (
+          <div className="tracks" ref={tracksRef}>
+            <div
+              className="track-area"
+              ref={areaRef}
+              style={{ width: trackWidth }}
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                if ((event.target as HTMLElement).closest("button, input, label")) return;
+                scrubbing.current = true;
+                event.currentTarget.setPointerCapture?.(event.pointerId);
+                seekTo(areaX(event.clientX));
+              }}
+              onPointerMove={(event) => {
+                if (scrubbing.current) seekTo(areaX(event.clientX));
+              }}
+              onPointerUp={() => {
+                scrubbing.current = false;
+              }}
+              onPointerCancel={() => {
+                scrubbing.current = false;
+              }}
+            >
+              <div
+                className="ruler"
+                role="slider"
+                tabIndex={0}
+                aria-label="播放位置"
+                title="点或拖到这里，预览跳到这个时间"
+                aria-valuemin={0}
+                aria-valuemax={Math.round(total * 10) / 10}
+                aria-valuenow={Math.round(headSeconds * 10) / 10}
+                aria-valuetext={clock(headSeconds)}
+                onKeyDown={(event) => {
+                  const step = event.shiftKey ? 5 : 1;
+                  const to =
+                    event.key === "ArrowLeft"
+                      ? headSeconds - step
+                      : event.key === "ArrowRight"
+                        ? headSeconds + step
+                        : event.key === "Home"
+                          ? 0
+                          : event.key === "End"
+                            ? total
+                            : null;
+                  if (to === null) return;
+                  event.preventDefault();
+                  seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, to))));
+                }}
+              >
+                {spacedTicks(ticksOutsideFolds(rulerTicks(shots, clips), clips)).map((tick) => (
                   <span key={tick.seconds} style={{ left: tick.left }}>
                     {clock(tick.seconds)}
                   </span>
@@ -6857,30 +7270,38 @@ function EditPage({
                   return (
                     <div
                       key={cue.id}
-                      className="clip s"
+                      className={clip.folded ? "clip s folded" : "clip s"}
                       style={{ left: clip.left, width: clip.width }}
+                      title={clip.folded ? cue.text : undefined}
                     >
-                      <span className="tx">{cue.text}</span>
+                      {clip.folded ? null : <span className="tx">{cue.text}</span>}
                     </div>
                   );
                 })}
               </div>
               <div className="lane" style={{ height: "var(--hv)" }}>
                 {clips.map((clip, index) => {
-                  const ready = shots[index]?.takes.some((take) => take.status === "done");
+                  const item = shots[index];
+                  const ready = item ? shotReady(item) : false;
+                  const name = `镜头 ${item?.no ?? index + 1}`;
+                  const waiting = `${name} 还没生成（${item?.seconds ?? 0} 秒）`;
                   return (
                     <button
                       key={clip.id}
-                      className={ready ? "clip v" : "clip v empty"}
+                      className={
+                        ready ? "clip v" : clip.folded ? "clip v empty folded" : "clip v empty"
+                      }
                       style={{ left: clip.left, width: clip.width }}
-                      onClick={() => {
+                      title={ready ? undefined : waiting}
+                      aria-label={clip.folded ? "未生成" : undefined}
+                      onClick={(event) => {
+                        // A keyboard press has no pointer position: go to the clip's start.
+                        seekTo(event.detail === 0 ? clip.left : areaX(event.clientX));
                         onShot(index);
                         onPickClip();
                       }}
                     >
-                      <span className="lb">
-                        {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
-                      </span>
+                      {clip.folded ? null : <span className="lb">{ready ? name : "未生成"}</span>}
                     </button>
                   );
                 })}
@@ -6945,16 +7366,7 @@ function EditPage({
                   <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
                 </div>
               )}
-              <div
-                className="playhead"
-                style={{
-                  left:
-                    (selected?.left ?? 1) +
-                    (current && current.seconds > 0
-                      ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
-                      : 0),
-                }}
-              />
+              <div className="playhead" style={{ left: headLeft }} />
             </div>
           </div>
         </div>

@@ -2148,6 +2148,18 @@ body:has(.pro-root) {
   color: var(--text-3);
   transform: translateX(3px);
 }
+/* 3JR-U01: the ruler is where you click or drag to move the preview; arrow keys step a second. */
+.pro-root .ruler {
+  cursor: pointer;
+  touch-action: none;
+}
+.pro-root .ruler:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.pro-root .ruler span {
+  pointer-events: none;
+}
 .pro-root .lane {
   position: relative;
   border-bottom: 1px solid var(--line);
@@ -2195,6 +2207,20 @@ body:has(.pro-root) {
   background: repeating-linear-gradient(135deg, #1d2430 0 6px, #19202a 6px 12px);
   border: 1px dashed var(--line-2);
   color: var(--text-3);
+}
+/* 3JR-U02: shots still to make step back, and fold to narrow marks once anything has a video,
+   so the finished shots are what the track shows. */
+.pro-root .clip.v.empty {
+  opacity: 0.7;
+}
+.pro-root .clip.v.empty.folded,
+.pro-root .clip.s.folded {
+  padding: 0;
+  opacity: 0.45;
+}
+.pro-root .clip.v.empty.folded:hover,
+.pro-root .clip.v.empty.folded:focus-visible {
+  opacity: 0.9;
 }
 .pro-root .clip.v.gen {
   background: repeating-linear-gradient(135deg, #2a2416 0 6px, #231e13 6px 12px);
@@ -3198,6 +3224,25 @@ body:has(.pro-root) {
   font-weight: 500;
 }
 
+/* 3JR-U04: while an action from 「有 N 个动作没对上镜头」 is dragged, every card is a place it
+   can go and the one under the pointer is marked. */
+.pro-root .pb.grid.dropping .card {
+  outline: 1px dashed var(--line-2);
+  outline-offset: 2px;
+}
+.pro-root .pb.grid.dropping .card.drop-over {
+  outline: 2px dashed var(--accent);
+}
+.pro-root .scene .t small.beat-flag {
+  color: var(--warn);
+}
+/* A scene row that carries that third line grows to hold it instead of spilling over the next. */
+.pro-root .scene:has(.beat-flag) {
+  height: auto;
+  min-height: 44px;
+  padding-block: 4px;
+}
+
 /* 4A-U07: a portrait (9:16) work. The previews take its real shape; thumbnails keep their
    tiles and show the whole frame inside them instead of cutting it. */
 .pro-root[data-aspect="9:16"] .bigprev .frame,
@@ -3217,4 +3262,86 @@ body:has(.pro-root) {
 .pro-root[data-aspect="9:16"] .thumb .still {
   object-fit: contain;
   background-size: contain;
+}
+
+/* 3JR-U05: a card keeps two lines of picture and one line of dialogue; resting on its words
+   for a moment, or picking it with the keyboard, lays all of them over the card. */
+.pro-root .card {
+  position: relative;
+}
+.pro-root .cb p.line[data-more]::after {
+  content: "」等 " attr(data-more) " 句";
+}
+.pro-root .card .full {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 10px 12px;
+  overflow: auto;
+  background: var(--panel-2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    visibility 0s linear 0.12s;
+}
+.pro-root .card .cb:hover .full,
+.pro-root .card:focus-visible .full {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.12s ease 0.35s,
+    visibility 0s linear 0.35s;
+}
+.pro-root .card .full p {
+  display: block;
+  max-height: none;
+  -webkit-line-clamp: unset;
+  white-space: normal;
+}
+.pro-root .card .full p.line {
+  text-overflow: clip;
+}
+.pro-root .card .full p.line::after {
+  content: "」";
+}
+@media (prefers-reduced-motion: reduce) {
+  .pro-root .card .full,
+  .pro-root .card .cb:hover .full,
+  .pro-root .card:focus-visible .full {
+    transition: none;
+  }
+}
+.pro-root details.full-prompt {
+  margin-top: 6px;
+}
+.pro-root details.full-prompt > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* 3JR-U03: the 场景 and 道具 tabs edit their own things. A place's reference picture is a wide
+   background plate, so its frame is landscape. */
+.pro-root .slot.place-ref .thumb,
+.pro-root .slot.place-ref .slot-empty {
+  aspect-ratio: 16/9;
+}
+.pro-root .cast-looks > .slots-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pro-root .place-used {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.pro-root .prop-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  margin-bottom: 8px;
 }
