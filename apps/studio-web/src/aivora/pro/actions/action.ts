@@ -1,3 +1,4 @@
+import type { UiNotice } from "../../film/contracts3j";
 import { shotActions, withShotActions } from "../../film/shot-actions";
 import { applyActionPlan, type SceneActionState } from "../../film/action-plan";
 import {
@@ -23,6 +24,7 @@ export type ActionDraftResult =
       shot: FilmShot;
       notes: string[];
       notice: string;
+      structuredNotice?: UiNotice;
       event: "beats" | "offline";
       unassigned?: FilmProject["unassignedBeats"];
       actionState?: SceneActionState;
@@ -93,6 +95,18 @@ export async function planActionDraft(
   const actionLocked =
     current.userFields.includes("action") || current.userFields.includes("actionPlan");
   if (actionState?.unassigned.length) note = "有动作没对上镜头，去分镜看看。";
+  const missingActions = [
+    ...(unassigned ?? []).map((item) => item.text),
+    ...(actionState?.unassigned ?? []).flatMap((item) => item.plan.nodes.map((node) => node.move)),
+  ].filter(Boolean);
+  const structuredNotice: UiNotice | undefined =
+    unassigned?.length || actionState?.unassigned.length
+      ? {
+          code: "ACTION_UNASSIGNED",
+          text: "有动作没对上镜头，去分镜看看。",
+          detail: `未找到可安全对应的镜头${missingActions.length ? `：${[...new Set(missingActions)].join("；")}` : ""}。请到分镜核对这些动作与镜头内容，再重新生成动作建议。`,
+        }
+      : undefined;
   const actionShot = {
     ...current,
     actionPlan: planned.shots[0]?.actionPlan,
@@ -106,6 +120,7 @@ export async function planActionDraft(
     shot: actionLocked ? actionShot : withShotActions(actionShot, resolvedActions ?? [sentence]),
     notes: actionNotes,
     notice: note,
+    ...(structuredNotice ? { structuredNotice } : {}),
     event: parsed ? "beats" : "offline",
     ...(unassigned ? { unassigned } : {}),
     ...(actionState ? { actionState } : {}),

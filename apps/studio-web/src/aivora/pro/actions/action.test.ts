@@ -1,3 +1,4 @@
+import { presentNotice } from "../../film/notices";
 import { expect, it, vi } from "vitest";
 import { sampleFilm } from "../../film/project";
 import { planActionDraft, type ActionDraftHost } from "./action";
@@ -31,6 +32,12 @@ it("uses explicit shot IDs within the one-shot manual scope and preserves unassi
   expect(result.shot.action).toBe("肘击");
   expect(result.shot.action).not.toMatch(/保留原文|动作约束|别镜/);
   expect(result.unassigned).toEqual([{ sceneId: current.sceneId, text: "别镜挥铁棍" }]);
+  const displayed = presentNotice(result.structuredNotice ?? result.notice);
+  expect(displayed.notice.code).toBe("ACTION_UNASSIGNED");
+  expect(displayed.text).toContain("别镜挥铁棍");
+  expect(displayed.text).toContain("未找到可安全对应的镜头");
+  expect(displayed.text).toContain("请到分镜核对");
+  expect(displayed.text).not.toContain("ACTION_UNASSIGNED");
   expect(result.shot.sound.sfx).toEqual([{ atSeconds: 1, text: "肘击" }]);
   expect(result.notes.join(" ")).not.toMatch(/保留原文|动作约束|别镜/);
   expect(result.shot.userFields).toEqual(["picture", "line"]);
@@ -134,4 +141,19 @@ it("preserves a user-locked multiline action exactly when accepting an action dr
   expect(result.shot.action).toBe(shot.action);
   expect(result.shot.actionBeats).toBeUndefined();
   expect(result.shot.sound).toEqual(shot.sound);
+});
+
+it("renders rejected action backend diagnostics as Chinese without mutating the reply", async () => {
+  const film = sampleFilm();
+  const reply = { text: null, detail: "失败：UNKNOWN_BACKEND_ERROR，请重试。" };
+  const result = await planActionDraft(film, film.shots[0], {
+    request: async () => reply,
+    current: () => true,
+    connected: true,
+  });
+  expect(result.status).toBe("rejected");
+  if (result.status !== "rejected") throw new Error("expected rejection");
+  expect(presentNotice(result.notice).text).not.toContain("UNKNOWN_BACKEND_ERROR");
+  expect(presentNotice(result.notice).text).toContain("没有写入");
+  expect(reply.detail).toContain("UNKNOWN_BACKEND_ERROR");
 });

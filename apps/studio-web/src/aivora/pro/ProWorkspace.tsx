@@ -142,7 +142,7 @@ import {
   cancelVideoTask,
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
-import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
+import { presentNotice, NOTICE_TEXT } from "../film/notices";
 import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
@@ -460,14 +460,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const setNotice = (next: string | UiNotice | ((current: string) => string)) => {
     noticeEpoch.current += 1;
     const value = typeof next === "function" ? next(noticeRef.current) : next;
-    const structured = normalizeNotice(value);
+    const { notice: structured, text: rendered } = presentNotice(value);
     window.dispatchEvent(new CustomEvent("aivora-notice", { detail: structured }));
-    const rendered =
-      typeof value === "string"
-        ? structured.detail
-          ? value
-          : structured.text
-        : [structured.text, structured.detail].filter(Boolean).join(" ");
     noticeRef.current = rendered;
     setNoticeState(rendered);
   };
@@ -1457,9 +1451,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     return activeTurn.current === id && assistantScope === scopeRef.current;
   }
 
-  function finishTurn(id: string, text: string) {
+  function finishTurn(id: string, value: string | UiNotice) {
     if (!isTurnCurrent(id)) return;
-    window.dispatchEvent(new CustomEvent("aivora-notice", { detail: normalizeNotice(text) }));
+    const { notice, text } = presentNotice(value);
+    window.dispatchEvent(new CustomEvent("aivora-notice", { detail: notice }));
     writing.current = false;
     const next = turnsRef.current.map((item) => (item.id === `${id}-a` ? { ...item, text } : item));
     turnsRef.current = next;
@@ -1798,7 +1793,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       shots: [actionShot],
       actionState: result.actionState,
     });
-    finishTurn(turn, result.notice);
+    finishTurn(turn, result.structuredNotice ?? result.notice);
     noteAgent("action", result.event, result.notice);
   }
 

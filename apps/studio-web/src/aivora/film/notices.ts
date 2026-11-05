@@ -599,16 +599,48 @@ const RULES: readonly [NoticeCode, RegExp][] = [
   ["OPERATION_CANCELLED", /^已取消。?$/u],
 ];
 
+/** Only diagnostic identifiers are translated; prose and ordinary acronyms stay intact. */
+export function noticeDisplayText(text: string, diagnosticCode?: string): string {
+  return text.replace(/「[^」]*」|“[^”]*”|\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/gu, (code) =>
+    code.startsWith("「") || code.startsWith("“")
+      ? code
+      : (NOTICE_TEXT[code as NoticeCode] ??
+        (text.trim() === code ||
+        code === diagnosticCode ||
+        /_(?:ERROR|FAILED|FAILURE|TIMEOUT|REQUIRED|UNAVAILABLE|CANCELLED|INVALID|REJECTED)$/u.test(
+          code,
+        )
+          ? "这一步未完成，请重试。"
+          : code)),
+  );
+}
+
+/** Shared status/chat boundary: structured codes remain available to event consumers. */
+export function presentNotice(value: string | UiNotice): { notice: UiNotice; text: string } {
+  const notice = normalizeNotice(value);
+  return {
+    notice,
+    text:
+      typeof value === "string"
+        ? notice.detail || notice.text
+        : [notice.text, notice.detail].filter(Boolean).join(" "),
+  };
+}
+
 /** Compatibility boundary only; product behavior must never branch on these text patterns. */
 export function normalizeNotice(value: string | UiNotice): UiNotice {
-  const original = (typeof value === "string" ? value : value.text).trim();
+  const raw = (typeof value === "string" ? value : value.text).trim();
+  const original = noticeDisplayText(raw, typeof value === "string" ? undefined : value.code);
   if (!original && (typeof value === "string" || !value.code))
     return { code: "NOTICE_CLEAR", text: "" };
   if (typeof value !== "string") {
     if (value.code === "NOTICE_CLEAR") return { code: "NOTICE_CLEAR", text: "" };
     const code = /^[A-Z][A-Z0-9_]*$/u.test(value.code) ? value.code : "OPERATION_STATUS";
     const text = NOTICE_TEXT[code as NoticeCode] ?? NOTICE_TEXT.OPERATION_STATUS;
-    const detail = [original !== text ? original : "", value.detail?.trim() ?? ""]
+    const detail = [
+      original !== text ? original : "",
+      noticeDisplayText(value.detail?.trim() ?? "", code),
+    ]
       .filter((part, index, all) => part && all.indexOf(part) === index)
       .join("\n");
     return { code, text, ...(detail ? { detail } : {}) };
@@ -618,7 +650,12 @@ export function normalizeNotice(value: string | UiNotice): UiNotice {
     ...Object.entries(NOTICE_TEXT),
     ...Object.entries(LEGACY_NOTICE_TEXT),
   ].find(([, text]) => text === original)?.[0] as NoticeCode | undefined;
-  const code = exact ?? RULES.find(([, match]) => match.test(original))?.[0] ?? "OPERATION_STATUS";
+  const registered = Object.hasOwn(NOTICE_TEXT, raw) ? (raw as NoticeCode) : undefined;
+  const code =
+    registered ??
+    exact ??
+    RULES.find(([, match]) => match.test(original))?.[0] ??
+    "OPERATION_STATUS";
   const text = NOTICE_TEXT[code];
   const legacyAlias = original === LEGACY_NOTICE_TEXT[code];
   return { code, text, ...(original !== text && !legacyAlias ? { detail: original } : {}) };
