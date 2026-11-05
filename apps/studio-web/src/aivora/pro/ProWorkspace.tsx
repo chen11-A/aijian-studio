@@ -230,6 +230,7 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ["Ctrl+J", "打开或收起 AI 助手"],
   ["空格", "剪辑页播放 / 暂停"],
   ["I / O", "剪辑页设入点 / 出点"],
+  ["Delete", "剪辑页剪掉选中的片段"],
   ["Ctrl+滚轮", "剪辑页时间线放大 / 缩小"],
   ["M", "预览静音 / 有声"],
   ["Esc", "关掉菜单和对话框"],
@@ -7605,6 +7606,24 @@ function EditPage({
     box.addEventListener("wheel", onWheel, { passive: false });
     return () => box.removeEventListener("wheel", onWheel);
   }, []);
+  // 5-3-10: Delete or Backspace takes out the picked clip, the same as 「剪掉」 (and undoes the
+  // same way). Only while a clip is picked, never while typing or with a dialog open.
+  const cutKey = useRef<() => boolean>(() => false);
+  cutKey.current = () => {
+    if (!range) return false;
+    onAction("cut");
+    return true;
+  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      if (event.metaKey || event.ctrlKey || event.altKey || typingInField(event)) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (cutKey.current()) event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const zoomControls = (
     <span className="tzoom" role="group" aria-label="时间线缩放">
       <button
@@ -8074,7 +8093,12 @@ function EditPage({
               <Ic name="mic" size={13} />
               换配音
             </button>
-            <button className="btn" title={actions.cut.reason} onClick={() => onAction("cut")}>
+            <button
+              className="btn"
+              title={actions.cut.reason}
+              aria-keyshortcuts="Delete"
+              onClick={() => onAction("cut")}
+            >
               <Ic name="trash" size={13} />
               剪掉
             </button>
@@ -8093,7 +8117,8 @@ function EditPage({
             <button
               className="icon-btn"
               aria-label="删除"
-              title="删除选中的镜头"
+              title="删除选中的镜头 (Delete)"
+              aria-keyshortcuts="Delete"
               onClick={() => onAction("cut")}
             >
               <Ic name="trash" />

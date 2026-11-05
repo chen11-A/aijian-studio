@@ -3694,6 +3694,36 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("takes out the picked clip with Delete or Backspace, and only then (5-3-10)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  const count = () => document.querySelectorAll(".clip.v").length;
+  const start = count();
+  // Nothing picked: the key does nothing.
+  fireEvent.keyDown(window, { key: "Delete" });
+  expect(count()).toBe(start);
+  fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
+  // Typing in a field keeps the key for the field.
+  const field = screen.getByLabelText("改这一镜的描述");
+  field.focus();
+  fireEvent.keyDown(field, { key: "Backspace" });
+  expect(count()).toBe(start);
+  field.blur();
+  fireEvent.keyDown(window, { key: "Delete" });
+  expect(count()).toBe(start - 1);
+  expect(screen.getByText(/已剪掉这一段/)).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  expect(count()).toBe(start);
+  fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
+  fireEvent.keyDown(window, { key: "Backspace" });
+  expect(count()).toBe(start - 1);
+  expect(screen.getByRole("button", { name: "删除" })).toHaveAttribute(
+    "aria-keyshortcuts",
+    "Delete",
+  );
+});
+
 it("zooms the 剪辑 timeline in and out, and back to the whole cut (5-3-08)", async () => {
   installDesktop();
   await openSample();
