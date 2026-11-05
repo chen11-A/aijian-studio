@@ -490,7 +490,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const account = useGrokAccount();
   const [film, setFilmState] = useState<FilmProject | null>(null);
   const [stage, setStage] = useState<Stage>("script");
-  const [scene, setScene] = useState("02");
+  const [pickedScene, setScene] = useState("02");
+  // 3JR-B01: when a new set of scenes arrives (一键成片 writes them), the page already shows the
+  // first scene before the effect below stores it. Actions use the scene the page shows, so a
+  // click in between does not go to a scene that no longer exists.
+  const scene =
+    film && !film.scenes.some((item) => item.id === pickedScene)
+      ? (film.scenes[0]?.id ?? pickedScene)
+      : pickedScene;
   const [role, setRole] = useState<Role>("director");
   const [shot, setShot] = useState(0);
   const [pending, setPending] = useState<FilmShot[] | null>(null);
@@ -898,9 +905,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   useEffect(() => {
     if (!film) return;
-    if (film.scenes.some((item) => item.id === scene)) return;
+    if (film.scenes.some((item) => item.id === pickedScene)) return;
     setScene(film.scenes[0]?.id ?? "scene-1");
-  }, [film, scene]);
+  }, [film, pickedScene]);
 
   function rememberFilm(next: FilmProject) {
     filmRef.current = next;
