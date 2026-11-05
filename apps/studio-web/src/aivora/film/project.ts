@@ -1,3 +1,4 @@
+import { constrainVisualPrompt, onScreenCharacters } from "./on-screen-characters";
 import { shotActions, withShotActions } from "./shot-actions";
 import type { WriterPlan, SceneWriterPlan, WriterCharacterPlan } from "./writer-plan";
 import type { ArtDesign } from "./art-design";
@@ -497,9 +498,8 @@ export function sampleFilm(): FilmProject {
 }
 
 export function shotIdentity(shot: FilmShot, film: FilmProject): string {
-  const names = new Set(shot.characters);
-  return film.characters
-    .filter((item) => item.identity && (names.size === 0 || names.has(item.name)))
+  return onScreenCharacters(film, shot)
+    .filter((item) => item.identity)
     .map((item) => item.identity.replace(/。$/, ""))
     .join("。");
 }
@@ -515,7 +515,11 @@ export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
     : framedKeyframe(shot, film, picture);
   const notes = directorPlanPrompt(shot, "frame");
   return withStyleBible(
-    lockKeyframe([base, notes].filter(Boolean).join("\n"), shot, film),
+    constrainVisualPrompt(
+      lockKeyframe([base, notes].filter(Boolean).join("\n"), shot, film),
+      film,
+      shot,
+    ),
     film.styleZh,
   );
 }
@@ -536,15 +540,14 @@ function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): str
 }
 
 function lockKeyframe(body: string, shot: FilmShot, film: FilmProject): string {
-  const names = new Set(shot.characters);
+  const people = onScreenCharacters(film, shot);
   let next = body;
-  for (const person of film.characters) {
+  for (const person of people) {
     if (!person.identity.trim()) continue;
-    if (names.size > 0 && !names.has(person.name)) continue;
     const lock = identityLock(person.identity);
     if (lock && !next.includes(lock)) next += lock;
   }
-  const gaze = gazeHandoff(shot.characters);
+  const gaze = gazeHandoff(people.map((person) => person.name));
   if (gaze && !next.includes("视线")) next += gaze;
   return next;
 }

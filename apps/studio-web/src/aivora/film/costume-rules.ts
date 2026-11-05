@@ -1,4 +1,5 @@
 import type { FilmProject, FilmScene, FilmShot } from "./project";
+import { onScreenCharacters } from "./on-screen-characters";
 
 export type CostumeRule = {
   id: string;
@@ -156,11 +157,7 @@ export function withShotCostumes(prompt: string, film: FilmProject, shot: FilmSh
     )
   )
     return body;
-  const visible = new Set([
-    ...shot.characters,
-    shot.speaker ?? "",
-    ...(shot.lines ?? []).map((line) => line.speaker),
-  ]);
+  const visible = new Set(onScreenCharacters(film, shot).map((person) => person.name));
   const rows = resolveCostumes(film)
     .accepted.filter(({ sceneId, rule }) => {
       const people = film.characters.filter((person) => person.name === rule.name);

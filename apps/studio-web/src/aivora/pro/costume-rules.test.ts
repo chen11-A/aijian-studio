@@ -53,6 +53,22 @@ function fixture() {
   return film;
 }
 
+it("3JR-B06 does not reintroduce an offscreen speaker through costume constraints", () => {
+  const film = fixture();
+  const shot = {
+    ...film.shots[0]!,
+    picture: "林晚站在门口。沈砚不入画。",
+    characters: ["林晚", "沈砚"],
+    speaker: "沈砚",
+    lines: [{ speaker: "沈砚", text: "你来晚了。" }],
+  };
+  const before = structuredClone(film.costumes);
+  const prompt = withShotCostumes("frame", film, shot);
+  expect(prompt).toContain("林晚：");
+  expect(prompt).not.toContain("沈砚：");
+  expect(film.costumes).toEqual(before);
+});
+
 it("retains all three real costume replies and original scopes, with in-scene changes left for review", () => {
   expect(arts).toHaveLength(3);
   const film = upgradeFilm(JSON.parse(JSON.stringify(fixture())))!;

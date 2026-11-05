@@ -1,4 +1,5 @@
 import { mergeArtDesign } from "../film/art-design";
+import { constrainVisualPrompt, onScreenCharacters } from "../film/on-screen-characters";
 import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
 import { withLocationLayout } from "../film/location-reference";
 import { setFilmStyle, withStyleBible } from "../film/style-bible";
@@ -257,9 +258,9 @@ export async function requestShotStill(
   reason: string;
   diagnostics: { referenceCount: number; imageLimit: number; videoReferenceLimit: number };
 }> {
-  const visible = film.characters.filter(
-    (person) =>
-      shot.characters.includes(person.name) && person.portraits.some((portrait) => portrait.url),
+  const visualFilm = { ...film, characters: onScreenCharacters(film, shot) };
+  const visible = visualFilm.characters.filter((person) =>
+    person.portraits.some((portrait) => portrait.url),
   );
   if (visible.length > 5)
     return {
@@ -268,13 +269,17 @@ export async function requestShotStill(
       diagnostics: { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 },
     };
   // One portrait per visible person before extra views, never silently omit a person.
-  const references = firstFrameReferences(film, shot);
+  const references = firstFrameReferences(visualFilm, shot);
   const made = await requestStill(
     film.seriesId,
     withStyleBible(
-      withShotCostumes(
-        withLocationLayout(
-          prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+      constrainVisualPrompt(
+        withShotCostumes(
+          withLocationLayout(
+            prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
+            film,
+            shot,
+          ),
           film,
           shot,
         ),

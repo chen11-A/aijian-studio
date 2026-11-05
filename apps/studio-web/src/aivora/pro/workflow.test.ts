@@ -155,6 +155,71 @@ it("keeps image reference limits in diagnostics and gives a short actionable rea
   expect(generate).toHaveBeenCalledTimes(1);
 });
 
+it("3JR-B06 excludes an explicitly offscreen speaker from the actual still request", async () => {
+  const { requestShotStill } = await import("./workflow");
+  const film = sampleFilm();
+  film.characters = ["林晚", "沈砚"].map((name, index) => ({
+    ...film.characters[0]!,
+    id: `person-${index}`,
+    name,
+    identity: `${name}，独特外貌${index}`,
+    portraits: [{ view: "正面", prompt: "", url: `https://images.test/${index}.png` }],
+  }));
+  const shot = {
+    ...film.shots[0]!,
+    picture: "林晚看着照片。沈砚不入画。",
+    action: "林晚抬头。",
+    performance: "",
+    blocking: "",
+    characters: ["林晚", "沈砚"],
+    speaker: "沈砚",
+    lines: [{ speaker: "沈砚", text: "你来晚了。" }],
+    line: "你来晚了。",
+  };
+  const before = structuredClone(shot);
+  const generate = vi.fn(async () => ({ path: "/tmp/still.png", reason: "" }));
+  window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
+  const result = await requestShotStill(film, shot, "林晚看着照片。沈砚，黑风衣，站在她身后。");
+  expect(generate).toHaveBeenCalledTimes(1);
+  const [, prompt, , references] = generate.mock.calls[0]! as unknown as [
+    string,
+    string,
+    string,
+    string[],
+  ];
+  expect(prompt).toContain("林晚看着照片");
+  expect(prompt).toContain("沈砚不入画");
+  expect(prompt).not.toContain("黑风衣");
+  expect(references).toEqual(["https://images.test/0.png"]);
+  expect(result.diagnostics.referenceCount).toBe(1);
+  expect(shot).toEqual(before);
+});
+
+it("3JR-B06 counts only visible portraits against the first-frame limit", async () => {
+  const { requestShotStill } = await import("./workflow");
+  const film = sampleFilm();
+  film.characters = Array.from({ length: 6 }, (_, index) => ({
+    ...film.characters[0]!,
+    id: `person-${index}`,
+    name: `person${index}`,
+    portraits: [{ view: "正面", prompt: "", url: `https://images.test/${index}.png` }],
+  }));
+  const shot = {
+    ...film.shots[0]!,
+    characters: film.characters.map((person) => person.name),
+    picture: "person5不入画。其他五人站在门口。",
+    speaker: "person5",
+    lines: [],
+  };
+  const generate = vi.fn(async () => ({ path: "/tmp/still.png", reason: "" }));
+  window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
+  const result = await requestShotStill(film, shot, shot.picture);
+  expect(generate).toHaveBeenCalledTimes(1);
+  const sent = generate.mock.calls[0]! as unknown as [string, string, string, string[]];
+  expect(sent[3]).not.toContain("https://images.test/5.png");
+  expect(result.diagnostics.referenceCount).toBe(5);
+});
+
 it("keeps an unavailable desktop reason free of reference diagnostics", async () => {
   const { requestShotStill } = await import("./workflow");
   const previous = window.aijian;

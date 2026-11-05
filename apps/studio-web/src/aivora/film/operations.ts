@@ -1,6 +1,11 @@
-import { sourceCharacterEvidence } from "./character-source";
 import { shotActions, shotActionText, withShotActions } from "./shot-actions";
+import {
+  constrainVisualPrompt,
+  onScreenCharacters,
+  withoutOffscreenVisuals,
+} from "./on-screen-characters";
 import { sceneWriterPlan, type WriterPlan } from "./writer-plan";
+import { sourceCharacterEvidence } from "./character-source";
 import { directorPlanPrompt } from "./director-plan";
 import { withShotCostumes } from "./costume-rules";
 import { writerElements } from "./writer-elements";
@@ -1436,9 +1441,9 @@ function usableImage(url: string): boolean {
 /** Front views first, with the speaker ahead of other visible characters. */
 export function firstFrameReferences(film: FilmProject, shot: FilmShot): string[] {
   const speakers = new Set([shot.speaker ?? "", ...(shot.lines ?? []).map((line) => line.speaker)]);
-  const people = film.characters
-    .filter((person) => shot.characters.includes(person.name) || speakers.has(person.name))
-    .sort((a, b) => Number(speakers.has(b.name)) - Number(speakers.has(a.name)));
+  const people = onScreenCharacters(film, shot).sort(
+    (a, b) => Number(speakers.has(b.name)) - Number(speakers.has(a.name)),
+  );
   const portraits = people.map((person) =>
     person.portraits
       .filter((portrait) => usableImage(portrait.url))
@@ -1466,9 +1471,7 @@ export function shotReference(
 } {
   const picked =
     [shot.poster, ...shot.stills.map((item) => item.url)].find((url) => usableImage(url)) ?? "";
-  const people = film.characters.filter(
-    (person) => shot.characters.includes(person.name) || person.name === shot.speaker,
-  );
+  const people = onScreenCharacters(film, shot);
   const ranked = people.flatMap((person) =>
     person.portraits
       .filter((item) => usableImage(item.url))
@@ -1599,9 +1602,13 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
   return {
     narration: line || "。",
     prompt: withStyleBible(
-      withShotCostumes(
-        withLocationLayout(
-          `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+      constrainVisualPrompt(
+        withShotCostumes(
+          withLocationLayout(
+            `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+            film,
+            shot,
+          ),
           film,
           shot,
         ),
@@ -1616,8 +1623,8 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
     size: shot.size.slice(0, 20),
     angle: (shot.angle || "平视").slice(0, 20),
     move: (shot.move || "固定").slice(0, 20),
-    action: clip(shotActionText(shot), 1000),
-    performance: clip(shot.performance, 1000),
+    action: clip(withoutOffscreenVisuals(shotActionText(shot), film, shot), 1000),
+    performance: clip(withoutOffscreenVisuals(shot.performance, film, shot), 1000),
     identity: shotIdentity(shot, film).slice(0, 200),
     voice_id: shotVoiceId(shot, film).slice(0, 64),
     ...(refs.still ? { still: refs.still } : {}),
