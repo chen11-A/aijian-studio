@@ -203,3 +203,81 @@ it("manual coverage still saves a complete source-grounded repair", async () => 
   expect((await actions.fixCoverage(f.sceneId))?.ok).toBe(true);
   expect(f.apply).toHaveBeenCalledOnce();
 });
+
+it("locks only a changed gender and retains an auditable adult voice default for unknown age", async () => {
+  let film = sampleFilm();
+  film.characters = [
+    {
+      ...film.characters[0]!,
+      gender: "男",
+      ageBand: "",
+      identity: "",
+      voiceId: "leo",
+      userFields: [],
+      voiceDefault: {
+        basis: "adult-default",
+        evidenceSource: "character-reply",
+        evidence: "adult",
+      },
+    },
+  ];
+  const id = film.characters[0]!.id;
+  const apply = vi.fn((next: typeof film) => {
+    film = next;
+  });
+  const actions = createProductionActions({
+    current: () => film,
+    apply,
+    requestDirector: vi.fn(),
+    notify: vi.fn(),
+  });
+  await actions.updateCharacterTraits(id, { gender: "女" });
+  expect(film.characters[0]).toMatchObject({
+    gender: "女",
+    ageBand: "",
+    voiceId: "ara",
+    voiceCode: "",
+    userFields: ["gender"],
+    voiceDefault: { basis: "adult-default", evidenceSource: "character-reply" },
+  });
+  await actions.updateCharacterTraits(id, { ageBand: "" });
+  expect(film.characters[0]).toMatchObject({
+    gender: "女",
+    ageBand: "",
+    voiceId: "",
+    voiceCode: "VOICE_TRAITS_REQUIRED",
+    userFields: ["gender", "ageBand"],
+  });
+  expect(film.characters[0]!.voiceDefault).toBeUndefined();
+  apply.mockClear();
+  await actions.updateCharacterTraits(id, {});
+  expect(apply).not.toHaveBeenCalled();
+});
+
+it("locks only a changed age and preserves a hand-selected voice", async () => {
+  let film = sampleFilm();
+  film.characters = [
+    {
+      ...film.characters[0]!,
+      gender: "男",
+      ageBand: "青年",
+      voiceId: "custom",
+      userFields: ["voiceId"],
+    },
+  ];
+  const actions = createProductionActions({
+    current: () => film,
+    apply: (next) => {
+      film = next;
+    },
+    requestDirector: vi.fn(),
+    notify: vi.fn(),
+  });
+  await actions.updateCharacterTraits(film.characters[0]!.id, { ageBand: "老年" });
+  expect(film.characters[0]).toMatchObject({
+    gender: "男",
+    ageBand: "老年",
+    voiceId: "custom",
+    userFields: ["voiceId", "ageBand"],
+  });
+});

@@ -118,10 +118,14 @@ export function createProductionActions(host: {
     },
     async updateCharacterTraits(
       characterId: string,
-      patch: Pick<FilmCharacter, "gender" | "ageBand">,
+      patch: Partial<Pick<FilmCharacter, "gender" | "ageBand">>,
     ) {
       const film = host.current();
       if (!film) return;
+      const editedFields = (["gender", "ageBand"] as const).filter((field) =>
+        Object.prototype.hasOwnProperty.call(patch, field),
+      );
+      if (!editedFields.length) return;
       await host.apply({
         ...film,
         characters: film.characters.map((person) =>
@@ -130,7 +134,7 @@ export function createProductionActions(host: {
                 {
                   ...person,
                   ...patch,
-                  userFields: [...new Set([...person.userFields, "gender", "ageBand"])],
+                  userFields: [...new Set([...person.userFields, ...editedFields])],
                 },
                 new Set(
                   film.characters
