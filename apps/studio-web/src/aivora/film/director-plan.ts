@@ -89,6 +89,21 @@ function snapshot(shot: FilmShot): string {
     shot.facing,
   ]);
 }
+/**
+ * 3JR-B06: people the director placed off frame (position or visible 画外). Read only while the
+ * plan still matches the shot; in a merged shot a person shown in any part stays on screen.
+ */
+export function directorOffscreenNames(shot: FilmShot): string[] {
+  if (!current(shot)) return [];
+  const placements = new Map<string, boolean>();
+  for (const segment of shot.directorPlan!.segments)
+    for (const place of segment.positions) {
+      const off = place.position === "画外" || place.visible === "画外";
+      placements.set(place.name, (placements.get(place.name) ?? true) && off);
+    }
+  return [...placements].filter(([, off]) => off).map(([name]) => name);
+}
+
 function current(shot: FilmShot): boolean {
   return Boolean(
     shot.directorPlan &&

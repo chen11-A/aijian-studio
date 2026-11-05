@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { keyframePrompt, sampleFilm, shotIdentity } from "./project";
 import { firstFrameReferences, shotReference, storyFilmBatches } from "./operations";
 import { withShotActions } from "./shot-actions";
+import { parseDirectorPlan } from "./director-plan";
 
 function setup() {
   const film = sampleFilm();
@@ -32,6 +33,35 @@ function setup() {
 }
 
 describe("3JR-B06 production payload boundaries (synthetic regression)", () => {
+  it("leaves a speaker the director placed 画外 out of identity, references and the video", () => {
+    const { film, shot } = setup();
+    // No 「不入画」 in the words; only the director's position says he is off frame.
+    Object.assign(shot, {
+      picture: "林晚看着照片。",
+      action: "林晚抬头。",
+      performance: "林晚皱眉。",
+      directorFramePrompt: "",
+      directorVideoPrompt: "",
+    });
+    shot.directorPlan = parseDirectorPlan(
+      {
+        positions: [
+          { name: "林晚", position: "画中", depth: "前景", visible: "半身" },
+          { name: "沈砚", position: "画外", depth: "", visible: "画外" },
+        ],
+      },
+      shot,
+    );
+    expect(shotIdentity(shot, film)).toBe("林晚，白衬衫");
+    expect(firstFrameReferences(film, shot)).toEqual(["https://images.test/0.png"]);
+    const payload = storyFilmBatches(film, [shot], false)[0]!.shots[0]!;
+    expect(payload.identity).toBe("林晚，白衬衫");
+    expect(payload.prompt).toContain("沈砚不入画");
+    expect(payload.references ?? []).not.toContain("https://images.test/1.png");
+    // His line is still voiced.
+    expect(payload.lines?.map((line) => line.speaker)).toEqual(["沈砚"]);
+  });
+
   it("does not add an offscreen speaker's identity or stale positive framing", () => {
     const { film, shot } = setup();
     expect(shotIdentity(shot, film)).toBe("林晚，白衬衫");

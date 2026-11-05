@@ -6,6 +6,7 @@ import {
   onScreenCharacters,
   withoutOffscreenVisuals,
 } from "./on-screen-characters";
+import { parseDirectorPlan } from "./director-plan";
 
 function setup() {
   const film = sampleFilm();
@@ -98,6 +99,53 @@ describe("3JR-B06 shot-level visual exclusions (synthetic request regression)", 
     shot.speaker = "沈砚（画外音）";
     shot.lines = [{ speaker: "沈砚（画外音）", text: "你来晚了。" }];
     expect(onScreenCharacters(film, shot).map((person) => person.name)).toEqual(["林晚"]);
+  });
+
+  it("leaves out a person the director placed 画外, while the plan still matches the shot (3JR-B06)", () => {
+    const { film, shot } = setup();
+    // The knife shot: Lin Wan shouts 「小心！」 from off frame. The director lists her (a speaker
+    // must be in characters) and marks her position 画外, as the director prompt asks.
+    Object.assign(shot, {
+      picture: "第三个人亮出折叠刀，刀刃在灯下一闪。",
+      action: "",
+      characters: ["沈砚", "林晚"],
+      speaker: "林晚",
+      lines: [{ speaker: "林晚", text: "小心！" }],
+      line: "小心！",
+    });
+    shot.directorPlan = parseDirectorPlan(
+      {
+        positions: [
+          { name: "沈砚", position: "画中", depth: "中间", visible: "半身" },
+          { name: "林晚", position: "画外", depth: "", visible: "画外" },
+        ],
+      },
+      shot,
+    );
+    expect(offscreenCharacterNames(shot, ["林晚", "沈砚", "周烈"])).toEqual(["林晚"]);
+    expect(onScreenCharacters(film, shot).map((person) => person.name)).toEqual(["沈砚"]);
+    // Her voice is untouched.
+    expect(shot.lines).toEqual([{ speaker: "林晚", text: "小心！" }]);
+    // Once a person edits who is in the shot, the old plan no longer decides.
+    shot.userFields = ["characters"];
+    expect(offscreenCharacterNames(shot, ["林晚", "沈砚", "周烈"])).toEqual([]);
+  });
+
+  it("keeps a person visible in a merged shot when one part shows them (3JR-B06)", () => {
+    const { film, shot } = setup();
+    Object.assign(shot, { picture: "沈砚挡刀，林晚扑过来。", characters: ["沈砚", "林晚"] });
+    const plan = (visible: string) =>
+      parseDirectorPlan({ positions: [{ name: "林晚", position: visible, visible }] }, shot)!;
+    shot.directorPlan = {
+      ...plan("画外"),
+      segments: [...plan("画外").segments, ...plan("画右").segments],
+    };
+    expect(
+      offscreenCharacterNames(
+        shot,
+        film.characters.map((person) => person.name),
+      ),
+    ).toEqual([]);
   });
 
   it("does not inject the entire cast when no person is selected or named", () => {

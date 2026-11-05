@@ -1,5 +1,6 @@
 import type { FilmCharacter, FilmProject, FilmShot } from "./project";
 import { shotActionText } from "./shot-actions";
+import { directorOffscreenNames } from "./director-plan";
 
 const escape = (value: string) => value.replace(/[.*+?^$()|[\]{}\\]/g, "\\$&");
 const absence =
@@ -46,8 +47,9 @@ function explicitlyAbsent(text: string, name: string, names: readonly string[]):
 /** Only explicit visual exclusions; voice casting and dialogue remain untouched. */
 export function offscreenCharacterNames(shot: FilmShot, names: readonly string[]): string[] {
   const text = visualText(shot);
-  return [...new Set(names.filter((name) => name.trim()))].filter((name) =>
-    explicitlyAbsent(text, name, names),
+  const placedOff = new Set(directorOffscreenNames(shot));
+  return [...new Set(names.filter((name) => name.trim()))].filter(
+    (name) => placedOff.has(name) || explicitlyAbsent(text, name, names),
   );
 }
 
