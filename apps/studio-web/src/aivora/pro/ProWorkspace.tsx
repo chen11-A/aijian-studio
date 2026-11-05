@@ -474,7 +474,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [range, setRange] = useState(false);
   const [span, setSpan] = useState<{ from: number; to: number } | null>(null);
   const [comparing, setComparing] = useState(false);
-  const [fixAction, setFixAction] = useState<FixAction>("rewrite");
+  // 4A-U10: only runAction still sets it; the 修改这一段 tiles that read it are gone.
+  const [, setFixAction] = useState<FixAction>("rewrite");
   const [rightTab, setRightTab] = useState<"props" | "fix" | "ai">("props");
   const [notice, setNoticeState] = useState("");
   const noticeEpoch = useRef(0);
@@ -2114,7 +2115,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         previewAudio.current = null;
         setHearing(false);
       }
-      setNotice("声音关着。打开顶栏的声音再试听。");
+      setNotice("声音关着。按 M 打开声音再试听。");
       return;
     }
     if (hearing) {
@@ -2926,6 +2927,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     stage,
     stage === "edit" && (range || comparing),
   );
+  // 4A-U10: the membership state, on the avatar's dot and at the top of its menu.
+  const waiting = signingIn || account.state === "AWAITING_BROWSER";
+  const accountState = membershipDenied
+    ? "denied"
+    : connected
+      ? "ok"
+      : waiting || account.state === "REAUTH_REQUIRED"
+        ? "wait"
+        : "off";
+  const accountLine = membershipDenied
+    ? "这个会员用不了生成"
+    : connected
+      ? "Grok 会员 · 已连接"
+      : waiting
+        ? "正在等浏览器"
+        : account.state === "REAUTH_REQUIRED"
+          ? "需要重新登录"
+          : "未登录";
+  // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (typingInField(event) || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "m" || event.key === "M") setSoundOn((value) => !value);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div
@@ -2967,7 +2995,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <button
               className="icon-btn"
               aria-label="撤销"
-              title="撤销"
+              title="撤销 (Ctrl+Z)"
               disabled={!canUndo}
               onClick={undoEdit}
             >
@@ -2976,7 +3004,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <button
               className="icon-btn"
               aria-label="重做"
-              title="重做"
+              title="重做 (Ctrl+Shift+Z)"
               disabled={!canRedo}
               onClick={redoEdit}
             >
@@ -3181,37 +3209,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             })}
           </nav>
           <div className="tb-right">
-            <button
-              className="chip"
-              onClick={() => {
-                if (membershipDenied)
-                  setNotice({ code: "ENTITLEMENT_DENIED", text: "这个会员用不了生成。" });
-                else if (connected) setNotice("Grok 会员已连接。");
-                else void signInGrok();
-              }}
-            >
-              <span
-                className="dot"
-                style={connected && !membershipDenied ? undefined : { background: "#E8A33D" }}
-              />
-              {membershipDenied
-                ? "这个会员用不了生成"
-                : connected
-                  ? "Grok 会员 · 已连接"
-                  : signingIn || account.state === "AWAITING_BROWSER"
-                    ? "正在等浏览器"
-                    : account.state === "REAUTH_REQUIRED"
-                      ? "需要重新登录"
-                      : "未登录"}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              aria-pressed={soundOn}
-              onClick={() => setSoundOn((value) => !value)}
-            >
-              {soundOn ? "声音开" : "声音关"}
-            </button>
             {exportView.ready ? null : (
               <span className="export-why" id="export-why">
                 {exportView.why}
@@ -3232,10 +3229,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <Ic name="upload" size={15} />
               导出成片
             </button>
+            {/* 4A-U10: signing in has one place, the avatar; its dot says how the membership is. */}
             <button
               className="avatar"
               data-menu="account"
               aria-label="账号"
+              title={accountLine}
               onClick={() => setMenu(menu === "account" ? null : "account")}
             >
               {connected && account.label ? (
@@ -3243,9 +3242,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ) : (
                 <Ic name="user" size={14} />
               )}
+              <span className="avatar-dot" data-state={accountState} aria-hidden="true" />
             </button>
             {menu === "account" && (
               <div className="menu" role="menu" aria-label="账号菜单" data-menu="account">
+                <p className="menu-note">{accountLine}</p>
                 {signingIn && (
                   <button
                     onClick={() => {
@@ -3356,8 +3357,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   chat={chat}
                   onChat={setChat}
                   onSend={sendChat}
-                  onUndo={undoEdit}
-                  onRedo={redoEdit}
                   showRoles={showRoles}
                   onToggleRoles={() => setShowRoles((value) => !value)}
                   structured={structured}
@@ -3478,6 +3477,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               {stage === "board" && bench && (
                 <GeneratePage
                   quiet={exportView.lead}
+                  onMute={() => setSoundOn((value) => !value)}
                   onBack={() => setBench(false)}
                   film={film}
                   shots={shownShots}
@@ -3519,13 +3519,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "edit" && (
                 <EditPage
+                  onMute={() => setSoundOn((value) => !value)}
                   film={film}
                   shot={shot}
                   onShot={setShot}
                   shots={shownShots}
                   range={range}
                   comparing={comparing}
-                  fixAction={fixAction}
                   rightTab={rightTab}
                   playing={playing}
                   actions={actions}
@@ -3596,6 +3596,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRangeGenerate={() => {
                     const from = span?.from ?? shot;
                     const to = span?.to ?? shot;
+                    // 4A-U10: making a video always opens the same 单镜 panel; a longer part
+                    // of the cut is queued shot by shot.
+                    if (from === to) {
+                      setRange(false);
+                      setComparing(false);
+                      setShot(from);
+                      setBench(true);
+                      setStage("board");
+                      return;
+                    }
                     const rows = shownShots.slice(Math.min(from, to), Math.max(from, to) + 1);
                     if (rows.length === 0) return;
                     setPendingBatch(rows);
@@ -3626,34 +3636,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       text: "已换成这一版。旧版留在历史版本里。",
                     });
                   }}
-                  onKeep={() => {
-                    setComparing(false);
-                    setNotice("保留旧版。新版留在历史版本里。");
-                  }}
-                  onReplace={() => {
-                    const current = shownShots[shot];
-                    const newer = [...(current?.takes ?? [])]
-                      .reverse()
-                      .find(
-                        (take) => take.status === "done" && take.id !== current?.selectedTakeId,
-                      );
-                    if (film && current && newer) {
-                      setFilm({
-                        ...film,
-                        shots: film.shots.map((item) =>
-                          item.id === current.id ? { ...item, selectedTakeId: newer.id } : item,
-                        ),
-                      });
-                      setNotice("已用新版替换。旧版留在历史版本里。");
-                    } else {
-                      setNotice("还没有可以替换的新版本。");
-                    }
-                    setComparing(false);
-                    setRange(false);
-                  }}
+                  onKeep={() => setComparing(false)}
                   onTab={setRightTab}
-                  onUndo={undoEdit}
-                  onRedo={redoEdit}
                   onNotice={setNotice}
                   onPlaying={setPlaying}
                   audible={soundOn}
@@ -4479,8 +4463,6 @@ function ScriptPage({
   chat,
   onChat,
   onSend,
-  onUndo,
-  onRedo,
   showRoles,
   onToggleRoles,
   structured,
@@ -4514,8 +4496,6 @@ function ScriptPage({
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
   showRoles: boolean;
   onToggleRoles: () => void;
   structured: string[];
@@ -4601,12 +4581,6 @@ function ScriptPage({
       <section className="pane">
         <div className="tool">
           <h3>{current ? `${current.no}. ${current.title}` : "这一场"}</h3>
-          <button className="icon-btn" aria-label="撤销" title="撤销" onClick={onUndo}>
-            <Ic name="undo" />
-          </button>
-          <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
-            <Ic name="redo" />
-          </button>
           <span className="vsep" />
           <span className="tool-hint">左边选一场，这里写这一场</span>
           <span className="sp" />
@@ -6395,8 +6369,25 @@ function BoardPage({
   );
 }
 
+/** 4A-U10: the preview's sound switch, on the player itself; M does the same anywhere. */
+function MuteButton({ muted, onMute }: { muted: boolean; onMute: () => void }) {
+  return (
+    <button
+      className={muted ? "icon-btn mute on" : "icon-btn mute"}
+      type="button"
+      aria-label="预览静音 (M)"
+      title={muted ? "预览静音中，按 M 打开声音" : "预览静音 (M)"}
+      aria-pressed={muted}
+      onClick={onMute}
+    >
+      <Ic name="vol" size={15} />
+    </button>
+  );
+}
+
 function GeneratePage({
   quiet = false,
+  onMute,
   film,
   shots,
   shot,
@@ -6428,6 +6419,8 @@ function GeneratePage({
   audible: boolean;
   /** 4A-U09: 导出成片 is this screen's primary button, so 生成 steps back. */
   quiet?: boolean;
+  /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
+  onMute?: () => void;
 }) {
   const current = shots[shot];
   const prompt = current ? keyframePrompt(current, film) : "先在剧本里拆镜头。";
@@ -6491,6 +6484,7 @@ function GeneratePage({
           <h3>{current ? `镜头 ${current.no}` : "镜头"} · 版本</h3>
           <span className="meta">选一个最好的，会放进剪辑</span>
           <span className="sp" />
+          {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
           <button className="btn sm" onClick={onBack}>
             返回分镜
           </button>
@@ -6676,13 +6670,13 @@ function GeneratePage({
 }
 
 function EditPage({
+  onMute,
   film,
   shot,
   onShot,
   shots,
   range,
   comparing,
-  fixAction,
   rightTab,
   playing,
   actions,
@@ -6692,11 +6686,8 @@ function EditPage({
   onClearRange,
   onAction,
   onKeep,
-  onReplace,
   onChooseTake,
   onTab,
-  onUndo,
-  onRedo,
   onNotice: _onNotice,
   onRangeGenerate,
   onPlaying,
@@ -6716,7 +6707,6 @@ function EditPage({
   onShot: (index: number) => void;
   range: boolean;
   comparing: boolean;
-  fixAction: FixAction;
   rightTab: "props" | "fix" | "ai";
   playing: boolean;
   actions: ReturnType<typeof videoActions>;
@@ -6726,12 +6716,9 @@ function EditPage({
   onClearRange: () => void;
   onAction: (action: FixAction) => void;
   onKeep: () => void;
-  onReplace: () => void;
   /** 4A-U03: use this version of the shot on show, as on 单镜. */
   onChooseTake: (shotId: string, takeId: string) => void;
   onTab: (tab: "props" | "fix" | "ai") => void;
-  onUndo: () => void;
-  onRedo: () => void;
   onNotice: (text: string) => void;
   onRangeGenerate: () => void;
   onPlaying: (value: boolean) => void;
@@ -6746,6 +6733,8 @@ function EditPage({
   onSolo?: (lane: "dialogue" | "score") => void;
   musicRestore?: number;
   hearLane?: "" | "dialogue" | "score";
+  /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
+  onMute?: () => void;
 }) {
   const [mediaTime, setMediaTime] = useState(0);
   const [cutLength, setCutLength] = useState(0);
@@ -6880,12 +6869,6 @@ function EditPage({
       box.scrollLeft = Math.max(0, headLeft - margin);
     }
   }, [headLeft, playing]);
-  const tiles: { id: FixAction; icon: string; label: string }[] = [
-    { id: "regenerate", icon: "refresh", label: "重新生成" },
-    { id: "rewrite", icon: "edit", label: "改描述再生成" },
-    { id: "voice", icon: "mic", label: "换配音字幕" },
-    { id: "cut", icon: "cut", label: "剪掉这段" },
-  ];
   return (
     <>
       {comparing ? (
@@ -6931,12 +6914,9 @@ function EditPage({
             <span className="meta">
               {current?.takes.filter((item) => item.status === "done").length ?? 0} 个版本
             </span>
+            {/* 4A-U10: a version is chosen in the picker above, the same as on 单镜. */}
             <button className="btn" onClick={onKeep}>
-              保留旧版
-            </button>
-            <button className="btn primary" onClick={onReplace}>
-              <Ic name="swap" size={14} />
-              用新版替换
+              关掉对比
             </button>
           </div>
         </section>
@@ -7024,6 +7004,7 @@ function EditPage({
                   <Ic name="skipf" />
                 </button>
               </div>
+              {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
             </div>
           </section>
         </>
@@ -7052,20 +7033,6 @@ function EditPage({
               </small>
             </div>
             <div className="pb">
-              <div className="tiles">
-                {tiles.map((tile) => (
-                  <button
-                    key={tile.id}
-                    className={`tile${fixAction === tile.id ? " on" : ""}${tile.id === "cut" ? " danger" : ""}`}
-                    aria-disabled={!actions[tile.id].enabled}
-                    title={actions[tile.id].reason}
-                    onClick={() => onAction(tile.id)}
-                  >
-                    <Ic name={tile.icon === "cut" ? "trash" : tile.icon} size={15} />
-                    {tile.label}
-                  </button>
-                ))}
-              </div>
               <div style={{ padding: "12px 12px 0" }}>
                 <div className="sec-t">这一镜的描述</div>
                 <textarea
@@ -7075,14 +7042,8 @@ function EditPage({
                   value={current?.picture ?? ""}
                   onChange={(event) => onRewrite(event.target.value)}
                 />
-                <div className="row2" style={{ marginTop: 8 }}>
-                  <div className="input">一次出 {film.takesPerShot || 1} 个</div>
-                  {/* 4A-U09: the page's primary is 导出成片, or 重新生成 on a selected range. */}
-                  <button className="btn" onClick={() => onAction(fixAction)}>
-                    <Ic name="spark" size={14} />
-                    生成新版本
-                  </button>
-                </div>
+                {/* 4A-U10: the actions on this part are on the timeline bar below, once. */}
+                <p className="role-desc">重做、换配音、剪掉，用下面时间线上的按钮。</p>
               </div>
             </div>
           </>
@@ -7109,11 +7070,6 @@ function EditPage({
                 </div>
               </div>
             </div>
-            <div className="field">
-              <button className="btn" onClick={onSelectRange}>
-                回到分镜重新生成
-              </button>
-            </div>
             <p className="role-desc hint">
               有台词时，导出会把配乐压低
               <span className="q" role="img" aria-label="说明" title={LOUDNESS_NOTE}>
@@ -7130,23 +7086,17 @@ function EditPage({
               已选 {clock(start)}–{clock(start + (current?.seconds ?? 0))} · {current?.seconds ?? 0}{" "}
               秒
             </span>
+            {/* 4A-U10: one 重新生成. One shot opens its 单镜 panel, a longer part is queued. */}
             <button
               className="btn primary"
               title={actions.regenerate.reason}
               aria-disabled={!actions.regenerate.enabled}
-              onClick={() => onAction("regenerate")}
+              onClick={() =>
+                actions.regenerate.enabled ? onRangeGenerate() : onAction("regenerate")
+              }
             >
               <Ic name="refresh" size={13} />
               重新生成
-            </button>
-            <button
-              className="btn"
-              title={actions.rewrite.reason}
-              aria-disabled={!actions.rewrite.enabled}
-              onClick={() => onAction("rewrite")}
-            >
-              <Ic name="edit" size={13} />
-              改描述
             </button>
             <button
               className="btn"
@@ -7162,11 +7112,6 @@ function EditPage({
               剪掉
             </button>
             <span className="sp" />
-            {current ? (
-              <button className="btn sm" type="button" onClick={onRangeGenerate}>
-                只重做这一段
-              </button>
-            ) : null}
             {importMusic}
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
@@ -7191,13 +7136,6 @@ function EditPage({
             </button>
             <button className="icon-btn" aria-label="设出点" title="设出点 (O)" onClick={onMarkOut}>
               <Ic name="bracketR" />
-            </button>
-            <span className="vsep" />
-            <button className="icon-btn" aria-label="撤销" title="撤销" onClick={onUndo}>
-              <Ic name="undo" />
-            </button>
-            <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
-              <Ic name="redo" />
             </button>
             <span className="sp" />
             {readyCount > 0 && waitingCount > 0 ? (

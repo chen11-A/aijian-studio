@@ -682,10 +682,13 @@ onUndo    // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo
 
 ## 一件事一个入口（4A-U10，要 4A-B11 ③）
 
-- 撤销 / 重做只留顶栏一组，剧本工具栏和剪辑时间线上的两组拿掉；Ctrl+Z / Ctrl+Shift+Z 不变。
-- 要 GPT 提供（4A-B11 ③）：按当前页面分派的撤销。`gpt/work-4a` 的 4b3cc81 已经有了（`createEditorPageHistory()` 的 `undo / redo / canUndo / canRedo`，按 `{ projectId, page }` 分开记，page 是 script / cast / board / edit），顶栏这一组整合后调它，`page` 用当前页签（单镜页算 board）。
-
-- 整合以前，顶栏这一组接现在的 `undoEdit` / `redoEdit`（它们撤的是整部作品的改动，剧本和时间线的改动也在里面），所以拿掉另外两组不会少功能。
+- 撤销 / 重做只留顶栏一组（提示写快捷键 Ctrl+Z / Ctrl+Shift+Z），剧本工具栏和剪辑时间线上的两组拿掉，`ScriptPage`、`EditPage` 的 `onUndo` / `onRedo` 也删了。
+- 登录只留头像：顶栏「未登录 / Grok 会员 · 已连接」小标签拿掉；头像右下角一个小圆点（绿 = 已连接，橙 = 没登录或在等浏览器或要重新登录，红 = 这个会员用不了生成），悬停和账号菜单第一行写同一句话。登录、取消登录、退出都在账号菜单里。
+- 声音：顶栏「声音开 / 关」拿掉，单镜页版本区标题栏和剪辑页播放器右边各一个「预览静音 (M)」，按 M 在哪一页都能切（输入框里不算）。仍是原来的 `soundOn`。GPT 处理函数里「声音关着。打开顶栏的声音再试听。」改成「声音关着。按 M 打开声音再试听。」（还认 SOUND_DISABLED），NOTICE_COPY 同步。
+- 出视频只有一个入口：剪辑页时间线选段条上只留一个「重新生成」，一个镜头时打开这一镜的单镜面板（`setBench(true)` + `setStage("board")`，在那里出版本、用 TakePicker 选），选了几个镜头时按原来的「只重做这一段」排进确认表。拿掉：选段条上的「改描述」「只重做这一段」，属性里的「回到分镜重新生成」，「修改这一段」里重复的四个磁贴和「生成新版本」（描述框留着）。
+- 对比只用 TakePicker 选版本：「保留旧版」「用新版替换」拿掉，换成「关掉对比」；原来 `onReplace` 的逻辑由 `onChooseTake` 代替。
+- `fixAction` 状态现在没人读，只留 setter（`const [, setFixAction]`），`runAction` 不用改。
+- 要 GPT 提供（4A-B11 ③）：按当前页面分派的撤销。`gpt/work-4a` 的 4b3cc81 已经有了（`createEditorPageHistory()` 的 `undo / redo / canUndo / canRedo`，按 `{ projectId, page }` 分开记，page 是 script / cast / board / edit），顶栏这一组整合后调它，`page` 用当前页签（单镜页算 board）。整合以前顶栏接现在的 `undoEdit` / `redoEdit`（撤的是整部作品的改动，剧本和时间线的改动也在里面），所以拿掉另外两组不会少功能。
 
 ## 和 GPT 的接口对照（3J-B17）
 

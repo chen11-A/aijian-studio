@@ -242,6 +242,35 @@ body:has(.pro-root) {
   font-size: 12px;
   color: #fff;
 }
+/* 4A-U10: the membership state on the avatar: green connected, amber waiting or signed out. */
+.pro-root .avatar {
+  position: relative;
+}
+.pro-root .avatar-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--panel);
+  background: var(--warn);
+}
+.pro-root .avatar-dot[data-state="ok"] {
+  background: var(--ok);
+}
+.pro-root .avatar-dot[data-state="denied"] {
+  background: var(--err);
+}
+.pro-root .menu .menu-note {
+  margin: 0;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .pro-root .btn {
   display: inline-flex;
   align-items: center;
@@ -1380,6 +1409,22 @@ body:has(.pro-root) {
   padding: 0 12px;
   border-top: 1px solid var(--line);
   flex: none;
+}
+/* 4A-U10: 预览静音 (M) sits at the right of the player controls; muted draws a slash. */
+.pro-root .ctrl .mute {
+  justify-self: end;
+}
+.pro-root .icon-btn.mute {
+  position: relative;
+}
+.pro-root .icon-btn.mute.on::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: rotate(-45deg);
 }
 .pro-root .tc {
   font: 12px var(--mono);

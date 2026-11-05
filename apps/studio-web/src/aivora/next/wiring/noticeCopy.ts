@@ -42,7 +42,7 @@ export const NOTICE_COPY: Readonly<Record<string, string>> = {
   VOICE_PREVIEW_PROGRESS: "正在试听…",
   VOICE_PREVIEW_STOPPED: "已停止试听。",
   VOICE_PREVIEW_UNAVAILABLE: "现在试听不了。",
-  SOUND_DISABLED: "预览是静音的，打开顶栏的声音再听。",
+  SOUND_DISABLED: "预览是静音的。按 M 或点预览上的喇叭打开声音。",
   DIALOGUE_REQUIRED: "先给这一镜写一句台词。",
   DURATION_LOCKED: "这一镜的时长是你定的，没有改。",
   DURATION_SPLIT_REQUIRED: "这句台词太长，建议拆成两个镜头。",
