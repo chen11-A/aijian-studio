@@ -3694,6 +3694,49 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("drags a card to another place in its scene, marks where it lands, and undoes (5-3-05)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const cards = () => [...document.querySelectorAll<HTMLElement>(".grid .card")];
+  // Shots are numbered by place, so the size on each card tells them apart.
+  const sizes = () => cards().map((card) => card.querySelector(".ct span")?.textContent);
+  const before = sizes();
+  expect(new Set(before.slice(0, 3)).size).toBe(3);
+  const carried: Record<string, string> = {};
+  const transfer = {
+    types: ["application/x-aivora-shot"],
+    effectAllowed: "",
+    dropEffect: "",
+    setData: (type: string, value: string) => {
+      carried[type] = value;
+    },
+    getData: (type: string) => carried[type] ?? "",
+  };
+  expect(cards()[0]).toHaveAttribute("draggable", "true");
+  fireEvent.dragStart(cards()[0]!, { dataTransfer: transfer });
+  expect(cards()[0]).toHaveClass("moving");
+  fireEvent.dragOver(cards()[2]!, { dataTransfer: transfer });
+  expect(cards()[2]).toHaveClass("move-after");
+  fireEvent.drop(cards()[2]!, { dataTransfer: transfer });
+  expect(sizes().slice(0, 3)).toEqual([before[1], before[2], before[0]]);
+  expect(cards()[2]).toHaveClass("sel");
+  expect(document.querySelector(".moving, .move-after, .move-before")).toBeNull();
+  expect(screen.getByText("已把镜头 1 挪到镜头 3 后面。Ctrl+Z 可以撤回。")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  expect(sizes()).toEqual(before);
+  // Back to the front, marked before the card it lands on.
+  fireEvent.dragStart(cards()[2]!, { dataTransfer: transfer });
+  fireEvent.dragOver(cards()[0]!, { dataTransfer: transfer });
+  expect(cards()[0]).toHaveClass("move-before");
+  fireEvent.drop(cards()[0]!, { dataTransfer: transfer });
+  expect(sizes().slice(0, 3)).toEqual([before[2], before[0], before[1]]);
+  // A card from another scene stays where it was.
+  carried["application/x-aivora-shot"] = JSON.stringify({ scope: "other:01", id: "x" });
+  fireEvent.drop(cards()[1]!, { dataTransfer: transfer });
+  expect(sizes().slice(0, 3)).toEqual([before[2], before[0], before[1]]);
+});
+
 it("right-clicks a card, a scene or a clip for the same things as 「更多」 (5-3-02)", async () => {
   installDesktop();
   await openSample();

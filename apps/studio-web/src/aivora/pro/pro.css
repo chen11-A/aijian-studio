@@ -3708,6 +3708,16 @@ body:has(.pro-root) {
 .pro-root .pb.grid.dropping .card.drop-over {
   outline: 2px dashed var(--accent);
 }
+/* 5-3-05: a card being dragged to another place; the bar beside a card is where it lands. */
+.pro-root .card.moving {
+  opacity: 0.45;
+}
+.pro-root .card.move-before {
+  box-shadow: -4px 0 0 var(--accent);
+}
+.pro-root .card.move-after {
+  box-shadow: 4px 0 0 var(--accent);
+}
 .pro-root .scene .t small.beat-flag {
   color: var(--warn);
 }

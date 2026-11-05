@@ -157,6 +157,7 @@ import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
 import { useStatusNotice } from "../next/wiring/statusNotice";
 import { useDismiss } from "../next/wiring/dismiss";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "../next/ContextMenu";
+import { SHOT_DRAG_TYPE, movedNotice, moveShotBy, readShotDrag } from "./shot-order";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
@@ -6263,6 +6264,10 @@ function BoardPage({
   // 3JR-U04: while an action is dragged the cards show where it can go.
   const [beatDrag, setBeatDrag] = useState(false);
   const [dropAt, setDropAt] = useState(-1);
+  // 5-3-05: a card dragged to another place in the scene; a bar shows where it will land.
+  const [movingId, setMovingId] = useState("");
+  const [moveOver, setMoveOver] = useState(-1);
+  const movingFrom = movingId ? shots.findIndex((item) => item.id === movingId) : -1;
   const placeBeat = (index: number, target: FilmShot) => {
     const beat = sceneBeats[index];
     if (!beat || target.sceneId !== activeSceneId || beat.sceneId !== activeSceneId) return;
@@ -6446,9 +6451,28 @@ function BoardPage({
                 "card",
                 index === shot ? "sel" : "",
                 beatDrag && dropAt === index ? "drop-over" : "",
+                item.id === movingId ? "moving" : "",
+                movingFrom >= 0 && moveOver === index && index !== movingFrom
+                  ? index < movingFrom
+                    ? "move-before"
+                    : "move-after"
+                  : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.setData(
+                  SHOT_DRAG_TYPE,
+                  JSON.stringify({ scope: sceneKey, id: item.id }),
+                );
+                event.dataTransfer.effectAllowed = "move";
+                setMovingId(item.id);
+              }}
+              onDragEnd={() => {
+                setMovingId("");
+                setMoveOver(-1);
+              }}
               // 4C-U05: the card's state is the label on its picture; who wrote it is in here.
               title={`镜头 ${item.no} · ${shotSource(item).label}`}
               onClick={() => onShot(index)}
@@ -6459,14 +6483,35 @@ function BoardPage({
                 cardMenu.open(event);
               }}
               onDragOver={(event) => {
+                if (event.dataTransfer.types.includes(SHOT_DRAG_TYPE)) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  if (moveOver !== index) setMoveOver(index);
+                  return;
+                }
                 if (!event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) return;
                 event.preventDefault();
                 if (dropAt !== index) setDropAt(index);
               }}
               onDragLeave={() => {
                 if (dropAt === index) setDropAt(-1);
+                if (moveOver === index) setMoveOver(-1);
               }}
               onDrop={(event) => {
+                const moving = readShotDrag(event.dataTransfer.getData(SHOT_DRAG_TYPE));
+                if (moving) {
+                  event.preventDefault();
+                  setMovingId("");
+                  setMoveOver(-1);
+                  // Only within the scene on show; a card from another scene or work stays.
+                  const from = shots.findIndex((other) => other.id === moving.id);
+                  if (moving.scope !== sceneKey || from < 0 || from === index) return;
+                  const was = shots[from]!;
+                  onFilm(moveShotBy(film, moving.id, index - from));
+                  onShot(index);
+                  onNotice(movedNotice(was.no, item.no, index < from));
+                  return;
+                }
                 const raw = event.dataTransfer.getData(BEAT_DRAG_TYPE);
                 if (!raw) return;
                 event.preventDefault();
