@@ -135,7 +135,7 @@ import {
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
-import type { UiNotice } from "../film/contracts3j";
+import type { SubtitleStyleId, UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
@@ -170,6 +170,8 @@ import { useAssistantKey } from "../next/wiring/assistantKey";
 import { videoLine } from "../next/shot";
 import { SoundPanel, type Mood } from "../next/SoundPanel";
 import { soundPanelData } from "../next/adapters/soundPanel";
+import { SubtitleStyle } from "../next/SubtitleStyle";
+import { subtitleStyleData } from "../next/adapters/subtitleStyle";
 import {
   AGE_BANDS,
   GENDERS,
@@ -3590,6 +3592,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ),
                     });
                   }}
+                  onSubtitleStyle={(styleId) => {
+                    // GPT's C5 adds the field to FilmProject and burns it in on export
+                    // (next/INTEGRATION.md, 字幕样式). Loading a work keeps it already.
+                    setFilm({ ...film, subtitleStyle: styleId } as FilmProject);
+                    setNotice({ code: "SUBTITLE_STYLE_SAVED", text: "已记下字幕样式。" });
+                  }}
                   onSceneVoice={(sceneId, db) => {
                     const ids = new Set(
                       film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
@@ -6933,6 +6941,7 @@ function EditPage({
   assistant = null,
   onSceneMood,
   onSceneVoice,
+  onSubtitleStyle,
   film,
   shot,
   onShot,
@@ -7003,8 +7012,14 @@ function EditPage({
   onSceneMood?: (sceneId: string, mood: Mood) => void;
   /** 4B-U01: the scene's voice level, written to its voice clips (gainDb). */
   onSceneVoice?: (sceneId: string, db: number) => void;
+  /** 4B-U03: 「用这个样式」, kept on the work for every subtitle. */
+  onSubtitleStyle?: (styleId: SubtitleStyleId) => void;
 }) {
-  const [monitor, setMonitor] = useState<"preview" | "sound">("preview");
+  const [monitor, setMonitor] = useState<"preview" | "sound" | "subs">("preview");
+  // 4B-U03: the style being looked at; 「用这个样式」 keeps it on the work.
+  const [subtitlePick, setSubtitlePick] = useState<string>(
+    (film as FilmProject & { subtitleStyle?: string }).subtitleStyle ?? "",
+  );
   // 4A-U11: Ctrl+J switches between 属性 and AI 助手.
   useAssistantKey(() => onTab(rightTab === "ai" ? "props" : "ai"));
   const [mediaTime, setMediaTime] = useState(0);
@@ -7022,6 +7037,10 @@ function EditPage({
   const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
+  const subtitleView = useMemo(
+    () => (monitor === "subs" ? subtitleStyleData(film, { value: subtitlePick }) : null),
+    [monitor, film, subtitlePick],
+  );
   // 4B-U01: the sound of the scene the shown shot is in; worked out only while it is shown.
   const sceneSound = useMemo(
     () => (monitor === "sound" && current ? soundPanelData(film, current.sceneId) : null),
@@ -7244,11 +7263,40 @@ function EditPage({
                 >
                   声音
                 </button>
+                <button
+                  type="button"
+                  className={monitor === "subs" ? "on" : ""}
+                  onClick={() => {
+                    onPlaying(false);
+                    setMonitor("subs");
+                  }}
+                >
+                  字幕
+                </button>
               </div>
               <span className="meta">{film.title}</span>
               <span className="sp" />
             </div>
-            {monitor === "sound" ? (
+            {monitor === "subs" ? (
+              // 4B-U03: the subtitle look, on a landscape and a portrait frame; the portrait one
+              // keeps the line above the area the platforms cover with their buttons.
+              <div className="pb sound-pane">
+                {subtitleView?.ok ? (
+                  <SubtitleStyle
+                    {...subtitleView.props}
+                    value={subtitlePick}
+                    onChange={setSubtitlePick}
+                    onApply={(styleId) => onSubtitleStyle?.(styleId as SubtitleStyleId)}
+                  />
+                ) : (
+                  <p className="role-desc">
+                    {subtitleView
+                      ? `${subtitleView.empty.title}。${subtitleView.empty.detail}`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            ) : monitor === "sound" ? (
               <div className="pb sound-pane">
                 {sceneSound?.ok ? (
                   <SoundPanel

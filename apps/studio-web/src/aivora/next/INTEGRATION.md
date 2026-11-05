@@ -443,6 +443,8 @@ takePickerData(film, shot.id, { mediaUrl: fileMediaUrl });
 
 ## 5. SubtitleStyle
 
+**4B-U03 已接（claude/work）**：剪辑页中间栏「预览 | 声音 | 字幕」的「字幕」，横屏和竖屏两个画面一起看，竖屏把字排在平台按钮那块上面（组件里标出「平台的按钮和标题会挡住这里」）。点选只是预览；「用这个样式」把 id 写进作品的 `subtitleStyle`（`white` / `bar` / `yellow` / `film`），状态栏「已记下字幕样式。」（界面自己的提示码 `SUBTITLE_STYLE_SAVED`）。`upgradeFilm` 是 `...value` 展开，所以这个字段读写作品时已经留得住；GPT 在 C5 把它加进 `FilmProject` 的类型、定下没选时的默认值、导出时按它烧字幕（下面第 1、2、4 条）。轨头没有另加入口（4A-U10）。
+
 **放在哪**
 
 - 剪辑页中间那一栏（约 700×450）。从时间线「字幕」轨头（:6145）点「字幕样式」，换掉预览。

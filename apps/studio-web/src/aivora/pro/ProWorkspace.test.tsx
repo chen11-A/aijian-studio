@@ -3359,6 +3359,25 @@ it("opens the scene's sound in place of the preview on 剪辑 (4B-U01)", async (
   expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
 });
 
+it("picks a subtitle style on 剪辑 and keeps it on the work (4B-U03)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  fireEvent.click(screen.getByRole("button", { name: "字幕" }));
+  // Landscape and portrait at once; the portrait one marks where the platform buttons sit.
+  expect(screen.getByText("平台的按钮和标题会挡住这里")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("radio", { name: /醒目黄字/ }));
+  fireEvent.click(screen.getByRole("button", { name: "用这个样式" }));
+  expect(await screen.findByText("已记下字幕样式。")).toBeInTheDocument();
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      (FilmProject & { subtitleStyle?: string }) | undefined;
+    expect(saved?.subtitleStyle).toBe("yellow");
+  });
+  fireEvent.click(screen.getByRole("button", { name: "预览" }));
+  expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();
