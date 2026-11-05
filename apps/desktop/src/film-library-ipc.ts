@@ -6,6 +6,8 @@ import {
 } from "./film-export";
 import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { extractFilmLastFrame } from "./film-last-frame";
 import { dirname, join, resolve } from "node:path";
 import {
@@ -354,14 +356,23 @@ export function registerFilmLibraryHandlers<TEvent>(
     const source = trustedMediaPath([host.filmsRoot(), host.storyFilmsRoot()], args[0]);
     if (!source.toLowerCase().endsWith(".mp4")) throw new Error("Invalid film path");
     const options = filmExportOptions(args[3]);
-    // The cover's picture must be one of the work's own saved stills.
+    // The cover's picture must be one of the work's own saved stills, or a picture the
+    // renderer still holds as a data URL (saved to a temporary folder for this export only).
     let coverStill: string | undefined;
+    let coverFolder = "";
     if (options.cover?.still) {
+      const raw = options.cover.still;
       try {
-        coverStill = trustedMediaPath(
-          [host.filmsRoot(), host.storyFilmsRoot()],
-          mediaUrlPath(options.cover.still),
-        );
+        if (/^data:image\//i.test(raw)) {
+          coverFolder = await mkdtemp(join(tmpdir(), "aivora-cover-"));
+          const saved = await prepareVoiceFile(coverFolder, raw);
+          coverStill = saved && saved !== raw ? saved : undefined;
+        } else {
+          coverStill = trustedMediaPath(
+            [host.filmsRoot(), host.storyFilmsRoot()],
+            mediaUrlPath(raw),
+          );
+        }
       } catch {
         coverStill = undefined;
       }
@@ -387,6 +398,7 @@ export function registerFilmLibraryHandlers<TEvent>(
       );
     } finally {
       if (options.requestId) exportsInProgress.delete(options.requestId);
+      if (coverFolder) await rm(coverFolder, { recursive: true, force: true });
     }
     exported.add(realpathSync(destination));
     return { ok: true, path: destination, ...extras };

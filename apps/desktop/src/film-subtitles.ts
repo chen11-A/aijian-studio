@@ -359,7 +359,10 @@ export function validCover(value: unknown): ExportCover & { still?: string } {
     !text(cover.subtitle) ||
     typeof cover.aiMark !== "boolean" ||
     (cover.still !== undefined &&
-      (typeof cover.still !== "string" || cover.still.length > 4096 || cover.still.includes("\0")))
+      (typeof cover.still !== "string" ||
+        cover.still.includes("\0") ||
+        // A saved still's path or media URL, or a picture still held in memory as a data URL.
+        cover.still.length > (/^data:image\//i.test(cover.still) ? 30_000_000 : 4096)))
   )
     throw new Error("EXPORT_OPTIONS_INVALID");
   return {

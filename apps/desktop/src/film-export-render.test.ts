@@ -334,6 +334,22 @@ describe("4B-B09 IPC: export extras, cover picture and shot durations", () => {
     expect(calls[0]!.join(" ")).toContain("color=c=0x0e1014");
   });
 
+  it("uses a still held as a data URL for this export only", async () => {
+    const { root, story, calls, handlers } = host();
+    const source = join(story, "take.mp4");
+    writeFileSync(source, "video");
+    const png = `data:image/png;base64,${Buffer.from("\x89PNG\r\n\x1a\nfake").toString("base64")}`;
+    await handlers.get("film:export")!(true, source, root, "c", {
+      canvas: "16:9",
+      quality: "720p",
+      cover: { title: "晚照书店", subtitle: "", aiMark: false, still: png },
+    });
+    const picture = calls[0]![calls[0]!.indexOf("-i") + 1]!;
+    expect(picture).toMatch(/aivora-cover-.*\.png$/);
+    // The temporary copy is gone after the export.
+    expect(existsSync(picture)).toBe(false);
+  });
+
   it("returns how long each shot lasts in the joined film", async () => {
     const { films, story, handlers } = host({
       probeDuration: async (path) => (path.endsWith("a.mp4") ? 2.5 : 3),
