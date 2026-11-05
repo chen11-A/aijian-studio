@@ -51,3 +51,24 @@ web唯一失败为 `next/wiring/noticeCopy.test.ts > has a line for every code G
 当前四分钟保证的范围：客户端同一场请求、重试、补尾/补充共用240秒截止，信号传递、停止继续等待并屏蔽迟到结果；普通JavaScript计时器仍受事件循环调度影响，不能承诺硬实时，也不能承诺远端供应商已停止执行或会员一定在四分钟内成功生成。真实成功耗时、出图人物/场景正确性及19条动作分配仍需用户实际工程/回复和登录会员环境；小说并不缺失。
 
 本轮证据：/workspace/jr-b01-video-final.log（31通过）、jr-b08-pipeline-final.log（15通过）、jr-b09-retry-verified.log（17通过）、jr-b09-host.log（3通过/96未选）、jr-runtime-types-final.log（通过）、jr-runtime-lint.log（通过）、jr-runtime-format.log（通过）。没有把定向测试冒充当前全量。B02/B03/B04/B05/B06/B07/B10的提交与未完成边界仍见上表，B18/B19本轮已修代码保持。尚未整合Claude或阶段发版。
+
+## 多角色配音最终固定检查（0dd16fc）
+
+后续96183e9仅补文档，源代码保持不变。
+
+| 检查                | 结果                                                         | 日志                                                                  |
+| ------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| 完整web             | 4300通过、1失败、0跳过；331文件，367.56秒                    | /workspace/jr-dialogue-final-web.log                                  |
+| 覆盖率              | 语句90.97%、分支87.39%、函数92.92%、行93.54%，未报告门槛失败 | 同上及apps/studio-web/coverage/coverage-summary.json                  |
+| TypeScript          | 全仓通过                                                     | /workspace/jr-dialogue-final-types.log                                |
+| ESLint/Prettier     | 全仓通过                                                     | /workspace/jr-dialogue-final-eslint.log、jr-dialogue-final-format.log |
+| desktop相关         | 64通过、0失败/跳过                                           | /workspace/jr-dialogue-desktop.log                                    |
+| Python媒体/逐句配音 | 37通过、0失败                                                | /workspace/dialogue-audio-full.log                                    |
+| Python编导/来源     | 12通过、0失败                                                | /workspace/jr-dialogue-agents.log                                     |
+| ruff/mypy           | 全仓通过；mypy310文件                                        | /workspace/jr-dialogue-ruff.log、jr-dialogue-mypy.log                 |
+
+web唯一失败是NOTICE_COPY完整性检查，缺103条：Claude已交付未整合的101条，加LOCATION_SOURCE_REQUIRED及MULTI_VOICE_PROVIDER_REQUIRED两条新增兜底。没有删除或弱化检查。整体仍exit1，不标阶段全绿。Python与desktop是相关回归而非本轮全量；37与12两组文件不重叠。
+
+首轮边修改边运行的诊断快照4291通过/10失败保留在jr-dialogue-web-full.log，包含美术事务未允许voiceDefault及默认选声断言与实现加载时机不一致的问题。美术事务已在0dd16fc修复并补撤销回归；随后固定代码完整重跑，仅余上述文案缺口。不会将其归为旧问题，也不将不同范围的通过数拼接。
+
+B01已实现真实的多角色逐句配音生产链，不再仅靠拒绝多说话人回避压缩。Python端到端用了真实本地FFmpeg与TTS替身，会员及音质/画面效果未实测。21镜交替对白压至16的回归保留每句人物、声音、动作及尾段；已有素材/手改/不可合并时仍保留内容并明确超限，不伪报任何输入都已达16。B05未知年龄采用带casting-default来源的临时声音，年龄事实保持未知，需要用户确认；默认值不是原文事实。
