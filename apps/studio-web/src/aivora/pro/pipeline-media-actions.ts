@@ -3,6 +3,7 @@ import {
   makeLocationReferences,
   sceneLocationTargets,
 } from "../film/location-reference";
+import { prepareShotSceneReferences } from "./actions/scene-references";
 import { withStyleBible } from "../film/style-bible";
 import type { ProductionResult } from "../film/production-pipeline";
 import type { FilmProject } from "../film/project";
@@ -92,7 +93,14 @@ export async function makePipelineStill(
   const shot = film.shots.find((item) => item.id === shotId);
   if (!shot || !valid(context)) return stale();
   try {
-    await ensureShotFrame(film, shot, {
+    const ready = await prepareShotSceneReferences(film, [shot], {
+      current: context.current,
+      valid: () => valid(context),
+      apply: context.commitPartial,
+    });
+    const currentShot = ready.shots.find((item) => item.id === shot.id);
+    if (!currentShot || !valid(context)) return stale();
+    await ensureShotFrame(ready, currentShot, {
       current: context.current,
       valid: () => valid(context),
       apply: context.commitPartial,

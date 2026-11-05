@@ -119,6 +119,13 @@ it("retains the portrait queue's single retry and never marks a failed angle don
 
 it("waits for the still's durable write before reporting success", async () => {
   const { film, context } = fixture();
+  const place =
+    sceneLocationTargets(film).find((item) => item.sceneId === film.shots[0]!.sceneId) ??
+    sceneLocationTargets(film)[0]!;
+  await makePipelinePortraits(film, `location:${place.id}`, context, async () => ({
+    url: "/media/location.png",
+    reason: "",
+  }));
   vi.mocked(requestShotStill).mockResolvedValueOnce({
     url: "https://example.invalid/still.png",
     reason: "",
@@ -225,4 +232,36 @@ it("never completes failed or cancelled location generation", async () => {
   });
   expect(result).toMatchObject({ status: "uncertain", code: "PIPELINE_REQUEST_STALE" });
   expect(context.current().locations[0]!.referenceImage).toBeUndefined();
+});
+
+it("refreshes a missing pipeline scene before requesting a shot image", async () => {
+  const { film, context } = fixture();
+  film.locations = [];
+  const previous = window.aijian;
+  const generate = vi.fn(async () => ({ path: "/media/pipeline-scene.png", reason: "" }));
+  window.aijian = { generateFilmStill: generate } as unknown as Window["aijian"];
+  vi.mocked(requestShotStill).mockImplementationOnce(async (ready) => {
+    const { firstFrameReferences, storyFilmBatches } = await import("../film/operations");
+    const shot = ready.shots[0]!;
+    expect(firstFrameReferences(ready, shot)).toContain(
+      "aivora-media://local/?path=%2Fmedia%2Fpipeline-scene.png",
+    );
+    expect(storyFilmBatches(ready, [shot], false)[0]!.shots[0]!.references).toContain(
+      "aivora-media://local/?path=%2Fmedia%2Fpipeline-scene.png",
+    );
+    return {
+      url: "/media/shot.png",
+      reason: "",
+      diagnostics: { referenceCount: 1, imageLimit: 5, videoReferenceLimit: 13 },
+    };
+  });
+  try {
+    expect(await makePipelineStill(film, film.shots[0]!.id, context)).toMatchObject({
+      status: "done",
+    });
+    expect(generate).toHaveBeenCalledOnce();
+    expect(context.current().locations[0]!.referenceImage).toContain("pipeline-scene.png");
+  } finally {
+    window.aijian = previous;
+  }
 });
