@@ -151,3 +151,18 @@
 .nx-root .nx-takes-foot {
   flex: none;
 }
+
+/* 4A-U03: a take's video fills its frame like the still did. */
+.nx-root .nx-frame > video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nx-root .nx-takes-play {
+  height: 26px;
+  margin-left: auto;
+  padding: 0 10px;
+  font-size: 12px;
+}

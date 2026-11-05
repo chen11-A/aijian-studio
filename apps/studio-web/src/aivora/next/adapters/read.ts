@@ -24,6 +24,8 @@ export type ProjectTake = {
   status: FilmTake["status"];
   stillUrl: string;
   videoPath: string;
+  /** Set by the desktop app once the video is saved; empty before. */
+  videoUrl: string;
   reason: string;
   createdAt: string;
 };
@@ -133,6 +135,7 @@ function readTake(row: Row, path: string, missing: string[]): ProjectTake | null
     status,
     stillUrl: text(row.stillUrl),
     videoPath: text(row.videoPath),
+    videoUrl: text(row.videoUrl),
     reason: text(row.reason),
     createdAt: text(row.createdAt),
   };

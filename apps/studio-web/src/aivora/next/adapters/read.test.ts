@@ -93,6 +93,7 @@ describe("readProject", () => {
         status: "done",
         stillUrl: "",
         videoPath: "",
+        videoUrl: "",
         reason: "",
         createdAt: "",
       },

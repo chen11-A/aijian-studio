@@ -17,11 +17,9 @@ export function SandboxMediaTaskDesk() {
   const busy =
     task?.status === "queued" || task?.status === "running" || task?.status === "unknown";
   return (
-    <section className="v2-utility-card sandbox-desk" aria-label="媒体任务沙箱">
+    <section className="v2-utility-card sandbox-desk" aria-label="生成任务演示">
       <h2>媒体任务</h2>
-      <p>
-        提交、查询和取消都只发生在这台电脑上。不访问供应商，不下载文件，不产生费用，也不预留预算或派发任务。
-      </p>
+      <p>这里的按钮只在这台电脑上演示，不会真的生成，也不花钱，不预留预算。</p>
       <CurrentModelLink capability="VIDEO" />
       <p role="status">
         状态：{task?.status ?? "还没有提交"}
@@ -58,15 +56,15 @@ export function SandboxVoicePlan() {
   const [consent, setConsent] = useState(false);
   const [notice, setNotice] = useState("");
   return (
-    <section className="v2-utility-card sandbox-desk" aria-label="配音方案沙箱">
+    <section className="v2-utility-card sandbox-desk" aria-label="配音演示">
       <h2>配音方案</h2>
       <div className="sandbox-body">
-        <p>声线、试听和生成先在沙箱里走通。没有音频文件，不做口型，也不计费。</p>
+        <p>这里先演示怎么选声音、试听和生成配音：不会真的出声音，不对口型，也不花钱。</p>
         <details>
           <summary>声音和成片怎么配合</summary>
           <p>
-            声音页与成片组装使用同一本集剪辑版本。选择真实本地录音，可绑定保存剧本的对白、裁剪与另存版本。声线授权、语音生成、对白内容核验和口型同步尚未接通。草稿
-            绑定不证明录音说出了该句对白。
+            声音页和成片用的是同一个剪辑版本。可以选电脑上的录音，配到剧本里的某一句台词上，再剪短或另存一版。声音授权、生成配音、核对台词和对口型都还没接上。
+            配上去不代表录音里说的就是这句台词。
           </p>
         </details>
         <CurrentModelLink capability="SPEECH" />
@@ -85,7 +83,7 @@ export function SandboxVoicePlan() {
             checked={consent}
             onChange={(event) => setConsent(event.target.checked)}
           />
-          我确认这段声线只用于当前作品的沙箱预览，不代表已获得克隆或商用授权
+          我确认这个声音只在这部作品的演示里用，这不代表可以拿去仿制或商用
         </label>
       </div>
       <div className="sandbox-actions">
@@ -115,8 +113,8 @@ export function FormalDeliveryChecklist() {
     ["正式成片", "未完成。草稿文件不能当作正式成片。"],
   ];
   return (
-    <section className="v2-utility-card delivery-checklist" aria-label="正式交付清单">
-      <h2>正式交付清单</h2>
+    <section className="v2-utility-card delivery-checklist" aria-label="发布前要做的检查">
+      <h2>发布前要做的检查</h2>
       <p>这些是成片交付还要经过的检查。当前每一项都还没完成。</p>
       <ul>
         {items.map(([title, detail]) => (
@@ -134,7 +132,7 @@ export function ChangeCostNotice({ onOpenCosts }: { onOpenCosts: () => void }) {
   return (
     <section className="v2-utility-card delivery-checklist" aria-label="修改费用提示">
       <h2>修改费用</h2>
-      <p>这次修改要花多少还不知道。没有记下来的金额不能当成 0，这里也不会估一个价。</p>
+      <p>这次修改要花多少还不知道。没记下的费用不等于 0，这里也不替你估价。</p>
       <div className="sandbox-actions">
         <Button onClick={onOpenCosts}>查看作品用量</Button>
       </div>

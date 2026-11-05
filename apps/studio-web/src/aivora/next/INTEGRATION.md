@@ -558,6 +558,138 @@ coverEditorData(film, { mediaUrl: fileMediaUrl });
 - 「打开示例」：内置的 `sampleFilm()` 只有剧本和分镜，没有画面，所以只放一行小字并写明。GPT 将来内置有画面的示例作品（4B-U08）时再做成大入口。
 - 要 GPT 配合：`oneClickFilm` 改成读 `filmRef.current` 或接受作品参数，首页就不用等一次 effect。
 
+## 一键成片步骤条和检查点（4A-U01）
+
+- 组件：`next/PipelineSteps.tsx`，只收 props，放在顶栏和工作区之间一条（`.app.with-pipeline` 多一行）。一键成片在跑、停在分镜或有要处理的事时才出现。
+- props 按 GPT 4a 的 `pipelineView(film)`（`pro/pipeline-view.ts`）的形状写，`ready` 那一支可以直接传：`steps`（含 `targets`）、`status`→`overall`、`checkpoint`、`busy`、`canContinue`、`canAcceptReview`。
+- 显示：
+  - 十一步按 `id` 写中文名（编剧、美术、定妆照、导演、动作、表演、画面说明、出图、审片、视频、合成成片），不显示 GPT 的 `label`，也不显示内部 id。
+  - 状态各有说法：正在做、✓、「✓ 人工确认」（`accepted`，和自动做完分开）、没做完、卡住了、等你确认、结果不确定。
+  - 「要处理的 N 件事」点开：没做完、卡住、结果不确定的目标逐个列出，名字用 `next/adapters/pipelineNames.ts`（「林晚 · 正面」「第 2 场第 6 个镜头」「场景「巷口」」），原因按 code 走 NOTICE_COPY。
+  - 检查点写「N 个镜头 · 约 S 秒 · 约需 R 次生成 · 用会员额度」，`estimatedRequests` 说成估计，不说成会出几段视频；漏拍的结尾、台词和风险（block 红、manual 黄、info 灰）也在列表里。
+- 操作，每样都是单独一下：
+  - 「重试这一项」只出现在 `retryable` 的目标上，调 `onRetryTarget(stepId, targetId, outcomeConfirmed)`；`requiresOutcomeConfirmation` 的要先勾「我核对过，上次没有做成（重试会再用一次额度）」。
+  - 人工审片：`canAcceptReview` 时有一个输入框，写了一句结论才能点「记下审片结论」，调 `onAcceptReview(reason)`；写明「审片还不会自己看画面」，不出 AI 分数。
+  - 「继续生成」是唯一的主按钮，只在 `canContinue` 时能点；不能点时写原因（先补结尾 / 先处理标红的问题 / 先写审片结论 / 还有东西在做）。
+  - `busy` 时有「取消」，调 `onCancel()`；`overall="cancelled"` 时写「已取消，做好的都留着。」
+- 本分支（3j-r1）只有旧的一键成片：步骤读 `film.pipeline.steps`，检查点用旧流程停在分镜（`oneClickReady`）时的镜头数和秒数，「继续生成」还是旧的 `queueBatch`。这只是旧流程的显示，整合 `gpt/work-4a` 时换成下面这样，不要保留旧的：
+
+```tsx
+const view = pipelineView(film);
+{
+  view.kind === "ready" ? (
+    <PipelineSteps
+      steps={view.steps}
+      overall={view.status}
+      checkpoint={view.checkpoint}
+      busy={view.busy}
+      canContinue={view.canContinue}
+      canAcceptReview={view.canAcceptReview}
+      onContinue={() => void pipelineWorkspace.continue().catch(showPipelineError)}
+      onAcceptReview={(reason) =>
+        void pipelineWorkspace.acceptReview(reason).catch(showPipelineError)
+      }
+      onRetryTarget={(step, target, confirmed) => {
+        const key = pipelineRetryKey(film, step as ProductionStepId, target, confirmed);
+        if (key) void pipelineWorkspace.retry([key]).catch(showPipelineError);
+      }}
+      onCancel={() => void pipelineWorkspace.cancel()}
+      targetName={(_, id) => pipelineTargetName(film, id)}
+      sceneName={(id) => pipelineSceneName(film, id)}
+    />
+  ) : null;
+}
+```
+
+`showPipelineError` 用现有的 `emitNotice` 发 code，不把 `Error.message` 原样显示。`view.kind === "invalid"` 时按 code 在状态栏说一句，不画假的进度。首页和剧本页的「一键成片」等交互齐了再换成 `pipelineWorkspace.start()`，不要两套同时启动。
+
+## 画风卡（4A-U02）
+
+- 位置：角色与场景页中间那栏最上面，「整部作品的画风」：画风预设下拉（还叫「画风」）加一段可改的「画风说明」（就是 `film.styleZh`）。从每个角色的表单里挪出来（也是 UIR-15 的一部分）。
+- 改画风仍走 `onFilm({...film, styleZh})`：GPT 4a 的 `setFilm` 看到 `styleZh` 变了会走 `setFilmStyle`，记版本、标镜头，界面不另写一套。
+- 「已有 N 个镜头是按原来的画风做的，要重新生成才会变。」读 GPT 存的 `shot.regenerationRequired`（`next/adapters/restyle.ts` 的 `needsRestyle`），只数已经出过画面或视频的镜头；分镜卡上同样的镜头标「画风变了」。关掉软件再开也还在。
+- 本分支（基于 3j-r1）的类型里还没有这个字段，所以按可选字段读；整合 `gpt/work-4a` 以后不用改代码。
+
+## 多选一接线（4A-U03）
+
+- 单镜页：大预览不动，下面原来的一排版本按钮换成 TakePicker（`takePickerData(film, shot.id, { mediaUrl: fileMediaUrl })`），选了调原来的 `choose(takeId)`。
+- 剪辑页「对比」：并排的 `<video>` 换成同一个 TakePicker，选了调新加的 `onChooseTake(shotId, takeId)`（改 `selectedTakeId`，状态栏「已换成这一版」）。「保留旧版」「用新版替换」先留着，合成一个入口归 4A-U10。
+- TakePicker 加了 `videoUrl`：做好的版本放视频（静帧当封面），两个以上有视频时出「一起播放」，从头同时播、不出声，方便对同一个时刻。画幅跟作品走。
+- 要 GPT 配合：`aiChoiceId`（AI 选的版本）和每个版本的看图审片结论（`verdict`、`notes`），给了才会出「AI 选的，可换」和结论标签。现在都没有，所以不显示。
+
+## 任务中心抽屉（4A-U04）
+
+- 「后台生成」打开的任务中心改成抽屉：从状态栏左上方弹出（最宽 940、最高 560），不再盖住整个工作区；按 Esc 或在抽屉和状态栏按钮以外按下就关（`useDismiss`，`data-menu="queue"`）。
+- 每条任务右键：能停的写「停止」（在做）或「移出队列」（排队），失败或没发出去的写「重试」，都有「看详情」；只出这条任务做得了的，调原来的 `onRemove` / `onRetry`。
+- 详情里加一条「排队 → 发给 Grok → 生成 → 存好」，只按任务状态画，停在哪一段就在那一段写「没做成」「不知道做成没有」「没有发出去」；软件看不到 Grok 做到哪里，所以不画假的百分比。
+- `next/wiring/dismiss.ts` 和 `d894dc3`（3J-U18）里那一份一字不差，整合时不会冲突。
+- 要 GPT 配合：如果以后能拿到每段的时间（发出、开始生成、存好），`TaskItem` 加上就能在这一条上写时间。
+
+## 场记提醒（4A-U05）
+
+- 分镜卡缩略图右上角一个小黄点（悬停看全文），点卡片以后属性栏最上面一块「场记提醒」逐条写白话说明。
+- 读 `shot.continuity`（C13），`next/adapters/continuity.ts` 的 `continuityNotes`：3j-r1 是一条、`gpt/work-4a` 是一组，两种都认；按 kind 写标题（外貌没写进这一镜、道具前后对不上、看的方向反了、人物左右换了边、和上一镜接不上），认不得的 kind 写「场记提醒」，不露 id。
+- GPT 的 4A-B07 在 `setFilm` 里跑场记检查并写这个字段，界面只读不算。
+
+## 定妆照四角度（4A-U06）
+
+- 角色页右栏：正面一张大图在上，侧面、背面、脸部三张小图在下，中间一句「侧面、背面、脸部按正面这张改出来，脸和衣服跟正面一样。」
+- 这句话在 `gpt/work-4a` 上成立（4A-B03：`portrait-workflow` 没有正面图就不出别的角度，别的角度都拿正面图当参考）。本分支的 3j-r1 逻辑还是各出各的，所以这个界面要和 4A-B03 一起合，不能单独发。
+
+## 画幅（4A-U07）
+
+- 新建：首页「从空白开始」「一键成片」下面一行选「横屏 16:9（默认）/ 竖屏 9:16」（3J-U13 已做）。
+- 预览：`.pro-root` 带 `data-aspect`（作品的画幅；旧作品没有这个字段按竖屏）。竖屏作品的单镜大预览、剪辑预览、分镜属性里的小预览都按 9:16 的框；分镜卡、素材栏、版本这些缩略图格子不变，画面整张放进去、不裁。
+- 导出：对话框加「比例」：作品的画幅 / 另一种（从画面中间裁）/ 两种都要。只在桌面版带着 `cancelFilmExport`（和双画幅导出同一个提交 `9cf4ece` 加的）时才出现，所以 3j-r1 的桌面版看不到这个选项。
+- 要 GPT 配合（整合时）：导出处理读 `exportAspects`（"work" | "other" | "both"），按它调 `exportFilmTask(base, paths, dir, host, { aspectRatio })`，「两种都要」调两次（`-16x9.mp4`、`-9x16.mp4`）；导出完成后的「打开文件夹 / 播放」指向第一份。
+
+## 文案表替换（4A-U08）
+
+- 界面这边按 `docs/design/copy-zh.md` 换完，进度和还在 GPT 那边的 50 条清单写在那份文件的「4A-U08 进度」一节。
+- 按钮改名会影响 GPT 的提示和测试：「写入分镜」→「放进分镜」、「放入剧本」→「放进剧本」、「已写入」→「已放进去」、「让编剧写」→「让编剧分场」、「写英文提示词」→「写英文画面说明」。本分支已改 `ProWorkspace.test.tsx` 和 `e2e/p3j-regression.mjs` 里按这些名字找按钮的地方；GPT 处理函数里「点「写入分镜」才会写入」这类句子要在 4A-B11 ① 里一起改。
+- 渲染部分里几处 `setNotice("…")` 改成了 `setNotice({ code, text })`（作品设置说明 EDITOR_GUIDANCE、换构图 COMPOSITION_SELECTED、暂停 GENERATION_PAUSED、取消 GENERATION_CANCEL_REQUESTED、会员用不了 ENTITLEMENT_DENIED），这样不用改 `film/notices.ts` 按字面认 code 的规则，显示走 NOTICE_COPY。
+- `e2e/layout-audit.mjs` 的术语黑名单加了：模型、接口、提示词、离线、写入、画面自带、单独配音。GPT 那边的句子换完以前，这个检查会报出它们。
+
+## 一屏一个主按钮（4A-U09）
+
+- 顶栏「导出成片」由 `next/adapters/primaryAction.ts` 的 `exportLead(film, stage, focused)` 决定样子：平时普通按钮；在剪辑页、或者所有镜头都有选定的视频时变成主按钮（剪辑页选了一段或在对比时，让那一段的「重新生成」「用新版替换」当主按钮）；一个能导出的视频都没有时变灰，旁边灰字「还没有视频可导出」（`aria-describedby`）。点灰的按钮仍会打开导出对话框，里面按场列出还缺哪些镜头，这就是原因说明。
+- 导出成为主按钮时，各页把自己的主按钮降成普通按钮（`quiet`）。
+- 各页的主按钮：剧本「让导演拆镜头」，每一场有字的都拆好镜头后换成「下一步：角色与场景」；角色与场景「给所有人出定妆照」，每个人外貌和四张定妆照都齐了换成「下一步：分镜」；分镜「生成这一场」，属性栏底部那个（生成画面 / 生成视频）改普通按钮，镜头都有视频后多一个普通的「下一步：剪辑」；单镜「生成 N 个版本」。判断「这一页做完了」用 `next/adapters/stageProgress.ts`（9d89db8 的做法，按新规矩改了分镜页）。
+- 助手卡里的「放进分镜」「按意见重做这一镜」改成描边强调色（`.btn.accent`），不算实心主按钮。
+- 布局检查每个工作区页面都数一次：对话框以外看得见的 `.btn.primary` 最多一个。
+- GPT 接 `pipelineView` 以后，检查点上的「继续生成」（`nx-primary`）出现时，分镜页的「生成这一场」也应降成普通按钮：传 `quiet={exportView.lead || pipelineAtCheckpoint}`。
+
+## 助手建议卡（4A-U11，要 4A-B11 ④）
+
+- 新组件 `SuggestionCard`（`next/SuggestionCard.tsx`，示例页「助手建议」）：标题「现在 6 个 → 建议 4 个」（没有镜头时「建议拆成 4 个镜头」，分场写「现在 3 场 → 建议 4 场」），下面一行「改了 2 · 删掉 2」，每行标「新增 / 改了 / 删掉」，改了的行下面灰字「原来：…」，删掉的行划掉。按钮「放进分镜 / 放进剧本」「换一个」「不要」；放进去以后卡片写「已放进去。」加「撤销」。没有建议时整张卡不画，不再出现「还没有建议 0 条」。
+- 「放进」用描边的强调色，不是实心蓝，这样一页仍只有一个实心主按钮（4A-U09）。
+- 差别现在由界面按文字算（`adapters/suggestionDiff.ts`：一字不差的行保持位置；两段相同之间，读起来像的一对算「改了」，其余算「删掉」和「新增」）。GPT 给了自己的差别就传 `rows`，组件直接用，不再自己算。
+- GPT 在 `gpt/work-4a` 上已经有 4A-B11 ④ 的底子（`pro/actions/editor-changes.ts`、`editor-structure.ts`、`page-history.ts`），整合时这样对上：
+  - 字段改动 `diffEditorSuggestion(current, proposed, selection).changes`：同一个镜头（`target.id`）有改动的，算一行 `{ kind: "changed", item: 改后, before: 改前 }`；
+  - 增删镜头 `diffEditorStructure(...)`：新增的算 `added`，拿掉的算 `removed`；没动的算 `same`；
+  - 拼好的 `rows` 传给 `SuggestionCard`，界面就不再按文字自己猜。
+- 三个按钮的回调：
+
+```ts
+onApply   // 原来的 onApply / onApplyScenes（gpt/work-4a 上是 applyStoryConfirmation 那一套）
+onAnother // 同一位助手、同一个范围再出一版，现在的镜头不动：重发上一句话
+onReject  // 丢掉这条建议，现在的镜头不动：setPending(null)（分场时 setPendingScenes(null)）
+onUndo    // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(film, selection)
+          // （createEditorPageHistory，按页记），claude/work 上先接 undoEdit
+```
+
+- 在整合以前，接线方式（等 3J-U18–U22 推完再改 `Assistant` 的渲染）：`current` 用这一场现在的镜头，`proposed` 用 `pending`（或分场时的 `pendingScenes`），其余如上。
+
+## 一件事一个入口（4A-U10，要 4A-B11 ③）
+
+- 撤销 / 重做只留顶栏一组（提示写快捷键 Ctrl+Z / Ctrl+Shift+Z），剧本工具栏和剪辑时间线上的两组拿掉，`ScriptPage`、`EditPage` 的 `onUndo` / `onRedo` 也删了。
+- 登录只留头像：顶栏「未登录 / Grok 会员 · 已连接」小标签拿掉；头像右下角一个小圆点（绿 = 已连接，橙 = 没登录或在等浏览器或要重新登录，红 = 这个会员用不了生成），悬停和账号菜单第一行写同一句话。登录、取消登录、退出都在账号菜单里。
+- 声音：顶栏「声音开 / 关」拿掉，单镜页版本区标题栏和剪辑页播放器右边各一个「预览静音 (M)」，按 M 在哪一页都能切（输入框里不算）。仍是原来的 `soundOn`。GPT 处理函数里「声音关着。打开顶栏的声音再试听。」改成「声音关着。按 M 打开声音再试听。」（还认 SOUND_DISABLED），NOTICE_COPY 同步。
+- 出视频只有一个入口：剪辑页时间线选段条上只留一个「重新生成」，一个镜头时打开这一镜的单镜面板（`setBench(true)` + `setStage("board")`，在那里出版本、用 TakePicker 选），选了几个镜头时按原来的「只重做这一段」排进确认表。拿掉：选段条上的「改描述」「只重做这一段」，属性里的「回到分镜重新生成」，「修改这一段」里重复的四个磁贴和「生成新版本」（描述框留着）。
+- 对比只用 TakePicker 选版本：「保留旧版」「用新版替换」拿掉，换成「关掉对比」；原来 `onReplace` 的逻辑由 `onChooseTake` 代替。
+- `fixAction` 状态现在没人读，只留 setter（`const [, setFixAction]`），`runAction` 不用改。
+- 要 GPT 提供（4A-B11 ③）：按当前页面分派的撤销。`gpt/work-4a` 的 4b3cc81 已经有了（`createEditorPageHistory()` 的 `undo / redo / canUndo / canRedo`，按 `{ projectId, page }` 分开记，page 是 script / cast / board / edit），顶栏这一组整合后调它，`page` 用当前页签（单镜页算 board）。整合以前顶栏接现在的 `undoEdit` / `redoEdit`（撤的是整部作品的改动，剧本和时间线的改动也在里面），所以拿掉另外两组不会少功能。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

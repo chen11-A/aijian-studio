@@ -445,13 +445,13 @@ export function ShortFilmGuide() {
           }
         }
       } catch {
-        applyPlan(story, "Grok 这次没有拆成镜头，先用本地草稿。");
+        applyPlan(story, "Grok 这次没拆好镜头，先用软件自己拆的这一版。");
         return;
       }
-      applyPlan(story, "Grok 这次没有拆成镜头，先用本地草稿。");
+      applyPlan(story, "Grok 这次没拆好镜头，先用软件自己拆的这一版。");
       return;
     }
-    applyPlan(story, "这是本地草稿。连上 Grok 后，导演会按你的故事重写。");
+    applyPlan(story, "这是软件自己拆的一版。连上 Grok 以后，导演会照你的故事重新拆。");
   };
 
   const useFight = () => {
@@ -608,7 +608,7 @@ export function ShortFilmGuide() {
         )}
         {step === 3 && (
           <p>
-            将用「{choice.label}」把「{scene || SAMPLE_SCENE}」做成大约两秒的草稿视频。
+            会用「{choice.label}」把「{scene || SAMPLE_SCENE}」做成一段大约两秒的试做视频。
             {shots.length > 0 ? `已拆成 ${shots.length} 个镜头，接在一起。` : ""}
             {choice.billing}。先出的是试做版，画面和声音都是 AI 做的。
           </p>

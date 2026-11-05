@@ -40,13 +40,30 @@
   font-size: 12px;
 }
 
-.nx-root .nx-alert-toggle {
-  padding: 0;
-  border: 0;
-  background: none;
+/* 3JR-U04: the actions row stands out like the coverage strip, and 收起 looks like a button. */
+.nx-root .nx-alert.beats {
+  border-color: var(--warn);
+}
+
+.nx-root .nx-alert-title {
   color: var(--warn);
+  font-weight: 600;
+}
+
+.nx-root .nx-alert-toggle {
+  height: 24px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--text-2);
   font: inherit;
   cursor: pointer;
+}
+
+.nx-root .nx-alert-toggle:hover {
+  color: var(--text);
 }
 
 .nx-root .nx-alert-hint {
@@ -72,6 +89,17 @@
   border-radius: var(--r);
   background: var(--panel);
   cursor: grab;
+}
+
+.nx-root .nx-beats li:active {
+  cursor: grabbing;
+}
+
+.nx-root .nx-grip {
+  flex: none;
+  color: var(--text-3);
+  font-size: 14px;
+  line-height: 1;
 }
 
 .nx-root .nx-beat-text {

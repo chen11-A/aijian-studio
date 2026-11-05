@@ -163,3 +163,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.nx-root .nx-home-template {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}

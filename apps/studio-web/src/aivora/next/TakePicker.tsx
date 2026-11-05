@@ -1,4 +1,4 @@
-import { useId, type KeyboardEvent } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import "./next.css";
 import "./TakePicker.css";
 
@@ -16,6 +16,8 @@ export type TakeOption = {
   notes?: readonly TakeNote[];
   /** A still from the take. Without one, a plain stand-in is drawn. */
   imageUrl?: string;
+  /** The take's video. When there is one it is shown instead of the still (4A-U03). */
+  videoUrl?: string;
   /** What is going on with a take that is not ready, for example 「正在生成 · 已等 48 秒」. */
   statusText?: string;
 };
@@ -59,6 +61,24 @@ export function TakePicker({
   const id = useId();
   const shown = takes.slice(0, MAX_TAKES);
   const inUse = selectedId === undefined ? aiChoiceId : selectedId;
+  // 4A-U03: the versions with a video play together from the start, without sound, so the
+  // same moment can be compared.
+  const videos = useRef<(HTMLVideoElement | null)[]>([]);
+  const [together, setTogether] = useState(false);
+  const playable = shown.filter((take) => take.videoUrl).length;
+  const playTogether = () => {
+    const list = videos.current.filter((video): video is HTMLVideoElement => Boolean(video));
+    if (together) {
+      for (const video of list) video.pause();
+      setTogether(false);
+      return;
+    }
+    for (const video of list) {
+      video.currentTime = 0;
+      void video.play()?.catch(() => undefined);
+    }
+    setTogether(true);
+  };
   const ready = (take: TakeOption) => (take.status ?? "ready") === "ready";
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -78,6 +98,11 @@ export function TakePicker({
           </strong>
           {shotCode ? <span className="nx-code">{shotCode}</span> : null}
           <span className="nx-faint">· {shown.length} 个版本</span>
+          {playable > 1 ? (
+            <button type="button" className="nx-btn nx-takes-play" onClick={playTogether}>
+              {together ? "暂停" : "一起播放"}
+            </button>
+          ) : null}
         </p>
         {description ? <p className="nx-muted nx-one-line">{description}</p> : null}
       </header>
@@ -103,7 +128,22 @@ export function TakePicker({
               </div>
               <div className="nx-take-media">
                 <div className={`nx-frame ${aspect === "16:9" ? "nx-wide" : "nx-tall"}`}>
-                  {take.imageUrl ? <img src={take.imageUrl} alt={`${take.label}的画面`} /> : null}
+                  {take.videoUrl ? (
+                    <video
+                      ref={(video) => {
+                        videos.current[index] = video;
+                      }}
+                      src={take.videoUrl}
+                      poster={take.imageUrl}
+                      aria-label={`${take.label}的视频`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      onEnded={() => setTogether(false)}
+                    />
+                  ) : take.imageUrl ? (
+                    <img src={take.imageUrl} alt={`${take.label}的画面`} />
+                  ) : null}
                   {status !== "ready" ? (
                     <span className="nx-take-state">
                       {take.statusText ?? (status === "generating" ? "正在生成" : "没有做成")}

@@ -189,6 +189,13 @@ body:has(.pro-root) {
   place-items: center;
   color: var(--text-3);
 }
+/* UIR-06: a tab not done yet says how far it got, e.g. 角色与场景 0/8. */
+.pro-root .tab .tab-count {
+  margin-left: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
 .pro-root .tab.done .n {
   background: rgba(53, 194, 138, 0.16);
   border-color: transparent;
@@ -235,6 +242,35 @@ body:has(.pro-root) {
   font-size: 12px;
   color: #fff;
 }
+/* 4A-U10: the membership state on the avatar: green connected, amber waiting or signed out. */
+.pro-root .avatar {
+  position: relative;
+}
+.pro-root .avatar-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--panel);
+  background: var(--warn);
+}
+.pro-root .avatar-dot[data-state="ok"] {
+  background: var(--ok);
+}
+.pro-root .avatar-dot[data-state="denied"] {
+  background: var(--err);
+}
+.pro-root .menu .menu-note {
+  margin: 0;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .pro-root .btn {
   display: inline-flex;
   align-items: center;
@@ -257,6 +293,23 @@ body:has(.pro-root) {
   border-color: transparent;
   color: #fff;
   font-weight: 500;
+}
+/* 4A-U09: one filled primary per screen. accent is outlined, for the assistant's 放进; off is
+   grayed when there is nothing to do yet (a click still explains why). */
+.pro-root .btn.accent {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+.pro-root .btn.off {
+  color: var(--text-3);
+  border-color: var(--line);
+  background: none;
+}
+.pro-root .export-why {
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
 }
 .pro-root .btn.ghost {
   background: none;
@@ -1357,6 +1410,22 @@ body:has(.pro-root) {
   border-top: 1px solid var(--line);
   flex: none;
 }
+/* 4A-U10: 预览静音 (M) sits at the right of the player controls; muted draws a slash. */
+.pro-root .ctrl .mute {
+  justify-self: end;
+}
+.pro-root .icon-btn.mute {
+  position: relative;
+}
+.pro-root .icon-btn.mute.on::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: rotate(-45deg);
+}
 .pro-root .tc {
   font: 12px var(--mono);
   color: var(--text-2);
@@ -2148,6 +2217,18 @@ body:has(.pro-root) {
   color: var(--text-3);
   transform: translateX(3px);
 }
+/* 3JR-U01: the ruler is where you click or drag to move the preview; arrow keys step a second. */
+.pro-root .ruler {
+  cursor: pointer;
+  touch-action: none;
+}
+.pro-root .ruler:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.pro-root .ruler span {
+  pointer-events: none;
+}
 .pro-root .lane {
   position: relative;
   border-bottom: 1px solid var(--line);
@@ -2195,6 +2276,20 @@ body:has(.pro-root) {
   background: repeating-linear-gradient(135deg, #1d2430 0 6px, #19202a 6px 12px);
   border: 1px dashed var(--line-2);
   color: var(--text-3);
+}
+/* 3JR-U02: shots still to make step back, and fold to narrow marks once anything has a video,
+   so the finished shots are what the track shows. */
+.pro-root .clip.v.empty {
+  opacity: 0.7;
+}
+.pro-root .clip.v.empty.folded,
+.pro-root .clip.s.folded {
+  padding: 0;
+  opacity: 0.45;
+}
+.pro-root .clip.v.empty.folded:hover,
+.pro-root .clip.v.empty.folded:focus-visible {
+  opacity: 0.9;
 }
 .pro-root .clip.v.gen {
   background: repeating-linear-gradient(135deg, #2a2416 0 6px, #231e13 6px 12px);
@@ -2711,12 +2806,19 @@ body:has(.pro-root) {
 .pro-root .menu button:hover {
   background: var(--panel-3);
 }
-/* 4A-U04: 后台生成 opens the task center over the whole workspace, under the top bar. */
+/* 4A-U04: 后台生成 opens the task center as a drawer above the status bar, so the page
+   it was opened from stays in view. */
 .pro-root .task-back {
   position: absolute;
-  inset: 48px 0 24px;
+  left: 12px;
+  bottom: 28px;
+  width: min(940px, calc(100% - 24px));
+  height: min(560px, calc(100% - 96px));
   z-index: 6;
   background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
   padding: 0 12px 12px;
@@ -2992,6 +3094,7 @@ body:has(.pro-root) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr);
   align-items: start;
+  align-content: start;
   gap: 20px;
   max-width: 1120px;
 }
@@ -3026,8 +3129,22 @@ body:has(.pro-root) {
 .pro-root .looks-head .sp {
   flex: 1;
 }
+/* 4A-U06: the front portrait large on top, the three made from it small underneath. */
 .pro-root .refs4.slots {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pro-root .refs4.slots .slot.front {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  width: min(80%, 230px);
+}
+.pro-root .refs4.slots .slots-note {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: left;
 }
 .pro-root .slot {
   margin: 0;
@@ -3079,4 +3196,231 @@ body:has(.pro-root) {
   font-size: 12px;
   cursor: pointer;
   text-decoration: underline;
+}
+
+/* 4A-U01: room for the 一键成片 step bar between the top bar and the workspace. */
+.pro-root .app.with-pipeline {
+  grid-template-rows: var(--topbar) auto 1fr var(--status);
+}
+.pro-root .tool-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* 4A-U02: the style of the whole work sits above the character columns, not inside them. */
+.pro-root .style-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--panel-2);
+}
+.pro-root .style-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pro-root .style-head .sec-t {
+  margin: 0;
+  color: var(--text-2);
+}
+.pro-root .style-head .meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pro-root .style-text {
+  width: 100%;
+  min-height: calc(2 * 1.6em + 18px);
+  max-height: calc(5 * 1.6em + 18px);
+  field-sizing: content;
+  overflow-y: auto;
+  resize: none;
+}
+.pro-root .style-warn {
+  font-size: 12px;
+  color: var(--warn);
+}
+
+/* 4A-U02: a shot made before the style changed. */
+.pro-root .card .ct .restyle {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--warn);
+  background: var(--panel-3);
+}
+
+/* 4A-U05: a continuity reminder on a shot: a yellow dot on the card, the words in 属性. */
+.pro-root .card .cont-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 2px var(--panel);
+}
+.pro-root .cont-notes {
+  margin: 0 12px 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  font-size: 12px;
+}
+.pro-root .cont-notes .cont-head {
+  margin-bottom: 4px;
+  color: var(--warn);
+}
+.pro-root .cont-notes li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-2);
+}
+.pro-root .cont-notes li + li {
+  margin-top: 6px;
+}
+.pro-root .cont-notes b {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* 3JR-U04: while an action from 「有 N 个动作没对上镜头」 is dragged, every card is a place it
+   can go and the one under the pointer is marked. */
+.pro-root .pb.grid.dropping .card {
+  outline: 1px dashed var(--line-2);
+  outline-offset: 2px;
+}
+.pro-root .pb.grid.dropping .card.drop-over {
+  outline: 2px dashed var(--accent);
+}
+.pro-root .scene .t small.beat-flag {
+  color: var(--warn);
+}
+/* A scene row that carries that third line grows to hold it instead of spilling over the next. */
+.pro-root .scene:has(.beat-flag) {
+  height: auto;
+  min-height: 44px;
+  padding-block: 4px;
+}
+
+/* 4A-U07: a portrait (9:16) work. The previews take its real shape; thumbnails keep their
+   tiles and show the whole frame inside them instead of cutting it. */
+.pro-root[data-aspect="9:16"] .bigprev .frame,
+.pro-root[data-aspect="9:16"] .screen .frame {
+  width: min(100cqw, calc(100cqh * 9 / 16)) !important;
+  aspect-ratio: 9/16;
+}
+.pro-root[data-aspect="9:16"] .prev {
+  aspect-ratio: 9/16;
+  width: min(calc(100% - 28px), 180px);
+  margin-inline: auto;
+}
+.pro-root[data-aspect="9:16"] .thumb {
+  background-size: contain;
+}
+.pro-root[data-aspect="9:16"] .thumb video,
+.pro-root[data-aspect="9:16"] .thumb .still {
+  object-fit: contain;
+  background-size: contain;
+}
+
+/* 3JR-U05: a card keeps two lines of picture and one line of dialogue; resting on its words
+   for a moment, or picking it with the keyboard, lays all of them over the card. */
+.pro-root .card {
+  position: relative;
+}
+.pro-root .cb p.line[data-more]::after {
+  content: "」等 " attr(data-more) " 句";
+}
+.pro-root .card .full {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 10px 12px;
+  overflow: auto;
+  background: var(--panel-2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    visibility 0s linear 0.12s;
+}
+.pro-root .card .cb:hover .full,
+.pro-root .card:focus-visible .full {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.12s ease 0.35s,
+    visibility 0s linear 0.35s;
+}
+.pro-root .card .full p {
+  display: block;
+  max-height: none;
+  -webkit-line-clamp: unset;
+  white-space: normal;
+}
+.pro-root .card .full p.line {
+  text-overflow: clip;
+}
+.pro-root .card .full p.line::after {
+  content: "」";
+}
+@media (prefers-reduced-motion: reduce) {
+  .pro-root .card .full,
+  .pro-root .card .cb:hover .full,
+  .pro-root .card:focus-visible .full {
+    transition: none;
+  }
+}
+.pro-root details.full-prompt {
+  margin-top: 6px;
+}
+.pro-root details.full-prompt > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* 3JR-U03: the 场景 and 道具 tabs edit their own things. A place's reference picture is a wide
+   background plate, so its frame is landscape. */
+.pro-root .slot.place-ref .thumb,
+.pro-root .slot.place-ref .slot-empty {
+  aspect-ratio: 16/9;
+}
+.pro-root .cast-looks > .slots-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pro-root .place-used {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.pro-root .prop-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* 3J-U18: a line before the destructive item of a menu, which is written in the warning color. */
+.pro-root .menu .menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+.pro-root .menu button.danger {
+  color: var(--err);
 }

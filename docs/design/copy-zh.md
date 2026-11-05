@@ -60,7 +60,7 @@
 | 正在写入应用数据目录             | 正在保存…（3J-U04 已改）                            | `pro/ProWorkspace.tsx:3475`，状态栏右边                     |
 | 作品在应用数据目录               | 已保存在这台电脑上（3J-U04 已改）                   | `pro/ProWorkspace.tsx:3476`，状态栏右边                     |
 | 没有写到应用数据目录，可以重试。 | 没保存上，可以再试一次。                            | `pro/ProWorkspace.tsx:603`，状态栏                          |
-| 声音开 / 声音关                  | 预览有声 / 预览静音                                 | `pro/ProWorkspace.tsx:2899`，顶栏按钮。它只管预览，不管导出 |
+| 声音开 / 声音关                  | 预览静音 (M)                                        | 4A-U10 起从顶栏挪到单镜和剪辑的播放器上，喇叭图标按钮，静音时画一道斜线；M 键也能切。只管预览，不管导出 |
 | 会员不能用这个功能               | 这个会员用不了生成                                  | `pro/ProWorkspace.tsx:2884`，顶栏 Grok 标签                 |
 | 请打开安装好的 AIVORA 再登录。   | 网页版不能登录，请在电脑上装好的 AIVORA 里登录。    | `pro/ProWorkspace.tsx:135`                                  |
 | 再用普通对话问一次               | 换个问法再问一次（3J-U04 已改，放在失败那条聊天下） | `pro/ProWorkspace.tsx:3414`，状态栏按钮                     |
@@ -217,9 +217,68 @@
 
 TakePicker 等 next 组件里的文案已经按这份约定写好，不在表里。
 
+## 4A-U08 进度（2026-11-05）
+
+界面这边（`pro/ProWorkspace.tsx` 渲染部分和页面组件、`next/`、旧向导和演示页）按上面各表换完了；按钮名也按「用词约定」换了：「写入分镜」→「放进分镜」、「放入剧本」→「放进剧本」、「已写入」→「已放进去」、「让编剧写」→「让编剧分场」、「写英文提示词」→「写英文画面说明」、「画面自带 / 单独配音」→「用视频里的声音 / 另外配音」。`e2e/layout-audit.mjs` 的术语黑名单加了「不用」一列的词：模型、接口、提示词、离线、写入、画面自带、单独配音。
+
+下面 50 条还在 GPT 的处理函数或 `film/*.ts` 里，归 4A-B11 ①。很多句子里写着旧的按钮名（「点「写入分镜」」），要和上面的按钮改名一起换；`film/notices.ts` 按字面认 code 的规则也要跟着改，不然新句子认不出 code。`next/adapters/names.ts` 的 `INTERRUPTED_TAKE`、`taskCenter.ts` 的 `INTERRUPTED_JOB` 是用来认 GPT 存进作品的「已中断」原因的，GPT 改了存的字，这两个常量要一起改。
+
+| 原文                                                                                                                               | 建议                                                                                                    | 在哪                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 第 1 场（新作品的第一场的场名）                                                                                                    | 场名留空。场次列表写「01 还没起名」，剧本页标题写「1. 还没起名」                                        | `film/operations.ts`                                                                           |
+| 还没生成：…。可以只导出已生成的。                                                                                                  | 这些镜头还没有视频：…。可以先只导出做好的。                                                             | `film/notices.ts`、`pro/ProWorkspace.tsx 处理函数`                                             |
+| 只重做镜头 …。确认表里点开始生成才会出视频。                                                                                       | 只重做第 2 场第 3 个镜头。在确认表里点「开始生成」才会出视频。                                          | `film/notices.ts`、`pro/ProWorkspace.tsx 处理函数`                                             |
+| 镜头 … 的台词超过这一镜的时长，生成时声音会被截断。                                                                                | 第 2 场第 3 个镜头的台词比镜头长，会被截掉一截。把镜头改长一点，或者把台词改短。                        | `film/operations.ts`                                                                           |
+| 镜头 … 的台词超过 15 秒，生成时声音会被截断。                                                                                      | 第 2 场第 3 个镜头的台词超过 15 秒，一个镜头放不下，会被截掉。可以拆成两个镜头。                        | `film/operations.ts`                                                                           |
+| 没有写到应用数据目录，可以重试。                                                                                                   | 没保存上，可以再试一次。                                                                                | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 提示词（助手角色按钮）                                                                                                             | 画面说明                                                                                                | `film/notices.ts`、`pro/ProWorkspace.tsx 处理函数`                                             |
+| 没有登录，已用离线拆镜。点「写入分镜」才会写入。                                                                                   | 还没登录，先用软件自己的规则拆了镜头，没有用 AI。点「放进分镜」才会放进去。                             | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 没有登录，已用离线编剧。点「放入剧本」才会写入。                                                                                   | 还没登录，先用软件自己的规则分了场，没有用 AI。点「放进剧本」才会放进去。                               | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 没有登录，已用离线动作指导。点「写入分镜」写到这一镜。                                                                             | 还没登录，先用软件自己的规则写了动作。点「放进分镜」才会放到这一镜。                                    | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 没有登录，已用离线表演指导。点「写入分镜」写到这一镜。                                                                             | 还没登录，先用软件自己的规则写了表演。点「放进分镜」才会放到这一镜。                                    | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 模型没有按格式返回。（各个助手）                                                                                                   | AI 这次的回答用不了，什么都没改。可以再问一次。                                                         | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 模型把请求原文当成了结果，这次没有改剧本。                                                                                         | AI 把你的要求原样抄了回来，这次没有改剧本。                                                             | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 模型没有返回。                                                                                                                     | AI 没有回答。可以再试一次。                                                                             | `pro/ProWorkspace.tsx 处理函数`、`pro/agent-workflow.ts`                                       |
+| 模型列表没有读到。                                                                                                                 | 没连上 AI，请检查有没有登录。                                                                           | `pro/agent-workflow.ts`                                                                        |
+| 模型列表里没有能写字的模型。                                                                                                       | 这个账号用不了写剧本的 AI。                                                                             | `pro/agent-workflow.ts`                                                                        |
+| 当前账号不能用这个文本模型。                                                                                                       | 这个账号用不了写剧本的 AI。                                                                             | `pro/agent-workflow.ts`                                                                        |
+| 编剧没有按格式返回，已停。没有写入离线剧本。点「继续」再试。                                                                       | 编剧这次的回答用不了，已经停下，剧本没改。点「继续」再试一次。                                          | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 「…」导演没有按格式返回，已停。没有写入这一场的离线镜头。点「继续」再试。                                                          | 「…」这一场导演的回答用不了，已经停下，镜头没改。点「继续」再试一次。                                   | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 已放入模板「…」。这是模板原文，还没让模型改。                                                                                      | 已放入模板「…」。这是模板原样，AI 还没改过。                                                            | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 已放入剧本。你改过的场没有被盖掉。                                                                                                 | 已放进剧本。你改过的场保持不变。                                                                        | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 已写入分镜。你改过的镜头没有被盖掉。                                                                                               | 已放进分镜。你改过的镜头保持不变。                                                                      | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 没有认出人物和场景，没有写入猜测。                                                                                                 | 没认出人物和场景，这次什么都没加。                                                                      | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 先在剧本里给 TA 写一句台词。                                                                                                       | 先在剧本里给这个人写一句台词，再试听。                                                                  | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 配音文件到了，这一页没有播出来。                                                                                                   | 配音已经做好，但这里没放出来。可以去剪辑页听。                                                          | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。                                                               | 这里还不能试听。选好的声音会用在成片的配音里。                                                          | `film/operations.ts`                                                                           |
+| 将出 4 张候选起始画面。点「确认这 4 张」才出图。                                                                                   | 会出 4 张这一镜的开头画面供你挑。点「确定出这 4 张」才开始。                                            | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 草稿用的是较快的模型，不能带定妆照，脸可能会变。                                                                                   | 快速试做不参考定妆照，人物的脸可能和定妆照不一样。                                                      | `film/operations.ts`                                                                           |
+| 模型列表里没有 …，不能先出草稿。                                                                                                   | 这个账号用不了快速试做。                                                                                | `film/notices.ts`、`film/project.ts`、`pro/ProWorkspace.tsx 处理函数`、`pro/agent-workflow.ts` |
+| 模型列表里没有 …，先不生成起始画面。                                                                                               | 这个账号用不了出图，先不出开头画面。                                                                    | `film/notices.ts`、`film/project.ts`、`pro/ProWorkspace.tsx 处理函数`、`pro/agent-workflow.ts` |
+| 模型列表里没有 …，先不生成视频。                                                                                                   | 这个账号用不了出视频。                                                                                  | `film/notices.ts`、`film/project.ts`、`pro/ProWorkspace.tsx 处理函数`、`pro/agent-workflow.ts` |
+| 每个镜头先出自己的起始画面，再变成视频。定妆照没有网址时不附参考图。视频自带的声音关掉。审片还不能自动打分，由你选版本。           | 每个镜头先出一张开头画面，再变成视频。视频本身不带声音，台词另外配。哪一版最好由你挑。                  | `film/project.ts`                                                                              |
+| 每个版本各算一次。视频自己的声音关掉。                                                                                             | 每多一版就多用一次额度。视频本身不带声音。                                                              | `film/operations.ts`                                                                           |
+| 这一镜会接着上一镜的结尾来写。生成时不会把上一镜的最后一帧传过去。                                                                 | 这一镜的描述接着上一镜写，但生成时不会拿上一镜的最后一帧当参考。                                        | `film/operations.ts`                                                                           |
+| 请打开安装好的 AIVORA 再出图。                                                                                                     | 网页版不能出图，请在电脑上装好的 AIVORA 里出图。                                                        | `film/operations.ts`、`pro/ProWorkspace.tsx 处理函数`、`pro/workflow.ts`                       |
+| 请打开安装好的 AIVORA，并打开一部作品，再生成。网页里不能直接出片。                                                                | 网页版不能生成。请在电脑上装好的 AIVORA 里打开这部作品再生成。                                          | `film/operations.ts`                                                                           |
+| 这一路已静音。                                                                                                                     | 这一轨已静音。                                                                                          | `film/notices.ts`                                                                              |
+| 导入的配乐会在对白出现时让路，对白本身不降低。这一版不会把整片音量调成统一大小。                                                   | 有人说话时，配乐会自动变小。整片的音量还不会自动调成一样大。                                            | `film/operations.ts`                                                                           |
+| 延长会从最后一帧往后接，每个版本各算一次。                                                                                         | 延长会从这一段的最后一帧接着往后做，每多一版多用一次额度。                                              | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 需要 Grok 会员，模型列表里还没有成片用的视频模型。                                                                                 | 这个账号用不了出视频，需要 Grok 会员。                                                                  | `pro/capabilities.ts`                                                                          |
+| 当前登录看不到可以改画面的模型，不能改画面细节。                                                                                   | 这个账号还不能改画面细节。                                                                              | `pro/capabilities.ts`                                                                          |
+| 当前登录看不到可以延长的模型。列表里出现之后才能从片尾往后接。                                                                     | 这个账号还不能把视频往后延长。                                                                          | `pro/capabilities.ts`                                                                          |
+| 多镜头没有接上，没有导出。                                                                                                         | 几个镜头没能接成一段，所以没有导出。可以再试一次。                                                      | `pro/media-tasks.ts`、`pro/workflow.ts`                                                        |
+| 正在打开浏览器。页面上写的是 Grok Build，点 Allow 即可。                                                                           | 正在打开浏览器。网页上点「Allow」（允许）就行。                                                         | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 共 … 场 · … 个镜头 · 约 … 秒 · 还有 … 个镜头没生成。审片还不能看图打分。版本由你来选，不会自动重做。导入的配乐会在对白出现时让路…… | 只留第一句：「共 3 场 · 40 个镜头 · 约 2 分钟 · 还有 2 个镜头没做好。」另外两句删掉，或者放进「说明」里 | `film/operations.ts`                                                                           |
+| 导出要在桌面版里选择文件夹。网页里不能写成片。                                                                                     | 网页版不能导出，请在电脑上装好的 AIVORA 里导出。                                                        | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 上次有生成没做完，已标成已中断。可以重试。                                                                                         | 上次关软件时还有镜头没做完，已经停下了。可以重新生成。                                                  | `pro/ProWorkspace.tsx 处理函数`                                                                |
+| 已中断，可以重试。（版本的状态）                                                                                                   | 软件关掉时没做完，可以重新生成。                                                                        | `film/notices.ts`、`film/project.ts`                                                           |
+| 已中断（任务的状态）                                                                                                               | 软件关掉时没做完                                                                                        | `film/notices.ts`、`film/project.ts`、`pro/ProWorkspace.tsx 处理函数`                          |
+| 审片还不能看图打分。版本由你来选，不会自动重做。                                                                                   | 审片还不会看画面。挑哪一版由你定，不会自动重做。                                                        | `film/operations.ts`                                                                           |
+
 ## 后端给的提示
 
-3J-B17 让 GPT 把给用户的提示改成 `{code, text, detail?}`。状态栏（3J-U04）按 code 显示下表「界面显示」那一列；`text` 是 GPT 的兜底文字，只在 code 不认识时显示；`detail`（人名、场名、数量、原因）跟在后面用浅色小字，鼠标停上去看全文，也记进任务中心的「最近的提示」。
+3J-B17 让 GPT 把给用户的提示改成 `{code, text, detail?}`。状态栏（3J-U04）按 code 显示下表「界面显示」那一列；`text` 是 GPT 的兜底文字，只在 code 不认识时显示；`detail`（人名、场名、数量、原因）不跟在状态栏后面（UIR-03：状态栏一次只有一句话），鼠标停上去看全文，也记进任务中心的「最近的提示」。
 
 - 代码里的表：`apps/studio-web/src/aivora/next/wiring/noticeCopy.ts` 的 `NOTICE_COPY`。GPT 新加 code 而这里没有对应的一行时，`noticeCopy.test.ts` 会失败，提醒补文案。
 - 工作区直接给的整句话（不是 code）原样显示，不按字面猜 code 换掉：那句话里通常有人名和数字。
@@ -233,130 +292,231 @@ TakePicker 等 next 组件里的文案已经按这份约定写好，不在表里
 | 草稿成片已经保存。这还不是正式发行，可以在播放器里打开看看。 | 试做版已经保存，可以在播放器里打开看看。 | `services/api/src/aijian_api/story_film.py:1306` |
 | 画面和声音由 AI 生成，不是实拍。                             | 画面和声音都是 AI 做的。                 | `services/api/src/aijian_api/shot_plan.py:17`    |
 
-全部 code（123 个，按 `film/notices.ts` 的顺序）：
+全部 code（224 个：先是 3j 的，按 `film/notices.ts` 的顺序；后 101 个是 GPT 在 `gpt/work-4a` 加的，按 `docs/aivora/4a-notice-handoff.md` 的顺序）：
 
-| code                          | GPT 兜底文字                     | 界面显示                                               |
-| ----------------------------- | -------------------------------- | ------------------------------------------------------ |
-| `OPERATION_STATUS`            | 请查看操作详情。                 | 用调用方自己的那句话（这两个 code 只表示「看那句话」） |
-| `WORK_INTERRUPTED`            | 上次生成已中断，可以重试。       | 上次关软件时还有镜头没做完，已经停下了。可以重新生成。 |
-| `WRITING_PROGRESS`            | 正在写作。                       | AI 正在写…                                             |
-| `DIRECTOR_PROGRESS`           | 正在拆镜头。                     | 导演正在拆镜头…                                        |
-| `PERFORMANCE_PROGRESS`        | 正在补充表演。                   | 表演指导正在写表演…                                    |
-| `STALL_RETRYING`              | 导演等待超时，正在重试。         | 导演一分钟没回话，正在自动重试                         |
-| `TEXT_TIMEOUT`                | 等待超时，可以重试。             | AI 太久没回话，已经停下了。可以再试一次。              |
-| `TEXT_STALLED`                | 回复已停顿，可以重试。           | AI 写到一半停住了。可以再试一次。                      |
-| `TASK_TIMEOUT`                | 任务等待超时。                   | 这件事等得太久，已经停下了。                           |
-| `REQUEST_STALE`               | 输入已变化，本次回复已失效。     | 等的时候你改了内容，这次的结果没有用上。               |
-| `WORK_STALE`                  | 作品已变化，本次操作已停止。     | 已经换了作品，刚才那件事停下了。                       |
-| `BATCH_RESPONSE_INVALID`      | 分批结果格式不完整。             | AI 这次的回答不完整，没有用上。可以再试一次。          |
-| `WRITER_FAILED`               | 编剧未完成，可以重试。           | 编剧这次没写完，可以再试一次。                         |
-| `DIRECTOR_FAILED`             | 导演未完成，可以重试。           | 导演这次没拆完，可以再试一次。                         |
-| `ONECLICKFILM_FAILED`         | 连续制作未完成，可以重试。       | 一键成片停在了半路，可以再试一次。                     |
-| `PLANACTION_FAILED`           | 动作指导未完成，可以重试。       | 动作指导这次没写完，可以再试一次。                     |
-| `PLANART_FAILED`              | 美术未完成，可以重试。           | 美术这次没写完，可以再试一次。                         |
-| `PLANPERFORMANCE_FAILED`      | 表演指导未完成，可以重试。       | 表演指导这次没写完，可以再试一次。                     |
-| `PLANPROMPTER_FAILED`         | 提示词未完成，可以重试。         | 画面说明这次没写完，可以再试一次。                     |
-| `PLANQC_FAILED`               | 审片未完成，可以重试。           | 审片这次没看完，可以再试一次。                         |
-| `COVERAGE_INCOMPLETE`         | 台词或结尾未覆盖，请补齐。       | 有的场结尾还没拍到，去分镜看看。                       |
-| `COVERAGE_COMPLETE`           | 台词和结尾已覆盖。               | 每场的台词和结尾都有镜头了。                           |
-| `COVERAGE_REPAIRING`          | 正在补齐台词和结尾。             | 正在补上结尾…                                          |
-| `DIRECTOR_OVER_BUDGET`        | 已保留全部内容，请核对镜头数。   | 镜头比建议的多，内容都留着，可以在分镜里合并。         |
-| `ACTION_UNASSIGNED`           | 部分动作未分配，请核对镜头。     | 有动作没对上镜头，去分镜看看。                         |
-| `VOICE_EMPTY`                 | 这一镜没有台词，不用配音。       | 这一镜没有台词，不用配音。                             |
-| `VOICE_TRAITS_REQUIRED`       | 请先确认人物性别和年龄。         | 先在角色页选好性别和年龄，再配音。                     |
-| `MULTI_VOICE_REQUIRED`        | 多角色对白需要分别配音。         | 这一镜有几个人说话，要分开配音。                       |
-| `VOICE_PROGRESS`              | 正在生成配音。                   | 正在配音…                                              |
-| `VOICE_FAILED`                | 配音未完成，可以重试。           | 配音没做成，可以再试一次。                             |
-| `VOICE_DONE`                  | 配音已生成。                     | 配音好了。                                             |
-| `VOICE_PREVIEW_PROGRESS`      | 正在试听。                       | 正在试听…                                              |
-| `VOICE_PREVIEW_STOPPED`       | 已停止试听。                     | 已停止试听。                                           |
-| `VOICE_PREVIEW_UNAVAILABLE`   | 当前无法试听，请查看详情。       | 现在试听不了。                                         |
-| `SOUND_DISABLED`              | 声音已关闭，请先打开。           | 预览是静音的，打开顶栏的声音再听。                     |
-| `DIALOGUE_REQUIRED`           | 请先写一句台词。                 | 先给这一镜写一句台词。                                 |
-| `DURATION_LOCKED`             | 已保留手动设置的时长。           | 这一镜的时长是你定的，没有改。                         |
-| `DURATION_SPLIT_REQUIRED`     | 台词较长，请确认拆镜。           | 这句台词太长，建议拆成两个镜头。                       |
-| `DURATION_UPDATED`            | 镜头时长已更新。                 | 镜头时长改好了。                                       |
-| `DURATION_ESTIMATED`          | 镜头时长按字数估算。             | 时长先按台词字数估算。                                 |
-| `GROK_MEMBERSHIP_REQUIRED`    | 请先登录 Grok 会员。             | 这一步要先用 Grok 会员登录。                           |
-| `DESKTOP_REQUIRED`            | 请在桌面版继续。                 | 网页版做不了这一步，请在电脑上装好的 AIVORA 里继续。   |
-| `AUTH_BROWSER_OPENING`        | 正在打开浏览器授权。             | 正在打开浏览器，在那一页点允许就行。                   |
-| `AUTH_CONNECTED`              | 会员已连接。                     | 已登录 Grok 会员。                                     |
-| `ENTITLEMENT_DENIED`          | 当前会员不能使用此功能。         | 这个会员用不了生成。                                   |
-| `AUTH_CANCELLED`              | 登录已取消。                     | 登录已取消。                                           |
-| `AUTH_FAILED`                 | 登录未完成，可以重试。           | 登录没有完成，可以再试一次。                           |
-| `AUTH_SIGNED_OUT`             | 已退出登录。                     | 已退出登录。                                           |
-| `AUTH_SIGNOUT_FAILED`         | 退出未完成，可以重试。           | 退出没有完成，可以再试一次。                           |
-| `REAUTH_REQUIRED`             | 请重新登录会员。                 | 登录过期了，请重新登录 Grok 会员。                     |
-| `MODEL_UNAVAILABLE`           | 当前模型不可用。                 | Grok 现在用不了这项功能。                              |
-| `DRAFT_MODEL_UNAVAILABLE`     | 草稿模型不可用。                 | 快速试做现在用不了。                                   |
-| `SCRIPT_APPLIED`              | 剧本已写入。                     | 已放进剧本。                                           |
-| `SHOTS_APPLIED`               | 分镜已写入。                     | 已放进分镜。                                           |
-| `SHOT_APPLIED`                | 这一镜已写入。                   | 这一镜已放进分镜。                                     |
-| `ART_APPLIED`                 | 画风和人物资料已写入。           | 画风和人物外貌已放进去。                               |
-| `ALREADY_APPLIED`             | 这一步已经写入。                 | 这一步已经放进去了。                                   |
-| `USER_EDIT_PRESERVED`         | 已保留手动修改。                 | 你改过的地方都留着。                                   |
-| `SCENES_REQUIRED`             | 还没有可写入的场次。             | 还没有能放进剧本的场。                                 |
-| `SHOTS_REQUIRED`              | 请先拆分镜头。                   | 先拆好镜头。                                           |
-| `CAST_NOT_FOUND`              | 尚未识别出人物和场景。           | 还没认出人物和场景。                                   |
-| `CAST_RECORDED`               | 人物已记下。                     | 人物已记下。                                           |
-| `APPEARANCE_PROGRESS`         | 正在提取人物外貌。               | 正在从剧本里找人物外貌…                                |
-| `APPEARANCE_REQUIRED`         | 请先填写人物外貌。               | 先写下外貌，再出定妆照。                               |
-| `PORTRAIT_PROGRESS`           | 正在生成定妆照。                 | 正在出定妆照…                                          |
-| `PORTRAIT_FAILED`             | 定妆照未完成，可以重试。         | 定妆照没出成，可以再试一次。                           |
-| `PORTRAIT_DONE`               | 定妆照已生成。                   | 定妆照出好了。                                         |
-| `PORTRAIT_BATCH_RUNNING`      | 正在补齐定妆照。                 | 正在给所有人出定妆照…                                  |
-| `PORTRAIT_BATCH_PARTIAL`      | 部分定妆照未完成，请查看详情。   | 有几张定妆照没出成，可以单独重试。                     |
-| `PORTRAIT_BATCH_DONE`         | 定妆照已补齐。                   | 所有人的定妆照都出好了。                               |
-| `IMPORT_FAILED`               | 文件未导入，请查看详情。         | 文件没读进来。                                         |
-| `IMPORT_EMPTY`                | 文件中没有可用正文。             | 这个文件里没有能用的正文。                             |
-| `IMPORT_FORMAT_UNSUPPORTED`   | 请导入 txt、docx 或 epub。       | 请导入 txt、docx 或 epub 文件。                        |
-| `IMPORT_TRUNCATED`            | 导入内容超出限制，请分批导入。   | 文件太长，请分几次导入。                               |
-| `IMPORT_READY`                | 已读入场次，请确认写入。         | 场次读好了，确认后放进剧本。                           |
-| `TEMPLATE_APPLIED`            | 故事模板已放入。                 | 故事模板已放进剧本。                                   |
-| `STORYBOARD_PROGRESS`         | 正在制作剧本和分镜。             | 正在写剧本和分镜…                                      |
-| `STORYBOARD_READY`            | 分镜已准备，请确认下一步。       | 分镜好了。看一遍，点「继续出视频」才会生成视频。       |
-| `STILL_PROGRESS`              | 正在生成画面。                   | 正在出画面…                                            |
-| `FIRST_FRAME_PROGRESS`        | 正在生成带参考图的首帧。         | 正在照着定妆照出开头画面…                              |
-| `FIRST_FRAME_FAILED`          | 首帧未完成，可以重试。           | 开头画面没出成，可以再试一次。                         |
-| `STILL_FAILED`                | 画面未完成，可以重试。           | 画面没出成，可以再试一次。                             |
-| `STILL_DONE`                  | 画面已生成。                     | 画面出好了。                                           |
-| `STILL_CANDIDATES_READY`      | 候选画面已生成，请选择。         | 开头画面出好了，选一张。                               |
-| `STILL_CONFIRM_REQUIRED`      | 请确认候选画面生成。             | 确认后才出这几张开头画面。                             |
-| `COMPOSITION_SELECTED`        | 构图已选择。                     | 已换成这张构图。                                       |
-| `GENERATION_CONFIRM_REQUIRED` | 请确认生成范围和版本数。         | 看一下要生成的镜头和版本数，确认后才开始。             |
-| `GENERATION_QUEUED`           | 生成已排队。                     | 已排上队。                                             |
-| `GENERATION_PAUSED`           | 生成已暂停。                     | 已暂停。已经发出去的几段可能还会做完。                 |
-| `GENERATION_CANCELLED`        | 生成已取消。                     | 已取消还没开始的镜头。                                 |
-| `GENERATION_CANCEL_REQUESTED` | 已请求取消，请核对已发出的任务。 | 已取消。已经发出去的几段可能停不下来。                 |
-| `GENERATION_FAILED`           | 生成未完成，可以重试。           | 这段视频没做成，可以再试一次。                         |
-| `GENERATION_DONE`             | 这一版已生成。                   | 这一版做好了。                                         |
-| `GENERATION_NO_FAILURES`      | 没有需要重试的失败任务。         | 没有失败的，不用重试。                                 |
-| `ASSEMBLY_FAILED`             | 镜头未接成成片，请重试。         | 镜头没接成一整片，可以再试一次。                       |
-| `EXPORT_INCOMPLETE`           | 还有镜头未生成，请核对导出范围。 | 还有镜头没有视频，导出前看一下范围。                   |
-| `EXPORT_FOLDER_REQUIRED`      | 请选择导出文件夹。               | 先选一个保存的文件夹。                                 |
-| `EXPORT_PROGRESS`             | 正在导出成片。                   | 正在导出…                                              |
-| `EXPORT_FAILED`               | 导出未完成，可以重试。           | 导出没有完成，可以再试一次。                           |
-| `EXPORT_DONE`                 | 成片已导出。                     | 成片已导出。                                           |
-| `PROJECT_CREATED`             | 作品已新建。                     | 新作品建好了。                                         |
-| `PROJECT_RENAMED`             | 作品名已更新。                   | 作品名改好了。                                         |
-| `PROJECT_OPEN_FAILED`         | 作品未打开，请重试。             | 这部作品没打开，可以再试一次。                         |
-| `PROJECT_OPENED`              | 作品已打开。                     | 作品已打开。                                           |
-| `PROJECT_DELETED`             | 作品已删除。                     | 作品已删除。                                           |
-| `EPISODE_CREATED`             | 新一集已创建。                   | 新一集建好了。                                         |
-| `EPISODE_DELETED`             | 这一集已删除。                   | 这一集已删除。                                         |
-| `EXAMPLE_OPENED`              | 示例已打开。                     | 示例已打开。                                           |
-| `EDITOR_GUIDANCE`             | 请查看创作步骤说明。             | 用调用方自己的那句话（这两个 code 只表示「看那句话」） |
-| `SHOT_SELECTED`               | 镜头已选择。                     | 已选中这一镜。                                         |
-| `SHOT_REMOVED`                | 这一段已剪掉。                   | 已剪掉这一段，前后接上了。                             |
-| `REVIEW_RECORDED`             | 审片意见已记下。                 | 审片意见已记下，挑哪一版还是由你定。                   |
-| `REVIEW_TEXT_ONLY`            | 目前只提供文字审片意见。         | 审片还不会看画面，只能给文字意见。                     |
-| `AUDIO_MUTED`                 | 这一路已静音。                   | 这一轨已静音。                                         |
-| `AUDIO_VOLUME_SAVED`          | 音量已记下。                     | 音量已记下。                                           |
-| `AUDIO_MUSIC_IMPORTED`        | 音乐已导入。                     | 音乐已导入。                                           |
-| `TAKE_PREVIOUS_KEPT`          | 已保留旧版。                     | 留着原来那一版。                                       |
-| `TAKE_REPLACED`               | 已用新版替换。                   | 已换成新的一版。                                       |
-| `TAKE_UNAVAILABLE`            | 还没有可替换的新版本。           | 还没有新的一版可以换。                                 |
-| `OPERATION_CANCELLED`         | 操作已取消。                     | 已取消。                                               |
-| `FILM_SUCCEEDED`              | （服务端旧结果）                 | 试做版已经保存，可以在播放器里打开看看。               |
-| `FILM_BLOCKED`                | （服务端旧结果）                 | 这一片被拦下了，没有生成。                             |
-| `FILM_FAILED`                 | （服务端旧结果）                 | 这一片没做成，可以再试一次。                           |
+| code                                  | GPT 兜底文字                         | 界面显示                                                   |
+| ------------------------------------- | ------------------------------------ | ---------------------------------------------------------- |
+| `OPERATION_STATUS`                    | 请查看操作详情。                     | 用调用方自己的那句话（这两个 code 只表示「看那句话」）     |
+| `WORK_INTERRUPTED`                    | 上次生成已中断，可以重试。           | 上次关软件时还有镜头没做完，已经停下了。可以重新生成。     |
+| `WRITING_PROGRESS`                    | 正在写作。                           | AI 正在写…                                                 |
+| `DIRECTOR_PROGRESS`                   | 正在拆镜头。                         | 导演正在拆镜头…                                            |
+| `PERFORMANCE_PROGRESS`                | 正在补充表演。                       | 表演指导正在写表演…                                        |
+| `STALL_RETRYING`                      | 导演等待超时，正在重试。             | 导演一分钟没回话，正在自动重试                             |
+| `TEXT_TIMEOUT`                        | 等待超时，可以重试。                 | AI 太久没回话，已经停下了。可以再试一次。                  |
+| `TEXT_STALLED`                        | 回复已停顿，可以重试。               | AI 写到一半停住了。可以再试一次。                          |
+| `TASK_TIMEOUT`                        | 任务等待超时。                       | 这件事等得太久，已经停下了。                               |
+| `REQUEST_STALE`                       | 输入已变化，本次回复已失效。         | 等的时候你改了内容，这次的结果没有用上。                   |
+| `WORK_STALE`                          | 作品已变化，本次操作已停止。         | 已经换了作品，刚才那件事停下了。                           |
+| `BATCH_RESPONSE_INVALID`              | 分批结果格式不完整。                 | AI 这次的回答不完整，没有用上。可以再试一次。              |
+| `WRITER_FAILED`                       | 编剧未完成，可以重试。               | 编剧这次没写完，可以再试一次。                             |
+| `DIRECTOR_FAILED`                     | 导演未完成，可以重试。               | 导演这次没拆完，可以再试一次。                             |
+| `ONECLICKFILM_FAILED`                 | 连续制作未完成，可以重试。           | 一键成片停在了半路，可以再试一次。                         |
+| `PLANACTION_FAILED`                   | 动作指导未完成，可以重试。           | 动作指导这次没写完，可以再试一次。                         |
+| `PLANART_FAILED`                      | 美术未完成，可以重试。               | 美术这次没写完，可以再试一次。                             |
+| `PLANPERFORMANCE_FAILED`              | 表演指导未完成，可以重试。           | 表演指导这次没写完，可以再试一次。                         |
+| `PLANPROMPTER_FAILED`                 | 提示词未完成，可以重试。             | 画面说明这次没写完，可以再试一次。                         |
+| `PLANQC_FAILED`                       | 审片未完成，可以重试。               | 审片这次没看完，可以再试一次。                             |
+| `COVERAGE_INCOMPLETE`                 | 台词或结尾未覆盖，请补齐。           | 有的场结尾还没拍到，去分镜看看。                           |
+| `COVERAGE_COMPLETE`                   | 台词和结尾已覆盖。                   | 每场的台词和结尾都有镜头了。                               |
+| `COVERAGE_REPAIRING`                  | 正在补齐台词和结尾。                 | 正在补上结尾…                                              |
+| `DIRECTOR_OVER_BUDGET`                | 已保留全部内容，请核对镜头数。       | 镜头比建议的多，内容都留着，可以在分镜里合并。             |
+| `ACTION_UNASSIGNED`                   | 部分动作未分配，请核对镜头。         | 有动作没对上镜头，去分镜看看。                             |
+| `VOICE_EMPTY`                         | 这一镜没有台词，不用配音。           | 这一镜没有台词，不用配音。                                 |
+| `VOICE_TRAITS_REQUIRED`               | 请先确认人物性别和年龄。             | 先在角色页选好性别和年龄，再配音。                         |
+| `MULTI_VOICE_REQUIRED`                | 多角色对白需要分别配音。             | 这一镜有几个人说话，要分开配音。                           |
+| `VOICE_PROGRESS`                      | 正在生成配音。                       | 正在配音…                                                  |
+| `VOICE_FAILED`                        | 配音未完成，可以重试。               | 配音没做成，可以再试一次。                                 |
+| `VOICE_DONE`                          | 配音已生成。                         | 配音好了。                                                 |
+| `VOICE_PREVIEW_PROGRESS`              | 正在试听。                           | 正在试听…                                                  |
+| `VOICE_PREVIEW_STOPPED`               | 已停止试听。                         | 已停止试听。                                               |
+| `VOICE_PREVIEW_UNAVAILABLE`           | 当前无法试听，请查看详情。           | 现在试听不了。                                             |
+| `SOUND_DISABLED`                      | 声音已关闭，请先打开。               | 预览是静音的，打开顶栏的声音再听。                         |
+| `DIALOGUE_REQUIRED`                   | 请先写一句台词。                     | 先给这一镜写一句台词。                                     |
+| `DURATION_LOCKED`                     | 已保留手动设置的时长。               | 这一镜的时长是你定的，没有改。                             |
+| `DURATION_SPLIT_REQUIRED`             | 台词较长，请确认拆镜。               | 这句台词太长，建议拆成两个镜头。                           |
+| `DURATION_UPDATED`                    | 镜头时长已更新。                     | 镜头时长改好了。                                           |
+| `DURATION_ESTIMATED`                  | 镜头时长按字数估算。                 | 时长先按台词字数估算。                                     |
+| `GROK_MEMBERSHIP_REQUIRED`            | 请先登录 Grok 会员。                 | 这一步要先用 Grok 会员登录。                               |
+| `DESKTOP_REQUIRED`                    | 请在桌面版继续。                     | 网页版做不了这一步，请在电脑上装好的 AIVORA 里继续。       |
+| `AUTH_BROWSER_OPENING`                | 正在打开浏览器授权。                 | 正在打开浏览器，在那一页点允许就行。                       |
+| `AUTH_CONNECTED`                      | 会员已连接。                         | 已登录 Grok 会员。                                         |
+| `ENTITLEMENT_DENIED`                  | 当前会员不能使用此功能。             | 这个会员用不了生成。                                       |
+| `AUTH_CANCELLED`                      | 登录已取消。                         | 登录已取消。                                               |
+| `AUTH_FAILED`                         | 登录未完成，可以重试。               | 登录没有完成，可以再试一次。                               |
+| `AUTH_SIGNED_OUT`                     | 已退出登录。                         | 已退出登录。                                               |
+| `AUTH_SIGNOUT_FAILED`                 | 退出未完成，可以重试。               | 退出没有完成，可以再试一次。                               |
+| `REAUTH_REQUIRED`                     | 请重新登录会员。                     | 登录过期了，请重新登录 Grok 会员。                         |
+| `MODEL_UNAVAILABLE`                   | 当前模型不可用。                     | Grok 现在用不了这项功能。                                  |
+| `DRAFT_MODEL_UNAVAILABLE`             | 草稿模型不可用。                     | 快速试做现在用不了。                                       |
+| `SCRIPT_APPLIED`                      | 剧本已写入。                         | 已放进剧本。                                               |
+| `SHOTS_APPLIED`                       | 分镜已写入。                         | 已放进分镜。                                               |
+| `SHOT_APPLIED`                        | 这一镜已写入。                       | 这一镜已放进分镜。                                         |
+| `ART_APPLIED`                         | 画风和人物资料已写入。               | 画风和人物外貌已放进去。                                   |
+| `ALREADY_APPLIED`                     | 这一步已经写入。                     | 这一步已经放进去了。                                       |
+| `USER_EDIT_PRESERVED`                 | 已保留手动修改。                     | 你改过的地方都留着。                                       |
+| `SCENES_REQUIRED`                     | 还没有可写入的场次。                 | 还没有能放进剧本的场。                                     |
+| `SHOTS_REQUIRED`                      | 请先拆分镜头。                       | 先拆好镜头。                                               |
+| `CAST_NOT_FOUND`                      | 尚未识别出人物和场景。               | 还没认出人物和场景。                                       |
+| `CAST_RECORDED`                       | 人物已记下。                         | 人物已记下。                                               |
+| `APPEARANCE_PROGRESS`                 | 正在提取人物外貌。                   | 正在从剧本里找人物外貌…                                    |
+| `APPEARANCE_REQUIRED`                 | 请先填写人物外貌。                   | 先写下外貌，再出定妆照。                                   |
+| `PORTRAIT_PROGRESS`                   | 正在生成定妆照。                     | 正在出定妆照…                                              |
+| `PORTRAIT_FAILED`                     | 定妆照未完成，可以重试。             | 定妆照没出成，可以再试一次。                               |
+| `PORTRAIT_DONE`                       | 定妆照已生成。                       | 定妆照出好了。                                             |
+| `PORTRAIT_BATCH_RUNNING`              | 正在补齐定妆照。                     | 正在给所有人出定妆照…                                      |
+| `PORTRAIT_BATCH_PARTIAL`              | 部分定妆照未完成，请查看详情。       | 有几张定妆照没出成，可以单独重试。                         |
+| `PORTRAIT_BATCH_DONE`                 | 定妆照已补齐。                       | 所有人的定妆照都出好了。                                   |
+| `IMPORT_FAILED`                       | 文件未导入，请查看详情。             | 文件没读进来。                                             |
+| `IMPORT_EMPTY`                        | 文件中没有可用正文。                 | 这个文件里没有能用的正文。                                 |
+| `IMPORT_FORMAT_UNSUPPORTED`           | 请导入 txt、docx 或 epub。           | 请导入 txt、docx 或 epub 文件。                            |
+| `IMPORT_TRUNCATED`                    | 导入内容超出限制，请分批导入。       | 文件太长，请分几次导入。                                   |
+| `IMPORT_READY`                        | 已读入场次，请确认写入。             | 场次读好了，确认后放进剧本。                               |
+| `TEMPLATE_APPLIED`                    | 故事模板已放入。                     | 故事模板已放进剧本。                                       |
+| `STORYBOARD_PROGRESS`                 | 正在制作剧本和分镜。                 | 正在写剧本和分镜…                                          |
+| `STORYBOARD_READY`                    | 分镜已准备，请确认下一步。           | 分镜好了。看一遍，点「继续出视频」才会生成视频。           |
+| `STILL_PROGRESS`                      | 正在生成画面。                       | 正在出画面…                                                |
+| `FIRST_FRAME_PROGRESS`                | 正在生成带参考图的首帧。             | 正在照着定妆照出开头画面…                                  |
+| `FIRST_FRAME_FAILED`                  | 首帧未完成，可以重试。               | 开头画面没出成，可以再试一次。                             |
+| `STILL_FAILED`                        | 画面未完成，可以重试。               | 画面没出成，可以再试一次。                                 |
+| `STILL_DONE`                          | 画面已生成。                         | 画面出好了。                                               |
+| `STILL_CANDIDATES_READY`              | 候选画面已生成，请选择。             | 开头画面出好了，选一张。                                   |
+| `STILL_CONFIRM_REQUIRED`              | 请确认候选画面生成。                 | 确认后才出这几张开头画面。                                 |
+| `COMPOSITION_SELECTED`                | 构图已选择。                         | 已换成这张构图。                                           |
+| `GENERATION_CONFIRM_REQUIRED`         | 请确认生成范围和版本数。             | 看一下要生成的镜头和版本数，确认后才开始。                 |
+| `GENERATION_QUEUED`                   | 生成已排队。                         | 已排上队。                                                 |
+| `GENERATION_PAUSED`                   | 生成已暂停。                         | 已暂停。已经发出去的几段可能还会做完。                     |
+| `GENERATION_CANCELLED`                | 生成已取消。                         | 已取消还没开始的镜头。                                     |
+| `GENERATION_CANCEL_REQUESTED`         | 已请求取消，请核对已发出的任务。     | 已取消。已经发出去的几段可能停不下来。                     |
+| `GENERATION_FAILED`                   | 生成未完成，可以重试。               | 这段视频没做成，可以再试一次。                             |
+| `GENERATION_DONE`                     | 这一版已生成。                       | 这一版做好了。                                             |
+| `GENERATION_NO_FAILURES`              | 没有需要重试的失败任务。             | 没有失败的，不用重试。                                     |
+| `ASSEMBLY_FAILED`                     | 镜头未接成成片，请重试。             | 镜头没接成一整片，可以再试一次。                           |
+| `EXPORT_INCOMPLETE`                   | 还有镜头未生成，请核对导出范围。     | 还有镜头没有视频，导出前看一下范围。                       |
+| `EXPORT_FOLDER_REQUIRED`              | 请选择导出文件夹。                   | 先选一个保存的文件夹。                                     |
+| `EXPORT_PROGRESS`                     | 正在导出成片。                       | 正在导出…                                                  |
+| `EXPORT_FAILED`                       | 导出未完成，可以重试。               | 导出没有完成，可以再试一次。                               |
+| `EXPORT_DONE`                         | 成片已导出。                         | 成片已导出。                                               |
+| `PROJECT_CREATED`                     | 作品已新建。                         | 新作品建好了。                                             |
+| `PROJECT_RENAMED`                     | 作品名已更新。                       | 作品名改好了。                                             |
+| `PROJECT_OPEN_FAILED`                 | 作品未打开，请重试。                 | 这部作品没打开，可以再试一次。                             |
+| `PROJECT_OPENED`                      | 作品已打开。                         | 作品已打开。                                               |
+| `PROJECT_DELETED`                     | 作品已删除。                         | 作品已删除。                                               |
+| `EPISODE_CREATED`                     | 新一集已创建。                       | 新一集建好了。                                             |
+| `EPISODE_DELETED`                     | 这一集已删除。                       | 这一集已删除。                                             |
+| `EXAMPLE_OPENED`                      | 示例已打开。                         | 示例已打开。                                               |
+| `EDITOR_GUIDANCE`                     | 请查看创作步骤说明。                 | 用调用方自己的那句话（这两个 code 只表示「看那句话」）     |
+| `SHOT_SELECTED`                       | 镜头已选择。                         | 已选中这一镜。                                             |
+| `SHOT_REMOVED`                        | 这一段已剪掉。                       | 已剪掉这一段，前后接上了。                                 |
+| `REVIEW_RECORDED`                     | 审片意见已记下。                     | 审片意见已记下，挑哪一版还是由你定。                       |
+| `REVIEW_TEXT_ONLY`                    | 目前只提供文字审片意见。             | 审片还不会看画面，只能给文字意见。                         |
+| `AUDIO_MUTED`                         | 这一路已静音。                       | 这一轨已静音。                                             |
+| `AUDIO_VOLUME_SAVED`                  | 音量已记下。                         | 音量已记下。                                               |
+| `AUDIO_MUSIC_IMPORTED`                | 音乐已导入。                         | 音乐已导入。                                               |
+| `TAKE_PREVIOUS_KEPT`                  | 已保留旧版。                         | 留着原来那一版。                                           |
+| `TAKE_REPLACED`                       | 已用新版替换。                       | 已换成新的一版。                                           |
+| `TAKE_UNAVAILABLE`                    | 还没有可替换的新版本。               | 还没有新的一版可以换。                                     |
+| `OPERATION_CANCELLED`                 | 操作已取消。                         | 已取消。                                                   |
+| `FILM_SUCCEEDED`                      | （服务端旧结果）                     | 试做版已经保存，可以在播放器里打开看看。                   |
+| `FILM_BLOCKED`                        | （服务端旧结果）                     | 这一片被拦下了，没有生成。                                 |
+| `FILM_FAILED`                         | （服务端旧结果）                     | 这一片没做成，可以再试一次。                               |
+| `BILLING_PROJECT_REQUIRED`            | 生成准备尚未完成，请重试。           | 生成前的准备没做完，可以再试一次。                         |
+| `SHOT_STILL_INPUT_CHANGED`            | 镜头内容已改，旧画面没有写入。       | 这一镜在出图时改过，那张图没有放进去。                     |
+| `STILL_CANDIDATE_PRESERVED`           | 画面已加入候选，保留了所选首帧。     | 新画面放进了候选，你选的开头画面没变。                     |
+| `ART_APPLIED_UNSAVED`                 | 美术建议已应用，但尚未保存。         | 美术的建议已经放进去，还没保存上。                         |
+| `PROMPTER_APPLIED_UNSAVED`            | 画面说明已应用，但尚未保存。         | 画面说明已经放进去，还没保存上。                           |
+| `REVIEW_REASON_REQUIRED`              | 请填写人工检查结论再继续。           | 写一句你看过画面的结论，才能继续。                         |
+| `REVIEW_INPUT_STALE`                  | 审片内容已变化，请重新检查。         | 审的时候画面变了，请再看一遍。                             |
+| `REVIEW_INVALID`                      | 审片结果不完整，请重新检查。         | 审片结果不完整，请再看一遍。                               |
+| `REVIEW_SHOT_UNKNOWN_OR_DUPLICATE`    | 审片镜头对应不明确，请核对。         | 审片说的是哪个镜头不清楚，请核对一下。                     |
+| `REVIEW_TAKE_UNKNOWN_OR_DUPLICATE`    | 审片版本对应不明确，请核对。         | 审片说的是哪一版不清楚，请核对一下。                       |
+| `REVIEW_RECOMMENDATION_UNVERIFIED`    | 推荐版本尚未确认，请人工核对。       | 推荐的那一版还没人确认，请自己看一眼。                     |
+| `PIPELINE_REQUEST_STALE`              | 制作期间内容已变，结果没有写入。     | 做的时候内容改过，这次的结果没有放进去。                   |
+| `VOICE_PROJECT_REQUIRED`              | 配音准备尚未完成，请重试。           | 配音前的准备没做完，可以再试一次。                         |
+| `VOICE_METADATA_TIMEOUT`              | 配音时长读取超时，请重试。           | 读配音时长太久，可以再试一次。                             |
+| `VOICE_AUDIO_FAILED`                  | 配音无法播放，请检查音频。           | 这段配音放不出来，请检查一下声音文件。                     |
+| `BILLING_PROJECT_STALE`               | 作品已切换，配音准备已停止。         | 已经换了作品，配音准备停下了。                             |
+| `BILLING_PROJECT_ID_INVALID`          | 配音准备结果无效，请重试。           | 配音准备没成功，可以再试一次。                             |
+| `STATE_INVALID`                       | 制作进度损坏，请核对后重新开始。     | 一键成片的进度读不出来了，看一下已经做好的，再重新开始。   |
+| `RUN_INTERRUPTED`                     | 上次制作已中断，请核对已完成内容。   | 上次一键成片没做完就停了，先看看哪些已经做好。             |
+| `REQUEST_CANCELLED`                   | 请求已取消。                         | 已取消。                                                   |
+| `PIPELINE_ALREADY_RUNNING`            | 制作正在进行，请勿重复开始。         | 一键成片已经在做了，不用再点。                             |
+| `PIPELINE_INPUT_CHANGED`              | 制作内容已变化，请核对后重新开始。   | 剧本或角色改过了，看一下再重新开始。                       |
+| `CHECKPOINT_INVALID`                  | 分镜检查信息不完整，请重新核对。     | 分镜检查的信息不全，请再核对一遍。                         |
+| `PIPELINE_TARGETS_CHANGED`            | 制作目标已变化，请重新核对。         | 要做的镜头变了，请再核对一遍。                             |
+| `PIPELINE_TARGETS_INVALID`            | 制作目标不完整，请检查镜头。         | 要做的镜头不完整，请检查分镜。                             |
+| `HUMAN_REVIEW_ACCEPTED`               | 已记录人工检查确认。                 | 已记下你看过画面的确认。                                   |
+| `REQUEST_OUTCOME_UNKNOWN`             | 请求结果尚未确认，请核对后再试。     | 不确定上次那一下做成没有，先核对再重试，免得多用一次额度。 |
+| `PIPELINE_INPUT_INVALID`              | 作品内容无法读取，请检查作品。       | 作品内容读不出来，请检查一下作品。                         |
+| `VIDEO_SUBMISSIONS_ESTIMATE`          | 生成次数为估算，请核对后继续。       | 要生成几段视频是估的，开始前再看一眼。                     |
+| `PROJECT_REQUIRED`                    | 请先打开作品。                       | 先打开一部作品。                                           |
+| `PIPELINE_PREPARATION_INVALID`        | 媒体准备结果不一致，制作已停止。     | 画面和声音的准备对不上，已经停下了。                       |
+| `PIPELINE_PREPARATION_REQUIRED`       | 请先保存媒体，再继续制作。           | 先把画面和声音存好，再继续。                               |
+| `STEP_RESULT_MISSING`                 | 这一步没有返回结果，请重试。         | 这一步没拿到结果，可以再试一次。                           |
+| `STEP_RESULT_STALE`                   | 这一步结果已过期，未应用。           | 这一步的结果已经过时，没有放进去。                         |
+| `PROJECT_RESULT_MISMATCH`             | 结果不属于当前作品，未应用。         | 这个结果不是这部作品的，没有放进去。                       |
+| `PIPELINE_SAVE_FAILED`                | 制作进度未存好，请先核对再重试。     | 一键成片的进度没存上，先核对再重试。                       |
+| `PORTRAIT_CAPABILITY_REQUIRED`        | 当前无法生成参考图，请检查连接。     | 现在出不了定妆照，请检查登录和网络。                       |
+| `LOCATION_IMAGE_INCOMPLETE`           | 场景参考图未完成，请补齐。           | 场景图还没出全，请补上。                                   |
+| `PORTRAITS_INCOMPLETE`                | 人物参考图未完成，请补齐。           | 定妆照还没出全，请补上。                                   |
+| `MEDIA_CAPABILITY_REQUIRED`           | 当前无法生成媒体，请检查连接。       | 现在出不了画面和视频，请检查登录和网络。                   |
+| `MEDIA_RESULT_MISSING`                | 媒体结果缺失，请核对生成任务。       | 没拿到生成的画面或视频，请看一下后台生成。                 |
+| `VIDEO_COVERAGE_INCOMPLETE`           | 部分镜头没有视频，请补齐。           | 有的镜头还没有视频，请补上。                               |
+| `VIDEO_FILE_MISSING`                  | 视频文件不可用，请检查保存位置。     | 找不到视频文件，请检查保存的地方。                         |
+| `ASSEMBLY_CAPABILITY_REQUIRED`        | 当前无法合成成片，请在桌面版继续。   | 网页版接不了成片，请在电脑上装好的 AIVORA 里继续。         |
+| `ASSEMBLY_RESULT_MISSING`             | 没有得到成片文件，请重试合成。       | 没拿到成片文件，可以再接一次。                             |
+| `STEP_UNSUPPORTED`                    | 这一步暂不支持，请核对制作流程。     | 这一步现在还做不了。                                       |
+| `PERFORMANCE_READY`                   | 表演建议已准备，请确认写入。         | 表演建议好了，确认后放进分镜。                             |
+| `PERFORMANCE_OFFLINE`                 | 已用离线表演建议，请核对。           | 没登录，先用软件自己的规则写了表演，请看一下。             |
+| `PERFORMANCE_UNASSIGNED`              | 部分表演未对应镜头或人物，请核对。   | 有的表演没对上镜头或人物，请看一下。                       |
+| `PERFORMANCE_VOICE_REVIEW`            | 配音语气归属不明确，请核对说话人。   | 这句台词是谁说的不清楚，请确认说话人。                     |
+| `SPEAKER_UNSPECIFIED`                 | 请先确认这一镜的说话人。             | 先确认这一镜是谁在说话。                                   |
+| `MULTIPLE_SPEAKERS`                   | 这一镜有多人说话，请分别确认语气。   | 这一镜有几个人说话，请分别确认语气。                       |
+| `VOICE_NOT_UNIQUE`                    | 说话人的语气建议不唯一，请选择。     | 这个人的语气有几种说法，请选一个。                         |
+| `UNKNOWN_PERFORMER`                   | 表演中的人物尚未确认，请核对。       | 表演里有人物还没认出来，请核对。                           |
+| `PERFORMANCE_TARGETS_INCOMPLETE`      | 部分镜头缺少表演建议，请补齐。       | 有的镜头还没有表演建议，请补上。                           |
+| `PERFORMANCE_PARSE_FAILED`            | 表演回复无法读取，请重试。           | 表演指导这次的回答读不懂，可以再试一次。                   |
+| `PERFORMANCE_NOT_REQUIRED`            | 这一场无需补充表演。                 | 这一场不用再补表演。                                       |
+| `EDITOR_UNDO_CONFLICT`                | 内容已变化，暂不能撤销这次修改。     | 后来又改过，这次修改撤销不了。                             |
+| `EDITOR_EDIT_CONFLICT`                | 内容后来改过，已保留当前内容。       | 后来又改过，留着现在的内容。                               |
+| `PIPELINE_RECOVERY_FAILED`            | 制作进度未能恢复，请重试。           | 一键成片的进度没能接上，可以再试一次。                     |
+| `VISUAL_REVIEW_REQUIRED`              | 请人工检查画面后确认继续。           | 请自己看一遍画面，确认后再继续。                           |
+| `ACTION_NOT_REQUIRED`                 | 这一场无需补充动作。                 | 这一场不用再补动作。                                       |
+| `ACTION_PARSE_FAILED`                 | 动作回复无法读取，请重试。           | 动作指导这次的回答读不懂，可以再试一次。                   |
+| `ART_PARSE_FAILED`                    | 美术回复无法读取，请重试。           | 美术这次的回答读不懂，可以再试一次。                       |
+| `CAST_PARSE_FAILED`                   | 人物回复无法读取，请重试。           | 这次没认出人物，可以再试一次。                             |
+| `DIRECTOR_PARSE_FAILED`               | 导演回复无法读取，请重试。           | 导演这次的回答读不懂，可以再试一次。                       |
+| `PROMPTER_PARSE_FAILED`               | 画面说明无法读取，请重试。           | 画面说明这次读不懂，可以再试一次。                         |
+| `WRITER_PARSE_FAILED`                 | 编剧回复无法读取，请重试。           | 编剧这次的回答读不懂，可以再试一次。                       |
+| `SCENE_NOT_FOUND`                     | 场次已变化，请重新选择。             | 这一场已经变了，请重新选一下。                             |
+| `SHOT_NOT_FOUND`                      | 镜头已变化，请重新选择。             | 这个镜头已经变了，请重新选一下。                           |
+| `SOURCE_REQUIRED`                     | 请先填写故事正文。                   | 先写下故事。                                               |
+| `SCRIPT_COVERAGE_REVIEW`              | 部分原文归属待确认，请检查场次。     | 有的原文还没分到场里，请看一下场次。                       |
+| `STEP_COMPLETE`                       | 这一步已完成。                       | 这一步做好了。                                             |
+| `TEXT_CANCELLED`                      | 这次文字请求已取消。                 | 已取消这次提问。                                           |
+| `TEXT_REJECTED`                       | 这次文字请求未获准，请调整后重试。   | Grok 没有接受这次的内容，改一改再试。                      |
+| `USER_FIELDS_PRESERVED`               | 已保留你修改的字段。                 | 你改过的地方都留着。                                       |
+| `PROJECT_MISMATCH`                    | 作品已切换，请重新操作。             | 已经换了作品，请重新操作。                                 |
+| `SELECTION_MISMATCH`                  | 选择已变化，请重新生成建议。         | 选的内容变了，请重新要一次建议。                           |
+| `NOTHING_TO_UNDO`                     | 当前页面没有可撤销的修改。           | 这一页没有可以撤销的修改。                                 |
+| `NO_CHANGES`                          | 没有可应用的改动。                   | 没有要改的地方。                                           |
+| `SUGGESTION_MISSING`                  | 建议已失效，请重新生成。             | 这条建议已经失效，请重新要一次。                           |
+| `BUSY`                                | 正在保存修改，请稍候。               | 正在保存，请稍等。                                         |
+| `SAVE_DEFERRED`                       | 修改尚未存盘，请稍后重试。           | 修改还没存上，稍后再试。                                   |
+| `SAVE_FAILED`                         | 修改保存失败，请重试。               | 修改没存上，可以再试一次。                                 |
+| `LOCK_METADATA_CHANGED`               | 建议试图改变保护设置，未应用。       | 这条建议想改你锁定的内容，没有放进去。                     |
+| `TARGET_EDITED`                       | 目标内容已修改，请重新生成建议。     | 这里后来改过，请重新要一次建议。                           |
+| `STRUCTURE_STALE`                     | 镜头结构已变化，请重新生成建议。     | 镜头已经调整过，请重新要一次建议。                         |
+| `SELECTION_REQUIRED`                  | 请先选择要修改的场次或镜头。         | 先选要改的场或镜头。                                       |
+| `DEPENDENT_WORK_EXISTS`               | 已有生成内容依赖这些镜头，请先核对。 | 这些镜头已经出过画面或视频，改之前请先看一下。             |
+| `DEPENDENCIES_CHANGED`                | 关联内容已变化，请重新核对。         | 相关的内容变了，请再核对一遍。                             |
+| `DUPLICATE_OR_EMPTY_ID`               | 镜头标识重复或缺失，未应用。         | 有的镜头对不上号，没有放进去。                             |
+| `INVALID_CONTINUITY_REFERENCE`        | 接镜引用无效，请检查相邻镜头。       | 「接上一镜」指的镜头不对，请检查前后两个镜头。             |
+| `INVALID_SCOPE_IDS`                   | 所选范围无效，请重新选择。           | 选的范围不对，请重新选。                                   |
+| `INVALID_TARGET_ORDER`                | 镜头顺序无效，未应用。               | 镜头顺序不对，没有放进去。                                 |
+| `MEDIA_REPLACEMENT_UNSUPPORTED`       | 这项建议不能替换已有媒体。           | 这条建议不能换掉已经做好的画面或视频。                     |
+| `NEW_SHOT_HAS_ASSETS_OR_DEPENDENCIES` | 新增镜头带有旧媒体或关联，未应用。   | 新加的镜头带着旧的画面或关联，没有放进去。                 |
+| `NONCONTIGUOUS_SCOPE`                 | 请先选择相邻的镜头。                 | 请选挨在一起的镜头。                                       |
+| `OTHER_COLLECTION_CHANGED`            | 建议改动了其他内容，未应用。         | 这条建议改到了别的地方，没有放进去。                       |
+| `OUTSIDE_SCOPE_EDIT`                  | 建议超出所选范围，未应用。           | 这条建议改到了选中范围以外，没有放进去。                   |
+| `OUTSIDE_SCOPE_STRUCTURE`             | 结构改动超出所选范围，未应用。       | 这条建议动了选中范围以外的镜头，没有放进去。               |
+| `PAGE_SCOPE_MISMATCH`                 | 建议不属于当前页面，未应用。         | 这条建议不是这一页的，没有放进去。                         |

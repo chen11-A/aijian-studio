@@ -41,6 +41,11 @@ describe("story pages", () => {
     ["take-picker", ["three", "two", "one", "generating", "project"]],
     ["subtitle-style", ["white", "yellow", "project"]],
     ["cover-editor", ["on", "off", "untitled", "project"]],
+    [
+      "pipeline-steps",
+      ["running", "failed", "uncertain", "review", "blocked", "checkpoint", "cancelled"],
+    ],
+    ["suggestion-card", ["change", "new", "scenes", "busy", "applied"]],
   ])("%s renders every example state", (story, states) => {
     for (const state of states) {
       const view = render(<StoryGallery search={`?story=${story}&state=${state}`} />);

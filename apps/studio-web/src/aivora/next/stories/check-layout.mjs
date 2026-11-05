@@ -3,12 +3,14 @@
  * Layout check for the next/ story pages and for the whole workspace. It looks at every state
  * of every story, then at the workspace pages with the test novel loaded (adapters/
  * novelProject.ts): 首页, 剧本, 角色与场景, 分镜, 单镜, 剪辑, the export dialog and the task
- * center. At each window size it checks that the page does not scroll, nothing sits outside
+ * center. On 分镜 it also opens 「更多」 and checks that Esc and a press outside close it (UIR-01).
+ * At each window size it checks that the page does not scroll, nothing sits outside
  * the window, nothing is cut off by a box that does not scroll (one-line text with an ellipsis
  * is fine, and so is text cut to a few lines whose tooltip holds all of it), no two pieces of
  * text or controls overlap (a dialog or menu over the page is fine; so is text drawn on a
  * picture frame, .nx-frame or [data-layer]), no text is smaller than 12px, every button has a
- * name, and the console stays clean.
+ * name, the console stays clean, and each workspace page shows at most one filled primary
+ * button outside dialogs (4A-U09).
  *
  * Start the dev server first, then run from the repository root:
  *   pnpm --filter @aijian/studio-web dev
@@ -41,6 +43,8 @@ const stories = [
   "take-picker",
   "subtitle-style",
   "cover-editor",
+  "pipeline-steps",
+  "suggestion-card",
 ];
 
 // Runs inside the page. Returns a list of problems in Chinese.
@@ -281,12 +285,41 @@ const pages = [
     },
   },
   { name: "角色与场景", tab: "角色与场景" },
-  { name: "分镜", tab: "分镜" },
+  {
+    name: "分镜",
+    tab: "分镜",
+    // UIR-01: 「更多」 closes on Esc and on a press on an empty part of the page.
+    async act(page) {
+      const problems = [];
+      const more = page.getByRole("button", { name: "更多操作" });
+      const menu = page.getByRole("menu", { name: "这一镜的更多操作" });
+      await more.click();
+      if (!(await menu.isVisible())) problems.push("点「更多」没有打开菜单");
+      await page.keyboard.press("Escape");
+      if (await menu.isVisible()) problems.push("按 Esc 以后「更多」菜单还在");
+      await more.click();
+      await page.locator(".pane .tool h3").first().click();
+      if (await menu.isVisible()) problems.push("点页面空白处以后「更多」菜单还在");
+      return problems;
+    },
+  },
   { name: "单镜", button: "单镜" },
   { name: "剪辑", tab: "剪辑" },
   { name: "导出对话框", button: "导出成片", close: "关闭" },
   { name: "任务中心", button: /后台生成/ },
 ];
+
+// 4A-U09: one filled primary button per screen; a dialog's own buttons do not count.
+function onePrimary() {
+  const shown = [...document.querySelectorAll(".pro-root .btn.primary")].filter((el) => {
+    if (el.closest(".dialog, [role=dialog]")) return false;
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden";
+  });
+  if (shown.length <= 1) return [];
+  const names = shown.map((el) => `「${(el.textContent || "").replace(/\s+/g, " ").trim()}」`);
+  return [`一屏有 ${shown.length} 个主按钮：${names.join("、")}`];
+}
 
 async function checkPages(browser, size) {
   let failed = 0;
@@ -311,10 +344,17 @@ async function checkPages(browser, size) {
     if (shots) {
       await page.screenshot({ path: `${shots}/${step.name}-${size.width}x${size.height}.png` });
     }
-    const extra = step.rules ? await page.evaluate(step.rules) : [];
+    const extra = [
+      ...(step.rules ? await page.evaluate(step.rules) : []),
+      ...(await page.evaluate(onePrimary)),
+    ];
     for (const [label, found] of await inspectPage(page, ".pro-root")) {
       const where = `页面 ${step.name}${label} ${size.width}×${size.height}`;
       failed += report(where, label ? found : [...found, ...extra], errors);
+    }
+    if (step.act) {
+      const acted = await step.act(page);
+      failed += report(`页面 ${step.name} 菜单 ${size.width}×${size.height}`, acted, []);
     }
     if (step.close) await page.getByRole("button", { name: step.close }).first().click();
   }
