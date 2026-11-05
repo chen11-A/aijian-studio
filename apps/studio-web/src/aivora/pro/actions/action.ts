@@ -1,3 +1,4 @@
+import { shotActions, withShotActions } from "../../film/shot-actions";
 import { applyActionPlan, type SceneActionState } from "../../film/action-plan";
 import {
   actionBeats,
@@ -33,6 +34,7 @@ export async function planActionDraft(
   host: ActionDraftHost,
 ): Promise<ActionDraftResult> {
   let unassigned: FilmProject["unassignedBeats"];
+  let resolvedActions: string[] | undefined;
   const text = current?.picture || current?.action || film.title;
   let sentence = actionBeats(text)
     .map(
@@ -69,6 +71,7 @@ export async function planActionDraft(
         !assigned.unassignedBeats.some((item) => item.text === row.text),
     );
     sentence = assigned.shots[0]?.action ?? current.action;
+    resolvedActions = shotActions(assigned.shots[0] ?? current);
     note = assigned.unassignedBeats.length
       ? "有动作没对上镜头，去分镜看看。"
       : "动作指导写好了。点「写入分镜」写到这一镜。";
@@ -89,14 +92,17 @@ export async function planActionDraft(
   const actionLocked =
     current.userFields.includes("action") || current.userFields.includes("actionPlan");
   if (actionState?.unassigned.length) note = "有动作没对上镜头，去分镜看看。";
-  const actionShot = {
-    ...current,
-    actionPlan: planned.shots[0]?.actionPlan,
-    action: actionLocked ? current.action : sentence,
-    sound: actionLocked ? current.sound : { ...current.sound, sfx: cues },
-    source: actionLocked ? current.source : "agent:action",
-    userFields: current.userFields,
-  };
+  const actionShot = withShotActions(
+    {
+      ...current,
+      actionPlan: planned.shots[0]?.actionPlan,
+      action: actionLocked ? current.action : sentence,
+      sound: actionLocked ? current.sound : { ...current.sound, sfx: cues },
+      source: actionLocked ? current.source : "agent:action",
+      userFields: current.userFields,
+    },
+    actionLocked ? shotActions(current) : (resolvedActions ?? [sentence]),
+  );
   return {
     status: "ready",
     shot: actionShot,

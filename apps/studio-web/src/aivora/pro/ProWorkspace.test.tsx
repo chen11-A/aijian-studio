@@ -1696,7 +1696,15 @@ it("asks action and performance, then writes those fields on the shot", async ()
   expect(screen.getByText(/稳 · 他抬手/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "写入分镜" }));
   fireEvent.click(screen.getByRole("button", { name: "属性" }));
-  expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).toContain("他抬手");
+  expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).toBe(
+    sampleFilm().shots[0]!.action,
+  );
+  await waitFor(() => {
+    const writes = vi.mocked(window.aijian!.writeFilmProject!).mock.calls;
+    const saved = writes.at(-1)?.[0] as FilmProject | undefined;
+    expect(saved?.shots[0]?.actionBeats).toContain("他抬手");
+    expect(saved?.shots[0]?.actionBeats?.join("\n")).not.toContain("另一人翻越高墙");
+  });
   expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).not.toContain(
     "来自动作指导",
   );
@@ -3033,7 +3041,15 @@ it("manual action assigns only the current shot and persists the other shot as u
   fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
   fireEvent.click(await screen.findByRole("button", { name: "写入分镜" }));
   fireEvent.click(screen.getByRole("button", { name: "属性" }));
-  expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).toContain("他抬手");
+  expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).toBe(
+    sampleFilm().shots[0]!.action,
+  );
+  await waitFor(() => {
+    const writes = vi.mocked(window.aijian!.writeFilmProject!).mock.calls;
+    const saved = writes.at(-1)?.[0] as FilmProject | undefined;
+    expect(saved?.shots[0]?.actionBeats).toContain("他抬手");
+    expect(saved?.shots[0]?.actionBeats?.join("\n")).not.toContain("另一人翻越高墙");
+  });
   expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).not.toContain(
     "另一人翻越高墙",
   );
