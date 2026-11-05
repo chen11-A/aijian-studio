@@ -12,6 +12,7 @@ import {
   type FilmShot,
 } from "../film/project";
 import type { AgentReply } from "./workflow";
+import { shotActions } from "../film/shot-actions";
 
 export type DirectorRepairResult = {
   shots: FilmShot[];
@@ -47,14 +48,15 @@ export async function repairDirectorCoverage(
         return true;
       });
     };
+    // Segmentation may add whitespace, but every word, punctuation mark and
+    // movement must remain in its original order, including secondary beats.
+    const actionText = (shot: FilmShot) => shotActions(shot).join("").replace(/\s+/gu, "");
     const losesShotContent =
-      (["picture", "action"] as const).some(
-        (field) =>
-          !containsInOrder(
-            shots.map((shot) => shot[field]),
-            parsed.map((shot) => shot[field]).join("\n"),
-          ),
+      !containsInOrder(
+        shots.map((shot) => shot.picture),
+        parsed.map((shot) => shot.picture).join("\n"),
       ) ||
+      !containsInOrder(shots.map(actionText), parsed.map(actionText).join("")) ||
       !containsInOrder(
         shots.flatMap(shotLines).map((line) => line.text),
         parsed
@@ -74,23 +76,69 @@ export async function repairDirectorCoverage(
     if (losesCoverage) return { shots, coverage, repaired: false };
     const sameContent = (a: FilmShot, b: FilmShot) =>
       a.picture === b.picture &&
-      a.action === b.action &&
+      actionText(a) === actionText(b) &&
       JSON.stringify(shotLines(a)) === JSON.stringify(shotLines(b));
     const protectedShot = (shot: FilmShot) =>
-      shot.userFields.length || shot.poster || shot.stills.length || shot.takes.length;
+      shot.userFields.length ||
+      shot.poster ||
+      shot.stills.length ||
+      shot.takes.length ||
+      shot.selectedTakeId ||
+      shot.continuityFrame;
     if (
       shots.some(
         (shot) => protectedShot(shot) && !parsed.some((candidate) => sameContent(shot, candidate)),
       )
     )
       return { shots, coverage, repaired: false };
+    const fresh = shots.every((shot) => !protectedShot(shot));
     const used = new Set<string>();
-    const restored = parsed.map((candidate, index) => {
+    const rows = parsed.map((candidate, index) => {
       const original = shots.find((shot) => !used.has(shot.id) && sameContent(shot, candidate));
-      const id = original?.id ?? `${scene.id}-repair-${crypto.randomUUID()}`;
-      used.add(id);
-      return { ...(original ?? candidate), id, no: index + 1 };
+      if (original) used.add(original.id);
+      const id = fresh
+        ? `${scene.id}-shot-${index + 1}`
+        : (original?.id ?? `${scene.id}-repair-${crypto.randomUUID()}`);
+      return { original, candidate, shot: { ...(original ?? candidate), id, no: index + 1 } };
     });
+    const references = (kind: "original" | "candidate") => {
+      const mapping = new Map<string, string>();
+      const ambiguous = new Set<string>();
+      for (const row of rows) {
+        const source = row[kind];
+        if (!source || source.sceneId !== scene.id) continue;
+        if (mapping.has(source.id)) ambiguous.add(source.id);
+        else mapping.set(source.id, row.shot.id);
+      }
+      for (const id of ambiguous) mapping.delete(id);
+      return mapping;
+    };
+    const originalReferences = references("original");
+    const candidateReferences = references("candidate");
+    const restored = rows.map((row, index) => {
+      // Existing assets, their identifiers and their references are immutable.
+      if (!fresh && row.original) return row.shot;
+      const originalLink = row.original?.continuityFromShotId;
+      const requested = originalLink ?? row.candidate.continuityFromShotId;
+      const resolved =
+        requested && (originalLink ? originalReferences : candidateReferences).get(requested);
+      const next = { ...row.shot };
+      if (resolved && rows[index - 1]?.shot.id === resolved) next.continuityFromShotId = resolved;
+      else delete next.continuityFromShotId;
+      return next;
+    });
+    if (
+      rows.some((row, index) => {
+        const original = row.original;
+        if (!original || !protectedShot(original) || !original.continuityFromShotId) return false;
+        const oldIndex = shots.indexOf(original);
+        return (
+          shots[oldIndex - 1]?.id === original.continuityFromShotId &&
+          restored[index - 1]?.id !== original.continuityFromShotId
+        );
+      })
+    )
+      return { shots, coverage, repaired: false };
     return { shots: restored, coverage: detectDirectorCoverage(scene, restored), repaired: true };
   } catch {
     return { shots, coverage, repaired: false };
