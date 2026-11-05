@@ -329,6 +329,15 @@ const pages = [
     },
     close: "关闭",
   },
+  // 4C-U03: 设置, opened from the avatar.
+  {
+    name: "设置",
+    async open(page) {
+      await page.getByRole("button", { name: "账号" }).click();
+      await page.getByRole("button", { name: "设置", exact: true }).click();
+    },
+    close: "关闭",
+  },
   { name: "任务中心", button: /后台生成/ },
 ];
 

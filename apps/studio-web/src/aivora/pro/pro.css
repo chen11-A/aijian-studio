@@ -3112,6 +3112,23 @@ body:has(.pro-root) {
 .pro-root .work-settings h3 {
   font-size: 13px;
 }
+/* 4C-U03: a choice in 设置, the box and its words on one line. */
+.pro-root .check-row {
+  /* demo.css stacks every label in a column; this one is a row. */
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+.pro-root .work-settings .pathrow {
+  justify-self: stretch;
+}
+.pro-root .work-settings .pathrow .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 /* 4B-U04: the cover step widens the export dialog to show both covers and the settings. */
 .pro-root .dialog.export.wide {
   width: min(1100px, calc(100% - 32px));
