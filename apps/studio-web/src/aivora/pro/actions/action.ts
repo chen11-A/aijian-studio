@@ -1,5 +1,10 @@
 import { applyActionPlan, type SceneActionState } from "../../film/action-plan";
-import { actionBeats, assignActionBeats, fightConstraints } from "../../film/operations";
+import {
+  actionBeats,
+  assignActionBeats,
+  fightConstraints,
+  resolveActionBeatShot,
+} from "../../film/operations";
 import { actionFromModel, difficultyLabel, parseLooseJson } from "../../film/phase2";
 import { shotLines } from "../../film/director-continuity";
 import type { FilmProject, FilmShot } from "../../film/project";
@@ -55,11 +60,12 @@ export async function planActionDraft(
     }
   }
   if (parsed && current) {
-    const assigned = assignActionBeats([current], current.sceneId, parsed);
+    const source = film.scenes.find((scene) => scene.id === current.sceneId)?.text ?? "";
+    const assigned = assignActionBeats([current], current.sceneId, parsed, source);
     unassigned = assigned.unassignedBeats;
     parsed = parsed.filter(
       (row) =>
-        row.shotId === current.id &&
+        resolveActionBeatShot([current], current.sceneId, row, source)?.id === current.id &&
         !assigned.unassignedBeats.some((item) => item.text === row.text),
     );
     sentence = assigned.shots[0]?.action ?? current.action;

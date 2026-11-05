@@ -176,7 +176,6 @@ it("stores all unassigned beats and refuses combat on dialogue shots even with a
   expect(result.shots[1]?.action).not.toMatch(/保留原文|。。/);
   expect(result.unassignedBeats).toEqual([
     { sceneId: "scene", text: "周烈挥动铁棍" },
-    { sceneId: "scene", text: "周烈挥动铁棍" },
     { sceneId: "scene", text: "沈砚肘击" },
   ]);
   expect(fightConstraints("铁棍划开小臂。")).toContain("铁棍");

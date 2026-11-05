@@ -1,7 +1,7 @@
 import type { FilmProject, FilmShot } from "./project";
 import { normalizeAgentReply } from "./agent-reply-compat";
 import { plainCue } from "./phase2";
-import { assignActionBeats } from "./operations";
+import { assignActionBeats, resolveActionBeatShot } from "./operations";
 
 export type ActionNode = {
   id: string;
@@ -35,6 +35,9 @@ export type ActionPropState = {
   shotId?: string;
 };
 export type ShotActionPlan = {
+  /** Original reply IDs retained when source overlap resolves a stale/missing ID. */
+  sourceShotIds?: string[];
+  binding?: "source-overlap";
   nodes: ActionNode[];
   injuries: ActionInjury[];
   propsAfter: ActionPropState[];
@@ -180,8 +183,58 @@ export function parseActionPlan(value: unknown): {
 
 export function applyActionPlan(film: FilmProject, sceneId: string, value: unknown): FilmProject {
   const parsed = parseActionPlan(value);
-  const byId = new Map<string, ShotActionPlan>();
+  const source = film.scenes.find((scene) => scene.id === sceneId)?.text ?? "";
+  const resolved: typeof parsed.shots = [];
   for (const entry of parsed.shots) {
+    // Never reinterpret a valid ID from another scene, or metadata without an action.
+    if (
+      film.shots.some((shot) => shot.id === entry.shotId) ||
+      !entry.plan.nodes.length ||
+      !source.trim()
+    ) {
+      resolved.push(entry);
+      continue;
+    }
+    const groups = new Map<string, ActionNode[]>();
+    const unmatched: ActionNode[] = [];
+    for (const node of entry.plan.nodes) {
+      const cue = [
+        node.move.includes(node.actor) ? "" : node.actor,
+        node.move,
+        node.bodyPart,
+        node.direction,
+        node.reaction,
+      ]
+        .filter(Boolean)
+        .join("，");
+      const target = resolveActionBeatShot(film.shots, sceneId, { text: cue }, source);
+      if (target) groups.set(target.id, [...(groups.get(target.id) ?? []), node]);
+      else unmatched.push(node);
+    }
+    const metadataResolved = groups.size === 1 && !unmatched.length;
+    for (const [shotId, nodes] of groups)
+      resolved.push({
+        shotId,
+        plan: {
+          ...(metadataResolved ? entry.plan : empty()),
+          nodes,
+          sourceShotIds: [entry.shotId],
+          binding: "source-overlap",
+        },
+      });
+    if (
+      unmatched.length ||
+      (!metadataResolved &&
+        (entry.plan.injuries.length || entry.plan.propsAfter.length || entry.plan.promptAddon))
+    )
+      parsed.state.unassigned.push({
+        shotId: entry.shotId,
+        reason: "UNKNOWN_SHOT",
+        plan: { ...(metadataResolved ? empty() : entry.plan), nodes: unmatched },
+      });
+  }
+  const byId = new Map<string, ShotActionPlan>();
+  for (const entry of resolved) {
     const shot = film.shots.find((s) => s.sceneId === sceneId && s.id === entry.shotId);
     const reason = !shot
       ? "UNKNOWN_SHOT"
@@ -209,6 +262,14 @@ export function applyActionPlan(film: FilmProject, sceneId: string, value: unkno
       });
     const previous = byId.get(entry.shotId) ?? empty();
     byId.set(entry.shotId, {
+      ...(previous.binding || entry.plan.binding
+        ? {
+            binding: "source-overlap" as const,
+            sourceShotIds: [
+              ...new Set([...(previous.sourceShotIds ?? []), ...(entry.plan.sourceShotIds ?? [])]),
+            ],
+          }
+        : {}),
       nodes: [...previous.nodes, ...accepted],
       injuries: [...previous.injuries, ...entry.plan.injuries],
       propsAfter: [...previous.propsAfter, ...entry.plan.propsAfter],
@@ -217,6 +278,12 @@ export function applyActionPlan(film: FilmProject, sceneId: string, value: unkno
         .join("。"),
     });
   }
+  const sourceOrder = new Map(parsed.shots.map((entry, index) => [entry.shotId, index]));
+  parsed.state.unassigned.sort(
+    (left, right) =>
+      (sourceOrder.get(left.shotId) ?? parsed.shots.length) -
+      (sourceOrder.get(right.shotId) ?? parsed.shots.length),
+  );
   return {
     ...film,
     shots: film.shots.map((shot) =>

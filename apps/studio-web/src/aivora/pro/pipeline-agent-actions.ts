@@ -224,7 +224,10 @@ export async function runPipelineAgentAction(
       if (!reply.text) return replyFailure(reply);
       const parsed = actionFromModel(parseLooseJson(reply.text));
       if (!parsed?.length) return failed("ACTION_PARSE_FAILED");
-      const assigned = assignActionBeats(film.shots, scene.id, parsed);
+      const pending = (film.unassignedBeats ?? [])
+        .filter((beat) => beat.sceneId === scene.id)
+        .map((beat) => ({ text: beat.text }));
+      const assigned = assignActionBeats(film.shots, scene.id, [...pending, ...parsed], scene.text);
       const next = applyActionPlan(
         {
           ...film,
@@ -232,7 +235,12 @@ export async function runPipelineAgentAction(
             const original = film.shots.find((item) => item.id === shot.id);
             return original?.userFields.includes("action") ? original : shot;
           }),
-          unassignedBeats: [...(film.unassignedBeats ?? []), ...assigned.unassignedBeats],
+          unassignedBeats: [
+            ...(film.unassignedBeats ?? []).filter((beat) => beat.sceneId !== scene.id),
+            ...assigned.unassignedBeats.filter(
+              (beat, index, all) => all.findIndex((item) => item.text === beat.text) === index,
+            ),
+          ],
         },
         scene.id,
         parseLooseJson(reply.text),

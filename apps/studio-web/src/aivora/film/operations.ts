@@ -669,26 +669,79 @@ export function beatsForShot(
     .replace(/。{2,}/g, "。");
 }
 
+/** Text evidence excludes spoken mentions; it never uses shot order or number. */
+function actionVisual(shot: FilmShot): string {
+  let visual = `${shot.picture} ${shot.action}`.replace(/[“「"][^”」"]*[”」"]/g, "");
+  for (const line of [...(shot.lines ?? []), { text: shot.line }])
+    if (line.text) visual = visual.replaceAll(line.text, "");
+  return visual;
+}
+
+const PHYSICAL_ACTION =
+  /打斗|挥|砍|刺|肘击|拳|踢|格挡|划|追打|搏斗|闪避|躲闪|侧身|扣住|一拧|抓住|推倒|抄起|扑|矮身|跪倒|掏出|抬手|顶|飞|爬起|脱下|脱掉|脱去|卷起|拖|钻进|逃|砸|落地|落下|擦|溅|正中|滑进/;
+const actionEvidence = (text: string) =>
+  plainCue(text)
+    .replace(/[“「"][^”」"]*[”」"]/g, "")
+    .replace(/^镜头\s*\d+\s*[·:：]?\s*(?:攻|防|攻击|防守)?[·:：]?/u, "")
+    .replace(/猛地|顺势|慢慢|正在|一个|一把|立刻|随即/gu, "")
+    .replace(/挥动(?:一根)?铁棍|挥起(?:一根)?铁棍|挥铁棍/gu, "挥棍")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+
+/** Require substantial literal overlap, not merely the same person or weapon. */
+function actionOverlap(cue: string, evidence: string): boolean {
+  if (cue.length < 4 || !PHYSICAL_ACTION.test(cue)) return false;
+  if (evidence.includes(cue)) return true;
+  const grams = [...new Set(Array.from({ length: cue.length - 1 }, (_, i) => cue.slice(i, i + 2)))];
+  const shared = grams.filter((gram) => evidence.includes(gram)).length;
+  const window = Math.min(6, cue.length - 1);
+  const hasRun = Array.from({ length: cue.length - window + 1 }, (_, i) =>
+    cue.slice(i, i + window),
+  ).some((part) => evidence.includes(part));
+  return shared >= 3 && shared / grams.length >= 0.8 && hasRun;
+}
+
+/** Resolve exact identity first; only missing/stale IDs may use unique source overlap. */
+export function resolveActionBeatShot(
+  shots: readonly FilmShot[],
+  sceneId: string,
+  beat: { text: string; shotId?: string },
+  sourceText = "",
+): FilmShot | undefined {
+  const explicit = beat.shotId ? shots.find((shot) => shot.id === beat.shotId) : undefined;
+  if (explicit)
+    return explicit.sceneId === sceneId &&
+      !explicit.userFields.includes("action") &&
+      !explicit.userFields.includes("actionPlan")
+      ? explicit
+      : undefined;
+  const cue = actionEvidence(beat.text);
+  if (sourceText && !actionOverlap(cue, actionEvidence(sourceText))) return undefined;
+  const candidates = shots.filter(
+    (shot) =>
+      shot.sceneId === sceneId &&
+      !shot.userFields.includes("action") &&
+      !shot.userFields.includes("actionPlan") &&
+      actionOverlap(cue, actionEvidence(actionVisual(shot))),
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
 export function assignActionBeats(
   shots: FilmShot[],
   sceneId: string,
   beats: { text: string; shotId?: string }[],
+  sourceText = "",
 ): { shots: FilmShot[]; unassignedBeats: { sceneId: string; text: string }[] } {
   const unassignedBeats: { sceneId: string; text: string }[] = [];
   const accepted = new Map<string, string[]>();
   for (const beat of beats) {
     const text = plainCue(beat.text);
     if (!text) continue;
-    const target = shots.find((shot) => shot.sceneId === sceneId && shot.id === beat.shotId);
+    const target = resolveActionBeatShot(shots, sceneId, beat, sourceText);
     // Spoken mentions of weapons do not turn a dialogue shot into a fight shot.
     const fightAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|铁棍|钢条|钢管|折叠刀/.test(text);
-    let visual = target
-      ? `${target.picture} ${target.action}`.replace(/[“「"][^”」"]*[”」"]/g, "")
-      : "";
-    for (const line of target?.lines ?? (target?.line ? [{ text: target.line }] : [])) {
-      if (line.text) visual = visual.replaceAll(line.text, "");
-    }
-    const hasPhysicalAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|追打|搏斗|闪避|躲闪/.test(visual);
+    const visual = target ? actionVisual(target) : "";
+    const hasPhysicalAction = PHYSICAL_ACTION.test(visual);
     if (!target || (fightAction && !hasPhysicalAction)) {
       unassignedBeats.push({ sceneId, text });
       continue;
