@@ -692,6 +692,22 @@ function actionVisual(shot: FilmShot): string {
   return visual;
 }
 
+const SPEECH_VERB = /说|问|回答|对白|对话|开口/;
+// Whole weapon words only: a single 刀 would match a name such as 刀疤.
+const FIGHT_PROPS = [
+  "铁棍",
+  "木棍",
+  "棍子",
+  "钢条",
+  "钢管",
+  "钢棒",
+  "折叠刀",
+  "匕首",
+  "刀锋",
+  "刀刃",
+  "刀子",
+  "短刀",
+];
 const PHYSICAL_ACTION =
   /打斗|挥|砍|刺|肘击|拳|踢|格挡|划|追打|搏斗|闪避|躲闪|侧身|扣住|一拧|抓住|推倒|抄起|扑|矮身|跪倒|掏出|抬手|顶|飞|爬起|脱下|脱掉|脱去|卷起|拖|钻进|逃|砸|落地|落下|擦|溅|正中|滑进/;
 const actionEvidence = (text: string) =>
@@ -771,10 +787,27 @@ export function assignActionBeats(
     const fightAction = /打斗|挥|砍|刺|肘击|拳|踢|格挡|划开|铁棍|钢条|钢管|折叠刀/.test(text);
     const visual = target ? actionVisual(target) : "";
     const hasPhysicalAction = PHYSICAL_ACTION.test(visual);
+    // 3JR-B02: the action director names a shot_id for every node. A terse silent frame
+    // ("第三个人亮出折叠刀") need not repeat a fight verb to take the action it was given; a
+    // talking shot takes it only when its picture, not its dialogue, shows the same weapon.
+    const named = Boolean(target && beat.shotId && target.id === beat.shotId);
+    const spoken = Boolean(target && (shotLines(target).length || SPEECH_VERB.test(visual)));
+    const unnamed = (value: string) =>
+      [
+        ...(target?.characters ?? []),
+        target?.speaker ?? "",
+        ...(target ? shotLines(target).map((line) => line.speaker) : []),
+      ]
+        .filter((name) => name.trim())
+        .reduce((rest, name) => rest.replaceAll(name, ""), value);
+    const sameWeapon = FIGHT_PROPS.some(
+      (word) => unnamed(text).includes(word) && unnamed(visual).includes(word),
+    );
     if (
       !target ||
       (fightAction &&
         !hasPhysicalAction &&
+        !(named && (!spoken || sameWeapon)) &&
         !sourceSupportsActionShot(
           target,
           text,
