@@ -22,6 +22,7 @@ from aijian_api.story_film import (
     reference_image_url,
     references_for_model,
 )
+from aijian_api.story_film_routes import _data
 from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse
 from fastapi.testclient import TestClient
 from test_draft_export_runtime import toolchain
@@ -131,6 +132,11 @@ def test_stub_pipeline_writes_a_playable_mp4_with_picture_and_sound(tmp_path):
     assert result.draft is True
     assert result.live_call is False
     assert result.has_video and result.has_audio
+    # The public result must retain the separately generated narration so the
+    # desktop can persist an actual dialogue clip, not just hear the mixed MP4.
+    assert result.voice_path is not None
+    assert Path(result.voice_path).is_file()
+    assert _data(result).voice_path == result.voice_path
     assert result.output_path and result.output_sha256
     assert result.task_id and result.attempt_id and result.artifact_version_id
     duration = float(result.duration_seconds or "0")

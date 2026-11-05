@@ -503,6 +503,7 @@ class StoryFilmService:
             draft=True,
             live_call=live_call,
             preview_image=preview if isinstance(preview, str) else None,
+            voice_path=result.voice_path,
         )
 
     def _preflight(
