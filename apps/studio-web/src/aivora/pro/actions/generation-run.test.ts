@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { sampleFilm, type FilmProject } from "../../film/project";
+import { sampleFilm, writeFilm, readFilm, type FilmProject } from "../../film/project";
 import { prepareVideoQueue } from "../../film/generation-queue";
 import {
   applyVideoResponse,
@@ -260,4 +260,29 @@ it("normalizes surrounding output whitespace once while retaining filename space
     videoPath: "/films/my video.mp4",
     videoUrl: "aivora-media://local/?path=%2Ffilms%2Fmy%20video.mp4",
   });
+});
+
+it("keeps a combined multi-voice take and timeline longer than the provider clip limit", () => {
+  const { queue } = setup();
+  const shot = queue.film.shots[0]!;
+  shot.lines = [
+    { speaker: "甲", text: "第一句。" },
+    { speaker: "乙", text: "最后一句。" },
+  ];
+  shot.line = shot.lines.map((line) => line.text).join("\n");
+  const result = applyVideoResponse(queue.film, shot, shot.takes[0]!, {
+    status: "SUCCEEDED",
+    output_path: "/films/long.mp4",
+    voice_path: "/films/combined.wav",
+    duration_seconds: 21.5,
+  });
+  expect(result.film.shots[0]!.seconds).toBe(21.5);
+  expect(
+    result.film.audioClips.find((clip) => clip.shotId === shot.id && clip.lane === "dialogue"),
+  ).toMatchObject({ path: "/films/combined.wav", durationSeconds: 21.5 });
+  writeFilm(localStorage, result.film);
+  const restored = readFilm(localStorage)!;
+  expect(restored.shots[0]!.seconds).toBe(21.5);
+  expect(restored.shots[0]!.lines).toEqual(shot.lines);
+  expect(restored.shots[0]!.takes[0]!.durationSeconds).toBe(21.5);
 });

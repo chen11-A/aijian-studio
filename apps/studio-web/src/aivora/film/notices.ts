@@ -136,6 +136,7 @@ const LEGACY_NOTICE_TEXT = {
   VOICE_EMPTY: "这一镜没有台词，不用配音。",
   VOICE_TRAITS_REQUIRED: "请先确认人物性别和年龄。",
   MULTI_VOICE_REQUIRED: "多角色对白需要分别配音。",
+  MULTI_VOICE_PROVIDER_REQUIRED: "分角色配音需要 Grok 会员。",
   VOICE_PROGRESS: "正在生成配音。",
   VOICE_FAILED: "配音未完成，可以重试。",
   VOICE_DONE: "配音已生成。",

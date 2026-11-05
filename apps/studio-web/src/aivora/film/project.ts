@@ -135,6 +135,8 @@ export type FilmStill = {
 };
 
 export type FilmTake = {
+  /** Measured final media length; may exceed the provider clip request after speech padding. */
+  durationSeconds?: number;
   interruptedFrom?: "queued" | "running";
   lipSync?: LipSyncState;
   lipSyncReason?: string;
@@ -1074,7 +1076,15 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
         sound: normalizeSoundPlan(shot.sound),
         size: classifyShotSize(shot.size || "中景").size,
         tag: shot.tag || classifyShotSize(shot.size || "中景").tag,
-        seconds: storedShotSeconds(shot.seconds),
+        seconds: (() => {
+          const selected = (shot.takes ?? []).find(
+            (take) => take.id === shot.selectedTakeId && take.status === "done" && take.videoPath,
+          );
+          const actual = selected?.durationSeconds;
+          return typeof actual === "number" && Number.isFinite(actual) && actual >= 1
+            ? actual
+            : storedShotSeconds(shot.seconds);
+        })(),
         takes: shot.takes ?? [],
         stills: shot.stills ?? [],
         selectedTakeId: shot.selectedTakeId ?? "",

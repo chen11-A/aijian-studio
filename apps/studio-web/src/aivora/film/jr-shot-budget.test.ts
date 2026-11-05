@@ -54,7 +54,7 @@ describe("3JR-B01 lossless scene compression (synthetic director replies)", () =
   });
 });
 
-it("keeps alternating speakers separate until video supports per-line voice tracks", () => {
+it("compresses alternating speakers and sends every line with its own voice", () => {
   const raw = Array.from({ length: 21 }, (_, i) => ({
     picture: i === 20 ? "警笛渐近，周烈离开。" : `第${i + 1}个画面。`,
     action: `第${i + 1}个动作`,
@@ -65,7 +65,7 @@ it("keeps alternating speakers separate until video supports per-line voice trac
   const source =
     raw.map((row) => `${row.speaker}：“${row.line}”`).join("\n") + "\n警笛渐近，周烈离开。";
   const shots = parseDirectorShots(JSON.stringify({ shots: raw }), "scene-1", source)!;
-  expect(shots).toHaveLength(21);
+  expect(shots.length).toBeLessThanOrEqual(16);
   expect(shots.flatMap(shotLines)).toEqual(
     raw.map((row) => ({ speaker: row.speaker, text: row.line })),
   );
@@ -78,7 +78,14 @@ it("keeps alternating speakers separate until video supports per-line voice trac
     ageBand: "青年",
     voiceId: i ? "leo" : "eve",
   }));
-  expect(() => storyFilmBatches(film, shots, false)).not.toThrow();
+  const payload = storyFilmBatches(film, shots, false).flatMap((batch) => batch.shots);
+  expect(payload.flatMap((shot) => shot.lines ?? [])).toEqual(
+    raw.map((row, i) => ({
+      speaker: row.speaker,
+      text: row.line,
+      voice_id: i % 2 ? "leo" : "eve",
+    })),
+  );
   expect(shots.reduce((sum, shot) => sum + shot.seconds, 0)).toBe(63);
   expect(shots.map(shotActionText).join("\n")).toContain("第21个动作");
   expect(detectDirectorCoverage({ id: "scene-1", text: source }, shots).ok).toBe(true);

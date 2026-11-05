@@ -78,6 +78,9 @@ export function applyVideoResponse(
           ...item,
           status: done ? ("done" as const) : ("failed" as const),
           videoPath: output,
+          ...(done && Number.isFinite(reported) && reported >= 1
+            ? { durationSeconds: reported }
+            : {}),
           videoUrl,
           stillUrl: preview,
           reason: message,
@@ -124,7 +127,7 @@ export function applyVideoResponse(
           takeId: take.id,
           label: "配音",
           startSeconds: 0,
-          durationSeconds: shot.seconds,
+          durationSeconds: Number.isFinite(reported) && reported >= 1 ? reported : shot.seconds,
           offsetSeconds: 0,
           gainDb: 0,
           path: voicePath,
@@ -133,7 +136,7 @@ export function applyVideoResponse(
     };
   }
   if (done && Number.isFinite(reported) && reported > 0.4) {
-    const shown = Math.max(1, Math.min(15, Math.round(reported)));
+    const shown = Math.max(1, reported);
     const chosen = saved.shots.find((item) => item.id === shot.id)?.seconds ?? 0;
     if (Math.abs(shown - chosen) >= 1) {
       saved = updateShot(saved, shot.id, { seconds: shown });

@@ -107,6 +107,7 @@ class StoryFilmError(RuntimeError):
 class StoryDialogue:
     speaker: str
     text: str
+    voice_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +153,7 @@ class StoryFilmRequest:
     move: str = ""
     delivery: str = ""
     aspect_ratio: str = "9:16"
+    dialogue_lines: tuple[StoryDialogue, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -361,20 +363,29 @@ class StoryFilmService:
         self._shot_captions = None
         clear_film_cancel(project_id)
         provider_label, billing_label = provider_copy(request.provider)
-        if any(
-            len({line.speaker for line in shot.lines if line.text.strip()}) > 1
-            for shot in request.shots
-        ):
-            return replace(
-                _blocked(
-                    "这一镜有多位说话人，请先拆分配音。", provider_label, billing_label, None, None
-                ),
-                user_message=user_message(
-                    "MULTI_VOICE_REQUIRED",
-                    "这一镜需要分角色配音。",
-                    "台词与字幕保留；请先拆分配音后重试。",
-                ),
+        dialogue_groups = [
+            (shot.lines, shot.voice_id or request.voice_id) for shot in request.shots
+        ]
+        dialogue_groups.append((request.dialogue_lines, request.voice_id))
+        for lines, fallback_voice in dialogue_groups:
+            spoken_lines = tuple(line for line in lines if line.text.strip())
+            multiple = len({line.speaker for line in spoken_lines}) > 1
+            missing_voice = any(
+                not re.fullmatch(
+                    r"[^\s\x00-\x1f\x7f]{1,64}",
+                    line.voice_id or ("" if multiple else fallback_voice),
+                )
+                for line in spoken_lines
             )
+            if missing_voice or (multiple and request.provider != "grok_subscription"):
+                code = "MULTI_VOICE_REQUIRED" if missing_voice else "MULTI_VOICE_PROVIDER_REQUIRED"
+                text = (
+                    "请为每句台词选择角色声音。" if missing_voice else "分角色配音需要 Grok 会员。"
+                )
+                return replace(
+                    _blocked(text, provider_label, billing_label, None, None),
+                    user_message=user_message(code, text),
+                )
         blocked = self._preflight(project_id, request, media_token)
         if blocked is not None:
             return blocked
@@ -423,7 +434,7 @@ class StoryFilmService:
                 image, clip, speech = self._placeholder_media(request)
             chosen = (
                 sum(max(1, min(int(shot.duration_seconds), 15)) for shot in request.shots)
-                if request.shots
+                if request.shots and not any(shot.lines for shot in request.shots)
                 else None
             )
             result = self._assemble_and_export(
@@ -771,6 +782,7 @@ class StoryFilmService:
                     voice_id=shot.voice_id or request.voice_id,
                     regenerate=request.regenerate or shot.regenerate,
                     delivery=shot.delivery,
+                    dialogue_lines=shot.lines,
                     shots=(),
                 )
                 if request.provider == "grok_subscription":
@@ -802,6 +814,15 @@ class StoryFilmService:
                 audio_path = directory / f"shot-{index}{_audio_suffix(speech)}"
                 clip_path.write_bytes(clip)
                 chosen = max(1, min(int(shot.duration_seconds), 15))
+                audio_path.write_bytes(speech)
+                if shot.lines:
+                    chosen = max(
+                        chosen,
+                        math.ceil(
+                            _media_duration(tools.ffprobe_path, audio_path)
+                            + _NARRATION_TAIL_SECONDS
+                        ),
+                    )
                 source_dir = Path(self._repository.database_path).parent / "story-films"
                 source_dir.mkdir(parents=True, exist_ok=True)
                 stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
@@ -975,28 +996,16 @@ class StoryFilmService:
         )
         self._ensure_running(project_id)
         mark_film_progress(project_id, "speech", shot_label or "正在生成配音。", image_saved=kept)
-        spoken = _spoken_line(request.narration)
-        if not spoken:
-            speech = _silent_wav()
-        else:
-            directed, speed = directed_speech(spoken, request.delivery)
-            try:
-                speech = client.synthesize(
-                    text=directed,
-                    voice_id=request.voice_id or "eve",
-                    language="zh",
-                    speed=speed,
-                )
-            except XaiMediaError as error:
-                if clip is None:
-                    raise StoryFilmError(
-                        "MEDIA_INCOMPLETE",
-                        "画面已生成，视频和配音这一步没有成功，可以重试",
-                    ) from error
+        try:
+            speech = self._dialogue_speech(client, request, project_id)
+        except XaiMediaError as error:
+            if clip is None:
                 raise StoryFilmError(
-                    "SPEECH_FAILED",
-                    "画面已生成，配音这一步没有成功，可以重试",
+                    "MEDIA_INCOMPLETE", "画面已生成，视频和配音这一步没有成功，可以重试"
                 ) from error
+            raise StoryFilmError(
+                "SPEECH_FAILED", "画面已生成，配音这一步没有成功，可以重试"
+            ) from error
         real_clip = clip is not None
         if clip is None:
             if not image.data:
@@ -1014,6 +1023,76 @@ class StoryFilmService:
             self._store_part(project_id, request, clip, "-clip.mp4")
             self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
         return picture, clip, speech
+
+    def _dialogue_speech(
+        self, client: XaiMediaClient, request: StoryFilmRequest, project_id: str
+    ) -> bytes:
+        lines = tuple(line for line in request.dialogue_lines if line.text.strip())
+        if not lines:
+            spoken = _spoken_line(request.narration)
+            if not spoken:
+                return _silent_wav()
+            directed, speed = directed_speech(spoken, request.delivery)
+            self._ensure_running(project_id)
+            audio = client.synthesize(
+                text=directed, voice_id=request.voice_id or "eve", language="zh", speed=speed
+            )
+            self._ensure_running(project_id)
+            return audio
+        multiple = len({line.speaker for line in lines}) > 1
+        voices = [line.voice_id or ("" if multiple else request.voice_id) for line in lines]
+        if any(not re.fullmatch(r"[^\s\x00-\x1f\x7f]{1,64}", voice) for voice in voices):
+            raise StoryFilmError("MULTI_VOICE_REQUIRED", "请为每句台词选择角色声音。")
+        tools = self._tools()
+        with tempfile.TemporaryDirectory(prefix="aivora-dialogue-") as temporary:
+            directory = Path(temporary)
+            entries = []
+            for index, (line, voice) in enumerate(zip(lines, voices, strict=True)):
+                self._ensure_running(project_id)
+                directed, speed = directed_speech(line.text, request.delivery)
+                audio = client.synthesize(text=directed, voice_id=voice, language="zh", speed=speed)
+                self._ensure_running(project_id)
+                source = directory / f"line-{index}{_audio_suffix(audio)}"
+                target = directory / f"line-{index}-pcm.wav"
+                source.write_bytes(audio)
+                _ffmpeg(
+                    tools.ffmpeg_path,
+                    [
+                        "-i",
+                        str(source),
+                        "-vn",
+                        "-ar",
+                        "48000",
+                        "-ac",
+                        "1",
+                        "-c:a",
+                        "pcm_s16le",
+                        str(target),
+                    ],
+                    stage="dialogue_decode",
+                )
+                entries.append(f"file '{target.name}'")
+            self._ensure_running(project_id)
+            manifest = directory / "lines.txt"
+            manifest.write_text("\n".join(entries), encoding="utf-8")
+            target = directory / "dialogue.wav"
+            _ffmpeg(
+                tools.ffmpeg_path,
+                [
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "1",
+                    "-i",
+                    str(manifest),
+                    "-c:a",
+                    "pcm_s16le",
+                    str(target),
+                ],
+                stage="dialogue_concat",
+            )
+            self._ensure_running(project_id)
+            return target.read_bytes()
 
     def _ensure_running(self, project_id: str) -> None:
         if project_id and film_cancel_requested(project_id):
@@ -1034,6 +1113,10 @@ class StoryFilmService:
                 request.scene_label,
                 request.narration,
                 request.voice_id or "eve",
+                json.dumps(
+                    [(line.speaker, line.text, line.voice_id) for line in request.dialogue_lines],
+                    ensure_ascii=False,
+                ),
             )
         ).encode()
         return hashlib.sha256(raw).hexdigest()[:16]

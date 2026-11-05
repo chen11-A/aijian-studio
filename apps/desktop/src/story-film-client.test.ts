@@ -408,3 +408,122 @@ it("preserves every dialogue line and stops mixed speakers before sending", () =
     ).toThrow("Invalid story film request");
   }
 });
+
+it("posts every multi-speaker line with its explicit voice and preserves dialogue order", async () => {
+  const fetcher = vi.fn<typeof fetch>(
+    async () => new Response(JSON.stringify({ data: { status: "SUCCEEDED" }, request_id: "test" })),
+  );
+  const client = createStoryFilmClient(fetcher, { origin, token });
+  const lines = [
+    { speaker: "甲", text: "第一句。还有一句。", voice_id: "leo" },
+    { speaker: "乙", text: "第二句。", voice_id: "eve" },
+    { speaker: "甲", text: "最后一句。", voice_id: "leo" },
+  ];
+  const input = parseStoryFilmCreate({
+    scene_label: "回归",
+    narration: "第一句。还有一句。第二句。最后一句。",
+    provider: "grok_subscription",
+    confirmed: true,
+    shots: [{ narration: "全部台词", prompt: "书店", duration_seconds: 10, lines }],
+  });
+  await client.create(projectId, input);
+  const calls = fetcher.mock.calls;
+  expect(calls[0]![0]).toBe(`${origin}/api/v1/projects/${projectId}/story-film`);
+  expect(JSON.parse(String(calls[0]![1]!.body)).shots[0].lines).toEqual(lines);
+  expect((calls[0]![1]!.headers as Record<string, string>).Origin).toBe("app://aijian");
+  expect((calls[0]![1]!.headers as Record<string, string>).Authorization).toBe(`Bearer ${token}`);
+});
+
+it("does not substitute a shot voice when one multi-speaker line has no voice", () => {
+  const fetcher = vi.fn();
+  const client = createStoryFilmClient(fetcher, { origin, token });
+  const input = parseStoryFilmCreate({
+    scene_label: "回归",
+    narration: "第一句。第二句。",
+    provider: "grok_subscription",
+    confirmed: true,
+    voice_id: "leo",
+    shots: [
+      {
+        narration: "两句",
+        prompt: "书店",
+        duration_seconds: 5,
+        voice_id: "leo",
+        lines: [
+          { speaker: "甲", text: "第一句。", voice_id: "leo" },
+          { speaker: "乙", text: "第二句。" },
+        ],
+      },
+    ],
+  });
+  expect(() => client.create(projectId, input)).toThrow(
+    expect.objectContaining({ code: "MULTI_VOICE_REQUIRED" }),
+  );
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("keeps legacy single-speaker requests without per-line voices", async () => {
+  const fetcher = vi.fn(async () => new Response(JSON.stringify({ data: {}, request_id: "test" })));
+  const client = createStoryFilmClient(fetcher, { origin, token });
+  await client.create(
+    projectId,
+    parseStoryFilmCreate({
+      scene_label: "回归",
+      narration: "一句。又一句。",
+      provider: "grok_subscription",
+      confirmed: true,
+      shots: [
+        {
+          narration: "一句。又一句。",
+          prompt: "书店",
+          duration_seconds: 5,
+          voice_id: "leo",
+          lines: [
+            { speaker: "甲", text: "一句。" },
+            { speaker: "甲", text: "又一句。" },
+          ],
+        },
+      ],
+    }),
+  );
+  expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it.each([null, 3, {}, "", " ", "a".repeat(65), "leo\neve", "leo eve", "leo\0"])(
+  "rejects malformed per-line voice %j without dropping the field",
+  (voice_id) => {
+    expect(() =>
+      parseStoryFilmCreate({
+        scene_label: "回归",
+        narration: "一句。",
+        provider: "grok_subscription",
+        confirmed: true,
+        shots: [
+          {
+            narration: "一句。",
+            prompt: "书店",
+            duration_seconds: 5,
+            lines: [{ speaker: "甲", text: "一句。", voice_id }],
+          },
+        ],
+      }),
+    ).toThrow("Invalid story film request");
+  },
+);
+
+it.each([
+  { speaker: "甲".repeat(101), text: "一句。" },
+  { speaker: "甲", text: "句".repeat(2001) },
+  { speaker: "甲", text: 4 },
+  { speaker: "甲", text: "一句。", voice_id: "leo", extra: "not allowed" },
+])("retains strict speaker/text/field validation with per-line voices", (line) => {
+  expect(() =>
+    parseStoryFilmCreate({
+      scene_label: "回归",
+      narration: "一句。",
+      provider: "grok_subscription",
+      confirmed: true,
+      shots: [{ narration: "一句。", prompt: "书店", duration_seconds: 5, lines: [line] }],
+    }),
+  ).toThrow("Invalid story film request");
+});

@@ -62,6 +62,7 @@ class StoryDialogueBody(BaseModel):
 
     speaker: str = Field(max_length=100)
     text: str = Field(min_length=1, max_length=2000)
+    voice_id: str = Field(default="", max_length=64, pattern=r"^(?:[^\s\x00-\x1f\x7f]{1,64})?$")
 
 
 class StoryShotBody(BaseModel):
@@ -339,7 +340,8 @@ def create_story_film_router(
                         references=tuple(shot.references),
                         delivery=shot.delivery.strip(),
                         lines=tuple(
-                            StoryDialogue(line.speaker.strip(), line.text) for line in shot.lines
+                            StoryDialogue(line.speaker.strip(), line.text, line.voice_id)
+                            for line in shot.lines
                         ),
                     )
                     for shot in payload.shots

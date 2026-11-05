@@ -15,7 +15,7 @@ import { performancePlanPrompt } from "./performance-plan";
 import { actionPlanPrompt } from "./action-plan";
 import { locationReference, withLocationLayout } from "./location-reference";
 import { parseAgentReplyText } from "./agent-reply-compat";
-import { sceneDisplayTitle } from "./director-continuity";
+import { shotLines, sceneDisplayTitle } from "./director-continuity";
 import { withStyleBible } from "./style-bible";
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 import { emptySoundPlan } from "./audio";
@@ -128,6 +128,7 @@ export type StoryFilmBody = {
     reference?: string;
     references?: string[];
     delivery?: string;
+    lines?: { speaker: string; text: string; voice_id: string }[];
   }[];
   video_model?: string;
 };
@@ -1672,15 +1673,17 @@ export function confirmEstimate(shots: { seconds: number }[], versions: number):
 }
 
 function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
-  if (new Set(shot.lines?.map((line) => line.speaker.trim()).filter(Boolean) ?? []).size > 1) {
-    throw Object.assign(new Error("同镜多位说话人的配音需要逐句音轨，请先拆分配音。"), {
-      code: "MULTI_VOICE_REQUIRED",
-    });
-  }
+  const dialogue = shotLines(shot).map((line) => ({
+    ...line,
+    voice_id: shotVoiceId({ ...shot, line: line.text, speaker: line.speaker, lines: [line] }, film),
+  }));
   const line = spokenLine(shot);
-  if (line && !shotVoiceId(shot, film))
+  if (line && (dialogue.length ? dialogue.some((row) => !row.voice_id) : !shotVoiceId(shot, film)))
     throw Object.assign(new Error("请先确认说话人的性别、年龄与声音。"), {
-      code: "VOICE_TRAITS_REQUIRED",
+      code:
+        new Set(dialogue.map((row) => row.speaker.trim()).filter(Boolean)).size > 1
+          ? "MULTI_VOICE_REQUIRED"
+          : "VOICE_TRAITS_REQUIRED",
     });
   const refs = shotReference(shot, film);
   return {
@@ -1710,7 +1713,8 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
     action: clip(withoutOffscreenVisuals(shotActionText(shot), film, shot), 1000),
     performance: clip(withoutOffscreenVisuals(shot.performance, film, shot), 1000),
     identity: shotIdentity(shot, film).slice(0, 200),
-    voice_id: shotVoiceId(shot, film).slice(0, 64),
+    voice_id: (dialogue[0]?.voice_id ?? shotVoiceId(shot, film)).slice(0, 64),
+    ...(dialogue.length ? { lines: dialogue } : {}),
     ...(refs.still ? { still: refs.still } : {}),
     ...(!draft && refs.references.length > 0
       ? { references: refs.references.map((item) => item.url) }
