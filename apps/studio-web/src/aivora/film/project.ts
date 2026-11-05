@@ -1,8 +1,9 @@
-import { constrainVisualPrompt, onScreenCharacters } from "./on-screen-characters";
 import { shotActions, withShotActions } from "./shot-actions";
+import { constrainVisualPrompt, onScreenCharacters } from "./on-screen-characters";
 import type { WriterPlan, SceneWriterPlan, WriterCharacterPlan } from "./writer-plan";
 import type { ArtDesign } from "./art-design";
 import type { TextReviewReport } from "./review-report";
+import { inspectDirectorSources, type DirectorSourceReview } from "./director-source-review";
 import {
   directorPlanPrompt,
   sceneDirectorDeclaration,
@@ -194,6 +195,7 @@ export type FilmScene = {
 };
 
 export type FilmShot = {
+  sourceReview?: DirectorSourceReview;
   directorPlan?: ShotDirectorPlan;
   performancePlan?: ShotPerformancePlan;
   actionPlan?: ShotActionPlan;
@@ -734,6 +736,7 @@ export function parseDirectorShots(
         all.filter((shot) => shot.sceneId === id),
         id,
         scenes.find((scene) => scene.id === id)?.text ?? sceneText,
+        scenes.find((scene) => scene.id === id),
       ),
     );
   }
@@ -875,13 +878,21 @@ export function parseDirectorShots(
         }))
       : shots;
   if (!varied.length) return null;
-  return preserveSource ? completeDirectorCoverage(varied, sceneId, sceneText) : varied;
+  return preserveSource
+    ? completeDirectorCoverage(
+        varied,
+        sceneId,
+        sceneText,
+        scenes.find((scene) => scene.id === sceneId),
+      )
+    : varied;
 }
 
 function completeDirectorCoverage(
   shots: FilmShot[],
   sceneId: string,
   sceneText: string,
+  source?: DirectorSceneRef,
 ): FilmShot[] {
   const originals = shots as ParsedDirectorShot[];
   const merged = mergeAdjacentShots(
@@ -894,7 +905,7 @@ function completeDirectorCoverage(
   const groups = starts.map((start, index) =>
     originals.slice(start, starts[index + 1] ?? originals.length),
   );
-  return merged.map((shot, index) => {
+  const completed = merged.map((shot, index) => {
     const clean = { ...shot, id: `${sceneId}-shot-${index + 1}` };
     delete clean[directorConnection];
     const group = groups[index] ?? [];
@@ -927,6 +938,12 @@ function completeDirectorCoverage(
     }
     return clean;
   });
+  const reviews = new Map(
+    inspectDirectorSources(source ?? { id: sceneId, text: sceneText }, completed).map(
+      ({ shotId, review }) => [shotId, review],
+    ),
+  );
+  return completed.map((shot) => ({ ...shot, sourceReview: reviews.get(shot.id) }));
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {

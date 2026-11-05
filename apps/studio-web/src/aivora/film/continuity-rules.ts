@@ -1,5 +1,6 @@
 import type { ContinuityNote } from "./contracts3j";
 import type { FilmProject, FilmShot } from "./project";
+import { inspectDirectorSources } from "./director-source-review";
 
 const section = "文字与记录检查：";
 type CheckableShot = Omit<FilmShot, "continuity"> & {
@@ -53,6 +54,13 @@ function localReference(value: string): string {
 /** Text/metadata checks only. These notes never claim to have inspected generated images. */
 export function continuityRisks(film: ContinuityInput): Record<string, ContinuityNote[]> {
   const output: Record<string, ContinuityNote[]> = {};
+  const sourceReviews = new Map(
+    film.scenes.flatMap((scene) =>
+      inspectDirectorSources(scene, film.shots).map(
+        ({ shotId, review }) => [shotId, review] as const,
+      ),
+    ),
+  );
   const names = film.characters.map((person) => person.name).filter(Boolean);
   const props = [
     ...new Set(
@@ -68,6 +76,17 @@ export function continuityRisks(film: ContinuityInput): Record<string, Continuit
         notes.push({ kind, text });
     };
     const text = prompt(shot);
+    // Old projects without this parse-time review remain usable. The note concerns
+    // attribution only; an ordered claim is not proof that the prose is faithful.
+    const sourceReview = shot.sourceReview ? sourceReviews.get(shot.id) : undefined;
+    if (sourceReview?.status === "needs_review") {
+      add(
+        "cut",
+        sourceReview.issues.includes("source-out-of-order")
+          ? "这一镜引用了前面已经拍过的原文，请核对情节顺序。"
+          : "这一镜的原文出处还需核对，不能据此确认情节没有新增。",
+      );
+    }
     for (const name of new Set(shot.characters)) {
       const person = film.characters.find((person) => person.name === name);
       if (!person) continue;
