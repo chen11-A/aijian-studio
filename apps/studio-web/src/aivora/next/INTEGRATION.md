@@ -751,6 +751,19 @@ waveform?: number[];
 - 一个镜头做好两个以上版本时，分镜卡和时间线片段写「版本 2/3」（正在用的是做好的第几版）。`takeBadge(shot)`。
 - 现在的选区按整个镜头选（`span` 是镜头下标）。GPT 4C-B01 做镜头里的入点 / 出点后，给每个选区 `{ shotId, inSeconds, outSeconds }`，并告诉界面扩到整句之后的范围（`expandedTo: { inSeconds, outSeconds }`），界面把「这句台词会整句重来」换成具体的时间。
 
+## 历史版本（4C-U02，要 GPT 4C-B02）
+
+- 作品菜单「作品设置」现在打开一个真正的对话框（以前只是一句提示）：「画风」一节写画风在哪里改，带「去改画风」；「历史版本」一节是 `HistoryList`（`next/HistoryList.tsx`，示例页「历史版本」）。按 Esc 或「关闭」关掉。
+- `HistoryList`：每条写什么时候存的、为什么存的、当时有多少（都已经是白话），右边「恢复到这里」；点了在原地再问一次「恢复到「今天 14:32」？作品会回到那时的样子；现在的样子会另存一份，想回来还能恢复。」，「恢复」「取消」。`entries` 为 null 时写「这个版本的软件还不能看历史版本」，空数组时写「还没有存过的版本。每次批量生成之前会自动存一份。」。
+- 现在传的是 `entries={null}`。要 GPT 提供：
+
+```ts
+// 新的在前。when / why / summary 由 GPT 写成白话，比如「今天 14:32」「批量生成前自动存的」「3 场 · 28 个镜头 · 12 个做好了」。
+listFilmHistory(projectId: string): Promise<HistoryEntry[]>;
+// 恢复前先把现在的样子存一份（界面这样告诉用户），恢复后返回作品，界面 applyLive。
+restoreFilmHistory(projectId: string, entryId: string): Promise<FilmProject>;
+```
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

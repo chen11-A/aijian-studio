@@ -3090,6 +3090,28 @@ body:has(.pro-root) {
 .pro-root .dialog.export {
   width: 620px;
 }
+/* 4C-U02: 作品设置, one section after another. */
+.pro-root .dialog.work-settings {
+  width: 620px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+.pro-root .work-settings .ws-sec {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.pro-root .work-settings .ws-sec > * {
+  max-width: 100%;
+}
+.pro-root .work-settings .ws-sec .nx-history {
+  justify-self: stretch;
+}
+.pro-root .work-settings h3 {
+  font-size: 13px;
+}
 /* 4B-U04: the cover step widens the export dialog to show both covers and the settings. */
 .pro-root .dialog.export.wide {
   width: min(1100px, calc(100% - 32px));

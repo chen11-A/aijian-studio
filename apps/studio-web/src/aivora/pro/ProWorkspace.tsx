@@ -176,6 +176,7 @@ import { SubtitleStyle } from "../next/SubtitleStyle";
 import { subtitleStyleData } from "../next/adapters/subtitleStyle";
 import { CoverEditor } from "../next/CoverEditor";
 import { coverEditorData } from "../next/adapters/coverEditor";
+import { HistoryList } from "../next/HistoryList";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2965,6 +2966,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           : "未登录";
   // 4B-U04: the cover step inside the export dialog.
   const [coverOpen, setCoverOpen] = useState(false);
+  // 4C-U02: 作品设置, with the work's history.
+  const [workSettings, setWorkSettings] = useState(false);
+  useEffect(() => {
+    if (!workSettings) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setWorkSettings(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [workSettings]);
   useEffect(() => {
     if (!exportOpen) setCoverOpen(false);
   }, [exportOpen]);
@@ -3226,11 +3237,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <button
                   onClick={() => {
                     setMenu(null);
-                    setStage("cast");
-                    setNotice({
-                      code: "EDITOR_GUIDANCE",
-                      text: "画风在「角色与场景」里改，每个镜头出几版在「单个镜头」里改。",
-                    });
+                    setWorkSettings(true);
                   }}
                 >
                   作品设置
@@ -4056,6 +4063,41 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               }}
             />
             <NoticeLog log={status.log} />
+          </div>
+        ) : null}
+        {workSettings && film ? (
+          <div className="dialog-back">
+            <div className="dialog work-settings" role="dialog" aria-label="作品设置">
+              <h2>作品设置 · {film.seriesTitle || film.title}</h2>
+              <section className="ws-sec" aria-label="画风">
+                <h3>画风</h3>
+                <p className="role-desc">
+                  整部作品的画风在「角色与场景」页最上面改，改了以后已经做好的镜头会标「画风变了」。
+                </p>
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    setWorkSettings(false);
+                    setBench(false);
+                    setStage("cast");
+                  }}
+                >
+                  去改画风
+                </button>
+              </section>
+              <section className="ws-sec" aria-label="历史版本">
+                <h3>历史版本</h3>
+                {/* GPT 4C-B02 gives the kept versions and restores one (next/INTEGRATION.md). */}
+                <HistoryList entries={null} onRestore={() => undefined} />
+              </section>
+              <div className="acts">
+                <span className="sp" />
+                <button className="btn" type="button" onClick={() => setWorkSettings(false)}>
+                  关闭
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
         {exportOpen && (

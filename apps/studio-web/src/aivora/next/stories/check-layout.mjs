@@ -45,6 +45,7 @@ const stories = [
   "cover-editor",
   "pipeline-steps",
   "suggestion-card",
+  "history-list",
 ];
 
 // Runs inside the page. Returns a list of problems in Chinese.
@@ -319,6 +320,15 @@ const pages = [
     },
     close: ["返回", "关闭"],
   },
+  // 4C-U02: 作品设置, opened from the 作品 menu.
+  {
+    name: "作品设置",
+    async open(page) {
+      await page.getByRole("button", { name: "作品", exact: true }).click();
+      await page.getByRole("button", { name: "作品设置" }).click();
+    },
+    close: "关闭",
+  },
   { name: "任务中心", button: /后台生成/ },
 ];
 
@@ -352,8 +362,8 @@ async function checkPages(browser, size) {
     const picked = pickedPages.length === 0 || pickedPages.includes(step.name);
     if (!picked) {
       for (const name of [step.close ?? []].flat()) {
-      await page.getByRole("button", { name }).first().click();
-    }
+        await page.getByRole("button", { name }).first().click();
+      }
       continue;
     }
     if (shots) {

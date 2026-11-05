@@ -580,10 +580,14 @@ describe("professional workspace", () => {
     expect(screen.getByText(/作品保存在/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "作品设置" }));
-    expect(screen.getByText(/画风在「角色与场景」里改/)).toBeInTheDocument();
+    // 4C-U02: a real 作品设置: where the style is changed, and the work's history.
+    const settings = within(screen.getByRole("dialog", { name: "作品设置" }));
+    expect(settings.getByRole("button", { name: "去改画风" })).toBeInTheDocument();
+    expect(settings.getByText(/还不能看历史版本/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "2" });
     fireEvent.keyDown(window, { key: "i" });
     fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "作品设置" })).toBeNull();
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     fireEvent.keyDown(window, { key: "y", ctrlKey: true });
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));

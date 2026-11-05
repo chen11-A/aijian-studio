@@ -16,6 +16,7 @@ export {
 } from "./qcReport";
 export { clockLabel, durationLabel, shotLabel, videoLine } from "./shot";
 export { MOODS, SoundPanel, type Mood, type SoundPanelProps } from "./SoundPanel";
+export { HistoryList, type HistoryEntry, type HistoryListProps } from "./HistoryList";
 export { SuggestionCard, type SuggestionCardProps } from "./SuggestionCard";
 export {
   SUBTITLE_STYLES,
