@@ -1050,11 +1050,13 @@ export function castTraits(
           ? "中年"
           : /儿童|幼童|小孩/.test(text)
             ? "儿童"
-            : /少年|少女|青年|年轻/.test(text)
-              ? "青年"
-              : /成年|成人|中年/.test(text)
-                ? "中年"
-                : "");
+            : /少年|少女/.test(text)
+              ? "少年"
+              : /青年|年轻/.test(text)
+                ? "青年"
+                : /成年|成人|中年/.test(text)
+                  ? "中年"
+                  : "");
   return { gender: inferredGender, ageBand: inferredAge };
 }
 

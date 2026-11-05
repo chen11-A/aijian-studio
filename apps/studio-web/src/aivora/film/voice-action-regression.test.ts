@@ -243,3 +243,22 @@ it("keeps a lone local portrait as a reference until a shot first frame is gener
     references: [{ url: "/tmp/portrait.png", who: film.characters[0]!.name }],
   });
 });
+
+it.each([
+  ["男", "少年"],
+  ["女", "少女"],
+])("preserves %s adolescent identity instead of persisting youth", (gender, identity) => {
+  const film = mergeCast(blankFilm(), {
+    characters: [{ name: "小陈", identity, gender }],
+    locations: [],
+  });
+  const person = film.characters[0]!;
+  expect(person.ageBand).toBe("少年");
+  expect(person.voiceId).not.toBe("");
+  writeFilm(localStorage, film);
+  expect(readFilm(localStorage)?.characters[0]).toMatchObject({
+    ageBand: "少年",
+    gender,
+    voiceId: person.voiceId,
+  });
+});
