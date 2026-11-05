@@ -1611,6 +1611,32 @@ it("keeps the style of the whole work above the characters and warns which shots
   expect(screen.getAllByText("画风变了")).toHaveLength(1);
 });
 
+it("puts a yellow dot on a shot with a continuity reminder and explains it in 属性 (4A-U05)", async () => {
+  const film = sampleFilm();
+  Object.assign(film.shots[1]!, {
+    continuity: [{ kind: "prop", text: "刀上一镜在左手，这一镜到了右手。" }],
+  });
+  window.aijian = {
+    listFilmSeries: vi.fn(async () => [
+      { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
+    ]),
+    readFilmProject: vi.fn(async () => film),
+    writeFilmProject: vi.fn(async (value: unknown) => value),
+  } as unknown as Window["aijian"];
+  render(<ProWorkspace />);
+  await screen.findAllByText(film.title);
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
+  const dots = screen.getAllByRole("img", { name: "有 1 条场记提醒" });
+  expect(dots).toHaveLength(1);
+  expect(dots[0]).toHaveAttribute("title", "道具前后对不上：刀上一镜在左手，这一镜到了右手。");
+  fireEvent.click(document.querySelectorAll<HTMLElement>(".pb.grid .card")[1]!);
+  const notes = screen.getByRole("region", { name: "场记提醒" });
+  expect(notes).toHaveTextContent("道具前后对不上刀上一镜在左手，这一镜到了右手。");
+  fireEvent.click(document.querySelectorAll<HTMLElement>(".pb.grid .card")[0]!);
+  expect(screen.queryByRole("region", { name: "场记提醒" })).toBeNull();
+});
+
 it("opens 后台生成 as a drawer that closes on a press outside it (4A-U04)", async () => {
   installDesktop();
   await openSample();

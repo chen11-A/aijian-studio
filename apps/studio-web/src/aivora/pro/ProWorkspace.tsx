@@ -148,6 +148,7 @@ import { PipelineSteps } from "../next/PipelineSteps";
 import { TakePicker } from "../next/TakePicker";
 import { takePickerData } from "../next/adapters/takePicker";
 import { needsRestyle } from "../next/adapters/restyle";
+import { continuityNotes } from "../next/adapters/continuity";
 import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
 import {
   AGE_BANDS,
@@ -5426,6 +5427,16 @@ function BoardPage({
                       : shotProgress(item))}
                 </span>
                 <span className="dur">{item.seconds}s</span>
+                {continuityNotes(item).length > 0 ? (
+                  <span
+                    className="cont-dot"
+                    role="img"
+                    aria-label={`有 ${continuityNotes(item).length} 条场记提醒`}
+                    title={continuityNotes(item)
+                      .map((note) => `${note.title}：${note.text}`)
+                      .join("\n")}
+                  />
+                ) : null}
               </div>
               <div className="cb">
                 <div className="ct">
@@ -5515,6 +5526,19 @@ function BoardPage({
             <div className="shot-h">
               镜头 {current.no} <span>{shotProgress(current)}</span>
             </div>
+            {continuityNotes(current).length > 0 ? (
+              <section className="cont-notes" aria-label="场记提醒">
+                <p className="cont-head">场记提醒</p>
+                <ul>
+                  {continuityNotes(current).map((note, index) => (
+                    <li key={`${note.kind}-${index}`}>
+                      <b>{note.title}</b>
+                      {note.text}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             <div className="pb">
               <div className="field">
                 <div className="row3">

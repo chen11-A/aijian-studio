@@ -625,6 +625,12 @@ const view = pipelineView(film);
 - `next/wiring/dismiss.ts` 和 `d894dc3`（3J-U18）里那一份一字不差，整合时不会冲突。
 - 要 GPT 配合：如果以后能拿到每段的时间（发出、开始生成、存好），`TaskItem` 加上就能在这一条上写时间。
 
+## 场记提醒（4A-U05）
+
+- 分镜卡缩略图右上角一个小黄点（悬停看全文），点卡片以后属性栏最上面一块「场记提醒」逐条写白话说明。
+- 读 `shot.continuity`（C13），`next/adapters/continuity.ts` 的 `continuityNotes`：3j-r1 是一条、`gpt/work-4a` 是一组，两种都认；按 kind 写标题（外貌没写进这一镜、道具前后对不上、看的方向反了、人物左右换了边、和上一镜接不上），认不得的 kind 写「场记提醒」，不露 id。
+- GPT 的 4A-B07 在 `setFilm` 里跑场记检查并写这个字段，界面只读不算。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

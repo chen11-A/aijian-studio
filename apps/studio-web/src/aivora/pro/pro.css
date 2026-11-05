@@ -3146,3 +3146,40 @@ body:has(.pro-root) {
   color: var(--warn);
   background: var(--panel-3);
 }
+
+/* 4A-U05: a continuity reminder on a shot: a yellow dot on the card, the words in 属性. */
+.pro-root .card .cont-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 2px var(--panel);
+}
+.pro-root .cont-notes {
+  margin: 0 12px 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  font-size: 12px;
+}
+.pro-root .cont-notes .cont-head {
+  margin-bottom: 4px;
+  color: var(--warn);
+}
+.pro-root .cont-notes li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-2);
+}
+.pro-root .cont-notes li + li {
+  margin-top: 6px;
+}
+.pro-root .cont-notes b {
+  color: var(--text);
+  font-weight: 500;
+}
