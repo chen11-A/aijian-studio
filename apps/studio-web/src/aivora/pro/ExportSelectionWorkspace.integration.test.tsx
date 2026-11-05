@@ -62,7 +62,7 @@ it.each(["16:9", "9:16"] as const)(
   async (aspectRatio) => {
     const f = await openExport(aspectRatio);
     fireEvent.change(within(f.dialog).getByLabelText("比例"), { target: { value: "both" } });
-    fireEvent.click(within(f.dialog).getByRole("button", { name: "开始导出" }));
+    fireEvent.click(within(f.dialog).getByRole("button", { name: "导出" }));
     await waitFor(() => expect(f.exportFilmCut).toHaveBeenCalledTimes(2));
     const other = aspectRatio === "16:9" ? "9:16" : "16:9";
     expect(f.exportFilmCut.mock.calls.map((call) => call[3].aspectRatio)).toEqual([
@@ -90,7 +90,7 @@ it.each(["16:9", "9:16"] as const)(
 it("UI other exports only the opposite aspect and uses the real returned path", async () => {
   const f = await openExport("16:9");
   fireEvent.change(within(f.dialog).getByLabelText("比例"), { target: { value: "other" } });
-  fireEvent.click(within(f.dialog).getByRole("button", { name: "开始导出" }));
+  fireEvent.click(within(f.dialog).getByRole("button", { name: "导出" }));
   fireEvent.click(await within(f.dialog).findByRole("button", { name: "播放" }));
   expect(f.exportFilmCut).toHaveBeenCalledTimes(1);
   expect(f.exportFilmCut.mock.calls[0]![3].aspectRatio).toBe("9:16");
@@ -100,7 +100,7 @@ it("UI other exports only the opposite aspect and uses the real returned path", 
 it("UI keeps the first real output playable when the second aspect fails", async () => {
   const f = await openExport("16:9", true);
   fireEvent.change(within(f.dialog).getByLabelText("比例"), { target: { value: "both" } });
-  fireEvent.click(within(f.dialog).getByRole("button", { name: "开始导出" }));
+  fireEvent.click(within(f.dialog).getByRole("button", { name: "导出" }));
   await waitFor(() => expect(f.exportFilmCut).toHaveBeenCalledTimes(2));
   fireEvent.click(await within(f.dialog).findByRole("button", { name: "播放" }));
   expect(f.openFilmPath).toHaveBeenCalledWith("/actual/first.mp4");

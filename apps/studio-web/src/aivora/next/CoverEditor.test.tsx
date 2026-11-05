@@ -31,7 +31,7 @@ describe("CoverEditor", () => {
     expect(onAiMarkChange).toHaveBeenCalledWith(false);
     expect(mark).toHaveAttribute("aria-checked", "false");
     expect(screen.queryByText("AI 生成")).toBeNull();
-    expect(screen.getByRole("status")).toHaveTextContent("发布前请确认平台的要求");
+    expect(screen.getByRole("status")).toHaveTextContent("部分平台要求标注 AI 生成");
     fireEvent.click(mark);
     expect(onAiMarkChange).toHaveBeenLastCalledWith(true);
     expect(screen.getAllByText("AI 生成")).toHaveLength(2);

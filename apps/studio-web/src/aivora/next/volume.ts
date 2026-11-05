@@ -12,8 +12,8 @@ export type SoundLane = (typeof SOUND_LANES)[number];
 export type LaneVolumes = Record<SoundLane, number>;
 
 export const LANE_LABEL: Record<SoundLane, string> = {
-  dialogue: "台词",
-  ambience: "环境声",
+  dialogue: "对白",
+  ambience: "环境音",
   sfx: "音效",
   score: "配乐",
 };

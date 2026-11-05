@@ -1,0 +1,47 @@
+.nx-root.nx-history {
+  height: auto;
+  gap: 8px;
+}
+
+.nx-root .nx-history-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nx-root .nx-history-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+}
+
+.nx-root .nx-history-text {
+  display: grid;
+  flex: 1 1 200px;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nx-root .nx-history-text strong {
+  font-size: 13px;
+}
+
+.nx-root .nx-history-text span {
+  font-size: 12px;
+}
+
+.nx-root .nx-history-confirm {
+  display: grid;
+  flex: 1 1 100%;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}

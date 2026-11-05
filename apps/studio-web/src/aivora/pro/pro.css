@@ -45,6 +45,8 @@
   --t-voice: #2fa978;
   --t-sub: #c4902f;
   --t-music: #8a63e8;
+  --t-amb: #3fa7b5;
+  --t-sfx: #d9895a;
   --r-s: 4px;
   --r: 6px;
   --r-l: 10px;
@@ -1326,16 +1328,17 @@ body:has(.pro-root) {
   grid-template-rows: minmax(0, 1fr) 272px;
   grid-template-columns: 280px 1fr 300px;
 }
+/* 4B-U02: four audio tracks fit the 272px timeline at 1280×800 (each at least 28px). */
 .pro-root {
-  --hs: 36px;
-  --hv: 66px;
-  --ha: 52px;
+  --hs: 28px;
+  --hv: 54px;
+  --ha: 30px;
 }
 @media (min-width: 1600px) {
   .pro-root {
-    --hs: 44px;
-    --hv: 110px;
-    --ha: 56px;
+    --hs: 40px;
+    --hv: 90px;
+    --ha: 40px;
   }
   .pro-root .ws {
     grid-template-rows: minmax(0, 1fr) 360px;
@@ -2364,6 +2367,51 @@ body:has(.pro-root) {
   border: 1px solid rgba(138, 99, 232, 0.55);
   color: #cdb9ff;
 }
+/* 4B-U02: 环境音 and 音效. Dashed while only the words exist, with no sound file yet. */
+.pro-root .clip.amb {
+  background: color-mix(in srgb, var(--t-amb) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--t-amb) 55%, transparent);
+  color: color-mix(in srgb, var(--t-amb) 55%, var(--text));
+}
+.pro-root .clip.fx {
+  background: color-mix(in srgb, var(--t-sfx) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--t-sfx) 55%, transparent);
+  color: color-mix(in srgb, var(--t-sfx) 55%, var(--text));
+}
+.pro-root .clip.plan {
+  background: none;
+  border-style: dashed;
+}
+.pro-root .clip.plan.fx {
+  width: auto;
+  max-width: 120px;
+  padding-right: 4px;
+}
+/* The strip an audio clip keeps for its waveform (GPT C3); empty until the peaks come. */
+.pro-root .clip svg.wave {
+  position: absolute;
+  left: 2px;
+  top: 3px;
+  width: calc(100% - 4px);
+  height: calc(100% - 6px);
+  pointer-events: none;
+  opacity: 0.45;
+}
+.pro-root .clip span.wave {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  border-bottom: 1px dashed currentColor;
+  pointer-events: none;
+  opacity: 0.25;
+}
+.pro-root .clip svg.wave polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
 .pro-root .clip .tx {
   position: relative;
   z-index: 1;
@@ -3042,6 +3090,97 @@ body:has(.pro-root) {
 .pro-root .dialog.export {
   width: 620px;
 }
+/* 4C-U02: 作品设置, one section after another. */
+.pro-root .dialog.work-settings {
+  width: 620px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+.pro-root .work-settings .ws-sec {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.pro-root .work-settings .ws-sec > * {
+  max-width: 100%;
+}
+.pro-root .work-settings .ws-sec .nx-history {
+  justify-self: stretch;
+}
+.pro-root .work-settings h3 {
+  font-size: 13px;
+}
+/* 4B-U04: the cover step widens the export dialog to show both covers and the settings. */
+.pro-root .dialog.export.wide {
+  width: min(1100px, calc(100% - 32px));
+}
+.pro-root .cover-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: min(600px, calc(100vh - 170px));
+  min-height: 0;
+}
+.pro-root .cover-step > .nx-cover-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* 4B-U06: the export's progress and result, inside the dialog. */
+.pro-root .export-progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .export-progress .bar {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--panel-3);
+}
+.pro-root .export-progress .bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: export-slide 1.4s ease-in-out infinite;
+}
+@keyframes export-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+.pro-root .export-done {
+  margin-top: 10px;
+  overflow: hidden;
+  color: var(--ok);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pro-root .cover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pro-root .cover-sum {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .pro-root .dialog.export .field {
   padding: 0;
 }
@@ -3307,6 +3446,51 @@ body:has(.pro-root) {
   background: var(--panel-3);
 }
 
+/* 4C-U01: 「版本 2/3」 on a card and a clip; the note about a whole line in the selection bar. */
+.pro-root .ver {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  white-space: nowrap;
+}
+.pro-root .clip .ver {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  z-index: 1;
+  margin: 0;
+}
+.pro-root .sel-hint {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--warn);
+  background: var(--panel-3);
+  white-space: nowrap;
+}
+/* 4B-U07: 口型 on a shot card and its timeline clip; 口型未对上 in the warning color. */
+.pro-root .lips {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--ok);
+  background: var(--panel-3);
+  white-space: nowrap;
+}
+.pro-root .lips.failed {
+  color: var(--warn);
+}
+.pro-root .clip .lips {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 1;
+}
 /* 4A-U05: a continuity reminder on a shot: a yellow dot on the card, the words in 属性. */
 .pro-root .card .cont-dot {
   position: absolute;

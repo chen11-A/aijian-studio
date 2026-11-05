@@ -673,7 +673,7 @@ describe("professional workspace", () => {
         .find((item) => item.className.includes("tab"))!,
     );
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(screen.getByText(/网页里不能写成片/)).toBeInTheDocument();
     expect(screen.queryByText(/D:\\/)).toBeNull();
   });
@@ -815,10 +815,14 @@ describe("professional workspace", () => {
     expect(screen.getByText(/作品保存在/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "作品设置" }));
-    expect(screen.getByText(/画风在「角色与场景」里改/)).toBeInTheDocument();
+    // 4C-U02: a real 作品设置: where the style is changed, and the work's history.
+    const settings = within(screen.getByRole("dialog", { name: "作品设置" }));
+    expect(settings.getByRole("button", { name: "去改画风" })).toBeInTheDocument();
+    expect(settings.getByText(/还不能看历史版本/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "2" });
     fireEvent.keyDown(window, { key: "i" });
     fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "作品设置" })).toBeNull();
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     fireEvent.keyDown(window, { key: "y", ctrlKey: true });
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
@@ -874,12 +878,12 @@ describe("professional workspace", () => {
     await waitFor(() => expect(desktop.assembleFilm).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     desktop.pickFilmFolder.mockResolvedValueOnce("");
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(await screen.findByText(/先选一个保存的文件夹/)).toBeInTheDocument();
     desktop.exportFilmCut.mockRejectedValueOnce(new Error("disk"));
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(await screen.findByText(/导出没有完成，可以再试一次/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(await screen.findByText(/成片已导出。/)).toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "导出成片" });
     expect(within(dialog).getByText("雨夜巷战-第1集.mp4")).toBeInTheDocument();
@@ -2543,7 +2547,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+  fireEvent.click(screen.getByRole("button", { name: "导出" }));
   expect((await screen.findAllByText(/可以只导出已生成的/)).length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: "只导出已生成的" }));
   await waitFor(() => expect(desktop.exportFilmCut).toHaveBeenCalled());
@@ -2567,7 +2571,7 @@ it("names the shots that are not ready instead of exporting an empty cut", async
   const desktop = installDesktop();
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+  fireEvent.click(screen.getByRole("button", { name: "导出" }));
   expect((await screen.findAllByText(/还没生成：镜头/)).length).toBeGreaterThan(0);
   expect(desktop.exportFilmCut).not.toHaveBeenCalled();
 });
@@ -2875,15 +2879,15 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
     target: { files: [new File(["song"], "bed.mp3", { type: "audio/mpeg" })] },
   });
   expect(await screen.findByText(/已导入音乐/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "静音配音" }));
+  fireEvent.click(screen.getByRole("button", { name: "静音对白" }));
   expect(screen.getByText("这一轨已静音。")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "静音配音" }));
-  fireEvent.click(screen.getByRole("button", { name: "单听配音" }));
-  fireEvent.click(screen.getByRole("button", { name: "静音音乐" }));
-  fireEvent.click(screen.getByRole("button", { name: "静音音乐" }));
-  fireEvent.click(screen.getByRole("button", { name: "单听音乐" }));
-  expect(screen.getByText("只听音乐。音量没有改。")).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("音乐音量"), { target: { value: "50" } });
+  fireEvent.click(screen.getByRole("button", { name: "静音对白" }));
+  fireEvent.click(screen.getByRole("button", { name: "单听对白" }));
+  fireEvent.click(screen.getByRole("button", { name: "静音配乐" }));
+  fireEvent.click(screen.getByRole("button", { name: "静音配乐" }));
+  fireEvent.click(screen.getByRole("button", { name: "单听配乐" }));
+  expect(screen.getByText("只听配乐。音量没有改。")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("配乐音量"), { target: { value: "50" } });
   expect(screen.getByText("音量已记下，导出时用这个音量。")).toBeInTheDocument();
   expect(desktop.assembleFilm).toBeDefined();
 });
@@ -3659,11 +3663,167 @@ it("opens the scene's sound in place of the preview on 剪辑 (4B-U01)", async (
   expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
 });
 
-it("gives both sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
+it("picks a subtitle style on 剪辑 and keeps it on the work (4B-U03)", async () => {
   installDesktop();
   await openSample();
   fireEvent.click(stageTab("剪辑"));
-  for (const lane of ["配音", "音乐"]) {
+  fireEvent.click(screen.getByRole("button", { name: "字幕" }));
+  // Landscape and portrait at once; the portrait one marks where the platform buttons sit.
+  expect(screen.getByText("平台的按钮和标题会挡住这里")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("radio", { name: /醒目黄字/ }));
+  fireEvent.click(screen.getByRole("button", { name: "用这个样式" }));
+  expect(await screen.findByText("已记下字幕样式。")).toBeInTheDocument();
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      (FilmProject & { subtitleStyle?: string }) | undefined;
+    expect(saved?.subtitleStyle).toBe("yellow");
+  });
+  fireEvent.click(screen.getByRole("button", { name: "预览" }));
+  expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
+});
+
+it("edits the cover inside the export dialog, with 「AI 生成」 on by default (4B-U04)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  const dialog = () => screen.getByRole("dialog", { name: "导出成片" });
+  expect(within(dialog()).getByText(/标「AI 生成」/)).toBeInTheDocument();
+  fireEvent.click(within(dialog()).getByRole("button", { name: "改封面" }));
+  const mark = within(dialog()).getByRole("switch", { name: "「AI 生成」标识" });
+  expect(mark).toHaveAttribute("aria-checked", "true");
+  fireEvent.click(mark);
+  expect(within(dialog()).getByRole("status")).toHaveTextContent("部分平台要求标注 AI 生成");
+  fireEvent.change(within(dialog()).getByLabelText("片名"), { target: { value: "雨夜巷战·终" } });
+  fireEvent.click(within(dialog()).getByRole("button", { name: "用这个封面" }));
+  expect(await screen.findByText("已记下封面。")).toBeInTheDocument();
+  expect(within(dialog()).getByText(/「雨夜巷战·终」.*不标「AI 生成」/)).toBeInTheDocument();
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      (FilmProject & { cover?: { title: string; aiMark: boolean } }) | undefined;
+    expect(saved?.cover).toMatchObject({ title: "雨夜巷战·终", aiMark: false });
+  });
+});
+
+it("sets aspect, quality and subtitles in the export dialog, with one 导出 button (4B-U06)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
+  // Without a desktop that can crop, the work's own aspect is shown, not offered.
+  expect(dialog.getByText(/（作品的画幅）/)).toBeInTheDocument();
+  expect(dialog.getByLabelText("清晰度")).toHaveValue("1080p");
+  const subs = dialog.getByRole("radiogroup", { name: "字幕" });
+  expect(within(subs).getByRole("radio", { name: "烧进画面" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  fireEvent.click(within(subs).getByRole("radio", { name: "单独文件" }));
+  expect(within(subs).getByRole("radio", { name: "单独文件" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  fireEvent.change(dialog.getByLabelText("清晰度"), { target: { value: "720p" } });
+  expect(dialog.getByLabelText("清晰度")).toHaveValue("720p");
+  expect(document.querySelectorAll(".dialog .btn.primary")).toHaveLength(1);
+  expect(dialog.getByRole("button", { name: "导出" })).toHaveClass("primary");
+  expect(dialog.queryByRole("button", { name: "开始导出" })).toBeNull();
+});
+
+it("marks lip sync on the card and the clip, and a failed one as 口型未对上 (4B-U07)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  // The sample's first scene has no shots: put two of them there, where the work opens.
+  const [talk, miss] = film.shots;
+  talk!.sceneId = film.scenes[0]!.id;
+  miss!.sceneId = film.scenes[0]!.id;
+  const made = (shotId: string, lipSync: "done" | "failed") =>
+    ({
+      id: `${shotId}-take`,
+      shotId,
+      index: 1,
+      status: "done",
+      stillUrl: "",
+      videoPath: `/tmp/${shotId}.mp4`,
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+      lipSync: { lipSync },
+    }) as FilmProject["shots"][number]["takes"][number];
+  talk!.takes = [made(talk!.id, "done")];
+  talk!.selectedTakeId = `${talk!.id}-take`;
+  miss!.takes = [made(miss!.id, "failed")];
+  miss!.selectedTakeId = `${miss!.id}-take`;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("分镜"));
+  const marks = () => [...document.querySelectorAll(".card .lips")].map((item) => item.textContent);
+  expect(marks()).toEqual(["口型", "口型未对上"]);
+  expect(document.querySelector(".card .lips.failed")).toHaveAttribute(
+    "title",
+    expect.stringContaining("可重试"),
+  );
+  fireEvent.click(stageTab("剪辑"));
+  expect([...document.querySelectorAll(".clip .lips")].map((item) => item.textContent)).toEqual([
+    "口型",
+    "口型未对上",
+  ]);
+});
+
+it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U01)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  const [talk] = film.shots;
+  talk!.sceneId = film.scenes[0]!.id;
+  talk!.line = "你来晚了。这家店，下个月就没了。";
+  const made = (index: number) =>
+    ({
+      id: `${talk!.id}-take-${index}`,
+      shotId: talk!.id,
+      index,
+      status: "done",
+      stillUrl: "",
+      videoPath: `/tmp/${talk!.id}-${index}.mp4`,
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+    }) as FilmProject["shots"][number]["takes"][number];
+  talk!.takes = [made(1), made(2), made(3)];
+  talk!.selectedTakeId = `${talk!.id}-take-2`;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("分镜"));
+  expect(document.querySelector(".card .ver")).toHaveTextContent("版本 2/3");
+  fireEvent.click(stageTab("剪辑"));
+  expect(document.querySelector(".clip.v .ver")).toHaveTextContent("版本 2/3");
+  fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
+  expect(document.querySelector(".selbar .lab")).toHaveTextContent(/已选 镜头 \d+ · 00:00\.0–/);
+  expect(screen.getByText("这句台词会整句重来")).toHaveAttribute(
+    "title",
+    expect.stringContaining("这一整句都会重来"),
+  );
+});
+
+it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
+  installDesktop();
+  await openSample();
+  // 4B-U02: what the director wrote for a shot's 环境音 shows on its track until there is a file.
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.change(screen.getByLabelText("这一镜的环境音"), { target: { value: "雨打在铁皮上" } });
+  fireEvent.click(stageTab("剪辑"));
+  const heads = [...document.querySelectorAll(".theads .th")].map((item) =>
+    item.textContent?.replace(/静音|单听/g, "").trim(),
+  );
+  expect(heads).toEqual(["字幕", "视频", "对白", "环境音", "音效", "配乐"]);
+  const planned = document.querySelector(".clip.plan.amb") as HTMLElement;
+  expect(planned).toHaveTextContent("雨打在铁皮上");
+  expect(planned).toHaveAttribute("title", expect.stringContaining("还没有声音文件"));
+  for (const lane of ["对白", "配乐"]) {
     expect(screen.getByRole("button", { name: `静音${lane}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `单听${lane}` })).toBeInTheDocument();
     expect(screen.getByLabelText(`${lane}音量`)).toHaveAttribute(
@@ -3671,7 +3831,7 @@ it("gives both sound tracks a name, mute, solo and volume, and says when a track
       expect.stringMatching(new RegExp(`^${lane}音量 \\d+$`)),
     );
   }
-  expect(screen.getAllByText("这一轨还没有内容")).toHaveLength(2);
+  expect(screen.getAllByText("这一轨还没有内容")).toHaveLength(3);
   const ruler = [...document.querySelectorAll(".ruler span")].map((item) => item.textContent);
   expect(ruler.slice(0, 3)).toEqual(["00:00.0", "00:05.0", "00:10.0"]);
   expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(

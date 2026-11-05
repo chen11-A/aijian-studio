@@ -46,6 +46,7 @@ describe("story pages", () => {
       ["running", "failed", "uncertain", "review", "blocked", "checkpoint", "cancelled"],
     ],
     ["suggestion-card", ["change", "new", "scenes", "busy", "applied"]],
+    ["history-list", ["list", "restoring", "empty", "none"]],
   ])("%s renders every example state", (story, states) => {
     for (const state of states) {
       const view = render(<StoryGallery search={`?story=${story}&state=${state}`} />);
@@ -212,8 +213,8 @@ describe("examples built from the example project.json", () => {
     expect(screen.getByText("还不能单独调。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "紧张" }));
     expect(screen.getByRole("radio", { name: "紧张" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.change(screen.getByRole("slider", { name: /台词/ }), { target: { value: "0" } });
-    expect(screen.getByText(/台词 0（静音）/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("slider", { name: /对白/ }), { target: { value: "0" } });
+    expect(screen.getByText(/对白 0（静音）/)).toBeInTheDocument();
   });
 
   it("picks a version from the shot's takes", () => {

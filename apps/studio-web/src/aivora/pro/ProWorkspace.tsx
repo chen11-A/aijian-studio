@@ -115,7 +115,7 @@ import {
   subtitleCues,
   updateShot,
 } from "../film/operations";
-import { dbToVolumePercent, volumePercentToDb } from "../film/audio";
+import { dbToVolumePercent, volumePercentToDb, type AudioClip } from "../film/audio";
 import {
   activeFilmId,
   BROWSER_DIRECTORY,
@@ -164,7 +164,7 @@ import {
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
 import { presentNotice, NOTICE_TEXT } from "../film/notices";
-import type { UiNotice } from "../film/contracts3j";
+import type { CoverInput, SubtitleStyleId, UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { RequestSequences } from "./director-workflow";
@@ -184,6 +184,8 @@ import { PipelineSteps } from "../next/PipelineSteps";
 import { TakePicker } from "../next/TakePicker";
 import { takePickerData } from "../next/adapters/takePicker";
 import { needsRestyle } from "../next/adapters/restyle";
+import { lipSyncTag } from "../next/adapters/lipSync";
+import { selection, takeBadge } from "../next/adapters/takeBadge";
 import { continuityNotes } from "../next/adapters/continuity";
 import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
 import { stageProgress, stageTabs } from "../next/adapters/stageProgress";
@@ -194,6 +196,11 @@ import { useAssistantKey } from "../next/wiring/assistantKey";
 import { videoLine } from "../next/shot";
 import { SoundPanel, type Mood } from "../next/SoundPanel";
 import { soundPanelData } from "../next/adapters/soundPanel";
+import { SubtitleStyle } from "../next/SubtitleStyle";
+import { subtitleStyleData } from "../next/adapters/subtitleStyle";
+import { CoverEditor } from "../next/CoverEditor";
+import { coverEditorData } from "../next/adapters/coverEditor";
+import { HistoryList } from "../next/HistoryList";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2878,6 +2885,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // 4A-U07: the export dialog's 比例. Shown only by a desktop that can crop to the other
   // aspect (it brings cancelFilmExport with it); each export reads one fixed selection.
   const [exportAspects, setExportAspects] = useState<"work" | "other" | "both">("work");
+  // 4B-U06: how the export is made. GPT's export reads these (next/INTEGRATION.md, 导出对话框).
+  const [exportQuality, setExportQuality] = useState<"1080p" | "720p">("1080p");
+  const [exportSubs, setExportSubs] = useState<"burn" | "srt" | "none">("burn");
   const canCropAspect =
     typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
   // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
@@ -2971,6 +2981,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : account.state === "REAUTH_REQUIRED"
           ? "需要重新登录"
           : "未登录";
+  // 4B-U04: the cover step inside the export dialog.
+  const [coverOpen, setCoverOpen] = useState(false);
+  // 4C-U02: 作品设置, with the work's history.
+  const [workSettings, setWorkSettings] = useState(false);
+  useEffect(() => {
+    if (!workSettings) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setWorkSettings(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [workSettings]);
+  useEffect(() => {
+    if (!exportOpen) setCoverOpen(false);
+  }, [exportOpen]);
   // 4A-U11: 分镜, 单镜 and 剪辑 show the same assistant, with the same card for this scene.
   const sceneCard =
     roleCards[role]?.shots && roleCards[role]?.shots.every((item) => item.sceneId !== scene)
@@ -3229,11 +3254,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <button
                   onClick={() => {
                     setMenu(null);
-                    setStage("cast");
-                    setNotice({
-                      code: "EDITOR_GUIDANCE",
-                      text: "画风在「角色与场景」里改，每个镜头出几版在「单个镜头」里改。",
-                    });
+                    setWorkSettings(true);
                   }}
                 >
                   作品设置
@@ -3591,6 +3612,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ),
                     });
                   }}
+                  onSubtitleStyle={(styleId) => {
+                    // GPT's C5 adds the field to FilmProject and burns it in on export
+                    // (next/INTEGRATION.md, 字幕样式). Loading a work keeps it already.
+                    setFilm({ ...film, subtitleStyle: styleId } as FilmProject);
+                    setNotice({ code: "SUBTITLE_STYLE_SAVED", text: "已记下字幕样式。" });
+                  }}
                   onSceneVoice={(sceneId, db) => {
                     const ids = new Set(
                       film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
@@ -3652,9 +3679,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       const next = current === lane ? "" : lane;
                       setNotice(
                         next === "score"
-                          ? "只听音乐。音量没有改。"
+                          ? "只听配乐。音量没有改。"
                           : next === "dialogue"
-                            ? "只听配音。音量没有改。"
+                            ? "只听对白。音量没有改。"
                             : "所有声音一起听。",
                       );
                       return next;
@@ -4039,139 +4066,296 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <NoticeLog log={status.log} />
           </div>
         ) : null}
-        {exportOpen && (
+        {workSettings && film ? (
           <div className="dialog-back">
-            <div className="dialog export" role="dialog" aria-label="导出成片">
-              <h2>导出成片</h2>
-              <div className="field">
-                <label>文件名</label>
-                <div className="input">
-                  {film
-                    ? filmFileName(film.seriesTitle || film.title, film.episodeTitle || "第1集")
-                    : "未命名"}
-                </div>
-              </div>
-              {canCropAspect && film ? (
-                <div className="field">
-                  <label htmlFor="export-aspect">比例</label>
-                  <select
-                    id="export-aspect"
-                    className="input"
-                    aria-label="比例"
-                    value={exportAspects}
-                    onChange={(event) =>
-                      setExportAspects(event.target.value as "work" | "other" | "both")
-                    }
-                  >
-                    <option value="work">
-                      {film.aspectRatio === "16:9"
-                        ? "横屏 16:9（作品的画幅）"
-                        : "竖屏 9:16（作品的画幅）"}
-                    </option>
-                    <option value="other">
-                      {film.aspectRatio === "16:9"
-                        ? "竖屏 9:16（从画面中间裁）"
-                        : "横屏 16:9（从画面中间裁）"}
-                    </option>
-                    <option value="both">两种都要</option>
-                  </select>
-                </div>
-              ) : null}
-              <div className="field">
-                <label htmlFor="export-dir">保存到</label>
-                <div className="pathrow">
-                  {/* The box shows a long path with its middle cut out; typing shows all of it. */}
-                  <div className="pathfield" data-layer title={exportDir}>
-                    <input
-                      id="export-dir"
-                      className="input"
-                      aria-label="导出文件夹"
-                      value={exportDir}
-                      placeholder="点「浏览」选一个文件夹"
-                      onChange={(event) => setExportDir(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        event.preventDefault();
-                        const path = event.currentTarget.value.trim();
-                        if (!path) return;
-                        setExportDir(path);
-                        void startExport(path);
-                      }}
-                    />
-                    {exportDir ? (
-                      <span className="pathshow" aria-hidden="true">
-                        {middlePath(exportDir)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <button
-                    className="btn sm"
-                    type="button"
-                    onClick={() => {
-                      void window.aijian?.pickFilmFolder?.().then((dir) => {
-                        if (dir) setExportDir(dir);
-                      });
-                    }}
-                  >
-                    浏览
-                  </button>
-                </div>
-              </div>
-              <p className="export-line" data-testid="export-summary">
-                {film ? exportLine(film) : "还没有作品。"}
-              </p>
-              {film && missingByScene(film).length > 0 ? (
-                <details className="missing">
-                  <summary>按场看还没生成的镜头</summary>
-                  <ul>
-                    {missingByScene(film).map((row) => (
-                      <li key={row.id}>
-                        <b>{row.scene}</b>
-                        <span>{row.shots}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-              {partialExport && partialExport.length > 0 ? (
-                <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
-              ) : null}
+            <div className="dialog work-settings" role="dialog" aria-label="作品设置">
+              <h2>作品设置 · {film.seriesTitle || film.title}</h2>
+              <section className="ws-sec" aria-label="画风">
+                <h3>画风</h3>
+                <p className="role-desc">
+                  整部作品的画风在「角色与场景」页最上面改，改了以后已经做好的镜头会标「画风变了」。
+                </p>
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    setWorkSettings(false);
+                    setBench(false);
+                    setStage("cast");
+                  }}
+                >
+                  去改画风
+                </button>
+              </section>
+              <section className="ws-sec" aria-label="历史版本">
+                <h3>历史版本</h3>
+                {/* GPT 4C-B02 gives the kept versions and restores one (next/INTEGRATION.md). */}
+                <HistoryList entries={null} onRestore={() => undefined} />
+              </section>
               <div className="acts">
-                <button className="btn" onClick={() => setExportOpen(false)}>
+                <span className="sp" />
+                <button className="btn" type="button" onClick={() => setWorkSettings(false)}>
                   关闭
                 </button>
-                {exportFile ? (
-                  <>
-                    <button
-                      className="btn"
-                      title="打开导出的文件夹"
-                      onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
-                    >
-                      打开文件夹
-                    </button>
-                    <button
-                      className="btn"
-                      title="播放导出的文件"
-                      onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
-                    >
-                      播放
-                    </button>
-                  </>
-                ) : null}
-                <span className="sp" />
-                {partialExport && partialExport.length > 0 && (
-                  <button className="btn" onClick={() => void startExport(exportDir, true)}>
-                    只导出已生成的
-                  </button>
-                )}
-                <button
-                  className="btn primary"
-                  disabled={exporting}
-                  onClick={() => void startExport()}
-                >
-                  {exporting ? "正在导出" : "开始导出"}
-                </button>
               </div>
+            </div>
+          </div>
+        ) : null}
+        {exportOpen && (
+          <div className="dialog-back">
+            <div
+              className={coverOpen && film ? "dialog export wide" : "dialog export"}
+              role="dialog"
+              aria-label="导出成片"
+            >
+              <h2>{coverOpen && film ? "导出成片 · 封面" : "导出成片"}</h2>
+              {coverOpen && film ? (
+                // 4B-U04: the cover, a step inside the export dialog.
+                <div className="cover-step">
+                  {(() => {
+                    const data = coverEditorData(film, { mediaUrl: fileMediaUrl });
+                    const cover = coverOf(film, data.ok ? data.props : null);
+                    const keep = (next: Partial<CoverInput>) =>
+                      setFilm({ ...film, cover: { ...cover, ...next } } as FilmProject);
+                    return (
+                      <CoverEditor
+                        title={cover.title}
+                        subtitle={cover.subtitle}
+                        aiMark={cover.aiMark}
+                        backgroundUrl={cover.backgroundUrl || undefined}
+                        onTitleChange={(title) => keep({ title })}
+                        onSubtitleChange={(subtitle) => keep({ subtitle })}
+                        onAiMarkChange={(aiMark) => keep({ aiMark })}
+                        onSave={() => {
+                          keep({});
+                          setCoverOpen(false);
+                          setNotice({ code: "COVER_SAVED", text: "已记下封面。" });
+                        }}
+                      />
+                    );
+                  })()}
+                  <div className="acts">
+                    <button className="btn" type="button" onClick={() => setCoverOpen(false)}>
+                      返回
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="field">
+                    <label>文件名</label>
+                    <div className="input">
+                      {film
+                        ? filmFileName(film.seriesTitle || film.title, film.episodeTitle || "第1集")
+                        : "未命名"}
+                    </div>
+                  </div>
+                  {canCropAspect && film ? (
+                    <div className="field">
+                      <label htmlFor="export-aspect">比例</label>
+                      <select
+                        id="export-aspect"
+                        className="input"
+                        aria-label="比例"
+                        value={exportAspects}
+                        onChange={(event) =>
+                          setExportAspects(event.target.value as "work" | "other" | "both")
+                        }
+                      >
+                        <option value="work">
+                          {film.aspectRatio === "16:9"
+                            ? "横屏 16:9（作品的画幅）"
+                            : "竖屏 9:16（作品的画幅）"}
+                        </option>
+                        <option value="other">
+                          {film.aspectRatio === "16:9"
+                            ? "竖屏 9:16（从画面中间裁）"
+                            : "横屏 16:9（从画面中间裁）"}
+                        </option>
+                        <option value="both">两种都要</option>
+                      </select>
+                    </div>
+                  ) : film ? (
+                    <div className="field">
+                      <label>比例</label>
+                      <div className="input" title="这个版本的桌面程序只能按作品的画幅导出">
+                        {film.aspectRatio === "16:9"
+                          ? "横屏 16:9（作品的画幅）"
+                          : "竖屏 9:16（作品的画幅）"}
+                      </div>
+                    </div>
+                  ) : null}
+                  {film ? (
+                    <div className="field">
+                      <label htmlFor="export-quality">清晰度</label>
+                      <select
+                        id="export-quality"
+                        className="input"
+                        aria-label="清晰度"
+                        value={exportQuality}
+                        onChange={(event) =>
+                          setExportQuality(event.target.value as "1080p" | "720p")
+                        }
+                      >
+                        <option value="1080p">1080p（推荐）</option>
+                        <option value="720p">720p（文件小一些）</option>
+                      </select>
+                    </div>
+                  ) : null}
+                  {film ? (
+                    <div className="field">
+                      <label id="export-subs">字幕</label>
+                      <div className="seg" role="radiogroup" aria-labelledby="export-subs">
+                        {(
+                          [
+                            ["burn", "烧进画面"],
+                            ["srt", "单独文件"],
+                            ["none", "不要"],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={exportSubs === value}
+                            className={exportSubs === value ? "on" : ""}
+                            onClick={() => setExportSubs(value)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {film ? (
+                    <div className="field">
+                      <label>封面</label>
+                      <div className="cover-row">
+                        {(() => {
+                          const data = coverEditorData(film, { mediaUrl: fileMediaUrl });
+                          const cover = coverOf(film, data.ok ? data.props : null);
+                          return (
+                            <span className="cover-sum">
+                              {cover.title ? `「${cover.title}」` : "还没有片名"}
+                              {cover.subtitle ? ` · ${cover.subtitle}` : ""}
+                              {cover.aiMark ? " · 标「AI 生成」" : " · 不标「AI 生成」"}
+                            </span>
+                          );
+                        })()}
+                        <button className="btn sm" type="button" onClick={() => setCoverOpen(true)}>
+                          改封面
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="field">
+                    <label htmlFor="export-dir">保存到</label>
+                    <div className="pathrow">
+                      {/* The box shows a long path with its middle cut out; typing shows all of it. */}
+                      <div className="pathfield" data-layer title={exportDir}>
+                        <input
+                          id="export-dir"
+                          className="input"
+                          aria-label="导出文件夹"
+                          value={exportDir}
+                          placeholder="点「浏览」选一个文件夹"
+                          onChange={(event) => setExportDir(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter") return;
+                            event.preventDefault();
+                            const path = event.currentTarget.value.trim();
+                            if (!path) return;
+                            setExportDir(path);
+                            void startExport(path);
+                          }}
+                        />
+                        {exportDir ? (
+                          <span className="pathshow" aria-hidden="true">
+                            {middlePath(exportDir)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <button
+                        className="btn sm"
+                        type="button"
+                        onClick={() => {
+                          void window.aijian?.pickFilmFolder?.().then((dir) => {
+                            if (dir) setExportDir(dir);
+                          });
+                        }}
+                      >
+                        浏览
+                      </button>
+                    </div>
+                  </div>
+                  <p className="export-line" data-testid="export-summary">
+                    {film ? exportLine(film) : "还没有作品。"}
+                  </p>
+                  {film && missingByScene(film).length > 0 ? (
+                    <details className="missing">
+                      <summary>按场看还没生成的镜头</summary>
+                      <ul>
+                        {missingByScene(film).map((row) => (
+                          <li key={row.id}>
+                            <b>{row.scene}</b>
+                            <span>{row.shots}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                  {partialExport && partialExport.length > 0 ? (
+                    <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
+                  ) : null}
+                  {/* 4B-U06: the export's progress stays in the dialog. */}
+                  {exporting ? (
+                    <div className="export-progress" role="status">
+                      <span className="bar" aria-hidden="true" />
+                      <span>正在导出：拼接、混音、写文件。长一点的片子要几分钟。</span>
+                    </div>
+                  ) : exportFile ? (
+                    <p className="export-done" role="status" title={exportFile}>
+                      导出好了：{exportFile}
+                    </p>
+                  ) : null}
+                  <div className="acts">
+                    <button className="btn" onClick={() => setExportOpen(false)}>
+                      关闭
+                    </button>
+                    {exportFile ? (
+                      <>
+                        <button
+                          className="btn"
+                          title="打开导出的文件夹"
+                          onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
+                        >
+                          打开文件夹
+                        </button>
+                        <button
+                          className="btn"
+                          title="播放导出的文件"
+                          onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
+                        >
+                          播放
+                        </button>
+                      </>
+                    ) : null}
+                    <span className="sp" />
+                    {partialExport && partialExport.length > 0 && (
+                      <button className="btn" onClick={() => void startExport(exportDir, true)}>
+                        只导出已生成的
+                      </button>
+                    )}
+                    <button
+                      className="btn primary"
+                      disabled={exporting}
+                      onClick={() => void startExport()}
+                    >
+                      {exporting ? "正在导出" : "导出"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -4472,6 +4656,23 @@ function Assistant({
       </div>
     </>
   );
+}
+
+/**
+ * 4B-U04: the cover as the work keeps it (`cover`, GPT's C6 shape), or what it starts from: the
+ * work's name, the episode, a still behind it, and the 「AI 生成」 mark on.
+ */
+function coverOf(
+  film: FilmProject,
+  start: { title: string; subtitle?: string; backgroundUrl?: string } | null,
+): CoverInput {
+  const kept = (film as FilmProject & { cover?: Partial<CoverInput> }).cover;
+  return {
+    title: kept?.title ?? start?.title ?? "",
+    subtitle: kept?.subtitle ?? start?.subtitle ?? "",
+    aiMark: kept?.aiMark ?? true,
+    backgroundUrl: kept?.backgroundUrl || start?.backgroundUrl || "",
+  };
 }
 
 /** The export summary in one line: 「共 3 场 · 28 个镜头 · 约 2 分钟 · 还有 27 个镜头没做好」. */
@@ -5948,6 +6149,16 @@ function BoardPage({
                       画风变了
                     </span>
                   ) : null}
+                  {takeBadge(item) ? <span className="ver">{takeBadge(item)}</span> : null}
+                  {/* 4B-U07: lip sync on a close shot whose speaker talks on screen. */}
+                  {(() => {
+                    const lips = lipSyncTag(item);
+                    return lips ? (
+                      <span className={lips.failed ? "lips failed" : "lips"} title={lips.title}>
+                        {lips.text}
+                      </span>
+                    ) : null;
+                  })()}
                   <i
                     className={`src ${shotSource(item).tone}`}
                     title={shotSource(item).label}
@@ -6837,11 +7048,110 @@ function GeneratePage({
   );
 }
 
+/**
+ * 4B-U02: the room left in an audio clip for its waveform. GPT's C3 gives the peaks
+ * (`waveform`, 0–1, evenly spaced); until then the strip stays empty.
+ */
+function Wave({ clip }: { clip: AudioClip }) {
+  const peaks = (clip as AudioClip & { waveform?: number[] }).waveform;
+  if (!peaks || peaks.length < 2) return <span className="wave" aria-hidden="true" />;
+  const points = peaks
+    .map((peak, index) => {
+      const x = (index / (peaks.length - 1)) * 100;
+      const y = 50 - Math.max(0, Math.min(1, peak)) * 48;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  return (
+    <svg className="wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} />
+    </svg>
+  );
+}
+
+/**
+ * 4B-U02: the 环境音 or 音效 track. Sound files go where their shot is; without files it shows
+ * what the director wrote for each shot (环境音 over the shot, 音效 at its moment), dashed,
+ * with a note that there is no sound yet.
+ */
+function PlanLane({
+  lane,
+  film,
+  shots,
+  clips,
+}: {
+  lane: "ambience" | "sfx";
+  film: FilmProject;
+  shots: FilmShot[];
+  clips: { id: string; left: number; width: number }[];
+}) {
+  const files = film.audioClips.filter((item) => item.lane === lane && item.path);
+  const name = lane === "ambience" ? "环境音" : "音效";
+  const planned =
+    lane === "ambience"
+      ? shots.flatMap((item) => {
+          const clip = clips.find((row) => row.id === item.id);
+          const text = item.sound.ambience.trim();
+          return clip && text ? [{ id: item.id, left: clip.left, width: clip.width, text }] : [];
+        })
+      : shots.flatMap((item) => {
+          const clip = clips.find((row) => row.id === item.id);
+          if (!clip) return [];
+          return item.sound.sfx
+            .filter((cue) => cue.text.trim())
+            .map((cue, index) => ({
+              id: `${item.id}-${index}`,
+              left:
+                clip.left +
+                Math.min(clip.width - 8, (cue.atSeconds / Math.max(1, item.seconds)) * clip.width),
+              width: 0,
+              text: cue.text.trim(),
+            }));
+        });
+  return (
+    <div className="lane" style={{ height: "var(--ha)" }}>
+      {files.length === 0 && planned.length === 0 ? (
+        <span className="lane-empty">这一轨还没有内容</span>
+      ) : null}
+      {files.map((item) => (
+        <div
+          key={item.id}
+          className={`clip ${lane === "ambience" ? "amb" : "fx"}`}
+          style={{
+            left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
+            width: Math.max(32, Math.round((item.durationSeconds || 2) * 52) - 2),
+          }}
+        >
+          <Wave clip={item} />
+          <span className="tx">{name}</span>
+        </div>
+      ))}
+      {files.length === 0
+        ? planned.map((item) => (
+            <div
+              key={item.id}
+              className={`clip plan ${lane === "ambience" ? "amb" : "fx"}`}
+              title={`${item.text}（只有文字，还没有声音文件）`}
+              style={
+                lane === "ambience"
+                  ? { left: item.left, width: Math.max(24, item.width - 2) }
+                  : { left: item.left }
+              }
+            >
+              <span className="tx">{item.text}</span>
+            </div>
+          ))
+        : null}
+    </div>
+  );
+}
+
 function EditPage({
   onMute,
   assistant = null,
   onSceneMood,
   onSceneVoice,
+  onSubtitleStyle,
   film,
   shot,
   onShot,
@@ -6912,8 +7222,14 @@ function EditPage({
   onSceneMood?: (sceneId: string, mood: Mood) => void;
   /** 4B-U01: the scene's voice level, written to its voice clips (gainDb). */
   onSceneVoice?: (sceneId: string, db: number) => void;
+  /** 4B-U03: 「用这个样式」, kept on the work for every subtitle. */
+  onSubtitleStyle?: (styleId: SubtitleStyleId) => void;
 }) {
-  const [monitor, setMonitor] = useState<"preview" | "sound">("preview");
+  const [monitor, setMonitor] = useState<"preview" | "sound" | "subs">("preview");
+  // 4B-U03: the style being looked at; 「用这个样式」 keeps it on the work.
+  const [subtitlePick, setSubtitlePick] = useState<string>(
+    (film as FilmProject & { subtitleStyle?: string }).subtitleStyle ?? "",
+  );
   // 4A-U11: Ctrl+J switches between 属性 and AI 助手.
   useAssistantKey(() => onTab(rightTab === "ai" ? "props" : "ai"));
   const [mediaTime, setMediaTime] = useState(0);
@@ -6931,6 +7247,10 @@ function EditPage({
   const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
+  const subtitleView = useMemo(
+    () => (monitor === "subs" ? subtitleStyleData(film, { value: subtitlePick }) : null),
+    [monitor, film, subtitlePick],
+  );
   // 4B-U01: the sound of the scene the shown shot is in; worked out only while it is shown.
   const sceneSound = useMemo(
     () => (monitor === "sound" && current ? soundPanelData(film, current.sceneId) : null),
@@ -7008,6 +7328,8 @@ function EditPage({
     // Only a new pick moves the cut; the segments change on every render.
   }, [shot, joined]);
   const start = shots.slice(0, shot).reduce((sum, item) => sum + item.seconds, 0);
+  // 4C-U01: the part between in and out.
+  const picked = selection(shots, span, shot);
   const selected = clips[shot];
   let headLeft = selected?.left ?? 1;
   let headSeconds = start;
@@ -7153,11 +7475,40 @@ function EditPage({
                 >
                   声音
                 </button>
+                <button
+                  type="button"
+                  className={monitor === "subs" ? "on" : ""}
+                  onClick={() => {
+                    onPlaying(false);
+                    setMonitor("subs");
+                  }}
+                >
+                  字幕
+                </button>
               </div>
               <span className="meta">{film.title}</span>
               <span className="sp" />
             </div>
-            {monitor === "sound" ? (
+            {monitor === "subs" ? (
+              // 4B-U03: the subtitle look, on a landscape and a portrait frame; the portrait one
+              // keeps the line above the area the platforms cover with their buttons.
+              <div className="pb sound-pane">
+                {subtitleView?.ok ? (
+                  <SubtitleStyle
+                    {...subtitleView.props}
+                    value={subtitlePick}
+                    onChange={setSubtitlePick}
+                    onApply={(styleId) => onSubtitleStyle?.(styleId as SubtitleStyleId)}
+                  />
+                ) : (
+                  <p className="role-desc">
+                    {subtitleView
+                      ? `${subtitleView.empty.title}。${subtitleView.empty.detail}`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            ) : monitor === "sound" ? (
               <div className="pb sound-pane">
                 {sceneSound?.ok ? (
                   <SoundPanel
@@ -7297,10 +7648,22 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
+            {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
             <span className="lab">
-              已选 {clock(start)}–{clock(start + (current?.seconds ?? 0))} · {current?.seconds ?? 0}{" "}
-              秒
+              已选{" "}
+              {picked.first === picked.last
+                ? `镜头 ${shots[picked.first]?.no ?? picked.first + 1}`
+                : `镜头 ${shots[picked.first]?.no ?? picked.first + 1}–${shots[picked.last]?.no ?? picked.last + 1}`}{" "}
+              · {clock(picked.start)}–{clock(picked.start + picked.seconds)} · {picked.seconds} 秒
             </span>
+            {picked.hasLine ? (
+              <span
+                className="sel-hint"
+                title="台词不会从中间切开：选到一句台词的一部分，重做时这一整句都会重来。"
+              >
+                这句台词会整句重来
+              </span>
+            ) : null}
             {/* 4A-U10: one 重新生成. One shot opens its 单镜 panel, a longer part is queued. */}
             <button
               className="btn primary"
@@ -7387,11 +7750,11 @@ function EditPage({
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-voice)" }} />
               <Ic name="mic" size={13} />
-              配音
+              对白
               <span className="lane-controls">
                 <button
                   type="button"
-                  aria-label="静音配音"
+                  aria-label="静音对白"
                   onClick={() => {
                     const muted = film.audioClips.some(
                       (clip) => clip.lane === "dialogue" && clip.gainDb <= -40,
@@ -7401,12 +7764,12 @@ function EditPage({
                 >
                   静音
                 </button>
-                <button type="button" aria-label="单听配音" onClick={() => onSolo?.("dialogue")}>
+                <button type="button" aria-label="单听对白" onClick={() => onSolo?.("dialogue")}>
                   单听
                 </button>
                 <input
-                  aria-label="配音音量"
-                  title={`配音音量 ${dbToVolumePercent(dialogueGain)}`}
+                  aria-label="对白音量"
+                  title={`对白音量 ${dbToVolumePercent(dialogueGain)}`}
                   type="range"
                   min={0}
                   max={100}
@@ -7417,14 +7780,26 @@ function EditPage({
                 />
               </span>
             </div>
+            {/* 4B-U02: 环境音 and 音效 have their own tracks; until there are sound files they
+                only show what was written for each shot. */}
+            <div className="th" style={{ height: "var(--ha)" }}>
+              <span className="sw" style={{ background: "var(--t-amb)" }} />
+              <Ic name="vol" size={13} />
+              环境音
+            </div>
+            <div className="th" style={{ height: "var(--ha)" }}>
+              <span className="sw" style={{ background: "var(--t-sfx)" }} />
+              <Ic name="spark" size={13} />
+              音效
+            </div>
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-music)" }} />
               <Ic name="music" size={13} />
-              音乐
+              配乐
               <span className="lane-controls">
                 <button
                   type="button"
-                  aria-label="静音音乐"
+                  aria-label="静音配乐"
                   onClick={() => {
                     const muted = film.audioClips.some(
                       (clip) => clip.lane === "score" && clip.gainDb <= -40,
@@ -7434,12 +7809,12 @@ function EditPage({
                 >
                   静音
                 </button>
-                <button type="button" aria-label="单听音乐" onClick={() => onSolo?.("score")}>
+                <button type="button" aria-label="单听配乐" onClick={() => onSolo?.("score")}>
                   单听
                 </button>
                 <input
-                  aria-label="音乐音量"
-                  title={`音乐音量 ${dbToVolumePercent(musicGain)}`}
+                  aria-label="配乐音量"
+                  title={`配乐音量 ${dbToVolumePercent(musicGain)}`}
                   type="range"
                   min={0}
                   max={100}
@@ -7546,6 +7921,19 @@ function EditPage({
                       }}
                     >
                       {clip.folded ? null : <span className="lb">{ready ? name : "未生成"}</span>}
+                      {/* 4C-U01: which made version the cut uses, 「版本 2/3」. */}
+                      {!clip.folded && item && takeBadge(item) ? (
+                        <span className="ver">{takeBadge(item)}</span>
+                      ) : null}
+                      {/* 4B-U07: the same 口型 mark on the clip. */}
+                      {(() => {
+                        const lips = !clip.folded && item ? lipSyncTag(item) : null;
+                        return lips ? (
+                          <span className={lips.failed ? "lips failed" : "lips"} title={lips.title}>
+                            {lips.text}
+                          </span>
+                        ) : null;
+                      })()}
                     </button>
                   );
                 })}
@@ -7566,10 +7954,13 @@ function EditPage({
                         width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
                       }}
                     >
-                      <span className="tx">{item.label || "配音"}</span>
+                      <Wave clip={item} />
+                      <span className="tx">{item.label || "对白"}</span>
                     </div>
                   ))}
               </div>
+              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} />
+              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} />
               <div className="lane" style={{ height: "var(--ha)" }}>
                 {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
@@ -7588,9 +7979,10 @@ function EditPage({
                         ),
                       }}
                     >
+                      <Wave clip={item} />
                       <span className="tx">
                         导入的音乐
-                        {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
+                        {shots.some((shotItem) => shotItem.line.trim()) ? " · 说话时变小" : ""}
                       </span>
                     </div>
                   ))}
