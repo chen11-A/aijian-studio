@@ -560,13 +560,48 @@ coverEditorData(film, { mediaUrl: fileMediaUrl });
 
 ## 一键成片步骤条和检查点（4A-U01）
 
-- 组件：`next/PipelineSteps.tsx`，只收 props，放在顶栏和工作区之间一条（`.app.with-pipeline` 多一行）。一键成片在跑或者停在分镜时才出现，其他时候不占地方。
-- 步骤：读 `film.pipeline.steps`（C12）。界面按 `id` 写中文名（编剧、美术、定妆照、导演、动作、表演、画面说明、出图、审片、视频），不显示 GPT 给的 `label`。`done/total` 大于 1 时写「12/28」。
-- 检查点：一键成片停在分镜（现在的 `oneClickReady`）时，写「停在分镜，等你看一遍：28 个镜头 · 约 149 秒 · 将生成 28 段视频 · 用会员额度」，一个主按钮「继续生成」，做的事和原来状态栏的「继续出视频」一样（那个按钮已经从状态栏拿掉）。视频段数 = 镜头数 × 每镜版本数。
-- 剧本页「一键成片」旁边写「会在分镜后停下，等你确认」。「从模板开始」挪到首页「从空白开始」里，和画幅放在一起；新建以后由紧挨 `return (` 的 effect 调一次 `applyTemplate`（它从闭包读 `film`）。
-- 要 GPT 配合（4A-B01）：
-  - 一键成片每一步写 `film.pipeline = {steps, current}`，步骤 `id` 按 C12，状态 queued/running/done/failed。现在没有这份数据，所以步骤那一段不显示，只显示检查点。
-  - 「从这一步重来」要一个 `retryPipelineFrom(stepId)`。没有它时失败的步骤只写「没做完」，不画按钮。
+- 组件：`next/PipelineSteps.tsx`，只收 props，放在顶栏和工作区之间一条（`.app.with-pipeline` 多一行）。一键成片在跑、停在分镜或有要处理的事时才出现。
+- props 按 GPT 4a 的 `pipelineView(film)`（`pro/pipeline-view.ts`）的形状写，`ready` 那一支可以直接传：`steps`（含 `targets`）、`status`→`overall`、`checkpoint`、`busy`、`canContinue`、`canAcceptReview`。
+- 显示：
+  - 十一步按 `id` 写中文名（编剧、美术、定妆照、导演、动作、表演、画面说明、出图、审片、视频、合成成片），不显示 GPT 的 `label`，也不显示内部 id。
+  - 状态各有说法：正在做、✓、「✓ 人工确认」（`accepted`，和自动做完分开）、没做完、卡住了、等你确认、结果不确定。
+  - 「要处理的 N 件事」点开：没做完、卡住、结果不确定的目标逐个列出，名字用 `next/adapters/pipelineNames.ts`（「林晚 · 正面」「第 2 场第 6 个镜头」「场景「巷口」」），原因按 code 走 NOTICE_COPY。
+  - 检查点写「N 个镜头 · 约 S 秒 · 约需 R 次生成 · 用会员额度」，`estimatedRequests` 说成估计，不说成会出几段视频；漏拍的结尾、台词和风险（block 红、manual 黄、info 灰）也在列表里。
+- 操作，每样都是单独一下：
+  - 「重试这一项」只出现在 `retryable` 的目标上，调 `onRetryTarget(stepId, targetId, outcomeConfirmed)`；`requiresOutcomeConfirmation` 的要先勾「我核对过，上次没有做成（重试会再用一次额度）」。
+  - 人工审片：`canAcceptReview` 时有一个输入框，写了一句结论才能点「记下审片结论」，调 `onAcceptReview(reason)`；写明「审片还不会自己看画面」，不出 AI 分数。
+  - 「继续生成」是唯一的主按钮，只在 `canContinue` 时能点；不能点时写原因（先补结尾 / 先处理标红的问题 / 先写审片结论 / 还有东西在做）。
+  - `busy` 时有「取消」，调 `onCancel()`；`overall="cancelled"` 时写「已取消，做好的都留着。」
+- 本分支（3j-r1）只有旧的一键成片：步骤读 `film.pipeline.steps`，检查点用旧流程停在分镜（`oneClickReady`）时的镜头数和秒数，「继续生成」还是旧的 `queueBatch`。这只是旧流程的显示，整合 `gpt/work-4a` 时换成下面这样，不要保留旧的：
+
+```tsx
+const view = pipelineView(film);
+{
+  view.kind === "ready" ? (
+    <PipelineSteps
+      steps={view.steps}
+      overall={view.status}
+      checkpoint={view.checkpoint}
+      busy={view.busy}
+      canContinue={view.canContinue}
+      canAcceptReview={view.canAcceptReview}
+      onContinue={() => void pipelineWorkspace.continue().catch(showPipelineError)}
+      onAcceptReview={(reason) =>
+        void pipelineWorkspace.acceptReview(reason).catch(showPipelineError)
+      }
+      onRetryTarget={(step, target, confirmed) => {
+        const key = pipelineRetryKey(film, step as ProductionStepId, target, confirmed);
+        if (key) void pipelineWorkspace.retry([key]).catch(showPipelineError);
+      }}
+      onCancel={() => void pipelineWorkspace.cancel()}
+      targetName={(_, id) => pipelineTargetName(film, id)}
+      sceneName={(id) => pipelineSceneName(film, id)}
+    />
+  ) : null;
+}
+```
+
+`showPipelineError` 用现有的 `emitNotice` 发 code，不把 `Error.message` 原样显示。`view.kind === "invalid"` 时按 code 在状态栏说一句，不画假的进度。首页和剧本页的「一键成片」等交互齐了再换成 `pipelineWorkspace.start()`，不要两套同时启动。
 
 ## 画风卡（4A-U02）
 

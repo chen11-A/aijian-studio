@@ -2308,9 +2308,7 @@ it("continues one-click storyboarding and retries the director into shots", asyn
     ),
   );
   // 4A-U01: the checkpoint bar says what will be made; 「继续生成」 left the status bar.
-  expect(screen.getByRole("region", { name: "一键成片进度" })).toHaveTextContent(
-    /将生成 \d+ 段视频/,
-  );
+  expect(screen.getByRole("region", { name: "一键成片进度" })).toHaveTextContent(/约需 \d+ 次生成/);
   expect(document.querySelector(".statusbar")?.textContent).not.toMatch(/继续/);
   fireEvent.click(screen.getByRole("button", { name: "继续生成" }));
   expect(await screen.findByRole("button", { name: "开始生成" })).toBeInTheDocument();

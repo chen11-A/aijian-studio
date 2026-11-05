@@ -147,6 +147,7 @@ import { PipelineSteps } from "../next/PipelineSteps";
 import { TakePicker } from "../next/TakePicker";
 import { takePickerData } from "../next/adapters/takePicker";
 import { needsRestyle } from "../next/adapters/restyle";
+import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2853,7 +2854,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   };
   const pipelineSteps = film?.pipeline?.steps ?? [];
   const showPipeline =
-    open && (oneClickReady || pipelineSteps.some((step) => step.status !== "done"));
+    open &&
+    (oneClickReady ||
+      pipelineSteps.some((step) => !["done", "accepted"].includes(String(step.status))));
   useEffect(() => {
     if (!open) void listFilms().then(setSeriesList);
   }, [open]);
@@ -3182,17 +3185,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         </header>
         {showPipeline && film ? (
           <PipelineSteps
+            // This branch still runs the 3j-r1 一键成片, which only knows it stopped at the
+            // storyboard. With gpt/work-4a, pass pipelineView(film) and the pipelineWorkspace
+            // calls instead (next/INTEGRATION.md, 一键成片步骤条).
             steps={pipelineSteps}
             checkpoint={
               oneClickReady
                 ? {
-                    shots: film.shots.length,
+                    shotCount: film.shots.length,
                     seconds: film.shots.reduce((sum, item) => sum + item.seconds, 0),
-                    videos: film.shots.length * versions,
+                    estimatedRequests: film.shots.length * versions,
+                    coverage: [],
+                    risks: [],
                   }
                 : null
             }
+            canContinue={oneClickReady}
             onContinue={continueOneClick}
+            targetName={(_, id) => pipelineTargetName(film, id)}
+            sceneName={(id) => pipelineSceneName(film, id)}
           />
         ) : null}
         <main className={wsClass}>
