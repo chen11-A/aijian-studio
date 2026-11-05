@@ -354,3 +354,13 @@ B04最终增量：`2794e81`更新设计样例校验为核对全部actionBeats及
 本轮21项、23项、78项、54项是不同范围的测试集合，部分重叠，不累加成独立总数。增量web tsc、目标ESLint和Prettier通过。上一轮完整web4282通过/1失败和覆盖率固定在6cb8cd4，不能当作本轮增量后的完整全量。证据：`/workspace/jr-b01-speakers.log`、`/workspace/jr-b05-adolescent.log`、`/workspace/jr-remaining-audit.log`、`/workspace/jr-b10-repair.log`、`/workspace/jr-b10-callers.log`。
 
 B01/B05/B10三个增量按编号独立提交推送；B18/B19此前76d5544、6cb8cd4仍保留。尚需用户这次project.json、导演/动作原回复及已登录会员环境以完成上表真实验收；不是小说缺失，小说已核实。未整合的Claude文案与流水线界面仍按阶段交接处理，不因本地回归通过提前发版。
+
+### 生产入口持续核对（优先于上文历史状态）
+
+- B01：`8992ed3` 修正 `4c16472` 的问题。实际视频契约只有每镜一个声音（`operations.ts:oneShot`），交替说话人合并虽保留了文字，却导致MULTI_VOICE_REQUIRED。现恢复相邻同说话人保护，并阻止模型压缩新建多说话人镜头；原始完整草稿保留及超限提示继续。31项相关通过，新增实际storyFilmBatches可提交断言。不能再把4c16472写成有效的多说话人压缩方案；多说话人压到16与当前声音契约的冲突仍未完成，不能通过丢台词解决。
+- B08：`8e40637` 修复流水线单镜出图默认前序场景图已完成的漏洞。现在makePipelineStill也先调用prepareShotSceneReferences，缺失或过期则生成、保存，再基于最新工程出图。15项通过，生产适配回归核对同一保存场景URL进入firstFrameReferences和storyFilmBatches.references；默认桌面适配仍会把本地图片转成可发送图像。测试供应商是替身，不证明用户四场图片实际生成正确或服务端接受了所有图片。此前首次新用例因手写URL格式错误失败，修正为实际aivora-media://local/格式后通过，日志保留。
+- B09：`14fae1a` 修复手动重试已解析初稿在补充超时时丢失的问题，返回partial初稿并明确标明补充未完成。17项截止/重试回归通过，另3项宿主定向通过（同文件96项未选运行）。旧测试原期望丢弃初稿，现改成保留特定原画面及partial断言，保留截止/取消/清理断言。首次类型检查发现新测试Promise泛型缺失，已修后web tsc通过。
+
+当前四分钟保证的范围：客户端同一场请求、重试、补尾/补充共用240秒截止，信号传递、停止继续等待并屏蔽迟到结果；普通JavaScript计时器仍受事件循环调度影响，不能承诺硬实时，也不能承诺远端供应商已停止执行或会员一定在四分钟内成功生成。真实成功耗时、出图人物/场景正确性及19条动作分配仍需用户实际工程/回复和登录会员环境；小说并不缺失。
+
+本轮证据：/workspace/jr-b01-video-final.log（31通过）、jr-b08-pipeline-final.log（15通过）、jr-b09-retry-verified.log（17通过）、jr-b09-host.log（3通过/96未选）、jr-runtime-types-final.log（通过）、jr-runtime-lint.log（通过）、jr-runtime-format.log（通过）。没有把定向测试冒充当前全量。B02/B03/B04/B05/B06/B07/B10的提交与未完成边界仍见上表，B18/B19本轮已修代码保持。尚未整合Claude或阶段发版。
