@@ -2852,6 +2852,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // 4A-U07: the export dialog's 比例. Shown only by a desktop that can crop to the other
   // aspect (it brings cancelFilmExport with it); the export call reads it once GPT wires it.
   const [exportAspects, setExportAspects] = useState<"work" | "other" | "both">("work");
+  // 4B-U06: how the export is made. GPT's export reads these (next/INTEGRATION.md, 导出对话框).
+  const [exportQuality, setExportQuality] = useState<"1080p" | "720p">("1080p");
+  const [exportSubs, setExportSubs] = useState<"burn" | "srt" | "none">("burn");
   const canCropAspect =
     typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
   // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
@@ -4127,6 +4130,57 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         <option value="both">两种都要</option>
                       </select>
                     </div>
+                  ) : film ? (
+                    <div className="field">
+                      <label>比例</label>
+                      <div className="input" title="这个版本的桌面程序只能按作品的画幅导出">
+                        {film.aspectRatio === "16:9"
+                          ? "横屏 16:9（作品的画幅）"
+                          : "竖屏 9:16（作品的画幅）"}
+                      </div>
+                    </div>
+                  ) : null}
+                  {film ? (
+                    <div className="field">
+                      <label htmlFor="export-quality">清晰度</label>
+                      <select
+                        id="export-quality"
+                        className="input"
+                        aria-label="清晰度"
+                        value={exportQuality}
+                        onChange={(event) =>
+                          setExportQuality(event.target.value as "1080p" | "720p")
+                        }
+                      >
+                        <option value="1080p">1080p（推荐）</option>
+                        <option value="720p">720p（文件小一些）</option>
+                      </select>
+                    </div>
+                  ) : null}
+                  {film ? (
+                    <div className="field">
+                      <label id="export-subs">字幕</label>
+                      <div className="seg" role="radiogroup" aria-labelledby="export-subs">
+                        {(
+                          [
+                            ["burn", "烧进画面"],
+                            ["srt", "单独文件"],
+                            ["none", "不要"],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={exportSubs === value}
+                            className={exportSubs === value ? "on" : ""}
+                            onClick={() => setExportSubs(value)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ) : null}
                   {film ? (
                     <div className="field">
@@ -4208,6 +4262,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   {partialExport && partialExport.length > 0 ? (
                     <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
                   ) : null}
+                  {/* 4B-U06: the export's progress stays in the dialog. */}
+                  {exporting ? (
+                    <div className="export-progress" role="status">
+                      <span className="bar" aria-hidden="true" />
+                      <span>正在导出：拼接、混音、写文件。长一点的片子要几分钟。</span>
+                    </div>
+                  ) : exportFile ? (
+                    <p className="export-done" role="status" title={exportFile}>
+                      导出好了：{exportFile}
+                    </p>
+                  ) : null}
                   <div className="acts">
                     <button className="btn" onClick={() => setExportOpen(false)}>
                       关闭
@@ -4241,7 +4306,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       disabled={exporting}
                       onClick={() => void startExport()}
                     >
-                      {exporting ? "正在导出" : "开始导出"}
+                      {exporting ? "正在导出" : "导出"}
                     </button>
                   </div>
                 </>

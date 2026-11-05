@@ -457,7 +457,7 @@ describe("professional workspace", () => {
         .find((item) => item.className.includes("tab"))!,
     );
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(screen.getByText(/网页里不能写成片/)).toBeInTheDocument();
     expect(screen.queryByText(/D:\\/)).toBeNull();
   });
@@ -639,12 +639,12 @@ describe("professional workspace", () => {
     await waitFor(() => expect(desktop.assembleFilm).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     desktop.pickFilmFolder.mockResolvedValueOnce("");
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(await screen.findByText(/先选一个保存的文件夹/)).toBeInTheDocument();
     desktop.exportFilmCut.mockRejectedValueOnce(new Error("disk"));
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(await screen.findByText(/导出没有完成，可以再试一次/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
     expect(await screen.findByText(/已导出到/)).toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "导出成片" });
     expect(within(dialog).getByText("雨夜巷战-第1集.mp4")).toBeInTheDocument();
@@ -2271,7 +2271,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+  fireEvent.click(screen.getByRole("button", { name: "导出" }));
   expect((await screen.findAllByText(/可以只导出已生成的/)).length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: "只导出已生成的" }));
   await waitFor(() => expect(desktop.exportFilmCut).toHaveBeenCalled());
@@ -2295,7 +2295,7 @@ it("names the shots that are not ready instead of exporting an empty cut", async
   const desktop = installDesktop();
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+  fireEvent.click(screen.getByRole("button", { name: "导出" }));
   expect((await screen.findAllByText(/还没生成：镜头/)).length).toBeGreaterThan(0);
   expect(desktop.exportFilmCut).not.toHaveBeenCalled();
 });
@@ -3398,6 +3398,31 @@ it("edits the cover inside the export dialog, with 「AI 生成」 on by default
       (FilmProject & { cover?: { title: string; aiMark: boolean } }) | undefined;
     expect(saved?.cover).toMatchObject({ title: "雨夜巷战·终", aiMark: false });
   });
+});
+
+it("sets aspect, quality and subtitles in the export dialog, with one 导出 button (4B-U06)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
+  // Without a desktop that can crop, the work's own aspect is shown, not offered.
+  expect(dialog.getByText(/（作品的画幅）/)).toBeInTheDocument();
+  expect(dialog.getByLabelText("清晰度")).toHaveValue("1080p");
+  const subs = dialog.getByRole("radiogroup", { name: "字幕" });
+  expect(within(subs).getByRole("radio", { name: "烧进画面" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  fireEvent.click(within(subs).getByRole("radio", { name: "单独文件" }));
+  expect(within(subs).getByRole("radio", { name: "单独文件" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  fireEvent.change(dialog.getByLabelText("清晰度"), { target: { value: "720p" } });
+  expect(dialog.getByLabelText("清晰度")).toHaveValue("720p");
+  expect(document.querySelectorAll(".dialog .btn.primary")).toHaveLength(1);
+  expect(dialog.getByRole("button", { name: "导出" })).toHaveClass("primary");
+  expect(dialog.queryByRole("button", { name: "开始导出" })).toBeNull();
 });
 
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {

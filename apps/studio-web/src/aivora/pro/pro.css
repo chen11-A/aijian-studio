@@ -3105,6 +3105,46 @@ body:has(.pro-root) {
   flex: 1 1 auto;
   min-height: 0;
 }
+/* 4B-U06: the export's progress and result, inside the dialog. */
+.pro-root .export-progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .export-progress .bar {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--panel-3);
+}
+.pro-root .export-progress .bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: export-slide 1.4s ease-in-out infinite;
+}
+@keyframes export-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+.pro-root .export-done {
+  margin-top: 10px;
+  overflow: hidden;
+  color: var(--ok);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .pro-root .cover-row {
   display: flex;
   align-items: center;
