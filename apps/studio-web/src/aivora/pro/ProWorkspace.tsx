@@ -62,7 +62,8 @@ import { coverageNotice } from "../film/coverage-notice";
 import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
-import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
+import { exportFilmSelection } from "./actions/export-selection";
+import { revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { makeFourStills } from "./still-workflow";
 import {
@@ -2746,15 +2747,39 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const release = workOwners.begin(current.id, "export");
     setNotice("正在导出。");
     try {
-      const result = await exportFilmTask(current, plan.paths, directoryOverride || exportDir, {
-        current: () => filmRef.current,
-        valid,
-        apply: applyLive,
-      });
-      if (!valid()) return;
-      setExportDir(result.directory);
-      setExportFile(result.path);
-      setNotice(`已导出到 ${result.path}`);
+      const result = await exportFilmSelection(
+        current,
+        plan.paths,
+        directoryOverride || exportDir,
+        {
+          current: () => filmRef.current,
+          valid,
+          apply: applyLive,
+        },
+        exportAspects,
+      );
+      if (!valid() || result.status === "stale") return;
+      if (result.directory) setExportDir(result.directory);
+      if (result.primaryPath) setExportFile(result.primaryPath);
+      if (result.status === "done")
+        setNotice({
+          code: "EXPORT_DONE",
+          text: NOTICE_TEXT.EXPORT_DONE,
+          detail: result.outputs
+            .map((output) => `${output.aspectRatio}：${output.path}`)
+            .join("；"),
+        });
+      else if (result.status === "partial")
+        setNotice({
+          code: "EXPORT_FAILED",
+          text: NOTICE_TEXT.EXPORT_FAILED,
+          detail: `已保存 ${result.outputs.length} 个文件，其余没有导出，请重试。`,
+        });
+      else
+        emitNotice({
+          code: result.status === "cancelled" ? "EXPORT_FOLDER_REQUIRED" : "EXPORT_FAILED",
+          text: result.status === "cancelled" ? "没有选择文件夹。" : NOTICE_TEXT.EXPORT_FAILED,
+        });
     } catch (error) {
       if (valid())
         emitNotice({
@@ -2828,7 +2853,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const feed = useTaskFeed();
   const feedNow = feedProgress(feed);
   // 4A-U07: the export dialog's 比例. Shown only by a desktop that can crop to the other
-  // aspect (it brings cancelFilmExport with it); the export call reads it once GPT wires it.
+  // aspect (it brings cancelFilmExport with it); each export reads one fixed selection.
   const [exportAspects, setExportAspects] = useState<"work" | "other" | "both">("work");
   const canCropAspect =
     typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
