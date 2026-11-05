@@ -45,6 +45,7 @@ describe("story pages", () => {
       "pipeline-steps",
       ["running", "failed", "uncertain", "review", "blocked", "checkpoint", "cancelled"],
     ],
+    ["suggestion-card", ["change", "new", "scenes", "busy", "applied"]],
   ])("%s renders every example state", (story, states) => {
     for (const state of states) {
       const view = render(<StoryGallery search={`?story=${story}&state=${state}`} />);

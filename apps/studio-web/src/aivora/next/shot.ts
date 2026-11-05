@@ -18,3 +18,14 @@ export function durationLabel(seconds: number): string {
   const minutes = Math.floor(total / 60);
   return minutes > 0 ? `${minutes} 分 ${total % 60} 秒` : `${total} 秒`;
 }
+
+/**
+ * What one click of 「生成」 makes, from the length that is selected (4A-U12): 「1 段 2 秒的视频 ·
+ * 用 Grok 会员额度，不另外收费」. Each version is one video of that length, so the seconds are
+ * not multiplied.
+ */
+export function videoLine(versions: number, seconds: number): string {
+  const count = Number.isFinite(versions) ? Math.max(1, Math.round(versions)) : 1;
+  const length = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
+  return `${count} 段 ${length} 秒的视频 · 用 Grok 会员额度，不另外收费`;
+}

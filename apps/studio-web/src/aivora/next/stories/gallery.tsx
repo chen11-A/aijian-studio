@@ -3,6 +3,7 @@ import { CoverEditorStory } from "../CoverEditor.story";
 import { ExportCheckStory } from "../ExportCheck.story";
 import { PipelineStepsStory } from "../PipelineSteps.story";
 import { SoundPanelStory } from "../SoundPanel.story";
+import { SuggestionCardStory } from "../SuggestionCard.story";
 import { SubtitleStyleStory } from "../SubtitleStyle.story";
 import { TakePickerStory } from "../TakePicker.story";
 import { TaskCenterStory } from "../TaskCenter.story";
@@ -16,6 +17,7 @@ export const STORIES: Record<StoryId, ComponentType<{ state?: string }>> = {
   "subtitle-style": SubtitleStyleStory,
   "cover-editor": CoverEditorStory,
   "pipeline-steps": PipelineStepsStory,
+  "suggestion-card": SuggestionCardStory,
 };
 
 /** Reads ?story=…&state=… . An unknown story falls back to the first one. */

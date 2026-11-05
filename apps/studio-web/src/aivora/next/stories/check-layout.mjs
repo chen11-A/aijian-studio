@@ -42,6 +42,7 @@ const stories = [
   "subtitle-style",
   "cover-editor",
   "pipeline-steps",
+  "suggestion-card",
 ];
 
 // Runs inside the page. Returns a list of problems in Chinese.

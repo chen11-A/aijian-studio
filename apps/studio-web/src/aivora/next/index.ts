@@ -14,8 +14,9 @@ export {
   type QcReport,
   type QcSeverity,
 } from "./qcReport";
-export { clockLabel, durationLabel, shotLabel } from "./shot";
+export { clockLabel, durationLabel, shotLabel, videoLine } from "./shot";
 export { MOODS, SoundPanel, type Mood, type SoundPanelProps } from "./SoundPanel";
+export { SuggestionCard, type SuggestionCardProps } from "./SuggestionCard";
 export {
   SUBTITLE_STYLES,
   SubtitleStyle,

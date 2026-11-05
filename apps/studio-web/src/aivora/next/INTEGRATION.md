@@ -650,6 +650,34 @@ const view = pipelineView(film);
 - 渲染部分里几处 `setNotice("…")` 改成了 `setNotice({ code, text })`（作品设置说明 EDITOR_GUIDANCE、换构图 COMPOSITION_SELECTED、暂停 GENERATION_PAUSED、取消 GENERATION_CANCEL_REQUESTED、会员用不了 ENTITLEMENT_DENIED），这样不用改 `film/notices.ts` 按字面认 code 的规则，显示走 NOTICE_COPY。
 - `e2e/layout-audit.mjs` 的术语黑名单加了：模型、接口、提示词、离线、写入、画面自带、单独配音。GPT 那边的句子换完以前，这个检查会报出它们。
 
+## 助手建议卡（4A-U11，要 4A-B11 ④）
+
+- 新组件 `SuggestionCard`（`next/SuggestionCard.tsx`，示例页「助手建议」）：标题「现在 6 个 → 建议 4 个」（没有镜头时「建议拆成 4 个镜头」，分场写「现在 3 场 → 建议 4 场」），下面一行「改了 2 · 删掉 2」，每行标「新增 / 改了 / 删掉」，改了的行下面灰字「原来：…」，删掉的行划掉。按钮「放进分镜 / 放进剧本」「换一个」「不要」；放进去以后卡片写「已放进去。」加「撤销」。没有建议时整张卡不画，不再出现「还没有建议 0 条」。
+- 「放进」用描边的强调色，不是实心蓝，这样一页仍只有一个实心主按钮（4A-U09）。
+- 差别现在由界面按文字算（`adapters/suggestionDiff.ts`：一字不差的行保持位置；两段相同之间，读起来像的一对算「改了」，其余算「删掉」和「新增」）。GPT 给了自己的差别就传 `rows`，组件直接用，不再自己算。
+- GPT 在 `gpt/work-4a` 上已经有 4A-B11 ④ 的底子（`pro/actions/editor-changes.ts`、`editor-structure.ts`、`page-history.ts`），整合时这样对上：
+  - 字段改动 `diffEditorSuggestion(current, proposed, selection).changes`：同一个镜头（`target.id`）有改动的，算一行 `{ kind: "changed", item: 改后, before: 改前 }`；
+  - 增删镜头 `diffEditorStructure(...)`：新增的算 `added`，拿掉的算 `removed`；没动的算 `same`；
+  - 拼好的 `rows` 传给 `SuggestionCard`，界面就不再按文字自己猜。
+- 三个按钮的回调：
+
+```ts
+onApply   // 原来的 onApply / onApplyScenes（gpt/work-4a 上是 applyStoryConfirmation 那一套）
+onAnother // 同一位助手、同一个范围再出一版，现在的镜头不动：重发上一句话
+onReject  // 丢掉这条建议，现在的镜头不动：setPending(null)（分场时 setPendingScenes(null)）
+onUndo    // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(film, selection)
+          // （createEditorPageHistory，按页记），claude/work 上先接 undoEdit
+```
+
+- 在整合以前，接线方式（等 3J-U18–U22 推完再改 `Assistant` 的渲染）：`current` 用这一场现在的镜头，`proposed` 用 `pending`（或分场时的 `pendingScenes`），其余如上。
+
+## 一件事一个入口（4A-U10，要 4A-B11 ③）
+
+- 撤销 / 重做只留顶栏一组，剧本工具栏和剪辑时间线上的两组拿掉；Ctrl+Z / Ctrl+Shift+Z 不变。
+- 要 GPT 提供（4A-B11 ③）：按当前页面分派的撤销。`gpt/work-4a` 的 4b3cc81 已经有了（`createEditorPageHistory()` 的 `undo / redo / canUndo / canRedo`，按 `{ projectId, page }` 分开记，page 是 script / cast / board / edit），顶栏这一组整合后调它，`page` 用当前页签（单镜页算 board）。
+
+- 整合以前，顶栏这一组接现在的 `undoEdit` / `redoEdit`（它们撤的是整部作品的改动，剧本和时间线的改动也在里面），所以拿掉另外两组不会少功能。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。
