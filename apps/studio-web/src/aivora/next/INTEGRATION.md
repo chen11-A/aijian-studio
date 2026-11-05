@@ -671,11 +671,11 @@ const view = pipelineView(film);
 - 三个按钮的回调：
 
 ```ts
-onApply   // 原来的 onApply / onApplyScenes（gpt/work-4a 上是 applyStoryConfirmation 那一套）
-onAnother // 同一位助手、同一个范围再出一版，现在的镜头不动：重发上一句话
-onReject  // 丢掉这条建议，现在的镜头不动：setPending(null)（分场时 setPendingScenes(null)）
-onUndo    // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(film, selection)
-          // （createEditorPageHistory，按页记），claude/work 上先接 undoEdit
+onApply; // 原来的 onApply / onApplyScenes（gpt/work-4a 上是 applyStoryConfirmation 那一套）
+onAnother; // 同一位助手、同一个范围再出一版，现在的镜头不动：重发上一句话
+onReject; // 丢掉这条建议，现在的镜头不动：setPending(null)（分场时 setPendingScenes(null)）
+onUndo; // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo(film, selection)
+// （createEditorPageHistory，按页记），claude/work 上先接 undoEdit
 ```
 
 - 在整合以前，接线方式（等 3J-U18–U22 推完再改 `Assistant` 的渲染）：`current` 用这一场现在的镜头，`proposed` 用 `pending`（或分场时的 `pendingScenes`），其余如上。

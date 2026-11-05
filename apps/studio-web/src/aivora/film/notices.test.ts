@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import approved from "./fixtures/claude-48a5825-notice-copy.json";
 import { normalizeNotice, NOTICE_TEXT } from "./notices";
 
 describe("structured business notices", () => {
@@ -43,8 +44,25 @@ describe("structured business notices", () => {
     const rows = [...table.matchAll(/^\| `([A-Z_]+)`\s*\| ([^|]+)\| ([^|]+)\|/gmu)].filter(
       (row) => row[1]! in NOTICE_TEXT && !["OPERATION_STATUS", "EDITOR_GUIDANCE"].includes(row[1]!),
     );
-    expect(rows).toHaveLength(118);
-    for (const [, code, old, replacement] of rows) {
+    const addedCodes = new Set([
+      ...approved.entries.map((entry) => entry.code),
+      "LOCATION_SOURCE_REQUIRED",
+      "MULTI_VOICE_PROVIDER_REQUIRED",
+      "DIALOGUE_VIDEO_LIMIT",
+      "VIDEO_TOO_SHORT",
+      "DIALOGUE_VIDEO_REQUIRED",
+    ]);
+    const legacyRows = rows.filter((row) => !addedCodes.has(row[1]!));
+    const addedRows = rows.filter((row) => addedCodes.has(row[1]!));
+    expect(legacyRows).toHaveLength(118);
+    expect(addedRows).toHaveLength(106);
+    for (const [, code, old, replacement] of addedRows) {
+      expect(normalizeNotice({ code: code!, text: old!.trim() })).toMatchObject({
+        code,
+        text: replacement!.trim(),
+      });
+    }
+    for (const [, code, old, replacement] of legacyRows) {
       const expected = replacement!.trim();
       expect(normalizeNotice(old!.trim()), code).toMatchObject({ code, text: expected });
       expect(normalizeNotice(expected), code).toEqual({ code, text: expected });
@@ -64,7 +82,7 @@ describe("structured business notices", () => {
       }),
     ).toEqual({
       code: "GENERATION_CANCEL_REQUESTED",
-      text: "已取消。已经发出去的几段可能停不下来。",
+      text: "已取消。如果已经发给 Grok，它可能还会做完。",
       detail: "镜头 5 已发出\n还未确认停止",
     });
     expect(normalizeNotice("提示词没有按格式返回，未完成。")).toEqual({
