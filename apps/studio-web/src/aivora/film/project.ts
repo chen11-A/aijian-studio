@@ -1,3 +1,4 @@
+import type { SceneShotBudget } from "./director-continuity";
 import type { AdultVoiceDefault } from "./adult-voice-default";
 import { shotActions, withShotActions } from "./shot-actions";
 import { constrainVisualPrompt, onScreenCharacters } from "./on-screen-characters";
@@ -181,6 +182,7 @@ export type FilmScene = {
   actionState?: SceneActionState;
   sound?: SceneSound;
   coverage?: SceneCoverage;
+  shotBudget?: SceneShotBudget;
   id: string;
   no: number;
   title: string;

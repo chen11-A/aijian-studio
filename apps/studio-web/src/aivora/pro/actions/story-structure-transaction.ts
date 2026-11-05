@@ -1,6 +1,6 @@
 import type { WriterPlan } from "../../film/writer-plan";
 import { applyScenes, applyWriterPlan } from "../../film/operations";
-import { detectDirectorCoverage } from "../../film/director-continuity";
+import { detectDirectorCoverage, sceneShotBudget } from "../../film/director-continuity";
 import type { FilmProject, FilmScene, FilmShot } from "../../film/project";
 import { applyDirectorPlan } from "../director-workflow";
 import {
@@ -10,6 +10,11 @@ import {
   type EditorStructureTransaction,
 } from "./editor-structure";
 
+type ShotBudget = { present: boolean; value: FilmScene["shotBudget"] };
+const shotBudget = (scene: FilmScene): ShotBudget => ({
+  present: Object.hasOwn(scene, "shotBudget"),
+  value: scene.shotBudget,
+});
 type Coverage = { present: boolean; value: FilmScene["coverage"] };
 type WriterAssets = Pick<FilmProject, "characters" | "locations"> & {
   plan: { present: boolean; value: FilmProject["writerPlan"] };
@@ -34,6 +39,7 @@ export type StoryStructureTransaction = {
     after: WriterAssets;
   };
   coverage?: { before: Coverage; after: Coverage };
+  shotBudget?: { before: ShotBudget; after: ShotBudget };
   beats?: {
     before: Beats;
     after: Beats;
@@ -214,6 +220,8 @@ function prepare(
     const after = proposed.scenes.find((scene) => scene.id === sceneId);
     if (before && after && !same(coverage(before), coverage(after)))
       tx.coverage = { before: coverage(before), after: coverage(after) };
+    if (before && after && !same(shotBudget(before), shotBudget(after)))
+      tx.shotBudget = { before: shotBudget(before), after: shotBudget(after) };
     const beforeBeats = (base.unassignedBeats ?? []).filter((beat) => beat.sceneId === sceneId);
     const afterBeats = (proposed.unassignedBeats ?? []).filter((beat) => beat.sceneId === sceneId);
     if (!same(beforeBeats, afterBeats))
@@ -401,7 +409,11 @@ export function prepareExplicitShotSplitTransaction(
     shots,
     scenes: base.scenes.map((scene) =>
       scene.id === target.sceneId
-        ? { ...scene, coverage: detectDirectorCoverage(scene, shots) }
+        ? {
+            ...scene,
+            coverage: detectDirectorCoverage(scene, shots),
+            shotBudget: sceneShotBudget(scene.id, shots),
+          }
         : scene,
     ),
   };
@@ -464,6 +476,9 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
   if (!same(workSnapshot(current, tx.structure), inverse ? tx.workAfter : tx.workBefore))
     return reject(["TASKS_CHANGED"]);
   const scene = current.scenes.find((item) => item.id === tx.sceneId);
+  const expectedBudget = inverse ? tx.shotBudget?.after : tx.shotBudget?.before;
+  if (expectedBudget && (!scene || !same(shotBudget(scene), expectedBudget)))
+    return reject(["SHOT_BUDGET_CHANGED"]);
   const expectedCoverage = inverse ? tx.coverage?.after : tx.coverage?.before;
   if (expectedCoverage && (!scene || !same(coverage(scene), expectedCoverage)))
     return reject(["COVERAGE_CHANGED"]);
@@ -483,6 +498,7 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     noStructure &&
     !tx.writerAssets &&
     !tx.coverage &&
+    !tx.shotBudget &&
     !tx.beats &&
     !tx.shotChanges?.length &&
     !tx.sceneNumbering?.length
@@ -542,6 +558,19 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
         const next = { ...row };
         if (replacement.present) next.coverage = structuredClone(replacement.value);
         else delete next.coverage;
+        return next;
+      }),
+    };
+  }
+  if (tx.shotBudget) {
+    const replacement = inverse ? tx.shotBudget.before : tx.shotBudget.after;
+    film = {
+      ...film,
+      scenes: film.scenes.map((row) => {
+        if (row.id !== tx.sceneId) return row;
+        const next = { ...row };
+        if (replacement.present) next.shotBudget = structuredClone(replacement.value);
+        else delete next.shotBudget;
         return next;
       }),
     };

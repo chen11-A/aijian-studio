@@ -5,7 +5,12 @@ import { writerNumberedScript, writerSceneContext } from "../film/writer-element
 import { applyPerformancePlans, performancePlanPrompt } from "../film/performance-plan";
 import { applyActionPlan } from "../film/action-plan";
 import type { UiNotice } from "../film/contracts3j";
-import { shotLines, suggestedShotCount } from "../film/director-continuity";
+import {
+  shotLines,
+  suggestedShotCount,
+  sceneShotBudget,
+  formatShotBudget,
+} from "../film/director-continuity";
 import {
   applyScenes,
   assignActionBeats,
@@ -77,8 +82,10 @@ export async function runPipelineAgentAction(
   });
   const done = (next = film, code = "STEP_COMPLETE"): PipelineAgentResult =>
     current() ? { film: next, status: "done", code } : stale();
-  const blocked = (code: string, next?: FilmProject): PipelineAgentResult =>
-    current() ? { status: "blocked", code, ...(next ? { film: next } : {}) } : stale();
+  const blocked = (code: string, next?: FilmProject, detail?: string): PipelineAgentResult =>
+    current()
+      ? { status: "blocked", code, ...(detail ? { detail } : {}), ...(next ? { film: next } : {}) }
+      : stale();
   const request = async (
     agent: AgentId,
     context: string,
@@ -230,7 +237,11 @@ export async function runPipelineAgentAction(
         if (!next.scenes.find((item) => item.id === scene.id)?.coverage?.ok)
           return blocked("COVERAGE_INCOMPLETE", next);
         return next.shots.filter((shot) => shot.sceneId === scene.id).length > 16
-          ? blocked("DIRECTOR_OVER_BUDGET", next)
+          ? blocked(
+              "DIRECTOR_OVER_BUDGET",
+              next,
+              formatShotBudget(sceneShotBudget(scene.id, next.shots), next.shots),
+            )
           : done(next);
       } catch (error) {
         if (!current()) return stale();

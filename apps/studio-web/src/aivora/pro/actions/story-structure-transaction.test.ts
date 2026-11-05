@@ -379,3 +379,29 @@ describe("fixed story structure transactions", () => {
     );
   });
 });
+
+it("persists budget through confirmation, undo and redo without overwriting another scene", () => {
+  const { film, sceneId, shot, other } = setup();
+  const tx = prepareDirectorTransaction(film, sceneId, [proposal(shot)]);
+  const live = structuredClone(film);
+  const otherScene = live.scenes.find((s) => s.id === other.sceneId)!;
+  otherScene.shotBudget = {
+    sceneId: other.sceneId,
+    limit: 16,
+    count: 19,
+    ok: false,
+    blockedPairs: [],
+  };
+  const applied = applyStoryStructureTransaction(live, tx);
+  expect(applied.conflicts).toEqual([]);
+  expect(applied.film.scenes[0]!.shotBudget).toMatchObject({ count: 1, ok: true });
+  expect(applied.film.scenes[1]!.shotBudget).toEqual(otherScene.shotBudget);
+  const undone = undoStoryStructureTransaction(applied.film, tx);
+  expect(undone.conflicts).toEqual([]);
+  expect(Object.hasOwn(undone.film.scenes[0]!, "shotBudget")).toBe(false);
+  expect(applyStoryStructureTransaction(undone.film, tx).film.scenes[0]!.shotBudget).toEqual(
+    applied.film.scenes[0]!.shotBudget,
+  );
+  live.scenes[0]!.shotBudget = { sceneId, limit: 16, count: 18, ok: false, blockedPairs: [] };
+  expect(applyStoryStructureTransaction(live, tx).conflicts).toContain("SHOT_BUDGET_CHANGED");
+});

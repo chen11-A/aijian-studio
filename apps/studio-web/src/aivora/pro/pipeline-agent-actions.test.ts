@@ -287,7 +287,12 @@ it.each([false, true])(
     expect(request.mock.calls[0]![2]).toContain("最多16镜");
     expect(request.mock.calls[1]![2]).toContain("最多16镜");
     expect(result.status).toBe(compressed ? "done" : "blocked");
-    if (!compressed) expect(result.code).toBe("DIRECTOR_OVER_BUDGET");
+    if (!compressed) {
+      expect(result.code).toBe("DIRECTOR_OVER_BUDGET");
+      expect(result.detail).toContain("第1镜、第2镜：合并后超过15秒");
+      expect(result.detail).not.toMatch(/DURATION_|scene-.*shot/);
+      expect(result.film!.scenes[0]!.shotBudget?.blockedPairs).toHaveLength(16);
+    } else expect(result.film!.scenes[0]!.shotBudget).toMatchObject({ ok: true, blockedPairs: [] });
     expect(result.film!.shots).toHaveLength(compressed ? 16 : 17);
     expect(result.film!.scenes[0]!.coverage?.ok).toBe(true);
     const represented = result.film!.shots.map((shot) => shot.picture).join("\n");

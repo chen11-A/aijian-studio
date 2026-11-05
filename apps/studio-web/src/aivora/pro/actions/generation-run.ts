@@ -11,6 +11,7 @@ import { storyFilmBatches, updateShot } from "../../film/operations";
 import { ensureContinuityFrame } from "../continuity-frame";
 import { ensureShotFrame } from "../still-workflow";
 import { fileMediaUrl, isVoiceFile } from "../workflow";
+import { presentNotice } from "../../film/notices";
 import { awaitVideoResult } from "../video-request";
 
 type CreateVideo = NonNullable<AijianDesktopBridge["createStoryFilm"]>;
@@ -59,7 +60,23 @@ export function applyVideoResponse(
   data: Record<string, unknown>,
 ) {
   const jobId = `video:${take.id}`;
-  const message = typeof data.message === "string" ? data.message : "";
+  const reportedNotice =
+    data.user_message && typeof data.user_message === "object"
+      ? (data.user_message as Record<string, unknown>)
+      : null;
+  const message =
+    data.status !== "SUCCEEDED" &&
+    reportedNotice &&
+    typeof reportedNotice.code === "string" &&
+    typeof reportedNotice.text === "string"
+      ? presentNotice({
+          code: reportedNotice.code,
+          text: reportedNotice.text,
+          ...(typeof reportedNotice.detail === "string" ? { detail: reportedNotice.detail } : {}),
+        }).text
+      : typeof data.message === "string"
+        ? data.message
+        : "";
   const output = typeof data.output_path === "string" ? data.output_path.trim() : "";
   const preview = typeof data.preview_image === "string" ? data.preview_image : "";
   const reportedRaw = data.duration_seconds;

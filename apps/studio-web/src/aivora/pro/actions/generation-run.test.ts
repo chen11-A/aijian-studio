@@ -262,7 +262,7 @@ it("normalizes surrounding output whitespace once while retaining filename space
   });
 });
 
-it("keeps a combined multi-voice take and timeline longer than the provider clip limit", () => {
+it("preserves measured legacy take lengths without truncating the saved timeline", () => {
   const { queue } = setup();
   const shot = queue.film.shots[0]!;
   shot.lines = [
@@ -285,4 +285,23 @@ it("keeps a combined multi-voice take and timeline longer than the provider clip
   expect(restored.shots[0]!.seconds).toBe(21.5);
   expect(restored.shots[0]!.lines).toEqual(shot.lines);
   expect(restored.shots[0]!.takes[0]!.durationSeconds).toBe(21.5);
+});
+
+it("keeps the timing failure and next step in the actual failed job without leaking codes", () => {
+  const { queue } = setup();
+  const shot = queue.film.shots[0]!;
+  const result = applyVideoResponse(queue.film, shot, shot.takes[0]!, {
+    status: "FAILED",
+    message: "DIALOGUE_VIDEO_LIMIT",
+    user_message: {
+      code: "DIALOGUE_VIDEO_LIMIT",
+      text: "DIALOGUE_VIDEO_LIMIT",
+      detail: "这一镜对白约 18 秒，视频最多 15 秒；请拆分对白。",
+    },
+  });
+  expect(result.done).toBe(false);
+  expect(result.message).toContain("18 秒");
+  expect(result.message).toContain("拆分");
+  expect(result.message).not.toContain("DIALOGUE_VIDEO_LIMIT");
+  expect(result.film.jobs.find((job) => job.shotId === shot.id)!.reason).toBe(result.message);
 });

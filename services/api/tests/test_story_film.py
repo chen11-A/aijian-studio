@@ -303,6 +303,7 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     transport = _ScriptedTransport(
         [
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-live"}).encode()),
             XaiHttpResponse(200, json.dumps({"status": "pending"}).encode()),
             XaiHttpResponse(
@@ -312,7 +313,6 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
                 ).encode(),
             ),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
@@ -323,10 +323,10 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     assert result.has_video and result.has_audio
     assert result.suggested_provider is None
     assert result.output_path
-    body = json.loads(transport.requests[1].body or b"{}")
+    body = json.loads(transport.requests[2].body or b"{}")
     assert body["image"]["url"].startswith("data:image/png;base64,")
     assert body["model"] == "grok-imagine-video-1.5"
-    assert body["duration"] == 2
+    assert body["duration"] == 3
     image_body = json.loads(transport.requests[0].body or b"{}")
     assert image_body["response_format"] == "url"
     assert image_body["quality"] == "medium"
@@ -336,7 +336,7 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     assert token not in text
     assert "灯塔夜班" not in text
     events = [json.loads(line)["event"] for line in text.splitlines()]
-    assert events[:5] == ["image", "image_saved", "video_submit", "video_poll", "video_poll"]
+    assert events[:6] == ["image", "image_saved", "tts", "video_submit", "video_poll", "video_poll"]
     assert "tts" in events and "compose" in events
 
 
@@ -347,9 +347,9 @@ def test_subscription_keeps_the_image_and_voice_when_video_fails(tmp_path, monke
     transport = _ScriptedTransport(
         [
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-fail"}).encode()),
             XaiHttpResponse(200, json.dumps({"status": "failed"}).encode()),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
@@ -720,15 +720,15 @@ def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monke
     transport = _ScriptedTransport(
         [
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-1"}).encode()),
             XaiHttpResponse(200, json.dumps(done).encode()),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-2"}).encode()),
             XaiHttpResponse(200, json.dumps(done).encode()),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
@@ -986,7 +986,7 @@ def test_a_long_clip_is_cut_to_the_chosen_length_and_a_short_one_stays(tmp_path)
     assert junk.read_bytes() == b"not a movie"
 
 
-def test_a_chosen_length_is_not_stretched_to_the_narration(tmp_path):
+def test_too_short_chosen_length_fails_instead_of_cutting_narration(tmp_path):
     from aijian_api.story_film import _normalize_film_media
 
     tools = toolchain()
@@ -1025,8 +1025,13 @@ def test_a_chosen_length_is_not_stretched_to_the_narration(tmp_path):
         check=True,
         capture_output=True,
     )
-    _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, clip, voice, 2)
-    assert _media_duration(tools.ffprobe_path, clip) <= 2.35
+    from aijian_api.story_film import StoryFilmError
+
+    original_voice = voice.read_bytes()
+    with pytest.raises(StoryFilmError) as failed:
+        _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, clip, voice, 2)
+    assert failed.value.code == "DIALOGUE_VIDEO_LIMIT"
+    assert voice.read_bytes() == original_voice
 
 
 def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
@@ -1122,6 +1127,7 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
     clip, voice = _media_bytes(tmp_path)
     transport = _ScriptedTransport(
         [
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-ref"}).encode()),
             XaiHttpResponse(200, json.dumps({"status": "pending"}).encode()),
             XaiHttpResponse(
@@ -1131,7 +1137,6 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
                 ).encode(),
             ),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)

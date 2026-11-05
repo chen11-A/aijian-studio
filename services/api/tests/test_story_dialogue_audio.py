@@ -14,6 +14,7 @@ from aijian_api.story_film import (
     StoryFilmError,
     StoryFilmService,
     StoryShot,
+    _ffmpeg,
     _media_duration,
     clear_film_cancel,
     request_film_cancel,
@@ -122,12 +123,40 @@ def test_non_member_multiple_voices_explicitly_blocked(tmp_path):
     assert result.user_message["code"] == "MULTI_VOICE_PROVIDER_REQUIRED"
 
 
-def test_member_two_voices_export_full_audio_beyond_requested_duration(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "model, planned, expected_duration, references",
+    [
+        ("grok-imagine-video-1.5", 2, 5, ()),
+        ("grok-imagine-video", 12, 10, ("https://example.invalid/place.png",)),
+    ],
+)
+def test_member_two_voices_export_full_audio_beyond_requested_duration(
+    tmp_path, monkeypatch, model, planned, expected_duration, references
+):
     repository, project = _project(tmp_path)
     _allow_live(monkeypatch, tmp_path / "agents.log")
-    clip, speech = _media_bytes(tmp_path)
+    _clip, speech = _media_bytes(tmp_path)
+    clip_path = tmp_path / "long-enough.mp4"
+    _ffmpeg(
+        toolchain().ffmpeg_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=160x90:rate=24:duration=4",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(clip_path),
+        ],
+    )
+    clip = clip_path.read_bytes()
     transport = _ScriptedTransport(
         [
+            XaiHttpResponse(200, speech, "audio/wav"),
+            XaiHttpResponse(200, speech, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "dialogue-video"}).encode()),
             XaiHttpResponse(
                 200,
@@ -136,8 +165,6 @@ def test_member_two_voices_export_full_audio_beyond_requested_duration(tmp_path,
                 ).encode(),
             ),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, speech, "audio/wav"),
-            XaiHttpResponse(200, speech, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
@@ -149,13 +176,16 @@ def test_member_two_voices_export_full_audio_beyond_requested_duration(tmp_path,
     shot = StoryShot(
         "第一句。第二句。最后一句。",
         "书店",
-        2,
+        planned,
         "第一句。第二句。最后一句。",
         still="https://example.invalid/start.png",
         lines=lines,
+        references=references,
     )
     result = service.produce(
-        project, _request(provider="grok_subscription", shots=(shot,)), media_token="synthetic"
+        project,
+        _request(provider="grok_subscription", video_model=model, shots=(shot,)),
+        media_token="synthetic",
     )
     assert result.status == "SUCCEEDED", result.message
     assert result.voice_path and result.output_path
@@ -171,3 +201,126 @@ def test_member_two_voices_export_full_audio_beyond_requested_duration(tmp_path,
     ]
     assert service._shot_captions[0][0] == shot.subtitle
     assert service._shot_captions[0][2] >= 4
+    video_requests = [
+        request for request in transport.requests if request.url.endswith("/videos/generations")
+    ]
+    assert len(video_requests) == 1
+    assert json.loads(video_requests[0].body)["duration"] == expected_duration
+    assert transport.requests.index(video_requests[0]) == 2
+    assert _media_duration(toolchain().ffprobe_path, Path(result.output_path)) <= 5
+
+
+@pytest.mark.parametrize(
+    "model, seconds, references, cap",
+    [
+        ("grok-imagine-video-1.5", 16, (), 15),
+        ("grok-imagine-video", 11, ("https://example.invalid/place.png",), 10),
+    ],
+)
+def test_dialogue_over_video_cap_fails_before_video_submission(
+    tmp_path, monkeypatch, model, seconds, references, cap
+):
+    repository, project = _project(tmp_path)
+    _allow_live(monkeypatch, tmp_path / "agents.log")
+    with io.BytesIO() as output:
+        with wave.open(output, "wb") as audio:
+            audio.setnchannels(1)
+            audio.setsampwidth(2)
+            audio.setframerate(16000)
+            audio.writeframes(struct.pack("<h", 1000) * 16000 * seconds)
+        speech = output.getvalue()
+    transport = _ScriptedTransport([XaiHttpResponse(200, speech, "audio/wav")])
+    service = StoryFilmService(repository, toolchain, transport=transport)
+    lines = (StoryDialogue("甲", "这是一句完整保留的长对白。", "rex"),)
+    shot = StoryShot(
+        lines[0].text,
+        "书店",
+        2,
+        lines[0].text,
+        still="https://example.invalid/start.png",
+        lines=lines,
+        references=references,
+    )
+    result = service.produce(
+        project,
+        _request(provider="grok_subscription", video_model=model, shots=(shot,)),
+        media_token="synthetic",
+    )
+    assert result.status == "FAILED"
+    assert result.user_message["code"] == "DIALOGUE_VIDEO_LIMIT"
+    assert len(transport.requests) == 1
+    assert b'"voice_id"' in transport.requests[0].body
+    assert shot.lines == lines
+    assert (
+        result.user_message["detail"]
+        == f"第 1 镜对白约 {seconds} 秒，视频最多 {cap} 秒；请拆分对白。"
+    )
+    assert all(
+        value not in result.user_message["detail"]
+        for value in ("requiredSeconds", "maxSeconds", "{", "DIALOGUE_VIDEO_LIMIT")
+    )
+    retry = service.produce(
+        project,
+        _request(provider="grok_subscription", video_model=model, shots=(shot,), regenerate=True),
+        media_token="synthetic",
+    )
+    assert retry.user_message["code"] == "DIALOGUE_VIDEO_LIMIT"
+    assert len(transport.requests) == 1
+    assert list((tmp_path / "story-films").glob("*-voice.wav"))
+
+
+def test_normalize_refuses_long_hold_without_trimming_speech(tmp_path):
+    from aijian_api.story_film import _normalize_film_media
+
+    _clip, _speech = _media_bytes(tmp_path)
+    clip = tmp_path / "short.mp4"
+    clip.write_bytes(_clip)
+    audio = tmp_path / "long.wav"
+    _ffmpeg(
+        toolchain().ffmpeg_path,
+        ["-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-c:a", "pcm_s16le", str(audio)],
+    )
+    original = audio.read_bytes()
+    with pytest.raises(StoryFilmError) as failure:
+        _normalize_film_media(toolchain().ffmpeg_path, toolchain().ffprobe_path, clip, audio)
+    assert failure.value.code == "VIDEO_TOO_SHORT"
+    assert audio.read_bytes() == original
+
+
+def test_one_second_hold_budget_preserves_audio_and_never_adds_long_silence(tmp_path):
+    from aijian_api.story_film import _normalize_film_media
+
+    clip_bytes, _ = _media_bytes(tmp_path)
+    clip = tmp_path / "budget.mp4"
+    clip.write_bytes(clip_bytes)
+    audio = tmp_path / "three-seconds.wav"
+    _ffmpeg(
+        toolchain().ffmpeg_path,
+        ["-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-c:a", "pcm_s16le", str(audio)],
+    )
+    _, _, frames, fitted = _normalize_film_media(
+        toolchain().ffmpeg_path, toolchain().ffprobe_path, clip, audio
+    )
+    assert frames == 72
+    assert _media_duration(toolchain().ffprobe_path, clip) <= 3
+    assert _media_duration(toolchain().ffprobe_path, fitted) >= 3
+
+
+def test_old_short_cached_video_refuses_without_submitting_again(tmp_path, monkeypatch):
+    from test_story_film import _PNG
+
+    repository, project = _project(tmp_path)
+    _allow_live(monkeypatch, tmp_path / "agents.log")
+    clip, _ = _media_bytes(tmp_path)
+    audio = tmp_path / "long-cache.wav"
+    _ffmpeg(
+        toolchain().ffmpeg_path,
+        ["-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-c:a", "pcm_s16le", str(audio)],
+    )
+    transport = _ScriptedTransport([])
+    service = StoryFilmService(repository, toolchain, transport=transport)
+    monkeypatch.setattr(service, "_saved_bundle", lambda *_: (_PNG, clip, audio.read_bytes()))
+    with pytest.raises(StoryFilmError) as failed:
+        service._live_media(_request(provider="grok_subscription"), "synthetic", project)
+    assert failed.value.code == "VIDEO_TOO_SHORT"
+    assert transport.requests == []

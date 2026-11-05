@@ -1,5 +1,7 @@
 import {
   coverageRepairContext,
+  sceneShotBudget,
+  type SceneShotBudget,
   detectDirectorCoverage,
   shotLines,
   type DirectorCoverage,
@@ -18,6 +20,7 @@ export type DirectorRepairResult = {
   shots: FilmShot[];
   coverage: DirectorCoverage;
   repaired: boolean;
+  shotBudget: SceneShotBudget;
 };
 export type RepairRequest = (context: string, instruction: string) => Promise<AgentReply>;
 
@@ -52,9 +55,10 @@ export async function repairDirectorCoverage(
     shot.selectedTakeId ||
     shot.continuityFrame;
   if (shots.some(protectedShot) && new Set(shots.map((shot) => shot.id)).size !== shots.length)
-    return { shots, coverage, repaired: false };
+    return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
   const overLimit = shots.filter((shot) => shot.sceneId === scene.id).length > 16;
-  if ((coverage.ok && !overLimit) || !current()) return { shots, coverage, repaired: false };
+  if ((coverage.ok && !overLimit) || !current())
+    return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
   try {
     const reply = await request(
       coverageRepairContext(scene, shots),
@@ -62,12 +66,14 @@ export async function repairDirectorCoverage(
         ? "把这一场相邻镜头合并到最多16镜，同时补齐缺失台词与结尾。返回完整镜头；全部台词及说话人逐条按序保留，原画面与动作按序保留，绝不截断或删减。"
         : "只补这一场缺失台词与结尾，返回按原文顺序的完整镜头；合并节拍，绝不截断。",
     );
-    if (!current() || !reply.text) return { shots, coverage, repaired: false };
+    if (!current() || !reply.text)
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const parsed = parseDirectorShots(reply.text, scene.id, scene.text, [scene]);
-    if (!parsed) return { shots, coverage, repaired: false };
+    if (!parsed)
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const repairedCoverage = detectDirectorCoverage(scene, parsed);
     if (overLimit && (parsed.length > 16 || !repairedCoverage.ok))
-      return { shots, coverage, repaired: false };
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const containsInOrder = (expected: string[], actual: string) => {
       let cursor = 0;
       return expected.filter(Boolean).every((text) => {
@@ -114,7 +120,8 @@ export async function repairDirectorCoverage(
       ) ||
       repairedCoverage.missingLines.some((line) => !coverage.missingLines.includes(line)) ||
       (!coverage.missingTail && repairedCoverage.missingTail);
-    if (losesCoverage) return { shots, coverage, repaired: false };
+    if (losesCoverage)
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const sameContent = (a: FilmShot, b: FilmShot) =>
       a.picture === b.picture &&
       actionText(a) === actionText(b) &&
@@ -124,7 +131,7 @@ export async function repairDirectorCoverage(
         (shot) => protectedShot(shot) && !parsed.some((candidate) => sameContent(shot, candidate)),
       )
     )
-      return { shots, coverage, repaired: false };
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const fresh = shots.every((shot) => !protectedShot(shot));
     const used = new Set<string>();
     const rows = parsed.map((candidate, index) => {
@@ -172,10 +179,15 @@ export async function repairDirectorCoverage(
         );
       })
     )
-      return { shots, coverage, repaired: false };
-    return { shots: restored, coverage: detectDirectorCoverage(scene, restored), repaired: true };
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
+    return {
+      shots: restored,
+      coverage: detectDirectorCoverage(scene, restored),
+      repaired: true,
+      shotBudget: sceneShotBudget(scene.id, restored),
+    };
   } catch {
-    return { shots, coverage, repaired: false };
+    return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
   }
 }
 
@@ -199,7 +211,9 @@ export async function fixCoverage(
     film: {
       ...film,
       scenes: film.scenes.map((scene) =>
-        scene.id === sceneId ? { ...scene, coverage: result.coverage } : scene,
+        scene.id === sceneId
+          ? { ...scene, coverage: result.coverage, shotBudget: result.shotBudget }
+          : scene,
       ),
       shots: [...film.shots.filter((shot) => shot.sceneId !== sceneId), ...result.shots].sort(
         (a, b) =>
@@ -237,7 +251,11 @@ export function applyDirectorPlan(
     ],
     scenes: next.scenes.map((scene) =>
       scene.id === sceneId
-        ? { ...scene, coverage: detectDirectorCoverage(scene, next.shots) }
+        ? {
+            ...scene,
+            coverage: detectDirectorCoverage(scene, next.shots),
+            shotBudget: sceneShotBudget(scene.id, next.shots),
+          }
         : scene,
     ),
   };
