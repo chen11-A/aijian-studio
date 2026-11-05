@@ -454,7 +454,10 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         assert forced.status == "SUCCEEDED", forced.message
         assert script.image_posts == 3
         assert len(script.video_bodies) == 3
-        assert script.tts == 3
+        # 3JR-B01 (9a020d9): the voice is cached by line, voice and delivery. A new version makes
+        # a new picture and video but reuses the same line's voice, keeping versions in sync and
+        # not spending the subscription twice; a changed line (above) is voiced again.
+        assert script.tts == 2
         tasks = TaskQueueReader(tmp_path / "workspace.db").list_project_tasks(project_id)
         films = [item for item in tasks if item.node_type == "story_film"]
         assert len(films) == 4
