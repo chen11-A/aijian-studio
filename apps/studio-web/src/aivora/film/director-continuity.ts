@@ -135,7 +135,8 @@ export type ShotMergeBlockReason =
   | "SOUND_SOURCE_MISMATCH"
   | "MUSIC_MOOD_MISMATCH"
   | "STYLE_MISMATCH"
-  | "FRAMING_MISMATCH";
+  | "FRAMING_MISMATCH"
+  | "SPEAKER_MISMATCH";
 export type SceneShotBudget = {
   sceneId: string;
   limit: 16;
@@ -163,6 +164,16 @@ export function shotMergeBlockReasons(
   if (left.sound.source !== right.sound.source) reasons.push("SOUND_SOURCE_MISMATCH");
   if (left.sound.musicMood !== right.sound.musicMood) reasons.push("MUSIC_MOOD_MISMATCH");
   if (left.styleNote !== right.styleNote) reasons.push("STYLE_MISMATCH");
+  // 3JR-B01: shots of different speakers are kept apart in the first pass, like their framing.
+  // Each line is voiced on its own (f38e091), so above the 16-shot limit alternating dialogue
+  // may still share a shot; below it, a merge never mixes speakers just to save a shot.
+  if (
+    preserveFraming &&
+    new Set(
+      [...shotLines(left), ...shotLines(right)].map((line) => line.speaker.trim()).filter(Boolean),
+    ).size > 1
+  )
+    reasons.push("SPEAKER_MISMATCH");
   if (
     preserveFraming &&
     (left.size !== right.size ||
@@ -205,6 +216,7 @@ const mergeReasonText: Record<ShotMergeBlockReason, string> = {
   MUSIC_MOOD_MISMATCH: "配乐安排不同",
   STYLE_MISMATCH: "画风不同",
   FRAMING_MISMATCH: "拍法不同",
+  SPEAKER_MISMATCH: "说话的人不同（一个镜头只能有一个人的声音）",
 };
 export function formatShotBudget(report: SceneShotBudget, shots: readonly FilmShot[]): string {
   const number = (id: string) => {
