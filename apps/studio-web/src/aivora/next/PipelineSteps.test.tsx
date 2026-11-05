@@ -168,3 +168,24 @@ describe("PipelineSteps", () => {
     expect(screen.queryByRole("button", { name: "取消" })).toBeNull();
   });
 });
+
+it("offers an exact retry for a failed whole-film assembly target", () => {
+  const retry = vi.fn();
+  render(
+    <PipelineSteps
+      steps={[
+        {
+          id: "assembly",
+          status: "failed",
+          done: 0,
+          total: 1,
+          targets: [{ id: "all", status: "failed", attempt: 1, retryable: true }],
+        },
+      ]}
+      onRetryTarget={retry}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /要处理的/ }));
+  fireEvent.click(screen.getByRole("button", { name: "重试这一项" }));
+  expect(retry).toHaveBeenCalledExactlyOnceWith("assembly", "all", false);
+});

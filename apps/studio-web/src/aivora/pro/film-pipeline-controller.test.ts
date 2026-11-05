@@ -837,3 +837,39 @@ it("plans a dedicated scene target instead of borrowing empty, unused or partial
     filmPipelineTargets(film, "portraits").filter((target) => target.startsWith("location:")),
   ).toEqual([`location:scene-location-${encodeURIComponent(film.scenes[0]!.id)}`]);
 });
+
+it("accepts a normalized clone only when it matches the exact saved business and pipeline state", async () => {
+  const env = setup();
+  env.host.apply = (next) => env.edit(structuredClone(next));
+  const result = await env.controller().run();
+  expect(result.status).toBe("needs-input");
+  expect(result.current).toBe("review");
+  expect(env.live().productionPipeline?.status).toBe("needs-input");
+});
+it("does not advance when a host applies different business content after saving", async () => {
+  const env = setup();
+  env.host.apply = (next) => env.edit({ ...next, title: "并发修改" });
+  const result = await env.controller().run();
+  expect(result.code).toBe("PIPELINE_INPUT_CHANGED");
+  expect(runPipelineAgentAction).not.toHaveBeenCalled();
+});
+it("allows already assigned multi-speaker voices at the checkpoint", () => {
+  const film = fixture();
+  const person = film.characters[0]!;
+  film.characters = [
+    { ...person, name: "甲", voiceId: "leo" },
+    { ...person, id: "other", name: "乙", voiceId: "eve" },
+  ];
+  film.shots[0]!.lines = [
+    { speaker: "甲", text: "第一句。" },
+    { speaker: "乙", text: "第二句。" },
+  ];
+  film.shots[0]!.line = "第一句。\n第二句。";
+  expect(
+    filmPipelineCheckpoint(film).risks.some((risk) => risk.code === "MULTI_VOICE_REQUIRED"),
+  ).toBe(false);
+  film.characters[1]!.voiceId = "";
+  expect(
+    filmPipelineCheckpoint(film).risks.some((risk) => risk.code === "MULTI_VOICE_REQUIRED"),
+  ).toBe(true);
+});

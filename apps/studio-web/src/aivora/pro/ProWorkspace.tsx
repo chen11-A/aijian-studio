@@ -42,7 +42,6 @@ import { createEditorHost } from "./actions/editor-host";
 import type { EditorSuggestion } from "./actions/editor-changes";
 import type { EditorSelection } from "./actions/editor-context";
 import { runPreparedGeneration } from "./actions/generation-run";
-import { buildLegacyStoryboard } from "./actions/legacy-storyboard";
 import { preparePortraitIdentity } from "./actions/portrait-identity";
 import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
 import { planDirectorDraft, type DirectorDraftResult } from "./actions/director-draft";
@@ -65,7 +64,7 @@ import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
-import { ensureShotFrame, makeFourStills } from "./still-workflow";
+import { makeFourStills } from "./still-workflow";
 import {
   cutPosition,
   cutSegments,
@@ -83,9 +82,6 @@ import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from
 
 import {
   addShot,
-  clipLayout,
-  applyScenes,
-
   clock,
   continuityPrompt,
   CONTINUITY_REASON,
@@ -164,7 +160,7 @@ import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
-import { directorPlanStatus, sceneDisplayTitle } from "../film/director-continuity";
+import { sceneDisplayTitle } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
@@ -497,7 +493,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     origin?: EditorSelection;
   } | null>(null);
   const [confirmSignIn, setConfirmSignIn] = useState(false);
-  const [oneClickReady, setOneClickReady] = useState(false);
   const [range, setRange] = useState(false);
   const [span, setSpan] = useState<{ from: number; to: number } | null>(null);
   const [comparing, setComparing] = useState(false);
@@ -760,7 +755,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   const saveGeneration = useRef(0);
   useEffect(() => {
-    filmRef.current = film;
+    // setFilm updates the live ref synchronously; an older render must not roll it back.
     if (!film) return;
     if (historyScope.current.page !== stage && committed.current?.id === film.id) {
       pageHistory.record(committed.current, film, historyScope.current);
@@ -2188,72 +2183,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function oneClickFilm() {
-    return withForeground(oneClickFilmWork, "ONECLICKFILM_FAILED");
-  }
-
-  async function oneClickFilmWork() {
-    if (!film) return;
-    const turn = pushTurn("director", "编剧与导演连续处理");
-    supplementWarnings.current = [];
-    const valid = () => filmRef.current?.id === film.id && activeTurn.current === turn;
-    setAsking(true);
-    setOneClickReady(false);
-    setNotice("正在让编剧和导演写到分镜。还不会出视频。");
-    const result = await buildLegacyStoryboard(film, {
-      current: () => filmRef.current,
-      valid,
-      request: completeAgent,
-      apply: setFilm,
-      fillCast,
-      enrich: completeDirectorPlan,
-      merge: (base, sceneId, shots) =>
-        applyDirectorPlan(base, shots, sceneId, unassignedDraft.current),
-      progress: setNotice,
-      notify: emitNotice,
-    });
-    if (result.kind === "stale") return;
-    if (result.kind === "stopped") {
-      writing.current = false;
-      setAsking(false);
-      setOneClickReady(true);
-      setNotice(result.text);
-      return;
-    }
-    const next = result.film;
-    const shown = next.scenes.find((item) =>
-      next.shots.some((shotItem) => shotItem.sceneId === item.id),
-    );
-    if (shown) setScene(shown.id);
-    setShot(0);
-    setStage("board");
-    setPending(null);
-    setPendingRole(null);
-    writing.current = false;
-    setAsking(false);
-    setOneClickReady(true);
-    const planStatus = next.scenes.map((scene) => ({
-      title: scene.title,
-      ...directorPlanStatus(scene, next.shots),
-    }));
-    const code = planStatus.some((status) => !status.coverage.ok)
-      ? "COVERAGE_INCOMPLETE"
-      : planStatus.some((status) => status.overBudget)
-        ? "DIRECTOR_OVER_BUDGET"
-        : "STORYBOARD_READY";
-    setNotice({
-      code,
-      text: NOTICE_TEXT[code],
-      detail: [
-        ...planStatus
-          .filter((status) => !status.coverage.ok || status.overBudget)
-          .map((status) =>
-            status.coverage.ok
-              ? `${status.title}：${status.shotCount}/${status.target}`
-              : `${status.title}：${coverageNotice(status.coverage).detail}`,
-          ),
-        ...supplementWarnings.current,
-      ].join("；"),
-    });
+    return pipelineWorkspace.start();
   }
 
   function applyTemplate(name: string) {
@@ -2284,7 +2214,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     previewSession.current = null;
     previewAudio.current = null;
     if (!soundOn || hearing) {
-
       setHearing(false);
       if (hearing) void window.aijianGrok?.cancelSpeech?.();
       setNotice(!soundOn ? "声音关着。按 M 打开声音再试听。" : "已停止试听。");
@@ -2958,21 +2887,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     oneClickFromHome.current = "";
     void oneClickFilm();
   }, [film]);
-  // 4A-U01: 「继续生成」 at the storyboard checkpoint (it used to sit in the status bar).
-  const continueOneClick = () => {
-    const live = filmRef.current;
-    if (!live || live.shots.length === 0) {
-      void oneClickFilm();
-      return;
-    }
-    queueBatch(live.shots);
-    setOneClickReady(false);
-  };
-  const pipelineSteps = film?.pipeline?.steps ?? [];
-  const showPipeline =
-    open &&
-    (oneClickReady ||
-      pipelineSteps.some((step) => !["done", "accepted"].includes(String(step.status))));
+  const pipelineProps = pipelineWorkspace.props();
+  const showPipeline = open && pipelineProps.steps.length > 0;
   useEffect(() => {
     if (!open) void listFilms().then(setSeriesList);
   }, [open]);
@@ -3328,23 +3244,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         </header>
         {showPipeline && film ? (
           <PipelineSteps
-            // This branch still runs the 3j-r1 一键成片, which only knows it stopped at the
-            // storyboard. With gpt/work-4a, pass pipelineView(film) and the pipelineWorkspace
-            // calls instead (next/INTEGRATION.md, 一键成片步骤条).
-            steps={pipelineSteps}
-            checkpoint={
-              oneClickReady
-                ? {
-                    shotCount: film.shots.length,
-                    seconds: film.shots.reduce((sum, item) => sum + item.seconds, 0),
-                    estimatedRequests: film.shots.length * versions,
-                    coverage: [],
-                    risks: [],
-                  }
-                : null
-            }
-            canContinue={oneClickReady}
-            onContinue={continueOneClick}
+            {...pipelineProps}
             targetName={(_, id) => pipelineTargetName(film, id)}
             sceneName={(id) => pipelineSceneName(film, id)}
           />

@@ -6,7 +6,7 @@ import {
 import { applyContinuityChecks } from "../film/continuity-rules";
 import type { PipelineProgress, UiNotice } from "../film/contracts3j";
 import { detectDirectorCoverage, shotLines } from "../film/director-continuity";
-import { isFightScene, portraitPrompts } from "../film/operations";
+import { isFightScene, portraitPrompts, shotVoiceId } from "../film/operations";
 import { interruptStaleWork, upgradeFilm, type FilmProject, type FilmShot } from "../film/project";
 import { fileMediaUrl } from "./workflow";
 import {
@@ -229,7 +229,11 @@ export function filmPipelineCheckpoint(film: FilmProject): ProductionCheckpoint 
           shotLines(shot)
             .map((line) => line.speaker)
             .filter(Boolean),
-        ).size > 1,
+        ).size > 1 &&
+        shotLines(shot).some(
+          (line) =>
+            !shotVoiceId({ ...shot, lines: [line], line: line.text, speaker: line.speaker }, film),
+        ),
     )
   )
     risks.push({ code: "MULTI_VOICE_REQUIRED", text: "有镜头需要分角色配音。", severity: "block" });
@@ -364,8 +368,19 @@ export function createFilmPipelineController(host: FilmPipelineHost) {
         await host.save(snapshot, () => current() && permitted());
         if (!current() || !permitted()) throw new Error("PIPELINE_INPUT_CHANGED");
         host.apply(snapshot);
-        expected = snapshot;
-        expectedContent = businessContent(snapshot);
+        const applied = host.current();
+        // React hosts may normalize/clone a prepared snapshot. Accept only an exact
+        // business/state equivalent of what was saved, never a concurrent edit.
+        if (
+          !applied ||
+          applied.id !== snapshot.id ||
+          businessContent(applied) !== businessContent(snapshot) ||
+          applied.productionInputFingerprint !== hash ||
+          JSON.stringify(applied.productionPipeline) !== JSON.stringify(snapshot.productionPipeline)
+        )
+          throw new Error("PIPELINE_INPUT_CHANGED");
+        expected = applied;
+        expectedContent = businessContent(applied);
         latestState = structuredClone(state);
       };
       if (recoveryOnly) {
