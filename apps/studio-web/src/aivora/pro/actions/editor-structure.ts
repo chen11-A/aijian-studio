@@ -1,3 +1,4 @@
+import { withoutGeneratedContinuity } from "../../film/continuity-rules";
 import type { FilmProject, FilmScene, FilmShot } from "../../film/project";
 import { resolveEditorContext, type EditorSelection } from "./editor-context";
 
@@ -255,7 +256,16 @@ function execute(current: FilmProject, transaction: EditorStructureTransaction, 
       return reject("DEPENDENCIES_CHANGED");
   for (const row of expected) {
     const live = current[collection].find((item) => item.id === row.id);
-    if (!same(live, row)) return reject("TARGET_EDITED");
+    // 3JR-B01: the continuity notes setFilm derives after every change are not an edit, so
+    // they do not block taking back a placement the director just made.
+    const unchanged =
+      collection === "shots"
+        ? same(
+            live && withoutGeneratedContinuity(live as FilmShot),
+            withoutGeneratedContinuity(row as FilmShot),
+          )
+        : same(live, row);
+    if (!unchanged) return reject("TARGET_EDITED");
     const next = replacement.find((item) => item.id === row.id);
     if (
       !next &&

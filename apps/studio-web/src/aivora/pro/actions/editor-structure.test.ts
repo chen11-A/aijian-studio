@@ -49,6 +49,30 @@ describe("scoped structural suggestions", () => {
     expect(undone.film.shots.find((shot) => shot.id === other.id)?.picture).toBe(other.picture);
     expect(undone.film.shots.filter((shot) => shot.sceneId === sceneId)).toEqual(scoped);
   });
+  it("takes back a placement after the derived continuity notes changed, but not a person's note (3JR-B01)", () => {
+    const { film, sceneId, selection } = setup();
+    const scoped = film.shots.filter((shot) => shot.sceneId === sceneId);
+    const proposed = structuredClone(film);
+    const placed = { ...scoped[0]!, id: "placed-shot", picture: "导演放进来的镜头" };
+    proposed.shots = [placed, ...film.shots.filter((shot) => shot.sceneId !== sceneId)];
+    const tx = diffEditorStructure(film, proposed, selection, { collection: "shots" });
+    const applied = applyEditorStructure(film, tx);
+    expect(applied.conflicts).toEqual([]);
+    // setFilm runs applyContinuityChecks after every change and writes a derived note.
+    const derived = structuredClone(applied.film);
+    derived.shots.find((shot) => shot.id === "placed-shot")!.continuity = [
+      { kind: "cut", text: "文字与记录检查：这一镜的原文出处还需核对，不能据此确认情节没有新增。" },
+    ];
+    const undone = undoEditorStructure(derived, applied.receipt!);
+    expect(undone.conflicts).toEqual([]);
+    expect(undone.film.shots.filter((shot) => shot.sceneId === sceneId)).toEqual(scoped);
+    // A note a person wrote is an edit, and still blocks the undo.
+    const written = structuredClone(applied.film);
+    written.shots.find((shot) => shot.id === "placed-shot")!.continuity = [
+      { kind: "prop", text: "刀在左手" },
+    ];
+    expect(undoEditorStructure(written, applied.receipt!).conflicts).toEqual(["TARGET_EDITED"]);
+  });
   it("creates the first shots in an explicitly selected empty scene and safely undoes them", () => {
     const { film, sceneId, selection } = setup();
     const template = film.shots[0]!;

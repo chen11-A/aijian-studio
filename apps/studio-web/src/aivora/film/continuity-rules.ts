@@ -3,6 +3,28 @@ import type { FilmProject, FilmShot } from "./project";
 import { inspectDirectorSources } from "./director-source-review";
 
 const section = "文字与记录检查：";
+
+/**
+ * A shot without the notes applyContinuityChecks writes on every update. Those notes are
+ * derived from the film and recomputed after any change, so comparing a shot for later edits
+ * (an undo's compare-and-set) must not count them; notes a person wrote still count.
+ */
+export function withoutGeneratedContinuity<T extends { continuity?: unknown }>(shot: T): T {
+  const old = shot.continuity;
+  if (old === undefined) return shot;
+  const notes = (Array.isArray(old) ? old : [old]).filter(
+    (note) =>
+      !(
+        note &&
+        typeof note === "object" &&
+        String((note as { text?: unknown }).text ?? "").startsWith(section)
+      ),
+  );
+  const rest = { ...shot };
+  if (notes.length) (rest as { continuity?: unknown }).continuity = notes;
+  else delete (rest as { continuity?: unknown }).continuity;
+  return rest;
+}
 type CheckableShot = Omit<FilmShot, "continuity"> & {
   continuity?: ContinuityNote | ContinuityNote[];
 };
