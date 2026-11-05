@@ -1448,6 +1448,16 @@ body:has(.pro-root) {
   border-top: 1px solid var(--line);
   flex: none;
 }
+/* 4B-U01: 预览 | 声音 on the edit page's middle column; the sound panel scrolls in place. */
+.pro-root .monitor-tabs button {
+  height: 24px;
+}
+.pro-root .sound-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
 /* 4A-U10: 预览静音 (M) sits at the right of the player controls; muted draws a slash. */
 .pro-root .ctrl .mute {
   justify-self: end;

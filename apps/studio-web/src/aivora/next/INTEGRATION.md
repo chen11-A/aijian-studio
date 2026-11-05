@@ -373,6 +373,8 @@ exportCheckData(film, report, { checking, error, clipSeconds });
 
 ## 3. SoundPanel
 
+**4B-U01 已接（claude/work）**：剪辑页中间那栏标题换成「预览 | 声音」两个切换，点「声音」SoundPanel 换掉预览（暂停播放），点「预览」换回来；显示当前镜头所在那一场，`soundPanelData(film, current.sceneId)` 只在打开时算。「这场的情绪」写这一场每个镜头的 `shot.sound.musicMood`（和分镜页「配乐情绪」同一个字段）；「细调」里只有配音有滑块，写这一场配音片段的 `gainDb`，状态栏「音量已记下」。整场音量、环境音、音效、配乐在面板里写原因，不出假滑块，等 GPT 4B-B04 存 `scene.sound` 以后改成读写它。轨头上没有另加「声音」按钮（4A-U10：一个动作一个入口）。
+
 **放在哪**
 
 - 剪辑页中间那一栏（1280 下约 700×450）。从时间线「配音」或「音乐」轨头（:6155、:6177）点「声音」，SoundPanel 换掉预览，再点一次换回来。

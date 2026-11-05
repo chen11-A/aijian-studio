@@ -3331,6 +3331,34 @@ it("says plainly on 单镜 what one click makes, with the long text folded (4A-U
   expect(document.querySelectorAll(".shotrow").length).toBeGreaterThan(0);
 });
 
+it("opens the scene's sound in place of the preview on 剪辑 (4B-U01)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  fireEvent.click(screen.getByRole("button", { name: "声音" }));
+  // Only the mood and the plain layers; no decibels on screen.
+  const moods = screen.getByRole("radiogroup");
+  expect(within(moods).getAllByRole("radio").length).toBe(8);
+  expect(document.querySelector(".sound-pane")?.textContent ?? "").not.toMatch(/dB|分贝/);
+  expect(screen.queryByRole("button", { name: "播放" })).toBeNull();
+  fireEvent.click(within(moods).getByRole("radio", { name: "紧张" }));
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject;
+    const scene = saved.shots[0]!.sceneId;
+    expect(
+      saved.shots
+        .filter((item) => item.sceneId === scene)
+        .every((item) => item.sound.musicMood === "紧张"),
+    ).toBe(true);
+  });
+  expect(within(moods).getByRole("radio", { name: "紧张" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "预览" }));
+  expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
+});
+
 it("gives both sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();

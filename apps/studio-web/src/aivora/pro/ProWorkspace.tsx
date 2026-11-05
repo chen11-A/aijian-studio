@@ -168,6 +168,8 @@ import type { SuggestionItem } from "../next/adapters/suggestionDiff";
 import { SuggestionCard } from "../next/SuggestionCard";
 import { useAssistantKey } from "../next/wiring/assistantKey";
 import { videoLine } from "../next/shot";
+import { SoundPanel, type Mood } from "../next/SoundPanel";
+import { soundPanelData } from "../next/adapters/soundPanel";
 import {
   AGE_BANDS,
   GENDERS,
@@ -3575,6 +3577,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <EditPage
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
+                  onSceneMood={(sceneId, mood) => {
+                    const ids = new Set(
+                      film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
+                    );
+                    setFilm({
+                      ...film,
+                      shots: film.shots.map((item) =>
+                        ids.has(item.id)
+                          ? { ...item, sound: { ...item.sound, musicMood: mood } }
+                          : item,
+                      ),
+                    });
+                  }}
+                  onSceneVoice={(sceneId, db) => {
+                    const ids = new Set(
+                      film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
+                    );
+                    setFilm({
+                      ...film,
+                      audioClips: film.audioClips.map((clip) =>
+                        clip.lane === "dialogue" && ids.has(clip.shotId)
+                          ? { ...clip, gainDb: db }
+                          : clip,
+                      ),
+                    });
+                    setNotice("音量已记下，导出时用这个音量。");
+                  }}
                   film={film}
                   shot={shot}
                   onShot={setShot}
@@ -6804,6 +6833,8 @@ function GeneratePage({
 function EditPage({
   onMute,
   assistant = null,
+  onSceneMood,
+  onSceneVoice,
   film,
   shot,
   onShot,
@@ -6870,7 +6901,12 @@ function EditPage({
   onMute?: () => void;
   /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
   assistant?: ReactNode;
+  /** 4B-U01: 这场的情绪, written to every shot of the scene (shot.sound.musicMood). */
+  onSceneMood?: (sceneId: string, mood: Mood) => void;
+  /** 4B-U01: the scene's voice level, written to its voice clips (gainDb). */
+  onSceneVoice?: (sceneId: string, db: number) => void;
 }) {
+  const [monitor, setMonitor] = useState<"preview" | "sound">("preview");
   // 4A-U11: Ctrl+J switches between 属性 and AI 助手.
   useAssistantKey(() => onTab(rightTab === "ai" ? "props" : "ai"));
   const [mediaTime, setMediaTime] = useState(0);
@@ -6888,6 +6924,11 @@ function EditPage({
   const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
+  // 4B-U01: the sound of the scene the shown shot is in; worked out only while it is shown.
+  const sceneSound = useMemo(
+    () => (monitor === "sound" && current ? soundPanelData(film, current.sceneId) : null),
+    [monitor, film, current],
+  );
   const chosenTake =
     current?.takes.find((item) => item.id === current.selectedTakeId) ??
     current?.takes.find((item) => item.status === "done");
@@ -7085,64 +7126,108 @@ function EditPage({
             </div>
           </section>
           <section className="pane monitor">
+            {/* 4B-U01: the scene's sound takes the preview's place, one click away. */}
             <div className="ph">
-              <h3>预览</h3>
+              <div className="seg monitor-tabs">
+                <button
+                  type="button"
+                  className={monitor === "preview" ? "on" : ""}
+                  onClick={() => setMonitor("preview")}
+                >
+                  预览
+                </button>
+                <button
+                  type="button"
+                  className={monitor === "sound" ? "on" : ""}
+                  onClick={() => {
+                    onPlaying(false);
+                    setMonitor("sound");
+                  }}
+                >
+                  声音
+                </button>
+              </div>
               <span className="meta">{film.title}</span>
               <span className="sp" />
             </div>
-            <div className="screen">
-              {previewSrc ? (
-                <PreviewVideo
-                  src={previewSrc}
-                  voice={voiceSrc}
-                  music={musicSrc}
-                  playing={playing}
-                  audible={audible && mix.hearVideo}
-                  sound={audible}
-                  onPlaying={onPlaying}
-                  onTime={showTime}
-                  seek={seek}
-                  onDuration={joined ? setCutLength : setTakeLength}
-                />
-              ) : (
-                <div className="frame rain">
-                  <span className="subt">
-                    {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
-                      ? ROUGH_CUT_REASON
-                      : "还没有可以播放的视频。"}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="ctrl">
-              <span className="tc">
-                <b>{clock(headSeconds)}</b> / {clock(total)}
-              </span>
-              <div className="pc">
-                <button
-                  className="icon-btn"
-                  aria-label="上一个"
-                  onClick={() => onShot(Math.max(0, shot - 1))}
-                >
-                  <Ic name="skipb" />
-                </button>
-                <button
-                  className="playb"
-                  aria-label={playing ? "暂停" : "播放"}
-                  onClick={onTogglePlay}
-                >
-                  <Ic name={playing ? "pause" : "play"} size={16} />
-                </button>
-                <button
-                  className="icon-btn"
-                  aria-label="下一个"
-                  onClick={() => onShot(Math.min(shots.length - 1, shot + 1))}
-                >
-                  <Ic name="skipf" />
-                </button>
+            {monitor === "sound" ? (
+              <div className="pb sound-pane">
+                {sceneSound?.ok ? (
+                  <SoundPanel
+                    {...sceneSound.props}
+                    onMoodChange={(mood) => {
+                      if (current) onSceneMood?.(current.sceneId, mood);
+                    }}
+                    onMasterChange={() => undefined}
+                    onLaneChange={(lane, _volume, db) => {
+                      if (current && lane === "dialogue") onSceneVoice?.(current.sceneId, db);
+                    }}
+                  />
+                ) : (
+                  <p className="role-desc">
+                    {sceneSound
+                      ? `${sceneSound.empty.title}。${sceneSound.empty.detail}`
+                      : "先在左边选一个镜头。"}
+                  </p>
+                )}
               </div>
-              {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
-            </div>
+            ) : (
+              <>
+                <div className="screen">
+                  {previewSrc ? (
+                    <PreviewVideo
+                      src={previewSrc}
+                      voice={voiceSrc}
+                      music={musicSrc}
+                      playing={playing}
+                      audible={audible && mix.hearVideo}
+                      sound={audible}
+                      onPlaying={onPlaying}
+                      onTime={showTime}
+                      seek={seek}
+                      onDuration={joined ? setCutLength : setTakeLength}
+                    />
+                  ) : (
+                    <div className="frame rain">
+                      <span className="subt">
+                        {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
+                          ? ROUGH_CUT_REASON
+                          : "还没有可以播放的视频。"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="ctrl">
+                  <span className="tc">
+                    <b>{clock(headSeconds)}</b> / {clock(total)}
+                  </span>
+                  <div className="pc">
+                    <button
+                      className="icon-btn"
+                      aria-label="上一个"
+                      onClick={() => onShot(Math.max(0, shot - 1))}
+                    >
+                      <Ic name="skipb" />
+                    </button>
+                    <button
+                      className="playb"
+                      aria-label={playing ? "暂停" : "播放"}
+                      onClick={onTogglePlay}
+                    >
+                      <Ic name={playing ? "pause" : "play"} size={16} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      aria-label="下一个"
+                      onClick={() => onShot(Math.min(shots.length - 1, shot + 1))}
+                    >
+                      <Ic name="skipf" />
+                    </button>
+                  </div>
+                  {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
+                </div>
+              </>
+            )}
           </section>
         </>
       )}
