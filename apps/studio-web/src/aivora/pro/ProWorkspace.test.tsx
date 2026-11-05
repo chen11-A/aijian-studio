@@ -685,7 +685,6 @@ describe("professional workspace", () => {
       expect(document.body.textContent).not.toContain("为保留全部台词和结尾");
     fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
     expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
-
   });
 
   it("walks the stages, confirms agents, and keeps a hand edit", async () => {
@@ -875,7 +874,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
     expect(await screen.findByText(/导出没有完成，可以再试一次/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
-    expect(await screen.findByText(/已导出到/)).toBeInTheDocument();
+    expect(await screen.findByText(/成片已导出。/)).toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "导出成片" });
     expect(within(dialog).getByText("雨夜巷战-第1集.mp4")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "打开文件夹" }));
@@ -1538,12 +1537,9 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     expect(await screen.findByText(/声音关着/)).toBeInTheDocument();
     fireEvent.click(stageTab("剧本"));
     fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-    await waitFor(() =>
-      expect(document.querySelector(".status-note")?.textContent).toMatch(
-        /分镜好了。看一遍|有的场还有内容没拍到/,
-      ),
-    );
-    expect(stageTab("分镜").className.split(/\s+/)).toContain("on");
+    await expectSavedPipelineCode("SCRIPT_COVERAGE_REVIEW");
+    expect(window.aijian!.createStoryFilm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "继续生成" })).toBeNull();
   } finally {
     window.Audio = RealAudio;
     URL.createObjectURL = createUrl;
@@ -1695,7 +1691,9 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
     0,
   );
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-  expect(await screen.findByText(/没有写入离线/)).toBeInTheDocument();
+  await expectSavedPipelineCode("WRITER_PARSE_FAILED");
+  expect(window.aijian!.createStoryFilm).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "继续生成" })).toBeNull();
   mode = "play";
   const RealAudio = window.Audio;
   class SilentAudio {
@@ -1896,6 +1894,16 @@ it("keeps the style of the whole work above the characters and warns which shots
 
 it("puts a yellow dot on a shot with a continuity reminder and explains it in 属性 (4A-U05)", async () => {
   const film = sampleFilm();
+  // The host now runs real continuity rules on load; make every shot's appearance
+  // complete so this fixture isolates the one deliberately supplied prop reminder.
+  for (const shot of film.shots) {
+    shot.promptZh = [
+      shot.picture,
+      ...film.characters
+        .filter((person) => shot.characters.includes(person.name))
+        .map((person) => person.identity),
+    ].join("。");
+  }
   Object.assign(film.shots[1]!, {
     continuity: [{ kind: "prop", text: "刀上一镜在左手，这一镜到了右手。" }],
   });
@@ -2555,6 +2563,18 @@ it("names the shots that are not ready instead of exporting an empty cut", async
   expect(desktop.exportFilmCut).not.toHaveBeenCalled();
 });
 
+async function expectSavedPipelineCode(code: string) {
+  await waitFor(() => {
+    const writes = vi.mocked(window.aijian!.writeFilmProject!).mock.calls;
+    const latest = writes
+      .map(([value]) => value as FilmProject)
+      .filter((film) => film.productionPipeline)
+      .at(-1);
+    expect(latest?.productionPipeline?.steps[0]?.targets[0]?.code).toBe(code);
+    expect(["failed", "blocked"]).toContain(latest?.productionPipeline?.status);
+  });
+}
+
 function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
   const episode = sampleFilm();
   episode.id = "film_episode2000000001";
@@ -2633,6 +2653,7 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
   const revealFilmPath = vi.fn(async () => undefined);
   const openFilmPath = vi.fn(async () => undefined);
   window.aijian = {
+    prepareFilmProject: vi.fn(async (film: FilmProject) => structuredClone(film)),
     createStoryFilm,
     generateFilmStill: vi.fn(async () => ({
       path: "/tmp/aivora/referenced-still.png",
@@ -2716,18 +2737,12 @@ it("continues one-click storyboarding and retries the director into shots", asyn
   });
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-  await waitFor(() =>
-    expect(document.querySelector(".status-note")?.textContent).toMatch(
-      /分镜好了。看一遍|有的场还有内容没拍到/,
-    ),
-  );
-  // 4A-U01: the checkpoint bar says what will be made; 「继续生成」 left the status bar.
-  expect(screen.getByRole("region", { name: "一键成片进度" })).toHaveTextContent(/约需 \d+ 次生成/);
-  expect(document.querySelector(".statusbar")?.textContent).not.toMatch(/继续/);
-  fireEvent.click(screen.getByRole("button", { name: "继续生成" }));
-  expect(await screen.findByRole("button", { name: "开始生成" })).toBeInTheDocument();
-  expect(screen.queryByRole("region", { name: "一键成片进度" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "先不生成" }));
+  await expectSavedPipelineCode("SCRIPT_COVERAGE_REVIEW");
+  expect(window.aijian!.createStoryFilm).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "继续生成" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+  await screen.findByRole("button", { name: "放进分镜" });
+  fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
   fireEvent.click(stageTab("剧本"));
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
   fireEvent.click(await screen.findByRole("button", { name: "换个问法再问一次" }));
@@ -2980,12 +2995,18 @@ it("turns a long realistic reply into shots, cast, and performance", async () =>
     ),
   );
   fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "林雨在雨里停下。" } });
-  fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
+  fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+  fireEvent.click(await screen.findByRole("button", { name: "放进分镜" }));
   await waitFor(() =>
-    expect(document.querySelector(".status-note")?.textContent).toMatch(
-      /分镜好了。看一遍|有的场还有内容没拍到/,
-    ),
+    expect(
+      vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.some(([value]) =>
+          (value as FilmProject).shots.some((shot) => shot.picture.includes("第1镜")),
+        ),
+    ).toBe(true),
   );
+  fireEvent.click(stageTab("分镜"));
   expect(screen.getAllByText(/林雨/).length).toBeGreaterThan(0);
   expect(document.body.textContent).toContain("第1镜");
   expect(document.body.textContent).toContain("抓紧伞");
@@ -3646,7 +3667,7 @@ it("keeps a hand-edited shot when a late prompter request returns", async () => 
         resolve = done;
       }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
   await waitFor(() => expect(resolve).toBeDefined());
   fireEvent.change(screen.getByLabelText("分镜画面"), {
     target: { value: "用户手改镜头必须保留" },
@@ -3697,7 +3718,7 @@ it("discards a late writer proposal after changing assistant scope", async () =>
       }),
   );
   pickHelper("编剧");
-  fireEvent.click(screen.getByRole("button", { name: "让编剧写" }));
+  fireEvent.click(screen.getByRole("button", { name: "让编剧分场" }));
   await waitFor(() => expect(resolve).toBeDefined());
   fireEvent.click(stageTab("角色与场景"));
   await act(async () => {
@@ -3877,7 +3898,7 @@ it("B11 rejects a prompter reply after selecting another shot", async () => {
         resolveReply = done;
       }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
   await waitFor(() => expect(resolveReply).toBeDefined());
   const cards = document.querySelectorAll(".pb.grid button.card");
   expect(cards.length).toBeGreaterThan(1);
@@ -3911,7 +3932,7 @@ it("B11 does not claim a prompter suggestion is saved after disk failure", async
     kind: "OK",
     text: JSON.stringify({ keyframe: { prompt_zh: "雨夜", prompt_en: "unsaved prompt" } }),
   });
-  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
   expect(await screen.findByText(/提示词已应用，但还没有保存/)).toBeInTheDocument();
   expect(screen.queryByText(/提示词写好了/)).not.toBeInTheDocument();
 });
@@ -3924,7 +3945,7 @@ it("B11 keeps prompter undo on its page and restores only the applied prompt fie
     kind: "OK",
     text: JSON.stringify({ keyframe: { prompt_zh: "新提示", prompt_en: "page scoped prompt" } }),
   });
-  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
   expect(await screen.findByText(/提示词写好了/)).toBeInTheDocument();
   fireEvent.click(stageTab("角色与场景"));
   fireEvent.keyDown(window, { key: "z", ctrlKey: true });
@@ -4210,7 +4231,7 @@ it.each(["undo", "edit", "page"] as const)(
       }
       return value;
     });
-    fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+    fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
     await waitFor(() => expect(finish).toBeDefined());
     if (action === "undo") fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     else if (action === "edit")
@@ -4244,7 +4265,7 @@ it.each(["writer", "art"] as const)(
     completeText.mockClear();
     if (role === "writer") {
       pickHelper("编剧");
-      fireEvent.click(screen.getByRole("button", { name: "让编剧写" }));
+      fireEvent.click(screen.getByRole("button", { name: "让编剧分场" }));
     } else {
       pickHelper("美术");
       fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
