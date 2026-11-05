@@ -5472,6 +5472,43 @@ function CastPage({
                 已有 {restyle} 个镜头是按原来的画风做的，要重新生成才会变。
               </p>
             ) : null}
+            {/* 4C-U07: the narration is the whole work's, next to its style, not one person's. */}
+            <div className="style-row">
+              <label htmlFor="narration-voice" className="sec-t">
+                整部作品的旁白
+              </label>
+              <select
+                id="narration-voice"
+                className="input"
+                aria-label="旁白声音"
+                value={film.narrationVoiceId}
+                onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
+              >
+                <option value="">还没有选旁白</option>
+                {voices.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.label}
+                  </option>
+                ))}
+                {film.narrationVoiceId &&
+                !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
+                  <option value={film.narrationVoiceId}>{voiceLabel(film.narrationVoiceId)}</option>
+                ) : null}
+              </select>
+              <button
+                className="btn sm"
+                type="button"
+                aria-label="试听旁白"
+                onClick={() =>
+                  onPreview(
+                    film.narrationVoiceId,
+                    film.shots.find((item) => item.line.trim())?.line ?? "",
+                  )
+                }
+              >
+                {hearing ? "停止" : "试听旁白"}
+              </button>
+            </div>
           </section>
           {side === "places" ? (
             location ? (
@@ -5818,40 +5855,6 @@ function CastPage({
                     {hearing ? "停止" : "试听"}
                   </button>
                 ) : null}
-                <label htmlFor="narration-voice">旁白</label>
-                <select
-                  id="narration-voice"
-                  className="input"
-                  aria-label="旁白声音"
-                  value={film.narrationVoiceId}
-                  onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
-                >
-                  <option value="">还没有选旁白</option>
-                  {voices.map((voice) => (
-                    <option key={voice.id} value={voice.id}>
-                      {voice.label}
-                    </option>
-                  ))}
-                  {film.narrationVoiceId &&
-                  !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
-                    <option value={film.narrationVoiceId}>
-                      {voiceLabel(film.narrationVoiceId)}
-                    </option>
-                  ) : null}
-                </select>
-                <button
-                  className="btn sm"
-                  type="button"
-                  aria-label="试听旁白"
-                  onClick={() =>
-                    onPreview(
-                      film.narrationVoiceId,
-                      film.shots.find((item) => item.line.trim())?.line ?? "",
-                    )
-                  }
-                >
-                  {hearing ? "停止" : "试听旁白"}
-                </button>
               </div>
               <div className="cast-looks">
                 <div className="looks-head">
@@ -6899,6 +6902,59 @@ function BoardPage({
               )}
             </div>
           </>
+        ) : sceneRow ? (
+          // 4C-U07: with no shot to show, the column shows this scene and the whole work.
+          <div className="pb scene-props">
+            <div className="shot-h">
+              第 {sceneRow.no} 场 <span>还没有镜头</span>
+            </div>
+            <div className="field">
+              <label htmlFor="scene-where">这一场在哪</label>
+              <input
+                id="scene-where"
+                className="input"
+                aria-label="这一场在哪"
+                value={sceneRow.where}
+                placeholder="比如：内景 · 夜 · 旧书店"
+                onChange={(event) =>
+                  onFilm({
+                    ...film,
+                    scenes: film.scenes.map((item) =>
+                      item.id === sceneRow.id ? { ...item, where: event.target.value } : item,
+                    ),
+                  })
+                }
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="scene-ambience">这一场的环境音</label>
+              <textarea
+                id="scene-ambience"
+                className="area"
+                aria-label="这一场的环境音"
+                rows={2}
+                value={sceneRow.ambience}
+                placeholder="比如：雨打在玻璃上，远处有车开过。"
+                onChange={(event) =>
+                  onFilm({
+                    ...film,
+                    scenes: film.scenes.map((item) =>
+                      item.id === sceneRow.id ? { ...item, ambience: event.target.value } : item,
+                    ),
+                  })
+                }
+              />
+            </div>
+            <div className="field">
+              <label>整部作品</label>
+              <p className="role-desc">
+                画风：{film.stylePreset}。画风和旁白在「角色与场景」页最上面改。
+              </p>
+            </div>
+            <p className="role-desc">
+              这一场还没有镜头：在「AI 助手」里让导演拆，或者点上面「加镜头」。
+            </p>
+          </div>
         ) : (
           <p className="role-desc">这一场还没有镜头。</p>
         )}
@@ -7730,7 +7786,8 @@ function EditPage({
                     />
                   ) : (
                     <div className="frame rain">
-                      <span className="subt">
+                      {/* 4C-U07: a gray note in the middle, not dressed as a subtitle. */}
+                      <span className="screen-empty">
                         {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
                           ? ROUGH_CUT_REASON
                           : "还没有可以播放的视频。"}
@@ -7962,6 +8019,10 @@ function EditPage({
                     onLane?.("dialogue", volumePercentToDb(Number(event.target.value)))
                   }
                 />
+                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
+                <span className="vol-num" aria-hidden="true">
+                  {dbToVolumePercent(dialogueGain)}
+                </span>
               </span>
             </div>
             {/* 4B-U02: 环境音 and 音效 have their own tracks; until there are sound files they
@@ -8007,6 +8068,10 @@ function EditPage({
                     onLane?.("score", volumePercentToDb(Number(event.target.value)))
                   }
                 />
+                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
+                <span className="vol-num" aria-hidden="true">
+                  {dbToVolumePercent(musicGain)}
+                </span>
               </span>
             </div>
           </div>

@@ -3642,6 +3642,32 @@ it("groups the 作品 menu and keeps deleting last, in red, behind a confirm (4C
   expect(screen.getByRole("dialog")).toHaveTextContent(/删除/);
 });
 
+it("keeps the work's settings together and fixes the small 剪辑 things (4C-U07)", async () => {
+  installDesktop();
+  await openSample();
+  // The narration sits with the whole work's style, not in one person's form.
+  fireEvent.click(stageTab("角色与场景"));
+  const work = screen.getByRole("region", { name: "整部作品的画风" });
+  expect(within(work).getByLabelText("旁白声音")).toBeInTheDocument();
+  expect(within(work).getByRole("button", { name: "试听旁白" })).toBeInTheDocument();
+  // 剪辑: a gray note when there is nothing to play, and the lane volume shows its number.
+  fireEvent.click(stageTab("剪辑"));
+  expect(document.querySelector(".screen-empty")).toHaveTextContent("还没有可以播放的视频。");
+  expect(document.querySelector(".subt")).toBeNull();
+  const number = screen.getByLabelText("对白音量").nextElementSibling;
+  expect(number).toHaveClass("vol-num");
+  expect(number?.textContent).toMatch(/^\d+$/);
+  // 分镜 with a scene that has no shots: this scene and the whole work, not an empty column.
+  fireEvent.click(stageTab("分镜"));
+  const empty = [...document.querySelectorAll<HTMLElement>(".scene")].find(
+    (item) => !/\d+ 镜/.test(item.textContent ?? "") || /0 镜/.test(item.textContent ?? ""),
+  );
+  expect(empty).toBeDefined();
+  fireEvent.click(empty!);
+  expect(screen.getByLabelText("这一场在哪")).toBeInTheDocument();
+  expect(screen.getByLabelText("这一场的环境音")).toBeInTheDocument();
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();
@@ -3650,7 +3676,7 @@ it("gives the four sound tracks a name, mute, solo and volume, and says when a t
   fireEvent.change(screen.getByLabelText("这一镜的环境音"), { target: { value: "雨打在铁皮上" } });
   fireEvent.click(stageTab("剪辑"));
   const heads = [...document.querySelectorAll(".theads .th")].map((item) =>
-    item.textContent?.replace(/静音|单听/g, "").trim(),
+    item.textContent?.replace(/静音|单听|\d+/g, "").trim(),
   );
   expect(heads).toEqual(["字幕", "视频", "对白", "环境音", "音效", "配乐"]);
   const planned = document.querySelector(".clip.plan.amb") as HTMLElement;
