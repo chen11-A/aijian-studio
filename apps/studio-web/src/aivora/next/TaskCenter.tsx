@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDismiss } from "./wiring/dismiss";
 import "./next.css";
 import "./TaskCenter.css";
 import { shotLabel } from "./shot";
@@ -406,20 +407,77 @@ function rowAction(
   return null;
 }
 
+/** 4A-U04: what a right click on a task offers. */
+export type TaskMenuItem = { label: string; run: () => void };
+
+/** 4A-U04: 停止（或移出队列）/ 重试 / 看详情, only the ones this task can do. */
+function rowMenu(
+  task: TaskItem,
+  props: Pick<TaskCenterProps, "onRetry" | "canRetry" | "onRemove" | "canRemove">,
+  showDetail: () => void,
+): TaskMenuItem[] {
+  const items: TaskMenuItem[] = [];
+  if ((isPending(task) || task.status === "running") && removable(task, props))
+    items.push({
+      label: task.status === "running" ? "停止" : "移出队列",
+      run: () => props.onRemove?.(task.id),
+    });
+  if (["failed", "blocked"].includes(task.status) && retryable(task, props))
+    items.push({ label: "重试", run: () => props.onRetry?.(task.id, "same") });
+  items.push({ label: "看详情", run: showDetail });
+  return items;
+}
+
 function TaskRow({
   task,
   selected,
   onSelect,
   action,
+  menu,
 }: {
   task: TaskItem;
   selected: boolean;
   onSelect: () => void;
   action: ReturnType<typeof rowAction>;
+  menu: readonly TaskMenuItem[];
 }) {
   const tag = STATUS_TAG[task.status];
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+  useDismiss(menuAt !== null, () => setMenuAt(null), ".nx-job-menu");
   return (
-    <li className={`nx-job${selected ? " nx-selected" : ""}`}>
+    <li
+      className={`nx-job${selected ? " nx-selected" : ""}`}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        const box = event.currentTarget.getBoundingClientRect();
+        setMenuAt({
+          x: Math.max(0, Math.min(event.clientX - box.left, box.width - 140)),
+          y: Math.max(0, event.clientY - box.top),
+        });
+      }}
+    >
+      {menuAt ? (
+        <div
+          className="nx-job-menu"
+          role="menu"
+          aria-label={`${taskLabel(task)}的操作`}
+          style={{ left: menuAt.x, top: menuAt.y }}
+        >
+          {menu.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuAt(null);
+                item.run();
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <button type="button" className="nx-job-main" aria-pressed={selected} onClick={onSelect}>
         <span className={`nx-job-kind nx-kind-${task.kind}`} aria-hidden="true">
           {KIND_MARK[task.kind]}
@@ -486,6 +544,7 @@ function TaskDetail({
           {task.waitedSeconds === undefined ? "" : ` · 已经等了 ${task.waitedSeconds} 秒`}
         </p>
         <p className="nx-code">{task.id}</p>
+        <TaskStages task={task} />
         <div className="nx-detail-box">
           <p className="nx-section-title">现在的情况</p>
           <p>{rowNote(task)}</p>
@@ -536,6 +595,47 @@ function TaskDetail({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+const STAGES = ["排队", "发给 Grok", "生成", "存好"] as const;
+
+/**
+ * 4A-U04: where the task is, stage by stage. Read from its status only, so a stage the app
+ * cannot see (how far Grok got) is never made up.
+ */
+function stagesOf(task: TaskItem): { at: number; note: string } {
+  switch (task.status) {
+    case "queued":
+    case "requeued":
+      return { at: 0, note: "" };
+    case "blocked":
+      return { at: 0, note: "没有发出去" };
+    case "running":
+      return { at: 2, note: "" };
+    case "uncertain":
+      return { at: 2, note: "不知道做成没有" };
+    case "failed":
+      return { at: 2, note: "没做成" };
+    case "done":
+      return { at: 4, note: "" };
+  }
+}
+
+function TaskStages({ task }: { task: TaskItem }) {
+  const { at, note } = stagesOf(task);
+  return (
+    <ol className="nx-stages" aria-label="进度">
+      {STAGES.map((name, index) => (
+        <li
+          key={name}
+          data-state={index < at ? "done" : index === at ? (note ? "stopped" : "now") : "later"}
+        >
+          {name}
+          {index === at && note ? <small>{note}</small> : null}
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -693,6 +793,7 @@ export function TaskCenter(props: TaskCenterProps) {
                             selected={selected?.id === task.id}
                             onSelect={() => setSelectedId(task.id)}
                             action={rowAction(task, props)}
+                            menu={rowMenu(task, props, () => setSelectedId(task.id))}
                           />
                         ))}
                       </ul>

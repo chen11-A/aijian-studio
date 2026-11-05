@@ -1611,6 +1611,19 @@ it("keeps the style of the whole work above the characters and warns which shots
   expect(screen.getAllByText("画风变了")).toHaveLength(1);
 });
 
+it("opens 后台生成 as a drawer that closes on a press outside it (4A-U04)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
+  expect(screen.getByRole("dialog", { name: "后台生成" })).toBeInTheDocument();
+  fireEvent.pointerDown(
+    within(screen.getByRole("dialog", { name: "后台生成" })).getByText("后台生成"),
+  );
+  expect(screen.getByRole("dialog", { name: "后台生成" })).toBeInTheDocument();
+  fireEvent.pointerDown(document.querySelector(".topbar")!);
+  expect(screen.queryByRole("dialog", { name: "后台生成" })).toBeNull();
+});
+
 it("makes every missing portrait from one button and shows each slot's state", async () => {
   installDesktop();
   await openSample();

@@ -2711,12 +2711,19 @@ body:has(.pro-root) {
 .pro-root .menu button:hover {
   background: var(--panel-3);
 }
-/* 4A-U04: 后台生成 opens the task center over the whole workspace, under the top bar. */
+/* 4A-U04: 后台生成 opens the task center as a drawer above the status bar, so the page
+   it was opened from stays in view. */
 .pro-root .task-back {
   position: absolute;
-  inset: 48px 0 24px;
+  left: 12px;
+  bottom: 28px;
+  width: min(940px, calc(100% - 24px));
+  height: min(560px, calc(100% - 96px));
   z-index: 6;
   background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
   padding: 0 12px 12px;

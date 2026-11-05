@@ -283,3 +283,75 @@
     background-position: -200% 0;
   }
 }
+
+/* 4A-U04: right click on a task. */
+.nx-root .nx-job {
+  position: relative;
+}
+
+.nx-root .nx-job-menu {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.nx-root .nx-job-menu button {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-root .nx-job-menu button:hover {
+  background: var(--panel-3);
+}
+
+/* 4A-U04: the task's stages in its detail. */
+.nx-root .nx-stages {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.nx-root .nx-stages li {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-top: 3px solid var(--line-2);
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.nx-root .nx-stages li[data-state="done"] {
+  border-top-color: var(--ok);
+  color: var(--text-2);
+}
+
+.nx-root .nx-stages li[data-state="now"] {
+  border-top-color: var(--accent);
+  color: var(--text);
+}
+
+.nx-root .nx-stages li[data-state="stopped"] {
+  border-top-color: var(--warn);
+  color: var(--warn);
+}
+
+.nx-root .nx-stages small {
+  font-size: 12px;
+}

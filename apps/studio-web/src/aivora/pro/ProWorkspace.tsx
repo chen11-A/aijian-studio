@@ -141,6 +141,7 @@ import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
 import { useStatusNotice } from "../next/wiring/statusNotice";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
+import { useDismiss } from "../next/wiring/dismiss";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
 import { HomeStart, type Aspect } from "../next/HomeStart";
 import { PipelineSteps } from "../next/PipelineSteps";
@@ -2792,6 +2793,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // UI wiring (4A-U04): the live task list for 后台生成 and the task center.
   const feed = useTaskFeed();
   const feedNow = feedProgress(feed);
+  // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
+  useDismiss(menu === "queue", () => setMenu(null), '[data-menu="queue"]');
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
   // past messages are listed in the task center.
   const status = useStatusNotice(notice);
@@ -3648,7 +3651,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <span className="status-detail">{status.line.detail.replace(/\n/g, " · ")}</span>
             ) : null}
           </span>
-          <button className="task" onClick={() => setMenu(menu === "queue" ? null : "queue")}>
+          <button
+            className="task"
+            data-menu="queue"
+            onClick={() => setMenu(menu === "queue" ? null : "queue")}
+          >
             <Ic name="loader" size={12} />
             后台生成：
             {asking
@@ -3789,7 +3796,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
         )}
         {menu === "queue" && film ? (
-          <div className="task-back" data-overlay role="dialog" aria-label="后台生成">
+          <div
+            className="task-back"
+            data-overlay
+            data-menu="queue"
+            role="dialog"
+            aria-label="后台生成"
+          >
             <div className="task-head">
               <h2>后台生成</h2>
               <span className="sp" />
