@@ -166,7 +166,11 @@ it("manual retry shares the four-minute budget across parsing and enrichment", a
     },
   );
   await vi.advanceTimersByTimeAsync(240_000);
-  expect(await work).toMatchObject({ kind: "rejected" });
+  expect(await work).toMatchObject({
+    kind: "ready",
+    partial: true,
+    shots: [expect.objectContaining({ picture: "风停了。" })],
+  });
   expect(enrichedControl?.signal.aborted).toBe(true);
   expect(s.notify).toHaveBeenCalledWith(expect.objectContaining({ code: "TEXT_TIMEOUT" }));
   expect(vi.getTimerCount()).toBe(0);

@@ -33,6 +33,7 @@ export async function retryDirectorDraft(
     progress: host.progress,
   });
   budget.progress("正在重新写这一场的镜头。");
+  let draft: FilmShot[] | null = null;
   try {
     const reply = await budget.run(() =>
       requestDirectorDraft(
@@ -49,17 +50,20 @@ export async function retryDirectorDraft(
     if (!host.current()) return { kind: "stale" as const };
     if (!reply.shots)
       return { kind: "rejected" as const, detail: reply.detail || "模型没有按格式返回。" };
+    draft = reply.shots;
     const shots = await budget.run(() =>
       host.enrich(film, sceneId, reply.shots!, budget.current, budget.control),
     );
     if (!host.current()) return { kind: "stale" as const };
-    return { kind: "ready" as const, shots };
+    return { kind: "ready" as const, shots, partial: false };
   } catch (error) {
     if (!host.current() || ["REQUEST_STALE", "TEXT_CANCELLED"].includes(budget.reason()))
       return { kind: "stale" as const };
     if (budget.reason() !== "TEXT_TIMEOUT") throw error;
     host.notify?.({ code: "TEXT_TIMEOUT", text: NOTICE_TEXT.TEXT_TIMEOUT });
-    return { kind: "rejected" as const, detail: NOTICE_TEXT.TEXT_TIMEOUT };
+    return draft
+      ? { kind: "ready" as const, shots: draft, partial: true }
+      : { kind: "rejected" as const, detail: NOTICE_TEXT.TEXT_TIMEOUT };
   } finally {
     budget.dispose();
   }

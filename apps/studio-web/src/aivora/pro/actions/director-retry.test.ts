@@ -115,3 +115,35 @@ it("retries a stall once through the existing shared timeout wrapper", async () 
   const calls = vi.mocked(host.request).mock.calls;
   expect(calls[0]![3]?.deadlineAt).toBe(calls[1]![3]?.deadlineAt);
 });
+
+it("retains a parsed retry draft at the shared deadline while rejecting late enrichment", async () => {
+  vi.useFakeTimers();
+  try {
+    const { film, scene, job, host } = setup();
+    let finish!: (shots: typeof film.shots) => void;
+    host.enrich = vi.fn(
+      () =>
+        new Promise<typeof film.shots>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const pending = retryDirectorDraft(film, scene.id, job, host);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(host.enrich).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(240_000);
+    const result = await pending;
+    expect(result).toMatchObject({
+      kind: "ready",
+      partial: true,
+      shots: [expect.objectContaining({ picture: "甲站在门口" })],
+    });
+    const snapshot = JSON.stringify(result);
+    finish([{ ...film.shots[0]!, picture: "迟到内容" }]);
+    await Promise.resolve();
+    expect(JSON.stringify(result)).toBe(snapshot);
+    expect(host.notify).toHaveBeenCalledWith(expect.objectContaining({ code: "TEXT_TIMEOUT" }));
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});

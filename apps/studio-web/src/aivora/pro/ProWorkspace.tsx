@@ -1208,7 +1208,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           setPendingRole("director");
           finishTurn(
             turn,
-            `导演拆好了。点「写入分镜」才会写入。${supplementWarnings.current.join(" ")}`,
+            result.partial
+              ? `${NOTICE_TEXT.TEXT_TIMEOUT} 已保留导演初稿，补充尚未完成。`
+              : `导演拆好了。点「写入分镜」才会写入。${supplementWarnings.current.join(" ")}`,
           );
         } else finishTurn(turn, `${result.detail} 没有写入镜头。`);
         return;
