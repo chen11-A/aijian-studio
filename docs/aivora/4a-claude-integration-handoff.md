@@ -115,3 +115,23 @@ GPT 本轮 3JR 逻辑已经改变的边界，合并时需要保留：
 - 导演各步骤共用240秒截止与取消，超时保留已获得的草稿。15秒进度是实际等待时间，不代表供应商完成百分比。
 
 不把本轮本地回归称作会员验收；尚缺这次实测的project.json、导演/动作原始回复和已登录会员环境。没有合并Claude，没有阶段tag。
+
+### d3bc76e 的精确宿主接线准备
+
+2026-11-05只读复核远端claude/work=d3bc76ebf74928e94e271903ea79680a22124c7e，aivora/dev仍7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11；没有合并。PipelineSteps已提供完整状态/精确重试/人工审片/取消，不能再称组件未交付。实际ProWorkspace仍是旧queueBatch入口，阶段未完成。
+
+GPT新增`d040aa1`：`pro/pipeline-controls.ts:createPipelineControls`已装入ProWorkspace的pipelineWorkspace对象，保留原recover/projectChanged生命周期。每次渲染取`pipelineWorkspace.props()`，返回与d3bc76e组件对应的数据及回调：steps、overall、checkpoint、busy、canContinue、canAcceptReview、onContinue、onAcceptReview、onRetryTarget、onCancel。没有状态时steps为空，不伪造进度。
+
+阶段整合时必须同批接以下三处，不能只换按钮或启用其中一处：
+
+1. 一键成片开始入口调用`pipelineWorkspace.start()`；当前oneClickFilmWork仍是旧buildLegacyStoryboard，包括首页导入后自动启动的路径，须在整合时统一替换。新start由宿主处理保存租约、会员请求和单版本队列，不能同时再发旧流程。
+2. PipelineSteps从`pipelineWorkspace.props()`接收上述属性（例如渲染`<PipelineSteps {...pipelineWorkspace.props()} />`）；targetName/sceneName可由Claude自己的纯显示适配提供。API返回Promise<boolean>表示回调已交给宿主执行，不代表阶段成功，成功/失败以持久化steps为准。
+3. 删除旧继续按钮中`queueBatch(live.shots)`的流水线用途；继续只调用props.onContinue。它在点击时重新校验真实检查点与逐场coverage，人工审片只记录接受理由，不会自动继续到视频。
+
+onRetryTarget严格只发当前目标的单个step/target key，不确定结果必须先显式确认；会重新读取状态与作品身份，拒绝旧页面按钮操作新作品。重复开始在首次状态保存前也被本地忙碌锁拦住。异常只发结构化已知提示，不把原始请求异常放到聊天。取消调用原workspace.cancel；取消本地等待不等于远端供应商已停止执行。
+
+本次未改Claude JSX/CSS，没有提前激活上述用户入口。组件联合类型/真实渲染与成员端验收须阶段整合后完成。父线程报告d3bc76e的INTEGRATION.md格式检查尚失败；未把该报告冒称为GPT当前CI结果，阶段整合时必须跑格式检查修正。两条新增最终文案LOCATION_SOURCE_REQUIRED、MULTI_VOICE_PROVIDER_REQUIRED仍需补，101条旧映射已交付未整合，勿重复索要。
+
+另修3JR-B09 `0c77ff3`：`productionActions.fixCoverage(sceneId, signal?)`现在也有共享240秒截止及15秒进度；useProductionActions转发第三control，ProWorkspace的requestDirector把剩余deadline与signal传给retryDirectorTimeout和真实completeAgent。单镜补尾不再走默认五分钟。切作品、原文/镜头改变、取消或超时均不写迟到结果。
+
+验证：/workspace/controls-coverage-verified.log中7文件46通过；工作台定向3通过/96未选；web tsc、目标ESLint和格式通过。首次新增适配测试的无效人工审片fixture及空值类型错误已修，保留诊断日志；没有削弱状态校验。新增导演进度后，切作品测试改为清除切换前通知，仅断言切换后不再发送旧作品通知。
