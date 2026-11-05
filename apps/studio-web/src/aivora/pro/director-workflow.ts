@@ -80,6 +80,23 @@ export async function repairDirectorCoverage(
     // Segmentation may add whitespace, but every word, punctuation mark and
     // movement must remain in its original order, including secondary beats.
     const actionText = (shot: FilmShot) => shotActions(shot).join("").replace(/\s+/gu, "");
+    // Repair may repeat the existing draft and quote missing source material, but
+    // cannot introduce a new narrative clause. Conservative literal grounding
+    // keeps an unsupported rewrite for manual review instead of auto-saving it.
+    const normalizeClause = (text: string) =>
+      text.normalize("NFKC").replace(/[\p{P}\p{Z}\s]/gu, "");
+    const known = [
+      scene.text,
+      ...shots.flatMap((shot) => [shot.picture, ...shotActions(shot)]),
+    ].map(normalizeClause);
+    const inventedClause = parsed.some((shot) =>
+      [shot.picture, ...shotActions(shot)].some((text) =>
+        text.split(/[。！？!?；;\n]+/u).some((clause) => {
+          const normalized = normalizeClause(clause);
+          return normalized && !known.some((evidence) => evidence.includes(normalized));
+        }),
+      ),
+    );
     const losesShotContent =
       !containsInOrder(
         shots.map((shot) => shot.picture),
@@ -88,6 +105,7 @@ export async function repairDirectorCoverage(
       !containsInOrder(shots.map(actionText), parsed.map(actionText).join("")) ||
       !containsDialogueInOrder(shots.flatMap(shotLines), parsed.flatMap(shotLines));
     const losesCoverage =
+      inventedClause ||
       losesShotContent ||
       repairedCoverage.missingLines.some(
         (line) =>

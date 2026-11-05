@@ -119,3 +119,16 @@ it("preserves repeated lines with their speakers in successful compression", asy
   expect(result.repaired).toBe(true);
   expect(result.shots.flatMap((s) => s.lines ?? [])).toEqual(shots.flatMap((s) => s.lines ?? []));
 });
+
+it("rejects a new parking event added during otherwise lossless compression", async () => {
+  const shots = originals();
+  const next = compressed(shots);
+  next[0]!.picture += "面包车停在仓库外。";
+  const result = await repairDirectorCoverage(
+    { ...scene, text: "沈砚开着旧面包车跟了过来。\n最后关门。" },
+    shots,
+    async () => answer(next),
+  );
+  expect(result.repaired).toBe(false);
+  expect(result.shots).toBe(shots);
+});

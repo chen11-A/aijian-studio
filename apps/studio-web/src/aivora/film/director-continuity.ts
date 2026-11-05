@@ -103,6 +103,7 @@ export function coverageRepairContext(
   const tail = scene.text.trim().split(/\n+/).filter(Boolean).at(-1) ?? "";
   return JSON.stringify({
     scene_id: scene.id,
+    source_text: scene.text,
     paragraph_risks: scene.paragraphCoverage ?? null,
     instruction:
       "只补齐缺失台词和尾段，按原文顺序返回这一场完整shots；保留现有镜头id，不增加原文没有的台词和动作。目标每40–60字一镜、最多16镜；合并相邻节拍，无法满足时保留完整内容并说明。",
