@@ -706,7 +706,7 @@ export function TaskCenter(props: TaskCenterProps) {
             在首页点「一键成片」，或者在分镜里点「生成」，要做的画面、视频和配音会排在这里。
           </p>
           <p className="nx-faint">
-            关掉软件也不会丢：重新打开后，没做完的会标成「已中断」，在这里重试。
+            关掉软件也不会丢：重新打开后，没做完的会写「软件关掉时没做完」，在这里重试。
           </p>
           {props.onOpenStoryboard ? (
             <button type="button" className="nx-btn nx-primary" onClick={props.onOpenStoryboard}>

@@ -85,7 +85,7 @@ describe("simple story-to-film navigation", () => {
         name: "成片",
       }),
     );
-    expect(within(guide).getByText(/大约两秒的草稿视频/)).toBeInTheDocument();
+    expect(within(guide).getByText(/大约两秒的试做视频/)).toBeInTheDocument();
     fireEvent.click(within(guide).getByRole("button", { name: "上一步" }));
     fireEvent.change(screen.getByLabelText("旁白"), { target: { value: "信从雾里来" } });
     fireEvent.change(screen.getByLabelText("字幕"), { target: { value: "雾城来信" } });
@@ -491,7 +491,7 @@ describe("simple story-to-film navigation", () => {
     const guide = screen.getByLabelText("短片向导");
     fireEvent.click(within(guide).getByRole("button", { name: "一键让导演拆镜" }));
     expect(within(guide).getByRole("status")).toHaveTextContent(
-      "这是本地草稿。连上 Grok 后，导演会按你的故事重写。",
+      "这是软件自己拆的一版。连上 Grok 以后，导演会照你的故事重新拆。",
     );
     expect(within(guide).getByText("导演拆好的 2 个镜头")).toBeInTheDocument();
     fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
@@ -548,11 +548,11 @@ describe("simple story-to-film navigation", () => {
     expect(screen.getByLabelText("第 2 镜旁白")).toHaveValue("雨打巷口");
     await plan();
     expect(within(guide).getByRole("status")).toHaveTextContent(
-      "Grok 这次没有拆成镜头，先用本地草稿。",
+      "Grok 这次没拆好镜头，先用软件自己拆的这一版。",
     );
     await plan();
     expect(within(guide).getByRole("status")).toHaveTextContent(
-      "Grok 这次没有拆成镜头，先用本地草稿。",
+      "Grok 这次没拆好镜头，先用软件自己拆的这一版。",
     );
     expect(completeText).toHaveBeenCalledTimes(3);
     catalog = "audio";
@@ -560,7 +560,7 @@ describe("simple story-to-film navigation", () => {
     catalog = "failed";
     await plan();
     expect(within(guide).getByRole("status")).toHaveTextContent(
-      "Grok 这次没有拆成镜头，先用本地草稿。",
+      "Grok 这次没拆好镜头，先用软件自己拆的这一版。",
     );
     expect(completeText).toHaveBeenCalledTimes(3);
   });

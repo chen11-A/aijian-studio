@@ -643,6 +643,13 @@ const view = pipelineView(film);
 - 导出：对话框加「比例」：作品的画幅 / 另一种（从画面中间裁）/ 两种都要。只在桌面版带着 `cancelFilmExport`（和双画幅导出同一个提交 `9cf4ece` 加的）时才出现，所以 3j-r1 的桌面版看不到这个选项。
 - 要 GPT 配合（整合时）：导出处理读 `exportAspects`（"work" | "other" | "both"），按它调 `exportFilmTask(base, paths, dir, host, { aspectRatio })`，「两种都要」调两次（`-16x9.mp4`、`-9x16.mp4`）；导出完成后的「打开文件夹 / 播放」指向第一份。
 
+## 文案表替换（4A-U08）
+
+- 界面这边按 `docs/design/copy-zh.md` 换完，进度和还在 GPT 那边的 50 条清单写在那份文件的「4A-U08 进度」一节。
+- 按钮改名会影响 GPT 的提示和测试：「写入分镜」→「放进分镜」、「放入剧本」→「放进剧本」、「已写入」→「已放进去」、「让编剧写」→「让编剧分场」、「写英文提示词」→「写英文画面说明」。本分支已改 `ProWorkspace.test.tsx` 和 `e2e/p3j-regression.mjs` 里按这些名字找按钮的地方；GPT 处理函数里「点「写入分镜」才会写入」这类句子要在 4A-B11 ① 里一起改。
+- 渲染部分里几处 `setNotice("…")` 改成了 `setNotice({ code, text })`（作品设置说明 EDITOR_GUIDANCE、换构图 COMPOSITION_SELECTED、暂停 GENERATION_PAUSED、取消 GENERATION_CANCEL_REQUESTED、会员用不了 ENTITLEMENT_DENIED），这样不用改 `film/notices.ts` 按字面认 code 的规则，显示走 NOTICE_COPY。
+- `e2e/layout-audit.mjs` 的术语黑名单加了：模型、接口、提示词、离线、写入、画面自带、单独配音。GPT 那边的句子换完以前，这个检查会报出它们。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

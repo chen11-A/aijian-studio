@@ -226,9 +226,9 @@ describe("completed sandbox surfaces", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "沙箱提交" }));
     expect(screen.getByRole("status")).toHaveTextContent("queued");
-    expect(screen.getByLabelText("媒体任务沙箱")).toHaveTextContent("不预留预算");
-    expect(screen.getByLabelText("正式交付清单")).toHaveTextContent("未完成");
-    expect(screen.getByLabelText("正式交付清单")).not.toHaveTextContent("已签发");
+    expect(screen.getByLabelText("生成任务演示")).toHaveTextContent("不预留预算");
+    expect(screen.getByLabelText("发布前要做的检查")).toHaveTextContent("未完成");
+    expect(screen.getByLabelText("发布前要做的检查")).not.toHaveTextContent("已签发");
     fireEvent.click(screen.getByRole("button", { name: "沙箱查询" }));
     fireEvent.click(screen.getByRole("button", { name: "沙箱取消" }));
     expect(screen.getByRole("status")).toHaveTextContent("cancelled");

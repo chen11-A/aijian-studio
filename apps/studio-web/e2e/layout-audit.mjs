@@ -438,6 +438,14 @@ function layoutProbe() {
     ["ep_", /ep_/],
     ["OAuth", /OAuth/],
     ["idle", /\bidle\b/i],
+    // 4A-U08: the 「不用」 column of docs/design/copy-zh.md 用词约定.
+    ["模型", /模型/],
+    ["接口", /接口/],
+    ["提示词", /提示词/],
+    ["离线", /离线/],
+    ["写入", /写入/],
+    ["画面自带", /画面自带/],
+    ["单独配音", /单独配音/],
   ];
   const pageText = (document.body?.innerText || "").replace(/\s+/g, " ");
   for (const [name, pattern] of jargon) {

@@ -197,8 +197,8 @@ const STAGES: { id: Stage; label: string }[] = [
   { id: "edit", label: "剪辑" },
 ];
 
-const SIGN_IN_NOTE = "请打开安装好的 AIVORA 再登录。";
-const ROUGH_CUT_REASON = "多镜头没有接上，没有导出。";
+const SIGN_IN_NOTE = "网页版不能登录，请在电脑上装好的 AIVORA 里登录。";
+const ROUGH_CUT_REASON = "几个镜头没能接成一段，所以没有导出。可以再试一次。";
 
 const ROLE_COPY: Record<Role, string> = {
   writer: "编剧：把想法或小说收成一场一场的剧本。确认前不会改你写过的字。",
@@ -206,8 +206,8 @@ const ROLE_COPY: Record<Role, string> = {
   action: "动作指导：把打斗拆成一拍一拍的动作，标出力度、方向和慢镜。",
   performance: "表演指导：给每个镜头写情绪、眼神和语气。两人以上要写视线交接。",
   art: "美术：定画风，给每个角色一句固定外貌，并写下场景和道具。",
-  prompter: "提示词工程师：把这一镜写成中文提示词。英文放在高级里。",
-  qc: "审片：只会给出对文字的意见，版本仍由你选。",
+  prompter: "画面说明：把这一镜写成给 AI 看的画面说明。",
+  qc: "审片：只看文字，不看画面。挑哪一版由你定。",
 };
 
 function fieldHost(target: EventTarget | null): Element | null {
@@ -3011,7 +3011,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         setMenu(null);
                         setNotice(
                           settled.interrupted
-                            ? "上次有生成没做完，已标成已中断。可以重试。"
+                            ? "上次关软件时还有镜头没做完，已经停下了。可以重新生成。"
                             : `已打开${saved.episodeTitle}。`,
                         );
                       });
@@ -3068,7 +3068,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onClick={() => {
                     setMenu(null);
                     setStage("cast");
-                    setNotice("画风在角色与场景，每镜次数在单镜工作台。");
+                    setNotice({
+                      code: "EDITOR_GUIDANCE",
+                      text: "画风在「角色与场景」里改，每个镜头出几版在「单个镜头」里改。",
+                    });
                   }}
                 >
                   作品设置
@@ -3122,7 +3125,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <button
               className="chip"
               onClick={() => {
-                if (membershipDenied) setNotice("这个会员不能用这里的模型。");
+                if (membershipDenied)
+                  setNotice({ code: "ENTITLEMENT_DENIED", text: "这个会员用不了生成。" });
                 else if (connected) setNotice("Grok 会员已连接。");
                 else void signInGrok();
               }}
@@ -3132,7 +3136,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 style={connected && !membershipDenied ? undefined : { background: "#E8A33D" }}
               />
               {membershipDenied
-                ? "会员不能用这个功能"
+                ? "这个会员用不了生成"
                 : connected
                   ? "Grok 会员 · 已连接"
                   : signingIn || account.state === "AWAITING_BROWSER"
@@ -3229,7 +3233,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   startWork(aspect);
                   setNotice({
                     code: "EDITOR_GUIDANCE",
-                    text: "选一个小说文件。读好以后点「放入剧本」，再点「一键成片」。",
+                    text: "选一个小说文件。读好以后点「放进剧本」，再点「一键成片」。",
                   });
                   fileRef.current?.click();
                 }}
@@ -3361,7 +3365,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         userFields: [...new Set([...current.userFields, "picture"])],
                       }),
                     );
-                    setNotice("已换成这一条构图。");
+                    setNotice({ code: "COMPOSITION_SELECTED", text: "已换成这张画面。" });
                   }}
                   role={role}
                   onRole={chooseRole}
@@ -3483,7 +3487,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         clip.lane === lane ? { ...clip, gainDb } : clip,
                       ),
                     });
-                    setNotice(gainDb <= -40 ? "这一路已静音。" : "音量已记下，导出时用这个音量。");
+                    setNotice(gainDb <= -40 ? "这一轨已静音。" : "音量已记下，导出时用这个音量。");
                   }}
                   onSolo={(lane) => {
                     setHearLane((current) => {
@@ -3493,7 +3497,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                           ? "只听音乐。音量没有改。"
                           : next === "dialogue"
                             ? "只听配音。音量没有改。"
-                            : "各路一起听。",
+                            : "所有声音一起听。",
                       );
                       return next;
                     });
@@ -3522,9 +3526,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     const rows = shownShots.slice(Math.min(from, to), Math.max(from, to) + 1);
                     if (rows.length === 0) return;
                     setPendingBatch(rows);
-                    setNotice(
-                      `只重做镜头 ${rows.map((item) => item.no).join("、")}。确认表里点开始生成才会出视频。`,
-                    );
+                    const names = rows
+                      .map((item) => {
+                        const no = film?.scenes.find((row) => row.id === item.sceneId)?.no;
+                        return no ? `第 ${no} 场第 ${item.no} 个镜头` : `第 ${item.no} 个镜头`;
+                      })
+                      .join("、");
+                    setNotice(`只重做${names}。在确认表里点「开始生成」才会出视频。`);
                   }}
                   onClearRange={() => {
                     setRange(false);
@@ -3690,7 +3698,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <div className="dialog-back">
             <div className="dialog" role="dialog" aria-label="登录 Grok">
               <h2>登录 Grok</h2>
-              <p>接下来会打开浏览器，进入 Grok Build 授权页。点允许后回到这里。</p>
+              <p>会打开浏览器让你登录 Grok。在网页上点「允许」，再回到这里。</p>
               <div className="acts">
                 <button
                   className="btn primary"
@@ -3735,7 +3743,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       <td>镜头 {item.no}</td>
                       <td>{item.seconds}</td>
                       <td>{item.line.trim() || "无"}</td>
-                      <td>{item.line.trim() ? "单独配音" : "无台词"}</td>
+                      <td>{item.line.trim() ? "另外配音" : "无台词"}</td>
                       <td>
                         {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
                           ? "已导入"
@@ -3788,8 +3796,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <div className="dialog" role="dialog" aria-label="确认删除">
               <h2>
                 {deleteTarget.current === "series"
-                  ? `确认删除作品「${film?.seriesTitle || film?.title || "这部作品"}」？文件会删掉。`
-                  : `确认删除「${film?.title || "这一集"}」？文件会删掉。`}
+                  ? `要删除作品「${film?.seriesTitle || film?.title || "这部作品"}」吗？电脑上的文件会一起删掉，删了找不回来。`
+                  : `要删除「${film?.title || "这一集"}」这一集吗？电脑上的文件会一起删掉，删了找不回来。`}
               </h2>
               <div className="acts">
                 <button className="btn primary" onClick={confirmDeleteFilm}>
@@ -3826,7 +3834,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               onPause={() => {
                 pauseRef.current = true;
                 setPaused(true);
-                setNotice("已暂停。已经发出的请求不一定能停。");
+                setNotice({
+                  code: "GENERATION_PAUSED",
+                  text: "已暂停。已经发给 Grok 的那几个可能还会做完。",
+                });
               }}
               onResume={() => {
                 pauseRef.current = false;
@@ -3853,7 +3864,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 applyLive(cancelled.film);
                 const billed = film.backendProjectId || projectId;
                 if (cancelled.running && billed) void window.aijian?.cancelStoryFilm?.(billed);
-                setNotice("已取消这一次。已经发出的请求不一定能停。");
+                setNotice({
+                  code: "GENERATION_CANCEL_REQUESTED",
+                  text: "已取消。如果已经发给 Grok，它可能还会做完。",
+                });
               }}
               canRemove={(task) =>
                 film.jobs.some(
@@ -4080,7 +4094,7 @@ function Assistant({
   const lastRole = turns.at(-1)?.role;
   const chips =
     role === "writer"
-      ? ["让编剧写", "改成短剧", "导入小说"]
+      ? ["让编剧分场", "改成短剧", "导入小说"]
       : role === "action"
         ? ["请动作指导看看"]
         : role === "performance"
@@ -4156,7 +4170,7 @@ function Assistant({
                       ? "正在写"
                       : list.length > 0
                         ? "当前镜头"
-                        : "暂无待写入的建议"}{" "}
+                        : "还没有建议"}{" "}
               <span>
                 {card
                   ? card.rows.length || card.notes.length
@@ -4239,10 +4253,10 @@ function Assistant({
                     }
                   >
                     {card?.applied
-                      ? "已写入"
+                      ? "已放进去"
                       : card?.mode === "scenes" || scenes
-                        ? "放入剧本"
-                        : "写入分镜"}
+                        ? "放进剧本"
+                        : "放进分镜"}
                   </button>
                 )}
                 <button className="btn sm" type="button" onClick={onSend}>
@@ -4281,12 +4295,13 @@ function Assistant({
   );
 }
 
-/** The export summary in one line: 「共 3 场 · 28 个镜头 · 约 149 秒 · 27 个还没生成」. */
+/** The export summary in one line: 「共 3 场 · 28 个镜头 · 约 2 分钟 · 还有 27 个镜头没做好」. */
 function exportLine(film: FilmProject): string {
   const seconds = film.shots.reduce((sum, item) => sum + item.seconds, 0);
+  const length = seconds >= 90 ? `约 ${Math.round(seconds / 60)} 分钟` : `约 ${seconds} 秒`;
   const missing = chosenExport(film).missing.length;
-  const gap = missing === 0 ? "都已生成" : `${missing} 个还没生成`;
-  return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · 约 ${seconds} 秒 · ${gap}`;
+  const gap = missing === 0 ? "都做好了" : `还有 ${missing} 个镜头没做好`;
+  return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · ${length} · ${gap}`;
 }
 
 /**
@@ -4487,7 +4502,7 @@ function ScriptPage({
                 全片约 <b>{film.shots.reduce((sum, item) => sum + item.seconds, 0)} 秒</b>
               </>
             ) : (
-              "拆开以后才有时长"
+              "拆成镜头以后才知道多长"
             )}
           </span>
           <span>
@@ -4505,9 +4520,7 @@ function ScriptPage({
             <Ic name="redo" />
           </button>
           <span className="vsep" />
-          <div className="seg">
-            <button className="on">场景</button>
-          </div>
+          <span className="tool-hint">左边选一场，这里写这一场</span>
           <span className="sp" />
           <button className="btn primary" onClick={onPlan} disabled={asking}>
             <Ic name="clap" size={15} />
@@ -4573,7 +4586,7 @@ function ScriptPage({
           onChat={onChat}
           onSend={onSend}
           onQuick={(label) => {
-            if (label === "让编剧写" || label === "节奏再快些") onWrite();
+            if (label === "让编剧分场" || label === "节奏再快些") onWrite();
             else if (label === "改成短剧" || label === "加一个特写") onAdapt();
             else if (label === "导入小说") onImport();
             else if (label.includes("动作")) {
@@ -4728,7 +4741,7 @@ function CastPage({
                 id="prop-name"
                 className="input"
                 aria-label="道具名字"
-                placeholder="加上道具，回车写入"
+                placeholder="写下道具名字，按回车加上"
                 onKeyDown={(event) => {
                   if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
                   const name = event.currentTarget.value.trim();
@@ -5117,7 +5130,8 @@ function CastPage({
                   disabled={busy}
                   onClick={() => void onPortraits(character.id)}
                 >
-                  补这个人的
+                  补齐{character.name}的定妆照（还缺{" "}
+                  {VIEWS.filter((view) => !has(character, view)).length} 张）
                 </button>
               ) : null}
             </div>
@@ -5728,11 +5742,11 @@ function BoardPage({
                       }
                     />
                     <p className="role-desc">
-                      {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
+                      {current.promptEn || "还没有英文画面说明。可以让「画面说明」助手写。"}
                     </p>
                     <div className="acts">
                       <button className="btn sm" type="button" onClick={onPrompter}>
-                        写英文提示词
+                        写英文画面说明
                       </button>
                       <button className="btn sm" type="button" onClick={onQc}>
                         审一下这一镜的文字
@@ -5798,10 +5812,10 @@ function BoardPage({
               </div>
               {current.tag ? <p className="role-desc">镜头类型：{current.tag}</p> : null}
               {missingLocks.length > 0 && (
-                <p className="role-desc">这一镜的提示词漏了{missingLocks.join("、")}的外貌描述。</p>
+                <p className="role-desc">这一镜的画面说明漏了{missingLocks.join("、")}的外貌。</p>
               )}
               <div className="field">
-                <label>声音计划</label>
+                <label>声音</label>
                 <p className="role-desc">台词：{current.line || "这一镜没有台词"}</p>
                 <select
                   className="input"
@@ -5818,8 +5832,8 @@ function BoardPage({
                     )
                   }
                 >
-                  <option value="native">画面自带</option>
-                  <option value="dub">单独配音</option>
+                  <option value="native">用视频里的声音</option>
+                  <option value="dub">另外配音</option>
                 </select>
                 <textarea
                   className="area"
@@ -6189,7 +6203,7 @@ function GeneratePage({
           <div className="sec-t" style={{ marginTop: 12 }}>
             角色定妆照
             <span className="sp" />
-            <span>外貌写进提示词</span>
+            <span>人物外貌会写进画面说明</span>
           </div>
           <div className="refs">
             {film.characters.map((item) => (
@@ -6202,7 +6216,7 @@ function GeneratePage({
           <div className="sec-t" style={{ marginTop: 12 }}>
             画面描述
             <span className="sp" />
-            <span className="from role-a">含这一镜和外貌</span>
+            <span className="from role-a">包括这一镜的画面和人物外貌</span>
           </div>
           <textarea
             className="area"
