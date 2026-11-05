@@ -4390,6 +4390,14 @@ function shotSource(shot: FilmShot): { tone: string; label: string } {
   return { tone: "src-other", label: "原来就有" };
 }
 
+/** The spoken lines of a shot as the card shows them, one per row. */
+function cardLines(shot: FilmShot): string[] {
+  return shot.line
+    .split("\n")
+    .map((text) => text.trim())
+    .filter(Boolean);
+}
+
 /** The line under a scene's title in the scene lists: 「内景 · 夜 · 10 镜」. */
 function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
   const count = shots.filter((item) => item.sceneId === scene.id).length;
@@ -5564,10 +5572,27 @@ function BoardPage({
                   {item.picture}
                 </p>
                 {item.line.trim() ? (
-                  <p className="line" title={item.line}>
-                    {item.line.split("\n")[0]}
+                  <p
+                    className="line"
+                    title={item.line}
+                    data-more={cardLines(item).length > 1 ? cardLines(item).length : undefined}
+                  >
+                    {cardLines(item)[0]}
                   </p>
                 ) : null}
+                {/* 3JR-U05: resting on the words, or picking the card with the keyboard, shows
+                    all of them over the card; the grid does not move. */}
+                <div className="full" aria-hidden="true">
+                  <div className="ct">
+                    镜头 {item.no} <span>{item.size}</span>
+                  </div>
+                  <p>{item.picture}</p>
+                  {cardLines(item).map((text, line) => (
+                    <p key={line} className="line">
+                      {text}
+                    </p>
+                  ))}
+                </div>
               </div>
             </button>
           ))}
@@ -6296,10 +6321,15 @@ function GeneratePage({
               });
             }}
           />
-          <p className="role-desc" data-testid="keyframe-prompt">
-            {current ? continuityPrompt(shots[shot - 1], current, film) : prompt}
-          </p>
-          <p className="role-desc">{CONTINUITY_REASON}</p>
+          {/* 3JR-U05: the whole text the model gets stays folded; the description above is what
+              people write. */}
+          <details className="full-prompt">
+            <summary>看 AI 会收到的完整说明</summary>
+            <p className="role-desc" data-testid="keyframe-prompt">
+              {current ? continuityPrompt(shots[shot - 1], current, film) : prompt}
+            </p>
+            <p className="role-desc">{CONTINUITY_REASON}</p>
+          </details>
           <div className="row2" style={{ marginTop: 12 }}>
             <div>
               <div className="sec-t">时长</div>

@@ -2974,8 +2974,17 @@ it("keeps a storyboard card to its size, length, picture sentence and first line
   fireEvent.click(stageTab("分镜"));
   const card = document.querySelectorAll(".pb.grid .card")[3] as HTMLElement;
   const shot = sampleFilm().shots[3]!;
-  expect(within(card).getByText(shot.picture)).toHaveAttribute("title", shot.picture);
-  expect(within(card).getByText(shot.line)).toHaveAttribute("title", shot.line);
+  const picture = card.querySelector<HTMLElement>(".cb > p.pic")!;
+  expect(picture).toHaveTextContent(shot.picture);
+  expect(picture).toHaveAttribute("title", shot.picture);
+  const line = card.querySelector<HTMLElement>(".cb > p.line")!;
+  expect(line).toHaveTextContent(shot.line);
+  expect(line).toHaveAttribute("title", shot.line);
+  // 3JR-U05: all the words wait over the card, outside the card's accessible name.
+  const full = card.querySelector<HTMLElement>(".full")!;
+  expect(full).toHaveAttribute("aria-hidden", "true");
+  expect(full.textContent).toContain(shot.picture);
+  expect(full.textContent).toContain(shot.line);
   expect(card.textContent).toContain(shot.size);
   expect(card.textContent).toContain(`${shot.seconds}s`);
   expect(card.textContent).not.toContain(shot.performance);

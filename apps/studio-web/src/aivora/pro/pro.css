@@ -3257,3 +3257,62 @@ body:has(.pro-root) {
   object-fit: contain;
   background-size: contain;
 }
+
+/* 3JR-U05: a card keeps two lines of picture and one line of dialogue; resting on its words
+   for a moment, or picking it with the keyboard, lays all of them over the card. */
+.pro-root .card {
+  position: relative;
+}
+.pro-root .cb p.line[data-more]::after {
+  content: "」等 " attr(data-more) " 句";
+}
+.pro-root .card .full {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 10px 12px;
+  overflow: auto;
+  background: var(--panel-2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    visibility 0s linear 0.12s;
+}
+.pro-root .card .cb:hover .full,
+.pro-root .card:focus-visible .full {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.12s ease 0.35s,
+    visibility 0s linear 0.35s;
+}
+.pro-root .card .full p {
+  display: block;
+  max-height: none;
+  -webkit-line-clamp: unset;
+  white-space: normal;
+}
+.pro-root .card .full p.line {
+  text-overflow: clip;
+}
+.pro-root .card .full p.line::after {
+  content: "」";
+}
+@media (prefers-reduced-motion: reduce) {
+  .pro-root .card .full,
+  .pro-root .card .cb:hover .full,
+  .pro-root .card:focus-visible .full {
+    transition: none;
+  }
+}
+.pro-root details.full-prompt {
+  margin-top: 6px;
+}
+.pro-root details.full-prompt > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12px;
+}
