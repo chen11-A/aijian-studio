@@ -1,5 +1,5 @@
 import { shotActionText } from "./shot-actions";
-import { storyFilmBatches } from "./operations";
+import { storyFilmBatches, spokenLine, shotVoiceId } from "./operations";
 import { describe, expect, it } from "vitest";
 import { parseDirectorShots, sampleFilm } from "./project";
 import { detectDirectorCoverage, mergeAdjacentShots, shotLines } from "./director-continuity";
@@ -90,4 +90,26 @@ it("compresses alternating speakers and sends every line with its own voice", ()
   expect(shots.map(shotActionText).join("\n")).toContain("第21个动作");
   expect(detectDirectorCoverage({ id: "scene-1", text: source }, shots).ok).toBe(true);
   expect(shots.map((s) => s.id)).toEqual(shots.map((_, i) => `scene-1-shot-${i + 1}`));
+});
+
+it("uses the edited legacy dialogue consistently for voice, subtitles and per-line requests", () => {
+  const film = sampleFilm();
+  const person = film.characters[0]!;
+  const shot = {
+    ...film.shots[0]!,
+    speaker: person.name,
+    line: "这是修改后的最后一句。",
+    lines: [
+      { speaker: "旧人甲", text: "旧第一句。" },
+      { speaker: "旧人乙", text: "旧结尾。" },
+    ],
+  };
+  expect(spokenLine(shot)).toBe(shot.line);
+  expect(shotVoiceId(shot, film)).toBe(person.voiceId);
+  const outgoing = storyFilmBatches(film, [shot], false)[0]!.shots[0]!;
+  expect(outgoing.narration).toBe(shot.line);
+  expect(outgoing.subtitle).toBe(shot.line);
+  expect(outgoing.lines).toEqual([
+    { speaker: person.name, text: shot.line, voice_id: person.voiceId },
+  ]);
 });

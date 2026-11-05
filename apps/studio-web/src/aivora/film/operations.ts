@@ -1458,7 +1458,9 @@ function clip(value: string, max: number): string {
 
 /** The line is spoken. The picture is never used as narration. */
 export function spokenLine(shot: FilmShot): string {
-  return (shot.lines?.length ? shot.lines.map((line) => line.text).join("\n") : shot.line)
+  return shotLines(shot)
+    .map((line) => line.text)
+    .join("\n")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1494,7 +1496,11 @@ export function motionPrompt(shot: FilmShot): string {
 
 export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
   const speakers = [
-    ...new Set(shot.lines?.map((line) => line.speaker.trim()).filter(Boolean) ?? []),
+    ...new Set(
+      shotLines(shot)
+        .map((line) => line.speaker.trim())
+        .filter(Boolean),
+    ),
   ];
   if (speakers.length > 1) return "";
   const named = speakers[0] || shot.speaker?.trim() || "";
