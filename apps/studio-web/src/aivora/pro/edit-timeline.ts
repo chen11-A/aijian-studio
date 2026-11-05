@@ -3,6 +3,59 @@ import type { FilmShot, FilmTake } from "../film/project";
 /** A shot's box on the 剪辑 timeline, in pixels from the left of the track area. */
 export type TimelineClip = { id: string; left: number; width: number };
 
+/** A timeline box that may be folded down to a narrow mark (3JR-U02). */
+export type EditClip = TimelineClip & { folded: boolean };
+
+/** How wide a folded shot is: enough to see and click, not enough to crowd the track. */
+export const FOLDED_WIDTH = 16;
+
+/** A shot has a finished video: the timeline shows it at its real length. */
+export function shotReady(shot: FilmShot): boolean {
+  return shot.takes.some((take) => take.status === "done");
+}
+
+/**
+ * The 剪辑 timeline boxes: 52px a second, as before. With `fold`, a shot with no video yet
+ * becomes a narrow mark, so a few finished shots are not lost among many placeholders.
+ */
+export function editClipLayout(shots: readonly FilmShot[], fold: boolean): EditClip[] {
+  let left = 1;
+  return shots.map((shot) => {
+    const folded = fold && !shotReady(shot);
+    const width = folded ? FOLDED_WIDTH : Math.max(48, Math.round(shot.seconds * 52) - 2);
+    const clip = { id: shot.id, left, width, folded };
+    left += width + 2;
+    return clip;
+  });
+}
+
+/**
+ * Ruler marks that land on a folded shot are dropped (except the very start): time runs on
+ * inside the fold, so a mark there would print a jump of several seconds as a few pixels.
+ */
+export function ticksOutsideFolds<T extends { left: number; seconds: number }>(
+  ticks: readonly T[],
+  clips: readonly EditClip[],
+): T[] {
+  return ticks.filter(
+    (tick) =>
+      tick.seconds === 0 ||
+      !clips.some(
+        (clip) => clip.folded && tick.left >= clip.left && tick.left < clip.left + clip.width + 2,
+      ),
+  );
+}
+
+/** Ruler marks that would print on top of each other keep only the first of them. */
+export function spacedTicks<T extends { left: number }>(ticks: readonly T[], gap = 56): T[] {
+  const kept: T[] = [];
+  for (const tick of ticks) {
+    const last = kept.at(-1);
+    if (!last || tick.left - last.left >= gap) kept.push(tick);
+  }
+  return kept;
+}
+
 /** Where one shot sits inside the joined rough cut, in seconds. */
 export type CutSegment = { shotId: string; start: number; seconds: number };
 

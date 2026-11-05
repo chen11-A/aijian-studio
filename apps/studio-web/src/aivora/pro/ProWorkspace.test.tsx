@@ -880,7 +880,12 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
       expect(screen.getByRole("button", { name: "4 秒" })).toHaveClass("on");
       fireEvent.click(stageTab("剪辑"));
+      // 3JR-U02: with one shot made, the shots still to make fold to narrow marks until asked.
+      expect(screen.getAllByRole("button", { name: "未生成" }).length).toBeGreaterThan(0);
+      expect(screen.queryByText("未生成")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /展开没生成的/ }));
       expect(screen.getAllByText("未生成").length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: "收起没生成的" }));
       fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
       fireEvent.click(screen.getByRole("button", { name: "浏览" }));
       expect(await screen.findByLabelText("导出文件夹")).toHaveValue("/tmp/aivora/export");

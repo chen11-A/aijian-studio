@@ -2208,6 +2208,20 @@ body:has(.pro-root) {
   border: 1px dashed var(--line-2);
   color: var(--text-3);
 }
+/* 3JR-U02: shots still to make step back, and fold to narrow marks once anything has a video,
+   so the finished shots are what the track shows. */
+.pro-root .clip.v.empty {
+  opacity: 0.7;
+}
+.pro-root .clip.v.empty.folded,
+.pro-root .clip.s.folded {
+  padding: 0;
+  opacity: 0.45;
+}
+.pro-root .clip.v.empty.folded:hover,
+.pro-root .clip.v.empty.folded:focus-visible {
+  opacity: 0.9;
+}
 .pro-root .clip.v.gen {
   background: repeating-linear-gradient(135deg, #2a2416 0 6px, #231e13 6px 12px);
   border: 1px solid rgba(232, 163, 61, 0.6);

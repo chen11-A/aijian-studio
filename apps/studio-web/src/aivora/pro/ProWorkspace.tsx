@@ -11,8 +11,12 @@ import {
   cutPosition,
   cutSegments,
   cutTimeAt,
+  editClipLayout,
   playheadX,
   pointAt,
+  shotReady,
+  spacedTicks,
+  ticksOutsideFolds,
   timelineSeconds,
   xAtSeconds,
 } from "./edit-timeline";
@@ -22,7 +26,6 @@ import {
   adaptToShortDrama,
   addShot,
   applyScenes,
-  clipLayout,
   clock,
   continuityPrompt,
   CONTINUITY_REASON,
@@ -6388,7 +6391,11 @@ function EditPage({
   const areaRef = useRef<HTMLDivElement>(null);
   const tracksRef = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
-  const clips = clipLayout(shots);
+  // 3JR-U02: once anything has a video, the shots still to make fold down to narrow marks.
+  const [unfolded, setUnfolded] = useState(false);
+  const readyCount = shots.filter(shotReady).length;
+  const waitingCount = shots.length - readyCount;
+  const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
   const chosenTake =
@@ -6828,6 +6835,21 @@ function EditPage({
               <Ic name="redo" />
             </button>
             <span className="sp" />
+            {readyCount > 0 && waitingCount > 0 ? (
+              <button
+                type="button"
+                className="btn sm"
+                aria-pressed={unfolded}
+                title={
+                  unfolded
+                    ? "没生成的镜头收成细条，做好的镜头更好找"
+                    : "没生成的镜头按计划的长度摆出来"
+                }
+                onClick={() => setUnfolded((value) => !value)}
+              >
+                {unfolded ? "收起没生成的" : `展开没生成的 ${waitingCount} 个`}
+              </button>
+            ) : null}
             {importMusic}
           </div>
         )}
@@ -6960,7 +6982,7 @@ function EditPage({
                   seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, to))));
                 }}
               >
-                {rulerTicks(shots, clips).map((tick) => (
+                {spacedTicks(ticksOutsideFolds(rulerTicks(shots, clips), clips)).map((tick) => (
                   <span key={tick.seconds} style={{ left: tick.left }}>
                     {clock(tick.seconds)}
                   </span>
@@ -6974,22 +6996,30 @@ function EditPage({
                   return (
                     <div
                       key={cue.id}
-                      className="clip s"
+                      className={clip.folded ? "clip s folded" : "clip s"}
                       style={{ left: clip.left, width: clip.width }}
+                      title={clip.folded ? cue.text : undefined}
                     >
-                      <span className="tx">{cue.text}</span>
+                      {clip.folded ? null : <span className="tx">{cue.text}</span>}
                     </div>
                   );
                 })}
               </div>
               <div className="lane" style={{ height: "var(--hv)" }}>
                 {clips.map((clip, index) => {
-                  const ready = shots[index]?.takes.some((take) => take.status === "done");
+                  const item = shots[index];
+                  const ready = item ? shotReady(item) : false;
+                  const name = `镜头 ${item?.no ?? index + 1}`;
+                  const waiting = `${name} 还没生成（${item?.seconds ?? 0} 秒）`;
                   return (
                     <button
                       key={clip.id}
-                      className={ready ? "clip v" : "clip v empty"}
+                      className={
+                        ready ? "clip v" : clip.folded ? "clip v empty folded" : "clip v empty"
+                      }
                       style={{ left: clip.left, width: clip.width }}
+                      title={ready ? undefined : waiting}
+                      aria-label={clip.folded ? "未生成" : undefined}
                       onClick={(event) => {
                         // A keyboard press has no pointer position: go to the clip's start.
                         seekTo(event.detail === 0 ? clip.left : areaX(event.clientX));
@@ -6997,9 +7027,7 @@ function EditPage({
                         onPickClip();
                       }}
                     >
-                      <span className="lb">
-                        {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
-                      </span>
+                      {clip.folded ? null : <span className="lb">{ready ? name : "未生成"}</span>}
                     </button>
                   );
                 })}

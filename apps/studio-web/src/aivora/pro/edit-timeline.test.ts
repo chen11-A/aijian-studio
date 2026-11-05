@@ -5,8 +5,13 @@ import {
   cutSegments,
   cutTake,
   cutTimeAt,
+  editClipLayout,
+  FOLDED_WIDTH,
   playheadX,
   pointAt,
+  shotReady,
+  spacedTicks,
+  ticksOutsideFolds,
   timelineSeconds,
   xAtSeconds,
 } from "./edit-timeline";
@@ -41,6 +46,45 @@ const clips = [
   { id: "b", left: 103, width: 50 },
   { id: "c", left: 155, width: 200 },
 ];
+
+describe("folding shots with no video (3JR-U02)", () => {
+  const shots = [shot("a", 4, true), shot("b", 2), shot("c", 6), shot("d", 3, true)];
+
+  it("keeps finished shots at their length and narrows the rest", () => {
+    expect(shotReady(shots[0]!)).toBe(true);
+    expect(shotReady(shots[1]!)).toBe(false);
+    expect(editClipLayout(shots, true)).toEqual([
+      { id: "a", left: 1, width: 206, folded: false },
+      { id: "b", left: 209, width: FOLDED_WIDTH, folded: true },
+      { id: "c", left: 227, width: FOLDED_WIDTH, folded: true },
+      { id: "d", left: 245, width: 154, folded: false },
+    ]);
+  });
+
+  it("shows every shot at its length when unfolded", () => {
+    expect(editClipLayout(shots, false).map((clip) => [clip.width, clip.folded])).toEqual([
+      [206, false],
+      [102, false],
+      [310, false],
+      [154, false],
+    ]);
+  });
+
+  it("leaves the folded shots without ruler marks", () => {
+    const clips = editClipLayout(shots, true);
+    const ticks = [
+      { seconds: 0, left: 1 },
+      { seconds: 5, left: 215 },
+      { seconds: 10, left: 300 },
+    ];
+    expect(ticksOutsideFolds(ticks, clips).map((tick) => tick.seconds)).toEqual([0, 10]);
+  });
+
+  it("drops ruler marks that would print on top of each other", () => {
+    const ticks = [0, 30, 60, 70, 140].map((left) => ({ left }));
+    expect(spacedTicks(ticks).map((tick) => tick.left)).toEqual([0, 60, 140]);
+  });
+});
 
 describe("joined cut timing", () => {
   it("keeps only shots with a video file, in film order", () => {
