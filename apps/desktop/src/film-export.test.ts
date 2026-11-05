@@ -1,5 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm, writeFile, link, symlink, mkdir } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  writeFile,
+  link,
+  symlink,
+  mkdir,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -239,7 +249,8 @@ describe("export validation boundaries", () => {
     const { source } = await fixture();
     const { directory } = await fixture();
     const output = await exportFilmFile(source, directory, undefined, {}, vi.fn());
-    expect(output).toBe(join(directory, "source.mp4"));
+    // The export resolves its folder (Windows may hand out the short RUNNER~1 form of tmpdir).
+    expect(output).toBe(join(await realpath(directory), "source.mp4"));
     expect(await readFile(output)).toEqual(await readFile(source));
   });
   it.each(["empty", "directory"])(
