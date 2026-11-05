@@ -176,11 +176,17 @@ export async function requestStill(
   }
   try {
     const result = await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
-    if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
+    if (!result.path) {
+      const providerReason = result.reason || "";
+      return {
+        url: "",
+        reason: stillFailureNotice(new Error(providerReason)).text,
+      };
+    }
     const url = fileMediaUrl(result.path);
     return { url: url || result.path, reason: "画面已生成。" };
-  } catch {
-    return { url: "", reason: "出图没有成功，可以重试。" };
+  } catch (error) {
+    return { url: "", reason: stillFailureNotice(error).text };
   }
 }
 
@@ -529,6 +535,8 @@ export function stillFailureNotice(error: unknown): UiNotice {
     };
   }
   const reason = error instanceof Error ? error.message : "";
+  if (reason === "TASK_TIMEOUT" || (error instanceof Error && error.name === "TimeoutError"))
+    return { code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT };
   if (/拒绝|未获准/u.test(reason))
     return { code: "STILL_REJECTED", text: NOTICE_TEXT.STILL_REJECTED };
   const parsed = normalizeNotice(reason);

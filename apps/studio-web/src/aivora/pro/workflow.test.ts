@@ -1,3 +1,4 @@
+import { NOTICE_TEXT } from "../film/notices";
 import { describe, it, expect, vi } from "vitest";
 import { blankFilm, FILM_KEY, readFilm, sampleFilm } from "../film/project";
 import {
@@ -246,7 +247,7 @@ it("preserves the image failure reason without adding reference counts", async (
     const film = sampleFilm();
     const made = await requestShotStill(film, film.shots[0]!, "frame");
     expect(made.url).toBe("");
-    expect(made.reason).toBe("请重新登录后重试。");
+    expect(made.reason).toBe(NOTICE_TEXT.REAUTH_REQUIRED);
     expect(made.reason).not.toMatch(/模型|上限|首帧|\d/u);
     expect(made.diagnostics).toMatchObject({ imageLimit: 5, videoReferenceLimit: 13 });
   } finally {
@@ -397,3 +398,39 @@ it.each(["9:16", undefined] as const)(
     }
   },
 );
+
+it.each([
+  ["首帧选用 5 张参考图，模型上限 13；请求失败。", "STILL_FAILED"],
+  ["模型拒绝了这一张，参考图 5 张。", "STILL_REJECTED"],
+  ["请重新登录后重试，模型上限 13。", "REAUTH_REQUIRED"],
+])("3J-B19 classifies provider details without forwarding them: %s", async (reason, code) => {
+  const { requestShotStill } = await import("./workflow");
+  const previous = window.aijian;
+  try {
+    window.aijian = {
+      generateFilmStill: vi.fn(async () => ({ path: "", reason })),
+    } as unknown as Window["aijian"];
+    const film = sampleFilm();
+    const result = await requestShotStill(film, film.shots[0]!, "frame");
+    expect(result.url).toBe("");
+    expect(result.reason).toBe(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]);
+    expect(result.reason).not.toMatch(/模型|上限|首帧|\d/u);
+    expect(result.diagnostics).toMatchObject({ imageLimit: 5, videoReferenceLimit: 13 });
+    expect(JSON.stringify(result)).not.toContain(reason);
+  } finally {
+    window.aijian = previous;
+  }
+});
+
+it("3J-B19 preserves timeout classification when the image bridge rejects", async () => {
+  const { requestStill } = await import("./workflow");
+  const previous = window.aijian;
+  try {
+    window.aijian = {
+      generateFilmStill: vi.fn().mockRejectedValue(new Error("TASK_TIMEOUT")),
+    } as unknown as Window["aijian"];
+    expect((await requestStill("series", "frame")).reason).toBe(NOTICE_TEXT.TASK_TIMEOUT);
+  } finally {
+    window.aijian = previous;
+  }
+});

@@ -3,7 +3,7 @@ import { withIdentityLocks } from "../film/phase2";
 import type { FilmProject, FilmShot } from "../film/project";
 import { keyframeVariants, shotReference, updateShot } from "../film/operations";
 import { runTask } from "../film/task-progress";
-import { requestShotStill } from "./workflow";
+import { requestShotStill, stillFailureNotice } from "./workflow";
 
 type StillHost = {
   current: () => FilmProject | null;
@@ -57,7 +57,7 @@ export async function makeFourStills(base: FilmProject, shot: FilmShot, host: St
     failures,
     cancelled: !host.valid(),
     notice: failures.length
-      ? `已生成 ${done} 张候选画面，${failures.length} 张失败。${failures.join("；")}`
+      ? stillFailureNotice(new Error(failures[0])).text
       : "4 张候选画面已生成。点一张作为这一镜的画面。",
   };
 }
@@ -80,7 +80,10 @@ export async function ensureShotFrame(
       const made = await requestShotStill(base, shot, keyframePrompt(shot, base));
       const live = host.current();
       if (signal.aborted || !host.valid() || live?.id !== base.id) throw new Error("WORK_STALE");
-      if (!made.url) throw new Error(`镜头 ${shot.no} 首帧未完成：${made.reason}`);
+      if (!made.url)
+        throw new Error(
+          `镜头 ${shot.no} 首帧未完成：${stillFailureNotice(new Error(made.reason)).text}`,
+        );
       const latest = live.shots.find((item) => item.id === shot.id);
       if (!latest) throw new Error("WORK_STALE");
       await host.apply(updateShot(live, shot.id, { poster: made.url }));
