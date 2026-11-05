@@ -3694,6 +3694,20 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("zooms the 剪辑 timeline in and out, and back to the whole cut (5-3-08)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  const width = () => (document.querySelector(".clip.v") as HTMLElement).style.width;
+  const start = parseFloat(width());
+  fireEvent.click(screen.getByRole("button", { name: "放大时间线" }));
+  expect(parseFloat(width())).toBeGreaterThan(start * 1.8);
+  fireEvent.click(screen.getByRole("button", { name: "缩小时间线" }));
+  fireEvent.click(screen.getByRole("button", { name: "缩小时间线" }));
+  expect(parseFloat(width())).toBeLessThan(start);
+  expect(screen.getByRole("button", { name: "看全片" })).toBeInTheDocument();
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();

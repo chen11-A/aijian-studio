@@ -1560,24 +1560,6 @@ body:has(.pro-root) {
 .pro-root .ttool .sp {
   flex: 1;
 }
-.pro-root .zoom {
-  width: 110px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-2);
-  position: relative;
-  margin: 0 6px;
-}
-.pro-root .zoom::after {
-  content: "";
-  position: absolute;
-  left: 45%;
-  top: -4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-}
 .pro-root .tbody {
   flex: 1;
   display: grid;
@@ -2187,24 +2169,6 @@ body:has(.pro-root) {
 .pro-root .ttool .sp {
   flex: 1;
 }
-.pro-root .zoom {
-  width: 90px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-2);
-  position: relative;
-  margin: 0 6px;
-}
-.pro-root .zoom::after {
-  content: "";
-  position: absolute;
-  left: 45%;
-  top: -4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-}
 .pro-root .tbody {
   flex: 1;
   display: grid;
@@ -2306,6 +2270,14 @@ body:has(.pro-root) {
   color: var(--text-3);
   font-size: 13px;
   text-align: center;
+}
+/* 5-3-08: zoom out, zoom in, the whole cut. */
+.pro-root .tzoom {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-right: 6px;
 }
 /* 4C-U07: the narration row under the whole work's style. */
 .pro-root .style-row {

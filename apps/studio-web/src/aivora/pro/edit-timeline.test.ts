@@ -6,11 +6,15 @@ import {
   cutTake,
   cutTimeAt,
   editClipLayout,
+  fitZoom,
   FOLDED_WIDTH,
   playheadX,
+  PX_PER_SECOND,
   pointAt,
+  rulerStep,
   shotReady,
   spacedTicks,
+  stepZoom,
   ticksOutsideFolds,
   timelineSeconds,
   xAtSeconds,
@@ -168,5 +172,39 @@ describe("clicking the timeline", () => {
     const tail = [shot("a", 4, true), shot("b", 2)];
     expect(cutTimeAt(cutSegments(tail), tail, 1, 0.5)).toBe(4);
     expect(cutTimeAt([], shown, 0, 0)).toBeNull();
+  });
+});
+
+describe("timeline zoom (5-3-08)", () => {
+  const made = (id: string, seconds: number) =>
+    ({ id, seconds, takes: [{ id: `${id}-t`, status: "done" }] }) as unknown as FilmShot;
+
+  it("keeps the starting layout and scales it in and out", () => {
+    const shots = [made("a", 4), made("b", 2)];
+    expect(editClipLayout(shots, false)).toEqual(editClipLayout(shots, false, PX_PER_SECOND));
+    const wide = editClipLayout(shots, false, 104);
+    expect(wide[0]!.width).toBe(4 * 104 - 2);
+    const narrow = editClipLayout(shots, false, 13);
+    expect(narrow[0]!.width).toBe(4 * 13 - 2);
+    expect(narrow[1]!.left).toBe(narrow[0]!.left + narrow[0]!.width + 2);
+  });
+
+  it("steps through the zoom levels and fits the whole cut", () => {
+    expect(stepZoom(52, 1)).toBe(104);
+    expect(stepZoom(52, -1)).toBe(26);
+    expect(stepZoom(208, 1)).toBe(208);
+    expect(stepZoom(6, -1)).toBe(6);
+    expect(stepZoom(40, 1)).toBe(52);
+    expect(fitZoom(100, 1024)).toBe(10);
+    expect(fitZoom(0, 1024)).toBe(PX_PER_SECOND);
+    expect(fitZoom(10000, 1024)).toBe(6);
+  });
+
+  it("spaces the ruler for the zoom", () => {
+    expect(rulerStep(60, 208)).toBe(1);
+    expect(rulerStep(60, 104)).toBe(2);
+    expect(rulerStep(60, 52)).toBe(5);
+    expect(rulerStep(200, 52)).toBe(10);
+    expect(rulerStep(600, 6)).toBe(30);
   });
 });

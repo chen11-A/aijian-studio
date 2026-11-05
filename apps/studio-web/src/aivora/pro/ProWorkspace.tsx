@@ -12,10 +12,14 @@ import {
   cutSegments,
   cutTimeAt,
   editClipLayout,
+  fitZoom,
   playheadX,
   pointAt,
+  PX_PER_SECOND,
+  rulerStep,
   shotReady,
   spacedTicks,
+  stepZoom,
   ticksOutsideFolds,
   timelineSeconds,
   xAtSeconds,
@@ -226,6 +230,7 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ["Ctrl+J", "打开或收起 AI 助手"],
   ["空格", "剪辑页播放 / 暂停"],
   ["I / O", "剪辑页设入点 / 出点"],
+  ["Ctrl+滚轮", "剪辑页时间线放大 / 缩小"],
   ["M", "预览静音 / 有声"],
   ["Esc", "关掉菜单和对话框"],
 ];
@@ -4937,9 +4942,10 @@ function missingByScene(film: FilmProject): { id: string; scene: string; shots: 
 function rulerTicks(
   shots: readonly FilmShot[],
   clips: readonly { left: number; width: number }[],
+  every?: number,
 ): { seconds: number; left: number }[] {
   const total = shots.reduce((sum, item) => sum + item.seconds, 0);
-  const step = total > 120 ? 10 : 5;
+  const step = every ?? (total > 120 ? 10 : 5);
   const ticks: { seconds: number; left: number }[] = [];
   for (let at = 0; at <= total; at += step) {
     let start = 0;
@@ -7407,11 +7413,14 @@ function PlanLane({
   film,
   shots,
   clips,
+  zoom = PX_PER_SECOND,
 }: {
   lane: "ambience" | "sfx";
   film: FilmProject;
   shots: FilmShot[];
   clips: { id: string; left: number; width: number }[];
+  /** Pixels a second (5-3-08). */
+  zoom?: number;
 }) {
   const files = film.audioClips.filter((item) => item.lane === lane && item.path);
   const name = lane === "ambience" ? "环境音" : "音效";
@@ -7447,7 +7456,7 @@ function PlanLane({
           className={`clip ${lane === "ambience" ? "amb" : "fx"}`}
           style={{
             left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-            width: Math.max(32, Math.round((item.durationSeconds || 2) * 52) - 2),
+            width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
           }}
         >
           <Wave clip={item} />
@@ -7572,7 +7581,57 @@ function EditPage({
   const [unfolded, setUnfolded] = useState(false);
   const readyCount = shots.filter(shotReady).length;
   const waitingCount = shots.length - readyCount;
-  const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
+  // 5-3-08: the timeline zooms; every position below comes from these boxes.
+  const [zoom, setZoom] = useState<number>(PX_PER_SECOND);
+  const clips = editClipLayout(shots, readyCount > 0 && !unfolded, zoom);
+  const zoomBy = (direction: 1 | -1) => setZoom((now) => stepZoom(now, direction));
+  const zoomToFit = () =>
+    setZoom(
+      fitZoom(
+        shots.reduce((sum, item) => sum + item.seconds, 0),
+        tracksRef.current?.clientWidth ?? 0,
+      ),
+    );
+  // Ctrl+wheel over the tracks zooms, as in other editors. React's wheel handler cannot stop
+  // the page from zooming, so this listens directly.
+  useEffect(() => {
+    const box = tracksRef.current;
+    if (!box) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setZoom((now) => stepZoom(now, event.deltaY < 0 ? 1 : -1));
+    };
+    box.addEventListener("wheel", onWheel, { passive: false });
+    return () => box.removeEventListener("wheel", onWheel);
+  }, []);
+  const zoomControls = (
+    <span className="tzoom" role="group" aria-label="时间线缩放">
+      <button
+        className="icon-btn sm"
+        type="button"
+        aria-label="缩小时间线"
+        title="缩小（Ctrl+滚轮）"
+        disabled={zoom <= 6}
+        onClick={() => zoomBy(-1)}
+      >
+        <Ic name="zout" size={14} />
+      </button>
+      <button
+        className="icon-btn sm"
+        type="button"
+        aria-label="放大时间线"
+        title="放大（Ctrl+滚轮）"
+        disabled={zoom >= 208}
+        onClick={() => zoomBy(1)}
+      >
+        <Ic name="zin" size={14} />
+      </button>
+      <button className="btn sm" type="button" title="整部片子放进时间线" onClick={zoomToFit}>
+        看全片
+      </button>
+    </span>
+  );
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
   const subtitleView = useMemo(
@@ -8020,6 +8079,7 @@ function EditPage({
               剪掉
             </button>
             <span className="sp" />
+            {zoomControls}
             {importMusic}
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
@@ -8061,6 +8121,7 @@ function EditPage({
                 {unfolded ? "收起没生成的" : `展开没生成的 ${waitingCount} 个`}
               </button>
             ) : null}
+            {zoomControls}
             {importMusic}
           </div>
         )}
@@ -8213,7 +8274,19 @@ function EditPage({
                   seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, to))));
                 }}
               >
-                {spacedTicks(ticksOutsideFolds(rulerTicks(shots, clips), clips)).map((tick) => (
+                {spacedTicks(
+                  ticksOutsideFolds(
+                    rulerTicks(
+                      shots,
+                      clips,
+                      rulerStep(
+                        shots.reduce((sum, item) => sum + item.seconds, 0),
+                        zoom,
+                      ),
+                    ),
+                    clips,
+                  ),
+                ).map((tick) => (
                   <span key={tick.seconds} style={{ left: tick.left }}>
                     {clock(tick.seconds)}
                   </span>
@@ -8289,7 +8362,7 @@ function EditPage({
                       data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
                       style={{
                         left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-                        width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
+                        width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
                       }}
                     >
                       <Wave clip={item} />
@@ -8297,8 +8370,8 @@ function EditPage({
                     </div>
                   ))}
               </div>
-              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} />
-              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} />
+              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} zoom={zoom} />
+              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} zoom={zoom} />
               <div className="lane" style={{ height: "var(--ha)" }}>
                 {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
