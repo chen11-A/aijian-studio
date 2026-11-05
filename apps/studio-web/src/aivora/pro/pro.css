@@ -3090,6 +3090,35 @@ body:has(.pro-root) {
 .pro-root .dialog.export {
   width: 620px;
 }
+/* 4B-U04: the cover step widens the export dialog to show both covers and the settings. */
+.pro-root .dialog.export.wide {
+  width: min(1100px, calc(100% - 32px));
+}
+.pro-root .cover-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: min(600px, calc(100vh - 170px));
+  min-height: 0;
+}
+.pro-root .cover-step > .nx-cover-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.pro-root .cover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pro-root .cover-sum {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .pro-root .dialog.export .field {
   padding: 0;
 }

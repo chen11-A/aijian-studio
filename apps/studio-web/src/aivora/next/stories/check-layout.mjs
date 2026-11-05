@@ -310,6 +310,15 @@ const pages = [
   // 4B-U03: the subtitle look on a landscape and a portrait frame.
   { name: "剪辑 字幕", button: "字幕", close: "预览" },
   { name: "导出对话框", button: "导出成片", close: "关闭" },
+  // 4B-U04: the cover step inside the export dialog, then back and closed.
+  {
+    name: "导出对话框 封面",
+    async open(page) {
+      await page.getByRole("button", { name: "导出成片" }).first().click();
+      await page.getByRole("button", { name: "改封面" }).click();
+    },
+    close: ["返回", "关闭"],
+  },
   { name: "任务中心", button: /后台生成/ },
 ];
 
@@ -342,7 +351,9 @@ async function checkPages(browser, size) {
     await page.waitForLoadState("networkidle");
     const picked = pickedPages.length === 0 || pickedPages.includes(step.name);
     if (!picked) {
-      if (step.close) await page.getByRole("button", { name: step.close }).first().click();
+      for (const name of [step.close ?? []].flat()) {
+      await page.getByRole("button", { name }).first().click();
+    }
       continue;
     }
     if (shots) {
@@ -360,7 +371,9 @@ async function checkPages(browser, size) {
       const acted = await step.act(page);
       failed += report(`页面 ${step.name} 菜单 ${size.width}×${size.height}`, acted, []);
     }
-    if (step.close) await page.getByRole("button", { name: step.close }).first().click();
+    for (const name of [step.close ?? []].flat()) {
+      await page.getByRole("button", { name }).first().click();
+    }
   }
   await page.close();
   return failed;

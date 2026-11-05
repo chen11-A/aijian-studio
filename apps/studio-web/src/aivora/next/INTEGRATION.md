@@ -477,6 +477,8 @@ subtitleStyleData(film, { value: selectedStyleOnScreen });
 
 ## 6. CoverEditor
 
+**4B-U04 已接（claude/work）**：导出对话框里加一行「封面」（「片名」· 第 1 集 · 标「AI 生成」）和「改封面」，点了对话框变宽、换成 CoverEditor，「返回」或「用这个封面」回到导出设置。改动写进作品的 `cover`（C6 `CoverInput` 的形状：`title`、`subtitle`、`aiMark`、`backgroundUrl`），没改过时从作品名、这一集、一张静帧开始，「AI 生成」默认打开；关掉时面板里写「部分平台要求标注 AI 生成，发布前请确认」。状态栏「已记下封面。」（界面自己的提示码 `COVER_SAVED`）。出封面图、导出时放进成片归 GPT（下面第 2、3 条），GPT 把 `cover` 加进 `FilmProject` 类型即可，读写作品时已经留得住。
+
 **放在哪**
 
 - 「导出成片」的第二步：检查完、选文件夹之前。也可以在作品菜单（:2662）里加「封面」。

@@ -3378,6 +3378,28 @@ it("picks a subtitle style on 剪辑 and keeps it on the work (4B-U03)", async (
   expect(screen.getByRole("button", { name: "播放" })).toBeInTheDocument();
 });
 
+it("edits the cover inside the export dialog, with 「AI 生成」 on by default (4B-U04)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  const dialog = () => screen.getByRole("dialog", { name: "导出成片" });
+  expect(within(dialog()).getByText(/标「AI 生成」/)).toBeInTheDocument();
+  fireEvent.click(within(dialog()).getByRole("button", { name: "改封面" }));
+  const mark = within(dialog()).getByRole("switch", { name: "「AI 生成」标识" });
+  expect(mark).toHaveAttribute("aria-checked", "true");
+  fireEvent.click(mark);
+  expect(within(dialog()).getByRole("status")).toHaveTextContent("部分平台要求标注 AI 生成");
+  fireEvent.change(within(dialog()).getByLabelText("片名"), { target: { value: "雨夜巷战·终" } });
+  fireEvent.click(within(dialog()).getByRole("button", { name: "用这个封面" }));
+  expect(await screen.findByText("已记下封面。")).toBeInTheDocument();
+  expect(within(dialog()).getByText(/「雨夜巷战·终」.*不标「AI 生成」/)).toBeInTheDocument();
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      (FilmProject & { cover?: { title: string; aiMark: boolean } }) | undefined;
+    expect(saved?.cover).toMatchObject({ title: "雨夜巷战·终", aiMark: false });
+  });
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();

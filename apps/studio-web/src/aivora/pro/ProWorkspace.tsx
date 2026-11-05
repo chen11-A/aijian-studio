@@ -135,7 +135,7 @@ import {
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
-import type { SubtitleStyleId, UiNotice } from "../film/contracts3j";
+import type { CoverInput, SubtitleStyleId, UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
@@ -172,6 +172,8 @@ import { SoundPanel, type Mood } from "../next/SoundPanel";
 import { soundPanelData } from "../next/adapters/soundPanel";
 import { SubtitleStyle } from "../next/SubtitleStyle";
 import { subtitleStyleData } from "../next/adapters/subtitleStyle";
+import { CoverEditor } from "../next/CoverEditor";
+import { coverEditorData } from "../next/adapters/coverEditor";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2956,6 +2958,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : account.state === "REAUTH_REQUIRED"
           ? "需要重新登录"
           : "未登录";
+  // 4B-U04: the cover step inside the export dialog.
+  const [coverOpen, setCoverOpen] = useState(false);
+  useEffect(() => {
+    if (!exportOpen) setCoverOpen(false);
+  }, [exportOpen]);
   // 4A-U11: 分镜, 单镜 and 剪辑 show the same assistant, with the same card for this scene.
   const sceneCard =
     roleCards[role]?.shots && roleCards[role]?.shots.every((item) => item.sceneId !== scene)
@@ -4048,137 +4055,197 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         ) : null}
         {exportOpen && (
           <div className="dialog-back">
-            <div className="dialog export" role="dialog" aria-label="导出成片">
-              <h2>导出成片</h2>
-              <div className="field">
-                <label>文件名</label>
-                <div className="input">
-                  {film
-                    ? filmFileName(film.seriesTitle || film.title, film.episodeTitle || "第1集")
-                    : "未命名"}
-                </div>
-              </div>
-              {canCropAspect && film ? (
-                <div className="field">
-                  <label htmlFor="export-aspect">比例</label>
-                  <select
-                    id="export-aspect"
-                    className="input"
-                    aria-label="比例"
-                    value={exportAspects}
-                    onChange={(event) =>
-                      setExportAspects(event.target.value as "work" | "other" | "both")
-                    }
-                  >
-                    <option value="work">
-                      {film.aspectRatio === "16:9"
-                        ? "横屏 16:9（作品的画幅）"
-                        : "竖屏 9:16（作品的画幅）"}
-                    </option>
-                    <option value="other">
-                      {film.aspectRatio === "16:9"
-                        ? "竖屏 9:16（从画面中间裁）"
-                        : "横屏 16:9（从画面中间裁）"}
-                    </option>
-                    <option value="both">两种都要</option>
-                  </select>
-                </div>
-              ) : null}
-              <div className="field">
-                <label htmlFor="export-dir">保存到</label>
-                <div className="pathrow">
-                  {/* The box shows a long path with its middle cut out; typing shows all of it. */}
-                  <div className="pathfield" data-layer title={exportDir}>
-                    <input
-                      id="export-dir"
-                      className="input"
-                      aria-label="导出文件夹"
-                      value={exportDir}
-                      placeholder="点「浏览」选一个文件夹"
-                      onChange={(event) => setExportDir(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        event.preventDefault();
-                        const path = event.currentTarget.value.trim();
-                        if (!path) return;
-                        setExportDir(path);
-                        void startExport(path);
-                      }}
-                    />
-                    {exportDir ? (
-                      <span className="pathshow" aria-hidden="true">
-                        {middlePath(exportDir)}
-                      </span>
-                    ) : null}
+            <div
+              className={coverOpen && film ? "dialog export wide" : "dialog export"}
+              role="dialog"
+              aria-label="导出成片"
+            >
+              <h2>{coverOpen && film ? "导出成片 · 封面" : "导出成片"}</h2>
+              {coverOpen && film ? (
+                // 4B-U04: the cover, a step inside the export dialog.
+                <div className="cover-step">
+                  {(() => {
+                    const data = coverEditorData(film, { mediaUrl: fileMediaUrl });
+                    const cover = coverOf(film, data.ok ? data.props : null);
+                    const keep = (next: Partial<CoverInput>) =>
+                      setFilm({ ...film, cover: { ...cover, ...next } } as FilmProject);
+                    return (
+                      <CoverEditor
+                        title={cover.title}
+                        subtitle={cover.subtitle}
+                        aiMark={cover.aiMark}
+                        backgroundUrl={cover.backgroundUrl || undefined}
+                        onTitleChange={(title) => keep({ title })}
+                        onSubtitleChange={(subtitle) => keep({ subtitle })}
+                        onAiMarkChange={(aiMark) => keep({ aiMark })}
+                        onSave={() => {
+                          keep({});
+                          setCoverOpen(false);
+                          setNotice({ code: "COVER_SAVED", text: "已记下封面。" });
+                        }}
+                      />
+                    );
+                  })()}
+                  <div className="acts">
+                    <button className="btn" type="button" onClick={() => setCoverOpen(false)}>
+                      返回
+                    </button>
                   </div>
-                  <button
-                    className="btn sm"
-                    type="button"
-                    onClick={() => {
-                      void window.aijian?.pickFilmFolder?.().then((dir) => {
-                        if (dir) setExportDir(dir);
-                      });
-                    }}
-                  >
-                    浏览
-                  </button>
                 </div>
-              </div>
-              <p className="export-line" data-testid="export-summary">
-                {film ? exportLine(film) : "还没有作品。"}
-              </p>
-              {film && missingByScene(film).length > 0 ? (
-                <details className="missing">
-                  <summary>按场看还没生成的镜头</summary>
-                  <ul>
-                    {missingByScene(film).map((row) => (
-                      <li key={row.id}>
-                        <b>{row.scene}</b>
-                        <span>{row.shots}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-              {partialExport && partialExport.length > 0 ? (
-                <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
-              ) : null}
-              <div className="acts">
-                <button className="btn" onClick={() => setExportOpen(false)}>
-                  关闭
-                </button>
-                {exportFile ? (
-                  <>
-                    <button
-                      className="btn"
-                      title="打开导出的文件夹"
-                      onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
-                    >
-                      打开文件夹
+              ) : (
+                <>
+                  <div className="field">
+                    <label>文件名</label>
+                    <div className="input">
+                      {film
+                        ? filmFileName(film.seriesTitle || film.title, film.episodeTitle || "第1集")
+                        : "未命名"}
+                    </div>
+                  </div>
+                  {canCropAspect && film ? (
+                    <div className="field">
+                      <label htmlFor="export-aspect">比例</label>
+                      <select
+                        id="export-aspect"
+                        className="input"
+                        aria-label="比例"
+                        value={exportAspects}
+                        onChange={(event) =>
+                          setExportAspects(event.target.value as "work" | "other" | "both")
+                        }
+                      >
+                        <option value="work">
+                          {film.aspectRatio === "16:9"
+                            ? "横屏 16:9（作品的画幅）"
+                            : "竖屏 9:16（作品的画幅）"}
+                        </option>
+                        <option value="other">
+                          {film.aspectRatio === "16:9"
+                            ? "竖屏 9:16（从画面中间裁）"
+                            : "横屏 16:9（从画面中间裁）"}
+                        </option>
+                        <option value="both">两种都要</option>
+                      </select>
+                    </div>
+                  ) : null}
+                  {film ? (
+                    <div className="field">
+                      <label>封面</label>
+                      <div className="cover-row">
+                        {(() => {
+                          const data = coverEditorData(film, { mediaUrl: fileMediaUrl });
+                          const cover = coverOf(film, data.ok ? data.props : null);
+                          return (
+                            <span className="cover-sum">
+                              {cover.title ? `「${cover.title}」` : "还没有片名"}
+                              {cover.subtitle ? ` · ${cover.subtitle}` : ""}
+                              {cover.aiMark ? " · 标「AI 生成」" : " · 不标「AI 生成」"}
+                            </span>
+                          );
+                        })()}
+                        <button className="btn sm" type="button" onClick={() => setCoverOpen(true)}>
+                          改封面
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="field">
+                    <label htmlFor="export-dir">保存到</label>
+                    <div className="pathrow">
+                      {/* The box shows a long path with its middle cut out; typing shows all of it. */}
+                      <div className="pathfield" data-layer title={exportDir}>
+                        <input
+                          id="export-dir"
+                          className="input"
+                          aria-label="导出文件夹"
+                          value={exportDir}
+                          placeholder="点「浏览」选一个文件夹"
+                          onChange={(event) => setExportDir(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter") return;
+                            event.preventDefault();
+                            const path = event.currentTarget.value.trim();
+                            if (!path) return;
+                            setExportDir(path);
+                            void startExport(path);
+                          }}
+                        />
+                        {exportDir ? (
+                          <span className="pathshow" aria-hidden="true">
+                            {middlePath(exportDir)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <button
+                        className="btn sm"
+                        type="button"
+                        onClick={() => {
+                          void window.aijian?.pickFilmFolder?.().then((dir) => {
+                            if (dir) setExportDir(dir);
+                          });
+                        }}
+                      >
+                        浏览
+                      </button>
+                    </div>
+                  </div>
+                  <p className="export-line" data-testid="export-summary">
+                    {film ? exportLine(film) : "还没有作品。"}
+                  </p>
+                  {film && missingByScene(film).length > 0 ? (
+                    <details className="missing">
+                      <summary>按场看还没生成的镜头</summary>
+                      <ul>
+                        {missingByScene(film).map((row) => (
+                          <li key={row.id}>
+                            <b>{row.scene}</b>
+                            <span>{row.shots}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                  {partialExport && partialExport.length > 0 ? (
+                    <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
+                  ) : null}
+                  <div className="acts">
+                    <button className="btn" onClick={() => setExportOpen(false)}>
+                      关闭
                     </button>
+                    {exportFile ? (
+                      <>
+                        <button
+                          className="btn"
+                          title="打开导出的文件夹"
+                          onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
+                        >
+                          打开文件夹
+                        </button>
+                        <button
+                          className="btn"
+                          title="播放导出的文件"
+                          onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
+                        >
+                          播放
+                        </button>
+                      </>
+                    ) : null}
+                    <span className="sp" />
+                    {partialExport && partialExport.length > 0 && (
+                      <button className="btn" onClick={() => void startExport(exportDir, true)}>
+                        只导出已生成的
+                      </button>
+                    )}
                     <button
-                      className="btn"
-                      title="播放导出的文件"
-                      onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
+                      className="btn primary"
+                      disabled={exporting}
+                      onClick={() => void startExport()}
                     >
-                      播放
+                      {exporting ? "正在导出" : "开始导出"}
                     </button>
-                  </>
-                ) : null}
-                <span className="sp" />
-                {partialExport && partialExport.length > 0 && (
-                  <button className="btn" onClick={() => void startExport(exportDir, true)}>
-                    只导出已生成的
-                  </button>
-                )}
-                <button
-                  className="btn primary"
-                  disabled={exporting}
-                  onClick={() => void startExport()}
-                >
-                  {exporting ? "正在导出" : "开始导出"}
-                </button>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -4479,6 +4546,23 @@ function Assistant({
       </div>
     </>
   );
+}
+
+/**
+ * 4B-U04: the cover as the work keeps it (`cover`, GPT's C6 shape), or what it starts from: the
+ * work's name, the episode, a still behind it, and the 「AI 生成」 mark on.
+ */
+function coverOf(
+  film: FilmProject,
+  start: { title: string; subtitle?: string; backgroundUrl?: string } | null,
+): CoverInput {
+  const kept = (film as FilmProject & { cover?: Partial<CoverInput> }).cover;
+  return {
+    title: kept?.title ?? start?.title ?? "",
+    subtitle: kept?.subtitle ?? start?.subtitle ?? "",
+    aiMark: kept?.aiMark ?? true,
+    backgroundUrl: kept?.backgroundUrl || start?.backgroundUrl || "",
+  };
 }
 
 /** The export summary in one line: 「共 3 场 · 28 个镜头 · 约 2 分钟 · 还有 27 个镜头没做好」. */
