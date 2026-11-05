@@ -1,7 +1,7 @@
 import { mergeArtDesign } from "../film/art-design";
 import { constrainVisualPrompt, onScreenCharacters } from "../film/on-screen-characters";
 import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
-import { withLocationLayout } from "../film/location-reference";
+import { locationReference, withLocationLayout } from "../film/location-reference";
 import { setFilmStyle, withStyleBible } from "../film/style-bible";
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
@@ -262,7 +262,8 @@ export async function requestShotStill(
   const visible = visualFilm.characters.filter((person) =>
     person.portraits.some((portrait) => portrait.url),
   );
-  if (visible.length > 5)
+  const portraitLimit = locationReference(visualFilm, shot) ? 4 : 5;
+  if (visible.length > portraitLimit)
     return {
       url: "",
       reason: NOTICE_TEXT.STILL_CAST_LIMIT,
@@ -514,6 +515,19 @@ export async function assembleCurrentFilm(
 
 /** Status copy is one canonical sentence; provider/selection diagnostics stay separate. */
 export function stillFailureNotice(error: unknown): UiNotice {
+  if (
+    error instanceof Error &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    error.code.startsWith("LOCATION_")
+  ) {
+    return {
+      code: error.code,
+      text:
+        NOTICE_TEXT[error.code as keyof typeof NOTICE_TEXT] ??
+        NOTICE_TEXT.LOCATION_IMAGE_INCOMPLETE,
+    };
+  }
   const reason = error instanceof Error ? error.message : "";
   if (/拒绝|未获准/u.test(reason))
     return { code: "STILL_REJECTED", text: NOTICE_TEXT.STILL_REJECTED };

@@ -769,3 +769,13 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 - B09（`9b3af94`）：导演策略、审片和视频任务准备进一步迁入actions，工作台现有回调名称与职责保留。合并Claude界面时保留这些函数调用，不复制3j旧函数覆盖。
 - B11（`05c59c74ce6a15875a0c39191e8bfb49496d8984`）：`actions/editor-request-context.ts`的`globalEditorRequest(base,selection,request)`已接实际手动编剧与美术请求。选择取请求前快照，仅白名单文本；编剧引用场ID而不重传正文，美术附选中内容但仍处理全项目。无效选择不猜第一场。其他角色原有明确当前场/镜头输入保留，自动流水线不读取UI选择。
 - B11（`cdfc2f5`）：提示词保存完成后再次验证作品版本及原页面选择；迟到结果不在新页面提示成功，已授权的保存仍继续。按页撤销及固定建议的before/after数据已提供，统一差异展示仍由Claude接线。
+
+### 3JR-B08 场景参考实际入口（已提供）
+
+`pro/actions/scene-references.ts` 的 `prepareShotSceneReferences(base, shots, host)`
+由单镜生成、四张候选和视频生成的业务处理函数调用。只准备所选镜头所属场次，
+即使角色提取没有给出 locations，也按真实 sceneId 建立场景描述记录；记录本身不算图片完成。
+场景记录先存盘，再生成空镜，再立即保存图片。已有且输入未变化的引用直接复用。
+单张失败重试一次，仍失败阻止依赖的镜头生成，任务落 failed；不会伪造引用。
+`LOCATION_SOURCE_REQUIRED` 表示场次缺少环境原文或地点，兜底短句为“这一场还没有可用的环境描述。”
+Claude 可为该 code 定最终文案。未运行真实会员生成，提供的是本地模拟回归证据。

@@ -1,4 +1,8 @@
-import { locationImageCurrent } from "../film/location-reference";
+import {
+  locationAssociationUnique,
+  locationImageCurrent,
+  sceneLocationTargets,
+} from "../film/location-reference";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import type { PipelineProgress, UiNotice } from "../film/contracts3j";
 import { detectDirectorCoverage, shotLines } from "../film/director-continuity";
@@ -176,13 +180,7 @@ export function filmPipelineTargets(film: FilmProject, step: ProductionStepId): 
             ({ view }) => `${person.id}@${view}`,
           ),
         ),
-        ...film.locations
-          .filter(
-            (location) =>
-              location.name.trim() &&
-              film.scenes.some((scene) => scene.where.trim() === location.name.trim()),
-          )
-          .map((location) => `location:${location.id}`),
+        ...sceneLocationTargets(film).map((location) => `location:${location.id}`),
       ];
     case "director":
       return film.scenes.map((scene) => scene.id);
@@ -513,8 +511,7 @@ async function executeMedia(
         return Boolean(
           location &&
           locationImageCurrent(value, location) &&
-          value.locations.filter((item) => item.name.trim() === location.name.trim()).length ===
-            1 &&
+          locationAssociationUnique(value, location) &&
           location.referenceStyleRevision === (value.styleRevision ?? 0) &&
           (await validMedia(location.referenceImage!, "image")),
         );

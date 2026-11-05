@@ -99,6 +99,8 @@ export type FilmJob = {
 };
 
 export type FilmLocation = {
+  sceneId?: string;
+  referenceSceneSignature?: string;
   userFields?: string[];
   artFields?: { prompt?: string; ambience?: string; layout?: string };
   layout?: string;

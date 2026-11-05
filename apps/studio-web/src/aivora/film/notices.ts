@@ -3,6 +3,7 @@ import type { UiNotice } from "./contracts3j";
 /** Stable event codes and short fallback copy. Details carry names, paths, counts and reasons. */
 const LEGACY_NOTICE_TEXT = {
   NOTICE_CLEAR: "",
+  LOCATION_SOURCE_REQUIRED: "这一场还没有可用的环境描述。",
   BILLING_PROJECT_REQUIRED: "生成准备尚未完成，请重试。",
   SHOT_STILL_INPUT_CHANGED: "镜头内容已改，旧画面没有写入。",
   STILL_CANDIDATE_PRESERVED: "画面已加入候选，保留了所选首帧。",

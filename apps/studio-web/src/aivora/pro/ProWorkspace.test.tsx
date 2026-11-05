@@ -197,7 +197,10 @@ describe("professional workspace", () => {
         video.mock.calls.at(-1) as unknown as [string, { shots: { still: string }[] }]
       )[1];
       expect(body.shots[0]!.still).toBe("/tmp/last-frame.png");
-      expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+      expect(window.aijian!.generateFilmStill).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(vi.mocked(window.aijian!.generateFilmStill!).mock.calls[0])).toContain(
+        "空镜，没有人物",
+      );
       await waitFor(() => {
         const saved = vi
           .mocked(window.aijian!.writeFilmProject!)
@@ -1038,6 +1041,7 @@ describe("professional workspace", () => {
       ...window.aijian!,
       generateFilmStill: vi
         .fn()
+        .mockResolvedValueOnce({ path: "/tmp/scene.png", reason: "" })
         .mockResolvedValueOnce({ path: "/tmp/a.png", reason: "" })
         .mockResolvedValueOnce({ path: "", reason: "模型拒绝了这一张。" })
         .mockRejectedValueOnce(new Error("down"))
@@ -3936,3 +3940,45 @@ it.each(["writer", "art"] as const)(
     }
   },
 );
+
+it("3JR-B08 first still click saves a scene reference before generating the shot", async () => {
+  installDesktop();
+  const bridge = window.aijian!;
+  const generate = vi.mocked(bridge.generateFilmStill!);
+  generate.mockImplementation(async () => {
+    if (generate.mock.calls.length === 1) {
+      return { path: "/tmp/scene-reference.png", reason: "" };
+    }
+
+    return { path: "/tmp/shot-reference.png", reason: "" };
+  });
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  await screen.findByText(/画面出好了。/);
+  expect(generate).toHaveBeenCalledTimes(2);
+  const reference = "aivora-media://local/?path=%2Ftmp%2Fscene-reference.png";
+  expect(generate.mock.calls[1]![3]).toContain(reference);
+  expect(
+    vi
+      .mocked(bridge.writeFilmProject!)
+      .mock.calls.some(([film]) =>
+        (film as FilmProject).locations.some((place) => place.referenceImage === reference),
+      ),
+  ).toBe(true);
+  moreAction("重新生成画面");
+  await waitFor(() => expect(generate).toHaveBeenCalledTimes(3));
+});
+
+it("3JR-B08 failed scene reference stops the first-click shot request", async () => {
+  installDesktop();
+  const generate = vi.mocked(window.aijian!.generateFilmStill!);
+  generate.mockResolvedValue({ path: "", reason: "失败" });
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  await waitFor(() => expect(generate).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole("button", { name: "生成画面" })).toBeEnabled());
+  for (const call of generate.mock.calls) expect(call[1]).toContain("空镜，没有人物");
+  expect(screen.queryByRole("button", { name: "重新生成画面" })).not.toBeInTheDocument();
+});

@@ -1450,16 +1450,14 @@ export function firstFrameReferences(film: FilmProject, shot: FilmShot): string[
       .sort((a, b) => Number(b.view === "正面") - Number(a.view === "正面")),
   );
   const location = locationReference(film, shot);
-  return [
+  const peopleUrls = [
     ...new Set(
       [0, 1, 2, 3]
         .flatMap((index) => portraits.map((views) => views[index]?.url ?? ""))
-        .filter(Boolean),
+        .filter((url) => Boolean(url) && url !== location?.url),
     ),
-    ...(location ? [location.url] : []),
-  ]
-    .filter((url, index, all) => all.indexOf(url) === index)
-    .slice(0, 5);
+  ].slice(0, location ? 4 : 5);
+  return [...peopleUrls, ...(location ? [location.url] : [])];
 }
 
 export function shotReference(
@@ -1486,14 +1484,15 @@ export function shotReference(
   const pinned = picked;
   const seen = new Set<string>(pinned ? [pinned] : []);
   const references: { url: string; who: string; kind?: "location" }[] = [];
+  const location = locationReference(film, shot);
+  const reserveLocation = location && !seen.has(location.url);
   for (const item of ranked) {
-    if (seen.has(item.url)) continue;
+    if (seen.has(item.url) || item.url === location?.url) continue;
     seen.add(item.url);
     references.push({ url: item.url.slice(0, 500), who: item.who });
-    if (references.length === 13) break;
+    if (references.length === (reserveLocation ? 12 : 13)) break;
   }
-  const location = locationReference(film, shot);
-  if (location && references.length < 13 && !seen.has(location.url)) references.push(location);
+  if (location && reserveLocation) references.push(location);
   return { still: pinned.slice(0, 500), references };
 }
 

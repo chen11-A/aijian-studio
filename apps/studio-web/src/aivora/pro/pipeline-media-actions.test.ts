@@ -8,6 +8,7 @@ import {
 } from "./pipeline-media-actions";
 import { requestShotStill, type requestStill } from "./workflow";
 import type * as Workflow from "./workflow";
+import { sceneLocationTargets } from "../film/location-reference";
 
 vi.mock("./workflow", async (original) => ({
   ...(await original<typeof Workflow>()),
@@ -31,6 +32,25 @@ function fixture() {
   };
   return { film, context };
 }
+
+it("creates and persists a missing scene location before its actual pipeline image request", async () => {
+  const { film, context } = fixture();
+  film.locations = [];
+  const planned = sceneLocationTargets(film)[1]!;
+  const generate = vi.fn(async () => {
+    expect(context.current().locations).toHaveLength(1);
+    expect(context.current().locations[0]!.sceneId).toBe(planned.sceneId);
+    return { url: "/media/scene-reference.png", reason: "" };
+  });
+  const result = await makePipelinePortraits(film, `location:${planned.id}`, context, generate);
+  expect(result).toMatchObject({ status: "done", code: "LOCATION_IMAGE_DONE" });
+  expect(generate).toHaveBeenCalledOnce();
+  expect(context.current().locations[0]).toMatchObject({
+    id: planned.id,
+    sceneId: planned.sceneId,
+    referenceImage: "/media/scene-reference.png",
+  });
+});
 
 it("persists exactly the requested portrait angle before completing its target", async () => {
   const { film, context } = fixture();

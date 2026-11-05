@@ -1,3 +1,4 @@
+import { prepareShotSceneReferences } from "./actions/scene-references";
 import {
   generationPreflight,
   prepareGeneration,
@@ -2407,6 +2408,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (film) publishFilmJobs(film);
   }, [film]);
 
+  async function prepareSceneMedia(
+    base: FilmProject,
+    shots: FilmShot[],
+    valid: () => boolean,
+    pipeline?: PipelineGenerationHost,
+  ) {
+    if (!window.aijian?.generateFilmStill) throw new Error(NOTICE_TEXT.DESKTOP_REQUIRED);
+    return prepareShotSceneReferences(base, shots, {
+      current: () => filmRef.current,
+      valid,
+      apply: async (next) => {
+        if (!valid()) throw new Error("WORK_STALE");
+        if (pipeline) await pipeline.apply(next);
+        else {
+          applyLive(next);
+          const live = filmRef.current;
+          if (!live || !(await saveFilm(live)))
+            throw Object.assign(new Error(NOTICE_TEXT.LOCATION_IMAGE_INCOMPLETE), {
+              code: "LOCATION_SAVE_FAILED",
+            });
+        }
+      },
+    });
+  }
+
   async function generateFourStills() {
     const current = shownShots[shot];
     const base = filmRef.current;
@@ -2428,12 +2454,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
     const release = workOwners.begin(base.id, `still:${current.id}`, "正在生成候选画面");
     try {
-      const result = await makeFourStills(base, current, {
-        current: () => filmRef.current,
-        valid,
-        apply: applyLive,
-      });
+      const ready = await prepareSceneMedia(base, [current], valid);
+      const result = await makeFourStills(
+        ready,
+        ready.shots.find((row) => row.id === current.id) ?? current,
+        {
+          current: () => filmRef.current,
+          valid,
+          apply: applyLive,
+        },
+      );
       if (valid()) setNotice(result.notice);
+    } catch (error) {
+      if (valid()) emitNotice(stillFailureNotice(error));
     } finally {
       release();
     }
@@ -2473,11 +2506,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       () => filmRef.current?.id ?? "",
     );
     try {
-      const result = await generateShotStill(base, current, {
-        current: () => filmRef.current,
-        valid,
-        apply: applyLive,
-      });
+      const ready = await prepareSceneMedia(base, [current], valid);
+      const result = await generateShotStill(
+        ready,
+        ready.shots.find((row) => row.id === current.id) ?? current,
+        {
+          current: () => filmRef.current,
+          valid,
+          apply: applyLive,
+        },
+      );
       if (valid()) setNotice(result.notice);
     } catch (error) {
       if (valid()) {
@@ -2597,6 +2635,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const groups = prepared.groups;
     await applyGeneration(next);
     try {
+      await prepareSceneMedia(next, selected, valid, pipeline);
       await runPreparedGeneration(prepared, {
         current: () => filmRef.current,
         valid,

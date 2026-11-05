@@ -1,4 +1,8 @@
-import { makeLocationReferences } from "../film/location-reference";
+import {
+  ensureSceneReferences,
+  makeLocationReferences,
+  sceneLocationTargets,
+} from "../film/location-reference";
 import { withStyleBible } from "../film/style-bible";
 import type { ProductionResult } from "../film/production-pipeline";
 import type { FilmProject } from "../film/project";
@@ -25,18 +29,22 @@ export async function makePipelinePortraits(
 ): Promise<MediaResult> {
   if (targetId.startsWith("location:")) {
     const locationId = targetId.slice("location:".length);
-    if (!film.locations.some((item) => item.id === locationId))
-      return { status: "blocked", code: "LOCATION_TARGET_INVALID" };
+    const planned = sceneLocationTargets(film).find((item) => item.id === locationId);
+    const stored = film.locations.find((item) => item.id === locationId);
+    if (!planned && !stored) return { status: "blocked", code: "LOCATION_TARGET_INVALID" };
     if (!valid(context)) return stale();
-    const result = await makeLocationReferences({
+    const host = {
       base: film,
       locationIds: [locationId],
       current: context.current,
       isCurrent: () => valid(context),
       apply: context.commitPartial,
-      generate: (prompt, references) =>
+      generate: (prompt: string, references: string[]) =>
         generate(film.seriesId, withStyleBible(prompt, film.styleZh), film.aspectRatio, references),
-    });
+    };
+    const result = planned?.sceneId
+      ? await ensureSceneReferences({ ...host, sceneIds: [planned.sceneId] })
+      : await makeLocationReferences(host);
     if (!valid(context) || result.cancelled) return stale();
     return {
       film: context.current(),

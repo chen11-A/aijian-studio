@@ -35,6 +35,18 @@ function fixture(): FilmProject {
     .slice(0, 1)
     .map((scene) => ({ ...scene, text: "雨落。", title: "书店", tags: [] }));
   film.sourceText = "雨落。";
+  // These orchestration fixtures begin with their prerequisite scene image ready.
+  // Missing-location planning is exercised separately below.
+  film.locations = [
+    {
+      id: "fixture-place",
+      name: film.scenes[0]!.where,
+      prompt: "",
+      ambience: "",
+      referenceImage: "/media/location.png",
+      referenceStyleRevision: film.styleRevision ?? 0,
+    },
+  ];
   film.shots = film.shots.slice(0, 1).map((shot) => ({
     ...shot,
     sceneId: film.scenes[0]!.id,
@@ -159,11 +171,12 @@ describe("film pipeline controller", () => {
     });
     expect(filmPipelineTargets(film, "writer")).toEqual(["script", "cast"]);
     expect(filmPipelineTargets(film, "art")).toEqual(["art"]);
-    expect(filmPipelineTargets(film, "portraits")).toEqual(
-      film.characters.flatMap((person) =>
+    expect(filmPipelineTargets(film, "portraits")).toEqual([
+      ...film.characters.flatMap((person) =>
         ["正面", "侧面", "背面", "脸部"].map((view) => `${person.id}@${view}`),
       ),
-    );
+      "location:fixture-place",
+    ]);
     expect(filmPipelineTargets(film, "director")).toEqual(film.scenes.map((scene) => scene.id));
     expect(filmPipelineTargets(film, "action")).toEqual(["second"]);
     expect(filmPipelineTargets(film, "performance")).toEqual(["second"]);
@@ -812,7 +825,7 @@ it("reuses verified location images but rejects stale styles and false success",
   }
 });
 
-it("does not queue empty, unused or partially matching location names", () => {
+it("plans a dedicated scene target instead of borrowing empty, unused or partially matching locations", () => {
   const film = fixture();
   film.scenes[0]!.where = "旧书店";
   film.locations = [
@@ -822,5 +835,5 @@ it("does not queue empty, unused or partially matching location names", () => {
   ];
   expect(
     filmPipelineTargets(film, "portraits").filter((target) => target.startsWith("location:")),
-  ).toEqual([]);
+  ).toEqual([`location:scene-location-${encodeURIComponent(film.scenes[0]!.id)}`]);
 });
