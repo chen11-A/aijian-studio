@@ -447,7 +447,10 @@ describe("professional workspace", () => {
     expect(screen.getByTestId("batch-estimate").textContent).toContain("记在 Grok 会员额度里");
     fireEvent.click(screen.getByRole("button", { name: "先不生成" }));
     fireEvent.click(screen.getByRole("button", { name: "单镜" }));
-    expect(screen.getByTestId("generation-estimate").textContent).toContain("将生成");
+    // 4A-U12: one video of the selected length, and how it is paid for.
+    expect(screen.getByTestId("generation-estimate").textContent).toMatch(
+      /^1 段 \d+ 秒的视频 · 用 Grok 会员额度，不另外收费$/,
+    );
     fireEvent.click(
       screen
         .getAllByRole("button", { name: /剪辑/ })
@@ -3308,6 +3311,24 @@ it("keeps the assistant in one place and shows a suggestion as a change (4A-U11)
   // 单镜 was left open above; the storyboard is one step back.
   fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
   expect(document.querySelectorAll(".pb.grid .card")).toHaveLength(6);
+});
+
+it("says plainly on 单镜 what one click makes, with the long text folded (4A-U12)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  const estimate = () => screen.getByTestId("generation-estimate").textContent;
+  fireEvent.click(screen.getAllByRole("button", { name: "2 秒" })[0]!);
+  expect(estimate()).toBe("1 段 2 秒的视频 · 用 Grok 会员额度，不另外收费");
+  fireEvent.click(screen.getByRole("button", { name: "2" }));
+  expect(estimate()).toBe("2 段 2 秒的视频 · 用 Grok 会员额度，不另外收费");
+  expect(screen.getAllByText("不另外收费", { exact: false })).toHaveLength(1);
+  // The whole text the AI gets stays folded; the note about it is gray, not orange-red.
+  const full = screen.getByText("看 AI 会收到的完整说明").closest("details");
+  expect(full).not.toHaveAttribute("open");
+  expect(screen.getByText("包括这一镜的画面和人物外貌")).not.toHaveClass("role-a");
+  expect(document.querySelectorAll(".shotrow").length).toBeGreaterThan(0);
 });
 
 it("gives both sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {

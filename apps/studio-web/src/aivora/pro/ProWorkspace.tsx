@@ -167,6 +167,7 @@ import { exportLead } from "../next/adapters/primaryAction";
 import type { SuggestionItem } from "../next/adapters/suggestionDiff";
 import { SuggestionCard } from "../next/SuggestionCard";
 import { useAssistantKey } from "../next/wiring/assistantKey";
+import { videoLine } from "../next/shot";
 import {
   AGE_BANDS,
   GENDERS,
@@ -6691,12 +6692,13 @@ function GeneratePage({
               <div className="sec-t" style={{ marginTop: 12 }}>
                 画面描述
                 <span className="sp" />
-                <span className="from role-a">包括这一镜的画面和人物外貌</span>
+                {/* 4A-U12: a plain note in gray; orange-red is kept for things to fix. */}
+                <span className="from">包括这一镜的画面和人物外貌</span>
               </div>
               <textarea
                 className="area"
                 aria-label="画面描述"
-                style={{ height: 74 }}
+                style={{ height: 74, width: "100%" }}
                 value={current?.picture ?? ""}
                 onChange={(event) => {
                   if (!current) return;
@@ -6782,15 +6784,14 @@ function GeneratePage({
                 <Ic name="spark" size={14} />
                 <span>Grok 会员</span>
                 <small title={GENERATE_MODEL}>成片</small>
-                <span className="sp" />
-                <small>不另外收费</small>
               </div>
               <button className={quiet ? "btn block" : "btn primary block"} onClick={onCreate}>
                 <Ic name="video" size={16} />
                 生成 {versions} 个版本
               </button>
+              {/* 4A-U12: what one click makes, from the length that is selected. */}
               <div className="note" data-testid="generation-estimate">
-                {generationEstimate(1, versions, duration)}
+                {videoLine(versions, current?.seconds ?? duration)}
               </div>
             </div>
           </>

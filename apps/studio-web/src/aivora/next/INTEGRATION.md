@@ -695,6 +695,13 @@ onUndo    // 把刚放进去的那一次拿掉：gpt/work-4a 上是 history.undo
 - `fixAction` 状态现在没人读，只留 setter（`const [, setFixAction]`），`runAction` 不用改。
 - 要 GPT 提供（4A-B11 ③）：按当前页面分派的撤销。`gpt/work-4a` 的 4b3cc81 已经有了（`createEditorPageHistory()` 的 `undo / redo / canUndo / canRedo`，按 `{ projectId, page }` 分开记，page 是 script / cast / board / edit），顶栏这一组整合后调它，`page` 用当前页签（单镜页算 board）。整合以前顶栏接现在的 `undoEdit` / `redoEdit`（撤的是整部作品的改动，剧本和时间线的改动也在里面），所以拿掉另外两组不会少功能。
 
+## 单镜页的说明文字（4A-U12）
+
+- 拼好的整段说明默认收起，写「看 AI 会收到的完整说明」（3JR-U05 已做，这里核对过）。
+- 「包括这一镜的画面和人物外貌」改灰色（去掉 `role-a`），橙红只留给要处理的问题。
+- 生成按钮下面那句改成 `next/shot.ts` 的 `videoLine(versions, current.seconds)`：「1 段 2 秒的视频 · 用 Grok 会员额度，不另外收费」。以前用的是 `generationEstimate(1, versions, duration)`，`duration` 是上一次点的时长，换镜头以后会和这一镜选中的秒数对不上（选 2 秒写「约 3 秒」）。`generationEstimate` 在 GPT 的确认和提示里照旧用，没动。上面「Grok 会员 · 成片」那一行去掉了重复的「不另外收费」。
+- 左边镜头卡片撑满列宽（`.shotrow` 宽 100%），画面描述框也撑满。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

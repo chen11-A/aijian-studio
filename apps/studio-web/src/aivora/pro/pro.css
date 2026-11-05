@@ -1940,7 +1940,10 @@ body:has(.pro-root) {
   grid-column: 1/-1;
   width: auto;
 }
+/* 4A-U12: each shot card on 单镜 fills the column. */
 .pro-root .shotrow {
+  width: 100%;
+  text-align: left;
   display: grid;
   grid-template-columns: 72px 1fr;
   gap: 8px;
