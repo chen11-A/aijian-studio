@@ -3197,3 +3197,24 @@ body:has(.pro-root) {
   color: var(--text);
   font-weight: 500;
 }
+
+/* 4A-U07: a portrait (9:16) work. The previews take its real shape; thumbnails keep their
+   tiles and show the whole frame inside them instead of cutting it. */
+.pro-root[data-aspect="9:16"] .bigprev .frame,
+.pro-root[data-aspect="9:16"] .screen .frame {
+  width: min(100cqw, calc(100cqh * 9 / 16)) !important;
+  aspect-ratio: 9/16;
+}
+.pro-root[data-aspect="9:16"] .prev {
+  aspect-ratio: 9/16;
+  width: min(calc(100% - 28px), 180px);
+  margin-inline: auto;
+}
+.pro-root[data-aspect="9:16"] .thumb {
+  background-size: contain;
+}
+.pro-root[data-aspect="9:16"] .thumb video,
+.pro-root[data-aspect="9:16"] .thumb .still {
+  object-fit: contain;
+  background-size: contain;
+}
