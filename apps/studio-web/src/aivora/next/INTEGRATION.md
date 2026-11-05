@@ -733,6 +733,12 @@ waveform?: number[];
 - 要 GPT 接（4B-B09）：`startExport` / `exportFilmTask` 读 `exportQuality`、`exportSubs`、`film.subtitleStyle`、`film.cover`；能给进度时传一个 0–1 的值，界面把来回走的进度条换成真的；`gpt/work-4a` 的导出带 `signal`，接上以后在进度旁边加「取消导出」（调任务的 abort，等于任务中心里「停止」这一条）。
 - 4B-U05 导出前检查：`ExportCheck` 组件和适配函数都在，等 GPT 合入 aivora-qc 并加 `checkFilmExport`（第 2 节第 1 条）。接上以后：点「导出」先检查，有「必须修」时底部唯一的主按钮变成「去修 N 处」（`onFix` 按第 2 节的表跳过去），没有时是「导出」；「一键修好」里会改时间线的修复，先记一次历史再改，状态栏给「撤销」（同 4A-U11 的 `APPLIED_CODES` 做法，加一个提示码）。
 
+## 口型标记（4B-U07，读 C11）
+
+- 分镜卡标题行和剪辑时间线视频片段右下角：正在用的那一版（`selectedTakeId`，没选就第一个做好的，和 `chosenExport` 一样）的 `take.lipSync` 是 done 或 pending 时写「口型」（绿），failed 时写「口型未对上」（橙），悬停「口型未对上，可重试。现在用的是没有口型的版本加单独配音。」。`next/adapters/lipSync.ts` 的 `lipSyncTag`，`lipSync` 是 C11 的对象 `{ lipSync }` 或者直接一个词都认。
+- 旁白、画外音、远景、背影不走口型流程（GPT 4B-B06 判断 `lipSyncEligible`），这些镜头的版本没有口型状态，所以什么都不显示，界面不另外判断。
+- 「可重试」现在走单镜面板的重新生成（4A-U10 唯一入口）。GPT 如果给口型单独的重试（只重新对口型、不重出视频），给一个 `retryLipSync(shotId, takeId)`，界面在悬停说明旁边加「重试口型」。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

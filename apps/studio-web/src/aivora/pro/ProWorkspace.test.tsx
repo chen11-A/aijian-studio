@@ -3425,6 +3425,49 @@ it("sets aspect, quality and subtitles in the export dialog, with one 导出 but
   expect(dialog.queryByRole("button", { name: "开始导出" })).toBeNull();
 });
 
+it("marks lip sync on the card and the clip, and a failed one as 口型未对上 (4B-U07)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  // The sample's first scene has no shots: put two of them there, where the work opens.
+  const [talk, miss] = film.shots;
+  talk!.sceneId = film.scenes[0]!.id;
+  miss!.sceneId = film.scenes[0]!.id;
+  const made = (shotId: string, lipSync: "done" | "failed") =>
+    ({
+      id: `${shotId}-take`,
+      shotId,
+      index: 1,
+      status: "done",
+      stillUrl: "",
+      videoPath: `/tmp/${shotId}.mp4`,
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+      lipSync: { lipSync },
+    }) as FilmProject["shots"][number]["takes"][number];
+  talk!.takes = [made(talk!.id, "done")];
+  talk!.selectedTakeId = `${talk!.id}-take`;
+  miss!.takes = [made(miss!.id, "failed")];
+  miss!.selectedTakeId = `${miss!.id}-take`;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("分镜"));
+  const marks = () => [...document.querySelectorAll(".card .lips")].map((item) => item.textContent);
+  expect(marks()).toEqual(["口型", "口型未对上"]);
+  expect(document.querySelector(".card .lips.failed")).toHaveAttribute(
+    "title",
+    expect.stringContaining("可重试"),
+  );
+  fireEvent.click(stageTab("剪辑"));
+  expect([...document.querySelectorAll(".clip .lips")].map((item) => item.textContent)).toEqual([
+    "口型",
+    "口型未对上",
+  ]);
+});
+
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
   installDesktop();
   await openSample();

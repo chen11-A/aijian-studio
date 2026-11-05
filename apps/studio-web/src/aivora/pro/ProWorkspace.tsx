@@ -160,6 +160,7 @@ import { PipelineSteps } from "../next/PipelineSteps";
 import { TakePicker } from "../next/TakePicker";
 import { takePickerData } from "../next/adapters/takePicker";
 import { needsRestyle } from "../next/adapters/restyle";
+import { lipSyncTag } from "../next/adapters/lipSync";
 import { continuityNotes } from "../next/adapters/continuity";
 import { pipelineSceneName, pipelineTargetName } from "../next/adapters/pipelineNames";
 import { stageProgress, stageTabs } from "../next/adapters/stageProgress";
@@ -6098,6 +6099,15 @@ function BoardPage({
                       画风变了
                     </span>
                   ) : null}
+                  {/* 4B-U07: lip sync on a close shot whose speaker talks on screen. */}
+                  {(() => {
+                    const lips = lipSyncTag(item);
+                    return lips ? (
+                      <span className={lips.failed ? "lips failed" : "lips"} title={lips.title}>
+                        {lips.text}
+                      </span>
+                    ) : null;
+                  })()}
                   <i
                     className={`src ${shotSource(item).tone}`}
                     title={shotSource(item).label}
@@ -7846,6 +7856,15 @@ function EditPage({
                       }}
                     >
                       {clip.folded ? null : <span className="lb">{ready ? name : "未生成"}</span>}
+                      {/* 4B-U07: the same 口型 mark on the clip. */}
+                      {(() => {
+                        const lips = !clip.folded && item ? lipSyncTag(item) : null;
+                        return lips ? (
+                          <span className={lips.failed ? "lips failed" : "lips"} title={lips.title}>
+                            {lips.text}
+                          </span>
+                        ) : null;
+                      })()}
                     </button>
                   );
                 })}
