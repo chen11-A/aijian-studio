@@ -177,6 +177,7 @@ import { subtitleStyleData } from "../next/adapters/subtitleStyle";
 import { CoverEditor } from "../next/CoverEditor";
 import { coverEditorData } from "../next/adapters/coverEditor";
 import { HistoryList } from "../next/HistoryList";
+import { readPrefs, writePrefs, type AppPrefs } from "./prefs";
 import {
   AGE_BANDS,
   GENDERS,
@@ -2968,6 +2969,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [coverOpen, setCoverOpen] = useState(false);
   // 4C-U02: 作品设置, with the work's history.
   const [workSettings, setWorkSettings] = useState(false);
+  // 4C-U03: 设置, the person's own defaults on this computer.
+  const [appSettings, setAppSettings] = useState(false);
+  const [prefs, setPrefs] = useState(readPrefs);
+  const changePrefs = (next: Partial<AppPrefs>) => {
+    const merged = { ...prefs, ...next };
+    setPrefs(merged);
+    writePrefs(merged);
+  };
+  useEffect(() => {
+    if (!appSettings) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAppSettings(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [appSettings]);
   useEffect(() => {
     if (!workSettings) return;
     const onKey = (event: KeyboardEvent) => {
@@ -3305,7 +3322,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               aria-describedby={exportView.ready ? undefined : "export-why"}
               onClick={() => {
                 setExportOpen(true);
-                if (!exportDir) {
+                if (!exportDir && prefs.exportDir) setExportDir(prefs.exportDir);
+                else if (!exportDir) {
                   void window.aijian?.defaultFilmFolder?.().then((dir) => {
                     if (dir) setExportDir(dir);
                   });
@@ -3345,6 +3363,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   </button>
                 )}
                 {!connected && <button onClick={() => void signInGrok()}>用 Grok 会员登录</button>}
+                <button
+                  onClick={() => {
+                    setMenu(null);
+                    setAppSettings(true);
+                  }}
+                >
+                  设置
+                </button>
                 <button onClick={() => void signOutAccount()}>退出登录</button>
               </div>
             )}
@@ -3552,6 +3578,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && bench && (
                 <GeneratePage
+                  beginner={prefs.beginner}
                   quiet={exportView.lead}
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
@@ -4065,6 +4092,86 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <NoticeLog log={status.log} />
           </div>
         ) : null}
+        {appSettings ? (
+          <div className="dialog-back">
+            <div className="dialog work-settings" role="dialog" aria-label="设置">
+              <h2>设置</h2>
+              <section className="ws-sec" aria-label="账号">
+                <h3>账号</h3>
+                <p className="role-desc">
+                  {accountLine}。只能用 Grok 会员登录；登录、退出在右上角头像的菜单里。
+                </p>
+              </section>
+              <section className="ws-sec" aria-label="导出">
+                <h3>默认导出到</h3>
+                <div className="pathrow">
+                  <input
+                    className="input"
+                    aria-label="默认导出文件夹"
+                    value={prefs.exportDir}
+                    placeholder="不填就用软件的默认文件夹"
+                    onChange={(event) => changePrefs({ exportDir: event.target.value })}
+                  />
+                  <button
+                    className="btn sm"
+                    type="button"
+                    onClick={() => {
+                      void window.aijian?.pickFilmFolder?.().then((dir) => {
+                        if (dir) changePrefs({ exportDir: dir });
+                      });
+                    }}
+                  >
+                    浏览
+                  </button>
+                </div>
+              </section>
+              <section className="ws-sec" aria-label="默认">
+                <h3>默认</h3>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={soundOn}
+                    onChange={(event) => setSoundOn(event.target.checked)}
+                  />
+                  预览有声音（随时按 M 切换）
+                </label>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={prefs.aiMark}
+                    onChange={(event) => changePrefs({ aiMark: event.target.checked })}
+                  />
+                  新封面标「AI 生成」（部分平台要求标注）
+                </label>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={prefs.beginner}
+                    onChange={(event) => {
+                      changePrefs({ beginner: event.target.checked });
+                      if (event.target.checked) setVersions(1);
+                    }}
+                  />
+                  新手模式：每个镜头只出 1 个版本
+                </label>
+              </section>
+              <section className="ws-sec" aria-label="用量">
+                <h3>用量</h3>
+                <p className="role-desc">
+                  软件看不到 Grok
+                  会员还剩多少额度。出一个视频版本、一张图、一段配音，各用一次；剩多少请到 Grok
+                  网站看。
+                </p>
+              </section>
+              <div className="acts">
+                <span className="sp" />
+                <button className="btn" type="button" onClick={() => setAppSettings(false)}>
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {workSettings && film ? (
           <div className="dialog-back">
             <div className="dialog work-settings" role="dialog" aria-label="作品设置">
@@ -4113,7 +4220,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <div className="cover-step">
                   {(() => {
                     const data = coverEditorData(film, { mediaUrl: fileMediaUrl });
-                    const cover = coverOf(film, data.ok ? data.props : null);
+                    const cover = coverOf(film, data.ok ? data.props : null, prefs.aiMark);
                     const keep = (next: Partial<CoverInput>) =>
                       setFilm({ ...film, cover: { ...cover, ...next } } as FilmProject);
                     return (
@@ -4232,7 +4339,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       <div className="cover-row">
                         {(() => {
                           const data = coverEditorData(film, { mediaUrl: fileMediaUrl });
-                          const cover = coverOf(film, data.ok ? data.props : null);
+                          const cover = coverOf(film, data.ok ? data.props : null, prefs.aiMark);
                           return (
                             <span className="cover-sum">
                               {cover.title ? `「${cover.title}」` : "还没有片名"}
@@ -4664,12 +4771,13 @@ function Assistant({
 function coverOf(
   film: FilmProject,
   start: { title: string; subtitle?: string; backgroundUrl?: string } | null,
+  aiMarkByDefault = true,
 ): CoverInput {
   const kept = (film as FilmProject & { cover?: Partial<CoverInput> }).cover;
   return {
     title: kept?.title ?? start?.title ?? "",
     subtitle: kept?.subtitle ?? start?.subtitle ?? "",
-    aiMark: kept?.aiMark ?? true,
+    aiMark: kept?.aiMark ?? aiMarkByDefault,
     backgroundUrl: kept?.backgroundUrl || start?.backgroundUrl || "",
   };
 }
@@ -6738,6 +6846,7 @@ function MuteButton({ muted, onMute }: { muted: boolean; onMute: () => void }) {
 }
 
 function GeneratePage({
+  beginner = false,
   quiet = false,
   onMute,
   assistant = null,
@@ -6774,6 +6883,8 @@ function GeneratePage({
   quiet?: boolean;
   /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
   onMute?: () => void;
+  /** 4C-U03: beginner mode, one version per shot; 「一次出几个」 is not offered. */
+  beginner?: boolean;
   /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
   assistant?: ReactNode;
 }) {
@@ -7002,21 +7113,24 @@ function GeneratePage({
                     </button>
                   </div>
                 </div>
-                <div>
-                  <div className="sec-t">一次出几个</div>
-                  <div className="seg">
-                    {[1, 2, 4].map((count) => (
-                      <button
-                        key={count}
-                        type="button"
-                        className={versions === count ? "on" : ""}
-                        onClick={() => onVersions(count)}
-                      >
-                        {count}
-                      </button>
-                    ))}
+                {/* 4C-U03: beginner mode makes one version per shot and does not offer more. */}
+                {beginner ? null : (
+                  <div>
+                    <div className="sec-t">一次出几个</div>
+                    <div className="seg">
+                      {[1, 2, 4].map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          className={versions === count ? "on" : ""}
+                          onClick={() => onVersions(count)}
+                        >
+                          {count}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
             <div className="genbar">

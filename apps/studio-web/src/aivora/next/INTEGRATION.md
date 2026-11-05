@@ -764,6 +764,13 @@ listFilmHistory(projectId: string): Promise<HistoryEntry[]>;
 restoreFilmHistory(projectId: string, entryId: string): Promise<FilmProject>;
 ```
 
+## 设置（4C-U03）
+
+- 头像菜单加「设置」，打开对话框（Esc 或「关闭」关掉）：账号（只写状态和「只能用 Grok 会员登录；登录、退出在头像菜单里」）、默认导出文件夹（可以浏览）、预览有声音（就是 M 切的 `soundOn`）、新封面标「AI 生成」、新手模式（每个镜头只出 1 版，单镜页不显示「一次出几个」）、用量说明（「软件看不到 Grok 会员还剩多少额度」，不显示数字）。
+- 这些是这台电脑上的人的偏好，不在作品里：`pro/prefs.ts`，存在 localStorage 的 `aivora.prefs`（`exportDir`、`aiMark`、`beginner`），预览声音还是原来的 `aivora.sound`。导出对话框打开时，导出文件夹空着就先用 `prefs.exportDir`，再退到桌面版的默认文件夹；封面没改过时「AI 生成」按 `prefs.aiMark`。
+- 新手模式打开时把 `versions` 设成 1。一键成片和批量生成本来就按 `versions` 出，不用改；GPT 如果有别处读 `film.takesPerShot`，新手模式下也应当按 1。
+- 想把这些偏好存到桌面版的应用数据目录（换浏览器也在），GPT 可以给 `readAppPrefs / writeAppPrefs`，`pro/prefs.ts` 换成调它们。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

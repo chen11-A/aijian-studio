@@ -567,7 +567,8 @@ describe("professional workspace", () => {
     expect(screen.getByText(/已剪掉这一段/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
     fireEvent.click(screen.getByRole("button", { name: "账号" }));
-    expect(screen.queryByRole("button", { name: "设置" })).toBeNull();
+    // 4C-U03: 设置 is real now, in the account menu.
+    expect(screen.getByRole("button", { name: "设置" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
     expect(await screen.findByText("已退出登录。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
@@ -3507,6 +3508,38 @@ it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U
     "title",
     expect.stringContaining("这一整句都会重来"),
   );
+});
+
+it("keeps the person's defaults in 设置: folder, 「AI 生成」, beginner mode (4C-U03)", async () => {
+  installDesktop();
+  try {
+    await openSample();
+    fireEvent.click(screen.getByRole("button", { name: "账号" }));
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    const settings = within(screen.getByRole("dialog", { name: "设置" }));
+    expect(settings.getByText(/只能用 Grok 会员登录/)).toBeInTheDocument();
+    expect(settings.getByText(/软件看不到 Grok 会员还剩多少额度/)).toBeInTheDocument();
+    expect(settings.queryByText(/\d+ ?次/)).toBeNull();
+    fireEvent.change(settings.getByLabelText("默认导出文件夹"), {
+      target: { value: "/tmp/my-films" },
+    });
+    fireEvent.click(settings.getByRole("checkbox", { name: /新封面标「AI 生成」/ }));
+    fireEvent.click(settings.getByRole("checkbox", { name: /新手模式/ }));
+    fireEvent.click(settings.getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "设置" })).toBeNull();
+    // Beginner mode: one version per shot, 「一次出几个」 not offered.
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+    expect(screen.queryByText("一次出几个")).toBeNull();
+    expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeInTheDocument();
+    // The export dialog starts from the chosen folder, and a new cover without the mark.
+    fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+    const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
+    expect(dialog.getByLabelText("导出文件夹")).toHaveValue("/tmp/my-films");
+    expect(dialog.getByText(/不标「AI 生成」/)).toBeInTheDocument();
+  } finally {
+    window.localStorage.removeItem("aivora.prefs");
+  }
 });
 
 it("gives the four sound tracks a name, mute, solo and volume, and says when a track is empty", async () => {
