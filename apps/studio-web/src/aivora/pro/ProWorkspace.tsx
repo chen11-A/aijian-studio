@@ -160,7 +160,7 @@ import type { UiNotice } from "../film/contracts3j";
 import { enrichDirectorPlan } from "./enrichment-workflow";
 import { makeAllPortraits } from "./portrait-workflow";
 import { applyDirectorPlan, RequestSequences } from "./director-workflow";
-import { sceneDisplayTitle } from "../film/director-continuity";
+import { sceneShotBudget, formatShotBudget, sceneDisplayTitle } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
 import { publishFilmJobs } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
@@ -5545,6 +5545,7 @@ function BoardPage({
   // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
   // does not run the check again on every edit.
   const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
+  const shotBudget = sceneRow ? sceneShotBudget(sceneRow.id, film.shots) : null;
   const allBeats = film.unassignedBeats ?? [];
   const sceneBeats = allBeats.filter((beat) => beat.sceneId === sceneRow?.id);
   // 3JR-U04: while an action is dragged the cards show where it can go.
@@ -5677,15 +5678,20 @@ function BoardPage({
             dragScope={sceneKey}
             repairFailed={repair.failed}
             coverageWarning={
-              coverage && !coverage.missingLines.length && !coverage.missingTail
-                ? coverageNotice(coverage).detail
-                : undefined
+              [
+                coverage && !coverage.missingLines.length && !coverage.missingTail
+                  ? coverageNotice(coverage).detail
+                  : "",
+                shotBudget && !shotBudget.ok ? formatShotBudget(shotBudget, film.shots) : "",
+              ]
+                .filter(Boolean)
+                .join("\n") || undefined
             }
             missingTail={coverage?.missingTail ?? null}
             missingLines={coverage?.missingLines ?? []}
             beats={sceneBeats.map((beat) => beat.text)}
             fixing={repair.fixing}
-            onFixEnding={() => void repair.run()}
+            onFixEnding={coverage ? () => void repair.run() : undefined}
             pickedShot={current ? `镜头 ${current.no}` : ""}
             onPlaceBeat={(index) => current && placeBeat(index, current)}
             onDragChange={(dragging) => {
