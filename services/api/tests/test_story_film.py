@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from aijian_api.draft_export_runtime import DraftExportRuntime
 from aijian_api.local_media_toolchain import LocalMediaToolchainService
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
@@ -214,6 +215,28 @@ def test_missing_font_saves_srt_and_still_makes_the_film(tmp_path, monkeypatch):
     # Nothing was burned, so the film itself is the clean one; the cue is still reported.
     assert result.clean_output_path == result.output_path
     assert result.subtitle_cues and result.subtitle_cues[0].text == "雾城来信"
+
+
+def test_clean_copy_uses_its_own_export_runtime(tmp_path, monkeypatch):
+    """The subtitled film's runtime must still accept work after the clean copy (4B-B09)."""
+    repository, project_id = _project(tmp_path)
+    service = StoryFilmService(repository, toolchain)
+    shared = DraftExportRuntime(repository, toolchain, None)
+    used: list[object] = []
+
+    def export(_project, _episode, content, output, runtime):
+        used.append(runtime)
+        assert "subtitle_segments" not in content
+        runtime.join_workers()
+        raise RuntimeError("no media in this unit test")
+
+    monkeypatch.setattr(service, "_export_story_assembly", export)
+    content = {"subtitle_segments": [{"text": "雾"}], "total_frames": 24}
+    assert service._export_clean_copy(project_id, "ep", content, tmp_path / "c.mp4") is None
+    assert used and used[0] is not shared
+    # The caller's runtime was never stopped by the clean copy.
+    assert shared._closing is False
+    assert "subtitle_segments" in content
 
 
 def test_export_cues_take_the_wrapping_back_out_and_use_seconds():

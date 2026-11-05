@@ -1506,7 +1506,7 @@ class StoryFilmService:
         # assembly head as before). A failure here keeps the take; the export then says why.
         clean = (
             self._export_clean_copy(
-                project_id, episode_id, content, directory / f"{stem}-film-clean.mp4", runtime
+                project_id, episode_id, content, directory / f"{stem}-film-clean.mp4"
             )
             if burned
             else None
@@ -1592,9 +1592,15 @@ class StoryFilmService:
         episode_id: str,
         content: dict[str, object],
         output: Path,
-        runtime: DraftExportRuntime,
     ) -> Path | None:
         clean_content = {key: value for key, value in content.items() if key != "subtitle_segments"}
+        # Its own runtime: _export_story_assembly ends with join_workers(), which stops the
+        # runtime accepting work, so the subtitled film must not share it.
+        runtime = DraftExportRuntime(
+            self._repository,
+            self._toolchain_provider,
+            ProductExportJobManager() if sys.platform == "win32" else None,
+        )
         try:
             _assembly, job = self._export_story_assembly(
                 project_id, episode_id, clean_content, output, runtime
