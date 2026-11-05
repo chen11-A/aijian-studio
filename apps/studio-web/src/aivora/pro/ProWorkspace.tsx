@@ -55,6 +55,7 @@ import { globalEditorRequest } from "./actions/editor-request-context";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import { continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
+import { createPipelineControls } from "./pipeline-controls";
 import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
 import { createFilmPersistence } from "./film-persistence";
 import { stillFailureNotice } from "./workflow";
@@ -587,22 +588,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   );
   const pipelineLive = useRef({ connected, modelIds, ensureBillingProject, submitGeneration });
   pipelineLive.current = { connected, modelIds, ensureBillingProject, submitGeneration };
-  const pipelineWorkspace = useMemo(
-    () =>
-      createPipelineWorkspaceHost({
-        current: () => filmRef.current,
-        apply: applyLive,
-        ensureBillingProject: () => pipelineLive.current.ensureBillingProject(),
-        acquireSaveOwnership: persistence.acquire,
-        bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
-        modelIds: () => pipelineLive.current.modelIds,
-        modelsChanged: setModelIds,
-        submitGeneration: (shots, control) =>
-          pipelineLive.current.submitGeneration(shots, false, undefined, undefined, control),
-        notify: emitNotice,
-      }),
-    [persistence],
-  );
+  const pipelineWorkspace = useMemo(() => {
+    const workspace = createPipelineWorkspaceHost({
+      current: () => filmRef.current,
+      apply: applyLive,
+      ensureBillingProject: () => pipelineLive.current.ensureBillingProject(),
+      acquireSaveOwnership: persistence.acquire,
+      bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
+      modelIds: () => pipelineLive.current.modelIds,
+      modelsChanged: setModelIds,
+      submitGeneration: (shots, control) =>
+        pipelineLive.current.submitGeneration(shots, false, undefined, undefined, control),
+      notify: emitNotice,
+    });
+    return createPipelineControls({
+      current: () => filmRef.current,
+      workspace,
+      notify: emitNotice,
+    });
+  }, [persistence]);
   const productionActions = useProductionActions({
     current: () => filmRef.current,
     apply: async (next) => {
