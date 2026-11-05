@@ -91,7 +91,7 @@ export function beginTaskBatch(input: {
 export async function runTask<T>(
   input: TaskInput,
   execute: (signal: AbortSignal) => Promise<T>,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<T> {
   const { projectId, batchId, ...fields } = input;
   activeProject = projectId;
@@ -108,6 +108,18 @@ export async function runTask<T>(
   const started = Date.now();
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
+  let cancelled = false;
+  let rejectCancelled: (error: Error) => void = () => undefined;
+  const cancellation = new Promise<never>((_resolve, reject) => {
+    rejectCancelled = reject;
+  });
+  void cancellation.catch(() => undefined);
+  const cancel = () => {
+    cancelled = true;
+    controller.abort();
+    rejectCancelled(new Error("TASK_CANCELLED"));
+  };
+  options.signal?.addEventListener("abort", cancel, { once: true });
   const deadline = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
       controller.abort();
@@ -116,9 +128,16 @@ export async function runTask<T>(
   });
   try {
     await Promise.resolve();
+    if (options.signal?.aborted) {
+      cancelled = true;
+      controller.abort();
+      throw new Error("TASK_CANCELLED");
+    }
     stored.task = { ...stored.task, status: "running" };
     publish();
-    const result = await Promise.race([execute(controller.signal), deadline]);
+    if (controller.signal.aborted) throw new Error("TASK_CANCELLED");
+    const result = await Promise.race([execute(controller.signal), deadline, cancellation]);
+    if (controller.signal.aborted) throw new Error(cancelled ? "TASK_CANCELLED" : "TASK_TIMEOUT");
     stored.task = {
       ...stored.task,
       status: "done",
@@ -129,15 +148,18 @@ export async function runTask<T>(
     stored.task = {
       ...stored.task,
       status: "failed",
-      reason: controller.signal.aborted ? "等待结果超时" : "生成未完成",
-      suggestion: controller.signal.aborted
-        ? "请先核对供应商是否已完成，再决定重试"
-        : "检查失败提示后重试",
+      reason: cancelled ? "已取消" : controller.signal.aborted ? "等待结果超时" : "生成未完成",
+      suggestion: cancelled
+        ? "确认结果后再决定是否重试"
+        : controller.signal.aborted
+          ? "请先核对供应商是否已完成，再决定重试"
+          : "检查失败提示后重试",
       waitedSeconds: Math.floor((Date.now() - started) / 1000),
     };
     throw error;
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", cancel);
     publish();
   }
 }

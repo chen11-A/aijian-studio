@@ -72,7 +72,7 @@ export function exportFilmTask(
   paths: string[],
   directory: string,
   host: MediaHost,
-  options?: { aspectRatio?: "16:9" | "9:16" },
+  options?: { aspectRatio?: "16:9" | "9:16"; signal?: AbortSignal },
 ) {
   return runTask(
     {
@@ -113,7 +113,10 @@ export function exportFilmTask(
       signal.addEventListener("abort", cancel, { once: true });
       let result: { ok: boolean; path: string };
       try {
-        result = await bridge.exportFilmCut(source, target, name, { ...options, requestId });
+        result = await bridge.exportFilmCut(source, target, name, {
+          ...(options?.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
+          requestId,
+        });
       } finally {
         signal.removeEventListener("abort", cancel);
       }
@@ -126,5 +129,6 @@ export function exportFilmTask(
       });
       return { path: result.path, directory: target };
     },
+    { signal: options?.signal },
   );
 }

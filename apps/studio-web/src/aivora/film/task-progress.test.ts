@@ -157,3 +157,41 @@ test("reopened unsent versions remain queued in the feed while unknown running r
   expect(taskSnapshot().tasks.map((task) => task.status)).toEqual(["failed", "queued"]);
   expect(taskSnapshot().tasks.map((task) => task.attempt)).toEqual([1, 1]);
 });
+
+test("external abort before execution never starts work and reaches a failed terminal state", async () => {
+  const { runTask, taskSnapshot } = await import("./task-progress");
+  const controller = new AbortController();
+  controller.abort();
+  const execute = vi.fn().mockResolvedValue("unused");
+  await expect(
+    runTask({ id: "pre-cancel", projectId: "cancel", kind: "export" }, execute, {
+      signal: controller.signal,
+    }),
+  ).rejects.toThrow("TASK_CANCELLED");
+  expect(execute).not.toHaveBeenCalled();
+  expect(taskSnapshot().tasks[0]).toMatchObject({ status: "failed", reason: "已取消" });
+});
+
+test("external abort settles immediately even when work ignores the signal; late resolve cannot become done", async () => {
+  const { runTask, taskSnapshot } = await import("./task-progress");
+  const controller = new AbortController();
+  let finish!: (value: string) => void;
+  let received: AbortSignal | undefined;
+  const pending = runTask(
+    { id: "active-cancel", projectId: "cancel", kind: "export" },
+    (signal) => {
+      received = signal;
+      return new Promise<string>((resolve) => {
+        finish = resolve;
+      });
+    },
+    { signal: controller.signal },
+  );
+  await Promise.resolve();
+  controller.abort();
+  await expect(pending).rejects.toThrow("TASK_CANCELLED");
+  expect(received?.aborted).toBe(true);
+  finish("late");
+  await Promise.resolve();
+  expect(taskSnapshot().tasks[0]).toMatchObject({ status: "failed", reason: "已取消" });
+});
