@@ -3316,3 +3316,26 @@ body:has(.pro-root) {
   color: var(--text-2);
   font-size: 12px;
 }
+
+/* 3JR-U03: the 场景 and 道具 tabs edit their own things. A place's reference picture is a wide
+   background plate, so its frame is landscape. */
+.pro-root .slot.place-ref .thumb,
+.pro-root .slot.place-ref .slot-empty {
+  aspect-ratio: 16/9;
+}
+.pro-root .cast-looks > .slots-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pro-root .place-used {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.pro-root .prop-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}

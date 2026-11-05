@@ -1275,6 +1275,9 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.change(screen.getByLabelText("环境音"), { target: { value: "雨声" } });
     expect(screen.getByLabelText("环境音")).toHaveValue("雨声");
+    // 3JR-U03: the person's form, and its 补这个人的, belong to the 角色 tab.
+    expect(screen.queryByRole("button", { name: "补这个人的" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "角色" }));
     fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
     await waitFor(() =>
       expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
@@ -2966,6 +2969,26 @@ it("starts each page with its own helper", async () => {
   expect(helper()).toBe("performance");
   fireEvent.click(stageTab("剧本"));
   expect(helper()).toBe("writer");
+});
+
+it("edits the picked place on the 场景 tab, not the person picked before", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  expect(screen.getByLabelText("人物名字")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "场景" }));
+  // 3JR-U03: a place has its own form and reference picture.
+  expect(screen.queryByLabelText("人物名字")).not.toBeInTheDocument();
+  const place = screen.getByLabelText("场景名字") as HTMLInputElement;
+  expect(place.value).not.toBe("");
+  expect(screen.getByText("还没有参考图", { selector: ".slot-empty" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("场景里怎么摆"), { target: { value: "门在画左" } });
+  fireEvent.click(screen.getByRole("button", { name: "道具" }));
+  expect(screen.queryByLabelText("人物名字")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "场景" }));
+  expect(screen.getByLabelText("场景里怎么摆")).toHaveValue("门在画左");
+  fireEvent.click(screen.getByRole("button", { name: "角色" }));
+  expect(screen.getByLabelText("人物名字")).toBeInTheDocument();
 });
 
 it("keeps a storyboard card to its size, length, picture sentence and first line", async () => {

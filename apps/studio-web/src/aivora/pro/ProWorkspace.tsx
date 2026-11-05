@@ -4697,6 +4697,43 @@ function CastPage({
   const [place, setPlace] = useState(0);
   const [side, setSide] = useState<"people" | "places" | "props">("people");
   const character = film.characters[who];
+  // 3JR-U03: the 场景 tab edits the place picked on the left, not the person picked before.
+  // referenceImage, layout and sceneId come with GPT's 4A-B10 / 3JR-B08; until then they are
+  // simply absent and the form says the picture is made before the shots.
+  const location = film.locations[place] as
+    | (FilmProject["locations"][number] & {
+        referenceImage?: string;
+        layout?: string;
+        sceneId?: string;
+        userFields?: string[];
+      })
+    | undefined;
+  const editLocation = (
+    patch: { name?: string; prompt?: string; layout?: string; ambience?: string },
+    field: string,
+  ) =>
+    onFilm({
+      ...film,
+      locations: film.locations.map((item, index) =>
+        index === place
+          ? {
+              ...item,
+              ...patch,
+              userFields: [
+                ...new Set([...((item as { userFields?: string[] }).userFields ?? []), field]),
+              ],
+            }
+          : item,
+      ) as FilmProject["locations"],
+    });
+  const usedIn = location
+    ? film.scenes.filter(
+        (scene) =>
+          scene.id === location.sceneId ||
+          (location.name.trim() !== "" &&
+            (scene.where === location.name || scene.title.includes(location.name))),
+      )
+    : [];
   // 4A-U02: shots made before the style changed, as GPT marks them (kept in project.json).
   const restyle = film.shots.filter(needsRestyle).length;
   const VIEWS = ["正面", "侧面", "背面", "脸部"];
@@ -4752,7 +4789,11 @@ function CastPage({
               >
                 <span className="t">
                   {item.name}
-                  <small>空镜</small>
+                  <small>
+                    {(item as { referenceImage?: string }).referenceImage
+                      ? "有参考图"
+                      : "还没有参考图"}
+                  </small>
                 </span>
               </button>
             ))}
@@ -4844,8 +4885,20 @@ function CastPage({
       </section>
       <section className="pane">
         <div className="ph">
-          <h3>{character?.name ?? "人物"}</h3>
-          <span className="meta">同一张脸，同一套衣服</span>
+          <h3>
+            {side === "places"
+              ? location?.name || "场景"
+              : side === "props"
+                ? "道具"
+                : (character?.name ?? "人物")}
+          </h3>
+          <span className="meta">
+            {side === "places"
+              ? "同一个地方，前后镜头的背景对得上"
+              : side === "props"
+                ? "镜头里反复出现的东西"
+                : "同一张脸，同一套衣服"}
+          </span>
         </div>
         <div className="pb sheet cast-sheet">
           <section className="style-card" aria-label="整部作品的画风">
@@ -4885,345 +4938,461 @@ function CastPage({
               </p>
             ) : null}
           </section>
-          <div className="cast-info">
-            <div className="cast-id-row">
-              <div className="field" style={{ padding: 0 }}>
-                <label htmlFor="cast-name">名字</label>
-                <input
-                  id="cast-name"
-                  className="input"
-                  aria-label="人物名字"
-                  value={character?.name ?? ""}
-                  onChange={(event) => {
-                    const name = event.target.value;
-                    if (!character) {
-                      onFilm({
-                        ...film,
-                        characters: [
-                          {
-                            id: "char-1",
-                            name,
-                            identity: name,
-                            voiceId: "leo",
-                            source: "user",
-                            userFields: ["name"],
-                            portraits: [],
-                          },
-                        ],
-                      });
-                      return;
-                    }
-                    onFilm({
-                      ...film,
-                      characters: film.characters.map((item) =>
-                        item.id === character.id
-                          ? {
-                              ...item,
-                              name,
-                              source: "user",
-                              userFields: [...new Set([...item.userFields, "name"])],
-                            }
-                          : item,
-                      ),
-                      shots: film.shots.map((item) => ({
-                        ...item,
-                        characters: item.characters.map((person) =>
-                          person === character.name ? name : person,
-                        ),
-                      })),
-                    });
-                  }}
-                />
-              </div>
-              <div className="field" style={{ padding: 0 }}>
-                <label htmlFor="cast-gender">性别</label>
-                <select
-                  id="cast-gender"
-                  className="input"
-                  aria-label="性别"
-                  disabled={!character}
-                  value={character?.gender ?? ""}
-                  onChange={(event) => {
-                    if (!character) return;
-                    onTraits(character.id, {
-                      gender: event.target.value as Gender,
-                      ageBand: character.ageBand ?? "",
-                    });
-                  }}
-                >
-                  <option value="">未写</option>
-                  {GENDERS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field" style={{ padding: 0 }}>
-                <label htmlFor="cast-age">年龄段</label>
-                <select
-                  id="cast-age"
-                  className="input"
-                  aria-label="年龄段"
-                  disabled={!character}
-                  value={character?.ageBand ?? ""}
-                  onChange={(event) => {
-                    if (!character) return;
-                    onTraits(character.id, {
-                      gender: character.gender ?? "",
-                      ageBand: event.target.value as AgeBand,
-                    });
-                  }}
-                >
-                  <option value="">未写</option>
-                  {AGE_BANDS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="field">
-              <label htmlFor="cast-id">外貌</label>
-              <textarea
-                id="cast-id"
-                className="area"
-                aria-label="外貌"
-                rows={4}
-                value={character?.identity ?? ""}
-                onChange={(event) => {
-                  if (!character) return;
-                  onFilm({
-                    ...film,
-                    characters: film.characters.map((item) =>
-                      item.id === character.id
-                        ? {
-                            ...item,
-                            identity: event.target.value,
-                            source: "user",
-                            userFields: [...new Set([...item.userFields, "identity"])],
-                          }
-                        : item,
-                    ),
-                  });
-                }}
-              />
-            </div>
-            <div className="sec-t" style={{ marginTop: 12 }}>
-              声音
-            </div>
-            <p className="role-desc">
-              {character?.voiceId
-                ? `已选：${voiceLabel(character.voiceId)}`
-                : character && !character.gender
-                  ? "性别没写，请先选一下，声音会按性别列出。"
-                  : "还没有选定声音。"}
-            </p>
-            {voices.length === 0 ? (
-              <p className="role-desc">登录 Grok 会员后才能看到声音名单。</p>
-            ) : (
-              <div className="row2">
-                <select
-                  className="input"
-                  aria-label="角色声音"
-                  value={character?.voiceId ?? ""}
-                  onChange={(event) => {
-                    if (!character) return;
-                    const voiceId = event.target.value;
-                    // Picked by hand: GPT keeps it when gender or age change later.
-                    onFilm({
-                      ...film,
-                      characters: film.characters.map((item) =>
-                        item.id === character.id
-                          ? {
-                              ...item,
-                              voiceId,
-                              userFields: [...new Set([...item.userFields, "voiceId"])],
-                            }
-                          : item,
-                      ),
-                    });
-                  }}
-                >
-                  <option value="">还没有选定</option>
-                  {voiceGroup.fitting.length > 0 && (
-                    <optgroup label={`适合${character?.ageBand ?? ""}${character?.gender ?? ""}性`}>
-                      {voiceGroup.fitting.map((voice) => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {voiceGroup.others.length > 0 && (
-                    <optgroup label={character?.gender ? `其他${character.gender}声` : "全部声音"}>
-                      {voiceGroup.others.map((voice) => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <button
-                  className="btn sm"
-                  type="button"
-                  aria-label="试听"
-                  onClick={() => {
-                    if (!character) return;
-                    const line =
-                      film.shots.find(
-                        (item) => item.line.trim() && item.characters.includes(character.name),
-                      )?.line ?? "";
-                    onPreview(character.voiceId, line);
-                  }}
-                >
-                  {hearing ? "停止" : "试听"}
-                </button>
-              </div>
-            )}
-            {voices.length === 0 ? (
-              <button
-                className="btn sm"
-                type="button"
-                aria-label="试听"
-                onClick={() => {
-                  if (!character) return;
-                  const line =
-                    film.shots.find(
-                      (item) => item.line.trim() && item.characters.includes(character.name),
-                    )?.line ?? "";
-                  onPreview(character.voiceId, line);
-                }}
-              >
-                {hearing ? "停止" : "试听"}
-              </button>
-            ) : null}
-            <label htmlFor="narration-voice">旁白</label>
-            <select
-              id="narration-voice"
-              className="input"
-              aria-label="旁白声音"
-              value={film.narrationVoiceId}
-              onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
-            >
-              <option value="">还没有选旁白</option>
-              {voices.map((voice) => (
-                <option key={voice.id} value={voice.id}>
-                  {voice.label}
-                </option>
-              ))}
-              {film.narrationVoiceId &&
-              !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
-                <option value={film.narrationVoiceId}>{voiceLabel(film.narrationVoiceId)}</option>
-              ) : null}
-            </select>
-            <button
-              className="btn sm"
-              type="button"
-              aria-label="试听旁白"
-              onClick={() =>
-                onPreview(
-                  film.narrationVoiceId,
-                  film.shots.find((item) => item.line.trim())?.line ?? "",
-                )
-              }
-            >
-              {hearing ? "停止" : "试听旁白"}
-            </button>
-            {side === "places" && film.locations[place] && (
-              <div className="field">
-                <label htmlFor="place-ambience">环境音</label>
-                <textarea
-                  id="place-ambience"
-                  className="area"
-                  aria-label="环境音"
-                  value={film.locations[place]?.ambience ?? ""}
-                  onChange={(event) => {
-                    const ambience = event.target.value;
-                    onFilm({
-                      ...film,
-                      locations: film.locations.map((item, index) =>
-                        index === place ? { ...item, ambience } : item,
-                      ),
-                    });
-                  }}
-                />
-              </div>
-            )}
-          </div>
-          <div className="cast-looks">
-            <div className="looks-head">
-              <span className="sec-t">定妆照</span>
-              <span className="sp" />
-              {character && VIEWS.some((view) => !has(character, view)) ? (
-                <button
-                  className="btn sm"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onPortraits(character.id)}
-                >
-                  补这个人的
-                </button>
-              ) : null}
-            </div>
-            <div className="refs4 slots">
-              {character ? (
-                <p className="slots-note">侧面、背面、脸部按正面这张改出来，脸和衣服跟正面一样。</p>
-              ) : null}
-              {(character
-                ? portraitPrompts(character.name, character.identity, film.styleZh)
-                : []
-              ).map((item) => {
-                const url = character?.portraits.find(
-                  (portrait) => portrait.view === item.view && portrait.url,
-                )?.url;
-                const slot = character
-                  ? portraits.slots[`${character.id}:${item.view}`]
-                  : undefined;
-                const state = url ? "done" : (slot?.state ?? "empty");
-                const front = item.view === "正面";
-                return (
+          {side === "places" ? (
+            location ? (
+              <>
+                <div className="cast-info">
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="place-name">名字</label>
+                    <input
+                      id="place-name"
+                      className="input"
+                      aria-label="场景名字"
+                      value={location.name}
+                      onChange={(event) => editLocation({ name: event.target.value }, "name")}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="place-look">这个地方的样子</label>
+                    <textarea
+                      id="place-look"
+                      className="area"
+                      aria-label="场景的样子"
+                      rows={4}
+                      value={location.prompt}
+                      placeholder="比如：老城区的旧书店，木书架顶到天花板，门口挂着风铃。"
+                      onChange={(event) => editLocation({ prompt: event.target.value }, "prompt")}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="place-layout">里面怎么摆</label>
+                    <textarea
+                      id="place-layout"
+                      className="area"
+                      aria-label="场景里怎么摆"
+                      rows={2}
+                      value={location.layout ?? ""}
+                      placeholder="门在哪、窗在哪、人一般站在哪。写清楚了，前后镜头不会乱。"
+                      onChange={(event) => editLocation({ layout: event.target.value }, "layout")}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="place-ambience">环境音</label>
+                    <textarea
+                      id="place-ambience"
+                      className="area"
+                      aria-label="环境音"
+                      rows={2}
+                      value={location.ambience}
+                      placeholder="比如：雨打在玻璃上，远处有车开过。"
+                      onChange={(event) =>
+                        editLocation({ ambience: event.target.value }, "ambience")
+                      }
+                    />
+                  </div>
+                  {usedIn.length > 0 ? (
+                    <p className="place-used">
+                      用在：{usedIn.map((scene) => `第 ${scene.no} 场 ${scene.title}`).join("、")}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="cast-looks">
+                  <div className="looks-head">
+                    <span className="sec-t">参考图</span>
+                  </div>
                   <figure
-                    key={item.view}
-                    className={front ? "slot front" : "slot"}
-                    data-state={state}
+                    className="slot place-ref"
+                    data-state={location.referenceImage ? "done" : "empty"}
                   >
-                    {url ? (
-                      <Thumb src={url} />
+                    {location.referenceImage ? (
+                      <Thumb src={location.referenceImage} />
                     ) : (
-                      <div className="slot-empty" aria-label={`${item.view}还没有`}>
-                        {item.view}
+                      <div className="slot-empty" aria-label="参考图还没有">
+                        还没有参考图
                       </div>
                     )}
-                    <figcaption>
-                      {url ? <span>{item.view}</span> : null}
-                      {state === "running" && <span className="slot-state">生成中…</span>}
-                      {state === "queued" && <span className="slot-state">排队中</span>}
-                      {state === "done" && <span className="slot-state done">已完成</span>}
-                      {state === "failed" && (
-                        <>
-                          <span className="slot-state bad" title={slot?.reason || undefined}>
-                            失败
-                          </span>
-                          <button
-                            className="link-btn"
-                            type="button"
-                            disabled={busy}
-                            aria-label={`重试${item.view}`}
-                            onClick={() => character && void onPortraits(character.id)}
-                          >
-                            重试
-                          </button>
-                        </>
-                      )}
-                    </figcaption>
                   </figure>
-                );
-              })}
+                  <p className="slots-note">
+                    {location.referenceImage
+                      ? "这一场的镜头出画面时，用这张图对齐背景。"
+                      : "出这一场的镜头画面时，会先按左边写的样子做一张没有人物的参考图，前后镜头的背景就能对上。"}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="cast-info">
+                <p className="role-desc">还没有场景。剧本拆成场次以后，这里会按地点列出来。</p>
+              </div>
+            )
+          ) : side === "props" ? (
+            <div className="cast-info props-sheet">
+              {film.props.length === 0 ? (
+                <p className="role-desc">还没有道具。在左边加上名字，或者请右边的美术写。</p>
+              ) : (
+                film.props.map((item, index) => (
+                  <div className="prop-row" key={item.id}>
+                    <input
+                      className="input"
+                      aria-label={`第 ${index + 1} 个道具的名字`}
+                      value={item.name}
+                      onChange={(event) =>
+                        onFilm({
+                          ...film,
+                          props: film.props.map((row) =>
+                            row.id === item.id ? { ...row, name: event.target.value } : row,
+                          ),
+                        })
+                      }
+                    />
+                    <input
+                      className="input"
+                      aria-label={`${item.name || "这个道具"}的说明`}
+                      placeholder="谁的、长什么样"
+                      value={item.note}
+                      onChange={(event) =>
+                        onFilm({
+                          ...film,
+                          props: film.props.map((row) =>
+                            row.id === item.id ? { ...row, note: event.target.value } : row,
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                ))
+              )}
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="cast-info">
+                <div className="cast-id-row">
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="cast-name">名字</label>
+                    <input
+                      id="cast-name"
+                      className="input"
+                      aria-label="人物名字"
+                      value={character?.name ?? ""}
+                      onChange={(event) => {
+                        const name = event.target.value;
+                        if (!character) {
+                          onFilm({
+                            ...film,
+                            characters: [
+                              {
+                                id: "char-1",
+                                name,
+                                identity: name,
+                                voiceId: "leo",
+                                source: "user",
+                                userFields: ["name"],
+                                portraits: [],
+                              },
+                            ],
+                          });
+                          return;
+                        }
+                        onFilm({
+                          ...film,
+                          characters: film.characters.map((item) =>
+                            item.id === character.id
+                              ? {
+                                  ...item,
+                                  name,
+                                  source: "user",
+                                  userFields: [...new Set([...item.userFields, "name"])],
+                                }
+                              : item,
+                          ),
+                          shots: film.shots.map((item) => ({
+                            ...item,
+                            characters: item.characters.map((person) =>
+                              person === character.name ? name : person,
+                            ),
+                          })),
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="cast-gender">性别</label>
+                    <select
+                      id="cast-gender"
+                      className="input"
+                      aria-label="性别"
+                      disabled={!character}
+                      value={character?.gender ?? ""}
+                      onChange={(event) => {
+                        if (!character) return;
+                        onTraits(character.id, {
+                          gender: event.target.value as Gender,
+                          ageBand: character.ageBand ?? "",
+                        });
+                      }}
+                    >
+                      <option value="">未写</option>
+                      {GENDERS.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field" style={{ padding: 0 }}>
+                    <label htmlFor="cast-age">年龄段</label>
+                    <select
+                      id="cast-age"
+                      className="input"
+                      aria-label="年龄段"
+                      disabled={!character}
+                      value={character?.ageBand ?? ""}
+                      onChange={(event) => {
+                        if (!character) return;
+                        onTraits(character.id, {
+                          gender: character.gender ?? "",
+                          ageBand: event.target.value as AgeBand,
+                        });
+                      }}
+                    >
+                      <option value="">未写</option>
+                      {AGE_BANDS.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="cast-id">外貌</label>
+                  <textarea
+                    id="cast-id"
+                    className="area"
+                    aria-label="外貌"
+                    rows={4}
+                    value={character?.identity ?? ""}
+                    onChange={(event) => {
+                      if (!character) return;
+                      onFilm({
+                        ...film,
+                        characters: film.characters.map((item) =>
+                          item.id === character.id
+                            ? {
+                                ...item,
+                                identity: event.target.value,
+                                source: "user",
+                                userFields: [...new Set([...item.userFields, "identity"])],
+                              }
+                            : item,
+                        ),
+                      });
+                    }}
+                  />
+                </div>
+                <div className="sec-t" style={{ marginTop: 12 }}>
+                  声音
+                </div>
+                <p className="role-desc">
+                  {character?.voiceId
+                    ? `已选：${voiceLabel(character.voiceId)}`
+                    : character && !character.gender
+                      ? "性别没写，请先选一下，声音会按性别列出。"
+                      : "还没有选定声音。"}
+                </p>
+                {voices.length === 0 ? (
+                  <p className="role-desc">登录 Grok 会员后才能看到声音名单。</p>
+                ) : (
+                  <div className="row2">
+                    <select
+                      className="input"
+                      aria-label="角色声音"
+                      value={character?.voiceId ?? ""}
+                      onChange={(event) => {
+                        if (!character) return;
+                        const voiceId = event.target.value;
+                        // Picked by hand: GPT keeps it when gender or age change later.
+                        onFilm({
+                          ...film,
+                          characters: film.characters.map((item) =>
+                            item.id === character.id
+                              ? {
+                                  ...item,
+                                  voiceId,
+                                  userFields: [...new Set([...item.userFields, "voiceId"])],
+                                }
+                              : item,
+                          ),
+                        });
+                      }}
+                    >
+                      <option value="">还没有选定</option>
+                      {voiceGroup.fitting.length > 0 && (
+                        <optgroup
+                          label={`适合${character?.ageBand ?? ""}${character?.gender ?? ""}性`}
+                        >
+                          {voiceGroup.fitting.map((voice) => (
+                            <option key={voice.id} value={voice.id}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {voiceGroup.others.length > 0 && (
+                        <optgroup
+                          label={character?.gender ? `其他${character.gender}声` : "全部声音"}
+                        >
+                          {voiceGroup.others.map((voice) => (
+                            <option key={voice.id} value={voice.id}>
+                              {voice.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <button
+                      className="btn sm"
+                      type="button"
+                      aria-label="试听"
+                      onClick={() => {
+                        if (!character) return;
+                        const line =
+                          film.shots.find(
+                            (item) => item.line.trim() && item.characters.includes(character.name),
+                          )?.line ?? "";
+                        onPreview(character.voiceId, line);
+                      }}
+                    >
+                      {hearing ? "停止" : "试听"}
+                    </button>
+                  </div>
+                )}
+                {voices.length === 0 ? (
+                  <button
+                    className="btn sm"
+                    type="button"
+                    aria-label="试听"
+                    onClick={() => {
+                      if (!character) return;
+                      const line =
+                        film.shots.find(
+                          (item) => item.line.trim() && item.characters.includes(character.name),
+                        )?.line ?? "";
+                      onPreview(character.voiceId, line);
+                    }}
+                  >
+                    {hearing ? "停止" : "试听"}
+                  </button>
+                ) : null}
+                <label htmlFor="narration-voice">旁白</label>
+                <select
+                  id="narration-voice"
+                  className="input"
+                  aria-label="旁白声音"
+                  value={film.narrationVoiceId}
+                  onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
+                >
+                  <option value="">还没有选旁白</option>
+                  {voices.map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.label}
+                    </option>
+                  ))}
+                  {film.narrationVoiceId &&
+                  !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
+                    <option value={film.narrationVoiceId}>
+                      {voiceLabel(film.narrationVoiceId)}
+                    </option>
+                  ) : null}
+                </select>
+                <button
+                  className="btn sm"
+                  type="button"
+                  aria-label="试听旁白"
+                  onClick={() =>
+                    onPreview(
+                      film.narrationVoiceId,
+                      film.shots.find((item) => item.line.trim())?.line ?? "",
+                    )
+                  }
+                >
+                  {hearing ? "停止" : "试听旁白"}
+                </button>
+              </div>
+              <div className="cast-looks">
+                <div className="looks-head">
+                  <span className="sec-t">定妆照</span>
+                  <span className="sp" />
+                  {character && VIEWS.some((view) => !has(character, view)) ? (
+                    <button
+                      className="btn sm"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void onPortraits(character.id)}
+                    >
+                      补这个人的
+                    </button>
+                  ) : null}
+                </div>
+                <div className="refs4 slots">
+                  {character ? (
+                    <p className="slots-note">
+                      侧面、背面、脸部按正面这张改出来，脸和衣服跟正面一样。
+                    </p>
+                  ) : null}
+                  {(character
+                    ? portraitPrompts(character.name, character.identity, film.styleZh)
+                    : []
+                  ).map((item) => {
+                    const url = character?.portraits.find(
+                      (portrait) => portrait.view === item.view && portrait.url,
+                    )?.url;
+                    const slot = character
+                      ? portraits.slots[`${character.id}:${item.view}`]
+                      : undefined;
+                    const state = url ? "done" : (slot?.state ?? "empty");
+                    const front = item.view === "正面";
+                    return (
+                      <figure
+                        key={item.view}
+                        className={front ? "slot front" : "slot"}
+                        data-state={state}
+                      >
+                        {url ? (
+                          <Thumb src={url} />
+                        ) : (
+                          <div className="slot-empty" aria-label={`${item.view}还没有`}>
+                            {item.view}
+                          </div>
+                        )}
+                        <figcaption>
+                          {url ? <span>{item.view}</span> : null}
+                          {state === "running" && <span className="slot-state">生成中…</span>}
+                          {state === "queued" && <span className="slot-state">排队中</span>}
+                          {state === "done" && <span className="slot-state done">已完成</span>}
+                          {state === "failed" && (
+                            <>
+                              <span className="slot-state bad" title={slot?.reason || undefined}>
+                                失败
+                              </span>
+                              <button
+                                className="link-btn"
+                                type="button"
+                                disabled={busy}
+                                aria-label={`重试${item.view}`}
+                                onClick={() => character && void onPortraits(character.id)}
+                              >
+                                重试
+                              </button>
+                            </>
+                          )}
+                        </figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
       <section className="pane ai">
