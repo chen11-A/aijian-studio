@@ -7,6 +7,19 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["对白音量", "mix-dialogue-volume"],
+    ["静音对白", "mix-dialogue-mute"],
+    ["单听对白", "mix-dialogue-solo"],
+    ["环境音音量", "mix-ambience-volume"],
+    ["静音环境音", "mix-ambience-mute"],
+    ["单听环境音", "mix-ambience-solo"],
+    ["音效音量", "mix-sfx-volume"],
+    ["静音音效", "mix-sfx-mute"],
+    ["单听音效", "mix-sfx-solo"],
+    ["配乐音量", "mix-score-volume"],
+    ["静音配乐", "mix-score-mute"],
+    ["单听配乐", "mix-score-solo"],
+    ["重试音轨试听", "mix-preview-retry"],
     ["整理视频说明", "video-organize"],
     ["确认视频说明", "video-confirm"],
     ["关闭说明", "video-review-close"],
