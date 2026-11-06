@@ -21,7 +21,7 @@
 
 ```sh
 pnpm --filter @aijian/desktop exec vitest run src/film-project-archive.test.ts src/film-project-archive-preload.test.ts src/film-project-archive-runtime.test.ts
-pnpm --filter @aijian/studio-web exec vitest run src/aivora/next/ProjectArchiveDialog.test.tsx src/aivora/pro/ProWorkspace.project-archive.test.tsx
+pnpm --filter @aijian/studio-web exec vitest run src/aivora/pro/ProjectArchiveDialog.test.tsx src/aivora/pro/ProWorkspace.project-archive.test.tsx
 uv run pytest services/api/tests/test_project_archive_resource_collection.py
 node --test packages/aivora-media/archive.test.mjs
 pnpm --filter @aijian/desktop typecheck

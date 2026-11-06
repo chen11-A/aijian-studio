@@ -5,7 +5,7 @@ import {
   VIDEO_FACTS_STALE,
 } from "../film/seven-part-video";
 import { rangeVideoBody } from "./actions/video-prompt-review";
-import { ProjectArchiveDialog } from "../next/ProjectArchiveDialog";
+import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
@@ -7843,7 +7843,12 @@ function CastPage({
                     const slot = character
                       ? portraits.slots[`${character.id}:${item.view}`]
                       : undefined;
-                    const state = url ? "done" : (slot?.state ?? "empty");
+                    // A completed task is not proof this snapshot still has its media.
+                    const state = url
+                      ? "done"
+                      : slot?.state === "done"
+                        ? "empty"
+                        : (slot?.state ?? "empty");
                     const front = item.view === "正面";
                     return (
                       <figure

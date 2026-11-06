@@ -9,7 +9,7 @@ import { File as NodeFile } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
 import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
@@ -1126,15 +1126,82 @@ describe("professional workspace", () => {
       if (result.kind === "CAPTURED") generationOrder.push("backup");
       return result;
     });
-    let completeGeneration!: () => void;
-    const generationCompleted = new Promise<void>((resolve) => {
+    let awaitingPortraits = false,
+      awaitingGeneration = false;
+    let completePortraits!: () => void, failPortraits!: (error: Error) => void;
+    const portraitsCompleted = new Promise<void>((resolve, reject) => {
+      completePortraits = resolve;
+      failPortraits = reject;
+    });
+    let savePortraits!: () => void;
+    const portraitsSaved = new Promise<void>((resolve) => {
+      savePortraits = resolve;
+    });
+    const writeProject = window.aijian!.writeFilmProject!;
+    let savedPortraitViews: string[] = [];
+    window.aijian!.writeFilmProject = vi.fn(async (...args: Parameters<typeof writeProject>) => {
+      const stored = await writeProject(...args);
+      const person = (stored as Partial<FilmProject>).characters?.find(
+        (person) => person.id === "lin",
+      );
+      const views = ["正面", "侧面", "背面", "脸部"];
+      if (
+        views.every((view) =>
+          person?.portraits.some((portrait) => portrait.view === view && portrait.url),
+        )
+      ) {
+        savedPortraitViews = views;
+        savePortraits();
+      }
+      return stored;
+    });
+    let completeGeneration!: () => void, failGeneration!: (error: Error) => void;
+    const generationCompleted = new Promise<void>((resolve, reject) => {
       completeGeneration = resolve;
+      failGeneration = reject;
     });
     const onGenerationCompleted = (event: Event) => {
-      if ((event as CustomEvent<{ code?: string }>).detail?.code === "GENERATION_DONE")
+      const code = (event as CustomEvent<{ code?: string }>).detail?.code;
+      if (code === "PORTRAIT_DONE" && awaitingPortraits) {
+        awaitingPortraits = false;
+        completePortraits();
+      }
+      if (code === "GENERATION_DONE" && awaitingGeneration) {
+        awaitingGeneration = false;
         completeGeneration();
+      }
+      if (
+        code &&
+        [
+          "HISTORY_BACKUP_FAILED",
+          "REQUEST_STALE",
+          "HISTORY_STALE",
+          "GENERATION_SELECTION_STALE",
+          "GENERATION_FAILED",
+          "PORTRAIT_FAILED",
+          "SAVE_FAILED",
+        ].includes(code)
+      ) {
+        const error = new Error(`EXPECTED_ACTION_TERMINATED:${code}`);
+        if (awaitingPortraits) {
+          awaitingPortraits = false;
+          failPortraits(error);
+        }
+        if (awaitingGeneration) {
+          awaitingGeneration = false;
+          failGeneration(error);
+        }
+      }
     };
     window.addEventListener("aivora-notice", onGenerationCompleted);
+    const finishWaiting = () => {
+      awaitingPortraits = false;
+      awaitingGeneration = false;
+      window.removeEventListener("aivora-notice", onGenerationCompleted);
+      play.mockRestore();
+    };
+    // Vitest invokes this even if its timeout ends a still-pending action wait.
+    onTestFinished(finishWaiting);
     let videos = 0;
     window.aijian = {
       ...window.aijian!,
@@ -1176,10 +1243,12 @@ describe("professional workspace", () => {
       moreAction("重新生成画面");
       expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
+      awaitingPortraits = true;
       fireEvent.click(screen.getByRole("button", { name: /^补齐.+的定妆照（还缺 \d 张）$/ }));
-      await waitFor(() =>
-        expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
-      );
+      // Old task-feed success can outlive a project snapshot. Wait for this action
+      // and its actual canonical URLs before editing another input or generating video.
+      await Promise.all([portraitsCompleted, portraitsSaved]);
+      expect(savedPortraitViews).toEqual(["正面", "侧面", "背面", "脸部"]);
       await waitFor(() =>
         expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
       );
@@ -1190,6 +1259,7 @@ describe("professional workspace", () => {
       generationOrder.length = 0;
       // Backup and canonical saves legitimately precede the provider. Wait for the
       // action's real completion event, within this test's existing 20s budget.
+      awaitingGeneration = true;
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
       await generationCompleted;
       expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
@@ -1222,8 +1292,7 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "设入点" }));
       expect(screen.getByText("左右对比")).toBeInTheDocument();
     } finally {
-      window.removeEventListener("aivora-notice", onGenerationCompleted);
-      play.mockRestore();
+      finishWaiting();
     }
   }, 20_000);
 
