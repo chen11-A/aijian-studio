@@ -3096,11 +3096,28 @@ it("does not write an offline cast when the model fails", async () => {
   expect(await screen.findByText(/已放进分镜/)).toBeInTheDocument();
 });
 
+function materializeSpokenFixture() {
+  const write = vi.mocked(window.aijian!.writeFilmProject!);
+  const original = write.getMockImplementation()!;
+  const sources = new Map<string, string>();
+  write.mockImplementation(async (raw) => {
+    const film = structuredClone(raw) as FilmProject;
+    film.audioClips = film.audioClips.map((clip) => {
+      if (!clip.path?.startsWith("data:")) return clip;
+      if (!sources.has(clip.path))
+        sources.set(clip.path, `/tmp/aivora/films/voice-${sources.size}.mp3`);
+      return { ...clip, path: sources.get(clip.path)! };
+    });
+    return original(film);
+  });
+}
+
 it("shows a saved still again and uses lane mute, solo, and volume", async () => {
   const createStoryFilm = vi.fn(async () => ({
     data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
   }));
   const desktop = installDesktop(createStoryFilm);
+  materializeSpokenFixture();
   Object.assign(window.aijian ?? {}, {
     generateFilmStill: vi.fn(async () => ({ path: "/tmp/aivora/still.png", reason: "" })),
     importMusic: vi.fn(async () => ({ path: "/tmp/aivora/films/bed.mp3" })),
@@ -3116,8 +3133,6 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   Object.assign(window.aijianGrok ?? {}, { speak });
   await openSample();
   fireEvent.click(stageTab("分镜"));
-  // Voice belongs to the actual selected done take, not an ungenerated shot's empty id.
-  fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
   fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
   expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /候选画面/ }));
@@ -3129,15 +3144,16 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
   fireEvent.click(screen.getByRole("button", { name: "换配音" }));
   expect(await screen.findByText("这一句已重配，画面没有重新生成。")).toBeInTheDocument();
-  expect(document.querySelector("[data-voice='1']")).toBeTruthy();
+  expect(document.querySelector("[data-voice='1'][data-voice-binding='pending']")).toBeTruthy();
+  expect(screen.getByText(/生成画面后可免费绑定/)).toBeInTheDocument();
   await waitFor(async () => {
     const last = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
     const stored = (await readSaved(last.id))!;
     const voice = stored.audioClips.find((clip) => clip.label === "配音")!;
     const shot = stored.shots.find((row) => row.id === voice.shotId)!;
-    expect(voice.takeId).toBeTruthy();
-    expect(voice.takeId).toBe(shot.selectedTakeId);
-    expect(shot.takes.find((take) => take.id === voice.takeId)?.status).toBe("done");
+    expect(voice.takeId).toBe("");
+    expect(shot.takes.filter((take) => take.status === "done")).toHaveLength(0);
+    expect(voice.path).toBeTruthy();
   });
   expect(createStoryFilm).toHaveBeenCalledOnce();
   expect(speak).toHaveBeenCalledOnce();
@@ -3165,6 +3181,69 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   expect(createStoryFilm).toHaveBeenCalledOnce();
   expect(speak).toHaveBeenCalledOnce();
   expect(desktop.assembleFilm).not.toHaveBeenCalled();
+});
+
+it("keeps pre-recorded voice and explicitly reuses it after normal generation adds its own voice file", async () => {
+  const video = vi.fn(async () => ({
+    data: {
+      status: "SUCCEEDED",
+      message: "",
+      output_path: "/tmp/aivora/shot.mp4",
+      voice_path: "/tmp/aivora/provider-voice.wav",
+    },
+  }));
+  installDesktop(video);
+  materializeSpokenFixture();
+  const speak = vi.fn(async () => ({
+    kind: "OK",
+    audioBase64: "QQ==",
+    mime: "audio/mpeg",
+    seconds: 1,
+    timestamps: false,
+  }));
+  Object.assign(window.aijianGrok!, { speak });
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
+  fireEvent.click(screen.getByRole("button", { name: "换配音" }));
+  await screen.findByText("这一句已重配，画面没有重新生成。");
+  expect(speak).toHaveBeenCalledOnce();
+  expect(video).not.toHaveBeenCalled();
+  expect(document.querySelector("[data-voice-binding='pending']")).toBeTruthy();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await screen.findByText("这一版已经生成。");
+  fireEvent.click(stageTab("剪辑"));
+  const button = await screen.findByRole("button", {
+    name: "将这段配音用于当前版本（现用配音保留）",
+  });
+  expect(video).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
+  fireEvent.click(button);
+  await waitFor(async () => {
+    const raw = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    const stored = (await readSaved(raw.id))!;
+    const pending = stored.audioClips.find((clip) => clip.lane === "dialogue" && !clip.takeId)!;
+    const selected = stored.shots.find((shot) => shot.id === pending.shotId)!.selectedTakeId;
+    const voices = stored.audioClips.filter(
+      (clip) => clip.shotId === pending.shotId && clip.takeId === selected && clip.label !== "原声",
+    );
+    expect(pending.path).toBe("/tmp/aivora/films/voice-0.mp3");
+    expect(voices).toHaveLength(2);
+    expect(voices.find((clip) => clip.path === "/tmp/aivora/provider-voice.wav")?.enabled).toBe(
+      false,
+    );
+    expect(voices.filter((clip) => clip.enabled !== false)).toHaveLength(1);
+    expect(voices.find((clip) => clip.enabled !== false)?.path).toBe(pending.path);
+  });
+  expect(
+    screen.getByRole("button", { name: "改用这段已保留配音（不重新配音）" }),
+  ).toBeInTheDocument();
+  expect(video).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
 });
 
 it("puts the spoken file on the dialogue lane and leaves a finished job alone", async () => {

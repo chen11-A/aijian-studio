@@ -1,3 +1,4 @@
+import { isPreparedVoice } from "./actions/prepared-voice";
 import type { AudioMixPlan } from "@aijian/contracts/film-audio-mix";
 import type { FilmProject, FilmShot } from "../film/project";
 import type { AudioClip } from "../film/audio";
@@ -12,6 +13,15 @@ export function audioTimelineBox(
   plan: AudioMixPlan | null,
 ): { left: number; width: number } | null {
   const shot = clip.shotId ? shots.find((shot) => shot.id === clip.shotId) : undefined;
+  if (isPreparedVoice(clip) && shot) {
+    const box = boxes.find((box) => box.id === shot.id);
+    return box
+      ? {
+          left: box.left + clip.startSeconds * zoom,
+          width: Math.max(1, (clip.durationSeconds || 1) * zoom),
+        }
+      : null;
+  }
   if (clip.shotId) {
     const selected =
       shot?.takes.find((take) => take.id === shot.selectedTakeId) ??
@@ -49,7 +59,8 @@ export function audioTimelineBox(
       return left === null || right === null ? null : { left, width: Math.max(1, right - left) };
     }
     // A muted but still bound source remains editable; it is not an audible plan track.
-    if (!(film.audioMix?.lanes[clip.lane].muted || clip.gainDb <= -40)) return null;
+    if (!(clip.enabled === false || film.audioMix?.lanes[clip.lane].muted || clip.gainDb <= -40))
+      return null;
   }
   const left =
     (shot ? (boxes.find((box) => box.id === shot.id)?.left ?? 1) : 1) + clip.startSeconds * zoom;

@@ -142,6 +142,7 @@ export async function resolveAudioMix(
   const clips: MixClip[] = [];
   for (const raw of Array.isArray(record.audioClips) ? record.audioClips : []) {
     const clip = obj(raw);
+    if (clip.enabled === false) continue;
     if (!text(clip.path)) continue;
     const shotId = text(clip.shotId),
       takeId = text(clip.takeId),
@@ -218,6 +219,7 @@ export async function resolveAudioMix(
       offsetSeconds: clip.offsetSeconds as number,
       gainDb: clip.gainDb as number,
       ...(clip.loop !== undefined ? { loop: clip.loop as boolean } : {}),
+      ...(clip.enabled !== undefined ? { enabled: clip.enabled as boolean } : {}),
     });
   }
   const plan = buildAudioMixPlan({

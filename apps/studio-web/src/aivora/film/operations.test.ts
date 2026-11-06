@@ -626,6 +626,13 @@ describe("film operations", () => {
         path: "/films/line.wav",
       },
     ];
+    expect(dialogueTracks(film)).toEqual([""]);
+    film.audioClips[0]!.takeId = "take-old";
+    expect(dialogueTracks(film)).toEqual([""]);
+    film.audioClips[0]!.takeId = "take-new";
+    film.audioClips[0]!.enabled = false;
+    expect(dialogueTracks(film)).toEqual([""]);
+    film.audioClips[0]!.enabled = true;
     expect(dialogueTracks(film)).toEqual(["/films/line.wav"]);
     film.audioClips[0]!.gainDb = -80;
     expect(dialogueTracks(film)).toEqual(["mute"]);

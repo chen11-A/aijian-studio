@@ -1717,7 +1717,12 @@ export function dialogueTracks(film: FilmProject): string[] {
       : shot.takes.find((take) => take.status === "done" && take.videoPath);
     if (!chosen?.videoPath) continue;
     const clip = film.audioClips.find(
-      (item) => item.lane === "dialogue" && item.shotId === shot.id && isVoiceFile(item.path ?? ""),
+      (item) =>
+        item.lane === "dialogue" &&
+        item.shotId === shot.id &&
+        item.takeId === chosen.id &&
+        item.enabled !== false &&
+        isVoiceFile(item.path ?? ""),
     );
     if (!clip?.path) tracks.push("");
     else if ((clip.gainDb ?? 0) <= -40) tracks.push("mute");

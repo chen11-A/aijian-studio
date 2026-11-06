@@ -187,11 +187,23 @@ it("really mixes four frequency-separated lanes on their time/offset/gain, ducks
   const f = await fixture(),
     original = await readFile(f.video),
     out = join(f.root, "mixed.mp4");
-  await renderAudioMix(f.video, out, buildAudioMixPlan(f.input), f.paths, tools, run);
+  f.input.clips.push({
+    ...f.input.clips[0]!,
+    id: "retained-inactive-dub",
+    sourceKey: "sfx",
+    startSeconds: 0,
+    durationSeconds: 4,
+    offsetSeconds: 0,
+    enabled: false,
+  });
+  const plan = buildAudioMixPlan(f.input);
+  expect(plan.tracks.some((track) => track.key === "retained-inactive-dub")).toBe(false);
+  await renderAudioMix(f.video, out, plan, f.paths, tools, run);
   expect(await readFile(f.video)).toEqual(original);
   expect(await amplitude(out, 1.2, 0.2, 880)).toBeGreaterThan(0.1);
   expect(await amplitude(out, 1.2, 0.2, 990)).toBeLessThan(0.002);
   expect(await amplitude(out, 1.2, 0.2, 440)).toBeLessThan(0.002);
+  expect(await amplitude(out, 1.2, 0.2, 1320)).toBeLessThan(0.002);
   expect(await amplitude(out, 0.2, 0.2, 880)).toBeLessThan(0.002);
   const score = await amplitude(out, 0.2, 0.2, 220),
     ducked = await amplitude(out, 1.2, 0.2, 220);

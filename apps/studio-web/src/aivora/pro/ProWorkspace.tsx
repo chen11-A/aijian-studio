@@ -1,3 +1,4 @@
+import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./actions/prepared-voice";
 import { audioTimelineBox } from "./audio-mix-timeline";
 import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
 import { AudioMixPreview } from "./AudioMixPreview";
@@ -5374,6 +5375,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setNotice(gainDb <= -40 ? "这一轨已静音。" : "音量已记下，导出时用这个音量。");
                   }}
                   audioPreview={audioMixPreview}
+                  onBindPreparedVoice={(clipId, shotId, takeId) => {
+                    const live = filmRef.current;
+                    if (!live || live !== film) return;
+                    const next = bindPreparedVoice(live, {
+                      projectId: film.id,
+                      clipId,
+                      shotId,
+                      takeId,
+                    });
+                    if (next) applyLive(next);
+                  }}
                   onRestoreAudioClip={(id) => {
                     const live = filmRef.current;
                     if (!live) return;
@@ -9780,6 +9792,7 @@ function EditPage({
   hearLane = "",
   audioPreview = { result: null, busy: false, unsupported: true },
   onRestoreAudioClip,
+  onBindPreparedVoice,
 }: {
   waveformKeys: Readonly<Record<string, string>>;
   waveformBusy: boolean;
@@ -9816,6 +9829,7 @@ function EditPage({
   hearLane?: MixLane | "";
   audioPreview?: AudioPreviewView;
   onRestoreAudioClip?: (id: string) => void;
+  onBindPreparedVoice?: (clipId: string, shotId: string, takeId: string) => void;
   /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
   onMute?: () => void;
   /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
@@ -10482,6 +10496,41 @@ function EditPage({
               </button>
             )}
             {film.audioClips
+              .filter(
+                (clip) =>
+                  clip.shotId === current?.id &&
+                  (isPreparedVoice(clip) ||
+                    (clip.lane === "dialogue" &&
+                      clip.enabled === false &&
+                      clip.takeId === current?.selectedTakeId)),
+              )
+              .map((clip) => {
+                const binding = preparedVoiceBinding(film, clip);
+                return (
+                  <p key={`prepared-${clip.id}`} className="role-desc">
+                    {isPreparedVoice(clip)
+                      ? "待绑定配音：已保留，尚未用于画面；请先核对当前台词和声音。"
+                      : "已保留的配音：当前停用，可重新选用。"}
+                    {binding?.alreadyBound ? (
+                      <span>已用于当前版本，原配音仍保留。</span>
+                    ) : binding ? (
+                      <button
+                        className="btn sm"
+                        onClick={() =>
+                          onBindPreparedVoice?.(clip.id, binding.shotId, binding.takeId)
+                        }
+                      >
+                        {isPreparedVoice(clip)
+                          ? "将这段配音用于当前版本（现用配音保留）"
+                          : "改用这段已保留配音（不重新配音）"}
+                      </button>
+                    ) : (
+                      <span>生成画面后可免费绑定，不需要再次配音。</span>
+                    )}
+                  </p>
+                );
+              })}
+            {film.audioClips
               .filter((clip) => clip.path && clip.gainDb <= -40)
               .map((clip) => (
                 <p key={clip.id} className="role-desc">
@@ -10843,12 +10892,20 @@ function EditPage({
                       key={item.id}
                       className="clip a"
                       data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
+                      data-voice-binding={isPreparedVoice(item) ? "pending" : "bound"}
+                      title={isPreparedVoice(item) ? "待绑定配音：已保留，尚未用于画面" : undefined}
                       style={{
                         ...audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan)!,
                       }}
                     >
                       <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
-                      <span className="tx">{item.label || "对白"}</span>
+                      <span className="tx">
+                        {isPreparedVoice(item)
+                          ? "待绑定配音"
+                          : item.enabled === false
+                            ? "已停用配音"
+                            : item.label || "对白"}
+                      </span>
                     </div>
                   ))}
                 {actualMixPlan?.tracks

@@ -199,11 +199,9 @@ export function applyVideoResponse(
         };
       }),
       audioClips: [
-        ...saved.audioClips.filter(
-          (clip) => !(clip.lane === "dialogue" && clip.shotId === shot.id),
-        ),
+        ...saved.audioClips.filter((clip) => clip.id !== `voice-${shot.id}-${take.id}`),
         {
-          id: `voice-${shot.id}`,
+          id: `voice-${shot.id}-${take.id}`,
           lane: "dialogue",
           shotId: shot.id,
           takeId: take.id,

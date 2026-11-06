@@ -14,7 +14,7 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
-async function open() {
+async function open(preparedVoice = false) {
   let host!: Parameters<typeof originalHost>[0];
   vi.spyOn(editor, "createEditorHost").mockImplementation((value) => {
     host = value;
@@ -44,7 +44,7 @@ async function open() {
       lane: "dialogue",
       label: "配音",
       shotId: film.shots[0]!.id,
-      takeId: "v1",
+      takeId: preparedVoice ? "" : "v1",
       startSeconds: 0,
       durationSeconds: 1,
       offsetSeconds: 0,
@@ -138,6 +138,38 @@ it("keeps solo audition out of saved creative settings and exposes normalization
   fireEvent.click(checkbox);
   await waitFor(() => expect(env.disk().audioMix?.autoAdjustVolume).toBe(true));
   expect(env.disk().audioMix?.lanes.score.gainDb).toBe(0);
+  expect(env.create).not.toHaveBeenCalled();
+  expect(env.oldExport).not.toHaveBeenCalled();
+});
+
+it("keeps pre-recorded voice pending until explicit free binding and retains it across a later version change", async () => {
+  const env = await open(true);
+  expect(document.querySelector("[data-voice-binding='pending']")).toBeTruthy();
+  expect(env.disk().audioClips).toHaveLength(1);
+  expect(env.disk().audioClips[0]!.takeId).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "将这段配音用于当前版本（现用配音保留）" }));
+  await waitFor(() => expect(env.disk().audioClips).toHaveLength(2));
+  expect(env.disk().audioClips[0]!.takeId).toBe("");
+  expect(env.disk().audioClips[1]).toMatchObject({
+    takeId: "v1",
+    path: "/trusted/voice.wav",
+    gainDb: -6,
+  });
+  expect(screen.getByText("已用于当前版本，原配音仍保留。")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "将这段配音用于当前版本（现用配音保留）" }),
+  ).toBeNull();
+  const live = env.host().current()!;
+  await act(async () =>
+    env
+      .host()
+      .applyLive({ ...live, shots: live.shots.map((shot) => ({ ...shot, selectedTakeId: "v2" })) }),
+  );
+  await waitFor(() => expect(env.disk().shots[0]!.selectedTakeId).toBe("v2"));
+  expect(env.disk().audioClips.map((clip) => clip.takeId)).toEqual(["", "v1"]);
+  expect(
+    screen.getByRole("button", { name: "将这段配音用于当前版本（现用配音保留）" }),
+  ).toBeInTheDocument();
   expect(env.create).not.toHaveBeenCalled();
   expect(env.oldExport).not.toHaveBeenCalled();
 });

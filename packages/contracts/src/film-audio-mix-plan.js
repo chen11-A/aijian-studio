@@ -45,6 +45,7 @@ export function buildAudioMixPlan(input) {
     return Boolean(shot && clip.takeId && clip.takeId === shot.takeId);
   };
   const candidates = input.clips.filter((clip) => {
+    if (clip.enabled === false) return false;
     if (!clip.sourceKey) return false; // A text-only sound intention is never an audio source.
     if (!selected(clip)) {
       note("STALE_CLIP_IGNORED");
@@ -60,7 +61,8 @@ export function buildAudioMixPlan(input) {
       clip.offsetSeconds < 0 ||
       clip.gainDb < -96 ||
       clip.gainDb > 24 ||
-      (clip.loop !== undefined && typeof clip.loop !== "boolean")
+      (clip.loop !== undefined && typeof clip.loop !== "boolean") ||
+      (clip.enabled !== undefined && typeof clip.enabled !== "boolean")
     ) {
       note("INVALID_CLIP");
       return false;

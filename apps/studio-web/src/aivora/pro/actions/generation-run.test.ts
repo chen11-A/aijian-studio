@@ -221,7 +221,33 @@ it("retains unrelated audio while applying successful narration and measured dur
   const { queue } = setup();
   const shot = queue.film.shots[0]!;
   shot.line = "这句台词需要配音。";
-  const prior = queue.film.audioClips;
+  queue.film.audioClips.push(
+    {
+      id: "pre-recorded",
+      shotId: shot.id,
+      takeId: "",
+      lane: "dialogue",
+      label: "配音",
+      path: "/films/pre-recorded.wav",
+      startSeconds: 0,
+      durationSeconds: 2,
+      offsetSeconds: 0,
+      gainDb: -3,
+    },
+    {
+      id: "old-version",
+      shotId: shot.id,
+      takeId: "previous-take",
+      lane: "dialogue",
+      label: "配音",
+      path: "/films/old.wav",
+      startSeconds: 0,
+      durationSeconds: 2,
+      offsetSeconds: 0,
+      gainDb: -6,
+    },
+  );
+  const prior = structuredClone(queue.film.audioClips);
   const result = applyVideoResponse(queue.film, shot, shot.takes[0]!, {
     status: "SUCCEEDED",
     output_path: "/films/video.mp4",
@@ -234,11 +260,7 @@ it("retains unrelated audio while applying successful narration and measured dur
     poster: "data:image/png;base64,AA==",
     sound: { source: "dub" },
   });
-  expect(result.film.audioClips).toEqual(
-    expect.arrayContaining(
-      prior.filter((clip) => !(clip.lane === "dialogue" && clip.shotId === shot.id)),
-    ),
-  );
+  expect(result.film.audioClips).toEqual(expect.arrayContaining(prior));
   expect(result.film.audioClips).toContainEqual(
     expect.objectContaining({
       lane: "dialogue",

@@ -30,6 +30,7 @@ export type MixClip = {
   gainDb: number;
   /** Repeat source from offset to source end; no seamless-edit claim. */
   loop?: boolean;
+  enabled?: boolean;
 };
 export type AudioMixSettings = {
   schemaVersion: 1;
