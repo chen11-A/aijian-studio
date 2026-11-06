@@ -178,6 +178,13 @@ jobs:
           AIVORA_AUDIT_OUT: .aijian-dev/pro-export-progress
         run: node apps/studio-web/e2e/pro-export-progress-audit.mjs
 
+      - name: Audit actual ProWorkspace art, waveform and history states
+        if: ${{ always() && !cancelled() }}
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-feature-audit
+        run: node apps/studio-web/e2e/pro-feature-audit.mjs
+
       - name: Upload ProWorkspace layout evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -199,5 +206,8 @@ jobs:
             .aijian-dev/pro-export-progress/report.json
             .aijian-dev/pro-export-progress/1280x800-*/*.png
             .aijian-dev/pro-export-progress/1920x1080-*/*.png
+            .aijian-dev/pro-feature-audit/report.json
+            .aijian-dev/pro-feature-audit/1280x800-*/*.png
+            .aijian-dev/pro-feature-audit/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7
