@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIVORA 界面原型目录</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0e1014;
+        --panel: #15181d;
+        --line: #262b33;
+        --text: #e7e9ec;
+        --text-2: #a3abb6;
+        --accent: #5b8cff;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.6 "Noto Sans CJK SC",
+          "PingFang SC",
+          "Microsoft YaHei UI",
+          system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 32px 24px 48px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+      p {
+        margin: 0;
+        color: var(--text-2);
+      }
+      a {
+        color: var(--accent);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+      }
+      .card {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+      .card h2 {
+        margin: 0;
+        font-size: 16px;
+      }
+      .card img {
+        display: block;
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+      }
+      .states {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .states a {
+        padding: 2px 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        text-decoration: none;
+        font-size: 13px;
+      }
+      .docs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+        margin-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AIVORA 界面原型 · 第二版</h1>
+      <p>
+        7 个界面，每个都能直接在浏览器里打开，1280×800 和 1920×1080
+        都不会溢出或重叠。点状态名切换到那个状态，画面位置是表示光线的色块。
+      </p>
+      <div class="docs">
+        <a href="界面说明.md">界面说明：每个按钮做什么、各状态显示什么</a>
+        <a href="走查-新手.md">走查意见：第一次用的小白</a>
+        <a href="走查-专业剪辑师.md">走查意见：专业剪辑师</a>
+        <a href="README.md">设计稿说明</a>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>1. 新手首页</h2>
+          <a href="01-home.html"><img src="screenshots/01-home-1280x800.jpg" alt="新手首页" /></a>
+          <p>拖入小说，一键出片。已登录 2 次点击做出成片，最多 5 次。</p>
+          <div class="states">
+            <a href="01-home.html?state=empty">还没放小说</a
+            ><a href="01-home.html?state=login">放了没登录</a>
+            <a href="01-home.html?state=normal">正常</a
+            ><a href="01-home.html?state=loading">准备中</a>
+            <a href="01-home.html?state=confirm">开始生成前</a
+            ><a href="01-home.html?state=done">做好了</a>
+            <a href="01-home.html?state=error">读不出文件</a>
+          </div>
+        </section>
+        <section class="card">
+          <h2>2. 任务中心</h2>
+          <a href="02-tasks.html"><img src="screenshots/02-tasks-1280x800.jpg" alt="任务中心" /></a>
+          <p>生成进度、失败重试；软件意外关闭后先查清楚再接着做。</p>
+          <div class="states">
+            <a href="02-tasks.html?state=normal">关闭后重新打开</a
+            ><a href="02-tasks.html?state=recovered">查完了</a>
+            <a href="02-tasks.html?state=empty">空的</a
+            ><a href="02-tasks.html?state=loading">加载中</a>
+            <a href="02-tasks.html?state=error">出错</a>
+          </div>
+        </section>
+        <section class="card">
+          <h2>3. 导出前检查</h2>
+          <a href="03-export-check.html"
+            ><img src="screenshots/03-export-check-1280x800.jpg" alt="导出前检查"
+          /></a>
+          <p>
+            黑屏、画面停住、没有声音、缺字幕、声音太冲。每条问题一个「去修」，另有「直接导出」。
+          </p>
+          <div class="states">
+            <a href="03-export-check.html?state=normal">有问题</a
+            ><a href="03-export-check.html?state=checking">检查中</a>
+            <a href="03-export-check.html?state=clean">没问题</a
+            ><a href="03-export-check.html?state=error">出错</a>
+          </div>
+        </section>
+        <section class="card">
+          <h2>4. 字幕样式</h2>
+          <a href="04-subtitles.html"
+            ><img src="screenshots/04-subtitles-1280x800.jpg" alt="字幕样式"
+          /></a>
+          <p>3 套模板，横屏和竖屏同时预览，竖屏标出平台按钮会挡住的地方。</p>
+          <div class="states">
+            <a href="04-subtitles.html?state=normal">正常</a
+            ><a href="04-subtitles.html?state=empty">没有台词</a>
+            <a href="04-subtitles.html?state=loading">排字幕中</a
+            ><a href="04-subtitles.html?state=error">出错</a>
+          </div>
+        </section>
+        <section class="card">
+          <h2>5. 封面和片头</h2>
+          <a href="05-cover.html"
+            ><img src="screenshots/05-cover-1280x800.jpg" alt="封面和片头"
+          /></a>
+          <p>3 套模板，竖屏封面、横屏封面和 3 秒片头，可以选「AI 生成」标识。</p>
+          <div class="states">
+            <a href="05-cover.html?state=normal">正常</a
+            ><a href="05-cover.html?state=empty">没有画面</a>
+            <a href="05-cover.html?state=loading">生成背景中</a
+            ><a href="05-cover.html?state=error">出错</a>
+          </div>
+        </section>
+        <section class="card">
+          <h2>6. 声音面板</h2>
+          <a href="06-sound.html"><img src="screenshots/06-sound-1280x800.jpg" alt="声音面板" /></a>
+          <p>默认只看配乐情绪和一个音量，写清选了哪首、为什么；四层音量在「细调」里。</p>
+          <div class="states">
+            <a href="06-sound.html?state=normal">正常</a><a href="06-sound.html?state=fine">细调</a>
+            <a href="06-sound.html?state=empty">还没配</a>
+            <a href="06-sound.html?state=loading">配声音中</a
+            ><a href="06-sound.html?state=error">出错</a>
+          </div>
+        </section>
+        <section class="card">
+          <h2>7. 「一选多」审片</h2>
+          <a href="07-takes.html"
+            ><img src="screenshots/07-takes-1280x800.jpg" alt="一选多审片"
+          /></a>
+          <p>同一镜头的几个版本并排对比、一起播放，最后由你选一个。</p>
+          <div class="states">
+            <a href="07-takes.html?state=normal">正常</a
+            ><a href="07-takes.html?state=loading">还在生成</a>
+            <a href="07-takes.html?state=empty">还没有版本</a
+            ><a href="07-takes.html?state=error">有版本失败</a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

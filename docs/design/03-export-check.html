@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIVORA 原型 · 导出前检查</title>
+    <link rel="stylesheet" href="assets/proto.css" />
+    <style>
+      .check-page {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 12px;
+        height: 100%;
+        padding: 16px;
+      }
+      .page-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        min-width: 0;
+      }
+      .page-head h1 {
+        font-size: 17px;
+        white-space: nowrap;
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: 400px minmax(0, 1fr) 290px;
+        gap: 12px;
+        min-height: 0;
+      }
+      .issues {
+        flex: 1 1 auto;
+      }
+      .kind {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--text-2);
+        font-size: 12px;
+        font-weight: 700;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      .issue {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 4px 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        cursor: pointer;
+      }
+      .issue:hover {
+        background: var(--panel-2);
+      }
+      .issue[aria-selected="true"] {
+        background: var(--accent-soft);
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
+      .issue .h {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .issue .h strong {
+        min-width: 0;
+      }
+      .issue .fix {
+        grid-column: 1;
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .issue .where {
+        grid-column: 1;
+      }
+      .issue > .btn {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+      }
+      .viewer {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        min-height: 0;
+        padding: 12px;
+      }
+      .viewer-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+      }
+      .viewer-head strong {
+        font-size: 14px;
+      }
+      .monitor {
+        display: grid;
+        place-items: center;
+        min-height: 0;
+        border-radius: 8px;
+        background: #07080a;
+        container-type: size;
+      }
+      .monitor .frame {
+        height: min(100cqh, calc(100cqw * 16 / 9));
+        aspect-ratio: 9 / 16;
+      }
+      .flag {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: rgba(232, 163, 61, 0.92);
+        color: #1b1405;
+        font-weight: 700;
+        font-size: 12px;
+        text-align: center;
+      }
+      .tl {
+        display: grid;
+        gap: 6px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-2);
+      }
+      .tl-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .lane {
+        position: relative;
+        height: 24px;
+        border-radius: 4px;
+        background: var(--bg);
+      }
+      .lane .seg-block {
+        position: absolute;
+        top: 6px;
+        bottom: 6px;
+        border-radius: 3px;
+        opacity: 0.75;
+      }
+      .mark {
+        position: absolute;
+        top: 0;
+        width: 4px;
+        height: 24px;
+        border-radius: 2px;
+        transform: translateX(-2px);
+      }
+      .mark.must {
+        background: var(--err);
+      }
+      .mark.look {
+        background: var(--warn);
+      }
+      .mark.now {
+        box-shadow: 0 0 0 2px #fff;
+      }
+      .scenes {
+        display: grid;
+        grid-template-columns: 3fr 83fr 96fr 92fr;
+        gap: 2px;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .scenes span {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        padding-left: 2px;
+        border-left: 1px solid var(--line-2);
+      }
+      .settings .panel-body {
+        display: grid;
+        align-content: start;
+        gap: 12px;
+      }
+      .kv {
+        display: grid;
+        gap: 4px;
+      }
+      .kv .k {
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .export-acts {
+        display: grid;
+        gap: 8px;
+        padding: 12px;
+        border-top: 1px solid var(--line);
+      }
+      .check-run {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+      }
+      .check-run li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      @media (min-width: 1600px) {
+        .cols {
+          grid-template-columns: 460px minmax(0, 1fr) 340px;
+        }
+        .check-page {
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body data-states="normal checking clean error">
+    <div class="app">
+      <header class="topbar">
+        <div class="tb-left">
+          <div class="logo"><span class="logo-mark">A</span>AIVORA</div>
+          <span class="vsep"></span>
+          <button class="proj" aria-label="作品">
+            <span class="one-line">雨夜旧书店</span><span class="ep">/ 第 1 集</span>
+            <svg class="ic sm"><use href="#i-chev" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="撤销" title="撤销">
+            <svg class="ic"><use href="#i-undo" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="重做" title="重做" disabled>
+            <svg class="ic"><use href="#i-redo" /></svg>
+          </button>
+        </div>
+        <nav class="tabs" aria-label="创作阶段">
+          <button class="tab"><span class="n">1</span>剧本</button>
+          <button class="tab"><span class="n">2</span>角色与场景</button>
+          <button class="tab"><span class="n">3</span>分镜</button>
+          <button class="tab on" aria-current="page"><span class="n">4</span>剪辑</button>
+        </nav>
+        <div class="tb-right">
+          <button class="chip"><span class="dot"></span>Grok 会员 · 已连接</button>
+          <button class="btn ghost">
+            <svg class="ic"><use href="#i-list" /></svg>任务
+          </button>
+          <button class="btn" aria-pressed="true">
+            <svg class="ic"><use href="#i-export" /></svg>导出成片
+          </button>
+          <button class="avatar" aria-label="账号">
+            <svg class="ic sm"><use href="#i-user" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="check-page">
+          <div class="page-head">
+            <h1>导出前检查</h1>
+            <span class="muted one-line" data-show="normal"
+              >检查了 65 个镜头、4 分 34 秒：有 6 处问题，其中 3 处要先处理。</span
+            >
+            <span class="muted one-line" data-show="checking"
+              >正在一个镜头一个镜头地看，查完才能导出。</span
+            >
+            <span class="muted one-line" data-show="clean"
+              >检查了 65 个镜头、4 分 34 秒，没有发现问题。</span
+            >
+            <span class="muted one-line" data-show="error"
+              >有 2 个视频文件找不到了，这两个镜头没法检查。</span
+            >
+          </div>
+
+          <div class="cols">
+            <section class="panel" aria-labelledby="issues-title">
+              <div class="panel-head">
+                <h2 id="issues-title">问题</h2>
+                <span class="faint" data-show="normal">点一条，中间显示出问题的画面</span>
+              </div>
+              <ul class="scroll issues" role="listbox" aria-label="问题" data-show="normal">
+                <li class="kind" role="presentation">
+                  <span class="dot err"></span>要先处理 · 3 处
+                </li>
+                <li class="issue" role="option" aria-selected="false" tabindex="0">
+                  <p class="h">
+                    <span class="tag err">黑屏</span
+                    ><strong class="one-line">推门那一镜开头 0.4 秒是黑的</strong>
+                  </p>
+                  <p class="fix">去修：剪掉黑的那一小段</p>
+                  <p class="where one-line">
+                    第 1 场第 4 个镜头 <span class="code">scene-1-shot-4 · 0:13</span>
+                  </p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="issue" role="option" aria-selected="false" tabindex="0">
+                  <p class="h">
+                    <span class="tag err">声音太冲</span
+                    ><strong class="one-line">铁棍砸碎木箱那一下太响</strong>
+                  </p>
+                  <p class="fix">去修：把这一下调小，手机外放不会破音</p>
+                  <p class="where one-line">
+                    第 2 场第 17 个镜头 <span class="code">scene-2-shot-17 · 2:34</span>
+                  </p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="issue" role="option" aria-selected="false" tabindex="0">
+                  <p class="h">
+                    <span class="tag err">缺字幕</span
+                    ><strong class="one-line">「十年前，你父亲也可以不管。」没有字幕</strong>
+                  </p>
+                  <p class="fix">去修：用剧本里的台词补上</p>
+                  <p class="where one-line">
+                    第 3 场第 5 个镜头 <span class="code">scene-3-shot-5 · 3:18</span>
+                  </p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="kind" role="presentation">
+                  <span class="dot warn"></span>建议看看 · 3 处
+                </li>
+                <li class="issue" role="option" aria-selected="true" tabindex="0">
+                  <p class="h">
+                    <span class="tag warn">画面停住</span
+                    ><strong class="one-line">铁棍落地以后画面停住 1.1 秒</strong>
+                  </p>
+                  <p class="fix">去修：剪到停住之前，或者换一个版本</p>
+                  <p class="where one-line">
+                    第 2 场第 18 个镜头 <span class="code">scene-2-shot-18 · 2:38</span>
+                  </p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="issue" role="option" aria-selected="false" tabindex="0">
+                  <p class="h">
+                    <span class="tag warn">没有声音</span
+                    ><strong class="one-line">车灯打进来时没有刹车声</strong>
+                  </p>
+                  <p class="fix">去修：素材库里没有这个声音，可以导入一个</p>
+                  <p class="where one-line">
+                    第 1 场第 19 个镜头 <span class="code">scene-1-shot-19 · 1:22</span>
+                  </p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="issue" role="option" aria-selected="false" tabindex="0">
+                  <p class="h">
+                    <span class="tag warn">没有声音</span
+                    ><strong class="one-line">片头 3 秒一点声音都没有</strong>
+                  </p>
+                  <p class="fix">本来就要安静可以不管；去修可以加一段配乐</p>
+                  <p class="where one-line">片头 <span class="code">0:00 – 0:03</span></p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="more-row muted" role="presentation" style="padding: 12px 14px">
+                  整片音量：导出时会自动调到听着一样大，手机和电脑上听起来差不多。
+                </li>
+              </ul>
+              <ol class="check-run" data-show="checking" aria-live="polite">
+                <li>
+                  <svg class="ic ok-text"><use href="#i-check" /></svg>有没有黑屏<span
+                    class="spacer"
+                  ></span
+                  ><span class="faint">查完 36 个镜头</span>
+                </li>
+                <li>
+                  <svg class="ic ok-text"><use href="#i-check" /></svg>画面有没有停住<span
+                    class="spacer"
+                  ></span
+                  ><span class="faint">查完 36 个镜头</span>
+                </li>
+                <li>
+                  <svg class="ic spin"><use href="#i-refresh" /></svg>有没有没声音的地方<span
+                    class="spacer"
+                  ></span
+                  ><span class="faint">正在看第 2 场第 18 个镜头</span>
+                </li>
+                <li class="faint"><span class="ic"></span>每句台词都有字幕</li>
+                <li class="faint"><span class="ic"></span>声音会不会太冲或太小</li>
+                <li>
+                  <div class="progress" style="flex: 1"><i style="width: 57%"></i></div>
+                  <span class="faint">第 37 个镜头，共 65 个</span>
+                </li>
+              </ol>
+              <div class="empty" data-show="clean">
+                <svg class="ic lg ok-text"><use href="#i-check" /></svg>
+                <h3>没有发现问题</h3>
+                <p>没有黑屏和停住的画面，33 句台词都有配音和字幕，声音大小也合适。</p>
+              </div>
+              <ul class="scroll issues" role="listbox" aria-label="问题" data-show="error">
+                <li class="kind" role="presentation">
+                  <span class="dot err"></span>找不到文件 · 2 个
+                </li>
+                <li class="issue" role="option" aria-selected="true" tabindex="0">
+                  <p class="h">
+                    <span class="tag err">找不到</span
+                    ><strong class="one-line">用的 A 版视频文件不见了</strong>
+                  </p>
+                  <p class="fix">去修：找回这个文件，或者改用 B 版</p>
+                  <p class="where one-line">
+                    第 1 场第 12 个镜头 <span class="code">scene-1-shot-12-take-1</span>
+                  </p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="issue" role="option" aria-selected="false" tabindex="0">
+                  <p class="h">
+                    <span class="tag err">找不到</span
+                    ><strong class="one-line">用的 B 版视频文件不见了</strong>
+                  </p>
+                  <p class="fix">去修：找回这个文件，或者改用 A 版</p>
+                  <p class="where one-line">
+                    第 3 场第 6 个镜头 <span class="code">scene-3-shot-6-take-2</span>
+                  </p>
+                  <button class="btn sm">去修</button>
+                </li>
+                <li class="more-row muted" role="presentation" style="padding: 12px 14px">
+                  其余 63 个镜头已经查过，没有问题。找回文件后会自动重新检查。
+                </li>
+              </ul>
+            </section>
+
+            <section class="panel viewer" aria-label="出问题的位置">
+              <div class="viewer-head">
+                <strong class="one-line" data-show="normal">第 2 场第 18 个镜头</strong>
+                <span class="code" data-show="normal">scene-2-shot-18 · 2:38</span>
+                <strong class="one-line" data-show="checking">正在看第 2 场第 18 个镜头</strong>
+                <strong class="one-line" data-show="clean">片头</strong>
+                <span class="code" data-show="clean">0:00</span>
+                <strong class="one-line" data-show="error">第 1 场第 12 个镜头</strong>
+                <span class="code" data-show="error">scene-1-shot-12-take-1</span>
+              </div>
+              <div class="monitor">
+                <div class="frame art-warehouse" data-art data-show="normal">
+                  <span class="flag">铁棍落地以后，画面停住 1.1 秒</span>
+                </div>
+                <div class="frame art-warehouse" data-art data-show="checking"></div>
+                <div class="frame art-door" data-art data-show="clean"></div>
+                <div class="frame art-plain empty" data-show="error">
+                  <svg class="ic lg"><use href="#i-film" /></svg>
+                  <p>这个镜头的视频文件找不到，没法播放</p>
+                </div>
+              </div>
+              <div class="tl" aria-label="整片时间线上的问题位置">
+                <div class="tl-head">
+                  <span>整片 4 分 34 秒</span><span>红色要先处理，黄色建议看看</span>
+                </div>
+                <div class="scenes" aria-hidden="true">
+                  <span></span><span>第 1 场 雨夜旧书店</span><span>第 2 场 码头仓库</span
+                  ><span>第 3 场 医院走廊</span>
+                </div>
+                <div class="lane" data-layer>
+                  <i class="seg-block" style="left: 0; width: 100%; background: var(--t-video)"></i>
+                  <i class="mark must" style="left: 4.74%" data-show="normal"></i>
+                  <i class="mark must" style="left: 56.17%" data-show="normal"></i>
+                  <i class="mark must" style="left: 72.26%" data-show="normal"></i>
+                  <i class="mark look now" style="left: 57.63%" data-show="normal"></i>
+                  <i class="mark look" style="left: 30.04%" data-show="normal"></i>
+                  <i class="mark look" style="left: 0.7%" data-show="normal"></i>
+                  <i class="mark look now" style="left: 56.93%" data-show="checking"></i>
+                  <i class="mark must now" style="left: 16.06%" data-show="error"></i>
+                  <i class="mark must" style="left: 74.09%" data-show="error"></i>
+                </div>
+              </div>
+            </section>
+
+            <aside class="panel settings" aria-labelledby="settings-title">
+              <div class="panel-head"><h2 id="settings-title">导出设置</h2></div>
+              <div class="scroll panel-body">
+                <div class="kv">
+                  <label class="k" for="file-name">文件名</label
+                  ><input id="file-name" class="input" value="雨夜旧书店-第1集.mp4" />
+                </div>
+                <div class="kv">
+                  <span class="k">保存到</span><span class="one-line">视频 › AIVORA</span>
+                </div>
+                <div class="kv">
+                  <span class="k">画面</span><span>竖屏 1080×1920，和作品一样</span>
+                </div>
+                <div class="kv">
+                  <span class="k">字幕</span>
+                  <label class="check"><input type="checkbox" checked />烧进画面里</label>
+                  <label class="check"><input type="checkbox" />另外存一份字幕文件</label>
+                </div>
+                <div class="kv">
+                  <span class="k">「AI 生成」标识</span><span>打开 · 右上角 · 封面和片头</span>
+                </div>
+                <div class="kv"><span class="k">声音</span><span>整片音量调到听着一样大</span></div>
+              </div>
+              <div class="export-acts" data-show="normal">
+                <button class="btn primary">
+                  <svg class="ic"><use href="#i-export" /></svg>直接导出
+                </button>
+                <p class="faint">还有 3 处要先处理。直接导出也行，这些问题会留在成片里。</p>
+              </div>
+              <div class="export-acts" data-show="checking">
+                <button class="btn primary" disabled title="检查完才能导出">
+                  <svg class="ic"><use href="#i-export" /></svg>直接导出
+                </button>
+                <p class="faint">检查完才能导出。</p>
+              </div>
+              <div class="export-acts" data-show="clean">
+                <button class="btn primary">
+                  <svg class="ic"><use href="#i-export" /></svg>直接导出
+                </button>
+              </div>
+              <div class="export-acts" data-show="error">
+                <button class="btn primary">
+                  <svg class="ic"><use href="#i-export" /></svg>直接导出
+                </button>
+                <p class="faint">直接导出会跳过这两个镜头，成片少 25 秒。</p>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span class="note" role="status" data-show="normal"
+          >正在看第 2 场第 18 个镜头：画面停住。</span
+        >
+        <span class="note" role="status" data-show="checking">正在检查第 37 个镜头。</span>
+        <span class="note" role="status" data-show="clean">检查完了，可以导出。</span>
+        <span class="note" role="alert" data-show="error">有 2 个视频文件找不到。</span>
+        <span class="task"
+          ><svg class="ic sm"><use href="#i-clock" /></svg>后台生成：没有正在生成的内容</span
+        >
+        <span class="where">作品保存在 <b>雨夜旧书店</b></span>
+      </footer>
+    </div>
+    <script src="assets/proto.js"></script>
+  </body>
+</html>

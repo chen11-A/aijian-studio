@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIVORA 原型 · 一选多审片</title>
+    <link rel="stylesheet" href="assets/proto.css" />
+    <style>
+      .takes-page {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 12px;
+        height: 100%;
+        padding: 16px;
+      }
+      .compare {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        min-height: 0;
+      }
+      .shot-nav {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .shot-nav .now {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+        text-align: center;
+      }
+      .shot-nav .now strong {
+        font-size: 14px;
+      }
+      .shot-nav .now .line1 {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        min-height: 0;
+        padding: 12px;
+      }
+      .tile {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        gap: 8px;
+        min-height: 0;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        background: var(--panel-2);
+      }
+      .tile.pick {
+        border-color: var(--ok);
+        box-shadow: 0 0 0 1px var(--ok);
+      }
+      .tile.reco {
+        border-color: rgba(91, 140, 255, 0.7);
+      }
+      body[data-state="error"] .tile.reco {
+        border-color: var(--line-2);
+      }
+      .tile .head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .tile .head strong {
+        font-size: 14px;
+      }
+      .media {
+        display: grid;
+        place-items: center;
+        min-height: 0;
+        border-radius: 8px;
+        background: #07080a;
+        container-type: size;
+      }
+      .media .frame {
+        height: min(100cqh, calc(100cqw * 16 / 9));
+        aspect-ratio: 9 / 16;
+      }
+      .scrub {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 6px;
+        background: rgba(0, 0, 0, 0.5);
+      }
+      .scrub i {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+      }
+      .scrub .played {
+        left: 0;
+        width: 40%;
+        background: var(--accent);
+      }
+      .scrub .bad {
+        background: var(--warn);
+      }
+      .notes {
+        display: grid;
+        gap: 4px;
+        min-height: 0;
+      }
+      .note-line {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-2);
+      }
+      .note-line .ic {
+        margin-top: 2px;
+      }
+      .tile .use {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .tile .use .btn {
+        flex: 1 1 auto;
+      }
+      .transport {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 10px 12px;
+        border-top: 1px solid var(--line);
+      }
+      .bar-track {
+        position: relative;
+        flex: 1 1 auto;
+        height: 6px;
+        min-width: 80px;
+        border-radius: 3px;
+        background: var(--line-2);
+      }
+      .bar-track i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 40%;
+        border-radius: 3px;
+        background: var(--accent);
+      }
+      .side {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .side .block {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      table.marks {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .marks th,
+      .marks td {
+        height: 30px;
+        padding: 0 6px;
+        border-bottom: 1px solid var(--line);
+        text-align: center;
+      }
+      .marks th:first-child,
+      .marks td:first-child {
+        text-align: left;
+        color: var(--text-2);
+        font-weight: 400;
+      }
+      .marks .y {
+        color: var(--ok);
+      }
+      .marks .n {
+        color: var(--err);
+        font-weight: 700;
+      }
+      .reco-box {
+        padding: 10px 12px;
+        border: 1px solid rgba(91, 140, 255, 0.45);
+        border-radius: 8px;
+        background: var(--accent-soft);
+      }
+      .keys-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        color: var(--text-2);
+        font-size: 12px;
+      }
+      .keys-line .keep {
+        white-space: nowrap;
+      }
+      .tile-msg {
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 10px;
+        padding: 16px;
+        text-align: center;
+      }
+      @media (min-width: 1600px) {
+        .takes-page {
+          grid-template-columns: minmax(0, 1fr) 380px;
+          padding: 20px;
+          gap: 16px;
+        }
+        .tiles {
+          gap: 16px;
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body data-states="normal loading empty error">
+    <div class="app">
+      <header class="topbar">
+        <div class="tb-left">
+          <div class="logo"><span class="logo-mark">A</span>AIVORA</div>
+          <span class="vsep"></span>
+          <button class="proj" aria-label="作品">
+            <span class="one-line">雨夜旧书店</span><span class="ep">/ 第 1 集</span>
+            <svg class="ic sm"><use href="#i-chev" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="撤销" title="撤销">
+            <svg class="ic"><use href="#i-undo" /></svg>
+          </button>
+          <button class="icon-btn" aria-label="重做" title="重做" disabled>
+            <svg class="ic"><use href="#i-redo" /></svg>
+          </button>
+        </div>
+        <nav class="tabs" aria-label="创作阶段">
+          <button class="tab"><span class="n">1</span>剧本</button>
+          <button class="tab"><span class="n">2</span>角色与场景</button>
+          <button class="tab on" aria-current="page"><span class="n">3</span>分镜</button>
+          <button class="tab"><span class="n">4</span>剪辑</button>
+        </nav>
+        <div class="tb-right">
+          <button class="chip"><span class="dot"></span>Grok 会员 · 已连接</button>
+          <button class="btn ghost">
+            <svg class="ic"><use href="#i-list" /></svg>任务
+          </button>
+          <button class="btn">
+            <svg class="ic"><use href="#i-export" /></svg>导出成片
+          </button>
+          <button class="avatar" aria-label="账号">
+            <svg class="ic sm"><use href="#i-user" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="takes-page">
+          <section class="panel compare" aria-labelledby="shot-title">
+            <div class="shot-nav">
+              <button class="btn sm">
+                <svg class="ic sm"><use href="#i-prev" /></svg>上一镜
+              </button>
+              <div class="now">
+                <p class="line1">
+                  <strong id="shot-title" class="one-line">第 2 场第 17 个镜头 · 中景 · 3 秒</strong
+                  ><span class="code">scene-2-shot-17 · 第 36 个，共 65 个</span>
+                </p>
+                <span class="muted one-line"
+                  >画右的周烈猛地挥棍砸向画左，沈砚侧身一让，铁棍擦着耳边落下，砸在木箱上，木屑四溅。</span
+                >
+              </div>
+              <button class="btn sm">
+                下一镜<svg class="ic sm"><use href="#i-next" /></svg>
+              </button>
+            </div>
+
+            <div class="tiles" data-show="normal loading error">
+              <article class="tile" aria-label="A 版">
+                <div class="head">
+                  <strong>A 版</strong><span class="faint">第 1 次</span><span class="spacer"></span
+                  ><span class="tag err">必须重做</span>
+                </div>
+                <div class="media">
+                  <div class="frame art-warehouse" data-art>
+                    <span class="cap mono">A · 1.2 秒</span>
+                    <span class="scrub" data-layer><i class="played"></i></span>
+                  </div>
+                </div>
+                <ul class="notes">
+                  <li class="note-line">
+                    <svg class="ic sm err-text"><use href="#i-x" /></svg>0.5 到 1.1
+                    秒，铁棍从沈砚的肩膀穿了过去
+                  </li>
+                  <li class="note-line">
+                    <svg class="ic sm ok-text"><use href="#i-check" /></svg>没有黑屏，画面没停住
+                  </li>
+                </ul>
+                <div class="use">
+                  <button class="btn">用这一版</button><span class="kbd">1</span>
+                </div>
+              </article>
+
+              <article class="tile reco" aria-label="B 版">
+                <div class="head">
+                  <strong>B 版</strong><span class="faint">第 1 次</span><span class="spacer"></span
+                  ><span class="tag ok" data-show="normal loading">可用 · 推荐</span
+                  ><span class="tag err" data-show="error">没有做成</span>
+                </div>
+                <div class="media" data-show="normal loading">
+                  <div class="frame art-warehouse" data-art>
+                    <span class="cap mono">B · 1.2 秒</span>
+                    <span class="scrub" data-layer><i class="played"></i></span>
+                  </div>
+                </div>
+                <div class="media tile-msg" data-show="error">
+                  <svg class="ic lg err-text"><use href="#i-alert" /></svg>
+                  <p>等了 10 分钟没有结果，已经停下。</p>
+                  <p class="faint">Grok 那边没有返回视频，这一次的额度算没算，软件看不到。</p>
+                </div>
+                <ul class="notes" data-show="normal loading">
+                  <li class="note-line">
+                    <svg class="ic sm ok-text"><use href="#i-check" /></svg
+                    >砸空干净，木屑清楚，方向是从画右到画左
+                  </li>
+                  <li class="note-line">
+                    <svg class="ic sm ok-text"><use href="#i-check" /></svg>没有黑屏，画面没停住
+                  </li>
+                </ul>
+                <ul class="notes" data-show="error">
+                  <li class="note-line">
+                    <svg class="ic sm"><use href="#i-info" /></svg>可以按原样再做一次，描述不用改。
+                  </li>
+                </ul>
+                <div class="use" data-show="normal loading">
+                  <button class="btn primary">用这一版</button><span class="kbd">2</span>
+                </div>
+                <div class="use" data-show="error"><button class="btn">再做一次</button></div>
+              </article>
+
+              <article class="tile" aria-label="C 版">
+                <div class="head">
+                  <strong>C 版</strong><span class="faint">第 1 次</span
+                  ><span class="spacer"></span>
+                  <span class="tag warn" data-show="normal error">建议重做</span
+                  ><span class="tag" data-show="loading">正在生成</span>
+                </div>
+                <div class="media" data-show="normal error">
+                  <div class="frame art-warehouse" data-art>
+                    <span class="cap mono">C · 1.2 秒</span>
+                    <span class="scrub" data-layer
+                      ><i class="bad" style="left: 0; width: 13.3%"></i
+                      ><i class="played" style="left: 13.3%; width: 26.7%"></i
+                    ></span>
+                  </div>
+                </div>
+                <div class="media tile-msg" data-show="loading" aria-busy="true">
+                  <svg class="ic lg spin"><use href="#i-refresh" /></svg>
+                  <p>C 版正在生成 · 已等 48 秒</p>
+                  <p class="faint">做好以后会自动排进来，可以先比 A 和 B。</p>
+                </div>
+                <ul class="notes" data-show="normal error">
+                  <li class="note-line">
+                    <svg class="ic sm warn-text"><use href="#i-alert" /></svg>开头 0.4
+                    秒黑屏，剪掉会少了挥棍的起势
+                  </li>
+                  <li class="note-line">
+                    <svg class="ic sm ok-text"><use href="#i-check" /></svg>人物和动作都对
+                  </li>
+                </ul>
+                <ul class="notes" data-show="loading">
+                  <li class="note-line">
+                    <svg class="ic sm"><use href="#i-clock" /></svg>Grok 正在处理这一版
+                  </li>
+                </ul>
+                <div class="use" data-show="normal error">
+                  <button class="btn">用这一版</button><span class="kbd">3</span>
+                </div>
+                <div class="use" data-show="loading">
+                  <button class="btn" disabled title="还没做好">用这一版</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="empty" data-show="empty">
+              <svg class="ic lg"><use href="#i-film" /></svg>
+              <h3>这一镜还没有版本</h3>
+              <p>起始画面已经做好。做 2 个版本可以并排比一比，再挑一个用。</p>
+              <button class="btn primary">做 2 个版本</button>
+              <p class="faint">会用 2 段视频额度。</p>
+            </div>
+
+            <div class="transport" data-show="normal loading error">
+              <button class="btn sm">
+                <svg class="ic sm"><use href="#i-play" /></svg>三个一起播
+              </button>
+              <button class="icon-btn" aria-label="上一帧">
+                <svg class="ic"><use href="#i-prev" /></svg>
+              </button>
+              <button class="icon-btn" aria-label="下一帧">
+                <svg class="ic"><use href="#i-next" /></svg>
+              </button>
+              <button class="icon-btn" aria-label="循环播放" aria-pressed="true">
+                <svg class="ic"><use href="#i-loop" /></svg>
+              </button>
+              <div class="seg" role="group" aria-label="播放速度">
+                <button aria-pressed="false">0.5×</button><button aria-pressed="true">1×</button>
+              </div>
+              <div class="bar-track" aria-label="播放位置"><i></i></div>
+              <span class="muted">1.2 秒 / 3 秒</span>
+            </div>
+          </section>
+
+          <aside class="panel side" aria-labelledby="cmp-title">
+            <div class="panel-head">
+              <h2 id="cmp-title">对比</h2>
+              <span class="faint">最后用哪一版由你决定</span>
+            </div>
+            <div class="block" data-show="normal loading error">
+              <table class="marks">
+                <thead>
+                  <tr>
+                    <th scope="col">看什么</th>
+                    <th scope="col">A</th>
+                    <th scope="col">B</th>
+                    <th scope="col">C</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">人物像不像定妆照</th>
+                    <td class="y">像</td>
+                    <td class="y" data-show="normal loading">像</td>
+                    <td class="faint" data-show="error">—</td>
+                    <td class="y" data-show="normal error">像</td>
+                    <td class="faint" data-show="loading">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">动作和描述一样吗</th>
+                    <td class="y">对</td>
+                    <td class="y" data-show="normal loading">对</td>
+                    <td class="faint" data-show="error">—</td>
+                    <td class="y" data-show="normal error">对</td>
+                    <td class="faint" data-show="loading">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">有没有坏画面</th>
+                    <td class="n">穿过身体</td>
+                    <td class="y" data-show="normal loading">没有</td>
+                    <td class="faint" data-show="error">—</td>
+                    <td class="y" data-show="normal error">没有</td>
+                    <td class="faint" data-show="loading">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">和前后镜头接得上吗</th>
+                    <td class="y">接得上</td>
+                    <td class="y" data-show="normal loading">接得上</td>
+                    <td class="faint" data-show="error">—</td>
+                    <td class="y" data-show="normal error">接得上</td>
+                    <td class="faint" data-show="loading">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">黑屏或停住</th>
+                    <td class="y">没有</td>
+                    <td class="y" data-show="normal loading">没有</td>
+                    <td class="faint" data-show="error">—</td>
+                    <td class="n" data-show="normal error">开头黑</td>
+                    <td class="faint" data-show="loading">…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="block" data-show="normal loading">
+              <div class="reco-box">
+                <p class="section-title">AI 审片的建议</p>
+                <p style="margin-top: 6px">
+                  <strong>推荐 B 版：</strong>砸空干净，木屑清楚，方向是从画右到画左。
+                </p>
+                <p class="muted" style="margin-top: 4px">
+                  A 版的铁棍从沈砚肩膀穿过去了；C 版开头 0.4 秒黑屏，剪掉会少了挥棍的起势。
+                </p>
+              </div>
+              <p class="faint">这一镜要保持：铁棍从画右砸向画左；砸在木箱上；沈砚侧身躲开。</p>
+            </div>
+            <div class="block" data-show="error">
+              <div class="reco-box">
+                <p class="section-title">AI 审片的建议</p>
+                <p style="margin-top: 6px">
+                  <strong>可以先用 C 版顶上：</strong>开头 0.4 秒黑屏要剪掉，会少一点挥棍的起势。
+                </p>
+                <p class="muted" style="margin-top: 4px">
+                  A 版的铁棍穿过了沈砚的肩膀；B 版没有做成。想要完整的动作，就再做一次 B 版。
+                </p>
+              </div>
+            </div>
+            <div class="block">
+              <div class="row">
+                <button class="btn">再做 2 个版本</button
+                ><button class="btn ghost">改描述再做</button>
+              </div>
+              <p class="faint">再做 2 个版本会用 2 段视频额度。旧版本都留着，可以随时换回来。</p>
+            </div>
+            <div class="block" style="border-bottom: 0">
+              <p class="keys-line">
+                <span class="keep"
+                  ><span class="kbd">1</span> <span class="kbd">2</span>
+                  <span class="kbd">3</span> 选版本</span
+                >
+                <span class="keep"><span class="kbd">空格</span> 一起播</span>
+                <span class="keep"><span class="kbd">← →</span> 换镜头</span>
+              </p>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span class="note" role="status" data-show="normal"
+          >第 2 场第 17 个镜头有 3 个版本，还没选。AI 推荐 B 版。</span
+        >
+        <span class="note" role="status" data-show="loading">C 版还在生成，可以先比 A 和 B。</span>
+        <span class="note" role="status" data-show="empty">第 2 场第 17 个镜头还没有版本。</span>
+        <span class="note" role="alert" data-show="error">B 版没有做成。</span>
+        <span class="task">
+          <svg class="ic sm"><use href="#i-clock" /></svg>
+          <span data-show="normal empty error">后台生成：没有正在生成的内容</span>
+          <span data-show="loading">后台生成：视频 1 段</span>
+        </span>
+        <span class="where">作品保存在 <b>雨夜旧书店</b></span>
+      </footer>
+    </div>
+    <script src="assets/proto.js"></script>
+  </body>
+</html>
