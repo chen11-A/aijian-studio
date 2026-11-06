@@ -191,6 +191,11 @@ describe("professional workspace", () => {
       window.localStorage.setItem("aivora.film.activeId", film.id);
       render(<ProWorkspace projectId={PROJECT_ID} />);
       await screen.findAllByText(film.title);
+      // Loading the title does not imply that asynchronous account/model checks finished.
+      await waitFor(() =>
+        expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
+      );
+
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(
         screen.getByRole("button", {

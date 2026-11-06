@@ -1,4 +1,5 @@
 import { registerFilmHistory } from "./film-history-ipc";
+import { registerFilmAudioWaveforms } from "./film-audio-waveform";
 import { createQuitSaveCoordinator, finishApprovedApplicationQuit } from "./quit-save";
 import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
 import { createStoryFilmClient } from "./story-film-client";
@@ -921,6 +922,30 @@ const qcResourceRoot = () =>
     : existsSync(resolve(__dirname, "../../../qc"))
       ? resolve(__dirname, "../../../qc")
       : resolve(__dirname, "../../../packages/aivora-qc");
+registerFilmAudioWaveforms<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    tools: () =>
+      verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+      ),
+    storyOwner: async (projectId, path, hash) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        hash,
+      ),
+  },
+);
 registerFilmExportQc<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>

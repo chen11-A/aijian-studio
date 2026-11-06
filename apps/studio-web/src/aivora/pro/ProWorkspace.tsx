@@ -4,6 +4,8 @@ import {
   historyEntryView,
 } from "./actions/persistent-history";
 import type { FilmHistoryEntry } from "@aijian/contracts/film-history";
+import { invalidateAudioWaveforms } from "./actions/audio-waveforms";
+import { useAudioWaveforms } from "./use-audio-waveforms";
 import { legacyCleanCopyTargets, cleanCopySelectionHash } from "./actions/clean-copy-recovery";
 import { ExportProgress } from "../next/ExportProgress";
 import { acceptExportProgress, type ExportProgressScope } from "./actions/export-progress";
@@ -13,6 +15,7 @@ import { ExportCheck } from "../next/ExportCheck";
 import { readQcReport, type QcIssue } from "../next/qcReport";
 import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
+import { projectArtStyleFields } from "./actions/art-style-field-rows";
 import {
   generationPreflight,
   prepareGeneration,
@@ -694,7 +697,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     if (batchConfirmation.current && batchConfirmation.current.projectId !== next?.id)
       setPendingBatch(null);
-    if (next) next = applyContinuityChecks(next);
+    if (next) next = applyContinuityChecks(invalidateAudioWaveforms(next));
     filmRef.current = next;
     if (next && cleanCopySaveVersions.current.has(next.id))
       cleanCopySaveVersions.current.set(next.id, next);
@@ -705,6 +708,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
+  const audioWaveforms = useAudioWaveforms(film, stage === "edit", {
+    current: () => filmRef.current,
+    apply: applyLive,
+    save: (snapshot) => persistence.save(snapshot),
+  });
   const editorHost = useMemo(
     () =>
       createEditorHost({
@@ -2161,6 +2169,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("当前选择已改变，请回到美术建议所在页面再应用。");
       return;
     }
+    const styleOnly = projectArtStyleFields(transaction, expected) !== null;
     const result = applyArtTransaction(live, transaction);
     if (!result.receipt) {
       setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
@@ -2193,7 +2202,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
         setNotice(
           stored
-            ? "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
+            ? styleOnly
+              ? {
+                  code: "STEP_COMPLETE",
+                  text: NOTICE_TEXT.STEP_COMPLETE,
+                  detail: "画风说明已修改。",
+                }
+              : "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
             : "美术建议已应用，但还没有保存。",
         );
     } catch {
@@ -2210,6 +2225,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     } finally {
       applyingArt.current = false;
     }
+  }
+
+  function rejectPendingSuggestion() {
+    if (role === "art" && roleCards.art?.fieldRows !== undefined) {
+      if (applyingArt.current) return;
+      artDraft.current = null;
+    }
+    markApplied(role);
   }
 
   function planArt() {
@@ -2238,10 +2261,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const transaction = prepareArtTransaction(base, result.draft, selection);
+    const fieldRows = projectArtStyleFields(transaction, selection);
     artDraft.current = transaction;
     setStructured(result.lines);
     publishCard("art", {
       artDiff: transaction,
+      ...(fieldRows !== null ? { fieldRows } : {}),
       title: "美术 · 画风和外貌",
       rows: result.lines.map((line, index) => ({
         id: `art-${index}`,
@@ -2253,7 +2278,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       applied: false,
       mode: "art",
     });
-    finishTurn(turn, "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
+    finishTurn(
+      turn,
+      fieldRows !== null
+        ? {
+            code: "STEP_COMPLETE",
+            text: NOTICE_TEXT.STEP_COMPLETE,
+            detail: "画风说明已准备好，确认后才修改。",
+          }
+        : "美术写好了。点「放进分镜」，外貌、场景和道具才会改。",
+    );
     noteAgent("art", "art", "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
 
     setPending(null);
@@ -4058,7 +4092,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         onRole={chooseRole}
         pending={pendingRole === role ? pending : null}
         onApply={applyPending}
-        onReject={() => markApplied(role)}
+        onReject={rejectPendingSuggestion}
         shots={shownShots}
         chat={chat}
         onChat={setChat}
@@ -4506,7 +4540,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <ScriptPage
                   quiet={exportView.lead}
                   onNext={() => setStage("cast")}
-                  onReject={() => markApplied(role)}
+                  onReject={rejectPendingSuggestion}
                   film={film}
                   scene={scene}
                   onScene={(id) => {
@@ -4569,6 +4603,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onFilm={setFilm}
                   role={role}
                   onRole={chooseRole}
+                  card={roleCards[role] ?? null}
+                  turns={turns}
+                  busy={asking}
+                  onApply={applyPending}
+                  onReject={rejectPendingSuggestion}
+                  onQuick={(label) => {
+                    if (label.includes("美术")) void planArt();
+                    else sendChat();
+                  }}
                   onPortraits={makePortraits}
                   onTraits={(id, traits) =>
                     void productionActions.updateCharacterTraits(id, traits)
@@ -4645,7 +4688,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   promptSuggestion={promptSuggestion}
                   onRedoRange={redoFromReview}
                   onDismiss={keepReview}
-                  onReject={() => markApplied(role)}
+                  onReject={rejectPendingSuggestion}
                 />
               )}
               {stage === "board" && bench && (
@@ -4697,6 +4740,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "edit" && (
                 <EditPage
+                  waveformKeys={audioWaveforms.verified}
+                  waveformBusy={audioWaveforms.busy}
+                  onRefreshWaveforms={audioWaveforms.refresh}
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
                   onSceneMood={(sceneId, mood) => {
@@ -5849,7 +5895,24 @@ function Assistant({
             </button>
           </div>
         ) : null}
-        {listScenes || listShots ? (
+        {card?.mode === "art" && card.fieldRows !== undefined ? (
+          <>
+            <p className="role-desc">
+              改画风会把已有镜头标为需要重做，原有素材会保留，不会自动重新生成。
+            </p>
+            <SuggestionCard
+              unit="shot"
+              current={[]}
+              proposed={[]}
+              fieldRows={card.fieldRows}
+              applied={card.applied}
+              busy={busy}
+              onApply={onApply}
+              onAnother={onSend}
+              onReject={onReject}
+            />
+          </>
+        ) : listScenes || listShots ? (
           // 4A-U11: 「现在 6 个 → 建议 4 个」, each line marked, and 放进 / 换一个 / 不要.
           <SuggestionCard
             unit={listScenes ? "scene" : "shot"}
@@ -6416,6 +6479,12 @@ function CastPage({
   chat,
   onChat,
   onSend,
+  card,
+  turns,
+  busy: assistantBusy,
+  onApply,
+  onReject,
+  onQuick,
 }: {
   film: FilmProject;
   onFilm: (film: FilmProject) => void;
@@ -6435,6 +6504,12 @@ function CastPage({
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
+  card: RoleCard | null;
+  turns: Parameters<typeof Assistant>[0]["turns"];
+  busy: boolean;
+  onApply: () => void;
+  onReject: () => void;
+  onQuick: (label: string) => void;
   /** 4A-U09: 导出成片 is this screen's primary button, so this page's steps back. */
   quiet?: boolean;
   /** 「下一步：分镜」, the primary button once everyone has an appearance and four portraits. */
@@ -7189,7 +7264,12 @@ function CastPage({
           role={role}
           onRole={onRole}
           pending={null}
-          onApply={() => undefined}
+          onApply={onApply}
+          onReject={onReject}
+          onQuick={onQuick}
+          card={card}
+          turns={turns}
+          busy={assistantBusy}
           shots={film.shots}
           chat={chat}
           onChat={onChat}
@@ -8804,21 +8884,29 @@ function GeneratePage({
 }
 
 /**
- * 4B-U02: the room left in an audio clip for its waveform. GPT's C3 gives the peaks
- * (`waveform`, 0–1, evenly spaced); until then the strip stays empty.
+ * 4B-U02: only main-verified source peaks are shown; unavailable sources remain empty.
  */
-function Wave({ clip }: { clip: AudioClip }) {
-  const peaks = (clip as AudioClip & { waveform?: number[] }).waveform;
-  if (!peaks || peaks.length < 2) return <span className="wave" aria-hidden="true" />;
+function Wave({ clip, verifiedKey }: { clip: AudioClip; verifiedKey?: string }) {
+  const waveform = clip.waveform;
+  const peaks = waveform && verifiedKey === waveform.sourceKey ? waveform.peaks : undefined;
+  if (!(clip.durationSeconds > 0) || !peaks || peaks.length < 2)
+    return <span className="wave" aria-hidden="true" />;
+  const coverage = Math.min(1, waveform!.analyzedSeconds / clip.durationSeconds);
   const points = peaks
-    .map((peak, index) => {
-      const x = (index / (peaks.length - 1)) * 100;
-      const y = 50 - Math.max(0, Math.min(1, peak)) * 48;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
+    .map(
+      (peak, index) =>
+        `${((index / (peaks.length - 1)) * 100 * coverage).toFixed(2)},${(50 - peak * 48).toFixed(2)}`,
+    )
     .join(" ");
   return (
-    <svg className="wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      className="wave"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="已核对音源的波形（混音前）"
+    >
+      <title>音源裁剪窗口的单声道峰值，按实际测得时长定位；未覆盖部分留白，不代表最终混音。</title>
       <polyline points={points} />
     </svg>
   );
@@ -8830,12 +8918,14 @@ function Wave({ clip }: { clip: AudioClip }) {
  * with a note that there is no sound yet.
  */
 function PlanLane({
+  waveformKeys,
   lane,
   film,
   shots,
   clips,
   zoom = PX_PER_SECOND,
 }: {
+  waveformKeys: Readonly<Record<string, string>>;
   lane: "ambience" | "sfx";
   film: FilmProject;
   shots: FilmShot[];
@@ -8880,7 +8970,7 @@ function PlanLane({
             width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
           }}
         >
-          <Wave clip={item} />
+          <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
           <span className="tx">{name}</span>
         </div>
       ))}
@@ -8905,6 +8995,9 @@ function PlanLane({
 }
 
 function EditPage({
+  waveformKeys,
+  waveformBusy,
+  onRefreshWaveforms,
   onMute,
   assistant = null,
   onSceneMood,
@@ -8941,6 +9034,9 @@ function EditPage({
   musicRestore = -14,
   hearLane = "",
 }: {
+  waveformKeys: Readonly<Record<string, string>>;
+  waveformBusy: boolean;
+  onRefreshWaveforms: () => void;
   film: FilmProject;
   shot: number;
   onShot: (index: number) => void;
@@ -9673,6 +9769,14 @@ function EditPage({
             <span className="sp" />
             {zoomControls}
             {importMusic}
+            <button
+              className="btn sm"
+              disabled={waveformBusy}
+              onClick={onRefreshWaveforms}
+              title="核对本机音源并读取混音前的波形，不生成声音"
+            >
+              {waveformBusy ? "读取波形中" : "刷新音频波形"}
+            </button>
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
             </button>
@@ -9716,6 +9820,14 @@ function EditPage({
             ) : null}
             {zoomControls}
             {importMusic}
+            <button
+              className="btn sm"
+              disabled={waveformBusy}
+              onClick={onRefreshWaveforms}
+              title="核对本机音源并读取混音前的波形，不生成声音"
+            >
+              {waveformBusy ? "读取波形中" : "刷新音频波形"}
+            </button>
           </div>
         )}
         <div className="tbody">
@@ -9972,13 +10084,27 @@ function EditPage({
                         width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
                       }}
                     >
-                      <Wave clip={item} />
+                      <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">{item.label || "对白"}</span>
                     </div>
                   ))}
               </div>
-              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} zoom={zoom} />
-              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} zoom={zoom} />
+              <PlanLane
+                waveformKeys={waveformKeys}
+                lane="ambience"
+                film={film}
+                shots={shots}
+                clips={clips}
+                zoom={zoom}
+              />
+              <PlanLane
+                waveformKeys={waveformKeys}
+                lane="sfx"
+                film={film}
+                shots={shots}
+                clips={clips}
+                zoom={zoom}
+              />
               <div className="lane" style={{ height: "var(--ha)" }}>
                 {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
@@ -9990,16 +10116,20 @@ function EditPage({
                       key={item.id}
                       className="clip m"
                       style={{
-                        left: 1,
-                        width: Math.max(
-                          48,
-                          clips.reduce((sum, clip) => sum + clip.width, 0),
-                        ),
+                        left: Math.max(1, item.startSeconds * zoom + 1),
+                        width:
+                          item.durationSeconds > 0
+                            ? Math.max(12, Math.round(item.durationSeconds * zoom) - 2)
+                            : Math.max(
+                                48,
+                                clips.reduce((sum, clip) => sum + clip.width, 0),
+                              ),
                       }}
                     >
-                      <Wave clip={item} />
+                      <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">
                         导入的音乐
+                        {item.durationSeconds > 0 ? "" : " · 波形时长未确定"}
                         {shots.some((shotItem) => shotItem.line.trim()) ? " · 说话时变小" : ""}
                       </span>
                     </div>

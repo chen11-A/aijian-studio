@@ -116,6 +116,10 @@
     "./film-history": {
       "types": "./src/film-history.ts",
       "default": "./src/film-history.ts"
+    },
+    "./film-audio-waveform": {
+      "types": "./src/film-audio-waveform.ts",
+      "default": "./src/film-audio-waveform.ts"
     }
   },
   "scripts": {

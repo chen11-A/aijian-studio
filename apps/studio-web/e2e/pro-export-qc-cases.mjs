@@ -237,6 +237,20 @@ export async function runQcCases({ browser, config, report, media, persist }) {
               await evidence();
               if (state === "warn-long") {
                 assert.equal(await dialog.locator(".nx-issue").count(), 18);
+                // Retain the original full-dialog geometry above before testing deeper reachability.
+                const advanced = dialog.locator(".nx-issue .nx-adv > summary");
+                assert.equal(await advanced.count(), 18);
+                for (const summary of [advanced.first(), advanced.last()]) {
+                  await summary.scrollIntoViewIfNeeded();
+                  await summary.click();
+                  assert.equal(
+                    await summary.evaluate((element) => element.parentElement.open),
+                    true,
+                    "Advanced issue details must open through an unobstructed user click",
+                  );
+                  await summary.click();
+                }
+                result.advancedReachable = true;
                 await publish.click();
                 await page.waitForFunction(() => window.__exportQcAudit.publish.length === 1);
               } else await cancel.click();

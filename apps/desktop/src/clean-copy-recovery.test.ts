@@ -3,14 +3,26 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve, delimiter } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { loadQcEngine, loadQcRunner, verifiedQcTools } from "./film-export-qc-runtime";
 import { createFilmExportQc } from "./film-export-qc";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 import { createHash } from "node:crypto";
 import { createCleanCopyRecovery, cleanRecoverySelectionHash } from "./clean-copy-recovery";
-import { readProject, writeProject } from "./film-library";
+import { readProject, writeProject, type FilmRecord } from "./film-library";
 import { originalCleanRecoveryProof, finalCleanRecoveryProof } from "./clean-copy-recovery-proof";
+function selectedCleanPath(record: FilmRecord | null): string {
+  expect(record?.shots).toHaveLength(1);
+  const take = (record!.shots![0] as { takes: { id: string; cleanVideoPath: string }[] }).takes[0]!;
+  expect(take.id).toBe("take");
+  return take.cleanVideoPath;
+}
+async function sameFile(actual: string, expected: string) {
+  const a = statSync(actual, { bigint: true }),
+    b = statSync(expected, { bigint: true });
+  expect([a.dev, a.ino]).toEqual([b.dev, b.ino]);
+  expect(await readFile(actual)).toEqual(await readFile(expected));
+}
 const roots: string[] = [];
 afterEach(async () => {
   for (const path of roots.splice(0)) await rm(path, { recursive: true, force: true });
@@ -125,12 +137,18 @@ it("explicitly rebuilds from verified original proof, saves by CAS, and retains 
   try {
     const result = await createCleanCopyRecovery(f.host)(f.input);
     expect(result.kind).toBe("RECOVERED");
-    expect(f.remake).toHaveBeenCalledWith(f.project, f.video, {
+    expect(f.remake).toHaveBeenCalledWith(f.project, realpathSync.native(f.video), {
       sha256: hash("original post-tag"),
       assemblyVersionId: "assembly-version",
     });
     const stored = await readProject(f.host.filmsRoot, f.record.id);
-    expect(JSON.stringify(stored)).toContain(f.clean);
+    expect(selectedCleanPath(stored)).toBe(realpathSync.native(f.clean));
+    await sameFile(selectedCleanPath(stored), f.clean);
+    const remakeArgs: readonly unknown[] = f.remake.mock.calls[0]!;
+    const actualSource = remakeArgs[1];
+    expect(typeof actualSource).toBe("string");
+    if (typeof actualSource !== "string") throw new Error("Missing actual remake source");
+    await sameFile(actualSource, f.video);
     expect(await readFile(f.video, "utf8")).toBe("original post-tag");
     expect(await readFile(f.old, "utf8")).toBe("old clean without proof");
     expect(f.db.prepare("SELECT output_sha256 FROM draft_export_jobs").get()?.output_sha256).toBe(
@@ -185,7 +203,7 @@ it("does not replace old copy without final post-tag evidence", async () => {
       kind: "FAILED",
       code: "EVIDENCE_FAILED",
     });
-    expect(JSON.stringify(await readProject(f.host.filmsRoot, f.record.id))).toContain(f.old);
+    expect(selectedCleanPath(await readProject(f.host.filmsRoot, f.record.id))).toBe(f.old);
   } finally {
     f.close();
   }
@@ -211,7 +229,7 @@ it("refuses intervening persisted edits and duplicate requests without overwriti
     expect(await pending).toEqual({ kind: "FAILED", code: "PROJECT_CHANGED" });
     const stored = await readProject(f.host.filmsRoot, f.record.id);
     expect(stored?.title).toBe("changed while waiting");
-    expect(JSON.stringify(stored)).toContain(f.old);
+    expect(selectedCleanPath(stored)).toBe(f.old);
   } finally {
     f.close();
   }
@@ -224,9 +242,9 @@ it("does not call a no-subtitles original a newly restored proof", async () => {
       kind: "REUSED_ORIGINAL",
     });
     const stored = await readProject(f.host.filmsRoot, f.record.id);
-    expect(
-      (stored!.shots![0] as { takes: { cleanVideoPath: string }[] }).takes[0]!.cleanVideoPath,
-    ).toBe(f.video);
+    expect(selectedCleanPath(stored)).toBe(realpathSync.native(f.video));
+    await sameFile(selectedCleanPath(stored), f.video);
+    expect(await readFile(selectedCleanPath(stored), "utf8")).toBe("original post-tag");
     expect(
       finalCleanRecoveryProof(f.host.databasePath, f.project, f.video, hash("original post-tag")),
     ).toBe(false);
@@ -268,7 +286,7 @@ it("reports actual persistence failure and never says recovered", async () => {
         },
       })(f.input),
     ).toEqual({ kind: "FAILED", code: "SAVE_FAILED" });
-    expect(JSON.stringify(await readProject(f.host.filmsRoot, f.record.id))).toContain(f.old);
+    expect(selectedCleanPath(await readProject(f.host.filmsRoot, f.record.id))).toBe(f.old);
     expect(
       originalCleanRecoveryProof(
         f.host.databasePath,
@@ -309,7 +327,7 @@ it.each(["owner", "path", "sha", "assembly"])(
         kind: "FAILED",
         code: "EVIDENCE_FAILED",
       });
-      expect(JSON.stringify(await readProject(f.host.filmsRoot, f.record.id))).toContain(f.old);
+      expect(selectedCleanPath(await readProject(f.host.filmsRoot, f.record.id))).toBe(f.old);
       expect(await readFile(f.video, "utf8")).toBe("original post-tag");
     } finally {
       f.close();

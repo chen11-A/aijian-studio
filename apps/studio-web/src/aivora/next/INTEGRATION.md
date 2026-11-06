@@ -1,5 +1,7 @@
 # next 组件接线说明
 
+当前任务与验门见[当前进度看板](../../../../../docs/aivora/当前进度.md)。退出保存已接中立`quit-save`请求/结果回执，onFlush返回取消订阅；历史接口仍开发中，不能用显示组件存在替代业务接线。
+
 ## Round6接入记录
 
 本机恢复d491b90已以07a2e15合入progress，保存/文案/Windows断言/诊断也已集成。后端定向desktop66、web93、Python12通过；总控独立相关Python全量36、完整desktop2078及type/build/原contracts/lint通过，renderer387文件4792项也通过。原片复用确实经固定FFmpeg和原QC得到READY；精确原proof不足的旧素材仍拒绝，不调用付费生成，不以此声称全量真实素材验收。后端转quit-save修退出前保存，界面在新art-style-diff做严格唯一画风字段整卡；当前遮挡诊断CI source e757e06/run42267712674还未含本机恢复，不能混用。最新活动表及CI见[开发计划](../../../../../docs/aivora/开发计划.md)。
