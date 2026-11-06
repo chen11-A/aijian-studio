@@ -4021,3 +4021,8 @@ body:has(.pro-root) {
 .pro-root .dialog.export:has(.nx-export) > .acts {
   position: static;
 }
+
+/* Review details remain actionable when a long issue list scrolls within the modal. */
+.pro-root .dialog.export .nx-export-review .nx-export-group {
+  position: static;
+}
