@@ -1063,13 +1063,13 @@ F进入/Esc退出全部通过；确认 `.safe-guide` 与 `.ctrl` 同在全屏DOM
 正常窗口安全框开关和全屏内退出按钮未被遮挡，四组 `pageerror=[]`。使用内置样例数据，
 未验证真实生成成片播放、会员调用或Electron；不是全页布局走查通过的声明。
 
-### 5-3 第二轮界面收尾（待总控集成）
+### 5-3 第二轮界面收尾（已集成 `a124c12` / `29fdb8d`）
 
 frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backspace 的过时否定提示和二次确认，分镜删除及剪辑属性说明 Ctrl+Z。`ProWorkspace.undo-interactions.test.tsx` 的 6 项宿主回归验证拖放、非相邻批删、Delete/Backspace/剪掉后恢复媒体路径、两个旧版本与音轨；输入框、菜单、对话框及未选片段保护仍通过。动作层 7 项与更新后的旧宿主 2 项通过。系统 Chromium 保留沙箱，1280×800、1920×1080 两窗口的拖放/批删/Delete→Ctrl+Z 通过，pageerror=[]。
 
 生成确认按钮已按后端接口接到 `confirmBatchGeneration`，业务实现和生成范围/取消/并发回归归后端。跨场结构、后改字段及依赖冲突仍由既有动作层拒绝，不能把这次用户同场镜头操作的撤销扩展成所有删除都可恢复。工程媒体记录已核验，真实文件、Electron、会员及安装包未验；完整集成检查由总控执行。
 
-### 3JR-U06 原始回复保存与排查导出（界面待总控集成）
+### 3JR-U06 原始回复保存与排查导出（已集成 `61f68c5`）
 
 `ReplyCaptureSettings.tsx` 已作为独立显示组件接入「账号 → 设置 → 排查」。主工作台仅增加组件 import 和渲染，`getFilm` 读取 `filmRef.current`，结果由 `onNotice` 进入状态栏；不复制会员或采集业务代码。默认关闭，切换调用真实 `setCaptureEnabled`，关闭会清除本机记录。仅用户点击「导出排查文件」后调用 `captureFile(film)`，无作品、关闭状态、空或无匹配回复均给中文提示，不制造空 JSON。
 
@@ -1081,7 +1081,7 @@ frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backs
 
 `captureScope(film)` 返回 `Promise<CaptureScope | null>`，其中 `CaptureScope = {projectId, sourceSha256, scriptSha256}`；projectId 使用本机 `film.id`，原文 hash 针对 `sourceText`，场次 hash 针对按顺序的 `[scene.id, scene.text]` 数组。仅开关开启的导演/动作请求计算，原文和上下文不写入采集存储。`recordAgentReply(agent, context, instruction, reply, scope?, requestEpoch = captureEpoch())` 缺 scope 不采集，旧无归属记录清理。`completeMembershipAgent` host 新增可选 `captureFilm: () => CaptureFilm | null`，手动及流水线都读取当前工程；请求开始和回包后核对身份/输入与关闭清理 epoch。
 
-`captureFile(film)` 仍返回 `{name,text,scenes}|null`，film 需要完整的 id/sourceText/scenes/shots/title；按三重身份筛选再组装，正文不匹配返回 null，关闭或清空会使进行中的旧导出失效。界面已经传完整 film，接口返回和下载行为不变。后端 35 项与设置 11 项联合 6 文件 46 项通过，具体证据见 `docs/aivora/3jr-backend-verification.md`；当前工作树待总控接入，真实会员未验。
+`captureFile(film)` 仍返回 `{name,text,scenes}|null`，film 需要完整的 id/sourceText/scenes/shots/title；按三重身份筛选再组装，正文不匹配返回 null，关闭或清空会使进行中的旧导出失效。界面已经传完整 film，接口返回和下载行为不变。后端 35 项与设置 11 项联合 6 文件 46 项通过，具体证据见 `docs/aivora/3jr-backend-verification.md`；已由 `d0f548b` 接入当前接管分支并推送，真实会员未验。
 
 ### 4B-U09 无字幕版本补做入口（已集成当前接管分支 `c3e21e7`）
 
@@ -1097,8 +1097,18 @@ frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backs
 
 helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快照；宿主使用既有队列和本项最后live对象guard，保留切作品前已成功结果，拒绝同工程较旧快照覆盖后改内容。旧工程浏览器延迟写回后恢复当前可见工程activeId；失败中断明确保留已保存版本。后端22项加界面5项，共5文件27项实跑通过，web类型/目标静态通过，具体证据见后端验证记录；已集成当前接管分支 `c3e21e7`，不代表已合远端 dev，也不代表真实会员或 Electron 验收。
 
-### 接管分支 CI 提示文案契约修复（本地验证通过，待总控集成）
+### 接管分支 CI 提示文案契约修复（已集成并推送 `d8b15eb`）
 
 总控在 GitHub Actions 公开页面核实 `a6d8b0f` 的 run `42177470800`：Linux/Windows 均失败，`film/notices.test.ts:109` 报新增静态提示「所选镜头已经变化，请重新选择后生成。」落入 `OPERATION_STATUS`。后端已补齐精确业务分类与本轮新增静态提示的回归，界面已补 `next/wiring/noticeCopy.ts` 的 14 个最终中文映射，分别处理生成选择失效/重复生成、无字幕补做结果和排查文件下载；`docs/design/copy-zh.md` 仅追加对应 14 行索引，原 118 条历史与 106 条既有新增记录及其完整性断言保留。新增 16 项纯显示契约覆盖逐码中文、部分成功原因及排查导出数量，不把不明失败归入通用业务码。
 
-本地复跑 `film/notices.test.ts`、`next/wiring/noticeCopy.test.ts`、`next/wiring/statusNotice.test.tsx` 共 113 项通过，原静态提示 CI 失败已在本地复现后修复；界面目标 ESLint、Prettier、diff 检查通过。后端另报包含新增宿主路径的 6 文件 132 项通过，集成类型与全仓检查由总控记录。本地修复与远端 CI 结果分别记录，尚未据此声称远端 Linux/Windows CI 已通过或已合入 dev。
+本地复跑 `film/notices.test.ts`、`next/wiring/noticeCopy.test.ts`、`next/wiring/statusNotice.test.tsx` 共 113 项通过，原静态提示 CI 失败已在本地复现后修复；界面目标 ESLint、Prettier、diff 检查通过。后端另报包含新增宿主路径的 6 文件 132 项通过。以上是修复时的定向记录；该修复已集成并推送 `d8b15eb`，当前全量检查及远端结果见下，不代表已合入 dev。
+
+### 当前 CI 与本地全量验证位置
+
+上一轮产品修复提交为 `d8b15eb98358406d90f045e983871708be0137a2`，尚未合入 dev。总控核实 [run 42182358298（#683）](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298)：[Windows job 127774675497](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298/job/127774675497) 在 Test 步骤 exit 1（3m22s），公开页没有具体失败注释；Linux 仍在运行，不能将本地通过写成远端全部通过。
+
+历史对照：旧 dev `a4531da` 的 [run 42157717806（#677）](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806)，总控已直接核实 [Windows job 127695727475](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806/job/127695727475) 在 Test 失败（3m6s），[Ubuntu job 127695727812](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806/job/127695727812) 成功（49m39s）。两次 Windows 失败原因是否相同尚不明确。
+
+本地基于 `d8b15eb` 的 TS 全量：桌面 115 文件 2031 项、renderer 377 文件 4662 项、Node 媒体 17 项及 QC 11 项全通过；桌面分支覆盖率 91.29%，renderer 87.45%。总控 `contracts:check → lint → typecheck → build` 整串 exit 0，生产依赖审计和故障证据 verify 通过。Python 全量已退出 0：5166 项通过、6 项跳过；行覆盖率 92.14%、分支覆盖率 83.61%，达到原定门槛。独立故障注入 66 项通过、4 项跳过；媒体契约复现、43 文件证据哈希及故障证据复现均退出 0。界面使用 Windows 单 worker 配置复核 GUI/提示相关 8 文件 141 项通过，但仍在 Linux 运行时，不能作为 Windows 原生验证。
+
+后端（Sol medium）已交付最小 CI 失败注释诊断补丁，总控审查及 8 项回归、真实 pnpm 启动探针、完整 lint 均通过，准备提交推送并核对新 CI；界面（Sol medium）已完成只读诊断与进度文档更新，未改产品代码。B13/U06 导出真实进度/取消仅有只读显示契约，未开始开发。诊断补丁保留原 pnpm test 命令、输出、退出码及所有覆盖率门槛，独立诊断回归也接入 CI。未涉及新的产品功能、真实会员调用、Electron 验收或 dev 合并。
