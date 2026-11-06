@@ -1793,12 +1793,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       let baseline: FilmProject;
       try {
         baseline = await captureBeforeGeneration(current, valid);
-      } catch {
+      } catch (error) {
+        const stale = historyInputStale(error);
         if (valid())
           setNotice({
-            code: "HISTORY_BACKUP_FAILED",
-            text: NOTICE_TEXT.HISTORY_BACKUP_FAILED,
-            detail: "定妆照批次尚未开始生成，请先保存历史再试。",
+            code: stale ? "REQUEST_STALE" : "HISTORY_BACKUP_FAILED",
+            text: stale ? NOTICE_TEXT.REQUEST_STALE : NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: stale
+              ? "作品内容已变化，定妆照批次尚未开始生成。"
+              : "定妆照批次尚未开始生成，请先保存历史再试。",
           });
         return;
       }
@@ -2745,12 +2748,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       let baseline: FilmProject;
       try {
         baseline = await captureBeforeGeneration(base, valid);
-      } catch {
+      } catch (error) {
+        const stale = historyInputStale(error);
         if (valid())
           setNotice({
-            code: "HISTORY_BACKUP_FAILED",
-            text: NOTICE_TEXT.HISTORY_BACKUP_FAILED,
-            detail: "四张候选画面尚未开始生成，请先保存历史再试。",
+            code: stale ? "GENERATION_SELECTION_STALE" : "HISTORY_BACKUP_FAILED",
+            text: stale
+              ? NOTICE_TEXT.GENERATION_SELECTION_STALE
+              : NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: stale
+              ? "作品内容已变化，四张候选画面尚未开始生成。"
+              : "四张候选画面尚未开始生成，请先保存历史再试。",
           });
         return;
       }
@@ -2940,17 +2948,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           .map((id) => live!.shots.find((row) => row.id === id))
           .filter((row): row is FilmShot => Boolean(row));
         if (selected.length !== ids.length) throw new Error("HISTORY_STALE");
-      } catch {
+      } catch (error) {
+        const stale = historyInputStale(error);
         if (valid())
           setNotice({
-            code: "HISTORY_BACKUP_FAILED",
-            text: NOTICE_TEXT.HISTORY_BACKUP_FAILED,
-            detail: "本批尚未开始生成，未自动重试。请先保存历史再试。",
+            code: stale ? "GENERATION_SELECTION_STALE" : "HISTORY_BACKUP_FAILED",
+            text: stale
+              ? NOTICE_TEXT.GENERATION_SELECTION_STALE
+              : NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: stale
+              ? "作品内容已变化，本批尚未开始生成。"
+              : "本批尚未开始生成，未自动重试。请先保存历史再试。",
           });
-        if (pipeline)
-          throw Object.assign(new Error("HISTORY_BACKUP_FAILED"), {
-            code: "HISTORY_BACKUP_FAILED",
-          });
+        if (pipeline) {
+          const code = stale ? "PIPELINE_REQUEST_STALE" : "HISTORY_BACKUP_FAILED";
+          throw Object.assign(new Error(code), { code });
+        }
         return;
       }
     }
@@ -3857,6 +3870,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       active = false;
     };
   }, [workSettings, film?.id, persistentHistoryRefresh]);
+  function historyInputStale(error: unknown) {
+    return error instanceof Error && error.message === "HISTORY_STALE";
+  }
   async function captureBeforePipeline(lease: Awaited<ReturnType<typeof persistence.acquire>>) {
     try {
       const base = filmRef.current;
@@ -3867,10 +3883,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         expectedHash: input.expectedHash,
         reason: "before-pipeline",
       });
-      if (result.kind !== "CAPTURED" || !input.current()) throw new Error("HISTORY_BACKUP_FAILED");
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
       refreshPersistentHistory((value) => value + 1);
-    } catch {
-      throw Object.assign(new Error("HISTORY_BACKUP_FAILED"), { code: "HISTORY_BACKUP_FAILED" });
+      if (!input.current()) throw new Error("HISTORY_STALE");
+    } catch (error) {
+      const code = historyInputStale(error) ? "PIPELINE_REQUEST_STALE" : "HISTORY_BACKUP_FAILED";
+      throw Object.assign(new Error(code), { code });
     }
   }
   async function captureBeforeGeneration(
@@ -3894,9 +3912,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         expectedHash,
         reason: "before-batch-generation",
       });
-      if (result.kind !== "CAPTURED" || filmRef.current !== accepted || !valid())
-        throw new Error("HISTORY_BACKUP_FAILED");
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
       refreshPersistentHistory((value) => value + 1);
+      if (filmRef.current !== accepted || !valid()) throw new Error("HISTORY_STALE");
       return accepted;
     }
     const input = await prepareHistoryInput(base, historyHost);
@@ -3906,8 +3924,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         expectedHash: input.expectedHash,
         reason: "before-batch-generation",
       });
-      if (result.kind !== "CAPTURED" || !input.current() || !valid())
-        throw new Error("HISTORY_BACKUP_FAILED");
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
+      if (!input.current() || !valid()) throw new Error("HISTORY_STALE");
     } finally {
       await input.release();
     }

@@ -401,3 +401,58 @@ it("blocks the entire real pipeline before any member dispatch when its first sn
   expect(f.still).not.toHaveBeenCalled();
   expect(f.video).not.toHaveBeenCalled();
 });
+it("retains a completed baseline snapshot but blocks video dispatch after the user edits while capture waits", async () => {
+  const f = fixture(),
+    original = f.film.scenes[0]!.text;
+  await open();
+  board();
+  const pending = f.holdCapture();
+  fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await waitFor(() => expect(f.capture).toHaveBeenCalledOnce());
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "创作阶段" })).getByRole("button", {
+      name: /剧本/,
+    }),
+  );
+  fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "备份期间的新编辑" } });
+  await act(async () => pending.resolve());
+  await screen.findByText("所选镜头已经变化，请重新选择后生成。");
+  expect(screen.queryByText("历史快照没有保存，请先重试。")).toBeNull();
+  expect(f.snapshots.size).toBe(1);
+  expect([...f.snapshots.values()][0]!.film.scenes[0]!.text).toBe(original);
+  expect(screen.getByLabelText("这一场")).toHaveValue("备份期间的新编辑");
+  await waitFor(() => expect(f.disk.get(f.film.id)!.scenes[0]!.text).toBe("备份期间的新编辑"));
+  expect(f.video).not.toHaveBeenCalled();
+  expect(f.still).not.toHaveBeenCalled();
+  expect(f.text).not.toHaveBeenCalled();
+  expect(f.capture).toHaveBeenCalledOnce();
+});
+it("keeps an already captured pipeline baseline and reports stale input without any membership or media call", async () => {
+  const f = fixture(),
+    original = f.film.scenes[0]!.text;
+  await open();
+  const pending = f.holdCapture();
+  fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
+  await waitFor(() => expect(f.capture).toHaveBeenCalledOnce());
+  fireEvent.change(screen.getByLabelText("这一场"), {
+    target: { value: "流水线备份期间的新编辑" },
+  });
+  await act(async () => pending.resolve());
+  await waitFor(() =>
+    expect(document.querySelector(".status-note")).toHaveTextContent(
+      "做的时候内容改过，这次的结果没有放进去。",
+    ),
+  );
+  expect(screen.queryByText("历史快照没有保存，请先重试。")).toBeNull();
+  expect(f.snapshots.size).toBe(1);
+  expect([...f.snapshots.values()][0]!.film.scenes[0]!.text).toBe(original);
+  expect(f.snapshots.values().next().value!.entry.reason).toBe("before-pipeline");
+  await waitFor(() =>
+    expect(f.disk.get(f.film.id)!.scenes[0]!.text).toBe("流水线备份期间的新编辑"),
+  );
+  expect(f.text).not.toHaveBeenCalled();
+  expect(f.still).not.toHaveBeenCalled();
+  expect(f.video).not.toHaveBeenCalled();
+  expect(f.capture).toHaveBeenCalledOnce();
+});
