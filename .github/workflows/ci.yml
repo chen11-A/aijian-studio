@@ -28,7 +28,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git ca-certificates curl libstdc++6 ffmpeg=7:7.1.5-0+deb13u1
+          apt-get install -y --no-install-recommends git ca-certificates curl libstdc++6 ffmpeg=7:7.1.5-0+deb13u1 fonts-noto-cjk
 
       - name: Check out repository
         uses: actions/checkout@v7.0.1
