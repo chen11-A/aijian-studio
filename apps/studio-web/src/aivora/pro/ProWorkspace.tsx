@@ -3987,7 +3987,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   useDismiss(menu === "account", () => setMenu(null), '[data-menu="account"]');
   // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
   // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
-  const readOpeningFilm = async (id: string) => {
+  const readOpeningFilm = async (
+    id: string,
+    onOpened: (opened: FilmProject | null, retained: boolean) => void,
+  ) => {
     const wasUncertain = !!persistence.externalWriteState(id);
     let saved = await readSaved(id);
     let pending = persistence.externalWriteState(id);
@@ -3998,10 +4001,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       saved = await readSaved(id);
       pending = persistence.externalWriteState(id);
     }
-    return { opened: pending?.draft ?? saved, retained: !!pending };
+    // Keep this final state check and apply in the same synchronous segment.
+    onOpened(pending?.draft ?? saved, !!pending);
   };
   const openSaved = (id: string) => {
-    void readOpeningFilm(id).then(({ opened, retained }) => {
+    void readOpeningFilm(id, (opened, retained) => {
       if (!opened) {
         setNotice("没有打开这部作品。");
         return;
@@ -4890,7 +4894,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   <button
                     key={item.id}
                     onClick={() => {
-                      void readOpeningFilm(item.id).then(({ opened, retained }) => {
+                      void readOpeningFilm(item.id, (opened, retained) => {
                         if (!opened) return;
                         const settled = settleOpenedFilm(opened);
                         applyLive(settled.film);
