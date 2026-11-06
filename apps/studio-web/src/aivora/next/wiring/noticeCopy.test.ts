@@ -279,3 +279,13 @@ describe("takeover generation, clean copy and capture notice contracts", () => {
     expect(NOTICE_COPY.CAPTURE_EXPORT_FAILED).not.toBe(NOTICE_COPY.EXPORT_FAILED);
   });
 });
+
+it("distinguishes a prepared prompt proposal from confirmed field application", () => {
+  for (const [code, text] of [
+    ["PROMPTER_SUGGESTION_READY", "画面说明已准备好，确认后才修改。"],
+    ["PROMPTER_FIELDS_APPLIED", "画面说明已修改。"],
+  ]) {
+    const notice = normalizeNotice({ code: code!, text: text! });
+    expect(statusLine(text!, notice)).toEqual({ code, text, detail: "" });
+  }
+});

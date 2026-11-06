@@ -107,3 +107,126 @@ describe("SuggestionCard", () => {
     expect(undo).toHaveBeenCalledTimes(1);
   });
 });
+
+it("uses fixed field rows and field counts instead of the scene or shot comparison", () => {
+  const apply = vi.fn();
+  render(
+    <SuggestionCard
+      unit="shot"
+      current={NOW}
+      proposed={NEXT}
+      fieldRows={[
+        {
+          key: "prompt-zh",
+          label: "中文画面说明",
+          kind: "changed",
+          before: "请求时的旧说明",
+          after: "建议的新说明",
+        },
+        {
+          key: "prompt-en",
+          label: "英文画面说明",
+          kind: "added",
+          before: null,
+          after: "New description",
+        },
+      ]}
+      onApply={apply}
+    />,
+  );
+  expect(screen.getByText("建议变更 2 个字段")).toBeInTheDocument();
+  expect(screen.queryByText("现在 6 个 → 建议 4 个")).toBeNull();
+  expect(screen.queryByText("风铃特写")).toBeNull();
+  expect(screen.getByText("请求时的旧说明")).toBeInTheDocument();
+  expect(apply).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "撤销" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
+  expect(apply).toHaveBeenCalledTimes(1);
+});
+
+it("renders field-only suggestions even without a proposed shot list and respects busy/applied state", () => {
+  const fields = [
+    {
+      key: "prompt-zh",
+      label: "中文画面说明",
+      kind: "changed" as const,
+      before: "旧",
+      after: "新",
+    },
+  ];
+  const { rerender } = render(
+    <SuggestionCard
+      unit="shot"
+      current={[]}
+      proposed={[]}
+      fieldRows={fields}
+      busy
+      onApply={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("建议变更 1 个字段")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "确认修改" })).toBeDisabled();
+  rerender(
+    <SuggestionCard
+      unit="shot"
+      current={[]}
+      proposed={[]}
+      fieldRows={fields}
+      applied
+      onApply={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("已应用这次字段修改。")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "确认修改" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "撤销" })).toBeNull();
+});
+
+it("does not fall back to guessed shot changes when the host supplies an empty field diff", () => {
+  render(
+    <SuggestionCard unit="shot" current={NOW} proposed={NEXT} fieldRows={[]} onApply={vi.fn()} />,
+  );
+  expect(screen.getByText("建议变更 0 个字段")).toBeInTheDocument();
+  expect(screen.getByText("没有字段改动。")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "确认修改" })).toBeDisabled();
+  expect(screen.queryByText("现在 6 个 → 建议 4 个")).toBeNull();
+});
+
+it("blocks rejection while field confirmation is saving and preserves legacy busy rejection", () => {
+  const reject = vi.fn();
+  const fields = [
+    {
+      key: "prompt-zh",
+      label: "中文画面说明",
+      kind: "changed" as const,
+      before: "旧",
+      after: "新",
+    },
+  ];
+  const { rerender } = render(
+    <SuggestionCard
+      unit="shot"
+      current={NOW}
+      proposed={NEXT}
+      fieldRows={fields}
+      busy
+      onApply={vi.fn()}
+      onReject={reject}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "不要" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "不要" }));
+  expect(reject).not.toHaveBeenCalled();
+  rerender(
+    <SuggestionCard
+      unit="shot"
+      current={NOW}
+      proposed={NEXT}
+      busy
+      onApply={vi.fn()}
+      onReject={reject}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "不要" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "不要" }));
+  expect(reject).toHaveBeenCalledTimes(1);
+});

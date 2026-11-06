@@ -8,6 +8,8 @@ import type { UiNotice } from "../../film/contracts3j";
  * GPT adds a code that has no line here yet.
  */
 export const NOTICE_COPY: Readonly<Record<string, string>> = {
+  PROMPTER_SUGGESTION_READY: "画面说明已准备好，确认后才修改。",
+  PROMPTER_FIELDS_APPLIED: "画面说明已修改。",
   GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
   GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
   CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",
