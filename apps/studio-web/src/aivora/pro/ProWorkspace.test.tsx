@@ -1101,21 +1101,40 @@ describe("professional workspace", () => {
   }, 20_000);
 
   it("writes a still, keeps the reported length, and plays without a sound device", async () => {
+    const generationOrder: string[] = [];
     let playbacks = 0;
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(async () => {
       playbacks += 1;
       if (playbacks === 1) throw new Error("no device");
     });
-    const createStoryFilm = vi.fn(async () => ({
-      data: {
-        status: "SUCCEEDED",
-        message: "",
-        output_path: "/tmp/aivora/shot.mp4",
-        preview_image: "https://example.test/frame.png",
-        duration_seconds: "4",
-      },
-    }));
+    const createStoryFilm = vi.fn(async () => {
+      generationOrder.push("provider");
+      return {
+        data: {
+          status: "SUCCEEDED",
+          message: "",
+          output_path: "/tmp/aivora/shot.mp4",
+          preview_image: "https://example.test/frame.png",
+          duration_seconds: "4",
+        },
+      };
+    });
     installDesktop(createStoryFilm);
+    const captureHistory = window.aijian!.captureFilmHistory!;
+    window.aijian!.captureFilmHistory = vi.fn(async (input) => {
+      const result = await captureHistory(input);
+      if (result.kind === "CAPTURED") generationOrder.push("backup");
+      return result;
+    });
+    let completeGeneration!: () => void;
+    const generationCompleted = new Promise<void>((resolve) => {
+      completeGeneration = resolve;
+    });
+    const onGenerationCompleted = (event: Event) => {
+      if ((event as CustomEvent<{ code?: string }>).detail?.code === "GENERATION_DONE")
+        completeGeneration();
+    };
+    window.addEventListener("aivora-notice", onGenerationCompleted);
     let videos = 0;
     window.aijian = {
       ...window.aijian!,
@@ -1168,8 +1187,14 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+      generationOrder.length = 0;
+      // Backup and canonical saves legitimately precede the provider. Wait for the
+      // action's real completion event, within this test's existing 20s budget.
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+      await generationCompleted;
       expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
+      expect(createStoryFilm).toHaveBeenCalledTimes(1);
+      expect(generationOrder).toEqual(["backup", "provider"]);
       // 4C-U08: nothing in progress: a small button, still named for screen readers.
       expect(screen.getByRole("button", { name: "后台生成：没有在做的" })).toHaveClass("idle");
       const preview = document.querySelector("video.frame");
@@ -1192,11 +1217,12 @@ describe("professional workspace", () => {
       expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
       expect(await screen.findByRole("button", { name: "审核后发布" })).toBeDisabled();
-      expect(screen.getByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
+      expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "关闭" }));
       fireEvent.click(screen.getByRole("button", { name: "设入点" }));
       expect(screen.getByText("左右对比")).toBeInTheDocument();
     } finally {
+      window.removeEventListener("aivora-notice", onGenerationCompleted);
       play.mockRestore();
     }
   }, 20_000);
