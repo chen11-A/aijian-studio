@@ -550,6 +550,14 @@ export function withWorkFraming(text: string, aspect: FilmProject["aspectRatio"]
   return `${framingHead(aspect)}${text.replace(/(?:竖屏|横屏)构图[。.．，,]?\s*/gu, "").trim()}`;
 }
 
+/**
+ * 3JR-B12 (R2-U01): a video starts from its first frame, whose framing is already set, so a
+ * motion description needs no framing sentence at all — and a stale one must not reach it.
+ */
+export function withoutFraming(text: string): string {
+  return text.replace(/(?:竖屏|横屏)构图[。.．，,]?\s*/gu, "").trim();
+}
+
 /** 3JR-B12: tells the director and the art agent which way the work is framed. */
 export function aspectContext(film: Pick<FilmProject, "aspectRatio">): string {
   return film.aspectRatio === "16:9"
@@ -616,7 +624,7 @@ export function videoPrompt(shot: FilmShot): string {
   const motion = (
     edited
       ? shot.picture || shot.action
-      : explicit || shot.directorVideoPrompt || shot.picture || shot.action
+      : withoutFraming(explicit || shot.directorVideoPrompt || "") || shot.picture || shot.action
   ).replace(/。$/, "");
   const spoken = shot.line.trim() ? `台词原句：「${shot.line.trim()}」。不要背景音乐。` : "";
   return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}${directorPlanPrompt(shot, "video") ? `\n${directorPlanPrompt(shot, "video")}` : ""}`;

@@ -250,6 +250,9 @@ export function applyDirectorPlan(
       ? { directorFramePrompt: withWorkFraming(shot.directorFramePrompt, film.aspectRatio) }
       : {}),
     ...(shot.promptZh ? { promptZh: withWorkFraming(shot.promptZh, film.aspectRatio) } : {}),
+    ...(shot.directorVideoPrompt
+      ? { directorVideoPrompt: withWorkFraming(shot.directorVideoPrompt, film.aspectRatio) }
+      : {}),
   }));
   const next = applyShots(film, framed, sceneId);
   return {

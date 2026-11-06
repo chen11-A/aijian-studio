@@ -34,6 +34,7 @@ import {
 import {
   keyframePrompt,
   shotIdentity,
+  withoutFraming,
   type FilmCharacter,
   type FilmJob,
   type FilmLocation,
@@ -1529,7 +1530,8 @@ export function motionPrompt(shot: FilmShot): string {
       shot.directorVideoPrompt?.trim() ||
       shot.promptZh?.trim() ||
       "";
-  let visual = prompted || picture;
+  // 3JR-B12 (R2-U01): no framing sentence in a motion description.
+  let visual = withoutFraming(prompted) || picture;
   const directorNotes = directorPlanPrompt(shot, "video");
   if (directorNotes) visual = [visual, directorNotes].filter(Boolean).join("\n");
   const constraints = actionPlanPrompt(shot);
