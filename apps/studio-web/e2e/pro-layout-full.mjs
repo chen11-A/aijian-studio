@@ -202,6 +202,18 @@ export async function auditFullPages({ browser, config, report, media, persist }
               );
             } else {
               await dialog.getByLabel("清晰度", { exact: true }).waitFor();
+              if (name === "export-options") {
+                const aspectChoice = dialog.getByRole("combobox", { name: "比例", exact: true });
+                await aspectChoice.waitFor({ state: "visible" });
+                assert.equal(await aspectChoice.isVisible(), true);
+                assert.deepEqual(
+                  await aspectChoice
+                    .locator("option")
+                    .evaluateAll((options) => options.map((option) => option.value)),
+                  ["work", "other", "both"],
+                );
+                await reachable(aspectChoice, "导出比例选择");
+              }
               if (name === "export-missing") {
                 await dialog.getByText("按场看还没生成的镜头", { exact: true }).click();
                 assert.ok((await dialog.locator(".missing li").count()) > 0);
