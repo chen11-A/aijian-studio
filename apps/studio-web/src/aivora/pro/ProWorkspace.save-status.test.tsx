@@ -76,8 +76,8 @@ async function open() {
   await screen.findByLabelText("这一场", { exact: true });
 }
 async function openSecond() {
-  fireEvent.click(screen.getByRole("button", { name: "作品", exact: true }));
-  fireEvent.click(await screen.findByRole("button", { name: "第 2 集", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
   await waitFor(() =>
     expect(screen.getByLabelText("这一场", { exact: true })).toHaveValue("第二集的原文。"),
   );
