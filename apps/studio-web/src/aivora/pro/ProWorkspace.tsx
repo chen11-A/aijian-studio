@@ -142,7 +142,6 @@ import {
   moveShot,
   portraitPrompts,
   shotProgress,
-  PREVIEW_REASON,
   voiceLabel,
   removeShot,
   generationEstimate,
@@ -889,7 +888,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       filmRef.current = settled.film;
       committed.current = settled.film;
       setFilm(settled.film);
-      if (settled.interrupted) setNotice("上次有生成没做完，已标成已中断。可以重试。");
+      if (settled.interrupted)
+        setNotice({ code: "WORK_INTERRUPTED", text: NOTICE_TEXT.WORK_INTERRUPTED });
       const first = stored.scenes[0]?.id;
       if (first) setScene(first);
     })();
@@ -1265,7 +1265,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     signingRef.current = true;
     setConfirmSignIn(false);
     setSigningIn(true);
-    setNotice("正在打开浏览器。页面上写的是 Grok Build，点 Allow 即可。");
+    setNotice({
+      code: "AUTH_BROWSER_OPENING",
+      text: NOTICE_TEXT.AUTH_BROWSER_OPENING,
+      detail: "授权页显示 Grok Build；确认后点 Allow（允许），再回到软件。",
+    });
     try {
       const result = await bridge.signIn();
       window.dispatchEvent(new Event("aivora-grok-changed"));
@@ -1464,13 +1468,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ? `${NOTICE_TEXT.TEXT_TIMEOUT} 已保留导演初稿，补充尚未完成。`
               : `导演拆好了。点「放进分镜」才会放进去。${supplementWarnings.current.join(" ")}`,
           );
-        } else finishTurn(turn, `${result.detail} 没有写入镜头。`);
+        } else finishTurn(turn, `${result.detail} 这次没有修改分镜。`);
         return;
       }
       const reply = await completeAgent(job.role, job.context, job.instruction);
-      if (valid()) finishTurn(turn, `${reply.detail || "模型没有按格式返回。"} 没有写入镜头。`);
+      if (valid()) finishTurn(turn, `${reply.detail || "这次回复用不了。"} 这次没有修改分镜。`);
     } catch {
-      if (valid()) finishTurn(turn, "这次没有写完。没有写入镜头。");
+      if (valid()) finishTurn(turn, "这次没有写完，没有修改分镜。");
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
@@ -1593,7 +1597,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         return;
       }
       if (!stored) {
-        setNotice("没有写到应用数据目录，可以重试。");
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "修改已经应用，但还没保存上。请重试保存。",
+        });
         return;
       }
       const latest = filmRef.current;
@@ -1625,7 +1633,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           editorSelection.current,
         )
       )
-        setNotice("没有写到应用数据目录，可以重试。");
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "修改已经应用，但还没保存上。请重试保存。",
+        });
     } finally {
       applyingStory.current = false;
     }
@@ -2182,7 +2194,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         )
       )
         setNotice(
-          stored ? "已放进这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
+          stored
+            ? "已放进这一镜。你改过的字没有被盖掉。"
+            : {
+                code: "SAVE_FAILED",
+                text: NOTICE_TEXT.SAVE_FAILED,
+                detail: "修改已经应用，但还没保存上。请重试保存。",
+              },
         );
     } catch {
       if (
@@ -2194,7 +2212,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           editorSelection.current,
         )
       )
-        setNotice("没有写到应用数据目录，可以重试。");
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "修改已经应用，但还没保存上。请重试保存。",
+        });
     } finally {
       applyingDirection.current = false;
     }
@@ -2696,7 +2718,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       Boolean(project && filmRef.current?.id === project && previewEpoch.current === epoch);
     const bridge = grokBridge();
     if (!bridge?.speak) {
-      setNotice(connected ? PREVIEW_REASON : "配音需要 Grok 会员。");
+      setNotice(
+        connected
+          ? {
+              code: "VOICE_PREVIEW_UNAVAILABLE",
+              text: NOTICE_TEXT.VOICE_PREVIEW_UNAVAILABLE,
+              detail: "当前连接不支持单独试听；这次没有生成试听配音。",
+            }
+          : { code: "GROK_MEMBERSHIP_REQUIRED", text: NOTICE_TEXT.GROK_MEMBERSHIP_REQUIRED },
+      );
       return;
     }
     setHearing(true);
@@ -2749,8 +2779,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setHearing(false);
       setNotice(
         error instanceof Error && error.message === "VOICE_METADATA_TIMEOUT"
-          ? "配音加载超时，可以重试。"
-          : preview
+          ? "配音已生成，但加载超时，还没有播放。可以重试。"
+          : preview || (error instanceof Error && error.message === "VOICE_AUDIO_FAILED")
             ? "配音文件到了，这一页没有播出来。"
             : "配音没有成功，可以重试。",
       );
@@ -3910,7 +3940,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setMenu(null);
       setNotice(
         settled.interrupted
-          ? "上次有生成没做完，已标成已中断。可以重试。"
+          ? { code: "WORK_INTERRUPTED", text: NOTICE_TEXT.WORK_INTERRUPTED }
           : `已打开${saved.seriesTitle || saved.title}。`,
       );
     });

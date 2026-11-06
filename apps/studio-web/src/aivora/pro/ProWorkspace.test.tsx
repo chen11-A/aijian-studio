@@ -1327,10 +1327,10 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "风吹过屋顶。" } });
     pickHelper("编剧");
     fireEvent.click(screen.getByRole("button", { name: "让编剧分场" }));
-    expect(await screen.findByText(/没有按格式返回/)).toBeInTheDocument();
+    expect(await screen.findByText(/这次回复用不了/)).toBeInTheDocument();
     pickHelper("导演");
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
-    expect(await screen.findByText(/没有按格式返回/)).toBeInTheDocument();
+    expect(await screen.findByText(/导演这次没有给出能用的镜头/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "放进分镜" })).not.toBeInTheDocument();
     // 4A-U11: no suggestion, no empty card.
     expect(screen.queryByText("还没有建议")).toBeNull();
@@ -1398,7 +1398,7 @@ describe("professional workspace", () => {
       text: "",
     });
     expect((await screen.findAllByText(/文本接口返回 404/)).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText(/没有写入镜头/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/没有修改分镜/)).length).toBeGreaterThan(0);
 
     completeText.mockImplementation(async ({ text }: { text: string }) => {
       if (text.includes("一句外貌")) {
@@ -1851,6 +1851,7 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   expect(screen.queryByRole("button", { name: "继续生成" })).toBeNull();
   mode = "play";
   const RealAudio = window.Audio;
+  let metadataFailure = false;
   class SilentAudio {
     onloadedmetadata: (() => void) | null = null;
     onerror: (() => void) | null = null;
@@ -1858,7 +1859,7 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
       throw new Error("blocked");
     });
     constructor() {
-      setTimeout(() => this.onloadedmetadata?.(), 0);
+      setTimeout(() => (metadataFailure ? this.onerror?.() : this.onloadedmetadata?.()), 0);
     }
   }
   window.Audio = SilentAudio as unknown as typeof Audio;
@@ -1871,6 +1872,16 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
     }
     fireEvent.click(screen.getByRole("button", { name: "试听" }));
     expect(await screen.findByText(/没有播出来/)).toBeInTheDocument();
+    const beforeMetadataFailure = speak.mock.calls.length;
+    metadataFailure = true;
+    fireEvent.click(screen.getByRole("button", { name: "试听" }));
+    await waitFor(() => expect(speak.mock.calls.length).toBe(beforeMetadataFailure + 1));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "试听" })).toHaveTextContent("试听"),
+    );
+    // An OK speech response whose audio cannot load is not a generation failure.
+    expect(await screen.findByText(/配音文件到了，这一页没有播出来/)).toBeInTheDocument();
+    expect(screen.queryByText("配音没有成功，可以重试。")).toBeNull();
   } finally {
     window.Audio = RealAudio;
     URL.createObjectURL = createUrl;
@@ -3178,7 +3189,7 @@ it("says the model returned nothing when the director bridge throws", async () =
   });
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
-  expect(await screen.findByText(/模型没有返回/)).toBeInTheDocument();
+  expect(await screen.findByText(/导演这次没有完成回复/)).toBeInTheDocument();
   const status = vi.fn(async () => {
     throw new Error("offline");
   });
@@ -3470,7 +3481,7 @@ it("releases writer busy state after a rejected request and permits retry", asyn
   await openSample();
   pickHelper("编剧");
   fireEvent.click(screen.getByRole("button", { name: "让编剧分场" }));
-  expect(await screen.findByText(/编剧请求失败/)).toBeInTheDocument();
+  expect(await screen.findByText(/编剧这次未完成/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "让导演拆镜头" })).not.toBeDisabled();
   expect(screen.queryByRole("button", { name: "放进剧本" })).not.toBeInTheDocument();
 });
@@ -4923,73 +4934,86 @@ it("discards a late writer proposal after changing assistant scope", async () =>
   expect(screen.getByRole("button", { name: "让导演拆镜头" })).not.toBeDisabled();
 });
 
-it("saves the confirmed action plan and scene end state without assigning it to another shot", async () => {
-  window.localStorage.clear();
-  const { completeText } = installDesktop();
-  const film = sampleFilm();
-  film.backendProjectId = PROJECT_ID;
-  const target = film.shots[0]!;
-  target.userFields = [];
-  target.picture = "两人交手，铁棍撞向墙面。";
-  target.action = "铁棍挥向墙面。";
-  target.lines = [];
-  target.line = "";
-  target.speaker = "";
-  const person = film.characters[0]!.name;
-  completeText.mockResolvedValue({
-    kind: "OK",
-    text: JSON.stringify({
-      shots: [
-        {
-          shot_id: target.id,
-          nodes: [
-            {
-              node_id: "n1",
-              at_seconds: 0,
-              duration_seconds: 1,
-              actor: person,
-              move: "挥铁棍",
-              target: "墙面",
-              contact: true,
-              force: 2,
-            },
-          ],
-        },
-      ],
-      props_after: [{ name: person, left: null, right: "铁棍" }],
-    }),
-  });
-  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
-  window.localStorage.setItem("aivora.film.activeId", film.id);
-  render(<ProWorkspace projectId={PROJECT_ID} />);
-  await screen.findAllByText(film.title);
-  fireEvent.click(stageTab("分镜"));
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: new RegExp(film.scenes.find((scene) => scene.id === target.sceneId)!.title),
-    }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
-  pickHelper("动作指导");
-  fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
-  await screen.findByText(/动作设计 · 镜头/);
-  const saved = () =>
-    vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject | undefined;
-  expect(saved()?.shots.find((shot) => shot.id === target.id)?.actionPlan).toBeUndefined();
-  fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-  await waitFor(() => {
-    const last = saved();
-    expect(last?.shots.find((shot) => shot.id === target.id)?.actionPlan?.nodes[0]?.move).toBe(
-      "挥铁棍",
+it.each([false, true])(
+  "keeps the confirmed action plan and scene end state scoped when save fails=%s",
+  async (saveFails) => {
+    window.localStorage.clear();
+    const { completeText } = installDesktop();
+    const film = sampleFilm();
+    film.backendProjectId = PROJECT_ID;
+    const target = film.shots[0]!;
+    target.userFields = [];
+    target.picture = "两人交手，铁棍撞向墙面。";
+    target.action = "铁棍挥向墙面。";
+    target.lines = [];
+    target.line = "";
+    target.speaker = "";
+    const person = film.characters[0]!.name;
+    completeText.mockResolvedValue({
+      kind: "OK",
+      text: JSON.stringify({
+        shots: [
+          {
+            shot_id: target.id,
+            nodes: [
+              {
+                node_id: "n1",
+                at_seconds: 0,
+                duration_seconds: 1,
+                actor: person,
+                move: "挥铁棍",
+                target: "墙面",
+                contact: true,
+                force: 2,
+              },
+            ],
+          },
+        ],
+        props_after: [{ name: person, left: null, right: "铁棍" }],
+      }),
+    });
+    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    await screen.findAllByText(film.title);
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: new RegExp(film.scenes.find((scene) => scene.id === target.sceneId)!.title),
+      }),
     );
-    expect(
-      last?.scenes.find((scene) => scene.id === target.sceneId)?.actionState?.propsAfter[0]?.right,
-    ).toBe("铁棍");
-    expect(
-      last?.shots.filter((shot) => shot.id !== target.id).every((shot) => !shot.actionPlan),
-    ).toBe(true);
-  });
-});
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    pickHelper("动作指导");
+    fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
+    await screen.findByText(/动作设计 · 镜头/);
+    const saved = () =>
+      vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject | undefined;
+    expect(saved()?.shots.find((shot) => shot.id === target.id)?.actionPlan).toBeUndefined();
+    if (saveFails)
+      vi.mocked(window.aijian!.writeFilmProject!).mockRejectedValue(new Error("disk failed"));
+    fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
+    await waitFor(() => {
+      const last = saved();
+      expect(last?.shots.find((shot) => shot.id === target.id)?.actionPlan?.nodes[0]?.move).toBe(
+        "挥铁棍",
+      );
+      expect(
+        last?.scenes.find((scene) => scene.id === target.sceneId)?.actionState?.propsAfter[0]
+          ?.right,
+      ).toBe("铁棍");
+      expect(
+        last?.shots.filter((shot) => shot.id !== target.id).every((shot) => !shot.actionPlan),
+      ).toBe(true);
+    });
+    if (saveFails) {
+      await screen.findByText(NOTICE_COPY.SAVE_FAILED!);
+      expect(screen.getByTitle(/修改已经应用，但还没保存上/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "属性" }));
+      expect(screen.getByLabelText("动作要点")).toHaveValue(target.action);
+      expect(window.aijian!.createStoryFilm).not.toHaveBeenCalled();
+    }
+  },
+);
 
 it.each([false, true])(
   "confirms only the selected typed performance draft and respects stored locks (locked=%s)",

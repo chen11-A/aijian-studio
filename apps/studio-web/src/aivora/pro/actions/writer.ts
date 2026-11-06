@@ -57,9 +57,7 @@ export async function planWriterDraft(
         text = "编剧写好了。点「放进剧本」才会放进去。";
       } else if (connected) {
         scenes = null;
-        text = echo
-          ? "模型把请求原文当成了结果，这次没有改剧本。"
-          : "模型没有按格式返回，这次没有改剧本。";
+        text = echo ? "这次回复只是重复了你的要求，没有改剧本。" : "这次回复用不了，没有改剧本。";
       }
     } else if (connected) {
       scenes = null;
@@ -67,7 +65,7 @@ export async function planWriterDraft(
     }
   } catch {
     scenes = null;
-    text = "编剧请求失败，没有改动剧本，可以重试。";
+    text = "编剧这次未完成，没有改剧本，可以重试。";
   }
   return {
     scenes,

@@ -116,7 +116,7 @@ export async function completeMembershipAgent(
               ? "当前账号不能用这个文本模型。"
               : result.code === "REAUTH_REQUIRED"
                 ? "需要重新登录。"
-                : "模型没有返回。",
+                : "这次没有收到回复。",
       };
     } finally {
       host.control?.signal.removeEventListener("abort", cancel);

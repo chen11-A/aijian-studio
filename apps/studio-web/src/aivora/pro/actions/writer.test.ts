@@ -74,7 +74,7 @@ it.each(["malformed", "empty"])(
     });
     expect(result.scenes).toBeNull();
     expect(result.event).toBe("rejected");
-    expect(result.notice).toContain("这次没有改剧本");
+    expect(result.notice).toContain("没有改剧本");
   },
 );
 
@@ -90,7 +90,7 @@ it("preserves the request-echo rejection", async () => {
     }),
   });
   expect(result.scenes).toBeNull();
-  expect(result.notice).toBe("模型把请求原文当成了结果，这次没有改剧本。");
+  expect(result.notice).toBe("这次回复只是重复了你的要求，没有改剧本。");
 });
 
 it("converts request exceptions into the existing failure result for the workspace finally", async () => {
@@ -102,7 +102,7 @@ it("converts request exceptions into the existing failure result for the workspa
   });
   expect(result).toEqual({
     scenes: null,
-    notice: "编剧请求失败，没有改动剧本，可以重试。",
+    notice: "编剧这次未完成，没有改剧本，可以重试。",
     event: "rejected",
   });
 });
