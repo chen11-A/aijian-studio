@@ -4030,19 +4030,25 @@ it("picks several cards with Shift or Ctrl and does one thing to all of them (5-
   expect(screen.queryByText(/选了 \d+ 个镜头/)).toBeNull();
   fireEvent.click(cards()[0]!, { ctrlKey: true });
   expect(chosen()).toEqual([0, 1]);
+  // Deleting cannot be undone yet, so it asks once more; 不删 keeps them picked.
   fireEvent.click(screen.getByRole("button", { name: "删除这 2 个" }));
-  expect(cards()).toHaveLength(count - 2);
-  expect(screen.getByText("已删除 2 个镜头。Ctrl+Z 可以撤回。")).toBeInTheDocument();
-  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
   expect(cards()).toHaveLength(count);
+  expect(screen.getByRole("alert")).toHaveTextContent("删掉这 2 个镜头？删了不能撤回");
+  fireEvent.click(screen.getByRole("button", { name: "不删" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(chosen()).toEqual([0, 1]);
+  fireEvent.click(screen.getByRole("button", { name: "删除这 2 个" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认删除 2 个" }));
+  expect(cards()).toHaveLength(count - 2);
+  expect(screen.getByText("已删除 2 个镜头。")).toBeInTheDocument();
   // A plain click is one card again.
   fireEvent.click(cards()[0]!, { ctrlKey: true });
-  fireEvent.click(cards()[4]!, { ctrlKey: true });
+  fireEvent.click(cards()[3]!, { ctrlKey: true });
   fireEvent.click(cards()[2]!);
   expect(chosen()).toEqual([2]);
 });
 
-it("drags a card to another place in its scene, marks where it lands, and undoes (5-3-05)", async () => {
+it("drags a card to another place in its scene and marks where it lands (5-3-05)", async () => {
   installDesktop();
   await openSample();
   fireEvent.click(stageTab("分镜"));
@@ -4070,19 +4076,17 @@ it("drags a card to another place in its scene, marks where it lands, and undoes
   expect(sizes().slice(0, 3)).toEqual([before[1], before[2], before[0]]);
   expect(cards()[2]).toHaveClass("sel");
   expect(document.querySelector(".moving, .move-after, .move-before")).toBeNull();
-  expect(screen.getByText("已把镜头 1 挪到镜头 3 后面。Ctrl+Z 可以撤回。")).toBeInTheDocument();
-  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
-  expect(sizes()).toEqual(before);
-  // Back to the front, marked before the card it lands on.
+  expect(screen.getByText("已把镜头 1 挪到镜头 3 后面。")).toBeInTheDocument();
+  // Dragged back to the front, marked before the card it lands on: as it was.
   fireEvent.dragStart(cards()[2]!, { dataTransfer: transfer });
   fireEvent.dragOver(cards()[0]!, { dataTransfer: transfer });
   expect(cards()[0]).toHaveClass("move-before");
   fireEvent.drop(cards()[0]!, { dataTransfer: transfer });
-  expect(sizes().slice(0, 3)).toEqual([before[2], before[0], before[1]]);
+  expect(sizes()).toEqual(before);
   // A card from another scene stays where it was.
   carried["application/x-aivora-shot"] = JSON.stringify({ scope: "other:01", id: "x" });
   fireEvent.drop(cards()[1]!, { dataTransfer: transfer });
-  expect(sizes().slice(0, 3)).toEqual([before[2], before[0], before[1]]);
+  expect(sizes()).toEqual(before);
 });
 
 it("right-clicks a card, a scene or a clip for the same things as 「更多」 (5-3-02)", async () => {
@@ -4202,7 +4206,7 @@ it("plays with J / K / L and moves by cut with ↑ / ↓ on 剪辑 (5-3-09)", as
   }
 });
 
-it("takes out the picked clip with Delete or Backspace, and only then (5-3-10)", async () => {
+it("takes out the picked clip with Delete or Backspace after asking once (5-3-10)", async () => {
   installDesktop();
   await openSample();
   fireEvent.click(stageTab("剪辑"));
@@ -4211,21 +4215,33 @@ it("takes out the picked clip with Delete or Backspace, and only then (5-3-10)",
   // Nothing picked: the key does nothing.
   fireEvent.keyDown(window, { key: "Delete" });
   expect(count()).toBe(start);
+  expect(document.querySelector(".cut-ask")).toBeNull();
   fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
   // Typing in a field keeps the key for the field.
   const field = screen.getByLabelText("改这一镜的描述");
   field.focus();
   fireEvent.keyDown(field, { key: "Backspace" });
-  expect(count()).toBe(start);
+  expect(document.querySelector(".cut-ask")).toBeNull();
   field.blur();
+  // A cut here cannot be undone yet, so the first press asks and the second cuts.
+  fireEvent.keyDown(window, { key: "Delete" });
+  expect(count()).toBe(start);
+  expect(screen.getByRole("alert")).toHaveTextContent(/再按一次 Delete 剪掉镜头 1，剪掉后不能撤回/);
   fireEvent.keyDown(window, { key: "Delete" });
   expect(count()).toBe(start - 1);
   expect(screen.getByText(/已剪掉这一段/)).toBeInTheDocument();
-  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
-  expect(count()).toBe(start);
+  expect(document.querySelector(".cut-ask")).toBeNull();
+  // Esc lets the question go; Backspace works the same way.
   fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
   fireEvent.keyDown(window, { key: "Backspace" });
+  expect(document.querySelector(".cut-ask")).not.toBeNull();
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(document.querySelector(".cut-ask")).toBeNull();
   expect(count()).toBe(start - 1);
+  fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
+  fireEvent.keyDown(window, { key: "Backspace" });
+  fireEvent.keyDown(window, { key: "Backspace" });
+  expect(count()).toBe(start - 2);
   expect(screen.getByRole("button", { name: "删除" })).toHaveAttribute(
     "aria-keyshortcuts",
     "Delete",

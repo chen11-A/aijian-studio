@@ -6299,6 +6299,10 @@ function BoardPage({
   const [picked, setPicked] = useState<string[]>([]);
   const pickedShots = shots.filter((item) => picked.includes(item.id));
   const multi = pickedShots.length >= 2;
+  // Deleting several shots cannot be undone yet (INTEGRATION.md, 5-3 撤销): it asks once more.
+  const [askDelete, setAskDelete] = useState(false);
+  const pickedKey = picked.join(",");
+  useEffect(() => setAskDelete(false), [pickedKey]);
   useEffect(() => setPicked([]), [sceneKey]);
   useEffect(() => {
     if (!multi) return;
@@ -6767,22 +6771,37 @@ function BoardPage({
                 按住 Ctrl 点卡片，加一个或去掉一个；按住 Shift 点卡片，选一串。按 Esc 取消。
               </p>
             </div>
+            {askDelete ? (
+              <p className="multi-ask" role="alert">
+                删掉这 {pickedShots.length} 个镜头？删了不能撤回，做好的画面和视频也一起没了。
+              </p>
+            ) : null}
             <div className="pfoot2 one">
-              <button className="btn" type="button" onClick={() => setPicked([])}>
-                取消多选
+              <button
+                className="btn"
+                type="button"
+                onClick={() => (askDelete ? setAskDelete(false) : setPicked([]))}
+              >
+                {askDelete ? "不删" : "取消多选"}
               </button>
               <button
                 className="btn danger"
                 type="button"
                 onClick={() => {
+                  if (!askDelete) {
+                    setAskDelete(true);
+                    return;
+                  }
                   const count = pickedShots.length;
                   onFilm(pickedShots.reduce((next, item) => removeShot(next, item.id), film));
                   setPicked([]);
                   onShot(0);
-                  onNotice(`已删除 ${count} 个镜头。Ctrl+Z 可以撤回。`);
+                  onNotice(`已删除 ${count} 个镜头。`);
                 }}
               >
-                删除这 {pickedShots.length} 个
+                {askDelete
+                  ? `确认删除 ${pickedShots.length} 个`
+                  : `删除这 ${pickedShots.length} 个`}
               </button>
               {onBatchShots ? (
                 <button className="btn" type="button" onClick={() => onBatchShots(pickedShots)}>
@@ -7844,11 +7863,19 @@ function EditPage({
     box.addEventListener("wheel", onWheel, { passive: false });
     return () => box.removeEventListener("wheel", onWheel);
   }, []);
-  // 5-3-10: Delete or Backspace takes out the picked clip, the same as 「剪掉」 (and undoes the
-  // same way). Only while a clip is picked, never while typing or with a dialog open.
+  // 5-3-10: Delete or Backspace takes out the picked clip, the same as 「剪掉」. A cut here
+  // cannot be undone yet (INTEGRATION.md, 5-3 撤销), so the first press asks and the second
+  // cuts; Esc or picking another clip lets it go. Never while typing or with a dialog open.
+  const [askCut, setAskCut] = useState(false);
+  useEffect(() => setAskCut(false), [shot, range]);
   const cutKey = useRef<() => boolean>(() => false);
   cutKey.current = () => {
     if (!range) return false;
+    if (!askCut) {
+      setAskCut(true);
+      return true;
+    }
+    setAskCut(false);
     onAction("cut");
     return true;
   };
@@ -8391,8 +8418,13 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
+            {askCut ? (
+              <span className="lab cut-ask" role="alert">
+                再按一次 Delete 剪掉镜头 {current?.no ?? shot + 1}，剪掉后不能撤回。按 Esc 不剪。
+              </span>
+            ) : null}
             {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
-            <span className="lab">
+            <span className="lab" hidden={askCut}>
               已选{" "}
               {picked.first === picked.last
                 ? `镜头 ${shots[picked.first]?.no ?? picked.first + 1}`

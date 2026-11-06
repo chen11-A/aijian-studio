@@ -3727,6 +3727,18 @@ body:has(.pro-root) {
 .pro-root .pfoot2 .btn.danger {
   color: var(--err);
 }
+/* Deletes and cuts that cannot be undone yet ask once more, in place. */
+.pro-root .multi-ask {
+  margin: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  color: var(--warn);
+  font-size: 12px;
+}
+.pro-root .selbar .lab.cut-ask {
+  color: var(--warn);
+  font-family: inherit;
+}
 .pro-root .scene .t small.beat-flag {
   color: var(--warn);
 }

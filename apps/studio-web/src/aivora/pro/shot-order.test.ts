@@ -41,7 +41,7 @@ describe("shot order (5-3-05)", () => {
   });
 
   it("says where the shot went, in the numbers seen while dragging", () => {
-    expect(movedNotice(5, 2, true)).toBe("已把镜头 5 挪到镜头 2 前面。Ctrl+Z 可以撤回。");
-    expect(movedNotice(1, 3, false)).toBe("已把镜头 1 挪到镜头 3 后面。Ctrl+Z 可以撤回。");
+    expect(movedNotice(5, 2, true)).toBe("已把镜头 5 挪到镜头 2 前面。");
+    expect(movedNotice(1, 3, false)).toBe("已把镜头 1 挪到镜头 3 后面。");
   });
 });

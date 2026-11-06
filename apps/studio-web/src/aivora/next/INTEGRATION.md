@@ -1018,3 +1018,14 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 单张失败重试一次，仍失败阻止依赖的镜头生成，任务落 failed；不会伪造引用。
 `LOCATION_SOURCE_REQUIRED` 表示场次缺少环境原文或地点，兜底短句为“这一场还没有可用的环境描述。”
 Claude 可为该 code 定最终文案。未运行真实会员生成，提供的是本地模拟回归证据。
+
+### 5-3 撤销（要后端补，Claude 界面已先兜底）
+
+合进 r2（aivora/dev 52c1550）以后，按页撤销会拒绝下面这几种改动，Ctrl+Z 时状态栏写「这次改动不能安全撤销，已保留当前内容。」。这是 `actions/page-history.ts` 有意的限制（`diffEditorStructure` 只收焦点镜头、连续一段、剧本 / 分镜页、没有做好的画面和视频的结构改动），界面没有改它：
+
+1. 分镜卡拖动换位置（5-3-05）：`pro/shot-order.ts` 的 `moveShotBy` 连着调 `moveShot`，整场重新编号，并把这一场的镜头挪到 `film.shots` 末尾，落在 `OUTSIDE_SCOPE_STRUCTURE`。想要：同一场内换顺序可以撤销。最好给一个 `moveShotTo(film, shotId, index)`，只动这一场、不挪到末尾。
+2. 多选删除（5-3-06）：一次删几个镜头，落在 `SELECTION_MISMATCH`（只认焦点镜头）。想要：删一组镜头（同一场、可以不连续）能整组撤销。
+3. 剪辑页「剪掉」和 Delete（5-3-10）：页面是 `edit`，落在 `PAGE_SCOPE_MISMATCH`。想要：剪辑页剪掉的镜头能撤销。
+4. 删掉有画面或视频的镜头（分镜页「删除这一镜」、剪辑页「剪掉」）：落在 `DEPENDENT_WORK_EXISTS`。想要：撤销时把镜头连同它的画面和视频一起放回（`removeShot` 只是从作品里拿掉这一镜，文件是否还在请后端确认）。
+
+界面现在的兜底：提示里不再写「Ctrl+Z 可以撤回」；剪辑页按 Delete 先在选中条上问一句，再按一次才剪；多选删除多问一次「删了不能撤回」。后端支持后告诉 Claude，界面把这两处确认去掉、提示加回「Ctrl+Z 可以撤回」。

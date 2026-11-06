@@ -1,5 +1,6 @@
 // 5-3-05: dragging a shot card to another place in its scene. GPT's moveShot moves one place at
-// a time; this takes as many steps as the drag asks for, so the move is one change to undo.
+// a time; this takes as many steps as the drag asks for, in one change. The page history does
+// not undo a reorder yet (INTEGRATION.md, 5-3 撤销); dragging it back puts it back.
 import { moveShot } from "../film/operations";
 import type { FilmProject } from "../film/project";
 
@@ -31,5 +32,5 @@ export function readShotDrag(raw: string): { scope: string; id: string } | null 
 
 /** The status line after a drop, in the numbers the cards showed while dragging. */
 export function movedNotice(fromNo: number, toNo: number, earlier: boolean): string {
-  return `已把镜头 ${fromNo} 挪到镜头 ${toNo} ${earlier ? "前面" : "后面"}。Ctrl+Z 可以撤回。`;
+  return `已把镜头 ${fromNo} 挪到镜头 ${toNo} ${earlier ? "前面" : "后面"}。`;
 }
