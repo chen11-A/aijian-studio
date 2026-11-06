@@ -1146,3 +1146,9 @@ Round3已推送codex/aivora-round3@663f6c9。CI #693的pro-layout普通Ubuntu jo
 Round4在独立worktree /workspace/aivora-export-qc、分支codex/aivora-export-qc开工。后端拥有main/bridge/DTO/资源与全部ProWorkspace绑定，GUI只改ExportCheck/adapter/CSS/显示测试。最小拟定prepareFilmExport({projectId,expectedSelection:[{shotId,takeId}],settings})、publishFilmExport({qcReceipt,expectedSelection,settings})、discardFilmExport(qcReceipt)，以实际落地DTO为准，不称已交付。renderer不得提供可信路径；main严格实际project.id、选版/设置复核、私有最终规格暂存、原schemaVersion1 QC及opaque receipt。保留warn/block；缺镜头为业务预检，台词完整无音频证据时未验证；用户明确审阅后才发布。工具执行前hash/版本验证、packaged资源与陈旧receipt均须测试。
 
 Round4 GUI显示已交付24ee160（位于codex/aivora-export-qc）：ExportCheck新增reviewMode/busy/stale/publishBlocked/unverified/onCancel，非review历史调用保留。review模式block、任一画幅阻断、检查失败/无结果、过期/忙碌都禁发布；warn仅明确审核后发布，人工未验边界固定显示，安全显示诊断。root独立3文件35项通过；GUI报告web tsc/目标lint/format通过。receipt不传组件，宿主负责main闭环；未称真实产品链路或Electron通过。GUI后续转独立layout-full工作区，不再动QC已冻结显示。
+
+布局扩展0b6401e的CI #694/run42250733448 job128004803329已成功：core24/full60/url24，三个scope与证据上传均成功；quality完整矩阵尚未完成。guide1e48526已交付。root通过真实--no-ff把布局/说明分支接入QC分支，并通过b9ddfc7同步当前文档；backend未提交业务文件保留。QC GUI显示24ee160已验35项，真实main/宿主在补canonical保存、归属、不覆盖和过期回归；GUI另写真实宿主QC浏览器门，不以既有108个布局截图充本批QC验收。
+
+Round4最终接口/验门：da555d2/4badc24/ff4548a已提交，QC32门b18194b等待新源码CI。prepare提交前持久化并在无新编辑时同步main canonical快照，以真实live key固定审核；publish不重复物化，主进程再次校验；直接比较filmRef审阅key防同React批次旧callback。缺QC桥阻塞，原低级API无凭据但保留。最终clean-copy追加post-tag SHA/path/assembly证据，不改draft历史SHA；发布路径登记main allowlist。source强归属仅所选video，aux为持久引用/roots；旧无证据拒绝，待无付费恢复。root首轮全TS桌面2050/媒体17/QC11过、前端6失败已14定向修正、全TS最终复跑中；相关Python34、mypy310、修后type/build/contracts与静态过。progress独立74922c0纯组件35过，无B13接线/实际取消证明。
+
+最新接入：Round3基线663f6c9的CI #693整体Success，Linux127986935695/Windows127986935249与core24全部成功；总控以127ee760 --no-ff合dev，相对已验产品源码一致。QC另推eaff08b，新CI #696 core24/full60成功，其余尚在验；root完整TS最终复跑exit0（2050/4724+媒体17/QC11），renderer分支87.47%，相关Python34/静态门过，QC未混入本次dev源码。dev仅同步当前进度/中文草稿。B13在独立progress继续，GUI取消组件修正后37项，仅组件证明；事件/真实停止仍开发中。
