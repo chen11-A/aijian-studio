@@ -944,35 +944,48 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, [film?.id, pipelineWorkspace]);
 
   useEffect(() => {
-    window.aijian?.onFlush?.(() => {
-      const snapshot = filmRef.current;
+    const bridge = window.aijian;
+    let live = true;
+    const unsubscribe = bridge?.onFlush?.((request) => {
       const generation = ++saveGeneration.current;
-      const isCurrentSave = () =>
-        Boolean(snapshot) && generation === saveGeneration.current && filmRef.current === snapshot;
-      if (snapshot) setSavingDisk(true);
-      void persistence.flush().then(
-        (stored) => {
-          if (isCurrentSave()) {
-            if (stored) {
-              if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
-                setDiskFilmId(snapshot!.id);
-                setDiskPath(stored.directory);
+      if (filmRef.current) setSavingDisk(true);
+      void persistence.flushAll().then(
+        (result) => {
+          if (!live) return;
+          const snapshot = result.snapshot;
+          if (snapshot && filmRef.current === snapshot && generation === saveGeneration.current) {
+            if (result.status === "saved") {
+              if (result.stored?.directory && result.stored.directory !== BROWSER_DIRECTORY) {
+                setDiskFilmId(snapshot.id);
+                setDiskPath(result.stored.directory);
               }
               setDiskError(null);
+            } else if (result.status === "failed" && result.failedProjectId === snapshot.id) {
+              setDiskError({ projectId: snapshot.id, message: "没有写到应用数据目录，可以重试。" });
             }
             setSavingDisk(false);
           }
-          window.aijian?.flushed?.();
+          void bridge
+            ?.flushed?.({ requestId: request.requestId, status: result.status })
+            .catch(() => undefined);
         },
         () => {
-          if (isCurrentSave()) {
-            setDiskError({ projectId: snapshot!.id, message: "没有写到应用数据目录，可以重试。" });
+          if (!live) return;
+          const snapshot = filmRef.current;
+          if (snapshot && generation === saveGeneration.current) {
+            setDiskError({ projectId: snapshot.id, message: "没有写到应用数据目录，可以重试。" });
             setSavingDisk(false);
           }
-          window.aijian?.flushed?.();
+          void bridge
+            ?.flushed?.({ requestId: request.requestId, status: "failed" })
+            .catch(() => undefined);
         },
       );
     });
+    return () => {
+      live = false;
+      unsubscribe?.();
+    };
   }, []);
 
   useEffect(() => {

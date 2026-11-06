@@ -1,3 +1,4 @@
+import { createQuitSaveCoordinator, finishApprovedApplicationQuit } from "./quit-save";
 import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
 import { createStoryFilmClient } from "./story-film-client";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
@@ -143,6 +144,8 @@ let sourceManifestReviewController: ReturnType<typeof createSourceManifestReview
   null;
 let sidecar: SidecarHandle | null = null;
 let quitting = false;
+const approvedWindowClose = new Set<number>();
+let requestSafeQuit: (intent: "window" | "application") => void = () => undefined;
 let nativePreviewDocumentEpoch = 0;
 
 function pinPackagedUserData(): void {
@@ -362,7 +365,17 @@ function createMainWindow(): BrowserWindow {
       JSON.stringify({ ...bounds, maximized: window.isMaximized() }),
     );
   };
-  window.on("close", remember);
+  window.on("close", (event) => {
+    if (!quitting && !approvedWindowClose.has(window.id)) {
+      event.preventDefault();
+      requestSafeQuit(process.platform === "darwin" ? "window" : "application");
+    }
+    try {
+      remember();
+    } catch {
+      /* Window bounds must never bypass document save protection. */
+    }
+  });
   window.on("closed", () => {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
@@ -1321,48 +1334,100 @@ void startApplication().catch((error: unknown) => {
   app.quit();
 });
 
-let finishFlush: (() => void) | null = null;
-
-function flushRenderer(): Promise<void> {
-  const window = mainWindow;
-  if (window === null || window.isDestroyed()) return Promise.resolve();
-  return new Promise((resolve) => {
-    const finish = () => {
-      clearTimeout(timer);
-      finishFlush = null;
-      resolve();
+const quitSave = createQuitSaveCoordinator({
+  target: () => {
+    const window = mainWindow;
+    if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return null;
+    return {
+      owner: window.webContents.id,
+      send: (request) => window.webContents.send("aivora:flush", request),
     };
-    const timer = setTimeout(finish, 1500);
-    finishFlush = finish;
-    window.webContents.send("aivora:flush");
-  });
-}
-
-ipcMain.handle("film:flushed", () => {
-  finishFlush?.();
+  },
+  // On macOS the last window was already saved (or explicitly discarded) before closing.
+  // Startup failures likewise have no renderer document to save.
+  emptyTargetSaved: () => mainWindow === null,
+  ask: async (status) => {
+    const message =
+      status === "failed"
+        ? "修改还没有保存，尚未退出。"
+        : status === "busy"
+          ? "制作任务仍在使用保存队列，尚未退出。"
+          : "尚未确认所有修改已保存，尚未退出。";
+    const options: Electron.MessageBoxOptions = {
+      type: "warning",
+      title: "退出前保存",
+      message,
+      detail: "窗口会保持打开。可以重试保存、取消退出，或明确放弃未保存的修改后退出。",
+      buttons: ["重试保存并退出", "取消退出", "放弃未保存的修改并退出"],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    };
+    const window = mainWindow;
+    const answer =
+      window && !window.isDestroyed()
+        ? await dialog.showMessageBox(window, options)
+        : await dialog.showMessageBox(options);
+    return answer.response === 0 ? "retry" : answer.response === 2 ? "discard" : "cancel";
+  },
+  finish: async (intent) => {
+    if (intent === "window") {
+      const window = mainWindow;
+      if (window && !window.isDestroyed()) {
+        const id = window.id;
+        approvedWindowClose.add(id);
+        try {
+          window.close();
+        } finally {
+          approvedWindowClose.delete(id);
+        }
+      }
+      return;
+    }
+    const stoppedSidecar = sidecar;
+    await finishApprovedApplicationQuit({
+      lockWindow: () => {
+        const window = mainWindow;
+        if (window && !window.isDestroyed()) {
+          window.setEnabled(false);
+          window.hide();
+        }
+      },
+      // Preserve the existing private-channel / supervisor cleanup order after save approval.
+      stopPreview: () => {
+        nativePreviewHost.invalidateAll();
+        void chatgptRuntime?.cancel();
+        return nativePreviewHost.shutdown();
+      },
+      stopSidecar: async () => {
+        await stoppedSidecar?.stop();
+      },
+      exit: () => {
+        sidecar = null;
+        apiClient = null;
+        sourceManifestReviewController = null;
+        quitting = true;
+        app.quit();
+      },
+    });
+  },
 });
-
+requestSafeQuit = (intent) => {
+  void quitSave.request(intent).catch(() => undefined);
+};
+ipcMain.handle("film:flushed", (event, value: unknown) => {
+  if (
+    !mainWindow ||
+    event.sender !== mainWindow.webContents ||
+    event.senderFrame !== mainWindow.webContents.mainFrame
+  )
+    return;
+  quitSave.acknowledge(event.sender.id, value);
+});
 app.on("before-quit", (event) => {
-  nativePreviewHost.invalidateAll();
-  void chatgptRuntime?.cancel();
   if (quitting) return;
   event.preventDefault();
-  quitting = true;
-  const stoppedSidecar = sidecar;
-  // Preserve the private channel until supervisor-owned stop attempts settle.
-  // Sidecar EOF then performs its own Job/reader cleanup before workspace release.
-  void flushRenderer()
-    .catch(() => undefined)
-    .then(() => nativePreviewHost.shutdown())
-    .catch(() => undefined)
-    .then(() => stoppedSidecar?.stop())
-    .catch(() => undefined)
-    .finally(() => {
-      sidecar = null;
-      apiClient = null;
-      sourceManifestReviewController = null;
-      app.quit();
-    });
+  requestSafeQuit("application");
 });
 
 app.on("window-all-closed", () => {

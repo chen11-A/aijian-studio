@@ -1,3 +1,4 @@
+import type { FilmFlushAck, FilmFlushRequest } from "@aijian/contracts/quit-save";
 import type { CleanCopyRecoveryInput } from "@aijian/contracts/clean-copy-recovery";
 import type {
   FilmExportQcInput,
@@ -597,9 +598,27 @@ contextBridge.exposeInMainWorld("aijian", {
   importMusic: (seriesId: string, source: string) =>
     ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
   filePath: (file: File) => webUtils.getPathForFile(file),
-  flushed: () => ipcRenderer.invoke("film:flushed"),
-  onFlush: (handler: () => void) => {
-    ipcRenderer.on("aivora:flush", () => handler());
+  flushed: (ack: FilmFlushAck) => ipcRenderer.invoke("film:flushed", ack),
+  onFlush: (handler: (request: FilmFlushRequest) => void) => {
+    let live = true;
+    const listener = (_event: Electron.IpcRendererEvent, value: unknown) => {
+      if (
+        live &&
+        value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        Object.keys(value).length === 1 &&
+        "requestId" in value &&
+        typeof value.requestId === "string" &&
+        /^[\w:-]{1,128}$/.test(value.requestId)
+      )
+        handler({ requestId: value.requestId });
+    };
+    ipcRenderer.on("aivora:flush", listener);
+    return () => {
+      live = false;
+      ipcRenderer.removeListener("aivora:flush", listener);
+    };
   },
   publishTasks: (tasks: TaskSnapshot["tasks"], batches: TaskSnapshot["batches"]) =>
     ipcRenderer.invoke("film:tasks-publish", { tasks, batches }) as Promise<void>,

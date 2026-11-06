@@ -108,6 +108,10 @@
     "./clean-copy-recovery": {
       "types": "./src/clean-copy-recovery.ts",
       "default": "./src/clean-copy-recovery.ts"
+    },
+    "./quit-save": {
+      "types": "./src/quit-save.ts",
+      "default": "./src/quit-save.ts"
     }
   },
   "scripts": {

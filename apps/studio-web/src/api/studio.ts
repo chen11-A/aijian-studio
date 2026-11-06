@@ -1,3 +1,4 @@
+import type { QuitSaveGateway } from "@aijian/contracts/quit-save";
 import type { CleanCopyRecoveryGateway } from "@aijian/contracts/clean-copy-recovery";
 import type { FilmExportQcGateway } from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskItem, BatchProgress } from "@aijian/contracts/task-progress";
@@ -1015,8 +1016,8 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string; durations?: number[] }>;
   importMusic?: (seriesId: string, source: string) => Promise<{ path: string }>;
   filePath?: (file: File) => string;
-  flushed?: () => void;
-  onFlush?: (handler: () => void) => void;
+  flushed?: QuitSaveGateway["flushed"];
+  onFlush?: QuitSaveGateway["onFlush"];
   onTask?: (handler: TaskListener) => () => void;
   publishTasks?: (tasks: TaskItem[], batches: BatchProgress[]) => Promise<void>;
   generateFilmStill?: (
