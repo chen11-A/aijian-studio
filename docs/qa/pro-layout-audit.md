@@ -79,3 +79,5 @@ full 每个窗口/画幅组合有 15 个独立上下文，共 60 态：
 本轮本机仅完成脚本语法/ESLint/格式与负向验证：非法 scope、外部 URL、产品目录输出被拒绝；full 与受控 `--url` 在缺浏览器时均 exit 2、无正向结果，HTTP 端口退出后已关闭。负向证据位于忽略目录 `.aijian-dev/pro-layout-full-negative/negative-results.json`。云机 Chromium 无可用沙箱，未绕过；本机 core/full/`--url` 正向均未重新验成。普通 Ubuntu CI 保留 core 后，分别运行 full 与受控 `--url` core；即使前一 scope 失败，仍继续其余 scope 并上传各自明确的 report/PNG，整个 job 的失败结果保留。真实结果以实际 CI artifact 为准。
 
 扩展仍不覆盖所有交互/异常、真实会员/生成、真实 Electron/安装包、完整视频质量或未来 QC 审核链路。发现的布局问题应按实际报告定位并另行修复，不能放宽探针取得通过。
+
+中断态的等待曾只匹配旧 raw 句子“上次生成已中断/已标成已中断”。产品改发原 `WORK_INTERRUPTED` 后，真实状态栏使用既有中文“上次关软件时还有镜头没做完，已经停下了。可以重新生成。”；本次只把等待精确定位到 `.status-note` 的这句文字，保留六镜、failed、interruptedFrom、媒体及无额外请求断言与全部60态。此为源码可确定的旧期望修正；当前云端full步骤失败尚待公开注释确认，不能据此断定唯一失败原因，也没有回退产品文案或放宽几何门。
