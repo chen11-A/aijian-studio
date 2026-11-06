@@ -1565,17 +1565,25 @@ export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
   return names.length ? "" : film.narrationVoiceId || "";
 }
 
-export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string } {
+/**
+ * 3JR-B01: the shot's length for its line, and what generation will do when the line is longer.
+ * `sceneNo` names the shot as 「第 2 场第 3 个镜头」; without it, 「镜头 3」.
+ */
+export function fitShotToLine(
+  shot: FilmShot,
+  sceneNo?: number,
+): { shot: FilmShot; warning: string } {
   const line = shot.line.trim();
   if (!line) return { shot, warning: "" };
   const plan = durationFromSpeech(speechSeconds(line, null), shot.seconds);
+  const who = sceneNo ? `第 ${sceneNo} 场第 ${shot.no} 个镜头` : `镜头 ${shot.no} `;
   // 3JR-B01: the service measures the voice before it asks for the video, lengthens the video to
   // the voice (up to the video limit) and refuses, without submitting, a line that cannot fit.
-  // Dialogue is never cut, so the warnings say what will really happen.
+  // Dialogue is never cut, so the warnings say what will really happen (copy-zh.md).
   if (!plan.fits) {
     return {
       shot,
-      warning: `镜头 ${shot.no} 的台词超过 15 秒，一个视频放不下，这一镜不会提交，请拆成两镜。`,
+      warning: `${who}的台词超过 15 秒，一个视频放不下，这一镜不会生成。把台词分到两个镜头里。`,
     };
   }
   if (shot.userFields.includes("seconds")) {
@@ -1583,7 +1591,7 @@ export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string
       shot,
       warning:
         plan.seconds > shot.seconds
-          ? `镜头 ${shot.no} 你定的是 ${shot.seconds} 秒，台词约要 ${plan.seconds} 秒，生成时会按配音加长。`
+          ? `${who}定的是 ${shot.seconds} 秒，台词要说 ${plan.seconds} 秒左右，生成时会跟着配音加长。`
           : "",
     };
   }

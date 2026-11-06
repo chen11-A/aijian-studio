@@ -527,7 +527,9 @@ describe("film operations", () => {
       userFields: [],
       line: "啊".repeat(90),
     });
-    expect(over.warning).toContain("不会提交");
+    expect(over.warning).toBe(
+      `镜头 ${shot.no} 的台词超过 15 秒，一个视频放不下，这一镜不会生成。把台词分到两个镜头里。`,
+    );
     expect(over.warning).not.toContain("截断");
     expect(over.shot.seconds).toBe(3);
     const kept = fitShotToLine({
@@ -537,13 +539,20 @@ describe("film operations", () => {
       line: "啊".repeat(40),
     });
     expect(kept.shot.seconds).toBe(4);
-    expect(kept.warning).toContain("会按配音加长");
+    expect(kept.warning).toContain("生成时会跟着配音加长。");
     expect(kept.warning).not.toContain("截断");
+    // With the scene number it names the shot the way copy-zh.md does.
+    expect(
+      fitShotToLine(
+        { ...shot, no: 3, seconds: 4, userFields: ["seconds"], line: "啊".repeat(40) },
+        2,
+      ).warning,
+    ).toMatch(/^第 2 场第 3 个镜头定的是 4 秒，台词要说 \d+ 秒左右，生成时会跟着配音加长。$/);
     // A locked line too long for any video says so, instead of promising to lengthen it.
     expect(
       fitShotToLine({ ...shot, seconds: 4, userFields: ["seconds"], line: "啊".repeat(90) })
         .warning,
-    ).toContain("不会提交");
+    ).toContain("这一镜不会生成");
     shot.speaker = film.characters[0]!.name;
     shot.poster = "/tmp/still.png";
     film.characters[0]!.portraits = [
