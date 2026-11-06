@@ -127,6 +127,8 @@ async function setup() {
         offsetSeconds: 0.2,
         durationSeconds: 1,
         gainDb: -3,
+        enabled: false,
+        loop: false,
         waveform: { sourceKey: "cached" },
       },
     ],
@@ -199,6 +201,13 @@ describe("real project package and isolated library restore", () => {
     expect(people[0]!.voiceId).toBeUndefined();
     expect(JSON.stringify(restored)).not.toContain("must-not-export");
     expect((restored!.audioClips as Record<string, unknown>[])[0]!.waveform).toBeUndefined();
+    expect((restored!.audioClips as Record<string, unknown>[])[0]).toMatchObject({
+      enabled: false,
+      loop: false,
+      gainDb: -3,
+      offsetSeconds: 0.2,
+      durationSeconds: 1,
+    });
     expect(
       await readFile(join(env.films, seriesId, "episodes", projectId, "project.json")),
     ).toEqual(original);
@@ -408,6 +417,39 @@ describe("real project package and isolated library restore", () => {
     expect(pending.prompt).toBe("保留未完成版本的说明");
     expect((pending.lipSync as Record<string, unknown>).lipSync).toBe("failed");
     expect(restored!.jobs).toEqual([]);
+  });
+  it("roundtrips creative video-review text but never exports the serialized project/account voice binding", async () => {
+    const env = await setup();
+    const current = await readProject(env.films, projectId);
+    const text = "空街雨水缓慢流动，人物面貌保持稳定。";
+    (current!.shots as Record<string, unknown>[])[0]!.reviewedVideoPrompt = {
+      schemaVersion: 1,
+      text,
+      factsKey: JSON.stringify({
+        projectId,
+        voiceId: "account-voice",
+        voiceCode: "account-voice-code",
+        narrationVoiceId: "account-narration-voice",
+      }),
+    };
+    await writeProject(env.films, current);
+    expect((await env.archive.export(await env.input())).kind).toBe("EXPORTED");
+    const extracted = await env.engine.restoreProject({
+      archive: env.output,
+      destination: join(env.root, "review-export-check"),
+    });
+    const raw = await readFile(join(extracted, "project.json"), "utf8");
+    expect(raw).not.toContain("account-voice");
+    expect(raw).not.toContain("account-narration-voice");
+    const result = await env.archive.import();
+    if (result.kind !== "IMPORTED") throw Error();
+    const restored = await readProject(env.films, result.projectId);
+    expect((restored!.shots as Record<string, unknown>[])[0]!.reviewedVideoPrompt).toEqual({
+      schemaVersion: 1,
+      text,
+      factsKey: "",
+    });
+    expect(restored!.id).not.toBe(projectId);
   });
   it("guards IPC sender/arity and strips machine auth/queued jobs from a project snapshot", async () => {
     const env = await setup();

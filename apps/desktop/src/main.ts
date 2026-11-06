@@ -1,3 +1,8 @@
+import { resolveBundledAudioLibraryRoot } from "./film-audio-library-root";
+import { registerFilmAudioLibrary } from "./film-audio-library-ipc";
+import { loadAudioNormalizer } from "./film-audio-normalize";
+import { createFilmAudioPreview } from "./film-audio-preview";
+import { storyFilmAudioOwner } from "./film-audio-owner";
 import { registerProjectArchives } from "./film-project-archive";
 import { loadProjectArchiveEngine } from "./film-project-archive-runtime";
 import { originalCleanRecoveryProof, finalCleanRecoveryProof } from "./clean-copy-recovery-proof";
@@ -1050,6 +1055,74 @@ registerFilmAudioWaveforms<IpcMainInvokeEvent>(
       ),
   },
 );
+registerFilmAudioLibrary<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    libraryRoot: () =>
+      resolveBundledAudioLibraryRoot({
+        isPackaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        mainDir: __dirname,
+      }),
+    tools: () =>
+      verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+      ),
+    run: async (binary, args, options) =>
+      (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+    videoOwner: async (projectId, path, hash) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        hash,
+      ),
+  },
+);
+const audioPreviewPlan = createFilmAudioPreview({
+  filmsRoot: join(app.getPath("userData"), "films"),
+  storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+  tools: () =>
+    verifiedQcTools(
+      process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+      process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+        join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+    ),
+  run: async (binary, args, options) =>
+    (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+  videoOwner: async (projectId, path, sha) =>
+    storyFilmQcOwner(
+      join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+      projectId,
+      path,
+      sha,
+    ),
+  audioOwner: async (projectId, _path, sha, selected) =>
+    storyFilmAudioOwner(
+      join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+      projectId,
+      sha,
+      selected,
+    ),
+});
+ipcMain.handle("film:audio-mix-preview", async (event, ...args) => {
+  if (
+    !mainWindow ||
+    event.sender !== mainWindow.webContents ||
+    event.senderFrame !== mainWindow.webContents.mainFrame ||
+    args.length !== 1
+  )
+    throw new Error("Audio preview sender is not authorized");
+  return audioPreviewPlan(args[0]);
+});
 registerFilmExportQc<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -1077,6 +1150,19 @@ registerFilmExportQc<IpcMainInvokeEvent>(
     },
     engine: () => loadQcEngine(qcResourceRoot()),
     runner: () => loadQcRunner(qcResourceRoot()),
+    normalizer: () =>
+      loadAudioNormalizer(
+        !app.isPackaged && !existsSync(join(qcResourceRoot(), "audio-normalize.mjs"))
+          ? resolve(qcResourceRoot(), "../aivora-media")
+          : qcResourceRoot(),
+      ),
+    audioOwner: async (projectId, _path, sha, selected) =>
+      storyFilmAudioOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        sha,
+        selected,
+      ),
     storyOwner: async (projectId, path, sha256) =>
       storyFilmQcOwner(
         join(app.getPath("userData"), "workspace", "workspace.sqlite3"),

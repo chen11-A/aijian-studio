@@ -5,6 +5,8 @@ export type FilmExportQcSettings = {
   subtitles: "burn" | "srt" | "none";
   style: "white" | "bar" | "yellow" | "film";
   aiMark: boolean;
+  /** Omitted by older callers means explicitly off. Main checks the persisted setting. */
+  autoAdjustVolume?: boolean;
 };
 export type FilmExportQcInput = {
   projectId: string;
@@ -14,6 +16,7 @@ export type FilmExportQcInput = {
 export type FilmExportQcFailure = {
   kind: "FAILED";
   code:
+    | "AUDIO_MIX_LIMIT"
     | "INVALID_INPUT"
     | "PROJECT_CHANGED"
     | "MISSING_MEDIA"

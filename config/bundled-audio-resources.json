@@ -1,0 +1,1018 @@
+{
+  "schemaVersion": 1,
+  "manifestSha256": "fa02bc97deb0786e80759fdcb9cbe5b6ea03acd2fca52701cfae8dbd9b09d3cb",
+  "documents": [
+    {
+      "path": "CHECK_COMMAND.txt",
+      "sha256": "20d64dfe9f848b613f4b3fd730fde23a9d55ae0ffaea7a9e01e753685360a830"
+    },
+    {
+      "path": "CHECK_OUTPUT.json",
+      "sha256": "236ffc653b5f69030d21b61a9906e9b5d05a3e096d126d020f51140618162a6d"
+    },
+    {
+      "path": "FILL_GAPS_CHANGES.json",
+      "sha256": "ef58dcb4af1efadff16bdeff1c7a69e220ac0badcf9195c613ddff2e36d0070d"
+    },
+    {
+      "path": "LICENSES.md",
+      "sha256": "d2aa01dc35819cbb13a78711c682c96ed79ba552b9c78ec7007e05e2de2d2c5f"
+    },
+    {
+      "path": "LOOPS.md",
+      "sha256": "ff358f4d742be448b6e06abb3310a576c7f38a80fa30d72419d807c8a94d8342"
+    },
+    {
+      "path": "PEAK_REPAIR.json",
+      "sha256": "ef030de1b4e1310c5fd004fa405535e25c6906e4bc4898a9e12e21914d66deb4"
+    },
+    {
+      "path": "PEAK_SAFETY.md",
+      "sha256": "e87c9ab2055304d7b3116e63665f86e140fa752af7937b0f20f202857f093173"
+    },
+    {
+      "path": "README.md",
+      "sha256": "ddb0ad1a0ca03d8d6db9f865453b5efc068b20c28c2b9730be406315c3d34819"
+    },
+    {
+      "path": "REMAINING_CHANGES.json",
+      "sha256": "a01dda3dbd634d465a0a092e602e5bb6a06765a333d05adfcc58ae630137527d"
+    },
+    {
+      "path": "ROUND2_CHANGES.json",
+      "sha256": "d4dcec4a4d78bd355546e61fc49b3b965baccf08b57cde2cadff50d66bc802ab"
+    },
+    {
+      "path": "ROUND3_NORMALIZATION.json",
+      "sha256": "f4a5302fed88b523c5b906ab01188f0284ec5ee54d89b902680aba64b0301c11"
+    },
+    {
+      "path": "ROUND3_RAW_CHANGES.json",
+      "sha256": "bc9f65875309ba350b187f3ded840802980b1b0a9bf8a364c3d9e2466c22400a"
+    },
+    {
+      "path": "ROUND4_CHANGES.json",
+      "sha256": "e6654835d98d7ce1d350405afecd42b12ab331f64e259868860d27f845516266"
+    },
+    {
+      "path": "ROUND4_CHECK_OUTPUT.json",
+      "sha256": "34dea950efa5dd80944a060ae692a58f484fedd1579c3b2f81e87fc11a5cd0c6"
+    },
+    {
+      "path": "ROUND4_VALIDATION.json",
+      "sha256": "919bd18c92adab43cd18744d9fc324ccac115679d68962494894125690792849"
+    },
+    {
+      "path": "SOURCE_RESEARCH.md",
+      "sha256": "b3a70dee0a8d9922ed5ae8dab24a1722fcc3ca742a8f33fcb5aa44eb53fc7239"
+    },
+    {
+      "path": "STRICT_CHECK_OUTPUT.json",
+      "sha256": "5896d8526773575963af11fee13bfce1436893213ef0cbfdf6973327df59269d"
+    },
+    {
+      "path": "VALIDATION.json",
+      "sha256": "eab0effda662107bf2a482d9627a14174e986a2b224dfaded6fe1b6a30df5459"
+    },
+    {
+      "path": "additions/phone-vehicle/entries.json",
+      "sha256": "9a63bd59039627786abc723fb217ddd8942a6e9805ffa89007993d2116b433e8"
+    },
+    {
+      "path": "additions/phone-vehicle/licenses/dechode-README.md",
+      "sha256": "c6d33616cd87d6b7e3bb4ddeab83901695c171965bed9eb8c2e73cc68a4c5331"
+    },
+    {
+      "path": "additions/phone-vehicle/licenses/kenney-README.md",
+      "sha256": "b37aa56ea98519356514dd0a45d86cf847d3f62144470250c174eeb44e0d9710"
+    },
+    {
+      "path": "additions/phone-vehicle/licenses/wyzowl-CC0.txt",
+      "sha256": "7179683e8000e6bdc9bbc60d85edf0a4ac8e76f951857f54fcb775d5886f1309"
+    },
+    {
+      "path": "additions/phone-vehicle/licenses/wyzowl-README.md",
+      "sha256": "4156ba7ec586cd0ac53344e33c92310cd03a19d268a6f6231ed7c80c20d6e60d"
+    },
+    {
+      "path": "fill-gaps/actions/RESEARCH.md",
+      "sha256": "84cfc747398975bd55b74676344bea49753a8f86b9aa4a4624abd84747a56bad"
+    },
+    {
+      "path": "fill-gaps/actions/SOURCES.md",
+      "sha256": "4bb76d060784d0836305395a6d6f7fb0afe61acee88e7ca87653d8123bb89de6"
+    },
+    {
+      "path": "fill-gaps/actions/entries.json",
+      "sha256": "6989c60bd0792a2c06ca0426a228722954b626cfb7c20fd85b0d74a58b416062"
+    },
+    {
+      "path": "fill-gaps/actions/validation.json",
+      "sha256": "551b8ac2327f2ab2d17c263fbed3fe3067151f63f44c102c34c7b8dde85b772b"
+    },
+    {
+      "path": "fill-gaps/music/LICENSE_EVIDENCE.md",
+      "sha256": "acdcb1170c2bff2efa8462be5c2b77e2c17f9c250d48ef59063ff9ffde5a2939"
+    },
+    {
+      "path": "fill-gaps/music/README.md",
+      "sha256": "857233f45f37c69e9631ff06becf14df368a17142dc83f0b006800e6e2585eb7"
+    },
+    {
+      "path": "fill-gaps/music/entries.json",
+      "sha256": "9dc43a3a2a5a8bbec048be99bd3c98ab67a46a94c90838524e9e488d2d140f85"
+    },
+    {
+      "path": "fill-gaps/music/r2-loop-holizna-all-the-way-sad.json",
+      "sha256": "1c8d94d1f3012d1ce7d54cc8370c6ceff29ea21ec47269cacf8ea21f30d8ff33"
+    },
+    {
+      "path": "fill-gaps/music/r2-loop-holizna-sad-boi.json",
+      "sha256": "7ad05161fe0e82105465fb2b29b81b3107632c8937db6d17fa808d9882d7b91c"
+    },
+    {
+      "path": "fill-gaps/nature/LICENSE_EVIDENCE.md",
+      "sha256": "ca7c08162613345f84ea2f8e1edbabb924b3d048a21d58248c49f5d9426d6fe1"
+    },
+    {
+      "path": "fill-gaps/nature/README.md",
+      "sha256": "836bde26008befa00c11e00ddd380847adeb6d9b8443a77496a42d3469049467"
+    },
+    {
+      "path": "fill-gaps/nature/entries.json",
+      "sha256": "67a341d60c50e4a6e5aaa9ec56ed65013fb9a07a421e8c88e351cd16baf6431e"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-bsb-0698.json",
+      "sha256": "08ad4503a59ba66ba3dde7a3b85709656cf5e0a2989a5b4de286f7d801857aaf"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-bsb-1046.json",
+      "sha256": "a06529aba2372a63254adff6095e87f24cce92559a00c2eb456d251f339521e7"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-bsb-1447.json",
+      "sha256": "21ef80502e1628946edab7e7af0c744464e9e4383b01e74ba10507754e2131ee"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-bsb-1880.json",
+      "sha256": "c65570a4c248df6a25d8fba2417f8bb30446f11859e6de6504911d8ed27ab980"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-bsb-2713.json",
+      "sha256": "fa13f833694b4fee1549b2828d674dcab669ad2699e9eb23d00e43576278422d"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-bsb-2715.json",
+      "sha256": "3ee8425682ce7ac0e51cfa08bb4e24f430b7398b7e3204fe80390e77bf8ab1f1"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-bsb-2749.json",
+      "sha256": "9dea37d89a9b61613cd50916eb9809fed968b1d5067bdccaf94374dfa44c388e"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-fs-175020.json",
+      "sha256": "1520f2ee0de28e683b6dd7d63177dcbb576887d06d906471fc1179f63a79aefd"
+    },
+    {
+      "path": "fill-gaps/nature/r2-loop-wav-crickets.json",
+      "sha256": "538a0dff6f07a9539edd7fa439490b4e2bcab073ff1e64c5e02efb13df477c7c"
+    },
+    {
+      "path": "fill-gaps/nature/sources.json",
+      "sha256": "58377b7b08d34cd55b3faeb7b1cd245507f7306fba1587a6ef066c0846d64bd8"
+    },
+    {
+      "path": "fill-gaps/public-spaces/README.md",
+      "sha256": "85832b6b64bb43f31f724e87b84ba11b0d1017f9ac3f8e9fe40d747950dc5d3b"
+    },
+    {
+      "path": "fill-gaps/public-spaces/entries.json",
+      "sha256": "e6432e130f4b72e9774195c422f98052238e69e7f40dd4a62351c3cc08fa58e2"
+    },
+    {
+      "path": "fill-gaps/public-spaces/licenses/crowd.md",
+      "sha256": "25d12c2c1ec24c78eaa623aec4ff6d4c2cd7b66d6739c47d03e56ba4ab61f55d"
+    },
+    {
+      "path": "fill-gaps/public-spaces/licenses/monitor.md",
+      "sha256": "7a89cb2de5cac5aaf1267345f33809ba963b7eb9b7caccb49c3e0ec535db83ab"
+    },
+    {
+      "path": "fill-gaps/public-spaces/licenses/vehicles.md",
+      "sha256": "c2f72f5cc032515a56141a1aa54480ef9721ac84c09a2cbf3355ddedf122f90b"
+    },
+    {
+      "path": "fill-gaps/public-spaces/vehicle-entries.json",
+      "sha256": "29ee81b160d15187f65f91893f947f9d6424115667ffce45c4a703ce1161bad4"
+    },
+    {
+      "path": "fill-gaps/weather-extra/344407-source.json",
+      "sha256": "1ef309d5645dbe3db7d0cfd1f665b0f36601cf8f2918b012867cfcf2cf03cd11"
+    },
+    {
+      "path": "fill-gaps/weather-extra/554906-source.json",
+      "sha256": "6f794b4eda92044d5914601a0c234d880c4f7983b4e0eb38e0003768a54614a6"
+    },
+    {
+      "path": "fill-gaps/weather-extra/757113-source.json",
+      "sha256": "55173e1a5d5ec25f43a71e220b33e031c6381910551b782d97ae273c69bd0e44"
+    },
+    {
+      "path": "fill-gaps/weather-extra/README.md",
+      "sha256": "6333b4e57126d0d476d78dd364ae5c5fca5bbf844813b089e93092f353e7b2b4"
+    },
+    {
+      "path": "fill-gaps/weather-extra/entries.json",
+      "sha256": "a8dc0271fec2aa9c0d7d8d39f7239236b6221584f7f727d4c518a929d9ae75bd"
+    },
+    {
+      "path": "fill-gaps/weather/README.md",
+      "sha256": "c69a52188b72af45a661e9cf5eaf2bbca9e17664287bf94699c93d4907ae608f"
+    },
+    {
+      "path": "fill-gaps/weather/entries.json",
+      "sha256": "032744255dc471717de56aaa9a4ad0d93598fbc1883a30e7094564f36995e8f2"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-0904-source.json",
+      "sha256": "5b2d0229cb1ad5b2040e567ca2ac0c14e7de357a90eaac0cd045b17fad048326"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-0904.json",
+      "sha256": "5d5c09bd08ded5ed4a624cfb36af321f89430e7bba9ed082d5733c9a3accea1b"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-0907-source.json",
+      "sha256": "25d66bcdb4d9ee86556fbe37c653bea2f61f7bb3ff2edc4c859875456cac6b6c"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-0907.json",
+      "sha256": "c19c1671ab8a792472856475236f0220123cc9a597102661a6cbda4cd3ad8838"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-0908-source.json",
+      "sha256": "3e3bea18782752e01a8599db5d551e0c50db59748ad11d1771759ce51ba9a4fb"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-0908.json",
+      "sha256": "6b43e18284d89f28bd49e0d43f9074cd36913f2566dd54dd27cc373de061eb1a"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1019-source.json",
+      "sha256": "ce202a7714faca8527439da5287d78345f8bb7250bf48c55b485195fd4b21284"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1019.json",
+      "sha256": "ceba469fb21273e84897ce0a92ee191464d6d3c80dbd91f45387ebf0e2d18cca"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1289-source.json",
+      "sha256": "67c139d4b4d4645cd36dbcc7b128eef0cb35fec9f1e591bcc1cc99e2a1c35f91"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1289.json",
+      "sha256": "3d6e4828bc0637ffecbb62c4c060cb96b459605f685e95608ca1b5f4cd5c71ff"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1290-source.json",
+      "sha256": "5d3820715cde781804b470153752e056be86c06755d537a9abf3bbb63339e688"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1290.json",
+      "sha256": "dcbaff9d36a4ce16f957e6ea5de904f12553a7bf84c250f0372ce8187d253282"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1295-source.json",
+      "sha256": "acb890cc46ee6e1e1018d919b6d6ae09b02034dac187a89b1e59452229a81f20"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-1295.json",
+      "sha256": "82ba6cca17b307de66f203b30cf4feffb43f286f312bf23f9f3fb696aa718eb0"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-2679-source.json",
+      "sha256": "813b74715c2a23a3b108dc17a044bf124ac81994c4dfe6edd9d7eb76384c272a"
+    },
+    {
+      "path": "fill-gaps/weather/gap-weather-2679.json",
+      "sha256": "0a4f19215475adfb9bf5dc28bbbc5f3c162c7f1412773103f5e6da7471283f9b"
+    },
+    {
+      "path": "generated/LICENSES.md",
+      "sha256": "ace6a8932a0d5c92e96b454984362602bc98afb14e2149072f6aedf31c61b9f8"
+    },
+    {
+      "path": "generated/entries.json",
+      "sha256": "6dbd0dc0ece8c6d87d4663b610c6a08e233f4e3379dbdb3dcdc7eb12d6152011"
+    },
+    {
+      "path": "generated/round3-body-hospital/SOURCES.md",
+      "sha256": "d7417166ae99ee9724d2a9fdb5525ee1908404e0e09152a445e85ede8868a360"
+    },
+    {
+      "path": "licenses/effacestudios-CC0.txt",
+      "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
+    },
+    {
+      "path": "licenses/fill-gaps/README.md",
+      "sha256": "040bda199912ab6eff808d2a13b32dd19694ac0e9e9d323fef7047d40e045b35"
+    },
+    {
+      "path": "licenses/fill-gaps/actions/SOURCES.md",
+      "sha256": "4bb76d060784d0836305395a6d6f7fb0afe61acee88e7ca87653d8123bb89de6"
+    },
+    {
+      "path": "licenses/fill-gaps/music/LICENSE_EVIDENCE.md",
+      "sha256": "acdcb1170c2bff2efa8462be5c2b77e2c17f9c250d48ef59063ff9ffde5a2939"
+    },
+    {
+      "path": "licenses/fill-gaps/music/README.md",
+      "sha256": "857233f45f37c69e9631ff06becf14df368a17142dc83f0b006800e6e2585eb7"
+    },
+    {
+      "path": "licenses/fill-gaps/nature/LICENSE_EVIDENCE.md",
+      "sha256": "ca7c08162613345f84ea2f8e1edbabb924b3d048a21d58248c49f5d9426d6fe1"
+    },
+    {
+      "path": "licenses/fill-gaps/nature/README.md",
+      "sha256": "836bde26008befa00c11e00ddd380847adeb6d9b8443a77496a42d3469049467"
+    },
+    {
+      "path": "licenses/fill-gaps/nature/sources.json",
+      "sha256": "58377b7b08d34cd55b3faeb7b1cd245507f7306fba1587a6ef066c0846d64bd8"
+    },
+    {
+      "path": "licenses/fill-gaps/public-spaces/README.md",
+      "sha256": "0a6d4f8b48d897958d7ec0f8f853534d49b91a1f3e41fe326a16c6c386c0b204"
+    },
+    {
+      "path": "licenses/fill-gaps/public-spaces/licenses/crowd.md",
+      "sha256": "25d12c2c1ec24c78eaa623aec4ff6d4c2cd7b66d6739c47d03e56ba4ab61f55d"
+    },
+    {
+      "path": "licenses/fill-gaps/public-spaces/licenses/monitor.md",
+      "sha256": "7a89cb2de5cac5aaf1267345f33809ba963b7eb9b7caccb49c3e0ec535db83ab"
+    },
+    {
+      "path": "licenses/fill-gaps/public-spaces/licenses/vehicles.md",
+      "sha256": "c2f72f5cc032515a56141a1aa54480ef9721ac84c09a2cbf3355ddedf122f90b"
+    },
+    {
+      "path": "licenses/fill-gaps/weather-extra/344407-source.json",
+      "sha256": "1ef309d5645dbe3db7d0cfd1f665b0f36601cf8f2918b012867cfcf2cf03cd11"
+    },
+    {
+      "path": "licenses/fill-gaps/weather-extra/554906-source.json",
+      "sha256": "6f794b4eda92044d5914601a0c234d880c4f7983b4e0eb38e0003768a54614a6"
+    },
+    {
+      "path": "licenses/fill-gaps/weather-extra/757113-source.json",
+      "sha256": "55173e1a5d5ec25f43a71e220b33e031c6381910551b782d97ae273c69bd0e44"
+    },
+    {
+      "path": "licenses/fill-gaps/weather-extra/README.md",
+      "sha256": "6333b4e57126d0d476d78dd364ae5c5fca5bbf844813b089e93092f353e7b2b4"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/README.md",
+      "sha256": "c69a52188b72af45a661e9cf5eaf2bbca9e17664287bf94699c93d4907ae608f"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-0904-source.json",
+      "sha256": "5b2d0229cb1ad5b2040e567ca2ac0c14e7de357a90eaac0cd045b17fad048326"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-0907-source.json",
+      "sha256": "25d66bcdb4d9ee86556fbe37c653bea2f61f7bb3ff2edc4c859875456cac6b6c"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-0908-source.json",
+      "sha256": "3e3bea18782752e01a8599db5d551e0c50db59748ad11d1771759ce51ba9a4fb"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-1019-source.json",
+      "sha256": "ce202a7714faca8527439da5287d78345f8bb7250bf48c55b485195fd4b21284"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-1289-source.json",
+      "sha256": "67c139d4b4d4645cd36dbcc7b128eef0cb35fec9f1e591bcc1cc99e2a1c35f91"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-1290-source.json",
+      "sha256": "5d3820715cde781804b470153752e056be86c06755d537a9abf3bbb63339e688"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-1295-source.json",
+      "sha256": "acb890cc46ee6e1e1018d919b6d6ae09b02034dac187a89b1e59452229a81f20"
+    },
+    {
+      "path": "licenses/fill-gaps/weather/gap-weather-2679-source.json",
+      "sha256": "813b74715c2a23a3b108dc17a044bf124ac81994c4dfe6edd9d7eb76384c272a"
+    },
+    {
+      "path": "licenses/pack-01.txt",
+      "sha256": "842c42cc1942963f6fcdc18fe57e9e0631e8a4936f9803688e8152e830088eb9"
+    },
+    {
+      "path": "licenses/pack-02.txt",
+      "sha256": "b49aa9c56b04528b95913de13e506a0f7c5e807b9925db9bfef86af1f91120db"
+    },
+    {
+      "path": "licenses/pack-03.txt",
+      "sha256": "6eef8feca0bcd539560206198ccc1564629cff12619f47a5f246648510c414b1"
+    },
+    {
+      "path": "licenses/pack-04.txt",
+      "sha256": "f731ff4c55e2db8d3a240c88a9526d5a51a6c4d729594f1377eda7d64632e962"
+    },
+    {
+      "path": "licenses/pack-05.txt",
+      "sha256": "c6031c16e1f70ffcd80dafe0fa2969fa5d38e547290d1c19b9ace68c28627e84"
+    },
+    {
+      "path": "licenses/pack-06.txt",
+      "sha256": "f731ff4c55e2db8d3a240c88a9526d5a51a6c4d729594f1377eda7d64632e962"
+    },
+    {
+      "path": "licenses/pack-07.txt",
+      "sha256": "daaf24b973c9ec24beabea6207449e64e199959f544411fbb93c538aaa6eb253"
+    },
+    {
+      "path": "licenses/pack-08.txt",
+      "sha256": "f731ff4c55e2db8d3a240c88a9526d5a51a6c4d729594f1377eda7d64632e962"
+    },
+    {
+      "path": "licenses/remaining/actions/SOURCES.md",
+      "sha256": "c5fae5501fc51805124a57ed6d728c187485c171615b4ec2c508975f08aafe55"
+    },
+    {
+      "path": "licenses/remaining/ambience/README.md",
+      "sha256": "85f674aa283fd5ec05a1c73cb2a9506cd0be96f532a2bf66214f722ad0fd5f27"
+    },
+    {
+      "path": "licenses/remaining/crowd-loop/README.md",
+      "sha256": "16637bd3f467c7c8382b35246c0106daa9269b3e7e4e64003eeb7af2d981705f"
+    },
+    {
+      "path": "licenses/remaining/crowd-loop/licenses/crowd.md",
+      "sha256": "d330bf975799b46c3d70ba6833c8528317f438dde37736e32636e92c72b1d5ac"
+    },
+    {
+      "path": "licenses/remaining/keys-umbrella/README.md",
+      "sha256": "1b0ddbd8e4dc12b53875c9636585270469b8f2668361454fc2f70104db79db76"
+    },
+    {
+      "path": "licenses/remaining/keys-umbrella/sources.json",
+      "sha256": "69cfc0a7c6882d892ac94f437938283dc7cc8ea4bc793034b33ba86789f52b7f"
+    },
+    {
+      "path": "licenses/remaining/music-review/HOLIZNA_REVIEW.md",
+      "sha256": "37a2a8f7989838ae9ec9f872616e6a887b536085bcb8b7e26038d291649933ea"
+    },
+    {
+      "path": "licenses/remaining/music-review/review.json",
+      "sha256": "3e9bad0d0bb748d94f08e5d95e95017b5c5f89f08d11e80acdcc80fbe8542df9"
+    },
+    {
+      "path": "loop_entries.json",
+      "sha256": "e615b219ab25844e03921639d1de91a5b57e68cc5bfb0c1c5a7039d9c3364542"
+    },
+    {
+      "path": "normalization/README.md",
+      "sha256": "d76cceb15ec80ca131683f5f311e309aa937f0af0030c46b700383bbd8832ba9"
+    },
+    {
+      "path": "normalization/TRIAL.json",
+      "sha256": "627bfa1cf2b10fa61a1126ebe0a42a67465c9575c6abea7e63d5567e27f99dd3"
+    },
+    {
+      "path": "normalization/loops/gap-weather-0904.json",
+      "sha256": "53914adbdddff7c6e0f0ce56521cef98c6089a298f9ee84a267f2a32aaeff8b9"
+    },
+    {
+      "path": "normalization/loops/gap-weather-1289.json",
+      "sha256": "dc4d52fc75a0ceb732d671b29ebda9e4dbbead048ee0c25a697af2f93d2c02eb"
+    },
+    {
+      "path": "normalization/loops/gap-weather-1290.json",
+      "sha256": "1bda1edccabbb6aeba2b41918377186343d802c31e71ed3015156ded12dfbc2b"
+    },
+    {
+      "path": "normalization/loops/r2-loop-bsb-1046.json",
+      "sha256": "92f5aa21cdd5ba1ce91f4299b6a86132ca51e6b7cd48410ebeb0d3d988a5badc"
+    },
+    {
+      "path": "normalization/loops/r2-loop-bsb-1447.json",
+      "sha256": "5abc9767e197e63002e78f8d5c096a1ac9c29cbc465f2e947d2e9559e6dd9fd6"
+    },
+    {
+      "path": "normalization/loops/r2-loop-bsb-2713.json",
+      "sha256": "3e3c593dc8fecbd9ad36317d146b029bc19bde2d060cd03d7e90b6d0ac892d66"
+    },
+    {
+      "path": "normalization/loops/r2-loop-bsb-2715.json",
+      "sha256": "bc8b2b8cd193d77e201a3e7d93684a0bce798785036529f73692ab4afcb364ea"
+    },
+    {
+      "path": "normalization/loops/r2-loop-music-01a63f6d5d85.json",
+      "sha256": "d087235b918dbd23bef0260c7038662d541ab2942b9a0e81543cd96100ea4d96"
+    },
+    {
+      "path": "normalization/loops/r2-loop-music-360f3c163ed6.json",
+      "sha256": "2f6c540a6df363a88549b07d95b8c3b0c844fc55a7cda6f24c5e57c1e29e5abd"
+    },
+    {
+      "path": "normalization/loops/r2-loop-music-6d424149d4a2.json",
+      "sha256": "a3366a1d950d5b2f55c0fac45db2d029799ea756b79bebcd6005309afc62c6b0"
+    },
+    {
+      "path": "normalization/loops/r2-loop-sfx-5f709f72838f.json",
+      "sha256": "128ab0c1034b746b3c13457d1bb3b8b49ec19809eaf0ab092caee5052fb9c535"
+    },
+    {
+      "path": "normalization/loops/r2-loop-sfx-da48e26760ac.json",
+      "sha256": "ee4080dfc28b3d65fa0ad0cb134d37ea99262d29365573c3df058221f00ef407"
+    },
+    {
+      "path": "normalization/loops/sfx-crowd-long-loop.json",
+      "sha256": "a57854fd1a166d264b80179f37e8ff63cf893ef5c3c3243e1111bf1a0e1bdf77"
+    },
+    {
+      "path": "normalization/loops/sfx-crowd-low-3.json",
+      "sha256": "6e798efe3a01490a70c94425f68fff3c5d6c51576e3979e469994808a1ae9969"
+    },
+    {
+      "path": "normalization/loops/sfx-night-street-puebla-1.json",
+      "sha256": "5a4f904d7f7af4f47a051cb4647c2d24927c5c8f6447c71bb89d3a43b88d1ea6"
+    },
+    {
+      "path": "normalization/loops/sfx-night-street-puebla-3.json",
+      "sha256": "b6751f4868684baaf6387fb70ae7d7f9653d481f218d16ed32685695853fc16d"
+    },
+    {
+      "path": "normalization/snapshot.json",
+      "sha256": "e83d5717dea6f3f9d3e39a09c84e0ca82010e64912cade0e2841826b4628e950"
+    },
+    {
+      "path": "remaining/BLOCKERS.md",
+      "sha256": "54aeb0e4e791d20cae1692d9541dcd4f82fa6f44f72de9e6c5e09a5179b4ff57"
+    },
+    {
+      "path": "remaining/README.md",
+      "sha256": "1ff77f060bdf2ab86350cc071fe336cd3a5edbf6afb073d0df03557f8a4d03ce"
+    },
+    {
+      "path": "remaining/actions/SOURCES.md",
+      "sha256": "fe7a8f522634159c81384641da1c09f47ac687cace773a85253d6eecc29928e0"
+    },
+    {
+      "path": "remaining/actions/entries.json",
+      "sha256": "0aff0211cd78da17f7d3a86261c4ada4371775adf2a70d7f8cd653360f2cf91d"
+    },
+    {
+      "path": "remaining/actions/validation.json",
+      "sha256": "d34d1951678cf66a91c34ed50939c214465863cfc5970d7aa9b10fcf005a46fd"
+    },
+    {
+      "path": "remaining/ambience/README.md",
+      "sha256": "85f674aa283fd5ec05a1c73cb2a9506cd0be96f532a2bf66214f722ad0fd5f27"
+    },
+    {
+      "path": "remaining/ambience/entries.json",
+      "sha256": "2f01892911fc98462e9e96886939a91ffde202d8aaabd8d3e03dfe6def634459"
+    },
+    {
+      "path": "remaining/ambience/licenses/mirror-credit-commit.txt",
+      "sha256": "244d10d944557332571f25af93835bb9e7562325174409ca85820afd1b55a482"
+    },
+    {
+      "path": "remaining/ambience/licenses/puebla.md",
+      "sha256": "18a9d892c89509207dd6f1dbbb07ee1075f9a6187ee60df4d14b4d011c8840b7"
+    },
+    {
+      "path": "remaining/ambience/night-street-puebla-1.json",
+      "sha256": "c2cbcf5973ee3a5ad9b7ddfad60179ebc6d35e6a5fce104f0050057c49efcb88"
+    },
+    {
+      "path": "remaining/ambience/night-street-puebla-2.json",
+      "sha256": "c1b4dbd0efe40b4fe271d36905ca6d7ca4dccb85a3c02c883df100dc9d4664cc"
+    },
+    {
+      "path": "remaining/ambience/night-street-puebla-3.json",
+      "sha256": "8c875622d4327fad6d059491e3ce8855a67436bea6157517ed2a672476df48e0"
+    },
+    {
+      "path": "remaining/crowd-loop/README.md",
+      "sha256": "16637bd3f467c7c8382b35246c0106daa9269b3e7e4e64003eeb7af2d981705f"
+    },
+    {
+      "path": "remaining/crowd-loop/crowd-room-loop-1.json",
+      "sha256": "e6348f2a4d58566c2dcc1a41c16c261628f4662c3403840e8637253874e4f089"
+    },
+    {
+      "path": "remaining/crowd-loop/crowd-room-loop-2.json",
+      "sha256": "904a2d576bdf65be2a0d1a170b953dccdcc0670d3af33f7c3181c4011e4e907b"
+    },
+    {
+      "path": "remaining/crowd-loop/crowd-room-loop-3.json",
+      "sha256": "855d6ec8809f0fba8a7359b0aed0ab5042683c42e649de3df5d7192eecfe96e7"
+    },
+    {
+      "path": "remaining/crowd-loop/crowd-room-loop-long.json",
+      "sha256": "5898a5c289b9c0a7af431e90d625a0d4cc5436282b338f6fdb36613e23f3464f"
+    },
+    {
+      "path": "remaining/crowd-loop/entries.json",
+      "sha256": "085d293043c3d60b87815e34166fa10b7ce0334a430115eb1692397a2831224a"
+    },
+    {
+      "path": "remaining/crowd-loop/licenses/crowd.md",
+      "sha256": "d330bf975799b46c3d70ba6833c8528317f438dde37736e32636e92c72b1d5ac"
+    },
+    {
+      "path": "remaining/keys-umbrella/README.md",
+      "sha256": "1b0ddbd8e4dc12b53875c9636585270469b8f2668361454fc2f70104db79db76"
+    },
+    {
+      "path": "remaining/keys-umbrella/entries.json",
+      "sha256": "a3e25b650f7cf0d8656f3bcaf4006023cff4fcfc7b8e78efa15bbc75d1e30fb7"
+    },
+    {
+      "path": "remaining/keys-umbrella/remaining-keys-131437.json",
+      "sha256": "5379bde0eb117c93874d7e4873451ed947e99127a318253cdaceb17050d24119"
+    },
+    {
+      "path": "remaining/keys-umbrella/remaining-keys-173943.json",
+      "sha256": "eac1b12bf045a3e14a1a20241506067598866ef6080dfe2034870924f9815be3"
+    },
+    {
+      "path": "remaining/keys-umbrella/remaining-keys-235564.json",
+      "sha256": "5ccb238bf95dc3f221c3985e3548766b2fc2d02a401c03b670d160cc5e353eed"
+    },
+    {
+      "path": "remaining/keys-umbrella/sources.json",
+      "sha256": "69cfc0a7c6882d892ac94f437938283dc7cc8ea4bc793034b33ba86789f52b7f"
+    },
+    {
+      "path": "remaining/loop-review/README.md",
+      "sha256": "163f89135d5321f479b82e7affc8f0d7881d03201f73d77a3acdae28e34739cc"
+    },
+    {
+      "path": "remaining/loop-review/index.html",
+      "sha256": "7a032d5d8f1d26ce5ddaeb8c6aa0dccbf0039c719f62c8f4aec3053be690434f"
+    },
+    {
+      "path": "remaining/loop-review/metrics.json",
+      "sha256": "62faf5270b2442551be7482f067f72a8c0034af654572f6999b5124089c79d6a"
+    },
+    {
+      "path": "remaining/music-review/HOLIZNA_REVIEW.md",
+      "sha256": "37a2a8f7989838ae9ec9f872616e6a887b536085bcb8b7e26038d291649933ea"
+    },
+    {
+      "path": "remaining/music-review/review.json",
+      "sha256": "3e9bad0d0bb748d94f08e5d95e95017b5c5f89f08d11e80acdcc80fbe8542df9"
+    },
+    {
+      "path": "round2-loops/README.md",
+      "sha256": "222251a8664936323b948785e0f014ae5a26c8ae9f9529e7b2d406a7a68bfdb8"
+    },
+    {
+      "path": "round2-loops/entries.json",
+      "sha256": "649a194ce784f7049a5d89449026044c7e13e77c5426e5a8189128896d03bd1a"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-01a63f6d5d85.json",
+      "sha256": "7570e358f3c91be6e8ec1c852e4e10e8c3af66969cfe851e4de69b675a8dbf6d"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-197b91134859.json",
+      "sha256": "98878eb104da47252ffb46e6744cc1dc8df59de4d5ec72eb089e17e05d039d33"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-23bc02ff82e2.json",
+      "sha256": "e8dbc7db97137af93a9e596a6fdb994c75520b52f9967e6597a8488e52b09435"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-360f3c163ed6.json",
+      "sha256": "33dea4b12d99b8571ffcea48be09053f36691fea95ce66fd15e4a7fb4908a427"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-6230c9ba9eef.json",
+      "sha256": "3a97a28d18f0b1d0cf7b7d5e6efdb1e61a80e719ebf078158c1f98f0649a6efb"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-6d424149d4a2.json",
+      "sha256": "1980e81f838dee252186b7fe290e69c5fd796c7490d9487b47596c14222ef609"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-9935a373414d.json",
+      "sha256": "6f6a8f2236b59777d0d2c6fdfd8bc407488c1d7c6f5aa86f54cddf9df7618f0d"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-9d2fa11d09bf.json",
+      "sha256": "468c129f73e40b15c71273eb3d3ed452d5dcb5fc88749297345b57a3706e3343"
+    },
+    {
+      "path": "round2-loops/r2-loop-music-e94185587d78.json",
+      "sha256": "eb73313dc9a2fc831e0a9a7ff49fc6157f3b24208ef7632b5b9f479c7cc36a1f"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-071cf6baccc0.json",
+      "sha256": "a2483f70c8340fc485496308a52f204c953cf8708a2302cf1ea8522422b388e8"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-0fee82de42e3.json",
+      "sha256": "f298c70e11a8cd683799098f174a96af7bc7a700bdf6375b0dc7d71aea3ea6e6"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-510e5353e830.json",
+      "sha256": "83822d1d62105bcc69c74fef7b1525fd5685fc294b985ff50441cfaa78c1d585"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-57aaf3ed3677.json",
+      "sha256": "54b6819761bc370ab81440385851da3c8b034b22e15cd439db4c3f79cc149a09"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-5f709f72838f.json",
+      "sha256": "0492cb379344ec4337b0a00b25f107b6ab440a6abaa4cb9b34bfccebbab29317"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-843c79cf1eec.json",
+      "sha256": "972a636d90e274befcc058cf2d9e9918c531dbe8dc7b400ee8956e6aa62b59f9"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-cd7e525287e0.json",
+      "sha256": "b72366505315009a3a40c03802f326705c7f2f6e88e4bd2359451b6bc43f1f6f"
+    },
+    {
+      "path": "round2-loops/r2-loop-sfx-da48e26760ac.json",
+      "sha256": "8875fda05a346ba8aea114b46d3125ad33fdb98b88e2b7e0603dbf078d2eac4e"
+    },
+    {
+      "path": "round2-loops/seam-preview/PREVIEWS.json",
+      "sha256": "be5e98c539c6469a0743a6152e4b3c79b1066463ac4eeb70be8103c2fe7e0d06"
+    },
+    {
+      "path": "round2-loops/seam-preview/README.md",
+      "sha256": "8bf046b41e67b00342cfe52290ac0dd5a7d95d1a0f711207cad4ac83a9475dfc"
+    },
+    {
+      "path": "round2/README.md",
+      "sha256": "c6a656d3ce8baddcefcd6608894f2502340d986145f4b5e227a6074c2527775e"
+    },
+    {
+      "path": "round2/entries.json",
+      "sha256": "dc9861a05baf6985bdc3678dc095d598ba0d2446dad9ec01fe53265f94788951"
+    },
+    {
+      "path": "round2/licenses/ben-small-can.txt",
+      "sha256": "f731ff4c55e2db8d3a240c88a9526d5a51a6c4d729594f1377eda7d64632e962"
+    },
+    {
+      "path": "round2/licenses/kenney-impact.txt",
+      "sha256": "b49aa9c56b04528b95913de13e506a0f7c5e807b9925db9bfef86af1f91120db"
+    },
+    {
+      "path": "round2/licenses/kenney-rpg.txt",
+      "sha256": "842c42cc1942963f6fcdc18fe57e9e0631e8a4936f9803688e8152e830088eb9"
+    },
+    {
+      "path": "round3/README.md",
+      "sha256": "4dbfefd851bcc8c8d61104a8a7445a526280e03c391a59607bc7e7f4e18271f5"
+    },
+    {
+      "path": "round3/SOURCE_AUDIT.json",
+      "sha256": "9a9a5650659e8ea925e38a2559c3d1bdfe77f307ef720cd907fc8ead6bc2e41f"
+    },
+    {
+      "path": "round3/actions/SOURCES.md",
+      "sha256": "190061a440d27baf7760353adebf090a0c955fb50fdb921cb0e848226c616127"
+    },
+    {
+      "path": "round3/actions/entries.json",
+      "sha256": "7fdd48282bbee88c6bae394777114c968dfb23d7aa46cb590592b856f142dce0"
+    },
+    {
+      "path": "round3/actions/evidence/fs-104361.txt",
+      "sha256": "d57f09059f8d772c9c5e1bcd7457ab2bd7709628f01010f4c5db6c1db183f8eb"
+    },
+    {
+      "path": "round3/actions/evidence/fs-164676.txt",
+      "sha256": "aca8c95f176db539539ef79af75991cca16dc774f7557381f17e48e111d5ef36"
+    },
+    {
+      "path": "round3/actions/evidence/fs-172413.txt",
+      "sha256": "06a7dad418db608457b5c71e73af210c32509d6c443ba81ab34fc14fef2a47db"
+    },
+    {
+      "path": "round3/actions/evidence/fs-371353.txt",
+      "sha256": "6923a06345466cb724faf0e065bcc9073d0ac06b6942688843af93edf46e9988"
+    },
+    {
+      "path": "round3/actions/evidence/fs-519262.txt",
+      "sha256": "ab5a559d8d8d9225093e8472abe813ece2fbb22a9ce8531be9141611021576a1"
+    },
+    {
+      "path": "round3/actions/evidence/fs-614064.txt",
+      "sha256": "3734c3e8b54bb6c04dfd353723db21b9aee475d75adceb5aeef207302399f418"
+    },
+    {
+      "path": "round3/actions/evidence/fs-674034.txt",
+      "sha256": "2860800b5f17a29d0d36d0afe2326d872432143ce82cac056dbcebb82fb20b8d"
+    },
+    {
+      "path": "round3/actions/evidence/fs-824117.txt",
+      "sha256": "fb97a090cd1790cf02dcfeee0cfebb8af1ac0b65b3f8581b34f5a16276fffdea"
+    },
+    {
+      "path": "round3/actions/evidence/fs-870792.txt",
+      "sha256": "76f6b4904ad52950fa51c923419c25741cad4bdb72661d63208feeb5001629e0"
+    },
+    {
+      "path": "round3/actions/source-records.json",
+      "sha256": "6774cd0abde644cd1efd4a5ce8325db5afe4f0152629471beadc3122ce177617"
+    },
+    {
+      "path": "round3/actions/validation.json",
+      "sha256": "0ef7566aba2b599383954c34c406cec7c7418395dcc9c77a66be15da41957742"
+    },
+    {
+      "path": "round3/ambience/README.md",
+      "sha256": "41ac7321cf98f2b6cd02da85c0df92034055c832f4d5b507827cbb117cdc1807"
+    },
+    {
+      "path": "round3/ambience/entries.json",
+      "sha256": "532208015ac8d86b4f6bee013733f4d36a4cde6d9e9f936e1344486a03f37009"
+    },
+    {
+      "path": "round3/ambience/evidence/413949.md",
+      "sha256": "441220753189ad58c4d22db7e5b8456c6ba281823c90488d2009d3ebcb8950e7"
+    },
+    {
+      "path": "round3/ambience/evidence/451883.md",
+      "sha256": "6ecb24e7d39f0aa2a817acfe210d0ec4b6caf00e8aef32bec43057b8f4777099"
+    },
+    {
+      "path": "round3/ambience/evidence/540223.md",
+      "sha256": "8e6b8d18a4ddc7f0f5976d3df16808fea16ee99ef05cf9ffd3ddd3ff7c6b9f02"
+    },
+    {
+      "path": "round3/ambience/evidence/850137.md",
+      "sha256": "537a770bd61793a7c21ba62288d5ac9fb8857b9df8944739dfaf407eeba68641"
+    },
+    {
+      "path": "round3/ambience/round3-hospital-corridor-451883-0.json",
+      "sha256": "d8ae31a475a649b58eb8c611cf746c01c62de7a809100ab3d751a09cd0114f38"
+    },
+    {
+      "path": "round3/ambience/round3-hospital-corridor-451883-100.json",
+      "sha256": "8c61fde64ed08debe96ee20b6629068ec40e1dd0fcddaa1edb6184ad5d9076c2"
+    },
+    {
+      "path": "round3/ambience/round3-hospital-corridor-451883-50.json",
+      "sha256": "94302df51922223eadc70a1ebdf282eb0339bb903e8b8f34ee366a644360df73"
+    },
+    {
+      "path": "round3/ambience/round3-night-street-413949-0.json",
+      "sha256": "fe3098ddf86a0b0a0b6945a18e65a001c20520271b5509fda8234818e149c4ad"
+    },
+    {
+      "path": "round3/ambience/round3-night-street-540223-0.json",
+      "sha256": "cf90ee4d4bcff09a9515aec7eef3c0ce808630abc42582706bf2fd5c02eaceed"
+    },
+    {
+      "path": "round3/ambience/round3-night-street-850137-0.json",
+      "sha256": "0956fdc5234275c055c12990bb75af077b224bb0b5ffd52aee2f8b09e7d279fd"
+    },
+    {
+      "path": "round3/ambience/sources.json",
+      "sha256": "e481f86fc37abe2302ae9d0acfe94a6487d157d345cca8ae701f0bc44ca9acba"
+    },
+    {
+      "path": "round3/source-licenses/fs-104361.md",
+      "sha256": "72d6f5856aabac832bc65ef9a9466cf5fd1f52481805fb69515eb147157b088f"
+    },
+    {
+      "path": "round3/source-licenses/fs-164676.md",
+      "sha256": "db0e61a1e1bbb45b3577f84e7d9773fbffc108fb1cf96e64dc48500d77ccc881"
+    },
+    {
+      "path": "round3/source-licenses/fs-172413.md",
+      "sha256": "4ede34fc9205279cc9705dd228a10b8e3d61fe8cf1163748aca2a8e254fb0e95"
+    },
+    {
+      "path": "round3/source-licenses/fs-197375.md",
+      "sha256": "736282e33e40a5a11f647f5d31f2ca44afe62f33c7b5df28a6e3eb60c13f7376"
+    },
+    {
+      "path": "round3/source-licenses/fs-369322.md",
+      "sha256": "11963770ff90660c7a1f81193bdec2ff33a359fcd50715c95ea3ce03bd738cbc"
+    },
+    {
+      "path": "round3/source-licenses/fs-371353.md",
+      "sha256": "03c931b97a24eff010da58cd821d13672bb9cc68fcbde501ddd2c1fb6e3a3c51"
+    },
+    {
+      "path": "round3/source-licenses/fs-413949.md",
+      "sha256": "fc96c38c59304b6fd298275832aa33a57f2ba927dd65f447e997fbe3b648b886"
+    },
+    {
+      "path": "round3/source-licenses/fs-451883.md",
+      "sha256": "29ad57c5bb1794eb688c3627efd86a5526b1e6fe76b2a21ee717dfe3da4a4fc8"
+    },
+    {
+      "path": "round3/source-licenses/fs-502526.md",
+      "sha256": "c45baa7f2c7f6dacaecb5aa92b80c28a387c229d128a2e86de722bcee09d28db"
+    },
+    {
+      "path": "round3/source-licenses/fs-519262.md",
+      "sha256": "3e956ae15e522b8f19638580506195089a5034443b9a1e2a69fdfee9c95e13b6"
+    },
+    {
+      "path": "round3/source-licenses/fs-540223.md",
+      "sha256": "751e7a8b770524941b21e63d57f150c05dc7a1be6013bba75d4cb169ea65699f"
+    },
+    {
+      "path": "round3/source-licenses/fs-614064.md",
+      "sha256": "74ec1b3dd8343afd8e03f9dd983b7593cf851329dd09315ae2fa9786d479a84f"
+    },
+    {
+      "path": "round3/source-licenses/fs-618353.md",
+      "sha256": "6ecf8708dd413897f8b3e8988075f77e35c54755a207919e887f5b09e8f92386"
+    },
+    {
+      "path": "round3/source-licenses/fs-618354.md",
+      "sha256": "21fb9a3b4e307b2ded391a74225398b8211f69ddb5bbc57e0332bd7d2c92cf05"
+    },
+    {
+      "path": "round3/source-licenses/fs-628659.md",
+      "sha256": "05a62ddef5c3fe9f0520d5934bcd4fcb4c2007557a189fe8fc6c863e0e206667"
+    },
+    {
+      "path": "round3/source-licenses/fs-640627.md",
+      "sha256": "98d2435781db54de791e7af9333db2dc40bce38f42e7eae1d9893777ca6bdb9a"
+    },
+    {
+      "path": "round3/source-licenses/fs-674034.md",
+      "sha256": "2765710af7254653f4ac5119d2050b255f383374dbd4e104cdd9e841f1ed6184"
+    },
+    {
+      "path": "round3/source-licenses/fs-723695.md",
+      "sha256": "784971fbcfe696f857ec5ec9a14740c5de9404f4de85be214b1b18df0492dff9"
+    },
+    {
+      "path": "round3/source-licenses/fs-824117.md",
+      "sha256": "3bcfacc9ba5d1ca5a636597557419feeca98e0dd8e209ae3b4e48931073d0dfb"
+    },
+    {
+      "path": "round3/source-licenses/fs-850137.md",
+      "sha256": "2c017028facf6332dcf54ec8e59a76a222af2b4a803160957cfb3231c1705da2"
+    },
+    {
+      "path": "round3/source-licenses/fs-870792.md",
+      "sha256": "c40b870031fe3502ec3bf6f799a64e19ebffc29eca229c67f33dd5772114442b"
+    },
+    {
+      "path": "round3/umbrella/MEASUREMENTS.json",
+      "sha256": "4045d129a392e34c2967d03a96904745ec0f3900d83b19766200aa7866de1bb3"
+    },
+    {
+      "path": "round3/umbrella/README.md",
+      "sha256": "f0acd7bab3e58c768f2e618aa8ae51a656cad9eac88e54cea151a6923f0278a6"
+    },
+    {
+      "path": "round3/umbrella/clips.json",
+      "sha256": "f734f28e4f49ced765542500b19ad4f16e758a1613eaf40f2d0741f4c0a2b220"
+    },
+    {
+      "path": "round3/umbrella/entries.json",
+      "sha256": "86844d73c139e70c3f1b19cc8bed7a314b6e7d1a20a14bf359f55e88282548a2"
+    },
+    {
+      "path": "round3/umbrella/evidence/CLASSIFICATION.md",
+      "sha256": "5dff078599cdab59293c52c06674ae1120e26cda8ef378afe2c41a4b2b31d024"
+    },
+    {
+      "path": "round3/umbrella/evidence/fs-197375.txt",
+      "sha256": "21d0dab8e04bce9af02e80b71ab60bd150d4466d43dc46dea3d2ebbf6452a4e1"
+    },
+    {
+      "path": "round3/umbrella/evidence/fs-369322.txt",
+      "sha256": "b24b99232556f1f4c1a94625318f8866c8d34febe262b70b276ed5c37f5f5f98"
+    },
+    {
+      "path": "round3/umbrella/evidence/fs-502526.txt",
+      "sha256": "14b3fa69bbba50bb975a53b4cc08057befeca323e72b043f218f1d9d83fbe09b"
+    },
+    {
+      "path": "round3/umbrella/evidence/fs-628659.txt",
+      "sha256": "9fd0a042ef179b770d9bb940efe7b4657f469bdbcedf7aa088164a7194e34974"
+    },
+    {
+      "path": "round3/umbrella/sources.json",
+      "sha256": "2545f2808b438a49539000b112279ce95bb08b171f98b9f6a169e212abcf29c7"
+    }
+  ]
+}

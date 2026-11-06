@@ -1,3 +1,4 @@
+import { reviewedVideoText, videoFactCast } from "./seven-part-video";
 import {
   adultAgeLabel,
   adultVoiceEvidence,
@@ -55,7 +56,7 @@ export const CONTINUITY_REASON = CONTINUITY_NOTICE.text;
 export const PREVIEW_REASON =
   "单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。";
 export const LOUDNESS_NOTE =
-  "有人说话时，配乐会自动变小，台词音量不变。整片音量还不会自动调成一样大。";
+  "没有可靠逐句时间时，按有声对白片段保守避让配乐。导出自动调整音量默认关闭；开启后实际测量并调整全片，预览不包含这一步。";
 export const DESKTOP_REASON = "请打开安装好的 AIVORA，并打开一部作品，再生成。网页里不能直接出片。";
 
 /** Chinese labels for preset voices. The live list still comes from the account. */
@@ -1529,7 +1530,15 @@ export function isBeatList(text: string): boolean {
 }
 
 /** The picture the user can see. A prompt is used only until the picture is edited. Beat lists stay out. */
-export function motionPrompt(shot: FilmShot): string {
+export function motionPrompt(shot: FilmShot, film?: FilmProject): string {
+  if (!film && shot.reviewedVideoPrompt !== undefined)
+    throw Object.assign(new Error("视频说明需要作品上下文核对，请重新整理。"), {
+      code: "REQUEST_STALE",
+    });
+  if (film) {
+    const reviewed = reviewedVideoText(film, shot);
+    if (reviewed !== undefined) return reviewed;
+  }
   const picture = shot.picture.trim();
   const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
   // The prompter produces keyframe.prompt_zh, not a replacement video action plan.
@@ -1708,7 +1717,12 @@ export function dialogueTracks(film: FilmProject): string[] {
       : shot.takes.find((take) => take.status === "done" && take.videoPath);
     if (!chosen?.videoPath) continue;
     const clip = film.audioClips.find(
-      (item) => item.lane === "dialogue" && item.shotId === shot.id && isVoiceFile(item.path ?? ""),
+      (item) =>
+        item.lane === "dialogue" &&
+        item.shotId === shot.id &&
+        item.takeId === chosen.id &&
+        item.enabled !== false &&
+        isVoiceFile(item.path ?? ""),
     );
     if (!clip?.path) tracks.push("");
     else if ((clip.gainDb ?? 0) <= -40) tracks.push("mute");
@@ -1885,26 +1899,32 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
           ? "MULTI_VOICE_REQUIRED"
           : "VOICE_TRAITS_REQUIRED",
     });
-  const refs = shotReference(shot, film);
+  const reviewed = shot.reviewedVideoPrompt === undefined ? undefined : motionPrompt(shot, film);
+  const visualFilm =
+    reviewed === undefined ? film : { ...film, characters: videoFactCast(film, shot) };
+  const refs = shotReference(shot, visualFilm);
   return {
     narration: line || "。",
-    prompt: withStyleBible(
-      constrainVisualPrompt(
-        withShotCostumes(
-          withLocationLayout(
-            `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
-            film,
-            shot,
+    prompt:
+      reviewed !== undefined
+        ? withStyleBible(reviewed, film.styleZh, 2000)
+        : withStyleBible(
+            constrainVisualPrompt(
+              withShotCostumes(
+                withLocationLayout(
+                  `${imageCue(refs.references, draft)}${motionPrompt(shot)}${shot.styleNote?.trim() ? `\n${shot.styleNote}` : ""}`,
+                  film,
+                  shot,
+                ),
+                film,
+                shot,
+              ),
+              film,
+              shot,
+            ),
+            film.styleZh,
+            2000,
           ),
-          film,
-          shot,
-        ),
-        film,
-        shot,
-      ),
-      film.styleZh,
-      2000,
-    ),
     subtitle: line.slice(0, 500),
     duration_seconds: Math.max(1, Math.min(15, Math.round(shot.seconds) || 3)),
     size: shot.size.slice(0, 20),
@@ -1912,7 +1932,7 @@ function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
     move: (shot.move || "固定").slice(0, 20),
     action: clip(withoutOffscreenVisuals(shotActionText(shot), film, shot), 1000),
     performance: clip(withoutOffscreenVisuals(shot.performance, film, shot), 1000),
-    identity: shotIdentity(shot, film).slice(0, 200),
+    identity: shotIdentity(shot, visualFilm).slice(0, 200),
     voice_id: (dialogue[0]?.voice_id ?? shotVoiceId(shot, film)).slice(0, 64),
     ...(dialogue.length ? { lines: dialogue } : {}),
     ...(refs.still ? { still: refs.still } : {}),

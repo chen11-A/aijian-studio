@@ -1,3 +1,18 @@
+import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./actions/prepared-voice";
+import { audioTimelineBox } from "./audio-mix-timeline";
+import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
+import { AudioMixPreview } from "./AudioMixPreview";
+import { AudioLaneControls } from "./AudioLaneControls";
+import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
+import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
+import type { AudioMixPreviewResult, MixLane } from "@aijian/contracts/film-audio-mix";
+import { SevenPartVideoReview } from "../next/SevenPartVideoReview";
+import {
+  compileSevenPartVideo,
+  reviewedVideoText,
+  VIDEO_FACTS_STALE,
+} from "../film/seven-part-video";
+import { rangeVideoBody } from "./actions/video-prompt-review";
 import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
@@ -135,19 +150,17 @@ import {
   moveShot,
   portraitPrompts,
   shotProgress,
-  PREVIEW_REASON,
   voiceLabel,
   removeShot,
   generationEstimate,
   spokenLine,
   draftFaceWarning,
   dialogueTracks,
-  previewMix,
   fitShotToLine,
   subtitleCues,
   updateShot,
 } from "../film/operations";
-import { dbToVolumePercent, volumePercentToDb, type AudioClip } from "../film/audio";
+import { type AudioClip } from "../film/audio";
 import {
   activeFilmId,
   BROWSER_DIRECTORY,
@@ -387,6 +400,9 @@ function PreviewVideo({
   src,
   voice = "",
   music = "",
+  mixPreview,
+  mixTimeOffset = 0,
+  soloLane = "",
   playing,
   audible,
   sound = true,
@@ -399,6 +415,9 @@ function PreviewVideo({
   src: string;
   voice?: string;
   music?: string;
+  mixPreview?: Extract<AudioMixPreviewResult, { kind: "READY" }> | null;
+  mixTimeOffset?: number;
+  soloLane?: MixLane | "";
   playing: boolean;
   audible: boolean;
   sound?: boolean;
@@ -412,6 +431,7 @@ function PreviewVideo({
   rate?: number;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const mixEnabled = mixPreview !== undefined;
   useEffect(() => {
     if (ref.current) ref.current.playbackRate = rate;
   }, [rate, src]);
@@ -462,7 +482,7 @@ function PreviewVideo({
       document.querySelectorAll<HTMLVideoElement>("video.frame").forEach((other) => {
         if (other !== video) other.pause();
       });
-      video.muted = !audible;
+      video.muted = mixPreview !== undefined || !audible;
       if (!audible) {
         try {
           await video.play();
@@ -496,7 +516,7 @@ function PreviewVideo({
       video.pause();
       stop();
     };
-  }, [audible, playing, src]);
+  }, [audible, playing, src, mixEnabled]);
   return (
     <>
       <video
@@ -504,6 +524,7 @@ function PreviewVideo({
         className="frame"
         src={src}
         playsInline
+        muted={mixPreview !== undefined || !audible}
         preload="auto"
         onTimeUpdate={() => onTimeRef.current(ref.current?.currentTime ?? 0)}
         onLoadedMetadata={() => {
@@ -516,8 +537,21 @@ function PreviewVideo({
         }}
         onError={() => onPlayingRef.current(false)}
       />
-      <BedAudio src={voice} playing={playing && sound} rate={rate} />
-      <BedAudio src={music} playing={playing && sound} rate={rate} />
+      {mixPreview !== undefined ? (
+        <AudioMixPreview
+          result={mixPreview}
+          clock={() => mixTimeOffset + (ref.current?.currentTime ?? 0)}
+          playing={playing}
+          rate={rate}
+          audible={sound}
+          solo={soloLane}
+        />
+      ) : (
+        <>
+          <BedAudio src={voice} playing={playing && sound} rate={rate} />
+          <BedAudio src={music} playing={playing && sound} rate={rate} />
+        </>
+      )}
     </>
   );
 }
@@ -698,7 +732,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [versions, setVersions] = useState(1);
   const [signingIn, setSigningIn] = useState(false);
   const [savingDisk, setSavingDisk] = useState(false);
-  const [hearLane, setHearLane] = useState<"" | "dialogue" | "score">("");
+  const [hearLane, setHearLane] = useState<MixLane | "">("");
   const scoreGain = useRef(-14);
   const writing = useRef(false);
   const signingRef = useRef(false);
@@ -744,6 +778,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
+  const audioMixPreview = useAudioMixPreview(film, stage === "edit", {
+    current: () => filmRef.current,
+    save: (snapshot, guard) => persistence.save(snapshot, guard),
+  });
   const audioWaveforms = useAudioWaveforms(film, stage === "edit", {
     current: () => filmRef.current,
     apply: applyLive,
@@ -882,7 +920,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       filmRef.current = settled.film;
       committed.current = settled.film;
       setFilm(settled.film);
-      if (settled.interrupted) setNotice("上次有生成没做完，已标成已中断。可以重试。");
+      if (settled.interrupted)
+        setNotice({ code: "WORK_INTERRUPTED", text: NOTICE_TEXT.WORK_INTERRUPTED });
       const first = stored.scenes[0]?.id;
       if (first) setScene(first);
     })();
@@ -1258,7 +1297,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     signingRef.current = true;
     setConfirmSignIn(false);
     setSigningIn(true);
-    setNotice("正在打开浏览器。页面上写的是 Grok Build，点 Allow 即可。");
+    setNotice({
+      code: "AUTH_BROWSER_OPENING",
+      text: NOTICE_TEXT.AUTH_BROWSER_OPENING,
+      detail: "授权页显示 Grok Build；确认后点 Allow（允许），再回到软件。",
+    });
     try {
       const result = await bridge.signIn();
       window.dispatchEvent(new Event("aivora-grok-changed"));
@@ -1457,13 +1500,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ? `${NOTICE_TEXT.TEXT_TIMEOUT} 已保留导演初稿，补充尚未完成。`
               : `导演拆好了。点「放进分镜」才会放进去。${supplementWarnings.current.join(" ")}`,
           );
-        } else finishTurn(turn, `${result.detail} 没有写入镜头。`);
+        } else finishTurn(turn, `${result.detail} 这次没有修改分镜。`);
         return;
       }
       const reply = await completeAgent(job.role, job.context, job.instruction);
-      if (valid()) finishTurn(turn, `${reply.detail || "模型没有按格式返回。"} 没有写入镜头。`);
+      if (valid()) finishTurn(turn, `${reply.detail || "这次回复用不了。"} 这次没有修改分镜。`);
     } catch {
-      if (valid()) finishTurn(turn, "这次没有写完。没有写入镜头。");
+      if (valid()) finishTurn(turn, "这次没有写完，没有修改分镜。");
     } finally {
       if (activeTurn.current === turn) {
         writing.current = false;
@@ -1586,7 +1629,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         return;
       }
       if (!stored) {
-        setNotice("没有写到应用数据目录，可以重试。");
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "修改已经应用，但还没保存上。请重试保存。",
+        });
         return;
       }
       const latest = filmRef.current;
@@ -1618,7 +1665,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           editorSelection.current,
         )
       )
-        setNotice("没有写到应用数据目录，可以重试。");
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "修改已经应用，但还没保存上。请重试保存。",
+        });
     } finally {
       applyingStory.current = false;
     }
@@ -2175,7 +2226,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         )
       )
         setNotice(
-          stored ? "已放进这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
+          stored
+            ? "已放进这一镜。你改过的字没有被盖掉。"
+            : {
+                code: "SAVE_FAILED",
+                text: NOTICE_TEXT.SAVE_FAILED,
+                detail: "修改已经应用，但还没保存上。请重试保存。",
+              },
         );
     } catch {
       if (
@@ -2187,7 +2244,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           editorSelection.current,
         )
       )
-        setNotice("没有写到应用数据目录，可以重试。");
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "修改已经应用，但还没保存上。请重试保存。",
+        });
     } finally {
       applyingDirection.current = false;
     }
@@ -2331,6 +2392,125 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
     setPending(null);
     setPendingRole(null);
+  }
+
+  const [videoReview, setVideoReview] = useState<{
+    request: NonNullable<ReturnType<typeof editorHost.capture>>;
+    facts: ReturnType<typeof compileSevenPartVideo>;
+    before: string | null;
+    modelText: string;
+    changed: boolean;
+    result: "saved" | "unsaved" | "rejected" | null;
+  } | null>(null);
+  const [videoReviewBusy, setVideoReviewBusy] = useState(false);
+  const videoReviewWorking = useRef(false);
+  function videoReviewMatches(review: NonNullable<typeof videoReview>) {
+    const live = filmRef.current,
+      selected = editorSelection.current;
+    const origin = review.request.selection;
+    const target = live?.shots.find((item) => item.id === origin.shotId);
+    const compiled = live && target ? compileSevenPartVideo(live, target) : null;
+    return !!(
+      live &&
+      target &&
+      live.id === origin.projectId &&
+      selected.page === origin.page &&
+      selected.shotId === origin.shotId &&
+      selected.sceneId === origin.sceneId &&
+      compiled &&
+      compiled.issues.length === 0 &&
+      compiled.draft.factsKey === review.facts.draft.factsKey
+    );
+  }
+  function organizeVideoFacts() {
+    if (videoReviewWorking.current) return;
+    const request = editorHost.capture();
+    const target = request?.base.shots.find((item) => item.id === request.selection.shotId);
+    if (!request || !target) return;
+    const facts = compileSevenPartVideo(request.base, target);
+    const proposed = {
+      ...request.base,
+      shots: request.base.shots.map((item) =>
+        item.id === target.id ? { ...item, reviewedVideoPrompt: facts.draft } : item,
+      ),
+    };
+    let modelText = "";
+    if (!facts.issues.length) {
+      try {
+        modelText =
+          storyFilmBatches(
+            proposed,
+            [proposed.shots.find((item) => item.id === target.id)!],
+            proposed.draft,
+          )[0]?.shots?.[0]?.prompt ?? "";
+      } catch (error) {
+        facts.issues.push(
+          error instanceof Error &&
+            /VOICE_.*REQUIRED/.test(String((error as { code?: string }).code))
+            ? "台词的声音选择尚未完成，请先核对说话人和声音。"
+            : "完整提交文本无法使用；请精简过长的说明，或调整时长、拆分镜头后重新整理。",
+        );
+      }
+    }
+    const diff = editorHost.preview(request, proposed);
+    if (!diff || diff.unsupported.length) return;
+    let before: string | null =
+      target.reviewedVideoPrompt === undefined
+        ? null
+        : "原保存说明已过期或无法核对，暂不展示其内容。";
+    try {
+      const checked = reviewedVideoText(request.base, target);
+      if (checked !== undefined) before = checked;
+    } catch {
+      /* No raw unverified body reaches the display. */
+    }
+    setVideoReview({
+      request,
+      facts,
+      before,
+      modelText,
+      changed: diff.changes.length > 0,
+      result: null,
+    });
+  }
+  async function confirmVideoFacts() {
+    const review = videoReview;
+    if (
+      !review ||
+      !review.changed ||
+      videoReviewWorking.current ||
+      review.result ||
+      review.facts.issues.length
+    )
+      return;
+    if (!videoReviewMatches(review)) {
+      setVideoReview((current) =>
+        current?.request.id === review.request.id ? { ...current, result: "rejected" } : current,
+      );
+      return;
+    }
+    videoReviewWorking.current = true;
+    setVideoReviewBusy(true);
+    try {
+      const result = await editorHost.apply(review.request.id);
+      if (result.completionCurrent === false) return;
+      setVideoReview((current) =>
+        current?.request.id === review.request.id
+          ? {
+              ...current,
+              result:
+                result.status === "saved"
+                  ? "saved"
+                  : result.status === "applied_unsaved"
+                    ? "unsaved"
+                    : "rejected",
+            }
+          : current,
+      );
+    } finally {
+      videoReviewWorking.current = false;
+      setVideoReviewBusy(false);
+    }
   }
 
   function planPrompter() {
@@ -2570,7 +2750,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       Boolean(project && filmRef.current?.id === project && previewEpoch.current === epoch);
     const bridge = grokBridge();
     if (!bridge?.speak) {
-      setNotice(connected ? PREVIEW_REASON : "配音需要 Grok 会员。");
+      setNotice(
+        connected
+          ? {
+              code: "VOICE_PREVIEW_UNAVAILABLE",
+              text: NOTICE_TEXT.VOICE_PREVIEW_UNAVAILABLE,
+              detail: "当前连接不支持单独试听；这次没有生成试听配音。",
+            }
+          : { code: "GROK_MEMBERSHIP_REQUIRED", text: NOTICE_TEXT.GROK_MEMBERSHIP_REQUIRED },
+      );
       return;
     }
     setHearing(true);
@@ -2623,8 +2811,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setHearing(false);
       setNotice(
         error instanceof Error && error.message === "VOICE_METADATA_TIMEOUT"
-          ? "配音加载超时，可以重试。"
-          : preview
+          ? "配音已生成，但加载超时，还没有播放。可以重试。"
+          : preview || (error instanceof Error && error.message === "VOICE_AUDIO_FAILED")
             ? "配音文件到了，这一页没有播出来。"
             : "配音没有成功，可以重试。",
       );
@@ -3061,7 +3249,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       });
     } catch (error) {
       if (!valid()) return;
-      const styleFailure = styleFailureNotice(error) ?? continuityFailureNotice(error);
+      const reviewFailure =
+        error instanceof Error && error.message === VIDEO_FACTS_STALE.text
+          ? VIDEO_FACTS_STALE
+          : null;
+      const styleFailure =
+        reviewFailure ?? styleFailureNotice(error) ?? continuityFailureNotice(error);
       const reason =
         styleFailure?.text ??
         (error instanceof Error && error.message === "TASK_TIMEOUT"
@@ -3779,7 +3972,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setMenu(null);
       setNotice(
         settled.interrupted
-          ? "上次有生成没做完，已标成已中断。可以重试。"
+          ? { code: "WORK_INTERRUPTED", text: NOTICE_TEXT.WORK_INTERRUPTED }
           : `已打开${saved.seriesTitle || saved.title}。`,
       );
     });
@@ -4122,11 +4315,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setRangeMessage("正在生成所选画面段；生成结果会先保留，再检查是否能够接回原片。");
     try {
       const target = ready.project.shots.find((row) => row.id === ready.shotId)!;
-      const body = storyFilmBatches(
+      const body = rangeVideoBody(
         ready.project,
-        [{ ...target, line: "", lines: [], seconds: ready.plan.generationSeconds }],
+        target,
+        ready.plan.generationSeconds,
         ready.project.draft,
-      )[0];
+      );
       const prompt = body?.shots?.[0]?.prompt;
       if (!prompt) throw new Error("RANGE_PROMPT_REQUIRED");
       const result = await executeRangeRedo(ready, prompt, {
@@ -4343,6 +4537,40 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setNotice("已记下审片意见。版本仍由你选。");
   };
   const promptCard = roleCards.prompter;
+  const videoFactsSuggestion = (
+    <>
+      <button className="btn" disabled={videoReviewBusy} onClick={organizeVideoFacts}>
+        整理视频说明
+      </button>
+      {videoReview &&
+      videoReview.request.selection.projectId === film?.id &&
+      videoReview.request.selection.shotId === shownShots[shot]?.id ? (
+        <SevenPartVideoReview
+          facts={{
+            sections: videoReview.facts.sections,
+            issues: videoReview.facts.issues,
+            draft: { text: videoReview.facts.draft.text },
+          }}
+          changed={videoReview.changed}
+          before={videoReview.before}
+          modelText={videoReview.modelText}
+          busy={videoReviewBusy}
+          stale={!videoReviewMatches(videoReview)}
+          result={
+            videoReview.result &&
+            videoReview.result !== "rejected" &&
+            shownShots[shot]?.reviewedVideoPrompt?.factsKey !== videoReview.facts.draft.factsKey
+              ? "undone"
+              : videoReview.result
+          }
+          onConfirm={() => void confirmVideoFacts()}
+          onDismiss={() => {
+            if (!videoReviewWorking.current) setVideoReview(null);
+          }}
+        />
+      ) : null}
+    </>
+  );
   const promptSuggestion =
     promptCard?.fieldRows !== undefined &&
     promptCard.editorDiff?.selection.projectId === film?.id &&
@@ -4360,8 +4588,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         onReject={rejectPendingPrompt}
       />
     ) : null;
-  const shotAssistant = (
+  const shotPromptSuggestions = (
     <>
+      {videoFactsSuggestion}
+      {promptSuggestion}
+    </>
+  );
+  const shotAssistant = (
+    <div className="shot-assistant-scroll">
       <Assistant
         role={role}
         onRole={chooseRole}
@@ -4393,8 +4627,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         scope={film ? scopeOf(film, scene, shownShots[shot] ?? null) : ""}
         mentions={film ? mentionsOf(film, shownShots) : []}
       />
-      {promptSuggestion}
-    </>
+      {shotPromptSuggestions}
+    </div>
   );
   // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
   useEffect(() => {
@@ -4979,7 +5213,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   structured={structured}
                   card={sceneCard}
                   qcCard={roleCards.qc ?? null}
-                  promptSuggestion={promptSuggestion}
+                  promptSuggestion={shotPromptSuggestions}
                   onRedoRange={redoFromReview}
                   onDismiss={keepReview}
                   onReject={rejectPendingSuggestion}
@@ -5059,17 +5293,45 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setNotice({ code: "SUBTITLE_STYLE_SAVED", text: "已记下字幕样式。" });
                   }}
                   onSceneVoice={(sceneId, db) => {
-                    const ids = new Set(
-                      film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
+                    const live = filmRef.current;
+                    if (!live) return;
+                    const sceneShots = live.shots.filter((item) => item.sceneId === sceneId);
+                    const ids = new Set(sceneShots.map((item) => item.id));
+                    const audioClips = live.audioClips.map((clip) =>
+                      clip.lane === "dialogue" && ids.has(clip.shotId)
+                        ? { ...clip, gainDb: db }
+                        : clip,
                     );
-                    setFilm({
-                      ...film,
-                      audioClips: film.audioClips.map((clip) =>
-                        clip.lane === "dialogue" && ids.has(clip.shotId)
-                          ? { ...clip, gainDb: db }
-                          : clip,
-                      ),
-                    });
+                    for (const target of sceneShots) {
+                      const take = target.selectedTakeId
+                        ? target.takes.find((take) => take.id === target.selectedTakeId)
+                        : target.takes.find((take) => take.status === "done" && take.videoPath);
+                      if (
+                        !take?.videoPath ||
+                        take.status !== "done" ||
+                        audioClips.some(
+                          (clip) =>
+                            clip.lane === "dialogue" &&
+                            clip.shotId === target.id &&
+                            clip.takeId === take.id &&
+                            clip.path,
+                        )
+                      )
+                        continue;
+                      audioClips.push({
+                        id: `native-volume:${target.id}:${take.id}`,
+                        lane: "dialogue",
+                        shotId: target.id,
+                        takeId: take.id,
+                        label: "原声",
+                        path: take.videoPath,
+                        startSeconds: 0,
+                        durationSeconds: take.durationSeconds ?? target.seconds,
+                        offsetSeconds: 0,
+                        gainDb: db,
+                      });
+                    }
+                    applyLive({ ...live, audioClips });
                     setNotice("音量已记下，导出时用这个音量。");
                   }}
                   film={film}
@@ -5133,14 +5395,36 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onLane={(lane, gainDb) => {
                     const live = filmRef.current;
                     if (!live) return;
-                    if (lane === "score" && gainDb > -40) scoreGain.current = gainDb;
+                    const settings = audioMixSettings(live.audioMix);
+                    const previous = settings.lanes[lane];
+                    settings.lanes[lane] = {
+                      gainDb: gainDb <= -40 ? previous.gainDb : gainDb,
+                      muted: gainDb <= -40,
+                    };
+                    applyLive({ ...live, audioMix: settings });
+                    setNotice(gainDb <= -40 ? "这一轨已静音。" : "音量已记下，导出时用这个音量。");
+                  }}
+                  audioPreview={audioMixPreview}
+                  onBindPreparedVoice={(clipId, shotId, takeId) => {
+                    const live = filmRef.current;
+                    if (!live || live !== film) return;
+                    const next = bindPreparedVoice(live, {
+                      projectId: film.id,
+                      clipId,
+                      shotId,
+                      takeId,
+                    });
+                    if (next) applyLive(next);
+                  }}
+                  onRestoreAudioClip={(id) => {
+                    const live = filmRef.current;
+                    if (!live) return;
                     applyLive({
                       ...live,
                       audioClips: live.audioClips.map((clip) =>
-                        clip.lane === lane ? { ...clip, gainDb } : clip,
+                        clip.id === id ? { ...clip, gainDb: AUDIO_LANE_GAIN_DB[clip.lane] } : clip,
                       ),
                     });
-                    setNotice(gainDb <= -40 ? "这一轨已静音。" : "音量已记下，导出时用这个音量。");
                   }}
                   onSolo={(lane) => {
                     setHearLane((current) => {
@@ -5150,12 +5434,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                           ? "只听配乐。音量没有改。"
                           : next === "dialogue"
                             ? "只听对白。音量没有改。"
-                            : "所有声音一起听。",
+                            : next
+                              ? ""
+                              : "所有声音一起听。",
                       );
                       return next;
                     });
                   }}
-                  musicRestore={scoreGain.current}
                   hearLane={hearLane}
                   onRewrite={(picture) => {
                     const current = shownShots[shot];
@@ -5206,7 +5491,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       return;
                     }
                     void bridge.importMusic(film.seriesId, path).then((stored) => {
-                      const latest = filmRef.current ?? film;
+                      const latest = filmRef.current;
+                      if (!latest || latest.id !== film.id || latest.seriesId !== film.seriesId)
+                        return;
                       applyLive({
                         ...latest,
                         audioClips: [
@@ -5221,6 +5508,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                             durationSeconds: 0,
                             offsetSeconds: 0,
                             gainDb: -22,
+                            loop: true,
                             path: stored.path,
                           },
                         ],
@@ -5425,6 +5713,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {rangeReady.plan.effective.start.toFixed(3)}–
                     {rangeReady.plan.effective.end.toFixed(3)} 秒
                   </p>
+                  <details>
+                    <summary>本次局部画面提交文本</summary>
+                    <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                      {(() => {
+                        try {
+                          const target = rangeReady.project.shots.find(
+                            (item) => item.id === rangeReady.shotId,
+                          )!;
+                          return (
+                            rangeVideoBody(
+                              rangeReady.project,
+                              target,
+                              rangeReady.plan.generationSeconds,
+                              rangeReady.project.draft,
+                            )?.shots?.[0]?.prompt ?? "尚未得到局部说明。"
+                          );
+                        } catch {
+                          return "全镜说明或当前事实已变化，请重新整理后检查局部范围。本次尚未派发。";
+                        }
+                      })()}
+                    </p>
+                    <p>
+                      这是局部画面请求，另编本次时长；原完整音轨保留，未验证口型，不重新绑定存档中的全镜说明。
+                    </p>
+                  </details>
                   <p>
                     {confirmEstimate([{ seconds: rangeReady.plan.generationSeconds }], 1)}
                     ；需要的首帧从原片本机提取。只派发一次，接回失败不自动重试。
@@ -5950,6 +6263,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </select>
                     </div>
                   ) : null}
+                  <div className="field">
+                    <label className="check-row">
+                      <input
+                        type="checkbox"
+                        aria-label="导出时自动调整音量"
+                        checked={film ? audioMixSettings(film.audioMix).autoAdjustVolume : false}
+                        onChange={(event) => {
+                          const live = filmRef.current;
+                          if (!live) return;
+                          applyLive({
+                            ...live,
+                            audioMix: {
+                              ...audioMixSettings(live.audioMix),
+                              autoAdjustVolume: event.target.checked,
+                            },
+                          });
+                        }}
+                      />
+                      导出时自动调整音量
+                    </label>
+                    <p className="role-desc">
+                      默认关闭。开启后会实际测量并调整全片音量，成片音量可能与当前试听不同；静音不会变成有声。
+                    </p>
+                  </div>
                   {film ? (
                     <div className="field">
                       <label id="export-subs">字幕</label>
@@ -9371,6 +9708,7 @@ function PlanLane({
   shots,
   clips,
   zoom = PX_PER_SECOND,
+  mixPlan = null,
 }: {
   waveformKeys: Readonly<Record<string, string>>;
   lane: "ambience" | "sfx";
@@ -9379,8 +9717,12 @@ function PlanLane({
   clips: { id: string; left: number; width: number }[];
   /** Pixels a second (5-3-08). */
   zoom?: number;
+  mixPlan?: Extract<AudioMixPreviewResult, { kind: "READY" }>["plan"] | null;
 }) {
-  const files = film.audioClips.filter((item) => item.lane === lane && item.path);
+  const files = film.audioClips.filter(
+    (item) =>
+      item.lane === lane && item.path && audioTimelineBox(film, item, shots, clips, zoom, mixPlan),
+  );
   const name = lane === "ambience" ? "环境音" : "音效";
   const planned =
     lane === "ambience"
@@ -9413,8 +9755,7 @@ function PlanLane({
           key={item.id}
           className={`clip ${lane === "ambience" ? "amb" : "fx"}`}
           style={{
-            left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-            width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
+            ...audioTimelineBox(film, item, shots, clips, zoom, mixPlan)!,
           }}
         >
           <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
@@ -9478,8 +9819,10 @@ function EditPage({
   span,
   onLane,
   onSolo,
-  musicRestore = -14,
   hearLane = "",
+  audioPreview = { result: null, busy: false, unsupported: true },
+  onRestoreAudioClip,
+  onBindPreparedVoice,
 }: {
   waveformKeys: Readonly<Record<string, string>>;
   waveformBusy: boolean;
@@ -9511,10 +9854,12 @@ function EditPage({
   onMarkOut: (seconds: number) => void;
   span: { from: number; to: number } | null;
   shots: FilmShot[];
-  onLane?: (lane: "dialogue" | "score", gainDb: number) => void;
-  onSolo?: (lane: "dialogue" | "score") => void;
-  musicRestore?: number;
-  hearLane?: "" | "dialogue" | "score";
+  onLane?: (lane: MixLane, gainDb: number) => void;
+  onSolo?: (lane: MixLane) => void;
+  hearLane?: MixLane | "";
+  audioPreview?: AudioPreviewView;
+  onRestoreAudioClip?: (id: string) => void;
+  onBindPreparedVoice?: (clipId: string, shotId: string, takeId: string) => void;
   /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
   onMute?: () => void;
   /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
@@ -9649,14 +9994,10 @@ function EditPage({
     current?.takes.find((item) => item.status === "done");
   const previewSrc =
     film.assemblyUrl || fileMediaUrl(chosenTake?.videoUrl || chosenTake?.videoPath);
-  const voiceClip = film.audioClips.find(
-    (clip) =>
-      clip.lane === "dialogue" && clip.shotId === current?.id && isVoiceFile(clip.path ?? ""),
-  );
-  const scoreClip = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
-  const musicGain = scoreClip?.gainDb ?? -14;
-  const dialogueGain =
-    film.audioClips.find((clip) => clip.lane === "dialogue" && clip.path)?.gainDb ?? 0;
+  const mixSettings = audioMixSettings(film.audioMix);
+  const actualMixPlan = audioPreview.result?.kind === "READY" ? audioPreview.result.plan : null;
+  const musicGain = mixSettings.lanes.score.gainDb;
+  const dialogueGain = mixSettings.lanes.dialogue.gainDb;
   const trackWidth = Math.max(0, ...clips.map((clip) => clip.left + clip.width)) + 48;
   const importMusic = (
     <label className="btn sm">
@@ -9674,16 +10015,6 @@ function EditPage({
       />
     </label>
   );
-  const mix = previewMix({
-    joined: Boolean(film.assemblyUrl),
-    voice: fileMediaUrl(voiceClip?.path),
-    music: fileMediaUrl(scoreClip?.path),
-    dialogueMuted: dialogueMuted(film),
-    solo: hearLane,
-    musicHeard: Boolean(scoreClip) && (hearLane === "score" || (scoreClip?.gainDb ?? -14) > -40),
-  });
-  const voiceSrc = mix.voice;
-  const musicSrc = mix.music;
   // 3JR-U01: the joined cut plays the whole film, so its clock runs from the first shot with a
   // video, not from the start of the chosen shot. The playhead follows the shot playing.
   const joined = Boolean(film.assemblyUrl);
@@ -10029,10 +10360,21 @@ function EditPage({
                   {previewSrc ? (
                     <PreviewVideo
                       src={previewSrc}
-                      voice={voiceSrc}
-                      music={musicSrc}
+                      mixPreview={
+                        audioPreview.result?.kind === "READY" ? audioPreview.result : null
+                      }
+                      mixTimeOffset={
+                        joined
+                          ? 0
+                          : audioPreview.result?.kind === "READY"
+                            ? (audioPreview.result.plan.shots.find(
+                                (row) => row.shotId === current?.id,
+                              )?.startSeconds ?? start)
+                            : start
+                      }
+                      soloLane={hearLane}
                       playing={playing}
-                      audible={audible && mix.hearVideo}
+                      audible={false}
                       sound={audible}
                       onPlaying={onPlaying}
                       onTime={showTime}
@@ -10161,8 +10503,76 @@ function EditPage({
                 重做、换配音、剪掉，用下面时间线上的按钮。剪掉后可按 Ctrl+Z 撤销。
               </p>
             </div>
+            <p className="role-desc">
+              {hearLane
+                ? `当前只试听${AUDIO_LANE_LABEL[hearLane]}，不改变导出。`
+                : "当前四轨一起试听。"}
+            </p>
+            <p className="role-desc">
+              整轨音量保留各片段原有音量；单听仅试听，不改变导出。预览未应用导出响度归一化。
+            </p>
+            <p className="role-desc" role="status">
+              {audioPreview.busy
+                ? "正在核对所选版本的音轨…"
+                : audioPreview.unsupported
+                  ? "当前桌面能力不支持完整轨道试听；不会用原视频声音冒充混音。"
+                  : audioPreview.result?.kind === "FAILED"
+                    ? "音轨暂时无法核验，未播放未确认的声音。"
+                    : ""}
+            </p>
+            {audioPreview.result?.kind === "FAILED" && (
+              <button className="btn sm" onClick={audioPreview.retry}>
+                重试音轨试听
+              </button>
+            )}
+            {film.audioClips
+              .filter(
+                (clip) =>
+                  clip.shotId === current?.id &&
+                  (isPreparedVoice(clip) ||
+                    (clip.lane === "dialogue" &&
+                      clip.enabled === false &&
+                      clip.takeId === current?.selectedTakeId)),
+              )
+              .map((clip) => {
+                const binding = preparedVoiceBinding(film, clip);
+                return (
+                  <p key={`prepared-${clip.id}`} className="role-desc">
+                    {isPreparedVoice(clip)
+                      ? "待绑定配音：已保留，尚未用于画面；请先核对当前台词和声音。"
+                      : "已保留的配音：当前停用，可重新选用。"}
+                    {binding?.alreadyBound ? (
+                      <span>已用于当前版本，原配音仍保留。</span>
+                    ) : binding ? (
+                      <button
+                        className="btn sm"
+                        onClick={() =>
+                          onBindPreparedVoice?.(clip.id, binding.shotId, binding.takeId)
+                        }
+                      >
+                        {isPreparedVoice(clip)
+                          ? "将这段配音用于当前版本（现用配音保留）"
+                          : "改用这段已保留配音（不重新配音）"}
+                      </button>
+                    ) : (
+                      <span>生成画面后可免费绑定，不需要再次配音。</span>
+                    )}
+                  </p>
+                );
+              })}
+            {film.audioClips
+              .filter((clip) => clip.path && clip.gainDb <= -40)
+              .map((clip) => (
+                <p key={clip.id} className="role-desc">
+                  {clip.label || "音频片段"}已单独静音。
+                  <button className="btn sm" onClick={() => onRestoreAudioClip?.(clip.id)}>
+                    恢复片段默认音量
+                  </button>
+                </p>
+              ))}
             <p className="role-desc hint">
-              有台词时，导出会把配乐压低
+              已填写对白的原声和配音片段会保守避让配乐；逐句时间尚未核实。
+              全片配乐默认重复铺满，不保证无缝接缝；波形仅表示已测的一轮源音频。
               <span className="q" role="img" aria-label="说明" title={LOUDNESS_NOTE}>
                 ?
               </span>
@@ -10310,38 +10720,13 @@ function EditPage({
               <span className="sw" style={{ background: "var(--t-voice)" }} />
               <Ic name="mic" size={13} />
               对白
-              <span className="lane-controls">
-                <button
-                  type="button"
-                  aria-label="静音对白"
-                  onClick={() => {
-                    const muted = film.audioClips.some(
-                      (clip) => clip.lane === "dialogue" && clip.gainDb <= -40,
-                    );
-                    onLane?.("dialogue", muted ? 0 : -80);
-                  }}
-                >
-                  静音
-                </button>
-                <button type="button" aria-label="单听对白" onClick={() => onSolo?.("dialogue")}>
-                  单听
-                </button>
-                <input
-                  aria-label="对白音量"
-                  title={`对白音量 ${dbToVolumePercent(dialogueGain)}`}
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={dbToVolumePercent(dialogueGain)}
-                  onChange={(event) =>
-                    onLane?.("dialogue", volumePercentToDb(Number(event.target.value)))
-                  }
-                />
-                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
-                <span className="vol-num" aria-hidden="true">
-                  {dbToVolumePercent(dialogueGain)}
-                </span>
-              </span>
+              <AudioLaneControls
+                lane="dialogue"
+                gainDb={dialogueGain}
+                muted={mixSettings.lanes.dialogue.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
             {/* 4B-U02: 环境音 and 音效 have their own tracks; until there are sound files they
                 only show what was written for each shot. */}
@@ -10349,48 +10734,37 @@ function EditPage({
               <span className="sw" style={{ background: "var(--t-amb)" }} />
               <Ic name="vol" size={13} />
               环境音
+              <AudioLaneControls
+                lane="ambience"
+                gainDb={mixSettings.lanes.ambience.gainDb}
+                muted={mixSettings.lanes.ambience.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-sfx)" }} />
               <Ic name="spark" size={13} />
               音效
+              <AudioLaneControls
+                lane="sfx"
+                gainDb={mixSettings.lanes.sfx.gainDb}
+                muted={mixSettings.lanes.sfx.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-music)" }} />
               <Ic name="music" size={13} />
               配乐
-              <span className="lane-controls">
-                <button
-                  type="button"
-                  aria-label="静音配乐"
-                  onClick={() => {
-                    const muted = film.audioClips.some(
-                      (clip) => clip.lane === "score" && clip.gainDb <= -40,
-                    );
-                    onLane?.("score", muted ? musicRestore : -80);
-                  }}
-                >
-                  静音
-                </button>
-                <button type="button" aria-label="单听配乐" onClick={() => onSolo?.("score")}>
-                  单听
-                </button>
-                <input
-                  aria-label="配乐音量"
-                  title={`配乐音量 ${dbToVolumePercent(musicGain)}`}
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={dbToVolumePercent(musicGain)}
-                  onChange={(event) =>
-                    onLane?.("score", volumePercentToDb(Number(event.target.value)))
-                  }
-                />
-                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
-                <span className="vol-num" aria-hidden="true">
-                  {dbToVolumePercent(musicGain)}
-                </span>
-              </span>
+              <AudioLaneControls
+                lane="score"
+                gainDb={musicGain}
+                muted={mixSettings.lanes.score.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
           </div>
           <div className="tracks" ref={tracksRef}>
@@ -10532,25 +10906,71 @@ function EditPage({
                 })}
               </div>
               <div className="lane" style={{ height: "var(--ha)" }}>
-                {film.audioClips.some((item) => item.lane === "dialogue" && item.path) ? null : (
+                {film.audioClips.some((item) => item.lane === "dialogue" && item.path) ||
+                actualMixPlan?.tracks.some((track) => track.native) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
                 )}
                 {film.audioClips
-                  .filter((item) => item.lane === "dialogue" && item.path)
+                  .filter(
+                    (item) =>
+                      item.lane === "dialogue" &&
+                      item.path &&
+                      audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan),
+                  )
                   .map((item) => (
                     <div
                       key={item.id}
                       className="clip a"
                       data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
+                      data-voice-binding={isPreparedVoice(item) ? "pending" : "bound"}
+                      title={isPreparedVoice(item) ? "待绑定配音：已保留，尚未用于画面" : undefined}
                       style={{
-                        left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-                        width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
+                        ...audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan)!,
                       }}
                     >
                       <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
-                      <span className="tx">{item.label || "对白"}</span>
+                      <span className="tx">
+                        {isPreparedVoice(item)
+                          ? "待绑定配音"
+                          : item.enabled === false
+                            ? "已停用配音"
+                            : item.label || "对白"}
+                      </span>
                     </div>
                   ))}
+                {actualMixPlan?.tracks
+                  .filter(
+                    (track) =>
+                      track.native && !film.audioClips.some((clip) => clip.id === track.key),
+                  )
+                  .map((track) => {
+                    const sourceShot = actualMixPlan.shots.find(
+                      (row) => row.nativeSourceKey === track.sourceKey,
+                    );
+                    if (!sourceShot) return null;
+                    const virtual = {
+                      id: track.key,
+                      lane: "dialogue" as const,
+                      label: "原声" as const,
+                      shotId: sourceShot.shotId,
+                      takeId: sourceShot.takeId,
+                      startSeconds: track.startSeconds - sourceShot.startSeconds,
+                      durationSeconds: track.endSeconds - track.startSeconds,
+                      offsetSeconds: track.offsetSeconds,
+                      gainDb: track.gainDb,
+                    };
+                    const box = audioTimelineBox(film, virtual, shots, clips, zoom, actualMixPlan);
+                    return box ? (
+                      <div
+                        key={track.key}
+                        className="clip a"
+                        style={box}
+                        title="已核验所选版本的原声；未提供逐句语音对齐"
+                      >
+                        <span className="tx">原声（所选版本）</span>
+                      </div>
+                    ) : null;
+                  })}
               </div>
               <PlanLane
                 waveformKeys={waveformKeys}
@@ -10573,21 +10993,17 @@ function EditPage({
                   <span className="lane-empty">这一轨还没有内容</span>
                 )}
                 {film.audioClips
-                  .filter((item) => item.lane === "score" && item.path)
+                  .filter(
+                    (item) =>
+                      item.lane === "score" &&
+                      item.path &&
+                      audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan),
+                  )
                   .map((item) => (
                     <div
                       key={item.id}
                       className="clip m"
-                      style={{
-                        left: Math.max(1, item.startSeconds * zoom + 1),
-                        width:
-                          item.durationSeconds > 0
-                            ? Math.max(12, Math.round(item.durationSeconds * zoom) - 2)
-                            : Math.max(
-                                48,
-                                clips.reduce((sum, clip) => sum + clip.width, 0),
-                              ),
-                      }}
+                      style={audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan)!}
                     >
                       <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">

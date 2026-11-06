@@ -24,3 +24,5 @@
 本机已完成四个脚本的 Node 语法、目标 ESLint/Prettier 和 diff 检查；七项 CLI/失败注释负向检查确认缺浏览器为 exit2、零正向且临时服务关闭，原 QC/progress 帮助仍各32态；八项独立合成桥检查核对写读 clone、使用实际 history helper 的全记录哈希、错误哈希拒绝、保存增长、受控失败/PARTIAL及第二集列出。这些均不是24态浏览器正向证据。忽略目录产物为 `.aijian-dev/pro-feature-negative/{report,negative-results,fixture-results}.json`。
 
 CI 在原普通 Ubuntu `pro-layout` job 中保留原172态，再用独立 always/未取消步骤执行本门24态，总196态全部需新正向结果。只追加 `.aijian-dev/pro-feature-audit/report.json` 及两个固定窗口组合目录的 PNG 上传，保留七天、允许隐藏文件，不上传 Vite 缓存；原 quality 前缀保持字节不变。
+
+选版配音期望同步：a448已将实际 `dialogueTracks` 限定为当前选中take且启用的配音。旧浏览器期望仍按shotId+path寻找，误把旧take配音带入第二次本机预览合成；只修正QA期望，不回退产品。`waveform-unknown-stale` 仍真实选第2版、两次精确assemble、256点与迟到波形拒绝，并补证初次确有旧配音、第二次对白为空、旧clip完整保留。24态、几何及0付费派发不变，修订后正常Chrome仍待新CI。

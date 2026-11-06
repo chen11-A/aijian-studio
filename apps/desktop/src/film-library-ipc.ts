@@ -146,8 +146,13 @@ export function registerFilmLibraryHandlers<TEvent>(
 
   handle("film:read-media", async (event, ...args) => {
     guard(event);
-    if (args.length !== 1 || typeof args[0] !== "string") throw new Error("Invalid film path");
-    return readMedia([host.filmsRoot(), host.storyFilmsRoot()], args[0]);
+    if ((args.length !== 1 && args.length !== 2) || typeof args[0] !== "string")
+      throw new Error("Invalid film path");
+    return readMedia(
+      [host.filmsRoot(), host.storyFilmsRoot()],
+      args[0],
+      args[1] as Parameters<typeof readMedia>[2],
+    );
   });
 
   handle("film:last-frame", async (event, ...args) => {

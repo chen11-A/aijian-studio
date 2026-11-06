@@ -33,6 +33,34 @@ const installExport = (overrides = {}) => {
 };
 it("queues voice before billing and records done only after saving the real response", async () => {
   const base = baseFilm();
+  const shot = base.shots[0]!;
+  shot.selectedTakeId = "selected";
+  base.audioClips = [
+    {
+      id: "old-dub",
+      lane: "dialogue",
+      label: "配音",
+      shotId: shot.id,
+      takeId: "selected",
+      path: "/old.wav",
+      gainDb: -3,
+      startSeconds: 0,
+      durationSeconds: 2,
+      offsetSeconds: 0,
+    },
+    {
+      id: "pending",
+      lane: "dialogue",
+      label: "配音",
+      shotId: shot.id,
+      takeId: "",
+      path: "/pending.wav",
+      gainDb: -6,
+      startSeconds: 0,
+      durationSeconds: 2,
+      offsetSeconds: 0,
+    },
+  ];
   const speak = vi
     .fn()
     .mockResolvedValue({ kind: "OK", audioBase64: "YQ==", mime: "audio/mpeg", seconds: 2 });
@@ -50,7 +78,21 @@ it("queues voice before billing and records done only after saving the real resp
     taskSnapshot().tasks.some((task) => task.kind === "voice" && task.status === "queued"),
   ).toBe(true);
   await pending;
-  expect(apply.mock.calls[0]![0].audioClips.at(-1).path).toBe("data:audio/mpeg;base64,YQ==");
+  const stored = apply.mock.calls[0]![0];
+  expect(stored.audioClips.at(-1)).toMatchObject({
+    path: "data:audio/mpeg;base64,YQ==",
+    enabled: true,
+    takeId: "selected",
+  });
+  expect(stored.audioClips.find((clip: { id: string }) => clip.id === "old-dub")).toMatchObject({
+    path: "/old.wav",
+    gainDb: -3,
+    enabled: false,
+  });
+  expect(stored.audioClips.find((clip: { id: string }) => clip.id === "pending")).toEqual(
+    base.audioClips[1],
+  );
+  expect(speak).toHaveBeenCalledOnce();
   expect(taskSnapshot().tasks.some((task) => task.kind === "voice" && task.status === "done")).toBe(
     true,
   );

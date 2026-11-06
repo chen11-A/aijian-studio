@@ -1,3 +1,5 @@
+import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
+import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
 import type {
   FilmProjectArchiveInput,
   FilmProjectArchiveExport,
@@ -1011,7 +1013,13 @@ export interface AijianDesktopBridge
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
-  readFilmMedia?: (path: string) => Promise<Uint8Array>;
+  inspectBundledFilmAudioTarget?: FilmAudioLibraryGateway["inspectBundledFilmAudioTarget"];
+  listBundledFilmAudio?: FilmAudioLibraryGateway["listBundledFilmAudio"];
+  addBundledFilmAudio?: FilmAudioLibraryGateway["addBundledFilmAudio"];
+  readFilmMedia?: (
+    path: string,
+    options?: { maxBytes?: number; expectedSha256?: string },
+  ) => Promise<Uint8Array>;
   extractFilmLastFrame?: (
     seriesId: string,
     videoPath: string,
@@ -1043,6 +1051,7 @@ export interface AijianDesktopBridge
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
   listFilmHistory?: FilmHistoryGateway["listFilmHistory"];
+  getFilmAudioMixPreview?: AudioMixPreviewGateway["getFilmAudioMixPreview"];
   prepareFilmRange?: FilmRangeGateway["prepareFilmRange"];
   generateFilmRange?: FilmRangeGateway["generateFilmRange"];
   finishFilmRange?: FilmRangeGateway["finishFilmRange"];

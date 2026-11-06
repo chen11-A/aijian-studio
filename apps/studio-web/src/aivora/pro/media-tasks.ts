@@ -58,9 +58,19 @@ export function revoiceFilmShot(
       host.apply({
         ...latest,
         audioClips: [
-          ...latest.audioClips.filter((clip) => clip.id !== `voice-${shot.id}`),
+          ...latest.audioClips.map((clip) =>
+            shot.selectedTakeId &&
+            clip.shotId === shot.id &&
+            clip.takeId === shot.selectedTakeId &&
+            clip.lane === "dialogue" &&
+            clip.label !== "原声" &&
+            clip.path
+              ? { ...clip, enabled: false }
+              : clip,
+          ),
           {
-            id: `voice-${shot.id}`,
+            id: `voice-${shot.id}-${crypto.randomUUID()}`,
+            enabled: true,
             lane: "dialogue",
             shotId: shot.id,
             takeId: shot.selectedTakeId,

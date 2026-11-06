@@ -58,7 +58,7 @@ export async function planActionDraft(
     if (!parsed) {
       return {
         status: "rejected",
-        notice: `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`,
+        notice: `${again.detail || reply.detail || "动作建议这次用不了。"} 这次没有修改镜头。`,
         logRejection: false,
       };
     }

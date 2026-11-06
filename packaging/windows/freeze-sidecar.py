@@ -20,11 +20,29 @@ def stage_qc_resources(destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     for name in ("index.mjs", "media.mjs", "rules.mjs", "subtitles.mjs"):
         shutil.copy2(ROOT / "packages/aivora-qc" / name, destination / name)
+    shutil.copy2(
+        ROOT / "packages/aivora-media/audio-normalize.mjs", destination / "audio-normalize.mjs"
+    )
 
 
 def stage_project_archive_resources(destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / "packages/aivora-media/archive.mjs", destination / "archive.mjs")
+
+
+def stage_audio_library_resources(destination: Path) -> None:
+    subprocess.run(
+        [
+            "node",
+            str(ROOT / "scripts/build-audio-library-resources.mjs"),
+            "--out-dir",
+            str(destination.resolve()),
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def load_prerequisite_helpers():
@@ -158,6 +176,7 @@ def main() -> None:
     # The original read-only QC engine runs in Electron main; no duplicated detector.
     stage_qc_resources(resources / "qc")
     stage_project_archive_resources(resources / "project-archive")
+    stage_audio_library_resources(resources / "audio-library")
     # No FFmpeg binary is copied here: the existing media distribution gate remains unchanged.
     receipt = {
         "schema_version": 1,

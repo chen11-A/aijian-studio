@@ -1,3 +1,5 @@
+import type { AudioLibraryProvenance } from "@aijian/contracts/film-audio-library";
+import { normalizeLibraryProvenance } from "./audio-library-provenance";
 import type { FilmAudioWaveform } from "@aijian/contracts/film-audio-waveform";
 import { validFilmAudioWaveform } from "./audio-waveform-data";
 /** AUDIO-SPEC data reserved for Phase 2 and Phase 3.
@@ -69,12 +71,16 @@ export type AudioClip = {
   lane: AudioLaneId;
   shotId: string;
   takeId: string;
-  label: DialogueClipLabel | "";
+  label: string;
   startSeconds: number;
   durationSeconds: number;
   offsetSeconds: number;
   gainDb: number;
   path?: string;
+  libraryAsset?: AudioLibraryProvenance;
+  loop?: boolean;
+  /** Retained audio alternatives; missing means enabled. */
+  enabled?: boolean;
   waveform?: FilmAudioWaveform & { identity: string };
 };
 
@@ -147,9 +153,12 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
     if (typeof row.id !== "string" || !row.id) return [];
     if (!AUDIO_LANE_ORDER.includes(row.lane as AudioLaneId)) return [];
     const lane = row.lane as AudioLaneId;
-    const label = DIALOGUE_LABELS.has(row.label as DialogueClipLabel)
-      ? (row.label as DialogueClipLabel)
-      : "";
+    const label =
+      lane !== "dialogue" && typeof row.label === "string"
+        ? row.label.slice(0, 200).replaceAll("\0", "")
+        : DIALOGUE_LABELS.has(row.label as DialogueClipLabel)
+          ? (row.label as DialogueClipLabel)
+          : "";
     return [
       {
         id: row.id,
@@ -160,6 +169,11 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
         startSeconds: finiteNumber(row.startSeconds),
         durationSeconds: finiteNumber(row.durationSeconds),
         offsetSeconds: finiteNumber(row.offsetSeconds),
+        ...(typeof row.loop === "boolean" ? { loop: row.loop } : {}),
+        ...(typeof row.enabled === "boolean" ? { enabled: row.enabled } : {}),
+        ...(normalizeLibraryProvenance(row.libraryAsset)
+          ? { libraryAsset: normalizeLibraryProvenance(row.libraryAsset) }
+          : {}),
         gainDb:
           typeof row.gainDb === "number" && Number.isFinite(row.gainDb)
             ? row.gainDb
