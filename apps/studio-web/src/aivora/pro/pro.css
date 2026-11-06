@@ -4016,3 +4016,8 @@ body:has(.pro-root) {
   min-height: 0;
   max-height: 440px;
 }
+
+/* The review card owns publish/cancel; the host close row must follow, never cover it. */
+.pro-root .dialog.export:has(.nx-export) > .acts {
+  position: static;
+}

@@ -76,6 +76,47 @@ export async function runProgressCases({ browser, config, report, media, persist
             [],
             "Progress dialog has inaccessible, covered or overflowing controls",
           );
+          if (state === "stale-events") {
+            // Keep the original unscrolled probe above. A later reachability check must not
+            // conceal an overlap that was already visible when the stale shell appeared.
+            const cancel = dialog.getByRole("button", { name: "取消本次导出", exact: true });
+            await cancel.scrollIntoViewIfNeeded();
+            await cancel.click({ trial: true });
+            result.cancelReachability = await cancel.evaluate((button) => {
+              const owner = button.closest('[role="dialog"]');
+              const box = button.getBoundingClientRect();
+              const panel = owner.getBoundingClientRect();
+              return {
+                box: { x: box.x, y: box.y, width: box.width, height: box.height },
+                client: {
+                  left: panel.left + owner.clientLeft,
+                  top: panel.top + owner.clientTop,
+                  right: panel.left + owner.clientLeft + owner.clientWidth,
+                  bottom: panel.top + owner.clientTop + owner.clientHeight,
+                },
+                viewport: { width: window.innerWidth, height: window.innerHeight },
+                scrollTop: owner.scrollTop,
+              };
+            });
+            const { box, client, viewport: visibleViewport } = result.cancelReachability;
+            assert.ok(
+              box.x >= Math.max(0, client.left) - 1 &&
+                box.y >= Math.max(0, client.top) - 1 &&
+                box.x + box.width <= Math.min(visibleViewport.width, client.right) + 1 &&
+                box.y + box.height <= Math.min(visibleViewport.height, client.bottom) + 1,
+              "Review cancel must be fully reachable inside the real scroll container",
+            );
+            result.geometryAfterScroll = await page.evaluate(probeProLayout, {
+              scopeSelector: '[role="dialog"][aria-label="导出成片"]',
+            });
+            result.scrollScreenshot = path.join(combination, "stale-cancel-reachable.png");
+            await page.screenshot({ path: path.join(config.out, result.scrollScreenshot) });
+            assert.deepEqual(
+              result.geometryAfterScroll.issues,
+              [],
+              "Scrolling to cancel must not introduce covered or clipped controls",
+            );
+          }
         }
         page.on("pageerror", (error) => result.pageerrors.push(error.message));
         await page.route("**/*", (route) => {
