@@ -233,7 +233,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify creation fixture, CLI and safety contracts
-        run: node --test apps/studio-web/e2e/pro-creation-fixture.test.mjs
+        run: node --test apps/studio-web/e2e/pro-creation-fixture.contract.mjs
 
       - name: Audit actual ProWorkspace seven-part review and project packages
         env:
