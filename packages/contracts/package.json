@@ -121,7 +121,10 @@
       "types": "./src/film-audio-waveform.ts",
       "default": "./src/film-audio-waveform.ts"
     },
-    "./film-range": "./src/film-range.ts"
+    "./film-range": {
+      "types": "./src/film-range.ts",
+      "default": "./src/film-range.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
