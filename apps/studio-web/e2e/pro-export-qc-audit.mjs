@@ -9,6 +9,7 @@ import { fileURLToPath, URL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "vite";
 import { runQcCases, qcStates } from "./pro-export-qc-cases.mjs";
+import { progressStates } from "./pro-export-progress-cases.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -18,7 +19,26 @@ const viewports = [
 ];
 const aspects = ["16:9", "9:16"];
 
-function emitGitHubErrors(report) {
+function auditIdentity(kind) {
+  return kind === "progress"
+    ? {
+        title: "Pro export progress audit",
+        code: "EXPORT_PROGRESS",
+        label: "Pro export progress",
+        file: "pro-export-progress-audit.mjs",
+        directory: "aivora-pro-export-progress-audit",
+      }
+    : {
+        title: "Pro export QC audit",
+        code: "EXPORT_QC",
+        label: "Pro export QC",
+        file: "pro-export-qc-audit.mjs",
+        directory: "aivora-pro-export-qc-audit",
+      };
+}
+
+function emitGitHubErrors(report, profile) {
+  const identity = auditIdentity(profile.kind);
   if (process.env.GITHUB_ACTIONS !== "true" || report.exitCode === 0) return;
   if (report.exitCode === 2) {
     const allowed = new Set([
@@ -29,7 +49,7 @@ function emitGitHubErrors(report) {
       "CLEANUP",
     ]);
     const phase = allowed.has(report.setupPhase) ? report.setupPhase : "ENVIRONMENT";
-    console.error(`::error title=Pro export QC audit::EXPORT_QC_SETUP_${phase}`);
+    console.error(`::error title=${identity.title}::${identity.code}_SETUP_${phase}`);
     return;
   }
   const kinds = new Set([
@@ -40,13 +60,14 @@ function emitGitHubErrors(report) {
     "document-overflow",
   ]);
   for (const row of report.results.filter((item) => !item.passed).slice(0, 8)) {
-    const combination =
-      /^(1280x800|1920x1080)-(16x9|9x16)-(?:clean|warn-long|block|other-block|failed|stale|prepare-busy|publish-busy)$/.test(
-        row.combination,
-      )
-        ? row.combination
-        : "unknown";
-    const state = qcStates.includes(row.page) ? row.page : "unknown";
+    const states = profile.kind === "progress" ? progressStates : qcStates;
+    const state = states.includes(row.page) ? row.page : "unknown";
+    const safeCombination =
+      /^(1280x800|1920x1080)-(16x9|9x16)-/.test(row.combination) &&
+      states.some(
+        (name) => row.combination === `${row.combination.split("-").slice(0, 2).join("-")}-${name}`,
+      );
+    const combination = safeCombination ? row.combination : "unknown";
     const found = [
       ...new Set(
         (row.geometry?.issues ?? []).map((issue) =>
@@ -55,16 +76,16 @@ function emitGitHubErrors(report) {
       ),
     ];
     console.error(
-      `::error title=Pro export QC audit::EXPORT_QC_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}`,
+      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}`,
     );
   }
 }
 
-function options() {
+function options(profile) {
   const value = {
     url: process.env.AIVORA_AUDIT_URL,
     browser: process.env.AIVORA_CHROMIUM,
-    out: process.env.AIVORA_AUDIT_OUT ?? path.join(tmpdir(), "aivora-pro-export-qc-audit"),
+    out: process.env.AIVORA_AUDIT_OUT ?? path.join(tmpdir(), auditIdentity(profile.kind).directory),
   };
   const args = process.argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
@@ -150,13 +171,15 @@ async function browserPath(explicit) {
   throw new Error("No Chromium/Chrome found; use --browser or AIVORA_CHROMIUM");
 }
 
-async function run(config) {
+async function run(config, profile) {
   await checkOutputTarget(config.out);
   await mkdir(config.out, { recursive: true });
   const report = {
     scope:
-      "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
-    expectedStates: qcStates,
+      profile.kind === "progress"
+        ? "Real ProWorkspace export progress/cancellation with synthetic events; no PID/file/provider/Electron assertion"
+        : "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
+    expectedStates: profile.states,
     viewports,
     aspects,
     chromiumSandbox: true,
@@ -227,6 +250,13 @@ async function run(config) {
           "apps/studio-web/src/aivora/next/ExportCheck.tsx",
           "apps/studio-web/src/aivora/next/ExportCheck.css",
           "packages/contracts/src/film-export-qc.ts",
+          ...(profile.kind === "progress"
+            ? [
+                "apps/studio-web/src/aivora/next/ExportProgress.tsx",
+                "apps/studio-web/src/aivora/next/ExportProgress.css",
+                "apps/studio-web/src/aivora/pro/actions/export-progress.ts",
+              ]
+            : []),
         ].map(async (name) => [
           name,
           createHash("sha256")
@@ -235,7 +265,7 @@ async function run(config) {
         ]),
       ),
     );
-    const expected = await runQcCases({ browser, config, report, media, persist });
+    const expected = await profile.runCases({ browser, config, report, media, persist });
     report.expectedResults = expected;
     report.exitCode =
       report.results.length === expected && report.results.every((row) => row.passed) ? 0 : 1;
@@ -267,22 +297,31 @@ async function run(config) {
     await persist();
   }
   console.log(
-    `Pro export QC: ${report.results.filter((row) => row.passed).length}/${report.results.length}; report ${path.join(config.out, "report.json")}`,
+    `${auditIdentity(profile.kind).label}: ${report.results.filter((row) => row.passed).length}/${report.results.length}; report ${path.join(config.out, "report.json")}`,
   );
-  emitGitHubErrors(report);
+  emitGitHubErrors(report, profile);
   return report.exitCode;
 }
 
-try {
-  const config = options();
-  if (!config)
-    console.log(
-      "Usage: node apps/studio-web/e2e/pro-export-qc-audit.mjs [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\nQC host: 8 states × 4 viewport/aspect combinations (32 expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.",
-    );
-  else process.exitCode = await run(config);
-} catch (error) {
-  if (process.env.GITHUB_ACTIONS === "true")
-    console.error("::error title=Pro export QC audit::EXPORT_QC_CONFIGURATION");
-  else console.error(error.message);
-  process.exitCode = 2;
+/** Shared safe server/browser lifecycle. Importing this module does not launch an audit. */
+export async function runAuditCli(
+  profile = { kind: "qc", states: qcStates, runCases: runQcCases },
+) {
+  const identity = auditIdentity(profile.kind);
+  try {
+    const config = options(profile);
+    if (!config)
+      console.log(
+        `Usage: node apps/studio-web/e2e/${identity.file} [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\n${profile.kind === "progress" ? "Progress host" : "QC host"}: 8 states × 4 viewport/aspect combinations (32 expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.`,
+      );
+    else process.exitCode = await run(config, profile);
+  } catch (error) {
+    if (process.env.GITHUB_ACTIONS === "true")
+      console.error(`::error title=${identity.title}::${identity.code}_CONFIGURATION`);
+    else console.error(error.message);
+    process.exitCode = 2;
+  }
 }
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+  await runAuditCli();
