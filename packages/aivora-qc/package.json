@@ -1,0 +1,17 @@
+{
+  "name": "@aijian/aivora-qc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "exports": "./index.mjs",
+  "bin": {
+    "aivora-qc": "./cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}
