@@ -259,34 +259,65 @@ describe("checked publication ownership and lifecycle", () => {
     }
     expect(f.tools).not.toHaveBeenCalled();
   }, 10000);
-  it("does not allow a duplicate prepare and cleans staged media after a changed record or disposal", async () => {
-    const f = await fixture();
-    let release!: () => void;
-    const engine = await loadQcEngine(resolve("../../packages/aivora-qc"));
-    const gate = vi.fn(async () => {
-      await new Promise<void>((resolve) => {
+  it.each([0, 1200])(
+    "does not allow a duplicate prepare and cleans staged media after a changed record or disposal (engine startup %ims)",
+    async (startupMs) => {
+      const f = await fixture();
+      let release!: () => void, entered!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const wait = new Promise<void>((resolve) => {
         release = resolve;
       });
-      return engine;
-    });
-    const qc = createFilmExportQc({ ...f.host, engine: gate });
-    const pending = qc.prepare("owner", input);
-    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
-    expect(await qc.prepare("owner", input)).toEqual({ kind: "FAILED", code: "BUSY" });
-    const changed = structuredClone(f.record());
-    changed.title = "后来修改";
-    f.setRecord(changed);
-    release();
-    expect(await pending).toEqual({ kind: "FAILED", code: "PROJECT_CHANGED" });
-    const ready = await f.qc.prepare("owner", input);
-    if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
-    await f.qc.dispose("owner");
-    expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
-      kind: "FAILED",
-      code: "RECEIPT_STALE",
-    });
-    expect(await readdir(f.host.temporaryRoot)).toEqual([]);
-  }, 30000);
+      const engine = await loadQcEngine(resolve("../../packages/aivora-qc"));
+      let engineEntered = false;
+      const gate = vi.fn(async () => {
+        if (startupMs) await new Promise((resolve) => setTimeout(resolve, startupMs));
+        engineEntered = true;
+        entered();
+        await wait;
+        return engine;
+      });
+      const qc = createFilmExportQc({ ...f.host, engine: gate });
+      const pending = qc.prepare("owner", input);
+      try {
+        // The existing 30s media-test deadline bounds real preparation. A default
+        // 1s polling expectation is not an engine-start/ownership guarantee.
+        await Promise.race([
+          started,
+          pending.then((result) => {
+            if (engineEntered) return;
+            const code = result.kind === "FAILED" ? result.code : result.kind;
+            const safe = /^[A-Z_]+$/.test(code) ? code : "UNKNOWN";
+            console.error(`::error title=QC fixture start::prepareEndedBeforeEngine=${safe}`);
+            throw new Error(
+              `PREPARE_ENDED_BEFORE_ENGINE:${result.kind === "FAILED" ? result.code : result.kind}`,
+            );
+          }),
+        ]);
+        expect(await qc.prepare("owner", input)).toEqual({ kind: "FAILED", code: "BUSY" });
+        const changed = structuredClone(f.record());
+        changed.title = "后来修改";
+        f.setRecord(changed);
+        release();
+        expect(await pending).toEqual({ kind: "FAILED", code: "PROJECT_CHANGED" });
+        const ready = await f.qc.prepare("owner", input);
+        if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
+        await f.qc.dispose("owner");
+        expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
+          kind: "FAILED",
+          code: "RECEIPT_STALE",
+        });
+        expect(await readdir(f.host.temporaryRoot)).toEqual([]);
+      } finally {
+        release();
+        await pending.catch(() => undefined);
+        await qc.dispose("owner");
+      }
+    },
+    30000,
+  );
   it("rejects tampered checked video and all checked sidecar bytes", async () => {
     const f = await fixture();
     const record = structuredClone(f.record());
