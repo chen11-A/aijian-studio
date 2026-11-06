@@ -3998,6 +3998,31 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("renames the work by double-clicking its name in the top bar (5-3-04)", async () => {
+  installDesktop();
+  await openSample();
+  const name = () => screen.getByRole("button", { name: "作品" });
+  expect(name()).toHaveAttribute("title", expect.stringContaining("双击作品名可以改名"));
+  fireEvent.doubleClick(name());
+  const field = screen.getByLabelText("改作品名") as HTMLInputElement;
+  expect(field).toHaveFocus();
+  expect(screen.queryByRole("menu", { name: "作品菜单" })).toBeNull();
+  // Esc lets it go.
+  fireEvent.change(field, { target: { value: "不要这个名字" } });
+  fireEvent.keyDown(field, { key: "Escape" });
+  expect(screen.queryByLabelText("改作品名")).toBeNull();
+  expect(name()).not.toHaveTextContent("不要这个名字");
+  // Enter keeps it, once.
+  fireEvent.doubleClick(name());
+  const again = screen.getByLabelText("改作品名");
+  fireEvent.change(again, { target: { value: "雨夜书店" } });
+  fireEvent.keyDown(again, { key: "Enter" });
+  expect(screen.queryByLabelText("改作品名")).toBeNull();
+  expect(name()).toHaveTextContent("雨夜书店");
+  expect(screen.getByText("已改作品名。")).toBeInTheDocument();
+  await waitFor(() => expect(window.aijian!.renameFilmSeries).toHaveBeenCalledTimes(1));
+});
+
 it("says on a folded property group how many of its fields are filled in (5-3-07)", async () => {
   installDesktop();
   window.localStorage.removeItem("aivora.board.groups");

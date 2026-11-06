@@ -159,6 +159,12 @@ body:has(.pro-root) {
 .pro-root .proj:hover {
   background: var(--panel-3);
 }
+/* 5-3-04: the name being renamed in place. */
+.pro-root .proj-edit {
+  width: 220px;
+  height: 28px;
+  font-size: 13px;
+}
 .pro-root .proj .ep {
   color: var(--text-3);
 }

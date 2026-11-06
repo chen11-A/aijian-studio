@@ -3129,6 +3129,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  // 5-3-04: double-click the work's name in the top bar to rename it in place; Enter or leaving
+  // the field keeps it, Esc lets it go. The same rename as 作品设置.
+  const [titleEdit, setTitleEdit] = useState<string | null>(null);
+  const dropTitle = useRef(false);
+  const keepTitle = (value: string) => {
+    setTitleEdit(null);
+    const name = value.trim();
+    if (!film || !name || name === (film.seriesTitle || film.title)) return;
+    void renameFilm(film.seriesId, name);
+    applyLive({ ...film, title: name, seriesTitle: name });
+    setNotice("已改作品名。");
+  };
 
   return (
     <div
@@ -3147,10 +3159,49 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               AIVORA
             </div>
             <span className="vsep" />
+            {titleEdit !== null && film ? (
+              <input
+                className="input proj-edit"
+                aria-label="改作品名"
+                value={titleEdit}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setTitleEdit(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing) return;
+                  // Enter leaves the field, which keeps the name once; Esc leaves it unchanged.
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    dropTitle.current = true;
+                    event.currentTarget.blur();
+                  }
+                }}
+                onBlur={(event) => {
+                  if (dropTitle.current) {
+                    dropTitle.current = false;
+                    setTitleEdit(null);
+                    return;
+                  }
+                  keepTitle(event.currentTarget.value);
+                }}
+              />
+            ) : null}
             <button
               className="proj"
               data-menu="project"
               aria-label="作品"
+              title={film ? "点开作品菜单；双击作品名可以改名" : undefined}
+              hidden={titleEdit !== null && Boolean(film)}
+              onDoubleClick={() => {
+                if (!film) return;
+                setMenu(null);
+                dropTitle.current = false;
+                setTitleEdit(film.seriesTitle || film.title);
+              }}
               onClick={() => {
                 const opening = menu !== "project";
                 setMenu(opening ? "project" : null);
