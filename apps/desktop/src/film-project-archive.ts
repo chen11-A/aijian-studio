@@ -88,8 +88,17 @@ export function portableProject(record: FilmRecord): FilmRecord {
     if (value && typeof value === "object") {
       const row = object(value),
         result: Row = Object.create(null);
-      for (const [key, item] of Object.entries(row))
+      for (const [key, item] of Object.entries(row)) {
+        if (key === "reviewedVideoPrompt") {
+          const review = object(item);
+          // The cache key contains local project/voice identities. Only creative text is
+          // portable; a new work must organize and confirm its own facts again.
+          if (review.schemaVersion === 1 && typeof review.text === "string")
+            result[key] = { schemaVersion: 1, text: review.text, factsKey: "" };
+          continue;
+        }
         if (!removeKeys.test(key) && !sensitiveKeys.test(key)) result[key] = clean(item, depth + 1);
+      }
       return result;
     }
     if (typeof value === "number" && !Number.isFinite(value)) fail("ARCHIVE_INVALID");

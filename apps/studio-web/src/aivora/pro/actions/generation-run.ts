@@ -1,3 +1,4 @@
+import { generationVideoBody } from "./video-prompt-review";
 import { shotLines } from "../../film/director-continuity";
 import type { AijianDesktopBridge } from "../../../api/studio";
 import type { FilmProject, FilmShot, FilmTake } from "../../film/project";
@@ -8,7 +9,7 @@ import {
   videoQueueInterruption,
   type prepareVideoQueue,
 } from "../../film/generation-queue";
-import { storyFilmBatches, updateShot } from "../../film/operations";
+import { updateShot } from "../../film/operations";
 import { ensureContinuityFrame } from "../continuity-frame";
 import { ensureShotFrame } from "../still-workflow";
 import { fileMediaUrl, isVoiceFile } from "../workflow";
@@ -300,7 +301,13 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
         await queueStopped();
         return;
       }
-      const body = storyFilmBatches(dispatched, [shotNow], current.draft)[0];
+      const body = generationVideoBody(
+        dispatched,
+        shotNow,
+        group.shot,
+        group.takes[0]?.id,
+        current.draft,
+      );
       const response = await awaitVideoResult(
         () => host.request({ ...body!, regenerate: index > 0 || group.hadTakes }),
         () => !host.valid() || host.stopped() || host.cancelled(jobId),

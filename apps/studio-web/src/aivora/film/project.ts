@@ -1,3 +1,4 @@
+import { reviewedVideoText, type ReviewedVideoPrompt } from "./seven-part-video";
 import type { SceneShotBudget } from "./director-continuity";
 import type { AdultVoiceDefault } from "./adult-voice-default";
 import { shotActions, withShotActions } from "./shot-actions";
@@ -263,6 +264,8 @@ export type FilmShot = {
   /** Director generation plans, separate from visible picture and later keyframe polishing. */
   directorFramePrompt?: string;
   directorVideoPrompt?: string;
+  /** Confirmed text facts bound to this shot and selected version, never media approval. */
+  reviewedVideoPrompt?: ReviewedVideoPrompt;
   promptZh?: string;
   promptEn?: string;
   source: string;
@@ -656,7 +659,15 @@ function lockKeyframe(body: string, shot: FilmShot, film: FilmProject): string {
   return next;
 }
 
-export function videoPrompt(shot: FilmShot): string {
+export function videoPrompt(shot: FilmShot, film?: FilmProject): string {
+  if (!film && shot.reviewedVideoPrompt !== undefined)
+    throw Object.assign(new Error("视频说明需要作品上下文核对，请重新整理。"), {
+      code: "REQUEST_STALE",
+    });
+  if (film) {
+    const reviewed = reviewedVideoText(film, shot);
+    if (reviewed !== undefined) return reviewed;
+  }
   const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
   const explicit = shot.userFields.includes("promptZh") ? shot.promptZh?.trim() : "";
   const motion = (
