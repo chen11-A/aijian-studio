@@ -821,7 +821,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
     expect(await screen.findByText(/已打开第 2 集/)).toBeInTheDocument();
-    expect(screen.getByText(/作品保存在/)).toBeInTheDocument();
+    expect(await screen.findByText(/作品保存在/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "作品设置" }));
     // 4C-U02: a real 作品设置: where the style is changed, and the work's history.

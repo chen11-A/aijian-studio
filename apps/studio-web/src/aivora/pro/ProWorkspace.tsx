@@ -662,7 +662,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [seriesList, setSeriesList] = useState<FilmIndexEntry[]>([]);
   const [diskPath, setDiskPath] = useState("");
   const [diskFilmId, setDiskFilmId] = useState("");
-  const [diskError, setDiskError] = useState("");
+  const [diskError, setDiskError] = useState<{ projectId: string; message: string } | null>(null);
   const [pendingBatch, setPendingBatchState] = useState<FilmShot[] | null>(null);
   const batchConfirmation = useRef<{ projectId: string; rows: FilmShot[] } | null>(null);
   function setPendingBatch(rows: FilmShot[] | null) {
@@ -846,7 +846,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const saveGeneration = useRef(0);
   useEffect(() => {
     // setFilm updates the live ref synchronously; an older render must not roll it back.
-    if (!film) return;
+    if (!film) {
+      saveGeneration.current += 1;
+      setDiskError(null);
+      setSavingDisk(false);
+      return;
+    }
     if (historyScope.current.page !== stage && committed.current?.id === film.id) {
       pageHistory.record(committed.current, film, historyScope.current);
       committed.current = film;
@@ -854,15 +859,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     historyScope.current = editorSelection.current;
     const generation = ++saveGeneration.current;
     const savingId = film.id;
+    const isCurrentSave = () => generation === saveGeneration.current && filmRef.current === film;
+    setDiskError((previous) => (previous?.projectId === savingId ? previous : null));
     const flush = () => {
       void persistence.flush().catch(() => undefined);
     };
     window.addEventListener("beforeunload", flush);
     setSavingDisk(true);
     const handle = window.setTimeout(() => {
+      if (!isCurrentSave()) return;
       void saveFilm(film)
         .then((stored) => {
-          if (generation !== saveGeneration.current) return;
+          if (!isCurrentSave()) return;
           if (!stored) {
             setSavingDisk(false);
             return;
@@ -870,13 +878,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
             setDiskFilmId(savingId);
             setDiskPath(stored.directory);
-            setDiskError("");
           }
+          setDiskError(null);
           setSavingDisk(false);
         })
         .catch(() => {
-          if (generation === saveGeneration.current) {
-            setDiskError("没有写到应用数据目录，可以重试。");
+          if (isCurrentSave()) {
+            setDiskError({ projectId: savingId, message: "没有写到应用数据目录，可以重试。" });
             setSavingDisk(false);
           }
         });
@@ -933,10 +941,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   useEffect(() => {
     window.aijian?.onFlush?.(() => {
+      const snapshot = filmRef.current;
+      const generation = ++saveGeneration.current;
+      const isCurrentSave = () =>
+        Boolean(snapshot) && generation === saveGeneration.current && filmRef.current === snapshot;
+      if (snapshot) setSavingDisk(true);
       void persistence.flush().then(
-        () => window.aijian?.flushed?.(),
+        (stored) => {
+          if (isCurrentSave()) {
+            if (stored) {
+              if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
+                setDiskFilmId(snapshot!.id);
+                setDiskPath(stored.directory);
+              }
+              setDiskError(null);
+            }
+            setSavingDisk(false);
+          }
+          window.aijian?.flushed?.();
+        },
         () => {
-          setDiskError("没有写到应用数据目录，可以重试。");
+          if (isCurrentSave()) {
+            setDiskError({ projectId: snapshot!.id, message: "没有写到应用数据目录，可以重试。" });
+            setSavingDisk(false);
+          }
           window.aijian?.flushed?.();
         },
       );
@@ -4436,12 +4464,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
           <div className="sb-right">
             <span className="where">
-              {savedDirectory
-                ? "作品保存在"
-                : savingDisk
-                  ? "正在保存…"
-                  : diskError ||
-                    (filmDiskReady()
+              {savingDisk
+                ? "正在保存…"
+                : (diskError?.projectId === film?.id ? diskError?.message : "") ||
+                  (savedDirectory
+                    ? "作品保存在"
+                    : filmDiskReady()
                       ? "已保存在这台电脑上"
                       : import.meta.env.DEV
                         ? BROWSER_DIRECTORY
