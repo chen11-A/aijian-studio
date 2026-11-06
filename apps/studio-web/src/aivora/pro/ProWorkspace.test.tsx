@@ -3096,25 +3096,41 @@ it("does not write an offline cast when the model fails", async () => {
   expect(await screen.findByText(/已放进分镜/)).toBeInTheDocument();
 });
 
+function materializeSpokenFixture() {
+  const write = vi.mocked(window.aijian!.writeFilmProject!);
+  const original = write.getMockImplementation()!;
+  const sources = new Map<string, string>();
+  write.mockImplementation(async (raw) => {
+    const film = structuredClone(raw) as FilmProject;
+    film.audioClips = film.audioClips.map((clip) => {
+      if (!clip.path?.startsWith("data:")) return clip;
+      if (!sources.has(clip.path))
+        sources.set(clip.path, `/tmp/aivora/films/voice-${sources.size}.mp3`);
+      return { ...clip, path: sources.get(clip.path)! };
+    });
+    return original(film);
+  });
+}
+
 it("shows a saved still again and uses lane mute, solo, and volume", async () => {
   const createStoryFilm = vi.fn(async () => ({
     data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
   }));
   const desktop = installDesktop(createStoryFilm);
+  materializeSpokenFixture();
   Object.assign(window.aijian ?? {}, {
     generateFilmStill: vi.fn(async () => ({ path: "/tmp/aivora/still.png", reason: "" })),
     importMusic: vi.fn(async () => ({ path: "/tmp/aivora/films/bed.mp3" })),
     filePath: () => "/tmp/song.mp3",
   });
-  Object.assign(window.aijianGrok ?? {}, {
-    speak: vi.fn(async () => ({
-      kind: "OK",
-      audioBase64: "QQ==",
-      mime: "audio/mpeg",
-      seconds: 1,
-      timestamps: false,
-    })),
-  });
+  const speak = vi.fn(async () => ({
+    kind: "OK",
+    audioBase64: "QQ==",
+    mime: "audio/mpeg",
+    seconds: 1,
+    timestamps: false,
+  }));
+  Object.assign(window.aijianGrok ?? {}, { speak });
   await openSample();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
@@ -3128,7 +3144,19 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
   fireEvent.click(screen.getByRole("button", { name: "换配音" }));
   expect(await screen.findByText("这一句已重配，画面没有重新生成。")).toBeInTheDocument();
-  expect(document.querySelector("[data-voice='1']")).toBeTruthy();
+  expect(document.querySelector("[data-voice='1'][data-voice-binding='pending']")).toBeTruthy();
+  expect(screen.getByText(/生成画面后可免费绑定/)).toBeInTheDocument();
+  await waitFor(async () => {
+    const last = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    const stored = (await readSaved(last.id))!;
+    const voice = stored.audioClips.find((clip) => clip.label === "配音")!;
+    const shot = stored.shots.find((row) => row.id === voice.shotId)!;
+    expect(voice.takeId).toBe("");
+    expect(shot.takes.filter((take) => take.status === "done")).toHaveLength(0);
+    expect(voice.path).toBeTruthy();
+  });
+  expect(createStoryFilm).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
   fireEvent.change(screen.getByLabelText("导入音乐"), {
     target: { files: [new File(["song"], "bed.mp3", { type: "audio/mpeg" })] },
   });
@@ -3143,7 +3171,79 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   expect(screen.getByText("只听配乐。音量没有改。")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("配乐音量"), { target: { value: "50" } });
   expect(screen.getByText("音量已记下，导出时用这个音量。")).toBeInTheDocument();
-  expect(desktop.assembleFilm).toBeDefined();
+  await waitFor(async () => {
+    const last = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    const stored = (await readSaved(last.id))!;
+    expect(stored.audioMix?.lanes.score).toEqual({ gainDb: -6, muted: false });
+    expect(stored.audioClips.find((clip) => clip.lane === "score")?.loop).toBe(true);
+    expect(stored.audioClips.find((clip) => clip.lane === "score")?.gainDb).toBe(-22);
+  });
+  expect(createStoryFilm).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
+  expect(desktop.assembleFilm).not.toHaveBeenCalled();
+});
+
+it("keeps pre-recorded voice and explicitly reuses it after normal generation adds its own voice file", async () => {
+  const video = vi.fn(async () => ({
+    data: {
+      status: "SUCCEEDED",
+      message: "",
+      output_path: "/tmp/aivora/shot.mp4",
+      voice_path: "/tmp/aivora/provider-voice.wav",
+    },
+  }));
+  installDesktop(video);
+  materializeSpokenFixture();
+  const speak = vi.fn(async () => ({
+    kind: "OK",
+    audioBase64: "QQ==",
+    mime: "audio/mpeg",
+    seconds: 1,
+    timestamps: false,
+  }));
+  Object.assign(window.aijianGrok!, { speak });
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
+  fireEvent.click(screen.getByRole("button", { name: "换配音" }));
+  await screen.findByText("这一句已重配，画面没有重新生成。");
+  expect(speak).toHaveBeenCalledOnce();
+  expect(video).not.toHaveBeenCalled();
+  expect(document.querySelector("[data-voice-binding='pending']")).toBeTruthy();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await screen.findByText("这一版已经生成。");
+  fireEvent.click(stageTab("剪辑"));
+  const button = await screen.findByRole("button", {
+    name: "将这段配音用于当前版本（现用配音保留）",
+  });
+  expect(video).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
+  fireEvent.click(button);
+  await waitFor(async () => {
+    const raw = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    const stored = (await readSaved(raw.id))!;
+    const pending = stored.audioClips.find((clip) => clip.lane === "dialogue" && !clip.takeId)!;
+    const selected = stored.shots.find((shot) => shot.id === pending.shotId)!.selectedTakeId;
+    const voices = stored.audioClips.filter(
+      (clip) => clip.shotId === pending.shotId && clip.takeId === selected && clip.label !== "原声",
+    );
+    expect(pending.path).toBe("/tmp/aivora/films/voice-0.mp3");
+    expect(voices).toHaveLength(2);
+    expect(voices.find((clip) => clip.path === "/tmp/aivora/provider-voice.wav")?.enabled).toBe(
+      false,
+    );
+    expect(voices.filter((clip) => clip.enabled !== false)).toHaveLength(1);
+    expect(voices.find((clip) => clip.enabled !== false)?.path).toBe(pending.path);
+  });
+  expect(
+    screen.getByRole("button", { name: "改用这段已保留配音（不重新配音）" }),
+  ).toBeInTheDocument();
+  expect(video).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
 });
 
 it("puts the spoken file on the dialogue lane and leaves a finished job alone", async () => {
@@ -4730,12 +4830,12 @@ it("gives the four sound tracks a name, mute, solo and volume, and says when a t
   const planned = document.querySelector(".clip.plan.amb") as HTMLElement;
   expect(planned).toHaveTextContent("雨打在铁皮上");
   expect(planned).toHaveAttribute("title", expect.stringContaining("还没有声音文件"));
-  for (const lane of ["对白", "配乐"]) {
+  for (const lane of ["对白", "环境音", "音效", "配乐"]) {
     expect(screen.getByRole("button", { name: `静音${lane}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `单听${lane}` })).toBeInTheDocument();
     expect(screen.getByLabelText(`${lane}音量`)).toHaveAttribute(
       "title",
-      expect.stringMatching(new RegExp(`^${lane}音量 \\d+$`)),
+      expect.stringContaining("整轨音量，保留各片段原有音量"),
     );
   }
   expect(screen.getAllByText("这一轨还没有内容")).toHaveLength(3);
@@ -4743,11 +4843,11 @@ it("gives the four sound tracks a name, mute, solo and volume, and says when a t
   expect(ruler.slice(0, 3)).toEqual(["00:00.0", "00:05.0", "00:10.0"]);
   expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
     "title",
-    expect.stringContaining("有人说话时，配乐会自动变小，台词音量不变"),
+    expect.stringContaining("按有声对白片段保守避让配乐"),
   );
   expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
     "title",
-    expect.stringContaining("整片音量还不会自动调成一样大"),
+    expect.stringContaining("导出自动调整音量默认关闭"),
   );
   expect(screen.getByLabelText("导入音乐")).toBeInTheDocument();
 });

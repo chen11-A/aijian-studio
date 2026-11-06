@@ -1,3 +1,7 @@
+import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
+import { normalizeMixedAudio, type AudioNormalizer } from "./film-audio-normalize";
+import { resolveAudioMix } from "./film-audio-mix-sources";
+import { renderAudioMix } from "./film-audio-mix";
 import type { ExportWork } from "./film-export-operation";
 import { exportFileHash, copyExportFile } from "./film-export-io";
 import type {
@@ -13,10 +17,8 @@ import { join, relative, isAbsolute, sep } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
-  applyDialogue,
   joinClips,
   mediaUrlPath,
-  mixMusic,
   readProject,
   safeExportName,
   trustedMediaPath,
@@ -38,6 +40,7 @@ const failure = (error: unknown): FilmExportQcFailure => {
   return {
     kind: "FAILED",
     code: [
+      "AUDIO_MIX_LIMIT",
       "INVALID_INPUT",
       "PROJECT_CHANGED",
       "MISSING_MEDIA",
@@ -66,8 +69,12 @@ export function qcInput(value: unknown): FilmExportQcInput {
     !input.expectedSelection.length ||
     input.expectedSelection.length > 1000 ||
     !settings ||
-    Object.keys(settings).sort().join() !==
-      ["aiMark", "aspects", "quality", "style", "subtitles"].sort().join()
+    Object.keys(settings).some(
+      (key) =>
+        !["aiMark", "aspects", "quality", "style", "subtitles", "autoAdjustVolume"].includes(key),
+    ) ||
+    ["aiMark", "aspects", "quality", "style", "subtitles"].some((key) => !(key in settings)) ||
+    (settings.autoAdjustVolume !== undefined && typeof settings.autoAdjustVolume !== "boolean")
   )
     fail("INVALID_INPUT");
   if (
@@ -130,21 +137,28 @@ export type FilmQcHost = {
   pickDirectory: () => Promise<string | null>;
   read?: (id: string) => Promise<FilmRecord | null>;
   now?: () => number;
+  normalizer?: () => Promise<AudioNormalizer>;
+  audioOwner?: (
+    projectId: string,
+    path: string,
+    sha: string,
+    selected?: { path: string; sha: string },
+  ) => Promise<boolean>;
   storyOwner?: (projectId: string, path: string, sha256: string) => Promise<boolean>;
 };
 type Clip = {
   shotId: string;
   label: string;
   path: string;
-  voice: string;
+  takeId: string;
+  nativePath: string;
   cues: ExportCue[];
   line: string;
 };
 type Snapshot = {
   record: FilmRecord;
   clips: Clip[];
-  score: string;
-  gain: number;
+  mix: Awaited<ReturnType<typeof resolveAudioMix>>;
   fingerprint: string;
   coverStill?: string;
   coverData?: string;
@@ -185,6 +199,11 @@ export function createFilmExportQc(host: FilmQcHost) {
       record.shots.length !== input.expectedSelection.length
     )
       fail("PROJECT_CHANGED");
+    if (
+      (input.settings.autoAdjustVolume ?? false) !==
+      audioMixSettings(record.audioMix).autoAdjustVolume
+    )
+      fail("PROJECT_CHANGED");
     const films = await realpath(host.filmsRoot);
     const series = await realpath(join(films, record.seriesId));
     if (relative(films, series) !== record.seriesId) fail("SOURCE_UNVERIFIED");
@@ -197,9 +216,6 @@ export function createFilmExportQc(host: FilmQcHost) {
       if (video && !/\.mp4$/i.test(path)) fail("MISSING_MEDIA");
       return path;
     };
-    const audio = Array.isArray(record.audioClips)
-      ? record.audioClips.map(object).filter((v): v is Row => !!v)
-      : [];
     const clips: Clip[] = [];
     for (const [index, unknownShot] of record.shots.entries()) {
       const shot = object(unknownShot),
@@ -241,25 +257,32 @@ export function createFilmExportQc(host: FilmQcHost) {
         )
       )
         fail("SOURCE_UNVERIFIED");
-      const voice = audio.find(
-        (item) =>
-          item.lane === "dialogue" &&
-          item.shotId === shot.id &&
-          (!text(item.takeId) || item.takeId === take.id) &&
-          text(item.path),
-      );
+      const nativePath = local(take.videoPath, true);
+      if (
+        !within(episode, nativePath) &&
+        !(
+          story &&
+          within(story, nativePath) &&
+          host.storyOwner &&
+          (await host.storyOwner(
+            text(record.backendProjectId),
+            nativePath,
+            await sha(nativePath, work),
+          ))
+        )
+      )
+        fail("SOURCE_UNVERIFIED");
       clips.push({
         shotId: text(shot.id),
         label: `镜头 ${index + 1}`,
         path,
-        voice: voice ? (Number(voice.gainDb) <= -40 ? "mute" : local(voice.path)) : "",
+        takeId: expected.takeId,
+        nativePath,
         line,
         cues:
           clean && input.settings.subtitles !== "none" ? validCues(take.subtitleCues ?? []) : [],
       });
     }
-    const score = audio.find((item) => item.lane === "score" && text(item.path));
-    const scorePath = score ? local(score.path) : "";
     const cover = object(record.cover);
     const coverRaw = text(cover?.backgroundUrl);
     const coverData = coverRaw.startsWith("data:image/") ? coverRaw : undefined;
@@ -271,12 +294,41 @@ export function createFilmExportQc(host: FilmQcHost) {
     const hashes = await Promise.all(
       [
         ...new Set([
-          ...clips.flatMap((c) => [c.path, ...(c.voice && c.voice !== "mute" ? [c.voice] : [])]),
-          ...(scorePath ? [scorePath] : []),
+          ...clips.flatMap((c) => [c.path, c.nativePath]),
           ...(coverStill ? [coverStill] : []),
         ]),
       ].map(async (path) => [path, await sha(path, work)]),
     );
+    const mixTools = await host.tools(work?.signal);
+    const managed = host.runner ? await host.runner() : undefined;
+    const executor: QcRunner =
+      managed ??
+      (async (binary, args, options) =>
+        execute(binary, args, {
+          encoding: "utf8",
+          maxBuffer: 1024 * 1024,
+          timeout: 600000,
+          signal: options?.signal,
+        }));
+    const mixRun: QcRunner = (binary, args, options) => {
+      const task = executor(binary, args, options);
+      return work ? work.track(task) : task;
+    };
+    const selection = clips.map((clip) => ({
+      shotId: clip.shotId,
+      takeId: clip.takeId,
+      videoPath: clip.nativePath,
+      visualPath: clip.path,
+    }));
+    const mix = await resolveAudioMix(record, selection, {
+      filmsRoot: host.filmsRoot,
+      storyFilmsRoot: host.storyFilmsRoot,
+      tools: mixTools,
+      run: mixRun,
+      signal: work?.signal,
+      audioOwner: host.audioOwner,
+      videoOwner: host.storyOwner,
+    });
     const content = Object.fromEntries(
       Object.entries(record).filter(([key]) => !["savedAt", "directory"].includes(key)),
     );
@@ -285,12 +337,14 @@ export function createFilmExportQc(host: FilmQcHost) {
       clips,
       coverStill,
       coverData,
-      score: scorePath,
-      gain:
-        score && typeof score.gainDb === "number" && Number.isFinite(score.gainDb)
-          ? score.gainDb
-          : -14,
-      fingerprint: JSON.stringify({ content, hashes, settings: input.settings }),
+      mix,
+      fingerprint: JSON.stringify({
+        content,
+        hashes,
+        audioHashes: mix.hashes,
+        plan: mix.plan,
+        settings: input.settings,
+      }),
     };
   }
   async function remove(token: string) {
@@ -370,41 +424,6 @@ export function createFilmExportQc(host: FilmQcHost) {
             env: { ...process.env, ...options?.env },
           });
         };
-        const duration = async (path: string) => {
-          work?.signal.throwIfAborted();
-          const args = [
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=nw=1:nk=1",
-            path,
-          ];
-          const probe = managed
-            ? managed(tools.ffprobePath, args, {
-                timeoutMs: 30000,
-                maxBuffer: 65536,
-                signal: work?.signal,
-              })
-            : execute(
-                tools.ffprobePath,
-                [
-                  "-v",
-                  "error",
-                  "-show_entries",
-                  "format=duration",
-                  "-of",
-                  "default=nw=1:nk=1",
-                  path,
-                ],
-                { timeout: 30000, maxBuffer: 65536 },
-              );
-          const { stdout } = await (work ? work.track(probe) : probe);
-          const seconds = Number(stdout.trim());
-          if (!Number.isFinite(seconds) || seconds <= 0) fail("CHECK_FAILED");
-          return seconds;
-        };
         let coverStill = base.coverStill;
         if (base.coverData) {
           const { writeFile } = await import("node:fs/promises");
@@ -427,7 +446,7 @@ export function createFilmExportQc(host: FilmQcHost) {
         });
         for (const [index, clip] of base.clips.entries()) {
           work?.signal.throwIfAborted();
-          const seconds = await duration(clip.path);
+          const seconds = base.mix.plan.shots[index]!.durationSeconds;
           const start = at;
           shots.push({ id: clip.shotId, label: clip.label, start, end: at + seconds });
           cues.push(
@@ -436,19 +455,8 @@ export function createFilmExportQc(host: FilmQcHost) {
               return { ...cue, start: cue.start + at, end: cue.end + at };
             }),
           );
-          // No measured speech intervals: do not widen freeze thresholds using storyboard text.
-          if (clip.voice) work?.phase("mixing");
-          sources.push(
-            clip.voice
-              ? await applyDialogue(
-                  clip.path,
-                  clip.voice,
-                  join(folder, `voice-${index}.mp4`),
-                  run,
-                  duration,
-                )
-              : clip.path,
-          );
+          // No measured speech intervals: storyboard/subtitle layout never widens QC rules.
+          sources.push(clip.path);
           at += seconds;
           work?.phase("preparing", {
             kind: "units",
@@ -457,13 +465,49 @@ export function createFilmExportQc(host: FilmQcHost) {
             unit: "镜头",
           });
         }
-        const assembled = join(folder, "assembly.mp4");
+        let assembled = join(folder, "assembly.mp4");
         work?.phase("joining");
         if (sources.length === 1) await copy(sources[0]!, assembled, work);
         else await joinClips(sources, assembled, run);
-        if (base.score) {
-          work?.phase("mixing");
-          await mixMusic(assembled, base.score, run, base.gain, duration);
+        work?.phase("mixing");
+        const mixTools = await host.tools(work?.signal);
+        const mixExecute: QcRunner =
+          managed ??
+          (async (binary, args, options) =>
+            execute(binary, args, {
+              encoding: "utf8",
+              maxBuffer: 1024 * 1024,
+              timeout: 600000,
+              signal: options?.signal,
+            }));
+        const mixRunner: QcRunner = (binary, args, options) => {
+          const task = mixExecute(binary, args, options);
+          return work ? work.track(task) : task;
+        };
+        const mixed = join(folder, "mixed.mp4");
+        await renderAudioMix(
+          assembled,
+          mixed,
+          base.mix.plan,
+          base.mix.paths,
+          mixTools,
+          mixRunner,
+          work?.signal,
+        );
+        assembled = mixed;
+        let normalizer: AudioNormalizer | undefined;
+        let audioApplicable = base.mix.plan.tracks.length > 0;
+        if (input.settings.autoAdjustVolume && audioApplicable) {
+          if (!host.normalizer) fail("TOOLS_UNAVAILABLE");
+          normalizer = await host.normalizer();
+          assembled = await normalizeMixedAudio(
+            mixed,
+            join(folder, "normalized.mp4"),
+            normalizer,
+            mixTools,
+            mixRunner,
+            work?.signal,
+          );
         }
         const outputs: Prepared["outputs"] = [],
           reports: FilmExportQcPrepared["outputs"] = [];
@@ -547,6 +591,19 @@ export function createFilmExportQc(host: FilmQcHost) {
           for (const extra of Object.values(extras))
             if (extra) extraHashes[extra] = await sha(extra, work);
           outputs.push({ aspectRatio, path, hash: await sha(path, work), extras, extraHashes });
+          if (normalizer) {
+            const measured = await normalizer.measureAudioLoudness(
+              path,
+              mixTools.ffmpegPath,
+              (binary, args) =>
+                mixRunner(binary, args, {
+                  signal: work?.signal,
+                  timeoutMs: 600000,
+                  maxBuffer: 1024 * 1024,
+                }),
+            );
+            audioApplicable = normalizer.assertNormalizedAudio(measured).applicable;
+          }
           reports.push({ aspectRatio, report });
         }
         await current(input, base.fingerprint, owner, ownerGeneration, work);
@@ -580,9 +637,20 @@ export function createFilmExportQc(host: FilmQcHost) {
           shots,
           fileName,
           unverified: [
+            ...(base.mix.plan.limitations.includes("STALE_CLIP_IGNORED")
+              ? ["旧版本或缺少选版绑定的音轨未混入，请核对当前版本。"]
+              : []),
+            ...(base.mix.plan.limitations.includes("NATIVE_DIALOGUE_UNKNOWN")
+              ? ["部分原声尚未分类对白，配乐按整个有声片段保守避让；未做语音识别。"]
+              : []),
+            input.settings.autoAdjustVolume
+              ? audioApplicable
+                ? "已按最终文件复测全片响度；此项不代表试听或对白完整性验证。"
+                : "本次没有有声内容，有限响度目标未适用；静音保持静音。"
+              : "自动调整音量已关闭，保留片段和整轨设置，仍按原QC规则测量。",
             "台词是否说完未检查：需要真实播放和试听。",
             "人物、动作连续性与口型同步需要人工观看；烧录字幕未做视觉检测，旁路字幕仅估算时间和布局。",
-            "对白轨沿用现有整轨替换方式，轨道偏移与细调音量未在此重做。",
+            "音乐避让按有声片段保守处理；尚无可靠的逐句语音对齐，不证明对白完整性。",
           ],
         };
       } catch (error) {

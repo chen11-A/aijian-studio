@@ -1,3 +1,4 @@
+import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
 import type {
   FilmExportQcInput,
   FilmExportQcSettings,
@@ -23,7 +24,11 @@ export function filmQcInput(
       shotId: shot.id,
       takeId: chosenTake(shot)?.id ?? "",
     })),
-    settings: { aspects: exportAspectPlan(film, choice), ...settings },
+    settings: {
+      aspects: exportAspectPlan(film, choice),
+      autoAdjustVolume: audioMixSettings(film.audioMix).autoAdjustVolume,
+      ...settings,
+    },
   };
 }
 export function filmQcKey(film: FilmProject | null, input: FilmExportQcInput | null) {
@@ -34,6 +39,7 @@ export function filmQcKey(film: FilmProject | null, input: FilmExportQcInput | n
   return JSON.stringify({ content, input });
 }
 export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
+  AUDIO_MIX_LIMIT: "本次音轨数量或路径长度超出本机混音范围，请缩短工程路径或分段处理后重新检查。",
   INVALID_INPUT: "检查请求不完整，请重新选择工程和导出设置。",
   PROJECT_CHANGED: "工程或选定版本已经变化，请重新检查。",
   MISSING_MEDIA: "还有镜头未生成，或本地素材不可读取，请先检查镜头。",

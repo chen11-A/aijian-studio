@@ -54,7 +54,7 @@ describe("audio reservation", () => {
     expect(normalizeSoundPlan({ source: "other" }, "巷子").ambience).toBe("巷子");
     const clips = normalizeAudioClips([
       { id: "a", lane: "dialogue", label: "原声", shotId: "s1" },
-      { id: "b", lane: "score", gainDb: -10 },
+      { id: "b", lane: "score", gainDb: -10, loop: false, enabled: false },
       { id: "", lane: "sfx" },
       { id: "c", lane: "video" },
       null,
@@ -63,6 +63,10 @@ describe("audio reservation", () => {
     expect(clips[0]?.gainDb).toBe(AUDIO_LANE_GAIN_DB.dialogue);
     expect(clips[0]?.label).toBe("原声");
     expect(clips[1]?.gainDb).toBe(-10);
+    expect(clips[1]?.loop).toBe(false);
+    expect(clips[1]?.enabled).toBe(false);
+    expect(clips[0]?.enabled).toBeUndefined();
+    expect(clips[0]?.loop).toBeUndefined();
     expect(clips[1]?.shotId).toBe("");
     expect(normalizeAudioClips({ lane: "dialogue" })).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import type { AudioMixSettings } from "@aijian/contracts/film-audio-mix";
 import { reviewedVideoText, type ReviewedVideoPrompt } from "./seven-part-video";
 import type { SceneShotBudget } from "./director-continuity";
 import type { AdultVoiceDefault } from "./adult-voice-default";
@@ -324,6 +325,8 @@ export type FilmProject = {
   narrationVoiceId: string;
   /** Phase 3 timeline audio. Empty until 剪辑 writes clips. */
   audioClips: AudioClip[];
+  /** Persisted overall lane controls; per-clip gain stays independent. */
+  audioMix?: AudioMixSettings;
   /** Backend ledger id. Empty until the desktop creates a project for this film. */
   backendProjectId: string;
   /** Frame shape for stills and video. Chosen when the film is created. */

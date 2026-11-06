@@ -127,6 +127,8 @@ async function setup() {
         offsetSeconds: 0.2,
         durationSeconds: 1,
         gainDb: -3,
+        enabled: false,
+        loop: false,
         waveform: { sourceKey: "cached" },
       },
     ],
@@ -199,6 +201,13 @@ describe("real project package and isolated library restore", () => {
     expect(people[0]!.voiceId).toBeUndefined();
     expect(JSON.stringify(restored)).not.toContain("must-not-export");
     expect((restored!.audioClips as Record<string, unknown>[])[0]!.waveform).toBeUndefined();
+    expect((restored!.audioClips as Record<string, unknown>[])[0]).toMatchObject({
+      enabled: false,
+      loop: false,
+      gainDb: -3,
+      offsetSeconds: 0.2,
+      durationSeconds: 1,
+    });
     expect(
       await readFile(join(env.films, seriesId, "episodes", projectId, "project.json")),
     ).toEqual(original);

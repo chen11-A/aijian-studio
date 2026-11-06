@@ -1,3 +1,8 @@
+import {
+  measureAudioLoudness,
+  audioNormalizationFilter,
+  assertNormalizedAudio,
+} from "./audio-normalize.mjs";
 import { mkdtemp, rm, copyFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -19,7 +24,6 @@ const videoCodec = [
   "2",
 ];
 const audioCodec = ["-c:a", "aac", "-b:a", "192k", "-ar", "48000"];
-const target = "I=-16:TP=-1.5:LRA=11";
 
 async function scratch(work) {
   const dir = await mkdtemp(path.join(tmpdir(), "aivora-media-"));
@@ -60,40 +64,6 @@ function fit(orientation) {
   return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
 }
 
-function measurement(log) {
-  const json = log.match(/\{\s*"input_i"\s*:[\s\S]*?\}/)?.[0];
-  if (!json) throw new Error("无法测量音量");
-  return JSON.parse(json);
-}
-
-async function measure(input, ffmpegPath) {
-  const { stderr } = await run(ffmpegPath, [
-    ...base,
-    "-i",
-    input,
-    "-map",
-    "0:a:0",
-    "-af",
-    `loudnorm=${target}:print_format=json`,
-    "-f",
-    "null",
-    "-",
-  ]);
-  return measurement(stderr);
-}
-
-async function volumeFilter(input, ffmpegPath) {
-  const m = await measure(input, ffmpegPath);
-  if (m.input_i === "-inf") return "anull"; // Silence cannot be raised to -16 LUFS.
-  if (
-    ![m.input_i, m.input_tp, m.input_lra, m.input_thresh, m.target_offset].every((v) =>
-      Number.isFinite(Number(v)),
-    )
-  )
-    throw new Error("音量测量无效");
-  return `loudnorm=${target}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`;
-}
-
 /** The only user-facing audio control is autoAdjustVolume. */
 export async function exportVideo({
   input,
@@ -114,7 +84,10 @@ export async function exportVideo({
   return scratch(async (dir) => {
     // A fixed relative filter filename avoids FFmpeg filter-language path injection.
     await copyFile(path.resolve(ass), path.join(dir, "captions.ass"));
-    const audio = autoAdjustVolume && hasAudio ? await volumeFilter(source, ffmpegPath) : "anull";
+    const audio =
+      autoAdjustVolume && hasAudio
+        ? await audioNormalizationFilter(source, ffmpegPath, run)
+        : "anull";
     const args = [...base, "-i", source];
     if (!hasAudio) args.push("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo");
     args.push(
@@ -136,13 +109,7 @@ export async function exportVideo({
     await run(ffmpegPath, args, { cwd: dir });
     const result = path.join(dir, "result.mp4");
     if (autoAdjustVolume && hasAudio) {
-      const measured = await measure(result, ffmpegPath);
-      const integrated = measured.input_i === "-inf" ? -Infinity : Number(measured.input_i);
-      if (
-        integrated !== -Infinity &&
-        (Math.abs(integrated + 16) > 0.5 || Number(measured.input_tp) > -1)
-      )
-        throw new Error("导出未达到目标音量（−16±0.5 LUFS / ≤−1 dBTP），未发布文件");
+      assertNormalizedAudio(await measureAudioLoudness(result, ffmpegPath, run));
     }
     return publish(result, output);
   });

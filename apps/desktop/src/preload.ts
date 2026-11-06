@@ -1,3 +1,4 @@
+import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
 import type {
   FilmProjectArchiveInput,
   FilmProjectArchiveExport,
@@ -579,6 +580,9 @@ contextBridge.exposeInMainWorld("aijian", {
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
   listFilmHistory: (projectId: Parameters<FilmHistoryGateway["listFilmHistory"]>[0]) =>
     ipcRenderer.invoke("film:history-list", projectId),
+  getFilmAudioMixPreview: (
+    input: Parameters<AudioMixPreviewGateway["getFilmAudioMixPreview"]>[0],
+  ) => ipcRenderer.invoke("film:audio-mix-preview", input),
   prepareFilmRange: (input: Parameters<FilmRangeGateway["prepareFilmRange"]>[0]) =>
     ipcRenderer.invoke("film:range-prepare", input),
   generateFilmRange: (input: Parameters<FilmRangeGateway["generateFilmRange"]>[0]) =>
@@ -609,8 +613,8 @@ contextBridge.exposeInMainWorld("aijian", {
   deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
   renameFilmSeries: (seriesId: string, title: string) =>
     ipcRenderer.invoke("film:rename", seriesId, title),
-  readFilmMedia: (path: string) =>
-    ipcRenderer.invoke("film:read-media", path) as Promise<Uint8Array>,
+  readFilmMedia: (path: string, options?: { maxBytes?: number; expectedSha256?: string }) =>
+    ipcRenderer.invoke("film:read-media", path, options) as Promise<Uint8Array>,
   extractFilmLastFrame: (seriesId: string, videoPath: string) =>
     ipcRenderer.invoke("film:last-frame", seriesId, videoPath),
   assembleFilm: (
