@@ -3998,6 +3998,22 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("keeps only the logo, 作品 and the avatar on the start page (5-3-01)", async () => {
+  installDesktop();
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "作品" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "账号" })).toBeInTheDocument();
+  for (const gone of ["撤销", "重做", "导出成片"]) {
+    expect(screen.queryByRole("button", { name: gone })).toBeNull();
+  }
+  expect(screen.queryByRole("navigation", { name: "创作阶段" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "打开示例" }));
+  expect(await screen.findByRole("navigation", { name: "创作阶段" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "导出成片" })).toBeInTheDocument();
+});
+
 it("picks several cards with Shift or Ctrl and does one thing to all of them (5-3-06)", async () => {
   installDesktop();
   await openSample();

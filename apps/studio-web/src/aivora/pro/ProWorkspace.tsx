@@ -3167,24 +3167,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ) : null}
               <Ic name="chev" size={14} />
             </button>
-            <button
-              className="icon-btn"
-              aria-label="撤销"
-              title="撤销 (Ctrl+Z)"
-              disabled={!canUndo}
-              onClick={undoEdit}
-            >
-              <Ic name="undo" />
-            </button>
-            <button
-              className="icon-btn"
-              aria-label="重做"
-              title="重做 (Ctrl+Shift+Z)"
-              disabled={!canRedo}
-              onClick={redoEdit}
-            >
-              <Ic name="redo" />
-            </button>
+            {/* 5-3-01: before a work is open the bar holds only the logo, 作品 and the avatar. */}
+            {open ? (
+              <>
+                <button
+                  className="icon-btn"
+                  aria-label="撤销"
+                  title="撤销 (Ctrl+Z)"
+                  disabled={!canUndo}
+                  onClick={undoEdit}
+                >
+                  <Ic name="undo" />
+                </button>
+                <button
+                  className="icon-btn"
+                  aria-label="重做"
+                  title="重做 (Ctrl+Shift+Z)"
+                  disabled={!canRedo}
+                  onClick={redoEdit}
+                >
+                  <Ic name="redo" />
+                </button>
+              </>
+            ) : null}
             {menu === "project" && (
               <div className="menu" role="menu" aria-label="作品菜单" data-menu="project">
                 {/* 4C-U06: three groups: the works, this one, and deleting it last. */}
@@ -3321,78 +3326,85 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               </div>
             )}
           </div>
-          <nav className="tabs" aria-label="创作阶段">
-            {STAGES.map((item, index) => {
-              // UIR-06: ticked only when that part is done; otherwise how far it got.
-              const progress = open && film && item.id !== "edit" ? stageTabs(film)[item.id] : null;
-              const done = Boolean(progress?.done);
-              const on = item.id === stage;
-              return (
-                <button
-                  key={item.id}
-                  className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
-                  aria-current={on ? "page" : undefined}
-                  title={`${item.label}（按 ${index + 1}）`}
-                  onClick={() => {
-                    setStage(item.id);
-                    setMenu(null);
-                    if (item.id === "board") {
+          {open ? (
+            <nav className="tabs" aria-label="创作阶段">
+              {STAGES.map((item, index) => {
+                // UIR-06: ticked only when that part is done; otherwise how far it got.
+                const progress =
+                  open && film && item.id !== "edit" ? stageTabs(film)[item.id] : null;
+                const done = Boolean(progress?.done);
+                const on = item.id === stage;
+                return (
+                  <button
+                    key={item.id}
+                    className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
+                    aria-current={on ? "page" : undefined}
+                    title={`${item.label}（按 ${index + 1}）`}
+                    onClick={() => {
+                      setStage(item.id);
+                      setMenu(null);
+                      if (item.id === "board") {
+                        const current = filmRef.current;
+                        const rows =
+                          current?.shots.filter((shotItem) => shotItem.sceneId === scene) ?? [];
+                        const list = rows.length > 0 ? rows : (current?.shots ?? []);
+                        const next = list.findIndex(
+                          (shotItem) => !shotItem.takes.some((take) => take.status === "done"),
+                        );
+                        setShot(next >= 0 ? next : 0);
+                      }
+                      if (item.id !== "cast") return;
                       const current = filmRef.current;
-                      const rows =
-                        current?.shots.filter((shotItem) => shotItem.sceneId === scene) ?? [];
-                      const list = rows.length > 0 ? rows : (current?.shots ?? []);
-                      const next = list.findIndex(
-                        (shotItem) => !shotItem.takes.some((take) => take.status === "done"),
-                      );
-                      setShot(next >= 0 ? next : 0);
-                    }
-                    if (item.id !== "cast") return;
-                    const current = filmRef.current;
-                    if (
-                      current &&
-                      current.characters.length === 0 &&
-                      current.locations.length === 0 &&
-                      current.scenes.some((sceneItem) => sceneItem.text.trim())
-                    ) {
-                      void fillCast(current);
-                    }
-                  }}
-                >
-                  <span className="n">
-                    {done && !on ? <Ic name="check" size={10} /> : index + 1}
-                  </span>
-                  {item.label}
-                  {progress && !done && progress.total > 0 ? (
-                    <small className="tab-count">
-                      {progress.have}/{progress.total}
-                    </small>
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
+                      if (
+                        current &&
+                        current.characters.length === 0 &&
+                        current.locations.length === 0 &&
+                        current.scenes.some((sceneItem) => sceneItem.text.trim())
+                      ) {
+                        void fillCast(current);
+                      }
+                    }}
+                  >
+                    <span className="n">
+                      {done && !on ? <Ic name="check" size={10} /> : index + 1}
+                    </span>
+                    {item.label}
+                    {progress && !done && progress.total > 0 ? (
+                      <small className="tab-count">
+                        {progress.have}/{progress.total}
+                      </small>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+          ) : (
+            <span aria-hidden="true" />
+          )}
           <div className="tb-right">
-            {exportView.ready ? null : (
+            {!open || exportView.ready ? null : (
               <span className="export-why" id="export-why">
                 {exportView.why}
               </span>
             )}
-            <button
-              className={exportView.lead ? "btn primary" : exportView.ready ? "btn" : "btn off"}
-              aria-describedby={exportView.ready ? undefined : "export-why"}
-              onClick={() => {
-                setExportOpen(true);
-                if (!exportDir && prefs.exportDir) setExportDir(prefs.exportDir);
-                else if (!exportDir) {
-                  void window.aijian?.defaultFilmFolder?.().then((dir) => {
-                    if (dir) setExportDir(dir);
-                  });
-                }
-              }}
-            >
-              <Ic name="upload" size={15} />
-              导出成片
-            </button>
+            {open ? (
+              <button
+                className={exportView.lead ? "btn primary" : exportView.ready ? "btn" : "btn off"}
+                aria-describedby={exportView.ready ? undefined : "export-why"}
+                onClick={() => {
+                  setExportOpen(true);
+                  if (!exportDir && prefs.exportDir) setExportDir(prefs.exportDir);
+                  else if (!exportDir) {
+                    void window.aijian?.defaultFilmFolder?.().then((dir) => {
+                      if (dir) setExportDir(dir);
+                    });
+                  }
+                }}
+              >
+                <Ic name="upload" size={15} />
+                导出成片
+              </button>
+            ) : null}
             {/* 4A-U10: signing in has one place, the avatar; its dot says how the membership is. */}
             <button
               className="avatar"
