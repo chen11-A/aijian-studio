@@ -10,6 +10,7 @@ import { chromium } from "playwright";
 import { createServer } from "vite";
 import { runQcCases, qcStates } from "./pro-export-qc-cases.mjs";
 import { progressStates } from "./pro-export-progress-cases.mjs";
+import { featureStates } from "./pro-feature-cases.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -20,6 +21,14 @@ const viewports = [
 const aspects = ["16:9", "9:16"];
 
 function auditIdentity(kind) {
+  if (kind === "features")
+    return {
+      title: "Pro feature audit",
+      code: "PRO_FEATURE",
+      label: "Pro features",
+      file: "pro-feature-audit.mjs",
+      directory: "aivora-pro-feature-audit",
+    };
   return kind === "progress"
     ? {
         title: "Pro export progress audit",
@@ -60,7 +69,12 @@ function emitGitHubErrors(report, profile) {
     "document-overflow",
   ]);
   for (const row of report.results.filter((item) => !item.passed).slice(0, 8)) {
-    const states = profile.kind === "progress" ? progressStates : qcStates;
+    const states =
+      profile.kind === "features"
+        ? featureStates
+        : profile.kind === "progress"
+          ? progressStates
+          : qcStates;
     const state = states.includes(row.page) ? row.page : "unknown";
     const safeCombination =
       /^(1280x800|1920x1080)-(16x9|9x16)-/.test(row.combination) &&
@@ -264,9 +278,11 @@ async function run(config, profile) {
   await mkdir(config.out, { recursive: true });
   const report = {
     scope:
-      profile.kind === "progress"
-        ? "Real ProWorkspace export progress/cancellation with synthetic events; no PID/file/provider/Electron assertion"
-        : "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
+      profile.kind === "features"
+        ? "Real ProWorkspace Cast field proposals, edit source-waveform and persistent-history UI with synthetic text/IPC metadata; no provider, decode, file or Electron assertion"
+        : profile.kind === "progress"
+          ? "Real ProWorkspace export progress/cancellation with synthetic events; no PID/file/provider/Electron assertion"
+          : "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
     expectedStates: profile.states,
     viewports,
     aspects,
@@ -338,6 +354,24 @@ async function run(config, profile) {
           "apps/studio-web/src/aivora/next/ExportCheck.tsx",
           "apps/studio-web/src/aivora/next/ExportCheck.css",
           "packages/contracts/src/film-export-qc.ts",
+          ...(profile.kind === "features"
+            ? [
+                "apps/studio-web/src/aivora/pro/actions/art-style-field-rows.ts",
+                "apps/studio-web/src/aivora/next/SuggestionFieldDiff.tsx",
+                "apps/studio-web/src/aivora/next/SuggestionFieldDiff.css",
+                "apps/studio-web/src/aivora/next/SuggestionCard.tsx",
+                "apps/studio-web/src/aivora/next/SuggestionCard.css",
+                "apps/studio-web/src/aivora/pro/use-audio-waveforms.ts",
+                "apps/studio-web/src/aivora/pro/actions/audio-waveforms.ts",
+                "apps/studio-web/src/aivora/film/audio.ts",
+                "apps/studio-web/src/aivora/film/audio-waveform-data.ts",
+                "packages/contracts/src/film-audio-waveform.ts",
+                "apps/studio-web/src/aivora/next/HistoryList.tsx",
+                "apps/studio-web/src/aivora/next/HistoryList.css",
+                "apps/studio-web/src/aivora/pro/actions/persistent-history.ts",
+                "packages/contracts/src/film-history.ts",
+              ]
+            : []),
           ...(profile.kind === "progress"
             ? [
                 "apps/studio-web/src/aivora/next/ExportProgress.tsx",
@@ -400,7 +434,7 @@ export async function runAuditCli(
     const config = options(profile);
     if (!config)
       console.log(
-        `Usage: node apps/studio-web/e2e/${identity.file} [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\n${profile.kind === "progress" ? "Progress host" : "QC host"}: 8 states × 4 viewport/aspect combinations (32 expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.`,
+        `Usage: node apps/studio-web/e2e/${identity.file} [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\n${profile.kind === "features" ? "Feature host" : profile.kind === "progress" ? "Progress host" : "QC host"}: ${profile.states.length} states × 4 viewport/aspect combinations (${profile.states.length * 4} expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.`,
       );
     else process.exitCode = await run(config, profile);
   } catch (error) {
