@@ -1028,6 +1028,8 @@ export interface AijianDesktopBridge
   defaultFilmFolder?: () => Promise<string>;
   prepareFilmExport?: FilmExportQcGateway["prepareFilmExport"];
   publishFilmExport?: FilmExportQcGateway["publishFilmExport"];
+  cancelFilmExportOperation?: FilmExportQcGateway["cancelFilmExportOperation"];
+  onFilmExportProgress?: FilmExportQcGateway["onFilmExportProgress"];
   discardFilmExport?: FilmExportQcGateway["discardFilmExport"];
   cancelFilmExport?: (requestId: string) => Promise<{ ok: boolean }>;
   exportFilmCut?: (

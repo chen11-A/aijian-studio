@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { exportFileHash } from "./film-export-io";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -9,6 +8,8 @@ const execute = promisify(execFile);
 export type QcEngine = (
   path: string,
   options: {
+    signal?: AbortSignal;
+    onProcess?: (pid: number, closed: boolean) => void;
     ffmpegPath: string;
     ffprobePath: string;
     srtPath?: string;
@@ -16,11 +17,7 @@ export type QcEngine = (
   },
 ) => Promise<unknown>;
 export type QcTools = { ffmpegPath: string; ffprobePath: string };
-async function digest(path: string) {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) hash.update(chunk);
-  return hash.digest("hex");
-}
+const digest = exportFileHash;
 /** Both hashes are checked before either binary executes; no PATH discovery. */
 export async function verifiedQcTools(
   root: string,
@@ -29,6 +26,7 @@ export async function verifiedQcTools(
   readVersion: (binary: string) => Promise<string> = async (binary) =>
     (await execute(binary, ["-version"], { timeout: 10000, maxBuffer: 65536, encoding: "utf8" }))
       .stdout,
+  signal?: AbortSignal,
 ): Promise<QcTools> {
   const lock = JSON.parse(await readFile(lockPath, "utf8"));
   if (
@@ -49,7 +47,8 @@ export async function verifiedQcTools(
     !(await stat(ffprobePath)).isFile()
   )
     throw new Error("TOOLS_UNAVAILABLE");
-  const [ffmpegHash, ffprobeHash] = await Promise.all([digest(ffmpegPath), digest(ffprobePath)]);
+  const ffmpegHash = await digest(ffmpegPath, signal);
+  const ffprobeHash = await digest(ffprobePath, signal);
   const profile = lock.profiles.find(
     (item: Record<string, unknown>) =>
       item.ffmpeg_sha256 === ffmpegHash && item.ffprobe_sha256 === ffprobeHash,
@@ -65,7 +64,9 @@ export async function verifiedQcTools(
     [ffmpegPath, "ffmpeg"],
     [ffprobePath, "ffprobe"],
   ]) {
+    signal?.throwIfAborted();
     const stdout = await readVersion(binary!);
+    signal?.throwIfAborted();
     const version = stdout.match(
       new RegExp(`^${name} version (?:n)?(\\d+\\.\\d+\\.\\d+)(?:[ -]|$)`),
     )?.[1];
@@ -92,4 +93,28 @@ export async function loadQcEngine(root: string): Promise<QcEngine> {
   )
     throw new Error("CHECK_FAILED");
   return engine.checkExport as QcEngine;
+}
+
+export type QcRunner = (
+  binary: string,
+  args: string[],
+  options?: {
+    signal?: AbortSignal;
+    onProcess?: (pid: number, closed: boolean) => void;
+    timeoutMs?: number;
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    maxBuffer?: number;
+  },
+) => Promise<{ stdout: string; stderr: string }>;
+export async function loadQcRunner(root: string): Promise<QcRunner> {
+  const module: unknown = await import(pathToFileURL(join(root, "media.mjs")).href);
+  if (
+    !module ||
+    typeof module !== "object" ||
+    !("run" in module) ||
+    typeof module.run !== "function"
+  )
+    throw new Error("TOOLS_UNAVAILABLE");
+  return module.run as QcRunner;
 }

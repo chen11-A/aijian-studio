@@ -5,7 +5,7 @@ function samePath(left: unknown, right: string) {
   if (typeof left !== "string") return false;
   if (left === right) return true;
   try {
-    return relative(realpathSync(left), realpathSync(right)) === "";
+    return relative(realpathSync.native(left), realpathSync.native(right)) === "";
   } catch {
     return false;
   }

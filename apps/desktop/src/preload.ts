@@ -1,4 +1,8 @@
-import type { FilmExportQcInput, FilmExportQcPublishInput } from "@aijian/contracts/film-export-qc";
+import type {
+  FilmExportQcInput,
+  FilmExportQcPublishInput,
+  FilmExportProgressEvent,
+} from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskSnapshot } from "@aijian/contracts/task-progress";
 import type {
   LocalMediaReviewGateway,
@@ -623,9 +627,17 @@ contextBridge.exposeInMainWorld("aijian", {
   ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
-  prepareFilmExport: (input: FilmExportQcInput) => ipcRenderer.invoke("film:qc-prepare", input),
-  publishFilmExport: (input: FilmExportQcPublishInput) =>
-    ipcRenderer.invoke("film:qc-publish", input),
+  prepareFilmExport: (input: FilmExportQcInput, operationId?: string) =>
+    ipcRenderer.invoke("film:qc-prepare", input, operationId),
+  publishFilmExport: (input: FilmExportQcPublishInput, operationId?: string) =>
+    ipcRenderer.invoke("film:qc-publish", input, operationId),
+  cancelFilmExportOperation: (operationId: string) =>
+    ipcRenderer.invoke("film:qc-cancel", operationId),
+  onFilmExportProgress: (listener: (snapshot: FilmExportProgressEvent) => void) => {
+    const handler = (_event: unknown, snapshot: FilmExportProgressEvent) => listener(snapshot);
+    ipcRenderer.on("film:qc-progress", handler);
+    return () => ipcRenderer.removeListener("film:qc-progress", handler);
+  },
   discardFilmExport: (qcReceipt: string) => ipcRenderer.invoke("film:qc-discard", qcReceipt),
   exportFilmCut: (source: string, directory: string, name?: string, options?: FilmExportOptions) =>
     ipcRenderer.invoke("film:export", source, directory, name, options),

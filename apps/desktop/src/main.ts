@@ -1,6 +1,6 @@
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 import { registerFilmExportQc } from "./film-export-qc-ipc";
-import { verifiedQcTools, loadQcEngine } from "./film-export-qc-runtime";
+import { verifiedQcTools, loadQcEngine, loadQcRunner } from "./film-export-qc-runtime";
 import { registerTaskProgressHandlers } from "./task-progress-ipc";
 import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
 import { registerAssemblyReadinessHandler } from "./assembly-readiness-ipc";
@@ -870,6 +870,12 @@ registerTaskProgressHandlers<IpcMainInvokeEvent>(
   (event, snapshot) => event.sender.send("aivora:tasks", snapshot),
 );
 const checkedPublishedPaths = new Set<string>();
+const qcResourceRoot = () =>
+  app.isPackaged
+    ? join(process.resourcesPath, "qc")
+    : existsSync(resolve(__dirname, "../../../qc"))
+      ? resolve(__dirname, "../../../qc")
+      : resolve(__dirname, "../../../packages/aivora-qc");
 registerFilmExportQc<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -882,20 +888,21 @@ registerFilmExportQc<IpcMainInvokeEvent>(
     filmsRoot: join(app.getPath("userData"), "films"),
     storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
     temporaryRoot: join(app.getPath("userData"), "cache", "export-qc"),
-    tools: () =>
-      verifiedQcTools(
+    tools: async (signal) => {
+      const runner = await loadQcRunner(qcResourceRoot());
+      return verifiedQcTools(
         process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
         process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
           join(process.resourcesPath, "config", "media-toolchain-lock.json"),
-      ),
-    engine: () =>
-      loadQcEngine(
-        app.isPackaged
-          ? join(process.resourcesPath, "qc")
-          : existsSync(resolve(__dirname, "../../../qc"))
-            ? resolve(__dirname, "../../../qc")
-            : resolve(__dirname, "../../../packages/aivora-qc"),
-      ),
+        process.platform,
+        async (binary) =>
+          (await runner(binary, ["-version"], { signal, timeoutMs: 10000, maxBuffer: 65536 }))
+            .stdout,
+        signal,
+      );
+    },
+    engine: () => loadQcEngine(qcResourceRoot()),
+    runner: () => loadQcRunner(qcResourceRoot()),
     storyOwner: async (projectId, path, sha256) =>
       storyFilmQcOwner(
         join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
@@ -935,6 +942,7 @@ registerFilmExportQc<IpcMainInvokeEvent>(
     sender.once("render-process-gone", invalidate);
     sender.once("destroyed", invalidate);
   },
+  (event, snapshot) => event.sender.send("film:qc-progress", snapshot),
 );
 registerFilmLibraryHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),

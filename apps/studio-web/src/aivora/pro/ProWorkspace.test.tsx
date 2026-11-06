@@ -2588,6 +2588,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
         expect.objectContaining({ takeId: expect.any(String) }),
       ]),
     }),
+    expect.any(String),
   );
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
   desktop.assembleFilm.mockImplementation(async () => ({

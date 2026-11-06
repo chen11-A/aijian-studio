@@ -1,3 +1,6 @@
+import { ExportProgress } from "../next/ExportProgress";
+import { acceptExportProgress, type ExportProgressScope } from "./actions/export-progress";
+import type { FilmExportProgressEvent } from "@aijian/contracts/film-export-qc";
 import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/film-export-qc";
 import { ExportCheck } from "../next/ExportCheck";
 import { readQcReport, type QcIssue } from "../next/qcReport";
@@ -3094,6 +3097,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [exportQcBusy, setExportQcBusy] = useState(false);
   const [exportQcAspect, setExportQcAspect] = useState(0);
   const exportQcBusyRef = useRef(false);
+  const [exportExecution, setExportExecution] = useState<FilmExportProgressEvent | null>(null);
+  const exportExecutionRef = useRef<FilmExportProgressEvent | null>(null);
+  const exportExecutionScope = useRef<ExportProgressScope | null>(null);
+
   const exportQcEpoch = useRef(0);
   const exportQcInput = film
     ? filmQcInput(film, exportAspects, {
@@ -3112,6 +3119,70 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     return context.key === key && filmQcKey(filmRef.current, context.input) === key;
   }
 
+  function consumeExportEvent(value: unknown) {
+    const scope = exportExecutionScope.current;
+    if (!scope) return;
+    const key = filmQcKey(filmRef.current, exportQcCurrent.current.input);
+    const admitted = acceptExportProgress(value, exportExecutionRef.current, scope, key);
+    if (admitted) {
+      exportExecutionRef.current = admitted;
+      setExportExecution(admitted);
+    }
+  }
+  function beginExportExecution(input: FilmExportQcInput, key: string) {
+    const operationId = crypto.randomUUID();
+    exportExecutionScope.current = { operationId, projectId: input.projectId, key };
+    exportExecutionRef.current = null;
+    setExportExecution(null);
+    return operationId;
+  }
+  async function requestExportStop(operationId: string): Promise<boolean> {
+    const scope = exportExecutionScope.current,
+      bridge = window.aijian;
+    if (
+      !scope ||
+      scope.operationId !== operationId ||
+      !qcContextCurrent(scope.key) ||
+      !bridge?.cancelFilmExportOperation
+    )
+      throw new Error("停止状态待确认");
+    const ack = await bridge.cancelFilmExportOperation(operationId);
+    if (exportExecutionScope.current?.operationId !== operationId) return true;
+    if (ack.snapshot) consumeExportEvent(ack.snapshot);
+    if (ack.kind === "UNAVAILABLE") return false;
+    if (ack.kind === "REQUESTED" || ack.kind === "STOPPED") return true;
+    const previous = exportExecutionRef.current;
+    if (previous) {
+      const unknown = {
+        ...previous,
+        phase: "unknown" as const,
+        cancelState: "unavailable" as const,
+        progress: undefined,
+      };
+      exportExecutionRef.current = unknown;
+      setExportExecution(unknown);
+    }
+    throw new Error("停止状态待确认");
+  }
+  useEffect(() => window.aijian?.onFilmExportProgress?.(consumeExportEvent), []);
+  useEffect(() => {
+    const scope = exportExecutionScope.current;
+    if (scope && !qcContextCurrent(scope.key)) {
+      exportExecutionScope.current = null;
+      exportExecutionRef.current = null;
+      setExportExecution(null);
+      void window.aijian?.cancelFilmExportOperation?.(scope.operationId).catch(() => undefined);
+    }
+  }, [exportQcKey]);
+  useEffect(
+    () => () => {
+      const scope = exportExecutionScope.current;
+      if (scope)
+        void window.aijian?.cancelFilmExportOperation?.(scope.operationId).catch(() => undefined);
+      exportExecutionScope.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     if (exportQc?.ready && exportQcStale)
       void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
@@ -3193,10 +3264,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         error: null,
         checking: true,
       });
-      const result = await bridge.prepareFilmExport(captured.input!);
+      const operationId = beginExportExecution(captured.input!, captured.key);
+      const result = await bridge.prepareFilmExport(captured.input!, operationId);
       if (epoch !== exportQcEpoch.current || !qcContextCurrent(captured.key)) {
         if (result.kind === "READY")
           void bridge.discardFilmExport?.(result.qcReceipt).catch(() => undefined);
+        return;
+      }
+      if (result.kind === "FAILED" && result.code === "OPERATION_STOPPED") {
+        setExportQc(null);
+        setNotice({
+          code: "OPERATION_CANCELLED",
+          text: NOTICE_TEXT.OPERATION_CANCELLED,
+          detail: "处理已经停止，未发布新文件。",
+        });
         return;
       }
       if (result.kind !== "READY") {
@@ -3272,13 +3353,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       // The reviewed snapshot is already persisted. Any edit invalidates its key;
       // rewriting it here could rematerialize data URLs into different files.
       if (!qcContextCurrent(check.key)) return;
-      const result = await bridge.publishFilmExport({
-        ...check.input,
-        qcReceipt: check.ready.qcReceipt,
-      });
+      const operationId = beginExportExecution(check.input, check.key);
+      const result = await bridge.publishFilmExport(
+        {
+          ...check.input,
+          qcReceipt: check.ready.qcReceipt,
+        },
+        operationId,
+      );
       if (!qcContextCurrent(check.key)) return;
       if (result.kind === "CANCELLED") return;
       if (result.kind === "FAILED") {
+        if (result.code === "OPERATION_STOPPED") {
+          setExportQc(null);
+          setNotice({
+            code: "OPERATION_CANCELLED",
+            text: NOTICE_TEXT.OPERATION_CANCELLED,
+            detail: "处理已经停止，未发布新文件。",
+          });
+          return;
+        }
         setExportQc({ ...check, error: qcFailureText[result.code] });
         setNotice({
           code: "EXPORT_QC_FAILED",
@@ -3293,6 +3387,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       if (path && filmRef.current) {
         const updated = { ...filmRef.current, exportPath: path };
         applyLive(updated);
+        // Internal output bookkeeping is not a new execution or a new receipt input.
+        const execution = exportExecutionScope.current;
+        if (execution?.operationId === operationId)
+          execution.key = filmQcKey(filmRef.current, exportQcCurrent.current.input);
         setExportFile(path);
         try {
           recorded = Boolean(await saveFilm(filmRef.current!));
@@ -3320,6 +3418,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
   function cancelCheckedExport() {
     if (exportQcBusyRef.current) return;
+    exportExecutionScope.current = null;
+    exportExecutionRef.current = null;
+    setExportExecution(null);
     exportQcEpoch.current += 1;
     if (exportQc?.ready)
       void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
@@ -4959,6 +5060,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       count={shotsNeedingCleanCopy(film).length}
                       busy={cleanCopyBusy}
                       onRepair={() => void repairCleanCopies(null)}
+                    />
+                  ) : null}
+                  {exportExecution ? (
+                    <ExportProgress
+                      operationKey={exportExecution.operationId}
+                      phase={exportExecution.phase}
+                      progress={exportExecution.progress}
+                      cancelState={exportExecution.cancelState}
+                      published={exportExecution.published}
+                      onRequestCancel={() => requestExportStop(exportExecution.operationId)}
                     />
                   ) : null}
                   {exportQc ? (

@@ -44,5 +44,6 @@ export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
   RECEIPT_STALE: "这份检查结果已经失效，请重新检查。",
   QC_BLOCKED: "成片仍有要先处理的问题，请查看检查清单。",
   PUBLISH_FAILED: "发布没有完成，请检查输出文件夹后重新检查。",
+  OPERATION_STOPPED: "处理已停止，未发布的文件没有保存。",
   BUSY: "同一工程已有检查或发布正在进行，请等待。",
 };

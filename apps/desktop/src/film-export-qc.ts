@@ -1,12 +1,14 @@
+import type { ExportWork } from "./film-export-operation";
+import { exportFileHash, copyExportFile } from "./film-export-io";
 import type {
   FilmExportQcInput,
   FilmExportQcPrepared,
   FilmExportQcFailure,
   FilmExportQcPublishResult,
 } from "@aijian/contracts/film-export-qc";
-import { createHash, randomUUID } from "node:crypto";
-import { realpathSync, createReadStream } from "node:fs";
-import { copyFile, mkdir, mkdtemp, realpath, link, rm, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
+import { mkdir, mkdtemp, realpath, link, rm, stat } from "node:fs/promises";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -22,7 +24,7 @@ import {
 } from "./film-library";
 import { exportFilmFile, type FilmExportExtras } from "./film-export";
 import { subtitleSrt, exportCanvas, validCues, type ExportCue } from "./film-subtitles";
-import type { QcEngine, QcTools } from "./film-export-qc-runtime";
+import type { QcEngine, QcTools, QcRunner } from "./film-export-qc-runtime";
 const execute = promisify(execFile);
 type Row = Record<string, unknown>;
 const object = (value: unknown): Row | null =>
@@ -103,11 +105,15 @@ export function qcInput(value: unknown): FilmExportQcInput {
     }),
   );
 }
-async function sha(path: string) {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) hash.update(chunk);
-  return hash.digest("hex");
+function sha(path: string, work?: ExportWork) {
+  const task = exportFileHash(path, work?.signal);
+  return work ? work.track(task) : task;
 }
+function copy(source: string, destination: string, work?: ExportWork) {
+  const task = copyExportFile(source, destination, work?.signal);
+  return work ? work.track(task) : task;
+}
+
 function within(root: string, path: string) {
   const part = relative(root, path);
   return !!part && !isAbsolute(part) && part !== ".." && !part.startsWith(`..${sep}`);
@@ -117,7 +123,8 @@ export type FilmQcHost = {
   filmsRoot: string;
   storyFilmsRoot: string;
   temporaryRoot: string;
-  tools: () => Promise<QcTools>;
+  tools: (signal?: AbortSignal) => Promise<QcTools>;
+  runner?: () => Promise<QcRunner>;
   engine: () => Promise<QcEngine>;
   font: () => string | undefined;
   pickDirectory: () => Promise<string | null>;
@@ -168,7 +175,7 @@ export function createFilmExportQc(host: FilmQcHost) {
   const ownerEpochs = new Map<string, number>();
   const now = host.now ?? Date.now;
   const read = host.read ?? ((id: string) => readProject(host.filmsRoot, id));
-  async function snapshot(input: FilmExportQcInput): Promise<Snapshot> {
+  async function snapshot(input: FilmExportQcInput, work?: ExportWork): Promise<Snapshot> {
     const record = await read(input.projectId);
     if (
       !record ||
@@ -230,7 +237,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           story &&
           within(story, path) &&
           host.storyOwner &&
-          (await host.storyOwner(text(record.backendProjectId), path, await sha(path)))
+          (await host.storyOwner(text(record.backendProjectId), path, await sha(path, work)))
         )
       )
         fail("SOURCE_UNVERIFIED");
@@ -268,7 +275,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           ...(scorePath ? [scorePath] : []),
           ...(coverStill ? [coverStill] : []),
         ]),
-      ].map(async (path) => [path, await sha(path)]),
+      ].map(async (path) => [path, await sha(path, work)]),
     );
     const content = Object.fromEntries(
       Object.entries(record).filter(([key]) => !["savedAt", "directory"].includes(key)),
@@ -296,18 +303,22 @@ export function createFilmExportQc(host: FilmQcHost) {
     fingerprint: string,
     owner: string,
     generation: number,
+    work?: ExportWork,
   ) {
+    work?.signal.throwIfAborted();
     if ((ownerEpochs.get(owner) ?? 0) !== generation) fail("PROJECT_CHANGED");
     if (
-      (await snapshot(input)).fingerprint !== fingerprint ||
+      (await snapshot(input, work)).fingerprint !== fingerprint ||
       (ownerEpochs.get(owner) ?? 0) !== generation
     )
       fail("PROJECT_CHANGED");
+    work?.signal.throwIfAborted();
   }
   return {
     async prepare(
       owner: string,
       value: unknown,
+      work?: ExportWork,
     ): Promise<FilmExportQcPrepared | FilmExportQcFailure> {
       let folder = "";
       let activeKey = "";
@@ -328,16 +339,30 @@ export function createFilmExportQc(host: FilmQcHost) {
             await remove(token);
         if ([...receipts.values()].filter((item) => item.owner === owner).length >= 4)
           fail("CHECK_FAILED");
-        const base = await snapshot(input);
-        const tools = await host.tools().catch(() => fail("TOOLS_UNAVAILABLE"));
+        work?.phase("preparing");
+        const base = await snapshot(input, work);
+        const tools = await host.tools(work?.signal).catch(() => fail("TOOLS_UNAVAILABLE"));
         const engine = await host.engine();
-        await current(input, base.fingerprint, owner, ownerGeneration);
+        await current(input, base.fingerprint, owner, ownerGeneration, work);
         await mkdir(host.temporaryRoot, { recursive: true });
         folder = await mkdtemp(join(host.temporaryRoot, "export-qc-"));
+        const managed = host.runner ? await host.runner() : undefined;
         const run = async (
           args: string[],
           options?: { cwd?: string; env?: Record<string, string> },
         ) => {
+          work?.signal.throwIfAborted();
+          if (managed) {
+            const task = managed(tools.ffmpegPath, args, {
+              timeoutMs: 600000,
+              maxBuffer: 1024 * 1024,
+              signal: work?.signal,
+              ...options,
+              env: { ...process.env, ...options?.env },
+            });
+            await (work ? work.track(task) : task);
+            return;
+          }
           await execute(tools.ffmpegPath, args, {
             timeout: 600000,
             maxBuffer: 1024 * 1024,
@@ -346,11 +371,36 @@ export function createFilmExportQc(host: FilmQcHost) {
           });
         };
         const duration = async (path: string) => {
-          const { stdout } = await execute(
-            tools.ffprobePath,
-            ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path],
-            { timeout: 30000, maxBuffer: 65536 },
-          );
+          work?.signal.throwIfAborted();
+          const args = [
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=nw=1:nk=1",
+            path,
+          ];
+          const probe = managed
+            ? managed(tools.ffprobePath, args, {
+                timeoutMs: 30000,
+                maxBuffer: 65536,
+                signal: work?.signal,
+              })
+            : execute(
+                tools.ffprobePath,
+                [
+                  "-v",
+                  "error",
+                  "-show_entries",
+                  "format=duration",
+                  "-of",
+                  "default=nw=1:nk=1",
+                  path,
+                ],
+                { timeout: 30000, maxBuffer: 65536 },
+              );
+          const { stdout } = await (work ? work.track(probe) : probe);
           const seconds = Number(stdout.trim());
           if (!Number.isFinite(seconds) || seconds <= 0) fail("CHECK_FAILED");
           return seconds;
@@ -369,7 +419,14 @@ export function createFilmExportQc(host: FilmQcHost) {
           cues: ExportCue[] = [],
           dialogue: { start: number; end: number }[] = [];
         let at = 0;
+        work?.phase("preparing", {
+          kind: "units",
+          completed: 0,
+          total: base.clips.length,
+          unit: "镜头",
+        });
         for (const [index, clip] of base.clips.entries()) {
+          work?.signal.throwIfAborted();
           const seconds = await duration(clip.path);
           const start = at;
           shots.push({ id: clip.shotId, label: clip.label, start, end: at + seconds });
@@ -380,6 +437,7 @@ export function createFilmExportQc(host: FilmQcHost) {
             }),
           );
           // No measured speech intervals: do not widen freeze thresholds using storyboard text.
+          if (clip.voice) work?.phase("mixing");
           sources.push(
             clip.voice
               ? await applyDialogue(
@@ -392,13 +450,31 @@ export function createFilmExportQc(host: FilmQcHost) {
               : clip.path,
           );
           at += seconds;
+          work?.phase("preparing", {
+            kind: "units",
+            completed: index + 1,
+            total: base.clips.length,
+            unit: "镜头",
+          });
         }
         const assembled = join(folder, "assembly.mp4");
-        await joinClips(sources, assembled, run);
-        if (base.score) await mixMusic(assembled, base.score, run, base.gain, duration);
+        work?.phase("joining");
+        if (sources.length === 1) await copy(sources[0]!, assembled, work);
+        else await joinClips(sources, assembled, run);
+        if (base.score) {
+          work?.phase("mixing");
+          await mixMusic(assembled, base.score, run, base.gain, duration);
+        }
         const outputs: Prepared["outputs"] = [],
           reports: FilmExportQcPrepared["outputs"] = [];
         for (const aspectRatio of input.settings.aspects) {
+          work?.signal.throwIfAborted();
+          work?.phase("rendering", {
+            kind: "units",
+            completed: outputs.length,
+            total: input.settings.aspects.length,
+            unit: "画幅",
+          });
           const outputFolder = join(folder, aspectRatio.replace(":", "x"));
           await mkdir(outputFolder);
           let extras: FilmExportExtras = {};
@@ -420,12 +496,18 @@ export function createFilmExportQc(host: FilmQcHost) {
               },
             },
             run,
-            () => epochs.get(input.projectId) !== epoch,
+            () => Boolean(work?.signal.aborted) || epochs.get(input.projectId) !== epoch,
             { fontFile: host.font(), coverStill },
             (value) => {
               extras = value;
             },
           );
+          work?.phase("rendering", {
+            kind: "units",
+            completed: outputs.length + 1,
+            total: input.settings.aspects.length,
+            unit: "画幅",
+          });
           // The QC package cannot inspect burned text. Give it an independently retained SRT for estimates.
           let srtPath = extras.subtitlePath;
           if (!srtPath && cues.length && input.settings.subtitles === "burn") {
@@ -440,19 +522,34 @@ export function createFilmExportQc(host: FilmQcHost) {
               ),
             );
           }
-          const report = await engine(path, {
+          work?.phase("checking", {
+            kind: "units",
+            completed: outputs.length,
+            total: input.settings.aspects.length,
+            unit: "画幅",
+          });
+          const checking = engine(path, {
+            signal: work?.signal,
             ...tools,
             ...(srtPath ? { srtPath } : {}),
             dialogue,
           });
+          const report = await (work ? work.track(checking) : checking);
+          work?.phase("checking", {
+            kind: "units",
+            completed: outputs.length + 1,
+            total: input.settings.aspects.length,
+            unit: "画幅",
+          });
+          work?.phase("checking-final");
           if (!object(report) || object(report)?.schemaVersion !== 1) fail("CHECK_FAILED");
           const extraHashes: Record<string, string> = {};
           for (const extra of Object.values(extras))
-            if (extra) extraHashes[extra] = await sha(extra);
-          outputs.push({ aspectRatio, path, hash: await sha(path), extras, extraHashes });
+            if (extra) extraHashes[extra] = await sha(extra, work);
+          outputs.push({ aspectRatio, path, hash: await sha(path, work), extras, extraHashes });
           reports.push({ aspectRatio, report });
         }
-        await current(input, base.fingerprint, owner, ownerGeneration);
+        await current(input, base.fingerprint, owner, ownerGeneration, work);
         if (epochs.get(input.projectId) !== epoch) fail("PROJECT_CHANGED");
         const fileName = safeExportName(
           `${text(base.record.seriesTitle) || text(base.record.title)}-${text(base.record.episodeTitle) || "成片"}`,
@@ -489,13 +586,19 @@ export function createFilmExportQc(host: FilmQcHost) {
           ],
         };
       } catch (error) {
-        return failure(error);
+        return work?.signal.aborted
+          ? { kind: "FAILED", code: "OPERATION_STOPPED" }
+          : failure(error);
       } finally {
         if (activeKey) active.delete(activeKey);
         if (folder) await rm(folder, { recursive: true, force: true });
       }
     },
-    async publish(owner: string, value: unknown): Promise<FilmExportQcPublishResult> {
+    async publish(
+      owner: string,
+      value: unknown,
+      work?: ExportWork,
+    ): Promise<FilmExportQcPublishResult> {
       let token = "";
       let consumed = false;
       let cleanupFolder = "";
@@ -521,10 +624,14 @@ export function createFilmExportQc(host: FilmQcHost) {
         publishing.add(token);
         publishKey = token;
         if (prepared.blocked) fail("QC_BLOCKED");
-        await current(input, prepared.fingerprint, owner, prepared.ownerGeneration);
+        await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+        work?.phase("publishing");
+        work?.cancellable(false);
         const directory = await host.pickDirectory();
+        work?.cancellable(true);
+        work?.signal.throwIfAborted();
         if (!directory) return { kind: "CANCELLED" };
-        await current(input, prepared.fingerprint, owner, prepared.ownerGeneration);
+        await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
         if (receipts.get(token) !== prepared) fail("RECEIPT_STALE");
         receipts.delete(token);
         consumed = true;
@@ -533,17 +640,23 @@ export function createFilmExportQc(host: FilmQcHost) {
         if (!(await stat(target)).isDirectory()) fail("PUBLISH_FAILED");
         // Receipt identity makes each output name unique; existing originals are never overwritten.
         for (const output of prepared.outputs) {
-          if ((await sha(output.path)) !== output.hash) fail("RECEIPT_STALE");
+          if ((await sha(output.path, work)) !== output.hash) fail("RECEIPT_STALE");
           for (const [path, hash] of Object.entries(output.extraHashes))
-            if ((await sha(path)) !== hash) fail("RECEIPT_STALE");
-          await current(input, prepared.fingerprint, owner, prepared.ownerGeneration);
+            if ((await sha(path, work)) !== hash) fail("RECEIPT_STALE");
+          work?.phase("publishing", {
+            kind: "units",
+            completed: outputs.length,
+            total: prepared.outputs.length,
+            unit: "画幅",
+          });
+          await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
           const stem = `${prepared.fileName.replace(/\.mp4$/i, "")}-${token.slice(0, 8)}-${output.aspectRatio.replace(":", "x")}`;
           const destination = join(target, `${stem}.mp4`);
           const temporary = await mkdtemp(join(target, ".aivora-qc-"));
           try {
             const pending = join(temporary, "film.mp4");
-            await copyFile(output.path, pending);
-            if ((await sha(pending)) !== output.hash) fail("PUBLISH_FAILED");
+            await copy(output.path, pending, work);
+            if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
             const sidecars: {
               kind: "subtitlePath" | "coverPath";
               pending: string;
@@ -556,11 +669,13 @@ export function createFilmExportQc(host: FilmQcHost) {
                 kind === "subtitlePath" ? `${stem}.srt` : `${stem}-封面.png`,
               );
               const pending = join(temporary, kind === "subtitlePath" ? "film.srt" : "cover.png");
-              await copyFile(path, pending);
-              if ((await sha(pending)) !== output.extraHashes[path]) fail("PUBLISH_FAILED");
+              await copy(path, pending, work);
+              if ((await sha(pending, work)) !== output.extraHashes[path]) fail("PUBLISH_FAILED");
               sidecars.push({ kind: kind as "subtitlePath" | "coverPath", pending, destination });
             }
-            await current(input, prepared.fingerprint, owner, prepared.ownerGeneration);
+            await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+            work?.signal.throwIfAborted();
+            work?.cancellable(false);
             await link(pending, destination);
             host.publishedPaths?.add(realpathSync(destination));
             const saved: {
@@ -570,10 +685,18 @@ export function createFilmExportQc(host: FilmQcHost) {
               coverPath?: string;
             } = { aspectRatio: output.aspectRatio, path: destination };
             outputs.push(saved);
+            work?.published(output.aspectRatio);
             for (const side of sidecars) {
               await link(side.pending, side.destination);
               saved[side.kind] = side.destination;
             }
+            work?.phase("publishing", {
+              kind: "units",
+              completed: outputs.length,
+              total: prepared.outputs.length,
+              unit: "画幅",
+            });
+            if (outputs.length < prepared.outputs.length) work?.cancellable(true);
           } finally {
             await rm(temporary, { recursive: true, force: true });
           }
@@ -581,13 +704,18 @@ export function createFilmExportQc(host: FilmQcHost) {
         await rm(prepared.folder, { recursive: true, force: true });
         return { kind: "PUBLISHED", outputs };
       } catch (error) {
-        const failed = failure(error);
+        const failed = work?.signal.aborted
+          ? { kind: "FAILED" as const, code: "OPERATION_STOPPED" as const }
+          : failure(error);
         return outputs.length
           ? { kind: "PARTIAL", outputs }
           : failed.code === "CHECK_FAILED"
             ? { kind: "FAILED", code: "PUBLISH_FAILED" }
             : failed;
       } finally {
+        if (work?.signal.aborted && token) {
+          await remove(token);
+        }
         if (publishKey) publishing.delete(publishKey);
         if (consumed) {
           receipts.delete(token);
