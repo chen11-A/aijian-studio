@@ -1083,7 +1083,7 @@ frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backs
 
 `captureFile(film)` 仍返回 `{name,text,scenes}|null`，film 需要完整的 id/sourceText/scenes/shots/title；按三重身份筛选再组装，正文不匹配返回 null，关闭或清空会使进行中的旧导出失效。界面已经传完整 film，接口返回和下载行为不变。后端 35 项与设置 11 项联合 6 文件 46 项通过，具体证据见 `docs/aivora/3jr-backend-verification.md`；当前工作树待总控接入，真实会员未验。
 
-### 4B-U09 无字幕版本补做入口（界面待总控集成）
+### 4B-U09 无字幕版本补做入口（已集成当前接管分支 `c3e21e7`）
 
 独立 `CleanCopyRepair` 纯显示组件已接入分镜当前镜头属性、单镜版本页与导出受阻三处。单镜依据 `shotsNeedingCleanCopy(film)` 检查真实所选 take：有台词、有完成视频、没有 `cleanVideoPath` 才显示，切换到已有无字幕副本的版本后入口消失。组件不调用生成接口，主工作台通过后端 `repairCleanCopies(shotIds|null)` 调度，`cleanCopyBusy` 控制补做按钮及导出按钮，避免半成品导出。
 
@@ -1095,4 +1095,4 @@ frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backs
 
 `repairCleanCopies(shotIds: readonly string[] | null): Promise<void>` 为本机业务handler，null按当前所选版本中缺副本的镜头计算；`cleanCopyBusy`按工程防重入，`cleanCopyBlocked`绑定导出受阻时的工程与字幕模式。计费准备后继续按原镜头/takeId/videoPath核对当前选择，不将过期目标重定向到新版本。helper新增 `stale` outcome，明确已跳过变化的作品/版本，不报告done；缺原合成记录继续返回missing，不自动生成。
 
-helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快照；宿主使用既有队列和本项最后live对象guard，保留切作品前已成功结果，拒绝同工程较旧快照覆盖后改内容。旧工程浏览器延迟写回后恢复当前可见工程activeId；失败中断明确保留已保存版本。后端22项加界面5项，共5文件27项实跑通过，web类型/目标静态通过，具体证据见后端验证记录；当前待总控集成提交，不代表真实会员验收。
+helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快照；宿主使用既有队列和本项最后live对象guard，保留切作品前已成功结果，拒绝同工程较旧快照覆盖后改内容。旧工程浏览器延迟写回后恢复当前可见工程activeId；失败中断明确保留已保存版本。后端22项加界面5项，共5文件27项实跑通过，web类型/目标静态通过，具体证据见后端验证记录；已集成当前接管分支 `c3e21e7`，不代表已合远端 dev，也不代表真实会员或 Electron 验收。
