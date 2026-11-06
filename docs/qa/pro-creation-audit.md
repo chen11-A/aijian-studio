@@ -19,7 +19,7 @@
 
 ```sh
 # 无浏览器的真实编译器/替身存档/指纹/CLI 安全契约：
-node --test apps/studio-web/e2e/pro-creation-fixture.test.mjs
+node --test apps/studio-web/e2e/pro-creation-fixture.contract.mjs
 node apps/studio-web/e2e/pro-creation-audit.mjs --help
 node apps/studio-web/e2e/pro-creation-audit.mjs --browser /usr/bin/google-chrome --out .aijian-dev/pro-creation-audit
 # 也可复用已有本机 Vite：
