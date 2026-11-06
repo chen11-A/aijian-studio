@@ -10,6 +10,7 @@ it("keeps the sandbox bridge electron-only and forwards identity/placement to fi
   const invoke = vi.fn(async () => ({ kind: "FAILED", code: "INVALID_INPUT", unchanged: true }));
   let bridge!: {
     listBundledFilmAudio: () => Promise<unknown>;
+    inspectBundledFilmAudioTarget: (input: unknown) => Promise<unknown>;
     addBundledFilmAudio: (input: unknown) => Promise<unknown>;
   };
   runInNewContext(compiled, {
@@ -37,9 +38,17 @@ it("keeps the sandbox bridge electron-only and forwards identity/placement to fi
     lane: "sfx",
     placement: { startSeconds: 0, durationSeconds: 0.2, offsetSeconds: 0, gainDb: 0, loop: false },
   };
+  const target = {
+    projectId: input.projectId,
+    expectedProjectHash: input.expectedProjectHash,
+    shotId: input.shotId,
+    takeId: input.takeId,
+  };
+  await bridge.inspectBundledFilmAudioTarget(target);
   await bridge.listBundledFilmAudio();
   await bridge.addBundledFilmAudio(input);
   expect(invoke.mock.calls).toEqual([
+    ["film:audio-library-target", target],
     ["film:audio-library-list"],
     ["film:audio-library-add", input],
   ]);

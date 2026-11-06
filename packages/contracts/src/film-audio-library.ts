@@ -65,7 +65,26 @@ export type AddBundledFilmAudioInput = {
 };
 export type AddBundledFilmAudioResult =
   { kind: "ADDED"; clipId: string; project: Record<string, unknown> } | FilmAudioLibraryFailure;
+export type InspectBundledFilmAudioTargetInput = {
+  projectId: string;
+  expectedProjectHash: string;
+  shotId: string;
+  takeId: string;
+};
+export type InspectBundledFilmAudioTargetResult =
+  | {
+      kind: "TARGET";
+      projectId: string;
+      shotId: string;
+      takeId: string;
+      projectHash: string;
+      durationSeconds: number;
+    }
+  | FilmAudioLibraryFailure;
 export type FilmAudioLibraryGateway = {
+  inspectBundledFilmAudioTarget: (
+    input: InspectBundledFilmAudioTargetInput,
+  ) => Promise<InspectBundledFilmAudioTargetResult>;
   listBundledFilmAudio: () => Promise<FilmAudioLibraryCatalog | FilmAudioLibraryFailure>;
   addBundledFilmAudio: (input: AddBundledFilmAudioInput) => Promise<AddBundledFilmAudioResult>;
 };
