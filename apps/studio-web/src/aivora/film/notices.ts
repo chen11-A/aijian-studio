@@ -362,6 +362,20 @@ const PREVIOUS_NOTICE_TEXT = {
 /** Preserve existing plain-text aliases when distinct codes share newly approved wording. */
 export const NOTICE_TEXT = {
   ...PREVIOUS_NOTICE_TEXT,
+  GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
+  GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
+  CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",
+  CLEAN_COPY_PROGRESS: "正在补做不带字幕的版本。",
+  CLEAN_COPY_INTERRUPTED: "补做中断，已经保存的版本会保留。请查看剩余镜头后重试。",
+  CLEAN_COPY_DONE: "不带字幕的版本补好了。",
+  CLEAN_COPY_FAILED: "不带字幕的版本没有补好，可以重试。",
+  CLEAN_COPY_SOURCE_MISSING: "找不到原来的合成记录，暂时不能补做。",
+  CLEAN_COPY_STALE: "作品或版本已经变化，已跳过旧结果。",
+  CLEAN_COPY_PARTIAL: "部分镜头已补好，请查看剩余镜头后重试。",
+  CAPTURE_ENABLED_REQUIRED: "先开启保存原始回复，再进行导演或动作生成。",
+  CAPTURE_REPLY_MISSING: "这个作品还没有匹配的导演原始回复。开启保存后再进行生成。",
+  CAPTURE_EXPORT_DONE: "排查文件已下载到本机。",
+  CAPTURE_EXPORT_FAILED: "排查文件没有导出，请重试。",
   LOCATION_SOURCE_REQUIRED: "这一场还没有可用的环境描述。",
   MULTI_VOICE_PROVIDER_REQUIRED: "分角色配音需要 Grok 会员。",
   DIALOGUE_VIDEO_LIMIT: "对白放不下，请拆成两个镜头。",
@@ -595,6 +609,26 @@ export type NoticeCode = keyof typeof NOTICE_TEXT;
 
 /** Ordered rules: distinguish cancellation requests and failures before progress/success. */
 const RULES: readonly [NoticeCode, RegExp][] = [
+  ["DESKTOP_REQUIRED", /^补做不带字幕的版本需要桌面版。$/u],
+  ["BILLING_PROJECT_REQUIRED", /^这一次没有记到作品上，请稍后再试。$/u],
+  ["PROJECT_REQUIRED", /^先打开一个作品，再导出排查文件。$/u],
+  ["REQUEST_STALE", /^作品内容已变化，请重新导出排查文件。$/u],
+  ["CAPTURE_EXPORT_DONE", /^已导出 \d+ 场的排查文件，只下载到本机。$/u],
+  // Recognize the helper's concrete outcomes before generic export/generation aliases.
+  [
+    "CLEAN_COPY_PARTIAL",
+    /^(?=[\s\S]*不带字幕的那份补好了。)(?=[\s\S]*(?:没有补成|不带字幕的那份没有做出来|找不到当时的合成记录|的作品或版本已经变化))(?:镜头 \d+|\d+ 个镜头)[\s\S]*$/u,
+  ],
+  [
+    "CLEAN_COPY_FAILED",
+    /^镜头 \d+(?:没有补成（[^\n]*）|不带字幕的那份没有做出来[^\n]*)，可以再试一次。/u,
+  ],
+  [
+    "CLEAN_COPY_SOURCE_MISSING",
+    /^镜头 \d+(?:、镜头 \d+)*找不到当时的合成记录，只能重新生成(?:这个|这几个)镜头。/u,
+  ],
+  ["CLEAN_COPY_STALE", /^镜头 \d+的作品或版本已经变化，已跳过旧结果。/u],
+  ["CLEAN_COPY_DONE", /^(?:镜头 \d+|\d+ 个镜头)不带字幕的那份补好了。$/u],
   ["SAVE_FAILED", /^没有写到应用数据目录，可以重试。$/u],
   ["USER_EDIT_PRESERVED", /台词或时长已修改，保留了你的修改/u],
   ["SELECTION_MISMATCH", /当前选择已改变，请回到美术建议/u],
@@ -786,6 +820,8 @@ export function normalizeNotice(value: string | UiNotice): UiNotice {
     RULES.find(([, match]) => match.test(original))?.[0] ??
     "OPERATION_STATUS";
   const text = NOTICE_TEXT[code];
-  const legacyAlias = original === LEGACY_NOTICE_TEXT[code];
+  const legacyAlias =
+    Object.hasOwn(LEGACY_NOTICE_TEXT, code) &&
+    original === LEGACY_NOTICE_TEXT[code as keyof typeof LEGACY_NOTICE_TEXT];
   return { code, text, ...(original !== text && !legacyAlias ? { detail: original } : {}) };
 }

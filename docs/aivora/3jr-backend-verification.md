@@ -512,3 +512,14 @@ Grok 的问题单写明 `directorVideoPrompt` 里也有「竖屏构图」，`5eb
 - 总控另行实跑 `pytest test_story_film.py -k 'clean_copy or remake'`：8通过、21未选择，24.36秒，日志 `.aijian-dev/cloud-setup/clean-copy-service-tests.log`。这组真实本机FFmpeg夹具覆盖重建后视频+音频、原片字节不变、两次输出不同、provider调用为空及API路由返回文件；不是会员、Electron或用户真实工程验收，与网页测试数量分开记录。
 
 源码与本轮文档已交付冻结，当前分支提交及远端dev由总控登记；没有自行提交、推送、合并，没有扩大B13。Chromium替身IPC界面证据见界面QA，真实会员、Electron和安装包仍未验。
+
+## 接管分支 CI 业务提示完整性修复
+
+总控从允许的 GitHub Actions 网页读取 `a6d8b0f` / run `42177470800`：Linux、Windows均Failure，公开注释指出 `film/notices.test.ts:109`「每条工作台静态提示都有具体业务码」失败；「所选镜头已经变化，请重新选择后生成。」此前落为 `OPERATION_STATUS`。旧185项、209项是当时的定向范围，未覆盖这项契约，不抹掉线上CI失败，也不把修复定向写成CI已绿。
+
+- `backend_round2`（Sol medium）审查接管以来工作台新增静态提示，增加精确的生成选区失效/批次运行中、clean-copy与排查文件业务码，桌面版/计费准备/无作品/输入变化复用语义匹配的已有码。新增14码的fallback和最终中文由界面同步到 `NOTICE_COPY` 及 `docs/design/copy-zh.md`，未修改历史fixture或放宽静态扫描。
+- 新规则也覆盖实际 `cleanCopyNotice` 生成的done/failed/missing/stale及部分成功，排查文件下载单独归类，不混用成片导出。具体镜头、数量和未完成原因保留在detail；字符串状态的原有展示保持，实际宿主原数据/失败语义断言不删不弱化。新增码不在legacy表中，使用明确的own-key检查后才索引旧表，保留原有别名行为。
+- `notices.test.ts` 保留118历史与106既有新增计数，新增14独立分组，逐项精确验证code/fallback/最终文案；补新增静态提示逐项归类、实际helper单项/部分结果归类、排查组件静态通知完整性回归。新增规则限定具体业务句式，没有通用匹配绕过。
+- 实跑 `film/notices.test.ts`、`next/wiring/noticeCopy.test.ts`、`next/wiring/statusNotice.test.tsx`、`pro/ProWorkspace.clean-copy.test.tsx`、`pro/ProWorkspace.clean-copy-scope.test.tsx`、`pro/ReplyCaptureSettings.test.tsx`：6文件132项通过，日志 `/tmp/ci-notices-related.log`；web `tsc -b --pretty false`、notices源码/测试目标ESLint与Prettier、`git diff --check`均通过，日志 `/tmp/ci-notices-types.log`、`/tmp/ci-notices-lint.log`。
+
+本项没有提交、推送、合并或调用真实会员。总控继续执行完整前端测试/覆盖率及Python等CI要求，再提交推送并核对新run；当前线上Failure不改成通过，远端dev未推进。

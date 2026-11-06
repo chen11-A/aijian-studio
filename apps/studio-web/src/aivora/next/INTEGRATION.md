@@ -1096,3 +1096,9 @@ frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backs
 `repairCleanCopies(shotIds: readonly string[] | null): Promise<void>` 为本机业务handler，null按当前所选版本中缺副本的镜头计算；`cleanCopyBusy`按工程防重入，`cleanCopyBlocked`绑定导出受阻时的工程与字幕模式。计费准备后继续按原镜头/takeId/videoPath核对当前选择，不将过期目标重定向到新版本。helper新增 `stale` outcome，明确已跳过变化的作品/版本，不报告done；缺原合成记录继续返回missing，不自动生成。
 
 helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快照；宿主使用既有队列和本项最后live对象guard，保留切作品前已成功结果，拒绝同工程较旧快照覆盖后改内容。旧工程浏览器延迟写回后恢复当前可见工程activeId；失败中断明确保留已保存版本。后端22项加界面5项，共5文件27项实跑通过，web类型/目标静态通过，具体证据见后端验证记录；已集成当前接管分支 `c3e21e7`，不代表已合远端 dev，也不代表真实会员或 Electron 验收。
+
+### 接管分支 CI 提示文案契约修复（本地验证通过，待总控集成）
+
+总控在 GitHub Actions 公开页面核实 `a6d8b0f` 的 run `42177470800`：Linux/Windows 均失败，`film/notices.test.ts:109` 报新增静态提示「所选镜头已经变化，请重新选择后生成。」落入 `OPERATION_STATUS`。后端已补齐精确业务分类与本轮新增静态提示的回归，界面已补 `next/wiring/noticeCopy.ts` 的 14 个最终中文映射，分别处理生成选择失效/重复生成、无字幕补做结果和排查文件下载；`docs/design/copy-zh.md` 仅追加对应 14 行索引，原 118 条历史与 106 条既有新增记录及其完整性断言保留。新增 16 项纯显示契约覆盖逐码中文、部分成功原因及排查导出数量，不把不明失败归入通用业务码。
+
+本地复跑 `film/notices.test.ts`、`next/wiring/noticeCopy.test.ts`、`next/wiring/statusNotice.test.tsx` 共 113 项通过，原静态提示 CI 失败已在本地复现后修复；界面目标 ESLint、Prettier、diff 检查通过。后端另报包含新增宿主路径的 6 文件 132 项通过，集成类型与全仓检查由总控记录。本地修复与远端 CI 结果分别记录，尚未据此声称远端 Linux/Windows CI 已通过或已合入 dev。
