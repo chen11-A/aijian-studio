@@ -2,7 +2,7 @@
 
 ## Round5当前交付与接续分工
 
-B13已由总控提交f3dea3e（21文件），包含主进程真实阶段、独立执行ID/事件序号、实际close后的停止确认、partial保留及严格宿主迟到保护。GUI组件95a5fb2的40项由总控独立通过；e58026a增加32态浏览器门，原140态不删。完整本地TS已exit0：desktop123文件2059、renderer385文件4781、媒体17/QC11，renderer分支87.50%；原typecheck:ts/build/contracts:check/lint全过。新CI run42265535461已原140态成功，新增32及完整质量继续；未合dev、未称Windows真实取消成功。
+B13已由总控提交f3dea3e（21文件），包含主进程真实阶段、独立执行ID/事件序号、实际close后的停止确认、partial保留及严格宿主迟到保护。GUI组件95a5fb2的40项由总控独立通过；e58026a增加32态浏览器门，原140态不删。完整本地TS已exit0：desktop123文件2059、renderer385文件4781、媒体17/QC11，renderer分支87.50%；原typecheck:ts/build/contracts:check/lint全过。新CI run42265535461已原140态成功，新增32有两处1280×800 stale-events遮挡导致job失败，受控诊断中；完整质量继续；未合dev、未称Windows真实取消成功。
 
 #696 Windows十项QC失败已定位DOS短名/长名比较；73749be修复后#698原十项失败已消除，剩三项旧fixture逐字短名断言。f981fa4只修测试，增加native精确参数、BigInt dev/ino及bytes验证，总控独立33项通过，已合入progress；待下一源码CI。原dev仍6d1e082，main不变。后端转clean-recovery补无付费旧clean恢复；界面copy-polish第一批0257507已交付168定向项，继续修已有目录时保存错误被旧成功信息遮住。实际notice消费者追查见文案剩余核对；阶段5-2持续审计已建立于docs/audit/5-2.md，不表示完整阶段5验收通过。
 
