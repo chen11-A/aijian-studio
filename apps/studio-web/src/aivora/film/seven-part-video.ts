@@ -160,7 +160,9 @@ export function compileSevenPartVideo(film: FilmProject, shot: FilmShot): SevenP
     shot.poster,
     ...shot.stills.map((item) => item.url),
     ...shot.takes.flatMap((take) => [take.videoPath, take.cleanVideoPath, take.stillUrl]),
-  ].filter((value): value is string => !!value && !/^https?:/iu.test(value));
+    ...people.flatMap((person) => person.portraits.map((portrait) => portrait.url)),
+    place?.referenceImage,
+  ].filter((value): value is string => !!value && value.length >= 8);
   for (const entry of sections) {
     // Inspect only selected text facts, not arbitrary serialized metadata. Story URLs and
     // numbers remain legitimate prose; known internal identities/media addresses do not.

@@ -3,7 +3,7 @@ import { sampleFilm, type FilmProject, type FilmShot } from "../../film/project"
 import { prepareVideoQueue } from "../../film/generation-queue";
 import { compileSevenPartVideo } from "../../film/seven-part-video";
 import { runPreparedGeneration, type GenerationRunHost } from "./generation-run";
-function fixture(existing = false, versions = 1) {
+function fixture(existing: boolean | "failed" | "cancelled" = false, versions = 1) {
   const film = sampleFilm();
   film.characters = [];
   film.props = [];
@@ -22,7 +22,7 @@ function fixture(existing = false, versions = 1) {
     performancePlan: undefined,
     poster: "/media/old-frame.png",
     seconds: 4,
-    selectedTakeId: existing ? "original" : "",
+    selectedTakeId: existing === true ? "original" : "",
     takes: [],
   };
   if (existing)
@@ -31,12 +31,12 @@ function fixture(existing = false, versions = 1) {
         id: "original",
         shotId: shot.id,
         index: 1,
-        status: "done",
-        videoPath: "/media/original.mp4",
+        status: existing === true ? "done" : "failed",
+        videoPath: existing === true ? "/media/original.mp4" : "",
         videoUrl: "",
         stillUrl: "",
         prompt: "old",
-        reason: "",
+        reason: existing === "cancelled" ? "已取消" : "",
         createdAt: "",
       },
     ];
@@ -109,3 +109,44 @@ it.each(["selection", "picture", "removed-review"])(
     expect(f.request).not.toHaveBeenCalled();
   },
 );
+
+it.each(["failed", "cancelled"] as const)(
+  "allows a fresh confirmed request with only retained unusable %s history and keeps that history",
+  async (kind) => {
+    const f = fixture(kind, 2),
+      old = structuredClone(f.shot.takes[0]);
+    await runPreparedGeneration(f.queue, f.host);
+    expect(f.request).toHaveBeenCalledTimes(2);
+    expect(f.current().shots[0]!.takes[0]).toEqual(old);
+    expect(f.current().shots[0]!.takes).toHaveLength(3);
+  },
+);
+it("does not replace an unselected but usable old version through the automatic-identity exception", async () => {
+  const f = fixture(true);
+  f.shot.selectedTakeId = "";
+  f.shot.reviewedVideoPrompt = compileSevenPartVideo(f.film, f.shot).draft;
+  const queue = prepareVideoQueue(f.film, [f.shot], 1, false);
+  f.set(queue.film);
+  await expect(runPreparedGeneration(queue, f.host)).rejects.toThrow(/重新整理/);
+  expect(f.request).not.toHaveBeenCalled();
+  expect(f.current().shots[0]!.takes[0]!.videoPath).toBe("/media/original.mp4");
+});
+
+it("rejects the automatic selection exception if an old failed take gains usable media before dispatch, preserving the late media", async () => {
+  const f = fixture("failed");
+  f.host.frame = async (_film, shot) => {
+    const changed = {
+      ...shot,
+      takes: shot.takes.map((take) =>
+        take.id === "original"
+          ? { ...take, status: "done" as const, videoPath: "/media/late-original.mp4" }
+          : take,
+      ),
+    };
+    f.set({ ...f.current(), shots: [changed] });
+    return changed;
+  };
+  await expect(runPreparedGeneration(f.queue, f.host)).rejects.toThrow(/重新整理/);
+  expect(f.request).not.toHaveBeenCalled();
+  expect(f.current().shots[0]!.takes[0]!.videoPath).toBe("/media/late-original.mp4");
+});

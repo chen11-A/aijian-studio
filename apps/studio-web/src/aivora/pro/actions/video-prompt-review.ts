@@ -32,7 +32,12 @@ export function generationVideoBody(
     return storyFilmBatches(film, [target], draft)[0];
   if (
     original.selectedTakeId ||
-    original.takes.length ||
+    original.takes.some((take) => take.status !== "failed" || take.videoPath || take.videoUrl) ||
+    target.takes.some(
+      (take) =>
+        original.takes.some((old) => old.id === take.id) &&
+        (take.status !== "failed" || take.videoPath || take.videoUrl),
+    ) ||
     !firstNewTakeId ||
     target.selectedTakeId !== firstNewTakeId ||
     !target.takes.some((take) => take.id === firstNewTakeId)

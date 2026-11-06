@@ -6,7 +6,7 @@ import { historyRecordHash } from "./actions/persistent-history";
 import * as editorModule from "./actions/editor-host";
 import { ProWorkspace } from "./ProWorkspace";
 const createHost = editorModule.createEditorHost;
-async function open() {
+async function open(withFailedHistory = false) {
   const film = sampleFilm();
   film.backendProjectId = `prj_${"a".repeat(32)}`;
   film.characters = [];
@@ -47,6 +47,20 @@ async function open() {
       poster: "/media/frame.png",
     },
   ];
+  if (withFailedHistory) {
+    film.shots[0]!.takes.push({
+      id: "cancelled-old-take",
+      shotId: film.shots[0]!.id,
+      index: 1,
+      status: "failed",
+      videoPath: "",
+      videoUrl: "",
+      stillUrl: "/media/old-start.png",
+      prompt: "旧失败版本说明",
+      reason: "已取消",
+      createdAt: "",
+    });
+  }
   const other = {
     ...structuredClone(film),
     id: "film_anotherwork000001",
@@ -281,4 +295,23 @@ it("shows no field changes on repeated organization and does not claim a second 
   request();
   expect(review()).toHaveTextContent("视频说明 · 没有字段改动");
   expect(within(review()).getByRole("button", { name: "确认视频说明" })).toBeDisabled();
+});
+
+it("can generate again after importing only failed/cancelled history with no selected or usable video, retaining the failed version", async () => {
+  const env = await open(true);
+  request();
+  fireEvent.click(within(review()).getByRole("button", { name: "确认视频说明" }));
+  await within(review()).findByText("视频说明已确认并保存。此次确认没有生成媒体。");
+  expect(env.host().current()!.shots[0]!.selectedTakeId).toBe("");
+  const old = structuredClone(env.host().current()!.shots[0]!.takes[0]);
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await waitFor(() => expect(env.provider).toHaveBeenCalledOnce(), { timeout: 5000 });
+  expect(env.host().current()!.shots[0]!.takes[0]).toEqual(old);
+  expect(env.host().current()!.shots[0]!.takes).toHaveLength(2);
+  expect(
+    (env.provider.mock.calls[0] as unknown as [string, { shots: { prompt: string }[] }])[1]
+      .shots[0]!.prompt,
+  ).toContain("雨水沿街面流动");
 });

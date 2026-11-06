@@ -237,3 +237,15 @@ it("ignores an empty derived location placeholder/image arrival but rejects a ch
   film.locations[0]!.layout = "左侧是入口，右侧是窗口。";
   expect(() => reviewedVideoText(film, shot)).toThrow(/重新整理/);
 });
+
+it("rejects an exact known private media URL without banning unrelated URLs in the story", () => {
+  const { film, shot } = fixture();
+  shot.poster = "https://private.example/media?token=synthetic-private-token";
+  shot.picture = "画面说明误带素材地址：" + shot.poster;
+  const rejected = compileSevenPartVideo(film, shot);
+  expect(rejected.issues).not.toHaveLength(0);
+  expect(rejected.draft.text).toBe("");
+  expect(JSON.stringify(rejected.sections)).not.toContain("synthetic-private-token");
+  shot.picture = "招牌上写着 https://example.test。";
+  expect(compileSevenPartVideo(film, shot).issues).toEqual([]);
+});
