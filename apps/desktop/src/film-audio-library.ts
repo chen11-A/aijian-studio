@@ -7,6 +7,8 @@ import type {
   AddBundledFilmAudioResult,
   FilmAudioLibraryFailure,
   FilmAudioLibraryGateway,
+  InspectBundledFilmAudioTargetInput,
+  InspectBundledFilmAudioTargetResult,
 } from "@aijian/contracts/film-audio-library";
 import { buildAudioMixPlan } from "@aijian/contracts/film-audio-mix-plan";
 import { filmHistoryRecordHash } from "./film-history";
@@ -80,7 +82,10 @@ function input(value: unknown): AddBundledFilmAudioInput {
     fail("INVALID_INPUT");
   return row as unknown as AddBundledFilmAudioInput;
 }
-function selected(record: FilmRecord, request: AddBundledFilmAudioInput) {
+function selected(
+  record: FilmRecord,
+  request: Pick<AddBundledFilmAudioInput, "shotId" | "takeId">,
+) {
   const shots = Array.isArray(record.shots) ? record.shots.map(object) : [];
   const matches = shots.filter((shot) => shot?.id === request.shotId);
   const shot = matches[0];
@@ -119,7 +124,99 @@ export function createFilmAudioLibrary(host: {
     if (relative(series, folder) !== join("episodes", record.id)) fail("SOURCE_UNVERIFIED");
     return folder;
   }
+  async function selectedSources(
+    record: FilmRecord,
+    request: Pick<AddBundledFilmAudioInput, "shotId" | "takeId">,
+    tools: QcTools,
+  ) {
+    const take = selected(record, request);
+    const selection = [
+      {
+        shotId: request.shotId,
+        takeId: request.takeId,
+        videoPath: String(take.videoPath),
+        ...(typeof take.cleanVideoPath === "string" && take.cleanVideoPath
+          ? { visualPath: take.cleanVideoPath }
+          : {}),
+      },
+    ];
+    // Identical ownership and actual native/clean visual clock for inspection and addition.
+    // Other clips and unmade shots are outside this explicit target-only operation.
+    return resolveAudioMix({ ...record, audioClips: [] }, selection, {
+      filmsRoot: host.filmsRoot,
+      storyFilmsRoot: host.storyFilmsRoot,
+      tools,
+      run: host.run,
+      videoOwner: host.videoOwner,
+    });
+  }
   return {
+    async inspectBundledFilmAudioTarget(value): Promise<InspectBundledFilmAudioTargetResult> {
+      let project = "",
+        acquired = false;
+      try {
+        const row = object(value);
+        if (
+          !row ||
+          !exact(row, ["projectId", "expectedProjectHash", "shotId", "takeId"]) ||
+          typeof row.projectId !== "string" ||
+          !/^film_[a-z0-9]{16,40}$/.test(row.projectId) ||
+          typeof row.expectedProjectHash !== "string" ||
+          !/^[a-f0-9]{64}$/.test(row.expectedProjectHash) ||
+          ![row.shotId, row.takeId].every(
+            (id) =>
+              typeof id === "string" && id.length > 0 && id.length <= 160 && !id.includes("\0"),
+          )
+        )
+          fail("INVALID_INPUT");
+        const request = row as unknown as InspectBundledFilmAudioTargetInput;
+        project = request.projectId;
+        if (active.has(project)) fail("BUSY");
+        active.add(project);
+        acquired = true;
+        const current = async () => {
+          const record = await readProject(host.filmsRoot, project);
+          if (
+            !record ||
+            record.id !== project ||
+            filmHistoryRecordHash(record) !== request.expectedProjectHash
+          )
+            fail("PROJECT_CHANGED");
+          selected(record, request);
+          return record;
+        };
+        const base = await current();
+        const tools = await host.tools().catch(() => fail("TOOLS_UNAVAILABLE"));
+        const before = await selectedSources(base, request, tools).catch(() =>
+          fail("SOURCE_UNVERIFIED"),
+        );
+        const after = await selectedSources(await current(), request, tools).catch(() =>
+          fail("PROJECT_CHANGED"),
+        );
+        if (!(before.plan.durationSeconds > 0) || !Number.isFinite(before.plan.durationSeconds))
+          fail("SOURCE_UNVERIFIED");
+        if (
+          before.plan.durationSeconds !== after.plan.durationSeconds ||
+          JSON.stringify(before.hashes) !== JSON.stringify(after.hashes)
+        )
+          fail("PROJECT_CHANGED");
+        for (const [path, sha] of Object.entries(after.hashes))
+          if ((await exportFileHash(path).catch(() => "")) !== sha) fail("PROJECT_CHANGED");
+        await current();
+        return {
+          kind: "TARGET",
+          projectId: project,
+          shotId: request.shotId,
+          takeId: request.takeId,
+          projectHash: request.expectedProjectHash,
+          durationSeconds: after.plan.durationSeconds,
+        };
+      } catch (error) {
+        return failure(error);
+      } finally {
+        if (acquired) active.delete(project);
+      }
+    },
     async listBundledFilmAudio() {
       try {
         return publicAudioCatalog(await loadTrustedAudioLibrary(host.libraryRoot()));
@@ -151,7 +248,7 @@ export function createFilmAudioLibrary(host: {
           filmHistoryRecordHash(base) !== request.expectedProjectHash
         )
           fail("PROJECT_CHANGED");
-        const take = selected(base, request);
+        selected(base, request);
         const busy = (record: FilmRecord) =>
           (Array.isArray(record.jobs) &&
             record.jobs.some((row) =>
@@ -176,27 +273,9 @@ export function createFilmAudioLibrary(host: {
           fail("PLACEMENT_UNSUPPORTED");
         const local = await episode(base).catch(() => fail("SOURCE_UNVERIFIED"));
         const tools = await host.tools().catch(() => fail("TOOLS_UNAVAILABLE"));
-        const selection = [
-          {
-            shotId: request.shotId,
-            takeId: request.takeId,
-            videoPath: String(take.videoPath),
-            ...(typeof take.cleanVideoPath === "string" && take.cleanVideoPath
-              ? { visualPath: take.cleanVideoPath }
-              : {}),
-          },
-        ];
-        // Reuse the exact final mix roots, ownership and clean-visual clock. Other existing
-        // audio is not being auditioned or repaired by an explicit single-resource import.
-        const selectedSources = (record: FilmRecord) =>
-          resolveAudioMix({ ...record, audioClips: [] }, selection, {
-            filmsRoot: host.filmsRoot,
-            storyFilmsRoot: host.storyFilmsRoot,
-            tools,
-            run: host.run,
-            videoOwner: host.videoOwner,
-          });
-        const visual = await selectedSources(base).catch(() => fail("SOURCE_UNVERIFIED"));
+        const visual = await selectedSources(base, request, tools).catch(() =>
+          fail("SOURCE_UNVERIFIED"),
+        );
         const sound = await probeMixSource(asset.file, tools, host.run);
         const duration = visual.plan.durationSeconds;
         if (!(duration > 0) || !sound.hasAudio) fail("PLACEMENT_UNSUPPORTED");
@@ -263,7 +342,9 @@ export function createFilmAudioLibrary(host: {
           )
             fail("PROJECT_CHANGED");
           selected(current, request);
-          const latestSources = await selectedSources(current).catch(() => fail("PROJECT_CHANGED"));
+          const latestSources = await selectedSources(current, request, tools).catch(() =>
+            fail("PROJECT_CHANGED"),
+          );
           if (
             JSON.stringify(latestSources.hashes) !== JSON.stringify(visual.hashes) ||
             latestSources.plan.durationSeconds !== duration

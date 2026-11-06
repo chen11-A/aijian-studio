@@ -25,3 +25,13 @@ pnpm build
 ```
 
 资源 collector 回归真实构建一次，三个入口用相同产物受控执行收录并逐文件核 SHA，每份再实际动态加载编译后的原 loader。Linux 真 FFmpeg 与沙箱 preload/IPC 回归不能替代 Windows/Electron 用户窗口验证。UI 选用入口与其 persistence lease/current-ref 迟到保护需作为下一接线阶段验收；native 成功回执不是已经完成 UI 操作。
+
+## 单镜只读时基补充
+
+`inspectBundledFilmAudioTarget` 只接受 `projectId/expectedProjectHash/shotId/takeId` 四字段，返回绑定这些身份的 `TARGET`、原 hash 与实际 `durationSeconds`。复用 add 的同一 target-only resolver，原片及 clean 归属、固定工具、视觉时长都依实际文件；其他未完成镜头或坏旧音轨不会牵连。完成前重新检查 canonical record、选版、原片与 clean 的 SHA/时长，最后一次 probe 后变更文件也拒绝。与同工程添加共享 BUSY 防重入，拒绝的重复请求不会解锁仍运行的请求。
+
+此接口不读取素材库、不保存工程、不创建或复制 asset、不派发会员。回执只是当时的时基，不授权后续添加；`addBundledFilmAudio` 仍独立核验最新 hash、选版和实际来源。前端须绑定精确 live ref 与选择，不得拿 `shot.seconds`、字幕布局 cue 或全工程 mix 状态冒充本镜真实时长。
+
+```sh
+pnpm --filter @aijian/desktop exec vitest run src/film-audio-library-target.test.ts src/film-audio-library.test.ts src/film-audio-library-ipc.test.ts src/film-audio-library-preload.test.ts
+```
