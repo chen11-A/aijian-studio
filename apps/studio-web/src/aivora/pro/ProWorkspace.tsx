@@ -3179,7 +3179,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         filmRef.current !== current
       )
         return;
-      applyLive(upgradeFilm(canonical));
+      const normalized = upgradeFilm(canonical);
+      if (!normalized || normalized.id !== current.id) throw new Error("not saved");
+      applyLive(normalized);
       const written = filmRef.current;
       if (!written || written.id !== current.id) throw new Error("not saved");
       captured = { key: filmQcKey(written, captured.input), input: captured.input };

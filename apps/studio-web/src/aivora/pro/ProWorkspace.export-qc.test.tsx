@@ -1,8 +1,8 @@
 import * as exportCheckModule from "../next/ExportCheck";
 import { mkdtemp, rm, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
-import { writeProject, readProject } from "../../../../desktop/src/film-library";
 import * as editorModule from "./actions/editor-host";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -219,6 +219,15 @@ it("synchronizes real data-URL materialization before QC and publishes without r
     return create(value);
   });
   const root = await mkdtemp(join(tmpdir(), "qc-host-persist-"));
+  // Execute the actual desktop storage module without widening the web TS project.
+  const desktopModule = pathToFileURL(resolve("../desktop/src/film-library.ts")).href;
+  const { writeProject, readProject } = (await import(desktopModule)) as {
+    writeProject: (root: string, value: unknown) => Promise<Record<string, unknown>>;
+    readProject: (
+      root: string,
+      id: string,
+    ) => Promise<(Record<string, unknown> & { shots?: { poster?: string }[] }) | null>;
+  };
   try {
     const f = await open();
     window.aijian!.writeFilmProject = vi.fn(async (value) => writeProject(root, value));
@@ -274,10 +283,10 @@ it("does not replace a newer edit with a late saved canonical snapshot", async (
     return create(value);
   });
   const f = await open();
-  let release!: (film: FilmProject) => void;
+  let release!: (film: Record<string, unknown>) => void;
   const write = vi.fn(
-    (_value: FilmProject) =>
-      new Promise<FilmProject>((resolve) => {
+    (_value: Record<string, unknown>) =>
+      new Promise<Record<string, unknown>>((resolve) => {
         release = resolve;
       }),
   );
