@@ -473,3 +473,15 @@ Grok 的问题单写明 `directorVideoPrompt` 里也有「竖屏构图」，`5eb
 - 新增 `ProWorkspace.history.test.tsx` 4 项宿主测试：实际编辑与撤销/重做的状态栏和存盘读回、部分撤销保留冲突字段及后续重做、重做原子拒绝、全冲突不报成功。冲突用例将真实历史实例接入宿主，按键触发实际恢复及存盘，不模拟恢复结果。
 - 验证：`pnpm --filter @aijian/studio-web exec vitest run src/aivora/pro/ProWorkspace.history.test.tsx src/aivora/pro/actions/page-history-field-label.test.ts src/aivora/pro/actions/page-history.test.ts src/aivora/pro/actions/page-history-user-shots.test.ts src/aivora/pro/actions/editor-changes.test.ts`：5 文件、29 项通过；既有 `ProWorkspace.test.tsx -t 'undo|history|B11'`：17 项通过、120 项未选择，合计 46 项通过，不称为全量工作台测试。`pnpm --filter @aijian/studio-web typecheck`、上述历史文件与宿主目标 ESLint、相关文件及两份文档 Prettier、`git diff --check` 均通过。
 - 本项仅修改宿主业务函数，未修改渲染区、样式或全屏组件。总控另报最终全仓类型（TS、mypy310）、构建、lint（ESLint、Ruff、Prettier、Ruff format）均通过，详见总控汇总；没有调用付费服务，没有提交、推送、合并或发布。
+
+## 5-3-06 所选批次范围与并发保护（云端第二轮）
+
+负责人：`backend_round2`，`gpt-6.1-sol`、`medium`。沿用既有多选时长、`queueBatch(rows)` 和 `submitGeneration(rows)`，没有重写接口；源码只改 `ProWorkspace` 主函数 return 前业务区，确认按钮 JSX 的单行接线由界面代理完成。
+
+- 发现并修复：原确认按钮将确认表中的旧镜头整行写回，可覆盖确认期间刚完成的版本。现在确认只保存作品身份与所选集合，`confirmBatchGeneration(): void` 同步消费一次；按所选 IDs 重新读取 live 镜头，只合并拟合台词所需的时长，保留当前 takes、素材、任务和其他字段。取消清除确认；切换作品清除旧确认；有同作品生成任务时拒绝再次确认，不写入旧快照。
+- 等待计费准备后再次按原所选 IDs 解析当前镜头，任一目标已删除即停止，不使用移除前的快照或邻镜兜底。现有生成运行的作品身份和 token 检查继续隔离迟到结果。
+- 新增独立 `ProWorkspace.batch-scope.test.tsx`，7 项真实宿主回归：非相邻镜头 2/4 的确认表与实际请求素材严格对应；未选镜头 1/3 无新增版本和任务；取消无提交；所选时长修改/撤销；连续点击及运行中再次确认；确认表打开期间完成的旧批次版本保留；计费等待期间删除目标不提交或复活；切换到含相同镜头 IDs 的另一作品后旧确认消失、迟到结果不污染新作品。桌面桥均为测试桩，不调用真实会员服务。
+- 实跑：`pnpm --filter @aijian/studio-web exec vitest run src/aivora/pro/ProWorkspace.batch-scope.test.tsx src/aivora/pro/actions/generation-prepare.test.ts src/aivora/pro/actions/generation-run.test.ts src/aivora/film/generation-queue.test.ts --reporter=dot`，4 文件、42 项通过，0 失败，0 未选择。日志 `/tmp/batch-scope-final.log`。独立宿主 7 项，既有业务 35 项，不把本次定向写成全仓测试。
+- `pnpm --filter @aijian/studio-web exec tsc -b --pretty false` 通过，日志 `/tmp/batch-scope-types-final.log`；`ProWorkspace.tsx` 和新增测试的目标 ESLint、Prettier 通过，日志 `/tmp/batch-scope-lint.log`。最初夹具误把请求结构当含镜头 ID、忽略媒体 URL 升级及默认串行队列，首轮失败日志保留在 `/tmp/batch-scope-first.log`；校正夹具后实跑通过，没有放宽未选范围或版本保留断言。
+
+当前为共享分支工作树中的实现与定向验证，提交、远端 dev、整合检查以总控记录为准。真实会员、Electron、安装包未验；没有调用付费服务，没有提交、推送或合并。5-3-05/10 的界面交互与 QA 由界面代理单独记录。

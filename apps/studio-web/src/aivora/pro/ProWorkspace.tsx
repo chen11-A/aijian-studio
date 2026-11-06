@@ -651,7 +651,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [diskPath, setDiskPath] = useState("");
   const [diskFilmId, setDiskFilmId] = useState("");
   const [diskError, setDiskError] = useState("");
-  const [pendingBatch, setPendingBatch] = useState<FilmShot[] | null>(null);
+  const [pendingBatch, setPendingBatchState] = useState<FilmShot[] | null>(null);
+  const batchConfirmation = useRef<{ projectId: string; rows: FilmShot[] } | null>(null);
+  function setPendingBatch(rows: FilmShot[] | null) {
+    batchConfirmation.current = rows ? { projectId: filmRef.current?.id ?? "", rows } : null;
+    setPendingBatchState(rows);
+  }
   const [exportDir, setExportDir] = useState("");
   const [exportFile, setExportFile] = useState("");
   const [rename, setRename] = useState("");
@@ -666,6 +671,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         next.styleZh,
       );
     }
+    if (batchConfirmation.current && batchConfirmation.current.projectId !== next?.id)
+      setPendingBatch(null);
     if (next) next = applyContinuityChecks(next);
     filmRef.current = next;
     setFilmState(next);
@@ -2663,7 +2670,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       fallback: shownShots[shot],
       modelIds,
     });
-    const selected = preflight.selected;
+    let selected = preflight.selected;
     if (selected.length === 0) {
       setNotice("先在剧本里拆镜头。");
       return;
@@ -2678,6 +2685,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const billingProject = pipeline?.billingProjectId ?? (await ensureBillingProject());
     if (!valid()) return;
     live = filmRef.current ?? live;
+    // Billing preparation may yield while shots are edited or removed. Resolve only the
+    // originally requested IDs against the live work; never revive a removed snapshot.
+    const latestTargets = selected.map((target) => live.shots.find((row) => row.id === target.id));
+    if (latestTargets.some((target) => !target)) {
+      setNotice("所选镜头已经变化，请重新选择后生成。");
+      return;
+    }
+    selected = latestTargets.filter((target): target is FilmShot => Boolean(target));
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     const preparation = prepareGeneration(live, selected, {
@@ -2761,6 +2776,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         emitNotice({ code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT, detail: reason });
       else setNotice(reason);
     }
+  }
+
+  function confirmBatchGeneration() {
+    const confirmation = batchConfirmation.current;
+    // Consume synchronously: a retained/double-clicked button cannot dispatch twice.
+    setPendingBatch(null);
+    const live = filmRef.current;
+    if (!confirmation || !live || confirmation.projectId !== live.id) return;
+    if (generationRuns.current.has(live.id)) {
+      setNotice("这一批还在生成，请等完成后再试。");
+      return;
+    }
+    const ids = [...new Set(confirmation.rows.map((row) => row.id))];
+    const latest = ids.map((id) => live.shots.find((row) => row.id === id));
+    if (!ids.length || latest.some((row) => !row)) {
+      setNotice("所选镜头已经变化，请重新选择后生成。");
+      return;
+    }
+    // The table owns a selection, not a copy of mutable media/version state.
+    const rows = latest.map((row) => fitShotToLine(row!).shot);
+    const seconds = new Map(rows.map((row) => [row.id, row.seconds]));
+    if (rows.some((row) => live.shots.find((shot) => shot.id === row.id)?.seconds !== row.seconds))
+      applyLive({
+        ...live,
+        shots: live.shots.map((row) =>
+          seconds.has(row.id) ? { ...row, seconds: seconds.get(row.id)! } : row,
+        ),
+      });
+    void submitGeneration(rows);
   }
 
   function queueBatch(rows: FilmShot[]) {
@@ -4105,22 +4149,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </p>
               ) : null}
               <div className="acts">
-                <button
-                  className="btn primary"
-                  onClick={() => {
-                    const rows = pendingBatch;
-                    setPendingBatch(null);
-                    if (rows && filmRef.current) {
-                      applyLive({
-                        ...filmRef.current,
-                        shots: filmRef.current.shots.map(
-                          (shot) => rows.find((item) => item.id === shot.id) ?? shot,
-                        ),
-                      });
-                    }
-                    void submitGeneration(rows ?? undefined);
-                  }}
-                >
+                <button className="btn primary" onClick={confirmBatchGeneration}>
                   开始生成
                 </button>
                 <button className="btn" onClick={() => setPendingBatch(null)}>
