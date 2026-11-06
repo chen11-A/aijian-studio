@@ -3986,7 +3986,7 @@ it("splits the status bar in three and tells the assistant what it is looking at
   // 剧本: the assistant names the scene; @ puts a person or a shot into the message.
   fireEvent.click(stageTab("剧本"));
   expect(screen.getByText(/^正在看：第 \d+ 场「.+」$/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "提到角色或镜头" }));
+  fireEvent.click(screen.getByRole("button", { name: "提到人物、场景或镜头" }));
   const people = within(screen.getByRole("menu", { name: "提到谁" })).getAllByRole("menuitem");
   expect(people[0]?.textContent).toMatch(/^@/);
   fireEvent.click(people[0]!);
@@ -3996,6 +3996,69 @@ it("splits the status bar in three and tells the assistant what it is looking at
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
+});
+
+it("says who or which place the cast page's assistant is looking at (5-3-15)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  const scope = () => document.querySelector(".chat-scope")?.textContent;
+  const film = sampleFilm();
+  expect(scope()).toBe(`正在看：${film.characters[0]!.name}`);
+  fireEvent.click(screen.getByText(film.characters[1]!.name));
+  expect(scope()).toBe(`正在看：${film.characters[1]!.name}`);
+  fireEvent.click(screen.getByRole("button", { name: "提到人物、场景或镜头" }));
+  const offered = within(screen.getByRole("menu", { name: "提到谁" }))
+    .getAllByRole("menuitem")
+    .map((item) => item.textContent);
+  expect(offered).toEqual(expect.arrayContaining([`@${film.characters[0]!.name}`]));
+  if (film.locations[0]) expect(offered).toContain(`@${film.locations[0].name}`);
+});
+
+it("puts a search box over a cast of more than ten people (5-3-14)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  const [model] = film.characters;
+  const names = [
+    "林晚",
+    "沈砚",
+    "林国栋",
+    "周叔",
+    "阿杰",
+    "小雨",
+    "老陈",
+    "王医生",
+    "护士长",
+    "刀疤",
+    "司机",
+    "店员",
+  ];
+  film.characters = names.map((name, index) => ({ ...model!, id: `person-${index}`, name }));
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("角色与场景"));
+  const listed = () =>
+    [...document.querySelectorAll(".scene .t")].map((item) => item.firstChild?.textContent);
+  expect(listed()).toHaveLength(12);
+  const search = screen.getByRole("searchbox", { name: "找人物" });
+  expect(search).toHaveAttribute("placeholder", "找人物（共 12 个）");
+  fireEvent.change(search, { target: { value: "林" } });
+  expect(listed()).toEqual(["林晚", "林国栋"]);
+  // Picking one from the narrowed list opens that person.
+  fireEvent.click(screen.getByText("林国栋"));
+  expect(document.querySelector(".scene.on .t")?.firstChild?.textContent).toBe("林国栋");
+  fireEvent.change(search, { target: { value: "张三" } });
+  expect(listed()).toHaveLength(0);
+  expect(screen.getByText("没有名字里带「张三」的人物。")).toBeInTheDocument();
+});
+
+it("keeps a short cast list without a search box (5-3-14)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  expect(screen.queryByRole("searchbox", { name: "找人物" })).toBeNull();
 });
 
 it("shows the first frame on 单个镜头 before there is a video (5-3-13)", async () => {
