@@ -1116,3 +1116,7 @@ helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快
 诊断后续：#684 的 Windows 在新增自测步骤失败，原 Test 未运行；后端已给自测补上不依赖 pnpm 环境的失败摘要，9 项本地回归及隔离失败夹具通过。另修正经本地目录别名复现的 CLI 入口静默跳过，不能据此判定 Windows 原生故障原因。总控准备推送新一轮定位。
 
 CI #685 原生 Windows 摘要定位到诊断自测 32/57 行两处路径字符串比较（ERR_ASSERTION）。后端仅修测试假定：以 BigInt 文件身份及真实 Node 执行返回参数验证入口，保留命令、参数数量、test 参数及别名 CLI probe。9 项本地自测、目标 lint/格式和真实 pnpm 探针均通过；原产品 Test 尚未运行，等待新一轮 Windows 结果。
+
+CI #686：Windows 诊断自测已通过，原 Test 实际执行 35 秒后失败于媒体中文工具路径测试 303/307 行；后端已独立复现裸名查找漏 .exe，正在修正 fixture。此次并非 GUI 测试失败，后续测试尚未执行，不能记为全部原生 Windows 通过。
+
+媒体 fixture 修正已交付：Windows 裸名查找增加 .exe 候选，显式 Windows 路径可识别；中文工具副本带 .exe 并复制，POSIX 保留符号链接。原视频、静音、LUFS、峰值和归档断言、阈值、skip 不变。Linux 媒体包 17 项通过、0 跳过，目标 lint/格式及原/新查找函数前后对照通过；等待总控推送后的 Windows 复验。
