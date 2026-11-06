@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { evaluateAudioMix, soloAudioMixPlan } from "@aijian/contracts/film-audio-mix-plan";
+import {
+  evaluateAudioMix,
+  soloAudioMixPlan,
+  audioMixBaseGain,
+  audioMixEnvelopeCurves,
+} from "@aijian/contracts/film-audio-mix-plan";
 import type { AudioMixPreviewResult, MixLane } from "@aijian/contracts/film-audio-mix";
+import { scheduleEnvelopeCurve } from "./audio-envelope-schedule";
 const MAX_SOURCE_BYTES = 16 * 1024 * 1024;
 const MAX_DECODED_BYTES = 64 * 1024 * 1024;
 const MAX_CACHE_BYTES = 96 * 1024 * 1024;
@@ -52,6 +58,7 @@ export function AudioMixPreview({
       {
         source: AudioBufferSourceNode;
         gain: GainNode;
+        envelopes: GainNode[];
         startedAt: number;
         fromSource: number;
         rate: number;
@@ -67,6 +74,7 @@ export function AudioMixPreview({
       }
       node.source.disconnect();
       node.gain.disconnect();
+      for (const envelope of node.envelopes) envelope.disconnect();
       nodes.delete(key);
     }
     function fail() {
@@ -161,17 +169,22 @@ export function AudioMixPreview({
       const { clock, playing, rate, audible, activePlan } = controls.current;
       const time = clock(),
         values = evaluateAudioMix(activePlan ?? result.plan, time);
-      const needed = new Set(values.filter((value) => value.gain > 0).map((value) => value.key));
+      const plan = activePlan ?? result.plan;
+      const needed = new Set(
+        plan.tracks
+          .filter((track) => time >= track.startSeconds && time < track.endSeconds)
+          .map((track) => track.key),
+      );
       neededSources = new Set(
         values
-          .filter((value) => audible && value.gain > 0)
+          .filter((value) => audible && needed.has(value.key))
           .map((value) => `${value.sourceKey}:${result.sourceSha256[value.sourceKey]}`),
       );
       let complete = true;
       for (const value of values)
         if (
           audible &&
-          value.gain > 0 &&
+          needed.has(value.key) &&
           !cache.has(`${value.sourceKey}:${result.sourceSha256[value.sourceKey]}`)
         ) {
           complete = false;
@@ -181,7 +194,7 @@ export function AudioMixPreview({
       if (!complete) for (const key of nodes.keys()) stop(key);
       for (const key of nodes.keys()) if (!needed.has(key) || !playing || !audible) stop(key);
       for (const value of values) {
-        if (value.gain <= 0) continue;
+        if (!needed.has(value.key)) continue;
         const cached = cache.get(`${value.sourceKey}:${result.sourceSha256[value.sourceKey]}`);
         if (!cached || !complete || !playing || !audible) continue;
         const track = result.plan.tracks.find((track) => track.key === value.key)!;
@@ -200,7 +213,8 @@ export function AudioMixPreview({
         }
         if (!node) {
           const source = context.createBufferSource(),
-            gain = context.createGain();
+            gain = context.createGain(),
+            audioAt = context.currentTime;
           source.buffer = cached.buffer;
           if (track.loopSeconds) {
             source.loop = true;
@@ -214,10 +228,18 @@ export function AudioMixPreview({
           gain.channelCountMode = "explicit";
           gain.channelInterpretation = "speakers";
           source.connect(gain);
-          gain.connect(context.destination);
-          gain.gain.value = value.gain;
+          let tail = gain;
+          const envelopes = audioMixEnvelopeCurves(track).map((curve) => {
+            const envelope = context.createGain();
+            tail.connect(envelope);
+            tail = envelope;
+            scheduleEnvelopeCurve(envelope.gain, curve, time, audioAt, rate);
+            return envelope;
+          });
+          tail.connect(context.destination);
+          gain.gain.value = audioMixBaseGain(plan, track, time);
           source.start(
-            context.currentTime,
+            audioAt,
             value.sourceSeconds,
             Math.max(
               0,
@@ -229,13 +251,14 @@ export function AudioMixPreview({
           node = {
             source,
             gain,
-            startedAt: context.currentTime,
+            envelopes,
+            startedAt: audioAt,
             fromSource: value.sourceSeconds,
             rate,
           };
           nodes.set(value.key, node);
         }
-        node.gain.gain.setValueAtTime(value.gain, context.currentTime);
+        node.gain.gain.setValueAtTime(audioMixBaseGain(plan, track, time), context.currentTime);
       }
       if (playing && audible && context.state === "suspended") void context.resume().catch(fail);
       frame = requestAnimationFrame(tick);

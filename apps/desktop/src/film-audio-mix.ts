@@ -1,7 +1,11 @@
 import { dirname, basename, join } from "node:path";
 import { stat, writeFile, rm } from "node:fs/promises";
-import { audioMixGain } from "@aijian/contracts/film-audio-mix-plan";
-import type { AudioMixPlan, MixSourceInfo } from "@aijian/contracts/film-audio-mix";
+import {
+  audioMixGain,
+  audioMixEnvelope,
+  audioMixEnvelopeCurves,
+} from "@aijian/contracts/film-audio-mix-plan";
+import type { AudioMixPlan, MixSourceInfo, MixTrack } from "@aijian/contracts/film-audio-mix";
 import type { QcRunner, QcTools } from "./film-export-qc-runtime";
 /** Tool locations and sources are resolved by trusted main before entering this runner. */
 export async function probeMixSource(
@@ -75,6 +79,43 @@ export function mixDuckExpression(plan: AudioMixPlan): string {
     );
   return `if(isnan(t),1,${level[0] ?? "1"})`;
 }
+function balancedSum(terms: string[]): string {
+  let level = terms;
+  while (level.length > 1)
+    level = Array.from({ length: Math.ceil(level.length / 2) }, (_, index) =>
+      level[index * 2 + 1] === undefined
+        ? level[index * 2]!
+        : `(${level[index * 2]}+${level[index * 2 + 1]})`,
+    );
+  return level[0] ?? "1";
+}
+/** Sample-clock numeric expression derived from the exact shared amplitude curves. */
+export function mixEnvelopeExpression(track: MixTrack): string {
+  if (!track.envelope) return "1";
+  audioMixEnvelope(track.envelope);
+  return (
+    audioMixEnvelopeCurves(track)
+      .map((curve) => {
+        const points = curve.points;
+        const terms = [`if(lt(t,${number(points[0]!.seconds)}),${number(curve.initialGain)},0)`];
+        for (let index = 0; index < points.length - 1; index++) {
+          const left = points[index]!,
+            right = points[index + 1]!;
+          const value =
+            right.interpolation === "step" || left.gain === right.gain
+              ? number(left.gain)
+              : `${number(left.gain)}+(${number(right.gain - left.gain)})*(t-${number(left.seconds)})/${number(right.seconds - left.seconds)}`;
+          terms.push(
+            `if(gte(t,${number(left.seconds)})*lt(t,${number(right.seconds)}),${value},0)`,
+          );
+        }
+        const last = points.at(-1)!;
+        terms.push(`if(gte(t,${number(last.seconds)}),${number(last.gain)},0)`);
+        return `(${balancedSum(terms)})`;
+      })
+      .join("*") || "1"
+  );
+}
 export function audioMixArgs(
   video: string,
   output: string,
@@ -123,7 +164,7 @@ export function audioMixArgs(
     // Exercise the public evaluator for validation without duplicating its gain default.
     if (!Number.isFinite(audioMixGain(plan, track, track.startSeconds)))
       throw new Error("INVALID_AUDIO_PLAN");
-    return `[${inputs.get(track.sourceKey)}:a:0]atrim=start=${number(track.offsetSeconds)}${track.loopSeconds ? "" : `:duration=${number(track.endSeconds - track.startSeconds)}`},asetpts=PTS-STARTPTS,${track.sourceChannels === 1 ? "pan=stereo|c0=c0|c1=c0," : ""}aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,${track.loopSeconds ? `aresample=48000,aloop=loop=-1:size=${Math.round(track.loopSeconds * 48000)},atrim=duration=${number(track.endSeconds - track.startSeconds)},` : ""}adelay=${number(track.startSeconds * 1000)}:all=1,apad=whole_dur=${number(plan.durationSeconds)},asettb=1/48000,asetpts=N/SR/TB,atrim=duration=${number(plan.durationSeconds)},volume='${number(gain)}${track.lane === "score" ? `*${mixDuckExpression(plan)}` : ""}':eval=frame[a${index}]`;
+    return `[${inputs.get(track.sourceKey)}:a:0]atrim=start=${number(track.offsetSeconds)}${track.loopSeconds ? "" : `:duration=${number(track.endSeconds - track.startSeconds)}`},asetpts=PTS-STARTPTS,${track.sourceChannels === 1 ? "pan=stereo|c0=c0|c1=c0," : ""}aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,${track.loopSeconds ? `aresample=48000,aloop=loop=-1:size=${Math.round(track.loopSeconds * 48000)},atrim=duration=${number(track.endSeconds - track.startSeconds)},` : ""}adelay=${number(track.startSeconds * 1000)}:all=1,apad=whole_dur=${number(plan.durationSeconds)},asettb=1/48000,asetpts=N/SR/TB,atrim=duration=${number(plan.durationSeconds)},volume='${number(gain)}${track.lane === "score" ? `*${mixDuckExpression(plan)}` : ""}':eval=frame${track.envelope ? `,aeval=exprs='val(0)*(${mixEnvelopeExpression(track)})|val(1)*(${mixEnvelopeExpression(track)})':c=stereo,aformat=channel_layouts=stereo` : ""}[a${index}]`;
   });
   filters.push(
     `${plan.tracks.map((_, index) => `[a${index}]`).join("")}amix=inputs=${plan.tracks.length}:duration=longest:normalize=0:dropout_transition=0,atrim=duration=${number(plan.durationSeconds)}[mix]`,
