@@ -23,12 +23,53 @@ async function sameFile(actual: string, expected: string) {
   expect([a.dev, a.ino]).toEqual([b.dev, b.ino]);
   expect(await readFile(actual)).toEqual(await readFile(expected));
 }
+type TracePhase =
+  | "fixture-directory"
+  | "fixture-media"
+  | "fixture-database"
+  | "fixture-project"
+  | "fixture-ready"
+  | "restore-source"
+  | "remake"
+  | "edit-evidence"
+  | "verify-evidence"
+  | "verify-record"
+  | "verify-original"
+  | "close";
+function traceCase(kind: string) {
+  const started = performance.now();
+  let phase: TracePhase = "fixture-directory",
+    entered = started;
+  const elapsed: string[] = [];
+  return {
+    mark(next: TracePhase) {
+      elapsed.push(
+        `${phase}:${Math.min(3600000, Math.max(0, Math.round(performance.now() - entered)))}`,
+      );
+      phase = next;
+      entered = performance.now();
+    },
+    emit() {
+      // Fixed fixture labels and bounded durations only: no errors, paths, SQL or IDs.
+      const name = ["owner", "path", "sha", "assembly"].includes(kind) ? kind : "unknown";
+      const milliseconds = (value: number) => Math.min(3600000, Math.max(0, Math.round(value)));
+      console.error(
+        `::error title=clean recovery fixture timing::case=${name};phase=${phase};elapsedMs=${milliseconds(performance.now() - started)};phaseMs=${milliseconds(performance.now() - entered)};completed=${elapsed.slice(0, 16).join(",")}`,
+      );
+    },
+  };
+}
+let diagnostic: ReturnType<typeof traceCase> | null = null;
 const roots: string[] = [];
-afterEach(async () => {
+afterEach(async (context) => {
+  if (context.task.result?.state === "fail" || context.task.result?.errors?.length)
+    diagnostic?.emit();
+  diagnostic = null;
   for (const path of roots.splice(0)) await rm(path, { recursive: true, force: true });
 });
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-async function fixture() {
+async function fixture(mark?: (phase: TracePhase) => void) {
+  mark?.("fixture-directory");
   const root = await mkdtemp(join(tmpdir(), "clean-recovery-"));
   roots.push(root);
   const filmsRoot = join(root, "films"),
@@ -39,8 +80,10 @@ async function fixture() {
     old = join(storyFilmsRoot, "old-clean.mp4"),
     clean = join(storyFilmsRoot, "new-clean.mp4"),
     project = `prj_${"a".repeat(32)}`;
+  mark?.("fixture-media");
   await writeFile(video, "original post-tag");
   await writeFile(old, "old clean without proof");
+  mark?.("fixture-database");
   const db = new DatabaseSync(databasePath);
   db.exec(
     "CREATE TABLE artifacts(artifact_id TEXT PRIMARY KEY,project_id TEXT,episode_id TEXT,artifact_type TEXT);CREATE TABLE artifact_versions(version_id TEXT PRIMARY KEY,artifact_id TEXT,content_json TEXT,content_hash TEXT);CREATE TABLE draft_export_jobs(operation_id TEXT,project_id TEXT,episode_id TEXT,assembly_version_id TEXT,status TEXT,output_path TEXT,output_sha256 TEXT,assembly_content_hash TEXT)",
@@ -84,6 +127,7 @@ async function fixture() {
     "old-pretag-sha",
     "assembly-version-hash",
   );
+  mark?.("fixture-project");
   const record = await writeProject(filmsRoot, {
     id: "film_recovery00000001",
     seriesId: "film_recoveryseries01",
@@ -117,6 +161,7 @@ async function fixture() {
     takeId: "take",
     selectionHash: cleanRecoverySelectionHash(video, old),
   };
+  mark?.("fixture-ready");
   return {
     root,
     db,
@@ -320,11 +365,15 @@ it("reports actual persistence failure and never says recovered", async () => {
 it.each(["owner", "path", "sha", "assembly"])(
   "rejects invalid final %s evidence without replacing either existing file",
   async (kind) => {
-    const f = await fixture();
+    const timing = traceCase(kind);
+    diagnostic = timing;
+    const f = await fixture(timing.mark);
     try {
       const original = f.remake.getMockImplementation()!;
       f.remake.mockImplementationOnce(async () => {
+        timing.mark("remake");
         const response = await original();
+        timing.mark("edit-evidence");
         const row = f.db
           .prepare("SELECT content_json FROM artifact_versions WHERE version_id='clean-version'")
           .get()!;
@@ -339,13 +388,17 @@ it.each(["owner", "path", "sha", "assembly"])(
         f.db
           .prepare("UPDATE artifact_versions SET content_json=? WHERE version_id='clean-version'")
           .run(JSON.stringify(content));
+        timing.mark("verify-evidence");
         return response;
       });
+      timing.mark("restore-source");
       expect(await createCleanCopyRecovery(f.host)(f.input)).toEqual({
         kind: "FAILED",
         code: "EVIDENCE_FAILED",
       });
+      timing.mark("verify-record");
       expect(selectedCleanPath(await readProject(f.host.filmsRoot, f.record.id))).toBe(f.old);
+      timing.mark("verify-original");
       expect(await readFile(f.video, "utf8")).toBe("original post-tag");
     } finally {
       f.close();
