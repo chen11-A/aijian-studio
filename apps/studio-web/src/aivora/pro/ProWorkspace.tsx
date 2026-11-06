@@ -9535,7 +9535,9 @@ function EditPage({
                   字幕
                 </button>
               </div>
-              <span className="meta">{film.title}</span>
+              <span className="meta" title={film.title}>
+                {film.title}
+              </span>
               <span className="sp" />
               {monitor === "preview" ? (
                 <button
