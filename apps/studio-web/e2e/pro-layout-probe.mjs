@@ -7,6 +7,18 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["整理视频说明", "video-organize"],
+    ["确认视频说明", "video-confirm"],
+    ["关闭说明", "video-review-close"],
+    ["本次完整提交文本", "video-prompt-text"],
+    ["选择保存位置并打包", "archive-export"],
+    ["选择工程包", "archive-import"],
+    ["打开工程包", "archive-open-menu"],
+    ["导出工程包", "archive-export-menu"],
+    ["作品", "work-menu"],
+    ["合成第2集", "work-other-episode"],
+    ["分镜画面", "video-picture"],
+
     ["审核后发布", "review-publish"],
     ["取消本次导出", "review-cancel"],
     ["关闭", "dialog-close"],
@@ -31,6 +43,11 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const controlIds = new Set(["export-quality", "export-aspect", "export-dir"]);
   const safeClasses = new Set([
+    "nx-video-review",
+    "nx-video-model",
+    "nx-video-facts",
+    "project-archive",
+    "pgroup",
     "acts",
     "dialog",
     "export",
