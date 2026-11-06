@@ -31,7 +31,12 @@ import {
   withIdentityLocks,
   type AgentId,
 } from "../film/phase2";
-import { keyframePrompt, parseDirectorShots, type FilmProject } from "../film/project";
+import {
+  aspectContext,
+  keyframePrompt,
+  parseDirectorShots,
+  type FilmProject,
+} from "../film/project";
 import { applyDirectorPlan, repairDirectorCoverage } from "./director-workflow";
 import {
   applyArtDraft,
@@ -146,7 +151,7 @@ export async function runPipelineAgentAction(
     if (target.step === "art") {
       const reply = await request(
         "art",
-        `画风：${film.styleZh}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}`,
+        `画风：${film.styleZh}\n${aspectContext(film)}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}`,
         "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
       );
       if (!current()) return stale();
@@ -189,7 +194,7 @@ export async function runPipelineAgentAction(
       const script =
         writerNumberedScript(scene, scene.text) ??
         `本地段号（不是原文来源段号）：\n${numberedScript(scene.text)}`;
-      const context = `画风：${film.styleZh}\n场次 id：${scene.id}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}\n原文段落：\n${script}${writerSceneContext(scene)}`;
+      const context = `画风：${film.styleZh}\n${aspectContext(film)}\n场次 id：${scene.id}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}\n原文段落：\n${script}${writerSceneContext(scene)}`;
       const budget = directorBudget({
         current,
         control: host.signal ? { signal: host.signal, deadlineAt: Infinity } : undefined,

@@ -19,6 +19,13 @@ export type EditorStructureTransaction = {
   unsupported: string[];
   dependenciesAtReview: Record<string, unknown>;
   dependenciesAfter: Record<string, unknown>;
+  /**
+   * 5-3: the user's own change to one scene's shots (diffUserShotEdit). Its rows are kept whole,
+   * so shots with pictures or videos may be taken out and put back; files stay on disk.
+   */
+  userEdit?: boolean;
+  /** 5-3-03: what the change was, for 「已撤销：…」. */
+  label?: string;
 };
 const same = (a: unknown, b: unknown): boolean => {
   if (Object.is(a, b)) return true;
@@ -220,6 +227,103 @@ export function diffEditorStructure(
   return result;
 }
 
+/**
+ * 5-3: the user's own change to the selected scene's shots as one undoable step — a dragged
+ * card (moveShotTo), several cards deleted, a cut on the edit page, a shot with pictures or
+ * videos deleted. Unlike a suggestion it covers the whole scene and keeps media: removeShot only
+ * takes the shot out of the film, so the takes it held still point at files on disk. Anything
+ * outside that scene's shots must be unchanged, apart from the continuity notes setFilm derives.
+ */
+export function diffUserShotEdit(
+  current: FilmProject,
+  proposed: FilmProject,
+  selection: EditorSelection,
+): EditorStructureTransaction {
+  const result: EditorStructureTransaction = {
+    selection: structuredClone(selection),
+    collection: "shots",
+    beforeOrder: ids(current.shots),
+    afterOrder: ids(proposed.shots),
+    before: [],
+    after: [],
+    unsupported: [],
+    dependenciesAtReview: {},
+    dependenciesAfter: {},
+    userEdit: true,
+  };
+  const reject = (code: string) => {
+    result.unsupported.push(code);
+    return result;
+  };
+  if (current.id !== proposed.id) return reject("PROJECT_MISMATCH");
+  if (!["script", "board", "edit"].includes(selection.page)) return reject("PAGE_SCOPE_MISMATCH");
+  const context = resolveEditorContext(current, selection);
+  if (!context.ok) return reject(context.code);
+  const sceneId = context.context.scene?.id;
+  if (!sceneId) return reject("SELECTION_REQUIRED");
+  // The shot may be gone afterwards; the scene is the scope.
+  result.selection = { projectId: selection.projectId, page: selection.page, sceneId };
+  if (!unique(result.beforeOrder) || !unique(result.afterOrder))
+    return reject("DUPLICATE_OR_EMPTY_ID");
+  const positions = current.shots.flatMap((shot, index) =>
+    shot.sceneId === sceneId ? [index] : [],
+  );
+  if (!positions.length) return reject("INVALID_SCOPE_IDS");
+  const start = positions[0]!,
+    end = positions.at(-1)!;
+  if (end - start + 1 !== positions.length) return reject("NONCONTIGUOUS_SCOPE");
+  const prefix = result.beforeOrder.slice(0, start),
+    suffix = result.beforeOrder.slice(end + 1);
+  if (
+    proposed.shots.length < prefix.length + suffix.length ||
+    !same(ids(proposed.shots.slice(0, prefix.length)), prefix) ||
+    !same(ids(proposed.shots.slice(proposed.shots.length - suffix.length)), suffix)
+  )
+    return reject("OUTSIDE_SCOPE_STRUCTURE");
+  const replacement = proposed.shots.slice(prefix.length, proposed.shots.length - suffix.length);
+  if (replacement.some((shot) => shot.sceneId !== sceneId)) return reject("SELECTION_MISMATCH");
+  for (const row of current.shots.filter((shot) => shot.sceneId !== sceneId)) {
+    const after = proposed.shots.find((item) => item.id === row.id);
+    if (!after || !same(withoutGeneratedContinuity(row), withoutGeneratedContinuity(after)))
+      return reject("OUTSIDE_SCOPE_EDIT");
+  }
+  const beforeRest = { ...current } as Record<string, unknown>,
+    afterRest = { ...proposed } as Record<string, unknown>;
+  delete beforeRest.shots;
+  delete afterRest.shots;
+  if (!same(beforeRest, afterRest)) return reject("OTHER_COLLECTION_CHANGED");
+  const segment = current.shots.slice(start, end + 1);
+  for (const shot of replacement) {
+    const old = segment.find((item) => item.id === shot.id);
+    // A new shot here is not a deletion or a move; and pictures arriving meanwhile are not ours.
+    if (!old) return reject("NEW_SHOT_HAS_ASSETS_OR_DEPENDENCIES");
+    if (protectedShotFields.some((field) => !same(old[field], shot[field])))
+      return reject("MEDIA_REPLACEMENT_UNSUPPORTED");
+  }
+  if (same(ids(segment), ids(replacement))) return reject("NO_CHANGES");
+  result.before = structuredClone(segment);
+  result.after = structuredClone(replacement);
+  result.label = userShotEditLabel(segment, replacement, selection.page);
+  for (const id of ids(segment)) {
+    result.dependenciesAtReview[id] = structuredClone(dependencySnapshot(current, "shots", id));
+    result.dependenciesAfter[id] = structuredClone(dependencySnapshot(proposed, "shots", id));
+  }
+  return result;
+}
+
+function userShotEditLabel(before: FilmShot[], after: FilmShot[], page: string): string {
+  const removed = before.filter((shot) => !after.some((item) => item.id === shot.id));
+  if (removed.length === 1) return `${page === "edit" ? "剪掉" : "删掉"}镜头 ${removed[0]!.no}`;
+  if (removed.length > 1) return `${page === "edit" ? "剪掉" : "删掉"} ${removed.length} 个镜头`;
+  const order = ids(after);
+  const index = ids(before).findIndex((id, position) => id !== order[position]);
+  const without = (list: string[], id: string) => list.filter((item) => item !== id);
+  for (const candidate of [before[index], after[index]])
+    if (candidate && same(without(ids(before), candidate.id), without(order, candidate.id)))
+      return `挪动镜头 ${before.find((shot) => shot.id === candidate.id)?.no ?? candidate.no}`;
+  return "调整镜头顺序";
+}
+
 export function applyEditorStructure(
   current: FilmProject,
   transaction: EditorStructureTransaction,
@@ -269,6 +373,7 @@ function execute(current: FilmProject, transaction: EditorStructureTransaction, 
     const next = replacement.find((item) => item.id === row.id);
     if (
       !next &&
+      !transaction.userEdit &&
       ((collection === "shots" && media(live as FilmShot)) ||
         dependencies(current, collection, row.id))
     )
@@ -282,13 +387,16 @@ function execute(current: FilmProject, transaction: EditorStructureTransaction, 
     )
       return reject("MEDIA_REPLACEMENT_UNSUPPORTED");
   }
-  // Re-check dependencies of resurrected/new IDs: orphan work created meanwhile must not attach silently.
-  for (const row of replacement.filter((row) => !expected.some((item) => item.id === row.id)))
-    if (
-      dependencies(current, collection, row.id) ||
-      (collection === "shots" && media(row as FilmShot))
-    )
-      return reject("DEPENDENT_WORK_EXISTS");
+  // Re-check dependencies of resurrected/new IDs: orphan work created meanwhile must not attach
+  // silently. A user's own deletion puts its shot back whole; DEPENDENCIES_CHANGED above has
+  // already checked that what pointed at it is exactly what pointed at it before.
+  if (!transaction.userEdit)
+    for (const row of replacement.filter((row) => !expected.some((item) => item.id === row.id)))
+      if (
+        dependencies(current, collection, row.id) ||
+        (collection === "shots" && media(row as FilmShot))
+      )
+        return reject("DEPENDENT_WORK_EXISTS");
   const fresh = new Map(replacement.map((row) => [row.id, row]));
   const live = new Map(current[collection].map((row) => [row.id, row]));
   const records = targetOrder.map((id) => fresh.get(id) ?? live.get(id));

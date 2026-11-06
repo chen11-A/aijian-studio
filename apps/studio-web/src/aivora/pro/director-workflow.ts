@@ -9,6 +9,7 @@ import {
 import {
   parseDirectorShots,
   applyShots,
+  withWorkFraming,
   type FilmProject,
   type FilmScene,
   type FilmShot,
@@ -242,7 +243,18 @@ export function applyDirectorPlan(
   sceneId: string,
   unassigned: NonNullable<FilmProject["unassignedBeats"]> = [],
 ): FilmProject {
-  const next = applyShots(film, shots, sceneId);
+  // 3JR-B12: the frame descriptions name the work's framing, whatever the reply said.
+  const framed = shots.map((shot) => ({
+    ...shot,
+    ...(shot.directorFramePrompt
+      ? { directorFramePrompt: withWorkFraming(shot.directorFramePrompt, film.aspectRatio) }
+      : {}),
+    ...(shot.promptZh ? { promptZh: withWorkFraming(shot.promptZh, film.aspectRatio) } : {}),
+    ...(shot.directorVideoPrompt
+      ? { directorVideoPrompt: withWorkFraming(shot.directorVideoPrompt, film.aspectRatio) }
+      : {}),
+  }));
+  const next = applyShots(film, framed, sceneId);
   return {
     ...next,
     unassignedBeats: [

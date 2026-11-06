@@ -1947,6 +1947,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/story-film/clean-copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remake Clean Copy */
+        post: operations["remakeStoryFilmCleanCopy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/story-film/plan": {
         parameters: {
             query?: never;
@@ -8309,6 +8326,14 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /**
+         * RemakeStoryFilmCleanCopyBody
+         * @description 4B-B12: a film this workspace made, by the path the service returned for it.
+         */
+        RemakeStoryFilmCleanCopyBody: {
+            /** Film Path */
+            film_path: string;
+        };
         /** RemoteCallAccountingData */
         RemoteCallAccountingData: {
             /** Actual Cost Micros */
@@ -10062,6 +10087,33 @@ export interface components {
              */
             request_id: string;
         };
+        /** StoryFilmCleanCopyData */
+        StoryFilmCleanCopyData: {
+            /** Clean Copy Error */
+            clean_copy_error?: string | null;
+            /** Clean Copy Reason */
+            clean_copy_reason?: string | null;
+            /** Clean Output Path */
+            clean_output_path?: string | null;
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "SUCCEEDED" | "FAILED" | "NOT_FOUND";
+            /** Subtitle Cues */
+            subtitle_cues?: components["schemas"]["StoryFilmCueData"][] | null;
+        };
+        /** StoryFilmCleanCopyResponse */
+        StoryFilmCleanCopyResponse: {
+            data: components["schemas"]["StoryFilmCleanCopyData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** StoryFilmCueData */
         StoryFilmCueData: {
             /** End Seconds */
@@ -10079,6 +10131,10 @@ export interface components {
             attempt_id?: string | null;
             /** Billing Label */
             billing_label: string;
+            /** Clean Copy Error */
+            clean_copy_error?: string | null;
+            /** Clean Copy Reason */
+            clean_copy_reason?: string | null;
             /** Clean Output Path */
             clean_output_path?: string | null;
             /**
@@ -19849,6 +19905,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StoryFilmCancelResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remakeStoryFilmCleanCopy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemakeStoryFilmCleanCopyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFilmCleanCopyResponse"];
                 };
             };
             /** @description Sidecar authentication required */

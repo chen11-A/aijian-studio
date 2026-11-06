@@ -149,6 +149,11 @@ export type FilmTake = {
    */
   cleanVideoPath?: string;
   subtitleCues?: TakeSubtitleCue[];
+  /**
+   * 4B-B11: set when this take was made with a copy without burned subtitles in mind but that
+   * copy failed, in the service's words. Such a take is not an older one.
+   */
+  cleanCopyReason?: string;
   interruptedFrom?: "queued" | "running";
   lipSync?: LipSyncState;
   lipSyncReason?: string;
@@ -530,9 +535,44 @@ export function shotIdentity(shot: FilmShot, film: FilmProject): string {
     .join("。");
 }
 
+/** 3JR-B12: the sentence a director's frame description starts with, for this aspect. */
+export function framingHead(aspect: FilmProject["aspectRatio"]): string {
+  return aspect === "16:9" ? "横屏构图。" : "竖屏构图。";
+}
+
+/**
+ * 3JR-B12: a frame description that names its framing names the work's, once and first. The
+ * director follows examples from a portrait work, merged shots repeat the sentence, and the
+ * work's aspect can change after directing; text without a framing sentence is left as it is.
+ */
+export function withWorkFraming(text: string, aspect: FilmProject["aspectRatio"]): string {
+  if (!/(?:竖屏|横屏)构图/u.test(text)) return text;
+  return `${framingHead(aspect)}${text.replace(/(?:竖屏|横屏)构图[。.．，,]?\s*/gu, "").trim()}`;
+}
+
+/**
+ * 3JR-B12 (R2-U01): a video starts from its first frame, whose framing is already set, so a
+ * motion description needs no framing sentence at all — and a stale one must not reach it.
+ */
+export function withoutFraming(text: string): string {
+  return text.replace(/(?:竖屏|横屏)构图[。.．，,]?\s*/gu, "").trim();
+}
+
+/** 3JR-B12: tells the director and the art agent which way the work is framed. */
+export function aspectContext(film: Pick<FilmProject, "aspectRatio">): string {
+  return film.aspectRatio === "16:9"
+    ? "画幅：横屏 16:9。起始画面以「横屏构图。」开头，不写竖屏。"
+    : "画幅：竖屏 9:16。起始画面以「竖屏构图。」开头。";
+}
+
 export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
   const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
-  const frame = edited ? "" : shot.promptZh?.trim() || shot.directorFramePrompt?.trim() || "";
+  const frame = edited
+    ? ""
+    : withWorkFraming(
+        shot.promptZh?.trim() || shot.directorFramePrompt?.trim() || "",
+        film.aspectRatio,
+      );
   const picture = frame || (shot.picture || shot.action).trim();
   const base = picture.startsWith("这一镜的起始画面")
     ? picture.endsWith("。")
@@ -584,7 +624,7 @@ export function videoPrompt(shot: FilmShot): string {
   const motion = (
     edited
       ? shot.picture || shot.action
-      : explicit || shot.directorVideoPrompt || shot.picture || shot.action
+      : withoutFraming(explicit || shot.directorVideoPrompt || "") || shot.picture || shot.action
   ).replace(/。$/, "");
   const spoken = shot.line.trim() ? `台词原句：「${shot.line.trim()}」。不要背景音乐。` : "";
   return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}${directorPlanPrompt(shot, "video") ? `\n${directorPlanPrompt(shot, "video")}` : ""}`;

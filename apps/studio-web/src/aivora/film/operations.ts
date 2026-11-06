@@ -34,6 +34,7 @@ import {
 import {
   keyframePrompt,
   shotIdentity,
+  withoutFraming,
   type FilmCharacter,
   type FilmJob,
   type FilmLocation,
@@ -1385,19 +1386,33 @@ export function removeShot(film: FilmProject, shotId: string): FilmProject {
 export function moveShot(film: FilmProject, shotId: string, direction: -1 | 1): FilmProject {
   const current = film.shots.find((item) => item.id === shotId);
   if (!current) return film;
+  const local = film.shots
+    .filter((item) => item.sceneId === current.sceneId)
+    .findIndex((item) => item.id === shotId);
+  return moveShotTo(film, shotId, local + direction);
+}
+
+/**
+ * 5-3-05: the shot moved to `index` among its scene's shots (0 is first), in one change. The
+ * scene's shots are renumbered and stay where they were among the other scenes' shots, so the
+ * page history can take the move back. Out of range or no move leaves the film as it is.
+ */
+export function moveShotTo(film: FilmProject, shotId: string, index: number): FilmProject {
+  const current = film.shots.find((item) => item.id === shotId);
+  if (!current || !Number.isInteger(index)) return film;
   const sceneShots = film.shots.filter((item) => item.sceneId === current.sceneId);
   const local = sceneShots.findIndex((item) => item.id === shotId);
-  const target = local + direction;
-  if (target < 0 || target >= sceneShots.length) return film;
+  if (index < 0 || index >= sceneShots.length || index === local) return film;
   const reordered = sceneShots.slice();
-  const moved = reordered[local];
-  if (!moved) return film;
   reordered.splice(local, 1);
-  reordered.splice(target, 0, moved);
-  const numbered = reordered.map((item, index) => ({ ...item, no: index + 1 }));
+  reordered.splice(index, 0, current);
+  const numbered = reordered.map((item, position) =>
+    item.no === position + 1 ? item : { ...item, no: position + 1 },
+  );
+  let next = 0;
   return {
     ...film,
-    shots: [...film.shots.filter((item) => item.sceneId !== current.sceneId), ...numbered],
+    shots: film.shots.map((item) => (item.sceneId === current.sceneId ? numbered[next++]! : item)),
   };
 }
 
@@ -1515,7 +1530,8 @@ export function motionPrompt(shot: FilmShot): string {
       shot.directorVideoPrompt?.trim() ||
       shot.promptZh?.trim() ||
       "";
-  let visual = prompted || picture;
+  // 3JR-B12 (R2-U01): no framing sentence in a motion description.
+  let visual = withoutFraming(prompted) || picture;
   const directorNotes = directorPlanPrompt(shot, "video");
   if (directorNotes) visual = [visual, directorNotes].filter(Boolean).join("\n");
   const constraints = actionPlanPrompt(shot);
@@ -1549,17 +1565,25 @@ export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
   return names.length ? "" : film.narrationVoiceId || "";
 }
 
-export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string } {
+/**
+ * 3JR-B01: the shot's length for its line, and what generation will do when the line is longer.
+ * `sceneNo` names the shot as 「第 2 场第 3 个镜头」; without it, 「镜头 3」.
+ */
+export function fitShotToLine(
+  shot: FilmShot,
+  sceneNo?: number,
+): { shot: FilmShot; warning: string } {
   const line = shot.line.trim();
   if (!line) return { shot, warning: "" };
   const plan = durationFromSpeech(speechSeconds(line, null), shot.seconds);
+  const who = sceneNo ? `第 ${sceneNo} 场第 ${shot.no} 个镜头` : `镜头 ${shot.no} `;
   // 3JR-B01: the service measures the voice before it asks for the video, lengthens the video to
   // the voice (up to the video limit) and refuses, without submitting, a line that cannot fit.
-  // Dialogue is never cut, so the warnings say what will really happen.
+  // Dialogue is never cut, so the warnings say what will really happen (copy-zh.md).
   if (!plan.fits) {
     return {
       shot,
-      warning: `镜头 ${shot.no} 的台词超过 15 秒，一个视频放不下，这一镜不会提交，请拆成两镜。`,
+      warning: `${who}的台词超过 15 秒，一个视频放不下，这一镜不会生成。把台词分到两个镜头里。`,
     };
   }
   if (shot.userFields.includes("seconds")) {
@@ -1567,7 +1591,7 @@ export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string
       shot,
       warning:
         plan.seconds > shot.seconds
-          ? `镜头 ${shot.no} 你定的是 ${shot.seconds} 秒，台词约要 ${plan.seconds} 秒，生成时会按配音加长。`
+          ? `${who}定的是 ${shot.seconds} 秒，台词要说 ${plan.seconds} 秒左右，生成时会跟着配音加长。`
           : "",
     };
   }
@@ -1726,6 +1750,8 @@ export type ExportSubtitleMode = "burn" | "srt" | "none";
  * subtitles uses that copy and its own subtitle times, so the export can burn them in any look,
  * write them to a .srt or leave them out. An older take has only the subtitled film; it is used
  * as it is, and when it has a line it is listed in `baked` (its subtitle cannot be taken out).
+ * 4B-B11: a newer take whose copy without subtitles failed is listed in `unclean` with the
+ * reason instead, since regenerating it is what helps, not "it was made before".
  * Shots and takes are chosen exactly as chosenExport does.
  */
 export function subtitleExportPlan(
@@ -1736,6 +1762,7 @@ export function subtitleExportPlan(
   cues: TakeSubtitleCue[][];
   seconds: number[];
   baked: string[];
+  unclean: { shot: string; reason: string }[];
   missing: string[];
 } {
   const plan = {
@@ -1743,6 +1770,7 @@ export function subtitleExportPlan(
     cues: [] as TakeSubtitleCue[][],
     seconds: [] as number[],
     baked: [] as string[],
+    unclean: [] as { shot: string; reason: string }[],
     missing: [] as string[],
   };
   for (const shot of film.shots) {
@@ -1761,9 +1789,44 @@ export function subtitleExportPlan(
     plan.seconds.push(
       chosen.durationSeconds && chosen.durationSeconds > 0 ? chosen.durationSeconds : shot.seconds,
     );
-    if (!clean && spokenLine(shot)) plan.baked.push(`镜头 ${shot.no}`);
+    if (clean || !spokenLine(shot)) continue;
+    // Only takes from the service since 4B-B09 report subtitle times or a reason.
+    if (chosen.cleanCopyReason?.trim() || chosen.subtitleCues?.length)
+      plan.unclean.push({
+        shot: `镜头 ${shot.no}`,
+        reason: chosen.cleanCopyReason?.trim() || "不带字幕的那份没有做出来",
+      });
+    else plan.baked.push(`镜头 ${shot.no}`);
   }
   return plan;
+}
+
+/**
+ * 4B-B11: why some shots keep the subtitle in their picture, one sentence per kind of shot.
+ * `refused` is for an export without burned subtitles, which these shots stop.
+ */
+export function bakedSubtitleNotice(
+  plan: Pick<ReturnType<typeof subtitleExportPlan>, "baked" | "unclean">,
+  refused: boolean,
+): string {
+  const parts: string[] = [];
+  if (plan.baked.length)
+    parts.push(
+      refused
+        ? `${plan.baked.join("、")}是之前生成的，字幕已经在画面里，去不掉。`
+        : `${plan.baked.join("、")}是之前生成的，字幕还是原来的样子。`,
+    );
+  for (const item of plan.unclean)
+    parts.push(
+      refused
+        ? `${item.shot}${item.reason}，字幕已经在画面里。`
+        : `${item.shot}${item.reason}，字幕还是原来的样子。`,
+    );
+  if (!parts.length) return "";
+  const many = plan.baked.length + plan.unclean.length > 1;
+  return refused
+    ? `${parts.join("")}重新生成${many ? "这几个" : "这个"}镜头，或者字幕改选「烧进画面」。`
+    : parts.join("");
 }
 
 /** Each take's subtitles moved to their place in the joined film, never past their own shot. */

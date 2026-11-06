@@ -1,4 +1,4 @@
-import type { FilmProject } from "../../film/project";
+import { aspectContext, type FilmProject } from "../../film/project";
 import { artFromModel, parseLooseJson } from "../../film/phase2";
 import { applyArtDraft, type AgentReply } from "../workflow";
 
@@ -19,7 +19,7 @@ export async function planArtDraft(
 ): Promise<ArtActionResult> {
   const reply = await host.request(
     "art",
-    `画风：${film.styleZh}\n人物：${film.characters.map((item) => item.name).join("、")}`,
+    `画风：${film.styleZh}\n${aspectContext(film)}\n人物：${film.characters.map((item) => item.name).join("、")}`,
     "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
   );
   if (!host.current()) return { status: "stale" };

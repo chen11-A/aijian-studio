@@ -1,5 +1,6 @@
 import type { FilmProject, FilmShot } from "../film/project";
 import {
+  bakedSubtitleNotice,
   dialogueTracks,
   filmFileName,
   filmSubtitleCues,
@@ -104,13 +105,10 @@ export function exportFilmTask(
       const settings = options?.settings;
       // 4B-B09: takes without burned subtitles where there are any, and their subtitle times.
       const plan = settings ? subtitleExportPlan(base, settings.subtitles) : null;
-      if (plan && settings!.subtitles !== "burn" && plan.baked.length)
-        throw Object.assign(
-          new Error(
-            `${plan.baked.join("、")}是之前生成的，字幕已经在画面里，去不掉。重新生成这几个镜头，或者字幕改选「烧进画面」。`,
-          ),
-          { code: "EXPORT_SUBTITLES_BAKED" },
-        );
+      if (plan && settings!.subtitles !== "burn" && (plan.baked.length || plan.unclean.length))
+        throw Object.assign(new Error(bakedSubtitleNotice(plan, true)), {
+          code: "EXPORT_SUBTITLES_BAKED",
+        });
       const sources = plan ? plan.paths : paths;
       const music = base.audioClips.find((clip) => clip.lane === "score" && clip.path);
       const voices = dialogueTracks(base);
@@ -179,9 +177,9 @@ export function exportFilmTask(
         directory: target,
         ...(result.subtitlePath ? { subtitlePath: result.subtitlePath } : {}),
         ...(result.coverPath ? { coverPath: result.coverPath } : {}),
-        // Older takes keep the subtitle they were made with.
-        ...(plan && settings!.subtitles === "burn" && plan.baked.length
-          ? { note: `${plan.baked.join("、")}是之前生成的，字幕还是原来的样子。` }
+        // Older takes, and takes whose copy without subtitles failed, keep their subtitle.
+        ...(plan && settings!.subtitles === "burn" && (plan.baked.length || plan.unclean.length)
+          ? { note: bakedSubtitleNotice(plan, false) }
           : {}),
       };
     },

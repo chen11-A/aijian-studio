@@ -169,6 +169,18 @@ class StoryFilmCue:
 
 
 @dataclass(frozen=True, slots=True)
+class StoryFilmCleanCopyResult:
+    """4B-B12: a copy without burned subtitles made again for a film already made."""
+
+    status: Literal["SUCCEEDED", "FAILED", "NOT_FOUND"]
+    message: str
+    clean_output_path: str | None = None
+    subtitle_cues: tuple[StoryFilmCue, ...] | None = None
+    clean_copy_error: str | None = None
+    clean_copy_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class StoryFilmResult:
     status: FilmStatus
     message: str
@@ -192,6 +204,9 @@ class StoryFilmResult:
     # 4B-B09: the same film without burned subtitles, for an export in another look or none.
     clean_output_path: str | None = None
     subtitle_cues: tuple[StoryFilmCue, ...] | None = None
+    # 4B-B11: why that copy is missing when the film has burned subtitles but no clean copy.
+    clean_copy_error: str | None = None
+    clean_copy_reason: str | None = None
 
 
 def user_data_root() -> Path | None:
@@ -554,6 +569,8 @@ class StoryFilmService:
             voice_path=result.voice_path,
             clean_output_path=result.clean_output_path,
             subtitle_cues=result.subtitle_cues,
+            clean_copy_error=result.clean_copy_error,
+            clean_copy_reason=result.clean_copy_reason,
         )
 
     def _preflight(
@@ -1503,14 +1520,21 @@ class StoryFilmService:
         subtitle_note = _save_subtitle_without_blocking(content, output, subtitle, frames)
         burned = "subtitle_segments" in content
         # 4B-B09: first the same film without burned subtitles (so the subtitled one stays the
-        # assembly head as before). A failure here keeps the take; the export then says why.
-        clean = (
-            self._export_clean_copy(
+        # assembly head as before). A failure here keeps the take; 4B-B11: its reason goes back
+        # with the take and into the status log, so the export can say why.
+        clean: Path | None = None
+        clean_error: str | None = None
+        if burned:
+            clean, clean_error = self._export_clean_copy(
                 project_id, episode_id, content, directory / f"{stem}-film-clean.mp4"
             )
-            if burned
-            else None
-        )
+            if clean_error and request.provider == "grok_subscription":
+                append_grok_status(
+                    "compose_clean",
+                    code=clean_error,
+                    error_stage="assemble_clean",
+                    error_code=clean_error,
+                )
         assembly, job = self._export_story_assembly(
             project_id, episode_id, content, output, runtime
         )
@@ -1584,6 +1608,8 @@ class StoryFilmService:
             voice_path=str(voiced) if voiced.is_file() else None,
             clean_output_path=str(clean) if clean else (None if burned else job.output_path),
             subtitle_cues=export_cues or None,
+            clean_copy_error=clean_error,
+            clean_copy_reason=_clean_copy_reason(clean_error) if clean_error else None,
         )
 
     def _export_clean_copy(
@@ -1592,7 +1618,8 @@ class StoryFilmService:
         episode_id: str,
         content: dict[str, object],
         output: Path,
-    ) -> Path | None:
+    ) -> tuple[Path | None, str | None]:
+        """The film without burned subtitles, or None and a safe code saying why not (4B-B11)."""
         clean_content = {key: value for key, value in content.items() if key != "subtitle_segments"}
         # Its own runtime: _export_story_assembly ends with join_workers(), which stops the
         # runtime accepting work, so the subtitled film must not share it.
@@ -1606,13 +1633,93 @@ class StoryFilmService:
                 project_id, episode_id, clean_content, output, runtime
             )
             if job.status != "SUCCEEDED" or job.output_path is None:
-                return None
+                code = job.error_code if _safe_token(job.error_code) else None
+                return None, code or "EXPORT_FAILED"
             path = Path(job.output_path)
             tools = self._tools()
             _tag_ai_generated(tools.ffmpeg_path, tools.ffprobe_path, path)
-            return path if path.is_file() else None
-        except Exception:  # noqa: BLE001 - the subtitled film is still the take
-            return None
+            return (path, None) if path.is_file() else (None, "CLEAN_COPY_MISSING")
+        except Exception as error:  # noqa: BLE001 - the subtitled film is still the take
+            return None, _failure_log_code(error)
+
+    def remake_clean_copy(self, film_path: str) -> StoryFilmCleanCopyResult:
+        """4B-B12: the copy without burned subtitles for a film this workspace made, again.
+
+        The film is found by its bytes among the saved story films, and its assembly is
+        exported once more without the subtitle segments. No provider is called and nothing is
+        charged; the film itself is left as it is. Works for films made before 4B-B09 too.
+        """
+
+        missing = StoryFilmCleanCopyResult(
+            "NOT_FOUND", "找不到这一镜当时的合成记录，只能重新生成这一镜。"
+        )
+        directory = (Path(self._repository.database_path).parent / "story-films").resolve()
+        try:
+            film = Path(film_path).resolve(strict=True)
+        except (OSError, RuntimeError, ValueError):
+            return missing
+        if film.parent != directory or film.suffix.lower() != ".mp4" or not film.is_file():
+            return missing
+        found = self._story_film_assembly(hashlib.sha256(film.read_bytes()).hexdigest())
+        if found is None:
+            return missing
+        project_id, episode_id, version_id = found
+        try:
+            assembly = EpisodeMediaAssemblyStore(self._repository).read_version(
+                project_id, episode_id, version_id=version_id
+            )
+        except Exception:  # noqa: BLE001 - a record that cannot be read is a missing record
+            return missing
+        content: dict[str, object] = assembly.content.model_dump(mode="json")
+        cues = _export_cues(content.get("subtitle_segments")) or None
+        if not content.get("subtitle_segments"):
+            # Nothing was burned into this film, so it is its own clean copy.
+            return StoryFilmCleanCopyResult(
+                "SUCCEEDED", "这一镜画面里没有压字幕。", str(film), cues
+            )
+        stem = film.stem.removesuffix("-film")
+        # Exports never overwrite, and a failed name keeps its receipt, so each try is new.
+        target = directory / f"{stem}-film-clean-{uuid4().hex[:8]}.mp4"
+        clean, error = self._export_clean_copy(project_id, episode_id, content, target)
+        if clean is None:
+            code = error or "EXPORT_FAILED"
+            reason = _clean_copy_reason(code)
+            return StoryFilmCleanCopyResult(
+                "FAILED", f"{reason}，可以再试一次。", None, cues, code, reason
+            )
+        return StoryFilmCleanCopyResult("SUCCEEDED", "不带字幕的那份做好了。", str(clean), cues)
+
+    def _story_film_assembly(self, digest: str) -> tuple[str, str, str] | None:
+        """Project, episode and assembly version of the story film whose output has `digest`."""
+
+        with self._repository._connection() as connection:
+            rows = connection.execute(
+                """SELECT version.content_json
+                   FROM artifact_versions AS version
+                   JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+                   WHERE artifact.artifact_type = 'story_film' AND version.content_json LIKE ?""",
+                (f"%{digest}%",),
+            ).fetchall()
+            for row in rows:
+                try:
+                    manifest = json.loads(row["content_json"])
+                except ValueError:
+                    continue
+                if not isinstance(manifest, dict) or manifest.get("output_sha256") != digest:
+                    continue
+                version_id = manifest.get("assembly_version_id")
+                if not isinstance(version_id, str):
+                    continue
+                owner = connection.execute(
+                    """SELECT artifact.project_id, artifact.episode_id
+                       FROM artifact_versions AS version
+                       JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+                       WHERE version.version_id = ? AND artifact.artifact_type = ?""",
+                    (version_id, ASSEMBLY_ARTIFACT_TYPE),
+                ).fetchone()
+                if owner is not None and owner["episode_id"] is not None:
+                    return str(owner["project_id"]), str(owner["episode_id"]), version_id
+        return None
 
     def _export_story_assembly(
         self,
@@ -2453,6 +2560,15 @@ def _srt_clock(seconds: float) -> str:
 def _write_srt(path: Path, text: str, frames: int) -> None:
     end = _srt_clock(frames / _FRAME_RATE)
     path.write_text(f"1\n00:00:00,000 --> {end}\n{text}\n", encoding="utf-8")
+
+
+def _clean_copy_reason(code: str) -> str:
+    """One sentence for the user on why the take has no copy without burned subtitles."""
+
+    reason = _export_reason(code)
+    if code == "CLEAN_COPY_MISSING":
+        reason = "合成说做好了，但文件不在"
+    return f"不带字幕的那份没有做出来（{reason}）" if reason else "不带字幕的那份没有做出来"
 
 
 def _export_reason(code: object) -> str | None:

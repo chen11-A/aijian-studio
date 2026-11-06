@@ -1,6 +1,6 @@
 import { writerNumberedScript, writerSceneContext } from "../../film/writer-elements";
 import { numberedScript } from "../../film/operations";
-import { parseDirectorShots, type FilmProject } from "../../film/project";
+import { aspectContext, parseDirectorShots, type FilmProject } from "../../film/project";
 import type { UiNotice } from "../../film/contracts3j";
 import { retryDirectorTimeout, type AgentReply, type AgentRequestControl } from "../workflow";
 
@@ -18,7 +18,7 @@ export function directorRequestInput(
   return {
     sceneId,
     sourceText,
-    context: `画风：${film.styleZh}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${script}${writerSceneContext(scene)}`,
+    context: `画风：${film.styleZh}\n${aspectContext(film)}\n场次 id：${sceneId}\n人物：\n${names}\n剧本：\n${script}${writerSceneContext(scene)}`,
     sceneRefs: [...film.scenes],
   };
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { filmSubtitleCues, subtitleExportPlan } from "../../film/operations";
+import { bakedSubtitleNotice, filmSubtitleCues, subtitleExportPlan } from "../../film/operations";
 import { sampleFilm, type FilmProject, type FilmTake } from "../../film/project";
 import type { FilmExportSettings } from "../media-tasks";
 import { applyVideoResponse } from "./generation-run";
@@ -227,5 +227,95 @@ describe("4B-B09 export settings", () => {
       { text: "雨太大", start: 2, end: 3 },
     ]);
     expect(result.outputs[0]!.subtitlePath).toBe("/out/film.srt");
+  });
+
+  describe("4B-B11 a new take whose copy without subtitles failed", () => {
+    const failedCopy = (base: FilmProject, reason?: string) => {
+      const shot = base.shots[0]!;
+      const running = {
+        ...shot.takes[0]!,
+        status: "running" as const,
+        // A result from before must not survive a new one.
+        cleanVideoPath: "/story/old-clean.mp4",
+      };
+      base.shots[0] = { ...shot, takes: [running] };
+      return applyVideoResponse(base, base.shots[0]!, running, {
+        status: "SUCCEEDED",
+        output_path: "/story/new-film.mp4",
+        duration_seconds: "2.000",
+        clean_output_path: null,
+        clean_copy_error: "MEDIA_ENCODE_FAILED",
+        ...(reason ? { clean_copy_reason: reason } : {}),
+        subtitle_cues: [{ text: "东西交出来，", start_seconds: 0.4, end_seconds: 1.2 }],
+      }).film;
+    };
+
+    it("keeps the service's reason on the take and no copy from an earlier result", () => {
+      const saved = failedCopy(film(), "不带字幕的那份没有做出来（整理画面或配音时没有成功）")
+        .shots[0]!.takes[0]!;
+      expect(saved.videoPath).toBe("/story/new-film.mp4");
+      expect(saved.cleanVideoPath).toBeUndefined();
+      expect(saved.cleanCopyReason).toBe("不带字幕的那份没有做出来（整理画面或配音时没有成功）");
+      // Without the service's sentence the take still says its copy failed.
+      expect(failedCopy(film()).shots[0]!.takes[0]!.cleanCopyReason).toBe(
+        "不带字幕的那份没有做出来",
+      );
+    });
+
+    it("is not counted as an older take, and the export says why it keeps its subtitle", () => {
+      const base = failedCopy(film(), "不带字幕的那份没有做出来（整理画面或配音时没有成功）");
+      const plan = subtitleExportPlan(base, "srt");
+      const [first, second] = base.shots;
+      expect(plan.baked).toEqual([`镜头 ${second!.no}`]);
+      expect(plan.unclean).toEqual([
+        {
+          shot: `镜头 ${first!.no}`,
+          reason: "不带字幕的那份没有做出来（整理画面或配音时没有成功）",
+        },
+      ]);
+      expect(plan.paths[0]).toBe("/story/new-film.mp4");
+      expect(bakedSubtitleNotice(plan, true)).toBe(
+        `镜头 ${second!.no}是之前生成的，字幕已经在画面里，去不掉。` +
+          `镜头 ${first!.no}不带字幕的那份没有做出来（整理画面或配音时没有成功），字幕已经在画面里。` +
+          "重新生成这几个镜头，或者字幕改选「烧进画面」。",
+      );
+      expect(bakedSubtitleNotice(plan, false)).toBe(
+        `镜头 ${second!.no}是之前生成的，字幕还是原来的样子。` +
+          `镜头 ${first!.no}不带字幕的那份没有做出来（整理画面或配音时没有成功），字幕还是原来的样子。`,
+      );
+    });
+
+    it("counts a take with subtitle times from the service as new even without a reason", () => {
+      const base = film();
+      base.shots[0]!.takes[0] = { ...base.shots[0]!.takes[0]!, cleanVideoPath: undefined };
+      const plan = subtitleExportPlan(base, "none");
+      expect(plan.unclean.map((item) => item.reason)).toEqual(["不带字幕的那份没有做出来"]);
+      expect(plan.baked).toEqual([`镜头 ${base.shots[1]!.no}`]);
+    });
+
+    it("refuses an export without burned subtitles and names the reason", async () => {
+      const base = failedCopy(film(), "不带字幕的那份没有做出来（整理画面或配音时没有成功）");
+      base.shots[1]!.takes[0] = {
+        ...base.shots[1]!.takes[0]!,
+        cleanVideoPath: "/story/b-clean.mp4",
+        subtitleCues: [{ text: "雨太大", start: 0, end: 1 }],
+      };
+      const { cut } = bridge([2, 3]);
+      const result = await exportFilmSelection(
+        base,
+        [],
+        "/out",
+        host(base),
+        "work",
+        settings("none"),
+      );
+      expect(result.status).toBe("failed");
+      expect(result.error?.detail).toBe(
+        `镜头 ${base.shots[0]!.no}不带字幕的那份没有做出来（整理画面或配音时没有成功），` +
+          "字幕已经在画面里。重新生成这个镜头，或者字幕改选「烧进画面」。",
+      );
+      expect(result.error?.detail).not.toContain("之前生成的");
+      expect(cut).not.toHaveBeenCalled();
+    });
   });
 });

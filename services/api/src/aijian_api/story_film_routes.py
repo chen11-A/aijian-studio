@@ -161,6 +161,8 @@ class StoryFilmData(BaseModel):
     voice_path: str | None = None
     clean_output_path: str | None = None
     subtitle_cues: list[StoryFilmCueData] | None = None
+    clean_copy_error: str | None = None
+    clean_copy_reason: str | None = None
 
 
 class StoryFilmProgressData(BaseModel):
@@ -198,6 +200,32 @@ class StoryFilmResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: StoryFilmData
+    request_id: UUID
+
+
+class RemakeStoryFilmCleanCopyBody(BaseModel):
+    """4B-B12: a film this workspace made, by the path the service returned for it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    film_path: str = Field(min_length=1, max_length=4096)
+
+
+class StoryFilmCleanCopyData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["SUCCEEDED", "FAILED", "NOT_FOUND"]
+    message: str
+    clean_output_path: str | None = None
+    subtitle_cues: list[StoryFilmCueData] | None = None
+    clean_copy_error: str | None = None
+    clean_copy_reason: str | None = None
+
+
+class StoryFilmCleanCopyResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: StoryFilmCleanCopyData
     request_id: UUID
 
 
@@ -293,6 +321,41 @@ def create_story_film_router(
         request_film_cancel(project_id)
         return StoryFilmCancelResponse(
             data=StoryFilmCancelData(), request_id=request.state.request_id
+        )
+
+    @router.post(
+        "/api/v1/projects/{project_id}/story-film/clean-copy",
+        operation_id="remakeStoryFilmCleanCopy",
+        response_model=StoryFilmCleanCopyResponse,
+        responses=errors,
+    )
+    def remake_clean_copy(
+        request: Request,
+        project_id: Annotated[str, Field(pattern=PROJECT_ID_PATTERN)],
+        payload: RemakeStoryFilmCleanCopyBody,
+    ) -> StoryFilmCleanCopyResponse:
+        # The film is found by its bytes in this workspace, whichever project made it.
+        _ = project_id
+        result = StoryFilmService(repository_provider(), toolchain_provider).remake_clean_copy(
+            payload.film_path
+        )
+        return StoryFilmCleanCopyResponse(
+            data=StoryFilmCleanCopyData(
+                status=result.status,
+                message=result.message,
+                clean_output_path=result.clean_output_path,
+                subtitle_cues=[
+                    StoryFilmCueData(
+                        text=cue.text, start_seconds=cue.start_seconds, end_seconds=cue.end_seconds
+                    )
+                    for cue in result.subtitle_cues
+                ]
+                if result.subtitle_cues
+                else None,
+                clean_copy_error=result.clean_copy_error,
+                clean_copy_reason=result.clean_copy_reason,
+            ),
+            request_id=request.state.request_id,
         )
 
     @router.post(
@@ -402,4 +465,6 @@ def _data(result: StoryFilmResult) -> StoryFilmData:
         ]
         if result.subtitle_cues
         else None,
+        clean_copy_error=result.clean_copy_error,
+        clean_copy_reason=result.clean_copy_reason,
     )

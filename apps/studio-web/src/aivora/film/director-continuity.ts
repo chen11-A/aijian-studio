@@ -29,10 +29,11 @@ const coverageText = (text: string) => text.normalize("NFKC").replace(/[\p{P}\p{
 function tailNarration(tail: string): { narration: string[]; printed: string[] } {
   const dialogue = extractScriptLines(tail).map((line) => coverageText(line.text));
   const printed: string[] = [];
+  // A quote leaves a mark, so the clause that only introduces it can be told apart.
   let narration = tail.replace(/“([^”]*)”|「([^」]*)」|"([^"\n]*)"/gu, (_match, a, b, c) => {
     const content = coverageText(a ?? b ?? c ?? "");
     if (content && !dialogue.includes(content)) printed.push(content);
-    return "";
+    return "\u0000";
   });
   if (narration === tail && /^[^：:\n]{1,12}[：:]/u.test(tail)) {
     const lines = extractScriptLines(tail);
@@ -41,11 +42,17 @@ function tailNarration(tail: string): { narration: string[]; printed: string[] }
       for (const line of lines) narration = narration.replace(line.text, "");
     }
   }
+  const parts = narration.split(/([，,。！？!?；;\n]+|\u0000)/u);
   return {
-    narration: narration
-      .split(/[，,。！？!?；;\n]+/u)
-      .map(coverageText)
-      .filter((part) => part && !CONNECTIVE.test(part)),
+    narration: parts.flatMap((part, index) => {
+      if (index % 2) return [];
+      const text = coverageText(part.replace(/\u0000/gu, ""));
+      // 3JR-B14: 「只说了一句：“…”」 — the line itself is checked; 「什么也没问」 shows nothing.
+      const quoted = parts[index + 1] === "\u0000";
+      if (!text || CONNECTIVE.test(text) || NOTHING_DONE.test(text)) return [];
+      if (quoted && SPEECH_TAG.test(text)) return [];
+      return [text];
+    }),
     printed,
   };
 }
@@ -53,6 +60,10 @@ function tailNarration(tail: string): { narration: string[]; printed: string[] }
 // 3JR-B03: a time connective is not something a shot shows.
 const CONNECTIVE =
   /^(?:就在这时|就在此时|这时|此时|这时候|随即|随后|接着|然后|忽然|突然|同时|下一秒)$/u;
+// 3JR-B14: a short clause that only introduces the quote after it (「只说了一句」「笑着说」).
+const SPEECH_TAG = /^.{0,4}(?:说|道|问|喊|答)了?(?:一句|句|一声|声)?$/u;
+// 3JR-B14: something not done is not on screen (「什么也没问」「一言不发」).
+const NOTHING_DONE = /^(?:什么(?:也|都)没|一句话也没|一言不发|没有?(?:说话|出声|回答))/u;
 const pairs = (text: string) => [
   ...new Set(Array.from({ length: Math.max(0, text.length - 1) }, (_, i) => text.slice(i, i + 2))),
 ];
@@ -75,7 +86,8 @@ function shotEvidence(shot: FilmShot): string {
 /**
  * 3JR-B03: the last paragraph is shot when its words are there — verbatim anywhere in the
  * scene, or, as a director rewords them ("带着人钻进雨里" → "带人钻进雨里"), when in the scene's
- * last four shots every narration clause has some of its two-character pieces and at least
+ * last shots (four, or one for every two clauses of a long paragraph — 3JR-B14) every
+ * narration clause has some of its two-character pieces and at least
  * half of all the pieces appear. A clause with none of its words ("警笛响起" when only the door
  * opening is shot) is an event left out. Written text shown on screen (a sign, a note) must
  * still appear word for word.
@@ -85,8 +97,15 @@ function tailCovered(tail: string, shots: readonly FilmShot[]): boolean {
   const all = coverageText(shots.map(shotEvidence).join("\n"));
   if (printed.some((part) => !all.includes(part))) return false;
   if (narration.every((part) => all.includes(part))) return true;
-  const recent = coverageText(shots.slice(-4).map(shotEvidence).join("\n"));
   const clauses = narration.map(pairs).filter((grams) => grams.length);
+  // 3JR-B14: a long closing paragraph takes more than four shots; look back about one shot
+  // for every two of its clauses, and never fewer than four.
+  const recent = coverageText(
+    shots
+      .slice(-Math.max(4, Math.ceil(clauses.length / 2)))
+      .map(shotEvidence)
+      .join("\n"),
+  );
   const hits = clauses.map((grams) => grams.filter((gram) => recent.includes(gram)).length);
   const total = clauses.reduce((sum, grams) => sum + grams.length, 0);
   return (

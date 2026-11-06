@@ -58,10 +58,13 @@ function videoOutput(value: string): boolean {
  * 4B-B09: the take without burned subtitles and the times of its subtitles, as the service
  * reports them. Anything malformed is left out rather than guessed.
  */
-function exportMedia(
+export function exportMedia(
   data: Record<string, unknown>,
-): Pick<FilmTake, "cleanVideoPath" | "subtitleCues"> {
+): Pick<FilmTake, "cleanVideoPath" | "subtitleCues" | "cleanCopyReason"> {
   const clean = typeof data.clean_output_path === "string" ? data.clean_output_path.trim() : "";
+  const reason =
+    typeof data.clean_copy_reason === "string" ? data.clean_copy_reason.trim().slice(0, 200) : "";
+  const failed = typeof data.clean_copy_error === "string" && data.clean_copy_error.trim() !== "";
   const cues = Array.isArray(data.subtitle_cues)
     ? data.subtitle_cues.flatMap((raw) => {
         if (!raw || typeof raw !== "object") return [];
@@ -80,10 +83,23 @@ function exportMedia(
           : [];
       })
     : [];
+  const cleanVideoPath = clean && /\.mp4$/i.test(clean) ? clean : "";
   return {
-    ...(clean && /\.mp4$/i.test(clean) ? { cleanVideoPath: clean } : {}),
+    ...(cleanVideoPath ? { cleanVideoPath } : {}),
     ...(cues.length ? { subtitleCues: cues } : {}),
+    ...(!cleanVideoPath && (reason || failed)
+      ? { cleanCopyReason: reason || "不带字幕的那份没有做出来" }
+      : {}),
   };
+}
+
+/** A take's media from an earlier result never describes the new one (4B-B11). */
+function withoutExportMedia(take: FilmTake): FilmTake {
+  const copy = { ...take };
+  delete copy.cleanVideoPath;
+  delete copy.subtitleCues;
+  delete copy.cleanCopyReason;
+  return copy;
 }
 
 export function applyVideoResponse(
@@ -125,7 +141,7 @@ export function applyVideoResponse(
   const takes = (latest.shots.find((item) => item.id === shot.id)?.takes ?? []).map((item) =>
     item.id === take.id
       ? {
-          ...item,
+          ...withoutExportMedia(item),
           status: done ? ("done" as const) : ("failed" as const),
           videoPath: output,
           ...(done && Number.isFinite(reported) && reported >= 1

@@ -131,3 +131,38 @@ describe("3JR-B03 tail coverage uses dialogue and narration evidence separately"
     });
   });
 });
+
+describe("3JR-B14 a long closing paragraph shot over several shots", () => {
+  // The last paragraph of scene 3 of the test novel, word for word.
+  const tail =
+    "天亮的时候，两人一起回到青石巷。书店的玻璃门碎了一角，地上的书还泡在水里。林晚蹲下去，捡起一本封面被踩脏的诗集，用袖子一点点擦干净。沈砚把倒下的书架扶起来，一层一层地摆正。巷口卖早点的阿婆探头看了一眼，端来两碗热豆浆，什么也没问，只说了一句：“灯还亮着，就好。”";
+  const scene = { id: "scene-3", text: `沈砚看向走廊尽头的窗户。\n\n${tail}` };
+  const ending = [
+    { picture: "沈砚看向走廊尽头的窗户，天边透出灰白的光。" },
+    { picture: "林晚攥紧风衣领口，点了点头。" },
+    { picture: "天亮，林晚和沈砚回到青石巷，书店的玻璃门碎了一角。" },
+    { picture: "地上的书泡在水里，林晚蹲下捡起一本踩脏的诗集，用袖子擦干净。" },
+    { picture: "沈砚扶起倒下的书架，一层一层摆正。" },
+    { picture: "巷口卖早点的阿婆探头看了一眼。" },
+    { picture: "阿婆端来两碗热豆浆。", speaker: "阿婆", line: "灯还亮着，就好。" },
+  ];
+  const shots = (rows: object[]) =>
+    parseDirectorShots(JSON.stringify({ shots: rows }), "scene-3", scene.text, [], false)!;
+
+  it("counts it shot when its five shots show every clause", () => {
+    expect(detectDirectorCoverage(scene, shots(ending))).toMatchObject({
+      ok: true,
+      missingTail: null,
+    });
+  });
+
+  it("still reports a sentence of it that no shot shows", () => {
+    const withoutShelf = ending.filter((row) => !row.picture.includes("书架"));
+    expect(detectDirectorCoverage(scene, shots(withoutShelf))).toMatchObject({
+      ok: false,
+      missingTail: tail,
+    });
+    const withoutReturn = ending.filter((row) => !row.picture.startsWith("天亮"));
+    expect(detectDirectorCoverage(scene, shots(withoutReturn)).ok).toBe(false);
+  });
+});
