@@ -1,3 +1,8 @@
+import type {
+  FilmProjectArchiveInput,
+  FilmProjectArchiveExport,
+  FilmProjectArchiveImport,
+} from "@aijian/contracts/film-project-archive";
 import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
 import type {
   FilmAudioWaveformInput,
@@ -660,6 +665,10 @@ contextBridge.exposeInMainWorld("aijian", {
   ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
+  exportFilmProjectArchive: (input: FilmProjectArchiveInput) =>
+    ipcRenderer.invoke("film:project-archive-export", input) as Promise<FilmProjectArchiveExport>,
+  importFilmProjectArchive: () =>
+    ipcRenderer.invoke("film:project-archive-import") as Promise<FilmProjectArchiveImport>,
   readFilmAudioWaveform: (input: FilmAudioWaveformInput) =>
     ipcRenderer.invoke("film:audio-waveform", input) as Promise<FilmAudioWaveformResult>,
   prepareFilmExport: (input: FilmExportQcInput, operationId?: string) =>

@@ -120,6 +120,10 @@
     "./film-audio-waveform": {
       "types": "./src/film-audio-waveform.ts",
       "default": "./src/film-audio-waveform.ts"
+    },
+    "./film-project-archive": {
+      "types": "./src/film-project-archive.ts",
+      "default": "./src/film-project-archive.ts"
     }
   },
   "scripts": {

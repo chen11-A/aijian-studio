@@ -1,3 +1,5 @@
+import { registerProjectArchives } from "./film-project-archive";
+import { loadProjectArchiveEngine } from "./film-project-archive-runtime";
 import { registerFilmHistory } from "./film-history-ipc";
 import { registerFilmAudioWaveforms } from "./film-audio-waveform";
 import { createQuitSaveCoordinator, finishApprovedApplicationQuit } from "./quit-save";
@@ -922,6 +924,51 @@ const qcResourceRoot = () =>
     : existsSync(resolve(__dirname, "../../../qc"))
       ? resolve(__dirname, "../../../qc")
       : resolve(__dirname, "../../../packages/aivora-qc");
+registerProjectArchives<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    temporaryRoot: join(app.getPath("userData"), "cache", "project-archive"),
+    engine: () =>
+      loadProjectArchiveEngine(
+        app.isPackaged
+          ? join(process.resourcesPath, "project-archive")
+          : existsSync(resolve(__dirname, "../../../project-archive"))
+            ? resolve(__dirname, "../../../project-archive")
+            : resolve(__dirname, "../../../packages/aivora-media"),
+      ),
+    pickExport: async () => {
+      if (!mainWindow) return null;
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: "导出工程包",
+        defaultPath: "作品.aivora.zip",
+        filters: [{ name: "AIVORA 工程包", extensions: ["zip"] }],
+      });
+      return result.canceled ? null : (result.filePath ?? null);
+    },
+    pickImport: async () => {
+      if (!mainWindow) return null;
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: "打开工程包",
+        properties: ["openFile"],
+        filters: [{ name: "AIVORA 工程包", extensions: ["zip"] }],
+      });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    storyOwner: async (projectId, path, hash) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        hash,
+      ),
+  },
+);
 registerFilmAudioWaveforms<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>

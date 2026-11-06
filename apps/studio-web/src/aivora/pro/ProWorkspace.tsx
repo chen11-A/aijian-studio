@@ -1,3 +1,5 @@
+import { ProjectArchiveDialog } from "../next/ProjectArchiveDialog";
+import { exportProjectArchive } from "./actions/project-archive";
 import {
   prepareHistoryInput,
   historyRecordHash,
@@ -561,6 +563,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const account = useGrokAccount();
   const [film, setFilmState] = useState<FilmProject | null>(null);
   const [stage, setStage] = useState<Stage>("script");
+  const [archiveMode, setArchiveMode] = useState<"export" | "import" | null>(null);
+  const archiveOrigin = useRef<string | null>(null);
   const [pickedScene, setScene] = useState("02");
   // 3JR-B01: when a new set of scenes arrives (一键成片 writes them), the page already shows the
   // first scene before the effect below stores it. Actions use the scene the page shows, so a
@@ -4328,6 +4332,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {item.title}
                   </button>
                 ))}
+                <button
+                  onClick={() => {
+                    archiveOrigin.current = filmRef.current?.id ?? null;
+                    setArchiveMode("import");
+                    setMenu(null);
+                  }}
+                >
+                  打开工程包
+                </button>
+                <button
+                  disabled={!film}
+                  onClick={() => {
+                    archiveOrigin.current = filmRef.current?.id ?? null;
+                    setArchiveMode("export");
+                    setMenu(null);
+                  }}
+                >
+                  导出工程包
+                </button>
                 <p className="menu-group">这一部</p>
                 {episodes.map((item) => (
                   <button
@@ -5338,6 +5361,49 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               </div>
             </div>
           </div>
+        ) : null}
+
+        {archiveMode ? (
+          <ProjectArchiveDialog
+            mode={archiveMode}
+            projectId={film?.id ?? null}
+            onClose={() => setArchiveMode(null)}
+            onExport={async () => {
+              const current = filmRef.current;
+              if (!current) return { kind: "FAILED", code: "INVALID_INPUT" };
+              return exportProjectArchive(current, {
+                current: () => filmRef.current,
+                apply: applyLive,
+                acquire: (id) => persistence.acquire(id),
+              });
+            }}
+            onImport={async () =>
+              window.aijian?.importFilmProjectArchive
+                ? window.aijian.importFilmProjectArchive()
+                : { kind: "FAILED", code: "RUNTIME_UNAVAILABLE" }
+            }
+            onImported={async (id) => {
+              const origin = archiveOrigin.current;
+              if ((filmRef.current?.id ?? null) !== origin) return false;
+              const imported = await readSaved(id);
+              if (!imported || (filmRef.current?.id ?? null) !== origin) return false;
+              const settled = settleOpenedFilm(imported);
+              applyLive(settled.film);
+              setScene(settled.film.scenes[0]?.id ?? "scene-1");
+              setShot(0);
+              setPlaying(false);
+              setStage("script");
+              setBench(false);
+              setMenu(null);
+              setArchiveMode(null);
+              setNotice({
+                code: "STEP_COMPLETE",
+                text: NOTICE_TEXT.STEP_COMPLETE,
+                detail: "工程包已导入为独立新作品。历史版本和账号信息未带入。",
+              });
+              return true;
+            }}
+          />
         ) : null}
         {workSettings && film ? (
           <div className="dialog-back">
