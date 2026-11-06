@@ -6,6 +6,7 @@ import {
   rmSync,
   symlinkSync,
   realpathSync,
+  statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -154,12 +155,16 @@ it("last-frame IPC accepts a trusted media URL and returns a saved PNG without p
     series,
     `aivora-media://local/?path=${encodeURIComponent(env.source)}`,
   )) as { path: string; sourceVideoPath: string };
-  expect(result.sourceVideoPath).toBe(realpathSync(env.source));
+  expect(result.sourceVideoPath).toBe(realpathSync.native(env.source));
+  const actualSource = statSync(result.sourceVideoPath, { bigint: true });
+  const originalSource = statSync(env.source, { bigint: true });
+  expect([actualSource.dev, actualSource.ino]).toEqual([originalSource.dev, originalSource.ino]);
+  expect(readFileSync(result.sourceVideoPath)).toEqual(readFileSync(env.source));
   expect(result.path.startsWith(env.films)).toBe(true);
   expect(readFileSync(result.path).subarray(0, 8)).toEqual(
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
   );
-  expect(env.probeDuration).toHaveBeenCalledWith(realpathSync(env.source));
+  expect(env.probeDuration).toHaveBeenCalledWith(realpathSync.native(env.source));
   expect(env.runFfmpeg).toHaveBeenCalledOnce();
   expect(env.host.mediaToken).not.toHaveBeenCalled();
   expect(env.host.fetcher).not.toHaveBeenCalled();
