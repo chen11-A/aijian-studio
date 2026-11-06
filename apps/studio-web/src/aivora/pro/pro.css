@@ -1927,6 +1927,10 @@ body:has(.pro-root) {
   flex: none;
   border-top: 1px solid var(--line);
 }
+.pro-root .cands > .nx-takes {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
 .pro-root .cand {
   border-radius: 8px;
   border: 1px solid var(--line);
