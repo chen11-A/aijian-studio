@@ -3,6 +3,7 @@ import type {
   FilmProjectArchiveExport,
   FilmProjectArchiveImport,
 } from "@aijian/contracts/film-project-archive";
+import type { FilmRangeGateway } from "@aijian/contracts/film-range";
 import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
 import type {
   FilmAudioWaveformInput,
@@ -1042,6 +1043,10 @@ export interface AijianDesktopBridge
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
   listFilmHistory?: FilmHistoryGateway["listFilmHistory"];
+  prepareFilmRange?: FilmRangeGateway["prepareFilmRange"];
+  generateFilmRange?: FilmRangeGateway["generateFilmRange"];
+  finishFilmRange?: FilmRangeGateway["finishFilmRange"];
+  discardFilmRange?: FilmRangeGateway["discardFilmRange"];
   captureFilmHistory?: FilmHistoryGateway["captureFilmHistory"];
   restoreFilmHistory?: FilmHistoryGateway["restoreFilmHistory"];
   recoverFilmCleanCopy?: CleanCopyRecoveryGateway["recoverFilmCleanCopy"];

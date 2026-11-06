@@ -58,6 +58,16 @@ async function setup() {
     episodeTitle: "第三集",
     aspectRatio: "16:9",
     sourceText: "原始剧本文字",
+    audioMix: {
+      schemaVersion: 1,
+      lanes: {
+        dialogue: { gainDb: 2, muted: false },
+        ambience: { gainDb: -12, muted: true },
+        sfx: { gainDb: -3, muted: false },
+        score: { gainDb: -8, muted: false },
+      },
+      autoAdjustVolume: true,
+    },
     styleZh: "原画风",
     backendProjectId: `prj_${"a".repeat(32)}`,
     jobs: [{ id: "old-task", status: "running" }],
@@ -159,6 +169,16 @@ describe("real project package and isolated library restore", () => {
     expect(restored!.seriesId).not.toBe(seriesId);
     expect(restored!.episodeTitle).toBe("第三集");
     expect(restored!.sourceText).toBe("原始剧本文字");
+    expect(restored!.audioMix).toEqual({
+      schemaVersion: 1,
+      lanes: {
+        dialogue: { gainDb: 2, muted: false },
+        ambience: { gainDb: -12, muted: true },
+        sfx: { gainDb: -3, muted: false },
+        score: { gainDb: -8, muted: false },
+      },
+      autoAdjustVolume: true,
+    });
     expect(restored!.backendProjectId).toBe("");
     expect(restored!.jobs).toEqual([]);
     expect(restored!.pipeline).toBeUndefined();

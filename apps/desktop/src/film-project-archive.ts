@@ -59,7 +59,7 @@ const failure = (error: unknown): FilmProjectArchiveFailure => ({
 });
 const newId = () => `film_${randomUUID().replaceAll("-", "")}`;
 const projectKeys = new Set(
-  "schemaVersion id seriesId seriesTitle episodeNo episodeTitle title stylePreset styleZh styleRevision characters scenes shots takesPerShot parallelism maxRetryRounds draft locations props sourceText narrationVoiceId audioClips aspectRatio subtitleStyle cover writerPlan artDesign artDesignBaseline reviewReports costumes costumeRisks unassignedBeats".split(
+  "schemaVersion id seriesId seriesTitle episodeNo episodeTitle title stylePreset styleZh styleRevision characters scenes shots takesPerShot parallelism maxRetryRounds draft locations props sourceText narrationVoiceId audioClips audioMix aspectRatio subtitleStyle cover writerPlan artDesign artDesignBaseline reviewReports costumes costumeRisks unassignedBeats".split(
     " ",
   ),
 );

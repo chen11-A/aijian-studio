@@ -124,6 +124,10 @@
     "./film-project-archive": {
       "types": "./src/film-project-archive.ts",
       "default": "./src/film-project-archive.ts"
+    },
+    "./film-range": {
+      "types": "./src/film-range.ts",
+      "default": "./src/film-range.ts"
     }
   },
   "scripts": {

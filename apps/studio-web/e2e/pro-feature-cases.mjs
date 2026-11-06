@@ -51,6 +51,7 @@ export async function runFeatureCases({ browser, config, report, media, persist 
             text: window.__proFeatureAudit.text.length,
             waves: window.__proFeatureAudit.waves,
             pending: window.__proFeatureAudit.pending.length,
+            assemblies: window.__proFeatureAudit.assemblies,
             history: window.__proFeatureAudit.history
               ? {
                   lists: window.__proFeatureAudit.history.list.length,
@@ -333,11 +334,57 @@ export async function runFeatureCases({ browser, config, report, media, persist 
             assert.equal((await calls()).text, 0);
           }
           result.calls = await calls();
+          if (state.startsWith("waveform")) {
+            const expectedAssembly = (film) => ({
+              projectId: film.id,
+              seriesId: film.seriesId,
+              paths: film.shots.map(
+                (s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath,
+              ),
+              musicPath: film.audioClips.find((c) => c.lane === "score" && c.path)?.path ?? "",
+              gainDb: film.audioClips.find((c) => c.lane === "score" && c.path)?.gainDb ?? -14,
+              dialogue: film.shots.map(
+                (s) =>
+                  film.audioClips.find((c) => c.lane === "dialogue" && c.shotId === s.id && c.path)
+                    ?.path ?? "",
+              ),
+            });
+            assert.equal(
+              before.shots.length,
+              6,
+              "Waveform cases retain the real multi-shot project",
+            );
+            assert.equal(
+              result.calls.assemblies.length,
+              state === "waveform-known" ? 1 : 2,
+              "Only initial and actual selected-version preview assembly requests are allowed",
+            );
+            assert.deepEqual(result.calls.assemblies[0], expectedAssembly(before));
+            if (state === "waveform-unknown-stale")
+              assert.deepEqual(result.calls.assemblies[1], expectedAssembly(await saved()));
+          } else assert.deepEqual(result.calls.assemblies, []);
           assert.deepEqual(result.calls.forbidden, []);
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.passed = true;
         } catch (error) {
+          const checkFrame =
+            typeof error.stack === "string"
+              ? error.stack
+                  .split("\n")
+                  .find(
+                    (line) =>
+                      /^\s+at\s/.test(line) &&
+                      /[\\/]pro-feature-cases\.mjs:\d{1,6}:\d{1,6}(?:\)|$)/.test(line),
+                  )
+              : undefined;
+          const checkLine = Number(
+            checkFrame?.match(/[\\/]pro-feature-cases\.mjs:(\d{1,6}):\d{1,6}(?:\)|$)/)?.[1],
+          );
+          result.checkLine =
+            Number.isSafeInteger(checkLine) && checkLine >= 1 && checkLine <= 100000
+              ? checkLine
+              : null;
           result.error = error.message;
         } finally {
           if (!captured || !result.passed) {

@@ -18,6 +18,16 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     ["不要", "subtitle-none"],
     ["停止处理", "request-stop"],
     ["正在请求停止", "request-pending"],
+    ["刷新音频波形", "waveform-refresh"],
+    ["读取波形中", "waveform-loading"],
+    ["重新生成", "timeline-regenerate"],
+    ["换配音", "timeline-voice"],
+    ["剪掉", "timeline-cut"],
+    ["取消选择", "timeline-clear-selection"],
+    ["放大时间线", "timeline-zoom-in"],
+    ["缩小时间线", "timeline-zoom-out"],
+    ["改这一镜的描述", "shot-description"],
+    ["导入音乐", "music-import"],
   ]);
   const controlIds = new Set(["export-quality", "export-aspect", "export-dir"]);
   const safeClasses = new Set([
@@ -43,6 +53,19 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     "nx-adv",
     "nx-scroll",
     "nx-export-facts",
+    "ws",
+    "fix",
+    "edit",
+    "pane",
+    "pb",
+    "sheet",
+    "field",
+    "monitor",
+    "timeline",
+    "ttool",
+    "tbody",
+    "tracks",
+    "bin",
   ]);
   const safeTags = new Set([
     "BUTTON",
@@ -105,6 +128,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     let scrollX = false;
     let scrollY = false;
     let hiddenClip = false;
+    let clipAncestor = null;
     for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
       const css = getComputedStyle(ancestor);
       const parent = ancestor.getBoundingClientRect();
@@ -116,14 +140,18 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
         /hidden|clip/.test(css.overflowX) &&
         !scrollX &&
         (box.left < parent.left - 2 || box.right > parent.right + 2)
-      )
+      ) {
         hiddenClip = true;
+        clipAncestor ??= ancestor;
+      }
       if (
         /hidden|clip/.test(css.overflowY) &&
         !scrollY &&
         (box.top < parent.top - 2 || box.bottom > parent.bottom + 2)
-      )
+      ) {
         hiddenClip = true;
+        clipAncestor ??= ancestor;
+      }
       if (/hidden|clip|auto|scroll/.test(css.overflowX)) {
         visible.left = Math.max(visible.left, parent.left);
         visible.right = Math.min(visible.right, parent.right);
@@ -135,7 +163,22 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
       if (ancestor === scope) break;
     }
     if (hiddenClip)
-      issues.push({ kind: "control-clipped-without-scroll", label, box: bounds(box) });
+      issues.push({
+        kind: "control-clipped-without-scroll",
+        label,
+        box: bounds(box),
+        diagnostic: {
+          control: controlIds.has(element.id) ? element.id : (controlLabels.get(label) ?? "other"),
+          tag: tag(element),
+          clipTag: clipAncestor ? tag(clipAncestor) : "OTHER",
+          clipClasses: clipAncestor
+            ? [...clipAncestor.classList].filter((name) => safeClasses.has(name)).slice(0, 3)
+            : [],
+          clipBox: clipAncestor ? bounds(clipAncestor.getBoundingClientRect()) : null,
+          scrollX,
+          scrollY,
+        },
+      });
     if (visible.right - visible.left < 2 || visible.bottom - visible.top < 2) {
       const item = { kind: "offscreen-control", label, box: bounds(box) };
       if (!hiddenClip && (scrollX || scrollY)) scrollOffscreen.push(item);

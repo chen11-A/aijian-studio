@@ -3,6 +3,7 @@ import type {
   FilmProjectArchiveExport,
   FilmProjectArchiveImport,
 } from "@aijian/contracts/film-project-archive";
+import type { FilmRangeGateway } from "@aijian/contracts/film-range";
 import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
 import type {
   FilmAudioWaveformInput,
@@ -578,6 +579,14 @@ contextBridge.exposeInMainWorld("aijian", {
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
   listFilmHistory: (projectId: Parameters<FilmHistoryGateway["listFilmHistory"]>[0]) =>
     ipcRenderer.invoke("film:history-list", projectId),
+  prepareFilmRange: (input: Parameters<FilmRangeGateway["prepareFilmRange"]>[0]) =>
+    ipcRenderer.invoke("film:range-prepare", input),
+  generateFilmRange: (input: Parameters<FilmRangeGateway["generateFilmRange"]>[0]) =>
+    ipcRenderer.invoke("film:range-generate", input),
+  finishFilmRange: (input: Parameters<FilmRangeGateway["finishFilmRange"]>[0]) =>
+    ipcRenderer.invoke("film:range-finish", input),
+  discardFilmRange: (projectId: string, planId: string) =>
+    ipcRenderer.invoke("film:range-discard", projectId, planId),
   captureFilmHistory: (input: Parameters<FilmHistoryGateway["captureFilmHistory"]>[0]) =>
     ipcRenderer.invoke("film:history-capture", input),
   restoreFilmHistory: (input: Parameters<FilmHistoryGateway["restoreFilmHistory"]>[0]) =>

@@ -1,10 +1,12 @@
 import { registerProjectArchives } from "./film-project-archive";
 import { loadProjectArchiveEngine } from "./film-project-archive-runtime";
+import { originalCleanRecoveryProof, finalCleanRecoveryProof } from "./clean-copy-recovery-proof";
+import { registerFilmRanges } from "./film-range-ipc";
 import { registerFilmHistory } from "./film-history-ipc";
 import { registerFilmAudioWaveforms } from "./film-audio-waveform";
 import { createQuitSaveCoordinator, finishApprovedApplicationQuit } from "./quit-save";
 import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
-import { createStoryFilmClient } from "./story-film-client";
+import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 import { registerFilmExportQc } from "./film-export-qc-ipc";
 import { verifiedQcTools, loadQcEngine, loadQcRunner } from "./film-export-qc-runtime";
@@ -967,6 +969,61 @@ registerProjectArchives<IpcMainInvokeEvent>(
         path,
         hash,
       ),
+  },
+);
+registerFilmRanges<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    temporaryRoot: join(app.getPath("userData"), "cache", "range-redo"),
+    tools: () =>
+      verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+      ),
+    run: async (binary, args, options) =>
+      (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+    storyOwner: async (projectId, path, sha) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        sha,
+      ),
+    cleanOwner: async (projectId, original, clean) => {
+      const database = join(app.getPath("userData"), "workspace", "workspace.sqlite3");
+      const proof = originalCleanRecoveryProof(database, projectId, original.path, original.sha);
+      if (!proof) return false;
+      return original.path === clean.path && original.sha === clean.sha
+        ? !proof.hasBurnedSubtitles
+        : finalCleanRecoveryProof(
+            database,
+            projectId,
+            clean.path,
+            clean.sha,
+            proof.assemblyVersionId,
+          );
+    },
+    generate: async (projectId, input, canDispatch) => {
+      const body = parseStoryFilmCreate(input);
+      if (!sidecar) throw new Error("Local API unavailable");
+      const bearer = await getGrokRuntime().mediaAccessToken();
+      if (!bearer || bearer.length > 8192 || /[\r\n]/.test(bearer))
+        throw new Error("Member authorization unavailable");
+      if (!(await canDispatch())) throw new Error("Range input changed before dispatch");
+      return createStoryFilmClient(globalThis.fetch, sidecar.session).create(
+        projectId,
+        body,
+        bearer,
+      );
+    },
   },
 );
 registerFilmAudioWaveforms<IpcMainInvokeEvent>(

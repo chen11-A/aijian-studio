@@ -81,6 +81,7 @@ export function finalCleanRecoveryProof(
   projectId: string,
   path: string,
   sha256: string,
+  expectedAssemblyVersionId?: string,
 ): boolean {
   let database: DatabaseSync | undefined;
   try {
@@ -94,6 +95,8 @@ export function finalCleanRecoveryProof(
       try {
         const content = JSON.parse(String(row.content_json));
         if (
+          (expectedAssemblyVersionId !== undefined &&
+            content.assembly_version_id !== expectedAssemblyVersionId) ||
           content.output_sha256 !== sha256 ||
           typeof content.output_path !== "string" ||
           realpathSync.native(content.output_path) !== realpathSync.native(path) ||

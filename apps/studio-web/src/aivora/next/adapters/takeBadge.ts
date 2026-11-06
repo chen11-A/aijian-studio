@@ -16,7 +16,8 @@ export function takeBadge(shot: FilmShot): string | null {
 
 /**
  * 4C-U01: the selected part of the cut, from in to out: which shots, where it starts and how long
- * it is, and whether a spoken line is in it (a line is always made again whole).
+ * it is, and whether it contains dialogue. This coarse selection supplies no speech timing;
+ * seconds-level visual redo keeps the original audio and cannot infer sentence boundaries.
  */
 export function selection(
   shots: readonly FilmShot[],
