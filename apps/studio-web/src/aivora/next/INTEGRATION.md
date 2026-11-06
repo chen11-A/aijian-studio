@@ -1152,3 +1152,5 @@ Round4 GUI显示已交付24ee160（位于codex/aivora-export-qc）：ExportCheck
 Round4最终接口/验门：da555d2/4badc24/ff4548a已提交，QC32门b18194b等待新源码CI。prepare提交前持久化并在无新编辑时同步main canonical快照，以真实live key固定审核；publish不重复物化，主进程再次校验；直接比较filmRef审阅key防同React批次旧callback。缺QC桥阻塞，原低级API无凭据但保留。最终clean-copy追加post-tag SHA/path/assembly证据，不改draft历史SHA；发布路径登记main allowlist。source强归属仅所选video，aux为持久引用/roots；旧无证据拒绝，待无付费恢复。root首轮全TS桌面2050/媒体17/QC11过、前端6失败已14定向修正、全TS最终复跑中；相关Python34、mypy310、修后type/build/contracts与静态过。progress独立74922c0纯组件35过，无B13接线/实际取消证明。
 
 最新接入：Round3基线663f6c9的CI #693整体Success，Linux127986935695/Windows127986935249与core24全部成功；总控以127ee760 --no-ff合dev，相对已验产品源码一致。QC另推eaff08b，新CI #696 core24/full60成功，其余尚在验；root完整TS最终复跑exit0（2050/4724+媒体17/QC11），renderer分支87.47%，相关Python34/静态门过，QC未混入本次dev源码。dev仅同步当前进度/中文草稿。B13在独立progress继续，GUI取消组件修正后37项，仅组件证明；事件/真实停止仍开发中。
+
+最新140态验收：eaff08b的CI #696/run42257745042 pro-layout job128029322839已全部succeeded（core24/full60/url24/QC32，证据上传成功），完整Linux/Windows质量仍Test。root通过9486b55同步已推dev6d1e082的文档/祖先，冲突仅root三份进度，产品源码未改。B13中立op/project/seq、ACK.snapshot与纯GUI接口已对齐，95a5fb2组件40项由root复跑；明确UNAVAILABLE false解锁、REQUESTED不等于stopped、旧attempt/未知网络不假取消，真实事件/宿主和下一轮浏览器门仍在开发。
