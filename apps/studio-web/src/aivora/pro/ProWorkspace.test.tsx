@@ -3998,6 +3998,26 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("shows the first frame on 单个镜头 before there is a video (5-3-13)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  // The sample's first scene has no shots; give it one with a first frame and no video.
+  const [first] = film.shots;
+  first!.sceneId = film.scenes[0]!.id;
+  first!.poster = `/tmp/${first!.id}-still.png`;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  const frame = document.querySelector<HTMLElement>(".bigprev .frame")!;
+  expect(frame).not.toHaveClass("rain");
+  expect(frame.style.backgroundImage).toContain("-still.png");
+  expect(frame).toHaveTextContent("还没有视频，这是起始画面");
+  expect(screen.getByText(/还没有版本。在右边点/)).toBeInTheDocument();
+});
+
 it("renames the work by double-clicking its name in the top bar (5-3-04)", async () => {
   installDesktop();
   await openSample();

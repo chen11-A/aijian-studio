@@ -2286,6 +2286,17 @@ body:has(.pro-root) {
   font-size: 13px;
   text-align: center;
 }
+/* 5-3-13: the note on a first frame shown where the video will be. */
+.pro-root .bigprev .still-note {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  color: var(--text-2);
+  font-size: 12px;
+}
 /* 5-3-08: zoom out, zoom in, the whole cut. */
 .pro-root .tzoom {
   display: inline-flex;

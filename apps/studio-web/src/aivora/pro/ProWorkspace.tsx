@@ -7536,11 +7536,29 @@ function GeneratePage({
                 onTime={() => undefined}
               />
             ) : (
-              <div className="frame rain">
-                {takes.length > 0 ? (
-                  <span className="badge none">{picked?.reason || "这一版还没有画面"}</span>
-                ) : null}
-              </div>
+              // 5-3-13: with no video yet, the first frame shows instead of a black box.
+              (() => {
+                const still = shotFrame(current);
+                return (
+                  <div
+                    className={still ? "frame" : "frame rain"}
+                    style={
+                      still
+                        ? {
+                            backgroundImage: `url(${still})`,
+                            backgroundPosition: current?.posterPosition || "50% 50%",
+                          }
+                        : undefined
+                    }
+                  >
+                    {takes.length > 0 ? (
+                      <span className="badge none">{picked?.reason || "这一版还没有画面"}</span>
+                    ) : still ? (
+                      <span className="still-note">还没有视频，这是起始画面</span>
+                    ) : null}
+                  </div>
+                );
+              })()
             )}
           </div>
           <div className="cands">
