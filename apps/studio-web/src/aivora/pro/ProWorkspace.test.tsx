@@ -2314,21 +2314,26 @@ it("asks for the selected shot again after the confirm table", async () => {
 
 it("fills the default export folder and flushes when the app quits", async () => {
   installDesktop();
-  const flushed = vi.fn();
-  let flush: (() => void) | undefined;
+  const flushed = vi.fn(async () => undefined);
+  let flush: ((request: { requestId: string }) => void) | undefined;
   Object.assign(window.aijian ?? {}, {
     defaultFilmFolder: vi.fn(async () => "/tmp/videos/AIVORA"),
     flushed,
-    onFlush: (handler: () => void) => {
+    onFlush: (handler: (request: { requestId: string }) => void) => {
       flush = handler;
+      return () => {
+        flush = undefined;
+      };
     },
   });
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
   expect(screen.queryByLabelText("导出文件夹")).toBeNull();
   expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
-  flush?.();
-  await waitFor(() => expect(flushed).toHaveBeenCalled());
+  flush?.({ requestId: "quit-default-folder" });
+  await waitFor(() =>
+    expect(flushed).toHaveBeenCalledWith({ requestId: "quit-default-folder", status: "saved" }),
+  );
 });
 
 it("reloads a saved video and can cancel a login that is still waiting", async () => {

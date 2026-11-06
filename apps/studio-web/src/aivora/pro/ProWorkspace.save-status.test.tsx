@@ -30,8 +30,8 @@ function desktop() {
     disk.set(value.id, structuredClone(value));
     return structuredClone(value);
   });
-  const flushed = vi.fn();
-  let flush: (() => void) | undefined;
+  const flushed = vi.fn(async () => undefined);
+  let flush: ((request: { requestId: string }) => void) | undefined;
   window.aijian = {
     listFilmSeries: vi.fn(async () => [
       { id: first.seriesId, title: first.seriesTitle, savedAt: "", path: first.directory },
@@ -51,8 +51,11 @@ function desktop() {
       structuredClone(disk.get(id) ?? (id === first.seriesId ? disk.get(first.id) : null)),
     ),
     writeFilmProject: write,
-    onFlush: (handler: () => void) => {
+    onFlush: (handler: (request: { requestId: string }) => void) => {
       flush = handler;
+      return () => {
+        flush = undefined;
+      };
     },
     flushed,
   } as unknown as Window["aijian"];
@@ -65,7 +68,7 @@ function desktop() {
     flushed,
     flush: () => {
       if (!flush) throw new Error("flush handler missing");
-      flush();
+      flush({ requestId: "quit-save-status" });
     },
   };
 }
@@ -121,18 +124,34 @@ describe("saved directory and current save outcome", () => {
     await waitFor(() => expect(where()).toHaveTextContent("作品保存在"));
     const pending = deferred<FilmProject>();
     bridge.write.mockImplementationOnce(() => pending.promise);
+    fireEvent.change(screen.getByLabelText("这一场", { exact: true }), {
+      target: { value: "本次退出前待保存的正文。" },
+    });
     act(() => bridge.flush());
     await waitFor(() => expect(bridge.write).toHaveBeenCalledTimes(2));
     const old = bridge.write.mock.calls[1]![0];
+    const latest = deferred<FilmProject>();
+    bridge.write.mockImplementationOnce(async (value) => {
+      await latest.promise;
+      bridge.disk.set(value.id, structuredClone(value));
+      return value;
+    });
     fireEvent.change(screen.getByLabelText("这一场", { exact: true }), {
       target: { value: "同一工程里更新但尚未写盘的正文。" },
     });
     await act(async () => pending.resolve({ ...old, directory: "/saved/stale-snapshot" }));
-    expect(bridge.flushed).toHaveBeenCalledOnce();
+    expect(bridge.flushed).not.toHaveBeenCalled();
     expect(where()).toHaveTextContent("正在保存");
     expect(where()).not.toHaveTextContent(/作品保存在|stale-snapshot/);
     expect(bridge.disk.get(bridge.first.id)!.scenes[0]!.text).toBe(bridge.first.scenes[0]!.text);
     await waitFor(() => expect(bridge.write).toHaveBeenCalledTimes(3));
+    await act(async () => latest.resolve(bridge.write.mock.calls[2]![0]));
+    await waitFor(() =>
+      expect(bridge.flushed).toHaveBeenCalledWith({
+        requestId: "quit-save-status",
+        status: "saved",
+      }),
+    );
     await waitFor(() => expect(where()).toHaveTextContent("作品保存在"));
     expect(bridge.disk.get(bridge.first.id)!.scenes[0]!.text).toBe(
       "同一工程里更新但尚未写盘的正文。",
@@ -148,6 +167,9 @@ describe("saved directory and current save outcome", () => {
       await waitFor(() => expect(where()).toHaveTextContent("作品保存在"));
       const pending = deferred<FilmProject>();
       bridge.write.mockImplementationOnce(() => pending.promise);
+      fireEvent.change(screen.getByLabelText("这一场", { exact: true }), {
+        target: { value: "本次退出前待保存的正文。" },
+      });
       act(() => bridge.flush());
       await waitFor(() => expect(bridge.write).toHaveBeenCalledTimes(2));
       const old = bridge.write.mock.calls[1]![0];
@@ -160,7 +182,12 @@ describe("saved directory and current save outcome", () => {
         if (outcome === "resolve") pending.resolve({ ...old, directory: "/saved/stale-original" });
         else pending.reject(new Error("old project failed"));
       });
-      expect(bridge.flushed).toHaveBeenCalledOnce();
+      await waitFor(() =>
+        expect(bridge.flushed).toHaveBeenCalledWith({
+          requestId: "quit-save-status",
+          status: outcome === "resolve" ? "saved" : "failed",
+        }),
+      );
       expect(where()).toHaveTextContent(bridge.second.directory);
       expect(where()).toHaveTextContent("作品保存在");
       expect(where()).not.toHaveTextContent(/stale-original|没有写到/);
@@ -175,14 +202,23 @@ describe("saved directory and current save outcome", () => {
     await waitFor(() => expect(where()).toHaveTextContent("作品保存在"));
     const pending = deferred<FilmProject>();
     bridge.write.mockImplementationOnce(() => pending.promise);
+    fireEvent.change(screen.getByLabelText("这一场", { exact: true }), {
+      target: { value: "本次退出前待保存的正文。" },
+    });
     act(() => bridge.flush());
     await waitFor(() => expect(bridge.write).toHaveBeenCalledTimes(2));
     const old = bridge.write.mock.calls[1]![0];
     bridge.write.mockRejectedValueOnce(new Error("second project disk full"));
+    bridge.write.mockRejectedValueOnce(new Error("second project still full"));
     await openSecond();
     await waitFor(() => expect(where()).toHaveTextContent(saveFailure));
     await act(async () => pending.resolve({ ...old, directory: "/saved/stale-original" }));
-    expect(bridge.flushed).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(bridge.flushed).toHaveBeenCalledWith({
+        requestId: "quit-save-status",
+        status: "failed",
+      }),
+    );
     expect(where()).toHaveTextContent(saveFailure);
     expect(where()).toHaveTextContent(bridge.second.directory);
     expect(where()).not.toHaveTextContent(/作品保存在|stale-original/);
