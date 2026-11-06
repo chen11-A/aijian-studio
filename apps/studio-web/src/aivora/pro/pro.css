@@ -4026,3 +4026,14 @@ body:has(.pro-root) {
 .pro-root .dialog.export .nx-export-review .nx-export-group {
   position: static;
 }
+
+/* Keep monitor actions inside narrow comparison columns; only the work title may truncate. */
+.pro-root .monitor > .ph > .meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pro-root .monitor > .ph > .monitor-tabs,
+.pro-root .monitor > .ph > .safe-toggle {
+  flex: none;
+}
