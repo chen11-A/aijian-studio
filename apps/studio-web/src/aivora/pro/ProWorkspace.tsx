@@ -10100,7 +10100,7 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
-            {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
+            {/* 4C-U01: coarse shot selection; the dialog checks actual seconds. Speech stays unchanged. */}
             <span className="lab">
               已选{" "}
               {picked.first === picked.last
@@ -10111,12 +10111,12 @@ function EditPage({
             {picked.hasLine ? (
               <span
                 className="sel-hint"
-                title="台词不会从中间切开：选到一句台词的一部分，重做时这一整句都会重来。"
+                title="当前没有可靠的逐句语音对齐，秒级重做不自动扩展整句，也不重配对白或验证口型。"
               >
-                这句台词会整句重来
+                仅重做画面，保留原音轨
               </span>
             ) : null}
-            {/* 4A-U10: one 重新生成. One shot opens its 单镜 panel, a longer part is queued. */}
+            {/* 4C-U01: an existing take opens seconds review; a shot without video opens ordinary creation. */}
             <button
               className="btn primary"
               title={actions.regenerate.reason}

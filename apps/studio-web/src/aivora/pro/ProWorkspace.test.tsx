@@ -3936,7 +3936,7 @@ it("marks lip sync on the card and the clip, and a failed one as 口型未对上
   ]);
 });
 
-it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U01)", async () => {
+it("shows in-to-out shot selection, audio-preservation limits and 「版本 2/3」 (4C-U01)", async () => {
   installDesktop();
   const film = sampleFilm();
   const [talk] = film.shots;
@@ -3972,10 +3972,12 @@ it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U
   );
   fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
   expect(document.querySelector(".selbar .lab")).toHaveTextContent(/已选 镜头 \d+ · 00:00\.0–/);
-  expect(screen.getByText("这句台词会整句重来")).toHaveAttribute(
+  expect(screen.getByText("仅重做画面，保留原音轨")).toHaveAttribute(
     "title",
-    expect.stringContaining("这一整句都会重来"),
+    expect.stringContaining("不自动扩展整句，也不重配对白或验证口型"),
   );
+  expect(screen.queryByText("这句台词会整句重来")).not.toBeInTheDocument();
+  expect(document.querySelector("[title*=这一整句都会重来]")).toBeNull();
 });
 
 it("keeps the person's defaults in 设置: folder, 「AI 生成」, beginner mode (4C-U03)", async () => {
