@@ -339,8 +339,9 @@ export async function renameSeries(root: string, seriesId: string, title: string
   await writeIndex(root, rows);
 }
 
+// Match promise-based native realpaths: the JS walker can retain Windows DOS 8.3 aliases.
 function inside(root: string, target: string): boolean {
-  const base = realpathSync(root);
+  const base = realpathSync.native(root);
   const prefix = base.endsWith(sep) ? base : `${base}${sep}`;
   return target === base || target.startsWith(prefix);
 }
@@ -352,7 +353,7 @@ export function trustedMediaPath(roots: string[], raw: string): string {
   if (raw.split(/[/\\]/).includes("..")) throw new Error("Invalid film path");
   let target: string;
   try {
-    target = realpathSync(resolve(raw));
+    target = realpathSync.native(resolve(raw));
   } catch {
     throw new Error("Invalid film path");
   }
