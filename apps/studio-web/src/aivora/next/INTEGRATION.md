@@ -1,6 +1,10 @@
 # next 组件接线说明
 
-## Round5当前交付与接续分工
+## Round6接入记录
+
+本机恢复d491b90已以07a2e15合入progress，保存/文案/Windows断言/诊断也已集成。后端定向desktop66、web93、Python12通过；总控独立相关Python全量36、完整desktop2078及type/build/原contracts/lint通过，renderer387文件4792项也通过。原片复用确实经固定FFmpeg和原QC得到READY；精确原proof不足的旧素材仍拒绝，不调用付费生成，不以此声称全量真实素材验收。后端转quit-save修退出前保存，界面在新art-style-diff做严格唯一画风字段整卡；当前遮挡诊断CI source e757e06/run42267712674还未含本机恢复，不能混用。最新活动表及CI见[开发计划](../../../../../docs/aivora/开发计划.md)。
+
+## Round5交付与接续分工记录
 
 B13已由总控提交f3dea3e（21文件），包含主进程真实阶段、独立执行ID/事件序号、实际close后的停止确认、partial保留及严格宿主迟到保护。GUI组件95a5fb2的40项由总控独立通过；e58026a增加32态浏览器门，原140态不删。完整本地TS已exit0：desktop123文件2059、renderer385文件4781、媒体17/QC11，renderer分支87.50%；原typecheck:ts/build/contracts:check/lint全过。新CI run42265535461已原140态成功，新增32有两处1280×800 stale-events遮挡导致job失败，受控诊断中；完整质量继续；未合dev、未称Windows真实取消成功。
 
