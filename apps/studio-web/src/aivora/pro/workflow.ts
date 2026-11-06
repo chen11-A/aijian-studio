@@ -113,7 +113,10 @@ export async function generateMissingPortraits(
 ): Promise<void> {
   const character = base.characters.find((person) => person.id === characterId);
   if (!character) return;
-  const prompts = portraitPrompts(character.name, character.identity, base.styleZh).filter(
+  const prompts = portraitPrompts(character.name, character.identity, base.styleZh, {
+    gender: character.gender,
+    ageBand: character.ageBand,
+  }).filter(
     (item) => !character.portraits.some((portrait) => portrait.view === item.view && portrait.url),
   );
   const portraits: FilmPortrait[] = character.portraits.filter((item) => item.url);

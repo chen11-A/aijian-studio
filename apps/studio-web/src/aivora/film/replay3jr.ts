@@ -10,7 +10,9 @@ export const REPLAY_SOURCE_SHA256 =
 export type ReplayManifest = {
   sourceSha256: string;
   captureDeclaration: "real-capture" | "synthetic";
-  scenes: { sceneNo: 1 | 2; directorReply: string; actionReply?: string }[];
+  /** Scenes 1 and 2 are required; later scenes (3JR-B11: the test novel has three) are checked
+   * the same way except for the scene 2 action counts. */
+  scenes: { sceneNo: number; directorReply: string; actionReply?: string }[];
 };
 
 export function parseReplayManifest(value: unknown): ReplayManifest {
@@ -19,11 +21,17 @@ export function parseReplayManifest(value: unknown): ReplayManifest {
   if (item.sourceSha256 !== REPLAY_SOURCE_SHA256) throw new Error("REPLAY_SOURCE_HASH_MISMATCH");
   if (!["real-capture", "synthetic"].includes(item.captureDeclaration ?? ""))
     throw new Error("REPLAY_DECLARATION_REQUIRED");
-  if (!Array.isArray(item.scenes) || item.scenes.length !== 2)
+  if (!Array.isArray(item.scenes) || item.scenes.length < 2 || item.scenes.length > 20)
     throw new Error("REPLAY_BOTH_SCENES_REQUIRED");
   const seen = new Set<number>();
   for (const scene of item.scenes) {
-    if (!scene || ![1, 2].includes(scene.sceneNo) || seen.has(scene.sceneNo))
+    if (
+      !scene ||
+      !Number.isInteger(scene.sceneNo) ||
+      scene.sceneNo < 1 ||
+      scene.sceneNo > 20 ||
+      seen.has(scene.sceneNo)
+    )
       throw new Error("REPLAY_BOTH_SCENES_REQUIRED");
     seen.add(scene.sceneNo);
     if (typeof scene.directorReply !== "string" || !scene.directorReply.trim())
@@ -33,6 +41,7 @@ export function parseReplayManifest(value: unknown): ReplayManifest {
     if (scene.sceneNo === 2 && !scene.actionReply?.trim())
       throw new Error("REPLAY_SECOND_ACTION_CAPTURE_REQUIRED");
   }
+  if (!seen.has(1) || !seen.has(2)) throw new Error("REPLAY_BOTH_SCENES_REQUIRED");
   return item as ReplayManifest;
 }
 
@@ -42,6 +51,8 @@ export function replay3jr(source: string, manifest: unknown, actualSourceSha256:
   if (actualSourceSha256 !== REPLAY_SOURCE_SHA256) throw new Error("REPLAY_SOURCE_HASH_MISMATCH");
   const sourceScenes = splitNovel(source).scenes;
   if (sourceScenes.length < 2) throw new Error("REPLAY_SOURCE_SCENES_MISSING");
+  if (capture.scenes.some((scene) => scene.sceneNo > sourceScenes.length))
+    throw new Error("REPLAY_SOURCE_SCENES_MISSING");
   const scenes = [...capture.scenes]
     .sort((a, b) => a.sceneNo - b.sceneNo)
     .map((input) => {

@@ -33,7 +33,7 @@ function tailNarration(tail: string): { narration: string[]; printed: string[] }
   let narration = tail.replace(/“([^”]*)”|「([^」]*)」|"([^"\n]*)"/gu, (_match, a, b, c) => {
     const content = coverageText(a ?? b ?? c ?? "");
     if (content && !dialogue.includes(content)) printed.push(content);
-    return "\u0000";
+    return "\uE000";
   });
   if (narration === tail && /^[^：:\n]{1,12}[：:]/u.test(tail)) {
     const lines = extractScriptLines(tail);
@@ -42,13 +42,13 @@ function tailNarration(tail: string): { narration: string[]; printed: string[] }
       for (const line of lines) narration = narration.replace(line.text, "");
     }
   }
-  const parts = narration.split(/([，,。！？!?；;\n]+|\u0000)/u);
+  const parts = narration.split(/([，,。！？!?；;\n]+|\uE000)/u);
   return {
     narration: parts.flatMap((part, index) => {
       if (index % 2) return [];
-      const text = coverageText(part.replace(/\u0000/gu, ""));
+      const text = coverageText(part.replace(/\uE000/gu, ""));
       // 3JR-B14: 「只说了一句：“…”」 — the line itself is checked; 「什么也没问」 shows nothing.
-      const quoted = parts[index + 1] === "\u0000";
+      const quoted = parts[index + 1] === "\uE000";
       if (!text || CONNECTIVE.test(text) || NOTHING_DONE.test(text)) return [];
       if (quoted && SPEECH_TAG.test(text)) return [];
       return [text];

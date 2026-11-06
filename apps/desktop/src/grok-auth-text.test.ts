@@ -224,6 +224,65 @@ describe("Grok text calls", () => {
     }
   });
 
+  it("hands back the text received when a reply stops coming (R2-B03)", async () => {
+    vi.useFakeTimers();
+    try {
+      const session: GrokSession = {
+        version: 1,
+        accessToken: "access-token-value",
+        refreshToken: "refresh-token-value",
+        expiresAt: Date.now() + 3_600_000,
+        scopes: ["openid"],
+        subject: "person",
+        email: null,
+        name: null,
+        inferenceDenied: false,
+      };
+      const store: GrokStore = {
+        available: () => true,
+        read: async () => session,
+        write: async () => undefined,
+        clear: async () => undefined,
+      };
+      const reply = '{"shots":[{"picture":"雨夜巷口","line":"雨太大"}]}';
+      const encoder = new TextEncoder();
+      const fetch = vi.fn(async () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            // The whole reply arrives, then the stream never finishes.
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "response.output_text.delta", delta: reply })}\n\n`,
+              ),
+            );
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      });
+      const runtime = createGrokRuntime({
+        store,
+        fetch: fetch as unknown as Fetch,
+        openBrowser: async () => undefined,
+        confirmSignIn: async () => true,
+      });
+      const pending = runtime.completeText({
+        model: "grok-4.7",
+        text: "把这一场拆成镜头",
+        projectId: `prj_${"a".repeat(32)}`,
+        idempotencyKey: "stalled-once",
+      });
+      await vi.advanceTimersByTimeAsync(61_000);
+      const result = await pending;
+      expect(result).toMatchObject({ kind: "ERROR", code: "STALL_RETRYING", partialText: reply });
+      expect(JSON.stringify(result)).not.toContain("access-token-value");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps a long shot list and drops the reasoning summary", async () => {
     const picture = "雨夜巷口她停下脚步，霓虹倒映在积水里。".repeat(28);
     const shots = Array.from({ length: 6 }, (_, index) => ({

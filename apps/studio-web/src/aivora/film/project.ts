@@ -558,6 +558,21 @@ export function withoutFraming(text: string): string {
   return text.replace(/(?:竖屏|横屏)构图[。.．，,]?\s*/gu, "").trim();
 }
 
+/**
+ * 3JR-B15 (R2-B04): the cast as the art agent's instructions describe its input — gender, age
+ * band and looks — with 「未知」 where the cast list has none, so it picks one and writes it down.
+ */
+export function artCastContext(film: Pick<FilmProject, "characters">): string {
+  return `人物：${JSON.stringify(
+    film.characters.map(({ name, gender, ageBand, identity }) => ({
+      name,
+      gender: gender || "未知",
+      age_band: ageBand || "未知",
+      identity,
+    })),
+  )}`;
+}
+
 /** 3JR-B12: tells the director and the art agent which way the work is framed. */
 export function aspectContext(film: Pick<FilmProject, "aspectRatio">): string {
   return film.aspectRatio === "16:9"
@@ -605,16 +620,39 @@ function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): str
   return `${bits.filter(Boolean).join("。")}。`;
 }
 
+/** R2-B06: who a person is as the cast list says, so a short-haired old woman stays a woman. */
+export function castTraitsLine(person: {
+  name: string;
+  gender?: string;
+  ageBand?: string;
+}): string {
+  const gender = person.gender === "女" ? "女性" : person.gender === "男" ? "男性" : "";
+  const age = /^(?:儿童|少年|青年|中年|老年)$/u.test(person.ageBand ?? "") ? person.ageBand : "";
+  const traits = [gender, age].filter(Boolean).join("，");
+  return traits ? `${person.name}是${traits}。` : "";
+}
+
+// R2-B05: a shot whose source names a crowd may show one.
+const CROWD = /人群|群演|路人|围观|行人|众人|一群|乘客|食客|客人们|病人们|手下们|看热闹/u;
+
 function lockKeyframe(body: string, shot: FilmShot, film: FilmProject): string {
   const people = onScreenCharacters(film, shot);
   let next = body;
   for (const person of people) {
+    const traits = castTraitsLine(person);
+    if (traits && !next.includes(traits)) next += traits;
     if (!person.identity.trim()) continue;
     const lock = identityLock(person.identity);
     if (lock && !next.includes(lock)) next += lock;
   }
   const gaze = gazeHandoff(people.map((person) => person.name));
   if (gaze && !next.includes("视线")) next += gaze;
+  // R2-B05: the people listed for the shot are all of its people, unless it shows a crowd.
+  const shown = [shot.picture, shot.action, shot.directorFramePrompt ?? "", shot.promptZh ?? ""];
+  if (people.length && !shown.some((text) => CROWD.test(text))) {
+    const only = `画面里只有${people.map((person) => person.name).join("、")}，不要多画别的人。`;
+    if (!next.includes(only)) next += only;
+  }
   return next;
 }
 

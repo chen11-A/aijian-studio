@@ -2,6 +2,7 @@ import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import { textModel } from "../film/project";
 import type { AgentId } from "../film/phase2";
 import { completeAgentBatched } from "../film/request-batches";
+import { recordAgentReply } from "./agent-capture";
 import type { AgentReply, AgentRequestControl } from "./workflow";
 
 export async function completeMembershipAgent(
@@ -60,7 +61,7 @@ export async function completeMembershipAgent(
   }
   if (!model)
     return { text: null, detail: "模型列表里没有能写字的模型。", code: "MODEL_UNAVAILABLE" };
-  return completeAgentBatched(agent, context, instruction, async (text) => {
+  const reply = await completeAgentBatched(agent, context, instruction, async (text) => {
     if (!current()) return stale();
     const idempotencyKey = crypto.randomUUID();
     const cancel = () => {
@@ -83,6 +84,14 @@ export async function completeMembershipAgent(
       });
       if (!current()) return stale();
       if (result.kind === "OK") return { text: result.text, detail: "" };
+      // R2-B03: the reply stopped coming, but what arrived is already a whole answer.
+      const partial =
+        "partialText" in result && typeof result.partialText === "string" ? result.partialText : "";
+      if (
+        (result.code === "STALL_RETRYING" || result.code === "TEXT_TIMEOUT") &&
+        wholeJsonReply(partial)
+      )
+        return { text: partial, detail: "" };
       return {
         text: null,
         code: result.code,
@@ -99,4 +108,27 @@ export async function completeMembershipAgent(
       host.control?.signal.removeEventListener("abort", cancel);
     }
   });
+  // 3JR-B11 (R2-02): kept word for word on this computer only when the person turned it on.
+  if (reply.text) recordAgentReply(agent, context, instruction, reply.text);
+  return reply;
+}
+
+/**
+ * R2-B03: true only for text that is one complete JSON object or array as it stands, optionally
+ * in a ```json fence — the model finished writing it. A reply cut off mid-way never parses here
+ * (unlike the lenient reply parser, which repairs truncated JSON), so it still counts as stalled.
+ */
+export function wholeJsonReply(text: string): boolean {
+  const body = text
+    .trim()
+    .replace(/^```(?:json)?\s*/u, "")
+    .replace(/\s*```$/u, "")
+    .trim();
+  if (!body.startsWith("{") && !body.startsWith("[")) return false;
+  try {
+    const value: unknown = JSON.parse(body);
+    return typeof value === "object" && value !== null;
+  } catch {
+    return false;
+  }
 }

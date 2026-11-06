@@ -32,6 +32,7 @@ import {
   type CharacterAgeBand,
 } from "./cast-traits";
 import {
+  castTraitsLine,
   keyframePrompt,
   shotIdentity,
   withoutFraming,
@@ -867,8 +868,11 @@ export function portraitPrompts(
   name: string,
   identity: string,
   styleZh: string,
+  traits: { gender?: string; ageBand?: string } = {},
 ): { view: string; prompt: string }[] {
   const who = identity.trim() || name.trim() || "人物";
+  // R2-B06: the cast list's gender and age, written out, not only what the looks imply.
+  const cast = castTraitsLine({ name: name.trim() || "这个人", ...traits });
   const views = [
     ["正面", "正面全身，看向镜头，作为定妆锚定"],
     ["侧面", "正侧面半身，同一张脸，同一套衣服"],
@@ -878,7 +882,7 @@ export function portraitPrompts(
   return views.map(([view, pose]) => ({
     view: view!,
     prompt: withStyleBible(
-      `角色定妆照，不要画成某一场的动作。${who}。按这句话里的性别和年龄来画，不要改成另一种性别。${pose}。`,
+      `角色定妆照，不要画成某一场的动作。${cast}${who}。按这里写的性别和年龄来画，不要改成另一种性别。${pose}。`,
       styleZh,
     ),
   }));
@@ -1016,6 +1020,12 @@ const CN_DIGIT: Record<string, number> = {
 function ageYears(text: string): number | null {
   const digits = text.match(/(?<![\d.])(\d{1,3})\s*岁/);
   if (digits) return Number(digits[1]) <= 120 ? Number(digits[1]) : null;
+  // 3JR-B15 (R2-B04): 「二十多岁」「三十来岁」「四十出头」「十几岁」 — a few years into the decade.
+  const loose = text.match(/([一二三四五六七八九])?十(?:多|几|来)岁|([一二三四五六七八九])十出头/);
+  if (loose) {
+    const tens = loose[1] ?? loose[2];
+    return (tens ? (CN_DIGIT[tens] ?? 1) : 1) * 10 + 3;
+  }
   const tens = text.match(/([一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
   if (tens) return (CN_DIGIT[tens[1]!] ?? 0) * 10 + (tens[2] ? (CN_DIGIT[tens[2]] ?? 0) : 0);
   const ten = text.match(/(?<![一二三四五六七八九])十([一二三四五六七八九])?\s*岁/);
