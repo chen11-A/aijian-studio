@@ -4,6 +4,7 @@ import base64
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -16,6 +17,7 @@ from aijian_api.story_film import (
     StoryFilmCue,
     StoryFilmRequest,
     StoryFilmService,
+    _clean_copy_reason,
     _export_cues,
     _fit_clip_length,
     _local_image,
@@ -232,7 +234,11 @@ def test_clean_copy_uses_its_own_export_runtime(tmp_path, monkeypatch):
 
     monkeypatch.setattr(service, "_export_story_assembly", export)
     content = {"subtitle_segments": [{"text": "雾"}], "total_frames": 24}
-    assert service._export_clean_copy(project_id, "ep", content, tmp_path / "c.mp4") is None
+    # 4B-B11: the failure comes back with a code instead of disappearing.
+    assert service._export_clean_copy(project_id, "ep", content, tmp_path / "c.mp4") == (
+        None,
+        "RuntimeError",
+    )
     assert used and used[0] is not shared
     # The caller's runtime was never stopped by the clean copy.
     assert shared._closing is False
@@ -1236,3 +1242,53 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
     ]
     assert "<IMAGE_0>" in video["prompt"] and "<IMAGE_1>" in video["prompt"]
     assert "林夏的定妆照" in video["prompt"]
+
+
+def test_clean_copy_reports_why_the_export_did_not_finish(tmp_path, monkeypatch):
+    """4B-B11: a failed clean copy says why, so the take is not mistaken for an older one."""
+    repository, project_id = _project(tmp_path)
+    service = StoryFilmService(repository, toolchain)
+
+    def failed(_project, _episode, _content, _output, _runtime):
+        return object(), SimpleNamespace(
+            status="FAILED", output_path=None, output_sha256=None, error_code="MEDIA_ENCODE_FAILED"
+        )
+
+    monkeypatch.setattr(service, "_export_story_assembly", failed)
+    content = {"subtitle_segments": [{"text": "雾"}], "total_frames": 24}
+    assert service._export_clean_copy(project_id, "ep", content, tmp_path / "c.mp4") == (
+        None,
+        "MEDIA_ENCODE_FAILED",
+    )
+    assert _clean_copy_reason("MEDIA_ENCODE_FAILED") == (
+        "不带字幕的那份没有做出来（整理画面或配音时没有成功）"
+    )
+    assert _clean_copy_reason("RuntimeError") == "不带字幕的那份没有做出来"
+
+
+def test_film_is_kept_and_says_why_its_clean_copy_is_missing(tmp_path, monkeypatch):
+    repository, project_id = _project(tmp_path)
+    service = StoryFilmService(repository, toolchain)
+    monkeypatch.setattr(
+        service,
+        "_export_clean_copy",
+        lambda *_args: (None, "MEDIA_ENCODE_FAILED"),
+    )
+    result = service.produce(project_id, _request())
+    assert result.status == "SUCCEEDED", result.message
+    assert result.output_path and Path(result.output_path).is_file()
+    assert result.clean_output_path is None
+    assert result.subtitle_cues and result.subtitle_cues[0].text == "雾城来信"
+    assert result.clean_copy_error == "MEDIA_ENCODE_FAILED"
+    assert result.clean_copy_reason == "不带字幕的那份没有做出来（整理画面或配音时没有成功）"
+    data = _data(result)
+    assert data.clean_copy_error == "MEDIA_ENCODE_FAILED"
+    assert data.clean_copy_reason == result.clean_copy_reason
+
+
+def test_film_with_a_clean_copy_reports_no_clean_copy_error(tmp_path):
+    repository, project_id = _project(tmp_path)
+    result = StoryFilmService(repository, toolchain).produce(project_id, _request())
+    assert result.status == "SUCCEEDED", result.message
+    assert result.clean_output_path
+    assert result.clean_copy_error is None and result.clean_copy_reason is None

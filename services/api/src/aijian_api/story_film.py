@@ -192,6 +192,9 @@ class StoryFilmResult:
     # 4B-B09: the same film without burned subtitles, for an export in another look or none.
     clean_output_path: str | None = None
     subtitle_cues: tuple[StoryFilmCue, ...] | None = None
+    # 4B-B11: why that copy is missing when the film has burned subtitles but no clean copy.
+    clean_copy_error: str | None = None
+    clean_copy_reason: str | None = None
 
 
 def user_data_root() -> Path | None:
@@ -554,6 +557,8 @@ class StoryFilmService:
             voice_path=result.voice_path,
             clean_output_path=result.clean_output_path,
             subtitle_cues=result.subtitle_cues,
+            clean_copy_error=result.clean_copy_error,
+            clean_copy_reason=result.clean_copy_reason,
         )
 
     def _preflight(
@@ -1503,14 +1508,21 @@ class StoryFilmService:
         subtitle_note = _save_subtitle_without_blocking(content, output, subtitle, frames)
         burned = "subtitle_segments" in content
         # 4B-B09: first the same film without burned subtitles (so the subtitled one stays the
-        # assembly head as before). A failure here keeps the take; the export then says why.
-        clean = (
-            self._export_clean_copy(
+        # assembly head as before). A failure here keeps the take; 4B-B11: its reason goes back
+        # with the take and into the status log, so the export can say why.
+        clean: Path | None = None
+        clean_error: str | None = None
+        if burned:
+            clean, clean_error = self._export_clean_copy(
                 project_id, episode_id, content, directory / f"{stem}-film-clean.mp4"
             )
-            if burned
-            else None
-        )
+            if clean_error and request.provider == "grok_subscription":
+                append_grok_status(
+                    "compose_clean",
+                    code=clean_error,
+                    error_stage="assemble_clean",
+                    error_code=clean_error,
+                )
         assembly, job = self._export_story_assembly(
             project_id, episode_id, content, output, runtime
         )
@@ -1584,6 +1596,8 @@ class StoryFilmService:
             voice_path=str(voiced) if voiced.is_file() else None,
             clean_output_path=str(clean) if clean else (None if burned else job.output_path),
             subtitle_cues=export_cues or None,
+            clean_copy_error=clean_error,
+            clean_copy_reason=_clean_copy_reason(clean_error) if clean_error else None,
         )
 
     def _export_clean_copy(
@@ -1592,7 +1606,8 @@ class StoryFilmService:
         episode_id: str,
         content: dict[str, object],
         output: Path,
-    ) -> Path | None:
+    ) -> tuple[Path | None, str | None]:
+        """The film without burned subtitles, or None and a safe code saying why not (4B-B11)."""
         clean_content = {key: value for key, value in content.items() if key != "subtitle_segments"}
         # Its own runtime: _export_story_assembly ends with join_workers(), which stops the
         # runtime accepting work, so the subtitled film must not share it.
@@ -1606,13 +1621,14 @@ class StoryFilmService:
                 project_id, episode_id, clean_content, output, runtime
             )
             if job.status != "SUCCEEDED" or job.output_path is None:
-                return None
+                code = job.error_code if _safe_token(job.error_code) else None
+                return None, code or "EXPORT_FAILED"
             path = Path(job.output_path)
             tools = self._tools()
             _tag_ai_generated(tools.ffmpeg_path, tools.ffprobe_path, path)
-            return path if path.is_file() else None
-        except Exception:  # noqa: BLE001 - the subtitled film is still the take
-            return None
+            return (path, None) if path.is_file() else (None, "CLEAN_COPY_MISSING")
+        except Exception as error:  # noqa: BLE001 - the subtitled film is still the take
+            return None, _failure_log_code(error)
 
     def _export_story_assembly(
         self,
@@ -2453,6 +2469,15 @@ def _srt_clock(seconds: float) -> str:
 def _write_srt(path: Path, text: str, frames: int) -> None:
     end = _srt_clock(frames / _FRAME_RATE)
     path.write_text(f"1\n00:00:00,000 --> {end}\n{text}\n", encoding="utf-8")
+
+
+def _clean_copy_reason(code: str) -> str:
+    """One sentence for the user on why the take has no copy without burned subtitles."""
+
+    reason = _export_reason(code)
+    if code == "CLEAN_COPY_MISSING":
+        reason = "合成说做好了，但文件不在"
+    return f"不带字幕的那份没有做出来（{reason}）" if reason else "不带字幕的那份没有做出来"
 
 
 def _export_reason(code: object) -> str | None:

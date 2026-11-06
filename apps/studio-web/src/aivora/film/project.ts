@@ -149,6 +149,11 @@ export type FilmTake = {
    */
   cleanVideoPath?: string;
   subtitleCues?: TakeSubtitleCue[];
+  /**
+   * 4B-B11: set when this take was made with a copy without burned subtitles in mind but that
+   * copy failed, in the service's words. Such a take is not an older one.
+   */
+  cleanCopyReason?: string;
   interruptedFrom?: "queued" | "running";
   lipSync?: LipSyncState;
   lipSyncReason?: string;

@@ -161,6 +161,8 @@ class StoryFilmData(BaseModel):
     voice_path: str | None = None
     clean_output_path: str | None = None
     subtitle_cues: list[StoryFilmCueData] | None = None
+    clean_copy_error: str | None = None
+    clean_copy_reason: str | None = None
 
 
 class StoryFilmProgressData(BaseModel):
@@ -402,4 +404,6 @@ def _data(result: StoryFilmResult) -> StoryFilmData:
         ]
         if result.subtitle_cues
         else None,
+        clean_copy_error=result.clean_copy_error,
+        clean_copy_reason=result.clean_copy_reason,
     )

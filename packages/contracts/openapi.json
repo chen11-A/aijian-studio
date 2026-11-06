@@ -23155,6 +23155,28 @@
             "title": "Billing Label",
             "type": "string"
           },
+          "clean_copy_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clean Copy Error"
+          },
+          "clean_copy_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clean Copy Reason"
+          },
           "clean_output_path": {
             "anyOf": [
               {

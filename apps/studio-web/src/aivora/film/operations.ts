@@ -1726,6 +1726,8 @@ export type ExportSubtitleMode = "burn" | "srt" | "none";
  * subtitles uses that copy and its own subtitle times, so the export can burn them in any look,
  * write them to a .srt or leave them out. An older take has only the subtitled film; it is used
  * as it is, and when it has a line it is listed in `baked` (its subtitle cannot be taken out).
+ * 4B-B11: a newer take whose copy without subtitles failed is listed in `unclean` with the
+ * reason instead, since regenerating it is what helps, not "it was made before".
  * Shots and takes are chosen exactly as chosenExport does.
  */
 export function subtitleExportPlan(
@@ -1736,6 +1738,7 @@ export function subtitleExportPlan(
   cues: TakeSubtitleCue[][];
   seconds: number[];
   baked: string[];
+  unclean: { shot: string; reason: string }[];
   missing: string[];
 } {
   const plan = {
@@ -1743,6 +1746,7 @@ export function subtitleExportPlan(
     cues: [] as TakeSubtitleCue[][],
     seconds: [] as number[],
     baked: [] as string[],
+    unclean: [] as { shot: string; reason: string }[],
     missing: [] as string[],
   };
   for (const shot of film.shots) {
@@ -1761,9 +1765,44 @@ export function subtitleExportPlan(
     plan.seconds.push(
       chosen.durationSeconds && chosen.durationSeconds > 0 ? chosen.durationSeconds : shot.seconds,
     );
-    if (!clean && spokenLine(shot)) plan.baked.push(`镜头 ${shot.no}`);
+    if (clean || !spokenLine(shot)) continue;
+    // Only takes from the service since 4B-B09 report subtitle times or a reason.
+    if (chosen.cleanCopyReason?.trim() || chosen.subtitleCues?.length)
+      plan.unclean.push({
+        shot: `镜头 ${shot.no}`,
+        reason: chosen.cleanCopyReason?.trim() || "不带字幕的那份没有做出来",
+      });
+    else plan.baked.push(`镜头 ${shot.no}`);
   }
   return plan;
+}
+
+/**
+ * 4B-B11: why some shots keep the subtitle in their picture, one sentence per kind of shot.
+ * `refused` is for an export without burned subtitles, which these shots stop.
+ */
+export function bakedSubtitleNotice(
+  plan: Pick<ReturnType<typeof subtitleExportPlan>, "baked" | "unclean">,
+  refused: boolean,
+): string {
+  const parts: string[] = [];
+  if (plan.baked.length)
+    parts.push(
+      refused
+        ? `${plan.baked.join("、")}是之前生成的，字幕已经在画面里，去不掉。`
+        : `${plan.baked.join("、")}是之前生成的，字幕还是原来的样子。`,
+    );
+  for (const item of plan.unclean)
+    parts.push(
+      refused
+        ? `${item.shot}${item.reason}，字幕已经在画面里。`
+        : `${item.shot}${item.reason}，字幕还是原来的样子。`,
+    );
+  if (!parts.length) return "";
+  const many = plan.baked.length + plan.unclean.length > 1;
+  return refused
+    ? `${parts.join("")}重新生成${many ? "这几个" : "这个"}镜头，或者字幕改选「烧进画面」。`
+    : parts.join("");
 }
 
 /** Each take's subtitles moved to their place in the joined film, never past their own shot. */

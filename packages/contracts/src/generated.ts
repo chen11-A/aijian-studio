@@ -10079,6 +10079,10 @@ export interface components {
             attempt_id?: string | null;
             /** Billing Label */
             billing_label: string;
+            /** Clean Copy Error */
+            clean_copy_error?: string | null;
+            /** Clean Copy Reason */
+            clean_copy_reason?: string | null;
             /** Clean Output Path */
             clean_output_path?: string | null;
             /**
