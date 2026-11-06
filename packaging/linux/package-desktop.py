@@ -50,6 +50,21 @@ def stage_project_archive_resources(destination: Path) -> None:
     shutil.copy2(ROOT / "packages/aivora-media/archive.mjs", destination / "archive.mjs")
 
 
+def stage_audio_library_resources(destination: Path) -> None:
+    subprocess.run(
+        [
+            "node",
+            str(ROOT / "scripts/build-audio-library-resources.mjs"),
+            "--out-dir",
+            str(destination.resolve()),
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def digest(path: Path) -> str:
     # Ubuntu 22.04's system Python is 3.10 and has no hashlib.file_digest.
     hasher = hashlib.sha256()
@@ -300,6 +315,7 @@ def build(output: Path, cache: Path) -> None:
     helper.copy_tree(ROOT / "services/api/src/aijian_api", output / "services/api/src/aijian_api")
     stage_qc_resources(output / "qc")
     stage_project_archive_resources(output / "project-archive")
+    stage_audio_library_resources(output / "audio-library")
     profile = stage_ffmpeg(cache, output)
     templates = ROOT / "packaging/linux"
     for name in ("launch-aivora.sh", "check-runtime.py", "README.zh-CN.md"):

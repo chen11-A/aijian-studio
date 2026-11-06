@@ -430,7 +430,7 @@ export function createProjectArchives(host: ProjectArchiveHost) {
             entry = text(row.entry),
             hash = text(row.sha256);
           if (
-            !/^media\/[a-f0-9]{64}\.(mp4|png|jpe?g|webp|wav|mp3)$/.test(entry) ||
+            !/^media\/[a-f0-9]{64}\.(mp4|png|jpe?g|webp|wav|mp3|ogg)$/.test(entry) ||
             !entry.includes(hash) ||
             !/^[a-f0-9]{64}$/.test(hash) ||
             assets.has(entry) ||

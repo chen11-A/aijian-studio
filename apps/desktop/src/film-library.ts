@@ -17,7 +17,7 @@ import { basename, dirname, extname, join, resolve, sep } from "node:path";
 export const IMAGE_MODEL = "grok-imagine-image-2.0";
 const IMAGE_URL = "https://api.x.ai/v1/images/generations";
 const idPattern = /^film_[a-z0-9]{16,40}$/;
-const mediaExtensions = new Set([".mp4", ".png", ".jpg", ".jpeg", ".webp", ".wav", ".mp3"]);
+const mediaExtensions = new Set([".mp4", ".png", ".jpg", ".jpeg", ".webp", ".wav", ".mp3", ".ogg"]);
 const maxMediaBytes = 80 * 1024 * 1024;
 const maxStillBytes = 12 * 1024 * 1024;
 

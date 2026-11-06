@@ -1,3 +1,7 @@
+import type {
+  FilmAudioLibraryGateway,
+  AddBundledFilmAudioInput,
+} from "@aijian/contracts/film-audio-library";
 import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
 import type {
   FilmProjectArchiveInput,
@@ -613,6 +617,15 @@ contextBridge.exposeInMainWorld("aijian", {
   deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
   renameFilmSeries: (seriesId: string, title: string) =>
     ipcRenderer.invoke("film:rename", seriesId, title),
+  listBundledFilmAudio: (() =>
+    ipcRenderer.invoke(
+      "film:audio-library-list",
+    )) as FilmAudioLibraryGateway["listBundledFilmAudio"],
+  addBundledFilmAudio: ((input: AddBundledFilmAudioInput) =>
+    ipcRenderer.invoke(
+      "film:audio-library-add",
+      input,
+    )) as FilmAudioLibraryGateway["addBundledFilmAudio"],
   readFilmMedia: (path: string, options?: { maxBytes?: number; expectedSha256?: string }) =>
     ipcRenderer.invoke("film:read-media", path, options) as Promise<Uint8Array>,
   extractFilmLastFrame: (seriesId: string, videoPath: string) =>

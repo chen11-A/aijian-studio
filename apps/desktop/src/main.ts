@@ -1,3 +1,4 @@
+import { registerFilmAudioLibrary } from "./film-audio-library-ipc";
 import { loadAudioNormalizer } from "./film-audio-normalize";
 import { createFilmAudioPreview } from "./film-audio-preview";
 import { storyFilmAudioOwner } from "./film-audio-owner";
@@ -1045,6 +1046,36 @@ registerFilmAudioWaveforms<IpcMainInvokeEvent>(
           join(process.resourcesPath, "config", "media-toolchain-lock.json"),
       ),
     storyOwner: async (projectId, path, hash) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        hash,
+      ),
+  },
+);
+registerFilmAudioLibrary<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    libraryRoot: () =>
+      app.isPackaged
+        ? join(process.resourcesPath, "audio-library")
+        : join(__dirname, "audio-library"),
+    tools: () =>
+      verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+      ),
+    run: async (binary, args, options) =>
+      (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+    videoOwner: async (projectId, path, hash) =>
       storyFilmQcOwner(
         join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
         projectId,
