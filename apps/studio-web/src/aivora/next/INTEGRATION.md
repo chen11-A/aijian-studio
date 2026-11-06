@@ -1138,3 +1138,9 @@ UI-LAYOUT-01接续实际交付：主批次已推送dev@6c247e7；仅pro.css新�
 Round3开工（基线dev@bd228da，分支codex/aivora-round3）：backend独占安全promptZh/promptEn字段投影与ProWorkspace/相关prompter宿主；frontend独占SuggestionFieldDiff/SuggestionCard显示及新pro-layout-audit脚本。共享显示接口SuggestionFieldRow={key,label,kind:changed|added|removed,before:string|null,after:string|null}，null缺失、空字符串为空；字段数标题与确认修改不混用旧镜头计数/相似度，卡片不盲接全局撤销。初期组件12项通过；实际业务/宿主/正式布局脚本在做，总控负责CI入口评审、接入验证与合并，本批尚未提交或合dev。
 
 Round3集成冻结：单镜promptZh/promptEn固定基线字段卡及确认接线、busy拒绝保护、2个准确业务码已实现；投影21/新宿主8/notice108定向与GUI13组件通过，完整TS桌面2031/renderer4700（媒体17/QC11）通过，type/build/contracts/lint全部exit0。真实布局脚本/命令/独立普通Ubuntu job已加入，当前执行环境Chrome沙箱阻止本机正向启动，仅环境exit2与注释/静态已验；24状态正向转远端CI，不冒充本机成功。用户制作流程文档的采纳记录已另写，尚未将全部模板实现。本批准备推送功能分支，未合dev。
+
+### Round3远端状态与Round4接口边界
+
+Round3已推送codex/aivora-round3@663f6c9。CI #693的pro-layout普通Ubuntu job127986935649已succeeded：24状态通过并上传报告/截图；Linux/Windows完整质量仍在Test，尚未合dev。上方各轮时间点记录保留，不能用其中“未提交/未接布局门”覆盖此状态。当前执行器本机Chrome沙箱受限，正向来自云CI；--url正向未验。
+
+Round4在独立worktree /workspace/aivora-export-qc、分支codex/aivora-export-qc开工。后端拥有main/bridge/DTO/资源与全部ProWorkspace绑定，GUI只改ExportCheck/adapter/CSS/显示测试。最小拟定prepareFilmExport({projectId,expectedSelection:[{shotId,takeId}],settings})、publishFilmExport({qcReceipt,expectedSelection,settings})、discardFilmExport(qcReceipt)，以实际落地DTO为准，不称已交付。renderer不得提供可信路径；main严格实际project.id、选版/设置复核、私有最终规格暂存、原schemaVersion1 QC及opaque receipt。保留warn/block；缺镜头为业务预检，台词完整无音频证据时未验证；用户明确审阅后才发布。工具执行前hash/版本验证、packaged资源与陈旧receipt均须测试。
