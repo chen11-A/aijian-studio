@@ -1,0 +1,59 @@
+/* 5-3-02: the right-click menu, drawn like the 「更多」 menus. */
+.nx-root.nx-context-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  height: auto;
+  padding: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.nx-root.nx-context-menu button {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nx-root.nx-context-menu button:hover,
+.nx-root.nx-context-menu button:focus-visible {
+  background: var(--panel-3);
+  outline: none;
+}
+
+.nx-root.nx-context-menu button[aria-disabled="true"] {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.nx-root.nx-context-menu button[aria-disabled="true"]:hover {
+  background: none;
+}
+
+.nx-root.nx-context-menu .nx-context-danger {
+  color: var(--err);
+}
+
+.nx-root .nx-context-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--line);
+}
+
+/* The example page's card stand-in. */
+.nx-root.nx-context-demo {
+  height: auto;
+  align-items: flex-start;
+  gap: 8px;
+}

@@ -12,9 +12,9 @@ function expectProfessionalShell() {
   expect(screen.getByRole("heading", { name: "把故事做成短剧" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "新建作品" })).toBeInTheDocument();
-  for (const stage of ["剧本", "角色与场景", "分镜", "剪辑"]) {
-    expect(screen.getByRole("button", { name: new RegExp(stage) })).toBeInTheDocument();
-  }
+  // 5-3-01: the start page shows 作品 and the avatar; the stage tabs come with an open work.
+  expect(screen.getByRole("button", { name: "作品" })).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "创作阶段" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "普通模式" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "专业模式" })).not.toBeInTheDocument();
   expect(screen.queryByText("苏晚", { exact: true })).not.toBeInTheDocument();

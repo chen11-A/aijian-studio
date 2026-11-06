@@ -36,11 +36,12 @@ export async function planWriterDraft(
   const connected = host.connected;
   let scenes: FilmScene[] | null = null;
   let writerPlan: WriterPlan | undefined;
-  let text = "没有登录，已用离线编剧。点「放入剧本」才会写入。";
+  let text = "没登录，先用软件自己的规则写了剧本，请看一下。点「放进剧本」才会放进去。";
   try {
     if (!connected) {
       scenes = kind === "adapt" ? adaptToShortDrama(idea, 60) : offlineScreenplay(idea, 60);
-      text = kind === "adapt" ? "没有登录，已按大约 60 秒收成短剧。点「放入剧本」才会写入。" : text;
+      text =
+        kind === "adapt" ? "没登录，先按大约 60 秒收成了短剧。点「放进剧本」才会放进去。" : text;
     }
     const reply = await host.request(
       "writer",
@@ -53,7 +54,7 @@ export async function planWriterDraft(
       if (parsed && !echo) {
         scenes = parsed;
         writerPlan = parseWriterPlan(reply.text, story);
-        text = "编剧写好了。点「放入剧本」才会写入。";
+        text = "编剧写好了。点「放进剧本」才会放进去。";
       } else if (connected) {
         scenes = null;
         text = echo

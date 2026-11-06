@@ -71,15 +71,20 @@ import {
   cutSegments,
   cutTimeAt,
   editClipLayout,
+  fitZoom,
   playheadX,
   pointAt,
+  PX_PER_SECOND,
+  rulerStep,
   shotReady,
   spacedTicks,
+  stepZoom,
   ticksOutsideFolds,
   timelineSeconds,
   xAtSeconds,
 } from "./edit-timeline";
 import {
+  Fragment,
   useEffect,
   useId,
   useMemo,
@@ -176,6 +181,8 @@ import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
 import { useStatusNotice } from "../next/wiring/statusNotice";
 import { useDismiss } from "../next/wiring/dismiss";
+import { ContextMenu, useContextMenu, type ContextMenuItem } from "../next/ContextMenu";
+import { SHOT_DRAG_TYPE, movedNotice, moveShotBy, readShotDrag } from "./shot-order";
 import { portraitFeed, type PortraitFeed } from "../next/wiring/portraitFeed";
 import { NoticeLog } from "../next/NoticeLog";
 import { BEAT_DRAG_TYPE, SceneAlerts } from "../next/SceneAlerts";
@@ -255,10 +262,18 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ["Ctrl+Shift+Z", "重做"],
   ["Ctrl+J", "打开或收起 AI 助手"],
   ["空格", "剪辑页播放 / 暂停"],
+  ["J / K / L", "剪辑页倒放 / 停 / 播放，再按 J 或 L 更快"],
+  ["← / →", "剪辑页退一帧 / 进一帧，按住 Shift 一次一秒"],
+  ["↑ / ↓", "剪辑页跳到上一个 / 下一个镜头的开头"],
   ["I / O", "剪辑页设入点 / 出点"],
+  ["Delete", "剪辑页剪掉选中的片段"],
+  ["Ctrl+滚轮", "剪辑页时间线放大 / 缩小"],
   ["M", "预览静音 / 有声"],
   ["Esc", "关掉菜单和对话框"],
 ];
+
+/** 5-3-09: ← / → move the playhead one frame at 30 frames a second. */
+const FRAME_SECONDS = 1 / 30;
 
 /** 4A-U11: notices after an assistant's suggestion was put in; the status bar offers 撤销. */
 const APPLIED_CODES = new Set(["SCRIPT_APPLIED", "ART_APPLIED", "SHOT_APPLIED", "SHOTS_APPLIED"]);
@@ -317,8 +332,11 @@ function togglePlayback(setPlaying: (value: boolean | ((value: boolean) => boole
   setPlaying((value) => !value);
 }
 
-function BedAudio({ src, playing }: { src: string; playing: boolean }) {
+function BedAudio({ src, playing, rate = 1 }: { src: string; playing: boolean; rate?: number }) {
   const ref = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.playbackRate = rate;
+  }, [rate, src]);
   useEffect(() => {
     const audio = ref.current;
     if (!audio) return;
@@ -345,6 +363,7 @@ function PreviewVideo({
   onTime,
   seek = null,
   onDuration,
+  rate = 1,
 }: {
   src: string;
   voice?: string;
@@ -358,8 +377,13 @@ function PreviewVideo({
   seek?: { seconds: number } | null;
   /** The real length of the video, once the player knows it. */
   onDuration?: (seconds: number) => void;
+  /** 5-3-09: 1, 2 or 4 times as fast (L pressed again). */
+  rate?: number;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.playbackRate = rate;
+  }, [rate, src]);
   const onPlayingRef = useRef(onPlaying);
   const onTimeRef = useRef(onTime);
   const onDurationRef = useRef(onDuration);
@@ -461,8 +485,8 @@ function PreviewVideo({
         }}
         onError={() => onPlayingRef.current(false)}
       />
-      <BedAudio src={voice} playing={playing && sound} />
-      <BedAudio src={music} playing={playing && sound} />
+      <BedAudio src={voice} playing={playing && sound} rate={rate} />
+      <BedAudio src={music} playing={playing && sound} rate={rate} />
     </>
   );
 }
@@ -1306,7 +1330,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             turn,
             result.partial
               ? `${NOTICE_TEXT.TEXT_TIMEOUT} 已保留导演初稿，补充尚未完成。`
-              : `导演拆好了。点「写入分镜」才会写入。${supplementWarnings.current.join(" ")}`,
+              : `导演拆好了。点「放进分镜」才会放进去。${supplementWarnings.current.join(" ")}`,
           );
         } else finishTurn(turn, `${result.detail} 没有写入镜头。`);
         return;
@@ -1441,14 +1465,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       void fillCast(latest);
       setNotice(
         draft.transaction.kind === "writer"
-          ? "已放入剧本。你改过的场没有被盖掉。"
-          : "已写入分镜。你改过的镜头没有被盖掉。",
+          ? "已放进剧本。你改过的场没有被盖掉。"
+          : "已放进分镜。你改过的镜头没有被盖掉。",
       );
       const placed = turnsRef.current.map((item) =>
-        item.who === "agent" && item.text.includes("才会写入")
+        item.who === "agent" && (item.text.includes("才会放进去") || item.text.includes("才会写入"))
           ? {
               ...item,
-              text: draft.transaction.kind === "writer" ? "剧本已经写入。" : "镜头已经写入分镜。",
+              text:
+                draft.transaction.kind === "writer" ? "剧本已经放进去了。" : "镜头已经放进分镜。",
             }
           : item,
       );
@@ -2001,7 +2026,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         )
       )
         setNotice(
-          stored ? "已写入这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
+          stored ? "已放进这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
         );
     } catch {
       if (
@@ -2066,7 +2091,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
         setNotice(
           stored
-            ? "已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。"
+            ? "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
             : "美术建议已应用，但还没有保存。",
         );
     } catch {
@@ -2126,8 +2151,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       applied: false,
       mode: "art",
     });
-    finishTurn(turn, "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
-    noteAgent("art", "art", "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
+    finishTurn(turn, "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
+    noteAgent("art", "art", "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
 
     setPending(null);
     setPendingRole(null);
@@ -2396,7 +2421,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         mode: "shots",
         shots: splitShots,
       });
-      setNotice("这句话超过 15 秒，拆成两镜。点「写入分镜」才会写入。");
+      setNotice("这句话超过 15 秒，拆成两镜。点「放进分镜」才会放进去。");
       return;
     }
     setFilm(
@@ -2990,6 +3015,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const helper = PAGE_ROLE[stage];
     if (helper) chooseRole(helper);
   }, [stage]);
+  // 4C-U08: something is being made, so the status bar shows it in the middle.
+  const busy = asking || feedNow.active > 0 || portraitBusy || finished < tracked.length;
   // 4A-U09: one primary button per screen. 导出成片 leads on 剪辑 and once every shot has its
   // video; then each page's own primary button steps back (quiet).
   const exportView = exportLead(
@@ -3089,6 +3116,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       onRetry={pendingRetry ? () => void retryPending() : undefined}
       onRedoRange={redoFromReview}
       onDismiss={keepReview}
+      scope={film ? scopeOf(film, scene, shownShots[shot] ?? null) : ""}
+      mentions={film ? mentionsOf(film, shownShots) : []}
     />
   );
   // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
@@ -3100,6 +3129,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  // 5-3-04: double-click the work's name in the top bar to rename it in place; Enter or leaving
+  // the field keeps it, Esc lets it go. The same rename as 作品设置.
+  const [titleEdit, setTitleEdit] = useState<string | null>(null);
+  const dropTitle = useRef(false);
+  const keepTitle = (value: string) => {
+    setTitleEdit(null);
+    const name = value.trim();
+    if (!film || !name || name === (film.seriesTitle || film.title)) return;
+    void renameFilm(film.seriesId, name);
+    applyLive({ ...film, title: name, seriesTitle: name });
+    setNotice("已改作品名。");
+  };
 
   return (
     <div
@@ -3118,10 +3159,49 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               AIVORA
             </div>
             <span className="vsep" />
+            {titleEdit !== null && film ? (
+              <input
+                className="input proj-edit"
+                aria-label="改作品名"
+                value={titleEdit}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setTitleEdit(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing) return;
+                  // Enter leaves the field, which keeps the name once; Esc leaves it unchanged.
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    dropTitle.current = true;
+                    event.currentTarget.blur();
+                  }
+                }}
+                onBlur={(event) => {
+                  if (dropTitle.current) {
+                    dropTitle.current = false;
+                    setTitleEdit(null);
+                    return;
+                  }
+                  keepTitle(event.currentTarget.value);
+                }}
+              />
+            ) : null}
             <button
               className="proj"
               data-menu="project"
               aria-label="作品"
+              title={film ? "点开作品菜单；双击作品名可以改名" : undefined}
+              hidden={titleEdit !== null && Boolean(film)}
+              onDoubleClick={() => {
+                if (!film) return;
+                setMenu(null);
+                dropTitle.current = false;
+                setTitleEdit(film.seriesTitle || film.title);
+              }}
               onClick={() => {
                 const opening = menu !== "project";
                 setMenu(opening ? "project" : null);
@@ -3138,26 +3218,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ) : null}
               <Ic name="chev" size={14} />
             </button>
-            <button
-              className="icon-btn"
-              aria-label="撤销"
-              title="撤销 (Ctrl+Z)"
-              disabled={!canUndo}
-              onClick={undoEdit}
-            >
-              <Ic name="undo" />
-            </button>
-            <button
-              className="icon-btn"
-              aria-label="重做"
-              title="重做 (Ctrl+Shift+Z)"
-              disabled={!canRedo}
-              onClick={redoEdit}
-            >
-              <Ic name="redo" />
-            </button>
+            {/* 5-3-01: before a work is open the bar holds only the logo, 作品 and the avatar. */}
+            {open ? (
+              <>
+                <button
+                  className="icon-btn"
+                  aria-label="撤销"
+                  title="撤销 (Ctrl+Z)"
+                  disabled={!canUndo}
+                  onClick={undoEdit}
+                >
+                  <Ic name="undo" />
+                </button>
+                <button
+                  className="icon-btn"
+                  aria-label="重做"
+                  title="重做 (Ctrl+Shift+Z)"
+                  disabled={!canRedo}
+                  onClick={redoEdit}
+                >
+                  <Ic name="redo" />
+                </button>
+              </>
+            ) : null}
             {menu === "project" && (
               <div className="menu" role="menu" aria-label="作品菜单" data-menu="project">
+                {/* 4C-U06: three groups: the works, this one, and deleting it last. */}
+                <p className="menu-group">作品</p>
                 <button
                   onClick={() => {
                     const next = blankFilm();
@@ -3221,20 +3308,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {item.title}
                   </button>
                 ))}
-                <button
-                  onClick={() => {
-                    if (!film) return;
-                    const next = newEpisode(film);
-                    applyLive(next);
-                    setScene(next.scenes[0]?.id ?? "scene-1");
-                    setBench(false);
-                    setStage("script");
-                    setMenu(null);
-                    setNotice(`已新建${next.episodeTitle}。`);
-                  }}
-                >
-                  新建一集
-                </button>
+                <p className="menu-group">这一部</p>
                 {episodes.map((item) => (
                   <button
                     key={item.id}
@@ -3257,49 +3331,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {item.title}
                   </button>
                 ))}
-                <input
-                  aria-label="作品名"
-                  value={rename}
-                  onChange={(event) => setRename(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-                    event.preventDefault();
-                    const name = event.currentTarget.value.trim();
-                    if (!film || !name) return;
-                    void renameFilm(film.seriesId, name);
-                    applyLive({ ...film, title: name, seriesTitle: name });
-                    setMenu(null);
-                    setNotice("已改作品名。");
-                  }}
-                />
                 <button
                   onClick={() => {
-                    if (!film || !rename.trim()) return;
-                    void renameFilm(film.seriesId, rename.trim());
-                    applyLive({ ...film, title: rename.trim(), seriesTitle: rename.trim() });
+                    if (!film) return;
+                    const next = newEpisode(film);
+                    applyLive(next);
+                    setScene(next.scenes[0]?.id ?? "scene-1");
+                    setBench(false);
+                    setStage("script");
                     setMenu(null);
-                    setNotice("已改作品名。");
+                    setNotice(`已新建${next.episodeTitle}。`);
                   }}
                 >
-                  保存名字
-                </button>
-                <button
-                  onClick={() => {
-                    deleteTarget.current = "episode";
-                    setMenu(null);
-                    setPendingDelete(true);
-                  }}
-                >
-                  删除这一集
-                </button>
-                <button
-                  onClick={() => {
-                    deleteTarget.current = "series";
-                    setMenu(null);
-                    setPendingDelete(true);
-                  }}
-                >
-                  删除这部作品
+                  新建一集
                 </button>
                 <button
                   onClick={() => {
@@ -3309,81 +3353,109 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 >
                   作品设置
                 </button>
+                <div className="menu-sep" role="separator" />
+                <button
+                  className="danger"
+                  onClick={() => {
+                    deleteTarget.current = "episode";
+                    setMenu(null);
+                    setPendingDelete(true);
+                  }}
+                >
+                  删除这一集
+                </button>
+                <button
+                  className="danger"
+                  onClick={() => {
+                    deleteTarget.current = "series";
+                    setMenu(null);
+                    setPendingDelete(true);
+                  }}
+                >
+                  删除这部作品
+                </button>
               </div>
             )}
           </div>
-          <nav className="tabs" aria-label="创作阶段">
-            {STAGES.map((item, index) => {
-              // UIR-06: ticked only when that part is done; otherwise how far it got.
-              const progress = open && film && item.id !== "edit" ? stageTabs(film)[item.id] : null;
-              const done = Boolean(progress?.done);
-              const on = item.id === stage;
-              return (
-                <button
-                  key={item.id}
-                  className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
-                  aria-current={on ? "page" : undefined}
-                  title={`${item.label}（按 ${index + 1}）`}
-                  onClick={() => {
-                    setStage(item.id);
-                    setMenu(null);
-                    if (item.id === "board") {
+          {open ? (
+            <nav className="tabs" aria-label="创作阶段">
+              {STAGES.map((item, index) => {
+                // UIR-06: ticked only when that part is done; otherwise how far it got.
+                const progress =
+                  open && film && item.id !== "edit" ? stageTabs(film)[item.id] : null;
+                const done = Boolean(progress?.done);
+                const on = item.id === stage;
+                return (
+                  <button
+                    key={item.id}
+                    className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
+                    aria-current={on ? "page" : undefined}
+                    title={`${item.label}（按 ${index + 1}）`}
+                    onClick={() => {
+                      setStage(item.id);
+                      setMenu(null);
+                      if (item.id === "board") {
+                        const current = filmRef.current;
+                        const rows =
+                          current?.shots.filter((shotItem) => shotItem.sceneId === scene) ?? [];
+                        const list = rows.length > 0 ? rows : (current?.shots ?? []);
+                        const next = list.findIndex(
+                          (shotItem) => !shotItem.takes.some((take) => take.status === "done"),
+                        );
+                        setShot(next >= 0 ? next : 0);
+                      }
+                      if (item.id !== "cast") return;
                       const current = filmRef.current;
-                      const rows =
-                        current?.shots.filter((shotItem) => shotItem.sceneId === scene) ?? [];
-                      const list = rows.length > 0 ? rows : (current?.shots ?? []);
-                      const next = list.findIndex(
-                        (shotItem) => !shotItem.takes.some((take) => take.status === "done"),
-                      );
-                      setShot(next >= 0 ? next : 0);
-                    }
-                    if (item.id !== "cast") return;
-                    const current = filmRef.current;
-                    if (
-                      current &&
-                      current.characters.length === 0 &&
-                      current.locations.length === 0 &&
-                      current.scenes.some((sceneItem) => sceneItem.text.trim())
-                    ) {
-                      void fillCast(current);
-                    }
-                  }}
-                >
-                  <span className="n">
-                    {done && !on ? <Ic name="check" size={10} /> : index + 1}
-                  </span>
-                  {item.label}
-                  {progress && !done && progress.total > 0 ? (
-                    <small className="tab-count">
-                      {progress.have}/{progress.total}
-                    </small>
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
+                      if (
+                        current &&
+                        current.characters.length === 0 &&
+                        current.locations.length === 0 &&
+                        current.scenes.some((sceneItem) => sceneItem.text.trim())
+                      ) {
+                        void fillCast(current);
+                      }
+                    }}
+                  >
+                    <span className="n">
+                      {done && !on ? <Ic name="check" size={10} /> : index + 1}
+                    </span>
+                    {item.label}
+                    {progress && !done && progress.total > 0 ? (
+                      <small className="tab-count">
+                        {progress.have}/{progress.total}
+                      </small>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+          ) : (
+            <span aria-hidden="true" />
+          )}
           <div className="tb-right">
-            {exportView.ready ? null : (
+            {!open || exportView.ready ? null : (
               <span className="export-why" id="export-why">
                 {exportView.why}
               </span>
             )}
-            <button
-              className={exportView.lead ? "btn primary" : exportView.ready ? "btn" : "btn off"}
-              aria-describedby={exportView.ready ? undefined : "export-why"}
-              onClick={() => {
-                setExportOpen(true);
-                if (!exportDir && prefs.exportDir) setExportDir(prefs.exportDir);
-                else if (!exportDir) {
-                  void window.aijian?.defaultFilmFolder?.().then((dir) => {
-                    if (dir) setExportDir(dir);
-                  });
-                }
-              }}
-            >
-              <Ic name="upload" size={15} />
-              导出成片
-            </button>
+            {open ? (
+              <button
+                className={exportView.lead ? "btn primary" : exportView.ready ? "btn" : "btn off"}
+                aria-describedby={exportView.ready ? undefined : "export-why"}
+                onClick={() => {
+                  setExportOpen(true);
+                  if (!exportDir && prefs.exportDir) setExportDir(prefs.exportDir);
+                  else if (!exportDir) {
+                    void window.aijian?.defaultFilmFolder?.().then((dir) => {
+                      if (dir) setExportDir(dir);
+                    });
+                  }
+                }}
+              >
+                <Ic name="upload" size={15} />
+                导出成片
+              </button>
+            ) : null}
             {/* 4A-U10: signing in has one place, the avatar; its dot says how the membership is. */}
             <button
               className="avatar"
@@ -3567,6 +3639,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onNotice={setNotice}
                   onGenerate={() => setBench(true)}
                   onBatch={askBatch}
+                  onBatchShots={queueBatch}
                   activeSceneId={scene}
                   stills={[]}
                   fourArmed={stillArmed}
@@ -3861,79 +3934,95 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             if (file) void importBook(file);
           }}
         />
+        {/* 4C-U08: the latest message on the left, work in progress in the middle (only a
+            small button when there is none), and where the work is kept on the right. */}
         <footer className="statusbar">
-          {asking && (
-            <button
-              type="button"
-              onClick={() => {
-                void (
-                  window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined
-                )?.cancelText?.();
-                setAsking(false);
-                setNotice("已取消。");
+          <div className="sb-left">
+            {asking && (
+              <button
+                type="button"
+                onClick={() => {
+                  void (
+                    window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined
+                  )?.cancelText?.();
+                  setAsking(false);
+                  setNotice("已取消。");
+                }}
+              >
+                取消
+              </button>
+            )}
+            <span
+              className={status.fading ? "status-note fading" : "status-note"}
+              role="status"
+              title={
+                status.line
+                  ? [status.line.text, status.line.detail].filter(Boolean).join("\n")
+                  : undefined
+              }
+              style={{
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
-              取消
-            </button>
-          )}
-          <span
-            className={status.fading ? "status-note fading" : "status-note"}
-            role="status"
-            title={
-              status.line
-                ? [status.line.text, status.line.detail].filter(Boolean).join("\n")
-                : undefined
-            }
-            style={{
-              minWidth: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {status.line?.text ?? ""}
-          </span>
-          {/* 4A-U11: what the assistant put in can be taken back from the status bar. */}
-          {status.line && !status.fading && APPLIED_CODES.has(status.line.code) ? (
-            <button
-              type="button"
-              className="status-undo"
-              aria-label="撤销刚才放进去的"
-              onClick={undoEdit}
-            >
-              撤销
-            </button>
-          ) : null}
-          <button
-            className="task"
-            data-menu="queue"
-            onClick={() => setMenu(menu === "queue" ? null : "queue")}
-          >
-            <Ic name="loader" size={12} />
-            后台生成：
-            {asking
-              ? "AI 在写"
-              : feedNow.active > 0
-                ? `正在做 ${feedNow.active} 个`
-                : portraitBusy
-                  ? "正在出定妆照"
-                  : "没有在做的"}
-            {/* UIR-04: no bar when nothing is being made; it used to stay full after a failure. */}
-            {feedNow.active > 0 || finished < tracked.length ? (
-              <span className="bar">
-                <i style={{ width: `${feedNow.active > 0 ? feedNow.percent : progress}%` }} />
-              </span>
+              {status.line?.text ?? ""}
+            </span>
+            {/* 4A-U11: what the assistant put in can be taken back from the status bar. */}
+            {status.line && !status.fading && APPLIED_CODES.has(status.line.code) ? (
+              <button
+                type="button"
+                className="status-undo"
+                aria-label="撤销刚才放进去的"
+                onClick={undoEdit}
+              >
+                撤销
+              </button>
             ) : null}
-          </button>
-          <span className="sp" />
-          <span className="where">
-            {savedDirectory
-              ? "作品保存在"
-              : savingDisk
-                ? "正在保存…"
-                : diskError || (filmDiskReady() ? "已保存在这台电脑上" : BROWSER_DIRECTORY)}{" "}
-            <b>{savedDirectory || film?.title || ""}</b>
-          </span>
+          </div>
+          <div className="sb-mid">
+            <button
+              className={busy ? "task" : "task idle"}
+              data-menu="queue"
+              aria-label={busy ? undefined : "后台生成：没有在做的"}
+              title={busy ? undefined : "任务和提示记录"}
+              onClick={() => setMenu(menu === "queue" ? null : "queue")}
+            >
+              <Ic name="loader" size={12} />
+              {busy ? "后台生成：" : null}
+              {!busy
+                ? null
+                : asking
+                  ? "AI 在写"
+                  : feedNow.active > 0
+                    ? `正在做 ${feedNow.active} 个`
+                    : portraitBusy
+                      ? "正在出定妆照"
+                      : "没有在做的"}
+              {/* UIR-04: no bar when nothing is being made; it used to stay full after a failure. */}
+              {feedNow.active > 0 || finished < tracked.length ? (
+                <span className="bar">
+                  <i style={{ width: `${feedNow.active > 0 ? feedNow.percent : progress}%` }} />
+                </span>
+              ) : null}
+            </button>
+          </div>
+          <div className="sb-right">
+            <span className="where">
+              {savedDirectory
+                ? "作品保存在"
+                : savingDisk
+                  ? "正在保存…"
+                  : diskError ||
+                    (filmDiskReady()
+                      ? "已保存在这台电脑上"
+                      : import.meta.env.DEV
+                        ? BROWSER_DIRECTORY
+                        : "")}{" "}
+              <b>{savedDirectory || film?.title || ""}</b>
+            </span>
+          </div>
         </footer>
         {confirmSignIn && (
           <div className="dialog-back">
@@ -4225,6 +4314,38 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <div className="dialog-back">
             <div className="dialog work-settings" role="dialog" aria-label="作品设置">
               <h2>作品设置 · {film.seriesTitle || film.title}</h2>
+              <section className="ws-sec" aria-label="名字">
+                <h3>作品名</h3>
+                <div className="pathrow">
+                  <input
+                    className="input"
+                    aria-label="作品名"
+                    value={rename}
+                    onChange={(event) => setRename(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                      event.preventDefault();
+                      const name = event.currentTarget.value.trim();
+                      if (!film || !name) return;
+                      void renameFilm(film.seriesId, name);
+                      applyLive({ ...film, title: name, seriesTitle: name });
+                      setNotice("已改作品名。");
+                    }}
+                  />
+                  <button
+                    className="btn sm"
+                    type="button"
+                    onClick={() => {
+                      if (!film || !rename.trim()) return;
+                      void renameFilm(film.seriesId, rename.trim());
+                      applyLive({ ...film, title: rename.trim(), seriesTitle: rename.trim() });
+                      setNotice("已改作品名。");
+                    }}
+                  >
+                    保存名字
+                  </button>
+                </div>
+              </section>
               <section className="ws-sec" aria-label="画风">
                 <h3>画风</h3>
                 <p className="role-desc">
@@ -4535,6 +4656,21 @@ const PAGE_ROLE: Partial<Record<Stage, Role>> = {
   board: "director",
 };
 
+/** 4C-U08: what the assistant is looking at: 「第 2 场第 3 个镜头」, or the scene. */
+function scopeOf(film: FilmProject, sceneId: string, shot?: FilmShot | null): string {
+  const scene = film.scenes.find((item) => item.id === (shot?.sceneId || sceneId));
+  if (!scene) return "";
+  return shot ? `第 ${scene.no} 场第 ${shot.no} 个镜头` : `第 ${scene.no} 场「${scene.title}」`;
+}
+
+/** 4C-U08: what can be named with @: the people, then this scene's shots. */
+function mentionsOf(film: FilmProject, shots: readonly FilmShot[]): string[] {
+  return [
+    ...film.characters.map((person) => `@${person.name}`).filter((name) => name.length > 1),
+    ...shots.slice(0, 12).map((item) => `@镜头 ${item.no}`),
+  ];
+}
+
 /** A shot as one line of a suggestion: who is in it, the picture, its length. */
 function shotItem(shot: FilmShot): SuggestionItem {
   return {
@@ -4574,6 +4710,8 @@ function Assistant({
   currentScenes = [],
   onReject,
   solo = false,
+  scope = "",
+  mentions = [],
 }: {
   role: Role;
   onRole: (role: Role) => void;
@@ -4602,7 +4740,13 @@ function Assistant({
   onReject?: () => void;
   /** The assistant is the only thing in the right column: Ctrl+J moves into its input. */
   solo?: boolean;
+  /** 4C-U08: what the assistant is looking at, like 「第 2 场第 3 个镜头」. */
+  scope?: string;
+  /** 4C-U08: what can be named with @ in the message: people, then this scene's shots. */
+  mentions?: string[];
 }) {
+  const [mentioning, setMentioning] = useState(false);
+  useDismiss(mentioning, () => setMentioning(false), "[data-mention]");
   const pickId = useId();
   const input = useRef<HTMLTextAreaElement>(null);
   // 4A-U11: a suggestion that replaces a list (the director's shots, the writer's scenes) is
@@ -4791,6 +4935,45 @@ function Assistant({
           </button>
         ))}
       </div>
+      {scope || mentions.length > 0 ? (
+        <div className="chat-context">
+          {scope ? <span className="chat-scope">正在看：{scope}</span> : null}
+          <span className="sp" />
+          {mentions.length > 0 ? (
+            <span className="mention-wrap" data-mention>
+              <button
+                className="btn sm"
+                type="button"
+                aria-label="提到角色或镜头"
+                title="提到角色或镜头（@）"
+                aria-expanded={mentioning}
+                onClick={() => setMentioning((open) => !open)}
+              >
+                @
+              </button>
+              {mentioning ? (
+                <div className="menu mention-menu" role="menu" aria-label="提到谁">
+                  {mentions.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        const gap = chat && !/\s$/.test(chat) ? " " : "";
+                        onChat(`${chat}${gap}${item} `);
+                        setMentioning(false);
+                        input.current?.focus();
+                      }}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="composer">
         <textarea
           ref={input}
@@ -4865,9 +5048,10 @@ function missingByScene(film: FilmProject): { id: string; scene: string; shots: 
 function rulerTicks(
   shots: readonly FilmShot[],
   clips: readonly { left: number; width: number }[],
+  every?: number,
 ): { seconds: number; left: number }[] {
   const total = shots.reduce((sum, item) => sum + item.seconds, 0);
-  const step = total > 120 ? 10 : 5;
+  const step = every ?? (total > 120 ? 10 : 5);
   const ticks: { seconds: number; left: number }[] = [];
   for (let at = 0; at <= total; at += step) {
     let start = 0;
@@ -5136,6 +5320,11 @@ function ScriptPage({
         </div>
         <Assistant
           solo
+          scope={current ? scopeOf(film, current.id) : ""}
+          mentions={mentionsOf(
+            film,
+            film.shots.filter((item) => item.sceneId === current?.id),
+          )}
           currentScenes={film.scenes}
           onReject={onReject}
           role={role}
@@ -5482,6 +5671,43 @@ function CastPage({
                 已有 {restyle} 个镜头是按原来的画风做的，要重新生成才会变。
               </p>
             ) : null}
+            {/* 4C-U07: the narration is the whole work's, next to its style, not one person's. */}
+            <div className="style-row">
+              <label htmlFor="narration-voice" className="sec-t">
+                整部作品的旁白
+              </label>
+              <select
+                id="narration-voice"
+                className="input"
+                aria-label="旁白声音"
+                value={film.narrationVoiceId}
+                onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
+              >
+                <option value="">还没有选旁白</option>
+                {voices.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.label}
+                  </option>
+                ))}
+                {film.narrationVoiceId &&
+                !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
+                  <option value={film.narrationVoiceId}>{voiceLabel(film.narrationVoiceId)}</option>
+                ) : null}
+              </select>
+              <button
+                className="btn sm"
+                type="button"
+                aria-label="试听旁白"
+                onClick={() =>
+                  onPreview(
+                    film.narrationVoiceId,
+                    film.shots.find((item) => item.line.trim())?.line ?? "",
+                  )
+                }
+              >
+                {hearing ? "停止" : "试听旁白"}
+              </button>
+            </div>
           </section>
           {side === "places" ? (
             location ? (
@@ -5828,40 +6054,6 @@ function CastPage({
                     {hearing ? "停止" : "试听"}
                   </button>
                 ) : null}
-                <label htmlFor="narration-voice">旁白</label>
-                <select
-                  id="narration-voice"
-                  className="input"
-                  aria-label="旁白声音"
-                  value={film.narrationVoiceId}
-                  onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
-                >
-                  <option value="">还没有选旁白</option>
-                  {voices.map((voice) => (
-                    <option key={voice.id} value={voice.id}>
-                      {voice.label}
-                    </option>
-                  ))}
-                  {film.narrationVoiceId &&
-                  !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
-                    <option value={film.narrationVoiceId}>
-                      {voiceLabel(film.narrationVoiceId)}
-                    </option>
-                  ) : null}
-                </select>
-                <button
-                  className="btn sm"
-                  type="button"
-                  aria-label="试听旁白"
-                  onClick={() =>
-                    onPreview(
-                      film.narrationVoiceId,
-                      film.shots.find((item) => item.line.trim())?.line ?? "",
-                    )
-                  }
-                >
-                  {hearing ? "停止" : "试听旁白"}
-                </button>
               </div>
               <div className="cast-looks">
                 <div className="looks-head">
@@ -5971,14 +6163,18 @@ function PropGroup({
   id,
   title,
   defaultOpen = false,
+  filled = 0,
   children,
 }: {
   id: string;
   title: string;
   defaultOpen?: boolean;
+  /** 5-3-07: how many fields inside have something in them; a folded title shows 「· 2」. */
+  filled?: number;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(() => readGroupOpen(id, defaultOpen));
+  const count = !open && filled > 0 ? filled : 0;
   return (
     <details
       className="pgroup"
@@ -5990,7 +6186,13 @@ function PropGroup({
         writeGroupOpen(id, next);
       }}
     >
-      <summary>{title}</summary>
+      {/* The number is drawn by CSS, so the title stays the group's name. */}
+      <summary
+        data-count={count ? `· ${count}` : undefined}
+        title={count ? `里面有 ${count} 项填了内容` : undefined}
+      >
+        {title}
+      </summary>
       <div className="pgroup-body">{children}</div>
     </details>
   );
@@ -6011,6 +6213,7 @@ function ShotView({ one, onAll, onOne }: { one: boolean; onAll: () => void; onOn
 }
 
 function BoardPage({
+  onBatchShots,
   quiet = false,
   onNext,
   onReject,
@@ -6062,6 +6265,8 @@ function BoardPage({
   onNotice: (text: string) => void;
   onGenerate: () => void;
   onBatch: () => void;
+  /** 5-3-06: the confirm table for the cards picked with Shift or Ctrl. */
+  onBatchShots?: (shots: FilmShot[]) => void;
   activeSceneId: string;
   stills: string[];
   onStills: () => void;
@@ -6124,6 +6329,34 @@ function BoardPage({
   useDismiss(moreOpen, () => setMoreOpen(false), ".more-wrap");
   const shownShotId = current?.id ?? "";
   useEffect(() => setMoreOpen(false), [shownShotId]);
+  // 5-3-02: right-click on a card or a scene. The card's menu is the same list as 「更多」.
+  const cardMenu = useContextMenu();
+  const sceneMenu = useContextMenu();
+  const shotMenu: ContextMenuItem[] = current
+    ? [
+        { label: "前移", onSelect: () => onFilm(moveShot(film, current.id, -1)) },
+        { label: "后移", onSelect: () => onFilm(moveShot(film, current.id, 1)) },
+        ...(fourArmed !== current.id ? [{ label: "出 4 张候选", onSelect: onFour }] : []),
+        ...(shotProgress(current) !== "未生成"
+          ? [
+              {
+                label: "重新生成画面",
+                onSelect: onStills,
+                disabledReason: stillProgress[current.id] ? "画面正在生成" : undefined,
+              },
+            ]
+          : []),
+        {
+          label: "删除这一镜",
+          danger: true,
+          divided: true,
+          onSelect: () => {
+            onFilm(removeShot(film, current.id));
+            onNotice("已删除这一镜。");
+          },
+        },
+      ]
+    : [];
   // GPT's own check, saved on the scene when the director writes it or fixes its end. The page
   // does not run the check again on every edit.
   const coverage = sceneRow?.coverage && !sceneRow.coverage.ok ? sceneRow.coverage : null;
@@ -6133,6 +6366,27 @@ function BoardPage({
   // 3JR-U04: while an action is dragged the cards show where it can go.
   const [beatDrag, setBeatDrag] = useState(false);
   const [dropAt, setDropAt] = useState(-1);
+  // 5-3-05: a card dragged to another place in the scene; a bar shows where it will land.
+  const [movingId, setMovingId] = useState("");
+  const [moveOver, setMoveOver] = useState(-1);
+  // 5-3-06: cards picked with Ctrl (one more or one less) or Shift (a run from the shot on show).
+  const [picked, setPicked] = useState<string[]>([]);
+  const pickedShots = shots.filter((item) => picked.includes(item.id));
+  const multi = pickedShots.length >= 2;
+  // Deleting several shots cannot be undone yet (INTEGRATION.md, 5-3 撤销): it asks once more.
+  const [askDelete, setAskDelete] = useState(false);
+  const pickedKey = picked.join(",");
+  useEffect(() => setAskDelete(false), [pickedKey]);
+  useEffect(() => setPicked([]), [sceneKey]);
+  useEffect(() => {
+    if (!multi) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPicked([]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [multi]);
+  const movingFrom = movingId ? shots.findIndex((item) => item.id === movingId) : -1;
   const placeBeat = (index: number, target: FilmShot) => {
     const beat = sceneBeats[index];
     if (!beat || target.sceneId !== activeSceneId || beat.sceneId !== activeSceneId) return;
@@ -6197,6 +6451,12 @@ function BoardPage({
                 onScene(item.id);
                 onShot(0);
               }}
+              onContextMenu={(event) => {
+                onScene(item.id);
+                onShot(0);
+                cardMenu.close();
+                sceneMenu.open(event);
+              }}
             >
               <span className="no">{String(item.no).padStart(2, "0")}</span>
               <span className="t">
@@ -6213,6 +6473,32 @@ function BoardPage({
             </button>
           ))}
         </div>
+        {/* 5-3-02: the scene's menu holds the scene's buttons above the cards. */}
+        <ContextMenu
+          at={sceneMenu.at}
+          label={`${sceneRow?.title ?? "这一场"}的操作`}
+          items={
+            sceneRow
+              ? [
+                  {
+                    label: "加镜头",
+                    onSelect: () => {
+                      onFilm(addShot(film, sceneRow.id));
+                      onNotice("已加一个镜头。");
+                    },
+                  },
+                  { label: "生成这一场", onSelect: onBatch },
+                ]
+              : []
+          }
+          onClose={sceneMenu.close}
+        />
+        <ContextMenu
+          at={cardMenu.at}
+          label={`镜头 ${current?.no ?? ""} 的操作`}
+          items={shotMenu}
+          onClose={cardMenu.close}
+        />
         <div className="pfoot stack">
           <span>
             全片：画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b>/
@@ -6287,23 +6573,89 @@ function BoardPage({
               key={item.id}
               className={[
                 "card",
-                index === shot ? "sel" : "",
+                (multi ? picked.includes(item.id) : index === shot) ? "sel" : "",
                 beatDrag && dropAt === index ? "drop-over" : "",
+                item.id === movingId ? "moving" : "",
+                movingFrom >= 0 && moveOver === index && index !== movingFrom
+                  ? index < movingFrom
+                    ? "move-before"
+                    : "move-after"
+                  : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.setData(
+                  SHOT_DRAG_TYPE,
+                  JSON.stringify({ scope: sceneKey, id: item.id }),
+                );
+                event.dataTransfer.effectAllowed = "move";
+                setMovingId(item.id);
+              }}
+              onDragEnd={() => {
+                setMovingId("");
+                setMoveOver(-1);
+              }}
               // 4C-U05: the card's state is the label on its picture; who wrote it is in here.
               title={`镜头 ${item.no} · ${shotSource(item).label}`}
-              onClick={() => onShot(index)}
+              aria-pressed={multi ? picked.includes(item.id) : undefined}
+              onClick={(event) => {
+                if (event.shiftKey) {
+                  const from = Math.min(shot, index);
+                  const to = Math.max(shot, index);
+                  setPicked(shots.slice(from, to + 1).map((other) => other.id));
+                  return;
+                }
+                if (event.ctrlKey || event.metaKey) {
+                  setPicked((now) => {
+                    const base = now.length > 0 ? now : current ? [current.id] : [];
+                    return base.includes(item.id)
+                      ? base.filter((id) => id !== item.id)
+                      : [...base, item.id];
+                  });
+                  return;
+                }
+                setPicked([]);
+                onShot(index);
+              }}
+              onContextMenu={(event) => {
+                setPicked([]);
+                onShot(index);
+                setMoreOpen(false);
+                sceneMenu.close();
+                cardMenu.open(event);
+              }}
               onDragOver={(event) => {
+                if (event.dataTransfer.types.includes(SHOT_DRAG_TYPE)) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  if (moveOver !== index) setMoveOver(index);
+                  return;
+                }
                 if (!event.dataTransfer.types.includes(BEAT_DRAG_TYPE)) return;
                 event.preventDefault();
                 if (dropAt !== index) setDropAt(index);
               }}
               onDragLeave={() => {
                 if (dropAt === index) setDropAt(-1);
+                if (moveOver === index) setMoveOver(-1);
               }}
               onDrop={(event) => {
+                const moving = readShotDrag(event.dataTransfer.getData(SHOT_DRAG_TYPE));
+                if (moving) {
+                  event.preventDefault();
+                  setMovingId("");
+                  setMoveOver(-1);
+                  // Only within the scene on show; a card from another scene or work stays.
+                  const from = shots.findIndex((other) => other.id === moving.id);
+                  if (moving.scope !== sceneKey || from < 0 || from === index) return;
+                  const was = shots[from]!;
+                  onFilm(moveShotBy(film, moving.id, index - from));
+                  onShot(index);
+                  onNotice(movedNotice(was.no, item.no, index < from));
+                  return;
+                }
                 const raw = event.dataTransfer.getData(BEAT_DRAG_TYPE);
                 if (!raw) return;
                 event.preventDefault();
@@ -6449,7 +6801,91 @@ function BoardPage({
             onRedoRange={onRedoRange}
             onDismiss={onDismiss}
             onReject={onReject}
+            scope={scopeOf(film, activeSceneId, current)}
+            mentions={mentionsOf(film, shots)}
           />
+        ) : multi ? (
+          // 5-3-06: what can be done to every picked shot at once.
+          <>
+            <div className="shot-h">
+              选了 {pickedShots.length} 个镜头{" "}
+              <span>共 {pickedShots.reduce((sum, item) => sum + item.seconds, 0)} 秒</span>
+            </div>
+            <div className="pb multi-pick">
+              <p className="multi-list">镜头 {pickedShots.map((item) => item.no).join("、")}</p>
+              <div className="field">
+                <label>时长都改成（秒）</label>
+                <div className="seg" aria-label="时长都改成">
+                  {SECONDS_CHOICES.map((seconds) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      aria-label={`都改成 ${seconds} 秒`}
+                      className={pickedShots.every((item) => item.seconds === seconds) ? "on" : ""}
+                      onClick={() => {
+                        onFilm(
+                          pickedShots.reduce(
+                            (next, item) =>
+                              updateShot(next, item.id, {
+                                seconds,
+                                userFields: [...new Set([...item.userFields, "seconds"])],
+                              }),
+                            film,
+                          ),
+                        );
+                        onNotice(`已把 ${pickedShots.length} 个镜头都改成 ${seconds} 秒。`);
+                      }}
+                    >
+                      {seconds}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="role-desc">
+                按住 Ctrl 点卡片，加一个或去掉一个；按住 Shift 点卡片，选一串。按 Esc 取消。
+              </p>
+            </div>
+            {askDelete ? (
+              <p className="multi-ask" role="alert">
+                删掉这 {pickedShots.length} 个镜头？删了不能撤回，做好的画面和视频也一起没了。
+              </p>
+            ) : null}
+            <div className="pfoot2 one">
+              <button
+                className="btn"
+                type="button"
+                onClick={() => (askDelete ? setAskDelete(false) : setPicked([]))}
+              >
+                {askDelete ? "不删" : "取消多选"}
+              </button>
+              <button
+                className="btn danger"
+                type="button"
+                onClick={() => {
+                  if (!askDelete) {
+                    setAskDelete(true);
+                    return;
+                  }
+                  const count = pickedShots.length;
+                  onFilm(pickedShots.reduce((next, item) => removeShot(next, item.id), film));
+                  setPicked([]);
+                  onShot(0);
+                  onNotice(`已删除 ${count} 个镜头。`);
+                }}
+              >
+                {askDelete
+                  ? `确认删除 ${pickedShots.length} 个`
+                  : `删除这 ${pickedShots.length} 个`}
+              </button>
+              {onBatchShots ? (
+                <button className="btn" type="button" onClick={() => onBatchShots(pickedShots)}>
+                  {pickedShots.every((item) => shotProgress(item) === "未生成")
+                    ? `生成这 ${pickedShots.length} 个`
+                    : `重新生成这 ${pickedShots.length} 个`}
+                </button>
+              ) : null}
+            </div>
+          </>
         ) : current ? (
           <>
             <div className="shot-h">
@@ -6646,7 +7082,17 @@ function BoardPage({
                   <p className="role-desc">这一镜的画面说明漏了{missingLocks.join("、")}的外貌。</p>
                 )}
               </PropGroup>
-              <PropGroup id="sound" title="声音">
+              <PropGroup
+                id="sound"
+                title="声音"
+                filled={
+                  [
+                    current.sound.source === "dub",
+                    current.sound.ambience.trim(),
+                    current.sound.musicMood.trim(),
+                  ].filter(Boolean).length
+                }
+              >
                 <div className="field">
                   <p className="role-desc">台词：{current.line || "这一镜没有台词"}</p>
                   <select
@@ -6698,7 +7144,19 @@ function BoardPage({
                   </button>
                 </div>
               </PropGroup>
-              <PropGroup id="advanced" title="高级">
+              <PropGroup
+                id="advanced"
+                title="高级"
+                filled={
+                  [
+                    current.styleNote,
+                    current.blocking,
+                    current.facing,
+                    current.action,
+                    current.performance,
+                  ].filter((text) => text?.trim()).length
+                }
+              >
                 <div className="adv">
                   <label htmlFor="shot-style-note">这一镜的画风</label>
                   <textarea
@@ -6838,59 +7296,22 @@ function BoardPage({
                 </button>
                 {moreOpen ? (
                   <div className="menu up" role="menu" aria-label="这一镜的更多操作">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        onFilm(moveShot(film, current.id, -1));
-                      }}
-                    >
-                      前移
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        onFilm(moveShot(film, current.id, 1));
-                      }}
-                    >
-                      后移
-                    </button>
-                    {fourArmed !== current.id ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMoreOpen(false);
-                          onFour();
-                        }}
-                      >
-                        出 4 张候选
-                      </button>
-                    ) : null}
-                    {shotProgress(current) !== "未生成" ? (
-                      <button
-                        type="button"
-                        disabled={Boolean(stillProgress[current.id])}
-                        onClick={() => {
-                          setMoreOpen(false);
-                          onStills();
-                        }}
-                      >
-                        重新生成画面
-                      </button>
-                    ) : null}
-                    <div className="menu-sep" role="separator" />
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        onFilm(removeShot(film, current.id));
-                        onNotice("已删除这一镜。");
-                      }}
-                    >
-                      删除这一镜
-                    </button>
+                    {shotMenu.map((item) => (
+                      <Fragment key={item.label}>
+                        {item.divided ? <div className="menu-sep" role="separator" /> : null}
+                        <button
+                          type="button"
+                          className={item.danger ? "danger" : undefined}
+                          disabled={Boolean(item.disabledReason)}
+                          onClick={() => {
+                            setMoreOpen(false);
+                            item.onSelect();
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      </Fragment>
+                    ))}
                   </div>
                 ) : null}
               </div>
@@ -6915,6 +7336,59 @@ function BoardPage({
               )}
             </div>
           </>
+        ) : sceneRow ? (
+          // 4C-U07: with no shot to show, the column shows this scene and the whole work.
+          <div className="pb scene-props">
+            <div className="shot-h">
+              第 {sceneRow.no} 场 <span>还没有镜头</span>
+            </div>
+            <div className="field">
+              <label htmlFor="scene-where">这一场在哪</label>
+              <input
+                id="scene-where"
+                className="input"
+                aria-label="这一场在哪"
+                value={sceneRow.where}
+                placeholder="比如：内景 · 夜 · 旧书店"
+                onChange={(event) =>
+                  onFilm({
+                    ...film,
+                    scenes: film.scenes.map((item) =>
+                      item.id === sceneRow.id ? { ...item, where: event.target.value } : item,
+                    ),
+                  })
+                }
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="scene-ambience">这一场的环境音</label>
+              <textarea
+                id="scene-ambience"
+                className="area"
+                aria-label="这一场的环境音"
+                rows={2}
+                value={sceneRow.ambience}
+                placeholder="比如：雨打在玻璃上，远处有车开过。"
+                onChange={(event) =>
+                  onFilm({
+                    ...film,
+                    scenes: film.scenes.map((item) =>
+                      item.id === sceneRow.id ? { ...item, ambience: event.target.value } : item,
+                    ),
+                  })
+                }
+              />
+            </div>
+            <div className="field">
+              <label>整部作品</label>
+              <p className="role-desc">
+                画风：{film.stylePreset}。画风和旁白在「角色与场景」页最上面改。
+              </p>
+            </div>
+            <p className="role-desc">
+              这一场还没有镜头：在「AI 助手」里让导演拆，或者点上面「加镜头」。
+            </p>
+          </div>
         ) : (
           <p className="role-desc">这一场还没有镜头。</p>
         )}
@@ -7062,11 +7536,29 @@ function GeneratePage({
                 onTime={() => undefined}
               />
             ) : (
-              <div className="frame rain">
-                {takes.length > 0 ? (
-                  <span className="badge none">{picked?.reason || "这一版还没有画面"}</span>
-                ) : null}
-              </div>
+              // 5-3-13: with no video yet, the first frame shows instead of a black box.
+              (() => {
+                const still = shotFrame(current);
+                return (
+                  <div
+                    className={still ? "frame" : "frame rain"}
+                    style={
+                      still
+                        ? {
+                            backgroundImage: `url(${still})`,
+                            backgroundPosition: current?.posterPosition || "50% 50%",
+                          }
+                        : undefined
+                    }
+                  >
+                    {takes.length > 0 ? (
+                      <span className="badge none">{picked?.reason || "这一版还没有画面"}</span>
+                    ) : still ? (
+                      <span className="still-note">还没有视频，这是起始画面</span>
+                    ) : null}
+                  </div>
+                );
+              })()
             )}
           </div>
           <div className="cands">
@@ -7278,11 +7770,14 @@ function PlanLane({
   film,
   shots,
   clips,
+  zoom = PX_PER_SECOND,
 }: {
   lane: "ambience" | "sfx";
   film: FilmProject;
   shots: FilmShot[];
   clips: { id: string; left: number; width: number }[];
+  /** Pixels a second (5-3-08). */
+  zoom?: number;
 }) {
   const files = film.audioClips.filter((item) => item.lane === lane && item.path);
   const name = lane === "ambience" ? "环境音" : "音效";
@@ -7318,7 +7813,7 @@ function PlanLane({
           className={`clip ${lane === "ambience" ? "amb" : "fx"}`}
           style={{
             left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-            width: Math.max(32, Math.round((item.durationSeconds || 2) * 52) - 2),
+            width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
           }}
         >
           <Wave clip={item} />
@@ -7443,7 +7938,98 @@ function EditPage({
   const [unfolded, setUnfolded] = useState(false);
   const readyCount = shots.filter(shotReady).length;
   const waitingCount = shots.length - readyCount;
-  const clips = editClipLayout(shots, readyCount > 0 && !unfolded);
+  // 5-3-08: the timeline zooms; every position below comes from these boxes.
+  const [zoom, setZoom] = useState<number>(PX_PER_SECOND);
+  const clips = editClipLayout(shots, readyCount > 0 && !unfolded, zoom);
+  const zoomBy = (direction: 1 | -1) => setZoom((now) => stepZoom(now, direction));
+  // 5-3-02: right-click on a clip picks it and offers what the bar above it offers.
+  const clipMenu = useContextMenu();
+  const clipItems: ContextMenuItem[] = [
+    {
+      label: "重新生成",
+      onSelect: onRangeGenerate,
+      disabledReason: actions.regenerate.enabled ? undefined : actions.regenerate.reason,
+    },
+    {
+      label: "换配音",
+      onSelect: () => onAction("voice"),
+      disabledReason: actions.voice.enabled ? undefined : actions.voice.reason,
+    },
+    { label: "剪掉", onSelect: () => onAction("cut"), danger: true, divided: true },
+  ];
+  const zoomToFit = () =>
+    setZoom(
+      fitZoom(
+        shots.reduce((sum, item) => sum + item.seconds, 0),
+        tracksRef.current?.clientWidth ?? 0,
+      ),
+    );
+  // Ctrl+wheel over the tracks zooms, as in other editors. React's wheel handler cannot stop
+  // the page from zooming, so this listens directly.
+  useEffect(() => {
+    const box = tracksRef.current;
+    if (!box) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setZoom((now) => stepZoom(now, event.deltaY < 0 ? 1 : -1));
+    };
+    box.addEventListener("wheel", onWheel, { passive: false });
+    return () => box.removeEventListener("wheel", onWheel);
+  }, []);
+  // 5-3-10: Delete or Backspace takes out the picked clip, the same as 「剪掉」. A cut here
+  // cannot be undone yet (INTEGRATION.md, 5-3 撤销), so the first press asks and the second
+  // cuts; Esc or picking another clip lets it go. Never while typing or with a dialog open.
+  const [askCut, setAskCut] = useState(false);
+  useEffect(() => setAskCut(false), [shot, range]);
+  const cutKey = useRef<() => boolean>(() => false);
+  cutKey.current = () => {
+    if (!range) return false;
+    if (!askCut) {
+      setAskCut(true);
+      return true;
+    }
+    setAskCut(false);
+    onAction("cut");
+    return true;
+  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      if (event.metaKey || event.ctrlKey || event.altKey || typingInField(event)) return;
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+      if (cutKey.current()) event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const zoomControls = (
+    <span className="tzoom" role="group" aria-label="时间线缩放">
+      <button
+        className="icon-btn sm"
+        type="button"
+        aria-label="缩小时间线"
+        title="缩小（Ctrl+滚轮）"
+        disabled={zoom <= 6}
+        onClick={() => zoomBy(-1)}
+      >
+        <Ic name="zout" size={14} />
+      </button>
+      <button
+        className="icon-btn sm"
+        type="button"
+        aria-label="放大时间线"
+        title="放大（Ctrl+滚轮）"
+        disabled={zoom >= 208}
+        onClick={() => zoomBy(1)}
+      >
+        <Ic name="zin" size={14} />
+      </button>
+      <button className="btn sm" type="button" title="整部片子放进时间线" onClick={zoomToFit}>
+        看全片
+      </button>
+    </span>
+  );
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
   const subtitleView = useMemo(
@@ -7575,6 +8161,93 @@ function EditPage({
       box.scrollLeft = Math.max(0, headLeft - margin);
     }
   }, [headLeft, playing]);
+  // 5-3-09: J / K / L play backwards, stop and play (J or L again goes faster), ← / → move one
+  // frame (Shift: one second), ↑ / ↓ go to the cut before or after, as in other editors.
+  const [rate, setRate] = useState(1);
+  const [backwards, setBackwards] = useState(0);
+  useEffect(() => {
+    if (playing) setBackwards(0);
+    else setRate(1);
+  }, [playing]);
+  const cuts = shots.reduce<number[]>(
+    (list, item) => [...list, (list[list.length - 1] ?? 0) + item.seconds],
+    [0],
+  );
+  const goTo = (seconds: number) =>
+    seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, seconds))));
+  const goToCut = (index: number) => {
+    if (index >= shots.length) {
+      const last = clips[clips.length - 1];
+      if (last) seekTo(last.left + last.width);
+      return;
+    }
+    if (joined) {
+      const at = cutTimeAt(segments, shots, index, 0);
+      if (at !== null) jump(at);
+    } else if (index === shot) jump(0);
+    if (index !== shot) onShot(index);
+  };
+  const transport = useRef<{
+    key: (event: KeyboardEvent) => boolean;
+    back: (seconds: number) => boolean;
+  }>({ key: () => false, back: () => false });
+  transport.current.back = (seconds) => {
+    if (headSeconds <= 0.01) return false;
+    goTo(headSeconds - seconds);
+    return true;
+  };
+  transport.current.key = (event) => {
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (key === "k") {
+      onPlaying(false);
+      setBackwards(0);
+      return true;
+    }
+    if (key === "l") {
+      setBackwards(0);
+      if (playing) setRate((now) => Math.min(4, now * 2));
+      else onPlaying(true);
+      return true;
+    }
+    if (key === "j") {
+      if (playing) onPlaying(false);
+      setBackwards((now) => (now ? Math.min(4, now * 2) : 1));
+      return true;
+    }
+    if (key === "ArrowLeft" || key === "ArrowRight") {
+      onPlaying(false);
+      setBackwards(0);
+      const step = event.shiftKey ? 1 : FRAME_SECONDS;
+      goTo(headSeconds + (key === "ArrowLeft" ? -step : step));
+      return true;
+    }
+    if (key === "ArrowUp" || key === "ArrowDown") {
+      const later = key === "ArrowDown";
+      const index = later
+        ? cuts.findIndex((at) => at > headSeconds + 0.05)
+        : cuts.filter((at) => at < headSeconds - 0.05).length - 1;
+      if (index >= 0) goToCut(index);
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    if (!backwards) return;
+    const timer = window.setInterval(() => {
+      if (!transport.current.back(0.1 * backwards)) setBackwards(0);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [backwards]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      // The ruler moves itself with the arrows when it has the focus.
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (typingInField(event) || document.querySelector('[role="dialog"]')) return;
+      if (transport.current.key(event)) event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <>
       {comparing ? (
@@ -7743,10 +8416,12 @@ function EditPage({
                       onTime={showTime}
                       seek={seek}
                       onDuration={joined ? setCutLength : setTakeLength}
+                      rate={rate}
                     />
                   ) : (
                     <div className="frame rain">
-                      <span className="subt">
+                      {/* 4C-U07: a gray note in the middle, not dressed as a subtitle. */}
+                      <span className="screen-empty">
                         {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
                           ? ROUGH_CUT_REASON
                           : "还没有可以播放的视频。"}
@@ -7757,6 +8432,15 @@ function EditPage({
                 <div className="ctrl">
                   <span className="tc">
                     <b>{clock(headSeconds)}</b> / {clock(total)}
+                    {backwards ? (
+                      <span className="speed" role="status">
+                        倒放 {backwards}×
+                      </span>
+                    ) : playing && rate > 1 ? (
+                      <span className="speed" role="status">
+                        快放 {rate}×
+                      </span>
+                    ) : null}
                   </span>
                   <div className="pc">
                     <button
@@ -7848,8 +8532,13 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
+            {askCut ? (
+              <span className="lab cut-ask" role="alert">
+                再按一次 Delete 剪掉镜头 {current?.no ?? shot + 1}，剪掉后不能撤回。按 Esc 不剪。
+              </span>
+            ) : null}
             {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
-            <span className="lab">
+            <span className="lab" hidden={askCut}>
               已选{" "}
               {picked.first === picked.last
                 ? `镜头 ${shots[picked.first]?.no ?? picked.first + 1}`
@@ -7885,11 +8574,17 @@ function EditPage({
               <Ic name="mic" size={13} />
               换配音
             </button>
-            <button className="btn" title={actions.cut.reason} onClick={() => onAction("cut")}>
+            <button
+              className="btn"
+              title={actions.cut.reason}
+              aria-keyshortcuts="Delete"
+              onClick={() => onAction("cut")}
+            >
               <Ic name="trash" size={13} />
               剪掉
             </button>
             <span className="sp" />
+            {zoomControls}
             {importMusic}
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
@@ -7903,7 +8598,8 @@ function EditPage({
             <button
               className="icon-btn"
               aria-label="删除"
-              title="删除选中的镜头"
+              title="删除选中的镜头 (Delete)"
+              aria-keyshortcuts="Delete"
               onClick={() => onAction("cut")}
             >
               <Ic name="trash" />
@@ -7931,6 +8627,7 @@ function EditPage({
                 {unfolded ? "收起没生成的" : `展开没生成的 ${waitingCount} 个`}
               </button>
             ) : null}
+            {zoomControls}
             {importMusic}
           </div>
         )}
@@ -7978,6 +8675,10 @@ function EditPage({
                     onLane?.("dialogue", volumePercentToDb(Number(event.target.value)))
                   }
                 />
+                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
+                <span className="vol-num" aria-hidden="true">
+                  {dbToVolumePercent(dialogueGain)}
+                </span>
               </span>
             </div>
             {/* 4B-U02: 环境音 and 音效 have their own tracks; until there are sound files they
@@ -8023,6 +8724,10 @@ function EditPage({
                     onLane?.("score", volumePercentToDb(Number(event.target.value)))
                   }
                 />
+                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
+                <span className="vol-num" aria-hidden="true">
+                  {dbToVolumePercent(musicGain)}
+                </span>
               </span>
             </div>
           </div>
@@ -8075,7 +8780,19 @@ function EditPage({
                   seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, to))));
                 }}
               >
-                {spacedTicks(ticksOutsideFolds(rulerTicks(shots, clips), clips)).map((tick) => (
+                {spacedTicks(
+                  ticksOutsideFolds(
+                    rulerTicks(
+                      shots,
+                      clips,
+                      rulerStep(
+                        shots.reduce((sum, item) => sum + item.seconds, 0),
+                        zoom,
+                      ),
+                    ),
+                    clips,
+                  ),
+                ).map((tick) => (
                   <span key={tick.seconds} style={{ left: tick.left }}>
                     {clock(tick.seconds)}
                   </span>
@@ -8098,6 +8815,12 @@ function EditPage({
                   );
                 })}
               </div>
+              <ContextMenu
+                at={clipMenu.at}
+                label={`镜头 ${current?.no ?? shot + 1} 的操作`}
+                items={clipItems}
+                onClose={clipMenu.close}
+              />
               <div className="lane" style={{ height: "var(--hv)" }}>
                 {clips.map((clip, index) => {
                   const item = shots[index];
@@ -8118,6 +8841,11 @@ function EditPage({
                         seekTo(event.detail === 0 ? clip.left : areaX(event.clientX));
                         onShot(index);
                         onPickClip();
+                      }}
+                      onContextMenu={(event) => {
+                        onShot(index);
+                        onPickClip();
+                        clipMenu.open(event);
                       }}
                     >
                       {clip.folded ? null : <span className="lb">{ready ? name : "未生成"}</span>}
@@ -8151,7 +8879,7 @@ function EditPage({
                       data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
                       style={{
                         left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-                        width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
+                        width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
                       }}
                     >
                       <Wave clip={item} />
@@ -8159,8 +8887,8 @@ function EditPage({
                     </div>
                   ))}
               </div>
-              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} />
-              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} />
+              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} zoom={zoom} />
+              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} zoom={zoom} />
               <div className="lane" style={{ height: "var(--ha)" }}>
                 {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>

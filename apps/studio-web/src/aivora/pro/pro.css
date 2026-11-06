@@ -159,6 +159,12 @@ body:has(.pro-root) {
 .pro-root .proj:hover {
   background: var(--panel-3);
 }
+/* 5-3-04: the name being renamed in place. */
+.pro-root .proj-edit {
+  width: 220px;
+  height: 28px;
+  font-size: 13px;
+}
 .pro-root .proj .ep {
   color: var(--text-3);
 }
@@ -344,7 +350,9 @@ body:has(.pro-root) {
   height: 24px;
 }
 .pro-root .statusbar {
-  display: flex;
+  /* 4C-U08: three areas: message, work in progress, where the work is kept. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 18px;
   padding: 0 12px;
@@ -356,6 +364,19 @@ body:has(.pro-root) {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+.pro-root .statusbar .sb-left,
+.pro-root .statusbar .sb-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pro-root .statusbar .sb-right {
+  justify-content: flex-end;
+}
+.pro-root .statusbar .task.idle {
+  color: var(--text-3);
 }
 .pro-root .statusbar .status-note {
   min-width: 0;
@@ -510,6 +531,34 @@ body:has(.pro-root) {
   margin-bottom: -1px;
   font-weight: 500;
   white-space: nowrap;
+}
+/* 4C-U08: above the assistant's input, what it is looking at and the @ list. */
+.pro-root .chat-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 12px 0;
+  font-size: 12px;
+}
+.pro-root .chat-scope {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pro-root .mention-wrap {
+  position: relative;
+  flex: none;
+}
+.pro-root .mention-menu {
+  top: auto;
+  right: 0;
+  bottom: 30px;
+  left: auto;
+  max-height: 240px;
+  overflow-y: auto;
 }
 .pro-root .chat-hint {
   margin: 0;
@@ -1485,6 +1534,15 @@ body:has(.pro-root) {
   color: #fff;
   font-weight: 500;
 }
+/* 5-3-09: 倒放 / 快放 and how fast, next to the clock. */
+.pro-root .tc .speed {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--r);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+}
 .pro-root .pc {
   display: flex;
   align-items: center;
@@ -1516,24 +1574,6 @@ body:has(.pro-root) {
 }
 .pro-root .ttool .sp {
   flex: 1;
-}
-.pro-root .zoom {
-  width: 110px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-2);
-  position: relative;
-  margin: 0 6px;
-}
-.pro-root .zoom::after {
-  content: "";
-  position: absolute;
-  left: 45%;
-  top: -4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
 }
 .pro-root .tbody {
   flex: 1;
@@ -2144,28 +2184,11 @@ body:has(.pro-root) {
 .pro-root .ttool .sp {
   flex: 1;
 }
-.pro-root .zoom {
-  width: 90px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-2);
-  position: relative;
-  margin: 0 6px;
-}
-.pro-root .zoom::after {
-  content: "";
-  position: absolute;
-  left: 45%;
-  top: -4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-}
 .pro-root .tbody {
   flex: 1;
   display: grid;
-  grid-template-columns: 168px 1fr;
+  /* 4C-U07: room for 静音, 单听, the volume bar and its number without squeezing the bar. */
+  grid-template-columns: 212px 1fr;
   min-height: 0;
   position: relative;
 }
@@ -2194,7 +2217,7 @@ body:has(.pro-root) {
 .pro-root .th .lane-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   margin-left: auto;
   min-width: 0;
 }
@@ -2209,9 +2232,90 @@ body:has(.pro-root) {
   line-height: 16px;
 }
 .pro-root .th .lane-controls input[type="range"] {
-  width: 52px;
+  flex: none;
+  width: 40px;
   height: 14px;
   margin: 0;
+}
+/* 4C-U07: the lane volume is a thin bar with a small thumb and its number, so it does not
+   read as an on/off switch. */
+.pro-root .th .lane-controls input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.pro-root .th .lane-controls input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.pro-root .th .lane-controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 9px;
+  height: 9px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--text-2);
+}
+.pro-root .th .lane-controls input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.pro-root .th .lane-controls input[type="range"]::-moz-range-thumb {
+  width: 9px;
+  height: 9px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text-2);
+}
+.pro-root .th .vol-num {
+  min-width: 20px;
+  color: var(--text-3);
+  font: 12px var(--mono);
+  text-align: right;
+}
+/* 4C-U07: 剪辑 with nothing to play: a gray note in the middle of the preview. */
+.pro-root .screen-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: center;
+}
+/* 5-3-13: the note on a first frame shown where the video will be. */
+.pro-root .bigprev .still-note {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  color: var(--text-2);
+  font-size: 12px;
+}
+/* 5-3-08: zoom out, zoom in, the whole cut. */
+.pro-root .tzoom {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-right: 6px;
+}
+/* 4C-U07: the narration row under the whole work's style. */
+.pro-root .style-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pro-root .style-row select {
+  width: auto;
+  min-width: 160px;
 }
 .pro-root .th .sw {
   width: 3px;
@@ -3138,6 +3242,12 @@ body:has(.pro-root) {
 .pro-root .pgroup[open] > summary::before {
   transform: rotate(90deg);
 }
+/* 5-3-07: a folded group says how many of its fields are filled in, 「声音 · 2」. */
+.pro-root .pgroup > summary[data-count]::after {
+  content: attr(data-count);
+  color: var(--text-3);
+  font-weight: 400;
+}
 .pro-root .pgroup-body {
   padding-bottom: 6px;
 }
@@ -3621,6 +3731,37 @@ body:has(.pro-root) {
 .pro-root .pb.grid.dropping .card.drop-over {
   outline: 2px dashed var(--accent);
 }
+/* 5-3-05: a card being dragged to another place; the bar beside a card is where it lands. */
+.pro-root .card.moving {
+  opacity: 0.45;
+}
+.pro-root .card.move-before {
+  box-shadow: -4px 0 0 var(--accent);
+}
+.pro-root .card.move-after {
+  box-shadow: 4px 0 0 var(--accent);
+}
+/* 5-3-06: several shots picked; their numbers, and a red 删除. */
+.pro-root .multi-pick .multi-list {
+  margin: 0 0 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .pfoot2 .btn.danger {
+  color: var(--err);
+}
+/* Deletes and cuts that cannot be undone yet ask once more, in place. */
+.pro-root .multi-ask {
+  margin: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  color: var(--warn);
+  font-size: 12px;
+}
+.pro-root .selbar .lab.cut-ask {
+  color: var(--warn);
+  font-family: inherit;
+}
 .pro-root .scene .t small.beat-flag {
   color: var(--warn);
 }
@@ -3742,4 +3883,11 @@ body:has(.pro-root) {
 }
 .pro-root .menu button.danger {
   color: var(--err);
+}
+/* 4C-U06: the 作品 menu in groups, each with a small gray heading. */
+.pro-root .menu .menu-group {
+  margin: 0;
+  padding: 6px 10px 2px;
+  color: var(--text-3);
+  font-size: 12px;
 }

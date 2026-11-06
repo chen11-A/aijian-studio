@@ -44,7 +44,7 @@ export async function planActionDraft(
         `${beat.text}（${beat.feasibility}${beat.workaround ? `，${beat.workaround}` : ""}，来自动作指导）`,
     )
     .join("");
-  let note = "没有登录，已用离线动作指导。点「写入分镜」写到这一镜。";
+  let note = "没登录，先用软件自己的规则写了动作，请看一下。点「放进分镜」放到这一镜。";
   const context = `人物：${film.characters.map((item) => item.name).join("、")}\n当前镜头 id：${current?.id ?? ""}；只返回这个 id 的动作。\n${fightConstraints(film.scenes.find((item) => item.id === current?.sceneId)?.text ?? "")}\n镜头：${JSON.stringify(current ? [{ id: current.id, no: current.no, size: current.size, picture: current.picture, line: current.line, lines: shotLines(current) }] : [])}`;
   const reply = await host.request("action", context, text);
   if (!host.current()) return { status: "stale" };
@@ -77,7 +77,7 @@ export async function planActionDraft(
     resolvedActions = shotActions(assigned.shots[0] ?? current);
     note = assigned.unassignedBeats.length
       ? "有动作没对上镜头，去分镜看看。"
-      : "动作指导写好了。点「写入分镜」写到这一镜。";
+      : "动作指导写好了。点「放进分镜」放到这一镜。";
   }
   if (!current) {
     return { status: "rejected", notice: "先拆出镜头，再请动作指导。", logRejection: true };

@@ -14,15 +14,52 @@ export function shotReady(shot: FilmShot): boolean {
   return shot.takes.some((take) => take.status === "done");
 }
 
+/** How wide a second is on the 剪辑 timeline before any zoom. */
+export const PX_PER_SECOND = 52;
+
+/** 5-3-08: the zoom steps of the 剪辑 timeline, in pixels a second; 52 is the start. */
+export const ZOOM_STEPS = [6, 13, 26, 52, 104, 208] as const;
+
+/** The next zoom step in or out from the current one (a fitted zoom sits between steps). */
+export function stepZoom(pxPerSecond: number, direction: 1 | -1): number {
+  if (direction > 0)
+    return ZOOM_STEPS.find((step) => step > pxPerSecond + 0.5) ?? ZOOM_STEPS.at(-1)!;
+  return [...ZOOM_STEPS].reverse().find((step) => step < pxPerSecond - 0.5) ?? ZOOM_STEPS[0];
+}
+
+/** 5-3-08: 「看全片」: the zoom that puts the whole cut in a track area this wide. */
+export function fitZoom(totalSeconds: number, width: number): number {
+  if (!(totalSeconds > 0) || !(width > 0)) return PX_PER_SECOND;
+  return Math.max(ZOOM_STEPS[0], Math.min(ZOOM_STEPS.at(-1)!, (width - 24) / totalSeconds));
+}
+
+/** Ruler marks every this many seconds, so they stay readable at any zoom. */
+export function rulerStep(totalSeconds: number, pxPerSecond: number): number {
+  if (pxPerSecond >= 150) return 1;
+  if (pxPerSecond >= 80) return 2;
+  if (pxPerSecond < 10) return 30;
+  if (pxPerSecond < 20) return 10;
+  return totalSeconds > 120 ? 10 : 5;
+}
+
 /**
- * The 剪辑 timeline boxes: 52px a second, as before. With `fold`, a shot with no video yet
+ * The 剪辑 timeline boxes: 52px a second unless zoomed. With `fold`, a shot with no video yet
  * becomes a narrow mark, so a few finished shots are not lost among many placeholders.
  */
-export function editClipLayout(shots: readonly FilmShot[], fold: boolean): EditClip[] {
+export function editClipLayout(
+  shots: readonly FilmShot[],
+  fold: boolean,
+  pxPerSecond: number = PX_PER_SECOND,
+): EditClip[] {
   let left = 1;
+  // At the starting zoom a shot is never narrower than 48px, as before; zoomed out it scales.
+  const least =
+    pxPerSecond >= PX_PER_SECOND ? 48 : Math.max(8, Math.round((48 * pxPerSecond) / PX_PER_SECOND));
   return shots.map((shot) => {
     const folded = fold && !shotReady(shot);
-    const width = folded ? FOLDED_WIDTH : Math.max(48, Math.round(shot.seconds * 52) - 2);
+    const width = folded
+      ? FOLDED_WIDTH
+      : Math.max(least, Math.round(shot.seconds * pxPerSecond) - 2);
     const clip = { id: shot.id, left, width, folded };
     left += width + 2;
     return clip;

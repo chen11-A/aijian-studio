@@ -53,7 +53,7 @@ export async function prepareBookImport(file: BookImportFile): Promise<BookImpor
     kind: "proposal",
     sourceText: book.text,
     scenes: split.scenes,
-    notice: `${book.note}${split.note} 读到 ${split.scenes.length} 场。点「放入剧本」才会写入。`,
+    notice: `${book.note}${split.note} 读到 ${split.scenes.length} 场。点「放进剧本」才会放进去。`,
   };
 }
 

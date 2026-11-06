@@ -57,7 +57,7 @@ it.each(["write", "adapt"] as const)(
     });
     expect(result.scenes?.length).toBeGreaterThan(0);
     expect(result.event).toBe("offline");
-    expect(result.notice).toContain("点「放入剧本」才会写入");
+    expect(result.notice).toContain("点「放进剧本」才会放进去");
     expect(request).toHaveBeenCalledOnce();
   },
 );

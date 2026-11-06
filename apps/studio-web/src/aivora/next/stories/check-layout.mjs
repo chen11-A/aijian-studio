@@ -46,6 +46,7 @@ const stories = [
   "pipeline-steps",
   "suggestion-card",
   "history-list",
+  "context-menu",
 ];
 
 // Runs inside the page. Returns a list of problems in Chinese.
@@ -125,6 +126,8 @@ function inspect(rootSelector) {
     }
     if (el.clientWidth === 0 && el.clientHeight === 0) continue;
     if (["INPUT", "SELECT", "TEXTAREA", "OPTION", "IMG"].includes(el.tagName)) continue;
+    // An open menu hangs out of the bar it belongs to on purpose; that is not the bar cut short.
+    if (el.querySelector(".menu") && !el.closest(".menu")) continue;
     // Text cut to a few lines with an ellipsis is meant to be, when hovering shows all of it.
     const clamp = style.webkitLineClamp;
     const title = el.getAttribute("title")?.trim();
@@ -319,6 +322,14 @@ const pages = [
       await page.getByRole("button", { name: "改封面" }).click();
     },
     close: ["返回", "关闭"],
+  },
+  // 4C-U06: the 作品 menu in its three groups; the same button closes it.
+  {
+    name: "作品菜单",
+    async open(page) {
+      await page.getByRole("button", { name: "作品", exact: true }).click();
+    },
+    close: "作品",
   },
   // 4C-U02: 作品设置, opened from the 作品 menu.
   {

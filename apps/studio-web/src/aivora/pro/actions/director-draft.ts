@@ -65,7 +65,7 @@ export async function planDirectorDraft(
   try {
     if (!host.connected) {
       shots = offlineShots(story, sceneId);
-      notice = "没有登录，已用离线拆镜。点「写入分镜」才会写入。";
+      notice = "没登录，先用软件自己的规则拆了镜头，请看一下。点「放进分镜」才会放进去。";
       event = "offline";
     } else {
       const first = await budget.run(() =>
@@ -96,8 +96,8 @@ export async function planDirectorDraft(
           host.enrich(base, sceneId, first.shots!, budget.current, budget.control),
         );
         notice = sceneNeedsSource(scene.text)
-          ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「写入分镜」才会写入。"
-          : "导演拆好了。点「写入分镜」才会写入。";
+          ? "这一场几乎没有台词和动作，镜头可能对不上原文。导演拆好了。点「放进分镜」才会放进去。"
+          : "导演拆好了。点「放进分镜」才会放进去。";
         event = "shots";
       }
     }

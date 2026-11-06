@@ -61,7 +61,9 @@ describe("simple story-to-film navigation", () => {
     render(<DemoApp />);
     expect(screen.queryByRole("button", { name: "普通模式" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "专业模式" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /分镜/ })).toBeInTheDocument();
+    // 5-3-01: the start page has no stage tabs until a work is open.
+    expect(screen.getByRole("button", { name: "作品" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "创作阶段" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新建作品" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
   });
