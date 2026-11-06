@@ -2,6 +2,7 @@ import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import { textModel } from "../film/project";
 import type { AgentId } from "../film/phase2";
 import { completeAgentBatched } from "../film/request-batches";
+import { recordAgentReply } from "./agent-capture";
 import type { AgentReply, AgentRequestControl } from "./workflow";
 
 export async function completeMembershipAgent(
@@ -60,7 +61,7 @@ export async function completeMembershipAgent(
   }
   if (!model)
     return { text: null, detail: "模型列表里没有能写字的模型。", code: "MODEL_UNAVAILABLE" };
-  return completeAgentBatched(agent, context, instruction, async (text) => {
+  const reply = await completeAgentBatched(agent, context, instruction, async (text) => {
     if (!current()) return stale();
     const idempotencyKey = crypto.randomUUID();
     const cancel = () => {
@@ -107,6 +108,9 @@ export async function completeMembershipAgent(
       host.control?.signal.removeEventListener("abort", cancel);
     }
   });
+  // 3JR-B11 (R2-02): kept word for word on this computer only when the person turned it on.
+  if (reply.text) recordAgentReply(agent, context, instruction, reply.text);
+  return reply;
 }
 
 /**
