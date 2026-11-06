@@ -9,7 +9,7 @@ import { File as NodeFile } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
 import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
@@ -1101,106 +1101,6 @@ describe("professional workspace", () => {
   }, 20_000);
 
   it("writes a still, keeps the reported length, and plays without a sound device", async () => {
-    // Temporary CI-only metadata. Never serialize a bridge argument, DOM, error or text.
-    const diagnosticPhases = [
-      "setup",
-      "open",
-      "still",
-      "still-refusal",
-      "still-error",
-      "still-retry",
-      "portraits",
-      "portraits-visible",
-      "video-confirm",
-      "video-wait",
-      "video-done",
-      "playback",
-      "edit",
-      "qc",
-      "finished",
-    ] as const;
-    const diagnosticCodes = [
-      "REQUEST_STALE",
-      "GENERATION_SELECTION_STALE",
-      "HISTORY_STALE",
-      "HISTORY_BACKUP_FAILED",
-      "GENERATION_DONE",
-      "PORTRAIT_DONE",
-      "PORTRAIT_FAILED",
-      "SAVE_FAILED",
-      "BILLING_PROJECT_REQUIRED",
-      "DESKTOP_REQUIRED",
-      "GENERATION_ALREADY_RUNNING",
-      "OPERATION_CANCELLED",
-      "GENERATION_FAILED",
-      "TASK_TIMEOUT",
-      "GENERATION_PAUSED",
-      "GENERATION_CANCELLED",
-      "GENERATION_BLOCKED",
-      "MODEL_UNAVAILABLE",
-      "BILLING_PROJECT_STALE",
-      "BILLING_PROJECT_FAILED",
-      "VOICE_TRAITS_REQUIRED",
-      "MULTI_VOICE_REQUIRED",
-      "DIALOGUE_VIDEO_LIMIT",
-      "PORTRAITS_INCOMPLETE",
-      "LOCATION_IMAGE_INCOMPLETE",
-      "STILL_FAILED",
-    ] as const;
-    type DiagnosticPhase = (typeof diagnosticPhases)[number];
-    type DiagnosticCode = (typeof diagnosticCodes)[number] | "OTHER";
-    const diagnostic = {
-      phase: "setup" as DiagnosticPhase,
-      captureStarted: 0,
-      captureCompleted: 0,
-      captureKind: "NONE" as "NONE" | "CAPTURED" | "FAILED" | "REJECTED" | "OTHER",
-      readsStarted: 0,
-      readsCompleted: 0,
-      readsRejected: 0,
-      writesStarted: 0,
-      writesCompleted: 0,
-      writesRejected: 0,
-      savedPortraits: 0,
-      savedDoneTakes: 0,
-      providerStarted: 0,
-      providerCompleted: 0,
-      notices: [] as DiagnosticCode[],
-    };
-    let diagnosticReported = false;
-    const diagnosticReport = (reason: "watchdog" | "failure") => {
-      if (diagnosticReported) return;
-      diagnosticReported = true;
-      const count = (value: number) =>
-        Number.isFinite(value) ? Math.max(0, Math.min(9999, Math.floor(value))) : 0;
-      // Recheck enum bounds at the output boundary, including malicious custom events.
-      const safe = {
-        reason,
-        phase: diagnosticPhases.find((phase) => phase === diagnostic.phase) ?? "setup",
-        captureKind:
-          ["NONE", "CAPTURED", "FAILED", "REJECTED", "OTHER"].find(
-            (kind) => kind === diagnostic.captureKind,
-          ) ?? "OTHER",
-        capture: [diagnostic.captureStarted, diagnostic.captureCompleted].map(count),
-        read: [diagnostic.readsStarted, diagnostic.readsCompleted, diagnostic.readsRejected].map(
-          count,
-        ),
-        write: [
-          diagnostic.writesStarted,
-          diagnostic.writesCompleted,
-          diagnostic.writesRejected,
-        ].map(count),
-        saved: [diagnostic.savedPortraits, diagnostic.savedDoneTakes].map(count),
-        provider: [diagnostic.providerStarted, diagnostic.providerCompleted].map(count),
-        gateEnabled: document.querySelector(".pro-root")?.getAttribute("data-generate") === "on",
-        notices: diagnostic.notices
-          .slice(-12)
-          .map((value) => diagnosticCodes.find((code) => code === value) ?? "OTHER"),
-      };
-      process.stderr.write(
-        `::warning title=Still host bounded diagnostic::${JSON.stringify(safe)}\n`,
-      );
-    };
-    const diagnosticTimer = setTimeout(() => diagnosticReport("watchdog"), 18_000);
     const generationOrder: string[] = [];
     let playbacks = 0;
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(async () => {
@@ -1208,9 +1108,7 @@ describe("professional workspace", () => {
       if (playbacks === 1) throw new Error("no device");
     });
     const createStoryFilm = vi.fn(async () => {
-      diagnostic.providerStarted += 1;
       generationOrder.push("provider");
-      diagnostic.providerCompleted += 1;
       return {
         data: {
           status: "SUCCEEDED",
@@ -1224,61 +1122,86 @@ describe("professional workspace", () => {
     installDesktop(createStoryFilm);
     const captureHistory = window.aijian!.captureFilmHistory!;
     window.aijian!.captureFilmHistory = vi.fn(async (input) => {
-      diagnostic.captureStarted += 1;
-      try {
-        const result = await captureHistory(input);
-        diagnostic.captureCompleted += 1;
-        diagnostic.captureKind =
-          result.kind === "CAPTURED" || result.kind === "FAILED" ? result.kind : "OTHER";
-        if (result.kind === "CAPTURED") generationOrder.push("backup");
-        return result;
-      } catch (error) {
-        diagnostic.captureKind = "REJECTED";
-        throw error;
-      }
+      const result = await captureHistory(input);
+      if (result.kind === "CAPTURED") generationOrder.push("backup");
+      return result;
     });
-    const originalRead = window.aijian!.readFilmProject!;
-    window.aijian!.readFilmProject = vi.fn(async (...args: Parameters<typeof originalRead>) => {
-      diagnostic.readsStarted += 1;
-      try {
-        const result = await originalRead(...args);
-        diagnostic.readsCompleted += 1;
-        return result;
-      } catch (error) {
-        diagnostic.readsRejected += 1;
-        throw error;
-      }
+    let awaitingPortraits = false,
+      awaitingGeneration = false;
+    let completePortraits!: () => void, failPortraits!: (error: Error) => void;
+    const portraitsCompleted = new Promise<void>((resolve, reject) => {
+      completePortraits = resolve;
+      failPortraits = reject;
     });
-    const originalWrite = window.aijian!.writeFilmProject!;
-    window.aijian!.writeFilmProject = vi.fn(async (...args: Parameters<typeof originalWrite>) => {
-      diagnostic.writesStarted += 1;
-      try {
-        const result = await originalWrite(...args);
-        diagnostic.writesCompleted += 1;
-        const saved = result as Partial<FilmProject>;
-        diagnostic.savedPortraits =
-          saved.characters?.[0]?.portraits?.filter((portrait) => !!portrait.url).length ?? 0;
-        diagnostic.savedDoneTakes =
-          saved.shots
-            ?.flatMap((shot) => shot.takes ?? [])
-            .filter((take) => take.status === "done" && !!take.videoPath).length ?? 0;
-        return result;
-      } catch (error) {
-        diagnostic.writesRejected += 1;
-        throw error;
-      }
+    let savePortraits!: () => void;
+    const portraitsSaved = new Promise<void>((resolve) => {
+      savePortraits = resolve;
     });
-    let completeGeneration!: () => void;
-    const generationCompleted = new Promise<void>((resolve) => {
+    const writeProject = window.aijian!.writeFilmProject!;
+    let savedPortraitViews: string[] = [];
+    window.aijian!.writeFilmProject = vi.fn(async (...args: Parameters<typeof writeProject>) => {
+      const stored = await writeProject(...args);
+      const person = (stored as Partial<FilmProject>).characters?.find(
+        (person) => person.id === "lin",
+      );
+      const views = ["正面", "侧面", "背面", "脸部"];
+      if (
+        views.every((view) =>
+          person?.portraits.some((portrait) => portrait.view === view && portrait.url),
+        )
+      ) {
+        savedPortraitViews = views;
+        savePortraits();
+      }
+      return stored;
+    });
+    let completeGeneration!: () => void, failGeneration!: (error: Error) => void;
+    const generationCompleted = new Promise<void>((resolve, reject) => {
       completeGeneration = resolve;
+      failGeneration = reject;
     });
     const onGenerationCompleted = (event: Event) => {
-      const code = (event as CustomEvent<{ code?: unknown }>).detail?.code;
-      diagnostic.notices.push(diagnosticCodes.find((known) => known === code) ?? "OTHER");
-      if (diagnostic.notices.length > 12) diagnostic.notices.shift();
-      if (code === "GENERATION_DONE") completeGeneration();
+      const code = (event as CustomEvent<{ code?: string }>).detail?.code;
+      if (code === "PORTRAIT_DONE" && awaitingPortraits) {
+        awaitingPortraits = false;
+        completePortraits();
+      }
+      if (code === "GENERATION_DONE" && awaitingGeneration) {
+        awaitingGeneration = false;
+        completeGeneration();
+      }
+      if (
+        code &&
+        [
+          "HISTORY_BACKUP_FAILED",
+          "REQUEST_STALE",
+          "HISTORY_STALE",
+          "GENERATION_SELECTION_STALE",
+          "GENERATION_FAILED",
+          "PORTRAIT_FAILED",
+          "SAVE_FAILED",
+        ].includes(code)
+      ) {
+        const error = new Error(`EXPECTED_ACTION_TERMINATED:${code}`);
+        if (awaitingPortraits) {
+          awaitingPortraits = false;
+          failPortraits(error);
+        }
+        if (awaitingGeneration) {
+          awaitingGeneration = false;
+          failGeneration(error);
+        }
+      }
     };
     window.addEventListener("aivora-notice", onGenerationCompleted);
+    const finishWaiting = () => {
+      awaitingPortraits = false;
+      awaitingGeneration = false;
+      window.removeEventListener("aivora-notice", onGenerationCompleted);
+      play.mockRestore();
+    };
+    // Vitest invokes this even if its timeout ends a still-pending action wait.
+    onTestFinished(finishWaiting);
     let videos = 0;
     window.aijian = {
       ...window.aijian!,
@@ -1300,58 +1223,50 @@ describe("professional workspace", () => {
       }),
     } as unknown as Window["aijian"];
     try {
-      diagnostic.phase = "open";
       await openSample();
       fireEvent.click(stageTab("角色与场景"));
       fireEvent.change(screen.getByLabelText("画风"), { target: { value: "赛博夜景" } });
       fireEvent.click(stageTab("分镜"));
       openGroup("高级");
       fireEvent.change(screen.getByLabelText("这一镜的画风"), { target: { value: "冷色雨夜" } });
-      diagnostic.phase = "still";
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
       expect(screen.getAllByText("画面已出").length).toBeGreaterThan(0);
       // 4A-U09: 生成这一场 is the page's primary button; this one is plain.
       expect(screen.getByRole("button", { name: "生成视频" })).not.toHaveClass("primary");
-      diagnostic.phase = "still-refusal";
       moreAction("重新生成画面");
       expect(
         await screen.findByText("这张画面未获准生成，请调整画面描述后重试。"),
       ).toBeInTheDocument();
-      diagnostic.phase = "still-error";
       moreAction("重新生成画面");
       expect(await screen.findByText("画面没出成，可以再试一次。")).toBeInTheDocument();
-      diagnostic.phase = "still-retry";
       moreAction("重新生成画面");
       expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
-      diagnostic.phase = "portraits";
+      awaitingPortraits = true;
       fireEvent.click(screen.getByRole("button", { name: /^补齐.+的定妆照（还缺 \d 张）$/ }));
-      await waitFor(() =>
-        expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
-      );
+      // Old task-feed success can outlive a project snapshot. Wait for this action
+      // and its actual canonical URLs before editing another input or generating video.
+      await Promise.all([portraitsCompleted, portraitsSaved]);
+      expect(savedPortraitViews).toEqual(["正面", "侧面", "背面", "脸部"]);
       await waitFor(() =>
         expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
       );
       fireEvent.click(stageTab("分镜"));
-      diagnostic.phase = "portraits-visible";
       fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
-      diagnostic.phase = "video-confirm";
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       generationOrder.length = 0;
       // Backup and canonical saves legitimately precede the provider. Wait for the
       // action's real completion event, within this test's existing 20s budget.
-      diagnostic.phase = "video-wait";
+      awaitingGeneration = true;
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
       await generationCompleted;
-      diagnostic.phase = "video-done";
       expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
       expect(createStoryFilm).toHaveBeenCalledTimes(1);
       expect(generationOrder).toEqual(["backup", "provider"]);
       // 4C-U08: nothing in progress: a small button, still named for screen readers.
       expect(screen.getByRole("button", { name: "后台生成：没有在做的" })).toHaveClass("idle");
-      diagnostic.phase = "playback";
       const preview = document.querySelector("video.frame");
       if (preview) {
         fireEvent.timeUpdate(preview);
@@ -1360,7 +1275,6 @@ describe("professional workspace", () => {
       }
       fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
       expect(screen.getByRole("button", { name: "4 秒" })).toHaveClass("on");
-      diagnostic.phase = "edit";
       fireEvent.click(stageTab("剪辑"));
       // 3JR-U02: with one shot made, the shots still to make fold to narrow marks until asked.
       expect(screen.getAllByRole("button", { name: "未生成" }).length).toBeGreaterThan(0);
@@ -1371,21 +1285,14 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
       expect(screen.queryByLabelText("导出文件夹")).toBeNull();
       expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
-      diagnostic.phase = "qc";
       fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
       expect(await screen.findByRole("button", { name: "审核后发布" })).toBeDisabled();
       expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "关闭" }));
       fireEvent.click(screen.getByRole("button", { name: "设入点" }));
       expect(screen.getByText("左右对比")).toBeInTheDocument();
-      diagnostic.phase = "finished";
-    } catch (error) {
-      diagnosticReport("failure");
-      throw error;
     } finally {
-      clearTimeout(diagnosticTimer);
-      window.removeEventListener("aivora-notice", onGenerationCompleted);
-      play.mockRestore();
+      finishWaiting();
     }
   }, 20_000);
 

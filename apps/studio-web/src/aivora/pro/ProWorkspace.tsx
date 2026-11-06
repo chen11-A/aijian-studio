@@ -7646,7 +7646,12 @@ function CastPage({
                     const slot = character
                       ? portraits.slots[`${character.id}:${item.view}`]
                       : undefined;
-                    const state = url ? "done" : (slot?.state ?? "empty");
+                    // A completed task is not proof this snapshot still has its media.
+                    const state = url
+                      ? "done"
+                      : slot?.state === "done"
+                        ? "empty"
+                        : (slot?.state ?? "empty");
                     const front = item.view === "正面";
                     return (
                       <figure
