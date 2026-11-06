@@ -3998,6 +3998,42 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("lays safe-area guides over the 剪辑 preview when asked (5-3-11)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  film.aspectRatio = "9:16";
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("剪辑"));
+  const toggle = screen.getByRole("button", { name: "安全框" });
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
+  expect(document.querySelector(".safe-guide")).toBeNull();
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // A portrait work marks where the platforms put their buttons and captions.
+  expect(document.querySelector(".screen .safe-guide")).toHaveTextContent(
+    "平台的按钮和标题会挡住这里",
+  );
+  expect(document.querySelector(".safe-side")).not.toBeNull();
+  // Only on 预览: 声音 and 字幕 have their own panels.
+  fireEvent.click(screen.getByRole("button", { name: "字幕" }));
+  expect(screen.queryByRole("button", { name: "安全框" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "预览" }));
+  fireEvent.click(screen.getByRole("button", { name: "安全框" }));
+  expect(document.querySelector(".safe-guide")).toBeNull();
+});
+
+it("marks the title-safe box on a landscape preview (5-3-11)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  fireEvent.click(screen.getByRole("button", { name: "安全框" }));
+  expect(document.querySelector(".safe-guide")).toHaveTextContent("字幕和标题放在这个框里");
+  expect(document.querySelectorAll(".safe-box")).toHaveLength(2);
+});
+
 it("says who or which place the cast page's assistant is looking at (5-3-15)", async () => {
   installDesktop();
   await openSample();
