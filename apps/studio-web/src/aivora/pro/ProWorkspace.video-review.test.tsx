@@ -182,6 +182,15 @@ it("real Board entry previews one field without editing/generating, confirms via
   expect(shot.promptZh).toBe(env.film.shots[0]!.promptZh);
   const expected = storyFilmBatches(current, [shot], current.draft)[0]!.shots![0]!.prompt;
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  const scrollHost = review().closest<HTMLElement>(".shot-assistant-scroll");
+  expect(scrollHost).not.toBeNull();
+  expect(within(scrollHost!).getByRole("button", { name: "整理视频说明" })).toBeEnabled();
+  expect(within(scrollHost!).getByRole("textbox", { name: "跟助手说" })).toBeEnabled();
+  expect(within(scrollHost!).getByRole("button", { name: "确认视频说明" })).toBeDisabled();
+  fireEvent.click(within(scrollHost!).getByRole("button", { name: "关闭说明" }));
+  expect(screen.queryByRole("region", { name: "七段视频说明" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "属性" }));
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(env.provider).toHaveBeenCalledOnce(), { timeout: 5000 });

@@ -4565,7 +4565,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     </>
   );
   const shotAssistant = (
-    <>
+    <div className="shot-assistant-scroll">
       <Assistant
         role={role}
         onRole={chooseRole}
@@ -4598,7 +4598,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         mentions={film ? mentionsOf(film, shownShots) : []}
       />
       {shotPromptSuggestions}
-    </>
+    </div>
   );
   // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
   useEffect(() => {

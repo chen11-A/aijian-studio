@@ -854,6 +854,18 @@ body:has(.pro-root) {
   max-height: 30vh;
   overflow: auto;
 }
+/* Single-shot/edit assistants include review cards after the chat composer. Keep the
+   entire host scrollable so those cards do not escape the fixed-height pane. */
+.pro-root .shot-assistant-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+.pro-root .shot-assistant-scroll > .pb.chat {
+  flex: none;
+  overflow: visible;
+}
 .pro-root .chat {
   padding: 12px;
   display: flex;
