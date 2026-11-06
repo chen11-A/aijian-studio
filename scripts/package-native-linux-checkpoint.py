@@ -31,6 +31,11 @@ def stage_qc_resources(destination: Path) -> None:
         shutil.copy2(ROOT / "packages/aivora-qc" / name, destination / name)
 
 
+def stage_project_archive_resources(destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "packages/aivora-media/archive.mjs", destination / "archive.mjs")
+
+
 def command(*args: str, cwd: Path = ROOT) -> None:
     subprocess.run(args, cwd=cwd, check=True)
 
@@ -187,6 +192,7 @@ def main() -> None:
     python_manifest = bundle_python(output / "runtime/python")
     copy_tree(ROOT / "services/api/src/aijian_api", output / "services/api/src/aijian_api")
     stage_qc_resources(output / "qc")
+    stage_project_archive_resources(output / "project-archive")
     copy_file(
         ROOT / "config/media-toolchain-lock.json", output / "config/media-toolchain-lock.json"
     )
