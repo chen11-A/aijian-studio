@@ -1,3 +1,4 @@
+import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
 import type {
   FilmAudioWaveformInput,
   FilmAudioWaveformResult,
@@ -1033,6 +1034,9 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  listFilmHistory?: FilmHistoryGateway["listFilmHistory"];
+  captureFilmHistory?: FilmHistoryGateway["captureFilmHistory"];
+  restoreFilmHistory?: FilmHistoryGateway["restoreFilmHistory"];
   recoverFilmCleanCopy?: CleanCopyRecoveryGateway["recoverFilmCleanCopy"];
   prepareFilmExport?: FilmExportQcGateway["prepareFilmExport"];
   publishFilmExport?: FilmExportQcGateway["publishFilmExport"];

@@ -287,6 +287,26 @@ export async function compareAndSwapProject(
   });
 }
 
+/** Trusted main modules share normal project writes; the callback never receives a series fallback. */
+export function transactFilmProject<T>(
+  root: string,
+  id: string,
+  action: (
+    current: FilmRecord | null,
+    write: (next: FilmRecord) => Promise<FilmRecord>,
+  ) => Promise<T>,
+): Promise<T> {
+  return enqueueWrite(`film:${root}`, async () => {
+    const found = await readProject(root, id);
+    const current = found?.id === id ? found : null;
+    return action(current, (next) => {
+      if (!current || next.id !== id || next.seriesId !== current.seriesId)
+        throw new Error("PROJECT_CHANGED");
+      return writeProjectNow(root, next);
+    });
+  });
+}
+
 /** Materialize session media without publishing a project or changing its save time. */
 export async function prepareProject(root: string, value: unknown): Promise<FilmRecord> {
   if (!value || typeof value !== "object") throw new Error("Invalid film");

@@ -1,3 +1,5 @@
+import { historyRecordHash } from "./actions/persistent-history";
+import type { FilmHistoryGateway, FilmHistoryEntry } from "@aijian/contracts/film-history";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
@@ -43,8 +45,39 @@ function desktop(film: FilmProject, video = vi.fn(async () => success)) {
   other.id = "film_batchscopeother001";
   other.title = "另一个作品";
   other.episodeTitle = "第 2 集";
-  const write = vi.fn(async (next: FilmProject) => structuredClone(next));
+  const stored = new Map([
+    [film.id, structuredClone(film)],
+    [other.id, structuredClone(other)],
+  ]);
+  const write = vi.fn(async (next: FilmProject) => {
+    stored.set(next.id, structuredClone(next));
+    return structuredClone(next);
+  });
+  const captures: { entry: FilmHistoryEntry; film: FilmProject }[] = [];
   window.aijian = {
+    listFilmHistory: vi.fn<FilmHistoryGateway["listFilmHistory"]>(async (projectId) => ({
+      kind: "LIST",
+      entries: captures.filter((value) => value.film.id === projectId).map((value) => value.entry),
+      unreadable: 0,
+    })),
+    captureFilmHistory: vi.fn<FilmHistoryGateway["captureFilmHistory"]>(async (input) => {
+      const saved = stored.get(input.projectId);
+      if (!saved || (await historyRecordHash(saved)) !== input.expectedHash)
+        return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+      const entry: FilmHistoryEntry = {
+        id: `hst_${(captures.length + 1).toString(16).padStart(32, "0")}`,
+        createdAt: new Date().toISOString(),
+        reason: input.reason,
+        summary: { scenes: saved.scenes.length, shots: saved.shots.length, done: 4 },
+      };
+      captures.push({ entry, film: structuredClone(saved) });
+      return { kind: "CAPTURED", entry };
+    }),
+    restoreFilmHistory: vi.fn(async () => ({
+      kind: "FAILED",
+      code: "HISTORY_DAMAGED",
+      unchanged: true,
+    })),
     createStoryFilm: video,
     prepareFilmProject: vi.fn(async (next: FilmProject) => structuredClone(next)),
     generateFilmStill: vi.fn(async () => ({ path: "/tmp/still.png", reason: "" })),
@@ -60,7 +93,7 @@ function desktop(film: FilmProject, video = vi.fn(async () => success)) {
         savedAt: "",
       },
     ]),
-    readFilmProject: vi.fn(async (id: string) => structuredClone(id === other.id ? other : film)),
+    readFilmProject: vi.fn(async (id: string) => structuredClone(stored.get(id) ?? null)),
     writeFilmProject: write,
   } as unknown as Window["aijian"];
   window.aijianGrok = {

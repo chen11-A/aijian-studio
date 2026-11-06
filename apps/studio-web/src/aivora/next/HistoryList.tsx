@@ -17,6 +17,7 @@ export type HistoryListProps = {
   /** null when this version of the app keeps no history at all. */
   entries: readonly HistoryEntry[] | null;
   loading?: boolean;
+  error?: string | null;
   /** The entry being restored right now. */
   restoring?: string;
   onRestore: (id: string) => void;
@@ -27,7 +28,13 @@ export type HistoryListProps = {
  * once more, in place, and says what happens to the work as it is now. Without a history it
  * says so instead of showing an empty list.
  */
-export function HistoryList({ entries, loading = false, restoring, onRestore }: HistoryListProps) {
+export function HistoryList({
+  entries,
+  loading = false,
+  error,
+  restoring,
+  onRestore,
+}: HistoryListProps) {
   const [asking, setAsking] = useState("");
   if (loading) {
     return (
@@ -36,6 +43,14 @@ export function HistoryList({ entries, loading = false, restoring, onRestore }: 
       </section>
     );
   }
+  if (error)
+    return (
+      <section className="nx-root nx-history" aria-label="历史版本">
+        <p className="nx-muted" role="alert">
+          {error}
+        </p>
+      </section>
+    );
   if (entries === null) {
     return (
       <section className="nx-root nx-history" aria-label="历史版本">

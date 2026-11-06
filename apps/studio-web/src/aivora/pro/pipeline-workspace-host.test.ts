@@ -251,3 +251,48 @@ it("does not replay failed text work until an exact target retry is requested", 
   expect(completeMembershipAgent).toHaveBeenCalledTimes(2);
   expect(env.host.submitGeneration).not.toHaveBeenCalled();
 });
+
+it("completes its actual beforeRun history barrier under the save lease before any member or media step", async () => {
+  const f = setup(),
+    wait = deferred<void>();
+  const before = vi.fn<NonNullable<PipelineWorkspaceHost["beforeRun"]>>(async (lease) => {
+    f.events.push("history-start");
+    await lease.save(f.live()!, () => true);
+    await wait.promise;
+    f.events.push("history-saved");
+  });
+  f.host.beforeRun = before;
+  const running = f.adapter.start();
+  await vi.waitFor(() => expect(before).toHaveBeenCalledOnce());
+  expect(completeMembershipAgent).not.toHaveBeenCalled();
+  expect(f.host.submitGeneration).not.toHaveBeenCalled();
+  expect(f.events.indexOf("lease")).toBeLessThan(f.events.indexOf("history-start"));
+  wait.resolve();
+  await running;
+  expect(f.events).toContain("history-saved");
+  expect(f.release).toHaveBeenCalledOnce();
+});
+it("blocks the entire pipeline before provider dispatch if its persisted history barrier fails", async () => {
+  const f = setup();
+  f.host.beforeRun = async () => {
+    throw Object.assign(new Error("HISTORY_BACKUP_FAILED"), { code: "HISTORY_BACKUP_FAILED" });
+  };
+  await expect(f.adapter.start()).rejects.toThrow("HISTORY_BACKUP_FAILED");
+  expect(completeMembershipAgent).not.toHaveBeenCalled();
+  expect(f.host.submitGeneration).not.toHaveBeenCalled();
+  expect(f.release).toHaveBeenCalledOnce();
+});
+it("does not run a pre-dispatch snapshot or save an old running baseline during read-only restart recovery", async () => {
+  const film = await prime(fixture(), "writer");
+  film.productionPipeline!.status = "running";
+  film.productionPipeline!.current = "writer";
+  const f = setup(film);
+  f.host.beforeRun = vi.fn(async () => {
+    throw new Error("must not capture old running state");
+  });
+  await f.adapter.recover();
+  expect(f.host.beforeRun).not.toHaveBeenCalled();
+  expect(completeMembershipAgent).not.toHaveBeenCalled();
+  expect(f.host.submitGeneration).not.toHaveBeenCalled();
+  expect(f.release).toHaveBeenCalledOnce();
+});
