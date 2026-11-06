@@ -17804,6 +17804,31 @@
         "additionalProperties": false,
         "description": "4B-B12: a film this workspace made, by the path the service returned for it.",
         "properties": {
+          "expected_assembly_version_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Assembly Version Id"
+          },
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Sha256"
+          },
           "film_path": {
             "maxLength": 4096,
             "minLength": 1,

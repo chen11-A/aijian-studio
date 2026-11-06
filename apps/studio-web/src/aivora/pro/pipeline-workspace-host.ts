@@ -33,6 +33,7 @@ export type PipelineWorkspaceHost = {
   modelIds: () => string[];
   modelsChanged: (ids: string[]) => void;
   submitGeneration: (shots: FilmShot[], host: PipelineVideoHost) => Promise<void>;
+  beforeRun?: (lease: PipelineSaveLease) => Promise<void>;
   cancelGeneration?: () => void;
   notify?: FilmPipelineHost["notify"];
   labels?: FilmPipelineHost["labels"];
@@ -65,6 +66,8 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
       if (!current()) return stop("PIPELINE_REQUEST_STALE");
       if (!recover && !billingProjectId) return stop("BILLING_PROJECT_REQUIRED");
       lease = await host.acquireSaveOwnership(projectId);
+      if (!current()) return stop("PIPELINE_REQUEST_STALE");
+      if (!recover) await host.beforeRun?.(lease);
       if (!current()) return stop("PIPELINE_REQUEST_STALE");
       const controller = createFilmPipelineController({
         current: host.current,

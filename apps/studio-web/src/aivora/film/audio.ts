@@ -1,3 +1,5 @@
+import type { FilmAudioWaveform } from "@aijian/contracts/film-audio-waveform";
+import { validFilmAudioWaveform } from "./audio-waveform-data";
 /** AUDIO-SPEC data reserved for Phase 2 and Phase 3.
  * Phase 1 stores these fields and does not generate, play, or mix them.
  */
@@ -73,6 +75,7 @@ export type AudioClip = {
   offsetSeconds: number;
   gainDb: number;
   path?: string;
+  waveform?: FilmAudioWaveform & { identity: string };
 };
 
 export type ShotSoundSource = "native" | "dub";
@@ -161,6 +164,12 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
           typeof row.gainDb === "number" && Number.isFinite(row.gainDb)
             ? row.gainDb
             : AUDIO_LANE_GAIN_DB[lane],
+        ...(validFilmAudioWaveform(row.waveform) &&
+        typeof row.waveform.identity === "string" &&
+        row.waveform.offsetSeconds === finiteNumber(row.offsetSeconds) &&
+        row.waveform.durationSeconds === finiteNumber(row.durationSeconds)
+          ? { waveform: structuredClone(row.waveform) }
+          : {}),
         ...(typeof row.path === "string" && row.path && !row.path.startsWith("data:")
           ? { path: row.path }
           : {}),

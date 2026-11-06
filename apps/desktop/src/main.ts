@@ -1,3 +1,13 @@
+import { originalCleanRecoveryProof, finalCleanRecoveryProof } from "./clean-copy-recovery-proof";
+import { registerFilmRanges } from "./film-range-ipc";
+import { registerFilmHistory } from "./film-history-ipc";
+import { registerFilmAudioWaveforms } from "./film-audio-waveform";
+import { createQuitSaveCoordinator, finishApprovedApplicationQuit } from "./quit-save";
+import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
+import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
+import { storyFilmQcOwner } from "./film-export-qc-ownership";
+import { registerFilmExportQc } from "./film-export-qc-ipc";
+import { verifiedQcTools, loadQcEngine, loadQcRunner } from "./film-export-qc-runtime";
 import { registerTaskProgressHandlers } from "./task-progress-ipc";
 import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
 import { registerAssemblyReadinessHandler } from "./assembly-readiness-ipc";
@@ -64,6 +74,7 @@ import {
   nativeImage,
   shell,
   type IpcMainInvokeEvent,
+  type WebContentsDidStartNavigationEventParams,
 } from "electron";
 
 import {
@@ -137,6 +148,8 @@ let sourceManifestReviewController: ReturnType<typeof createSourceManifestReview
   null;
 let sidecar: SidecarHandle | null = null;
 let quitting = false;
+const approvedWindowClose = new Set<number>();
+let requestSafeQuit: (intent: "window" | "application") => void = () => undefined;
 let nativePreviewDocumentEpoch = 0;
 
 function pinPackagedUserData(): void {
@@ -356,7 +369,17 @@ function createMainWindow(): BrowserWindow {
       JSON.stringify({ ...bounds, maximized: window.isMaximized() }),
     );
   };
-  window.on("close", remember);
+  window.on("close", (event) => {
+    if (!quitting && !approvedWindowClose.has(window.id)) {
+      event.preventDefault();
+      requestSafeQuit(process.platform === "darwin" ? "window" : "application");
+    }
+    try {
+      remember();
+    } catch {
+      /* Window bounds must never bypass document save protection. */
+    }
+  });
   window.on("closed", () => {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
@@ -865,6 +888,189 @@ registerTaskProgressHandlers<IpcMainInvokeEvent>(
   (event) => event.sender.id,
   (event, snapshot) => event.sender.send("aivora:tasks", snapshot),
 );
+registerCleanCopyRecovery<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    databasePath: join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+    remake: async (projectId, path, expected) => {
+      if (!sidecar) throw new Error("Local API unavailable");
+      return createStoryFilmClient(globalThis.fetch, sidecar.session).remakeCleanCopy(
+        projectId,
+        path,
+        expected,
+      );
+    },
+  },
+);
+registerFilmHistory<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  join(app.getPath("userData"), "films"),
+);
+const checkedPublishedPaths = new Set<string>();
+const qcResourceRoot = () =>
+  app.isPackaged
+    ? join(process.resourcesPath, "qc")
+    : existsSync(resolve(__dirname, "../../../qc"))
+      ? resolve(__dirname, "../../../qc")
+      : resolve(__dirname, "../../../packages/aivora-qc");
+registerFilmRanges<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    temporaryRoot: join(app.getPath("userData"), "cache", "range-redo"),
+    tools: () =>
+      verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+      ),
+    run: async (binary, args, options) =>
+      (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+    storyOwner: async (projectId, path, sha) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        sha,
+      ),
+    cleanOwner: async (projectId, original, clean) => {
+      const database = join(app.getPath("userData"), "workspace", "workspace.sqlite3");
+      const proof = originalCleanRecoveryProof(database, projectId, original.path, original.sha);
+      if (!proof) return false;
+      return original.path === clean.path && original.sha === clean.sha
+        ? !proof.hasBurnedSubtitles
+        : finalCleanRecoveryProof(
+            database,
+            projectId,
+            clean.path,
+            clean.sha,
+            proof.assemblyVersionId,
+          );
+    },
+    generate: async (projectId, input, canDispatch) => {
+      const body = parseStoryFilmCreate(input);
+      if (!sidecar) throw new Error("Local API unavailable");
+      const bearer = await getGrokRuntime().mediaAccessToken();
+      if (!bearer || bearer.length > 8192 || /[\r\n]/.test(bearer))
+        throw new Error("Member authorization unavailable");
+      if (!(await canDispatch())) throw new Error("Range input changed before dispatch");
+      return createStoryFilmClient(globalThis.fetch, sidecar.session).create(
+        projectId,
+        body,
+        bearer,
+      );
+    },
+  },
+);
+registerFilmAudioWaveforms<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    tools: () =>
+      verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+      ),
+    storyOwner: async (projectId, path, hash) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        hash,
+      ),
+  },
+);
+registerFilmExportQc<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  (event) => String(event.sender.id),
+  {
+    publishedPaths: checkedPublishedPaths,
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    temporaryRoot: join(app.getPath("userData"), "cache", "export-qc"),
+    tools: async (signal) => {
+      const runner = await loadQcRunner(qcResourceRoot());
+      return verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+        process.platform,
+        async (binary) =>
+          (await runner(binary, ["-version"], { signal, timeoutMs: 10000, maxBuffer: 65536 }))
+            .stdout,
+        signal,
+      );
+    },
+    engine: () => loadQcEngine(qcResourceRoot()),
+    runner: () => loadQcRunner(qcResourceRoot()),
+    storyOwner: async (projectId, path, sha256) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        sha256,
+      ),
+    font: () =>
+      bundledSubtitleFont(process.resourcesPath ?? "", {
+        execPath: process.execPath,
+        repositoryRoot: resolve(__dirname, "../../.."),
+      }),
+    pickDirectory: async () => {
+      if (!mainWindow) return null;
+      const picked = await dialog.showOpenDialog(mainWindow, {
+        title: "发布检查后的成片",
+        properties: ["openDirectory", "createDirectory"],
+      });
+      return picked.canceled ? null : (picked.filePaths[0] ?? null);
+    },
+  },
+  (event, dispose) => {
+    const sender = event.sender;
+    let done = false;
+    const invalidate = () => {
+      if (done) return;
+      done = true;
+      sender.removeListener("did-start-navigation", navigate);
+      sender.removeListener("render-process-gone", invalidate);
+      sender.removeListener("destroyed", invalidate);
+      dispose();
+    };
+    const navigate = (details: WebContentsDidStartNavigationEventParams) => {
+      if (details.isMainFrame && !details.isSameDocument) invalidate();
+    };
+    sender.on("did-start-navigation", navigate);
+    sender.once("render-process-gone", invalidate);
+    sender.once("destroyed", invalidate);
+  },
+  (event, snapshot) => event.sender.send("film:qc-progress", snapshot),
+);
 registerFilmLibraryHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -872,6 +1078,7 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     event.sender === mainWindow.webContents &&
     event.senderFrame === mainWindow.webContents.mainFrame,
   {
+    publishedPaths: checkedPublishedPaths,
     filmsRoot: () => join(app.getPath("userData"), "films"),
     storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
     runFfmpeg: (args, options) =>
@@ -1218,48 +1425,100 @@ void startApplication().catch((error: unknown) => {
   app.quit();
 });
 
-let finishFlush: (() => void) | null = null;
-
-function flushRenderer(): Promise<void> {
-  const window = mainWindow;
-  if (window === null || window.isDestroyed()) return Promise.resolve();
-  return new Promise((resolve) => {
-    const finish = () => {
-      clearTimeout(timer);
-      finishFlush = null;
-      resolve();
+const quitSave = createQuitSaveCoordinator({
+  target: () => {
+    const window = mainWindow;
+    if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return null;
+    return {
+      owner: window.webContents.id,
+      send: (request) => window.webContents.send("aivora:flush", request),
     };
-    const timer = setTimeout(finish, 1500);
-    finishFlush = finish;
-    window.webContents.send("aivora:flush");
-  });
-}
-
-ipcMain.handle("film:flushed", () => {
-  finishFlush?.();
+  },
+  // On macOS the last window was already saved (or explicitly discarded) before closing.
+  // Startup failures likewise have no renderer document to save.
+  emptyTargetSaved: () => mainWindow === null,
+  ask: async (status) => {
+    const message =
+      status === "failed"
+        ? "修改还没有保存，尚未退出。"
+        : status === "busy"
+          ? "制作任务仍在使用保存队列，尚未退出。"
+          : "尚未确认所有修改已保存，尚未退出。";
+    const options: Electron.MessageBoxOptions = {
+      type: "warning",
+      title: "退出前保存",
+      message,
+      detail: "窗口会保持打开。可以重试保存、取消退出，或明确放弃未保存的修改后退出。",
+      buttons: ["重试保存并退出", "取消退出", "放弃未保存的修改并退出"],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    };
+    const window = mainWindow;
+    const answer =
+      window && !window.isDestroyed()
+        ? await dialog.showMessageBox(window, options)
+        : await dialog.showMessageBox(options);
+    return answer.response === 0 ? "retry" : answer.response === 2 ? "discard" : "cancel";
+  },
+  finish: async (intent) => {
+    if (intent === "window") {
+      const window = mainWindow;
+      if (window && !window.isDestroyed()) {
+        const id = window.id;
+        approvedWindowClose.add(id);
+        try {
+          window.close();
+        } finally {
+          approvedWindowClose.delete(id);
+        }
+      }
+      return;
+    }
+    const stoppedSidecar = sidecar;
+    await finishApprovedApplicationQuit({
+      lockWindow: () => {
+        const window = mainWindow;
+        if (window && !window.isDestroyed()) {
+          window.setEnabled(false);
+          window.hide();
+        }
+      },
+      // Preserve the existing private-channel / supervisor cleanup order after save approval.
+      stopPreview: () => {
+        nativePreviewHost.invalidateAll();
+        void chatgptRuntime?.cancel();
+        return nativePreviewHost.shutdown();
+      },
+      stopSidecar: async () => {
+        await stoppedSidecar?.stop();
+      },
+      exit: () => {
+        sidecar = null;
+        apiClient = null;
+        sourceManifestReviewController = null;
+        quitting = true;
+        app.quit();
+      },
+    });
+  },
 });
-
+requestSafeQuit = (intent) => {
+  void quitSave.request(intent).catch(() => undefined);
+};
+ipcMain.handle("film:flushed", (event, value: unknown) => {
+  if (
+    !mainWindow ||
+    event.sender !== mainWindow.webContents ||
+    event.senderFrame !== mainWindow.webContents.mainFrame
+  )
+    return;
+  quitSave.acknowledge(event.sender.id, value);
+});
 app.on("before-quit", (event) => {
-  nativePreviewHost.invalidateAll();
-  void chatgptRuntime?.cancel();
   if (quitting) return;
   event.preventDefault();
-  quitting = true;
-  const stoppedSidecar = sidecar;
-  // Preserve the private channel until supervisor-owned stop attempts settle.
-  // Sidecar EOF then performs its own Job/reader cleanup before workspace release.
-  void flushRenderer()
-    .catch(() => undefined)
-    .then(() => nativePreviewHost.shutdown())
-    .catch(() => undefined)
-    .then(() => stoppedSidecar?.stop())
-    .catch(() => undefined)
-    .finally(() => {
-      sidecar = null;
-      apiClient = null;
-      sourceManifestReviewController = null;
-      app.quit();
-    });
+  requestSafeQuit("application");
 });
 
 app.on("window-all-closed", () => {

@@ -1,3 +1,16 @@
+import type { FilmRangeGateway } from "@aijian/contracts/film-range";
+import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
+import type {
+  FilmAudioWaveformInput,
+  FilmAudioWaveformResult,
+} from "@aijian/contracts/film-audio-waveform";
+import type { FilmFlushAck, FilmFlushRequest } from "@aijian/contracts/quit-save";
+import type { CleanCopyRecoveryInput } from "@aijian/contracts/clean-copy-recovery";
+import type {
+  FilmExportQcInput,
+  FilmExportQcPublishInput,
+  FilmExportProgressEvent,
+} from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskSnapshot } from "@aijian/contracts/task-progress";
 import type {
   LocalMediaReviewGateway,
@@ -559,6 +572,22 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("story-film:create", projectId, input),
   getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
+  listFilmHistory: (projectId: Parameters<FilmHistoryGateway["listFilmHistory"]>[0]) =>
+    ipcRenderer.invoke("film:history-list", projectId),
+  prepareFilmRange: (input: Parameters<FilmRangeGateway["prepareFilmRange"]>[0]) =>
+    ipcRenderer.invoke("film:range-prepare", input),
+  generateFilmRange: (input: Parameters<FilmRangeGateway["generateFilmRange"]>[0]) =>
+    ipcRenderer.invoke("film:range-generate", input),
+  finishFilmRange: (input: Parameters<FilmRangeGateway["finishFilmRange"]>[0]) =>
+    ipcRenderer.invoke("film:range-finish", input),
+  discardFilmRange: (projectId: string, planId: string) =>
+    ipcRenderer.invoke("film:range-discard", projectId, planId),
+  captureFilmHistory: (input: Parameters<FilmHistoryGateway["captureFilmHistory"]>[0]) =>
+    ipcRenderer.invoke("film:history-capture", input),
+  restoreFilmHistory: (input: Parameters<FilmHistoryGateway["restoreFilmHistory"]>[0]) =>
+    ipcRenderer.invoke("film:history-restore", input),
+  recoverFilmCleanCopy: (input: CleanCopyRecoveryInput) =>
+    ipcRenderer.invoke("film:recover-clean-copy", input),
   remakeStoryFilmCleanCopy: (projectId: string, filmPath: string) =>
     ipcRenderer.invoke("story-film:clean-copy", projectId, filmPath),
   readStoryFilmMedia: (path: string) =>
@@ -589,9 +618,27 @@ contextBridge.exposeInMainWorld("aijian", {
   importMusic: (seriesId: string, source: string) =>
     ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
   filePath: (file: File) => webUtils.getPathForFile(file),
-  flushed: () => ipcRenderer.invoke("film:flushed"),
-  onFlush: (handler: () => void) => {
-    ipcRenderer.on("aivora:flush", () => handler());
+  flushed: (ack: FilmFlushAck) => ipcRenderer.invoke("film:flushed", ack),
+  onFlush: (handler: (request: FilmFlushRequest) => void) => {
+    let live = true;
+    const listener = (_event: Electron.IpcRendererEvent, value: unknown) => {
+      if (
+        live &&
+        value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        Object.keys(value).length === 1 &&
+        "requestId" in value &&
+        typeof value.requestId === "string" &&
+        /^[\w:-]{1,128}$/.test(value.requestId)
+      )
+        handler({ requestId: value.requestId });
+    };
+    ipcRenderer.on("aivora:flush", listener);
+    return () => {
+      live = false;
+      ipcRenderer.removeListener("aivora:flush", listener);
+    };
   },
   publishTasks: (tasks: TaskSnapshot["tasks"], batches: TaskSnapshot["batches"]) =>
     ipcRenderer.invoke("film:tasks-publish", { tasks, batches }) as Promise<void>,
@@ -622,6 +669,20 @@ contextBridge.exposeInMainWorld("aijian", {
   ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
+  readFilmAudioWaveform: (input: FilmAudioWaveformInput) =>
+    ipcRenderer.invoke("film:audio-waveform", input) as Promise<FilmAudioWaveformResult>,
+  prepareFilmExport: (input: FilmExportQcInput, operationId?: string) =>
+    ipcRenderer.invoke("film:qc-prepare", input, operationId),
+  publishFilmExport: (input: FilmExportQcPublishInput, operationId?: string) =>
+    ipcRenderer.invoke("film:qc-publish", input, operationId),
+  cancelFilmExportOperation: (operationId: string) =>
+    ipcRenderer.invoke("film:qc-cancel", operationId),
+  onFilmExportProgress: (listener: (snapshot: FilmExportProgressEvent) => void) => {
+    const handler = (_event: unknown, snapshot: FilmExportProgressEvent) => listener(snapshot);
+    ipcRenderer.on("film:qc-progress", handler);
+    return () => ipcRenderer.removeListener("film:qc-progress", handler);
+  },
+  discardFilmExport: (qcReceipt: string) => ipcRenderer.invoke("film:qc-discard", qcReceipt),
   exportFilmCut: (source: string, directory: string, name?: string, options?: FilmExportOptions) =>
     ipcRenderer.invoke("film:export", source, directory, name, options),
   cancelFilmExport: (requestId: string) => ipcRenderer.invoke("film:cancel-export", requestId),

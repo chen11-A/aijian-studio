@@ -269,6 +269,44 @@ export async function writeProject(root: string, value: unknown): Promise<FilmRe
   return enqueueWrite(`film:${root}`, () => writeProjectNow(root, value));
 }
 
+/** Compare and write on the same queue as normal project saves. Never replaces intervening edits. */
+export async function compareAndSwapProject(
+  root: string,
+  expected: FilmRecord,
+  next: FilmRecord,
+): Promise<FilmRecord | null> {
+  return enqueueWrite(`film:${root}`, async () => {
+    const current = await readProject(root, expected.id);
+    if (
+      !current ||
+      current.id !== expected.id ||
+      JSON.stringify(current) !== JSON.stringify(expected)
+    )
+      return null;
+    return writeProjectNow(root, next);
+  });
+}
+
+/** Trusted main modules share normal project writes; the callback never receives a series fallback. */
+export function transactFilmProject<T>(
+  root: string,
+  id: string,
+  action: (
+    current: FilmRecord | null,
+    write: (next: FilmRecord) => Promise<FilmRecord>,
+  ) => Promise<T>,
+): Promise<T> {
+  return enqueueWrite(`film:${root}`, async () => {
+    const found = await readProject(root, id);
+    const current = found?.id === id ? found : null;
+    return action(current, (next) => {
+      if (!current || next.id !== id || next.seriesId !== current.seriesId)
+        throw new Error("PROJECT_CHANGED");
+      return writeProjectNow(root, next);
+    });
+  });
+}
+
 /** Materialize session media without publishing a project or changing its save time. */
 export async function prepareProject(root: string, value: unknown): Promise<FilmRecord> {
   if (!value || typeof value !== "object") throw new Error("Invalid film");
@@ -339,8 +377,9 @@ export async function renameSeries(root: string, seriesId: string, title: string
   await writeIndex(root, rows);
 }
 
+// Match promise-based native realpaths: the JS walker can retain Windows DOS 8.3 aliases.
 function inside(root: string, target: string): boolean {
-  const base = realpathSync(root);
+  const base = realpathSync.native(root);
   const prefix = base.endsWith(sep) ? base : `${base}${sep}`;
   return target === base || target.startsWith(prefix);
 }
@@ -352,7 +391,7 @@ export function trustedMediaPath(roots: string[], raw: string): string {
   if (raw.split(/[/\\]/).includes("..")) throw new Error("Invalid film path");
   let target: string;
   try {
-    target = realpathSync(resolve(raw));
+    target = realpathSync.native(resolve(raw));
   } catch {
     throw new Error("Invalid film path");
   }

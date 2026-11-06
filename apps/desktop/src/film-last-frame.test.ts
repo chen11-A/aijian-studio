@@ -11,7 +11,7 @@ import {
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractFilmLastFrame, type LastFrameHost } from "./film-last-frame";
 const roots: string[] = [];
@@ -46,7 +46,11 @@ describe("local film last-frame extraction", () => {
       `aivora-media://local/?path=${encodeURIComponent(source)}`,
       host,
     );
-    expect(result.sourceVideoPath).toBe(source);
+    expect(result.sourceVideoPath).toBe(realpathSync.native(source));
+    const actualSource = statSync(result.sourceVideoPath, { bigint: true });
+    const originalSource = statSync(source, { bigint: true });
+    expect([actualSource.dev, actualSource.ino]).toEqual([originalSource.dev, originalSource.ino]);
+    expect(await readFile(result.sourceVideoPath)).toEqual(await readFile(source));
     expect(result.path.startsWith(join(root, series, "stills"))).toBe(true);
     expect(await readFile(result.path)).toEqual(png);
     expect(vi.mocked(host.runFfmpeg).mock.calls[0]![0]).toContain("-update");

@@ -1,5 +1,11 @@
 /** Runs inside the page. All data is synthetic; the video is a repository test fixture. */
-export async function seedProProject({ projectModuleUrl, aspect, versions, videoUrl }) {
+export async function seedProProject({
+  projectModuleUrl,
+  aspect,
+  versions,
+  videoUrl,
+  mode = "ready",
+}) {
   const { sampleFilm, FILM_KEY } = await import(projectModuleUrl);
   const film = sampleFilm();
   film.title = "布局核验合成作品";
@@ -29,6 +35,14 @@ export async function seedProProject({ projectModuleUrl, aspect, versions, video
     })),
     selectedTakeId: `${shot.id}-layout-1`,
   }));
+  if (mode !== "ready")
+    film.props = [{ id: "layout-prop", name: "合成核验用旧书", note: "布局夹具，不触发生成。" }];
+  if (mode === "missing") {
+    film.shots = film.shots.map((shot) => ({ ...shot, takes: [], selectedTakeId: "" }));
+  }
+  if (mode === "interrupted") {
+    film.shots[0].takes[0].status = "running";
+  }
   window.localStorage.clear();
   window.localStorage.setItem(FILM_KEY, JSON.stringify(film));
 }
@@ -43,6 +57,9 @@ export function installProAuditBridge() {
   window.aijian = {
     pickFilmFolder: async () => null,
     exportFilmCut: async () => unexpected("export"),
+    prepareFilmExport: async () => unexpected("qc-prepare"),
+    publishFilmExport: async () => unexpected("qc-publish"),
+    discardFilmExport: async () => unexpected("qc-discard"),
     remakeStoryFilmCleanCopy: async () => unexpected("clean-copy"),
   };
 }

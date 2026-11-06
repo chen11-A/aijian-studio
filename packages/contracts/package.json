@@ -100,6 +100,30 @@
     "./task-progress": {
       "types": "./src/task-progress.ts",
       "default": "./src/task-progress.ts"
+    },
+    "./film-export-qc": {
+      "types": "./src/film-export-qc.ts",
+      "default": "./src/film-export-qc.ts"
+    },
+    "./clean-copy-recovery": {
+      "types": "./src/clean-copy-recovery.ts",
+      "default": "./src/clean-copy-recovery.ts"
+    },
+    "./quit-save": {
+      "types": "./src/quit-save.ts",
+      "default": "./src/quit-save.ts"
+    },
+    "./film-history": {
+      "types": "./src/film-history.ts",
+      "default": "./src/film-history.ts"
+    },
+    "./film-audio-waveform": {
+      "types": "./src/film-audio-waveform.ts",
+      "default": "./src/film-audio-waveform.ts"
+    },
+    "./film-range": {
+      "types": "./src/film-range.ts",
+      "default": "./src/film-range.ts"
     }
   },
   "scripts": {

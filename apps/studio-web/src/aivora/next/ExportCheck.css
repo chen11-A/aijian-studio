@@ -175,3 +175,37 @@
   padding: 12px;
   border-top: 1px solid var(--line);
 }
+
+.nx-root.nx-export-review .nx-export-head {
+  flex-wrap: wrap;
+}
+
+.nx-root.nx-export-review .nx-export-head p {
+  white-space: normal;
+}
+
+.nx-root.nx-export-review .nx-export-unverified {
+  display: grid;
+  gap: 8px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.nx-root.nx-export-review .nx-export-unverified ul {
+  padding-left: 18px;
+  list-style: disc;
+}
+
+@media (max-width: 760px) {
+  .nx-root.nx-export-review .nx-export-cols {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .nx-root.nx-export-review .nx-export-issues,
+  .nx-root.nx-export-review .nx-export-side {
+    min-height: 240px;
+    overflow: visible;
+  }
+}

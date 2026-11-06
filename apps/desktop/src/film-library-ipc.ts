@@ -35,6 +35,8 @@ import {
 const idPattern = /^film_[a-z0-9]{16,40}$/;
 
 export type FilmLibraryHost = {
+  /** Main-only allowlist shared with checked publication; never supplied by the renderer. */
+  publishedPaths?: Set<string>;
   filmsRoot: () => string;
   storyFilmsRoot: () => string;
   runFfmpeg: RunFfmpeg;
@@ -79,7 +81,7 @@ export function registerFilmLibraryHandlers<TEvent>(
   authorized: (event: TEvent) => boolean,
   host: FilmLibraryHost,
 ): void {
-  const exported = new Set<string>();
+  const exported = host.publishedPaths ?? new Set<string>();
   const exportsInProgress = new Map<string, { cancelled: boolean }>();
   const guard = (event: TEvent) => {
     if (!authorized(event)) throw new Error("Film IPC sender is not authorized");

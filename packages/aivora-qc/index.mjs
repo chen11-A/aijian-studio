@@ -30,7 +30,7 @@ export async function checkExport(mp4Path, options = {}) {
   }
   const input = resolve(mp4Path);
   if (!(await stat(input)).isFile()) throw new Error("输入必须为本地常规文件");
-  const execution = { signal, timeoutMs };
+  const execution = { signal, timeoutMs, onProcess: options.onProcess };
   const probe = JSON.parse(
     (
       await run(

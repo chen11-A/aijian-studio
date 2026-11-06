@@ -1,4 +1,23 @@
+import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
+import {
+  prepareHistoryInput,
+  historyRecordHash,
+  historyEntryView,
+} from "./actions/persistent-history";
+import type { FilmHistoryEntry } from "@aijian/contracts/film-history";
+import { audioWaveformToken } from "../film/audio-waveform-data";
+import { invalidateAudioWaveforms } from "./actions/audio-waveforms";
+import { useAudioWaveforms } from "./use-audio-waveforms";
+import { legacyCleanCopyTargets, cleanCopySelectionHash } from "./actions/clean-copy-recovery";
+import { ExportProgress } from "../next/ExportProgress";
+import { acceptExportProgress, type ExportProgressScope } from "./actions/export-progress";
+import type { FilmExportProgressEvent } from "@aijian/contracts/film-export-qc";
+import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/film-export-qc";
+import { ExportCheck } from "../next/ExportCheck";
+import { readQcReport, type QcIssue } from "../next/qcReport";
+import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
+import { projectArtStyleFields } from "./actions/art-style-field-rows";
 import {
   generationPreflight,
   prepareGeneration,
@@ -67,7 +86,6 @@ import { coverageNotice } from "../film/coverage-notice";
 import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
-import { exportFilmSelection } from "./actions/export-selection";
 import { remakeCleanCopies, shotsNeedingCleanCopy } from "./actions/clean-copy";
 import { revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
@@ -108,6 +126,7 @@ import {
   ensureLocations,
   chosenExport,
   confirmEstimate,
+  storyFilmBatches,
   filmFileName,
   LOUDNESS_NOTE,
   assignActionBeats,
@@ -141,6 +160,7 @@ import {
 } from "../film/library";
 import {
   blankFilm,
+  upgradeFilm,
   keyframePrompt,
   interruptStaleWork,
   newEpisode,
@@ -228,7 +248,6 @@ import {
   assistantInputVersion,
   fileMediaUrl,
   requestFilmStill,
-  middlePath,
   shotFrame,
   hydrateFilm,
   filmSignature,
@@ -559,7 +578,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [pendingScenes, setPendingScenes] = useState<FilmScene[] | null>(null);
   const [menu, setMenu] = useState<"project" | "account" | "queue" | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [partialExport, setPartialExport] = useState<string[] | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
   const workOwners = useWorkOwners(film?.id ?? "");
   const exporting = workOwners.busy("export");
@@ -574,6 +592,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   } | null>(null);
   const [confirmSignIn, setConfirmSignIn] = useState(false);
   const [range, setRange] = useState(false);
+  const [rangeSeconds, setRangeSeconds] = useState<{
+    shotId: string;
+    takeId: string;
+    start: number;
+    end: number;
+  } | null>(null);
+  const [rangeDialog, setRangeDialog] = useState(false);
+  const [rangeBusy, setRangeBusy] = useState(false);
+  const [rangeMessage, setRangeMessage] = useState("");
+  const [rangeReady, setRangeReady] = useState<RangeReady | null>(null);
+  const rangeReadyRef = useRef<RangeReady | null>(null);
+  const rangeWorking = useRef(false);
+  const rangeCancelled = useRef(false);
+  const rangeExecuting = useRef(false);
+  const rangeAccepted = useRef<FilmProject | null>(null);
+  useEffect(() => {
+    if (
+      rangeWorking.current &&
+      rangeAccepted.current &&
+      filmRef.current !== rangeAccepted.current
+    ) {
+      rangeCancelled.current = true;
+      const pending = rangeReadyRef.current;
+      if (pending)
+        void window.aijian
+          ?.discardFilmRange?.(pending.project.id, pending.planId)
+          .catch(() => undefined);
+    }
+  }, [film]);
   const [span, setSpan] = useState<{ from: number; to: number } | null>(null);
   const [comparing, setComparing] = useState(false);
   // 4A-U10: only runAction still sets it; the 修改这一段 tiles that read it are gone.
@@ -660,14 +707,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [seriesList, setSeriesList] = useState<FilmIndexEntry[]>([]);
   const [diskPath, setDiskPath] = useState("");
   const [diskFilmId, setDiskFilmId] = useState("");
-  const [diskError, setDiskError] = useState("");
+  const [diskError, setDiskError] = useState<{ projectId: string; message: string } | null>(null);
   const [pendingBatch, setPendingBatchState] = useState<FilmShot[] | null>(null);
   const batchConfirmation = useRef<{ projectId: string; rows: FilmShot[] } | null>(null);
   function setPendingBatch(rows: FilmShot[] | null) {
     batchConfirmation.current = rows ? { projectId: filmRef.current?.id ?? "", rows } : null;
     setPendingBatchState(rows);
   }
-  const [exportDir, setExportDir] = useState("");
   const [exportFile, setExportFile] = useState("");
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -683,7 +729,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     if (batchConfirmation.current && batchConfirmation.current.projectId !== next?.id)
       setPendingBatch(null);
-    if (next) next = applyContinuityChecks(next);
+    if (next) next = applyContinuityChecks(invalidateAudioWaveforms(next));
     filmRef.current = next;
     if (next && cleanCopySaveVersions.current.has(next.id))
       cleanCopySaveVersions.current.set(next.id, next);
@@ -694,6 +740,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
+  const audioWaveforms = useAudioWaveforms(film, stage === "edit", {
+    current: () => filmRef.current,
+    apply: applyLive,
+    save: (snapshot) => persistence.save(snapshot),
+  });
   const editorHost = useMemo(
     () =>
       createEditorHost({
@@ -727,6 +778,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       apply: applyLive,
       ensureBillingProject: () => pipelineLive.current.ensureBillingProject(),
       acquireSaveOwnership: persistence.acquire,
+      beforeRun: (lease) => captureBeforePipeline(lease),
       bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
       modelIds: () => pipelineLive.current.modelIds,
       modelsChanged: setModelIds,
@@ -845,7 +897,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const saveGeneration = useRef(0);
   useEffect(() => {
     // setFilm updates the live ref synchronously; an older render must not roll it back.
-    if (!film) return;
+    if (!film) {
+      saveGeneration.current += 1;
+      setDiskError(null);
+      setSavingDisk(false);
+      return;
+    }
     if (historyScope.current.page !== stage && committed.current?.id === film.id) {
       pageHistory.record(committed.current, film, historyScope.current);
       committed.current = film;
@@ -853,15 +910,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     historyScope.current = editorSelection.current;
     const generation = ++saveGeneration.current;
     const savingId = film.id;
+    const isCurrentSave = () => generation === saveGeneration.current && filmRef.current === film;
+    setDiskError((previous) => (previous?.projectId === savingId ? previous : null));
     const flush = () => {
       void persistence.flush().catch(() => undefined);
     };
     window.addEventListener("beforeunload", flush);
     setSavingDisk(true);
     const handle = window.setTimeout(() => {
+      if (!isCurrentSave()) return;
       void saveFilm(film)
         .then((stored) => {
-          if (generation !== saveGeneration.current) return;
+          if (!isCurrentSave()) return;
           if (!stored) {
             setSavingDisk(false);
             return;
@@ -869,13 +929,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
             setDiskFilmId(savingId);
             setDiskPath(stored.directory);
-            setDiskError("");
           }
+          setDiskError(null);
           setSavingDisk(false);
         })
         .catch(() => {
-          if (generation === saveGeneration.current) {
-            setDiskError("没有写到应用数据目录，可以重试。");
+          if (isCurrentSave()) {
+            setDiskError({ projectId: savingId, message: "没有写到应用数据目录，可以重试。" });
             setSavingDisk(false);
           }
         });
@@ -931,15 +991,48 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, [film?.id, pipelineWorkspace]);
 
   useEffect(() => {
-    window.aijian?.onFlush?.(() => {
-      void persistence.flush().then(
-        () => window.aijian?.flushed?.(),
+    const bridge = window.aijian;
+    let live = true;
+    const unsubscribe = bridge?.onFlush?.((request) => {
+      const generation = ++saveGeneration.current;
+      if (filmRef.current) setSavingDisk(true);
+      void persistence.flushAll().then(
+        (result) => {
+          if (!live) return;
+          const snapshot = result.snapshot;
+          if (snapshot && filmRef.current === snapshot && generation === saveGeneration.current) {
+            if (result.status === "saved") {
+              if (result.stored?.directory && result.stored.directory !== BROWSER_DIRECTORY) {
+                setDiskFilmId(snapshot.id);
+                setDiskPath(result.stored.directory);
+              }
+              setDiskError(null);
+            } else if (result.status === "failed" && result.failedProjectId === snapshot.id) {
+              setDiskError({ projectId: snapshot.id, message: "没有写到应用数据目录，可以重试。" });
+            }
+            setSavingDisk(false);
+          }
+          void bridge
+            ?.flushed?.({ requestId: request.requestId, status: result.status })
+            .catch(() => undefined);
+        },
         () => {
-          setDiskError("没有写到应用数据目录，可以重试。");
-          window.aijian?.flushed?.();
+          if (!live) return;
+          const snapshot = filmRef.current;
+          if (snapshot && generation === saveGeneration.current) {
+            setDiskError({ projectId: snapshot.id, message: "没有写到应用数据目录，可以重试。" });
+            setSavingDisk(false);
+          }
+          void bridge
+            ?.flushed?.({ requestId: request.requestId, status: "failed" })
+            .catch(() => undefined);
         },
       );
     });
+    return () => {
+      live = false;
+      unsubscribe?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -1716,6 +1809,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("先写下外貌，再出定妆照。");
       return;
     }
+    if (!window.aijian?.generateFilmStill) {
+      setNotice("请打开安装好的 AIVORA 再出图。");
+      return;
+    }
     if (workOwners.has(current.id, "portraits")) return;
     const release = workOwners.begin(current.id, "portraits");
     try {
@@ -1724,8 +1821,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         "portraits",
         () => filmRef.current?.id ?? "",
       );
+      let baseline: FilmProject;
+      try {
+        baseline = await captureBeforeGeneration(current, valid);
+      } catch (error) {
+        const stale = historyInputStale(error);
+        if (valid())
+          setNotice({
+            code: stale ? "REQUEST_STALE" : "HISTORY_BACKUP_FAILED",
+            text: stale ? NOTICE_TEXT.REQUEST_STALE : NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: stale
+              ? "作品内容已变化，定妆照批次尚未开始生成。"
+              : "定妆照批次尚未开始生成，请先保存历史再试。",
+          });
+        return;
+      }
       await makeAllPortraits({
-        base: current,
+        base: baseline,
         characterIds: Array.isArray(selection)
           ? selection
           : characterId
@@ -1738,7 +1850,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           applyLive(next);
           await saveFilm(next);
         },
-        generate: (prompt, references) => requestFilmStill(current, prompt, references),
+        generate: (prompt, references) => requestFilmStill(baseline, prompt, references),
         progress: (batch) => {
           if (valid())
             emitNotice({
@@ -2092,6 +2204,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("当前选择已改变，请回到美术建议所在页面再应用。");
       return;
     }
+    const styleOnly = projectArtStyleFields(transaction, expected) !== null;
     const result = applyArtTransaction(live, transaction);
     if (!result.receipt) {
       setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
@@ -2124,7 +2237,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
         setNotice(
           stored
-            ? "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
+            ? styleOnly
+              ? {
+                  code: "STEP_COMPLETE",
+                  text: NOTICE_TEXT.STEP_COMPLETE,
+                  detail: "画风说明已修改。",
+                }
+              : "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
             : "美术建议已应用，但还没有保存。",
         );
     } catch {
@@ -2141,6 +2260,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     } finally {
       applyingArt.current = false;
     }
+  }
+
+  function rejectPendingSuggestion() {
+    if (role === "art" && roleCards.art?.fieldRows !== undefined) {
+      if (applyingArt.current) return;
+      artDraft.current = null;
+    }
+    markApplied(role);
   }
 
   function planArt() {
@@ -2169,10 +2296,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const transaction = prepareArtTransaction(base, result.draft, selection);
+    const fieldRows = projectArtStyleFields(transaction, selection);
     artDraft.current = transaction;
     setStructured(result.lines);
     publishCard("art", {
       artDiff: transaction,
+      ...(fieldRows !== null ? { fieldRows } : {}),
       title: "美术 · 画风和外貌",
       rows: result.lines.map((line, index) => ({
         id: `art-${index}`,
@@ -2184,7 +2313,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       applied: false,
       mode: "art",
     });
-    finishTurn(turn, "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
+    finishTurn(
+      turn,
+      fieldRows !== null
+        ? {
+            code: "STEP_COMPLETE",
+            text: NOTICE_TEXT.STEP_COMPLETE,
+            detail: "画风说明已准备好，确认后才修改。",
+          }
+        : "美术写好了。点「放进分镜」，外貌、场景和道具才会改。",
+    );
     noteAgent("art", "art", "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
 
     setPending(null);
@@ -2638,7 +2776,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
     const release = workOwners.begin(base.id, `still:${current.id}`, "正在生成候选画面");
     try {
-      const ready = await prepareSceneMedia(base, [current], valid);
+      let baseline: FilmProject;
+      try {
+        baseline = await captureBeforeGeneration(base, valid);
+      } catch (error) {
+        const stale = historyInputStale(error);
+        if (valid())
+          setNotice({
+            code: stale ? "GENERATION_SELECTION_STALE" : "HISTORY_BACKUP_FAILED",
+            text: stale
+              ? NOTICE_TEXT.GENERATION_SELECTION_STALE
+              : NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: stale
+              ? "作品内容已变化，四张候选画面尚未开始生成。"
+              : "四张候选画面尚未开始生成，请先保存历史再试。",
+          });
+        return;
+      }
+      const target = baseline.shots.find((row) => row.id === current.id);
+      if (!target) return;
+      const ready = await prepareSceneMedia(baseline, [target], valid);
       const result = await makeFourStills(
         ready,
         ready.shots.find((row) => row.id === current.id) ?? current,
@@ -2743,7 +2900,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     pipeline?: PipelineGenerationHost,
   ) {
     const id = filmRef.current?.id;
-    if (!id || generationRuns.current.has(id)) return;
+    if (!id || generationRuns.current.has(id) || persistentHistoryBusyRef.current) return;
     generationRuns.current.add(id);
     try {
       await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
@@ -2801,7 +2958,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     live = filmRef.current ?? live;
     // Billing preparation may yield while shots are edited or removed. Resolve only the
     // originally requested IDs against the live work; never revive a removed snapshot.
-    const latestTargets = selected.map((target) => live.shots.find((row) => row.id === target.id));
+    const latestGeneration = live;
+    if (!latestGeneration) return;
+    const latestTargets = selected.map((target) =>
+      latestGeneration.shots.find((row) => row.id === target.id),
+    );
     if (latestTargets.some((target) => !target)) {
       setNotice("所选镜头已经变化，请重新选择后生成。");
       return;
@@ -2809,6 +2970,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     selected = latestTargets.filter((target): target is FilmShot => Boolean(target));
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
+    if (canSubmit) {
+      try {
+        live = await captureBeforeGeneration(live, valid, pipeline);
+        if (!valid()) return;
+        const ids = selected.map((row) => row.id);
+        selected = ids
+          .map((id) => live!.shots.find((row) => row.id === id))
+          .filter((row): row is FilmShot => Boolean(row));
+        if (selected.length !== ids.length) throw new Error("HISTORY_STALE");
+      } catch (error) {
+        const stale = historyInputStale(error);
+        if (valid())
+          setNotice({
+            code: stale ? "GENERATION_SELECTION_STALE" : "HISTORY_BACKUP_FAILED",
+            text: stale
+              ? NOTICE_TEXT.GENERATION_SELECTION_STALE
+              : NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: stale
+              ? "作品内容已变化，本批尚未开始生成。"
+              : "本批尚未开始生成，未自动重试。请先保存历史再试。",
+          });
+        if (pipeline) {
+          const code = stale ? "PIPELINE_REQUEST_STALE" : "HISTORY_BACKUP_FAILED";
+          throw Object.assign(new Error(code), { code });
+        }
+        return;
+      }
+    }
     const preparation = prepareGeneration(live, selected, {
       versions: requestedVersions,
       resume,
@@ -2952,6 +3141,115 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     await assembleCurrentFilm(current, paths, () => filmRef.current, applyLive, setNotice, valid);
   }
 
+  const recoveryBusyRef = useRef(false);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  async function recoverLegacyCleanCopy(shotId: string) {
+    const base = filmRef.current,
+      bridge = window.aijian;
+    if (!base || !bridge?.recoverFilmCleanCopy || recoveryBusyRef.current) return;
+    recoveryBusyRef.current = true;
+    setRecoveryBusy(true);
+    let lease: Awaited<ReturnType<typeof persistence.acquire>> | undefined;
+    try {
+      lease = await persistence.acquire(base.id);
+      if (filmRef.current !== base) return;
+      await lease.save(base, () => filmRef.current === base);
+      const saved = await bridge.readFilmProject?.(base.id);
+      if (filmRef.current !== base) return;
+      const canonical = saved && upgradeFilm(saved);
+      if (!canonical || canonical.id !== base.id) throw new Error("SAVE_FAILED");
+      applyLive(canonical);
+      const accepted = filmRef.current;
+      if (!accepted || accepted.id !== base.id) return;
+      const target = legacyCleanCopyTargets(accepted).find((target) => target.shotId === shotId);
+      if (!target) return;
+      const selectionHash = await cleanCopySelectionHash(target.videoPath, target.cleanVideoPath);
+      if (filmRef.current !== accepted) return;
+      setNotice({
+        code: "CLEAN_COPY_PROGRESS",
+        text: NOTICE_TEXT.CLEAN_COPY_PROGRESS,
+        detail: "正在本机重建可核验的无字幕副本，不会生成新视频或调用付费服务。",
+      });
+      const result = await bridge.recoverFilmCleanCopy({
+        projectId: accepted.id,
+        shotId: target.shotId,
+        takeId: target.takeId,
+        selectionHash,
+      });
+      if (filmRef.current !== accepted) {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "CLEAN_COPY_STALE", text: NOTICE_TEXT.CLEAN_COPY_STALE });
+        return;
+      }
+      if (result.kind === "RECOVERED" || result.kind === "REUSED_ORIGINAL") {
+        if (!result.project || typeof result.project !== "object" || Array.isArray(result.project))
+          throw new Error("SAVE_FAILED");
+        const recovered = upgradeFilm(result.project as Partial<FilmProject>);
+        if (!recovered || recovered.id !== accepted.id) throw new Error("SAVE_FAILED");
+        applyLive(recovered);
+        const applied = filmRef.current;
+        await lease.release();
+        lease = undefined;
+        if (filmRef.current !== applied) return;
+        setNotice({
+          code: result.kind === "REUSED_ORIGINAL" ? "CLEAN_COPY_NOT_REQUIRED" : "CLEAN_COPY_DONE",
+          text:
+            result.kind === "REUSED_ORIGINAL"
+              ? NOTICE_TEXT.CLEAN_COPY_NOT_REQUIRED
+              : NOTICE_TEXT.CLEAN_COPY_DONE,
+          detail:
+            result.kind === "REUSED_ORIGINAL"
+              ? "合成记录确认原片没有烧录字幕，已保存为无字幕来源；没有生成新副本，旧副本仍保留。请重新检查成片。"
+              : "已保存可核验的新副本；原片和旧副本均保留。请重新检查成片。",
+        });
+      } else if (result.kind === "UNCHANGED") {
+        setNotice({
+          code: "CLEAN_COPY_NOT_REQUIRED",
+          text: NOTICE_TEXT.CLEAN_COPY_NOT_REQUIRED,
+          detail:
+            result.reason === "ALREADY_VERIFIED"
+              ? "现有副本已有可核验记录，没有执行重建。"
+              : "原片没有烧录字幕，没有生成新的副本。",
+        });
+      } else {
+        const detail =
+          result.code === "SOURCE_UNVERIFIED"
+            ? "这份素材的归属暂无法核验，原片和已有副本会保留。"
+            : result.code === "EVIDENCE_FAILED"
+              ? "新副本尚未取得最终归属记录，没有替换已有副本。"
+              : result.code === "PROJECT_CHANGED"
+                ? "作品或版本已经变化，没有替换已有副本。"
+                : result.code === "SAVE_FAILED"
+                  ? "恢复结果未能保存，没有确认本次修改。"
+                  : "本机重建没有完成，原片和已有副本会保留。";
+        setNotice({
+          code: result.code === "PROJECT_CHANGED" ? "CLEAN_COPY_STALE" : "CLEAN_COPY_FAILED",
+          text:
+            result.code === "PROJECT_CHANGED"
+              ? NOTICE_TEXT.CLEAN_COPY_STALE
+              : NOTICE_TEXT.CLEAN_COPY_FAILED,
+          detail,
+        });
+      }
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "当前工程尚未确认保存，请先核对；原片和已有副本均保留。",
+        });
+    } finally {
+      try {
+        await lease?.release();
+      } catch {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "SAVE_FAILED", text: NOTICE_TEXT.SAVE_FAILED });
+      }
+      recoveryBusyRef.current = false;
+      setRecoveryBusy(false);
+    }
+  }
+
   async function repairCleanCopies(shotIds: readonly string[] | null): Promise<void> {
     const live = filmRef.current;
     if (!live || workOwners.has(live.id, "clean-copy")) return;
@@ -3006,112 +3304,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function startExport(directoryOverride?: string, allowPartial = false) {
-    const bridge = window.aijian;
-    if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) {
-      setNotice("导出要在桌面版里选择文件夹。网页里不能写成片。");
+  async function startExport() {
+    if (!window.aijian?.prepareFilmExport) {
+      setNotice({
+        code: "EXPORT_QC_FAILED",
+        text: NOTICE_TEXT.EXPORT_QC_FAILED,
+        detail: "当前环境不能执行导出前检查，请使用支持检查的桌面版本。",
+      });
       return;
     }
-    const current = filmRef.current;
-    if (!current || workOwners.has(current.id, "export")) return;
-    const valid = requestSequences.current.begin(
-      current.id,
-      "export",
-      () => filmRef.current?.id ?? "",
-    );
-    const plan = chosenExport(current);
-    if (plan.paths.length === 0) {
-      setNotice(
-        plan.missing.length > 0
-          ? `还没生成：${plan.missing.join("、")}。`
-          : "还没有可以导出的视频。",
-      );
-      return;
-    }
-    if (plan.missing.length > 0 && !allowPartial) {
-      setPartialExport(plan.missing);
-      setNotice(`还没生成：${plan.missing.join("、")}。可以只导出已生成的。`);
-      return;
-    }
-    const release = workOwners.begin(current.id, "export");
-    setNotice("正在导出。");
-    try {
-      // 4B-B09: the dialog's 清晰度 and 字幕, the work's subtitle look and its cover.
-      const coverStart = coverEditorData(current, { mediaUrl: fileMediaUrl });
-      const result = await exportFilmSelection(
-        current,
-        plan.paths,
-        directoryOverride || exportDir,
-        {
-          current: () => filmRef.current,
-          valid,
-          apply: applyLive,
-        },
-        exportAspects,
-        {
-          quality: exportQuality,
-          subtitles: exportSubs,
-          style: current.subtitleStyle ?? "white",
-          cover: coverOf(current, coverStart.ok ? coverStart.props : null, prefs.aiMark),
-        },
-      );
-      if (!valid() || result.status === "stale") return;
-      if (
-        result.error?.code === "EXPORT_SUBTITLES_BAKED" &&
-        exportSettingsRef.current.projectId === current.id &&
-        exportSettingsRef.current.subtitles === exportSubs
-      )
-        setCleanCopyBlockedAt({ projectId: current.id, subtitles: exportSubs });
-      if (result.directory) setExportDir(result.directory);
-      if (result.primaryPath) setExportFile(result.primaryPath);
-      if (result.status === "done")
-        setNotice({
-          code: "EXPORT_DONE",
-          text: NOTICE_TEXT.EXPORT_DONE,
-          detail: result.outputs
-            .map((output) =>
-              [
-                `${output.aspectRatio}：${output.path}`,
-                output.subtitlePath ? `字幕文件：${output.subtitlePath}` : "",
-                output.coverPath ? `封面：${output.coverPath}` : "",
-                output.note ?? "",
-              ]
-                .filter(Boolean)
-                .join("，"),
-            )
-            .join("；"),
-        });
-      else if (result.status === "partial")
-        setNotice({
-          code: "EXPORT_FAILED",
-          text: NOTICE_TEXT.EXPORT_FAILED,
-          detail: `已保存 ${result.outputs.length} 个文件，其余没有导出，请重试。`,
-        });
-      else
-        emitNotice({
-          code: result.status === "cancelled" ? "EXPORT_FOLDER_REQUIRED" : "EXPORT_FAILED",
-          text: result.status === "cancelled" ? "没有选择文件夹。" : NOTICE_TEXT.EXPORT_FAILED,
-          // 4B-B09: say why, e.g. older shots whose subtitle is in the picture.
-          ...(result.error?.code === "EXPORT_SUBTITLES_BAKED"
-            ? { detail: result.error.detail }
-            : {}),
-        });
-    } catch (error) {
-      if (valid())
-        emitNotice({
-          code:
-            error instanceof Error && "code" in error && error.code === "EXPORT_CANCELLED"
-              ? "EXPORT_FOLDER_REQUIRED"
-              : "EXPORT_FAILED",
-          text:
-            error instanceof Error && "code" in error && error.code === "EXPORT_CANCELLED"
-              ? "没有选择文件夹。"
-              : "没有导出成功，可以重试。",
-          detail: error instanceof Error ? error.message : undefined,
-        });
-    } finally {
-      release();
-    }
+    await prepareCheckedExport();
   }
 
   const wsClass =
@@ -3178,6 +3380,368 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     projectId: string;
     subtitles: string;
   } | null>(null);
+  const [prefs, setPrefs] = useState(readPrefs);
+  const [exportQc, setExportQc] = useState<{
+    ready: FilmExportQcPrepared | null;
+    key: string;
+    input: FilmExportQcInput | null;
+    error: string | null;
+    checking: boolean;
+  } | null>(null);
+  const [exportQcBusy, setExportQcBusy] = useState(false);
+  const [exportQcAspect, setExportQcAspect] = useState(0);
+  const exportQcBusyRef = useRef(false);
+  const [exportExecution, setExportExecution] = useState<FilmExportProgressEvent | null>(null);
+  const exportExecutionRef = useRef<FilmExportProgressEvent | null>(null);
+  const exportExecutionScope = useRef<ExportProgressScope | null>(null);
+
+  const exportQcEpoch = useRef(0);
+  const exportQcInput = film
+    ? filmQcInput(film, exportAspects, {
+        quality: exportQuality,
+        subtitles: exportSubs,
+        style: film.subtitleStyle ?? "white",
+        aiMark: prefs.aiMark,
+      })
+    : null;
+  const exportQcKey = filmQcKey(film, exportQcInput);
+  const exportQcCurrent = useRef({ key: exportQcKey, input: exportQcInput });
+  exportQcCurrent.current = { key: exportQcKey, input: exportQcInput };
+  const exportQcStale = Boolean(exportQc && exportQc.key !== exportQcKey);
+  function qcContextCurrent(key: string) {
+    const context = exportQcCurrent.current;
+    return context.key === key && filmQcKey(filmRef.current, context.input) === key;
+  }
+
+  function consumeExportEvent(value: unknown) {
+    const scope = exportExecutionScope.current;
+    if (!scope) return;
+    const key = filmQcKey(filmRef.current, exportQcCurrent.current.input);
+    const admitted = acceptExportProgress(value, exportExecutionRef.current, scope, key);
+    if (admitted) {
+      exportExecutionRef.current = admitted;
+      setExportExecution(admitted);
+    }
+  }
+  function beginExportExecution(input: FilmExportQcInput, key: string) {
+    const operationId = crypto.randomUUID();
+    exportExecutionScope.current = { operationId, projectId: input.projectId, key };
+    exportExecutionRef.current = null;
+    setExportExecution(null);
+    return operationId;
+  }
+  async function requestExportStop(operationId: string): Promise<boolean> {
+    const scope = exportExecutionScope.current,
+      bridge = window.aijian;
+    if (
+      !scope ||
+      scope.operationId !== operationId ||
+      !qcContextCurrent(scope.key) ||
+      !bridge?.cancelFilmExportOperation
+    )
+      throw new Error("停止状态待确认");
+    const ack = await bridge.cancelFilmExportOperation(operationId);
+    if (exportExecutionScope.current?.operationId !== operationId) return true;
+    if (ack.snapshot) consumeExportEvent(ack.snapshot);
+    if (ack.kind === "UNAVAILABLE") return false;
+    if (ack.kind === "REQUESTED" || ack.kind === "STOPPED") return true;
+    const previous = exportExecutionRef.current;
+    if (previous) {
+      const unknown = {
+        ...previous,
+        phase: "unknown" as const,
+        cancelState: "unavailable" as const,
+        progress: undefined,
+      };
+      exportExecutionRef.current = unknown;
+      setExportExecution(unknown);
+    }
+    throw new Error("停止状态待确认");
+  }
+  useEffect(() => window.aijian?.onFilmExportProgress?.(consumeExportEvent), []);
+  useEffect(() => {
+    const scope = exportExecutionScope.current;
+    if (scope && !qcContextCurrent(scope.key)) {
+      exportExecutionScope.current = null;
+      exportExecutionRef.current = null;
+      setExportExecution(null);
+      void window.aijian?.cancelFilmExportOperation?.(scope.operationId).catch(() => undefined);
+    }
+  }, [exportQcKey]);
+  useEffect(
+    () => () => {
+      const scope = exportExecutionScope.current;
+      if (scope)
+        void window.aijian?.cancelFilmExportOperation?.(scope.operationId).catch(() => undefined);
+      exportExecutionScope.current = null;
+    },
+    [],
+  );
+  useEffect(() => {
+    if (exportQc?.ready && exportQcStale)
+      void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
+  }, [exportQc?.ready, exportQcStale]);
+  useEffect(
+    () => () => {
+      exportQcEpoch.current += 1;
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      if (exportQc?.ready)
+        void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
+    },
+    [exportQc?.ready],
+  );
+  async function prepareCheckedExport() {
+    const bridge = window.aijian,
+      current = filmRef.current;
+    if (
+      !current ||
+      !bridge?.prepareFilmExport ||
+      exportQcBusyRef.current ||
+      workOwners.has(current.id, "export")
+    )
+      return;
+    let captured = exportQcCurrent.current;
+    if (!captured.input) return;
+    const epoch = ++exportQcEpoch.current;
+    exportQcBusyRef.current = true;
+    setExportQcBusy(true);
+    setExportFile("");
+    setExportQcAspect(0);
+    const old = exportQc?.ready;
+    if (old) void bridge.discardFilmExport?.(old.qcReceipt).catch(() => undefined);
+    setExportQc({
+      ready: null,
+      key: captured.key,
+      input: captured.input,
+      error: null,
+      checking: true,
+    });
+    setNotice({ code: "EXPORT_QC_RUNNING", text: NOTICE_TEXT.EXPORT_QC_RUNNING });
+    const release = workOwners.begin(current.id, "export");
+    try {
+      let saved;
+      try {
+        saved = await saveFilm(current);
+      } catch {
+        throw new Error("not saved");
+      }
+      if (!saved) throw new Error("not saved");
+      if (
+        epoch !== exportQcEpoch.current ||
+        !qcContextCurrent(captured.key) ||
+        filmRef.current !== current
+      )
+        return;
+      const canonical = bridge.readFilmProject ? await bridge.readFilmProject(current.id) : saved;
+      if (!canonical || canonical.id !== current.id) throw new Error("not saved");
+      if (
+        epoch !== exportQcEpoch.current ||
+        !qcContextCurrent(captured.key) ||
+        filmRef.current !== current
+      )
+        return;
+      const normalized = upgradeFilm(canonical);
+      if (!normalized || normalized.id !== current.id) throw new Error("not saved");
+      applyLive(normalized);
+      const written = filmRef.current;
+      if (!written || written.id !== current.id) throw new Error("not saved");
+      captured = { key: filmQcKey(written, captured.input), input: captured.input };
+      exportQcCurrent.current = captured;
+      setExportQc({
+        ready: null,
+        key: captured.key,
+        input: captured.input,
+        error: null,
+        checking: true,
+      });
+      const operationId = beginExportExecution(captured.input!, captured.key);
+      const result = await bridge.prepareFilmExport(captured.input!, operationId);
+      if (epoch !== exportQcEpoch.current || !qcContextCurrent(captured.key)) {
+        if (result.kind === "READY")
+          void bridge.discardFilmExport?.(result.qcReceipt).catch(() => undefined);
+        return;
+      }
+      if (result.kind === "FAILED" && result.code === "OPERATION_STOPPED") {
+        setExportQc(null);
+        setNotice({
+          code: "OPERATION_CANCELLED",
+          text: NOTICE_TEXT.OPERATION_CANCELLED,
+          detail: "处理已经停止，未发布新文件。",
+        });
+        return;
+      }
+      if (result.kind !== "READY") {
+        const error = qcFailureText[result.code];
+        setExportQc({
+          ready: null,
+          key: captured.key,
+          input: captured.input,
+          error,
+          checking: false,
+        });
+        if (result.code === "CLEAN_COPY_REQUIRED")
+          setCleanCopyBlockedAt({ projectId: current.id, subtitles: exportSubs });
+        setNotice({ code: "EXPORT_QC_FAILED", text: NOTICE_TEXT.EXPORT_QC_FAILED, detail: error });
+        return;
+      }
+      if (
+        !result.outputs.length ||
+        result.outputs.some((output) => !readQcReport(output.report).ok)
+      )
+        throw new Error("invalid QC report");
+      setExportQc({
+        ready: result,
+        key: captured.key,
+        input: captured.input,
+        error: null,
+        checking: false,
+      });
+      setNotice({ code: "EXPORT_QC_READY", text: NOTICE_TEXT.EXPORT_QC_READY });
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.message === "not saved"
+          ? "工程还没保存，尚未检查，请先保存后重试。"
+          : qcFailureText.CHECK_FAILED;
+      if (epoch === exportQcEpoch.current && qcContextCurrent(captured.key)) {
+        setExportQc({
+          ready: null,
+          key: captured.key,
+          input: captured.input,
+          error: reason,
+          checking: false,
+        });
+        setNotice({ code: "EXPORT_QC_FAILED", text: NOTICE_TEXT.EXPORT_QC_FAILED });
+      }
+    } finally {
+      exportQcBusyRef.current = false;
+      setExportQcBusy(false);
+      release();
+      setExportQc((previous) => (previous?.checking ? { ...previous, checking: false } : previous));
+    }
+  }
+  async function publishCheckedExport() {
+    const check = exportQc,
+      bridge = window.aijian;
+    if (!check?.ready || !check.input || !bridge?.publishFilmExport || exportQcBusyRef.current)
+      return;
+    if (!qcContextCurrent(check.key)) {
+      setNotice({ code: "EXPORT_QC_STALE", text: NOTICE_TEXT.EXPORT_QC_STALE });
+      return;
+    }
+    if (
+      check.ready.outputs.some((output) => {
+        const read = readQcReport(output.report);
+        return !read.ok || read.report.issues.some((issue) => issue.severity === "block");
+      })
+    ) {
+      setNotice({ code: "EXPORT_QC_BLOCKED", text: NOTICE_TEXT.EXPORT_QC_BLOCKED });
+      return;
+    }
+    exportQcBusyRef.current = true;
+    setExportQcBusy(true);
+    try {
+      // The reviewed snapshot is already persisted. Any edit invalidates its key;
+      // rewriting it here could rematerialize data URLs into different files.
+      if (!qcContextCurrent(check.key)) return;
+      const operationId = beginExportExecution(check.input, check.key);
+      const result = await bridge.publishFilmExport(
+        {
+          ...check.input,
+          qcReceipt: check.ready.qcReceipt,
+        },
+        operationId,
+      );
+      if (!qcContextCurrent(check.key)) return;
+      if (result.kind === "CANCELLED") return;
+      if (result.kind === "FAILED") {
+        if (result.code === "OPERATION_STOPPED") {
+          setExportQc(null);
+          setNotice({
+            code: "OPERATION_CANCELLED",
+            text: NOTICE_TEXT.OPERATION_CANCELLED,
+            detail: "处理已经停止，未发布新文件。",
+          });
+          return;
+        }
+        setExportQc({ ...check, error: qcFailureText[result.code] });
+        setNotice({
+          code: "EXPORT_QC_FAILED",
+          text: NOTICE_TEXT.EXPORT_QC_FAILED,
+          detail: qcFailureText[result.code],
+        });
+        return;
+      }
+      const path = result.outputs[0]?.path;
+      let recorded = true;
+      setExportQc(null);
+      if (path && filmRef.current) {
+        const updated = { ...filmRef.current, exportPath: path };
+        applyLive(updated);
+        // Internal output bookkeeping is not a new execution or a new receipt input.
+        const execution = exportExecutionScope.current;
+        if (execution?.operationId === operationId)
+          execution.key = filmQcKey(filmRef.current, exportQcCurrent.current.input);
+        setExportFile(path);
+        try {
+          recorded = Boolean(await saveFilm(filmRef.current!));
+        } catch {
+          recorded = false;
+        }
+      }
+      if (filmRef.current?.id !== check.input.projectId) return;
+      setNotice({
+        code: result.kind === "PARTIAL" ? "EXPORT_FAILED" : "EXPORT_DONE",
+        text: result.kind === "PARTIAL" ? NOTICE_TEXT.EXPORT_FAILED : NOTICE_TEXT.EXPORT_DONE,
+        detail:
+          result.kind === "PARTIAL"
+            ? "已有文件保留，其余没有发布，请核对后重新检查。"
+            : !recorded
+              ? "文件已发布，工程中的导出记录尚未保存。"
+              : undefined,
+      });
+    } catch {
+      setNotice({ code: "EXPORT_QC_FAILED", text: NOTICE_TEXT.EXPORT_QC_FAILED });
+    } finally {
+      exportQcBusyRef.current = false;
+      setExportQcBusy(false);
+    }
+  }
+  function cancelCheckedExport() {
+    if (exportQcBusyRef.current) return;
+    exportExecutionScope.current = null;
+    exportExecutionRef.current = null;
+    setExportExecution(null);
+    exportQcEpoch.current += 1;
+    if (exportQc?.ready)
+      void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
+    setExportQc(null);
+    setNotice({
+      code: "OPERATION_CANCELLED",
+      text: NOTICE_TEXT.OPERATION_CANCELLED,
+      detail: "已取消审核，未发布成片。",
+    });
+  }
+  function fixExportIssue(issue: QcIssue) {
+    if (exportQcStale || exportQcBusyRef.current) return;
+    const span = exportQc?.ready?.shots.find(
+      (shot) => issue.time >= shot.start && issue.time < shot.end,
+    );
+    const target = span && filmRef.current?.shots.find((shot) => shot.id === span.id);
+    if (target) {
+      setScene(target.sceneId);
+      setShot(
+        filmRef
+          .current!.shots.filter((shot) => shot.sceneId === target.sceneId)
+          .findIndex((shot) => shot.id === target.id),
+      );
+    }
+    setExportOpen(false);
+    setStage("edit");
+  }
   const exportSettingsRef = useRef({ projectId: film?.id ?? "", subtitles: exportSubs });
   exportSettingsRef.current = { projectId: film?.id ?? "", subtitles: exportSubs };
   const cleanCopyBlocked =
@@ -3186,7 +3750,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setCleanCopyBlockedAt(null);
   }, [film?.id, exportSubs]);
   const canCropAspect =
-    typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
+    typeof window !== "undefined" && "prepareFilmExport" in (window.aijian ?? {});
   // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
   useDismiss(menu === "queue", () => setMenu(null), '[data-menu="queue"]');
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
@@ -3284,9 +3848,458 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [coverOpen, setCoverOpen] = useState(false);
   // 4C-U02: 作品设置, with the work's history.
   const [workSettings, setWorkSettings] = useState(false);
+  const persistentHistoryBusyRef = useRef(false);
+  const [persistentHistoryBusy, setPersistentHistoryBusy] = useState(false);
+  const [persistentHistory, setPersistentHistory] = useState<FilmHistoryEntry[] | null>(null);
+  const [persistentHistoryLoading, setPersistentHistoryLoading] = useState(false);
+  const [persistentHistoryError, setPersistentHistoryError] = useState<string | null>(null);
+  const [persistentHistoryUnreadable, setPersistentHistoryUnreadable] = useState(0);
+  const [persistentHistoryRestoring, setPersistentHistoryRestoring] = useState("");
+  const [persistentHistoryRefresh, refreshPersistentHistory] = useState(0);
+  const historyHost = {
+    current: () => filmRef.current,
+    apply: applyLive,
+    acquire: persistence.acquire,
+  };
+  useEffect(() => {
+    let active = true;
+    const bridge = window.aijian,
+      id = film?.id;
+    setPersistentHistoryError(null);
+    setPersistentHistoryLoading(false);
+    setPersistentHistoryUnreadable(0);
+    setPersistentHistory(null);
+    if (
+      !workSettings ||
+      !id ||
+      !bridge?.listFilmHistory ||
+      !bridge.captureFilmHistory ||
+      !bridge.restoreFilmHistory
+    )
+      return;
+    setPersistentHistoryLoading(true);
+    void bridge
+      .listFilmHistory(id)
+      .then((result) => {
+        if (!active || filmRef.current?.id !== id) return;
+        if (result.kind !== "LIST") throw new Error("HISTORY_READ_FAILED");
+        setPersistentHistory(result.entries);
+        setPersistentHistoryUnreadable(result.unreadable);
+        if (result.unreadable && !result.entries.length)
+          setPersistentHistoryError("已找到历史文件，但暂时无法核验，原文件已保留。");
+      })
+      .catch(() => {
+        if (active && filmRef.current?.id === id) {
+          setPersistentHistoryError(NOTICE_TEXT.HISTORY_READ_FAILED);
+          setNotice({ code: "HISTORY_READ_FAILED", text: NOTICE_TEXT.HISTORY_READ_FAILED });
+        }
+      })
+      .finally(() => {
+        if (active) setPersistentHistoryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workSettings, film?.id, persistentHistoryRefresh]);
+  function historyInputStale(error: unknown) {
+    return error instanceof Error && error.message === "HISTORY_STALE";
+  }
+  async function captureBeforePipeline(lease: Awaited<ReturnType<typeof persistence.acquire>>) {
+    try {
+      const base = filmRef.current;
+      if (!base) throw new Error("HISTORY_STALE");
+      const input = await prepareHistoryInput(base, historyHost, lease);
+      const result = await window.aijian!.captureFilmHistory!({
+        projectId: base.id,
+        expectedHash: input.expectedHash,
+        reason: "before-pipeline",
+      });
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
+      refreshPersistentHistory((value) => value + 1);
+      if (!input.current()) throw new Error("HISTORY_STALE");
+    } catch (error) {
+      const code = historyInputStale(error) ? "PIPELINE_REQUEST_STALE" : "HISTORY_BACKUP_FAILED";
+      throw Object.assign(new Error(code), { code });
+    }
+  }
+  async function captureBeforeGeneration(
+    base: FilmProject,
+    valid: () => boolean,
+    pipeline?: PipelineGenerationHost,
+  ) {
+    const bridge = window.aijian;
+    if (!bridge?.captureFilmHistory || !bridge.readFilmProject)
+      throw new Error("HISTORY_UNSUPPORTED");
+    if (pipeline) {
+      await pipeline.apply(base);
+      const accepted = filmRef.current;
+      if (!accepted || !valid()) throw new Error("HISTORY_STALE");
+      const stored = await bridge.readFilmProject(base.id);
+      if (!stored || stored.id !== base.id || filmRef.current !== accepted || !valid())
+        throw new Error("HISTORY_STALE");
+      const expectedHash = await historyRecordHash(stored);
+      const result = await bridge.captureFilmHistory({
+        projectId: base.id,
+        expectedHash,
+        reason: "before-batch-generation",
+      });
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
+      refreshPersistentHistory((value) => value + 1);
+      if (filmRef.current !== accepted || !valid()) throw new Error("HISTORY_STALE");
+      return accepted;
+    }
+    const input = await prepareHistoryInput(base, historyHost);
+    try {
+      const result = await bridge.captureFilmHistory({
+        projectId: base.id,
+        expectedHash: input.expectedHash,
+        reason: "before-batch-generation",
+      });
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
+      if (!input.current() || !valid()) throw new Error("HISTORY_STALE");
+    } finally {
+      await input.release();
+    }
+    if (!input.current() || !valid()) throw new Error("HISTORY_STALE");
+    refreshPersistentHistory((value) => value + 1);
+    return input.film;
+  }
+  function openSecondsRange() {
+    if (rangeWorking.current) return;
+    const target = shownShots[shot];
+    const take =
+      target?.takes.find((row) => row.id === target.selectedTakeId) ??
+      target?.takes.find((row) => row.status === "done" && row.videoPath);
+    setRangeReady(null);
+    rangeReadyRef.current = null;
+    setRangeMessage("");
+    if (!target || !take?.videoPath) {
+      // No source exists to splice. This remains the existing full-shot creation panel,
+      // with its explicit ordinary confirmation, never a claimed range replacement.
+      setRange(false);
+      setComparing(false);
+      setBench(true);
+      setStage("board");
+      return;
+    }
+    if (span && span.from !== span.to) {
+      setNotice({
+        code: "GENERATION_SELECTION_STALE",
+        text: NOTICE_TEXT.GENERATION_SELECTION_STALE,
+        detail: "秒级局部重做每次只处理一个镜头；请先选择其中一镜。",
+      });
+      return;
+    }
+    if (!rangeSeconds || rangeSeconds.shotId !== target.id || rangeSeconds.takeId !== take.id)
+      setRangeSeconds({
+        shotId: target.id,
+        takeId: take.id,
+        start: 0,
+        end: Math.min(2, take.durationSeconds ?? target.seconds),
+      });
+    setRangeDialog(true);
+  }
+  async function inspectSecondsRange() {
+    const bridge = window.aijian,
+      selected = rangeSeconds;
+    if (rangeWorking.current || !selected) return;
+    if (
+      !bridge?.prepareFilmRange ||
+      !bridge.generateFilmRange ||
+      !bridge.finishFilmRange ||
+      !bridge.discardFilmRange
+    ) {
+      setRangeMessage("秒级局部重做需要支持此功能的桌面版；本次没有生成。");
+      return;
+    }
+    rangeWorking.current = true;
+    rangeCancelled.current = false;
+    rangeExecuting.current = false;
+    setRangeBusy(true);
+    setRangeMessage("");
+    let input: Awaited<ReturnType<typeof prepareHistoryInput>> | undefined;
+    try {
+      const id = filmRef.current?.id;
+      await ensureBillingProject();
+      const base = filmRef.current;
+      if (!base || base.id !== id) return;
+      input = await prepareHistoryInput(base, historyHost);
+      rangeAccepted.current = input.film;
+      const result = await bridge.prepareFilmRange({
+        projectId: base.id,
+        shotId: selected.shotId,
+        takeId: selected.takeId,
+        start: selected.start,
+        end: selected.end,
+        expectedHash: input.expectedHash,
+      });
+      if (rangeCancelled.current) {
+        if (result.kind === "READY")
+          void bridge.discardFilmRange(base.id, result.planId).catch(() => undefined);
+        setRangeDialog(false);
+        return;
+      }
+      if (!input.current()) {
+        if (result.kind === "READY")
+          void bridge.discardFilmRange(base.id, result.planId).catch(() => undefined);
+        setRangeMessage("作品或版本已变化，请重新检查范围；本次没有生成。");
+        return;
+      }
+      if (result.kind !== "READY") {
+        setRangeMessage(
+          result.code === "CLEAN_SOURCE_REQUIRED"
+            ? "这份原片还没有可核验的无字幕来源。可先尝试本机恢复无字幕副本；仍无法核验时暂不支持本次局部重做。本次没有派发，不需要重新付费生成。"
+            : result.code === "INVALID_RANGE"
+              ? "请选择单镜内至少1秒、最多10秒且保留原片前段或后段的范围；不把整镜重做称为局部重做。"
+              : result.code === "SOURCE_UNVERIFIED"
+                ? "这份原片的归属暂无法核验，本次没有生成。"
+                : result.code === "PROJECT_CHANGED"
+                  ? "作品或版本已变化，请重新检查范围；本次没有生成。"
+                  : "原片规格或本机媒体工具暂不支持此范围，本次没有生成。",
+        );
+        return;
+      }
+      const ready = {
+        project: input.film,
+        shotId: selected.shotId,
+        takeId: selected.takeId,
+        planId: result.planId,
+        plan: result.plan,
+      };
+      rangeReadyRef.current = ready;
+      setRangeReady(ready);
+    } catch {
+      setRangeMessage("范围尚未检查，本次没有生成。请先保存作品后重试。");
+    } finally {
+      try {
+        if (input) await input.release();
+      } catch {
+        const pending = rangeReadyRef.current;
+        if (pending)
+          void bridge.discardFilmRange(pending.project.id, pending.planId).catch(() => undefined);
+        rangeReadyRef.current = null;
+        setRangeReady(null);
+        setRangeMessage("保存状态尚未确认，本次没有派发生成；请先核对保存状态。");
+      } finally {
+        rangeWorking.current = false;
+        rangeAccepted.current = null;
+        setRangeBusy(false);
+      }
+    }
+  }
+
+  async function confirmSecondsRange() {
+    const ready = rangeReadyRef.current,
+      bridge = window.aijian;
+    if (
+      !ready ||
+      rangeWorking.current ||
+      !bridge?.generateFilmRange ||
+      !bridge.prepareFilmRange ||
+      !bridge.finishFilmRange ||
+      !bridge.discardFilmRange
+    )
+      return;
+    if (
+      filmRef.current !== ready.project ||
+      !actions.regenerate.enabled ||
+      generationRuns.current.has(ready.project.id)
+    ) {
+      setRangeMessage("作品、选版或会员能力已变化，请重新检查；本次没有生成。");
+      return;
+    }
+    rangeWorking.current = true;
+    rangeCancelled.current = false;
+    rangeExecuting.current = true;
+    rangeAccepted.current = ready.project;
+    generationRuns.current.add(ready.project.id);
+    setRangeBusy(true);
+    setRangeReady(null);
+    setRangeMessage("正在生成所选画面段；生成结果会先保留，再检查是否能够接回原片。");
+    try {
+      const target = ready.project.shots.find((row) => row.id === ready.shotId)!;
+      const body = storyFilmBatches(
+        ready.project,
+        [{ ...target, line: "", lines: [], seconds: ready.plan.generationSeconds }],
+        ready.project.draft,
+      )[0];
+      const prompt = body?.shots?.[0]?.prompt;
+      if (!prompt) throw new Error("RANGE_PROMPT_REQUIRED");
+      const result = await executeRangeRedo(ready, prompt, {
+        ...historyHost,
+        gateway: {
+          prepareFilmRange: bridge.prepareFilmRange,
+          generateFilmRange: bridge.generateFilmRange,
+          finishFilmRange: bridge.finishFilmRange,
+          discardFilmRange: bridge.discardFilmRange,
+        },
+        cancelled: () => rangeCancelled.current,
+        apply: (next) => {
+          applyLive(next);
+          rangeAccepted.current = filmRef.current;
+        },
+        accept: (next) => {
+          applyLive(next);
+          rangeAccepted.current = filmRef.current;
+        },
+      });
+      if (filmRef.current?.id === ready.project.id)
+        setRangeMessage(
+          result === "applied"
+            ? "局部画面已接成一个新版本，原片和生成段均保留。原完整音轨未改，未验证口型。"
+            : result === "backup-failed"
+              ? "历史快照没有保存，本次没有派发生成。"
+              : result === "stale"
+                ? "作品或选版已变化，本次没有派发生成。"
+                : result === "not-started"
+                  ? "本机准备未完成，本次没有派发生成；请核对原片、媒体工具与账号。"
+                  : result === "unconfirmed"
+                    ? "生成结果尚未确认，请核对会员端与版本；未自动重试。"
+                    : "生成段已保留，尚未接回原片；请查看版本，不要重复派发。",
+        );
+    } catch {
+      if (filmRef.current?.id === ready.project.id)
+        setRangeMessage("本次结果尚未确认或尚未落盘，请核对版本与保存状态；未自动重试。");
+    } finally {
+      rangeReadyRef.current = null;
+      rangeWorking.current = false;
+      rangeAccepted.current = null;
+      generationRuns.current.delete(ready.project.id);
+      setRangeBusy(false);
+    }
+  }
+  function cancelSecondsRange() {
+    rangeCancelled.current = true;
+    const ready = rangeReadyRef.current;
+    if (ready)
+      void window.aijian?.discardFilmRange?.(ready.project.id, ready.planId).catch(() => undefined);
+    if (rangeWorking.current && !rangeExecuting.current) {
+      setRangeDialog(false);
+      return;
+    }
+    if (rangeWorking.current) {
+      setRangeMessage("已取消接回请求，正在等本次生成结果保留；不会自动重试，尚未确认进程停止。");
+      return;
+    }
+    rangeReadyRef.current = null;
+    setRangeReady(null);
+    setRangeDialog(false);
+  }
+  async function keepCurrentHistory() {
+    const base = filmRef.current;
+    if (!base || persistentHistoryBusyRef.current) return;
+    persistentHistoryBusyRef.current = true;
+    setPersistentHistoryBusy(true);
+    let input: Awaited<ReturnType<typeof prepareHistoryInput>> | undefined;
+    try {
+      input = await prepareHistoryInput(base, historyHost);
+      const result = await window.aijian!.captureFilmHistory!({
+        projectId: base.id,
+        expectedHash: input.expectedHash,
+        reason: "manual",
+      });
+      if (!input.current()) return;
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
+      setNotice({ code: "HISTORY_SAVED", text: NOTICE_TEXT.HISTORY_SAVED });
+      refreshPersistentHistory((value) => value + 1);
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice({ code: "HISTORY_BACKUP_FAILED", text: NOTICE_TEXT.HISTORY_BACKUP_FAILED });
+    } finally {
+      try {
+        await input?.release();
+      } catch {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "SAVE_FAILED", text: NOTICE_TEXT.SAVE_FAILED });
+      }
+      persistentHistoryBusyRef.current = false;
+      setPersistentHistoryBusy(false);
+    }
+  }
+  async function restoreKeptHistory(historyId: string) {
+    const base = filmRef.current;
+    if (!base || persistentHistoryBusyRef.current) return;
+    if (
+      generationRuns.current.has(base.id) ||
+      Object.keys(workOwners.progress("")).length ||
+      asking
+    ) {
+      setNotice({
+        code: "HISTORY_RESTORE_FAILED",
+        text: NOTICE_TEXT.HISTORY_RESTORE_FAILED,
+        detail: "当前生成或编辑任务还在进行，请等完成后再恢复。",
+      });
+      return;
+    }
+    persistentHistoryBusyRef.current = true;
+    setPersistentHistoryBusy(true);
+    setPersistentHistoryRestoring(historyId);
+    let input: Awaited<ReturnType<typeof prepareHistoryInput>> | undefined;
+    try {
+      input = await prepareHistoryInput(base, historyHost);
+      const result = await window.aijian!.restoreFilmHistory!({
+        projectId: base.id,
+        historyId,
+        expectedHash: input.expectedHash,
+      });
+      if (!input.current()) {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "HISTORY_STALE", text: NOTICE_TEXT.HISTORY_STALE });
+        return;
+      }
+      if (result.kind === "RESTORED" || result.kind === "PARTIAL") {
+        if (
+          result.project &&
+          typeof result.project === "object" &&
+          !Array.isArray(result.project)
+        ) {
+          const restored = upgradeFilm(result.project as Partial<FilmProject>);
+          if (!restored || restored.id !== base.id) throw new Error("HISTORY_STALE");
+          applyLive(restored);
+          resetHistory(filmRef.current!);
+          setScene(restored.scenes[0]?.id ?? scene);
+          setShot(0);
+          setPlaying(false);
+          setPending(null);
+          setPendingRole(null);
+        }
+        if (result.kind === "RESTORED")
+          setNotice({ code: "HISTORY_RESTORED", text: NOTICE_TEXT.HISTORY_RESTORED });
+        else
+          setNotice({
+            code: "HISTORY_RESTORE_FAILED",
+            text: NOTICE_TEXT.HISTORY_RESTORE_FAILED,
+            detail: "内容可能已写入，但保存尚未完整确认。恢复前版本已保留，请先核对再操作。",
+          });
+        refreshPersistentHistory((value) => value + 1);
+      } else
+        setNotice({
+          code: result.code === "PROJECT_CHANGED" ? "HISTORY_STALE" : "HISTORY_RESTORE_FAILED",
+          text:
+            result.code === "PROJECT_CHANGED"
+              ? NOTICE_TEXT.HISTORY_STALE
+              : NOTICE_TEXT.HISTORY_RESTORE_FAILED,
+          detail: result.unchanged
+            ? "当前作品没有改动，历史文件仍保留。"
+            : "当前保存状态尚未确认，请先核对。",
+        });
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice({ code: "HISTORY_RESTORE_FAILED", text: NOTICE_TEXT.HISTORY_RESTORE_FAILED });
+    } finally {
+      try {
+        await input?.release();
+      } catch {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "SAVE_FAILED", text: NOTICE_TEXT.SAVE_FAILED });
+      }
+      persistentHistoryBusyRef.current = false;
+      setPersistentHistoryBusy(false);
+      setPersistentHistoryRestoring("");
+    }
+  }
   // 4C-U03: 设置, the person's own defaults on this computer.
   const [appSettings, setAppSettings] = useState(false);
-  const [prefs, setPrefs] = useState(readPrefs);
   const changePrefs = (next: Partial<AppPrefs>) => {
     const merged = { ...prefs, ...next };
     setPrefs(merged);
@@ -3350,7 +4363,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         onRole={chooseRole}
         pending={pendingRole === role ? pending : null}
         onApply={applyPending}
-        onReject={() => markApplied(role)}
+        onReject={rejectPendingSuggestion}
         shots={shownShots}
         chat={chat}
         onChat={setChat}
@@ -3703,12 +4716,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 aria-describedby={exportView.ready ? undefined : "export-why"}
                 onClick={() => {
                   setExportOpen(true);
-                  if (!exportDir && prefs.exportDir) setExportDir(prefs.exportDir);
-                  else if (!exportDir) {
-                    void window.aijian?.defaultFilmFolder?.().then((dir) => {
-                      if (dir) setExportDir(dir);
-                    });
-                  }
                 }}
               >
                 <Ic name="upload" size={15} />
@@ -3804,7 +4811,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <ScriptPage
                   quiet={exportView.lead}
                   onNext={() => setStage("cast")}
-                  onReject={() => markApplied(role)}
+                  onReject={rejectPendingSuggestion}
                   film={film}
                   scene={scene}
                   onScene={(id) => {
@@ -3867,6 +4874,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onFilm={setFilm}
                   role={role}
                   onRole={chooseRole}
+                  card={roleCards[role] ?? null}
+                  turns={turns}
+                  busy={asking}
+                  onApply={applyPending}
+                  onReject={rejectPendingSuggestion}
+                  onQuick={(label) => {
+                    if (label.includes("美术")) void planArt();
+                    else sendChat();
+                  }}
                   onPortraits={makePortraits}
                   onTraits={(id, traits) =>
                     void productionActions.updateCharacterTraits(id, traits)
@@ -3943,7 +4959,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   promptSuggestion={promptSuggestion}
                   onRedoRange={redoFromReview}
                   onDismiss={keepReview}
-                  onReject={() => markApplied(role)}
+                  onReject={rejectPendingSuggestion}
                 />
               )}
               {stage === "board" && bench && (
@@ -3995,6 +5011,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "edit" && (
                 <EditPage
+                  waveformKeys={audioWaveforms.verified}
+                  waveformBusy={audioWaveforms.busy}
+                  onRefreshWaveforms={audioWaveforms.refresh}
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
                   onSceneMood={(sceneId, mood) => {
@@ -4046,13 +5065,41 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setComparing(true);
                     setRightTab("fix");
                   }}
-                  onMarkIn={() => {
+                  onMarkIn={(seconds) => {
+                    const target = shownShots[shot];
+                    const take =
+                      target?.takes.find((row) => row.id === target.selectedTakeId) ??
+                      target?.takes.find((row) => row.status === "done");
+                    if (target && take)
+                      setRangeSeconds({
+                        shotId: target.id,
+                        takeId: take.id,
+                        start: seconds,
+                        end:
+                          rangeSeconds?.shotId === target.id && rangeSeconds.takeId === take.id
+                            ? rangeSeconds.end
+                            : (take.durationSeconds ?? target.seconds),
+                      });
                     setSpan({ from: shot, to: span?.to ?? shot });
                     setRange(true);
                     setComparing(true);
                     setRightTab("fix");
                   }}
-                  onMarkOut={() => {
+                  onMarkOut={(seconds) => {
+                    const target = shownShots[shot];
+                    const take =
+                      target?.takes.find((row) => row.id === target.selectedTakeId) ??
+                      target?.takes.find((row) => row.status === "done");
+                    if (target && take)
+                      setRangeSeconds({
+                        shotId: target.id,
+                        takeId: take.id,
+                        start:
+                          rangeSeconds?.shotId === target.id && rangeSeconds.takeId === take.id
+                            ? rangeSeconds.start
+                            : 0,
+                        end: seconds,
+                      });
                     const from = span?.from ?? shot;
                     setSpan({ from: Math.min(from, shot), to: Math.max(from, shot) });
                     setRange(true);
@@ -4103,30 +5150,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setRange(true);
                     setRightTab("fix");
                   }}
-                  onRangeGenerate={() => {
-                    const from = span?.from ?? shot;
-                    const to = span?.to ?? shot;
-                    // 4A-U10: making a video always opens the same 单镜 panel; a longer part
-                    // of the cut is queued shot by shot.
-                    if (from === to) {
-                      setRange(false);
-                      setComparing(false);
-                      setShot(from);
-                      setBench(true);
-                      setStage("board");
-                      return;
-                    }
-                    const rows = shownShots.slice(Math.min(from, to), Math.max(from, to) + 1);
-                    if (rows.length === 0) return;
-                    setPendingBatch(rows);
-                    const names = rows
-                      .map((item) => {
-                        const no = film?.scenes.find((row) => row.id === item.sceneId)?.no;
-                        return no ? `第 ${no} 场第 ${item.no} 个镜头` : `第 ${item.no} 个镜头`;
-                      })
-                      .join("、");
-                    setNotice(`只重做${names}。在确认表里点「开始生成」才会出视频。`);
-                  }}
+                  onRangeGenerate={openSecondsRange}
                   onClearRange={() => {
                     setRange(false);
                     setComparing(false);
@@ -4274,12 +5298,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
           <div className="sb-right">
             <span className="where">
-              {savedDirectory
-                ? "作品保存在"
-                : savingDisk
-                  ? "正在保存…"
-                  : diskError ||
-                    (filmDiskReady()
+              {savingDisk
+                ? "正在保存…"
+                : (diskError?.projectId === film?.id ? diskError?.message : "") ||
+                  (savedDirectory
+                    ? "作品保存在"
+                    : filmDiskReady()
                       ? "已保存在这台电脑上"
                       : import.meta.env.DEV
                         ? BROWSER_DIRECTORY
@@ -4312,6 +5336,104 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </div>
           </div>
         )}
+        {rangeDialog && rangeSeconds && (
+          <div className="dialog-back">
+            <div
+              className="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label="秒级局部重做"
+              style={{ maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}
+            >
+              <h2>秒级局部重做 · 仅画面</h2>
+              {film &&
+                film.shots
+                  .filter((item) => item.id === rangeSeconds.shotId)
+                  .map((item) => (
+                    <p key={item.id}>{scopeOf(film, item.sceneId, item)} · 当前所选版本</p>
+                  ))}
+              <p>
+                每次处理单镜内1–10秒。保留原完整音轨，不重做对白，不验证口型。只使用可核验的无字幕画面，保留原字幕布局供导出；预览不烧入字幕，请在导出时重新检查。
+              </p>
+              <p>
+                当前没有可靠的逐句语音时间；无法精确扩展整句。需要修改台词时请取消，保守重做整镜。
+              </p>
+              <p>目前请从保留的原版开始；本机拼接版暂不支持再次局部重做，原版不会删除。</p>
+              <label>
+                入点（秒）
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  aria-label="局部重做入点"
+                  disabled={rangeBusy}
+                  value={rangeSeconds.start}
+                  onChange={(event) => {
+                    setRangeSeconds({ ...rangeSeconds, start: Number(event.target.value) });
+                    setRangeReady(null);
+                    rangeReadyRef.current = null;
+                  }}
+                />
+              </label>
+              <label>
+                出点（秒）
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  aria-label="局部重做出点"
+                  disabled={rangeBusy}
+                  value={rangeSeconds.end}
+                  onChange={(event) => {
+                    setRangeSeconds({ ...rangeSeconds, end: Number(event.target.value) });
+                    setRangeReady(null);
+                    rangeReadyRef.current = null;
+                  }}
+                />
+              </label>
+              {rangeReady && (
+                <div role="status">
+                  <p>
+                    请求范围 {rangeReady.plan.requested.start.toFixed(3)}–
+                    {rangeReady.plan.requested.end.toFixed(3)} 秒
+                  </p>
+                  <p>
+                    按原片 {rangeReady.plan.frameRate} 帧/秒对齐后：
+                    {rangeReady.plan.effective.start.toFixed(3)}–
+                    {rangeReady.plan.effective.end.toFixed(3)} 秒
+                  </p>
+                  <p>
+                    {confirmEstimate([{ seconds: rangeReady.plan.generationSeconds }], 1)}
+                    ；需要的首帧从原片本机提取。只派发一次，接回失败不自动重试。
+                  </p>
+                </div>
+              )}
+              {rangeMessage && <p role="status">{rangeMessage}</p>}
+              <div className="dialog-actions">
+                <button className="btn" onClick={cancelSecondsRange}>
+                  {rangeBusy ? (rangeExecuting.current ? "取消接回" : "取消检查") : "取消"}
+                </button>
+                {rangeReady ? (
+                  <button
+                    className="btn primary"
+                    disabled={rangeBusy}
+                    onClick={() => void confirmSecondsRange()}
+                  >
+                    确认生成此画面段
+                  </button>
+                ) : (
+                  <button
+                    className="btn primary"
+                    disabled={rangeBusy}
+                    onClick={() => void inspectSecondsRange()}
+                  >
+                    检查秒级范围
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {pendingBatch && (
           <div className="dialog-back">
             <div
@@ -4327,17 +5449,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     <th>镜头</th>
                     <th>秒数</th>
                     <th>台词</th>
-                    <th>声音来源</th>
+                    <th>台词的声音</th>
                     <th>配乐</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pendingBatch.map((item) => (
                     <tr key={item.id}>
-                      <td>镜头 {item.no}</td>
+                      <td>{(film && scopeOf(film, item.sceneId, item)) || `镜头 ${item.no}`}</td>
                       <td>{item.seconds}</td>
                       <td>{item.line.trim() || "无"}</td>
-                      <td>{item.line.trim() ? "另外配音" : "无台词"}</td>
+                      <td>{item.line.trim() ? "另外配音" : "没有台词"}</td>
                       <td>
                         {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
                           ? "已导入"
@@ -4351,10 +5473,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               {draftFaceWarning(Boolean(film?.draft)) ? (
                 <p>{draftFaceWarning(Boolean(film?.draft))}</p>
               ) : null}
-              {pendingBatch.some((item) => fitShotToLine(item).warning) ? (
+              {pendingBatch.some(
+                (item) =>
+                  fitShotToLine(
+                    item,
+                    film?.scenes.find((sceneItem) => sceneItem.id === item.sceneId)?.no,
+                  ).warning,
+              ) ? (
                 <p>
                   {pendingBatch
-                    .map((item) => fitShotToLine(item).warning)
+                    .map(
+                      (item) =>
+                        fitShotToLine(
+                          item,
+                          film?.scenes.find((sceneItem) => sceneItem.id === item.sceneId)?.no,
+                        ).warning,
+                    )
                     .filter(Boolean)
                     .join("")}
                 </p>
@@ -4615,8 +5749,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               </section>
               <section className="ws-sec" aria-label="历史版本">
                 <h3>历史版本</h3>
-                {/* GPT 4C-B02 gives the kept versions and restores one (next/INTEGRATION.md). */}
-                <HistoryList entries={null} onRestore={() => undefined} />
+                {window.aijian?.captureFilmHistory &&
+                window.aijian.restoreFilmHistory &&
+                window.aijian.listFilmHistory ? (
+                  <button
+                    className="btn sm"
+                    disabled={persistentHistoryBusy}
+                    onClick={() => void keepCurrentHistory()}
+                  >
+                    {persistentHistoryBusy ? "正在处理历史版本…" : "保存当前版本"}
+                  </button>
+                ) : null}
+                {persistentHistoryUnreadable > 0 && persistentHistory?.length ? (
+                  <p className="role-desc">
+                    有 {persistentHistoryUnreadable} 份历史暂时无法核验，原文件已保留。
+                  </p>
+                ) : null}
+                <HistoryList
+                  key={film?.id}
+                  entries={persistentHistory?.map(historyEntryView) ?? null}
+                  loading={persistentHistoryLoading}
+                  error={persistentHistoryError}
+                  restoring={persistentHistoryRestoring || (persistentHistoryBusy ? "saving" : "")}
+                  onRestore={(id) => void restoreKeptHistory(id)}
+                />
               </section>
               <div className="acts">
                 <span className="sp" />
@@ -4774,46 +5930,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </div>
                     </div>
                   ) : null}
-                  <div className="field">
-                    <label htmlFor="export-dir">保存到</label>
-                    <div className="pathrow">
-                      {/* The box shows a long path with its middle cut out; typing shows all of it. */}
-                      <div className="pathfield" data-layer title={exportDir}>
-                        <input
-                          id="export-dir"
-                          className="input"
-                          aria-label="导出文件夹"
-                          value={exportDir}
-                          placeholder="点「浏览」选一个文件夹"
-                          onChange={(event) => setExportDir(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key !== "Enter") return;
-                            event.preventDefault();
-                            const path = event.currentTarget.value.trim();
-                            if (!path) return;
-                            setExportDir(path);
-                            void startExport(path);
-                          }}
-                        />
-                        {exportDir ? (
-                          <span className="pathshow" aria-hidden="true">
-                            {middlePath(exportDir)}
-                          </span>
-                        ) : null}
-                      </div>
-                      <button
-                        className="btn sm"
-                        type="button"
-                        onClick={() => {
-                          void window.aijian?.pickFilmFolder?.().then((dir) => {
-                            if (dir) setExportDir(dir);
-                          });
-                        }}
-                      >
-                        浏览
-                      </button>
-                    </div>
-                  </div>
+                  <p className="role-desc">审核后选择保存位置，检查阶段不会发布文件。</p>
                   <p className="export-line" data-testid="export-summary">
                     {film ? exportLine(film) : "还没有作品。"}
                   </p>
@@ -4830,9 +5947,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </ul>
                     </details>
                   ) : null}
-                  {partialExport && partialExport.length > 0 ? (
-                    <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
-                  ) : null}
                   {film && cleanCopyBlocked ? (
                     <CleanCopyRepair
                       mode="export"
@@ -4841,8 +5955,82 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       onRepair={() => void repairCleanCopies(null)}
                     />
                   ) : null}
+                  {exportExecution ? (
+                    <ExportProgress
+                      operationKey={exportExecution.operationId}
+                      phase={exportExecution.phase}
+                      progress={exportExecution.progress}
+                      cancelState={exportExecution.cancelState}
+                      published={exportExecution.published}
+                      onRequestCancel={() => requestExportStop(exportExecution.operationId)}
+                    />
+                  ) : null}
+                  {film &&
+                  exportQc?.error === qcFailureText.SOURCE_UNVERIFIED &&
+                  window.aijian?.recoverFilmCleanCopy ? (
+                    <div className="field">
+                      <p>
+                        已有无字幕副本无法核验时，可从原片的合成记录在本机重建；原片和旧副本都会保留。
+                      </p>
+                      {legacyCleanCopyTargets(film).map((target) => (
+                        <button
+                          key={target.shotId}
+                          className="btn"
+                          disabled={recoveryBusy || exportQcBusy}
+                          onClick={() => void recoverLegacyCleanCopy(target.shotId)}
+                        >
+                          {recoveryBusy
+                            ? "正在本机重建…"
+                            : `${target.label}：重建可核验的无字幕副本`}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {exportQc ? (
+                    <>
+                      {exportQc.error ? (
+                        <p role="alert" className="role-desc">
+                          {exportQc.error}
+                        </p>
+                      ) : null}
+                      {exportQc.ready && exportQc.ready.outputs.length > 1 ? (
+                        <div className="seg" aria-label="检查画幅">
+                          {exportQc.ready.outputs.map((output, index) => (
+                            <button
+                              key={output.aspectRatio}
+                              className={exportQcAspect === index ? "on" : ""}
+                              onClick={() => setExportQcAspect(index)}
+                            >
+                              {output.aspectRatio}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      <ExportCheck
+                        reviewMode
+                        checking={exportQc.checking}
+                        error={exportQc.error}
+                        busy={exportQcBusy}
+                        stale={exportQcStale}
+                        report={exportQc.ready?.outputs[exportQcAspect]?.report ?? null}
+                        shots={exportQc.ready?.shots}
+                        fileName={exportQc.ready?.fileName}
+                        unverified={exportQc.ready?.unverified}
+                        publishBlocked={exportQc.ready?.outputs.some((output) => {
+                          const read = readQcReport(output.report);
+                          return (
+                            !read.ok ||
+                            read.report.issues.some((issue) => issue.severity === "block")
+                          );
+                        })}
+                        onFix={fixExportIssue}
+                        onExport={() => void publishCheckedExport()}
+                        onCancel={cancelCheckedExport}
+                      />
+                    </>
+                  ) : null}
                   {/* 4B-U06: the export's progress stays in the dialog. */}
-                  {exporting ? (
+                  {exporting && !exportQc ? (
                     <div className="export-progress" role="status">
                       <span className="bar" aria-hidden="true" />
                       <span>正在导出：拼接、混音、写文件。长一点的片子要几分钟。</span>
@@ -4875,18 +6063,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </>
                     ) : null}
                     <span className="sp" />
-                    {partialExport && partialExport.length > 0 && (
-                      <button className="btn" onClick={() => void startExport(exportDir, true)}>
-                        只导出已生成的
+                    {!exportQc ? (
+                      <button
+                        className="btn primary"
+                        disabled={exporting || cleanCopyBusy || exportQcBusy}
+                        onClick={() => void startExport()}
+                      >
+                        检查成片
                       </button>
-                    )}
-                    <button
-                      className="btn primary"
-                      disabled={exporting || cleanCopyBusy}
-                      onClick={() => void startExport()}
-                    >
-                      {exporting ? "正在导出" : "导出"}
-                    </button>
+                    ) : null}
                   </div>
                 </>
               )}
@@ -5084,7 +6269,24 @@ function Assistant({
             </button>
           </div>
         ) : null}
-        {listScenes || listShots ? (
+        {card?.mode === "art" && card.fieldRows !== undefined ? (
+          <>
+            <p className="role-desc">
+              改画风会把已有镜头标为需要重做，原有素材会保留，不会自动重新生成。
+            </p>
+            <SuggestionCard
+              unit="shot"
+              current={[]}
+              proposed={[]}
+              fieldRows={card.fieldRows}
+              applied={card.applied}
+              busy={busy}
+              onApply={onApply}
+              onAnother={onSend}
+              onReject={onReject}
+            />
+          </>
+        ) : listScenes || listShots ? (
           // 4A-U11: 「现在 6 个 → 建议 4 个」, each line marked, and 放进 / 换一个 / 不要.
           <SuggestionCard
             unit={listScenes ? "scene" : "shot"}
@@ -5651,6 +6853,12 @@ function CastPage({
   chat,
   onChat,
   onSend,
+  card,
+  turns,
+  busy: assistantBusy,
+  onApply,
+  onReject,
+  onQuick,
 }: {
   film: FilmProject;
   onFilm: (film: FilmProject) => void;
@@ -5670,6 +6878,12 @@ function CastPage({
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
+  card: RoleCard | null;
+  turns: Parameters<typeof Assistant>[0]["turns"];
+  busy: boolean;
+  onApply: () => void;
+  onReject: () => void;
+  onQuick: (label: string) => void;
   /** 4A-U09: 导出成片 is this screen's primary button, so this page's steps back. */
   quiet?: boolean;
   /** 「下一步：分镜」, the primary button once everyone has an appearance and four portraits. */
@@ -6424,7 +7638,12 @@ function CastPage({
           role={role}
           onRole={onRole}
           pending={null}
-          onApply={() => undefined}
+          onApply={onApply}
+          onReject={onReject}
+          onQuick={onQuick}
+          card={card}
+          turns={turns}
+          busy={assistantBusy}
           shots={film.shots}
           chat={chat}
           onChat={onChat}
@@ -7845,7 +9064,7 @@ function GeneratePage({
                     {takes.length > 0 ? (
                       <span className="badge none">{picked?.reason || "这一版还没有画面"}</span>
                     ) : still ? (
-                      <span className="still-note">还没有视频，这是起始画面</span>
+                      <span className="still-note">还没有视频，这是开头画面</span>
                     ) : null}
                   </div>
                 );
@@ -7899,7 +9118,7 @@ function GeneratePage({
             </div>
             <div className="pb" style={{ padding: "12px 14px" }}>
               <div className="sec-t">
-                起始画面<span className="from role-d">这一镜自己的画面</span>
+                开头画面<span className="from role-d">这一镜自己的画面</span>
                 <span className="sp" />
                 <span>不是定妆照</span>
               </div>
@@ -8039,21 +9258,31 @@ function GeneratePage({
 }
 
 /**
- * 4B-U02: the room left in an audio clip for its waveform. GPT's C3 gives the peaks
- * (`waveform`, 0–1, evenly spaced); until then the strip stays empty.
+ * 4B-U02: only main-verified source peaks are shown; unavailable sources remain empty.
  */
-function Wave({ clip }: { clip: AudioClip }) {
-  const peaks = (clip as AudioClip & { waveform?: number[] }).waveform;
-  if (!peaks || peaks.length < 2) return <span className="wave" aria-hidden="true" />;
+function Wave({ clip, verifiedKey }: { clip: AudioClip; verifiedKey?: string }) {
+  const waveform = clip.waveform;
+  const measuredToken = audioWaveformToken(waveform);
+  const peaks =
+    waveform && measuredToken && verifiedKey === measuredToken ? waveform.peaks : undefined;
+  if (!(clip.durationSeconds > 0) || !peaks || peaks.length < 2)
+    return <span className="wave" aria-hidden="true" />;
+  const coverage = Math.min(1, waveform!.analyzedSeconds / clip.durationSeconds);
   const points = peaks
-    .map((peak, index) => {
-      const x = (index / (peaks.length - 1)) * 100;
-      const y = 50 - Math.max(0, Math.min(1, peak)) * 48;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
+    .map(
+      (peak, index) =>
+        `${((index / (peaks.length - 1)) * 100 * coverage).toFixed(2)},${(50 - peak * 48).toFixed(2)}`,
+    )
     .join(" ");
   return (
-    <svg className="wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      className="wave"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="已核对音源的波形（混音前）"
+    >
+      <title>音源裁剪窗口的单声道峰值，按实际测得时长定位；未覆盖部分留白，不代表最终混音。</title>
       <polyline points={points} />
     </svg>
   );
@@ -8065,12 +9294,14 @@ function Wave({ clip }: { clip: AudioClip }) {
  * with a note that there is no sound yet.
  */
 function PlanLane({
+  waveformKeys,
   lane,
   film,
   shots,
   clips,
   zoom = PX_PER_SECOND,
 }: {
+  waveformKeys: Readonly<Record<string, string>>;
   lane: "ambience" | "sfx";
   film: FilmProject;
   shots: FilmShot[];
@@ -8115,7 +9346,7 @@ function PlanLane({
             width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
           }}
         >
-          <Wave clip={item} />
+          <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
           <span className="tx">{name}</span>
         </div>
       ))}
@@ -8140,6 +9371,9 @@ function PlanLane({
 }
 
 function EditPage({
+  waveformKeys,
+  waveformBusy,
+  onRefreshWaveforms,
   onMute,
   assistant = null,
   onSceneMood,
@@ -8176,6 +9410,9 @@ function EditPage({
   musicRestore = -14,
   hearLane = "",
 }: {
+  waveformKeys: Readonly<Record<string, string>>;
+  waveformBusy: boolean;
+  onRefreshWaveforms: () => void;
   film: FilmProject;
   shot: number;
   onShot: (index: number) => void;
@@ -8199,8 +9436,8 @@ function EditPage({
   audible: boolean;
   onImportMusic: (file: File) => void;
   onRewrite: (picture: string) => void;
-  onMarkIn: () => void;
-  onMarkOut: () => void;
+  onMarkIn: (seconds: number) => void;
+  onMarkOut: (seconds: number) => void;
   span: { from: number; to: number } | null;
   shots: FilmShot[];
   onLane?: (lane: "dialogue" | "score", gainDb: number) => void;
@@ -8430,6 +9667,10 @@ function EditPage({
     headLeft = (selected?.left ?? 1) + fraction * (selected?.width ?? 0);
     headSeconds = start + fraction * current.seconds;
   }
+  const sourceSeconds = joined
+    ? (cutPosition(segments, mediaTime)?.fraction ?? 0) *
+      (chosenTake?.durationSeconds ?? current?.seconds ?? 0)
+    : mediaTime;
   const seekTo = (x: number) => {
     const point = pointAt(clips, x);
     if (!point) return;
@@ -8653,7 +9894,9 @@ function EditPage({
                   字幕
                 </button>
               </div>
-              <span className="meta">{film.title}</span>
+              <span className="meta" title={film.title}>
+                {film.title}
+              </span>
               <span className="sp" />
               {monitor === "preview" ? (
                 <button
@@ -8859,7 +10102,7 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
-            {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
+            {/* 4C-U01: coarse shot selection; the dialog checks actual seconds. Speech stays unchanged. */}
             <span className="lab">
               已选{" "}
               {picked.first === picked.last
@@ -8870,12 +10113,12 @@ function EditPage({
             {picked.hasLine ? (
               <span
                 className="sel-hint"
-                title="台词不会从中间切开：选到一句台词的一部分，重做时这一整句都会重来。"
+                title="当前没有可靠的逐句语音对齐，秒级重做不自动扩展整句，也不重配对白或验证口型。"
               >
-                这句台词会整句重来
+                仅重做画面，保留原音轨
               </span>
             ) : null}
-            {/* 4A-U10: one 重新生成. One shot opens its 单镜 panel, a longer part is queued. */}
+            {/* 4C-U01: an existing take opens seconds review; a shot without video opens ordinary creation. */}
             <button
               className="btn primary"
               title={actions.regenerate.reason}
@@ -8908,6 +10151,14 @@ function EditPage({
             <span className="sp" />
             {zoomControls}
             {importMusic}
+            <button
+              className="btn sm"
+              disabled={waveformBusy}
+              onClick={onRefreshWaveforms}
+              title="核对本机音源并读取混音前的波形，不生成声音"
+            >
+              {waveformBusy ? "读取波形中" : "刷新音频波形"}
+            </button>
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
             </button>
@@ -8927,10 +10178,20 @@ function EditPage({
               <Ic name="trash" />
             </button>
             <span className="vsep" />
-            <button className="icon-btn" aria-label="设入点" title="设入点 (I)" onClick={onMarkIn}>
+            <button
+              className="icon-btn"
+              aria-label="设入点"
+              title="设入点 (I)"
+              onClick={() => onMarkIn(sourceSeconds)}
+            >
               <Ic name="bracketL" />
             </button>
-            <button className="icon-btn" aria-label="设出点" title="设出点 (O)" onClick={onMarkOut}>
+            <button
+              className="icon-btn"
+              aria-label="设出点"
+              title="设出点 (O)"
+              onClick={() => onMarkOut(sourceSeconds)}
+            >
               <Ic name="bracketR" />
             </button>
             <span className="sp" />
@@ -8951,6 +10212,14 @@ function EditPage({
             ) : null}
             {zoomControls}
             {importMusic}
+            <button
+              className="btn sm"
+              disabled={waveformBusy}
+              onClick={onRefreshWaveforms}
+              title="核对本机音源并读取混音前的波形，不生成声音"
+            >
+              {waveformBusy ? "读取波形中" : "刷新音频波形"}
+            </button>
           </div>
         )}
         <div className="tbody">
@@ -9147,8 +10416,11 @@ function EditPage({
                 {clips.map((clip, index) => {
                   const item = shots[index];
                   const ready = item ? shotReady(item) : false;
-                  const name = `镜头 ${item?.no ?? index + 1}`;
-                  const waiting = `${name} 还没生成（${item?.seconds ?? 0} 秒）`;
+                  const scene = film.scenes.find((row) => row.id === item?.sceneId);
+                  const number = item?.no ?? index + 1;
+                  const name = scene ? `${scene.no}-${number}` : `镜头 ${number}`;
+                  const fullName = (item && scopeOf(film, item.sceneId, item)) || `镜头 ${number}`;
+                  const waiting = `${fullName} 还没生成（${item?.seconds ?? 0} 秒）`;
                   return (
                     <button
                       key={clip.id}
@@ -9156,7 +10428,7 @@ function EditPage({
                         ready ? "clip v" : clip.folded ? "clip v empty folded" : "clip v empty"
                       }
                       style={{ left: clip.left, width: clip.width }}
-                      title={ready ? undefined : waiting}
+                      title={ready ? fullName : waiting}
                       aria-label={clip.folded ? "未生成" : undefined}
                       onClick={(event) => {
                         // A keyboard press has no pointer position: go to the clip's start.
@@ -9204,13 +10476,27 @@ function EditPage({
                         width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
                       }}
                     >
-                      <Wave clip={item} />
+                      <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">{item.label || "对白"}</span>
                     </div>
                   ))}
               </div>
-              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} zoom={zoom} />
-              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} zoom={zoom} />
+              <PlanLane
+                waveformKeys={waveformKeys}
+                lane="ambience"
+                film={film}
+                shots={shots}
+                clips={clips}
+                zoom={zoom}
+              />
+              <PlanLane
+                waveformKeys={waveformKeys}
+                lane="sfx"
+                film={film}
+                shots={shots}
+                clips={clips}
+                zoom={zoom}
+              />
               <div className="lane" style={{ height: "var(--ha)" }}>
                 {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
@@ -9222,16 +10508,20 @@ function EditPage({
                       key={item.id}
                       className="clip m"
                       style={{
-                        left: 1,
-                        width: Math.max(
-                          48,
-                          clips.reduce((sum, clip) => sum + clip.width, 0),
-                        ),
+                        left: Math.max(1, item.startSeconds * zoom + 1),
+                        width:
+                          item.durationSeconds > 0
+                            ? Math.max(12, Math.round(item.durationSeconds * zoom) - 2)
+                            : Math.max(
+                                48,
+                                clips.reduce((sum, clip) => sum + clip.width, 0),
+                              ),
                       }}
                     >
-                      <Wave clip={item} />
+                      <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">
                         导入的音乐
+                        {item.durationSeconds > 0 ? "" : " · 波形时长未确定"}
                         {shots.some((shotItem) => shotItem.line.trim()) ? " · 说话时变小" : ""}
                       </span>
                     </div>

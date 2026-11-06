@@ -12,6 +12,20 @@ function props(...args: Parameters<typeof exportCheckData>) {
 }
 
 describe("exportCheckData", () => {
+  it("preserves actual review guards and unverified items without inventing QC fields", () => {
+    const unverified = ["对白完整性需人工核对。"];
+    const data = props(sampleProjectJson(), SAMPLE_PROJECT_QC_REPORT, {
+      reviewMode: true,
+      busy: true,
+      stale: true,
+      publishBlocked: true,
+      unverified,
+    });
+    expect(data).toMatchObject({ reviewMode: true, busy: true, stale: true, publishBlocked: true });
+    expect(data.unverified).toBe(unverified);
+    expect(data.report).toBe(SAMPLE_PROJECT_QC_REPORT);
+  });
+
   it("lays out the shots the export joins, named by scene and shot", () => {
     const data = props(sampleProjectJson(), SAMPLE_PROJECT_QC_REPORT);
     expect(data.shots).toEqual([

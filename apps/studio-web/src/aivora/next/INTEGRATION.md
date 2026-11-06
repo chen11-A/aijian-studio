@@ -1,10 +1,16 @@
 # next 组件接线说明
 
-这份说明两边一起维护：第一部分是 GPT 写的逻辑和数据接口，第二部分是 Claude 写的界面接线。两部分说的是同一批组件，接口以第一部分为准，界面放在哪、怎么接以第二部分为准。
+当前任务与验门见[当前进度看板](../../../../../docs/aivora/当前进度.md)。退出保存已接中立`quit-save`请求/结果回执，onFlush返回取消订阅；历史接口仍开发中，不能用显示组件存在替代业务接线。
 
-# 第一部分：逻辑与界面交接（GPT）
+## Round6接入记录
 
-Claude 的六个组件（与 `aivora-next-components.zip` 相同，SHA-256 `0a73fd2f9c0ee88a222fc45f9db67f76c025f12aff8a12254042daa5a23ee394`）和适配层在 `claude/aivora-ui` 上，合并 `gpt/aivora-p3j@79e126d` 以后同在一个分支。下面是 GPT 的原文，只把开头这一段换成了合并后的情况。
+本机恢复d491b90已以07a2e15合入progress，保存/文案/Windows断言/诊断也已集成。后端定向desktop66、web93、Python12通过；总控独立相关Python全量36、完整desktop2078及type/build/原contracts/lint通过，renderer387文件4792项也通过。原片复用确实经固定FFmpeg和原QC得到READY；精确原proof不足的旧素材仍拒绝，不调用付费生成，不以此声称全量真实素材验收。后端转quit-save修退出前保存，界面在新art-style-diff做严格唯一画风字段整卡；当前遮挡诊断CI source e757e06/run42267712674还未含本机恢复，不能混用。最新活动表及CI见[开发计划](../../../../../docs/aivora/开发计划.md)。
+
+## Round5交付与接续分工记录
+
+B13已由总控提交f3dea3e（21文件），包含主进程真实阶段、独立执行ID/事件序号、实际close后的停止确认、partial保留及严格宿主迟到保护。GUI组件95a5fb2的40项由总控独立通过；e58026a增加32态浏览器门，原140态不删。完整本地TS已exit0：desktop123文件2059、renderer385文件4781、媒体17/QC11，renderer分支87.50%；原typecheck:ts/build/contracts:check/lint全过。新CI run42265535461已原140态成功，新增32有两处1280×800 stale-events遮挡导致job失败，受控诊断中；完整质量继续；未合dev、未称Windows真实取消成功。
+
+#696 Windows十项QC失败已定位DOS短名/长名比较；73749be修复后#698原十项失败已消除，剩三项旧fixture逐字短名断言。f981fa4只修测试，增加native精确参数、BigInt dev/ino及bytes验证，总控独立33项通过，已合入progress；待下一源码CI。原dev仍6d1e082，main不变。后端转clean-recovery补无付费旧clean恢复；界面copy-polish第一批0257507已交付168定向项，继续修已有目录时保存错误被旧成功信息遮住。实际notice消费者追查见文案剩余核对；阶段5-2持续审计已建立于docs/audit/5-2.md，不表示完整阶段5验收通过。
 
 ## 职责和当前交付边界
 
@@ -1152,3 +1158,5 @@ Round4 GUI显示已交付24ee160（位于codex/aivora-export-qc）：ExportCheck
 Round4最终接口/验门：da555d2/4badc24/ff4548a已提交，QC32门b18194b等待新源码CI。prepare提交前持久化并在无新编辑时同步main canonical快照，以真实live key固定审核；publish不重复物化，主进程再次校验；直接比较filmRef审阅key防同React批次旧callback。缺QC桥阻塞，原低级API无凭据但保留。最终clean-copy追加post-tag SHA/path/assembly证据，不改draft历史SHA；发布路径登记main allowlist。source强归属仅所选video，aux为持久引用/roots；旧无证据拒绝，待无付费恢复。root首轮全TS桌面2050/媒体17/QC11过、前端6失败已14定向修正、全TS最终复跑中；相关Python34、mypy310、修后type/build/contracts与静态过。progress独立74922c0纯组件35过，无B13接线/实际取消证明。
 
 最新接入：Round3基线663f6c9的CI #693整体Success，Linux127986935695/Windows127986935249与core24全部成功；总控以127ee760 --no-ff合dev，相对已验产品源码一致。QC另推eaff08b，新CI #696 core24/full60成功，其余尚在验；root完整TS最终复跑exit0（2050/4724+媒体17/QC11），renderer分支87.47%，相关Python34/静态门过，QC未混入本次dev源码。dev仅同步当前进度/中文草稿。B13在独立progress继续，GUI取消组件修正后37项，仅组件证明；事件/真实停止仍开发中。
+
+最新140态验收：eaff08b的CI #696/run42257745042 pro-layout job128029322839已全部succeeded（core24/full60/url24/QC32，证据上传成功），完整Linux/Windows质量仍Test。root通过9486b55同步已推dev6d1e082的文档/祖先，冲突仅root三份进度，产品源码未改。B13中立op/project/seq、ACK.snapshot与纯GUI接口已对齐，95a5fb2组件40项由root复跑；明确UNAVAILABLE false解锁、REQUESTED不等于stopped、旧attempt/未知网络不假取消，真实事件/宿主和下一轮浏览器门仍在开发。

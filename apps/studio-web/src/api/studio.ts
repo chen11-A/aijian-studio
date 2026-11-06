@@ -1,3 +1,12 @@
+import type { FilmRangeGateway } from "@aijian/contracts/film-range";
+import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
+import type {
+  FilmAudioWaveformInput,
+  FilmAudioWaveformResult,
+} from "@aijian/contracts/film-audio-waveform";
+import type { QuitSaveGateway } from "@aijian/contracts/quit-save";
+import type { CleanCopyRecoveryGateway } from "@aijian/contracts/clean-copy-recovery";
+import type { FilmExportQcGateway } from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskItem, BatchProgress } from "@aijian/contracts/task-progress";
 import type { AssemblyReadinessGateway } from "@aijian/contracts/assembly-readiness";
 import type { LocalMediaReviewGateway } from "@aijian/contracts/local-media-review";
@@ -989,6 +998,7 @@ export interface AijianDesktopBridge
       savedAt: string;
     }[]
   >;
+  readFilmAudioWaveform?: (input: FilmAudioWaveformInput) => Promise<FilmAudioWaveformResult>;
   readFilmProject?: (id: string) => Promise<Record<string, unknown> | null>;
   prepareFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -1013,8 +1023,8 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string; durations?: number[] }>;
   importMusic?: (seriesId: string, source: string) => Promise<{ path: string }>;
   filePath?: (file: File) => string;
-  flushed?: () => void;
-  onFlush?: (handler: () => void) => void;
+  flushed?: QuitSaveGateway["flushed"];
+  onFlush?: QuitSaveGateway["onFlush"];
   onTask?: (handler: TaskListener) => () => void;
   publishTasks?: (tasks: TaskItem[], batches: BatchProgress[]) => Promise<void>;
   generateFilmStill?: (
@@ -1025,6 +1035,19 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  listFilmHistory?: FilmHistoryGateway["listFilmHistory"];
+  prepareFilmRange?: FilmRangeGateway["prepareFilmRange"];
+  generateFilmRange?: FilmRangeGateway["generateFilmRange"];
+  finishFilmRange?: FilmRangeGateway["finishFilmRange"];
+  discardFilmRange?: FilmRangeGateway["discardFilmRange"];
+  captureFilmHistory?: FilmHistoryGateway["captureFilmHistory"];
+  restoreFilmHistory?: FilmHistoryGateway["restoreFilmHistory"];
+  recoverFilmCleanCopy?: CleanCopyRecoveryGateway["recoverFilmCleanCopy"];
+  prepareFilmExport?: FilmExportQcGateway["prepareFilmExport"];
+  publishFilmExport?: FilmExportQcGateway["publishFilmExport"];
+  cancelFilmExportOperation?: FilmExportQcGateway["cancelFilmExportOperation"];
+  onFilmExportProgress?: FilmExportQcGateway["onFilmExportProgress"];
+  discardFilmExport?: FilmExportQcGateway["discardFilmExport"];
   cancelFilmExport?: (requestId: string) => Promise<{ ok: boolean }>;
   exportFilmCut?: (
     source: string,
