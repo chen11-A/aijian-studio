@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-6d424149d4a2",
+  "sourceId": "music-6d424149d4a2",
+  "sourceSha256": "954f7a1596c489766962dad2b030606d0f9af0a20af4d5426442770827246122",
+  "outputSha256": "040860c5f935f246ff62be90ffcb09ce6f9adccf8abddd406287b47967e31b8c",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Beeper.mp3",
+  "duration": 40.32,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -22.08,
+  "truePeak": -1.55,
+  "samplePeak": -2.2879508837034823,
+  "targetLufs": -20,
+  "constantGainDb": 0.48999999999999977,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 90.94647916666666,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 2.4079166666666665,
+  "estimatedBpm": 95.23809523809524,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.004409000277519226,
+        "adjacentDifferenceP99": 0.23701830208301544,
+        "leftRightRmsRatio": 0.9476747423580967,
+        "seamNearbyRmsRatio": 1.3425253669754018,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.001122649759054184,
+        "adjacentDifferenceP99": 0.11102133989334106,
+        "leftRightRmsRatio": 0.9684089385029356,
+        "seamNearbyRmsRatio": 1.4150964178797867,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.048782728402242286
+}

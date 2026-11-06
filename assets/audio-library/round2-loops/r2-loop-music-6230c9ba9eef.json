@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-6230c9ba9eef",
+  "sourceId": "music-6230c9ba9eef",
+  "sourceSha256": "ed2c89dac1ead5b0c6519e9940e1d6d4b3d262780af93edc67fbf92b0b95bf5e",
+  "outputSha256": "df5758d7161e27bd2a57dd47d8d3f975518dded7a6daa311449baa5a0705dc5e",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Dubstepper.mp3",
+  "duration": 40.32,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -20.14,
+  "truePeak": -1.89,
+  "samplePeak": -1.9565013624651415,
+  "targetLufs": -20,
+  "constantGainDb": -0.19000000000000128,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 90.94589583333334,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 2.7192083333333334,
+  "estimatedBpm": 95.23809523809524,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 6.779655814170837e-05,
+        "adjacentDifferenceP99": 0.07252119481563568,
+        "leftRightRmsRatio": 0.9984416207031755,
+        "seamNearbyRmsRatio": 0.6046883985394572,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 4.9650901928544044e-05,
+        "adjacentDifferenceP99": 0.07237549126148224,
+        "leftRightRmsRatio": 0.9845438420739047,
+        "seamNearbyRmsRatio": 0.9582350492003637,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.01659284476090249
+}

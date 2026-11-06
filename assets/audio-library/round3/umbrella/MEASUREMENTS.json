@@ -1,0 +1,211 @@
+[
+  {
+    "id": "r3-umbrella-open-1",
+    "before": {
+      "loudness": -34.6,
+      "truePeak": -13.69,
+      "samplePeak": -14.269292
+    },
+    "iterations": [
+      {
+        "gain": 16.6,
+        "limit": 0.7,
+        "loudness": -20.02,
+        "truePeak": -2.82,
+        "samplePeak": -2.819663
+      }
+    ],
+    "after": {
+      "loudness": -20.02,
+      "truePeak": -2.82,
+      "samplePeak": -2.819663
+    }
+  },
+  {
+    "id": "r3-umbrella-open-2",
+    "before": {
+      "loudness": -26.79,
+      "truePeak": -0.28,
+      "samplePeak": -1.239209
+    },
+    "iterations": [
+      {
+        "gain": 8.79,
+        "limit": 0.7,
+        "loudness": -22.09,
+        "truePeak": -3.12,
+        "samplePeak": -3.158273
+      },
+      {
+        "gain": 12.879999999999999,
+        "limit": 0.7,
+        "loudness": -20.24,
+        "truePeak": -2.91,
+        "samplePeak": -2.916469
+      }
+    ],
+    "after": {
+      "loudness": -20.24,
+      "truePeak": -2.91,
+      "samplePeak": -2.916469
+    }
+  },
+  {
+    "id": "r3-umbrella-open-3",
+    "before": {
+      "loudness": -26.9,
+      "truePeak": 0.68,
+      "samplePeak": -0.862028
+    },
+    "iterations": [
+      {
+        "gain": 8.899999999999999,
+        "limit": 0.7,
+        "loudness": -25.36,
+        "truePeak": -3.03,
+        "samplePeak": -3.048937
+      },
+      {
+        "gain": 16.259999999999998,
+        "limit": 0.7,
+        "loudness": -21.29,
+        "truePeak": -2.99,
+        "samplePeak": -3.118211
+      },
+      {
+        "gain": 19.549999999999997,
+        "limit": 0.7,
+        "loudness": -19.55,
+        "truePeak": -3.06,
+        "samplePeak": -3.177106
+      }
+    ],
+    "after": {
+      "loudness": -19.55,
+      "truePeak": -3.06,
+      "samplePeak": -3.177106
+    }
+  },
+  {
+    "id": "r3-umbrella-close-1",
+    "before": {
+      "loudness": -39.28,
+      "truePeak": -11.92,
+      "samplePeak": -12.404422
+    },
+    "iterations": [
+      {
+        "gain": 21.28,
+        "limit": 0.7,
+        "loudness": -26.18,
+        "truePeak": -3.1,
+        "samplePeak": -3.300689
+      },
+      {
+        "gain": 29.46,
+        "limit": 0.7,
+        "loudness": -22.39,
+        "truePeak": -2.7,
+        "samplePeak": -2.910035
+      },
+      {
+        "gain": 33.85,
+        "limit": 0.7,
+        "loudness": -20.63,
+        "truePeak": -3.02,
+        "samplePeak": -3.024959
+      }
+    ],
+    "after": {
+      "loudness": -20.63,
+      "truePeak": -3.02,
+      "samplePeak": -3.024959
+    }
+  },
+  {
+    "id": "r3-umbrella-close-2",
+    "before": {
+      "loudness": -38.39,
+      "truePeak": -8.99,
+      "samplePeak": -9.228725
+    },
+    "iterations": [
+      {
+        "gain": 20.39,
+        "limit": 0.7,
+        "loudness": -24.99,
+        "truePeak": -3.28,
+        "samplePeak": -3.283513
+      },
+      {
+        "gain": 27.38,
+        "limit": 0.7,
+        "loudness": -21.61,
+        "truePeak": -2.86,
+        "samplePeak": -3.071864
+      },
+      {
+        "gain": 30.99,
+        "limit": 0.7,
+        "loudness": -19.9,
+        "truePeak": -2.95,
+        "samplePeak": -3.124146
+      }
+    ],
+    "after": {
+      "loudness": -19.9,
+      "truePeak": -2.95,
+      "samplePeak": -3.124146
+    }
+  },
+  {
+    "id": "r3-umbrella-close-3",
+    "before": {
+      "loudness": -30.29,
+      "truePeak": -8.76,
+      "samplePeak": -8.767005
+    },
+    "iterations": [
+      {
+        "gain": 12.29,
+        "limit": 0.7,
+        "loudness": -24.31,
+        "truePeak": -2.95,
+        "samplePeak": -2.954526
+      },
+      {
+        "gain": 18.599999999999998,
+        "limit": 0.7,
+        "loudness": -22.46,
+        "truePeak": -2.76,
+        "samplePeak": -2.760307
+      },
+      {
+        "gain": 23.06,
+        "limit": 0.7,
+        "loudness": -21.1,
+        "truePeak": -2.66,
+        "samplePeak": -2.713824
+      },
+      {
+        "gain": 26.16,
+        "limit": 0.7,
+        "loudness": -21.05,
+        "truePeak": -2.8,
+        "samplePeak": -2.816598
+      },
+      {
+        "gain": 29.21,
+        "limit": 0.7,
+        "loudness": -20.3,
+        "truePeak": -2.78,
+        "samplePeak": -2.790378
+      }
+    ],
+    "after": {
+      "loudness": -20.3,
+      "truePeak": -2.78,
+      "samplePeak": -2.790378
+    }
+  }
+]

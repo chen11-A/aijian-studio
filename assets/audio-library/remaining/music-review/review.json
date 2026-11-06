@@ -1,0 +1,66 @@
+{
+  "reviewedAt": "2026-11-04",
+  "tracks": [
+    "All The Way Sad",
+    "Sad Boi"
+  ],
+  "author": "HoliznaCC0",
+  "conclusion": "可按原作者明确的额外CC0授权保留；依据为当前整体授权、具体曲目关联及Bandcamp官方许可选项说明，不依据艺名或镜像标题。",
+  "recommendedLicense": "CC0-1.0",
+  "evidence": [
+    {
+      "source": "https://get.bandcamp.help/en/articles/15263459-how-do-i-change-the-license-on-my-music",
+      "type": "平台官方文档",
+      "directRead": true,
+      "finding": "界面六种选项，最宽松为attribution，不能直接表达CC0。"
+    },
+    {
+      "source": "https://buymeacoffee.com/holizna/large-library-free-use-music-attribution-cc0-uploaded-band-camp-share",
+      "type": "原作者站外声明",
+      "directRead": true,
+      "finding": "2022-02-23声明当时上传Bandcamp的35专辑全部CC0；不单独倒推覆盖后发曲目。"
+    },
+    {
+      "source": "https://holiznacc0.bandcamp.com/community",
+      "type": "原作者当前整体许可",
+      "directRead": true,
+      "finding": "当前音乐档案明确CC0，无需署名。"
+    },
+    {
+      "source": "https://holiznacc0.bandcamp.com/album/lofi-and-chill",
+      "type": "原作者专辑",
+      "directRead": true,
+      "finding": "第十首All The Way Sad，专辑正文public domain，另有BY页脚按钮。"
+    },
+    {
+      "source": "https://holiznacc0.bandcamp.com/album/left-overs",
+      "type": "原作者另一专辑",
+      "directRead": true,
+      "finding": "明确专辑public domain，但当前13曲不含Sad Boi，不能作为该曲直接列名证明。"
+    }
+  ],
+  "bandcampFooterLicense": "CC-BY-4.0",
+  "bandcampFooterOmitted": false,
+  "fmaDirectReadRetried": false,
+  "fmaEvidenceType": "此前官方页面搜索索引，非本次直接请求",
+  "originalSourceByteComparisonCompleted": false,
+  "audioChanged": false,
+  "manifestChanged": false,
+  "replacementTracksAdded": 0,
+  "fullReport": "remaining/music-review/HOLIZNA_REVIEW.md",
+  "identityCrossLinksVerified": true,
+  "identityCrossLinks": [
+    {
+      "from": "https://holiznacc0.bandcamp.com/community",
+      "link": "https://www.buymeacoffee.com/Holizna",
+      "resolved": "https://buymeacoffee.com/holizna"
+    },
+    {
+      "from": "https://buymeacoffee.com/holizna/large-library-free-use-music-attribution-cc0-uploaded-band-camp-share",
+      "link": "https://holiznacc0.bandcamp.com/",
+      "resolved": "https://holiznacc0.bandcamp.com/"
+    }
+  ],
+  "scope": "作者当前公开音乐档案的已发布音乐；不倒推2022帖子覆盖后来曲目，不扩展至全部Patreon作品或未来音乐。",
+  "sadBoiBandcampDirectListingFound": false
+}

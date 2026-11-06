@@ -1,0 +1,30 @@
+{
+  "id": "r2-loop-sfx-5f709f72838f",
+  "sha256": "0518dba5f043380606c654ec2a9c28ad4ab64700b0d6784ce6df4ab49c3efc32",
+  "duration": 40.002667,
+  "loudness": -18.19,
+  "truePeak": -2.86,
+  "samplePeak": -2.857373,
+  "seam": {
+    "channels": [
+      {
+        "boundary_sample_jump": 0.004313435405492783,
+        "adjacent_difference_p95": 0.024310149252414703,
+        "adjacent_difference_p99": 0.03279075026512146,
+        "boundary_difference_percentile": 27.88860827531681,
+        "boundary_to_p99_ratio": 0.13154427302265342,
+        "seam_window_ms_each_side": 20.0,
+        "seam_rms": 0.11659451076437537,
+        "nearby_rms": 0.13683739445827658,
+        "seam_to_nearby_rms_ratio": 0.8520661419048466,
+        "left_to_right_rms_ratio": 1.087130446323991,
+        "passed": true,
+        "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+      }
+    ],
+    "passed": true
+  },
+  "passed": true,
+  "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+  "subjectiveListeningPerformed": false
+}

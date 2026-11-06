@@ -1,0 +1,28 @@
+{
+  "id": "sfx-night-street-puebla-1",
+  "sourceSha256": "f86b1959ba782115ce972278df058f2fab7b8d589fa4ef36ced34b8057f4fa9d",
+  "outputSha256": "7ffd6b7d614e7604e491d37db339765893ea5cd5eb7a5711169c1c1f61ed9135",
+  "sourceSliceStart": 0,
+  "sourceSliceDuration": 40,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 0.7560625,
+  "duration": 39.0,
+  "loudness": -21.13,
+  "truePeak": -2.24,
+  "samplePeak": -2.2431852881236245,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0008218865841627121,
+        "adjacentDifferenceP99": 0.03868336230516434,
+        "leftRightRmsRatio": 1.005500484555251,
+        "seamNearbyRmsRatio": 1.0902353426608888,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false
+}

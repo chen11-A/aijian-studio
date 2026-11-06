@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "assets/audio-library/check.py",
+    "--ffmpeg",
+    "/usr/bin/ffmpeg",
+    "--ffprobe",
+    "/usr/bin/ffprobe",
+    "--strict-request"
+  ],
+  "exitCode": 0,
+  "manifestSha256": "decd6a61f403f94ecf825b7a1e9bd1d3558a35494140a1b98051efda40ad39d4",
+  "npmTests": 252,
+  "typecheck": "通过",
+  "pending": "收伞3人工听辨未完成。"
+}

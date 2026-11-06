@@ -1,0 +1,96 @@
+{
+  "id": "round3-hospital-corridor-451883-100",
+  "sourceSha256": "6ff3e8b922d548a61147727ddc8c0f4731626670335e11b1474e582ed6f8c790",
+  "outputSha256": "6dd0ea7461fddad6891d215a6105a1d7b0f0a71dbaccc8122f347c8f427f1515",
+  "sourceSliceStart": 100,
+  "sourceSliceDuration": 41,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 3.402041666666667,
+  "duration": 40,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -19.0,
+  "truePeak": -2.02,
+  "samplePeak": -2.1062656757628595,
+  "targetLufs": -18,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0013832133263349533,
+        "adjacentDifferenceP99": 0.07221268117427826,
+        "leftRightRmsRatio": 0.9680000247724294,
+        "seamNearbyRmsRatio": 0.6788213969464261,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "normalization": "三圈动态loudnorm，192kHz限幅后取中间一圈",
+  "probe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "vorbis",
+        "codec_long_name": "Vorbis",
+        "codec_type": "audio",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 0,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 1920000,
+        "duration": "40.000000",
+        "bit_rate": "96000",
+        "extradata_size": 3832,
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "encoder": "Lavc61.19.101 libvorbis"
+        }
+      }
+    ],
+    "format": {
+      "filename": "/workspace/aijian-studio/assets/audio-library/round3/ambience/round3-hospital-corridor-451883-100.ogg",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "ogg",
+      "format_long_name": "Ogg",
+      "start_time": "0.000000",
+      "duration": "40.000000",
+      "size": "366331",
+      "bit_rate": "73266",
+      "probe_score": 100
+    }
+  }
+}

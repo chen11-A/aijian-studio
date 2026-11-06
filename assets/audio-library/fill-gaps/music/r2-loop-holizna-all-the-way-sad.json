@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-holizna-all-the-way-sad",
+  "sourceId": "holizna-all-the-way-sad",
+  "sourceSha256": "c231023cc1a0b9c1853d2a398d00b70380df771d62b4adfd63d6d7ed6d0915b8",
+  "outputSha256": "7a1d3f19b6f24bf6851b55886425d419aef995438504cbd3af2c48b86a3fd70d",
+  "source": "https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/all-the-way-sad/",
+  "duration": 33.92,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -20.24,
+  "truePeak": -7.24,
+  "samplePeak": -7.243878468929534,
+  "targetLufs": -20,
+  "constantGainDb": -7.6,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 186.28897916666668,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 1.2330416666666666,
+  "estimatedBpm": 113.20754716981132,
+  "stereoDifferenceRms": 0.05466212164837116,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0020174942910671234,
+        "adjacentDifferenceP99": 0.03648963198065758,
+        "leftRightRmsRatio": 0.8521398861180246,
+        "seamNearbyRmsRatio": 1.038274061574084,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.0004092557355761528,
+        "adjacentDifferenceP99": 0.028547298163175583,
+        "leftRightRmsRatio": 0.910531988360614,
+        "seamNearbyRmsRatio": 1.0072634099545918,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。"
+}

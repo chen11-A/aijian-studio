@@ -1,0 +1,38 @@
+{
+  "id": "r2-loop-sfx-843c79cf1eec",
+  "sourceId": "sfx-843c79cf1eec",
+  "sourceSha256": "cddea3738fbf722652a50097a1cd43ab452fcf558deee47f8631e88ee0f9ec76",
+  "outputSha256": "25f6b32020da75d8be89d9c18e40dce31ac6c6ea6a6f095f3f3708b4ee82f21e",
+  "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Computer%20Fan.wav",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -19.98,
+  "truePeak": -7.47,
+  "samplePeak": -7.468267598022513,
+  "targetLufs": -20,
+  "constantGainDb": -1.9400000000000013,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 58.1176875,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 2.297458333333333,
+  "estimatedBpm": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.002371571958065033,
+        "adjacentDifferenceP99": 0.009012080729007721,
+        "leftRightRmsRatio": 1.1361667102505684,
+        "seamNearbyRmsRatio": 1.0370712290356108,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实设备环境录音，未用短片段重复凑足时长。",
+  "stereoDifferenceRms": null
+}

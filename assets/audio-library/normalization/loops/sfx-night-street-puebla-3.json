@@ -1,0 +1,30 @@
+{
+  "id": "sfx-night-street-puebla-3",
+  "sha256": "7f9f7801291483467e332025eb27d0a01e43f1847c23495e85ba188275dc089a",
+  "duration": 39.002667,
+  "loudness": -18.67,
+  "truePeak": -2.76,
+  "samplePeak": -2.788991,
+  "seam": {
+    "channels": [
+      {
+        "boundary_sample_jump": 0.032245486974716187,
+        "adjacent_difference_p95": 0.028552785515785217,
+        "adjacent_difference_p99": 0.04643547534942627,
+        "boundary_difference_percentile": 96.52136566312268,
+        "boundary_to_p99_ratio": 0.6944149216104577,
+        "seam_window_ms_each_side": 20.0,
+        "seam_rms": 0.13454387767398232,
+        "nearby_rms": 0.12572894497450315,
+        "seam_to_nearby_rms_ratio": 1.0701106073964652,
+        "left_to_right_rms_ratio": 1.0198788067923168,
+        "passed": true,
+        "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+      }
+    ],
+    "passed": true
+  },
+  "passed": true,
+  "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+  "subjectiveListeningPerformed": false
+}

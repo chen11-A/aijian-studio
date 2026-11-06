@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-bsb-2749",
+  "sourceId": "bsb-2749",
+  "sourceSha256": "bd9b507bdc08ab2abbed65eec3efc596f104ce6bae7575ba6e42bcd21a48e721",
+  "outputSha256": "5834c1959084c0a691ae173fb1ba8eebc22ec8059b2805e1e4d236f042e9a849",
+  "source": "https://bigsoundbank.com/forest-4-s2749.html",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -20.55,
+  "truePeak": -2.88,
+  "samplePeak": -3.0276521827365803,
+  "targetLufs": -20,
+  "constantGainDb": 0.31999999999999984,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 225.8716875,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 2.518375,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.00045918277464807034,
+        "adjacentDifferenceP99": 0.15598274767398834,
+        "leftRightRmsRatio": 1.188140729444813,
+        "seamNearbyRmsRatio": 0.7936943459015728,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "Joseph SARDIN",
+  "license": "CC0-1.0",
+  "sourceCatalogSha256": "bd9b507bdc08ab2abbed65eec3efc596f104ce6bae7575ba6e42bcd21a48e721"
+}

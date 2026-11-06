@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-9935a373414d",
+  "sourceId": "music-9935a373414d",
+  "sourceSha256": "35b7cc63cff553a4cdd63140370a0ad23cb65935391f94a8e6460f3e6569e40d",
+  "outputSha256": "269f3bc3019a66e0e121639a8d9402b220b9895f92d25fc7d685c250a95ddd05",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Illusionist.mp3",
+  "duration": 42.88,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -20.24,
+  "truePeak": -2.49,
+  "samplePeak": -2.505220313215037,
+  "targetLufs": -20,
+  "constantGainDb": -0.3500000000000014,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 92.00370833333334,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 2.8899166666666667,
+  "estimatedBpm": 89.55223880597015,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.002799760550260544,
+        "adjacentDifferenceP99": 0.06667014211416245,
+        "leftRightRmsRatio": 1.1388363087271962,
+        "seamNearbyRmsRatio": 1.0489913191709044,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.0011171996593475342,
+        "adjacentDifferenceP99": 0.06156931072473526,
+        "leftRightRmsRatio": 0.9307620307075575,
+        "seamNearbyRmsRatio": 1.0616919105643505,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.030208205530885646
+}

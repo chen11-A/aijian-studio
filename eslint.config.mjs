@@ -15,6 +15,9 @@ export default tseslint.config(
       "work/**",
       "packages/contracts/src/generated.ts",
       "upstreams/**",
+      // gpt/aivora-modules 原样合入、自带 vitest/tsc，还没接进主程序 [M-02]
+      "packages/aivora-modules/**",
+      "assets/audio-library/**",
     ],
   },
   eslint.configs.recommended,

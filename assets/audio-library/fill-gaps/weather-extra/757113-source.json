@@ -1,0 +1,10 @@
+{
+  "source": "https://freesound.org/people/jcdeegs123/sounds/757113/",
+  "author": "jcdeegs123",
+  "license": "CC0-1.0",
+  "licenseExcerpt": "Creative Commons 0",
+  "verifiedDate": "2026-11-04",
+  "downloadSource": "https://github.com/crafter-games/the-ones-game/releases/download/v0.7.3/TheOnes-win64.zip",
+  "sourceSha256": "eca028953141b8701d0cddebc8a9b6c798103a9b311e8d58318189d477105d45",
+  "matchingEvidence": "原作者页面许可独立核实；发布包CREDITS明确映射原编号/作者/文件名；从未加密Godot PCK读取AudioStreamMP3内嵌字节，仅移除资源容器头尾，未运行程序。MP3时长与原录音时长差约0.03秒，符合编码填充。"
+}

@@ -1,0 +1,8 @@
+title: Metal pipe along concrete 3.wav by deleted_user_2104797
+author: deleted_user_2104797
+pageUrl: https://freesound.org/people/deleted_user_2104797/sounds/164676/
+license: CC0-1.0
+licenseUrl: https://creativecommons.org/publicdomain/zero/1.0/
+licenseLinksOnPage: ['creativecommons.org/publicdomain/zero/1.0']
+licenseTextOnPage: ['Creative Commons 0']
+retrieved: 2026-11-04

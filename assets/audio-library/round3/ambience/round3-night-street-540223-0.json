@@ -1,0 +1,96 @@
+{
+  "id": "round3-night-street-540223-0",
+  "sourceSha256": "cb54db79c7522697efb13b770cee493653cbe84736741561537f07e9937a38d5",
+  "outputSha256": "39e03776ba1c614c5dc55ef07540861a279f89b05e7a068871ceb31dcce2c61a",
+  "sourceSliceStart": 0,
+  "sourceSliceDuration": 41,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 2.3777916666666665,
+  "duration": 40,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -18.43,
+  "truePeak": -2.53,
+  "samplePeak": -2.5343873480883197,
+  "targetLufs": -18,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0197296142578125,
+        "adjacentDifferenceP99": 0.052882663905620575,
+        "leftRightRmsRatio": 1.0892576439989339,
+        "seamNearbyRmsRatio": 0.9340859532095694,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "normalization": "三圈动态loudnorm，192kHz限幅后取中间一圈",
+  "probe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "vorbis",
+        "codec_long_name": "Vorbis",
+        "codec_type": "audio",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 0,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 1920000,
+        "duration": "40.000000",
+        "bit_rate": "96000",
+        "extradata_size": 3832,
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "encoder": "Lavc61.19.101 libvorbis"
+        }
+      }
+    ],
+    "format": {
+      "filename": "/workspace/aijian-studio/assets/audio-library/round3/ambience/round3-night-street-540223-0.ogg",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "ogg",
+      "format_long_name": "Ogg",
+      "start_time": "0.000000",
+      "duration": "40.000000",
+      "size": "409863",
+      "bit_rate": "81972",
+      "probe_score": 100
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "r2-loop-music-6d424149d4a2",
+  "sha256": "81b48de57d123121c8ad44cbeda0cac6bdf18851da98b9e9eda22eb7251a122f",
+  "duration": 40.322667,
+  "loudness": -20.73,
+  "truePeak": -2.89,
+  "samplePeak": -2.920447,
+  "seam": {
+    "channels": [
+      {
+        "boundary_sample_jump": 0.0068356990814208984,
+        "adjacent_difference_p95": 0.09595236927270889,
+        "adjacent_difference_p99": 0.27107609063386917,
+        "boundary_difference_percentile": 47.33623064248028,
+        "boundary_to_p99_ratio": 0.025216901518081813,
+        "seam_window_ms_each_side": 20.0,
+        "seam_rms": 0.0495677501428348,
+        "nearby_rms": 0.03644667933039258,
+        "seam_to_nearby_rms_ratio": 1.3600073052883221,
+        "left_to_right_rms_ratio": 0.9587150851856977,
+        "passed": true,
+        "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+      },
+      {
+        "boundary_sample_jump": 0.001209404319524765,
+        "adjacent_difference_p95": 0.046281082555651665,
+        "adjacent_difference_p99": 0.12338434159755707,
+        "boundary_difference_percentile": 23.941862982526757,
+        "boundary_to_p99_ratio": 0.009801927083012538,
+        "seam_window_ms_each_side": 20.0,
+        "seam_rms": 0.03596144035483487,
+        "nearby_rms": 0.025034056047868018,
+        "seam_to_nearby_rms_ratio": 1.4365007526575966,
+        "left_to_right_rms_ratio": 0.9645576059582106,
+        "passed": true,
+        "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+      }
+    ],
+    "passed": true
+  },
+  "passed": true,
+  "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+  "subjectiveListeningPerformed": false
+}

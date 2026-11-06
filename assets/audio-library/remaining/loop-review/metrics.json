@@ -1,0 +1,1238 @@
+{
+  "manifestSha256": "cfdcd2a218fd5bfac1ada463cf1fc62e0f1641d37990ec159e48d35e4ffecbf3",
+  "reviewed": 43,
+  "passed": 43,
+  "subjectiveListeningPerformed": false,
+  "说明": "原Ogg解码为48kHz浮点后逐声道检查。试听直接播放原Ogg，浏览器循环衔接受播放器影响。客观通过不能证明听感自然；尚未人工试听。",
+  "items": [
+    {
+      "id": "r2-loop-music-6d424149d4a2",
+      "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
+      "type": "music",
+      "category": "紧张",
+      "sha256": "81b48de57d123121c8ad44cbeda0cac6bdf18851da98b9e9eda22eb7251a122f",
+      "decodedFrames": 1935360,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0068356990814208984,
+          "adjacent_difference_p95": 0.09595236927270889,
+          "adjacent_difference_p99": 0.27107609063386917,
+          "boundary_difference_percentile": 47.33623064248028,
+          "boundary_to_p99_ratio": 0.025216901518081813,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.0495677501428348,
+          "nearby_rms": 0.03644667933039258,
+          "seam_to_nearby_rms_ratio": 1.3600073052883221,
+          "left_to_right_rms_ratio": 0.9587150851856977,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.001209404319524765,
+          "adjacent_difference_p95": 0.046281082555651665,
+          "adjacent_difference_p99": 0.12338434159755707,
+          "boundary_difference_percentile": 23.941862982526757,
+          "boundary_to_p99_ratio": 0.009801927083012538,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.03596144035483487,
+          "nearby_rms": 0.025034056047868018,
+          "seam_to_nearby_rms_ratio": 1.4365007526575966,
+          "left_to_right_rms_ratio": 0.9645576059582106,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-23bc02ff82e2",
+      "path": "round2-loops/r2-loop-music-23bc02ff82e2.ogg",
+      "type": "music",
+      "category": "搞笑",
+      "sha256": "20056de7e4ce39b8340871aed31a409299dcce98feb4f7af6c305a50517cb3ea",
+      "decodedFrames": 1935360,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0011557471007108688,
+          "adjacent_difference_p95": 0.022572146728634834,
+          "adjacent_difference_p99": 0.05519838072359562,
+          "boundary_difference_percentile": 24.1098938233165,
+          "boundary_to_p99_ratio": 0.020938061688770198,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.027823704452307856,
+          "nearby_rms": 0.02697772249622217,
+          "seam_to_nearby_rms_ratio": 1.0313585387426294,
+          "left_to_right_rms_ratio": 1.2040222248190868,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.00290694460272789,
+          "adjacent_difference_p95": 0.024465560913085938,
+          "adjacent_difference_p99": 0.05695980787277222,
+          "boundary_difference_percentile": 50.40475694690236,
+          "boundary_to_p99_ratio": 0.051035014184404585,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.047622376896572435,
+          "nearby_rms": 0.041975704995657066,
+          "seam_to_nearby_rms_ratio": 1.1345223838765683,
+          "left_to_right_rms_ratio": 1.2524178105219055,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-e94185587d78",
+      "path": "round2-loops/r2-loop-music-e94185587d78.ogg",
+      "type": "music",
+      "category": "史诗",
+      "sha256": "eed6d51e8a2cd9d4c896b4b61a066723ba79b4d1f870274e531c207ac9eab665",
+      "decodedFrames": 1935360,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0005945302546024323,
+          "adjacent_difference_p95": 0.039234425872564316,
+          "adjacent_difference_p99": 0.07706025242805481,
+          "boundary_difference_percentile": 8.173832348417012,
+          "boundary_to_p99_ratio": 0.007715135051724611,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.026908725278943498,
+          "nearby_rms": 0.03369108145792971,
+          "seam_to_nearby_rms_ratio": 0.7986898643353022,
+          "left_to_right_rms_ratio": 1.0634490263342238,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.0015397245297208428,
+          "adjacent_difference_p95": 0.045560263097286224,
+          "adjacent_difference_p99": 0.0896591916680336,
+          "boundary_difference_percentile": 19.00055751930262,
+          "boundary_to_p99_ratio": 0.01717308065214026,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.024591271851517476,
+          "nearby_rms": 0.0441169934804907,
+          "seam_to_nearby_rms_ratio": 0.5574104196921796,
+          "left_to_right_rms_ratio": 1.3239956328532305,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-6230c9ba9eef",
+      "path": "round2-loops/r2-loop-music-6230c9ba9eef.ogg",
+      "type": "music",
+      "category": "打斗",
+      "sha256": "df5758d7161e27bd2a57dd47d8d3f975518dded7a6daa311449baa5a0705dc5e",
+      "decodedFrames": 1935360,
+      "channels": [
+        {
+          "boundary_sample_jump": 6.779655814170837e-05,
+          "adjacent_difference_p95": 0.04085056483745575,
+          "adjacent_difference_p99": 0.07252089027315378,
+          "boundary_difference_percentile": 2.1232236499791513,
+          "boundary_to_p99_ratio": 0.0009348555690139633,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.0031255575110307487,
+          "nearby_rms": 0.005168872957675571,
+          "seam_to_nearby_rms_ratio": 0.6046883985394572,
+          "left_to_right_rms_ratio": 0.9984416207031753,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 4.9650901928544044e-05,
+          "adjacent_difference_p95": 0.040842797607183456,
+          "adjacent_difference_p99": 0.07237548567354679,
+          "boundary_difference_percentile": 1.6139641275856313,
+          "boundary_to_p99_ratio": 0.0006860182210382241,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.003288385241356885,
+          "nearby_rms": 0.0034317104598720377,
+          "seam_to_nearby_rms_ratio": 0.9582350492003637,
+          "left_to_right_rms_ratio": 0.9845438420739047,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-360f3c163ed6",
+      "path": "round2-loops/r2-loop-music-360f3c163ed6.ogg",
+      "type": "music",
+      "category": "温暖",
+      "sha256": "cc56c1c60dca9ee30ee9b6c9388fe0a204841350e5b22bc189f45561a74192ef",
+      "decodedFrames": 2027520,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.000788412056863308,
+          "adjacent_difference_p95": 0.023761659860610962,
+          "adjacent_difference_p99": 0.04659456014633179,
+          "boundary_difference_percentile": 24.887411659274218,
+          "boundary_to_p99_ratio": 0.016920688904182662,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.0070492298142335805,
+          "nearby_rms": 0.009094012331406724,
+          "seam_to_nearby_rms_ratio": 0.7751506768787455,
+          "left_to_right_rms_ratio": 0.9145209719044565,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.0008213762193918228,
+          "adjacent_difference_p95": 0.023687681183218956,
+          "adjacent_difference_p99": 0.04638649523258209,
+          "boundary_difference_percentile": 25.07152830626988,
+          "boundary_to_p99_ratio": 0.01770722740041986,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.007104775998892679,
+          "nearby_rms": 0.009133175764435744,
+          "seam_to_nearby_rms_ratio": 0.7779086028934666,
+          "left_to_right_rms_ratio": 0.9154985561370995,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-9935a373414d",
+      "path": "round2-loops/r2-loop-music-9935a373414d.ogg",
+      "type": "music",
+      "category": "悬疑",
+      "sha256": "269f3bc3019a66e0e121639a8d9402b220b9895f92d25fc7d685c250a95ddd05",
+      "decodedFrames": 2058240,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.002799760550260544,
+          "adjacent_difference_p95": 0.03564707189798355,
+          "adjacent_difference_p99": 0.06667040288448334,
+          "boundary_difference_percentile": 51.275677897464774,
+          "boundary_to_p99_ratio": 0.04199405476987378,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.03963223068598317,
+          "nearby_rms": 0.037781276128488334,
+          "seam_to_nearby_rms_ratio": 1.0489913191709042,
+          "left_to_right_rms_ratio": 1.1388363087271958,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.0011171996593475342,
+          "adjacent_difference_p95": 0.03148722089827061,
+          "adjacent_difference_p99": 0.06156954914331436,
+          "boundary_difference_percentile": 26.807576768295615,
+          "boundary_to_p99_ratio": 0.01814532792415043,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.05932000210186447,
+          "nearby_rms": 0.05587308475425085,
+          "seam_to_nearby_rms_ratio": 1.0616919105643505,
+          "left_to_right_rms_ratio": 0.9307620307075575,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-9d2fa11d09bf",
+      "path": "round2-loops/r2-loop-music-9d2fa11d09bf.ogg",
+      "type": "music",
+      "category": "甜蜜",
+      "sha256": "5e95c4d5bb0f4032f6038c98922d0d41071edf9bc891a94f78b0d3f930313be7",
+      "decodedFrames": 1935360,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0004963483661413193,
+          "adjacent_difference_p95": 0.0313732773065567,
+          "adjacent_difference_p99": 0.05482998490333557,
+          "boundary_difference_percentile": 4.827631462689868,
+          "boundary_to_p99_ratio": 0.009052498683272918,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.02341615337775851,
+          "nearby_rms": 0.03372498374452893,
+          "seam_to_nearby_rms_ratio": 0.6943266023532841,
+          "left_to_right_rms_ratio": 1.591535591725028,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.0008275359869003296,
+          "adjacent_difference_p95": 0.031481679528951645,
+          "adjacent_difference_p99": 0.055512108374387026,
+          "boundary_difference_percentile": 8.50586376997756,
+          "boundary_to_p99_ratio": 0.014907306011856506,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.029802922056091058,
+          "nearby_rms": 0.03186365582989105,
+          "seam_to_nearby_rms_ratio": 0.9353265116595054,
+          "left_to_right_rms_ratio": 0.9230991007632177,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-01a63f6d5d85",
+      "path": "round2-loops/r2-loop-music-01a63f6d5d85.ogg",
+      "type": "music",
+      "category": "悲伤",
+      "sha256": "04ab6c19709c1e3e247faf1b495f62e5845ed827e839742d2b431fb85fcdf872",
+      "decodedFrames": 1935360,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.001577688381075859,
+          "adjacent_difference_p95": 0.025663912296295166,
+          "adjacent_difference_p99": 0.06772541999816895,
+          "boundary_difference_percentile": 44.936985851203836,
+          "boundary_to_p99_ratio": 0.023295365036030993,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.033450473583907875,
+          "nearby_rms": 0.02651130944049112,
+          "seam_to_nearby_rms_ratio": 1.2617435460512738,
+          "left_to_right_rms_ratio": 0.9625225390580731,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.0026947055011987686,
+          "adjacent_difference_p95": 0.030261057429015636,
+          "adjacent_difference_p99": 0.0696038156747818,
+          "boundary_difference_percentile": 54.27608004509758,
+          "boundary_to_p99_ratio": 0.038714910599004546,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.03977920188653565,
+          "nearby_rms": 0.03029895120704626,
+          "seam_to_nearby_rms_ratio": 1.3128903906510363,
+          "left_to_right_rms_ratio": 0.8085008620195528,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-music-197b91134859",
+      "path": "round2-loops/r2-loop-music-197b91134859.ogg",
+      "type": "music",
+      "category": "平静",
+      "sha256": "b374e4ef2369eb003981501d764df59a956f44d47cf8dcb42bff459a783a1658",
+      "decodedFrames": 2181120,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0021119918674230576,
+          "adjacent_difference_p95": 0.020138554275035858,
+          "adjacent_difference_p99": 0.05639587342739105,
+          "boundary_difference_percentile": 41.03457903947469,
+          "boundary_to_p99_ratio": 0.03744940434590874,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.06804085214792095,
+          "nearby_rms": 0.0654306892526782,
+          "seam_to_nearby_rms_ratio": 1.0398920281148638,
+          "left_to_right_rms_ratio": 0.9938424211706034,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.0002692434936761856,
+          "adjacent_difference_p95": 0.020934933796525,
+          "adjacent_difference_p99": 0.05647528916597366,
+          "boundary_difference_percentile": 6.0122350041423696,
+          "boundary_to_p99_ratio": 0.004767456663832448,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.04287358519680805,
+          "nearby_rms": 0.03538335720301352,
+          "seam_to_nearby_rms_ratio": 1.211687883397243,
+          "left_to_right_rms_ratio": 0.9449971944973858,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-071cf6baccc0",
+      "path": "round2-loops/r2-loop-sfx-071cf6baccc0.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "bbcebc00d9d7fc03319f6a6600f5a7ce3ff3f0d3c8a3c52edb8c58a5a7244bca",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.00770212709903717,
+          "adjacent_difference_p95": 0.01404985785484314,
+          "adjacent_difference_p99": 0.018562443554401398,
+          "boundary_difference_percentile": 71.86534992986975,
+          "boundary_to_p99_ratio": 0.41493066774664455,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.12142716397572394,
+          "nearby_rms": 0.09185428887566434,
+          "seam_to_nearby_rms_ratio": 1.321954210979631,
+          "left_to_right_rms_ratio": 1.089807774242899,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-510e5353e830",
+      "path": "round2-loops/r2-loop-sfx-510e5353e830.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "75916151ab02dd0ae39c3f8a1aace4be9fafbd73b10ad7ad25c9dece583908a8",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0002977997064590454,
+          "adjacent_difference_p95": 0.02638926124200225,
+          "adjacent_difference_p99": 0.03694823384284973,
+          "boundary_difference_percentile": 1.975001028646369,
+          "boundary_to_p99_ratio": 0.008059917227049703,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.12208653110194653,
+          "nearby_rms": 0.12221891947147641,
+          "seam_to_nearby_rms_ratio": 0.9989167931601558,
+          "left_to_right_rms_ratio": 1.049866964139371,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-843c79cf1eec",
+      "path": "round2-loops/r2-loop-sfx-843c79cf1eec.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "25f6b32020da75d8be89d9c18e40dce31ac6c6ea6a6f095f3f3708b4ee82f21e",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.002371571958065033,
+          "adjacent_difference_p95": 0.005685016512870789,
+          "adjacent_difference_p99": 0.009012080729007721,
+          "boundary_difference_percentile": 59.30997880728063,
+          "boundary_to_p99_ratio": 0.26315476185555164,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.1250997179551052,
+          "nearby_rms": 0.12062789368039592,
+          "seam_to_nearby_rms_ratio": 1.0370712290356108,
+          "left_to_right_rms_ratio": 1.1361667102505684,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-0fee82de42e3",
+      "path": "round2-loops/r2-loop-sfx-0fee82de42e3.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "02b151f53493277c00fbb03c30f1d017e11dce5899e946badb47ec350ac521a2",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.002908669412136078,
+          "adjacent_difference_p95": 0.007744722068309784,
+          "adjacent_difference_p99": 0.010189592838287354,
+          "boundary_difference_percentile": 53.7812780110823,
+          "boundary_to_p99_ratio": 0.2854549203582271,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.12574808516196678,
+          "nearby_rms": 0.10611438303689182,
+          "seam_to_nearby_rms_ratio": 1.185023948339304,
+          "left_to_right_rms_ratio": 0.8802505145099372,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-cd7e525287e0",
+      "path": "round2-loops/r2-loop-sfx-cd7e525287e0.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "b8863b4c1f8fa735ba8330735e6ccf7d6b2ae8768cf8c48739af96f40220f0b8",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.006615780293941498,
+          "adjacent_difference_p95": 0.008609920740127563,
+          "adjacent_difference_p99": 0.011349234730005264,
+          "boundary_difference_percentile": 86.77290977755717,
+          "boundary_to_p99_ratio": 0.5829274353142601,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.10556422335168014,
+          "nearby_rms": 0.09996370968050436,
+          "seam_to_nearby_rms_ratio": 1.0560254685332875,
+          "left_to_right_rms_ratio": 0.8012086012629139,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-57aaf3ed3677",
+      "path": "round2-loops/r2-loop-sfx-57aaf3ed3677.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "108b2c3ab0a2567c1bdd193d94c2b0710f1ca1eb265cb399e4298bc9ae44c1d0",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0015492439270019531,
+          "adjacent_difference_p95": 0.011288866400718689,
+          "adjacent_difference_p99": 0.014865502715110779,
+          "boundary_difference_percentile": 21.298500676302435,
+          "boundary_to_p99_ratio": 0.10421739221958146,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.14500626639309283,
+          "nearby_rms": 0.13467366163869712,
+          "seam_to_nearby_rms_ratio": 1.0767232778010896,
+          "left_to_right_rms_ratio": 0.8963049341612574,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-5f709f72838f",
+      "path": "round2-loops/r2-loop-sfx-5f709f72838f.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "0518dba5f043380606c654ec2a9c28ad4ab64700b0d6784ce6df4ab49c3efc32",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.004313435405492783,
+          "adjacent_difference_p95": 0.024310149252414703,
+          "adjacent_difference_p99": 0.03279075026512146,
+          "boundary_difference_percentile": 27.88860827531681,
+          "boundary_to_p99_ratio": 0.13154427302265342,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.11659451076437537,
+          "nearby_rms": 0.13683739445827658,
+          "seam_to_nearby_rms_ratio": 0.8520661419048466,
+          "left_to_right_rms_ratio": 1.087130446323991,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-sfx-da48e26760ac",
+      "path": "round2-loops/r2-loop-sfx-da48e26760ac.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "88b2082d781eaf04c3b2e36e8ba94e32751c5bea7259bebdcc6574c01afe9720",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.009010247886180878,
+          "adjacent_difference_p95": 0.08886649459600449,
+          "adjacent_difference_p99": 0.15100463945418596,
+          "boundary_difference_percentile": 19.53761434250747,
+          "boundary_to_p99_ratio": 0.05966868249047766,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.11362670764766146,
+          "nearby_rms": 0.10760637542440951,
+          "seam_to_nearby_rms_ratio": 1.0559477279994536,
+          "left_to_right_rms_ratio": 1.0086427838136645,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-1019",
+      "path": "fill-gaps/weather/gap-weather-1019.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "27eb02219f5ce8fa71d123446beb439d1559626e4900815efff76472de0a2d88",
+      "decodedFrames": 2160000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.009654682129621506,
+          "adjacent_difference_p95": 0.0673943106085062,
+          "adjacent_difference_p99": 0.10895049013197422,
+          "boundary_difference_percentile": 26.20723435520109,
+          "boundary_to_p99_ratio": 0.08861531616724778,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.09301660346508762,
+          "nearby_rms": 0.09150550105991302,
+          "seam_to_nearby_rms_ratio": 1.0165137875610912,
+          "left_to_right_rms_ratio": 0.9912032199965866,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-1290",
+      "path": "fill-gaps/weather/gap-weather-1290.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "dd564b18dd71285b639a8b181d738606dc3f4ac6b29a2773237bb41410dbd007",
+      "decodedFrames": 2160000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0698769073933363,
+          "adjacent_difference_p95": 0.13873375207185745,
+          "adjacent_difference_p99": 0.27239111065864563,
+          "boundary_difference_percentile": 80.98364860354101,
+          "boundary_to_p99_ratio": 0.2565315263936952,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.0866314217218313,
+          "nearby_rms": 0.08616671961185561,
+          "seam_to_nearby_rms_ratio": 1.0053930579238595,
+          "left_to_right_rms_ratio": 1.0828139749443466,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-1289",
+      "path": "fill-gaps/weather/gap-weather-1289.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "197af1317f688571e4d58557e93f5aa6e499a1d73da347449ea3f7f52c836588",
+      "decodedFrames": 2160000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.008644161891425028,
+          "adjacent_difference_p95": 0.11209953762590885,
+          "adjacent_difference_p99": 0.28413283079862595,
+          "boundary_difference_percentile": 28.717513295145043,
+          "boundary_to_p99_ratio": 0.030422960511562368,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.05411993124235867,
+          "nearby_rms": 0.06087112575574959,
+          "seam_to_nearby_rms_ratio": 0.8890903621450892,
+          "left_to_right_rms_ratio": 1.8883431062688867,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-1295",
+      "path": "fill-gaps/weather/gap-weather-1295.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "c690ac44e98511f7dbb293ea16be094279acfbed9aaa0635fdfbfb50c53a832d",
+      "decodedFrames": 2160000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0014021173119544983,
+          "adjacent_difference_p95": 0.03207164630293846,
+          "adjacent_difference_p99": 0.048591457307338715,
+          "boundary_difference_percentile": 8.754124423205752,
+          "boundary_to_p99_ratio": 0.028855222494895992,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.09796214651474754,
+          "nearby_rms": 0.12557634561629263,
+          "seam_to_nearby_rms_ratio": 0.7801003129528691,
+          "left_to_right_rms_ratio": 1.304112735450594,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-2679",
+      "path": "fill-gaps/weather/gap-weather-2679.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "b3a78338825a0eadac0e6f341bf15be7a1d4ee9de5bbaaf4d8e0172f3f07f768",
+      "decodedFrames": 1475401,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0020863618701696396,
+          "adjacent_difference_p95": 0.06046681338921189,
+          "adjacent_difference_p99": 0.10321057587862015,
+          "boundary_difference_percentile": 8.646807645384303,
+          "boundary_to_p99_ratio": 0.020214613206143588,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.0205280661811444,
+          "nearby_rms": 0.01918407424763364,
+          "seam_to_nearby_rms_ratio": 1.0700576903613965,
+          "left_to_right_rms_ratio": 0.5576474460979295,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-0904",
+      "path": "fill-gaps/weather/gap-weather-0904.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "224aa67efe04df654b8cc32f0af547d231b7deb53d0421664a320e1920b303fa",
+      "decodedFrames": 2160000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0032145576551556587,
+          "adjacent_difference_p95": 0.07943815737962723,
+          "adjacent_difference_p99": 0.12199074029922485,
+          "boundary_difference_percentile": 7.927966633317886,
+          "boundary_to_p99_ratio": 0.026350833245792547,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.12282067579897536,
+          "nearby_rms": 0.1172903311783295,
+          "seam_to_nearby_rms_ratio": 1.0471508995250212,
+          "left_to_right_rms_ratio": 1.1509832194404541,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-0908",
+      "path": "fill-gaps/weather/gap-weather-0908.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "76665df56639e526afa7b52b4af35bf781cc226fe77a8cee7126d9ad08947f53",
+      "decodedFrames": 2160000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.016941222827881575,
+          "adjacent_difference_p95": 0.10508473962545395,
+          "adjacent_difference_p99": 0.16921903006732464,
+          "boundary_difference_percentile": 36.07534077562073,
+          "boundary_to_p99_ratio": 0.100114170499272,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.027697348477383445,
+          "nearby_rms": 0.02457200861997198,
+          "seam_to_nearby_rms_ratio": 1.1271910614125054,
+          "left_to_right_rms_ratio": 1.0015893895240087,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "gap-weather-0907",
+      "path": "fill-gaps/weather/gap-weather-0907.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "7b654dd513a0baf84d91197d97174c0410d62443fb0fd2863aab03aa1381432b",
+      "decodedFrames": 2160000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.004055205732584,
+          "adjacent_difference_p95": 0.04180386662483215,
+          "adjacent_difference_p99": 0.06023351848125458,
+          "boundary_difference_percentile": 17.17667461883084,
+          "boundary_to_p99_ratio": 0.06732473604121317,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.11041527585984572,
+          "nearby_rms": 0.10439675040971795,
+          "seam_to_nearby_rms_ratio": 1.0576505056575738,
+          "left_to_right_rms_ratio": 1.117892919202833,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-holizna-all-the-way-sad",
+      "path": "fill-gaps/music/r2-loop-holizna-all-the-way-sad.ogg",
+      "type": "music",
+      "category": "悲伤",
+      "sha256": "7a1d3f19b6f24bf6851b55886425d419aef995438504cbd3af2c48b86a3fd70d",
+      "decodedFrames": 1628160,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0020174942910671234,
+          "adjacent_difference_p95": 0.01316029578447342,
+          "adjacent_difference_p99": 0.036488234996795654,
+          "boundary_difference_percentile": 52.89870338216353,
+          "boundary_to_p99_ratio": 0.05529163828407422,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.02015015714523123,
+          "nearby_rms": 0.019407358703233346,
+          "seam_to_nearby_rms_ratio": 1.038274061574084,
+          "left_to_right_rms_ratio": 0.8521398861180246,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.0004092557355761528,
+          "adjacent_difference_p95": 0.012235414236783981,
+          "adjacent_difference_p99": 0.02854694426059723,
+          "boundary_difference_percentile": 12.786589024781978,
+          "boundary_to_p99_ratio": 0.014336236195375917,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.023475175562915822,
+          "nearby_rms": 0.023305895291058074,
+          "seam_to_nearby_rms_ratio": 1.0072634099545918,
+          "left_to_right_rms_ratio": 0.910531988360614,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-holizna-sad-boi",
+      "path": "fill-gaps/music/r2-loop-holizna-sad-boi.ogg",
+      "type": "music",
+      "category": "悲伤",
+      "sha256": "24c81c23bdc99cd8d5c20622be5d1c669d75a2c32db210ab8304975a99ce4327",
+      "decodedFrames": 2304000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0003945319913327694,
+          "adjacent_difference_p95": 0.031433895230293274,
+          "adjacent_difference_p99": 0.09024834632873535,
+          "boundary_difference_percentile": 16.393323087379812,
+          "boundary_to_p99_ratio": 0.004371625712627038,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.016237749967405554,
+          "nearby_rms": 0.018027294099965237,
+          "seam_to_nearby_rms_ratio": 0.9007314063532622,
+          "left_to_right_rms_ratio": 1.026910215421217,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        },
+        {
+          "boundary_sample_jump": 0.00035670865327119827,
+          "adjacent_difference_p95": 0.02569487225264311,
+          "adjacent_difference_p99": 0.0729207992553711,
+          "boundary_difference_percentile": 14.526264985358067,
+          "boundary_to_p99_ratio": 0.004891727146626473,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.01365162336702255,
+          "nearby_rms": 0.015330180653755002,
+          "seam_to_nearby_rms_ratio": 0.8905063596676336,
+          "left_to_right_rms_ratio": 0.8844986755917587,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "sfx-crowd-low-1",
+      "path": "remaining/crowd-loop/crowd-room-loop-1.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "f011bc56aa266723cb2de1d43e7e0a4ccfde7a5bd0c2d24ba25775f9da1e6b7f",
+      "decodedFrames": 816000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0002519860863685608,
+          "adjacent_difference_p95": 0.02118954062461853,
+          "adjacent_difference_p99": 0.03211672604084015,
+          "boundary_difference_percentile": 2.143507528808246,
+          "boundary_to_p99_ratio": 0.007845945631199494,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.06910040329817292,
+          "nearby_rms": 0.06806874306987776,
+          "seam_to_nearby_rms_ratio": 1.015156152174517,
+          "left_to_right_rms_ratio": 0.9882065502377638,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "sfx-crowd-low-2",
+      "path": "remaining/crowd-loop/crowd-room-loop-2.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "710a03b929d869809cba220d2a0d9b7e058058dcd9be12023697272118cf410e",
+      "decodedFrames": 816000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0014655347913503647,
+          "adjacent_difference_p95": 0.020819121971726418,
+          "adjacent_difference_p99": 0.0301094651222229,
+          "boundary_difference_percentile": 12.321706276600828,
+          "boundary_to_p99_ratio": 0.04867355781317739,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.08618552610205596,
+          "nearby_rms": 0.09191760497097089,
+          "seam_to_nearby_rms_ratio": 0.9376389444576454,
+          "left_to_right_rms_ratio": 1.0756109395458051,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "sfx-crowd-low-3",
+      "path": "remaining/crowd-loop/crowd-room-loop-3.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "1c940aa737d2a8fac066f82006b78d3fbf97127128129947b0add65a8be34123",
+      "decodedFrames": 816000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.012530997395515442,
+          "adjacent_difference_p95": 0.0256054550409317,
+          "adjacent_difference_p99": 0.03777529299259186,
+          "boundary_difference_percentile": 70.59224337284726,
+          "boundary_to_p99_ratio": 0.3317246910030031,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.10569594732647003,
+          "nearby_rms": 0.1349607611597059,
+          "seam_to_nearby_rms_ratio": 0.7831605751051942,
+          "left_to_right_rms_ratio": 1.2233165400859523,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-bsb-2749",
+      "path": "fill-gaps/nature/r2-loop-bsb-2749.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "5834c1959084c0a691ae173fb1ba8eebc22ec8059b2805e1e4d236f042e9a849",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.00045918277464807034,
+          "adjacent_difference_p95": 0.09500835090875626,
+          "adjacent_difference_p99": 0.15598274394869804,
+          "boundary_difference_percentile": 1.30864651492006,
+          "boundary_to_p99_ratio": 0.0029438049557526267,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.024968978302311956,
+          "nearby_rms": 0.0314591863117649,
+          "seam_to_nearby_rms_ratio": 0.7936943459015728,
+          "left_to_right_rms_ratio": 1.188140729444813,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-bsb-2713",
+      "path": "fill-gaps/nature/r2-loop-bsb-2713.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "31a7226b47e1fd0793935c39da4117a25d06c86c8a948aa7f1d1b7b57e46286a",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0016479380428791046,
+          "adjacent_difference_p95": 0.11263560131192207,
+          "adjacent_difference_p99": 0.1792738437652588,
+          "boundary_difference_percentile": 2.7475014309903285,
+          "boundary_to_p99_ratio": 0.009192294917472262,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.06571260873757138,
+          "nearby_rms": 0.07402760333491755,
+          "seam_to_nearby_rms_ratio": 0.887677106609446,
+          "left_to_right_rms_ratio": 0.9515181436858179,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-bsb-2715",
+      "path": "fill-gaps/nature/r2-loop-bsb-2715.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "6dbe4988967b829bd1b8fdff9253a4517fb5f5e76801cc6f762e0bb7c201e56b",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.013381604105234146,
+          "adjacent_difference_p95": 0.11418507993221283,
+          "adjacent_difference_p99": 0.20086339488625526,
+          "boundary_difference_percentile": 32.198402186667806,
+          "boundary_to_p99_ratio": 0.06662042186836416,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.03136629644465171,
+          "nearby_rms": 0.03916029954560625,
+          "seam_to_nearby_rms_ratio": 0.8009718211711427,
+          "left_to_right_rms_ratio": 1.1304329361446517,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-bsb-0698",
+      "path": "fill-gaps/nature/r2-loop-bsb-0698.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "ae4709f2dc53d9dbd28e582685344b6ed97247f39587b24e53fe64fd3b79ca0e",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.013787806034088135,
+          "adjacent_difference_p95": 0.04355214536190033,
+          "adjacent_difference_p99": 0.06070384383201599,
+          "boundary_difference_percentile": 51.187057909926,
+          "boundary_to_p99_ratio": 0.22713233897086874,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.07997127159622083,
+          "nearby_rms": 0.08121385408851767,
+          "seam_to_nearby_rms_ratio": 0.9846998704070552,
+          "left_to_right_rms_ratio": 1.0718395865088493,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-bsb-1447",
+      "path": "fill-gaps/nature/r2-loop-bsb-1447.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "1eece1558463cfa939b8ba9a50194592ac9ae9c5f9a3351a381e98d6d13fe551",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.005327560007572174,
+          "adjacent_difference_p95": 0.06558680534362793,
+          "adjacent_difference_p99": 0.10419502854347229,
+          "boundary_difference_percentile": 16.678706603493023,
+          "boundary_to_p99_ratio": 0.051130654523976714,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.20847506241582037,
+          "nearby_rms": 0.1942000595203536,
+          "seam_to_nearby_rms_ratio": 1.073506686510416,
+          "left_to_right_rms_ratio": 0.9592234749403702,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-bsb-1046",
+      "path": "fill-gaps/nature/r2-loop-bsb-1046.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "bbc6f56d62fde34580baf12bb8d710dda48e41d6148e2946555a1b244116da9e",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.02220643311738968,
+          "adjacent_difference_p95": 0.08527469635009766,
+          "adjacent_difference_p99": 0.13500096648931503,
+          "boundary_difference_percentile": 48.99096301612657,
+          "boundary_to_p99_ratio": 0.16449091954572975,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.12595782726771065,
+          "nearby_rms": 0.12248891879065325,
+          "seam_to_nearby_rms_ratio": 1.0283201820320265,
+          "left_to_right_rms_ratio": 0.9362260712300867,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-bsb-1880",
+      "path": "fill-gaps/nature/r2-loop-bsb-1880.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "e3548a11063d6473b922c05c4f75c79faef30a26e489d5731185c04b00384372",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0009815245866775513,
+          "adjacent_difference_p95": 0.08829972334206104,
+          "adjacent_difference_p99": 0.14050613716244698,
+          "boundary_difference_percentile": 10.690890984839054,
+          "boundary_to_p99_ratio": 0.006985634980077461,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.08003549785175781,
+          "nearby_rms": 0.05130676302716955,
+          "seam_to_nearby_rms_ratio": 1.5599405054919355,
+          "left_to_right_rms_ratio": 1.080754762679971,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-wav-crickets",
+      "path": "fill-gaps/nature/r2-loop-wav-crickets.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "5f7cae08773291569d36e4ec4b820c86ca37a67c487df6c0627e95c30d12294a",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0027639977633953094,
+          "adjacent_difference_p95": 0.09858747012913227,
+          "adjacent_difference_p99": 0.14830275624990463,
+          "boundary_difference_percentile": 23.11605370627797,
+          "boundary_to_p99_ratio": 0.018637534684370283,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.047520587510945275,
+          "nearby_rms": 0.04143696079479737,
+          "seam_to_nearby_rms_ratio": 1.1468164315012153,
+          "left_to_right_rms_ratio": 0.929941734493576,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "r2-loop-fs-175020",
+      "path": "fill-gaps/nature/r2-loop-fs-175020.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "70b97f9b7d4c8acfaed54125763747001406941c4bcefbb938c9158905aa9d39",
+      "decodedFrames": 1920000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.006197037175297737,
+          "adjacent_difference_p95": 0.10181715060025454,
+          "adjacent_difference_p99": 0.13606518879532814,
+          "boundary_difference_percentile": 10.46932836944186,
+          "boundary_to_p99_ratio": 0.04554461894452253,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.0646628640677561,
+          "nearby_rms": 0.06006582224521941,
+          "seam_to_nearby_rms_ratio": 1.07653340370118,
+          "left_to_right_rms_ratio": 0.8402730322594014,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "sfx-night-street-puebla-1",
+      "path": "remaining/ambience/night-street-puebla-1.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "63e4d69431caed8ecdb13acc80a0b174ee6d7843bfaa0b036cc8709b5a7c9a52",
+      "decodedFrames": 1872000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.0027958666905760765,
+          "adjacent_difference_p95": 0.03517664968967438,
+          "adjacent_difference_p99": 0.05168711394071579,
+          "boundary_difference_percentile": 18.650864663923432,
+          "boundary_to_p99_ratio": 0.05409214168511878,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.031064371116790005,
+          "nearby_rms": 0.02847467903185714,
+          "seam_to_nearby_rms_ratio": 1.0909471914340296,
+          "left_to_right_rms_ratio": 1.0049248169747027,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "sfx-night-street-puebla-2",
+      "path": "remaining/ambience/night-street-puebla-2.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "4171a7f52c85292dc01eaee18532b37b345f6d6c2e86748bc4ccb034a3caed12",
+      "decodedFrames": 1872000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.004366274923086166,
+          "adjacent_difference_p95": 0.02888027299195528,
+          "adjacent_difference_p99": 0.043816812336444855,
+          "boundary_difference_percentile": 28.44109425272129,
+          "boundary_to_p99_ratio": 0.09964839271191106,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.10619239987267785,
+          "nearby_rms": 0.1133231735724266,
+          "seam_to_nearby_rms_ratio": 0.9370757676920214,
+          "left_to_right_rms_ratio": 1.0693149276022238,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "sfx-night-street-puebla-3",
+      "path": "remaining/ambience/night-street-puebla-3.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "7f9f7801291483467e332025eb27d0a01e43f1847c23495e85ba188275dc089a",
+      "decodedFrames": 1872000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.032245486974716187,
+          "adjacent_difference_p95": 0.028552785515785217,
+          "adjacent_difference_p99": 0.04643547534942627,
+          "boundary_difference_percentile": 96.52136566312268,
+          "boundary_to_p99_ratio": 0.6944149216104577,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.13454387767398232,
+          "nearby_rms": 0.12572894497450315,
+          "seam_to_nearby_rms_ratio": 1.0701106073964652,
+          "left_to_right_rms_ratio": 1.0198788067923168,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "sfx-crowd-long-loop",
+      "path": "remaining/crowd-loop/crowd-room-loop-long.ogg",
+      "type": "sfx",
+      "category": "环境",
+      "sha256": "803df60d97801ca3a13225971ac908a5b48c6e1f8f9996b606ade46a5c1a7d0d",
+      "decodedFrames": 2640000,
+      "channels": [
+        {
+          "boundary_sample_jump": 0.011376425623893738,
+          "adjacent_difference_p95": 0.026794545352458954,
+          "adjacent_difference_p99": 0.03971579670906067,
+          "boundary_difference_percentile": 65.57941878008288,
+          "boundary_to_p99_ratio": 0.2864458620138507,
+          "seam_window_ms_each_side": 20.0,
+          "seam_rms": 0.1066911825258317,
+          "nearby_rms": 0.10625909026964728,
+          "seam_to_nearby_rms_ratio": 1.004066402743407,
+          "left_to_right_rms_ratio": 0.978177955871744,
+          "passed": true,
+          "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

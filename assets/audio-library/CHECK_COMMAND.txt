@@ -1,0 +1,32 @@
+{
+  "runs": [
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "assets/audio-library/check.py",
+        "--ffmpeg",
+        "/usr/bin/ffmpeg",
+        "--ffprobe",
+        "/usr/bin/ffprobe"
+      ],
+      "exitCode": 0,
+      "seconds": 226.52397228800055,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "assets/audio-library/check.py",
+        "--ffmpeg",
+        "/usr/bin/ffmpeg",
+        "--ffprobe",
+        "/usr/bin/ffprobe",
+        "--strict-request"
+      ],
+      "exitCode": 0,
+      "seconds": 234.9202245489996,
+      "stderr": ""
+    }
+  ],
+  "manifestSha256": "beec0befd559f681d4340dde83eeddf088be94369e61aa1b1b7ffed5bc5a8d31"
+}

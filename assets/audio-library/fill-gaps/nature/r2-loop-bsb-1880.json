@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-bsb-1880",
+  "sourceId": "bsb-1880",
+  "sourceSha256": "fadf592cbf454e854c708673d0abcb916413a020b08598cd1860a62985e5add1",
+  "outputSha256": "e3548a11063d6473b922c05c4f75c79faef30a26e489d5731185c04b00384372",
+  "source": "https://bigsoundbank.com/campaign-at-night-4-s1880.html",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -20.34,
+  "truePeak": -4.44,
+  "samplePeak": -4.5099813467108305,
+  "targetLufs": -20,
+  "constantGainDb": 2.3599999999999994,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 299.1022291666667,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 3.1780625,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0009815245866775513,
+        "adjacentDifferenceP99": 0.14050613343715668,
+        "leftRightRmsRatio": 1.0807547626799707,
+        "seamNearbyRmsRatio": 1.5599405054919357,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "Joseph SARDIN",
+  "license": "CC0-1.0",
+  "sourceCatalogSha256": "fadf592cbf454e854c708673d0abcb916413a020b08598cd1860a62985e5add1"
+}

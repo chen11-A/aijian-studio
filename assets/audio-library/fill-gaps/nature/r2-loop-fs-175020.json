@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-fs-175020",
+  "sourceId": "fs-175020",
+  "sourceSha256": "18da78264ed2ff12e74d1bc6ac17ce539a12568fd04a32c830f117fed31da8ea",
+  "outputSha256": "70b97f9b7d4c8acfaed54125763747001406941c4bcefbb938c9158905aa9d39",
+  "source": "https://freesound.org/people/sengjinn/sounds/175020/",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -20.43,
+  "truePeak": -8.84,
+  "samplePeak": -8.872540406725744,
+  "targetLufs": -20,
+  "constantGainDb": 19.9,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 60.43333333333333,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 1.76525,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.006197037175297737,
+        "adjacentDifferenceP99": 0.13606518507003784,
+        "leftRightRmsRatio": 0.8402730322594014,
+        "seamNearbyRmsRatio": 1.07653340370118,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "sengjinn",
+  "license": "CC0-1.0",
+  "sourceCatalogSha256": "18da78264ed2ff12e74d1bc6ac17ce539a12568fd04a32c830f117fed31da8ea"
+}

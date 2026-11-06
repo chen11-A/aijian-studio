@@ -1,0 +1,41 @@
+{
+  "id": "r2-loop-wav-crickets",
+  "sourceId": "wav-crickets",
+  "sourceSha256": "d2cbc2f24d4b3da6e4c573ee0e776d4e7026066cc4867dc6c9c232a4ccc20008",
+  "outputSha256": "5f7cae08773291569d36e4ec4b820c86ca37a67c487df6c0627e95c30d12294a",
+  "source": "https://soundbible.com/2083-Crickets-Chirping-At-Night.html",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -20.16,
+  "truePeak": -5.87,
+  "samplePeak": -5.9074685360686106,
+  "targetLufs": -20,
+  "constantGainDb": -5.77,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 49.2930625,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 2.151854166666667,
+  "estimatedBpm": null,
+  "stereoDifferenceRms": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0027639977633953094,
+        "adjacentDifferenceP99": 0.14830276370048523,
+        "leftRightRmsRatio": 0.9299417344935762,
+        "seamNearbyRmsRatio": 1.1468164315012153,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实自然录音，未用短片段重复凑足时长；没有把鸟声或蛙声冒充虫鸣。",
+  "author": "Lisa Redfern",
+  "license": "Public Domain",
+  "sourceCatalogSha256": "d2cbc2f24d4b3da6e4c573ee0e776d4e7026066cc4867dc6c9c232a4ccc20008"
+}

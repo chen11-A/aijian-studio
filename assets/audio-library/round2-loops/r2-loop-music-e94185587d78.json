@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-e94185587d78",
+  "sourceId": "music-e94185587d78",
+  "sourceSha256": "2d26c26bb3b93220255bf66ac3c61ba7111dd736c239a721f719411a4e2f9731",
+  "outputSha256": "eed6d51e8a2cd9d4c896b4b61a066723ba79b4d1f870274e531c207ac9eab665",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Cinemato.mp3",
+  "duration": 40.32,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -20.21,
+  "truePeak": -4.15,
+  "samplePeak": -4.166114007255375,
+  "targetLufs": -20,
+  "constantGainDb": -0.1700000000000017,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 90.94647916666666,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 2.6489166666666666,
+  "estimatedBpm": 95.23809523809524,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0005945302546024323,
+        "adjacentDifferenceP99": 0.07706151902675629,
+        "leftRightRmsRatio": 1.0634490263342236,
+        "seamNearbyRmsRatio": 0.7986898643353022,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.0015397245297208428,
+        "adjacentDifferenceP99": 0.08966042101383209,
+        "leftRightRmsRatio": 1.3239956328532305,
+        "seamNearbyRmsRatio": 0.5574104196921797,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.06222797101133387
+}

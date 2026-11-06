@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-01a63f6d5d85",
+  "sourceId": "music-01a63f6d5d85",
+  "sourceSha256": "66204a91083a3545f38c144aa1995bd60724f958f6e1ccd12c0dfd9ce87f4e25",
+  "outputSha256": "84053b811ea94b9610835ba1a6779bb535c3b3255129045c445c9e1e12d62b02",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Outsider.mp3",
+  "duration": 40.32,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -22.76,
+  "truePeak": -1.78,
+  "samplePeak": -1.8558498380576263,
+  "targetLufs": -20,
+  "constantGainDb": 0.16999999999999993,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 90.94710416666666,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 3.2182291666666667,
+  "estimatedBpm": 95.23809523809524,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0005007721483707428,
+        "adjacentDifferenceP99": 0.05354686453938484,
+        "leftRightRmsRatio": 0.9722916372195598,
+        "seamNearbyRmsRatio": 1.2643464108526412,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.001933966763317585,
+        "adjacentDifferenceP99": 0.055797599256038666,
+        "leftRightRmsRatio": 0.8106464159180694,
+        "seamNearbyRmsRatio": 1.3237713384101812,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.03116002315263127
+}

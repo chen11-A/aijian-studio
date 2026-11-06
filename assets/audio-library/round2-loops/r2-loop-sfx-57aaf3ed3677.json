@@ -1,0 +1,38 @@
+{
+  "id": "r2-loop-sfx-57aaf3ed3677",
+  "sourceId": "sfx-57aaf3ed3677",
+  "sourceSha256": "7f62ed4ce1136ff194f526cd86b627b0cea73bfc82503b4dbdb3fd154e71be0e",
+  "outputSha256": "108b2c3ab0a2567c1bdd193d94c2b0710f1ca1eb265cb399e4298bc9ae44c1d0",
+  "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outdoor%20AC%20Unit.wav",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -19.98,
+  "truePeak": -8.96,
+  "samplePeak": -8.968178340849773,
+  "targetLufs": -20,
+  "constantGainDb": -1.9699999999999989,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 56.34575,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 1.2581458333333333,
+  "estimatedBpm": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0015492439270019531,
+        "adjacentDifferenceP99": 0.014865502715110779,
+        "leftRightRmsRatio": 0.8963049341612574,
+        "seamNearbyRmsRatio": 1.0767232778010893,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实设备环境录音，未用短片段重复凑足时长。",
+  "stereoDifferenceRms": null
+}

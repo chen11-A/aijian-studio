@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-197b91134859",
+  "sourceId": "music-197b91134859",
+  "sourceSha256": "ed3cbe5c8e4d6338c56cdcfca161c31553f27e2ab9d96d54c566ff7b0085fa77",
+  "outputSha256": "b374e4ef2369eb003981501d764df59a956f44d47cf8dcb42bff459a783a1658",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sudden%20Tour.mp3",
+  "duration": 45.44,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -19.97,
+  "truePeak": -5.17,
+  "samplePeak": -5.184899059411833,
+  "targetLufs": -20,
+  "constantGainDb": 0.19000000000000128,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 90.47139583333333,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 3.4422083333333333,
+  "estimatedBpm": 84.50704225352112,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0021119918674230576,
+        "adjacentDifferenceP99": 0.05639569088816643,
+        "leftRightRmsRatio": 0.9938424211706036,
+        "seamNearbyRmsRatio": 1.0398920281148638,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.0002692434936761856,
+        "adjacentDifferenceP99": 0.05647506192326546,
+        "leftRightRmsRatio": 0.9449971944973858,
+        "seamNearbyRmsRatio": 1.211687883397243,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.04719759571949299
+}

@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-holizna-sad-boi",
+  "sourceId": "holizna-sad-boi",
+  "sourceSha256": "41968db63ca65cff2c43889d4ed248d3807bd1a404cca6a02dbf02fbd189ede7",
+  "outputSha256": "24c81c23bdc99cd8d5c20622be5d1c669d75a2c32db210ab8304975a99ce4327",
+  "source": "https://freemusicarchive.org/music/holiznacc0/left-overs/sad-boi/",
+  "duration": 48.0,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -20.18,
+  "truePeak": -5.32,
+  "samplePeak": -5.325150065639598,
+  "targetLufs": -20,
+  "constantGainDb": -5.859999999999999,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 163.41697916666666,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 3.1610416666666667,
+  "estimatedBpm": 80.0,
+  "stereoDifferenceRms": 0.03354403371793506,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0003945319913327694,
+        "adjacentDifferenceP99": 0.09024834632873535,
+        "leftRightRmsRatio": 1.026910215421217,
+        "seamNearbyRmsRatio": 0.900731406353262,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.00035670865327119827,
+        "adjacentDifferenceP99": 0.0729207992553711,
+        "leftRightRmsRatio": 0.8844986755917587,
+        "seamNearbyRmsRatio": 0.8905063596676336,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。"
+}

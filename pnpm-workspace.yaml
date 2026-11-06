@@ -1,6 +1,8 @@
 packages:
   - apps/*
   - packages/*
+  # aivora-modules 自带 npm package-lock.json、依赖版本和仓库不同，先不进 pnpm 工作区 [M-02]
+  - "!packages/aivora-modules"
 
 onlyBuiltDependencies:
   - electron

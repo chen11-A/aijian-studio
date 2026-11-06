@@ -1,0 +1,979 @@
+[
+  {
+    "title": "小巷钢管打斗加倒地",
+    "input": {
+      "emotions": [
+        "打斗"
+      ],
+      "description": "夜晚小巷钢管打斗",
+      "duration": 55,
+      "shots": [
+        {
+          "duration": 18,
+          "hasDialogue": false,
+          "actions": [
+            {
+              "time": 2,
+              "label": "钢管砸下"
+            },
+            {
+              "time": 7,
+              "label": "拳头击中"
+            }
+          ]
+        },
+        {
+          "duration": 20,
+          "hasDialogue": true,
+          "actions": [
+            {
+              "time": 4,
+              "label": "铁棍击打"
+            },
+            {
+              "time": 9,
+              "label": "倒地"
+            }
+          ]
+        },
+        {
+          "duration": 17,
+          "hasDialogue": false,
+          "actions": [
+            {
+              "time": 5,
+              "label": "棍子击打"
+            }
+          ]
+        }
+      ]
+    },
+    "output": {
+      "ambience": [
+        {
+          "assetId": "round3-night-street-413949-0",
+          "path": "round3/ambience/round3-night-street-413949-0.ogg",
+          "time": 0,
+          "end": 55,
+          "gainDb": -6,
+          "reason": "同一环境整场连续播放，切镜头不重启",
+          "loop": true,
+          "segments": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 40,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            },
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 40,
+              "end": 55,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            }
+          ],
+          "gainAutomation": [
+            {
+              "start": 0,
+              "end": 18,
+              "gainDb": -6
+            },
+            {
+              "start": 18,
+              "end": 38,
+              "gainDb": -12
+            },
+            {
+              "start": 38,
+              "end": 55,
+              "gainDb": -6
+            }
+          ]
+        }
+      ],
+      "music": {
+        "assetId": "r2-loop-music-6230c9ba9eef",
+        "path": "round2-loops/r2-loop-music-6230c9ba9eef.ogg",
+        "start": 0,
+        "end": 55,
+        "sourceStart": 0,
+        "fadeIn": 1,
+        "fadeOut": 1.5,
+        "loop": true,
+        "segments": [
+          {
+            "assetId": "r2-loop-music-6230c9ba9eef",
+            "path": "round2-loops/r2-loop-music-6230c9ba9eef.ogg",
+            "time": 0,
+            "end": 40.32,
+            "sourceStart": 0,
+            "fadeIn": 0,
+            "fadeOut": 0
+          },
+          {
+            "assetId": "r2-loop-music-6230c9ba9eef",
+            "path": "round2-loops/r2-loop-music-6230c9ba9eef.ogg",
+            "time": 40.32,
+            "end": 55,
+            "sourceStart": 0,
+            "fadeIn": 0,
+            "fadeOut": 0
+          }
+        ],
+        "ducking": [
+          {
+            "start": 18,
+            "end": 38,
+            "gainDb": -12
+          }
+        ]
+      },
+      "shots": [
+        {
+          "index": 1,
+          "ambience": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 18,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 0,
+                  "end": 18,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "round3-pipe-hit-1",
+              "path": "round3/actions/pipe-hit-1.ogg",
+              "time": 2,
+              "end": 3.25,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "round3-pipe-hit-1",
+                  "path": "round3/actions/pipe-hit-1.ogg",
+                  "time": 2,
+                  "end": 3.25,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            },
+            {
+              "assetId": "sfx-8dad161c6a8c",
+              "path": "sfx/sfx-8dad161c6a8c.ogg",
+              "time": 7,
+              "end": 7.404583,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "sfx-8dad161c6a8c",
+                  "path": "sfx/sfx-8dad161c6a8c.ogg",
+                  "time": 7,
+                  "end": 7.404583,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "ambience": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 20,
+              "gainDb": -12,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 0,
+                  "end": 20,
+                  "sourceStart": 18,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "round3-pipe-hit-2",
+              "path": "round3/actions/pipe-hit-2.ogg",
+              "time": 4,
+              "end": 6.15,
+              "gainDb": -6,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "round3-pipe-hit-2",
+                  "path": "round3/actions/pipe-hit-2.ogg",
+                  "time": 4,
+                  "end": 6.15,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            },
+            {
+              "assetId": "round3-body-fall-1",
+              "path": "round3/actions/body-fall-1.ogg",
+              "time": 9,
+              "end": 9.722229,
+              "gainDb": -6,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "round3-body-fall-1",
+                  "path": "round3/actions/body-fall-1.ogg",
+                  "time": 9,
+                  "end": 9.722229,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "ambience": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 17,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 0,
+                  "end": 2,
+                  "sourceStart": 38,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                },
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 2,
+                  "end": 17,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "round3-pipe-hit-3",
+              "path": "round3/actions/pipe-hit-3.ogg",
+              "time": 5,
+              "end": 6.3,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "round3-pipe-hit-3",
+                  "path": "round3/actions/pipe-hit-3.ogg",
+                  "time": 5,
+                  "end": 6.3,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
+    }
+  },
+  {
+    "title": "医院走廊",
+    "input": {
+      "emotions": [
+        "紧张"
+      ],
+      "description": "医院走廊，规律心电监护仪，脚步",
+      "duration": 65,
+      "shots": [
+        {
+          "duration": 23,
+          "hasDialogue": false,
+          "actions": [
+            {
+              "time": 3,
+              "label": "脚步"
+            }
+          ]
+        },
+        {
+          "duration": 19,
+          "hasDialogue": true,
+          "actions": []
+        },
+        {
+          "duration": 23,
+          "hasDialogue": false,
+          "actions": [
+            {
+              "time": 6,
+              "label": "脚步"
+            }
+          ]
+        }
+      ]
+    },
+    "output": {
+      "ambience": [
+        {
+          "assetId": "round3-hospital-corridor-451883-0",
+          "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+          "time": 0,
+          "end": 65,
+          "gainDb": -6,
+          "reason": "同一环境整场连续播放，切镜头不重启",
+          "loop": true,
+          "segments": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 40,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            },
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 40,
+              "end": 65,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            }
+          ],
+          "gainAutomation": [
+            {
+              "start": 0,
+              "end": 23,
+              "gainDb": -6
+            },
+            {
+              "start": 23,
+              "end": 42,
+              "gainDb": -12
+            },
+            {
+              "start": 42,
+              "end": 65,
+              "gainDb": -6
+            }
+          ]
+        }
+      ],
+      "music": {
+        "assetId": "r2-loop-music-6d424149d4a2",
+        "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
+        "start": 0,
+        "end": 65,
+        "sourceStart": 0,
+        "fadeIn": 1,
+        "fadeOut": 1.5,
+        "loop": true,
+        "segments": [
+          {
+            "assetId": "r2-loop-music-6d424149d4a2",
+            "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
+            "time": 0,
+            "end": 40.322667,
+            "sourceStart": 0,
+            "fadeIn": 0,
+            "fadeOut": 0
+          },
+          {
+            "assetId": "r2-loop-music-6d424149d4a2",
+            "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
+            "time": 40.322667,
+            "end": 65,
+            "sourceStart": 0,
+            "fadeIn": 0,
+            "fadeOut": 0
+          }
+        ],
+        "ducking": [
+          {
+            "start": 23,
+            "end": 42,
+            "gainDb": -12
+          }
+        ]
+      },
+      "shots": [
+        {
+          "index": 1,
+          "ambience": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 23,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 0,
+                  "end": 23,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "sfx-44043937fae8",
+              "path": "sfx/sfx-44043937fae8.ogg",
+              "time": 3,
+              "end": 5.645188,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "sfx-44043937fae8",
+                  "path": "sfx/sfx-44043937fae8.ogg",
+                  "time": 3,
+                  "end": 5.645188,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            },
+            {
+              "assetId": "sfx-monitor-steady",
+              "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+              "time": 0,
+              "end": 23,
+              "gainDb": 0,
+              "reason": "根据场景设备安排声音",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 0,
+                  "end": 10.9,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 10.4,
+                  "end": 21.3,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 20.8,
+                  "end": 23,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "ambience": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 19,
+              "gainDb": -12,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 0,
+                  "end": 17,
+                  "sourceStart": 23,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                },
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 17,
+                  "end": 19,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "sfx-monitor-steady",
+              "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+              "time": 0,
+              "end": 19,
+              "gainDb": -6,
+              "reason": "根据场景设备安排声音",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 0,
+                  "end": 10.9,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 10.4,
+                  "end": 19,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "ambience": [
+            {
+              "assetId": "round3-hospital-corridor-451883-0",
+              "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+              "time": 0,
+              "end": 23,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-hospital-corridor-451883-0",
+                  "path": "round3/ambience/round3-hospital-corridor-451883-0.ogg",
+                  "time": 0,
+                  "end": 23,
+                  "sourceStart": 2,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "sfx-741277a378b6",
+              "path": "sfx/sfx-741277a378b6.ogg",
+              "time": 6,
+              "end": 8.646521,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "sfx-741277a378b6",
+                  "path": "sfx/sfx-741277a378b6.ogg",
+                  "time": 6,
+                  "end": 8.646521,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            },
+            {
+              "assetId": "sfx-monitor-steady",
+              "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+              "time": 0,
+              "end": 23,
+              "gainDb": 0,
+              "reason": "根据场景设备安排声音",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 0,
+                  "end": 10.9,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 10.4,
+                  "end": 21.3,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0.5
+                },
+                {
+                  "assetId": "sfx-monitor-steady",
+                  "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+                  "time": 20.8,
+                  "end": 23,
+                  "sourceStart": 0,
+                  "fadeIn": 0.5,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
+    }
+  },
+  {
+    "title": "夜街撑伞",
+    "input": {
+      "emotions": [
+        "平静"
+      ],
+      "description": "夜街撑伞，街道脚步",
+      "duration": 75,
+      "shots": [
+        {
+          "duration": 22,
+          "hasDialogue": false,
+          "actions": [
+            {
+              "time": 3,
+              "label": "开伞"
+            }
+          ]
+        },
+        {
+          "duration": 28,
+          "hasDialogue": true,
+          "actions": [
+            {
+              "time": 7,
+              "label": "脚步"
+            }
+          ]
+        },
+        {
+          "duration": 25,
+          "hasDialogue": false,
+          "actions": [
+            {
+              "time": 16,
+              "label": "收伞"
+            }
+          ]
+        }
+      ]
+    },
+    "output": {
+      "ambience": [
+        {
+          "assetId": "round3-night-street-413949-0",
+          "path": "round3/ambience/round3-night-street-413949-0.ogg",
+          "time": 0,
+          "end": 75,
+          "gainDb": -6,
+          "reason": "同一环境整场连续播放，切镜头不重启",
+          "loop": true,
+          "segments": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 40,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            },
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 40,
+              "end": 75,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            }
+          ],
+          "gainAutomation": [
+            {
+              "start": 0,
+              "end": 22,
+              "gainDb": -6
+            },
+            {
+              "start": 22,
+              "end": 50,
+              "gainDb": -12
+            },
+            {
+              "start": 50,
+              "end": 75,
+              "gainDb": -6
+            }
+          ]
+        }
+      ],
+      "music": {
+        "assetId": "r2-loop-music-197b91134859",
+        "path": "round2-loops/r2-loop-music-197b91134859.ogg",
+        "start": 0,
+        "end": 75,
+        "sourceStart": 0,
+        "fadeIn": 1,
+        "fadeOut": 1.5,
+        "loop": true,
+        "segments": [
+          {
+            "assetId": "r2-loop-music-197b91134859",
+            "path": "round2-loops/r2-loop-music-197b91134859.ogg",
+            "time": 0,
+            "end": 45.44,
+            "sourceStart": 0,
+            "fadeIn": 0,
+            "fadeOut": 0
+          },
+          {
+            "assetId": "r2-loop-music-197b91134859",
+            "path": "round2-loops/r2-loop-music-197b91134859.ogg",
+            "time": 45.44,
+            "end": 75,
+            "sourceStart": 0,
+            "fadeIn": 0,
+            "fadeOut": 0
+          }
+        ],
+        "ducking": [
+          {
+            "start": 22,
+            "end": 50,
+            "gainDb": -12
+          }
+        ]
+      },
+      "shots": [
+        {
+          "index": 1,
+          "ambience": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 22,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 0,
+                  "end": 22,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "r3-umbrella-open-1",
+              "path": "round3/umbrella/r3-umbrella-open-1.ogg",
+              "time": 3,
+              "end": 3.8,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "r3-umbrella-open-1",
+                  "path": "round3/umbrella/r3-umbrella-open-1.ogg",
+                  "time": 3,
+                  "end": 3.8,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "ambience": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 28,
+              "gainDb": -12,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 0,
+                  "end": 18,
+                  "sourceStart": 22,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                },
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 18,
+                  "end": 28,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "sfx-44043937fae8",
+              "path": "sfx/sfx-44043937fae8.ogg",
+              "time": 7,
+              "end": 9.645188000000001,
+              "gainDb": -6,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "sfx-44043937fae8",
+                  "path": "sfx/sfx-44043937fae8.ogg",
+                  "time": 7,
+                  "end": 9.645188000000001,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "ambience": [
+            {
+              "assetId": "round3-night-street-413949-0",
+              "path": "round3/ambience/round3-night-street-413949-0.ogg",
+              "time": 0,
+              "end": 25,
+              "gainDb": -6,
+              "reason": "同一环境整场连续播放，切镜头不重启",
+              "loop": true,
+              "segments": [
+                {
+                  "assetId": "round3-night-street-413949-0",
+                  "path": "round3/ambience/round3-night-street-413949-0.ogg",
+                  "time": 0,
+                  "end": 25,
+                  "sourceStart": 10,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "assetId": "r3-umbrella-close-1",
+              "path": "round3/umbrella/r3-umbrella-close-1.ogg",
+              "time": 16,
+              "end": 17.8,
+              "gainDb": 0,
+              "reason": "音效对准动作节点",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "r3-umbrella-close-1",
+                  "path": "round3/umbrella/r3-umbrella-close-1.ogg",
+                  "time": 16,
+                  "end": 17.8,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "warnings": [],
+      "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"
+    }
+  }
+]

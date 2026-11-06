@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-23bc02ff82e2",
+  "sourceId": "music-23bc02ff82e2",
+  "sourceSha256": "ec4da0d940c37dfcf627a93ccf456daa4df4992726bc0ea9e113cbed02204554",
+  "outputSha256": "20056de7e4ce39b8340871aed31a409299dcce98feb4f7af6c305a50517cb3ea",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Bubbles.mp3",
+  "duration": 40.32,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -21.1,
+  "truePeak": -1.94,
+  "samplePeak": -1.9440879477977246,
+  "targetLufs": -20,
+  "constantGainDb": 0.5499999999999998,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 90.94554166666667,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 4.016541666666667,
+  "estimatedBpm": 95.23809523809524,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0011557471007108688,
+        "adjacentDifferenceP99": 0.055199988186359406,
+        "leftRightRmsRatio": 1.2040222248190868,
+        "seamNearbyRmsRatio": 1.0313585387426294,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.00290694460272789,
+        "adjacentDifferenceP99": 0.05696015805006027,
+        "leftRightRmsRatio": 1.2524178105219055,
+        "seamNearbyRmsRatio": 1.1345223838765686,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.04295694934273987
+}
