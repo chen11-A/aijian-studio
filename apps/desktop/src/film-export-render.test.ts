@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -323,7 +323,13 @@ describe("4B-B09 IPC: export extras, cover picture and shot durations", () => {
         cover: { title: "晚照书店", subtitle: "第 1 集", aiMark: true, still: picture },
       }) as Promise<{ path: string; coverPath?: string; subtitlePath?: string }>;
     const inside = await run(`aivora-media://local/?path=${encodeURIComponent(still)}`, "a");
-    expect(calls[0]).toContain(still);
+    const canonicalStill = realpathSync.native(still);
+    expect(calls[0]).toContain(canonicalStill);
+    const passedStill = calls[0]![calls[0]!.indexOf(canonicalStill)]!;
+    const actualStill = statSync(passedStill, { bigint: true });
+    const originalStill = statSync(still, { bigint: true });
+    expect([actualStill.dev, actualStill.ino]).toEqual([originalStill.dev, originalStill.ino]);
+    expect(await readFile(passedStill)).toEqual(await readFile(still));
     expect(inside.coverPath).toBe(
       join(await import("node:fs/promises").then((fs) => fs.realpath(root)), "a-封面.png"),
     );
