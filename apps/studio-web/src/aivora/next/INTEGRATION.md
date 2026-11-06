@@ -1130,3 +1130,5 @@ CI #687 当前候选 dfcf8db：Linux job127792946853已全部成功（Test 08:31
 最终主批次验收：dfcf8db 的CI #687整体Success，Linux job127792946853/Windows job127792946832均succeeded，完整Test/故障注入/证据/审计/构建/生成一致性全部成功；总控准备按授权合dev。UI-LAYOUT-01的临时样式12组合验证通过，仓库CSS尚未改；主批次合入后实际应用并复验，其他新功能未开工。
 
 主批次已纳入本次 --no-ff 的 dev 合并提交：产品源码与双平台CI整体Success的dfcf8db完全一致，仅增加交接与验收文档；合并提交的新CI另行运行。UI-LAYOUT-01实际CSS补丁尚未应用，下一步由界面执行并复验12组合。
+
+UI-LAYOUT-01接续实际交付：主批次已推送dev@6c247e7；仅pro.css新增4行让.cands的直接TakePicker跨满网格。无候选样式注入的真实Vite CSS复验12/12（1/2/3版×两窗口×两画幅）通过，标题/标签/按钮、实际选版持久化及其他take元数据保留均已验，前端生产构建exit0。CSS源SHA256=aa60e4c2158a5dfb15c9f4ad878a663b1c0ee9a548d90c1444e5abb17e94e52c；忽略目录ui-layout-fix保存实际报告/截图/补丁，base/candidate证据未改。本次局部变更交总控补充合dev，新自动CI另行核对，不能冒充已取得新提交双平台结果。其他新功能未开工。
