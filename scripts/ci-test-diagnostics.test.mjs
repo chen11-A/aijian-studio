@@ -190,3 +190,141 @@ test("failure metadata annotations are bounded and repeated locations deduplicat
   summary.line("FAIL src/example0.test.ts:1");
   assert.equal(summary.entries().length, 6);
 });
+
+test("Vitest worker exits and fixed pool failure kinds are detected without a FAIL heading", () => {
+  const variants = [
+    [
+      "Error: Worker exited unexpectedly PRIVATE_VALUE /private/token",
+      "Test worker exited unexpectedly.",
+    ],
+    [
+      "Error: [vitest-pool]: Worker forks emitted error. PRIVATE_VALUE",
+      "Vitest pool: worker error.",
+    ],
+    [
+      "Error: [vitest-pool]: Failed to start threads worker for test files D:/PRIVATE_VALUE.test.ts.",
+      "Vitest pool: start failure.",
+    ],
+    [
+      "[vitest-pool]: Failed to terminate vmThreads worker for test files /PRIVATE_VALUE.test.ts.",
+      "Vitest pool: termination failure.",
+    ],
+    [
+      "Error: [vitest-pool]: Timeout starting vmForks runner. PRIVATE_VALUE",
+      "Vitest pool: start timeout.",
+    ],
+    [
+      "[vitest-pool]: Timeout terminating forks worker for test files /PRIVATE_VALUE.test.ts.",
+      "Vitest pool: termination timeout.",
+    ],
+  ];
+  for (const [line, message] of variants) {
+    const summary = failureSummary();
+    summary.line("RUN v4.1.10 /repo/apps/studio-web");
+    for (const prefix of ["", "apps/studio-web test: ", "@aijian/studio-web:test: "]) {
+      summary.line(prefix + line);
+      assert.deepEqual(summary.entries(), [{ phase: "TypeScript / web", message }]);
+    }
+  }
+});
+
+test("only Node's fixed heap-limit fatal phrases become a fixed category", () => {
+  for (const phrase of ["Reached heap limit", "Ineffective mark-compacts near heap limit"]) {
+    const summary = failureSummary("TypeScript / web");
+    summary.line(
+      `FATAL ERROR: ${phrase} Allocation failed - JavaScript heap out of memory PRIVATE_VALUE /private/key`,
+    );
+    assert.deepEqual(summary.entries(), [
+      { phase: "TypeScript / web", message: "Node heap limit reached." },
+    ]);
+  }
+  const summary = failureSummary();
+  summary.line("FATAL ERROR: PRIVATE_VALUE /private/key");
+  summary.line("user said Worker exited unexpectedly PRIVATE_VALUE");
+  assert.deepEqual(summary.entries(), []);
+});
+
+test("actual Vitest Test/Hook timed-out-in grammar and Node after grammar retain only valid bounded durations", () => {
+  for (const [line, expected] of [
+    ["Error: Test timed out in 5000ms. PRIVATE_VALUE", 5000],
+    ["Hook timed out in 10000ms. PRIVATE_VALUE", 10000],
+    ["FAIL test timed out after 180000ms PRIVATE_VALUE", 180000],
+  ]) {
+    const summary = failureSummary();
+    summary.line(line);
+    assert.deepEqual(summary.entries(), [
+      { phase: "pnpm test", message: `Test timeout: ${expected} ms.` },
+    ]);
+  }
+  for (const duration of ["0", "-1", "NaN", "Infinity", "2147483648", "999999999999999999999999"]) {
+    const summary = failureSummary();
+    summary.line(`Error: Test timed out in ${duration}ms. PRIVATE_VALUE`);
+    assert.deepEqual(summary.entries(), []);
+  }
+});
+
+test("coverage metadata keeps original ERROR formats and rejects invalid or unbounded percentages", () => {
+  for (const scope of ["global", '"src/example.ts"']) {
+    const summary = failureSummary();
+    summary.line(
+      `ERROR: Coverage for branches (79.95%) does not meet ${scope} threshold (80%) PRIVATE_VALUE`,
+    );
+    assert.deepEqual(summary.entries(), [
+      { phase: "pnpm test", message: "Coverage branches: 79.95%, required 80%." },
+    ]);
+  }
+  for (const value of ["NaN", "Infinity", "101", "1234567890", "1.2.3"]) {
+    const summary = failureSummary();
+    summary.line(`ERROR: Coverage for branches (${value}%) does not meet global threshold (80%)`);
+    assert.deepEqual(summary.entries(), []);
+  }
+});
+
+test("restricted source positions and failure codes cannot be arbitrary log values", () => {
+  const summary = failureSummary();
+  summary.line("Error: Worker exited unexpectedly");
+  summary.line("user body src/PRIVATE_VALUE.test.ts:42 ERR_PRIVATE_VALUE");
+  summary.line("at src/../../PRIVATE_VALUE.test.ts:42");
+  summary.line("at src/valid.test.ts:9999999999999999999999");
+  summary.line(`at src/${"x".repeat(250)}.test.ts:1`);
+  summary.line("at src/valid.test.ts:42:7");
+  summary.line("code: ERR_WORKER_OUT_OF_MEMORY PRIVATE_VALUE");
+  assert.deepEqual(summary.entries(), [
+    { phase: "pnpm test", message: "Test worker exited unexpectedly." },
+    { phase: "pnpm test", message: "Failure location: src/valid.test.ts:42" },
+    { phase: "pnpm test", message: "Failure code: ERR_WORKER_OUT_OF_MEMORY." },
+  ]);
+});
+
+test("real failing child preserves streams/status while runtime annotations omit every private tail", async () => {
+  const stdout = output(),
+    stderr = output();
+  const raw =
+    [
+      "RUN v4.1.10 D:/repo/apps/studio-web",
+      "Error: Worker exited unexpectedly PRIVATE_VALUE",
+      "Error: Test timed out in 5000ms. /private/path?token=PRIVATE_VALUE",
+      "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory PRIVATE_VALUE",
+      "at src/example.test.ts:23:9 PRIVATE_VALUE",
+      "code: ERR_PRIVATE_VALUE",
+    ].join("\n") + "\n";
+  const status = await runTestDiagnostics({
+    command: process.execPath,
+    args: [
+      "-e",
+      `process.stdout.write('original stdout\\n');process.stderr.write(${JSON.stringify(raw)});process.exitCode=29;`,
+    ],
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+  assert.equal(status, 29);
+  assert.equal(stderr.text(), raw);
+  assert(stdout.text().startsWith("original stdout\n"));
+  const annotations = stdout
+    .text()
+    .split("\n")
+    .filter((line) => line.startsWith("::error"));
+  assert.equal(annotations.length, 4);
+  assert(annotations.every((line) => line.includes("exit 29")));
+  assert.doesNotMatch(annotations.join("\n"), /PRIVATE_VALUE|private|D:|token=|ERR_PRIVATE/);
+});
