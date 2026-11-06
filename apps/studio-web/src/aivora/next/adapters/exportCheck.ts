@@ -6,10 +6,22 @@ import type { Adapted } from "./result";
 
 export type ExportCheckData = Pick<
   ExportCheckProps,
-  "report" | "checking" | "error" | "shots" | "fileName"
+  | "report"
+  | "checking"
+  | "error"
+  | "shots"
+  | "fileName"
+  | "reviewMode"
+  | "busy"
+  | "stale"
+  | "publishBlocked"
+  | "unverified"
 >;
 
-export type ExportCheckOptions = {
+export type ExportCheckOptions = Pick<
+  ExportCheckProps,
+  "reviewMode" | "busy" | "stale" | "publishBlocked" | "unverified"
+> & {
   /** The check is running. */
   checking?: boolean;
   /** The check could not run, in plain Chinese. */
@@ -34,6 +46,11 @@ export function exportCheckData(
   options: ExportCheckOptions = {},
 ): Adapted<ExportCheckData> {
   const base = {
+    ...(options.reviewMode !== undefined ? { reviewMode: options.reviewMode } : {}),
+    ...(options.busy !== undefined ? { busy: options.busy } : {}),
+    ...(options.stale !== undefined ? { stale: options.stale } : {}),
+    ...(options.publishBlocked !== undefined ? { publishBlocked: options.publishBlocked } : {}),
+    ...(options.unverified !== undefined ? { unverified: options.unverified } : {}),
     report,
     checking: Boolean(options.checking),
     error: options.error ?? null,
