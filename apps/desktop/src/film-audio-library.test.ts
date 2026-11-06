@@ -235,8 +235,19 @@ it("copies real Ogg, preserves attribution through normalization/read IPC/portab
   const { normalizeAudioClips } = (await import(normalizePath)) as {
     normalizeAudioClips: (value: unknown) => Record<string, unknown>[];
   };
+  clips[0]!.envelope = {
+    schemaVersion: 1,
+    baseGainDb: 0,
+    fades: [
+      { direction: "in", startSeconds: -0.05, durationSeconds: 0.1 },
+      { direction: "out", startSeconds: 0.25, durationSeconds: 0.05 },
+    ],
+    gainAutomation: [{ startSeconds: 0, endSeconds: 0.15, gainDb: -3 }],
+  };
   const normalized = normalizeAudioClips(clips);
   expect(normalized[0]!.libraryAsset).toEqual(clips[0]!.libraryAsset);
+  expect(normalized[0]!.envelope).toEqual(clips[0]!.envelope);
+  const saved = await writeProject(f.filmsRoot, { ...result.project, audioClips: normalized });
   expect(
     await readMedia([f.filmsRoot], String(normalized[0]!.path), {
       maxBytes: 16 * 1024 * 1024,
@@ -255,7 +266,7 @@ it("copies real Ogg, preserves attribution through normalization/read IPC/portab
   expect(
     await archive.export({
       projectId: f.record.id,
-      expectedHash: filmHistoryRecordHash(result.project),
+      expectedHash: filmHistoryRecordHash(saved),
     }),
   ).toMatchObject({ kind: "EXPORTED" });
   const imported = await archive.import();
@@ -264,6 +275,7 @@ it("copies real Ogg, preserves attribution through normalization/read IPC/portab
   const restored = (await readProject(f.filmsRoot, imported.projectId))!;
   const recoveredClips = restored.audioClips as Record<string, unknown>[];
   expect(recoveredClips[0]!.libraryAsset).toEqual(clips[0]!.libraryAsset);
+  expect(recoveredClips[0]!.envelope).toEqual(clips[0]!.envelope);
   expect(sha(await readFile(String(recoveredClips[0]!.path)))).toBe(f.asset.sha256);
   const shot = restored.shots![0] as Record<string, unknown>,
     take = (shot.takes as Record<string, unknown>[])[0]!;
@@ -273,6 +285,7 @@ it("copies real Ogg, preserves attribution through normalization/read IPC/portab
     { filmsRoot: f.filmsRoot, storyFilmsRoot: f.storyFilmsRoot, tools, run },
   );
   expect(actual.plan.tracks).toHaveLength(1);
+  expect(actual.plan.tracks[0]!.envelope).toEqual(clips[0]!.envelope);
   expect(actual.plan.tracks[0]!.gainDb).toBe(0);
   const output = join(f.root, "mixed.mp4");
   await renderAudioMix(String(take.videoPath), output, actual.plan, actual.paths, tools, run);
@@ -302,6 +315,21 @@ it("copies real Ogg, preserves attribution through normalization/read IPC/portab
       { filmsRoot: f.filmsRoot, storyFilmsRoot: f.storyFilmsRoot, tools, run },
     ),
   ).rejects.toThrow();
+  const invalidEnvelope = structuredClone(restored);
+  (invalidEnvelope.audioClips as Record<string, unknown>[])[0]!.envelope = {
+    schemaVersion: 1,
+    baseGainDb: 0,
+    gainAutomation: [null, {}],
+  };
+  const inspectedRun = vi.fn(run);
+  await expect(
+    resolveAudioMix(
+      invalidEnvelope,
+      [{ shotId: String(shot.id), takeId: String(take.id), videoPath: String(take.videoPath) }],
+      { filmsRoot: f.filmsRoot, storyFilmsRoot: f.storyFilmsRoot, tools, run: inspectedRun },
+    ),
+  ).rejects.toThrow("INVALID_AUDIO_ENVELOPE");
+  expect(inspectedRun.mock.calls.some(([binary]) => binary === tools.ffmpegPath)).toBe(false);
   expect(await readFile(trusted.file)).toEqual(sourceBytes);
   expect(await readFile(join(bundle, "manifest.json"))).toEqual(manifestBytes);
   expect(await readFile(f.video)).toEqual(original);

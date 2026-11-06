@@ -1,3 +1,4 @@
+import type { AudioMixEnvelope } from "@aijian/contracts/film-audio-mix";
 import type { AudioLibraryProvenance } from "@aijian/contracts/film-audio-library";
 import { normalizeLibraryProvenance } from "./audio-library-provenance";
 import type { FilmAudioWaveform } from "@aijian/contracts/film-audio-waveform";
@@ -79,6 +80,7 @@ export type AudioClip = {
   path?: string;
   libraryAsset?: AudioLibraryProvenance;
   loop?: boolean;
+  envelope?: AudioMixEnvelope;
   /** Retained audio alternatives; missing means enabled. */
   enabled?: boolean;
   waveform?: FilmAudioWaveform & { identity: string };
@@ -171,6 +173,9 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
         offsetSeconds: finiteNumber(row.offsetSeconds),
         ...(typeof row.loop === "boolean" ? { loop: row.loop } : {}),
         ...(typeof row.enabled === "boolean" ? { enabled: row.enabled } : {}),
+        // Preserve creative data; the trusted planner rejects malformed envelopes.
+        // Dropping only the field would accidentally play the original at full gain.
+        ...(row.envelope !== undefined ? { envelope: row.envelope } : {}),
         ...(normalizeLibraryProvenance(row.libraryAsset)
           ? { libraryAsset: normalizeLibraryProvenance(row.libraryAsset) }
           : {}),

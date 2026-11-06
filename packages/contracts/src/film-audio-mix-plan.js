@@ -2,6 +2,122 @@ const lanes = ["dialogue", "ambience", "sfx", "score"];
 const finite = (value) => Number.isFinite(value);
 const usable = (info) =>
   Boolean(info && info.hasAudio && finite(info.durationSeconds) && info.durationSeconds > 0);
+const keys = (value, allowed) =>
+  value &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  Object.keys(value).every((key) => allowed.includes(key));
+const time = (value) => finite(value) && Math.abs(value) <= 36000;
+/** Reject malformed creative data instead of silently executing an un-enveloped clip. */
+export function audioMixEnvelope(value) {
+  if (
+    !keys(value, ["schemaVersion", "baseGainDb", "fades", "gainAutomation"]) ||
+    value.schemaVersion !== 1 ||
+    !finite(value.baseGainDb) ||
+    value.baseGainDb < -96 ||
+    value.baseGainDb > 24
+  )
+    throw new Error("INVALID_AUDIO_ENVELOPE");
+  const fades = value.fades === undefined ? [] : value.fades;
+  const automation = value.gainAutomation === undefined ? [] : value.gainAutomation;
+  if (
+    !Array.isArray(fades) ||
+    fades.length > 8 ||
+    !Array.isArray(automation) ||
+    automation.length > 64
+  )
+    throw new Error("INVALID_AUDIO_ENVELOPE");
+  for (const fade of fades)
+    if (
+      !keys(fade, ["direction", "startSeconds", "durationSeconds"]) ||
+      !["in", "out"].includes(fade.direction) ||
+      !time(fade.startSeconds) ||
+      !finite(fade.durationSeconds) ||
+      fade.durationSeconds < 1 / 48000 ||
+      fade.durationSeconds > 36000
+    )
+      throw new Error("INVALID_AUDIO_ENVELOPE");
+  for (const row of automation)
+    if (
+      !keys(row, ["startSeconds", "endSeconds", "gainDb"]) ||
+      !time(row.startSeconds) ||
+      !time(row.endSeconds) ||
+      row.endSeconds <= row.startSeconds ||
+      !finite(row.gainDb) ||
+      row.gainDb < -96 ||
+      row.gainDb > 24
+    )
+      throw new Error("INVALID_AUDIO_ENVELOPE");
+  const sorted = [...automation].sort((a, b) => a.startSeconds - b.startSeconds);
+  if (sorted.some((row, index) => index > 0 && row.startSeconds < sorted[index - 1].endSeconds))
+    throw new Error("INVALID_AUDIO_ENVELOPE");
+  return {
+    schemaVersion: 1,
+    baseGainDb: value.baseGainDb,
+    ...(value.fades !== undefined ? { fades: fades.map((row) => ({ ...row })) } : {}),
+    ...(value.gainAutomation !== undefined
+      ? { gainAutomation: sorted.map((row) => ({ ...row })) }
+      : {}),
+  };
+}
+/** Curves are amplitude factors on the film clock, independent of source seek/loop. */
+export function audioMixEnvelopeCurves(track) {
+  if (!track.envelope) return [];
+  const envelope = track.envelope;
+  const curves = (envelope.fades ?? []).map((fade) => ({
+    initialGain: fade.direction === "in" ? 0 : 1,
+    points: [
+      {
+        seconds: track.startSeconds + fade.startSeconds,
+        gain: fade.direction === "in" ? 0 : 1,
+        interpolation: "step",
+      },
+      {
+        seconds: track.startSeconds + fade.startSeconds + fade.durationSeconds,
+        gain: fade.direction === "in" ? 1 : 0,
+        interpolation: "linear",
+      },
+    ],
+  }));
+  if (envelope.gainAutomation?.length) {
+    const events = new Map();
+    for (const row of envelope.gainAutomation) {
+      events.set(
+        track.startSeconds + row.startSeconds,
+        10 ** ((row.gainDb - envelope.baseGainDb) / 20),
+      );
+      events.set(track.startSeconds + row.endSeconds, 1);
+    }
+    curves.push({
+      initialGain: 1,
+      points: [...events]
+        .sort((a, b) => a[0] - b[0])
+        .map(([seconds, gain]) => ({ seconds, gain, interpolation: "step" })),
+    });
+  }
+  return curves;
+}
+export function audioMixCurveGain(curve, seconds) {
+  let previous = null;
+  for (const point of curve.points) {
+    if (seconds < point.seconds) {
+      if (!previous || point.interpolation === "step") return previous?.gain ?? curve.initialGain;
+      return (
+        previous.gain +
+        ((point.gain - previous.gain) * (seconds - previous.seconds)) /
+          (point.seconds - previous.seconds)
+      );
+    }
+    previous = point;
+  }
+  return previous?.gain ?? curve.initialGain;
+}
+export function audioMixEnvelopeGain(track, seconds) {
+  return audioMixEnvelopeCurves(track).reduce(
+    (gain, curve) => gain * audioMixCurveGain(curve, seconds),
+    1,
+  );
+}
 export function buildAudioMixPlan(input) {
   const result = {
     projectId: input.projectId,
@@ -67,6 +183,14 @@ export function buildAudioMixPlan(input) {
       note("INVALID_CLIP");
       return false;
     }
+    if (clip.envelope !== undefined) {
+      try {
+        audioMixEnvelope(clip.envelope);
+      } catch {
+        note("INVALID_CLIP");
+        return false;
+      }
+    }
     seen.add(clip.id);
     return true;
   });
@@ -115,6 +239,7 @@ export function buildAudioMixPlan(input) {
       offsetSeconds: clip.offsetSeconds,
       gainDb: clip.gainDb + (input.controls?.lanes?.[clip.lane]?.gainDb ?? 0),
       native,
+      ...(clip.envelope !== undefined ? { envelope: audioMixEnvelope(clip.envelope) } : {}),
       ...(loop ? { loopSeconds: available } : {}),
       ...(source.channels !== undefined ? { sourceChannels: source.channels } : {}),
     });
@@ -184,7 +309,7 @@ export function buildAudioMixPlan(input) {
   result.duck = duckCurve(result);
   return result;
 }
-export function audioMixGain(plan, track, seconds) {
+export function audioMixBaseGain(plan, track, seconds) {
   if (!finite(seconds) || seconds < track.startSeconds || seconds >= track.endSeconds) return 0;
   let duck = 1;
   if (track.lane === "score") {
@@ -201,6 +326,9 @@ export function audioMixGain(plan, track, seconds) {
     }
   }
   return 10 ** (track.gainDb / 20) * duck;
+}
+export function audioMixGain(plan, track, seconds) {
+  return audioMixBaseGain(plan, track, seconds) * audioMixEnvelopeGain(track, seconds);
 }
 export function evaluateAudioMix(plan, seconds) {
   return plan.tracks.map((track) => ({

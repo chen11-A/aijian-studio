@@ -28,7 +28,11 @@ function fixture() {
     disconnect: ReturnType<typeof vi.fn>;
   }[] = [];
   const gains: {
-    gain: { value: number; setValueAtTime: ReturnType<typeof vi.fn> };
+    gain: {
+      value: number;
+      setValueAtTime: ReturnType<typeof vi.fn>;
+      linearRampToValueAtTime: ReturnType<typeof vi.fn>;
+    };
     connect: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
   }[] = [];
@@ -59,7 +63,7 @@ function fixture() {
     }),
     createGain: vi.fn(() => {
       const value = {
-        gain: { value: 0, setValueAtTime: vi.fn() },
+        gain: { value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() },
         connect: vi.fn(),
         disconnect: vi.fn(),
       };
@@ -241,4 +245,46 @@ it("uses the same looping source window after seek without restarting at each wr
   f.tick();
   expect(f.sources).toHaveLength(1);
   expect(f.sources[0]!.stop).not.toHaveBeenCalled();
+});
+
+it("loads a fade-zero active source and schedules independent envelope ramps through seek/rate/solo", async () => {
+  const f = fixture(),
+    track = f.result.plan.tracks.find((row) => row.key === "score")!;
+  track.loopSeconds = 1;
+  track.envelope = {
+    schemaVersion: 1,
+    baseGainDb: -6,
+    fades: [{ direction: "in", startSeconds: 0, durationSeconds: 1 }],
+    gainAutomation: [{ startSeconds: 2, endSeconds: 4, gainDb: -12 }],
+  };
+  f.result.plan.tracks = [track];
+  f.result.plan.duck = [];
+  f.seek(0, 0);
+  const view = render(<AudioMixPreview result={f.result} clock={f.clock} playing audible />);
+  await waitFor(() => expect(f.context.decodeAudioData).toHaveBeenCalledOnce());
+  f.tick();
+  expect(f.sources).toHaveLength(1);
+  expect(f.gains).toHaveLength(3);
+  expect(f.gains[1]!.gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
+  expect(f.gains[1]!.gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 1);
+  f.seek(0.5, 0.5);
+  f.tick();
+  expect(f.sources).toHaveLength(1);
+  expect(f.sources[0]!.stop).not.toHaveBeenCalled();
+  f.seek(3, 1);
+  view.rerender(<AudioMixPreview result={f.result} clock={f.clock} playing audible rate={2} />);
+  f.tick();
+  expect(f.sources[0]!.stop).toHaveBeenCalledOnce();
+  expect(f.sources[1]!.start).toHaveBeenCalledWith(1, 0, 5);
+  expect(f.gains[4]!.gain.setValueAtTime).toHaveBeenCalledWith(1, 1);
+  expect(f.gains[5]!.gain.setValueAtTime.mock.calls).toEqual([
+    [10 ** (-6 / 20), 1],
+    [1, 1.5],
+  ]);
+  view.rerender(
+    <AudioMixPreview result={f.result} clock={f.clock} playing audible rate={2} solo="sfx" />,
+  );
+  f.tick();
+  expect(f.sources[1]!.stop).toHaveBeenCalledOnce();
+  expect(f.gains[4]!.disconnect).toHaveBeenCalledOnce();
 });
