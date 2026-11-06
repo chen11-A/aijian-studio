@@ -338,6 +338,23 @@ export async function runFeatureCases({ browser, config, report, media, persist 
           assert.deepEqual(result.blockedRequests, []);
           result.passed = true;
         } catch (error) {
+          const checkFrame =
+            typeof error.stack === "string"
+              ? error.stack
+                  .split("\n")
+                  .find(
+                    (line) =>
+                      /^\s+at\s/.test(line) &&
+                      /[\\/]pro-feature-cases\.mjs:\d{1,6}:\d{1,6}(?:\)|$)/.test(line),
+                  )
+              : undefined;
+          const checkLine = Number(
+            checkFrame?.match(/[\\/]pro-feature-cases\.mjs:(\d{1,6}):\d{1,6}(?:\)|$)/)?.[1],
+          );
+          result.checkLine =
+            Number.isSafeInteger(checkLine) && checkLine >= 1 && checkLine <= 100000
+              ? checkLine
+              : null;
           result.error = error.message;
         } finally {
           if (!captured || !result.passed) {
