@@ -1,3 +1,4 @@
+import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
 import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
 import type {
   FilmProjectArchiveInput,
@@ -1012,6 +1013,8 @@ export interface AijianDesktopBridge
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
+  listBundledFilmAudio?: FilmAudioLibraryGateway["listBundledFilmAudio"];
+  addBundledFilmAudio?: FilmAudioLibraryGateway["addBundledFilmAudio"];
   readFilmMedia?: (
     path: string,
     options?: { maxBytes?: number; expectedSha256?: string },

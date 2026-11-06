@@ -39,6 +39,21 @@ def stage_project_archive_resources(destination: Path) -> None:
     shutil.copy2(ROOT / "packages/aivora-media/archive.mjs", destination / "archive.mjs")
 
 
+def stage_audio_library_resources(destination: Path) -> None:
+    subprocess.run(
+        [
+            "node",
+            str(ROOT / "scripts/build-audio-library-resources.mjs"),
+            "--out-dir",
+            str(destination.resolve()),
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def command(*args: str, cwd: Path = ROOT) -> None:
     subprocess.run(args, cwd=cwd, check=True)
 
@@ -196,6 +211,7 @@ def main() -> None:
     copy_tree(ROOT / "services/api/src/aijian_api", output / "services/api/src/aijian_api")
     stage_qc_resources(output / "qc")
     stage_project_archive_resources(output / "project-archive")
+    stage_audio_library_resources(output / "audio-library")
     copy_file(
         ROOT / "config/media-toolchain-lock.json", output / "config/media-toolchain-lock.json"
     )
