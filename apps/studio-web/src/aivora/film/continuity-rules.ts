@@ -3,6 +3,9 @@ import type { FilmProject, FilmShot } from "./project";
 import { inspectDirectorSources } from "./director-source-review";
 
 const section = "文字与记录检查：";
+// 3JR-B13: vehicles a director adds without the source (「面包车」 in a scene with no car).
+const VEHICLES =
+  /面包车|小轿车|轿车|出租车|卡车|货车|摩托车|电动车|自行车|吉普车|警车|救护车|大巴|公交车|越野车|商务车/gu;
 
 /**
  * A shot without the notes applyContinuityChecks writes on every update. Those notes are
@@ -109,6 +112,12 @@ export function continuityRisks(film: ContinuityInput): Record<string, Continuit
           : "这一镜的原文出处还需核对，不能据此确认情节没有新增。",
       );
     }
+    // 3JR-B13 (R2-B02): a vehicle the scene's own text never mentions was added by the director.
+    const sceneText = film.scenes.find((scene) => scene.id === shot.sceneId)?.text ?? "";
+    const shown = [text, shot.directorFramePrompt ?? ""].join("\n");
+    for (const vehicle of new Set(shown.match(VEHICLES) ?? []))
+      if (sceneText && !sceneText.includes(vehicle))
+        add("cut", `画面里写了「${vehicle}」，这一场的原文没有，确认要不要留。`);
     for (const name of new Set(shot.characters)) {
       const person = film.characters.find((person) => person.name === name);
       if (!person) continue;

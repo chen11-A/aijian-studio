@@ -17,6 +17,50 @@ export function sceneLocation(film: FilmProject, sceneId: string): FilmLocation 
   return found.length === 1 ? found[0] : undefined;
 }
 
+/** The words a frame description would use for a place: its name, its parts, their last two. */
+function placeWords(name: string): string[] {
+  const parts = name
+    .split(/[·・_\s，,、/（）()]+/u)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2);
+  return [...new Set([...parts, ...parts.map((part) => part.slice(-2))])];
+}
+
+/** What the shot shows: the picture part of the director's frame, the picture and the action. */
+function shownText(shot: FilmShot): string {
+  const frame = shot.directorFramePrompt ?? "";
+  const picture = frame.includes("画面：") ? frame.slice(frame.indexOf("画面：")) : frame;
+  return [picture, shot.picture, shot.action].filter(Boolean).join("\n");
+}
+
+/**
+ * 3JR-B13 (R2-B02): where this shot is. A scene can move — scene 2 of the test novel starts in
+ * the bookstore and only later reaches the warehouse — so a shot that names another scene's
+ * place and not its own scene's is there. Naming two other places, the shot gets no place, so
+ * no wrong background is attached; naming none, or its own, it is in its scene's place.
+ */
+export function shotLocation(film: FilmProject, shot: FilmShot): FilmLocation | undefined {
+  const own = sceneLocation(film, shot.sceneId);
+  const text = shownText(shot);
+  const scene = film.scenes.find((item) => item.id === shot.sceneId);
+  // Its own scene's place by any of its names, even before that place has a record or image:
+  // two scenes in the same bookstore at night and at dawn never lend each other a picture.
+  const ownWords = new Set(
+    [own?.name ?? "", scene?.where ?? "", scene?.title ?? ""].flatMap(placeWords),
+  );
+  const named = (place: FilmLocation) =>
+    placeWords(place.name).some((word) => !ownWords.has(word) && text.includes(word));
+  if (!text.trim() || [...ownWords].some((word) => text.includes(word))) return own;
+  const others = new Map<string, FilmLocation>();
+  for (const other of film.scenes) {
+    if (other.id === shot.sceneId) continue;
+    const place = sceneLocation(film, other.id);
+    if (place && place.id !== own?.id && named(place)) others.set(place.id, place);
+  }
+  if (others.size === 1) return [...others.values()][0];
+  return others.size > 1 ? undefined : own;
+}
+
 /** Real scene records are generation targets even when cast extraction returned no locations.
  * This creates descriptions only; no image or success marker is invented. */
 export function prepareSceneLocations(
@@ -91,7 +135,7 @@ export function withLocationLayout(prompt: string, film: FilmProject, shot: Film
 
 /** Only exact, unique scene/place associations may supply a spatial layout. */
 export function locationLayout(film: FilmProject, shot: FilmShot): string {
-  const place = sceneLocation(film, shot.sceneId);
+  const place = shotLocation(film, shot);
   return place?.layout?.trim() ? layoutBlock(place.layout) : "";
 }
 
@@ -110,7 +154,8 @@ export function locationReference(
   film: FilmProject,
   shot: FilmShot,
 ): { url: string; who: string; kind: "location" } | null {
-  const place = sceneLocation(film, shot.sceneId);
+  // 3JR-B13: the shot's own place; a place without a current image attaches nothing.
+  const place = shotLocation(film, shot);
   if (!place) return null;
   if (!locationImageCurrent(film, place)) return null;
   return { url: place.referenceImage!, who: place.name, kind: "location" };
