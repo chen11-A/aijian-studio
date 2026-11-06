@@ -1,3 +1,5 @@
+import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
+import { createStoryFilmClient } from "./story-film-client";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 import { registerFilmExportQc } from "./film-export-qc-ipc";
 import { verifiedQcTools, loadQcEngine, loadQcRunner } from "./film-export-qc-runtime";
@@ -868,6 +870,27 @@ registerTaskProgressHandlers<IpcMainInvokeEvent>(
     event.senderFrame === mainWindow.webContents.mainFrame,
   (event) => event.sender.id,
   (event, snapshot) => event.sender.send("aivora:tasks", snapshot),
+);
+registerCleanCopyRecovery<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    databasePath: join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+    remake: async (projectId, path, expected) => {
+      if (!sidecar) throw new Error("Local API unavailable");
+      return createStoryFilmClient(globalThis.fetch, sidecar.session).remakeCleanCopy(
+        projectId,
+        path,
+        expected,
+      );
+    },
+  },
 );
 const checkedPublishedPaths = new Set<string>();
 const qcResourceRoot = () =>

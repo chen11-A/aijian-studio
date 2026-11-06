@@ -123,7 +123,9 @@ export function createStoryFilmClient(
     Origin: "app://aijian",
   };
 
-  async function read(response: Response): Promise<unknown> {
+  async function read(
+    response: Response,
+  ): Promise<{ data: Record<string, unknown>; request_id: string }> {
     let payload: unknown;
     try {
       payload = await response.json();
@@ -169,7 +171,11 @@ export function createStoryFilmClient(
       }).then(read);
     },
     /** 4B-B12: the copy without burned subtitles made again from the film's saved assembly. */
-    remakeCleanCopy(projectId: string, filmPath: string) {
+    remakeCleanCopy(
+      projectId: string,
+      filmPath: string,
+      expected?: { sha256: string; assemblyVersionId: string },
+    ) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
       if (!isAbsolute(filmPath) || filmPath.length > 4096 || filmPath.includes("\0")) {
         throw new Error("Invalid story film path");
@@ -177,7 +183,15 @@ export function createStoryFilmClient(
       return fetcher(`${origin}/api/v1/projects/${projectId}/story-film/clean-copy`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ film_path: filmPath }),
+        body: JSON.stringify({
+          film_path: filmPath,
+          ...(expected
+            ? {
+                expected_sha256: expected.sha256,
+                expected_assembly_version_id: expected.assemblyVersionId,
+              }
+            : {}),
+        }),
       }).then(read);
     },
     create(projectId: string, input: StoryFilmCreateInput, mediaBearer?: string) {

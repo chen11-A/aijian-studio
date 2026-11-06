@@ -1,3 +1,4 @@
+import { legacyCleanCopyTargets, cleanCopySelectionHash } from "./actions/clean-copy-recovery";
 import { ExportProgress } from "../next/ExportProgress";
 import { acceptExportProgress, type ExportProgressScope } from "./actions/export-progress";
 import type { FilmExportProgressEvent } from "@aijian/contracts/film-export-qc";
@@ -2984,6 +2985,115 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     await assembleCurrentFilm(current, paths, () => filmRef.current, applyLive, setNotice, valid);
   }
 
+  const recoveryBusyRef = useRef(false);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  async function recoverLegacyCleanCopy(shotId: string) {
+    const base = filmRef.current,
+      bridge = window.aijian;
+    if (!base || !bridge?.recoverFilmCleanCopy || recoveryBusyRef.current) return;
+    recoveryBusyRef.current = true;
+    setRecoveryBusy(true);
+    let lease: Awaited<ReturnType<typeof persistence.acquire>> | undefined;
+    try {
+      lease = await persistence.acquire(base.id);
+      if (filmRef.current !== base) return;
+      await lease.save(base, () => filmRef.current === base);
+      const saved = await bridge.readFilmProject?.(base.id);
+      if (filmRef.current !== base) return;
+      const canonical = saved && upgradeFilm(saved);
+      if (!canonical || canonical.id !== base.id) throw new Error("SAVE_FAILED");
+      applyLive(canonical);
+      const accepted = filmRef.current;
+      if (!accepted || accepted.id !== base.id) return;
+      const target = legacyCleanCopyTargets(accepted).find((target) => target.shotId === shotId);
+      if (!target) return;
+      const selectionHash = await cleanCopySelectionHash(target.videoPath, target.cleanVideoPath);
+      if (filmRef.current !== accepted) return;
+      setNotice({
+        code: "CLEAN_COPY_PROGRESS",
+        text: NOTICE_TEXT.CLEAN_COPY_PROGRESS,
+        detail: "正在本机重建可核验的无字幕副本，不会生成新视频或调用付费服务。",
+      });
+      const result = await bridge.recoverFilmCleanCopy({
+        projectId: accepted.id,
+        shotId: target.shotId,
+        takeId: target.takeId,
+        selectionHash,
+      });
+      if (filmRef.current !== accepted) {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "CLEAN_COPY_STALE", text: NOTICE_TEXT.CLEAN_COPY_STALE });
+        return;
+      }
+      if (result.kind === "RECOVERED" || result.kind === "REUSED_ORIGINAL") {
+        if (!result.project || typeof result.project !== "object" || Array.isArray(result.project))
+          throw new Error("SAVE_FAILED");
+        const recovered = upgradeFilm(result.project as Partial<FilmProject>);
+        if (!recovered || recovered.id !== accepted.id) throw new Error("SAVE_FAILED");
+        applyLive(recovered);
+        const applied = filmRef.current;
+        await lease.release();
+        lease = undefined;
+        if (filmRef.current !== applied) return;
+        setNotice({
+          code: result.kind === "REUSED_ORIGINAL" ? "CLEAN_COPY_NOT_REQUIRED" : "CLEAN_COPY_DONE",
+          text:
+            result.kind === "REUSED_ORIGINAL"
+              ? NOTICE_TEXT.CLEAN_COPY_NOT_REQUIRED
+              : NOTICE_TEXT.CLEAN_COPY_DONE,
+          detail:
+            result.kind === "REUSED_ORIGINAL"
+              ? "合成记录确认原片没有烧录字幕，已保存为无字幕来源；没有生成新副本，旧副本仍保留。请重新检查成片。"
+              : "已保存可核验的新副本；原片和旧副本均保留。请重新检查成片。",
+        });
+      } else if (result.kind === "UNCHANGED") {
+        setNotice({
+          code: "CLEAN_COPY_NOT_REQUIRED",
+          text: NOTICE_TEXT.CLEAN_COPY_NOT_REQUIRED,
+          detail:
+            result.reason === "ALREADY_VERIFIED"
+              ? "现有副本已有可核验记录，没有执行重建。"
+              : "原片没有烧录字幕，没有生成新的副本。",
+        });
+      } else {
+        const detail =
+          result.code === "SOURCE_UNVERIFIED"
+            ? "这份素材的归属暂无法核验，原片和已有副本会保留。"
+            : result.code === "EVIDENCE_FAILED"
+              ? "新副本尚未取得最终归属记录，没有替换已有副本。"
+              : result.code === "PROJECT_CHANGED"
+                ? "作品或版本已经变化，没有替换已有副本。"
+                : result.code === "SAVE_FAILED"
+                  ? "恢复结果未能保存，没有确认本次修改。"
+                  : "本机重建没有完成，原片和已有副本会保留。";
+        setNotice({
+          code: result.code === "PROJECT_CHANGED" ? "CLEAN_COPY_STALE" : "CLEAN_COPY_FAILED",
+          text:
+            result.code === "PROJECT_CHANGED"
+              ? NOTICE_TEXT.CLEAN_COPY_STALE
+              : NOTICE_TEXT.CLEAN_COPY_FAILED,
+          detail,
+        });
+      }
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "当前工程尚未确认保存，请先核对；原片和已有副本均保留。",
+        });
+    } finally {
+      try {
+        await lease?.release();
+      } catch {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "SAVE_FAILED", text: NOTICE_TEXT.SAVE_FAILED });
+      }
+      recoveryBusyRef.current = false;
+      setRecoveryBusy(false);
+    }
+  }
+
   async function repairCleanCopies(shotIds: readonly string[] | null): Promise<void> {
     const live = filmRef.current;
     if (!live || workOwners.has(live.id, "clean-copy")) return;
@@ -5111,6 +5221,27 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       published={exportExecution.published}
                       onRequestCancel={() => requestExportStop(exportExecution.operationId)}
                     />
+                  ) : null}
+                  {film &&
+                  exportQc?.error === qcFailureText.SOURCE_UNVERIFIED &&
+                  window.aijian?.recoverFilmCleanCopy ? (
+                    <div className="field">
+                      <p>
+                        已有无字幕副本无法核验时，可从原片的合成记录在本机重建；原片和旧副本都会保留。
+                      </p>
+                      {legacyCleanCopyTargets(film).map((target) => (
+                        <button
+                          key={target.shotId}
+                          className="btn"
+                          disabled={recoveryBusy || exportQcBusy}
+                          onClick={() => void recoverLegacyCleanCopy(target.shotId)}
+                        >
+                          {recoveryBusy
+                            ? "正在本机重建…"
+                            : `${target.label}：重建可核验的无字幕副本`}
+                        </button>
+                      ))}
+                    </div>
                   ) : null}
                   {exportQc ? (
                     <>

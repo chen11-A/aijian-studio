@@ -1,3 +1,4 @@
+import type { CleanCopyRecoveryInput } from "@aijian/contracts/clean-copy-recovery";
 import type {
   FilmExportQcInput,
   FilmExportQcPublishInput,
@@ -564,6 +565,8 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("story-film:create", projectId, input),
   getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
+  recoverFilmCleanCopy: (input: CleanCopyRecoveryInput) =>
+    ipcRenderer.invoke("film:recover-clean-copy", input),
   remakeStoryFilmCleanCopy: (projectId: string, filmPath: string) =>
     ipcRenderer.invoke("story-film:clean-copy", projectId, filmPath),
   readStoryFilmMedia: (path: string) =>

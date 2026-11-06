@@ -1,7 +1,9 @@
 """Scene-to-MP4 coverage. The provider is the local placeholder, never a paid call."""
 
 import base64
+import hashlib
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -1366,7 +1368,8 @@ def test_remake_finds_only_films_this_workspace_made(tmp_path, monkeypatch):
     for path in (str(stranger), str(outside), str(film.parent / "missing-film.mp4"), ""):
         result = service.remake_clean_copy(path)
         assert result.status == "NOT_FOUND", path
-        assert "只能重新生成" in result.message
+        assert "归属暂无法核验" in result.message
+        assert "已有副本会保留" in result.message
 
 
 def test_remake_route_returns_the_clean_copy(tmp_path, monkeypatch):
@@ -1394,3 +1397,103 @@ def test_remake_route_returns_the_clean_copy(tmp_path, monkeypatch):
             json={"film_path": str(film), "extra": 1},
         )
         assert refused.status_code == 422
+
+
+def test_clean_recovery_requires_exact_requested_owner_sha_and_assembly(tmp_path, monkeypatch):
+    repository, project_id, service, film = _film_without_clean_copy(tmp_path, monkeypatch)
+    original = film.read_bytes()
+    digest = hashlib.sha256(original).hexdigest()
+    proof = service._story_film_assembly(digest, project_id=project_id)
+    assert proof is not None
+    provider_calls = []
+    monkeypatch.setattr(service, "_live_media", lambda *args: provider_calls.append(args))
+    monkeypatch.setattr(service, "_placeholder_media", lambda *args: provider_calls.append(args))
+    exporter = service._export_clean_copy
+    calls = []
+
+    def tracked(*args):
+        calls.append(args)
+        return exporter(*args)
+
+    monkeypatch.setattr(service, "_export_clean_copy", tracked)
+    for expected in [
+        {"project_id": "prj_" + "f" * 32},
+        {"project_id": project_id, "expected_sha256": "0" * 64},
+        {"project_id": project_id, "expected_assembly_version_id": "wrong-assembly"},
+    ]:
+        result = service.remake_clean_copy(str(film), **expected)
+        assert result.status == "NOT_FOUND"
+        assert result.clean_output_path is None
+    assert calls == []
+    result = service.remake_clean_copy(
+        str(film),
+        project_id=project_id,
+        expected_sha256=digest,
+        expected_assembly_version_id=proof[2],
+    )
+    assert result.status == "SUCCEEDED", result.message
+    assert result.clean_output_path and Path(result.clean_output_path).is_file()
+    assert film.read_bytes() == original
+    assert len(calls) == 1
+    assert provider_calls == []
+    assert _streams(Path(result.clean_output_path)) == {"video", "audio"}
+
+    node = shutil.which("node")
+    assert node
+    script = """
+import { pathToFileURL } from 'node:url';
+const reader = await import(pathToFileURL(process.argv[1]).href);
+const { originalCleanRecoveryProof, finalCleanRecoveryProof } = reader;
+const [database, project, source, sourceHash, clean, cleanHash] = process.argv.slice(2);
+console.log(JSON.stringify([
+ Boolean(originalCleanRecoveryProof(database,project,source,sourceHash)),
+ finalCleanRecoveryProof(database,project,clean,cleanHash),
+ Boolean(originalCleanRecoveryProof(database,'prj_'+'f'.repeat(32),source,sourceHash)),
+ finalCleanRecoveryProof(database,project,source,cleanHash)
+]));
+"""
+    observed = subprocess.run(
+        [
+            node,
+            "--input-type=module",
+            "--eval",
+            script,
+            str(
+                Path(__file__).resolve().parents[3]
+                / "apps/desktop/src/clean-copy-recovery-proof.ts"
+            ),
+            str(repository.database_path),
+            project_id,
+            str(film),
+            digest,
+            result.clean_output_path,
+            hashlib.sha256(Path(result.clean_output_path).read_bytes()).hexdigest(),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert observed.returncode == 0, observed.stderr
+    assert json.loads(observed.stdout) == [True, True, False, False]
+
+
+def test_clean_copy_route_rejects_another_project_even_with_the_original_path(
+    tmp_path, monkeypatch
+):
+    repository, _project_id, service, film = _film_without_clean_copy(tmp_path, monkeypatch)
+    app = create_app(
+        repository=repository,
+        local_media_toolchain=LocalMediaToolchainService(None, fallback=toolchain),
+        sidecar_security=SidecarSecurity(token=TOKEN, host=HOST),
+    )
+    headers = {"Authorization": f"Bearer {TOKEN}", "Origin": "app://aijian"}
+    with TestClient(app, base_url=f"http://{HOST}", client=("127.0.0.1", 1234)) as client:
+        response = client.post(
+            f"/api/v1/projects/prj_{'f' * 32}/story-film/clean-copy",
+            headers=headers,
+            json={"film_path": str(film)},
+        )
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "NOT_FOUND"
+    assert response.json()["data"]["clean_output_path"] is None

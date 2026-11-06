@@ -1675,7 +1675,14 @@ class StoryFilmService:
         except Exception as error:  # noqa: BLE001 - the subtitled film is still the take
             return None, _failure_log_code(error)
 
-    def remake_clean_copy(self, film_path: str) -> StoryFilmCleanCopyResult:
+    def remake_clean_copy(
+        self,
+        film_path: str,
+        *,
+        project_id: str | None = None,
+        expected_sha256: str | None = None,
+        expected_assembly_version_id: str | None = None,
+    ) -> StoryFilmCleanCopyResult:
         """4B-B12: the copy without burned subtitles for a film this workspace made, again.
 
         The film is found by its bytes among the saved story films, and its assembly is
@@ -1684,7 +1691,7 @@ class StoryFilmService:
         """
 
         missing = StoryFilmCleanCopyResult(
-            "NOT_FOUND", "找不到这一镜当时的合成记录，只能重新生成这一镜。"
+            "NOT_FOUND", "这份素材的归属暂无法核验，原片和已有副本会保留。"
         )
         directory = (Path(self._repository.database_path).parent / "story-films").resolve()
         try:
@@ -1693,10 +1700,15 @@ class StoryFilmService:
             return missing
         if film.parent != directory or film.suffix.lower() != ".mp4" or not film.is_file():
             return missing
-        found = self._story_film_assembly(hashlib.sha256(film.read_bytes()).hexdigest())
+        digest = hashlib.sha256(film.read_bytes()).hexdigest()
+        if expected_sha256 is not None and expected_sha256 != digest:
+            return missing
+        found = self._story_film_assembly(digest, project_id=project_id)
         if found is None:
             return missing
         project_id, episode_id, version_id = found
+        if expected_assembly_version_id is not None and expected_assembly_version_id != version_id:
+            return missing
         try:
             assembly = EpisodeMediaAssemblyStore(self._repository).read_version(
                 project_id, episode_id, version_id=version_id
@@ -1722,12 +1734,14 @@ class StoryFilmService:
             )
         return StoryFilmCleanCopyResult("SUCCEEDED", "不带字幕的那份做好了。", str(clean), cues)
 
-    def _story_film_assembly(self, digest: str) -> tuple[str, str, str] | None:
+    def _story_film_assembly(
+        self, digest: str, *, project_id: str | None = None
+    ) -> tuple[str, str, str] | None:
         """Project, episode and assembly version of the story film whose output has `digest`."""
 
         with self._repository._connection() as connection:
             rows = connection.execute(
-                """SELECT version.content_json
+                """SELECT version.content_json, artifact.project_id AS manifest_project_id
                    FROM artifact_versions AS version
                    JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
                    WHERE artifact.artifact_type = 'story_film' AND version.content_json LIKE ?""",
@@ -1744,13 +1758,19 @@ class StoryFilmService:
                 if not isinstance(version_id, str):
                     continue
                 owner = connection.execute(
-                    """SELECT artifact.project_id, artifact.episode_id
+                    """SELECT artifact.project_id, artifact.episode_id, version.content_hash
                        FROM artifact_versions AS version
                        JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
                        WHERE version.version_id = ? AND artifact.artifact_type = ?""",
                     (version_id, ASSEMBLY_ARTIFACT_TYPE),
                 ).fetchone()
-                if owner is not None and owner["episode_id"] is not None:
+                if (
+                    owner is not None
+                    and owner["episode_id"] is not None
+                    and owner["project_id"] == row["manifest_project_id"]
+                    and (project_id is None or owner["project_id"] == project_id)
+                    and manifest.get("assembly_content_hash") == owner["content_hash"]
+                ):
                     return str(owner["project_id"]), str(owner["episode_id"]), version_id
         return None
 

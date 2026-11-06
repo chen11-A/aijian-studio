@@ -104,6 +104,10 @@
     "./film-export-qc": {
       "types": "./src/film-export-qc.ts",
       "default": "./src/film-export-qc.ts"
+    },
+    "./clean-copy-recovery": {
+      "types": "./src/clean-copy-recovery.ts",
+      "default": "./src/clean-copy-recovery.ts"
     }
   },
   "scripts": {

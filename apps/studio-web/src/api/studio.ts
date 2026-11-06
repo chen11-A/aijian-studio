@@ -1,3 +1,4 @@
+import type { CleanCopyRecoveryGateway } from "@aijian/contracts/clean-copy-recovery";
 import type { FilmExportQcGateway } from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskItem, BatchProgress } from "@aijian/contracts/task-progress";
 import type { AssemblyReadinessGateway } from "@aijian/contracts/assembly-readiness";
@@ -1026,6 +1027,7 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  recoverFilmCleanCopy?: CleanCopyRecoveryGateway["recoverFilmCleanCopy"];
   prepareFilmExport?: FilmExportQcGateway["prepareFilmExport"];
   publishFilmExport?: FilmExportQcGateway["publishFilmExport"];
   cancelFilmExportOperation?: FilmExportQcGateway["cancelFilmExportOperation"];

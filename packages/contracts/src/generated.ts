@@ -8331,6 +8331,10 @@ export interface components {
          * @description 4B-B12: a film this workspace made, by the path the service returned for it.
          */
         RemakeStoryFilmCleanCopyBody: {
+            /** Expected Assembly Version Id */
+            expected_assembly_version_id?: string | null;
+            /** Expected Sha256 */
+            expected_sha256?: string | null;
             /** Film Path */
             film_path: string;
         };

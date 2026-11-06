@@ -269,6 +269,24 @@ export async function writeProject(root: string, value: unknown): Promise<FilmRe
   return enqueueWrite(`film:${root}`, () => writeProjectNow(root, value));
 }
 
+/** Compare and write on the same queue as normal project saves. Never replaces intervening edits. */
+export async function compareAndSwapProject(
+  root: string,
+  expected: FilmRecord,
+  next: FilmRecord,
+): Promise<FilmRecord | null> {
+  return enqueueWrite(`film:${root}`, async () => {
+    const current = await readProject(root, expected.id);
+    if (
+      !current ||
+      current.id !== expected.id ||
+      JSON.stringify(current) !== JSON.stringify(expected)
+    )
+      return null;
+    return writeProjectNow(root, next);
+  });
+}
+
 /** Materialize session media without publishing a project or changing its save time. */
 export async function prepareProject(root: string, value: unknown): Promise<FilmRecord> {
   if (!value || typeof value !== "object") throw new Error("Invalid film");
