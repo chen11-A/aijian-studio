@@ -44,6 +44,7 @@ function bridge() {
   window.aijian = {
     remakeStoryFilmCleanCopy: remake,
     createStoryFilm: generate,
+    prepareFilmExport: vi.fn(async () => ({ kind: "FAILED", code: "CLEAN_COPY_REQUIRED" })),
     exportFilmCut: cut,
     pickFilmFolder: vi.fn(async () => "/out"),
   } as unknown as Window["aijian"];
@@ -154,7 +155,7 @@ describe("4B-B12 workspace repair ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
     fireEvent.click(dialog.getByRole("radio", { name: "不要" }));
-    fireEvent.click(dialog.getByRole("button", { name: "导出" }));
+    fireEvent.click(dialog.getByRole("button", { name: "检查成片" }));
     fireEvent.click(await dialog.findByRole("button", { name: "一键补做这 2 镜" }));
     await waitFor(() => expect(remake).toHaveBeenCalledTimes(2));
     expect((await readSaved(film.id))!.shots[0]!.takes[0]!.cleanVideoPath).toBe(
@@ -253,7 +254,7 @@ describe("4B-B12 workspace repair ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
     fireEvent.click(dialog.getByRole("radio", { name: "不要" }));
-    fireEvent.click(dialog.getByRole("button", { name: "导出" }));
+    fireEvent.click(dialog.getByRole("button", { name: "检查成片" }));
     fireEvent.click(await dialog.findByRole("button", { name: "一键补做这 2 镜" }));
     await waitFor(() => expect(status()).toContain("补做中断，已经保存的版本会保留"));
     expect(status()).not.toMatch(/private|output.json/);

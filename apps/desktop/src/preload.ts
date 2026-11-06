@@ -1,3 +1,4 @@
+import type { FilmExportQcInput, FilmExportQcPublishInput } from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskSnapshot } from "@aijian/contracts/task-progress";
 import type {
   LocalMediaReviewGateway,
@@ -622,6 +623,10 @@ contextBridge.exposeInMainWorld("aijian", {
   ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
+  prepareFilmExport: (input: FilmExportQcInput) => ipcRenderer.invoke("film:qc-prepare", input),
+  publishFilmExport: (input: FilmExportQcPublishInput) =>
+    ipcRenderer.invoke("film:qc-publish", input),
+  discardFilmExport: (qcReceipt: string) => ipcRenderer.invoke("film:qc-discard", qcReceipt),
   exportFilmCut: (source: string, directory: string, name?: string, options?: FilmExportOptions) =>
     ipcRenderer.invoke("film:export", source, directory, name, options),
   cancelFilmExport: (requestId: string) => ipcRenderer.invoke("film:cancel-export", requestId),

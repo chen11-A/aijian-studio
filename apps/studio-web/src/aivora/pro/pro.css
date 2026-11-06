@@ -3998,3 +3998,21 @@ body:has(.pro-root) {
 .pro-root .clean-copy-repair .btn + .role-desc {
   margin: 8px 0 0;
 }
+
+/* Checked export keeps long measured reports inside the modal at small desktop sizes. */
+.pro-root .dialog.export {
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.pro-root .dialog.export > .acts {
+  position: sticky;
+  bottom: -16px;
+  background: var(--panel);
+  padding-block: 12px;
+  z-index: 1;
+}
+.pro-root .dialog.export .nx-export {
+  min-height: 0;
+  max-height: 440px;
+}

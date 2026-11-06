@@ -1,3 +1,6 @@
+import { storyFilmQcOwner } from "./film-export-qc-ownership";
+import { registerFilmExportQc } from "./film-export-qc-ipc";
+import { verifiedQcTools, loadQcEngine } from "./film-export-qc-runtime";
 import { registerTaskProgressHandlers } from "./task-progress-ipc";
 import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
 import { registerAssemblyReadinessHandler } from "./assembly-readiness-ipc";
@@ -64,6 +67,7 @@ import {
   nativeImage,
   shell,
   type IpcMainInvokeEvent,
+  type WebContentsDidStartNavigationEventParams,
 } from "electron";
 
 import {
@@ -865,6 +869,73 @@ registerTaskProgressHandlers<IpcMainInvokeEvent>(
   (event) => event.sender.id,
   (event, snapshot) => event.sender.send("aivora:tasks", snapshot),
 );
+const checkedPublishedPaths = new Set<string>();
+registerFilmExportQc<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  (event) => String(event.sender.id),
+  {
+    publishedPaths: checkedPublishedPaths,
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    temporaryRoot: join(app.getPath("userData"), "cache", "export-qc"),
+    tools: () =>
+      verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+      ),
+    engine: () =>
+      loadQcEngine(
+        app.isPackaged
+          ? join(process.resourcesPath, "qc")
+          : existsSync(resolve(__dirname, "../../../qc"))
+            ? resolve(__dirname, "../../../qc")
+            : resolve(__dirname, "../../../packages/aivora-qc"),
+      ),
+    storyOwner: async (projectId, path, sha256) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        sha256,
+      ),
+    font: () =>
+      bundledSubtitleFont(process.resourcesPath ?? "", {
+        execPath: process.execPath,
+        repositoryRoot: resolve(__dirname, "../../.."),
+      }),
+    pickDirectory: async () => {
+      if (!mainWindow) return null;
+      const picked = await dialog.showOpenDialog(mainWindow, {
+        title: "发布检查后的成片",
+        properties: ["openDirectory", "createDirectory"],
+      });
+      return picked.canceled ? null : (picked.filePaths[0] ?? null);
+    },
+  },
+  (event, dispose) => {
+    const sender = event.sender;
+    let done = false;
+    const invalidate = () => {
+      if (done) return;
+      done = true;
+      sender.removeListener("did-start-navigation", navigate);
+      sender.removeListener("render-process-gone", invalidate);
+      sender.removeListener("destroyed", invalidate);
+      dispose();
+    };
+    const navigate = (details: WebContentsDidStartNavigationEventParams) => {
+      if (details.isMainFrame && !details.isSameDocument) invalidate();
+    };
+    sender.on("did-start-navigation", navigate);
+    sender.once("render-process-gone", invalidate);
+    sender.once("destroyed", invalidate);
+  },
+);
 registerFilmLibraryHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -872,6 +943,7 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     event.sender === mainWindow.webContents &&
     event.senderFrame === mainWindow.webContents.mainFrame,
   {
+    publishedPaths: checkedPublishedPaths,
     filmsRoot: () => join(app.getPath("userData"), "films"),
     storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
     runFfmpeg: (args, options) =>

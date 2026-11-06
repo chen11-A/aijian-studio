@@ -36,6 +36,12 @@ FFMPEG_SHA256 = "202fe67679a0860b155817a0907ffcc5c1ea82e186acaa21cb87d307f54fd59
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
 
 
+def stage_qc_resources(destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in ("index.mjs", "media.mjs", "rules.mjs", "subtitles.mjs"):
+        shutil.copy2(ROOT / "packages/aivora-qc" / name, destination / name)
+
+
 def digest(path: Path) -> str:
     # Ubuntu 22.04's system Python is 3.10 and has no hashlib.file_digest.
     hasher = hashlib.sha256()
@@ -284,6 +290,7 @@ def build(output: Path, cache: Path) -> None:
     helper.copy_tree(electron, output / "runtime/electron")
     helper.bundle_python(output / "runtime/python")
     helper.copy_tree(ROOT / "services/api/src/aijian_api", output / "services/api/src/aijian_api")
+    stage_qc_resources(output / "qc")
     profile = stage_ffmpeg(cache, output)
     templates = ROOT / "packaging/linux"
     for name in ("launch-aivora.sh", "check-runtime.py", "README.zh-CN.md"):

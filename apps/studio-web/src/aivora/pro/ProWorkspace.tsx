@@ -1,3 +1,7 @@
+import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/film-export-qc";
+import { ExportCheck } from "../next/ExportCheck";
+import { readQcReport, type QcIssue } from "../next/qcReport";
+import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
 import {
   generationPreflight,
@@ -67,7 +71,6 @@ import { coverageNotice } from "../film/coverage-notice";
 import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
-import { exportFilmSelection } from "./actions/export-selection";
 import { remakeCleanCopies, shotsNeedingCleanCopy } from "./actions/clean-copy";
 import { revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
@@ -141,6 +144,7 @@ import {
 } from "../film/library";
 import {
   blankFilm,
+  upgradeFilm,
   keyframePrompt,
   interruptStaleWork,
   newEpisode,
@@ -228,7 +232,6 @@ import {
   assistantInputVersion,
   fileMediaUrl,
   requestFilmStill,
-  middlePath,
   shotFrame,
   hydrateFilm,
   filmSignature,
@@ -559,7 +562,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [pendingScenes, setPendingScenes] = useState<FilmScene[] | null>(null);
   const [menu, setMenu] = useState<"project" | "account" | "queue" | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [partialExport, setPartialExport] = useState<string[] | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
   const workOwners = useWorkOwners(film?.id ?? "");
   const exporting = workOwners.busy("export");
@@ -667,7 +669,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     batchConfirmation.current = rows ? { projectId: filmRef.current?.id ?? "", rows } : null;
     setPendingBatchState(rows);
   }
-  const [exportDir, setExportDir] = useState("");
   const [exportFile, setExportFile] = useState("");
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -3006,112 +3007,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function startExport(directoryOverride?: string, allowPartial = false) {
-    const bridge = window.aijian;
-    if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) {
-      setNotice("导出要在桌面版里选择文件夹。网页里不能写成片。");
+  async function startExport() {
+    if (!window.aijian?.prepareFilmExport) {
+      setNotice({
+        code: "EXPORT_QC_FAILED",
+        text: NOTICE_TEXT.EXPORT_QC_FAILED,
+        detail: "当前环境不能执行导出前检查，请使用支持检查的桌面版本。",
+      });
       return;
     }
-    const current = filmRef.current;
-    if (!current || workOwners.has(current.id, "export")) return;
-    const valid = requestSequences.current.begin(
-      current.id,
-      "export",
-      () => filmRef.current?.id ?? "",
-    );
-    const plan = chosenExport(current);
-    if (plan.paths.length === 0) {
-      setNotice(
-        plan.missing.length > 0
-          ? `还没生成：${plan.missing.join("、")}。`
-          : "还没有可以导出的视频。",
-      );
-      return;
-    }
-    if (plan.missing.length > 0 && !allowPartial) {
-      setPartialExport(plan.missing);
-      setNotice(`还没生成：${plan.missing.join("、")}。可以只导出已生成的。`);
-      return;
-    }
-    const release = workOwners.begin(current.id, "export");
-    setNotice("正在导出。");
-    try {
-      // 4B-B09: the dialog's 清晰度 and 字幕, the work's subtitle look and its cover.
-      const coverStart = coverEditorData(current, { mediaUrl: fileMediaUrl });
-      const result = await exportFilmSelection(
-        current,
-        plan.paths,
-        directoryOverride || exportDir,
-        {
-          current: () => filmRef.current,
-          valid,
-          apply: applyLive,
-        },
-        exportAspects,
-        {
-          quality: exportQuality,
-          subtitles: exportSubs,
-          style: current.subtitleStyle ?? "white",
-          cover: coverOf(current, coverStart.ok ? coverStart.props : null, prefs.aiMark),
-        },
-      );
-      if (!valid() || result.status === "stale") return;
-      if (
-        result.error?.code === "EXPORT_SUBTITLES_BAKED" &&
-        exportSettingsRef.current.projectId === current.id &&
-        exportSettingsRef.current.subtitles === exportSubs
-      )
-        setCleanCopyBlockedAt({ projectId: current.id, subtitles: exportSubs });
-      if (result.directory) setExportDir(result.directory);
-      if (result.primaryPath) setExportFile(result.primaryPath);
-      if (result.status === "done")
-        setNotice({
-          code: "EXPORT_DONE",
-          text: NOTICE_TEXT.EXPORT_DONE,
-          detail: result.outputs
-            .map((output) =>
-              [
-                `${output.aspectRatio}：${output.path}`,
-                output.subtitlePath ? `字幕文件：${output.subtitlePath}` : "",
-                output.coverPath ? `封面：${output.coverPath}` : "",
-                output.note ?? "",
-              ]
-                .filter(Boolean)
-                .join("，"),
-            )
-            .join("；"),
-        });
-      else if (result.status === "partial")
-        setNotice({
-          code: "EXPORT_FAILED",
-          text: NOTICE_TEXT.EXPORT_FAILED,
-          detail: `已保存 ${result.outputs.length} 个文件，其余没有导出，请重试。`,
-        });
-      else
-        emitNotice({
-          code: result.status === "cancelled" ? "EXPORT_FOLDER_REQUIRED" : "EXPORT_FAILED",
-          text: result.status === "cancelled" ? "没有选择文件夹。" : NOTICE_TEXT.EXPORT_FAILED,
-          // 4B-B09: say why, e.g. older shots whose subtitle is in the picture.
-          ...(result.error?.code === "EXPORT_SUBTITLES_BAKED"
-            ? { detail: result.error.detail }
-            : {}),
-        });
-    } catch (error) {
-      if (valid())
-        emitNotice({
-          code:
-            error instanceof Error && "code" in error && error.code === "EXPORT_CANCELLED"
-              ? "EXPORT_FOLDER_REQUIRED"
-              : "EXPORT_FAILED",
-          text:
-            error instanceof Error && "code" in error && error.code === "EXPORT_CANCELLED"
-              ? "没有选择文件夹。"
-              : "没有导出成功，可以重试。",
-          detail: error instanceof Error ? error.message : undefined,
-        });
-    } finally {
-      release();
-    }
+    await prepareCheckedExport();
   }
 
   const wsClass =
@@ -3178,6 +3083,270 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     projectId: string;
     subtitles: string;
   } | null>(null);
+  const [prefs, setPrefs] = useState(readPrefs);
+  const [exportQc, setExportQc] = useState<{
+    ready: FilmExportQcPrepared | null;
+    key: string;
+    input: FilmExportQcInput | null;
+    error: string | null;
+    checking: boolean;
+  } | null>(null);
+  const [exportQcBusy, setExportQcBusy] = useState(false);
+  const [exportQcAspect, setExportQcAspect] = useState(0);
+  const exportQcBusyRef = useRef(false);
+  const exportQcEpoch = useRef(0);
+  const exportQcInput = film
+    ? filmQcInput(film, exportAspects, {
+        quality: exportQuality,
+        subtitles: exportSubs,
+        style: film.subtitleStyle ?? "white",
+        aiMark: prefs.aiMark,
+      })
+    : null;
+  const exportQcKey = filmQcKey(film, exportQcInput);
+  const exportQcCurrent = useRef({ key: exportQcKey, input: exportQcInput });
+  exportQcCurrent.current = { key: exportQcKey, input: exportQcInput };
+  const exportQcStale = Boolean(exportQc && exportQc.key !== exportQcKey);
+  function qcContextCurrent(key: string) {
+    const context = exportQcCurrent.current;
+    return context.key === key && filmQcKey(filmRef.current, context.input) === key;
+  }
+
+  useEffect(() => {
+    if (exportQc?.ready && exportQcStale)
+      void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
+  }, [exportQc?.ready, exportQcStale]);
+  useEffect(
+    () => () => {
+      exportQcEpoch.current += 1;
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      if (exportQc?.ready)
+        void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
+    },
+    [exportQc?.ready],
+  );
+  async function prepareCheckedExport() {
+    const bridge = window.aijian,
+      current = filmRef.current;
+    if (
+      !current ||
+      !bridge?.prepareFilmExport ||
+      exportQcBusyRef.current ||
+      workOwners.has(current.id, "export")
+    )
+      return;
+    let captured = exportQcCurrent.current;
+    if (!captured.input) return;
+    const epoch = ++exportQcEpoch.current;
+    exportQcBusyRef.current = true;
+    setExportQcBusy(true);
+    setExportFile("");
+    setExportQcAspect(0);
+    const old = exportQc?.ready;
+    if (old) void bridge.discardFilmExport?.(old.qcReceipt).catch(() => undefined);
+    setExportQc({
+      ready: null,
+      key: captured.key,
+      input: captured.input,
+      error: null,
+      checking: true,
+    });
+    setNotice({ code: "EXPORT_QC_RUNNING", text: NOTICE_TEXT.EXPORT_QC_RUNNING });
+    const release = workOwners.begin(current.id, "export");
+    try {
+      let saved;
+      try {
+        saved = await saveFilm(current);
+      } catch {
+        throw new Error("not saved");
+      }
+      if (!saved) throw new Error("not saved");
+      if (
+        epoch !== exportQcEpoch.current ||
+        !qcContextCurrent(captured.key) ||
+        filmRef.current !== current
+      )
+        return;
+      const canonical = bridge.readFilmProject ? await bridge.readFilmProject(current.id) : saved;
+      if (!canonical || canonical.id !== current.id) throw new Error("not saved");
+      if (
+        epoch !== exportQcEpoch.current ||
+        !qcContextCurrent(captured.key) ||
+        filmRef.current !== current
+      )
+        return;
+      const normalized = upgradeFilm(canonical);
+      if (!normalized || normalized.id !== current.id) throw new Error("not saved");
+      applyLive(normalized);
+      const written = filmRef.current;
+      if (!written || written.id !== current.id) throw new Error("not saved");
+      captured = { key: filmQcKey(written, captured.input), input: captured.input };
+      exportQcCurrent.current = captured;
+      setExportQc({
+        ready: null,
+        key: captured.key,
+        input: captured.input,
+        error: null,
+        checking: true,
+      });
+      const result = await bridge.prepareFilmExport(captured.input!);
+      if (epoch !== exportQcEpoch.current || !qcContextCurrent(captured.key)) {
+        if (result.kind === "READY")
+          void bridge.discardFilmExport?.(result.qcReceipt).catch(() => undefined);
+        return;
+      }
+      if (result.kind !== "READY") {
+        const error = qcFailureText[result.code];
+        setExportQc({
+          ready: null,
+          key: captured.key,
+          input: captured.input,
+          error,
+          checking: false,
+        });
+        if (result.code === "CLEAN_COPY_REQUIRED")
+          setCleanCopyBlockedAt({ projectId: current.id, subtitles: exportSubs });
+        setNotice({ code: "EXPORT_QC_FAILED", text: NOTICE_TEXT.EXPORT_QC_FAILED, detail: error });
+        return;
+      }
+      if (
+        !result.outputs.length ||
+        result.outputs.some((output) => !readQcReport(output.report).ok)
+      )
+        throw new Error("invalid QC report");
+      setExportQc({
+        ready: result,
+        key: captured.key,
+        input: captured.input,
+        error: null,
+        checking: false,
+      });
+      setNotice({ code: "EXPORT_QC_READY", text: NOTICE_TEXT.EXPORT_QC_READY });
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.message === "not saved"
+          ? "工程还没保存，尚未检查，请先保存后重试。"
+          : qcFailureText.CHECK_FAILED;
+      if (epoch === exportQcEpoch.current && qcContextCurrent(captured.key)) {
+        setExportQc({
+          ready: null,
+          key: captured.key,
+          input: captured.input,
+          error: reason,
+          checking: false,
+        });
+        setNotice({ code: "EXPORT_QC_FAILED", text: NOTICE_TEXT.EXPORT_QC_FAILED });
+      }
+    } finally {
+      exportQcBusyRef.current = false;
+      setExportQcBusy(false);
+      release();
+      setExportQc((previous) => (previous?.checking ? { ...previous, checking: false } : previous));
+    }
+  }
+  async function publishCheckedExport() {
+    const check = exportQc,
+      bridge = window.aijian;
+    if (!check?.ready || !check.input || !bridge?.publishFilmExport || exportQcBusyRef.current)
+      return;
+    if (!qcContextCurrent(check.key)) {
+      setNotice({ code: "EXPORT_QC_STALE", text: NOTICE_TEXT.EXPORT_QC_STALE });
+      return;
+    }
+    if (
+      check.ready.outputs.some((output) => {
+        const read = readQcReport(output.report);
+        return !read.ok || read.report.issues.some((issue) => issue.severity === "block");
+      })
+    ) {
+      setNotice({ code: "EXPORT_QC_BLOCKED", text: NOTICE_TEXT.EXPORT_QC_BLOCKED });
+      return;
+    }
+    exportQcBusyRef.current = true;
+    setExportQcBusy(true);
+    try {
+      // The reviewed snapshot is already persisted. Any edit invalidates its key;
+      // rewriting it here could rematerialize data URLs into different files.
+      if (!qcContextCurrent(check.key)) return;
+      const result = await bridge.publishFilmExport({
+        ...check.input,
+        qcReceipt: check.ready.qcReceipt,
+      });
+      if (!qcContextCurrent(check.key)) return;
+      if (result.kind === "CANCELLED") return;
+      if (result.kind === "FAILED") {
+        setExportQc({ ...check, error: qcFailureText[result.code] });
+        setNotice({
+          code: "EXPORT_QC_FAILED",
+          text: NOTICE_TEXT.EXPORT_QC_FAILED,
+          detail: qcFailureText[result.code],
+        });
+        return;
+      }
+      const path = result.outputs[0]?.path;
+      let recorded = true;
+      setExportQc(null);
+      if (path && filmRef.current) {
+        const updated = { ...filmRef.current, exportPath: path };
+        applyLive(updated);
+        setExportFile(path);
+        try {
+          recorded = Boolean(await saveFilm(filmRef.current!));
+        } catch {
+          recorded = false;
+        }
+      }
+      if (filmRef.current?.id !== check.input.projectId) return;
+      setNotice({
+        code: result.kind === "PARTIAL" ? "EXPORT_FAILED" : "EXPORT_DONE",
+        text: result.kind === "PARTIAL" ? NOTICE_TEXT.EXPORT_FAILED : NOTICE_TEXT.EXPORT_DONE,
+        detail:
+          result.kind === "PARTIAL"
+            ? "已有文件保留，其余没有发布，请核对后重新检查。"
+            : !recorded
+              ? "文件已发布，工程中的导出记录尚未保存。"
+              : undefined,
+      });
+    } catch {
+      setNotice({ code: "EXPORT_QC_FAILED", text: NOTICE_TEXT.EXPORT_QC_FAILED });
+    } finally {
+      exportQcBusyRef.current = false;
+      setExportQcBusy(false);
+    }
+  }
+  function cancelCheckedExport() {
+    if (exportQcBusyRef.current) return;
+    exportQcEpoch.current += 1;
+    if (exportQc?.ready)
+      void window.aijian?.discardFilmExport?.(exportQc.ready.qcReceipt).catch(() => undefined);
+    setExportQc(null);
+    setNotice({
+      code: "OPERATION_CANCELLED",
+      text: NOTICE_TEXT.OPERATION_CANCELLED,
+      detail: "已取消审核，未发布成片。",
+    });
+  }
+  function fixExportIssue(issue: QcIssue) {
+    if (exportQcStale || exportQcBusyRef.current) return;
+    const span = exportQc?.ready?.shots.find(
+      (shot) => issue.time >= shot.start && issue.time < shot.end,
+    );
+    const target = span && filmRef.current?.shots.find((shot) => shot.id === span.id);
+    if (target) {
+      setScene(target.sceneId);
+      setShot(
+        filmRef
+          .current!.shots.filter((shot) => shot.sceneId === target.sceneId)
+          .findIndex((shot) => shot.id === target.id),
+      );
+    }
+    setExportOpen(false);
+    setStage("edit");
+  }
   const exportSettingsRef = useRef({ projectId: film?.id ?? "", subtitles: exportSubs });
   exportSettingsRef.current = { projectId: film?.id ?? "", subtitles: exportSubs };
   const cleanCopyBlocked =
@@ -3186,7 +3355,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setCleanCopyBlockedAt(null);
   }, [film?.id, exportSubs]);
   const canCropAspect =
-    typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
+    typeof window !== "undefined" && "prepareFilmExport" in (window.aijian ?? {});
   // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
   useDismiss(menu === "queue", () => setMenu(null), '[data-menu="queue"]');
   // UI wiring (3J-U04): one status message at a time, worded by its code, gone after 5 seconds;
@@ -3286,7 +3455,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [workSettings, setWorkSettings] = useState(false);
   // 4C-U03: 设置, the person's own defaults on this computer.
   const [appSettings, setAppSettings] = useState(false);
-  const [prefs, setPrefs] = useState(readPrefs);
   const changePrefs = (next: Partial<AppPrefs>) => {
     const merged = { ...prefs, ...next };
     setPrefs(merged);
@@ -3703,12 +3871,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 aria-describedby={exportView.ready ? undefined : "export-why"}
                 onClick={() => {
                   setExportOpen(true);
-                  if (!exportDir && prefs.exportDir) setExportDir(prefs.exportDir);
-                  else if (!exportDir) {
-                    void window.aijian?.defaultFilmFolder?.().then((dir) => {
-                      if (dir) setExportDir(dir);
-                    });
-                  }
                 }}
               >
                 <Ic name="upload" size={15} />
@@ -4774,46 +4936,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </div>
                     </div>
                   ) : null}
-                  <div className="field">
-                    <label htmlFor="export-dir">保存到</label>
-                    <div className="pathrow">
-                      {/* The box shows a long path with its middle cut out; typing shows all of it. */}
-                      <div className="pathfield" data-layer title={exportDir}>
-                        <input
-                          id="export-dir"
-                          className="input"
-                          aria-label="导出文件夹"
-                          value={exportDir}
-                          placeholder="点「浏览」选一个文件夹"
-                          onChange={(event) => setExportDir(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key !== "Enter") return;
-                            event.preventDefault();
-                            const path = event.currentTarget.value.trim();
-                            if (!path) return;
-                            setExportDir(path);
-                            void startExport(path);
-                          }}
-                        />
-                        {exportDir ? (
-                          <span className="pathshow" aria-hidden="true">
-                            {middlePath(exportDir)}
-                          </span>
-                        ) : null}
-                      </div>
-                      <button
-                        className="btn sm"
-                        type="button"
-                        onClick={() => {
-                          void window.aijian?.pickFilmFolder?.().then((dir) => {
-                            if (dir) setExportDir(dir);
-                          });
-                        }}
-                      >
-                        浏览
-                      </button>
-                    </div>
-                  </div>
+                  <p className="role-desc">审核后选择保存位置，检查阶段不会发布文件。</p>
                   <p className="export-line" data-testid="export-summary">
                     {film ? exportLine(film) : "还没有作品。"}
                   </p>
@@ -4830,9 +4953,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </ul>
                     </details>
                   ) : null}
-                  {partialExport && partialExport.length > 0 ? (
-                    <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
-                  ) : null}
                   {film && cleanCopyBlocked ? (
                     <CleanCopyRepair
                       mode="export"
@@ -4841,8 +4961,51 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       onRepair={() => void repairCleanCopies(null)}
                     />
                   ) : null}
+                  {exportQc ? (
+                    <>
+                      {exportQc.error ? (
+                        <p role="alert" className="role-desc">
+                          {exportQc.error}
+                        </p>
+                      ) : null}
+                      {exportQc.ready && exportQc.ready.outputs.length > 1 ? (
+                        <div className="seg" aria-label="检查画幅">
+                          {exportQc.ready.outputs.map((output, index) => (
+                            <button
+                              key={output.aspectRatio}
+                              className={exportQcAspect === index ? "on" : ""}
+                              onClick={() => setExportQcAspect(index)}
+                            >
+                              {output.aspectRatio}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      <ExportCheck
+                        reviewMode
+                        checking={exportQc.checking}
+                        error={exportQc.error}
+                        busy={exportQcBusy}
+                        stale={exportQcStale}
+                        report={exportQc.ready?.outputs[exportQcAspect]?.report ?? null}
+                        shots={exportQc.ready?.shots}
+                        fileName={exportQc.ready?.fileName}
+                        unverified={exportQc.ready?.unverified}
+                        publishBlocked={exportQc.ready?.outputs.some((output) => {
+                          const read = readQcReport(output.report);
+                          return (
+                            !read.ok ||
+                            read.report.issues.some((issue) => issue.severity === "block")
+                          );
+                        })}
+                        onFix={fixExportIssue}
+                        onExport={() => void publishCheckedExport()}
+                        onCancel={cancelCheckedExport}
+                      />
+                    </>
+                  ) : null}
                   {/* 4B-U06: the export's progress stays in the dialog. */}
-                  {exporting ? (
+                  {exporting && !exportQc ? (
                     <div className="export-progress" role="status">
                       <span className="bar" aria-hidden="true" />
                       <span>正在导出：拼接、混音、写文件。长一点的片子要几分钟。</span>
@@ -4875,18 +5038,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </>
                     ) : null}
                     <span className="sp" />
-                    {partialExport && partialExport.length > 0 && (
-                      <button className="btn" onClick={() => void startExport(exportDir, true)}>
-                        只导出已生成的
+                    {!exportQc ? (
+                      <button
+                        className="btn primary"
+                        disabled={exporting || cleanCopyBusy || exportQcBusy}
+                        onClick={() => void startExport()}
+                      >
+                        检查成片
                       </button>
-                    )}
-                    <button
-                      className="btn primary"
-                      disabled={exporting || cleanCopyBusy}
-                      onClick={() => void startExport()}
-                    >
-                      {exporting ? "正在导出" : "导出"}
-                    </button>
+                    ) : null}
                   </div>
                 </>
               )}

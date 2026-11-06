@@ -25,6 +25,12 @@ from packaging.utils import canonicalize_name
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def stage_qc_resources(destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in ("index.mjs", "media.mjs", "rules.mjs", "subtitles.mjs"):
+        shutil.copy2(ROOT / "packages/aivora-qc" / name, destination / name)
+
+
 def command(*args: str, cwd: Path = ROOT) -> None:
     subprocess.run(args, cwd=cwd, check=True)
 
@@ -180,6 +186,7 @@ def main() -> None:
     copy_tree(electron, output / "runtime/electron")
     python_manifest = bundle_python(output / "runtime/python")
     copy_tree(ROOT / "services/api/src/aijian_api", output / "services/api/src/aijian_api")
+    stage_qc_resources(output / "qc")
     copy_file(
         ROOT / "config/media-toolchain-lock.json", output / "config/media-toolchain-lock.json"
     )
