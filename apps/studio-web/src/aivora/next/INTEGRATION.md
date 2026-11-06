@@ -1105,10 +1105,12 @@ helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快
 
 ### 当前 CI 与本地全量验证位置
 
-上一轮产品修复提交为 `d8b15eb98358406d90f045e983871708be0137a2`，尚未合入 dev。总控核实 [run 42182358298（#683）](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298)：[Windows job 127774675497](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298/job/127774675497) 在 Test 步骤 exit 1（3m22s），公开页没有具体失败注释；Linux 仍在运行，不能将本地通过写成远端全部通过。
+上一轮产品修复提交为 `d8b15eb98358406d90f045e983871708be0137a2`，尚未合入 dev。总控核实 [run 42182358298（#683）](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298)：[Windows job 127774675497](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298/job/127774675497) 在 Test 步骤 exit 1（该步骤 27 秒，job 总计 3m22s），公开页没有具体失败注释；Linux 仍在运行，不能将本地通过写成远端全部通过。
 
 历史对照：旧 dev `a4531da` 的 [run 42157717806（#677）](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806)，总控已直接核实 [Windows job 127695727475](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806/job/127695727475) 在 Test 失败（3m6s），[Ubuntu job 127695727812](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806/job/127695727812) 成功（49m39s）。两次 Windows 失败原因是否相同尚不明确。
 
 本地基于 `d8b15eb` 的 TS 全量：桌面 115 文件 2031 项、renderer 377 文件 4662 项、Node 媒体 17 项及 QC 11 项全通过；桌面分支覆盖率 91.29%，renderer 87.45%。总控 `contracts:check → lint → typecheck → build` 整串 exit 0，生产依赖审计和故障证据 verify 通过。Python 全量已退出 0：5166 项通过、6 项跳过；行覆盖率 92.14%、分支覆盖率 83.61%，达到原定门槛。独立故障注入 66 项通过、4 项跳过；媒体契约复现、43 文件证据哈希及故障证据复现均退出 0。界面使用 Windows 单 worker 配置复核 GUI/提示相关 8 文件 141 项通过，但仍在 Linux 运行时，不能作为 Windows 原生验证。
 
-后端（Sol medium）已交付最小 CI 失败注释诊断补丁，总控审查及 8 项回归、真实 pnpm 启动探针、完整 lint 均通过，准备提交推送并核对新 CI；界面（Sol medium）已完成只读诊断与进度文档更新，未改产品代码。B13/U06 导出真实进度/取消仅有只读显示契约，未开始开发。诊断补丁保留原 pnpm test 命令、输出、退出码及所有覆盖率门槛，独立诊断回归也接入 CI。未涉及新的产品功能、真实会员调用、Electron 验收或 dev 合并。
+后端（Sol medium）已交付最小 CI 失败注释诊断补丁，总控审查及 8 项回归、真实 pnpm 启动探针、完整 lint 均通过，已推送诊断提交 `5e7f838`，[CI #684](https://github.com/chen11-A/aijian-studio/actions/runs/42185037044) 已启动，正核对远端结果；界面（Sol medium）已完成只读诊断与进度文档更新，未改产品代码。B13/U06 导出真实进度/取消仅有只读显示契约，未开始开发。诊断补丁保留原 pnpm test 命令、输出、退出码及所有覆盖率门槛，独立诊断回归也接入 CI。未涉及新的产品功能、真实会员调用、Electron 验收或 dev 合并。
+
+诊断后续：#684 的 Windows 在新增自测步骤失败，原 Test 未运行；后端已给自测补上不依赖 pnpm 环境的失败摘要，9 项本地回归及隔离失败夹具通过。另修正经本地目录别名复现的 CLI 入口静默跳过，不能据此判定 Windows 原生故障原因。总控准备推送新一轮定位。

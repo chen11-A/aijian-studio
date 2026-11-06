@@ -5,7 +5,7 @@ import { constants } from "node:os";
 import { extname, resolve } from "node:path";
 import { realpathSync, statSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL, URL } from "node:url";
 
 export const escapeData = (text) =>
   String(text).replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
@@ -26,8 +26,8 @@ export function pnpmInvocation(entry, executable = process.execPath) {
 }
 
 /** Keep metadata only: no assertion values, raw error messages, absolute paths or log tails. */
-export function failureSummary() {
-  let phase = "pnpm test";
+export function failureSummary(initialPhase = "pnpm test") {
+  let phase = initialPhase;
   let failureBlock = false;
   const entries = new Map();
   const add = (message) => {
@@ -99,8 +99,9 @@ export async function runTestDiagnostics({
   args,
   stdout = process.stdout,
   stderr = process.stderr,
+  phase = "pnpm test",
 }) {
-  const summary = failureSummary();
+  const summary = failureSummary(phase);
   const child = spawn(command, args, { shell: false, stdio: ["inherit", "pipe", "pipe"] });
   observe(child.stdout, stdout, summary);
   observe(child.stderr, stderr, summary);
@@ -137,9 +138,27 @@ export async function runTestDiagnostics({
   return status;
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+let direct = false;
+try {
+  direct =
+    Boolean(process.argv[1]) &&
+    pathToFileURL(realpathSync(resolve(process.argv[1]))).href === import.meta.url;
+} catch {
+  // Imported modules need not have a filesystem entry point.
+}
+if (direct) {
   try {
-    const invocation = pnpmInvocation(process.env.npm_execpath);
+    const invocation =
+      process.argv[2] === "--self-test"
+        ? {
+            command: process.execPath,
+            args: [
+              "--test",
+              fileURLToPath(new URL("./ci-test-diagnostics.test.mjs", import.meta.url)),
+            ],
+            phase: "diagnostics self-test",
+          }
+        : pnpmInvocation(process.env.npm_execpath);
     if (process.argv[2] === "--check-launcher")
       process.stdout.write("CI launcher verified: JavaScript entry, shell disabled.\n");
     else process.exitCode = await runTestDiagnostics(invocation);

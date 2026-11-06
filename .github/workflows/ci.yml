@@ -92,7 +92,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Verify CI test diagnostics
-        run: node --test scripts/ci-test-diagnostics.test.mjs
+        run: node scripts/ci-test-diagnostics.mjs --self-test
 
       - name: Test
         run: pnpm test:ci

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, URL } from "node:url";
 import process from "node:process";
 import { PassThrough } from "node:stream";
 import test from "node:test";
@@ -36,6 +38,38 @@ test("pnpm run launcher uses a JS entry as one argument, including Windows node 
       /PNPM_JAVASCRIPT_ENTRY_REQUIRED/,
     );
     assert.throws(() => pnpmInvocation(""), /PNPM_JAVASCRIPT_ENTRY_REQUIRED/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("directory aliases resolve to the canonical launcher and execute the CLI probe", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ci alias-"));
+  try {
+    const actual = join(directory, "actual directory");
+    const alias = join(directory, "alias directory");
+    await mkdir(actual);
+    await symlink(actual, alias, process.platform === "win32" ? "junction" : "dir");
+    const canonical = join(await realpath(actual), "pnpm.cjs");
+    await writeFile(canonical, "process.exit(0)\n");
+    const entry = join(alias, "pnpm.cjs");
+    assert.notEqual(entry, canonical);
+    assert.deepEqual(pnpmInvocation(entry).args, [canonical, "test"]);
+    await copyFile(
+      fileURLToPath(new URL("./ci-test-diagnostics.mjs", import.meta.url)),
+      join(actual, "ci-test-diagnostics.mjs"),
+    );
+    const probe = spawnSync(
+      process.execPath,
+      [join(alias, "ci-test-diagnostics.mjs"), "--check-launcher"],
+      {
+        encoding: "utf8",
+        shell: false,
+        env: { ...process.env, npm_execpath: entry },
+      },
+    );
+    assert.equal(probe.status, 0);
+    assert.match(probe.stdout, /CI launcher verified/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
