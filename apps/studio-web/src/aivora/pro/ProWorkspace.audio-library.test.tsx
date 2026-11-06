@@ -18,9 +18,20 @@ const { readProject, writeProject } = await vi.importActual<{
 import { sampleFilm, type FilmProject } from "../film/project";
 import { historyRecordHash } from "./actions/persistent-history";
 import * as editor from "./actions/editor-host";
+import * as persistenceModule from "./film-persistence";
+const originalPersistence = persistenceModule.createFilmPersistence;
 import { ProWorkspace } from "./ProWorkspace";
 const originalHost = editor.createEditorHost;
 const folders: string[] = [];
+const pendingQueueWork = new Set<Promise<unknown>>();
+function trackQueueWork<T>(run: Promise<T>): Promise<T> {
+  pendingQueueWork.add(run);
+  void run.then(
+    () => pendingQueueWork.delete(run),
+    () => pendingQueueWork.delete(run),
+  );
+  return run;
+}
 beforeEach(() => {
   localStorage.clear();
   delete window.aijian;
@@ -28,6 +39,9 @@ beforeEach(() => {
 });
 afterEach(async () => {
   cleanup();
+  // Unmount cancels subscriptions/timers first; drain only work already admitted by
+  // this fixture, including queue operations whose native write has not started yet.
+  while (pendingQueueWork.size) await Promise.allSettled([...pendingQueueWork]);
   vi.restoreAllMocks();
   await Promise.all(folders.splice(0).map((p) => rm(p, { recursive: true, force: true })));
 });
@@ -121,7 +135,7 @@ async function open(realFs = false) {
       assemblyUrl: "aivora-media://native-cache/preview.mp4",
       savedAt: `saved-${++version}`,
     };
-    if (folder) return await writeProject(folder, next);
+    if (folder) return await trackQueueWork(writeProject(folder, next));
     map.set(String(next.id), next);
     return structuredClone(next);
   };
@@ -267,6 +281,43 @@ async function open(realFs = false) {
     },
     flushed,
   } as unknown as Window["aijian"];
+  let onConfirmedRelease: (() => void) | undefined;
+  vi.spyOn(persistenceModule, "createFilmPersistence").mockImplementation((options) => {
+    const p = originalPersistence(options);
+    const wrap = async (id: string, recovery = false) => {
+      const lease = await (recovery ? p.acquireExternalRecovery(id) : p.acquire(id));
+      let external = recovery;
+      return {
+        ...lease,
+        save: (...args: Parameters<typeof lease.save>) => trackQueueWork(lease.save(...args)),
+        rebaseExternalWrite: (...args: Parameters<NonNullable<typeof lease.rebaseExternalWrite>>) =>
+          trackQueueWork(lease.rebaseExternalWrite!(...args)),
+        beginExternalWrite: (guard: () => boolean) => {
+          external = true;
+          lease.beginExternalWrite!(guard);
+        },
+        release: () =>
+          trackQueueWork(
+            (async () => {
+              if (external && !p.externalWriteState(id) && onConfirmedRelease) {
+                const fn = onConfirmedRelease;
+                onConfirmedRelease = undefined;
+                fn();
+              }
+              return await lease.release();
+            })(),
+          ),
+      };
+    };
+    return {
+      ...p,
+      save: (...args: Parameters<typeof p.save>) => trackQueueWork(p.save(...args)),
+      flush: () => trackQueueWork(p.flush()),
+      flushAll: () => trackQueueWork(p.flushAll()),
+      acquire: (id: string) => trackQueueWork(wrap(id)),
+      acquireExternalRecovery: (id: string) => trackQueueWork(wrap(id, true)),
+    };
+  });
   localStorage.setItem("aivora.film.activeId", film.id);
   render(<ProWorkspace />);
   await screen.findByLabelText("这一场");
@@ -293,6 +344,12 @@ async function open(realFs = false) {
     mode: (v: typeof mode) => {
       mode = v;
     },
+    onConfirmedRelease: (fn: () => void) => {
+      onConfirmedRelease = fn;
+    },
+    allowWrites: () => {
+      failWrites = false;
+    },
     failWrites: () => {
       failWrites = true;
     },
@@ -301,6 +358,11 @@ async function open(realFs = false) {
     },
     duration: (seconds: number) => {
       actualDuration = seconds;
+    },
+    conflictCanonical: async () => {
+      const stored = await raw(film.id);
+      if (!stored) throw Error("MISSING_RECORD");
+      await saveRaw({ ...stored, title: "本机另一份片名" });
     },
     dropOriginal: () => {
       map.delete(film.id);
@@ -444,6 +506,97 @@ it("keeps transport-unknown writes quarantined through global quit and recovers 
   expect(f.add).toHaveBeenCalledOnce();
 }, 15000);
 
+it.each(["add", "recover"] as const)(
+  "keeps confirmed native results separate from later release-save failure during %s",
+  async (phase) => {
+    const f = await open();
+    if (phase === "recover") f.mode("transport");
+    const dialog = await choose();
+    const late = () => {
+      f.apply({ ...f.current(), title: "release期间的新编辑" });
+      f.failWrites();
+    };
+    if (phase === "add") f.onConfirmedRelease(late);
+    fireEvent.click(within(dialog).getByRole("button", { name: "加入当前版本" }));
+    if (phase === "recover") {
+      await within(dialog).findByText(/本机写入尚未确认结束/);
+      await act(async () => f.finish());
+      f.onConfirmedRelease(late);
+      fireEvent.click(within(dialog).getByRole("button", { name: "核对保存状态" }));
+    }
+    await within(dialog).findByText("本地素材结果已核对，但后来的编辑还没保存上。请重试保存。");
+    expect(f.current().title).toBe("release期间的新编辑");
+    expect(f.current().audioClips.some((c) => c.id === "audio-library-added")).toBe(true);
+    expect(screen.queryByRole("button", { name: /本地素材保存待核对/ })).toBeNull();
+    expect(f.add).toHaveBeenCalledOnce();
+    await act(async () => f.flush());
+    await waitFor(() =>
+      expect(f.flushed).toHaveBeenCalledWith({ requestId: "library-flush", status: "failed" }),
+    );
+    f.allowWrites();
+    await act(async () => f.flush());
+    await waitFor(() =>
+      expect(f.flushed).toHaveBeenCalledWith({ requestId: "library-flush", status: "saved" }),
+    );
+    expect((await f.raw(f.film.id))!.title).toBe("release期间的新编辑");
+    expect(f.add).toHaveBeenCalledOnce();
+  },
+);
+it("retains the original unknown draft when real work menus navigate away and back before readback", async () => {
+  const f = await open();
+  f.mode("transport");
+  const dialog = await choose();
+  fireEvent.click(within(dialog).getByRole("button", { name: "加入当前版本" }));
+  await within(dialog).findByText(/本机写入尚未确认结束/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  await act(async () => f.apply({ ...f.current(), title: "来回导航不能丢的片名" }));
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "另一集" }));
+  await waitFor(() => expect(f.current().id).toBe(f.other.id));
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "原集" }));
+  await waitFor(() => expect(f.current().id).toBe(f.film.id));
+  expect(f.current().title).toBe("来回导航不能丢的片名");
+  await act(async () => f.finish());
+  fireEvent.click(screen.getByRole("button", { name: /本地素材保存待核对/ }));
+  const panel = screen.getByRole("dialog", { name: "本地素材保存状态" });
+  fireEvent.click(within(panel).getByRole("button", { name: "核对这部作品" }));
+  await within(panel).findByText("本地素材保存状态已核对。");
+  expect(f.current().title).toBe("来回导航不能丢的片名");
+  expect((await f.raw(f.film.id))!.title).toBe("来回导航不能丢的片名");
+  expect(f.add).toHaveBeenCalledOnce();
+});
+it("can review and explicitly adopt a foreign saved conflict even when the original draft had no additional edits", async () => {
+  const f = await open();
+  f.mode("transport");
+  const dialog = await choose();
+  fireEvent.click(within(dialog).getByRole("button", { name: "加入当前版本" }));
+  await within(dialog).findByText(/本机写入尚未确认结束/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "另一集" }));
+  await waitFor(() => expect(f.current().id).toBe(f.other.id));
+  const other = f.current();
+  await act(async () => {
+    await f.finish();
+    await f.conflictCanonical();
+  });
+  fireEvent.click(screen.getByRole("button", { name: /本地素材保存待核对/ }));
+  const panel = screen.getByRole("dialog", { name: "本地素材保存状态" });
+  fireEvent.click(within(panel).getByRole("button", { name: "核对这部作品" }));
+  await within(panel).findByText("已保存的作品与本次添加无法对应，保留当前编辑，请先核对。");
+  fireEvent.click(within(panel).getByRole("button", { name: "查看冲突处理" }));
+  expect(within(panel).getByRole("region", { name: "保存冲突选择" })).toBeInTheDocument();
+  fireEvent.click(within(panel).getByRole("button", { name: "采用已保存版本并放弃这份未保存稿" }));
+  await within(panel).findByText("本地素材保存状态已核对。");
+  expect(f.current()).toBe(other);
+  expect((await f.raw(f.film.id))!.title).toBe("本机另一份片名");
+  expect(f.add).toHaveBeenCalledOnce();
+  await act(async () => f.flush());
+  await waitFor(() =>
+    expect(f.flushed).toHaveBeenCalledWith({ requestId: "library-flush", status: "saved" }),
+  );
+});
 it("safely rebases a retained original draft while another work is open without writing that current work", async () => {
   const f = await open();
   f.mode("transport");

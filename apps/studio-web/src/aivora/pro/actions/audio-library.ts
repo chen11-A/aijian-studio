@@ -396,6 +396,36 @@ async function readBack(
     return { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending };
   }
 }
+function libraryReleaseFailure(host: LibraryHost, pending?: PendingLibraryWrite): LibraryOutcome {
+  if (pending && host.persistence.externalWriteState(pending.before.id))
+    return { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending };
+  return {
+    kind: "failed",
+    message: pending
+      ? "本地素材结果已核对，但后来的编辑还没保存上。请重试保存。"
+      : "本页的编辑还没保存上，请重试保存。",
+    ...(pending?.expectedClipId ? { clipId: pending.expectedClipId } : {}),
+  };
+}
+async function withLibraryCleanup(
+  host: LibraryHost,
+  run: () => Promise<LibraryOutcome>,
+  getLease: () => FilmSaveLease | undefined,
+  getPending: () => PendingLibraryWrite | undefined,
+): Promise<LibraryOutcome> {
+  let outcome: LibraryOutcome;
+  try {
+    outcome = await run();
+  } catch {
+    outcome = libraryReleaseFailure(host, getPending());
+  }
+  try {
+    await getLease()?.release();
+  } catch {
+    return libraryReleaseFailure(host, getPending());
+  }
+  return outcome;
+}
 export async function addLibraryAsset(
   host: LibraryHost,
   target: LibraryTarget,
@@ -408,89 +438,96 @@ export async function addLibraryAsset(
   },
 ): Promise<LibraryOutcome> {
   let lease: FilmSaveLease | undefined, pending: PendingLibraryWrite | undefined;
-  try {
-    if (!current(host, target.film, target.selection) || choice.assetId !== asset.id)
-      return { kind: "stale", message: "作品或所选版本已变化，请重新核对。" };
-    lease = await host.persistence.acquire(target.film.id);
-    const prepared = await prepare(target.film, target.selection, host, lease);
-    const result = await capabilities().inspectBundledFilmAudioTarget!({
-      projectId: target.film.id,
-      expectedProjectHash: prepared.hash,
-      shotId: target.selection.shotId,
-      takeId: target.selection.takeId,
-    });
-    if (!prepared.valid()) return { kind: "stale", message: "作品或所选版本已变化，请重新核对。" };
-    if (result.kind !== "TARGET")
-      return { kind: "failed", message: LIBRARY_FAILURE[result.code] ?? "当前版本尚未核对。" };
-    if (
-      result.projectHash !== prepared.hash ||
-      result.projectId !== target.selection.projectId ||
-      result.shotId !== target.selection.shotId ||
-      result.takeId !== target.selection.takeId ||
-      result.durationSeconds !== target.seconds
-    )
-      return { kind: "failed", message: "当前版本的实际时长已变化，请重新核对后再加入。" };
-    const input: AddBundledFilmAudioInput = {
-      projectId: target.selection.projectId,
-      expectedProjectHash: prepared.hash,
-      catalogSha256,
-      assetId: asset.id,
-      expectedAssetSha256: asset.sha256,
-      shotId: target.selection.shotId,
-      takeId: target.selection.takeId,
-      lane: choice.lane,
-      placement: choice.placement,
-    };
-    const external = requireExternal(lease);
-    pending = {
-      before: prepared.accepted,
-      canonicalBefore: prepared.stored,
-      rawBefore: prepared.rawStored,
-      hash: prepared.hash,
-      selection: target.selection,
-      input,
-      asset,
-      settled: false,
-    };
-    external.begin(prepared.valid);
-    try {
-      const outcome = await capabilities().addBundledFilmAudio!(input);
-      pending.settled = true;
-      if (outcome.kind === "ADDED") {
-        pending.expectedClipId = outcome.clipId;
-        return await settle(
-          host,
-          pending,
-          lease,
-          canonical(outcome.project, input.projectId),
-          outcome.project,
-        );
+  return await withLibraryCleanup(
+    host,
+    async () => {
+      try {
+        if (!current(host, target.film, target.selection) || choice.assetId !== asset.id)
+          return { kind: "stale", message: "作品或所选版本已变化，请重新核对。" };
+        lease = await host.persistence.acquire(target.film.id);
+        const prepared = await prepare(target.film, target.selection, host, lease);
+        const result = await capabilities().inspectBundledFilmAudioTarget!({
+          projectId: target.film.id,
+          expectedProjectHash: prepared.hash,
+          shotId: target.selection.shotId,
+          takeId: target.selection.takeId,
+        });
+        if (!prepared.valid())
+          return { kind: "stale", message: "作品或所选版本已变化，请重新核对。" };
+        if (result.kind !== "TARGET")
+          return { kind: "failed", message: LIBRARY_FAILURE[result.code] ?? "当前版本尚未核对。" };
+        if (
+          result.projectHash !== prepared.hash ||
+          result.projectId !== target.selection.projectId ||
+          result.shotId !== target.selection.shotId ||
+          result.takeId !== target.selection.takeId ||
+          result.durationSeconds !== target.seconds
+        )
+          return { kind: "failed", message: "当前版本的实际时长已变化，请重新核对后再加入。" };
+        const input: AddBundledFilmAudioInput = {
+          projectId: target.selection.projectId,
+          expectedProjectHash: prepared.hash,
+          catalogSha256,
+          assetId: asset.id,
+          expectedAssetSha256: asset.sha256,
+          shotId: target.selection.shotId,
+          takeId: target.selection.takeId,
+          lane: choice.lane,
+          placement: choice.placement,
+        };
+        const external = requireExternal(lease);
+        pending = {
+          before: prepared.accepted,
+          canonicalBefore: prepared.stored,
+          rawBefore: prepared.rawStored,
+          hash: prepared.hash,
+          selection: target.selection,
+          input,
+          asset,
+          settled: false,
+        };
+        external.begin(prepared.valid);
+        try {
+          const outcome = await capabilities().addBundledFilmAudio!(input);
+          pending.settled = true;
+          if (outcome.kind === "ADDED") {
+            pending.expectedClipId = outcome.clipId;
+            return await settle(
+              host,
+              pending,
+              lease,
+              canonical(outcome.project, input.projectId),
+              outcome.project,
+            );
+          }
+          pending.settled = false;
+          pending.observedRaw = undefined;
+          const checked = await readBack(host, pending, lease);
+          return checked.kind === "failed" && !["WRITE_UNCONFIRMED", "BUSY"].includes(outcome.code)
+            ? { ...checked, message: LIBRARY_FAILURE[outcome.code] ?? checked.message }
+            : checked;
+        } catch {
+          external.unknown();
+          return await readBack(host, pending, lease);
+        }
+      } catch {
+        return pending
+          ? { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending }
+          : { kind: "failed", message: "本次没有开始加入素材，请核对作品保存状态后再试。" };
       }
-      pending.settled = false;
-      pending.observedRaw = undefined;
-      const checked = await readBack(host, pending, lease);
-      return checked.kind === "failed" && !["WRITE_UNCONFIRMED", "BUSY"].includes(outcome.code)
-        ? { ...checked, message: LIBRARY_FAILURE[outcome.code] ?? checked.message }
-        : checked;
-    } catch {
-      external.unknown();
-      return await readBack(host, pending, lease);
-    }
-  } catch {
-    return pending
-      ? { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending }
-      : { kind: "failed", message: "本次没有开始加入素材，请核对作品保存状态后再试。" };
-  } finally {
-    await lease?.release();
-  }
+    },
+    () => lease,
+    () => pending,
+  );
 }
 export async function recoverLibraryWrite(host: LibraryHost, pending: PendingLibraryWrite) {
   const lease = await host.persistence.acquireExternalRecovery(pending.selection.projectId);
-  try {
-    return await readBack(host, pending, lease);
-  } finally {
-    await lease.release();
-  }
+  return await withLibraryCleanup(
+    host,
+    () => readBack(host, pending, lease),
+    () => lease,
+    () => pending,
+  );
 }
 export type LibraryConflictReview = {
   raw: Record<string, unknown>;
@@ -501,7 +538,10 @@ export function libraryConflictReview(
   host: LibraryHost,
   pending: PendingLibraryWrite,
 ): LibraryConflictReview | null {
-  const draft = host.current()?.id === pending.before.id ? host.current() : pending.localDraft;
+  const draft =
+    host.current()?.id === pending.before.id
+      ? host.current()
+      : (pending.localDraft ?? pending.before);
   return pending.observedRaw && draft
     ? { raw: pending.observedRaw, draft, live: host.current() }
     : null;
@@ -550,44 +590,48 @@ export async function adoptLibrarySavedVersion(
   review: LibraryConflictReview,
 ): Promise<LibraryOutcome> {
   const lease = await host.persistence.acquireExternalRecovery(pending.before.id);
-  try {
-    const valid = () =>
-      host.current() === review.live &&
-      (review.live?.id === pending.before.id || pending.localDraft === review.draft);
-    if (!valid())
-      return { kind: "unknown", message: "编辑副本又有变化，请重新查看两份状态。", pending };
-    pending.settled = false;
-    pending.observedRaw = undefined;
-    const checked = await readBack(host, pending, lease);
-    if (checked.kind !== "unknown") return checked;
-    if (
-      !pending.settled ||
-      !valid() ||
-      !pending.observedRaw ||
-      (await historyRecordHash(pending.observedRaw)) !== (await historyRecordHash(review.raw))
-    )
-      return {
-        kind: "unknown",
-        message: "已保存的作品又有变化或仍在处理中，请重新核对。",
-        pending,
-      };
-    const saved = canonical(pending.observedRaw, pending.before.id);
-    if (!valid())
-      return { kind: "unknown", message: "编辑副本又有变化，请重新查看两份状态。", pending };
-    const adopted = review.live?.id === saved.id ? host.apply(saved) : undefined;
-    if (
-      !requireExternal(lease).confirm(saved, adopted, () =>
-        adopted ? host.current() === adopted : valid(),
+  return await withLibraryCleanup(
+    host,
+    async () => {
+      const valid = () =>
+        host.current() === review.live &&
+        (review.live?.id === pending.before.id ||
+          (pending.localDraft ?? pending.before) === review.draft);
+      if (!valid())
+        return { kind: "unknown", message: "编辑副本又有变化，请重新查看两份状态。", pending };
+      pending.settled = false;
+      pending.observedRaw = undefined;
+      const checked = await readBack(host, pending, lease);
+      if (checked.kind !== "unknown") return checked;
+      if (
+        !pending.settled ||
+        !valid() ||
+        !pending.observedRaw ||
+        (await historyRecordHash(pending.observedRaw)) !== (await historyRecordHash(review.raw))
       )
-    )
-      return { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending };
-    return {
-      kind: "stale",
-      message: "已采用本机保存的版本，这份未保存稿已放弃；当前其他作品没有改动。",
-    };
-  } finally {
-    await lease.release();
-  }
+        return {
+          kind: "unknown",
+          message: "已保存的作品又有变化或仍在处理中，请重新核对。",
+          pending,
+        };
+      const saved = canonical(pending.observedRaw, pending.before.id);
+      if (!valid())
+        return { kind: "unknown", message: "编辑副本又有变化，请重新查看两份状态。", pending };
+      const adopted = review.live?.id === saved.id ? host.apply(saved) : undefined;
+      if (
+        !requireExternal(lease).confirm(saved, adopted, () =>
+          adopted ? host.current() === adopted : valid(),
+        )
+      )
+        return { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending };
+      return {
+        kind: "stale",
+        message: "已采用本机保存的版本，这份未保存稿已放弃；当前其他作品没有改动。",
+      };
+    },
+    () => lease,
+    () => pending,
+  );
 }
 export async function removeLibraryClip(
   host: LibraryHost,
@@ -595,25 +639,30 @@ export async function removeLibraryClip(
   clipId: string,
 ): Promise<LibraryOutcome> {
   let lease: FilmSaveLease | undefined;
-  try {
-    if (
-      host.current() !== snapshot ||
-      snapshot.audioClips.filter((c) => c.id === clipId).length !== 1 ||
-      !snapshot.audioClips.find((c) => c.id === clipId)?.libraryAsset
-    )
-      return { kind: "stale", message: "片段或作品已变化，请核对后再移除。" };
-    lease = await host.persistence.acquire(snapshot.id);
-    if (host.current() !== snapshot)
-      return { kind: "stale", message: "片段或作品已变化，请核对后再移除。" };
-    const adopted = host.apply({
-      ...snapshot,
-      audioClips: snapshot.audioClips.filter((c) => c.id !== clipId),
-    });
-    await lease.save(adopted, () => host.current() === adopted);
-    return { kind: "removed", message: "片段已移除并保存，素材文件仍保留。" };
-  } catch {
-    return { kind: "failed", message: "移除后的修改还没保存上，请核对本页后重试保存。" };
-  } finally {
-    await lease?.release();
-  }
+  return await withLibraryCleanup(
+    host,
+    async () => {
+      try {
+        if (
+          host.current() !== snapshot ||
+          snapshot.audioClips.filter((c) => c.id === clipId).length !== 1 ||
+          !snapshot.audioClips.find((c) => c.id === clipId)?.libraryAsset
+        )
+          return { kind: "stale", message: "片段或作品已变化，请核对后再移除。" };
+        lease = await host.persistence.acquire(snapshot.id);
+        if (host.current() !== snapshot)
+          return { kind: "stale", message: "片段或作品已变化，请核对后再移除。" };
+        const adopted = host.apply({
+          ...snapshot,
+          audioClips: snapshot.audioClips.filter((c) => c.id !== clipId),
+        });
+        await lease.save(adopted, () => host.current() === adopted);
+        return { kind: "removed", message: "片段已移除并保存，素材文件仍保留。" };
+      } catch {
+        return { kind: "failed", message: "移除后的修改还没保存上，请核对本页后重试保存。" };
+      }
+    },
+    () => lease,
+    () => undefined,
+  );
 }
