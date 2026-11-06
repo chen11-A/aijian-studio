@@ -1,3 +1,7 @@
+import type {
+  FilmAudioWaveformInput,
+  FilmAudioWaveformResult,
+} from "@aijian/contracts/film-audio-waveform";
 import type { QuitSaveGateway } from "@aijian/contracts/quit-save";
 import type { CleanCopyRecoveryGateway } from "@aijian/contracts/clean-copy-recovery";
 import type { FilmExportQcGateway } from "@aijian/contracts/film-export-qc";
@@ -992,6 +996,7 @@ export interface AijianDesktopBridge
       savedAt: string;
     }[]
   >;
+  readFilmAudioWaveform?: (input: FilmAudioWaveformInput) => Promise<FilmAudioWaveformResult>;
   readFilmProject?: (id: string) => Promise<Record<string, unknown> | null>;
   prepareFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;

@@ -112,6 +112,10 @@
     "./quit-save": {
       "types": "./src/quit-save.ts",
       "default": "./src/quit-save.ts"
+    },
+    "./film-audio-waveform": {
+      "types": "./src/film-audio-waveform.ts",
+      "default": "./src/film-audio-waveform.ts"
     }
   },
   "scripts": {

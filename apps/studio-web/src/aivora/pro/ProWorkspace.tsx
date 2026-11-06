@@ -1,3 +1,5 @@
+import { invalidateAudioWaveforms } from "./actions/audio-waveforms";
+import { useAudioWaveforms } from "./use-audio-waveforms";
 import { legacyCleanCopyTargets, cleanCopySelectionHash } from "./actions/clean-copy-recovery";
 import { ExportProgress } from "../next/ExportProgress";
 import { acceptExportProgress, type ExportProgressScope } from "./actions/export-progress";
@@ -689,7 +691,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     if (batchConfirmation.current && batchConfirmation.current.projectId !== next?.id)
       setPendingBatch(null);
-    if (next) next = applyContinuityChecks(next);
+    if (next) next = applyContinuityChecks(invalidateAudioWaveforms(next));
     filmRef.current = next;
     if (next && cleanCopySaveVersions.current.has(next.id))
       cleanCopySaveVersions.current.set(next.id, next);
@@ -700,6 +702,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
+  const audioWaveforms = useAudioWaveforms(film, stage === "edit", {
+    current: () => filmRef.current,
+    apply: applyLive,
+    save: (snapshot) => persistence.save(snapshot),
+  });
   const editorHost = useMemo(
     () =>
       createEditorHost({
@@ -4445,6 +4452,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "edit" && (
                 <EditPage
+                  waveformKeys={audioWaveforms.verified}
+                  waveformBusy={audioWaveforms.busy}
+                  onRefreshWaveforms={audioWaveforms.refresh}
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
                   onSceneMood={(sceneId, mood) => {
@@ -8564,21 +8574,29 @@ function GeneratePage({
 }
 
 /**
- * 4B-U02: the room left in an audio clip for its waveform. GPT's C3 gives the peaks
- * (`waveform`, 0–1, evenly spaced); until then the strip stays empty.
+ * 4B-U02: only main-verified source peaks are shown; unavailable sources remain empty.
  */
-function Wave({ clip }: { clip: AudioClip }) {
-  const peaks = (clip as AudioClip & { waveform?: number[] }).waveform;
-  if (!peaks || peaks.length < 2) return <span className="wave" aria-hidden="true" />;
+function Wave({ clip, verifiedKey }: { clip: AudioClip; verifiedKey?: string }) {
+  const waveform = clip.waveform;
+  const peaks = waveform && verifiedKey === waveform.sourceKey ? waveform.peaks : undefined;
+  if (!(clip.durationSeconds > 0) || !peaks || peaks.length < 2)
+    return <span className="wave" aria-hidden="true" />;
+  const coverage = Math.min(1, waveform!.analyzedSeconds / clip.durationSeconds);
   const points = peaks
-    .map((peak, index) => {
-      const x = (index / (peaks.length - 1)) * 100;
-      const y = 50 - Math.max(0, Math.min(1, peak)) * 48;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
+    .map(
+      (peak, index) =>
+        `${((index / (peaks.length - 1)) * 100 * coverage).toFixed(2)},${(50 - peak * 48).toFixed(2)}`,
+    )
     .join(" ");
   return (
-    <svg className="wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      className="wave"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="已核对音源的波形（混音前）"
+    >
+      <title>音源裁剪窗口的单声道峰值，按实际测得时长定位；未覆盖部分留白，不代表最终混音。</title>
       <polyline points={points} />
     </svg>
   );
@@ -8590,12 +8608,14 @@ function Wave({ clip }: { clip: AudioClip }) {
  * with a note that there is no sound yet.
  */
 function PlanLane({
+  waveformKeys,
   lane,
   film,
   shots,
   clips,
   zoom = PX_PER_SECOND,
 }: {
+  waveformKeys: Readonly<Record<string, string>>;
   lane: "ambience" | "sfx";
   film: FilmProject;
   shots: FilmShot[];
@@ -8640,7 +8660,7 @@ function PlanLane({
             width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
           }}
         >
-          <Wave clip={item} />
+          <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
           <span className="tx">{name}</span>
         </div>
       ))}
@@ -8665,6 +8685,9 @@ function PlanLane({
 }
 
 function EditPage({
+  waveformKeys,
+  waveformBusy,
+  onRefreshWaveforms,
   onMute,
   assistant = null,
   onSceneMood,
@@ -8701,6 +8724,9 @@ function EditPage({
   musicRestore = -14,
   hearLane = "",
 }: {
+  waveformKeys: Readonly<Record<string, string>>;
+  waveformBusy: boolean;
+  onRefreshWaveforms: () => void;
   film: FilmProject;
   shot: number;
   onShot: (index: number) => void;
@@ -9433,6 +9459,14 @@ function EditPage({
             <span className="sp" />
             {zoomControls}
             {importMusic}
+            <button
+              className="btn sm"
+              disabled={waveformBusy}
+              onClick={onRefreshWaveforms}
+              title="核对本机音源并读取混音前的波形，不生成声音"
+            >
+              {waveformBusy ? "读取波形中" : "刷新音频波形"}
+            </button>
             <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
               <Ic name="x" size={14} />
             </button>
@@ -9476,6 +9510,14 @@ function EditPage({
             ) : null}
             {zoomControls}
             {importMusic}
+            <button
+              className="btn sm"
+              disabled={waveformBusy}
+              onClick={onRefreshWaveforms}
+              title="核对本机音源并读取混音前的波形，不生成声音"
+            >
+              {waveformBusy ? "读取波形中" : "刷新音频波形"}
+            </button>
           </div>
         )}
         <div className="tbody">
@@ -9732,13 +9774,27 @@ function EditPage({
                         width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
                       }}
                     >
-                      <Wave clip={item} />
+                      <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">{item.label || "对白"}</span>
                     </div>
                   ))}
               </div>
-              <PlanLane lane="ambience" film={film} shots={shots} clips={clips} zoom={zoom} />
-              <PlanLane lane="sfx" film={film} shots={shots} clips={clips} zoom={zoom} />
+              <PlanLane
+                waveformKeys={waveformKeys}
+                lane="ambience"
+                film={film}
+                shots={shots}
+                clips={clips}
+                zoom={zoom}
+              />
+              <PlanLane
+                waveformKeys={waveformKeys}
+                lane="sfx"
+                film={film}
+                shots={shots}
+                clips={clips}
+                zoom={zoom}
+              />
               <div className="lane" style={{ height: "var(--ha)" }}>
                 {film.audioClips.some((item) => item.lane === "score" && item.path) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
@@ -9750,16 +9806,20 @@ function EditPage({
                       key={item.id}
                       className="clip m"
                       style={{
-                        left: 1,
-                        width: Math.max(
-                          48,
-                          clips.reduce((sum, clip) => sum + clip.width, 0),
-                        ),
+                        left: Math.max(1, item.startSeconds * zoom + 1),
+                        width:
+                          item.durationSeconds > 0
+                            ? Math.max(12, Math.round(item.durationSeconds * zoom) - 2)
+                            : Math.max(
+                                48,
+                                clips.reduce((sum, clip) => sum + clip.width, 0),
+                              ),
                       }}
                     >
-                      <Wave clip={item} />
+                      <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">
                         导入的音乐
+                        {item.durationSeconds > 0 ? "" : " · 波形时长未确定"}
                         {shots.some((shotItem) => shotItem.line.trim()) ? " · 说话时变小" : ""}
                       </span>
                     </div>
