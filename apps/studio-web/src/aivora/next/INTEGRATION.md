@@ -1114,3 +1114,5 @@ helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快
 后端（Sol medium）已交付最小 CI 失败注释诊断补丁，总控审查及 8 项回归、真实 pnpm 启动探针、完整 lint 均通过，已推送诊断提交 `5e7f838`，[CI #684](https://github.com/chen11-A/aijian-studio/actions/runs/42185037044) 已启动，正核对远端结果；界面（Sol medium）已完成只读诊断与进度文档更新，未改产品代码。B13/U06 导出真实进度/取消仅有只读显示契约，未开始开发。诊断补丁保留原 pnpm test 命令、输出、退出码及所有覆盖率门槛，独立诊断回归也接入 CI。未涉及新的产品功能、真实会员调用、Electron 验收或 dev 合并。
 
 诊断后续：#684 的 Windows 在新增自测步骤失败，原 Test 未运行；后端已给自测补上不依赖 pnpm 环境的失败摘要，9 项本地回归及隔离失败夹具通过。另修正经本地目录别名复现的 CLI 入口静默跳过，不能据此判定 Windows 原生故障原因。总控准备推送新一轮定位。
+
+CI #685 原生 Windows 摘要定位到诊断自测 32/57 行两处路径字符串比较（ERR_ASSERTION）。后端仅修测试假定：以 BigInt 文件身份及真实 Node 执行返回参数验证入口，保留命令、参数数量、test 参数及别名 CLI probe。9 项本地自测、目标 lint/格式和真实 pnpm 探针均通过；原产品 Test 尚未运行，等待新一轮 Windows 结果。

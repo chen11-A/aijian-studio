@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -24,15 +24,33 @@ function output() {
   return { stream, text: () => text };
 }
 
+const fixtureProgram =
+  "process.stdout.write(JSON.stringify({ fixture: 'ci-launcher', argv: process.argv.slice(2) }));\n";
+
+async function assertFixtureEntry(invocation, entry, expectedCommand = process.execPath) {
+  assert.equal(invocation.command, expectedCommand);
+  assert.equal(invocation.args.length, 2);
+  assert.equal(invocation.args[1], "test");
+  const [returned, fixture] = await Promise.all([
+    stat(invocation.args[0], { bigint: true }),
+    stat(entry, { bigint: true }),
+  ]);
+  assert.equal(returned.dev, fixture.dev);
+  assert.equal(returned.ino, fixture.ino);
+  // Execute the returned arguments with this host's real Node, including on Windows.
+  const executed = spawnSync(process.execPath, invocation.args, { encoding: "utf8", shell: false });
+  assert.equal(executed.status, 0);
+  assert.equal(executed.stderr, "");
+  assert.deepEqual(JSON.parse(executed.stdout), { fixture: "ci-launcher", argv: ["test"] });
+}
+
 test("pnpm run launcher uses a JS entry as one argument, including Windows node and spaces; never .cmd", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ci launcher space-"));
   try {
     const entry = join(directory, "pnpm with spaces.cjs");
-    await writeFile(entry, "process.exit(0)\n");
-    assert.deepEqual(pnpmInvocation(entry, "C:\\Program Files\\nodejs\\node.exe"), {
-      command: "C:\\Program Files\\nodejs\\node.exe",
-      args: [await realpath(entry), "test"],
-    });
+    await writeFile(entry, fixtureProgram);
+    const executable = "C:\\Program Files\\nodejs\\node.exe";
+    await assertFixtureEntry(pnpmInvocation(entry, executable), entry, executable);
     assert.throws(
       () => pnpmInvocation(join(directory, "pnpm.cmd")),
       /PNPM_JAVASCRIPT_ENTRY_REQUIRED/,
@@ -43,18 +61,18 @@ test("pnpm run launcher uses a JS entry as one argument, including Windows node 
   }
 });
 
-test("directory aliases resolve to the canonical launcher and execute the CLI probe", async () => {
+test("directory aliases preserve launcher file identity and execute the CLI probe", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ci alias-"));
   try {
     const actual = join(directory, "actual directory");
     const alias = join(directory, "alias directory");
     await mkdir(actual);
     await symlink(actual, alias, process.platform === "win32" ? "junction" : "dir");
-    const canonical = join(await realpath(actual), "pnpm.cjs");
-    await writeFile(canonical, "process.exit(0)\n");
+    const fixture = join(actual, "pnpm.cjs");
+    await writeFile(fixture, fixtureProgram);
     const entry = join(alias, "pnpm.cjs");
-    assert.notEqual(entry, canonical);
-    assert.deepEqual(pnpmInvocation(entry).args, [canonical, "test"]);
+    assert.notEqual(entry, fixture);
+    await assertFixtureEntry(pnpmInvocation(entry), fixture);
     await copyFile(
       fileURLToPath(new URL("./ci-test-diagnostics.mjs", import.meta.url)),
       join(actual, "ci-test-diagnostics.mjs"),
