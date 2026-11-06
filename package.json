@@ -46,6 +46,7 @@
     "timeline:verify": "uv run python scripts/timeline_golden.py verify",
     "evidence:timeline-golden": "uv run python scripts/timeline_golden.py evidence",
     "evidence:check": "uv run python scripts/check_evidence_hashes.py",
+    "audit:pro-layout": "node apps/studio-web/e2e/pro-layout-audit.mjs",
     "test:ts": "pnpm -r --if-present --workspace-concurrency=1 test",
     "test:py": "uv run pytest --cov=aijian_api --cov-report=term-missing --cov-report=json:coverage-python.json && uv run python scripts/check_python_coverage.py coverage-python.json",
     "build": "pnpm -r --if-present build",

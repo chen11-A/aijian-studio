@@ -1520,7 +1520,8 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     expect(await screen.findByText(/画风、外貌、场景和道具已放进去/)).toBeInTheDocument();
     openBoardTools();
     fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
-    expect(await screen.findByText(/提示词写好了/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "确认修改" }));
+    expect(await screen.findAllByText(/画面说明已修改/)).not.toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "审一下这一镜的文字" }));
     expect(await screen.findByText(/没有看画面，版本仍由你选/)).toBeInTheDocument();
     openGroup("高级");
@@ -3369,12 +3370,13 @@ it("keeps 提示词 and 审片 out of the chat and answers them under 高级", a
   await openSample();
   openBoardTools();
   fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
-  expect(await screen.findByText(/提示词写好了/)).toBeInTheDocument();
-  expect(screen.getByText("rainy alley")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "确认修改" }));
+  expect(await screen.findAllByText(/画面说明已修改/)).not.toHaveLength(0);
+  expect(screen.getByRole("list", { name: "字段改动" })).toHaveTextContent("rainy alley");
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   const helpers = screen.getByLabelText("正在和：") as HTMLSelectElement;
   expect([...helpers.options].map((item) => item.value)).not.toContain("prompter");
-  expect(screen.queryByText(/提示词写好了/)).not.toBeInTheDocument();
+  expect(document.querySelector(".pb.chat")).not.toHaveTextContent("画面说明已修改");
   expect(screen.queryByText("雨夜巷口，林骁抬眼")).not.toBeInTheDocument();
 });
 
@@ -4881,8 +4883,11 @@ it("B11 does not claim a prompter suggestion is saved after disk failure", async
     text: JSON.stringify({ keyframe: { prompt_zh: "雨夜", prompt_en: "unsaved prompt" } }),
   });
   fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
-  expect(await screen.findByText(/提示词已应用，但还没有保存/)).toBeInTheDocument();
-  expect(screen.queryByText(/提示词写好了/)).not.toBeInTheDocument();
+  const confirm = await screen.findByRole("button", { name: "确认修改" });
+  expect(screen.queryByText(/画面说明已经放进去，还没保存上/)).not.toBeInTheDocument();
+  fireEvent.click(confirm);
+  expect(await screen.findAllByText(/画面说明已经放进去，还没保存上/)).not.toHaveLength(0);
+  expect(screen.queryByText(/画面说明已修改/)).not.toBeInTheDocument();
 });
 
 it("B11 keeps prompter undo on its page and restores only the applied prompt fields", async () => {
@@ -4894,18 +4899,21 @@ it("B11 keeps prompter undo on its page and restores only the applied prompt fie
     text: JSON.stringify({ keyframe: { prompt_zh: "新提示", prompt_en: "page scoped prompt" } }),
   });
   fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
-  expect(await screen.findByText(/提示词写好了/)).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "确认修改" }));
+  expect(await screen.findAllByText(/画面说明已修改/)).not.toHaveLength(0);
   fireEvent.click(stageTab("角色与场景"));
   fireEvent.keyDown(window, { key: "z", ctrlKey: true });
   openBoardTools();
-  expect(screen.getByText("page scoped prompt")).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "字段改动" })).toHaveTextContent("page scoped prompt");
   fireEvent.keyDown(window, { key: "z", ctrlKey: true });
   await waitFor(() => {
     const latest = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
       FilmProject | undefined;
     expect(latest?.shots.some((shot) => shot.promptEn === "page scoped prompt")).toBe(false);
   });
-  await waitFor(() => expect(screen.queryByText("page scoped prompt")).not.toBeInTheDocument());
+  await waitFor(() =>
+    expect(screen.getByText("还没有英文画面说明。可以让「画面说明」助手写。")).toBeInTheDocument(),
+  );
 });
 
 it("B11 applies and undoes a fixed art proposal without losing a subsequently generated frame", async () => {
@@ -5180,13 +5188,16 @@ it.each(["undo", "edit", "page"] as const)(
       return value;
     });
     fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
+    const confirm = await screen.findByRole("button", { name: "确认修改" });
+    expect(finish).toBeUndefined();
+    fireEvent.click(confirm);
     await waitFor(() => expect(finish).toBeDefined());
     if (action === "undo") fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     else if (action === "edit")
       fireEvent.change(screen.getByLabelText("景别"), { target: { value: "特写" } });
     else fireEvent.click(stageTab("角色与场景"));
     await act(async () => finish());
-    expect(screen.queryByText(/提示词写好了/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/画面说明已修改/)).not.toBeInTheDocument();
     if (action === "undo")
       await waitFor(() => {
         const saved = vi

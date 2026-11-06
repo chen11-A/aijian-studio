@@ -69,14 +69,26 @@ describe("structured business notices", () => {
       "CAPTURE_EXPORT_DONE",
       "CAPTURE_EXPORT_FAILED",
     ]);
+    const promptFieldCodes = new Set(["PROMPTER_SUGGESTION_READY", "PROMPTER_FIELDS_APPLIED"]);
     const legacyRows = rows.filter(
-      (row) => !addedCodes.has(row[1]!) && !takeoverCodes.has(row[1]!),
+      (row) =>
+        !addedCodes.has(row[1]!) && !takeoverCodes.has(row[1]!) && !promptFieldCodes.has(row[1]!),
     );
     const addedRows = rows.filter((row) => addedCodes.has(row[1]!));
     const takeoverRows = rows.filter((row) => takeoverCodes.has(row[1]!));
+    const promptFieldRows = rows.filter((row) => promptFieldCodes.has(row[1]!));
     expect(legacyRows).toHaveLength(118);
     expect(addedRows).toHaveLength(106);
     expect(takeoverRows).toHaveLength(14);
+    expect(promptFieldRows).toHaveLength(2);
+    expect(new Set(promptFieldRows.map((row) => row[1]))).toEqual(promptFieldCodes);
+    for (const [, code, fallback, finalCopy] of promptFieldRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT], code).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() }), code).toEqual({
+        code,
+        text: finalCopy!.trim(),
+      });
+    }
     expect(new Set(takeoverRows.map((row) => row[1]))).toEqual(takeoverCodes);
     for (const [, code, fallback, finalCopy] of takeoverRows) {
       expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT], code).toBe(fallback!.trim());

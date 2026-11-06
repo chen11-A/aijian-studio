@@ -4,6 +4,7 @@ import {
   type SuggestionItem,
   type SuggestionRow,
 } from "./adapters/suggestionDiff";
+import { SuggestionFieldDiff, type SuggestionFieldRow } from "./SuggestionFieldDiff";
 import "./next.css";
 import "./SuggestionCard.css";
 
@@ -16,6 +17,8 @@ export type SuggestionCardProps = {
   proposed: readonly SuggestionItem[];
   /** GPT's own diff (4A-B11 ④) when it has one; otherwise it is worked out from the words. */
   rows?: readonly SuggestionRow[];
+  /** Fixed-baseline field changes projected by the host; never inferred from shot text. */
+  fieldRows?: readonly SuggestionFieldRow[];
   /** Already put in: the card says so and offers 「撤销」 instead. */
   applied?: boolean;
   /** The assistant is writing another one. */
@@ -58,55 +61,66 @@ function summary(rows: readonly SuggestionRow[]): string {
  */
 export function SuggestionCard(props: SuggestionCardProps) {
   const { unit, current, proposed, applied = false, busy = false } = props;
-  if (proposed.length === 0 && !(props.rows && props.rows.length > 0)) return null;
-  const rows = props.rows ?? suggestionDiff(current, proposed);
+  const fieldMode = props.fieldRows !== undefined;
+  if (!fieldMode && proposed.length === 0 && !(props.rows && props.rows.length > 0)) return null;
+  const rows = fieldMode ? [] : (props.rows ?? suggestionDiff(current, proposed));
   const into = unit === "scene" ? "放进剧本" : "放进分镜";
   const noun = unit === "scene" ? "场" : "镜头";
   let number = 0;
   return (
     <section className="nx-root nx-suggest" aria-label="助手的建议">
       <header className="nx-suggest-head">
-        <strong>{headline(unit, current.length, proposed.length)}</strong>
-        {current.length > 0 ? <span className="nx-muted">{summary(rows)}</span> : null}
+        <strong>
+          {fieldMode
+            ? `建议变更 ${props.fieldRows!.length} 个字段`
+            : headline(unit, current.length, proposed.length)}
+        </strong>
+        {!fieldMode && current.length > 0 ? (
+          <span className="nx-muted">{summary(rows)}</span>
+        ) : null}
       </header>
-      <ol className="nx-suggest-rows">
-        {rows.map((row) => {
-          const removed = row.kind === "removed";
-          if (!removed) number += 1;
-          const changed = row.kind === "changed" ? row.before : null;
-          return (
-            <li
-              key={`${row.kind}:${row.item.id}`}
-              className="nx-suggest-row"
-              data-kind={row.kind}
-              title={changed ? `原来：${changed.text}` : undefined}
-            >
-              <span className="nx-suggest-no">{removed ? "" : number}</span>
-              <span className="nx-suggest-body">
-                <span className="nx-suggest-line">
-                  {row.item.who ? <span className="nx-suggest-who">{row.item.who}</span> : null}
-                  {removed ? (
-                    <del className="nx-one-line">{row.item.text}</del>
-                  ) : (
-                    <span className="nx-one-line">{row.item.text}</span>
-                  )}
+      {fieldMode ? (
+        <SuggestionFieldDiff rows={props.fieldRows!} />
+      ) : (
+        <ol className="nx-suggest-rows">
+          {rows.map((row) => {
+            const removed = row.kind === "removed";
+            if (!removed) number += 1;
+            const changed = row.kind === "changed" ? row.before : null;
+            return (
+              <li
+                key={`${row.kind}:${row.item.id}`}
+                className="nx-suggest-row"
+                data-kind={row.kind}
+                title={changed ? `原来：${changed.text}` : undefined}
+              >
+                <span className="nx-suggest-no">{removed ? "" : number}</span>
+                <span className="nx-suggest-body">
+                  <span className="nx-suggest-line">
+                    {row.item.who ? <span className="nx-suggest-who">{row.item.who}</span> : null}
+                    {removed ? (
+                      <del className="nx-one-line">{row.item.text}</del>
+                    ) : (
+                      <span className="nx-one-line">{row.item.text}</span>
+                    )}
+                  </span>
+                  {changed ? (
+                    <span className="nx-suggest-before nx-one-line">原来：{changed.text}</span>
+                  ) : null}
                 </span>
-                {changed ? (
-                  <span className="nx-suggest-before nx-one-line">原来：{changed.text}</span>
+                {row.item.tail ? <span className="nx-suggest-tail">{row.item.tail}</span> : null}
+                {row.kind !== "same" && current.length > 0 ? (
+                  <span className="nx-tag nx-suggest-mark">{MARK[row.kind]}</span>
                 ) : null}
-              </span>
-              {row.item.tail ? <span className="nx-suggest-tail">{row.item.tail}</span> : null}
-              {row.kind !== "same" && current.length > 0 ? (
-                <span className="nx-tag nx-suggest-mark">{MARK[row.kind]}</span>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
+              </li>
+            );
+          })}
+        </ol>
+      )}
       <div className="nx-suggest-acts">
         {applied ? (
           <>
-            <span className="nx-muted">已放进去。</span>
+            <span className="nx-muted">{fieldMode ? "已应用这次字段修改。" : "已放进去。"}</span>
             {props.onUndo ? (
               <button type="button" className="nx-btn nx-sm" onClick={props.onUndo}>
                 撤销
@@ -118,24 +132,33 @@ export function SuggestionCard(props: SuggestionCardProps) {
             <button
               type="button"
               className="nx-btn nx-sm nx-suggest-apply"
-              disabled={busy}
+              disabled={busy || (fieldMode && props.fieldRows!.length === 0)}
               onClick={props.onApply}
             >
-              {into}
+              {fieldMode ? "确认修改" : into}
             </button>
             {props.onAnother ? (
               <button
                 type="button"
                 className="nx-btn nx-sm"
                 disabled={busy}
-                title={`请助手换一种分法，现在的${noun}不会变`}
+                title={
+                  fieldMode
+                    ? "请助手重新建议，确认前不会修改"
+                    : `请助手换一种分法，现在的${noun}不会变`
+                }
                 onClick={props.onAnother}
               >
                 {busy ? "正在换" : "换一个"}
               </button>
             ) : null}
             {props.onReject ? (
-              <button type="button" className="nx-btn nx-sm nx-ghost" onClick={props.onReject}>
+              <button
+                type="button"
+                className="nx-btn nx-sm nx-ghost"
+                disabled={fieldMode && busy}
+                onClick={props.onReject}
+              >
                 不要
               </button>
             ) : null}

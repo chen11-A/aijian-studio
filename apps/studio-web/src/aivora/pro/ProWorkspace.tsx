@@ -52,6 +52,8 @@ import { planWriterDraft, writerDraftInput, type WriterDraftResult } from "./act
 import { planActionDraft } from "./actions/action";
 import { planPerformanceDraft } from "./actions/performance";
 import { planPrompterDraft } from "./actions/prompter";
+import { projectShotPromptFields } from "./actions/shot-prompt-field-rows";
+import type { SuggestionFieldRow } from "../next/SuggestionFieldDiff";
 import { planArtDraft } from "./actions/art";
 import { globalEditorRequest } from "./actions/editor-request-context";
 import { applyContinuityChecks } from "../film/continuity-rules";
@@ -245,6 +247,9 @@ type RoleCard = {
   directionDiff?: ShotDirectionTransaction;
   artDiff?: ArtTransaction;
   editorDiff?: EditorSuggestion;
+  editorRequestId?: number;
+  editorTurnId?: string;
+  fieldRows?: SuggestionFieldRow[];
   title: string;
   rows: { id: string; mark: string; text: string; tail: string }[];
   notes: string[];
@@ -1372,6 +1377,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   function applyPending() {
     const card = roleCards[role];
+    if (role === "prompter" && card?.fieldRows !== undefined) {
+      void applyPendingPrompt();
+      return;
+    }
     if (card?.applied) {
       setNotice("这一步已经放入。");
       return;
@@ -2186,6 +2195,79 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     return withForeground(planPrompterWork, "PLANPROMPTER_FAILED");
   }
 
+  const [promptApplying, setPromptApplying] = useState(false);
+  const promptApplyBusy = useRef(false);
+  const readyPromptRequests = useRef(new Set<number>());
+  useEffect(() => {
+    readyPromptRequests.current.clear();
+  }, [film?.id]);
+  function rejectPendingPrompt() {
+    const card = roleCards.prompter;
+    if (
+      !card ||
+      card.editorRequestId === undefined ||
+      card.applied ||
+      promptApplyBusy.current ||
+      !readyPromptRequests.current.has(card.editorRequestId)
+    )
+      return;
+    readyPromptRequests.current.delete(card.editorRequestId);
+    setRoleCards((previous) =>
+      previous.prompter?.editorRequestId === card.editorRequestId
+        ? { ...previous, prompter: undefined }
+        : previous,
+    );
+    if (card.editorTurnId)
+      finishTurn(card.editorTurnId, {
+        code: "OPERATION_CANCELLED",
+        text: NOTICE_TEXT.OPERATION_CANCELLED,
+      });
+    setNotice({ code: "OPERATION_CANCELLED", text: NOTICE_TEXT.OPERATION_CANCELLED });
+  }
+  async function applyPendingPrompt() {
+    const card = roleCards.prompter;
+    if (
+      !card ||
+      card.applied ||
+      card.editorRequestId === undefined ||
+      !card.fieldRows?.length ||
+      !readyPromptRequests.current.has(card.editorRequestId) ||
+      promptApplyBusy.current
+    )
+      return;
+    promptApplyBusy.current = true;
+    setPromptApplying(true);
+    try {
+      const result = await editorHost.apply(card.editorRequestId);
+      if (result.completionCurrent === false) return;
+      if (result.status === "rejected") {
+        const code = result.conflicts.includes("SELECTION_MISMATCH")
+          ? "SELECTION_MISMATCH"
+          : result.conflicts.includes("BUSY")
+            ? "BUSY"
+            : "EDITOR_EDIT_CONFLICT";
+        setNotice({ code, text: NOTICE_TEXT[code] });
+        return;
+      }
+      readyPromptRequests.current.delete(card.editorRequestId);
+      setRoleCards((previous) => {
+        const current = previous.prompter;
+        return current && current.editorRequestId === card.editorRequestId
+          ? { ...previous, prompter: { ...current, applied: true } }
+          : previous;
+      });
+      const completion =
+        result.status === "applied_unsaved"
+          ? { code: "PROMPTER_APPLIED_UNSAVED", text: NOTICE_TEXT.PROMPTER_APPLIED_UNSAVED }
+          : { code: "PROMPTER_FIELDS_APPLIED", text: NOTICE_TEXT.PROMPTER_FIELDS_APPLIED };
+      if (card.editorTurnId) finishTurn(card.editorTurnId, completion);
+      setNotice(completion);
+    } finally {
+      promptApplyBusy.current = false;
+      setPromptApplying(false);
+    }
+  }
+
   async function planPrompterWork() {
     if (!film) return;
     const current = shownShots[shot];
@@ -2207,6 +2289,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const editorDiff = editorHost.preview(request, result.film);
+    const fieldRows = projectShotPromptFields(editorDiff ?? undefined, request.selection);
+    if (fieldRows !== null) {
+      readyPromptRequests.current.clear();
+      readyPromptRequests.current.add(request.id);
+      publishCard("prompter", {
+        editorDiff: editorDiff ?? undefined,
+        editorRequestId: request.id,
+        editorTurnId: turn,
+        fieldRows,
+        title: `画面说明 · 镜头 ${current.no}`,
+        rows: [],
+        notes: [],
+        applied: false,
+        mode: "shots",
+      });
+      const ready = {
+        code: "PROMPTER_SUGGESTION_READY",
+        text: NOTICE_TEXT.PROMPTER_SUGGESTION_READY,
+      };
+      finishTurn(turn, ready);
+      setNotice(ready);
+      noteAgent("prompter", "prompt", `镜头 ${current.no}`);
+      return;
+    }
     const applied = await editorHost.apply(request.id);
     if (!isTurnCurrent(turn) || applied.completionCurrent === false) return;
     if (applied.status !== "saved") {
@@ -3219,38 +3325,59 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     markApplied("qc");
     setNotice("已记下审片意见。版本仍由你选。");
   };
+  const promptCard = roleCards.prompter;
+  const promptSuggestion =
+    promptCard?.fieldRows !== undefined &&
+    promptCard.editorDiff?.selection.projectId === film?.id &&
+    promptCard.editorDiff?.selection.shotId === shownShots[shot]?.id &&
+    promptCard.editorDiff?.selection.sceneId === scene ? (
+      <SuggestionCard
+        unit="shot"
+        current={[]}
+        proposed={[]}
+        fieldRows={promptCard.fieldRows}
+        applied={promptCard.applied}
+        busy={asking || promptApplying}
+        onApply={() => void applyPendingPrompt()}
+        onAnother={() => void planPrompter()}
+        onReject={rejectPendingPrompt}
+      />
+    ) : null;
   const shotAssistant = (
-    <Assistant
-      role={role}
-      onRole={chooseRole}
-      pending={pendingRole === role ? pending : null}
-      onApply={applyPending}
-      onReject={() => markApplied(role)}
-      shots={shownShots}
-      chat={chat}
-      onChat={setChat}
-      onSend={sendChat}
-      onQuick={(label) => {
-        if (label.includes("动作")) {
-          chooseRole("action");
-          void planAction();
-        } else if (label.includes("表演")) {
-          chooseRole("performance");
-          void planPerformance();
-        } else if (label.includes("美术")) {
-          chooseRole("art");
-          void planArt();
-        } else sendChat();
-      }}
-      turns={turns}
-      structured={structured}
-      card={sceneCard}
-      onRetry={pendingRetry ? () => void retryPending() : undefined}
-      onRedoRange={redoFromReview}
-      onDismiss={keepReview}
-      scope={film ? scopeOf(film, scene, shownShots[shot] ?? null) : ""}
-      mentions={film ? mentionsOf(film, shownShots) : []}
-    />
+    <>
+      <Assistant
+        role={role}
+        onRole={chooseRole}
+        pending={pendingRole === role ? pending : null}
+        onApply={applyPending}
+        onReject={() => markApplied(role)}
+        shots={shownShots}
+        chat={chat}
+        onChat={setChat}
+        onSend={sendChat}
+        onQuick={(label) => {
+          if (label.includes("动作")) {
+            chooseRole("action");
+            void planAction();
+          } else if (label.includes("表演")) {
+            chooseRole("performance");
+            void planPerformance();
+          } else if (label.includes("美术")) {
+            chooseRole("art");
+            void planArt();
+          } else sendChat();
+        }}
+        turns={turns}
+        structured={structured}
+        card={sceneCard}
+        onRetry={pendingRetry ? () => void retryPending() : undefined}
+        onRedoRange={redoFromReview}
+        onDismiss={keepReview}
+        scope={film ? scopeOf(film, scene, shownShots[shot] ?? null) : ""}
+        mentions={film ? mentionsOf(film, shownShots) : []}
+      />
+      {promptSuggestion}
+    </>
   );
   // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
   useEffect(() => {
@@ -3813,6 +3940,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   structured={structured}
                   card={sceneCard}
                   qcCard={roleCards.qc ?? null}
+                  promptSuggestion={promptSuggestion}
                   onRedoRange={redoFromReview}
                   onDismiss={keepReview}
                   onReject={() => markApplied(role)}
@@ -6418,6 +6546,7 @@ function BoardPage({
   structured,
   card,
   qcCard = null,
+  promptSuggestion = null,
   onRedoRange,
   onDismiss,
   onRetry,
@@ -6464,6 +6593,7 @@ function BoardPage({
   card: RoleCard | null;
   /** The last 审片 answer; it shows under 高级, not in the chat. */
   qcCard?: RoleCard | null;
+  promptSuggestion?: ReactNode;
   onRedoRange: () => void;
   onDismiss: () => void;
   /** 3J-U10: 「补上结尾」, GPT fixCoverage (C9). Settles when the director is done. */
@@ -7337,6 +7467,7 @@ function BoardPage({
                     </button>
                   </div>
                   {toolNote ? <p className="role-desc">{toolNote}</p> : null}
+                  {promptSuggestion}
                   {qcCard ? (
                     <div className="bubble">
                       <div className="h">{qcCard.title}</div>
