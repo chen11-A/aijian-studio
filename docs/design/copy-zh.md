@@ -316,8 +316,8 @@ TakePicker 等 next 组件里的文案已经按这份约定写好，不在表里
 | `PLANPERFORMANCE_FAILED`              | 表演指导未完成，可以重试。           | 表演指导这次没写完，可以再试一次。                         |
 | `PLANPROMPTER_FAILED`                 | 提示词未完成，可以重试。             | 画面说明这次没写完，可以再试一次。                         |
 | `PLANQC_FAILED`                       | 审片未完成，可以重试。               | 审片这次没看完，可以再试一次。                             |
-| `COVERAGE_INCOMPLETE`                 | 台词或结尾未覆盖，请补齐。           | 有的场结尾还没拍到，去分镜看看。                           |
-| `COVERAGE_COMPLETE`                   | 台词和结尾已覆盖。                   | 每场的台词和结尾都有镜头了。                               |
+| `COVERAGE_INCOMPLETE`                 | 台词或结尾未覆盖，请补齐。           | 有的场还有内容没拍到，去分镜看看。                         |
+| `COVERAGE_COMPLETE`                   | 台词和结尾已覆盖。                   | 这一场的台词和结尾都有镜头了。                             |
 | `COVERAGE_REPAIRING`                  | 正在补齐台词和结尾。                 | 正在补上结尾…                                              |
 | `DIRECTOR_OVER_BUDGET`                | 已保留全部内容，请核对镜头数。       | 镜头比建议的多，内容都留着，可以在分镜里合并。             |
 | `ACTION_UNASSIGNED`                   | 部分动作未分配，请核对镜头。         | 有动作没对上镜头，去分镜看看。                             |
@@ -330,7 +330,7 @@ TakePicker 等 next 组件里的文案已经按这份约定写好，不在表里
 | `VOICE_PREVIEW_PROGRESS`              | 正在试听。                           | 正在试听…                                                  |
 | `VOICE_PREVIEW_STOPPED`               | 已停止试听。                         | 已停止试听。                                               |
 | `VOICE_PREVIEW_UNAVAILABLE`           | 当前无法试听，请查看详情。           | 现在试听不了。                                             |
-| `SOUND_DISABLED`                      | 声音已关闭，请先打开。               | 预览是静音的，打开顶栏的声音再听。                         |
+| `SOUND_DISABLED`                      | 声音已关闭，请先打开。               | 预览是静音的。按 M 或点预览上的喇叭打开声音。              |
 | `DIALOGUE_REQUIRED`                   | 请先写一句台词。                     | 先给这一镜写一句台词。                                     |
 | `DURATION_LOCKED`                     | 已保留手动设置的时长。               | 这一镜的时长是你定的，没有改。                             |
 | `DURATION_SPLIT_REQUIRED`             | 台词较长，请确认拆镜。               | 这句台词太长，建议拆成两个镜头。                           |
@@ -381,12 +381,12 @@ TakePicker 等 next 组件里的文案已经按这份约定写好，不在表里
 | `STILL_DONE`                          | 画面已生成。                         | 画面出好了。                                               |
 | `STILL_CANDIDATES_READY`              | 候选画面已生成，请选择。             | 开头画面出好了，选一张。                                   |
 | `STILL_CONFIRM_REQUIRED`              | 请确认候选画面生成。                 | 确认后才出这几张开头画面。                                 |
-| `COMPOSITION_SELECTED`                | 构图已选择。                         | 已换成这张构图。                                           |
+| `COMPOSITION_SELECTED`                | 构图已选择。                         | 已换成这张画面。                                           |
 | `GENERATION_CONFIRM_REQUIRED`         | 请确认生成范围和版本数。             | 看一下要生成的镜头和版本数，确认后才开始。                 |
 | `GENERATION_QUEUED`                   | 生成已排队。                         | 已排上队。                                                 |
-| `GENERATION_PAUSED`                   | 生成已暂停。                         | 已暂停。已经发出去的几段可能还会做完。                     |
+| `GENERATION_PAUSED`                   | 生成已暂停。                         | 已暂停。已经发给 Grok 的那几个可能还会做完。               |
 | `GENERATION_CANCELLED`                | 生成已取消。                         | 已取消还没开始的镜头。                                     |
-| `GENERATION_CANCEL_REQUESTED`         | 已请求取消，请核对已发出的任务。     | 已取消。已经发出去的几段可能停不下来。                     |
+| `GENERATION_CANCEL_REQUESTED`         | 已请求取消，请核对已发出的任务。     | 已取消。如果已经发给 Grok，它可能还会做完。                |
 | `GENERATION_FAILED`                   | 生成未完成，可以重试。               | 这段视频没做成，可以再试一次。                             |
 | `GENERATION_DONE`                     | 这一版已生成。                       | 这一版做好了。                                             |
 | `GENERATION_NO_FAILURES`              | 没有需要重试的失败任务。             | 没有失败的，不用重试。                                     |
@@ -520,3 +520,13 @@ TakePicker 等 next 组件里的文案已经按这份约定写好，不在表里
 | `OUTSIDE_SCOPE_EDIT`                  | 建议超出所选范围，未应用。           | 这条建议改到了选中范围以外，没有放进去。                   |
 | `OUTSIDE_SCOPE_STRUCTURE`             | 结构改动超出所选范围，未应用。       | 这条建议动了选中范围以外的镜头，没有放进去。               |
 | `PAGE_SCOPE_MISMATCH`                 | 建议不属于当前页面，未应用。         | 这条建议不是这一页的，没有放进去。                         |
+
+## 3JR 时长与参考补充
+
+| 代码                            | 后端兜底                         | 界面文字                         |
+| ------------------------------- | -------------------------------- | -------------------------------- |
+| `LOCATION_SOURCE_REQUIRED`      | 这一场还没有可用的环境描述。     | 这一场还没有可用的环境描述。     |
+| `MULTI_VOICE_PROVIDER_REQUIRED` | 分角色配音需要 Grok 会员。       | 分角色配音需要 Grok 会员。       |
+| `DIALOGUE_VIDEO_LIMIT`          | 对白放不下，请拆成两个镜头。     | 对白放不下，请拆成两个镜头。     |
+| `VIDEO_TOO_SHORT`               | 画面太短，请生成更长的画面。     | 画面太短，请生成更长的画面。     |
+| `DIALOGUE_VIDEO_REQUIRED`       | 视频未完成，已保留配音，请重试。 | 视频未完成，已保留配音，请重试。 |

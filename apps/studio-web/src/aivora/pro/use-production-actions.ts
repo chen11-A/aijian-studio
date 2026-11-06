@@ -10,8 +10,8 @@ export function useProductionActions(host: Parameters<typeof createProductionAct
         current: () => latest.current.current(),
         apply: (film) => latest.current.apply(film),
         notify: (notice) => latest.current.notify(notice),
-        requestDirector: (context, instruction) =>
-          latest.current.requestDirector(context, instruction),
+        requestDirector: (context, instruction, control) =>
+          latest.current.requestDirector(context, instruction, control),
       }),
     [],
   );

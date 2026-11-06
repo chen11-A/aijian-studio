@@ -8,6 +8,11 @@ import type { UiNotice } from "../../film/contracts3j";
  * GPT adds a code that has no line here yet.
  */
 export const NOTICE_COPY: Readonly<Record<string, string>> = {
+  LOCATION_SOURCE_REQUIRED: "这一场还没有可用的环境描述。",
+  MULTI_VOICE_PROVIDER_REQUIRED: "分角色配音需要 Grok 会员。",
+  DIALOGUE_VIDEO_LIMIT: "对白放不下，请拆成两个镜头。",
+  VIDEO_TOO_SHORT: "画面太短，请生成更长的画面。",
+  DIALOGUE_VIDEO_REQUIRED: "视频未完成，已保留配音，请重试。",
   NOTICE_CLEAR: "",
   WORK_INTERRUPTED: "上次关软件时还有镜头没做完，已经停下了。可以重新生成。",
   WRITING_PROGRESS: "AI 正在写…",

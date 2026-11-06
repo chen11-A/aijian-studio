@@ -102,6 +102,7 @@ def test_service_autoframe_uses_five_refs_and_video_keeps_thirteen(
     portrait.write_bytes(_PNG)
     refs = (str(portrait), *(f"https://example.invalid/face-{index}.png" for index in range(12)))
     responses = [
+        XaiHttpResponse(200, speech, "audio/wav"),
         XaiHttpResponse(200, json.dumps({"request_id": "ref-video"}).encode()),
         XaiHttpResponse(
             200,
@@ -110,7 +111,6 @@ def test_service_autoframe_uses_five_refs_and_video_keeps_thirteen(
             ).encode(),
         ),
         XaiHttpResponse(200, clip, "video/mp4"),
-        XaiHttpResponse(200, speech, "audio/wav"),
     ]
     if not remote_still:
         responses.insert(

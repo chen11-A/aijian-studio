@@ -103,7 +103,7 @@ describe("director repair without data loss", () => {
 });
 
 describe("whole-cast portrait queue", () => {
-  it("retries a failed angle once, continues both characters and persists every successful image", async () => {
+  it("retries a failed front once, blocks its dependent views and persists the next character", async () => {
     let film = sampleFilm();
     film.characters = film.characters.slice(0, 2).map((person) => ({ ...person, portraits: [] }));
     const persisted: number[] = [];
@@ -129,13 +129,42 @@ describe("whole-cast portrait queue", () => {
     expect(snapshots.some((count) => count > 0)).toBe(true);
     const result = await pending;
     off();
-    expect(request).toHaveBeenCalledTimes(9);
-    expect(result).toMatchObject({ total: 8, done: 7, failed: 1, cancelled: false });
-    expect(persisted).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(request).toHaveBeenCalledTimes(6);
+    expect(request.mock.calls.slice(0, 2).map((call) => call[1])).toEqual([[], []]);
+    expect(request.mock.calls[0]?.[0]).toBe(request.mock.calls[1]?.[0]);
+    expect(request.mock.calls.slice(2).map((call) => call[1])).toEqual([
+      [],
+      ["/new.png"],
+      ["/new.png"],
+      ["/new.png"],
+    ]);
+    expect(
+      request.mock.calls
+        .slice(2)
+        .every((call) => String(call[0]).includes(film.characters[1]!.identity)),
+    ).toBe(true);
+    expect(film.characters[0]!.portraits).toEqual([]);
+    expect(film.characters[1]!.portraits.map((portrait) => portrait.view)).toEqual([
+      "正面",
+      "侧面",
+      "背面",
+      "脸部",
+    ]);
+    expect(result.failures).toEqual([
+      { characterId: film.characters[0]!.id, view: "正面", reason: "fail" },
+      ...["侧面", "背面", "脸部"].map((view) => ({
+        characterId: film.characters[0]!.id,
+        view,
+        reason: "先补好正面照，再生成这个角度。",
+        code: "PORTRAIT_ANCHOR_REQUIRED",
+      })),
+    ]);
+    expect(result).toMatchObject({ total: 8, done: 4, failed: 4, cancelled: false });
+    expect(persisted).toEqual([1, 2, 3, 4]);
     expect(taskSnapshot().batches.at(-1)).toMatchObject({
-      done: 7,
+      done: 4,
       total: 8,
-      failed: 1,
+      failed: 4,
       running: false,
     });
   });

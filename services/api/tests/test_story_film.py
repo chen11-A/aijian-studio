@@ -7,13 +7,16 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from aijian_api.draft_export_runtime import DraftExportRuntime
 from aijian_api.local_media_toolchain import LocalMediaToolchainService
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.story_film import (
+    StoryFilmCue,
     StoryFilmRequest,
     StoryFilmService,
+    _export_cues,
     _fit_clip_length,
     _local_image,
     _media_duration,
@@ -22,6 +25,7 @@ from aijian_api.story_film import (
     reference_image_url,
     references_for_model,
 )
+from aijian_api.story_film_routes import _data
 from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse
 from fastapi.testclient import TestClient
 from test_draft_export_runtime import toolchain
@@ -131,11 +135,39 @@ def test_stub_pipeline_writes_a_playable_mp4_with_picture_and_sound(tmp_path):
     assert result.draft is True
     assert result.live_call is False
     assert result.has_video and result.has_audio
+    # The public result must retain the separately generated narration so the
+    # desktop can persist an actual dialogue clip, not just hear the mixed MP4.
+    assert result.voice_path is not None
+    assert Path(result.voice_path).is_file()
+    assert _data(result).voice_path == result.voice_path
     assert result.output_path and result.output_sha256
     assert result.task_id and result.attempt_id and result.artifact_version_id
     duration = float(result.duration_seconds or "0")
     assert 1.5 <= duration <= 3.2
+    # 4B-B09: the same film without its burned subtitle, and the subtitle's own times.
+    assert result.clean_output_path and result.clean_output_path != result.output_path
+    assert Path(result.clean_output_path).is_file()
+    assert result.subtitle_cues and result.subtitle_cues[0].text == "雾城来信"
+    assert _data(result).clean_output_path == result.clean_output_path
+    assert _data(result).subtitle_cues[0].text == "雾城来信"  # type: ignore[index]
     tools = toolchain()
+    clean_probe = subprocess.run(
+        [
+            str(tools.ffprobe_path),
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_type",
+            "-of",
+            "json",
+            result.clean_output_path,
+        ],
+        check=True,
+        capture_output=True,
+    )
+    assert {"video", "audio"} <= {
+        stream["codec_type"] for stream in json.loads(clean_probe.stdout)["streams"]
+    }
     probe = subprocess.run(
         [
             str(tools.ffprobe_path),
@@ -180,6 +212,43 @@ def test_missing_font_saves_srt_and_still_makes_the_film(tmp_path, monkeypatch):
     srt = Path(result.output_path).with_suffix(".srt")
     assert "雾城来信" in srt.read_text(encoding="utf-8")
     assert result.has_video and result.has_audio
+    # Nothing was burned, so the film itself is the clean one; the cue is still reported.
+    assert result.clean_output_path == result.output_path
+    assert result.subtitle_cues and result.subtitle_cues[0].text == "雾城来信"
+
+
+def test_clean_copy_uses_its_own_export_runtime(tmp_path, monkeypatch):
+    """The subtitled film's runtime must still accept work after the clean copy (4B-B09)."""
+    repository, project_id = _project(tmp_path)
+    service = StoryFilmService(repository, toolchain)
+    shared = DraftExportRuntime(repository, toolchain, None)
+    used: list[object] = []
+
+    def export(_project, _episode, content, output, runtime):
+        used.append(runtime)
+        assert "subtitle_segments" not in content
+        runtime.join_workers()
+        raise RuntimeError("no media in this unit test")
+
+    monkeypatch.setattr(service, "_export_story_assembly", export)
+    content = {"subtitle_segments": [{"text": "雾"}], "total_frames": 24}
+    assert service._export_clean_copy(project_id, "ep", content, tmp_path / "c.mp4") is None
+    assert used and used[0] is not shared
+    # The caller's runtime was never stopped by the clean copy.
+    assert shared._closing is False
+    assert "subtitle_segments" in content
+
+
+def test_export_cues_take_the_wrapping_back_out_and_use_seconds():
+    assert _export_cues(None) == ()
+    assert _export_cues(
+        [
+            {"text": "雾散之前，不要回头。\n后半句", "start_frame": 12, "end_frame": 60},
+            {"text": "", "start_frame": 60, "end_frame": 72},
+            {"text": "坏的", "start_frame": 80, "end_frame": 70},
+            "not a cue",
+        ]
+    ) == (StoryFilmCue(text="雾散之前，不要回头。后半句", start_seconds=0.5, end_seconds=2.5),)
 
 
 def test_story_film_route_explains_the_provider_before_any_call(tmp_path):
@@ -297,6 +366,7 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     transport = _ScriptedTransport(
         [
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-live"}).encode()),
             XaiHttpResponse(200, json.dumps({"status": "pending"}).encode()),
             XaiHttpResponse(
@@ -306,7 +376,6 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
                 ).encode(),
             ),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
@@ -317,10 +386,10 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     assert result.has_video and result.has_audio
     assert result.suggested_provider is None
     assert result.output_path
-    body = json.loads(transport.requests[1].body or b"{}")
+    body = json.loads(transport.requests[2].body or b"{}")
     assert body["image"]["url"].startswith("data:image/png;base64,")
     assert body["model"] == "grok-imagine-video-1.5"
-    assert body["duration"] == 2
+    assert body["duration"] == 3
     image_body = json.loads(transport.requests[0].body or b"{}")
     assert image_body["response_format"] == "url"
     assert image_body["quality"] == "medium"
@@ -330,7 +399,7 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     assert token not in text
     assert "灯塔夜班" not in text
     events = [json.loads(line)["event"] for line in text.splitlines()]
-    assert events[:5] == ["image", "image_saved", "video_submit", "video_poll", "video_poll"]
+    assert events[:6] == ["image", "image_saved", "tts", "video_submit", "video_poll", "video_poll"]
     assert "tts" in events and "compose" in events
 
 
@@ -341,9 +410,9 @@ def test_subscription_keeps_the_image_and_voice_when_video_fails(tmp_path, monke
     transport = _ScriptedTransport(
         [
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-fail"}).encode()),
             XaiHttpResponse(200, json.dumps({"status": "failed"}).encode()),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
@@ -714,15 +783,15 @@ def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monke
     transport = _ScriptedTransport(
         [
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-1"}).encode()),
             XaiHttpResponse(200, json.dumps(done).encode()),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-2"}).encode()),
             XaiHttpResponse(200, json.dumps(done).encode()),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
@@ -980,7 +1049,7 @@ def test_a_long_clip_is_cut_to_the_chosen_length_and_a_short_one_stays(tmp_path)
     assert junk.read_bytes() == b"not a movie"
 
 
-def test_a_chosen_length_is_not_stretched_to_the_narration(tmp_path):
+def test_too_short_chosen_length_fails_instead_of_cutting_narration(tmp_path):
     from aijian_api.story_film import _normalize_film_media
 
     tools = toolchain()
@@ -1019,8 +1088,13 @@ def test_a_chosen_length_is_not_stretched_to_the_narration(tmp_path):
         check=True,
         capture_output=True,
     )
-    _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, clip, voice, 2)
-    assert _media_duration(tools.ffprobe_path, clip) <= 2.35
+    from aijian_api.story_film import StoryFilmError
+
+    original_voice = voice.read_bytes()
+    with pytest.raises(StoryFilmError) as failed:
+        _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, clip, voice, 2)
+    assert failed.value.code == "DIALOGUE_VIDEO_LIMIT"
+    assert voice.read_bytes() == original_voice
 
 
 def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
@@ -1116,6 +1190,7 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
     clip, voice = _media_bytes(tmp_path)
     transport = _ScriptedTransport(
         [
+            XaiHttpResponse(200, voice, "audio/wav"),
             XaiHttpResponse(200, json.dumps({"request_id": "req-ref"}).encode()),
             XaiHttpResponse(200, json.dumps({"status": "pending"}).encode()),
             XaiHttpResponse(
@@ -1125,7 +1200,6 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
                 ).encode(),
             ),
             XaiHttpResponse(200, clip, "video/mp4"),
-            XaiHttpResponse(200, voice, "audio/wav"),
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)

@@ -355,8 +355,15 @@ describe("film operations", () => {
     const clips = clipLayout(film.shots);
     expect(clips.map((item) => item.width)).toEqual([102, 76, 102, 76, 154, 206]);
     expect(clips[4]?.left).toBe(365);
-    const previous = film.shots[3];
-    expect(continuityPrompt(previous, film.shots[4]!, film)).toContain("接上一镜");
+    const previous = film.shots[3]!;
+    expect(continuityPrompt(previous, film.shots[4]!, film)).not.toContain("接上一镜");
+    expect(
+      continuityPrompt(
+        previous,
+        { ...film.shots[4]!, sceneId: previous.sceneId, continuityFromShotId: previous.id },
+        film,
+      ),
+    ).toContain("接上一镜");
     expect(continuityPrompt(undefined, film.shots[0]!, film)).toContain("起始画面");
   });
 
@@ -377,7 +384,10 @@ describe("film operations", () => {
       "grok-imagine-video-1.5",
     );
     film.shots[0]!.styleNote = "冷色雨夜";
-    expect(storyFilmBatches(film, [film.shots[0]!], false)[0]?.style_block).toContain("冷色雨夜");
+    const request = storyFilmBatches(film, [film.shots[0]!], false)[0]!;
+    expect(request.shots[0]!.prompt).toContain("冷色雨夜");
+    expect(request.shots[0]!.prompt).toContain(film.styleZh);
+    expect(request).not.toHaveProperty("style_block");
   });
 
   it("reads names and a rainy alley from the script, and keeps names the user already wrote", () => {
@@ -517,7 +527,8 @@ describe("film operations", () => {
       userFields: [],
       line: "啊".repeat(90),
     });
-    expect(over.warning).toContain("截断");
+    expect(over.warning).toContain("不会提交");
+    expect(over.warning).not.toContain("截断");
     expect(over.shot.seconds).toBe(3);
     const kept = fitShotToLine({
       ...shot,
@@ -526,7 +537,13 @@ describe("film operations", () => {
       line: "啊".repeat(40),
     });
     expect(kept.shot.seconds).toBe(4);
-    expect(kept.warning).toContain("截断");
+    expect(kept.warning).toContain("会按配音加长");
+    expect(kept.warning).not.toContain("截断");
+    // A locked line too long for any video says so, instead of promising to lengthen it.
+    expect(
+      fitShotToLine({ ...shot, seconds: 4, userFields: ["seconds"], line: "啊".repeat(90) })
+        .warning,
+    ).toContain("不会提交");
     shot.speaker = film.characters[0]!.name;
     shot.poster = "/tmp/still.png";
     film.characters[0]!.portraits = [
@@ -539,9 +556,9 @@ describe("film operations", () => {
     expect(batch.shots[0]?.prompt).toContain("<IMAGE_0>");
     expect(batch.shots[0]?.prompt).toContain("<IMAGE_1>");
     expect(batch.shots[0]?.prompt).toContain("定妆照");
-    expect(batch.aspect_ratio).toBe("9:16");
-    expect(storyFilmBatches({ ...film, aspectRatio: "16:9" }, [shot], false)[0]?.aspect_ratio).toBe(
-      "16:9",
+    expect(batch.aspect_ratio).toBe("16:9");
+    expect(storyFilmBatches({ ...film, aspectRatio: "9:16" }, [shot], false)[0]?.aspect_ratio).toBe(
+      "9:16",
     );
     expect(draftFaceWarning(true)).toContain("脸可能会变");
     expect(draftFaceWarning(false)).toBe("");
@@ -662,7 +679,11 @@ describe("film operations", () => {
     );
     const voiced = mergeCast(blankFilm(), cast ?? { characters: [], locations: [] });
     expect(voiced.characters.find((item) => item.name === "林晚")?.gender).toBe("女");
-    expect(voiced.characters.find((item) => item.name === "林晚")?.ageBand).toBe("中年");
+    expect(voiced.characters.find((item) => item.name === "林晚")?.ageBand).toBe("");
+    expect(voiced.characters.find((item) => item.name === "林晚")?.voiceDefault).toMatchObject({
+      basis: "adult-default",
+      evidenceSource: "character-reply",
+    });
     expect(["ara", "eve", "luna", "carina", "celeste"]).toContain(
       voiced.characters.find((item) => item.name === "林晚")?.voiceId,
     );

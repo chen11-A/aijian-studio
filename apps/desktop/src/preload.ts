@@ -70,6 +70,7 @@ import type { AssistantChatBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import type { StoryFilmCreateInput } from "./story-film-client";
+import type { FilmExportOptions } from "./film-export";
 import type {
   DraftExportPreviewResult,
   DraftExportRevealResult,
@@ -567,12 +568,15 @@ contextBridge.exposeInMainWorld("aijian", {
   listFilmSeries: () => ipcRenderer.invoke("film:list-series"),
   listFilmEpisodes: (seriesId: string) => ipcRenderer.invoke("film:list-episodes", seriesId),
   readFilmProject: (id: string) => ipcRenderer.invoke("film:read", id),
+  prepareFilmProject: (film: unknown) => ipcRenderer.invoke("film:prepare", film),
   writeFilmProject: (film: unknown) => ipcRenderer.invoke("film:write", film),
   deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
   renameFilmSeries: (seriesId: string, title: string) =>
     ipcRenderer.invoke("film:rename", seriesId, title),
   readFilmMedia: (path: string) =>
     ipcRenderer.invoke("film:read-media", path) as Promise<Uint8Array>,
+  extractFilmLastFrame: (seriesId: string, videoPath: string) =>
+    ipcRenderer.invoke("film:last-frame", seriesId, videoPath),
   assembleFilm: (
     seriesId: string,
     sources: string[],
@@ -616,8 +620,9 @@ contextBridge.exposeInMainWorld("aijian", {
   ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
-  exportFilmCut: (source: string, directory: string, name?: string) =>
-    ipcRenderer.invoke("film:export", source, directory, name),
+  exportFilmCut: (source: string, directory: string, name?: string, options?: FilmExportOptions) =>
+    ipcRenderer.invoke("film:export", source, directory, name, options),
+  cancelFilmExport: (requestId: string) => ipcRenderer.invoke("film:cancel-export", requestId),
   revealFilmPath: (path: string) => ipcRenderer.invoke("film:reveal", path),
   openFilmPath: (path: string) => ipcRenderer.invoke("film:open", path),
   getProject: (projectId: string): Promise<ProjectResponse> =>

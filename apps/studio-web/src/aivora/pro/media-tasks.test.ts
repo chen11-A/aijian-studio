@@ -179,3 +179,67 @@ it("rejects late export without saving into another project", async () => {
   await expect(pending).rejects.toThrow("WORK_STALE");
   expect(apply).not.toHaveBeenCalled();
 });
+
+it("forwards both output ratios as distinct export tasks without changing the default", async () => {
+  const base = baseFilm();
+  installExport();
+  const host = { current: () => base, valid: () => true, apply: vi.fn() };
+  for (const aspectRatio of ["16:9", "9:16"] as const) {
+    await exportFilmTask(base, ["source.mp4"], "/out", host, { aspectRatio });
+    expect(window.aijian!.exportFilmCut).toHaveBeenLastCalledWith(
+      "source.mp4",
+      "/out",
+      expect.any(String),
+      { aspectRatio, requestId: expect.any(String) },
+    );
+    expect(
+      taskSnapshot().tasks.some(
+        (task) => task.id === `export:${base.id}:${aspectRatio}` && task.status === "done",
+      ),
+    ).toBe(true);
+  }
+});
+it("does not publish an explicitly failed export even if a path is returned", async () => {
+  const base = baseFilm(),
+    apply = vi.fn();
+  installExport({ exportFilmCut: vi.fn().mockResolvedValue({ ok: false, path: "/partial.mp4" }) });
+  await expect(
+    exportFilmTask(base, ["source.mp4"], "/out", { current: () => base, valid: () => true, apply }),
+  ).rejects.toThrow("没有导出成功");
+  expect(apply).not.toHaveBeenCalled();
+});
+
+it("forwards task timeout cancellation to desktop and never saves a late result", async () => {
+  vi.useFakeTimers();
+  const base = baseFilm(),
+    apply = vi.fn();
+  let finish!: (value: { ok: boolean; path: string }) => void;
+  const cancelFilmExport = vi.fn().mockResolvedValue({ ok: true });
+  installExport({
+    cancelFilmExport,
+    exportFilmCut: vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    ),
+  });
+  try {
+    const pending = exportFilmTask(
+      base,
+      ["source.mp4"],
+      "/out",
+      { current: () => base, valid: () => true, apply },
+      { aspectRatio: "9:16" },
+    );
+    const rejected = expect(pending).rejects.toThrow("TASK_TIMEOUT");
+    await vi.advanceTimersByTimeAsync(300_000);
+    await rejected;
+    expect(cancelFilmExport).toHaveBeenCalledWith(expect.any(String));
+    finish({ ok: true, path: "/late.mp4" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(apply).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});

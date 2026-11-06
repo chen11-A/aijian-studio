@@ -23,7 +23,7 @@ export type StoryFilmShotInput = {
   reference?: string;
   references?: string[];
   delivery?: string;
-  lines?: { speaker: string; text: string }[];
+  lines?: { speaker: string; text: string; voice_id?: string }[];
 };
 
 export type StoryFilmCreateInput = {
@@ -67,7 +67,8 @@ function requireReferencedStill(
 ): StoryFilmShotInput {
   if (
     new Set(shot.lines?.filter((line) => line.text.trim()).map((line) => line.speaker.trim()))
-      .size > 1
+      .size > 1 &&
+    shot.lines?.some((line) => line.text.trim() && !validLineVoice(line.voice_id))
   ) {
     throw Object.assign(new Error("这一镜需要分角色配音。台词与字幕已保留。"), {
       code: "MULTI_VOICE_REQUIRED",
@@ -394,21 +395,38 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
   });
 }
 
-function parseLines(value: unknown): { speaker: string; text: string }[] | undefined {
+function validLineVoice(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 64 &&
+    !/\s/u.test(value) &&
+    [...value].every(
+      (character) => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127,
+    )
+  );
+}
+
+function parseLines(value: unknown): StoryFilmShotInput["lines"] {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length > 100) throw new Error("Invalid story film request");
   return value.map((line: unknown) => {
     if (!line || typeof line !== "object") throw new Error("Invalid story film request");
     const row = line as Record<string, unknown>;
     if (
-      Object.keys(row).some((key) => !["speaker", "text"].includes(key)) ||
+      Object.keys(row).some((key) => !["speaker", "text", "voice_id"].includes(key)) ||
       typeof row.speaker !== "string" ||
       row.speaker.length > 100 ||
       typeof row.text !== "string" ||
       !row.text.trim() ||
-      row.text.length > 2000
+      row.text.length > 2000 ||
+      (row.voice_id !== undefined && !validLineVoice(row.voice_id))
     )
       throw new Error("Invalid story film request");
-    return { speaker: row.speaker.trim(), text: row.text };
+    return {
+      speaker: row.speaker.trim(),
+      text: row.text,
+      ...(row.voice_id !== undefined ? { voice_id: row.voice_id as string } : {}),
+    };
   });
 }

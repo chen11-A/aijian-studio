@@ -1,3 +1,4 @@
+import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { stripUnsafeFileChars } from "./film-library";
@@ -71,6 +72,7 @@ export function registerStoryFilmHandlers<TEvent>(
   mediaBearerFor: () => Promise<string | null>,
   fetcher: typeof fetch = globalThis.fetch,
   files?: StoryFilmFiles,
+  logStyle?: (detail: StyleDiagnostics) => void,
 ): void {
   handle("story-film:plan", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
@@ -116,7 +118,13 @@ export function registerStoryFilmHandlers<TEvent>(
     const mediaRoots = workspace
       ? [join(dirname(workspace), "films"), join(workspace, "story-films")]
       : [];
-    return createStoryFilmClient(fetcher, sessionFor(), undefined, mediaRoots).create(
+    const submitting: typeof fetch = (input, init) => {
+      if (init?.method === "POST" && body.provider === "grok_subscription") {
+        for (const shot of body.shots ?? []) logStyle?.(styleDiagnostics(shot.prompt));
+      }
+      return fetcher(input, init);
+    };
+    return createStoryFilmClient(submitting, sessionFor(), undefined, mediaRoots).create(
       projectId,
       body,
       bearer,

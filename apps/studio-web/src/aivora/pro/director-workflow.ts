@@ -1,5 +1,7 @@
 import {
   coverageRepairContext,
+  sceneShotBudget,
+  type SceneShotBudget,
   detectDirectorCoverage,
   shotLines,
   type DirectorCoverage,
@@ -12,13 +14,30 @@ import {
   type FilmShot,
 } from "../film/project";
 import type { AgentReply } from "./workflow";
+import { shotActions } from "../film/shot-actions";
 
 export type DirectorRepairResult = {
   shots: FilmShot[];
   coverage: DirectorCoverage;
   repaired: boolean;
+  shotBudget: SceneShotBudget;
 };
 export type RepairRequest = (context: string, instruction: string) => Promise<AgentReply>;
+
+/** Match occurrences, not a set: repeated dialogue and speaker ownership must survive. */
+function containsDialogueInOrder(
+  expected: ReturnType<typeof shotLines>,
+  actual: ReturnType<typeof shotLines>,
+): boolean {
+  let cursor = 0;
+  return expected.every((line) => {
+    while (cursor < actual.length) {
+      const candidate = actual[cursor++]!;
+      if (candidate.speaker === line.speaker && candidate.text === line.text) return true;
+    }
+    return false;
+  });
+}
 
 /** One repair attempt; a failed or lossy answer never replaces the existing plan. */
 export async function repairDirectorCoverage(
@@ -28,16 +47,33 @@ export async function repairDirectorCoverage(
   current: () => boolean = () => true,
 ): Promise<DirectorRepairResult> {
   const coverage = detectDirectorCoverage(scene, shots);
-  if (coverage.ok || !current()) return { shots, coverage, repaired: false };
+  const protectedShot = (shot: FilmShot) =>
+    shot.userFields.length ||
+    shot.poster ||
+    shot.stills.length ||
+    shot.takes.length ||
+    shot.selectedTakeId ||
+    shot.continuityFrame;
+  if (shots.some(protectedShot) && new Set(shots.map((shot) => shot.id)).size !== shots.length)
+    return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
+  const overLimit = shots.filter((shot) => shot.sceneId === scene.id).length > 16;
+  if ((coverage.ok && !overLimit) || !current())
+    return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
   try {
     const reply = await request(
       coverageRepairContext(scene, shots),
-      "只补这一场缺失台词与结尾，返回按原文顺序的完整镜头；合并节拍，绝不截断。",
+      overLimit
+        ? "把这一场相邻镜头合并到最多16镜，同时补齐缺失台词与结尾。返回完整镜头；全部台词及说话人逐条按序保留，原画面与动作按序保留，绝不截断或删减。"
+        : "只补这一场缺失台词与结尾，返回按原文顺序的完整镜头；合并节拍，绝不截断。",
     );
-    if (!current() || !reply.text) return { shots, coverage, repaired: false };
+    if (!current() || !reply.text)
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const parsed = parseDirectorShots(reply.text, scene.id, scene.text, [scene]);
-    if (!parsed) return { shots, coverage, repaired: false };
+    if (!parsed)
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const repairedCoverage = detectDirectorCoverage(scene, parsed);
+    if (overLimit && (parsed.length > 16 || !repairedCoverage.ok))
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const containsInOrder = (expected: string[], actual: string) => {
       let cursor = 0;
       return expected.filter(Boolean).every((text) => {
@@ -47,22 +83,35 @@ export async function repairDirectorCoverage(
         return true;
       });
     };
+    // Segmentation may add whitespace, but every word, punctuation mark and
+    // movement must remain in its original order, including secondary beats.
+    const actionText = (shot: FilmShot) => shotActions(shot).join("").replace(/\s+/gu, "");
+    // Repair may repeat the existing draft and quote missing source material, but
+    // cannot introduce a new narrative clause. Conservative literal grounding
+    // keeps an unsupported rewrite for manual review instead of auto-saving it.
+    const normalizeClause = (text: string) =>
+      text.normalize("NFKC").replace(/[\p{P}\p{Z}\s]/gu, "");
+    const known = [
+      scene.text,
+      ...shots.flatMap((shot) => [shot.picture, ...shotActions(shot)]),
+    ].map(normalizeClause);
+    const inventedClause = parsed.some((shot) =>
+      [shot.picture, ...shotActions(shot)].some((text) =>
+        text.split(/[。！？!?；;\n]+/u).some((clause) => {
+          const normalized = normalizeClause(clause);
+          return normalized && !known.some((evidence) => evidence.includes(normalized));
+        }),
+      ),
+    );
     const losesShotContent =
-      (["picture", "action"] as const).some(
-        (field) =>
-          !containsInOrder(
-            shots.map((shot) => shot[field]),
-            parsed.map((shot) => shot[field]).join("\n"),
-          ),
-      ) ||
       !containsInOrder(
-        shots.flatMap(shotLines).map((line) => line.text),
-        parsed
-          .flatMap(shotLines)
-          .map((line) => line.text)
-          .join("\n"),
-      );
+        shots.map((shot) => shot.picture),
+        parsed.map((shot) => shot.picture).join("\n"),
+      ) ||
+      !containsInOrder(shots.map(actionText), parsed.map(actionText).join("")) ||
+      !containsDialogueInOrder(shots.flatMap(shotLines), parsed.flatMap(shotLines));
     const losesCoverage =
+      inventedClause ||
       losesShotContent ||
       repairedCoverage.missingLines.some(
         (line) =>
@@ -71,29 +120,74 @@ export async function repairDirectorCoverage(
       ) ||
       repairedCoverage.missingLines.some((line) => !coverage.missingLines.includes(line)) ||
       (!coverage.missingTail && repairedCoverage.missingTail);
-    if (losesCoverage) return { shots, coverage, repaired: false };
+    if (losesCoverage)
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
     const sameContent = (a: FilmShot, b: FilmShot) =>
       a.picture === b.picture &&
-      a.action === b.action &&
+      actionText(a) === actionText(b) &&
       JSON.stringify(shotLines(a)) === JSON.stringify(shotLines(b));
-    const protectedShot = (shot: FilmShot) =>
-      shot.userFields.length || shot.poster || shot.stills.length || shot.takes.length;
     if (
       shots.some(
         (shot) => protectedShot(shot) && !parsed.some((candidate) => sameContent(shot, candidate)),
       )
     )
-      return { shots, coverage, repaired: false };
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
+    const fresh = shots.every((shot) => !protectedShot(shot));
     const used = new Set<string>();
-    const restored = parsed.map((candidate, index) => {
+    const rows = parsed.map((candidate, index) => {
       const original = shots.find((shot) => !used.has(shot.id) && sameContent(shot, candidate));
-      const id = original?.id ?? `${scene.id}-repair-${crypto.randomUUID()}`;
-      used.add(id);
-      return { ...(original ?? candidate), id, no: index + 1 };
+      if (original) used.add(original.id);
+      const id = fresh
+        ? `${scene.id}-shot-${index + 1}`
+        : (original?.id ?? `${scene.id}-repair-${crypto.randomUUID()}`);
+      return { original, candidate, shot: { ...(original ?? candidate), id, no: index + 1 } };
     });
-    return { shots: restored, coverage: detectDirectorCoverage(scene, restored), repaired: true };
+    const references = (kind: "original" | "candidate") => {
+      const mapping = new Map<string, string>();
+      const ambiguous = new Set<string>();
+      for (const row of rows) {
+        const source = row[kind];
+        if (!source || source.sceneId !== scene.id) continue;
+        if (mapping.has(source.id)) ambiguous.add(source.id);
+        else mapping.set(source.id, row.shot.id);
+      }
+      for (const id of ambiguous) mapping.delete(id);
+      return mapping;
+    };
+    const originalReferences = references("original");
+    const candidateReferences = references("candidate");
+    const restored = rows.map((row, index) => {
+      // Existing assets, their identifiers and their references are immutable.
+      if (!fresh && row.original) return row.shot;
+      const originalLink = row.original?.continuityFromShotId;
+      const requested = originalLink ?? row.candidate.continuityFromShotId;
+      const resolved =
+        requested && (originalLink ? originalReferences : candidateReferences).get(requested);
+      const next = { ...row.shot };
+      if (resolved && rows[index - 1]?.shot.id === resolved) next.continuityFromShotId = resolved;
+      else delete next.continuityFromShotId;
+      return next;
+    });
+    if (
+      rows.some((row, index) => {
+        const original = row.original;
+        if (!original || !protectedShot(original) || !original.continuityFromShotId) return false;
+        const oldIndex = shots.indexOf(original);
+        return (
+          shots[oldIndex - 1]?.id === original.continuityFromShotId &&
+          restored[index - 1]?.id !== original.continuityFromShotId
+        );
+      })
+    )
+      return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
+    return {
+      shots: restored,
+      coverage: detectDirectorCoverage(scene, restored),
+      repaired: true,
+      shotBudget: sceneShotBudget(scene.id, restored),
+    };
   } catch {
-    return { shots, coverage, repaired: false };
+    return { shots, coverage, repaired: false, shotBudget: sceneShotBudget(scene.id, shots) };
   }
 }
 
@@ -117,7 +211,9 @@ export async function fixCoverage(
     film: {
       ...film,
       scenes: film.scenes.map((scene) =>
-        scene.id === sceneId ? { ...scene, coverage: result.coverage } : scene,
+        scene.id === sceneId
+          ? { ...scene, coverage: result.coverage, shotBudget: result.shotBudget }
+          : scene,
       ),
       shots: [...film.shots.filter((shot) => shot.sceneId !== sceneId), ...result.shots].sort(
         (a, b) =>
@@ -155,7 +251,11 @@ export function applyDirectorPlan(
     ],
     scenes: next.scenes.map((scene) =>
       scene.id === sceneId
-        ? { ...scene, coverage: detectDirectorCoverage(scene, next.shots) }
+        ? {
+            ...scene,
+            coverage: detectDirectorCoverage(scene, next.shots),
+            shotBudget: sceneShotBudget(scene.id, next.shots),
+          }
         : scene,
     ),
   };

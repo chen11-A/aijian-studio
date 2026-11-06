@@ -122,3 +122,29 @@ it("consumes each blocked record once and creates exactly its requested version"
   expect(batch.groups).toHaveLength(1);
   expect(batch.groups[0]!.takes).toHaveLength(2);
 });
+
+it("3JR-B08 fails only this batch's unsent versions after a scene prerequisite fails", async () => {
+  const { failQueuedVideoPrerequisites, retryVideoTasks } = await import("./generation-queue");
+  const film = emptyFilm();
+  const first = prepareVideoQueue(film, film.shots.slice(0, 1), 3, false);
+  const second = prepareVideoQueue(first.film, first.film.shots.slice(1), 1, false);
+  const [queued, running, done] = first.groups[0]!.takes;
+  const live = setVideoTaskState(second.film, running!.id, "running");
+  live.shots[0]!.takes.find((take) => take.id === done!.id)!.status = "done";
+  live.jobs.find((job) => job.takeId === done!.id)!.status = "done";
+  const failed = failQueuedVideoPrerequisites(live, first.groups, "场景图还没出全，请补上。");
+  expect(failed.shots[0]!.takes.map((take) => take.status)).toEqual(["failed", "running", "done"]);
+  expect(failed.jobs.find((job) => job.takeId === queued!.id)).toMatchObject({
+    status: "failed",
+    interruptedFrom: "queued",
+    reason: "场景图还没出全，请补上。",
+  });
+  expect(failed.shots[0]!.takes[0]).toMatchObject({ status: "failed", interruptedFrom: "queued" });
+  expect(failed.shots[1]).toEqual(live.shots[1]);
+  expect(failed.jobs.filter((job) => job.shotId === live.shots[1]!.id)).toEqual(
+    live.jobs.filter((job) => job.shotId === live.shots[1]!.id),
+  );
+  const retry = retryVideoTasks(failed, [`video:${queued!.id}`]);
+  expect(retry.shots[0]!.takes[0]).toMatchObject({ id: queued!.id, status: "queued" });
+  expect(retry.shots[0]!.takes.slice(1)).toEqual(failed.shots[0]!.takes.slice(1));
+});

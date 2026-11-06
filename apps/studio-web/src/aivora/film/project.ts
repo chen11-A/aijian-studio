@@ -1,10 +1,34 @@
+import type { SceneShotBudget } from "./director-continuity";
+import type { AdultVoiceDefault } from "./adult-voice-default";
+import { shotActions, withShotActions } from "./shot-actions";
+import { constrainVisualPrompt, onScreenCharacters } from "./on-screen-characters";
+import type { WriterPlan, SceneWriterPlan, WriterCharacterPlan } from "./writer-plan";
+import type { ArtDesign } from "./art-design";
+import type { TextReviewReport } from "./review-report";
+import { inspectDirectorSources, type DirectorSourceReview } from "./director-source-review";
+import {
+  directorPlanPrompt,
+  sceneDirectorDeclaration,
+  parseDirectorPlan,
+  type ShotDirectorPlan,
+  type DirectorSourceRef,
+} from "./director-plan";
+import type { CostumeRule, CostumeRisk } from "./costume-rules";
+import type { WriterElement } from "./writer-elements";
+import type { ShotPerformancePlan, PerformanceState } from "./performance-plan";
+import type { ShotActionPlan, SceneActionState } from "./action-plan";
+import { parseAgentReplyText } from "./agent-reply-compat";
 import type {
   SceneCoverage,
   LipSyncState,
   PipelineProgress,
   SceneSound,
   ContinuityNote,
+  CoverInput,
+  SubtitleStyleId,
 } from "./contracts3j";
+import { withStyleBible } from "./style-bible";
+import type { ProductionPipeline } from "./production-pipeline";
 import { normalizeAgeBand, normalizeGender } from "./cast-traits";
 import {
   mergeAdjacentShots,
@@ -79,6 +103,14 @@ export type FilmJob = {
 };
 
 export type FilmLocation = {
+  sceneId?: string;
+  referenceSceneSignature?: string;
+  userFields?: string[];
+  artFields?: { prompt?: string; ambience?: string; layout?: string };
+  layout?: string;
+  referenceLayout?: string;
+  referenceImage?: string;
+  referenceStyleRevision?: number;
   id: string;
   name: string;
   prompt: string;
@@ -86,6 +118,8 @@ export type FilmLocation = {
 };
 
 export type FilmProp = {
+  userFields?: string[];
+  artFields?: { note?: string };
   id: string;
   name: string;
   note: string;
@@ -103,7 +137,18 @@ export type FilmStill = {
   url: string;
 };
 
+/** 4B-B09: one subtitle burned into a take, in seconds from the start of that take. */
+export type TakeSubtitleCue = { text: string; start: number; end: number };
+
 export type FilmTake = {
+  /** Measured final media length; may exceed the provider clip request after speech padding. */
+  durationSeconds?: number;
+  /**
+   * 4B-B09: the same take without burned subtitles, for an export in another look, as .srt or
+   * with none. Takes made before this have only videoPath, with the subtitle in the picture.
+   */
+  cleanVideoPath?: string;
+  subtitleCues?: TakeSubtitleCue[];
   interruptedFrom?: "queued" | "running";
   lipSync?: LipSyncState;
   lipSyncReason?: string;
@@ -120,12 +165,15 @@ export type FilmTake = {
 };
 
 export type FilmCharacter = {
+  writerPlan?: WriterCharacterPlan;
   id: string;
   name: string;
   identity: string;
   gender?: "男" | "女" | "";
   ageBand?: "儿童" | "少年" | "青年" | "中年" | "老年" | "";
   voiceCode?: string;
+  /** Adult casting fallback; ageBand remains unknown, not middle-aged. */
+  voiceDefault?: AdultVoiceDefault;
   voiceId: string;
   source: string;
   userFields: string[];
@@ -133,8 +181,19 @@ export type FilmCharacter = {
 };
 
 export type FilmScene = {
+  writerPlan?: SceneWriterPlan;
+  elements?: WriterElement[];
+  /** Only uniquely attributable source paragraphs, in original order. */
+  sourceParagraphIds?: string[];
+  /** Snapshot invalidates writer annotations after a scene edit. */
+  writerSourceText?: string;
+  /** Original paragraph order in the rebuilt text; ownership may still need review. */
+  writerParagraphIds?: string[];
+  performanceState?: PerformanceState;
+  actionState?: SceneActionState;
   sound?: SceneSound;
   coverage?: SceneCoverage;
+  shotBudget?: SceneShotBudget;
   id: string;
   no: number;
   title: string;
@@ -156,7 +215,18 @@ export type FilmScene = {
 };
 
 export type FilmShot = {
-  continuity?: ContinuityNote;
+  sourceReview?: DirectorSourceReview;
+  directorPlan?: ShotDirectorPlan;
+  performancePlan?: ShotPerformancePlan;
+  actionPlan?: ShotActionPlan;
+  continuityFromShotId?: string;
+  continuityFrame?: {
+    sourceShotId: string;
+    sourceTakeId: string;
+    sourceVideoPath: string;
+    path: string;
+  };
+  continuity?: ContinuityNote[];
   id: string;
   sceneId: string;
   no: number;
@@ -166,6 +236,7 @@ export type FilmShot = {
   seconds: number;
   picture: string;
   action: string;
+  actionBeats?: string[];
   performance: string;
   performanceSource?: string;
   /** Optional per-shot style. Empty means the project style bible. */
@@ -184,19 +255,35 @@ export type FilmShot = {
   tag?: string;
   blocking?: string;
   facing?: string;
+  /** Director generation plans, separate from visible picture and later keyframe polishing. */
+  directorFramePrompt?: string;
+  directorVideoPrompt?: string;
   promptZh?: string;
   promptEn?: string;
   source: string;
   userFields: string[];
   poster: string;
   posterPosition: string;
+  regenerationRequired?: { code: "STYLE_CHANGED"; styleRevision: number };
   takes: FilmTake[];
   stills: FilmStill[];
   selectedTakeId: string;
 };
 
 export type FilmProject = {
+  /** C5 / 4B-U03: the look of every subtitle; 「清楚白字」 when none was chosen. */
+  subtitleStyle?: SubtitleStyleId;
+  /** C6 / 4B-U04: the cover's words and picture; derived from the work until someone edits it. */
+  cover?: CoverInput;
+  writerPlan?: WriterPlan;
+  artDesign?: ArtDesign;
+  artDesignBaseline?: ArtDesign;
+  reviewReports?: TextReviewReport[];
+  costumes?: CostumeRule[];
+  costumeRisks?: CostumeRisk[];
   pipeline?: PipelineProgress;
+  productionPipeline?: ProductionPipeline;
+  productionInputFingerprint?: string;
   unassignedBeats?: { sceneId: string; text: string }[];
   schemaVersion: number;
   id: string;
@@ -207,6 +294,7 @@ export type FilmProject = {
   title: string;
   stylePreset: string;
   styleZh: string;
+  styleRevision?: number;
   characters: FilmCharacter[];
   scenes: FilmScene[];
   shots: FilmShot[];
@@ -283,7 +371,7 @@ export function blankFilm(): FilmProject {
     narrationVoiceId: "",
     audioClips: [],
     backendProjectId: "",
-    aspectRatio: "9:16",
+    aspectRatio: "16:9",
   };
 }
 
@@ -296,6 +384,7 @@ export function newEpisode(current: FilmProject): FilmProject {
   next.title = next.seriesTitle;
   next.stylePreset = current.stylePreset;
   next.styleZh = current.styleZh;
+  next.styleRevision = current.styleRevision;
   next.narrationVoiceId = current.narrationVoiceId;
   next.backendProjectId = current.backendProjectId;
   next.aspectRatio = current.aspectRatio === "16:9" ? "16:9" : "9:16";
@@ -435,21 +524,30 @@ export function sampleFilm(): FilmProject {
 }
 
 export function shotIdentity(shot: FilmShot, film: FilmProject): string {
-  const names = new Set(shot.characters);
-  return film.characters
-    .filter((item) => item.identity && (names.size === 0 || names.has(item.name)))
+  return onScreenCharacters(film, shot)
+    .filter((item) => item.identity)
     .map((item) => item.identity.replace(/。$/, ""))
     .join("。");
 }
 
 export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
-  const picture = (shot.picture || shot.action).trim();
+  const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
+  const frame = edited ? "" : shot.promptZh?.trim() || shot.directorFramePrompt?.trim() || "";
+  const picture = frame || (shot.picture || shot.action).trim();
   const base = picture.startsWith("这一镜的起始画面")
     ? picture.endsWith("。")
       ? picture
       : `${picture}。`
     : framedKeyframe(shot, film, picture);
-  return lockKeyframe(base, shot, film);
+  const notes = directorPlanPrompt(shot, "frame");
+  return withStyleBible(
+    constrainVisualPrompt(
+      lockKeyframe([base, notes].filter(Boolean).join("\n"), shot, film),
+      film,
+      shot,
+    ),
+    film.styleZh,
+  );
 }
 
 function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): string {
@@ -462,29 +560,34 @@ function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): str
   const action = shot.action.trim().replace(/。$/, "");
   if (action && action !== picture.replace(/。$/, "")) bits.push(`动作要点${action}`);
   if (shot.performance.trim()) bits.push(`表演${shot.performance.trim().replace(/。$/, "")}`);
-  const style = (shot.styleNote || film.styleZh).trim().replace(/。$/, "");
-  if (style && !bits.join("").includes(style)) bits.push(style);
+  if (shot.styleNote?.trim() && !film.styleZh.includes(shot.styleNote.trim()))
+    bits.push(shot.styleNote.trim());
   return `${bits.filter(Boolean).join("。")}。`;
 }
 
 function lockKeyframe(body: string, shot: FilmShot, film: FilmProject): string {
-  const names = new Set(shot.characters);
+  const people = onScreenCharacters(film, shot);
   let next = body;
-  for (const person of film.characters) {
+  for (const person of people) {
     if (!person.identity.trim()) continue;
-    if (names.size > 0 && !names.has(person.name)) continue;
     const lock = identityLock(person.identity);
     if (lock && !next.includes(lock)) next += lock;
   }
-  const gaze = gazeHandoff(shot.characters);
+  const gaze = gazeHandoff(people.map((person) => person.name));
   if (gaze && !next.includes("视线")) next += gaze;
   return next;
 }
 
 export function videoPrompt(shot: FilmShot): string {
-  const motion = (shot.picture || shot.action).replace(/。$/, "");
+  const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
+  const explicit = shot.userFields.includes("promptZh") ? shot.promptZh?.trim() : "";
+  const motion = (
+    edited
+      ? shot.picture || shot.action
+      : explicit || shot.directorVideoPrompt || shot.picture || shot.action
+  ).replace(/。$/, "");
   const spoken = shot.line.trim() ? `台词原句：「${shot.line.trim()}」。不要背景音乐。` : "";
-  return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}`;
+  return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}${directorPlanPrompt(shot, "video") ? `\n${directorPlanPrompt(shot, "video")}` : ""}`;
 }
 
 export function offlineShots(story: string, sceneId: string): FilmShot[] {
@@ -552,7 +655,7 @@ export function agentRequest(agentId: AgentId, context: string, user: string): s
   return body;
 }
 
-export type DirectorSceneRef = { id: string; title: string; where: string; text: string };
+export type DirectorSceneRef = { id: string; title: string; where: string } & DirectorSourceRef;
 
 function placeName(value: string): string {
   return value.split(/[·_]/)[0]?.trim() ?? "";
@@ -588,6 +691,11 @@ export function shotBudget(sceneText: string): number | null {
   return Math.min(16, Math.max(1, Math.round(length / 50)));
 }
 
+// Ephemeral parser metadata survives merge spreads, but is removed before persistence.
+const directorConnection = Symbol("directorConnection");
+type DirectorConnection = { previous: boolean; explicit: string; rawId: string };
+type ParsedDirectorShot = FilmShot & { [directorConnection]?: DirectorConnection };
+
 export function parseDirectorShots(
   text: string,
   sceneId: string,
@@ -595,15 +703,7 @@ export function parseDirectorShots(
   scenes: DirectorSceneRef[] = [],
   preserveSource = true,
 ): FilmShot[] | null {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  let value: unknown;
-  try {
-    value = JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
-  }
+  const value = parseAgentReplyText("director", text);
   if (!value || typeof value !== "object") return null;
   const wrapped = (value as { scenes?: unknown; shots?: unknown }).scenes;
   if (Array.isArray(wrapped) && !Array.isArray((value as { shots?: unknown }).shots)) {
@@ -617,10 +717,42 @@ export function parseDirectorShots(
         JSON.stringify({ shots: record.shots ?? [] }),
         target?.id ?? sceneId,
         target?.text ?? sceneText,
-        [],
+        target ? [target] : [],
         false,
       );
-      if (nested) all.push(...nested);
+      if (nested) {
+        const resolvedId = target?.id ?? sceneId;
+        const exact = record.scene_id === resolvedId;
+        const hint = [record.title, record.place]
+          .filter((value): value is string => typeof value === "string")
+          .join(" ");
+        const matching = scenes.filter(
+          (scene) =>
+            (scene.title.trim() && hint.includes(scene.title.trim())) ||
+            (placeName(scene.where).length >= 2 && hint.includes(placeName(scene.where))),
+        );
+        const matched = exact || (matching.length === 1 && matching[0]?.id === resolvedId);
+        const declaration = sceneDirectorDeclaration(record, resolvedId, matched);
+        all.push(
+          ...nested.map((shot) => {
+            const plan = shot.directorPlan ?? parseDirectorPlan({ purpose: "" }, shot);
+            return {
+              ...shot,
+              ...(plan
+                ? {
+                    directorPlan: {
+                      ...plan,
+                      segments: plan.segments.map((segment) => ({
+                        ...segment,
+                        sceneDeclaration: declaration,
+                      })),
+                    },
+                  }
+                : {}),
+            };
+          }),
+        );
+      }
     });
     if (!all.length) return null;
     return [...new Set(all.map((shot) => shot.sceneId))].flatMap((id) =>
@@ -628,13 +760,14 @@ export function parseDirectorShots(
         all.filter((shot) => shot.sceneId === id),
         id,
         scenes.find((scene) => scene.id === id)?.text ?? sceneText,
+        scenes.find((scene) => scene.id === id),
       ),
     );
   }
   if (!("shots" in value)) return null;
   const rows = (value as { shots?: unknown }).shots;
   if (!Array.isArray(rows)) return null;
-  const shots: FilmShot[] = [];
+  const shots: ParsedDirectorShot[] = [];
   rows.forEach((row, index) => {
     if (!row || typeof row !== "object") return;
     const record = row as Record<string, unknown>;
@@ -686,7 +819,15 @@ export function parseDirectorShots(
           ? (parsedLines[0]?.speaker ?? "")
           : "";
     const speaker = named || (line && characters.length === 1 ? characters[0]!.trim() : "");
-    shots.push({
+    const parsed: ParsedDirectorShot = {
+      [directorConnection]: {
+        previous: record.connect_previous === true || record.continuity_from_prev === true,
+        explicit:
+          typeof record.continuity_from_shot_id === "string"
+            ? record.continuity_from_shot_id.trim()
+            : "",
+        rawId: typeof record.id === "string" ? record.id.trim() : "",
+      },
       id:
         typeof record.id === "string" && /^scene-\d+-shot-\d+$/.test(record.id.trim())
           ? record.id.trim()
@@ -698,6 +839,12 @@ export function parseDirectorShots(
       move: typeof record.move === "string" ? record.move : "固定",
       seconds: storedShotSeconds(seconds),
       picture: told,
+      ...(typeof record.start_frame_prompt === "string" && record.start_frame_prompt.trim()
+        ? { directorFramePrompt: plainCue(record.start_frame_prompt.trim()) }
+        : {}),
+      ...(typeof record.video_prompt === "string" && record.video_prompt.trim()
+        ? { directorVideoPrompt: plainCue(record.video_prompt.trim()) }
+        : {}),
       action: action && action !== told ? action : "",
       performance: plainCue(performance),
       characters,
@@ -735,28 +882,92 @@ export function parseDirectorShots(
       takes: [],
       stills: [],
       selectedTakeId: "",
-    });
+    };
+    const plan = parseDirectorPlan(
+      record,
+      parsed,
+      scenes.find((scene) => scene.id === sceneId && scene.text === sceneText),
+    );
+    if (plan) parsed.directorPlan = plan;
+    shots.push(withShotActions(parsed, [parsed.action]));
   });
   const varied =
     shots.length > 0 && shots.every((shot) => shot.seconds === 8)
       ? shots.map((shot, index) => ({
           ...shot,
           seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
+          ...(shot.directorPlan
+            ? { directorPlan: { ...shot.directorPlan, timingStatus: "needs_review" as const } }
+            : {}),
         }))
       : shots;
   if (!varied.length) return null;
-  return preserveSource ? completeDirectorCoverage(varied, sceneId, sceneText) : varied;
+  return preserveSource
+    ? completeDirectorCoverage(
+        varied,
+        sceneId,
+        sceneText,
+        scenes.find((scene) => scene.id === sceneId),
+      )
+    : varied;
 }
 
 function completeDirectorCoverage(
   shots: FilmShot[],
   sceneId: string,
   sceneText: string,
+  source?: DirectorSceneRef,
 ): FilmShot[] {
-  return mergeAdjacentShots(
+  const originals = shots as ParsedDirectorShot[];
+  const merged = mergeAdjacentShots(
     shots.map((shot) => ({ ...shot, sceneId })),
     sceneText.trim() ? suggestedShotCount(sceneText) : 16,
+  ) as ParsedDirectorShot[];
+  const starts = merged.map((shot) =>
+    originals.findIndex((original) => original[directorConnection] === shot[directorConnection]),
   );
+  const groups = starts.map((start, index) =>
+    originals.slice(start, starts[index + 1] ?? originals.length),
+  );
+  const completed = merged.map((shot, index) => {
+    const clean = { ...shot, id: `${sceneId}-shot-${index + 1}` };
+    delete clean[directorConnection];
+    const group = groups[index] ?? [];
+    const requested = group.some((item) => {
+      const meta = item[directorConnection];
+      return meta?.previous || meta?.explicit;
+    });
+    if (!requested) return clean;
+    const previous = merged[index - 1];
+    const meta = shot[directorConnection];
+    const previousGroup = groups[index - 1] ?? [];
+    const explicitMatches =
+      !meta?.explicit ||
+      (previousGroup.length === 1 &&
+        originals.filter(
+          (item) => item.id === meta.explicit || item[directorConnection]?.rawId === meta.explicit,
+        ).length === 1 &&
+        previousGroup.some(
+          (item) => item.id === meta.explicit || item[directorConnection]?.rawId === meta.explicit,
+        ));
+    if (group.length === 1 && previous && previous.sceneId === shot.sceneId && explicitMatches) {
+      clean.continuityFromShotId = `${sceneId}-shot-${index}`;
+    } else {
+      clean.continuity = [
+        {
+          kind: "cut",
+          text: "未自动衔接：首镜、合镜或前镜标识不明确，请确认紧邻前镜后重试。",
+        },
+      ];
+    }
+    return clean;
+  });
+  const reviews = new Map(
+    inspectDirectorSources(source ?? { id: sceneId, text: sceneText }, completed).map(
+      ({ shotId, review }) => [shotId, review],
+    ),
+  );
+  return completed.map((shot) => ({ ...shot, sourceReview: reviews.get(shot.id) }));
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {
@@ -829,6 +1040,24 @@ export function interruptStaleWork(film: FilmProject): { film: FilmProject; inte
   };
 }
 
+/** Read pre-C13 single reminders as arrays without losing existing director cut notes. */
+function upgradeContinuity(value: unknown): ContinuityNote[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .filter((item): item is ContinuityNote => {
+      if (!item || typeof item !== "object") return false;
+      const note = item as Record<string, unknown>;
+      return (
+        typeof note.kind === "string" &&
+        ["missing_look", "prop", "gaze", "axis", "cut"].includes(note.kind) &&
+        typeof note.text === "string" &&
+        Boolean(note.text.trim())
+      );
+    })
+    .map(({ kind, text }) => ({ kind, text }));
+}
+
 export function upgradeFilm(value: Partial<FilmProject> | null | undefined): FilmProject | null {
   if (!value || typeof value !== "object" || !value.title) return null;
   try {
@@ -853,7 +1082,8 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
         title: sceneDisplayTitle(item.title, item.where, item.text),
       })),
       shots: (value.shots ?? []).map((shot) => ({
-        ...shot,
+        ...(shot.userFields?.includes("action") ? shot : withShotActions(shot, shotActions(shot))),
+        continuity: upgradeContinuity(shot.continuity),
         lines: shotLines({
           ...shot,
           line: shot.line ?? (shot.lines ?? []).map((line) => line.text).join("\n"),
@@ -863,7 +1093,15 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
         sound: normalizeSoundPlan(shot.sound),
         size: classifyShotSize(shot.size || "中景").size,
         tag: shot.tag || classifyShotSize(shot.size || "中景").tag,
-        seconds: storedShotSeconds(shot.seconds),
+        seconds: (() => {
+          const selected = (shot.takes ?? []).find(
+            (take) => take.id === shot.selectedTakeId && take.status === "done" && take.videoPath,
+          );
+          const actual = selected?.durationSeconds;
+          return typeof actual === "number" && Number.isFinite(actual) && actual >= 1
+            ? actual
+            : storedShotSeconds(shot.seconds);
+        })(),
         takes: shot.takes ?? [],
         stills: shot.stills ?? [],
         selectedTakeId: shot.selectedTakeId ?? "",

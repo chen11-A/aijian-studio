@@ -129,7 +129,11 @@ export function PipelineSteps(props: PipelineStepsProps) {
   const problems = steps.flatMap((step) =>
     (step.targets ?? [])
       .map((target, index) => ({ step, target, index }))
-      .filter(({ target }) => PROBLEMS.includes(target.status) && target.id !== "all"),
+      .filter(
+        ({ target }) =>
+          PROBLEMS.includes(target.status) &&
+          !(step.id === "review" && target.id === "all" && target.status === "needs-input"),
+      ),
   );
   const uncovered = checkpoint?.coverage.filter((scene) => !scene.ok) ?? [];
   const risks = checkpoint?.risks ?? [];

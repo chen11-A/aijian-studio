@@ -1,3 +1,9 @@
+import type {
+  ProductionCheckpoint,
+  ProductionPipeline,
+  ProductionStatus,
+} from "./production-pipeline";
+
 /** Interface contracts for Claude's UI. Future contracts do not enable features. */
 export type UiNotice = { code: string; text: string; detail?: string };
 
@@ -84,13 +90,20 @@ export type PipelineStep = {
     | "prompter"
     | "stills"
     | "review"
-    | "video";
+    | "video"
+    | "assembly";
   label: string;
-  status: "queued" | "running" | "done" | "failed";
+  status: ProductionStatus;
   done: number;
   total: number;
 };
-export type PipelineProgress = { steps: PipelineStep[]; current?: PipelineStep["id"] };
+export type PipelineProgress = {
+  steps: PipelineStep[];
+  current?: PipelineStep["id"];
+  status?: ProductionPipeline["status"];
+  checkpoint?: ProductionCheckpoint;
+  code?: string;
+};
 export type ContinuityNote = {
   kind: "missing_look" | "prop" | "gaze" | "axis" | "cut";
   text: string;
