@@ -4944,8 +4944,8 @@ function Assistant({
               <button
                 className="btn sm"
                 type="button"
-                aria-label="提到角色或镜头"
-                title="提到角色或镜头（@）"
+                aria-label="提到人物、场景或镜头"
+                title="提到人物、场景或镜头（@）"
                 aria-expanded={mentioning}
                 onClick={() => setMentioning((open) => !open)}
               >
@@ -6160,6 +6160,7 @@ function CastPage({
         <div className="ptabs">
           <span className="tab-only">AI 助手</span>
         </div>
+        {/* 5-3-15: it says who or which place is on show, and @ offers the people and places. */}
         <Assistant
           solo
           role={role}
@@ -6170,6 +6171,19 @@ function CastPage({
           chat={chat}
           onChat={onChat}
           onSend={onSend}
+          scope={
+            side === "people"
+              ? (character?.name ?? "")
+              : side === "places"
+                ? location?.name
+                  ? `${location.name}（场景）`
+                  : ""
+                : "道具"
+          }
+          mentions={[
+            ...film.characters.map((person) => `@${person.name}`),
+            ...film.locations.map((item) => `@${item.name}`),
+          ].filter((name) => name.length > 1)}
         />
       </section>
     </>

@@ -3986,7 +3986,7 @@ it("splits the status bar in three and tells the assistant what it is looking at
   // 剧本: the assistant names the scene; @ puts a person or a shot into the message.
   fireEvent.click(stageTab("剧本"));
   expect(screen.getByText(/^正在看：第 \d+ 场「.+」$/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "提到角色或镜头" }));
+  fireEvent.click(screen.getByRole("button", { name: "提到人物、场景或镜头" }));
   const people = within(screen.getByRole("menu", { name: "提到谁" })).getAllByRole("menuitem");
   expect(people[0]?.textContent).toMatch(/^@/);
   fireEvent.click(people[0]!);
@@ -3996,6 +3996,23 @@ it("splits the status bar in three and tells the assistant what it is looking at
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
+});
+
+it("says who or which place the cast page's assistant is looking at (5-3-15)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  const scope = () => document.querySelector(".chat-scope")?.textContent;
+  const film = sampleFilm();
+  expect(scope()).toBe(`正在看：${film.characters[0]!.name}`);
+  fireEvent.click(screen.getByText(film.characters[1]!.name));
+  expect(scope()).toBe(`正在看：${film.characters[1]!.name}`);
+  fireEvent.click(screen.getByRole("button", { name: "提到人物、场景或镜头" }));
+  const offered = within(screen.getByRole("menu", { name: "提到谁" }))
+    .getAllByRole("menuitem")
+    .map((item) => item.textContent);
+  expect(offered).toEqual(expect.arrayContaining([`@${film.characters[0]!.name}`]));
+  if (film.locations[0]) expect(offered).toContain(`@${film.locations[0].name}`);
 });
 
 it("puts a search box over a cast of more than ten people (5-3-14)", async () => {
