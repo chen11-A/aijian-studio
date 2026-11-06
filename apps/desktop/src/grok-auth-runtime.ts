@@ -478,6 +478,8 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
     const ledger = dependencies.ledger;
     let dispatchId: string | null = null;
+    // R2-B03: the model's text so far, handed back if the reply stops coming.
+    let received = "";
     const started = Date.now();
     const deadlineAt = Math.min(
       input.deadlineAt ?? started + TEXT_TOTAL_MS,
@@ -521,11 +523,13 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           endpoints,
           signal: job.signal,
           limits: { idleMs: TEXT_IDLE_MS, totalMs: Math.max(1, deadlineAt - Date.now()) },
-          onProgress: (partial) =>
+          onProgress: (partial) => {
+            received = partial;
             input.onProgress?.({
               chars: partial.length,
               shots: (partial.match(/"picture"/g) ?? []).length,
-            }),
+            });
+          },
         });
         assertActive();
         dependencies.agentLog?.write({
@@ -632,12 +636,18 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           !waited && error.attempts.some((item) => item.endpoint === "chat")
             ? "。已改用普通对话再试过"
             : "";
+        // R2-B03: a reply that stopped coming may already be whole; hand back what arrived.
+        const partial =
+          (safe === "STALL_RETRYING" || safe === "TEXT_TIMEOUT") && received.trim()
+            ? received.slice(0, 200_000)
+            : "";
         return {
           kind: "ERROR",
           code: safe,
           billingAccountKind: "grok_login",
           ...(last?.httpStatus ? { httpStatus: last.httpStatus } : {}),
           detail: `${status}${tried}。`,
+          ...(partial ? { partialText: partial } : {}),
         };
       }
       return { kind: "ERROR", code: safe, billingAccountKind: "grok_login" };

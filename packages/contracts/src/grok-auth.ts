@@ -56,6 +56,11 @@ export type GrokLoginTextResult =
       httpStatus?: number;
       /** Short reason for the screen. Never a token or a raw body. */
       detail?: string;
+      /**
+       * R2-B03: when the reply stopped coming (STALL_RETRYING / TEXT_TIMEOUT), the model's text
+       * received so far. It may already be a whole reply; the caller decides. Never logged.
+       */
+      partialText?: string;
     };
 
 export type GrokLoginBridge = {
