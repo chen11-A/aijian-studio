@@ -4633,12 +4633,12 @@ it("gives the four sound tracks a name, mute, solo and volume, and says when a t
   const planned = document.querySelector(".clip.plan.amb") as HTMLElement;
   expect(planned).toHaveTextContent("雨打在铁皮上");
   expect(planned).toHaveAttribute("title", expect.stringContaining("还没有声音文件"));
-  for (const lane of ["对白", "配乐"]) {
+  for (const lane of ["对白", "环境音", "音效", "配乐"]) {
     expect(screen.getByRole("button", { name: `静音${lane}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `单听${lane}` })).toBeInTheDocument();
     expect(screen.getByLabelText(`${lane}音量`)).toHaveAttribute(
       "title",
-      expect.stringMatching(new RegExp(`^${lane}音量 \\d+$`)),
+      expect.stringContaining("整轨音量，保留各片段原有音量"),
     );
   }
   expect(screen.getAllByText("这一轨还没有内容")).toHaveLength(3);
@@ -4646,11 +4646,11 @@ it("gives the four sound tracks a name, mute, solo and volume, and says when a t
   expect(ruler.slice(0, 3)).toEqual(["00:00.0", "00:05.0", "00:10.0"]);
   expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
     "title",
-    expect.stringContaining("有人说话时，配乐会自动变小，台词音量不变"),
+    expect.stringContaining("按有声对白片段保守避让配乐"),
   );
   expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
     "title",
-    expect.stringContaining("整片音量还不会自动调成一样大"),
+    expect.stringContaining("导出自动调整音量默认关闭"),
   );
   expect(screen.getByLabelText("导入音乐")).toBeInTheDocument();
 });

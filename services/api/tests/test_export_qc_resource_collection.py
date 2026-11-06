@@ -26,10 +26,13 @@ def test_collects_original_qc_engine(script: str, tmp_path: Path) -> None:
     spec.loader.exec_module(module)
     destination = tmp_path / "resources" / "qc"
     module.stage_qc_resources(destination)
-    names = {"index.mjs", "media.mjs", "rules.mjs", "subtitles.mjs"}
+    names = {"index.mjs", "media.mjs", "rules.mjs", "subtitles.mjs", "audio-normalize.mjs"}
     assert {path.name for path in destination.iterdir()} == names
     for name in names:
+        source_root = (
+            "packages/aivora-media" if name == "audio-normalize.mjs" else "packages/aivora-qc"
+        )
         assert (
             hashlib.sha256((destination / name).read_bytes()).digest()
-            == hashlib.sha256((ROOT / "packages/aivora-qc" / name).read_bytes()).digest()
+            == hashlib.sha256((ROOT / source_root / name).read_bytes()).digest()
         )

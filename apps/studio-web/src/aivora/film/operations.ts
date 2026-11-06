@@ -55,7 +55,7 @@ export const CONTINUITY_REASON = CONTINUITY_NOTICE.text;
 export const PREVIEW_REASON =
   "单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。";
 export const LOUDNESS_NOTE =
-  "有人说话时，配乐会自动变小，台词音量不变。整片音量还不会自动调成一样大。";
+  "没有可靠逐句时间时，按有声对白片段保守避让配乐。导出自动调整音量默认关闭；开启后实际测量并调整全片，预览不包含这一步。";
 export const DESKTOP_REASON = "请打开安装好的 AIVORA，并打开一部作品，再生成。网页里不能直接出片。";
 
 /** Chinese labels for preset voices. The live list still comes from the account. */

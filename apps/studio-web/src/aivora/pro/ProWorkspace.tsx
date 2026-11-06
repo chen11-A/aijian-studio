@@ -1,3 +1,10 @@
+import { audioTimelineBox } from "./audio-mix-timeline";
+import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
+import { AudioMixPreview } from "./AudioMixPreview";
+import { AudioLaneControls } from "./AudioLaneControls";
+import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
+import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
+import type { AudioMixPreviewResult, MixLane } from "@aijian/contracts/film-audio-mix";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
   prepareHistoryInput,
@@ -140,12 +147,11 @@ import {
   spokenLine,
   draftFaceWarning,
   dialogueTracks,
-  previewMix,
   fitShotToLine,
   subtitleCues,
   updateShot,
 } from "../film/operations";
-import { dbToVolumePercent, volumePercentToDb, type AudioClip } from "../film/audio";
+import { type AudioClip } from "../film/audio";
 import {
   activeFilmId,
   BROWSER_DIRECTORY,
@@ -385,6 +391,9 @@ function PreviewVideo({
   src,
   voice = "",
   music = "",
+  mixPreview,
+  mixTimeOffset = 0,
+  soloLane = "",
   playing,
   audible,
   sound = true,
@@ -397,6 +406,9 @@ function PreviewVideo({
   src: string;
   voice?: string;
   music?: string;
+  mixPreview?: Extract<AudioMixPreviewResult, { kind: "READY" }> | null;
+  mixTimeOffset?: number;
+  soloLane?: MixLane | "";
   playing: boolean;
   audible: boolean;
   sound?: boolean;
@@ -410,6 +422,7 @@ function PreviewVideo({
   rate?: number;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const mixEnabled = mixPreview !== undefined;
   useEffect(() => {
     if (ref.current) ref.current.playbackRate = rate;
   }, [rate, src]);
@@ -460,7 +473,7 @@ function PreviewVideo({
       document.querySelectorAll<HTMLVideoElement>("video.frame").forEach((other) => {
         if (other !== video) other.pause();
       });
-      video.muted = !audible;
+      video.muted = mixPreview !== undefined || !audible;
       if (!audible) {
         try {
           await video.play();
@@ -494,7 +507,7 @@ function PreviewVideo({
       video.pause();
       stop();
     };
-  }, [audible, playing, src]);
+  }, [audible, playing, src, mixEnabled]);
   return (
     <>
       <video
@@ -502,6 +515,7 @@ function PreviewVideo({
         className="frame"
         src={src}
         playsInline
+        muted={mixPreview !== undefined || !audible}
         preload="auto"
         onTimeUpdate={() => onTimeRef.current(ref.current?.currentTime ?? 0)}
         onLoadedMetadata={() => {
@@ -514,8 +528,21 @@ function PreviewVideo({
         }}
         onError={() => onPlayingRef.current(false)}
       />
-      <BedAudio src={voice} playing={playing && sound} rate={rate} />
-      <BedAudio src={music} playing={playing && sound} rate={rate} />
+      {mixPreview !== undefined ? (
+        <AudioMixPreview
+          result={mixPreview}
+          clock={() => mixTimeOffset + (ref.current?.currentTime ?? 0)}
+          playing={playing}
+          rate={rate}
+          audible={sound}
+          solo={soloLane}
+        />
+      ) : (
+        <>
+          <BedAudio src={voice} playing={playing && sound} rate={rate} />
+          <BedAudio src={music} playing={playing && sound} rate={rate} />
+        </>
+      )}
     </>
   );
 }
@@ -694,7 +721,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [versions, setVersions] = useState(1);
   const [signingIn, setSigningIn] = useState(false);
   const [savingDisk, setSavingDisk] = useState(false);
-  const [hearLane, setHearLane] = useState<"" | "dialogue" | "score">("");
+  const [hearLane, setHearLane] = useState<MixLane | "">("");
   const scoreGain = useRef(-14);
   const writing = useRef(false);
   const signingRef = useRef(false);
@@ -740,6 +767,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
+  const audioMixPreview = useAudioMixPreview(film, stage === "edit", {
+    current: () => filmRef.current,
+    save: (snapshot, guard) => persistence.save(snapshot, guard),
+  });
   const audioWaveforms = useAudioWaveforms(film, stage === "edit", {
     current: () => filmRef.current,
     apply: applyLive,
@@ -5036,17 +5067,45 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setNotice({ code: "SUBTITLE_STYLE_SAVED", text: "已记下字幕样式。" });
                   }}
                   onSceneVoice={(sceneId, db) => {
-                    const ids = new Set(
-                      film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
+                    const live = filmRef.current;
+                    if (!live) return;
+                    const sceneShots = live.shots.filter((item) => item.sceneId === sceneId);
+                    const ids = new Set(sceneShots.map((item) => item.id));
+                    const audioClips = live.audioClips.map((clip) =>
+                      clip.lane === "dialogue" && ids.has(clip.shotId)
+                        ? { ...clip, gainDb: db }
+                        : clip,
                     );
-                    setFilm({
-                      ...film,
-                      audioClips: film.audioClips.map((clip) =>
-                        clip.lane === "dialogue" && ids.has(clip.shotId)
-                          ? { ...clip, gainDb: db }
-                          : clip,
-                      ),
-                    });
+                    for (const target of sceneShots) {
+                      const take = target.selectedTakeId
+                        ? target.takes.find((take) => take.id === target.selectedTakeId)
+                        : target.takes.find((take) => take.status === "done" && take.videoPath);
+                      if (
+                        !take?.videoPath ||
+                        take.status !== "done" ||
+                        audioClips.some(
+                          (clip) =>
+                            clip.lane === "dialogue" &&
+                            clip.shotId === target.id &&
+                            clip.takeId === take.id &&
+                            clip.path,
+                        )
+                      )
+                        continue;
+                      audioClips.push({
+                        id: `native-volume:${target.id}:${take.id}`,
+                        lane: "dialogue",
+                        shotId: target.id,
+                        takeId: take.id,
+                        label: "原声",
+                        path: take.videoPath,
+                        startSeconds: 0,
+                        durationSeconds: take.durationSeconds ?? target.seconds,
+                        offsetSeconds: 0,
+                        gainDb: db,
+                      });
+                    }
+                    applyLive({ ...live, audioClips });
                     setNotice("音量已记下，导出时用这个音量。");
                   }}
                   film={film}
@@ -5110,14 +5169,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onLane={(lane, gainDb) => {
                     const live = filmRef.current;
                     if (!live) return;
-                    if (lane === "score" && gainDb > -40) scoreGain.current = gainDb;
+                    const settings = audioMixSettings(live.audioMix);
+                    const previous = settings.lanes[lane];
+                    settings.lanes[lane] = {
+                      gainDb: gainDb <= -40 ? previous.gainDb : gainDb,
+                      muted: gainDb <= -40,
+                    };
+                    applyLive({ ...live, audioMix: settings });
+                    setNotice(gainDb <= -40 ? "这一轨已静音。" : "音量已记下，导出时用这个音量。");
+                  }}
+                  audioPreview={audioMixPreview}
+                  onRestoreAudioClip={(id) => {
+                    const live = filmRef.current;
+                    if (!live) return;
                     applyLive({
                       ...live,
                       audioClips: live.audioClips.map((clip) =>
-                        clip.lane === lane ? { ...clip, gainDb } : clip,
+                        clip.id === id ? { ...clip, gainDb: AUDIO_LANE_GAIN_DB[clip.lane] } : clip,
                       ),
                     });
-                    setNotice(gainDb <= -40 ? "这一轨已静音。" : "音量已记下，导出时用这个音量。");
                   }}
                   onSolo={(lane) => {
                     setHearLane((current) => {
@@ -5127,12 +5197,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                           ? "只听配乐。音量没有改。"
                           : next === "dialogue"
                             ? "只听对白。音量没有改。"
-                            : "所有声音一起听。",
+                            : next
+                              ? ""
+                              : "所有声音一起听。",
                       );
                       return next;
                     });
                   }}
-                  musicRestore={scoreGain.current}
                   hearLane={hearLane}
                   onRewrite={(picture) => {
                     const current = shownShots[shot];
@@ -5183,7 +5254,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       return;
                     }
                     void bridge.importMusic(film.seriesId, path).then((stored) => {
-                      const latest = filmRef.current ?? film;
+                      const latest = filmRef.current;
+                      if (!latest || latest.id !== film.id || latest.seriesId !== film.seriesId)
+                        return;
                       applyLive({
                         ...latest,
                         audioClips: [
@@ -5198,6 +5271,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                             durationSeconds: 0,
                             offsetSeconds: 0,
                             gainDb: -22,
+                            loop: true,
                             path: stored.path,
                           },
                         ],
@@ -5884,6 +5958,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       </select>
                     </div>
                   ) : null}
+                  <div className="field">
+                    <label className="check-row">
+                      <input
+                        type="checkbox"
+                        aria-label="导出时自动调整音量"
+                        checked={film ? audioMixSettings(film.audioMix).autoAdjustVolume : false}
+                        onChange={(event) => {
+                          const live = filmRef.current;
+                          if (!live) return;
+                          applyLive({
+                            ...live,
+                            audioMix: {
+                              ...audioMixSettings(live.audioMix),
+                              autoAdjustVolume: event.target.checked,
+                            },
+                          });
+                        }}
+                      />
+                      导出时自动调整音量
+                    </label>
+                    <p className="role-desc">
+                      默认关闭。开启后会实际测量并调整全片音量，成片音量可能与当前试听不同；静音不会变成有声。
+                    </p>
+                  </div>
                   {film ? (
                     <div className="field">
                       <label id="export-subs">字幕</label>
@@ -9300,6 +9398,7 @@ function PlanLane({
   shots,
   clips,
   zoom = PX_PER_SECOND,
+  mixPlan = null,
 }: {
   waveformKeys: Readonly<Record<string, string>>;
   lane: "ambience" | "sfx";
@@ -9308,8 +9407,12 @@ function PlanLane({
   clips: { id: string; left: number; width: number }[];
   /** Pixels a second (5-3-08). */
   zoom?: number;
+  mixPlan?: Extract<AudioMixPreviewResult, { kind: "READY" }>["plan"] | null;
 }) {
-  const files = film.audioClips.filter((item) => item.lane === lane && item.path);
+  const files = film.audioClips.filter(
+    (item) =>
+      item.lane === lane && item.path && audioTimelineBox(film, item, shots, clips, zoom, mixPlan),
+  );
   const name = lane === "ambience" ? "环境音" : "音效";
   const planned =
     lane === "ambience"
@@ -9342,8 +9445,7 @@ function PlanLane({
           key={item.id}
           className={`clip ${lane === "ambience" ? "amb" : "fx"}`}
           style={{
-            left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-            width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
+            ...audioTimelineBox(film, item, shots, clips, zoom, mixPlan)!,
           }}
         >
           <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
@@ -9407,8 +9509,9 @@ function EditPage({
   span,
   onLane,
   onSolo,
-  musicRestore = -14,
   hearLane = "",
+  audioPreview = { result: null, busy: false, unsupported: true },
+  onRestoreAudioClip,
 }: {
   waveformKeys: Readonly<Record<string, string>>;
   waveformBusy: boolean;
@@ -9440,10 +9543,11 @@ function EditPage({
   onMarkOut: (seconds: number) => void;
   span: { from: number; to: number } | null;
   shots: FilmShot[];
-  onLane?: (lane: "dialogue" | "score", gainDb: number) => void;
-  onSolo?: (lane: "dialogue" | "score") => void;
-  musicRestore?: number;
-  hearLane?: "" | "dialogue" | "score";
+  onLane?: (lane: MixLane, gainDb: number) => void;
+  onSolo?: (lane: MixLane) => void;
+  hearLane?: MixLane | "";
+  audioPreview?: AudioPreviewView;
+  onRestoreAudioClip?: (id: string) => void;
   /** 4A-U10: 「预览静音 (M)」 on the player; the switch left the top bar. */
   onMute?: () => void;
   /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
@@ -9578,14 +9682,10 @@ function EditPage({
     current?.takes.find((item) => item.status === "done");
   const previewSrc =
     film.assemblyUrl || fileMediaUrl(chosenTake?.videoUrl || chosenTake?.videoPath);
-  const voiceClip = film.audioClips.find(
-    (clip) =>
-      clip.lane === "dialogue" && clip.shotId === current?.id && isVoiceFile(clip.path ?? ""),
-  );
-  const scoreClip = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
-  const musicGain = scoreClip?.gainDb ?? -14;
-  const dialogueGain =
-    film.audioClips.find((clip) => clip.lane === "dialogue" && clip.path)?.gainDb ?? 0;
+  const mixSettings = audioMixSettings(film.audioMix);
+  const actualMixPlan = audioPreview.result?.kind === "READY" ? audioPreview.result.plan : null;
+  const musicGain = mixSettings.lanes.score.gainDb;
+  const dialogueGain = mixSettings.lanes.dialogue.gainDb;
   const trackWidth = Math.max(0, ...clips.map((clip) => clip.left + clip.width)) + 48;
   const importMusic = (
     <label className="btn sm">
@@ -9603,16 +9703,6 @@ function EditPage({
       />
     </label>
   );
-  const mix = previewMix({
-    joined: Boolean(film.assemblyUrl),
-    voice: fileMediaUrl(voiceClip?.path),
-    music: fileMediaUrl(scoreClip?.path),
-    dialogueMuted: dialogueMuted(film),
-    solo: hearLane,
-    musicHeard: Boolean(scoreClip) && (hearLane === "score" || (scoreClip?.gainDb ?? -14) > -40),
-  });
-  const voiceSrc = mix.voice;
-  const musicSrc = mix.music;
   // 3JR-U01: the joined cut plays the whole film, so its clock runs from the first shot with a
   // video, not from the start of the chosen shot. The playhead follows the shot playing.
   const joined = Boolean(film.assemblyUrl);
@@ -9958,10 +10048,21 @@ function EditPage({
                   {previewSrc ? (
                     <PreviewVideo
                       src={previewSrc}
-                      voice={voiceSrc}
-                      music={musicSrc}
+                      mixPreview={
+                        audioPreview.result?.kind === "READY" ? audioPreview.result : null
+                      }
+                      mixTimeOffset={
+                        joined
+                          ? 0
+                          : audioPreview.result?.kind === "READY"
+                            ? (audioPreview.result.plan.shots.find(
+                                (row) => row.shotId === current?.id,
+                              )?.startSeconds ?? start)
+                            : start
+                      }
+                      soloLane={hearLane}
                       playing={playing}
-                      audible={audible && mix.hearVideo}
+                      audible={false}
                       sound={audible}
                       onPlaying={onPlaying}
                       onTime={showTime}
@@ -10090,8 +10191,41 @@ function EditPage({
                 重做、换配音、剪掉，用下面时间线上的按钮。剪掉后可按 Ctrl+Z 撤销。
               </p>
             </div>
+            <p className="role-desc">
+              {hearLane
+                ? `当前只试听${AUDIO_LANE_LABEL[hearLane]}，不改变导出。`
+                : "当前四轨一起试听。"}
+            </p>
+            <p className="role-desc">
+              整轨音量保留各片段原有音量；单听仅试听，不改变导出。预览未应用导出响度归一化。
+            </p>
+            <p className="role-desc" role="status">
+              {audioPreview.busy
+                ? "正在核对所选版本的音轨…"
+                : audioPreview.unsupported
+                  ? "当前桌面能力不支持完整轨道试听；不会用原视频声音冒充混音。"
+                  : audioPreview.result?.kind === "FAILED"
+                    ? "音轨暂时无法核验，未播放未确认的声音。"
+                    : ""}
+            </p>
+            {audioPreview.result?.kind === "FAILED" && (
+              <button className="btn sm" onClick={audioPreview.retry}>
+                重试音轨试听
+              </button>
+            )}
+            {film.audioClips
+              .filter((clip) => clip.path && clip.gainDb <= -40)
+              .map((clip) => (
+                <p key={clip.id} className="role-desc">
+                  {clip.label || "音频片段"}已单独静音。
+                  <button className="btn sm" onClick={() => onRestoreAudioClip?.(clip.id)}>
+                    恢复片段默认音量
+                  </button>
+                </p>
+              ))}
             <p className="role-desc hint">
-              有台词时，导出会把配乐压低
+              已填写对白的原声和配音片段会保守避让配乐；逐句时间尚未核实。
+              全片配乐默认重复铺满，不保证无缝接缝；波形仅表示已测的一轮源音频。
               <span className="q" role="img" aria-label="说明" title={LOUDNESS_NOTE}>
                 ?
               </span>
@@ -10239,38 +10373,13 @@ function EditPage({
               <span className="sw" style={{ background: "var(--t-voice)" }} />
               <Ic name="mic" size={13} />
               对白
-              <span className="lane-controls">
-                <button
-                  type="button"
-                  aria-label="静音对白"
-                  onClick={() => {
-                    const muted = film.audioClips.some(
-                      (clip) => clip.lane === "dialogue" && clip.gainDb <= -40,
-                    );
-                    onLane?.("dialogue", muted ? 0 : -80);
-                  }}
-                >
-                  静音
-                </button>
-                <button type="button" aria-label="单听对白" onClick={() => onSolo?.("dialogue")}>
-                  单听
-                </button>
-                <input
-                  aria-label="对白音量"
-                  title={`对白音量 ${dbToVolumePercent(dialogueGain)}`}
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={dbToVolumePercent(dialogueGain)}
-                  onChange={(event) =>
-                    onLane?.("dialogue", volumePercentToDb(Number(event.target.value)))
-                  }
-                />
-                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
-                <span className="vol-num" aria-hidden="true">
-                  {dbToVolumePercent(dialogueGain)}
-                </span>
-              </span>
+              <AudioLaneControls
+                lane="dialogue"
+                gainDb={dialogueGain}
+                muted={mixSettings.lanes.dialogue.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
             {/* 4B-U02: 环境音 and 音效 have their own tracks; until there are sound files they
                 only show what was written for each shot. */}
@@ -10278,48 +10387,37 @@ function EditPage({
               <span className="sw" style={{ background: "var(--t-amb)" }} />
               <Ic name="vol" size={13} />
               环境音
+              <AudioLaneControls
+                lane="ambience"
+                gainDb={mixSettings.lanes.ambience.gainDb}
+                muted={mixSettings.lanes.ambience.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-sfx)" }} />
               <Ic name="spark" size={13} />
               音效
+              <AudioLaneControls
+                lane="sfx"
+                gainDb={mixSettings.lanes.sfx.gainDb}
+                muted={mixSettings.lanes.sfx.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-music)" }} />
               <Ic name="music" size={13} />
               配乐
-              <span className="lane-controls">
-                <button
-                  type="button"
-                  aria-label="静音配乐"
-                  onClick={() => {
-                    const muted = film.audioClips.some(
-                      (clip) => clip.lane === "score" && clip.gainDb <= -40,
-                    );
-                    onLane?.("score", muted ? musicRestore : -80);
-                  }}
-                >
-                  静音
-                </button>
-                <button type="button" aria-label="单听配乐" onClick={() => onSolo?.("score")}>
-                  单听
-                </button>
-                <input
-                  aria-label="配乐音量"
-                  title={`配乐音量 ${dbToVolumePercent(musicGain)}`}
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={dbToVolumePercent(musicGain)}
-                  onChange={(event) =>
-                    onLane?.("score", volumePercentToDb(Number(event.target.value)))
-                  }
-                />
-                {/* 4C-U07: a thin bar with the number beside it, not a switch-like knob. */}
-                <span className="vol-num" aria-hidden="true">
-                  {dbToVolumePercent(musicGain)}
-                </span>
-              </span>
+              <AudioLaneControls
+                lane="score"
+                gainDb={musicGain}
+                muted={mixSettings.lanes.score.muted}
+                onLane={onLane}
+                onSolo={onSolo}
+              />
             </div>
           </div>
           <div className="tracks" ref={tracksRef}>
@@ -10461,25 +10559,63 @@ function EditPage({
                 })}
               </div>
               <div className="lane" style={{ height: "var(--ha)" }}>
-                {film.audioClips.some((item) => item.lane === "dialogue" && item.path) ? null : (
+                {film.audioClips.some((item) => item.lane === "dialogue" && item.path) ||
+                actualMixPlan?.tracks.some((track) => track.native) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
                 )}
                 {film.audioClips
-                  .filter((item) => item.lane === "dialogue" && item.path)
+                  .filter(
+                    (item) =>
+                      item.lane === "dialogue" &&
+                      item.path &&
+                      audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan),
+                  )
                   .map((item) => (
                     <div
                       key={item.id}
                       className="clip a"
                       data-voice={isVoiceFile(item.path ?? "") ? "1" : undefined}
                       style={{
-                        left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
-                        width: Math.max(12, Math.round((item.durationSeconds || 2) * zoom) - 2),
+                        ...audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan)!,
                       }}
                     >
                       <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">{item.label || "对白"}</span>
                     </div>
                   ))}
+                {actualMixPlan?.tracks
+                  .filter(
+                    (track) =>
+                      track.native && !film.audioClips.some((clip) => clip.id === track.key),
+                  )
+                  .map((track) => {
+                    const sourceShot = actualMixPlan.shots.find(
+                      (row) => row.nativeSourceKey === track.sourceKey,
+                    );
+                    if (!sourceShot) return null;
+                    const virtual = {
+                      id: track.key,
+                      lane: "dialogue" as const,
+                      label: "原声" as const,
+                      shotId: sourceShot.shotId,
+                      takeId: sourceShot.takeId,
+                      startSeconds: track.startSeconds - sourceShot.startSeconds,
+                      durationSeconds: track.endSeconds - track.startSeconds,
+                      offsetSeconds: track.offsetSeconds,
+                      gainDb: track.gainDb,
+                    };
+                    const box = audioTimelineBox(film, virtual, shots, clips, zoom, actualMixPlan);
+                    return box ? (
+                      <div
+                        key={track.key}
+                        className="clip a"
+                        style={box}
+                        title="已核验所选版本的原声；未提供逐句语音对齐"
+                      >
+                        <span className="tx">原声（所选版本）</span>
+                      </div>
+                    ) : null;
+                  })}
               </div>
               <PlanLane
                 waveformKeys={waveformKeys}
@@ -10502,21 +10638,17 @@ function EditPage({
                   <span className="lane-empty">这一轨还没有内容</span>
                 )}
                 {film.audioClips
-                  .filter((item) => item.lane === "score" && item.path)
+                  .filter(
+                    (item) =>
+                      item.lane === "score" &&
+                      item.path &&
+                      audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan),
+                  )
                   .map((item) => (
                     <div
                       key={item.id}
                       className="clip m"
-                      style={{
-                        left: Math.max(1, item.startSeconds * zoom + 1),
-                        width:
-                          item.durationSeconds > 0
-                            ? Math.max(12, Math.round(item.durationSeconds * zoom) - 2)
-                            : Math.max(
-                                48,
-                                clips.reduce((sum, clip) => sum + clip.width, 0),
-                              ),
-                      }}
+                      style={audioTimelineBox(film, item, shots, clips, zoom, actualMixPlan)!}
                     >
                       <Wave clip={item} verifiedKey={waveformKeys[item.id]} />
                       <span className="tx">

@@ -75,6 +75,7 @@ export type AudioClip = {
   offsetSeconds: number;
   gainDb: number;
   path?: string;
+  loop?: boolean;
   waveform?: FilmAudioWaveform & { identity: string };
 };
 
@@ -160,6 +161,7 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
         startSeconds: finiteNumber(row.startSeconds),
         durationSeconds: finiteNumber(row.durationSeconds),
         offsetSeconds: finiteNumber(row.offsetSeconds),
+        ...(typeof row.loop === "boolean" ? { loop: row.loop } : {}),
         gainDb:
           typeof row.gainDb === "number" && Number.isFinite(row.gainDb)
             ? row.gainDb

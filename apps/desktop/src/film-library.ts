@@ -1,6 +1,16 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { copyFile, mkdir, open, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  open,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 
@@ -407,13 +417,69 @@ export function trustedMediaPath(roots: string[], raw: string): string {
   return target;
 }
 
-export async function readMedia(roots: string[], raw: string): Promise<Uint8Array> {
+export type FilmMediaReadOptions = { maxBytes?: number; expectedSha256?: string };
+
+export async function readMedia(
+  roots: string[],
+  raw: string,
+  options?: FilmMediaReadOptions,
+): Promise<Uint8Array> {
+  if (
+    options !== undefined &&
+    (!options ||
+      typeof options !== "object" ||
+      Array.isArray(options) ||
+      Object.keys(options).some((key) => key !== "maxBytes" && key !== "expectedSha256") ||
+      (options.maxBytes !== undefined &&
+        (!Number.isInteger(options.maxBytes) ||
+          options.maxBytes <= 0 ||
+          options.maxBytes > maxMediaBytes)) ||
+      (options.expectedSha256 !== undefined &&
+        (typeof options.expectedSha256 !== "string" ||
+          !/^[a-f0-9]{64}$/.test(options.expectedSha256))))
+  )
+    throw new Error("Invalid film path");
   const path = trustedMediaPath(roots, raw);
-  const bytes = new Uint8Array(await readFile(path));
-  if (bytes.byteLength <= 0 || bytes.byteLength > maxMediaBytes) {
-    throw new Error("Film media is too large");
+  const handle = await open(path, "r");
+  try {
+    const before = await handle.stat({ bigint: true });
+    const limit = options?.maxBytes ?? maxMediaBytes;
+    if (!before.isFile() || before.size <= 0n || before.size > BigInt(limit)) {
+      throw new Error("Film media is too large");
+    }
+    // Allocation happens only after the same open file's bounded size is verified.
+    const bytes = Buffer.alloc(Number(before.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const { bytesRead } = await handle.read(
+        bytes,
+        offset,
+        Math.min(64 * 1024, bytes.length - offset),
+        offset,
+      );
+      if (!bytesRead) throw new Error("Invalid film path");
+      offset += bytesRead;
+    }
+    const after = await handle.stat({ bigint: true });
+    const current = await stat(path, { bigint: true });
+    const unchanged = (value: typeof before) =>
+      value.dev === before.dev &&
+      value.ino === before.ino &&
+      value.size === before.size &&
+      value.mtimeNs === before.mtimeNs &&
+      value.ctimeNs === before.ctimeNs;
+    if (
+      !unchanged(after) ||
+      !unchanged(current) ||
+      (options?.expectedSha256 &&
+        createHash("sha256").update(bytes).digest("hex") !== options.expectedSha256)
+    ) {
+      throw new Error("Invalid film path");
+    }
+    return new Uint8Array(bytes);
+  } finally {
+    await handle.close();
   }
-  return bytes;
 }
 
 export async function applyDialogue(

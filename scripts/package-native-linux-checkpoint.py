@@ -29,6 +29,9 @@ def stage_qc_resources(destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     for name in ("index.mjs", "media.mjs", "rules.mjs", "subtitles.mjs"):
         shutil.copy2(ROOT / "packages/aivora-qc" / name, destination / name)
+    shutil.copy2(
+        ROOT / "packages/aivora-media/audio-normalize.mjs", destination / "audio-normalize.mjs"
+    )
 
 
 def command(*args: str, cwd: Path = ROOT) -> None:
