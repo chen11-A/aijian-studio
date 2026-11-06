@@ -1,4 +1,8 @@
-import { filmAudioSourceIdentity, validFilmAudioWaveform } from "../../film/audio-waveform-data";
+import {
+  filmAudioSourceIdentity,
+  validFilmAudioWaveform,
+  audioWaveformToken,
+} from "../../film/audio-waveform-data";
 import type { FilmProject } from "../../film/project";
 import type {
   FilmAudioWaveformInput,
@@ -61,7 +65,7 @@ export async function refreshAudioWaveforms(
         }),
       });
     }
-    if (waveform) host.verified(clip.id, key);
+    if (waveform) host.verified(clip.id, audioWaveformToken(waveform)!);
   }
 }
 

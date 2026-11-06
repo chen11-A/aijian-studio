@@ -57,3 +57,17 @@ export function validFilmAudioWaveform(value: unknown): value is FilmAudioWavefo
     )
   );
 }
+
+/** Trust binds the whole measured payload, never only a reusable source identity/hash. */
+export function audioWaveformToken(value: unknown): string | null {
+  if (!validFilmAudioWaveform(value)) return null;
+  return JSON.stringify([
+    value.schemaVersion,
+    value.sourceKey,
+    value.sourceSha256,
+    value.offsetSeconds,
+    value.durationSeconds,
+    value.analyzedSeconds,
+    value.peaks,
+  ]);
+}

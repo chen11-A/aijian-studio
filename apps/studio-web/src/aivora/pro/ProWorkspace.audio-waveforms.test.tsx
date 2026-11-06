@@ -6,8 +6,15 @@ import type {
   FilmAudioWaveformInput,
   FilmAudioWaveformResult,
 } from "@aijian/contracts/film-audio-waveform";
+import * as editorModule from "./actions/editor-host";
 import { ProWorkspace } from "./ProWorkspace";
+const createHost = editorModule.createEditorHost;
 async function open(pending = false, duration = 1, analyzedSeconds = duration) {
+  let host!: Parameters<typeof createHost>[0];
+  vi.spyOn(editorModule, "createEditorHost").mockImplementation((value) => {
+    host = value;
+    return createHost(value);
+  });
   const film = sampleFilm();
   film.audioClips = [
     {
@@ -68,6 +75,7 @@ async function open(pending = false, duration = 1, analyzedSeconds = duration) {
   );
   return {
     film,
+    host: () => host,
     read,
     writes,
     stored: () => stored,
@@ -164,3 +172,27 @@ it("places a five-second measured source on only the first quarter of a twenty-s
   await waitFor(() => expect(env.stored().audioClips[0]!.waveform?.analyzedSeconds).toBe(5));
   expect(env.stored().audioClips[0]!.durationSeconds).toBe(20);
 });
+
+it.each(["peaks", "analyzedSeconds"] as const)(
+  "does not trust a replaced %s cache body with the same source key/hash until refreshed",
+  async (field) => {
+    const env = await open();
+    await screen.findByRole("img", { name: "已核对音源的波形（混音前）" });
+    await screen.findByRole("button", { name: "刷新音频波形" });
+    const changed = structuredClone(env.host().current()!);
+    const waveform = changed.audioClips[0]!.waveform!;
+    const sameSource = { key: waveform.sourceKey, sha: waveform.sourceSha256 };
+    if (field === "peaks") waveform.peaks[1] = 0.9;
+    else waveform.analyzedSeconds = 0.25;
+    act(() => env.host().applyLive(changed));
+    expect(waveform.sourceKey).toBe(sameSource.key);
+    expect(waveform.sourceSha256).toBe(sameSource.sha);
+    expect(screen.queryByRole("img", { name: "已核对音源的波形（混音前）" })).toBeNull();
+    expect(env.read).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "刷新音频波形" }));
+    await screen.findByRole("img", { name: "已核对音源的波形（混音前）" });
+    expect(env.read).toHaveBeenCalledTimes(2);
+    expect(env.host().current()!.audioClips[0]!.waveform!.peaks).toEqual([0, 0.125, 0.25, 0]);
+    expect(env.host().current()!.audioClips[0]!.waveform!.analyzedSeconds).toBe(1);
+  },
+);
