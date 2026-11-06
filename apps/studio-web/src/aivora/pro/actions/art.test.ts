@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { sampleFilm } from "../../film/project";
+import { aspectContext, sampleFilm } from "../../film/project";
 import { planArtDraft, type ArtActionHost } from "./art";
 
 function reply(film = sampleFilm()) {
@@ -20,7 +20,7 @@ it("requests the same art context and returns a draft without applying or mutati
   const result = await planArtDraft(film, { request, current: () => true });
   expect(request).toHaveBeenCalledExactlyOnceWith(
     "art",
-    `画风：${film.styleZh}\n人物：${film.characters.map((person) => person.name).join("、")}`,
+    `画风：${film.styleZh}\n${aspectContext(film)}\n人物：${film.characters.map((person) => person.name).join("、")}`,
     "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
   );
   expect(result.status).toBe("ready");

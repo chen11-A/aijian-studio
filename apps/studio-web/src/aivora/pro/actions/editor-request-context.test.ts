@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { sampleFilm } from "../../film/project";
+import { aspectContext, sampleFilm } from "../../film/project";
 import { globalEditorRequest } from "./editor-request-context";
 import { writerDraftInput, planWriterDraft } from "./writer";
 import { planArtDraft } from "./art";
@@ -61,7 +61,7 @@ describe("global writer/art selected request supplement", () => {
     await planArtDraft(film, { request: wrapped.request, current: () => true });
     expect(
       request.mock.calls[0]![1].startsWith(
-        `画风：${film.styleZh}\n人物：${film.characters.map((p) => p.name).join("、")}`,
+        `画风：${film.styleZh}\n${aspectContext(film)}\n人物：${film.characters.map((p) => p.name).join("、")}`,
       ),
     ).toBe(true);
     expect(request.mock.calls[0]![2]).toBe("写出画风、每人一句固定外貌、场景和道具。只输出 JSON。");
