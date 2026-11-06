@@ -125,21 +125,41 @@ test("canonical input hash mismatch is forbidden, not silently accepted", async 
   );
   assert.deepEqual(f.audit.forbidden, ["unverified-preview-hash"]);
 });
-test("BUSY and explicit failure remain distinct native results without fake success", async () => {
-  const f = setup("mix-preview-retry");
-  f.audit.mode = "busy";
-  for (let i = 0; i < 8; i++)
+test(
+  "default retry admission holds before its first BUSY, then retains eight attempts and explicit failure",
+  { timeout: 5000 },
+  async () => {
+    const f = setup("mix-preview-retry");
+    assert.equal(f.audit.mode, "hold-busy");
+    const admitted = new Promise((resolve) => {
+      f.audit.pendingChanged = resolve;
+    });
+    let settled = false;
+    const first = f.bridge.getFilmAudioMixPreview(await f.input()).then((value) => {
+      settled = true;
+      return value;
+    });
+    await admitted;
+    assert.equal(f.audit.pending.length, 1);
+    assert.equal(settled, false, "Default admission must still be held for the real busy UI probe");
+    f.audit.mode = "busy";
+    f.audit.resolve(0);
+    assert.deepEqual(await first, { kind: "FAILED", code: "BUSY" });
+    for (let i = 1; i < 8; i++)
+      assert.deepEqual(await f.bridge.getFilmAudioMixPreview(await f.input()), {
+        kind: "FAILED",
+        code: "BUSY",
+      });
+    assert.equal(f.audit.requests.length, 8);
+    f.audit.mode = "failed";
     assert.deepEqual(await f.bridge.getFilmAudioMixPreview(await f.input()), {
       kind: "FAILED",
-      code: "BUSY",
+      code: "SOURCE_UNVERIFIED",
     });
-  f.audit.mode = "failed";
-  assert.deepEqual(await f.bridge.getFilmAudioMixPreview(await f.input()), {
-    kind: "FAILED",
-    code: "SOURCE_UNVERIFIED",
-  });
-  assert.equal(f.audit.pending.length, 0);
-});
+    assert.equal(f.audit.pending.length, 1);
+  },
+);
+
 test(
   "controlled late reply retains its original selection while canonical save/read moves forward",
   { timeout: 5000 },
