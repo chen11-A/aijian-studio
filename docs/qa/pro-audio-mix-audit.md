@@ -25,3 +25,5 @@ node apps/studio-web/e2e/pro-audio-mix-audit.mjs --url http://127.0.0.1:5173/ --
 Node-only契约使用 `.contract.mjs`，由CI显式 `node --test`，不加入Vitest默认发现。本机只做契约/静态/负向；当前机器无可用Chromium沙箱，正常16态正向须由普通Ubuntu CI验证，不绕过沙箱。
 
 本机结果：新8项与原creation8项Node契约联合16项通过，目标ESLint/Prettier/语法/diff检查通过；Vitest发现仍为408个原测试文件，两个node-only契约均未被收集。缺浏览器负向实际exit2、0正向/预期16、sandbox=true，退出后Vite端口已关闭；原workflow完整前缀相对4395cde字节相同。证据 `.aijian-dev/pro-audio-mix-negative/{report,verification}.json`，日志 `/tmp/audio-mix-audit-final-{contract,lint,prettier}.log`；16态正常Chrome结果待CI。
+
+首轮普通Chrome的16态中，12态通过，4个 `mix-preview-retry` 在等待首个native pending时失败。原因是fixture默认仍为直接BUSY，脚本设计却要求先hold-busy；并非产品8次退避失败。只将该fixture默认改为受控hold-busy，释放首次BUSY后继续原有限8次与人工retry/READY流程。契约从真实默认初始化起验证pending尚未完成，再释放并核8次，而不先覆盖mode掩盖缺口；同一新契约在修前明确失败busy≠hold-busy，修后通过。原16态/计数/几何/回包保护不变，修订后正常Chrome仍待新CI。

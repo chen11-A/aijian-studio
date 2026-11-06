@@ -54,7 +54,8 @@ export function installAudioMixBridge({ state, planUrl, wavBase64, wavSha256 }) 
     waves: [],
     prepare: [],
     forbidden: [],
-    mode: state === "mix-preview-retry" ? "busy" : state === "mix-stale-reply" ? "hold" : "ready",
+    mode:
+      state === "mix-preview-retry" ? "hold-busy" : state === "mix-stale-reply" ? "hold" : "ready",
   };
   window.__proAudioMixAudit = audit;
   const forbidden = (name) => {
