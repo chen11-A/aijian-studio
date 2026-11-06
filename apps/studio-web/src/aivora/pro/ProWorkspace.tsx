@@ -3987,13 +3987,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   useDismiss(menu === "account", () => setMenu(null), '[data-menu="account"]');
   // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
   // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
+  const readOpeningFilm = async (id: string) => {
+    const wasUncertain = !!persistence.externalWriteState(id);
+    let saved = await readSaved(id);
+    let pending = persistence.externalWriteState(id);
+    // The first read may have captured old disk bytes before an in-flight add
+    // settled. Once its quarantine cleared, read canonical again; never revive
+    // a retained draft from a completed external write.
+    if (wasUncertain && !pending) {
+      saved = await readSaved(id);
+      pending = persistence.externalWriteState(id);
+    }
+    return { opened: pending?.draft ?? saved, retained: !!pending };
+  };
   const openSaved = (id: string) => {
-    void readSaved(id).then((saved) => {
-      if (!saved) {
+    void readOpeningFilm(id).then(({ opened, retained }) => {
+      if (!opened) {
         setNotice("没有打开这部作品。");
         return;
       }
-      const settled = settleOpenedFilm(saved);
+      const settled = settleOpenedFilm(opened);
       applyLive(settled.film);
       setScene(settled.film.scenes[0]?.id ?? "scene-1");
       setShot(0);
@@ -4002,7 +4015,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(
         settled.interrupted
           ? { code: "WORK_INTERRUPTED", text: NOTICE_TEXT.WORK_INTERRUPTED }
-          : `已打开${saved.seriesTitle || saved.title}。`,
+          : retained
+            ? {
+                code: "PROJECT_OPENED",
+                text: NOTICE_TEXT.PROJECT_OPENED,
+                detail: "已打开保留的编辑副本，本地素材保存状态仍待核对。",
+              }
+            : `已打开${opened.seriesTitle || opened.title}。`,
       );
     });
   };
@@ -4871,9 +4890,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   <button
                     key={item.id}
                     onClick={() => {
-                      void readSaved(item.id).then((saved) => {
-                        if (!saved) return;
-                        const settled = settleOpenedFilm(saved);
+                      void readOpeningFilm(item.id).then(({ opened, retained }) => {
+                        if (!opened) return;
+                        const settled = settleOpenedFilm(opened);
                         applyLive(settled.film);
                         setScene(settled.film.scenes[0]?.id ?? scene);
                         setPlaying(false);
@@ -4881,7 +4900,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         setNotice(
                           settled.interrupted
                             ? "上次关软件时还有镜头没做完，已经停下了。可以重新生成。"
-                            : `已打开${saved.episodeTitle}。`,
+                            : retained
+                              ? {
+                                  code: "PROJECT_OPENED",
+                                  text: NOTICE_TEXT.PROJECT_OPENED,
+                                  detail: "已打开保留的编辑副本，本地素材保存状态仍待核对。",
+                                }
+                              : `已打开${opened.episodeTitle}。`,
                         );
                       });
                     }}

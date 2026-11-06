@@ -8,15 +8,17 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import ssl
 import subprocess
 import threading
 import urllib.request
+import wave
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from aijian_api.story_film import StoryFilmService
+from aijian_api.story_film import StoryFilmService, _normalize_film_media, _video_frames
 from aijian_api.task_queue_read import TaskQueueReader
 from aijian_api.xai_media import XaiMediaClient
 from test_draft_export_runtime import toolchain
@@ -35,6 +37,11 @@ class _Script:
         self.host = ""
         self.jpeg = b""
         self.mp4 = b""
+        # Positive cases must answer the actual integer duration request. Empty
+        # mapping deliberately retains a non-compliant short/broken response.
+        self.clips_by_duration: dict[int, bytes] = {}
+        self.pending_clip: bytes | None = None
+        self.pending_duration = 2.04
         self.audio = b""
         self.image_posts = 0
         self.video_bodies: list[dict[str, object]] = []
@@ -149,7 +156,17 @@ def _serve(script: _Script, certificate: tuple[Path, Path]) -> tuple[ThreadingHT
                 self._send(200, json.dumps(payload).encode(), "application/json")
                 return
             if self.path == "/v1/videos/generations":
-                script.video_bodies.append(json.loads(raw.decode()))
+                body = json.loads(raw.decode())
+                script.video_bodies.append(body)
+                if script.clips_by_duration:
+                    seconds = body.get("duration")
+                    if type(seconds) is not int or seconds not in script.clips_by_duration:
+                        self._send(
+                            400, b'{"error":"unexpected fixture duration"}', "application/json"
+                        )
+                        return
+                    script.pending_clip = script.clips_by_duration[seconds]
+                    script.pending_duration = seconds
                 self._send(200, b'{"request_id":"req-e2e"}', "application/json")
                 return
             if self.path == "/v1/tts":
@@ -176,7 +193,7 @@ def _serve(script: _Script, certificate: tuple[Path, Path]) -> tuple[ThreadingHT
                     "status": "done",
                     "video": {
                         "url": f"https://{script.host}/vidgen/clip.mp4",
-                        "duration": 2,
+                        "duration": script.pending_duration,
                     },
                 }
                 self._send(200, json.dumps(done).encode(), "application/json")
@@ -185,7 +202,11 @@ def _serve(script: _Script, certificate: tuple[Path, Path]) -> tuple[ThreadingHT
                 if agent.startswith("Python-urllib"):
                     self._send(403, b"forbidden", "text/plain")
                     return
-                self._send(200, script.mp4, "video/mp4")
+                self._send(
+                    200,
+                    script.pending_clip if script.pending_clip is not None else script.mp4,
+                    "video/mp4",
+                )
                 return
             self._send(404, b"{}", "application/json")
 
@@ -200,12 +221,14 @@ def _serve(script: _Script, certificate: tuple[Path, Path]) -> tuple[ThreadingHT
     return httpd, script.host
 
 
-def _real_xai_media(tmp_path: Path) -> tuple[bytes, bytes]:
+def _real_xai_media(tmp_path: Path, clip_seconds: float = 2.04) -> tuple[bytes, bytes]:
     """The shape of a real SuperGrok run, including the mislabeled voice.
 
     The clip is h264 yuv420p, 24 fps, 448x672, 2.04s, plus AAC 48 kHz stereo
     and an mjpeg attached picture. The voice is MP3, 24 kHz, mono, 2.616s,
-    longer than the clip. The bytes are what matter; the filename is not.
+    longer than the original short clip. Positive stand-ins explicitly render the
+    requested longer duration; the original short shape remains a negative case.
+    The bytes are what matter; the filename is not.
     """
 
     tools = toolchain()
@@ -222,11 +245,11 @@ def _real_xai_media(tmp_path: Path) -> tuple[bytes, bytes]:
             "-f",
             "lavfi",
             "-i",
-            "testsrc=size=448x672:rate=24:duration=2.04",
+            f"testsrc=size=448x672:rate=24:duration={clip_seconds}",
             "-f",
             "lavfi",
             "-i",
-            "sine=frequency=440:sample_rate=48000:duration=2.04",
+            f"sine=frequency=440:sample_rate=48000:duration={clip_seconds}",
             "-f",
             "lavfi",
             "-i",
@@ -301,7 +324,7 @@ def _real_xai_media(tmp_path: Path) -> tuple[bytes, bytes]:
     assert audio["sample_rate"] == "48000" and int(audio["channels"]) == 2
     cover = next(item for item in streams if item.get("codec_name") == "mjpeg")
     assert cover["disposition"]["attached_pic"] == 1
-    assert abs(float(clip_probe["format"]["duration"]) - 2.04) < 0.05
+    assert abs(float(clip_probe["format"]["duration"]) - clip_seconds) < 0.05
     voice_probe = json.loads(
         subprocess.run(
             [
@@ -322,9 +345,54 @@ def _real_xai_media(tmp_path: Path) -> tuple[bytes, bytes]:
     assert heard["codec_name"] == "mp3"
     assert heard["sample_rate"] == "24000" and int(heard["channels"]) == 1
     voice_duration = float(voice_probe["format"]["duration"])
-    assert voice_duration > float(clip_probe["format"]["duration"])
+    if clip_seconds == 2.04:
+        assert voice_duration > float(clip_probe["format"]["duration"])
     assert abs(voice_duration - 2.616) < 0.05
     return clip.read_bytes(), voice.read_bytes()
+
+
+def _compliant_media(script: _Script, tmp_path: Path) -> None:
+    # This voice really decodes to2.616s. Production asks ceil(2.616+.4+.6)=4,
+    # and the HTTPS server must serve that request rather than a fixed2.04s clip.
+    script.mp4, script.audio = _real_xai_media(tmp_path, clip_seconds=4)
+    script.clips_by_duration = {4: script.mp4}
+
+
+def _assert_window(result, script: _Script, tmp_path: Path) -> None:
+    assert [body["duration"] for body in script.video_bodies] == [4]
+    tools = toolchain()
+    raw = tmp_path / "raw-decoded.wav"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-v",
+            "error",
+            "-i",
+            str(tmp_path / "real-xai" / "voice.mp3"),
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-c:a",
+            "pcm_s16le",
+            str(raw),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    with wave.open(str(raw), "rb") as audio:
+        body_frames = audio.getnframes()
+    assert math.ceil(body_frames / 48000 + 1) == 4
+    assert result.voice_path
+    with wave.open(result.voice_path, "rb") as audio:
+        assert (audio.getframerate(), audio.getsampwidth(), audio.getnchannels()) == (48000, 2, 2)
+        data = audio.readframes(audio.getnframes())
+    width = 4
+    assert not any(data[: 19200 * width])
+    assert any(data[19200 * width : (19200 + body_frames) * width])
+    tail = data[(19200 + body_frames) * width :]
+    assert len(tail) >= 28800 * width and not any(tail)
+    assert float(result.duration_seconds) == pytest.approx(4, abs=1 / 24)
 
 
 def _jpeg(tmp_path: Path) -> bytes:
@@ -372,7 +440,7 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
 ):
     script = _Script()
     script.jpeg = _jpeg(tmp_path)
-    script.mp4, script.audio = _real_xai_media(tmp_path)
+    _compliant_media(script, tmp_path)
     httpd, _host = _serve(script, _trusted_certificate)
     try:
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
@@ -403,7 +471,7 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         picture = probed["streams"][0]
         assert (picture["width"], picture["height"]) == (448, 672)
         assert result.duration_seconds is not None
-        assert 2.616 <= float(result.duration_seconds) < 3.6
+        _assert_window(result, script, tmp_path)
         voices = list((tmp_path / "story-films").glob("*-voice.mp3"))
         assert voices and all(path.read_bytes() == script.audio for path in voices)
         assert not list((tmp_path / "story-films").glob("*-voice.wav"))
@@ -472,7 +540,7 @@ def test_b64_json_image_is_a_data_uri_and_tts_returns_audio(
     script = _Script()
     script.mode = "b64"
     script.jpeg = _jpeg(tmp_path)
-    script.mp4, script.audio = _real_xai_media(tmp_path)
+    _compliant_media(script, tmp_path)
     httpd, _host = _serve(script, _trusted_certificate)
     try:
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
@@ -480,6 +548,7 @@ def test_b64_json_image_is_a_data_uri_and_tts_returns_audio(
             project_id, _request("grok_subscription"), media_token="subscription-token"
         )
         assert result.status == "SUCCEEDED", result.message
+        _assert_window(result, script, tmp_path)
         assert script.image_gets == 0
         image = script.video_bodies[0]["image"]
         assert isinstance(image, dict)
@@ -498,7 +567,7 @@ def test_image_cdn_forbidden_still_submits_the_https_url(
     script = _Script()
     script.forbid_image = True
     script.jpeg = _jpeg(tmp_path)
-    script.mp4, script.audio = _real_xai_media(tmp_path)
+    _compliant_media(script, tmp_path)
     httpd, _host = _serve(script, _trusted_certificate)
     try:
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
@@ -514,6 +583,7 @@ def test_image_cdn_forbidden_still_submits_the_https_url(
         assert any(item.get("error_code") for item in logged)
         assert "灯塔夜班" not in log_path.read_text(encoding="utf-8")
         assert result.status == "SUCCEEDED", result.message
+        _assert_window(result, script, tmp_path)
     finally:
         httpd.shutdown()
 
@@ -554,5 +624,53 @@ def test_broken_clip_names_the_ffmpeg_exit_and_retries_without_xai(
         films = [item for item in tasks if item.node_type == "story_film"]
         assert len(films) == 2
         assert {item.attempt_status for item in films} == {"FAILED"}
+    finally:
+        httpd.shutdown()
+
+
+def test_old_short_response_is_rejected_without_cutting_raw_voice_or_repeating_upstream(
+    tmp_path,
+    monkeypatch,
+    _trusted_certificate,
+):
+    script = _Script()
+    script.jpeg = _jpeg(tmp_path)
+    script.mp4, script.audio = _real_xai_media(tmp_path)
+    # Before B07, the legacy optional tail could shrink and the <=1s hold was
+    # enough. Prove that exact original shape remains supported by that policy,
+    # while the new mandatory head+tail below correctly refuses the short reply.
+    legacy_clip = tmp_path / "legacy-clip.mp4"
+    legacy_voice = tmp_path / "legacy-voice.mp3"
+    legacy_clip.write_bytes(script.mp4)
+    legacy_voice.write_bytes(script.audio)
+    tools = toolchain()
+    original_frames = _video_frames(tools.ffprobe_path, legacy_clip)
+    _, _, legacy_frames, _ = _normalize_film_media(
+        tools.ffmpeg_path,
+        tools.ffprobe_path,
+        legacy_clip,
+        legacy_voice,
+    )
+    assert original_frames == 49 and legacy_frames == 73
+    assert legacy_frames - original_frames == 24
+    assert legacy_voice.read_bytes() == script.audio
+    httpd, _host = _serve(script, _trusted_certificate)
+    try:
+        service, project_id, log_path = _service(monkeypatch, tmp_path, script)
+        for _ in range(2):
+            result = service.produce(
+                project_id, _request("grok_subscription"), media_token="subscription-token"
+            )
+            assert result.status == "FAILED"
+            assert result.user_message["code"] == "VIDEO_TOO_SHORT"
+        assert [body["duration"] for body in script.video_bodies] == [4]
+        assert script.tts == 1 and script.image_posts == 1
+        assert not script.clips_by_duration  # Intentionally still returns2.04s, not4.
+        folder = tmp_path / "story-films"
+        assert any(path.read_bytes() == script.audio for path in folder.glob("*-voice.mp3"))
+        assert any(path.read_bytes() == script.mp4 for path in folder.glob("*-clip.mp4"))
+        assert any(item.get("error_code") == "VIDEO_TOO_SHORT" for item in _events(log_path))
+        text = log_path.read_text()
+        assert all(value not in text for value in ("subscription-token", "灯塔夜班", _REVISED))
     finally:
         httpd.shutdown()
