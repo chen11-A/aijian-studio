@@ -1,3 +1,4 @@
+import type { FilmExportQcGateway } from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskItem, BatchProgress } from "@aijian/contracts/task-progress";
 import type { AssemblyReadinessGateway } from "@aijian/contracts/assembly-readiness";
 import type { LocalMediaReviewGateway } from "@aijian/contracts/local-media-review";
@@ -1025,6 +1026,9 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  prepareFilmExport?: FilmExportQcGateway["prepareFilmExport"];
+  publishFilmExport?: FilmExportQcGateway["publishFilmExport"];
+  discardFilmExport?: FilmExportQcGateway["discardFilmExport"];
   cancelFilmExport?: (requestId: string) => Promise<{ ok: boolean }>;
   exportFilmCut?: (
     source: string,

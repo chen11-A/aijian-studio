@@ -100,6 +100,10 @@
     "./task-progress": {
       "types": "./src/task-progress.ts",
       "default": "./src/task-progress.ts"
+    },
+    "./film-export-qc": {
+      "types": "./src/film-export-qc.ts",
+      "default": "./src/film-export-qc.ts"
     }
   },
   "scripts": {

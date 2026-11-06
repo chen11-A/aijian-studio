@@ -1638,7 +1638,40 @@ class StoryFilmService:
             path = Path(job.output_path)
             tools = self._tools()
             _tag_ai_generated(tools.ffmpeg_path, tools.ffprobe_path, path)
-            return (path, None) if path.is_file() else (None, "CLEAN_COPY_MISSING")
+            if not path.is_file():
+                return None, "CLEAN_COPY_MISSING"
+            # The draft receipt describes pre-tag bytes. Append exact post-tag evidence;
+            # never rewrite that historical verification or claim release approval.
+            with path.open("rb") as final_stream:
+                final_sha256 = hashlib.file_digest(final_stream, "sha256").hexdigest()
+            artifact_type = "story_film_clean_copy"
+            parent, revision = self._artifact_head(project_id, artifact_type, episode_id)
+            try:
+                self._repository.create_artifact_version(
+                    project_id=project_id,
+                    episode_id=episode_id,
+                    artifact_type=artifact_type,
+                    schema_version="1.0.0",
+                    content={
+                        "schema_version": "1.0.0",
+                        "kind": artifact_type,
+                        "assembly_version_id": _assembly.version_id,
+                        "assembly_content_hash": _assembly.content_hash,
+                        "output_path": str(path.resolve()),
+                        "output_sha256": final_sha256,
+                        "output_bytes": path.stat().st_size,
+                        "ai_generated": True,
+                        "release_claim": False,
+                    },
+                    author_actor_type="human",
+                    author_actor_id="story-film",
+                    change_summary="不带字幕副本的最终素材归属记录",
+                    parent_version_id=parent,
+                    expected_revision=revision,
+                )
+            except Exception:  # noqa: BLE001 - no final ownership evidence means no usable copy
+                return None, "CLEAN_COPY_EVIDENCE_FAILED"
+            return path, None
         except Exception as error:  # noqa: BLE001 - the subtitled film is still the take
             return None, _failure_log_code(error)
 
@@ -2568,6 +2601,8 @@ def _clean_copy_reason(code: str) -> str:
     reason = _export_reason(code)
     if code == "CLEAN_COPY_MISSING":
         reason = "合成说做好了，但文件不在"
+    if code == "CLEAN_COPY_EVIDENCE_FAILED":
+        reason = "最终素材归属记录没能保存"
     return f"不带字幕的那份没有做出来（{reason}）" if reason else "不带字幕的那份没有做出来"
 
 
