@@ -1148,3 +1148,5 @@ Round4在独立worktree /workspace/aivora-export-qc、分支codex/aivora-export-
 Round4 GUI显示已交付24ee160（位于codex/aivora-export-qc）：ExportCheck新增reviewMode/busy/stale/publishBlocked/unverified/onCancel，非review历史调用保留。review模式block、任一画幅阻断、检查失败/无结果、过期/忙碌都禁发布；warn仅明确审核后发布，人工未验边界固定显示，安全显示诊断。root独立3文件35项通过；GUI报告web tsc/目标lint/format通过。receipt不传组件，宿主负责main闭环；未称真实产品链路或Electron通过。GUI后续转独立layout-full工作区，不再动QC已冻结显示。
 
 布局扩展0b6401e的CI #694/run42250733448 job128004803329已成功：core24/full60/url24，三个scope与证据上传均成功；quality完整矩阵尚未完成。guide1e48526已交付。root通过真实--no-ff把布局/说明分支接入QC分支，并通过b9ddfc7同步当前文档；backend未提交业务文件保留。QC GUI显示24ee160已验35项，真实main/宿主在补canonical保存、归属、不覆盖和过期回归；GUI另写真实宿主QC浏览器门，不以既有108个布局截图充本批QC验收。
+
+Round4最终接口/验门：da555d2/4badc24/ff4548a已提交，QC32门b18194b等待新源码CI。prepare提交前持久化并在无新编辑时同步main canonical快照，以真实live key固定审核；publish不重复物化，主进程再次校验；直接比较filmRef审阅key防同React批次旧callback。缺QC桥阻塞，原低级API无凭据但保留。最终clean-copy追加post-tag SHA/path/assembly证据，不改draft历史SHA；发布路径登记main allowlist。source强归属仅所选video，aux为持久引用/roots；旧无证据拒绝，待无付费恢复。root首轮全TS桌面2050/媒体17/QC11过、前端6失败已14定向修正、全TS最终复跑中；相关Python34、mypy310、修后type/build/contracts与静态过。progress独立74922c0纯组件35过，无B13接线/实际取消证明。
