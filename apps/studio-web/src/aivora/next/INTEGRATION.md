@@ -1144,3 +1144,5 @@ Round3集成冻结：单镜promptZh/promptEn固定基线字段卡及确认接线
 Round3已推送codex/aivora-round3@663f6c9。CI #693的pro-layout普通Ubuntu job127986935649已succeeded：24状态通过并上传报告/截图；Linux/Windows完整质量仍在Test，尚未合dev。上方各轮时间点记录保留，不能用其中“未提交/未接布局门”覆盖此状态。当前执行器本机Chrome沙箱受限，正向来自云CI；--url正向未验。
 
 Round4在独立worktree /workspace/aivora-export-qc、分支codex/aivora-export-qc开工。后端拥有main/bridge/DTO/资源与全部ProWorkspace绑定，GUI只改ExportCheck/adapter/CSS/显示测试。最小拟定prepareFilmExport({projectId,expectedSelection:[{shotId,takeId}],settings})、publishFilmExport({qcReceipt,expectedSelection,settings})、discardFilmExport(qcReceipt)，以实际落地DTO为准，不称已交付。renderer不得提供可信路径；main严格实际project.id、选版/设置复核、私有最终规格暂存、原schemaVersion1 QC及opaque receipt。保留warn/block；缺镜头为业务预检，台词完整无音频证据时未验证；用户明确审阅后才发布。工具执行前hash/版本验证、packaged资源与陈旧receipt均须测试。
+
+Round4 GUI显示已交付24ee160（位于codex/aivora-export-qc）：ExportCheck新增reviewMode/busy/stale/publishBlocked/unverified/onCancel，非review历史调用保留。review模式block、任一画幅阻断、检查失败/无结果、过期/忙碌都禁发布；warn仅明确审核后发布，人工未验边界固定显示，安全显示诊断。root独立3文件35项通过；GUI报告web tsc/目标lint/format通过。receipt不传组件，宿主负责main闭环；未称真实产品链路或Electron通过。GUI后续转独立layout-full工作区，不再动QC已冻结显示。
