@@ -209,6 +209,8 @@ class RemakeStoryFilmCleanCopyBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     film_path: str = Field(min_length=1, max_length=4096)
+    expected_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    expected_assembly_version_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class StoryFilmCleanCopyData(BaseModel):
@@ -334,10 +336,11 @@ def create_story_film_router(
         project_id: Annotated[str, Field(pattern=PROJECT_ID_PATTERN)],
         payload: RemakeStoryFilmCleanCopyBody,
     ) -> StoryFilmCleanCopyResponse:
-        # The film is found by its bytes in this workspace, whichever project made it.
-        _ = project_id
         result = StoryFilmService(repository_provider(), toolchain_provider).remake_clean_copy(
-            payload.film_path
+            payload.film_path,
+            project_id=project_id,
+            expected_sha256=payload.expected_sha256,
+            expected_assembly_version_id=payload.expected_assembly_version_id,
         )
         return StoryFilmCleanCopyResponse(
             data=StoryFilmCleanCopyData(
