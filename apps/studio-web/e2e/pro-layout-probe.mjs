@@ -5,6 +5,68 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const issues = [];
   const scrollOffscreen = [];
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
+  // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
+  const controlLabels = new Map([
+    ["审核后发布", "review-publish"],
+    ["取消本次导出", "review-cancel"],
+    ["关闭", "dialog-close"],
+    ["检查成片", "prepare-check"],
+    ["改封面", "cover-edit"],
+    ["高级", "advanced"],
+    ["烧进画面", "subtitle-burn"],
+    ["单独文件", "subtitle-srt"],
+    ["不要", "subtitle-none"],
+    ["停止处理", "request-stop"],
+    ["正在请求停止", "request-pending"],
+  ]);
+  const controlIds = new Set(["export-quality", "export-aspect", "export-dir"]);
+  const safeClasses = new Set([
+    "acts",
+    "dialog",
+    "export",
+    "dialog-back",
+    "nx-export-foot",
+    "nx-export",
+    "nx-export-cols",
+    "nx-export-side",
+    "nx-panel",
+    "nx-panel-body",
+    "nx-panel-head",
+    "nx-export-issues",
+    "nx-export-state",
+    "nx-export-progress",
+    "nx-primary",
+    "nx-btn",
+    "btn",
+    "primary",
+    "sp",
+    "nx-adv",
+    "nx-scroll",
+    "nx-export-facts",
+  ]);
+  const safeTags = new Set([
+    "BUTTON",
+    "INPUT",
+    "SELECT",
+    "TEXTAREA",
+    "SUMMARY",
+    "DIV",
+    "SPAN",
+    "P",
+    "SECTION",
+    "ASIDE",
+    "FOOTER",
+    "HEADER",
+    "MAIN",
+    "LABEL",
+    "H1",
+    "H2",
+    "H3",
+    "PROGRESS",
+    "BODY",
+    "HTML",
+  ]);
+  const tag = (element) => (safeTags.has(element.tagName) ? element.tagName : "OTHER");
   for (const element of scope.querySelectorAll("button,input,select,textarea,summary")) {
     if (element.closest("[hidden]")) continue;
     const closed = element.closest("details:not([open])");
@@ -81,16 +143,35 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
       continue;
     }
     if (!element.disabled) {
-      const hit = document.elementFromPoint(
-        (visible.left + visible.right) / 2,
-        (visible.top + visible.bottom) / 2,
-      );
+      const point = {
+        x: (visible.left + visible.right) / 2,
+        y: (visible.top + visible.bottom) / 2,
+      };
+      const hit = document.elementFromPoint(point.x, point.y);
       if (hit && !element.contains(hit) && !hit.contains(element))
         issues.push({
           kind: "covered-center",
           label,
           hit: `${hit.tagName}.${hit.className}`,
           box: bounds(box),
+          diagnostic: {
+            control: controlIds.has(element.id)
+              ? element.id
+              : (controlLabels.get(label) ?? "other"),
+            tag: tag(element),
+            hitTag: tag(hit),
+            hitClasses: [...hit.classList].filter((name) => safeClasses.has(name)).slice(0, 3),
+            visible: {
+              x: visible.left,
+              y: visible.top,
+              width: visible.right - visible.left,
+              height: visible.bottom - visible.top,
+            },
+            hitBox: bounds(hit.getBoundingClientRect()),
+            point,
+            scrollX,
+            scrollY,
+          },
         });
     }
   }
@@ -156,6 +237,12 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     issues.push({ kind: "document-overflow", ...documentOverflow });
   return {
     scopeSelector,
+    scopeMetrics: {
+      scrollTop: scope.scrollTop,
+      scrollHeight: scope.scrollHeight,
+      clientHeight: scope.clientHeight,
+      box: bounds(scope.getBoundingClientRect()),
+    },
     stage: document.querySelector(".pro-root")?.getAttribute("data-stage"),
     documentOverflow,
     pickerMetrics,

@@ -75,8 +75,96 @@ function emitGitHubErrors(report, profile) {
         ),
       ),
     ];
+    const controls = new Set([
+      "review-publish",
+      "review-cancel",
+      "dialog-close",
+      "prepare-check",
+      "cover-edit",
+      "advanced",
+      "subtitle-burn",
+      "subtitle-srt",
+      "subtitle-none",
+      "request-stop",
+      "request-pending",
+      "export-quality",
+      "export-aspect",
+      "export-dir",
+    ]);
+    const tags = new Set([
+      "BUTTON",
+      "INPUT",
+      "SELECT",
+      "TEXTAREA",
+      "SUMMARY",
+      "DIV",
+      "SPAN",
+      "P",
+      "SECTION",
+      "ASIDE",
+      "FOOTER",
+      "HEADER",
+      "MAIN",
+      "LABEL",
+      "H1",
+      "H2",
+      "H3",
+      "PROGRESS",
+      "BODY",
+      "HTML",
+    ]);
+    const classes = new Set([
+      "acts",
+      "dialog",
+      "export",
+      "dialog-back",
+      "nx-export-foot",
+      "nx-export",
+      "nx-export-cols",
+      "nx-export-side",
+      "nx-panel",
+      "nx-panel-body",
+      "nx-panel-head",
+      "nx-export-issues",
+      "nx-export-state",
+      "nx-export-progress",
+      "nx-primary",
+      "nx-btn",
+      "btn",
+      "primary",
+      "sp",
+      "nx-adv",
+      "nx-scroll",
+      "nx-export-facts",
+    ]);
+    const number = (value) =>
+      typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 1_000_000
+        ? String(Math.round(value * 10) / 10)
+        : "unknown";
+    const rect = (value) => [value?.x, value?.y, value?.width, value?.height].map(number).join(",");
+    const details = (row.geometry?.issues ?? [])
+      .filter((issue) => issue.kind === "covered-center")
+      .slice(0, 2)
+      .map((issue, index) => {
+        const d = issue.diagnostic ?? {};
+        const safeControl = controls.has(d.control) ? d.control : "other";
+        const safeTag = tags.has(d.tag) ? d.tag : "OTHER";
+        const hitTag = tags.has(d.hitTag) ? d.hitTag : "OTHER";
+        const hitClasses = Array.isArray(d.hitClasses)
+          ? d.hitClasses
+              .filter((name) => classes.has(name))
+              .slice(0, 3)
+              .join(".")
+          : "";
+        return ` control${index + 1}=${safeControl} tag${index + 1}=${safeTag} hit${index + 1}=${hitTag}.${hitClasses || "other"} box${index + 1}=${rect(issue.box)} visible${index + 1}=${rect(d.visible)} hitBox${index + 1}=${rect(d.hitBox)} point${index + 1}=${number(d.point?.x)},${number(d.point?.y)} scroll${index + 1}=${Number(d.scrollX === true)},${Number(d.scrollY === true)}`;
+      })
+      .join("");
+    const metrics = row.geometry?.scopeMetrics;
+    const scopeScroll = metrics
+      ? ` scopeScroll=${number(metrics.scrollTop)},${number(metrics.clientHeight)},${number(metrics.scrollHeight)}`
+      : "";
     console.error(
-      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}`,
+      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${details}${scopeScroll}`,
     );
   }
 }
