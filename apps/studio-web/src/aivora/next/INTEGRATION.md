@@ -1069,6 +1069,16 @@ frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backs
 
 生成确认按钮已按后端接口接到 `confirmBatchGeneration`，业务实现和生成范围/取消/并发回归归后端。跨场结构、后改字段及依赖冲突仍由既有动作层拒绝，不能把这次用户同场镜头操作的撤销扩展成所有删除都可恢复。工程媒体记录已核验，真实文件、Electron、会员及安装包未验；完整集成检查由总控执行。
 
-### 3JR-U06 原始回复保存与排查导出（进行中）
+### 3JR-U06 原始回复保存与排查导出（界面待总控集成）
 
-frontend_round2（Sol medium）已完成接口与设置位置核对，正在准备独立 `ReplyCaptureSettings` 显示组件；等待总控 GO 后写源码。主工作台仅增加渲染接线（`getFilm` 取 `filmRef.current`，`onNotice` 显示结果），后端同步修复采集记录的工程/正文/场次归属与关闭清理 epoch。默认关闭，关闭清除本机记录；仅用户点击导出时生成匹配当前作品的文件，空记录或失配明确提示，不生成空 JSON，不自动上传。导出 await 后核对作品/正文/场次仍相同，再触发下载并释放 Blob URL。当前无本项新验证结果。
+`ReplyCaptureSettings.tsx` 已作为独立显示组件接入「账号 → 设置 → 排查」。主工作台仅增加组件 import 和渲染，`getFilm` 读取 `filmRef.current`，结果由 `onNotice` 进入状态栏；不复制会员或采集业务代码。默认关闭，切换调用真实 `setCaptureEnabled`，关闭会清除本机记录。仅用户点击「导出排查文件」后调用 `captureFile(film)`，无作品、关闭状态、空或无匹配回复均给中文提示，不制造空 JSON。
+
+导出等待期间保存作品 ID、原文及按顺序的场次 ID/正文作为核对依据；等待结束后从 getter 重新读取，任一变化都不下载。关闭再开启或组件卸载也取消旧下载。文件通过 JSON Blob 与下载链接写到浏览器下载位置，链接随后移除，Blob URL 在下一任务释放；不自动上传。后端的工程/正文/场次 hash 及采集 epoch 保护由后端第二轮记录说明。
+
+验证：独立组件/宿主入口 11 项通过，联合既有采集测试共 16 项通过；web `tsc -b --pretty false`、组件及测试目标 ESLint、Prettier 通过。系统 Chromium 保留沙箱，在 1280×800 真实点击设置入口，验证默认关闭、打开、手动下载 JSON、下载内容的原文摘要匹配、关闭清空，`pageerror=[]`。脚本 `.aijian-dev/reply-capture-check.mjs` 使用带归属 scope 的本机合成回复，未调用真实会员，不能作为真实导演回复采集或 Electron 下载验收。全仓集成、远端及发布状态由总控记录。
+
+### 3JR-B11 采集归属接口（后端）
+
+`captureScope(film)` 返回 `Promise<CaptureScope | null>`，其中 `CaptureScope = {projectId, sourceSha256, scriptSha256}`；projectId 使用本机 `film.id`，原文 hash 针对 `sourceText`，场次 hash 针对按顺序的 `[scene.id, scene.text]` 数组。仅开关开启的导演/动作请求计算，原文和上下文不写入采集存储。`recordAgentReply(agent, context, instruction, reply, scope?, requestEpoch = captureEpoch())` 缺 scope 不采集，旧无归属记录清理。`completeMembershipAgent` host 新增可选 `captureFilm: () => CaptureFilm | null`，手动及流水线都读取当前工程；请求开始和回包后核对身份/输入与关闭清理 epoch。
+
+`captureFile(film)` 仍返回 `{name,text,scenes}|null`，film 需要完整的 id/sourceText/scenes/shots/title；按三重身份筛选再组装，正文不匹配返回 null，关闭或清空会使进行中的旧导出失效。界面已经传完整 film，接口返回和下载行为不变。后端 35 项与设置 11 项联合 6 文件 46 项通过，具体证据见 `docs/aivora/3jr-backend-verification.md`；当前工作树待总控接入，真实会员未验。

@@ -30,6 +30,7 @@ import {
 import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
 import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
 import { PreviewFullscreen } from "./PreviewFullscreen";
+import { ReplyCaptureSettings } from "./ReplyCaptureSettings";
 import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
 import {
   prepareArtTransaction,
@@ -4318,6 +4319,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   新手模式：每个镜头只出 1 个版本
                 </label>
               </section>
+              <ReplyCaptureSettings getFilm={() => filmRef.current} onNotice={setNotice} />
               <section className="ws-sec" aria-label="快捷键">
                 <h3>快捷键</h3>
                 {/* 4C-U04: only keys that do something; the same words as the buttons' tooltips. */}
