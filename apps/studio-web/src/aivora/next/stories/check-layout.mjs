@@ -313,6 +313,8 @@ const pages = [
   { name: "剪辑 声音", button: "声音", close: "预览" },
   // 4B-U03: the subtitle look on a landscape and a portrait frame.
   { name: "剪辑 字幕", button: "字幕", close: "预览" },
+  // 5-3-11: the safe-area guides over the preview, then off again.
+  { name: "剪辑 安全框", button: "安全框", close: "安全框" },
   { name: "导出对话框", button: "导出成片", close: "关闭" },
   // 4B-U04: the cover step inside the export dialog, then back and closed.
   {

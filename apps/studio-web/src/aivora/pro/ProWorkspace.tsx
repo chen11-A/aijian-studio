@@ -7955,6 +7955,10 @@ function EditPage({
   onSubtitleStyle?: (styleId: SubtitleStyleId) => void;
 }) {
   const [monitor, setMonitor] = useState<"preview" | "sound" | "subs">("preview");
+  // 5-3-11: guides over the preview: where titles stay readable, and on a portrait work, where
+  // the platforms put their buttons and captions.
+  const [safeArea, setSafeArea] = useState(false);
+  const tall = film.aspectRatio === "9:16";
   // 4B-U03: the style being looked at; 「用这个样式」 keeps it on the work.
   const [subtitlePick, setSubtitlePick] = useState<string>(
     (film as FilmProject & { subtitleStyle?: string }).subtitleStyle ?? "",
@@ -8395,6 +8399,19 @@ function EditPage({
               </div>
               <span className="meta">{film.title}</span>
               <span className="sp" />
+              {monitor === "preview" ? (
+                <button
+                  type="button"
+                  className="btn sm safe-toggle"
+                  aria-pressed={safeArea}
+                  title={
+                    tall ? "画出平台的按钮和标题会挡住的地方" : "画出字幕和标题不会被切掉的范围"
+                  }
+                  onClick={() => setSafeArea((value) => !value)}
+                >
+                  安全框
+                </button>
+              ) : null}
             </div>
             {monitor === "subs" ? (
               // 4B-U03: the subtitle look, on a landscape and a portrait frame; the portrait one
@@ -8463,6 +8480,23 @@ function EditPage({
                       </span>
                     </div>
                   )}
+                  {safeArea ? (
+                    <div className="safe-guide" data-overlay="" aria-hidden="true">
+                      {tall ? (
+                        <>
+                          <span className="safe-side" />
+                          <span className="safe-band">平台的按钮和标题会挡住这里</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="safe-box" />
+                          <span className="safe-box inner">
+                            <span className="safe-note">字幕和标题放在这个框里</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="ctrl">
                   <span className="tc">

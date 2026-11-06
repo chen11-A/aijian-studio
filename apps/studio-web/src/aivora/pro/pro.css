@@ -2286,6 +2286,68 @@ body:has(.pro-root) {
   font-size: 13px;
   text-align: center;
 }
+/* 5-3-11: guides laid over the 剪辑 preview, in the same box as the picture. */
+.pro-root .screen > * {
+  grid-area: 1 / 1;
+}
+.pro-root .screen .safe-guide {
+  position: relative;
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  aspect-ratio: 16/9;
+  pointer-events: none;
+}
+.pro-root[data-aspect="9:16"] .screen .safe-guide {
+  width: min(100cqw, calc(100cqh * 9 / 16));
+  aspect-ratio: 9/16;
+}
+.pro-root .safe-guide .safe-box {
+  position: absolute;
+  inset: 5%;
+  border: 1px dashed color-mix(in srgb, var(--text) 45%, transparent);
+}
+.pro-root .safe-guide .safe-box.inner {
+  inset: 10%;
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.pro-root .safe-guide .safe-note {
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.pro-root .safe-guide .safe-band,
+.pro-root .safe-guide .safe-side {
+  position: absolute;
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--warn) 16%, transparent) 0 6px,
+    color-mix(in srgb, var(--warn) 6%, transparent) 6px 12px
+  );
+}
+.pro-root .safe-guide .safe-band {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  height: 19%;
+  border-top: 1px dashed color-mix(in srgb, var(--warn) 80%, transparent);
+  color: var(--warn);
+  font-size: 12px;
+  text-align: center;
+}
+.pro-root .safe-guide .safe-side {
+  top: 38%;
+  right: 0;
+  bottom: 19%;
+  width: 14%;
+  border-left: 1px dashed color-mix(in srgb, var(--warn) 80%, transparent);
+}
+.pro-root .btn.safe-toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 /* 5-3-14: the search box above a long cast list. */
 .pro-root .cast-search {
   width: 100%;
