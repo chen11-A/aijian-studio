@@ -123,6 +123,7 @@ async function open(realFs = false) {
     host = value;
     return originalHost(value);
   });
+  let heldRead: { admit: () => void; released: Promise<void> } | undefined;
   const raw = async (id: string): Promise<Record<string, unknown> | null> =>
     folder
       ? ((await readProject(folder, id)) as Record<string, unknown> | null)
@@ -263,7 +264,17 @@ async function open(realFs = false) {
         savedAt: "",
       })),
     ),
-    readFilmProject: vi.fn(raw),
+    readFilmProject: vi.fn(async (id: string) => {
+      if (id === film.id && heldRead) {
+        const held = heldRead;
+        heldRead = undefined;
+        const snapshot = await raw(id);
+        held.admit();
+        await held.released;
+        return snapshot;
+      }
+      return await raw(id);
+    }),
     writeFilmProject: write,
     listBundledFilmAudio: vi.fn(async () => ({
       kind: "CATALOG",
@@ -343,6 +354,17 @@ async function open(realFs = false) {
     apply: host.applyLive,
     mode: (v: typeof mode) => {
       mode = v;
+    },
+    holdNextOriginalRead: () => {
+      let admit!: () => void, release!: () => void;
+      const admitted = new Promise<void>((resolve) => {
+        admit = resolve;
+      });
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      heldRead = { admit, released };
+      return { admitted, release };
     },
     onConfirmedRelease: (fn: () => void) => {
       onConfirmedRelease = fn;
@@ -564,6 +586,45 @@ it("retains the original unknown draft when real work menus navigate away and ba
   await within(panel).findByText("本地素材保存状态已核对。");
   expect(f.current().title).toBe("来回导航不能丢的片名");
   expect((await f.raw(f.film.id))!.title).toBe("来回导航不能丢的片名");
+  expect(f.add).toHaveBeenCalledOnce();
+});
+it("does not resurrect a retained pre-add draft after a deferred open read outlives successful readback", async () => {
+  const f = await open();
+  f.mode("transport");
+  const dialog = await choose();
+  fireEvent.click(within(dialog).getByRole("button", { name: "加入当前版本" }));
+  await within(dialog).findByText(/本机写入尚未确认结束/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "另一集" }));
+  await waitFor(() => expect(f.current().id).toBe(f.other.id));
+  const held = f.holdNextOriginalRead();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "原集" }));
+  await held.admitted;
+  expect(f.current().id).toBe(f.other.id);
+  fireEvent.click(screen.getByRole("button", { name: /本地素材保存待核对/ }));
+  const panel = screen.getByRole("dialog", { name: "本地素材保存状态" });
+  await act(async () => f.finish());
+  fireEvent.click(within(panel).getByRole("button", { name: "核对这部作品" }));
+  await within(panel).findByText("本地素材保存状态已核对。");
+  expect(
+    ((await f.raw(f.film.id))!.audioClips as FilmProject["audioClips"]).some(
+      (c) => c.id === "audio-library-added",
+    ),
+  ).toBe(true);
+  await act(async () => held.release());
+  await waitFor(() => expect(f.current().id).toBe(f.film.id));
+  expect(f.current().audioClips.some((c) => c.id === "audio-library-added")).toBe(true);
+  await act(async () => f.flush());
+  await waitFor(() =>
+    expect(f.flushed).toHaveBeenCalledWith({ requestId: "library-flush", status: "saved" }),
+  );
+  expect(
+    ((await f.raw(f.film.id))!.audioClips as FilmProject["audioClips"]).some(
+      (c) => c.id === "audio-library-added",
+    ),
+  ).toBe(true);
   expect(f.add).toHaveBeenCalledOnce();
 });
 it("can review and explicitly adopt a foreign saved conflict even when the original draft had no additional edits", async () => {

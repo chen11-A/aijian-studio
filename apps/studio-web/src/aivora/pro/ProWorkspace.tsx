@@ -3987,13 +3987,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   useDismiss(menu === "account", () => setMenu(null), '[data-menu="account"]');
   // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
   // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
+  const readOpeningFilm = async (id: string) => {
+    const wasUncertain = !!persistence.externalWriteState(id);
+    let saved = await readSaved(id);
+    let pending = persistence.externalWriteState(id);
+    // The first read may have captured old disk bytes before an in-flight add
+    // settled. Once its quarantine cleared, read canonical again; never revive
+    // a retained draft from a completed external write.
+    if (wasUncertain && !pending) {
+      saved = await readSaved(id);
+      pending = persistence.externalWriteState(id);
+    }
+    return { opened: pending?.draft ?? saved, retained: !!pending };
+  };
   const openSaved = (id: string) => {
-    // An unresolved native write retains the user's draft separately from disk.
-    // Reopening that work must not replace it with the older canonical record.
-    const heldDraft = persistence.externalWriteState(id)?.draft;
-    void readSaved(id).then((saved) => {
-      const retained = persistence.externalWriteState(id)?.draft ?? heldDraft;
-      const opened = retained ?? saved;
+    void readOpeningFilm(id).then(({ opened, retained }) => {
       if (!opened) {
         setNotice("没有打开这部作品。");
         return;
@@ -4882,11 +4890,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   <button
                     key={item.id}
                     onClick={() => {
-                      const heldDraft = persistence.externalWriteState(item.id)?.draft;
-                      void readSaved(item.id).then((saved) => {
-                        const retained =
-                          persistence.externalWriteState(item.id)?.draft ?? heldDraft;
-                        const opened = retained ?? saved;
+                      void readOpeningFilm(item.id).then(({ opened, retained }) => {
                         if (!opened) return;
                         const settled = settleOpenedFilm(opened);
                         applyLive(settled.film);
