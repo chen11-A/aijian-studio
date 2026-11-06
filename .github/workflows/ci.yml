@@ -164,6 +164,13 @@ jobs:
           AIVORA_AUDIT_OUT: .aijian-dev/pro-layout-url
         run: node apps/studio-web/e2e/pro-layout-url-audit.mjs --scope core
 
+      - name: Audit actual ProWorkspace export QC review
+        if: ${{ always() && !cancelled() }}
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-export-qc
+        run: node apps/studio-web/e2e/pro-export-qc-audit.mjs
+
       - name: Upload ProWorkspace layout evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -179,5 +186,8 @@ jobs:
             .aijian-dev/pro-layout-url/report.json
             .aijian-dev/pro-layout-url/1280x800-*/*.png
             .aijian-dev/pro-layout-url/1920x1080-*/*.png
+            .aijian-dev/pro-export-qc/report.json
+            .aijian-dev/pro-export-qc/1280x800-*/*.png
+            .aijian-dev/pro-export-qc/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7

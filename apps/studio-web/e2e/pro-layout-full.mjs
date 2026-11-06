@@ -213,7 +213,7 @@ export async function auditFullPages({ browser, config, report, media, persist }
               );
               // Check reachability only: never dispatch an export/provider call.
               await reachable(
-                dialog.getByRole("button", { name: "导出", exact: true }),
+                dialog.getByRole("button", { name: "检查成片", exact: true }),
                 "导出主动作",
               );
             }
