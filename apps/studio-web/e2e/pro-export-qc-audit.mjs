@@ -13,6 +13,7 @@ import { progressStates } from "./pro-export-progress-cases.mjs";
 import { featureStates } from "./pro-feature-cases.mjs";
 import { creationStates } from "./pro-creation-cases.mjs";
 import { audioMixStates } from "./pro-audio-mix-cases.mjs";
+import { audioLibraryStates } from "./pro-audio-library-cases.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -23,6 +24,14 @@ const viewports = [
 const aspects = ["16:9", "9:16"];
 
 function auditIdentity(kind) {
+  if (kind === "audio-library")
+    return {
+      title: "Pro audio library audit",
+      code: "PRO_AUDIO_LIBRARY",
+      label: "Pro audio library",
+      file: "pro-audio-library-audit.mjs",
+      directory: "aivora-pro-audio-library-audit",
+    };
   if (kind === "audio-mix")
     return {
       title: "Pro audio mix audit",
@@ -88,15 +97,17 @@ function emitGitHubErrors(report, profile) {
   ]);
   for (const row of report.results.filter((item) => !item.passed).slice(0, 8)) {
     const states =
-      profile.kind === "audio-mix"
-        ? audioMixStates
-        : profile.kind === "creation"
-          ? creationStates
-          : profile.kind === "features"
-            ? featureStates
-            : profile.kind === "progress"
-              ? progressStates
-              : qcStates;
+      profile.kind === "audio-library"
+        ? audioLibraryStates
+        : profile.kind === "audio-mix"
+          ? audioMixStates
+          : profile.kind === "creation"
+            ? creationStates
+            : profile.kind === "features"
+              ? featureStates
+              : profile.kind === "progress"
+                ? progressStates
+                : qcStates;
     const state = states.includes(row.page) ? row.page : "unknown";
     const safeCombination =
       /^(1280x800|1920x1080)-(16x9|9x16)-/.test(row.combination) &&
@@ -112,6 +123,23 @@ function emitGitHubErrors(report, profile) {
       ),
     ];
     const controls = new Set([
+      "library-open",
+      "library-add",
+      "library-target-refresh",
+      "library-search",
+      "library-lane",
+      "library-duration",
+      "library-start",
+      "library-offset",
+      "library-gain",
+      "library-loop",
+      "library-recover",
+      "library-conflict",
+      "library-adopt-saved",
+      "library-draft-memo",
+      "library-remove",
+      "library-pending",
+      "library-asset",
       "mix-dialogue-volume",
       "mix-dialogue-mute",
       "mix-dialogue-solo",
@@ -185,6 +213,9 @@ function emitGitHubErrors(report, profile) {
       "HTML",
     ]);
     const classes = new Set([
+      "bundled-audio-dialog",
+      "bundled-audio-list",
+      "bundled-audio-body",
       "nx-video-review",
       "nx-video-model",
       "nx-video-facts",
@@ -235,7 +266,7 @@ function emitGitHubErrors(report, profile) {
       .filter(
         (issue) =>
           issue.kind === "covered-center" ||
-          (["features", "creation", "audio-mix"].includes(profile.kind) &&
+          (["features", "creation", "audio-mix", "audio-library"].includes(profile.kind) &&
             issue.kind === "control-clipped-without-scroll"),
       )
       .slice(0, 2)
@@ -267,11 +298,11 @@ function emitGitHubErrors(report, profile) {
     const scopeScroll = metrics
       ? ` scopeScroll=${number(metrics.scrollTop)},${number(metrics.clientHeight)},${number(metrics.scrollHeight)}`
       : "";
-    const checkLine = ["features", "creation", "audio-mix"].includes(profile.kind)
+    const checkLine = ["features", "creation", "audio-mix", "audio-library"].includes(profile.kind)
       ? ` checkLine=${Number.isSafeInteger(row.checkLine) && row.checkLine >= 1 && row.checkLine <= 100000 ? row.checkLine : "unknown"}`
       : "";
     const reach =
-      profile.kind === "creation" && controls.has(row.failedControl)
+      ["creation", "audio-library"].includes(profile.kind) && controls.has(row.failedControl)
         ? ` reachControl=${row.failedControl} reachBox=${rect(row.reachability?.at(-1)?.box)}`
         : "";
     console.error(
@@ -375,20 +406,27 @@ async function run(config, profile) {
   await mkdir(config.out, { recursive: true });
   const report = {
     scope:
-      profile.kind === "audio-mix"
-        ? "Real ProWorkspace four-lane settings, solo/QC input and preview admission with synthetic native metadata and PCM silence; no provider, real export/mixing or listening-quality assertion"
-        : profile.kind === "creation"
-          ? "Real ProWorkspace seven-part text confirmation and project-archive menus with synthetic native ABI; no provider, real ZIP/file or Electron assertion"
-          : profile.kind === "features"
-            ? "Real ProWorkspace Cast field proposals, edit source-waveform and persistent-history UI with synthetic text/IPC metadata; no provider, decode, file or Electron assertion"
-            : profile.kind === "progress"
-              ? "Real ProWorkspace export progress/cancellation with synthetic events; no PID/file/provider/Electron assertion"
-              : "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
+      profile.kind === "audio-library"
+        ? "Real ProWorkspace local catalog selection, target clock, add/remove and global save recovery with real public catalog metadata and synthetic native ABI; no filesystem/decoding/listening/Electron assertion"
+        : profile.kind === "audio-mix"
+          ? "Real ProWorkspace four-lane settings, solo/QC input and preview admission with synthetic native metadata and PCM silence; no provider, real export/mixing or listening-quality assertion"
+          : profile.kind === "creation"
+            ? "Real ProWorkspace seven-part text confirmation and project-archive menus with synthetic native ABI; no provider, real ZIP/file or Electron assertion"
+            : profile.kind === "features"
+              ? "Real ProWorkspace Cast field proposals, edit source-waveform and persistent-history UI with synthetic text/IPC metadata; no provider, decode, file or Electron assertion"
+              : profile.kind === "progress"
+                ? "Real ProWorkspace export progress/cancellation with synthetic events; no PID/file/provider/Electron assertion"
+                : "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
     expectedStates: profile.states,
-    ...(["creation", "audio-mix"].includes(profile.kind)
+    ...(["creation", "audio-mix", "audio-library"].includes(profile.kind)
       ? {
           expectedResults:
-            (profile.kind === "audio-mix" ? audioMixStates : creationStates).length *
+            (profile.kind === "audio-library"
+              ? audioLibraryStates
+              : profile.kind === "audio-mix"
+                ? audioMixStates
+                : creationStates
+            ).length *
             viewports.length *
             aspects.length,
         }
@@ -508,6 +546,28 @@ async function run(config, profile) {
                 "apps/studio-web/e2e/pro-creation-fixture.mjs",
               ]
             : []),
+          ...(profile.kind === "audio-library"
+            ? [
+                "apps/desktop/src/main.ts",
+                "apps/desktop/src/preload.ts",
+                "apps/studio-web/src/aivora/pro/use-audio-mix-preview.ts",
+                "packages/contracts/src/film-audio-mix.ts",
+                "packages/contracts/src/film-audio-mix-plan.js",
+                "apps/studio-web/src/aivora/pro/BundledAudioDialog.tsx",
+                "apps/studio-web/src/aivora/pro/BundledAudioDialog.css",
+                "apps/studio-web/src/aivora/pro/use-bundled-audio-library.tsx",
+                "apps/studio-web/src/aivora/pro/actions/audio-library.ts",
+                "apps/studio-web/src/aivora/pro/actions/persistent-history.ts",
+                "apps/studio-web/src/aivora/pro/film-persistence.ts",
+                "apps/studio-web/src/aivora/film/audio.ts",
+                "apps/desktop/src/film-audio-library.ts",
+                "apps/desktop/src/film-audio-library-runtime.ts",
+                "packages/contracts/src/film-audio-library.ts",
+                "assets/audio-library/manifest.json",
+                "apps/studio-web/e2e/pro-audio-library-cases.mjs",
+                "apps/studio-web/e2e/pro-audio-library-fixture.mjs",
+              ]
+            : []),
           ...(profile.kind === "audio-mix"
             ? [
                 "apps/desktop/src/main.ts",
@@ -546,11 +606,13 @@ async function run(config, profile) {
     );
     const returnedExpected = await profile.runCases({ browser, config, report, media, persist });
     const expected =
-      profile.kind === "audio-mix"
-        ? audioMixStates.length * viewports.length * aspects.length
-        : profile.kind === "creation"
-          ? creationStates.length * viewports.length * aspects.length
-          : returnedExpected;
+      profile.kind === "audio-library"
+        ? audioLibraryStates.length * viewports.length * aspects.length
+        : profile.kind === "audio-mix"
+          ? audioMixStates.length * viewports.length * aspects.length
+          : profile.kind === "creation"
+            ? creationStates.length * viewports.length * aspects.length
+            : returnedExpected;
     report.expectedResults = expected;
     report.exitCode =
       returnedExpected === expected &&
@@ -601,7 +663,7 @@ export async function runAuditCli(
     const config = options(profile);
     if (!config)
       console.log(
-        `Usage: node apps/studio-web/e2e/${identity.file} [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\n${profile.kind === "audio-mix" ? "Audio mix host" : profile.kind === "creation" ? "Creation host" : profile.kind === "features" ? "Feature host" : profile.kind === "progress" ? "Progress host" : "QC host"}: ${profile.states.length} states × 4 viewport/aspect combinations (${profile.states.length * 4} expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.`,
+        `Usage: node apps/studio-web/e2e/${identity.file} [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\n${profile.kind === "audio-library" ? "Audio library host" : profile.kind === "audio-mix" ? "Audio mix host" : profile.kind === "creation" ? "Creation host" : profile.kind === "features" ? "Feature host" : profile.kind === "progress" ? "Progress host" : "QC host"}: ${profile.states.length} states × 4 viewport/aspect combinations (${profile.states.length * 4} expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.`,
       );
     else process.exitCode = await run(config, profile);
   } catch (error) {
