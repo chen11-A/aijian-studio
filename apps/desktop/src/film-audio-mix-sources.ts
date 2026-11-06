@@ -1,6 +1,10 @@
 import { realpath } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
-import { audioMixSettings, buildAudioMixPlan } from "@aijian/contracts/film-audio-mix-plan";
+import {
+  audioMixSettings,
+  buildAudioMixPlan,
+  audioMixEnvelope,
+} from "@aijian/contracts/film-audio-mix-plan";
 import type {
   AudioMixPlan,
   MixClip,
@@ -220,6 +224,7 @@ export async function resolveAudioMix(
       gainDb: clip.gainDb as number,
       ...(clip.loop !== undefined ? { loop: clip.loop as boolean } : {}),
       ...(clip.enabled !== undefined ? { enabled: clip.enabled as boolean } : {}),
+      ...(clip.envelope !== undefined ? { envelope: audioMixEnvelope(clip.envelope) } : {}),
     });
   }
   const plan = buildAudioMixPlan({
@@ -230,6 +235,7 @@ export async function resolveAudioMix(
     sources,
     controls: { lanes: settings.lanes },
   });
+  if (plan.tracks.length > 128) throw new Error("AUDIO_MIX_LIMIT");
   if (plan.limitations.some((code) => code === "INVALID_CLIP" || code === "SOURCE_UNAVAILABLE"))
     throw new Error("INVALID_AUDIO_PLAN");
   return { plan, paths, hashes, sources };
