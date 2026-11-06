@@ -58,7 +58,7 @@ function videoOutput(value: string): boolean {
  * 4B-B09: the take without burned subtitles and the times of its subtitles, as the service
  * reports them. Anything malformed is left out rather than guessed.
  */
-function exportMedia(
+export function exportMedia(
   data: Record<string, unknown>,
 ): Pick<FilmTake, "cleanVideoPath" | "subtitleCues" | "cleanCopyReason"> {
   const clean = typeof data.clean_output_path === "string" ? data.clean_output_path.trim() : "";

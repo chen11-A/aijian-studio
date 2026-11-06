@@ -969,6 +969,11 @@ export interface AijianDesktopBridge
   cancelStoryFilm?(
     projectId: string,
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
+  /** 4B-B12: the copy without burned subtitles made again for a film already made. */
+  remakeStoryFilmCleanCopy?(
+    projectId: string,
+    filmPath: string,
+  ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   readStoryFilmMedia?(path: string): Promise<Uint8Array>;
   revealStoryFilm?(path: string): Promise<{ ok: boolean }>;
   exportStoryFilm?(path: string): Promise<{ ok: boolean; cancelled?: boolean }>;

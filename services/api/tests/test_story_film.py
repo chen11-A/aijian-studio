@@ -1292,3 +1292,105 @@ def test_film_with_a_clean_copy_reports_no_clean_copy_error(tmp_path):
     assert result.status == "SUCCEEDED", result.message
     assert result.clean_output_path
     assert result.clean_copy_error is None and result.clean_copy_reason is None
+
+
+def _film_without_clean_copy(tmp_path, monkeypatch):
+    """A film made with burned subtitles and no clean copy, like one from before 4B-B09."""
+    repository, project_id = _project(tmp_path)
+    service = StoryFilmService(repository, toolchain)
+    with monkeypatch.context() as patched:
+        patched.setattr(service, "_export_clean_copy", lambda *_args: (None, "MEDIA_ENCODE_FAILED"))
+        result = service.produce(project_id, _request())
+    assert result.status == "SUCCEEDED", result.message
+    assert result.output_path and result.clean_output_path is None
+    return repository, project_id, service, Path(result.output_path)
+
+
+def _streams(path: Path) -> set[str]:
+    probe = subprocess.run(
+        [
+            str(toolchain().ffprobe_path),
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_type",
+            "-of",
+            "json",
+            str(path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return {stream["codec_type"] for stream in json.loads(probe.stdout)["streams"]}
+
+
+def test_remakes_the_clean_copy_of_a_film_without_calling_a_provider(tmp_path, monkeypatch):
+    """4B-B12: from the saved assembly, a new file each time, and the film left as it was."""
+    _repository, _project_id, service, film = _film_without_clean_copy(tmp_path, monkeypatch)
+    before = film.read_bytes()
+    calls: list[object] = []
+    monkeypatch.setattr(service, "_live_media", lambda *args: calls.append(args))
+    monkeypatch.setattr(service, "_placeholder_media", lambda *args: calls.append(args))
+    first = service.remake_clean_copy(str(film))
+    assert first.status == "SUCCEEDED", first.message
+    assert first.clean_output_path and first.clean_output_path != str(film)
+    clean = Path(first.clean_output_path)
+    assert clean.parent == film.parent and clean.name.startswith(film.stem + "-clean-")
+    assert {"video", "audio"} <= _streams(clean)
+    assert first.subtitle_cues and first.subtitle_cues[0].text == "雾城来信"
+    assert first.clean_copy_error is None
+    assert film.read_bytes() == before
+    again = service.remake_clean_copy(str(film))
+    assert again.status == "SUCCEEDED", again.message
+    assert again.clean_output_path not in {None, first.clean_output_path}
+    assert calls == []
+
+
+def test_remake_reports_why_the_clean_copy_failed_again(tmp_path, monkeypatch):
+    _repository, _project_id, service, film = _film_without_clean_copy(tmp_path, monkeypatch)
+    monkeypatch.setattr(service, "_export_clean_copy", lambda *_args: (None, "MEDIA_ENCODE_FAILED"))
+    result = service.remake_clean_copy(str(film))
+    assert result.status == "FAILED"
+    assert result.clean_output_path is None
+    assert result.clean_copy_error == "MEDIA_ENCODE_FAILED"
+    assert result.clean_copy_reason == "不带字幕的那份没有做出来（整理画面或配音时没有成功）"
+    assert result.message.endswith("可以再试一次。")
+
+
+def test_remake_finds_only_films_this_workspace_made(tmp_path, monkeypatch):
+    _repository, _project_id, service, film = _film_without_clean_copy(tmp_path, monkeypatch)
+    stranger = film.parent / "0000000000000000-film.mp4"
+    stranger.write_bytes(film.read_bytes() + b"\0")
+    outside = tmp_path / "elsewhere-film.mp4"
+    outside.write_bytes(film.read_bytes())
+    for path in (str(stranger), str(outside), str(film.parent / "missing-film.mp4"), ""):
+        result = service.remake_clean_copy(path)
+        assert result.status == "NOT_FOUND", path
+        assert "只能重新生成" in result.message
+
+
+def test_remake_route_returns_the_clean_copy(tmp_path, monkeypatch):
+    repository, project_id, _service, film = _film_without_clean_copy(tmp_path, monkeypatch)
+    app = create_app(
+        repository=repository,
+        local_media_toolchain=LocalMediaToolchainService(None, fallback=toolchain),
+        sidecar_security=SidecarSecurity(token=TOKEN, host=HOST),
+    )
+    headers = {"Authorization": f"Bearer {TOKEN}", "Origin": "app://aijian"}
+    with TestClient(app, base_url=f"http://{HOST}", client=("127.0.0.1", 1234)) as client:
+        response = client.post(
+            f"/api/v1/projects/{project_id}/story-film/clean-copy",
+            headers=headers,
+            json={"film_path": str(film)},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["status"] == "SUCCEEDED"
+        assert Path(data["clean_output_path"]).is_file()
+        assert data["subtitle_cues"][0]["text"] == "雾城来信"
+        refused = client.post(
+            f"/api/v1/projects/{project_id}/story-film/clean-copy",
+            headers=headers,
+            json={"film_path": str(film), "extra": 1},
+        )
+        assert refused.status_code == 422

@@ -128,6 +128,56 @@ describe("story film IPC", () => {
   });
 });
 
+it("asks the service for a clean copy only of a film in the story-film folder (4B-B12)", async () => {
+  const root = mkdtempSync(join(tmpdir(), "aivora-clean-copy-"));
+  const films = join(root, "story-films");
+  mkdirSync(films);
+  const film = join(films, "abc-film.mp4");
+  writeFileSync(film, Buffer.from("mp4"));
+  const outside = join(root, "other-film.mp4");
+  writeFileSync(outside, Buffer.from("mp4"));
+  writeFileSync(join(films, "abc-voice.wav"), Buffer.from("wav"));
+  const fetcher = vi.fn(
+    async () =>
+      new Response(
+        JSON.stringify({
+          data: { status: "SUCCEEDED", message: "", clean_output_path: `${film}-clean` },
+          request_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        }),
+        { status: 200 },
+      ),
+  );
+  const handlers = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+  registerStoryFilmHandlers(
+    (channel, callback) => handlers.set(channel, callback),
+    (event: boolean) => event,
+    () => session,
+    async () => "never-sent",
+    fetcher,
+    {
+      workspace: () => root,
+      byteLength: async () => 0,
+      read: async () => new Uint8Array(),
+      reveal: () => undefined,
+      chooseExport: async () => null,
+      copy: async () => undefined,
+    },
+  );
+  const clean = handlers.get("story-film:clean-copy")!;
+  const result = (await clean(true, projectId, film)) as { data: Record<string, unknown> };
+  expect(result.data.status).toBe("SUCCEEDED");
+  const [url, init] = (fetcher.mock.calls as unknown as [string, RequestInit][])[0]!;
+  expect(url).toBe(`${session.origin}/api/v1/projects/${projectId}/story-film/clean-copy`);
+  expect(init.method).toBe("POST");
+  expect(JSON.parse(String(init.body))).toEqual({ film_path: film });
+  expect((init.headers as Record<string, string>)["X-Aivora-Media-Bearer"]).toBeUndefined();
+  await expect(clean(false, projectId, film)).rejects.toThrow("not authorized");
+  await expect(clean(true, "prj_bad", film)).rejects.toThrow("Invalid story film project");
+  for (const path of [outside, join(films, "abc-voice.wav"), `${films}/../other-film.mp4`, 7])
+    await expect(clean(true, projectId, path)).rejects.toThrow("Invalid story film path");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
 it("checks the actual media roots before a referenced live IPC request", async () => {
   const root = mkdtempSync(join(tmpdir(), "p3j-referenced-ipc-"));
   const workspace = join(root, "workspace");

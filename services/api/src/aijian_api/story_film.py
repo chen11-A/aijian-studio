@@ -169,6 +169,18 @@ class StoryFilmCue:
 
 
 @dataclass(frozen=True, slots=True)
+class StoryFilmCleanCopyResult:
+    """4B-B12: a copy without burned subtitles made again for a film already made."""
+
+    status: Literal["SUCCEEDED", "FAILED", "NOT_FOUND"]
+    message: str
+    clean_output_path: str | None = None
+    subtitle_cues: tuple[StoryFilmCue, ...] | None = None
+    clean_copy_error: str | None = None
+    clean_copy_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class StoryFilmResult:
     status: FilmStatus
     message: str
@@ -1629,6 +1641,85 @@ class StoryFilmService:
             return (path, None) if path.is_file() else (None, "CLEAN_COPY_MISSING")
         except Exception as error:  # noqa: BLE001 - the subtitled film is still the take
             return None, _failure_log_code(error)
+
+    def remake_clean_copy(self, film_path: str) -> StoryFilmCleanCopyResult:
+        """4B-B12: the copy without burned subtitles for a film this workspace made, again.
+
+        The film is found by its bytes among the saved story films, and its assembly is
+        exported once more without the subtitle segments. No provider is called and nothing is
+        charged; the film itself is left as it is. Works for films made before 4B-B09 too.
+        """
+
+        missing = StoryFilmCleanCopyResult(
+            "NOT_FOUND", "找不到这一镜当时的合成记录，只能重新生成这一镜。"
+        )
+        directory = (Path(self._repository.database_path).parent / "story-films").resolve()
+        try:
+            film = Path(film_path).resolve(strict=True)
+        except (OSError, RuntimeError, ValueError):
+            return missing
+        if film.parent != directory or film.suffix.lower() != ".mp4" or not film.is_file():
+            return missing
+        found = self._story_film_assembly(hashlib.sha256(film.read_bytes()).hexdigest())
+        if found is None:
+            return missing
+        project_id, episode_id, version_id = found
+        try:
+            assembly = EpisodeMediaAssemblyStore(self._repository).read_version(
+                project_id, episode_id, version_id=version_id
+            )
+        except Exception:  # noqa: BLE001 - a record that cannot be read is a missing record
+            return missing
+        content: dict[str, object] = assembly.content.model_dump(mode="json")
+        cues = _export_cues(content.get("subtitle_segments")) or None
+        if not content.get("subtitle_segments"):
+            # Nothing was burned into this film, so it is its own clean copy.
+            return StoryFilmCleanCopyResult(
+                "SUCCEEDED", "这一镜画面里没有压字幕。", str(film), cues
+            )
+        stem = film.stem.removesuffix("-film")
+        # Exports never overwrite, and a failed name keeps its receipt, so each try is new.
+        target = directory / f"{stem}-film-clean-{uuid4().hex[:8]}.mp4"
+        clean, error = self._export_clean_copy(project_id, episode_id, content, target)
+        if clean is None:
+            code = error or "EXPORT_FAILED"
+            reason = _clean_copy_reason(code)
+            return StoryFilmCleanCopyResult(
+                "FAILED", f"{reason}，可以再试一次。", None, cues, code, reason
+            )
+        return StoryFilmCleanCopyResult("SUCCEEDED", "不带字幕的那份做好了。", str(clean), cues)
+
+    def _story_film_assembly(self, digest: str) -> tuple[str, str, str] | None:
+        """Project, episode and assembly version of the story film whose output has `digest`."""
+
+        with self._repository._connection() as connection:
+            rows = connection.execute(
+                """SELECT version.content_json
+                   FROM artifact_versions AS version
+                   JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+                   WHERE artifact.artifact_type = 'story_film' AND version.content_json LIKE ?""",
+                (f"%{digest}%",),
+            ).fetchall()
+            for row in rows:
+                try:
+                    manifest = json.loads(row["content_json"])
+                except ValueError:
+                    continue
+                if not isinstance(manifest, dict) or manifest.get("output_sha256") != digest:
+                    continue
+                version_id = manifest.get("assembly_version_id")
+                if not isinstance(version_id, str):
+                    continue
+                owner = connection.execute(
+                    """SELECT artifact.project_id, artifact.episode_id
+                       FROM artifact_versions AS version
+                       JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+                       WHERE version.version_id = ? AND artifact.artifact_type = ?""",
+                    (version_id, ASSEMBLY_ARTIFACT_TYPE),
+                ).fetchone()
+                if owner is not None and owner["episode_id"] is not None:
+                    return str(owner["project_id"]), str(owner["episode_id"]), version_id
+        return None
 
     def _export_story_assembly(
         self,

@@ -168,6 +168,18 @@ export function createStoryFilmClient(
         headers,
       }).then(read);
     },
+    /** 4B-B12: the copy without burned subtitles made again from the film's saved assembly. */
+    remakeCleanCopy(projectId: string, filmPath: string) {
+      if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
+      if (!isAbsolute(filmPath) || filmPath.length > 4096 || filmPath.includes("\0")) {
+        throw new Error("Invalid story film path");
+      }
+      return fetcher(`${origin}/api/v1/projects/${projectId}/story-film/clean-copy`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ film_path: filmPath }),
+      }).then(read);
+    },
     create(projectId: string, input: StoryFilmCreateInput, mediaBearer?: string) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
       const shots =

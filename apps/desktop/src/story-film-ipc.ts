@@ -131,6 +131,20 @@ export function registerStoryFilmHandlers<TEvent>(
     );
   });
 
+  // 4B-B12: only a film inside this workspace's story films, made again without subtitles.
+  handle("story-film:clean-copy", async (event, ...args) => {
+    if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+    if (!files) throw new Error("Story film files are unavailable");
+    if (args.length !== 2) throw new Error("Unexpected story film arguments");
+    const projectId = args[0];
+    if (typeof projectId !== "string" || !projectIdPattern.test(projectId)) {
+      throw new Error("Invalid story film project");
+    }
+    const film = trustedStoryFilmPath(files.workspace(), args[1]);
+    if (!film.toLowerCase().endsWith(".mp4")) throw new Error("Invalid story film path");
+    return createStoryFilmClient(fetcher, sessionFor()).remakeCleanCopy(projectId, film);
+  });
+
   handle("story-film:read", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
     if (!files) throw new Error("Story film files are unavailable");
