@@ -230,7 +230,10 @@ export async function auditFullPages({ browser, config, report, media, persist }
               );
             }
           } else if (name === "interrupted-work") {
-            await page.getByText(/上次生成已中断|上次.*已标成已中断/).waitFor();
+            await page
+              .locator(".status-note")
+              .filter({ hasText: /^上次关软件时还有镜头没做完，已经停下了。可以重新生成。$/u })
+              .waitFor();
             await stage("分镜", "board");
             assert.equal(await page.locator(".grid .card").count(), 6);
             await page.waitForFunction(() => {
