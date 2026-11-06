@@ -994,6 +994,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     committed.current = result.film;
     setHistoryTick((value) => value + 1);
     rememberFilm(result.film);
+    const action = inverse ? "已撤销" : "已重做";
+    const detail = result.label ? `：${result.label}` : "";
+    setNotice(
+      result.conflicts.length
+        ? `${action}部分改动${detail}。其余内容后来改过，已保留。`
+        : `${action}${detail}`,
+    );
   }
   function undoEdit() {
     movePageHistory(true);

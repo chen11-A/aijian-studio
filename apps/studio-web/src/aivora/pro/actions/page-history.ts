@@ -21,9 +21,94 @@ import {
   applyEditorSuggestion,
   diffEditorSuggestion,
   undoEditorReceipt,
+  type EditorFieldChange,
   type EditorReceipt,
 } from "./editor-changes";
 import type { EditorSelection } from "./editor-context";
+
+const fieldLabels: Record<string, string> = {
+  title: "名称",
+  styleZh: "画风",
+  stylePreset: "画风",
+  aspectRatio: "画面比例",
+  sourceText: "原文",
+  narrationVoiceId: "旁白声音",
+  where: "地点",
+  text: "剧本",
+  ambience: "环境声音",
+  tags: "标签",
+  size: "景别",
+  angle: "角度",
+  move: "运镜",
+  seconds: "时长",
+  picture: "画面",
+  action: "动作",
+  actionBeats: "动作",
+  actionPlan: "动作",
+  performance: "表演",
+  performancePlan: "表演",
+  performanceSource: "表演",
+  styleNote: "画风",
+  characters: "人物",
+  line: "台词",
+  lines: "台词",
+  speaker: "说话人",
+  delivery: "语气",
+  sound: "声音",
+  tag: "标签",
+  blocking: "站位",
+  facing: "朝向",
+  promptZh: "画面说明",
+  promptEn: "画面说明",
+  selectedTakeId: "所选版本",
+  name: "名称",
+  identity: "介绍",
+  gender: "性别",
+  ageBand: "年龄段",
+  voiceId: "声音",
+  prompt: "环境描述",
+  note: "描述",
+  startSeconds: "位置",
+  durationSeconds: "时长",
+  offsetSeconds: "起点",
+  gainDb: "音量",
+  label: "名称",
+  source: "来源说明",
+  userFields: "编辑保护",
+};
+
+/** Describe the fields actually changed, including the successful subset of a partial undo. */
+function fieldHistoryLabel(film: FilmProject, changes: EditorFieldChange[]) {
+  const content = changes.filter((change) => !["source", "userFields"].includes(change.field));
+  const relevant = content.length ? content : changes;
+  const targets = new Set(
+    relevant.map(({ target }) =>
+      JSON.stringify([target.collection, target.collection === "project" ? null : target.id]),
+    ),
+  );
+  const first = relevant[0]!;
+  const collection = first.target.collection;
+  if (relevant.some((change) => change.target.collection !== collection)) return "修改多项内容";
+  const names = [...new Set(relevant.map((change) => fieldLabels[change.field] ?? "内容"))];
+  const detail = names.length === 1 ? names[0]! : "多项内容";
+  if (collection === "project") return `修改作品${detail}`;
+  const kinds = {
+    scenes: "场次",
+    shots: "镜头",
+    characters: "人物",
+    locations: "场景",
+    props: "道具",
+    audioClips: "声音片段",
+  };
+  const kind = kinds[collection];
+  if (targets.size > 1) return `修改 ${targets.size} 个${kind}的${detail}`;
+  const target = first.target;
+  if (target.collection === "shots") {
+    const shot = film.shots.find((item) => item.id === target.id);
+    if (shot) return `修改镜头 ${shot.no} 的${detail}`;
+  }
+  return `修改${kind}的${detail}`;
+}
 
 /** Session-only field history: snapshots are inputs to diff, never restored to the editor. */
 type Entry =
@@ -147,7 +232,10 @@ export function createEditorPageHistory() {
         { ...result.receipt, protectLocks: receipt.protectLocks },
       ]);
     }
-    return result;
+    return {
+      ...result,
+      ...(result.receipt ? { label: fieldHistoryLabel(current, result.receipt.changes) } : {}),
+    };
   }
   return {
     record,

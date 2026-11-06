@@ -454,3 +454,22 @@ Grok 的问题单写明 `directorVideoPrompt` 里也有「竖屏构图」，`5eb
 界面要做的（3JR-U06，交给界面会话）：设置里的开关和说明「保存导演和动作的原始回复（只存本机，用于排查）」；「导出排查文件」按钮调 `captureFile(film)`，把 `text` 存成 `name`。
 
 测试：新增 `agent-capture.test.ts` 5 条（关着不存、关掉删掉；导出的文件场次顺序对、正式回复和补拍分开、动作按镜头编号归场、原文哈希等于测试小说的；没有回复时为空；会员回复成功时会存；回放工具收第 3 场、仍要第 1、2 场、场号超出原文时拒绝）。测试小说导出的文件能被回放工具解析。studio-web 全量 363 文件、4500 条通过；`pnpm typecheck`、eslint、prettier 通过。
+
+## 5-3-03 后端：字段撤销、重做的操作说明（云端接手）
+
+本节取代上文「字段改动还没有 label」的待办状态。基于 `aivora/dev@a4531da`，只改按页历史逻辑，没有改宿主界面。
+
+- `createEditorPageHistory().undo/redo` 的字段改动现在也返回可选 `label`，例如「修改镜头 1 的画面」「修改 2 个镜头的时长」。结构历史的既有说明保持不变。
+- 说明只根据真正成功恢复的字段生成，不包含字段值、内部字段名或原始标识。部分冲突只描述成功部分；全冲突、跨作品拒绝时不返回成功说明。动作的主字段与有序动作节拍归成同一项。
+- 比较后再写入、用户锁、按页范围、后来生成的媒体及后来修改的其他字段保护保持不变。界面仍需消费返回的 `label`，不能把接口已给说成状态栏已经接通。
+- 验证：新增 `page-history-field-label.test.ts` 7 条，加既有 `page-history.test.ts`、`page-history-user-shots.test.ts`、`editor-changes.test.ts`，共 4 文件 25 条通过。覆盖实际撤销/重做、后续媒体保留、部分冲突、全部拒绝、多镜头记录、动作字段归组、助手回执及仅编辑保护变化。目标 ESLint、Prettier 通过；最终集成类型检查由总控在界面并行修改收尾后执行。
+
+未调用会员或付费服务；本地逻辑回归不代表真实会员与整品验收通过。
+
+### 5-3-03 宿主接线复核（云端）
+
+- 复核现有字段说明实现，未发现需要修改的标签问题。`ProWorkspace.tsx` 的 `movePageHistory` 成功应用后消费可选 `label`，状态栏显示「已撤销：修改场次的剧本」或「已重做：修改场次的剧本」；没有说明的旧事务仍显示「已撤销／已重做」。
+- 部分撤销显示「已撤销部分改动：……。其余内容后来改过，已保留。」；全部冲突保留原拒绝提示，不宣称成功，不展示正文、字段值或内部冲突码。原比较后写入、用户锁、媒体保护均未改动，重做遇到任一字段冲突仍整次拒绝。
+- 新增 `ProWorkspace.history.test.tsx` 4 项宿主测试：实际编辑与撤销/重做的状态栏和存盘读回、部分撤销保留冲突字段及后续重做、重做原子拒绝、全冲突不报成功。冲突用例将真实历史实例接入宿主，按键触发实际恢复及存盘，不模拟恢复结果。
+- 验证：`pnpm --filter @aijian/studio-web exec vitest run src/aivora/pro/ProWorkspace.history.test.tsx src/aivora/pro/actions/page-history-field-label.test.ts src/aivora/pro/actions/page-history.test.ts src/aivora/pro/actions/page-history-user-shots.test.ts src/aivora/pro/actions/editor-changes.test.ts`：5 文件、29 项通过；既有 `ProWorkspace.test.tsx -t 'undo|history|B11'`：17 项通过、120 项未选择，合计 46 项通过，不称为全量工作台测试。`pnpm --filter @aijian/studio-web typecheck`、上述历史文件与宿主目标 ESLint、相关文件及两份文档 Prettier、`git diff --check` 均通过。
+- 本项仅修改宿主业务函数，未修改渲染区、样式或全屏组件。总控另报最终全仓类型（TS、mypy310）、构建、lint（ESLint、Ruff、Prettier、Ruff format）均通过，详见总控汇总；没有调用付费服务，没有提交、推送、合并或发布。
