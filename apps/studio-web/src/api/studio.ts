@@ -1013,6 +1013,7 @@ export interface AijianDesktopBridge
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
+  inspectBundledFilmAudioTarget?: FilmAudioLibraryGateway["inspectBundledFilmAudioTarget"];
   listBundledFilmAudio?: FilmAudioLibraryGateway["listBundledFilmAudio"];
   addBundledFilmAudio?: FilmAudioLibraryGateway["addBundledFilmAudio"];
   readFilmMedia?: (

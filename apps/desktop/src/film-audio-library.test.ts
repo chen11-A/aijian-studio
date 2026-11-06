@@ -372,8 +372,30 @@ it("keeps the first in-flight import busy even after multiple duplicate calls ar
       kind: "FAILED",
       code: "BUSY",
     });
+  const target = {
+    projectId: f.request.projectId,
+    expectedProjectHash: f.request.expectedProjectHash,
+    shotId: f.request.shotId,
+    takeId: f.request.takeId,
+  };
+  for (let count = 0; count < 2; count++)
+    expect(await f.library.inspectBundledFilmAudioTarget(target)).toMatchObject({
+      kind: "FAILED",
+      code: "BUSY",
+    });
   release();
   expect((await first).kind).toBe("ADDED");
+  expect(await f.library.inspectBundledFilmAudioTarget(target)).toMatchObject({
+    kind: "FAILED",
+    code: "PROJECT_CHANGED",
+  });
+  const stored = (await readProject(f.filmsRoot, target.projectId))!;
+  expect(
+    await f.library.inspectBundledFilmAudioTarget({
+      ...target,
+      expectedProjectHash: filmHistoryRecordHash(stored),
+    }),
+  ).toMatchObject({ kind: "TARGET", durationSeconds: 2 });
 });
 it("rejects a series symlink alias and pinned tool mismatch without modifying source bytes", async () => {
   const f = await fixture();
