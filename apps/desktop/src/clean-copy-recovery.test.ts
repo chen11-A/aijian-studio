@@ -157,6 +157,24 @@ it("explicitly rebuilds from verified original proof, saves by CAS, and retains 
     expect(
       finalCleanRecoveryProof(f.host.databasePath, f.project, f.clean, hash("new tagged clean")),
     ).toBe(true);
+    expect(
+      finalCleanRecoveryProof(
+        f.host.databasePath,
+        f.project,
+        f.clean,
+        hash("new tagged clean"),
+        "assembly-version",
+      ),
+    ).toBe(true);
+    expect(
+      finalCleanRecoveryProof(
+        f.host.databasePath,
+        f.project,
+        f.clean,
+        hash("new tagged clean"),
+        "another-assembly",
+      ),
+    ).toBe(false);
   } finally {
     f.close();
   }

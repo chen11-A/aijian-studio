@@ -1,3 +1,4 @@
+import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
   prepareHistoryInput,
   historyRecordHash,
@@ -125,6 +126,7 @@ import {
   ensureLocations,
   chosenExport,
   confirmEstimate,
+  storyFilmBatches,
   filmFileName,
   LOUDNESS_NOTE,
   assignActionBeats,
@@ -590,6 +592,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   } | null>(null);
   const [confirmSignIn, setConfirmSignIn] = useState(false);
   const [range, setRange] = useState(false);
+  const [rangeSeconds, setRangeSeconds] = useState<{
+    shotId: string;
+    takeId: string;
+    start: number;
+    end: number;
+  } | null>(null);
+  const [rangeDialog, setRangeDialog] = useState(false);
+  const [rangeBusy, setRangeBusy] = useState(false);
+  const [rangeMessage, setRangeMessage] = useState("");
+  const [rangeReady, setRangeReady] = useState<RangeReady | null>(null);
+  const rangeReadyRef = useRef<RangeReady | null>(null);
+  const rangeWorking = useRef(false);
+  const rangeCancelled = useRef(false);
+  const rangeExecuting = useRef(false);
+  const rangeAccepted = useRef<FilmProject | null>(null);
+  useEffect(() => {
+    if (
+      rangeWorking.current &&
+      rangeAccepted.current &&
+      filmRef.current !== rangeAccepted.current
+    ) {
+      rangeCancelled.current = true;
+      const pending = rangeReadyRef.current;
+      if (pending)
+        void window.aijian
+          ?.discardFilmRange?.(pending.project.id, pending.planId)
+          .catch(() => undefined);
+    }
+  }, [film]);
   const [span, setSpan] = useState<{ from: number; to: number } | null>(null);
   const [comparing, setComparing] = useState(false);
   // 4A-U10: only runAction still sets it; the 修改这一段 tiles that read it are gone.
@@ -3933,6 +3964,227 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     refreshPersistentHistory((value) => value + 1);
     return input.film;
   }
+  function openSecondsRange() {
+    if (rangeWorking.current) return;
+    const target = shownShots[shot];
+    const take =
+      target?.takes.find((row) => row.id === target.selectedTakeId) ??
+      target?.takes.find((row) => row.status === "done" && row.videoPath);
+    setRangeReady(null);
+    rangeReadyRef.current = null;
+    setRangeMessage("");
+    if (!target || !take?.videoPath) {
+      // No source exists to splice. This remains the existing full-shot creation panel,
+      // with its explicit ordinary confirmation, never a claimed range replacement.
+      setRange(false);
+      setComparing(false);
+      setBench(true);
+      setStage("board");
+      return;
+    }
+    if (span && span.from !== span.to) {
+      setNotice({
+        code: "GENERATION_SELECTION_STALE",
+        text: NOTICE_TEXT.GENERATION_SELECTION_STALE,
+        detail: "秒级局部重做每次只处理一个镜头；请先选择其中一镜。",
+      });
+      return;
+    }
+    if (!rangeSeconds || rangeSeconds.shotId !== target.id || rangeSeconds.takeId !== take.id)
+      setRangeSeconds({
+        shotId: target.id,
+        takeId: take.id,
+        start: 0,
+        end: Math.min(2, take.durationSeconds ?? target.seconds),
+      });
+    setRangeDialog(true);
+  }
+  async function inspectSecondsRange() {
+    const bridge = window.aijian,
+      selected = rangeSeconds;
+    if (rangeWorking.current || !selected) return;
+    if (
+      !bridge?.prepareFilmRange ||
+      !bridge.generateFilmRange ||
+      !bridge.finishFilmRange ||
+      !bridge.discardFilmRange
+    ) {
+      setRangeMessage("秒级局部重做需要支持此功能的桌面版；本次没有生成。");
+      return;
+    }
+    rangeWorking.current = true;
+    rangeCancelled.current = false;
+    rangeExecuting.current = false;
+    setRangeBusy(true);
+    setRangeMessage("");
+    let input: Awaited<ReturnType<typeof prepareHistoryInput>> | undefined;
+    try {
+      const id = filmRef.current?.id;
+      await ensureBillingProject();
+      const base = filmRef.current;
+      if (!base || base.id !== id) return;
+      input = await prepareHistoryInput(base, historyHost);
+      rangeAccepted.current = input.film;
+      const result = await bridge.prepareFilmRange({
+        projectId: base.id,
+        shotId: selected.shotId,
+        takeId: selected.takeId,
+        start: selected.start,
+        end: selected.end,
+        expectedHash: input.expectedHash,
+      });
+      if (rangeCancelled.current) {
+        if (result.kind === "READY")
+          void bridge.discardFilmRange(base.id, result.planId).catch(() => undefined);
+        setRangeDialog(false);
+        return;
+      }
+      if (!input.current()) {
+        if (result.kind === "READY")
+          void bridge.discardFilmRange(base.id, result.planId).catch(() => undefined);
+        setRangeMessage("作品或版本已变化，请重新检查范围；本次没有生成。");
+        return;
+      }
+      if (result.kind !== "READY") {
+        setRangeMessage(
+          result.code === "CLEAN_SOURCE_REQUIRED"
+            ? "这份原片还没有可核验的无字幕来源。可先尝试本机恢复无字幕副本；仍无法核验时暂不支持本次局部重做。本次没有派发，不需要重新付费生成。"
+            : result.code === "INVALID_RANGE"
+              ? "请选择单镜内至少1秒、最多10秒且保留原片前段或后段的范围；不把整镜重做称为局部重做。"
+              : result.code === "SOURCE_UNVERIFIED"
+                ? "这份原片的归属暂无法核验，本次没有生成。"
+                : result.code === "PROJECT_CHANGED"
+                  ? "作品或版本已变化，请重新检查范围；本次没有生成。"
+                  : "原片规格或本机媒体工具暂不支持此范围，本次没有生成。",
+        );
+        return;
+      }
+      const ready = {
+        project: input.film,
+        shotId: selected.shotId,
+        takeId: selected.takeId,
+        planId: result.planId,
+        plan: result.plan,
+      };
+      rangeReadyRef.current = ready;
+      setRangeReady(ready);
+    } catch {
+      setRangeMessage("范围尚未检查，本次没有生成。请先保存作品后重试。");
+    } finally {
+      try {
+        if (input) await input.release();
+      } catch {
+        const pending = rangeReadyRef.current;
+        if (pending)
+          void bridge.discardFilmRange(pending.project.id, pending.planId).catch(() => undefined);
+        rangeReadyRef.current = null;
+        setRangeReady(null);
+        setRangeMessage("保存状态尚未确认，本次没有派发生成；请先核对保存状态。");
+      } finally {
+        rangeWorking.current = false;
+        rangeAccepted.current = null;
+        setRangeBusy(false);
+      }
+    }
+  }
+
+  async function confirmSecondsRange() {
+    const ready = rangeReadyRef.current,
+      bridge = window.aijian;
+    if (
+      !ready ||
+      rangeWorking.current ||
+      !bridge?.generateFilmRange ||
+      !bridge.prepareFilmRange ||
+      !bridge.finishFilmRange ||
+      !bridge.discardFilmRange
+    )
+      return;
+    if (
+      filmRef.current !== ready.project ||
+      !actions.regenerate.enabled ||
+      generationRuns.current.has(ready.project.id)
+    ) {
+      setRangeMessage("作品、选版或会员能力已变化，请重新检查；本次没有生成。");
+      return;
+    }
+    rangeWorking.current = true;
+    rangeCancelled.current = false;
+    rangeExecuting.current = true;
+    rangeAccepted.current = ready.project;
+    generationRuns.current.add(ready.project.id);
+    setRangeBusy(true);
+    setRangeReady(null);
+    setRangeMessage("正在生成所选画面段；生成结果会先保留，再检查是否能够接回原片。");
+    try {
+      const target = ready.project.shots.find((row) => row.id === ready.shotId)!;
+      const body = storyFilmBatches(
+        ready.project,
+        [{ ...target, line: "", lines: [], seconds: ready.plan.generationSeconds }],
+        ready.project.draft,
+      )[0];
+      const prompt = body?.shots?.[0]?.prompt;
+      if (!prompt) throw new Error("RANGE_PROMPT_REQUIRED");
+      const result = await executeRangeRedo(ready, prompt, {
+        ...historyHost,
+        gateway: {
+          prepareFilmRange: bridge.prepareFilmRange,
+          generateFilmRange: bridge.generateFilmRange,
+          finishFilmRange: bridge.finishFilmRange,
+          discardFilmRange: bridge.discardFilmRange,
+        },
+        cancelled: () => rangeCancelled.current,
+        apply: (next) => {
+          applyLive(next);
+          rangeAccepted.current = filmRef.current;
+        },
+        accept: (next) => {
+          applyLive(next);
+          rangeAccepted.current = filmRef.current;
+        },
+      });
+      if (filmRef.current?.id === ready.project.id)
+        setRangeMessage(
+          result === "applied"
+            ? "局部画面已接成一个新版本，原片和生成段均保留。原完整音轨未改，未验证口型。"
+            : result === "backup-failed"
+              ? "历史快照没有保存，本次没有派发生成。"
+              : result === "stale"
+                ? "作品或选版已变化，本次没有派发生成。"
+                : result === "not-started"
+                  ? "本机准备未完成，本次没有派发生成；请核对原片、媒体工具与账号。"
+                  : result === "unconfirmed"
+                    ? "生成结果尚未确认，请核对会员端与版本；未自动重试。"
+                    : "生成段已保留，尚未接回原片；请查看版本，不要重复派发。",
+        );
+    } catch {
+      if (filmRef.current?.id === ready.project.id)
+        setRangeMessage("本次结果尚未确认或尚未落盘，请核对版本与保存状态；未自动重试。");
+    } finally {
+      rangeReadyRef.current = null;
+      rangeWorking.current = false;
+      rangeAccepted.current = null;
+      generationRuns.current.delete(ready.project.id);
+      setRangeBusy(false);
+    }
+  }
+  function cancelSecondsRange() {
+    rangeCancelled.current = true;
+    const ready = rangeReadyRef.current;
+    if (ready)
+      void window.aijian?.discardFilmRange?.(ready.project.id, ready.planId).catch(() => undefined);
+    if (rangeWorking.current && !rangeExecuting.current) {
+      setRangeDialog(false);
+      return;
+    }
+    if (rangeWorking.current) {
+      setRangeMessage("已取消接回请求，正在等本次生成结果保留；不会自动重试，尚未确认进程停止。");
+      return;
+    }
+    rangeReadyRef.current = null;
+    setRangeReady(null);
+    setRangeDialog(false);
+  }
   async function keepCurrentHistory() {
     const base = filmRef.current;
     if (!base || persistentHistoryBusyRef.current) return;
@@ -4813,13 +5065,41 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setComparing(true);
                     setRightTab("fix");
                   }}
-                  onMarkIn={() => {
+                  onMarkIn={(seconds) => {
+                    const target = shownShots[shot];
+                    const take =
+                      target?.takes.find((row) => row.id === target.selectedTakeId) ??
+                      target?.takes.find((row) => row.status === "done");
+                    if (target && take)
+                      setRangeSeconds({
+                        shotId: target.id,
+                        takeId: take.id,
+                        start: seconds,
+                        end:
+                          rangeSeconds?.shotId === target.id && rangeSeconds.takeId === take.id
+                            ? rangeSeconds.end
+                            : (take.durationSeconds ?? target.seconds),
+                      });
                     setSpan({ from: shot, to: span?.to ?? shot });
                     setRange(true);
                     setComparing(true);
                     setRightTab("fix");
                   }}
-                  onMarkOut={() => {
+                  onMarkOut={(seconds) => {
+                    const target = shownShots[shot];
+                    const take =
+                      target?.takes.find((row) => row.id === target.selectedTakeId) ??
+                      target?.takes.find((row) => row.status === "done");
+                    if (target && take)
+                      setRangeSeconds({
+                        shotId: target.id,
+                        takeId: take.id,
+                        start:
+                          rangeSeconds?.shotId === target.id && rangeSeconds.takeId === take.id
+                            ? rangeSeconds.start
+                            : 0,
+                        end: seconds,
+                      });
                     const from = span?.from ?? shot;
                     setSpan({ from: Math.min(from, shot), to: Math.max(from, shot) });
                     setRange(true);
@@ -4870,30 +5150,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setRange(true);
                     setRightTab("fix");
                   }}
-                  onRangeGenerate={() => {
-                    const from = span?.from ?? shot;
-                    const to = span?.to ?? shot;
-                    // 4A-U10: making a video always opens the same 单镜 panel; a longer part
-                    // of the cut is queued shot by shot.
-                    if (from === to) {
-                      setRange(false);
-                      setComparing(false);
-                      setShot(from);
-                      setBench(true);
-                      setStage("board");
-                      return;
-                    }
-                    const rows = shownShots.slice(Math.min(from, to), Math.max(from, to) + 1);
-                    if (rows.length === 0) return;
-                    setPendingBatch(rows);
-                    const names = rows
-                      .map((item) => {
-                        const no = film?.scenes.find((row) => row.id === item.sceneId)?.no;
-                        return no ? `第 ${no} 场第 ${item.no} 个镜头` : `第 ${item.no} 个镜头`;
-                      })
-                      .join("、");
-                    setNotice(`只重做${names}。在确认表里点「开始生成」才会出视频。`);
-                  }}
+                  onRangeGenerate={openSecondsRange}
                   onClearRange={() => {
                     setRange(false);
                     setComparing(false);
@@ -5075,6 +5332,104 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <button className="btn" type="button" onClick={() => setConfirmSignIn(false)}>
                   先不登录
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {rangeDialog && rangeSeconds && (
+          <div className="dialog-back">
+            <div
+              className="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label="秒级局部重做"
+              style={{ maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}
+            >
+              <h2>秒级局部重做 · 仅画面</h2>
+              {film &&
+                film.shots
+                  .filter((item) => item.id === rangeSeconds.shotId)
+                  .map((item) => (
+                    <p key={item.id}>{scopeOf(film, item.sceneId, item)} · 当前所选版本</p>
+                  ))}
+              <p>
+                每次处理单镜内1–10秒。保留原完整音轨，不重做对白，不验证口型。只使用可核验的无字幕画面，保留原字幕布局供导出；预览不烧入字幕，请在导出时重新检查。
+              </p>
+              <p>
+                当前没有可靠的逐句语音时间；无法精确扩展整句。需要修改台词时请取消，保守重做整镜。
+              </p>
+              <p>目前请从保留的原版开始；本机拼接版暂不支持再次局部重做，原版不会删除。</p>
+              <label>
+                入点（秒）
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  aria-label="局部重做入点"
+                  disabled={rangeBusy}
+                  value={rangeSeconds.start}
+                  onChange={(event) => {
+                    setRangeSeconds({ ...rangeSeconds, start: Number(event.target.value) });
+                    setRangeReady(null);
+                    rangeReadyRef.current = null;
+                  }}
+                />
+              </label>
+              <label>
+                出点（秒）
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  aria-label="局部重做出点"
+                  disabled={rangeBusy}
+                  value={rangeSeconds.end}
+                  onChange={(event) => {
+                    setRangeSeconds({ ...rangeSeconds, end: Number(event.target.value) });
+                    setRangeReady(null);
+                    rangeReadyRef.current = null;
+                  }}
+                />
+              </label>
+              {rangeReady && (
+                <div role="status">
+                  <p>
+                    请求范围 {rangeReady.plan.requested.start.toFixed(3)}–
+                    {rangeReady.plan.requested.end.toFixed(3)} 秒
+                  </p>
+                  <p>
+                    按原片 {rangeReady.plan.frameRate} 帧/秒对齐后：
+                    {rangeReady.plan.effective.start.toFixed(3)}–
+                    {rangeReady.plan.effective.end.toFixed(3)} 秒
+                  </p>
+                  <p>
+                    {confirmEstimate([{ seconds: rangeReady.plan.generationSeconds }], 1)}
+                    ；需要的首帧从原片本机提取。只派发一次，接回失败不自动重试。
+                  </p>
+                </div>
+              )}
+              {rangeMessage && <p role="status">{rangeMessage}</p>}
+              <div className="dialog-actions">
+                <button className="btn" onClick={cancelSecondsRange}>
+                  {rangeBusy ? (rangeExecuting.current ? "取消接回" : "取消检查") : "取消"}
+                </button>
+                {rangeReady ? (
+                  <button
+                    className="btn primary"
+                    disabled={rangeBusy}
+                    onClick={() => void confirmSecondsRange()}
+                  >
+                    确认生成此画面段
+                  </button>
+                ) : (
+                  <button
+                    className="btn primary"
+                    disabled={rangeBusy}
+                    onClick={() => void inspectSecondsRange()}
+                  >
+                    检查秒级范围
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -9081,8 +9436,8 @@ function EditPage({
   audible: boolean;
   onImportMusic: (file: File) => void;
   onRewrite: (picture: string) => void;
-  onMarkIn: () => void;
-  onMarkOut: () => void;
+  onMarkIn: (seconds: number) => void;
+  onMarkOut: (seconds: number) => void;
   span: { from: number; to: number } | null;
   shots: FilmShot[];
   onLane?: (lane: "dialogue" | "score", gainDb: number) => void;
@@ -9312,6 +9667,10 @@ function EditPage({
     headLeft = (selected?.left ?? 1) + fraction * (selected?.width ?? 0);
     headSeconds = start + fraction * current.seconds;
   }
+  const sourceSeconds = joined
+    ? (cutPosition(segments, mediaTime)?.fraction ?? 0) *
+      (chosenTake?.durationSeconds ?? current?.seconds ?? 0)
+    : mediaTime;
   const seekTo = (x: number) => {
     const point = pointAt(clips, x);
     if (!point) return;
@@ -9817,10 +10176,20 @@ function EditPage({
               <Ic name="trash" />
             </button>
             <span className="vsep" />
-            <button className="icon-btn" aria-label="设入点" title="设入点 (I)" onClick={onMarkIn}>
+            <button
+              className="icon-btn"
+              aria-label="设入点"
+              title="设入点 (I)"
+              onClick={() => onMarkIn(sourceSeconds)}
+            >
               <Ic name="bracketL" />
             </button>
-            <button className="icon-btn" aria-label="设出点" title="设出点 (O)" onClick={onMarkOut}>
+            <button
+              className="icon-btn"
+              aria-label="设出点"
+              title="设出点 (O)"
+              onClick={() => onMarkOut(sourceSeconds)}
+            >
               <Ic name="bracketR" />
             </button>
             <span className="sp" />
