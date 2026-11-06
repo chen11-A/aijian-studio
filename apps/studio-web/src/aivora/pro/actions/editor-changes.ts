@@ -43,6 +43,7 @@ const fields = {
     "facing",
     "promptZh",
     "promptEn",
+    "reviewedVideoPrompt",
     "source",
     "userFields",
     "selectedTakeId",

@@ -1,7 +1,8 @@
+import { compileSevenPartVideo } from "../film/seven-part-video";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import type { FilmRangeGateway } from "@aijian/contracts/film-range";
-import { sampleFilm, type FilmProject } from "../film/project";
+import { sampleFilm, upgradeFilm, type FilmProject } from "../film/project";
 import { historyRecordHash } from "./actions/persistent-history";
 import { ProWorkspace } from "./ProWorkspace";
 beforeEach(() => localStorage.clear());
@@ -9,7 +10,7 @@ afterEach(() => {
   delete window.aijian;
   delete window.aijianGrok;
 });
-function fixture() {
+function fixture(withVideoReview = false) {
   const film = sampleFilm();
   film.backendProjectId = `prj_${"a".repeat(32)}`;
   film.scenes = [film.scenes[0]!];
@@ -35,6 +36,13 @@ function fixture() {
       durationSeconds: 4,
     },
   ];
+  if (withVideoReview) {
+    Object.assign(film, upgradeFilm(film)!);
+    const target = film.shots[0]!;
+    const reviewed = compileSevenPartVideo(film, target);
+    expect(reviewed.issues).toEqual([]);
+    target.reviewedVideoPrompt = reviewed.draft;
+  }
   let disk = structuredClone(film),
     fail = false;
   const events: string[] = [];
@@ -241,4 +249,34 @@ it("cancels an in-flight local range inspection and discards its late plan witho
   expect(f.generate).not.toHaveBeenCalled();
   expect(f.oldVideo).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: "确认生成此画面段" })).toBeNull();
+});
+
+it("reviews a distinct local-range prompt after a confirmed whole-shot draft, without clearing or rebinding the saved draft", async () => {
+  const f = fixture(true),
+    savedReview = structuredClone(f.film.shots[0]!.reviewedVideoPrompt);
+  const dialog = await open();
+  fireEvent.change(within(dialog).getByLabelText("局部重做入点"), { target: { value: "1" } });
+  fireEvent.change(within(dialog).getByLabelText("局部重做出点"), { target: { value: "3" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "检查秒级范围" }));
+  const confirm = await within(dialog).findByRole("button", { name: "确认生成此画面段" });
+  fireEvent.click(within(dialog).getByText("本次局部画面提交文本"));
+  expect(dialog).toHaveTextContent("另编本次时长");
+  expect(dialog).toHaveTextContent("原完整音轨保留");
+  expect(f.saved().shots[0]!.reviewedVideoPrompt).toEqual(savedReview);
+  expect(f.generate).not.toHaveBeenCalled();
+  fireEvent.click(confirm);
+  await waitFor(() => expect(f.saved().shots[0]!.selectedTakeId).toBe("composed"));
+  expect(f.generate).toHaveBeenCalledOnce();
+  const actual = f.generate.mock.calls[0]![0].prompt;
+  expect(actual).toContain("2 秒");
+  expect(actual).not.toContain("4 秒");
+  expect(actual).not.toContain("原来的整句对白");
+  expect(f.saved().shots[0]!.reviewedVideoPrompt).toEqual(savedReview);
+  expect(f.saved().shots[0]!.takes.map((take) => take.id)).toEqual([
+    "source",
+    "segment",
+    "composed",
+  ]);
+  expect(f.oldVideo).not.toHaveBeenCalled();
+  expect(f.still).not.toHaveBeenCalled();
 });

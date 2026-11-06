@@ -60,6 +60,7 @@ const fieldLabels: Record<string, string> = {
   facing: "朝向",
   promptZh: "画面说明",
   promptEn: "画面说明",
+  reviewedVideoPrompt: "视频说明",
   selectedTakeId: "所选版本",
   name: "名称",
   identity: "介绍",
