@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import "./next.css";
 import "./ExportProgress.css";
 
@@ -32,7 +32,8 @@ export type ExportProgressProps = {
   progress?: ExportProgressMeasure;
   cancelState: ExportCancelState;
   published?: readonly PublishedExport[];
-  onRequestCancel?: () => void | Promise<void>;
+  /** Only explicit false means main refused the request. Other acknowledgements await events. */
+  onRequestCancel?: () => void | boolean | Promise<void | boolean>;
 };
 
 const ACTIVE = new Set<ExportPhase>([
@@ -95,13 +96,28 @@ export function ExportProgress({
 }: ExportProgressProps) {
   const id = useId();
   const sentFor = useRef<string | null>(null);
+  const requestVersion = useRef(0);
   const [requestedFor, setRequestedFor] = useState<string | null>(null);
   const [uncertainFor, setUncertainFor] = useState<string | null>(null);
+  // Main only emits unavailable when the stop request has not been accepted. This
+  // authoritative refusal lets a later cancellable phase accept a fresh user request.
+  useEffect(() => {
+    if (cancelState !== "unavailable") return;
+    if (sentFor.current === operationKey) {
+      sentFor.current = null;
+      requestVersion.current += 1;
+    }
+    setRequestedFor((current) => (current === operationKey ? null : current));
+    setUncertainFor((current) => (current === operationKey ? null : current));
+  }, [cancelState, operationKey]);
   const knownPhase = Object.hasOwn(PHASE_LABELS, phase) ? phase : "unknown";
   const active = ACTIVE.has(knownPhase);
   const stopped = cancelState === "stopped";
   const requested =
-    active && !stopped && (cancelState === "requested" || requestedFor === operationKey);
+    active &&
+    !stopped &&
+    cancelState !== "unavailable" &&
+    (cancelState === "requested" || requestedFor === operationKey);
   const measured = active && !stopped ? measurement(progress) : null;
   const canRequest =
     active && !stopped && !requested && cancelState === "available" && Boolean(onRequestCancel);
@@ -123,11 +139,28 @@ export function ExportProgress({
   function requestStop() {
     if (!canRequest || sentFor.current === operationKey || !onRequestCancel) return;
     sentFor.current = operationKey;
+    const version = ++requestVersion.current;
     setRequestedFor(operationKey);
+    const unconfirmed = () => {
+      if (requestVersion.current === version && sentFor.current === operationKey)
+        setUncertainFor(operationKey);
+    };
     try {
-      void Promise.resolve(onRequestCancel()).catch(() => setUncertainFor(operationKey));
+      void Promise.resolve(onRequestCancel()).then((accepted) => {
+        if (
+          accepted !== false ||
+          requestVersion.current !== version ||
+          sentFor.current !== operationKey
+        )
+          return;
+        // An explicit refusal survives React batching even if unavailable was never painted.
+        requestVersion.current += 1;
+        sentFor.current = null;
+        setRequestedFor((current) => (current === operationKey ? null : current));
+        setUncertainFor((current) => (current === operationKey ? null : current));
+      }, unconfirmed);
     } catch {
-      setUncertainFor(operationKey);
+      unconfirmed();
     }
   }
 

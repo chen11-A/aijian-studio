@@ -102,6 +102,127 @@ describe("ExportProgress", () => {
     expect(screen.queryByRole("heading", { name: "处理已停止" })).toBeNull();
   });
 
+  it("clears a refused local request and permits another request when main becomes available", () => {
+    const onRequestCancel = vi.fn();
+    const { rerender } = show({ onRequestCancel });
+    const stop = screen.getByRole("button", { name: "停止处理" });
+    fireEvent.click(stop);
+    expect(screen.getByRole("button", { name: "正在请求停止" })).toBeDisabled();
+    rerender(
+      <ExportProgress
+        {...base}
+        phase="publishing"
+        cancelState="unavailable"
+        onRequestCancel={onRequestCancel}
+      />,
+    );
+    expect(screen.getByText("当前步骤无法停止，请等待结果。")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByRole("status")).not.toHaveTextContent("正在请求停止");
+    expect(screen.queryByRole("heading", { name: "处理已停止" })).toBeNull();
+    fireEvent.click(stop);
+    expect(onRequestCancel).toHaveBeenCalledTimes(1);
+    rerender(
+      <ExportProgress {...base} cancelState="available" onRequestCancel={onRequestCancel} />,
+    );
+    const next = screen.getByRole("button", { name: "停止处理" });
+    expect(next).toBeEnabled();
+    fireEvent.click(next);
+    fireEvent.click(next);
+    expect(onRequestCancel).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "正在请求停止" })).toBeDisabled();
+  });
+
+  it("unlocks an explicitly refused attempt without ever rendering an unavailable snapshot", async () => {
+    const onRequestCancel = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+    show({ onRequestCancel });
+    fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "停止处理" })).toBeEnabled());
+    expect(onRequestCancel).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "处理已停止" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
+    await waitFor(() => expect(onRequestCancel).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "正在请求停止" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("等待处理结束的确认");
+  });
+
+  it("does not let an old attempt's late false acknowledgement unlock a newer accepted request", async () => {
+    let refuseOld!: (accepted: boolean) => void;
+    const onRequestCancel = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            refuseOld = resolve;
+          }),
+      )
+      .mockResolvedValue(true);
+    const { rerender } = show({ onRequestCancel });
+    fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
+    rerender(
+      <ExportProgress {...base} cancelState="unavailable" onRequestCancel={onRequestCancel} />,
+    );
+    rerender(
+      <ExportProgress {...base} cancelState="available" onRequestCancel={onRequestCancel} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
+    await act(async () => refuseOld(false));
+    const pending = screen.getByRole("button", { name: "正在请求停止" });
+    expect(pending).toBeDisabled();
+    fireEvent.click(pending);
+    expect(onRequestCancel).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a late refusal from an old request out of the next request on the same operation", async () => {
+    let rejectOld!: (reason: Error) => void;
+    const onRequestCancel = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectOld = reject;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const { rerender } = show({ onRequestCancel });
+    fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
+    rerender(
+      <ExportProgress {...base} cancelState="unavailable" onRequestCancel={onRequestCancel} />,
+    );
+    rerender(
+      <ExportProgress {...base} cancelState="available" onRequestCancel={onRequestCancel} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
+    await act(async () => rejectOld(new Error("old acknowledgement")));
+    expect(onRequestCancel).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("status")).toHaveTextContent("等待处理结束的确认");
+    expect(screen.getByRole("status")).not.toHaveTextContent("未得到确认");
+    expect(screen.getByRole("button", { name: "正在请求停止" })).toBeDisabled();
+  });
+
+  it("keeps an accepted host stop request pending until an explicit stopped event", () => {
+    const onRequestCancel = vi.fn();
+    const { rerender } = show({ onRequestCancel });
+    fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
+    rerender(
+      <ExportProgress
+        {...base}
+        cancelState="requested"
+        progress={{ kind: "units", completed: 1, total: 2, unit: "画幅" }}
+        onRequestCancel={onRequestCancel}
+      />,
+    );
+    const waiting = screen.getByRole("button", { name: "正在请求停止" });
+    expect(waiting).toBeDisabled();
+    fireEvent.click(waiting);
+    expect(screen.getByRole("status")).toHaveTextContent("等待处理结束的确认");
+    expect(onRequestCancel).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "处理已停止" })).toBeNull();
+    rerender(<ExportProgress {...base} cancelState="stopped" onRequestCancel={onRequestCancel} />);
+    expect(screen.getByRole("heading", { name: "处理已停止" })).toBeInTheDocument();
+    expect(onRequestCancel).toHaveBeenCalledTimes(1);
+  });
+
   it("only shows stopped when the host confirms it, keeping published results", () => {
     const published = [{ aspectRatio: "16:9" as const, label: "第一部分" }];
     const { rerender } = show({ cancelState: "requested", published });
@@ -115,13 +236,23 @@ describe("ExportProgress", () => {
   });
 
   it("treats rejected stop acknowledgements as unconfirmed without leaking the error", async () => {
-    show({
+    const { rerender } = show({
       onRequestCancel: vi.fn().mockRejectedValue(new Error("token=secret /private/process")),
     });
     fireEvent.click(screen.getByRole("button", { name: "停止处理" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("停止请求未得到确认"));
     expect(screen.getByRole("button", { name: "正在请求停止" })).toBeDisabled();
     expect(document.body.textContent).not.toMatch(/secret|private|处理已停止/);
+    rerender(
+      <ExportProgress
+        {...base}
+        cancelState="available"
+        progress={{ kind: "units", completed: 1, total: 2, unit: "画幅" }}
+        onRequestCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "正在请求停止" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "停止处理" })).toBeNull();
   });
 
   it("allows a new operation to request its own stop while late acknowledgements stay separate", async () => {
