@@ -1,3 +1,8 @@
+import { qcFailureText } from "./actions/export-qc";
+import type {
+  FilmExportQcInput,
+  FilmExportQcPublishResult,
+} from "@aijian/contracts/film-export-qc";
 import { File as NodeFile } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -673,8 +678,8 @@ describe("professional workspace", () => {
         .find((item) => item.className.includes("tab"))!,
     );
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-    fireEvent.click(screen.getByRole("button", { name: "导出" }));
-    expect(screen.getByText(/网页里不能写成片/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+    expect(screen.getByText(/导出前检查没有完成/)).toBeInTheDocument();
     expect(screen.queryByText(/D:\\/)).toBeNull();
   });
 
@@ -881,14 +886,18 @@ describe("professional workspace", () => {
     fireEvent.click(stageTab("剪辑"));
     await waitFor(() => expect(desktop.assembleFilm).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-    desktop.pickFilmFolder.mockResolvedValueOnce("");
-    fireEvent.click(screen.getByRole("button", { name: "导出" }));
-    expect(await screen.findByText(/先选一个保存的文件夹/)).toBeInTheDocument();
-    desktop.exportFilmCut.mockRejectedValueOnce(new Error("disk"));
-    fireEvent.click(screen.getByRole("button", { name: "导出" }));
-    expect(await screen.findByText(/导出没有完成，可以再试一次/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    desktop.publishFilmExport.mockResolvedValueOnce({ kind: "CANCELLED" });
+    fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+    fireEvent.click(await screen.findByRole("button", { name: "审核后发布" }));
+    await waitFor(() => expect(desktop.publishFilmExport).toHaveBeenCalledTimes(1));
+    desktop.publishFilmExport.mockResolvedValueOnce({ kind: "FAILED", code: "PUBLISH_FAILED" });
+    fireEvent.click(screen.getByRole("button", { name: "审核后发布" }));
+    expect(await screen.findByText(qcFailureText.PUBLISH_FAILED)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "取消本次导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+    fireEvent.click(await screen.findByRole("button", { name: "审核后发布" }));
     expect(await screen.findByText(/成片已导出。/)).toBeInTheDocument();
+    expect(desktop.exportFilmCut).not.toHaveBeenCalled();
     const dialog = screen.getByRole("dialog", { name: "导出成片" });
     expect(within(dialog).getByText("雨夜巷战-第1集.mp4")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "打开文件夹" }));
@@ -1148,14 +1157,11 @@ describe("professional workspace", () => {
       expect(screen.getAllByText("未生成").length).toBeGreaterThan(0);
       fireEvent.click(screen.getByRole("button", { name: "收起没生成的" }));
       fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-      fireEvent.click(screen.getByRole("button", { name: "浏览" }));
-      expect(await screen.findByLabelText("导出文件夹")).toHaveValue("/tmp/aivora/export");
-      fireEvent.change(screen.getByLabelText("导出文件夹"), {
-        target: { value: "/tmp/aivora/typed" },
-      });
-      fireEvent.keyDown(screen.getByLabelText("导出文件夹"), { key: "Enter" });
-      expect(screen.getByLabelText("导出文件夹")).toHaveValue("/tmp/aivora/typed");
-      expect((await screen.findAllByText(/还没生成|已导出/)).length).toBeGreaterThan(0);
+      expect(screen.queryByLabelText("导出文件夹")).toBeNull();
+      expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+      expect(await screen.findByRole("button", { name: "审核后发布" })).toBeDisabled();
+      expect(screen.getByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "关闭" }));
       fireEvent.click(screen.getByRole("button", { name: "设入点" }));
       expect(screen.getByText("左右对比")).toBeInTheDocument();
@@ -1418,10 +1424,9 @@ it("keeps a focused duration field, a full shot list, and a typed export path", 
   expect(screen.getByText("镜头类型：插入")).toBeInTheDocument();
   fireEvent.click(stageTab("剪辑"));
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  fireEvent.change(screen.getByLabelText("导出文件夹"), { target: { value: "/tmp/kept" } });
-  fireEvent.keyDown(screen.getByLabelText("导出文件夹"), { key: "Enter" });
+  expect(screen.queryByLabelText("导出文件夹")).toBeNull();
+  expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
   expect(pickFilmFolder).not.toHaveBeenCalled();
-  expect(screen.getByLabelText("导出文件夹")).toHaveValue("/tmp/kept");
 }, 20_000);
 
 it("runs the seven agents, confirms a portrait, and times a shot from the line", async () => {
@@ -2003,13 +2008,15 @@ it("closes 「更多」 on Esc, a press outside, and another shot; closes the to
 
 it("follows the work's aspect and offers 比例 only where the desktop can crop (4A-U07)", async () => {
   installDesktop();
+  const qcBridge = window.aijian!.prepareFilmExport;
+  delete window.aijian!.prepareFilmExport;
   await openSample();
   const root = document.querySelector(".pro-root")!;
   expect(["9:16", "16:9"]).toContain(root.getAttribute("data-aspect"));
   fireEvent.click(screen.getByRole("button", { name: /导出成片/ }));
   expect(screen.queryByLabelText("比例")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-  Object.assign(window.aijian!, { cancelFilmExport: vi.fn(async () => ({ ok: true })) });
+  Object.assign(window.aijian!, { prepareFilmExport: qcBridge });
   fireEvent.click(screen.getByRole("button", { name: /导出成片/ }));
   const aspect = screen.getByLabelText("比例") as HTMLSelectElement;
   expect([...aspect.options].map((option) => option.textContent)).toEqual(
@@ -2318,7 +2325,8 @@ it("fills the default export folder and flushes when the app quits", async () =>
   });
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  expect(await screen.findByDisplayValue("/tmp/videos/AIVORA")).toBeInTheDocument();
+  expect(screen.queryByLabelText("导出文件夹")).toBeNull();
+  expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
   flush?.();
   await waitFor(() => expect(flushed).toHaveBeenCalled());
 });
@@ -2570,14 +2578,17 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  fireEvent.click(screen.getByRole("button", { name: "导出" }));
-  expect((await screen.findAllByText(/可以只导出已生成的/)).length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole("button", { name: "只导出已生成的" }));
-  await waitFor(() => expect(desktop.exportFilmCut).toHaveBeenCalled());
-  const assembled = desktop.assembleFilm.mock.calls.at(-1) as unknown as
-    [string, string[], string] | undefined;
-  expect(assembled?.[1]?.[0]).toBe("/tmp/aivora/shot.mp4");
-  expect(assembled?.[2]).toContain("bed.mp3");
+  fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+  expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "审核后发布" })).toBeDisabled();
+  expect(desktop.exportFilmCut).not.toHaveBeenCalled();
+  expect(desktop.prepareFilmExport).toHaveBeenCalledWith(
+    expect.objectContaining({
+      expectedSelection: expect.arrayContaining([
+        expect.objectContaining({ takeId: expect.any(String) }),
+      ]),
+    }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
   desktop.assembleFilm.mockImplementation(async () => ({
     path: "/tmp/aivora/rough.mp4",
@@ -2594,8 +2605,8 @@ it("names the shots that are not ready instead of exporting an empty cut", async
   const desktop = installDesktop();
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
-  fireEvent.click(screen.getByRole("button", { name: "导出" }));
-  expect((await screen.findAllByText(/还没生成：镜头/)).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+  expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
   expect(desktop.exportFilmCut).not.toHaveBeenCalled();
 });
 
@@ -2686,6 +2697,34 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
   const assembleFilm = vi.fn(async () => ({ path: "/tmp/aivora/rough.mp4", reason: "" }));
   const pickFilmFolder = vi.fn(async () => "/tmp/aivora/export");
   const exportFilmCut = vi.fn(async () => ({ path: "/tmp/aivora/export/cut.mp4" }));
+  const prepareFilmExport = vi.fn(async (input: FilmExportQcInput) =>
+    input.expectedSelection.some((item) => !item.takeId)
+      ? { kind: "FAILED" as const, code: "MISSING_MEDIA" as const }
+      : {
+          kind: "READY" as const,
+          qcReceipt: "host-qc-receipt",
+          outputs: input.settings.aspects.map((aspectRatio) => ({
+            aspectRatio,
+            report: {
+              schemaVersion: 1,
+              media: { duration: 12, width: 1280, height: 720 },
+              audio: { present: true, integratedLufs: -16, truePeakDbtp: -2 },
+              assumptions: {},
+              issues: [],
+            },
+          })),
+          shots: [],
+          fileName: "雨夜巷战-第1集.mp4",
+          unverified: ["台词完整性未检查。"],
+        },
+  );
+  const publishFilmExport = vi.fn(async (): Promise<FilmExportQcPublishResult> => ({
+    kind: "PUBLISHED" as const,
+    outputs: [{ aspectRatio: "16:9" as const, path: "/tmp/aivora/export/cut.mp4" }],
+  }));
+  const discardFilmExport = vi.fn(async () => undefined);
+  const savedProjects = new Map<string, FilmProject>();
+
   const revealFilmPath = vi.fn(async () => undefined);
   const openFilmPath = vi.fn(async () => undefined);
   window.aijian = {
@@ -2708,14 +2747,22 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
         savedAt: "",
       },
     ]),
-    readFilmProject: vi.fn(async (id: string) => (id === episode.id ? episode : null)),
-    writeFilmProject: vi.fn(async (film: unknown) => film),
+    readFilmProject: vi.fn(
+      async (id: string) => savedProjects.get(id) ?? (id === episode.id ? episode : null),
+    ),
+    writeFilmProject: vi.fn(async (film: FilmProject) => {
+      savedProjects.set(film.id, structuredClone(film));
+      return film;
+    }),
     deleteFilmProject: vi.fn(async () => undefined),
     renameFilmSeries: vi.fn(async () => undefined),
     readFilmMedia: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
     assembleFilm,
     pickFilmFolder,
     exportFilmCut,
+    prepareFilmExport,
+    publishFilmExport,
+    discardFilmExport,
     revealFilmPath,
     openFilmPath,
   } as unknown as Window["aijian"];
@@ -2725,6 +2772,9 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
     assembleFilm,
     pickFilmFolder,
     exportFilmCut,
+    prepareFilmExport,
+    publishFilmExport,
+    discardFilmExport,
     revealFilmPath,
     openFilmPath,
   };
@@ -3753,7 +3803,7 @@ it("sets aspect, quality and subtitles in the export dialog, with one 导出 but
   fireEvent.change(dialog.getByLabelText("清晰度"), { target: { value: "720p" } });
   expect(dialog.getByLabelText("清晰度")).toHaveValue("720p");
   expect(document.querySelectorAll(".dialog .btn.primary")).toHaveLength(1);
-  expect(dialog.getByRole("button", { name: "导出" })).toHaveClass("primary");
+  expect(dialog.getByRole("button", { name: "检查成片" })).toHaveClass("primary");
   expect(dialog.queryByRole("button", { name: "开始导出" })).toBeNull();
 });
 
@@ -3862,7 +3912,8 @@ it("keeps the person's defaults in 设置: folder, 「AI 生成」, beginner mod
     // The export dialog starts from the chosen folder, and a new cover without the mark.
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
-    expect(dialog.getByLabelText("导出文件夹")).toHaveValue("/tmp/my-films");
+    expect(dialog.queryByLabelText("导出文件夹")).toBeNull();
+    expect(dialog.getByText(/审核后选择保存位置/)).toBeInTheDocument();
     expect(dialog.getByText(/不标「AI 生成」/)).toBeInTheDocument();
   } finally {
     window.localStorage.removeItem("aivora.prefs");
@@ -4522,11 +4573,8 @@ it("sums the export in one line, lists missing shots by scene, and offers the fi
   expect(within(dialog).queryByRole("button", { name: "打开文件夹" })).toBeNull();
   expect(within(dialog).queryByRole("button", { name: "播放" })).toBeNull();
   expect(dialog.querySelectorAll(".btn.primary")).toHaveLength(1);
-  const long = "/home/box/Videos/AIVORA/晚照书店/第一季/导出的成片/这一集的文件夹放在这里";
-  fireEvent.change(within(dialog).getByLabelText("导出文件夹"), { target: { value: long } });
-  expect(dialog.querySelector(".pathfield")).toHaveAttribute("title", long);
-  expect(dialog.querySelector(".pathshow")?.textContent).toContain("…");
-  expect(dialog.querySelector(".pathrow")?.textContent).toContain("浏览");
+  expect(within(dialog).queryByLabelText("导出文件夹")).toBeNull();
+  expect(within(dialog).getByText(/审核后选择保存位置/)).toBeInTheDocument();
   expect(exportFilmCut).not.toHaveBeenCalled();
 });
 

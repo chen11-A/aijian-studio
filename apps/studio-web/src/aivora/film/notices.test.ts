@@ -69,14 +69,34 @@ describe("structured business notices", () => {
       "CAPTURE_EXPORT_DONE",
       "CAPTURE_EXPORT_FAILED",
     ]);
+    const exportQcCodes = new Set([
+      "EXPORT_QC_RUNNING",
+      "EXPORT_QC_READY",
+      "EXPORT_QC_FAILED",
+      "EXPORT_QC_STALE",
+      "EXPORT_QC_BLOCKED",
+    ]);
     const promptFieldCodes = new Set(["PROMPTER_SUGGESTION_READY", "PROMPTER_FIELDS_APPLIED"]);
     const legacyRows = rows.filter(
       (row) =>
-        !addedCodes.has(row[1]!) && !takeoverCodes.has(row[1]!) && !promptFieldCodes.has(row[1]!),
+        !addedCodes.has(row[1]!) &&
+        !takeoverCodes.has(row[1]!) &&
+        !promptFieldCodes.has(row[1]!) &&
+        !exportQcCodes.has(row[1]!),
     );
     const addedRows = rows.filter((row) => addedCodes.has(row[1]!));
     const takeoverRows = rows.filter((row) => takeoverCodes.has(row[1]!));
     const promptFieldRows = rows.filter((row) => promptFieldCodes.has(row[1]!));
+    const qcRows = rows.filter((row) => exportQcCodes.has(row[1]!));
+    expect(qcRows).toHaveLength(5);
+    expect(new Set(qcRows.map((row) => row[1]))).toEqual(exportQcCodes);
+    for (const [, code, fallback, finalCopy] of qcRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: finalCopy!.trim(),
+      });
+    }
     expect(legacyRows).toHaveLength(118);
     expect(addedRows).toHaveLength(106);
     expect(takeoverRows).toHaveLength(14);

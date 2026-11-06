@@ -361,6 +361,12 @@ const PREVIOUS_NOTICE_TEXT = {
 
 /** Preserve existing plain-text aliases when distinct codes share newly approved wording. */
 export const NOTICE_TEXT = {
+  EXPORT_QC_RUNNING: "正在准备并检查成片。",
+  EXPORT_QC_READY: "技术检查完成，请审阅后再发布。",
+  EXPORT_QC_FAILED: "导出前检查没有完成，请查看原因后重试。",
+  EXPORT_QC_STALE: "工程、版本或导出设置已变化，请重新检查。",
+  EXPORT_QC_BLOCKED: "检查发现要先处理的问题，暂不能发布。",
+
   ...PREVIOUS_NOTICE_TEXT,
   PROMPTER_SUGGESTION_READY: "画面说明已准备好，确认后才修改。",
   PROMPTER_FIELDS_APPLIED: "画面说明已修改。",

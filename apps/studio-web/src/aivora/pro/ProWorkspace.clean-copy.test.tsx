@@ -40,6 +40,7 @@ function bridge() {
   const generate = vi.fn();
   window.aijian = {
     remakeStoryFilmCleanCopy: remake,
+    prepareFilmExport: vi.fn(async () => ({ kind: "FAILED", code: "CLEAN_COPY_REQUIRED" })),
     exportFilmCut: exportCut,
     pickFilmFolder: vi.fn(async () => "/out"),
     createStoryFilm: generate,
@@ -108,10 +109,10 @@ describe("4B-U09 workspace clean copy repair", () => {
     const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
     expect(dialog.queryByRole("button", { name: /一键补做/ })).toBeNull();
     fireEvent.click(dialog.getByRole("radio", { name: "不要" }));
-    fireEvent.click(dialog.getByRole("button", { name: "导出" }));
+    fireEvent.click(dialog.getByRole("button", { name: "检查成片" }));
     fireEvent.click(await dialog.findByRole("button", { name: "一键补做这 2 镜" }));
     expect(dialog.getByRole("button", { name: "正在补做无字幕版本…" })).toBeDisabled();
-    expect(dialog.getByRole("button", { name: "导出" })).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "审核后发布" })).toBeDisabled();
     await waitFor(() => expect(remake).toHaveBeenCalledTimes(1));
     await act(async () =>
       finish(answer({ status: "SUCCEEDED", clean_output_path: "/source/repaired-clean.mp4" })),
