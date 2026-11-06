@@ -345,8 +345,14 @@ export async function runFeatureCases({ browser, config, report, media, persist 
               gainDb: film.audioClips.find((c) => c.lane === "score" && c.path)?.gainDb ?? -14,
               dialogue: film.shots.map(
                 (s) =>
-                  film.audioClips.find((c) => c.lane === "dialogue" && c.shotId === s.id && c.path)
-                    ?.path ?? "",
+                  film.audioClips.find(
+                    (c) =>
+                      c.lane === "dialogue" &&
+                      c.shotId === s.id &&
+                      c.takeId === s.selectedTakeId &&
+                      c.enabled !== false &&
+                      c.path,
+                  )?.path ?? "",
               ),
             });
             assert.equal(
@@ -360,8 +366,20 @@ export async function runFeatureCases({ browser, config, report, media, persist 
               "Only initial and actual selected-version preview assembly requests are allowed",
             );
             assert.deepEqual(result.calls.assemblies[0], expectedAssembly(before));
-            if (state === "waveform-unknown-stale")
-              assert.deepEqual(result.calls.assemblies[1], expectedAssembly(await saved()));
+            if (state === "waveform-unknown-stale") {
+              const after = await saved();
+              assert.deepEqual(result.calls.assemblies[1], expectedAssembly(after));
+              assert.ok(result.calls.assemblies[0].dialogue.includes(before.audioClips[0].path));
+              assert.ok(
+                result.calls.assemblies[1].dialogue.every((voice) => voice === ""),
+                "The newly selected version must not inherit the old take's voice",
+              );
+              assert.deepEqual(
+                after.audioClips,
+                before.audioClips,
+                "Keep the original bound clips after rejecting their stale waveform",
+              );
+            }
           } else assert.deepEqual(result.calls.assemblies, []);
           assert.deepEqual(result.calls.forbidden, []);
           assert.deepEqual(result.pageerrors, []);
