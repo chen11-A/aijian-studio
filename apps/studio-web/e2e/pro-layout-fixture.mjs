@@ -57,6 +57,9 @@ export function installProAuditBridge() {
   window.aijian = {
     pickFilmFolder: async () => null,
     exportFilmCut: async () => unexpected("export"),
+    prepareFilmExport: async () => unexpected("qc-prepare"),
+    publishFilmExport: async () => unexpected("qc-publish"),
+    discardFilmExport: async () => unexpected("qc-discard"),
     remakeStoryFilmCleanCopy: async () => unexpected("clean-copy"),
   };
 }
