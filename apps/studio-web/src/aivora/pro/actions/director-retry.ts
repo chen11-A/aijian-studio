@@ -49,7 +49,7 @@ export async function retryDirectorDraft(
     );
     if (!host.current()) return { kind: "stale" as const };
     if (!reply.shots)
-      return { kind: "rejected" as const, detail: reply.detail || "模型没有按格式返回。" };
+      return { kind: "rejected" as const, detail: reply.detail || "导演这次没有给出能用的镜头。" };
     draft = reply.shots;
     const shots = await budget.run(() =>
       host.enrich(film, sceneId, reply.shots!, budget.current, budget.control),

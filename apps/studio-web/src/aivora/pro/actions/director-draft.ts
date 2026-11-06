@@ -87,7 +87,7 @@ export async function planDirectorDraft(
           instruction:
             '只返回 JSON，不要解释。格式：{"shots":[{"picture":"","size":"全景","seconds":5}]}',
         };
-        notice = `${first.detail || "导演这次没有给出能用的镜头。"} 没有写入镜头。`;
+        notice = `${first.detail || "导演这次没有给出能用的镜头。"} 这次没有修改分镜。`;
         event = "rejected";
       } else {
         progress(`已写 ${first.shots.length} 镜，正在写表演。`);
@@ -105,7 +105,7 @@ export async function planDirectorDraft(
     notice =
       budget.reason() === "TEXT_TIMEOUT"
         ? `${NOTICE_TEXT.TEXT_TIMEOUT}${shots ? " 已保留导演初稿，补充尚未完成。" : ""}`
-        : "模型没有返回。没有写入镜头。";
+        : "导演这次没有完成回复，没有修改分镜。";
     if (shots) event = "partial";
     if (budget.reason() === "TEXT_TIMEOUT" && host.current())
       host.notify?.({ code: "TEXT_TIMEOUT", text: NOTICE_TEXT.TEXT_TIMEOUT });

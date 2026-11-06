@@ -91,7 +91,7 @@ it("retries malformed connected replies once and preserves rejection without a d
     .mockResolvedValueOnce({ text: null, detail: "second" });
   expect(
     await planActionDraft(film, film.shots[0], { request, current: () => true, connected: true }),
-  ).toEqual({ status: "rejected", notice: "second 没有写入。", logRejection: false });
+  ).toEqual({ status: "rejected", notice: "second 这次没有修改镜头。", logRejection: false });
   expect(request).toHaveBeenCalledTimes(2);
   expect(request.mock.calls[1]![2]).toContain("只输出 JSON，不要解释。");
 });
@@ -154,6 +154,6 @@ it("renders rejected action backend diagnostics as Chinese without mutating the 
   expect(result.status).toBe("rejected");
   if (result.status !== "rejected") throw new Error("expected rejection");
   expect(presentNotice(result.notice).text).not.toContain("UNKNOWN_BACKEND_ERROR");
-  expect(presentNotice(result.notice).text).toContain("没有写入");
+  expect(presentNotice(result.notice).text).toContain("没有修改镜头");
   expect(reply.detail).toContain("UNKNOWN_BACKEND_ERROR");
 });

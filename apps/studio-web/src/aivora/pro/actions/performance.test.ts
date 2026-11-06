@@ -60,7 +60,7 @@ it("retries exactly once while connected and rejects a second malformed reply", 
       current: () => true,
       connected: true,
     }),
-  ).toEqual({ status: "rejected", notice: "没有返回格式 没有写入。" });
+  ).toEqual({ status: "rejected", notice: "没有返回格式 这次没有修改镜头。" });
   expect(request).toHaveBeenCalledTimes(2);
 });
 

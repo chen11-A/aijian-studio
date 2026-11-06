@@ -66,7 +66,7 @@ it("returns the existing retry proposal for malformed replies", async () => {
       context: expect.stringContaining(s.scene.id),
       instruction: expect.stringContaining('"shots"'),
     },
-    notice: "没有结果 没有写入镜头。",
+    notice: "没有结果 这次没有修改分镜。",
   });
   expect(s.host.enrich).not.toHaveBeenCalled();
 });
@@ -127,7 +127,7 @@ it("returns the same transport failure without manufacturing a retry or shots", 
     status: "complete",
     shots: null,
     retry: undefined,
-    notice: "模型没有返回。没有写入镜头。",
+    notice: "导演这次没有完成回复，没有修改分镜。",
   });
 });
 it("never falls back to the first scene for an unknown selection", async () => {
