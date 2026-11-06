@@ -7,6 +7,7 @@ import { ExportCheck } from "../next/ExportCheck";
 import { readQcReport, type QcIssue } from "../next/qcReport";
 import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
+import { projectArtStyleFields } from "./actions/art-style-field-rows";
 import {
   generationPreflight,
   prepareGeneration,
@@ -2125,6 +2126,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("当前选择已改变，请回到美术建议所在页面再应用。");
       return;
     }
+    const styleOnly = projectArtStyleFields(transaction, expected) !== null;
     const result = applyArtTransaction(live, transaction);
     if (!result.receipt) {
       setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
@@ -2157,7 +2159,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
         setNotice(
           stored
-            ? "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
+            ? styleOnly
+              ? {
+                  code: "STEP_COMPLETE",
+                  text: NOTICE_TEXT.STEP_COMPLETE,
+                  detail: "画风说明已修改。",
+                }
+              : "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
             : "美术建议已应用，但还没有保存。",
         );
     } catch {
@@ -2174,6 +2182,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     } finally {
       applyingArt.current = false;
     }
+  }
+
+  function rejectPendingSuggestion() {
+    if (role === "art" && roleCards.art?.fieldRows !== undefined) {
+      if (applyingArt.current) return;
+      artDraft.current = null;
+    }
+    markApplied(role);
   }
 
   function planArt() {
@@ -2202,10 +2218,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const transaction = prepareArtTransaction(base, result.draft, selection);
+    const fieldRows = projectArtStyleFields(transaction, selection);
     artDraft.current = transaction;
     setStructured(result.lines);
     publishCard("art", {
       artDiff: transaction,
+      ...(fieldRows !== null ? { fieldRows } : {}),
       title: "美术 · 画风和外貌",
       rows: result.lines.map((line, index) => ({
         id: `art-${index}`,
@@ -2217,7 +2235,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       applied: false,
       mode: "art",
     });
-    finishTurn(turn, "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
+    finishTurn(
+      turn,
+      fieldRows !== null
+        ? {
+            code: "STEP_COMPLETE",
+            text: NOTICE_TEXT.STEP_COMPLETE,
+            detail: "画风说明已准备好，确认后才修改。",
+          }
+        : "美术写好了。点「放进分镜」，外貌、场景和道具才会改。",
+    );
     noteAgent("art", "art", "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
 
     setPending(null);
@@ -3757,7 +3784,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         onRole={chooseRole}
         pending={pendingRole === role ? pending : null}
         onApply={applyPending}
-        onReject={() => markApplied(role)}
+        onReject={rejectPendingSuggestion}
         shots={shownShots}
         chat={chat}
         onChat={setChat}
@@ -4205,7 +4232,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <ScriptPage
                   quiet={exportView.lead}
                   onNext={() => setStage("cast")}
-                  onReject={() => markApplied(role)}
+                  onReject={rejectPendingSuggestion}
                   film={film}
                   scene={scene}
                   onScene={(id) => {
@@ -4268,6 +4295,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onFilm={setFilm}
                   role={role}
                   onRole={chooseRole}
+                  card={roleCards[role] ?? null}
+                  turns={turns}
+                  busy={asking}
+                  onApply={applyPending}
+                  onReject={rejectPendingSuggestion}
+                  onQuick={(label) => {
+                    if (label.includes("美术")) void planArt();
+                    else sendChat();
+                  }}
                   onPortraits={makePortraits}
                   onTraits={(id, traits) =>
                     void productionActions.updateCharacterTraits(id, traits)
@@ -4344,7 +4380,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   promptSuggestion={promptSuggestion}
                   onRedoRange={redoFromReview}
                   onDismiss={keepReview}
-                  onReject={() => markApplied(role)}
+                  onReject={rejectPendingSuggestion}
                 />
               )}
               {stage === "board" && bench && (
@@ -5526,7 +5562,24 @@ function Assistant({
             </button>
           </div>
         ) : null}
-        {listScenes || listShots ? (
+        {card?.mode === "art" && card.fieldRows !== undefined ? (
+          <>
+            <p className="role-desc">
+              改画风会把已有镜头标为需要重做，原有素材会保留，不会自动重新生成。
+            </p>
+            <SuggestionCard
+              unit="shot"
+              current={[]}
+              proposed={[]}
+              fieldRows={card.fieldRows}
+              applied={card.applied}
+              busy={busy}
+              onApply={onApply}
+              onAnother={onSend}
+              onReject={onReject}
+            />
+          </>
+        ) : listScenes || listShots ? (
           // 4A-U11: 「现在 6 个 → 建议 4 个」, each line marked, and 放进 / 换一个 / 不要.
           <SuggestionCard
             unit={listScenes ? "scene" : "shot"}
@@ -6093,6 +6146,12 @@ function CastPage({
   chat,
   onChat,
   onSend,
+  card,
+  turns,
+  busy: assistantBusy,
+  onApply,
+  onReject,
+  onQuick,
 }: {
   film: FilmProject;
   onFilm: (film: FilmProject) => void;
@@ -6112,6 +6171,12 @@ function CastPage({
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
+  card: RoleCard | null;
+  turns: Parameters<typeof Assistant>[0]["turns"];
+  busy: boolean;
+  onApply: () => void;
+  onReject: () => void;
+  onQuick: (label: string) => void;
   /** 4A-U09: 导出成片 is this screen's primary button, so this page's steps back. */
   quiet?: boolean;
   /** 「下一步：分镜」, the primary button once everyone has an appearance and four portraits. */
@@ -6866,7 +6931,12 @@ function CastPage({
           role={role}
           onRole={onRole}
           pending={null}
-          onApply={() => undefined}
+          onApply={onApply}
+          onReject={onReject}
+          onQuick={onQuick}
+          card={card}
+          turns={turns}
+          busy={assistantBusy}
           shots={film.shots}
           chat={chat}
           onChat={onChat}
