@@ -261,6 +261,9 @@ export async function runCreationCases({ browser, config, report, media, persist
               assert.equal(await confirm().isEnabled(), true);
               await page.getByRole("button", { name: "单个镜头", exact: true }).click();
               await page.locator(".cands > .nx-takes").waitFor();
+              assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "board");
+              await page.getByRole("button", { name: "AI 助手", exact: true }).click();
+              await card.waitFor({ state: "visible" });
               assert.equal(
                 await confirm().isEnabled(),
                 true,
