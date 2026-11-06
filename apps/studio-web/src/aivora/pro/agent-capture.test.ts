@@ -111,14 +111,12 @@ describe("3JR-B11 (R2-02) keeping the director's and action's replies on this co
       status: vi
         .fn()
         .mockResolvedValue({ provider: "GROK_LOGIN", runtime: "DESKTOP", state: "CONNECTED" }),
-      completeText: vi
-        .fn()
-        .mockResolvedValue({
-          kind: "OK",
-          text: reply,
-          billingAccountKind: "grok_login",
-          model: "grok-4.7",
-        }),
+      completeText: vi.fn().mockResolvedValue({
+        kind: "OK",
+        text: reply,
+        billingAccountKind: "grok_login",
+        model: "grok-4.7",
+      }),
       cancelText: vi.fn(),
     } as unknown as GrokLoginBridge;
     await completeMembershipAgent("director", "画风：雨夜\n场次 id：s2\n剧本：…", "拆镜头", {
