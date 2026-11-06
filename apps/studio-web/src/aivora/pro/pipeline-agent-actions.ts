@@ -32,6 +32,7 @@ import {
   type AgentId,
 } from "../film/phase2";
 import {
+  artCastContext,
   aspectContext,
   keyframePrompt,
   parseDirectorShots,
@@ -151,7 +152,7 @@ export async function runPipelineAgentAction(
     if (target.step === "art") {
       const reply = await request(
         "art",
-        `画风：${film.styleZh}\n${aspectContext(film)}\n人物：${JSON.stringify(film.characters.map(({ name, identity }) => ({ name, identity })))}`,
+        `画风：${film.styleZh}\n${aspectContext(film)}\n${artCastContext(film)}`,
         "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
       );
       if (!current()) return stale();

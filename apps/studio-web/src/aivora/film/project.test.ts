@@ -9,6 +9,7 @@ import {
   agentRequest,
   blankFilm,
   generationNote,
+  castTraitsLine,
   keyframePrompt,
   newEpisode,
   newFilmId,
@@ -128,8 +129,10 @@ describe("film project", () => {
     expect(told?.[0]?.action).toBe("抬一下手");
     const prefixed = sampleFilm();
     prefixed.shots[0]!.picture = "这一镜的起始画面，雨停了";
+    // R2-B06 / R2-B05: the cast list's gender and age, and only the shot's people.
+    const person = prefixed.characters[0]!;
     expect(keyframePrompt(prefixed.shots[0]!, prefixed)).toBe(
-      `这一镜的起始画面，雨停了。${prefixed.characters[0]?.identity}。\n【画风说明】\n${prefixed.styleZh}\n【画风说明结束】`,
+      `这一镜的起始画面，雨停了。${castTraitsLine(person)}${person.identity}。画面里只有${person.name}，不要多画别的人。\n【画风说明】\n${prefixed.styleZh}\n【画风说明结束】`,
     );
     const inserted = parseDirectorShots(
       '{"shots":[{"action":"手按在刀上","size":"插入","line":"另写一句"}]}',

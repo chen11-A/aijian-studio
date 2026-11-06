@@ -30,7 +30,10 @@ export async function makeAllPortraits(
   const queue = base.characters
     .filter((person) => !options.characterIds || options.characterIds.includes(person.id))
     .flatMap((person) => {
-      const prompts = portraitPrompts(person.name, person.identity, base.styleZh);
+      const prompts = portraitPrompts(person.name, person.identity, base.styleZh, {
+        gender: person.gender,
+        ageBand: person.ageBand,
+      });
       const missing = prompts.filter(
         (item) =>
           (!options.views || options.views.includes(item.view)) &&
