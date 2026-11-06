@@ -42,31 +42,92 @@ export function failureSummary(initialPhase = "pnpm test") {
     else if (text.includes("apps/desktop")) phase = "TypeScript / desktop";
     else if (/uv run pytest|^platform .*Python|^=+ .*test session starts/u.test(text))
       phase = "Python";
+    // pnpm recursive output may prefix runtime lines; remove only our two fixed app labels.
+    const diagnostic = text.replace(
+      /^(?:apps\/(?:studio-web|desktop) test:|@aijian\/(?:studio-web|desktop):test:)\s*/u,
+      "",
+    );
+    // Fixed upstream runtime phrases only: never append their file list, cause or stack.
+    const workerExit = /^\s*(?:Error:\s*)?Worker exited unexpectedly(?:[.\s]|$)/u.test(diagnostic);
+    const pool = diagnostic.match(
+      /^\s*(?:Error:\s*)?\[vitest-pool\]: (Worker (?:forks|threads|vmForks|vmThreads) emitted error\.|Failed to (?:start|terminate) (?:forks|threads|vmForks|vmThreads) worker\b|Timeout (?:starting|terminating) (?:forks|threads|vmForks|vmThreads) (?:runner|worker)\b)/u,
+    );
+    const heap =
+      /^\s*FATAL ERROR: (?:Reached heap limit|Ineffective mark-compacts near heap limit) Allocation failed - JavaScript heap out of memory\b/u.test(
+        diagnostic,
+      );
+    const vitestTimeout = diagnostic.match(
+      /^\s*(?:Error:\s*)?(?:Test|Hook) timed out in ([1-9]\d{0,9})ms(?:[.\s]|$)/u,
+    );
+    if (workerExit || pool || heap || vitestTimeout) failureBlock = true;
+    if (workerExit) add("Test worker exited unexpectedly.");
+    if (pool) {
+      const kind = pool[1].startsWith("Worker")
+        ? "worker error"
+        : pool[1].startsWith("Failed to start")
+          ? "start failure"
+          : pool[1].startsWith("Failed to terminate")
+            ? "termination failure"
+            : pool[1].startsWith("Timeout starting")
+              ? "start timeout"
+              : "termination timeout";
+      add(`Vitest pool: ${kind}.`);
+    }
+    if (heap) add("Node heap limit reached.");
     if (/\bFAIL(?:ED)?\b|^\s*✖|^not ok\b|^\s*ERROR\b|failureType:|Coverage for/u.test(text))
       failureBlock = true;
     if (!failureBlock) return;
     const file = text.match(
       /(?:^|[\s/'"(])((?:packages|apps|services|scripts|src|test)\/[A-Za-z0-9_./-]+\.(?:[cm]?[jt]sx?|py))(?::(\d+))?(?::\d+)?/u,
     );
-    if (file) {
+    const sourceLocation = /^\s*(?:FAIL(?:ED)?\b|✖|not ok\b|❯|at\b|location:|file:)/u.test(
+      diagnostic,
+    );
+    if (
+      sourceLocation &&
+      file &&
+      file[1].length <= 240 &&
+      !file[1].split("/").some((part) => part === "." || part === "..") &&
+      (!file[2] || (Number(file[2]) >= 1 && Number(file[2]) <= 10000000 && file[2].length <= 8))
+    ) {
       if (file[1].includes("aivora-media")) phase = "TypeScript / media";
       else if (file[1].includes("aivora-qc")) phase = "TypeScript / QC";
       else if (file[1].includes(".py")) phase = "Python";
       add(`Failure location: ${file[1]}${file[2] ? `:${file[2]}` : ""}`);
     }
-    const timeout = text.match(/(?:timed out after|timeout(?: of)?)\s+(\d+)\s*ms/iu);
-    if (timeout) add(`Test timeout: ${timeout[1]} ms.`);
+    const timeout =
+      vitestTimeout ?? text.match(/(?:timed out after|timeout(?: of)?)\s+([1-9]\d{0,9})\s*ms\b/iu);
+    if (timeout && Number(timeout[1]) <= 2147483647) add(`Test timeout: ${timeout[1]} ms.`);
     const type = text.match(
       /failureType:\s*['"](testCodeFailure|testTimeoutFailure|cancelledByParent|hookFailed|unhandledRejection|uncaughtException|subtestsFailed)['"]/u,
     );
     if (type) add(`Node test failure type: ${type[1]}.`);
     const code = text.match(/\b(ERR_[A-Z0-9_]+|ETIMEDOUT|ENOENT|ENOSPC)\b/u);
-    if (code) add(`Failure code: ${code[1]}.`);
+    const codes = new Set([
+      "ERR_TEST_FAILURE",
+      "ERR_WORKER_OUT_OF_MEMORY",
+      "ERR_WORKER_INIT_FAILED",
+      "ERR_WORKER_INVALID_EXEC_ARGV",
+      "ERR_WORKER_NOT_RUNNING",
+      "ERR_IPC_CHANNEL_CLOSED",
+      "ERR_IPC_DISCONNECTED",
+      "ERR_CHILD_PROCESS_IPC_REQUIRED",
+      "ERR_CHILD_PROCESS_STDIO_MAXBUFFER",
+      "ERR_MODULE_NOT_FOUND",
+      "ERR_REQUIRE_ESM",
+      "ERR_UNKNOWN_FILE_EXTENSION",
+      "ERR_UNHANDLED_ERROR",
+      "ETIMEDOUT",
+      "ENOENT",
+      "ENOSPC",
+    ]);
+    if (code && codes.has(code[1])) add(`Failure code: ${code[1]}.`);
     const coverage = text.match(
-      /Coverage for (statements|branches|functions|lines) \(([\d.]+)%\).*threshold \(([\d.]+)%\)/u,
+      /Coverage for (statements|branches|functions|lines) \((\d{1,3}(?:\.\d{1,4})?)%\).*threshold \((\d{1,3}(?:\.\d{1,4})?)%\)/u,
     );
-    if (coverage) add(`Coverage ${coverage[1]}: ${coverage[2]}%, required ${coverage[3]}%.`);
-    const count = text.match(/^\s*(Test Files|Tests)\s+([1-9]\d*) failed/u);
+    if (coverage && Number(coverage[2]) <= 100 && Number(coverage[3]) <= 100)
+      add(`Coverage ${coverage[1]}: ${coverage[2]}%, required ${coverage[3]}%.`);
+    const count = text.match(/^\s*(Test Files|Tests)\s+([1-9]\d{0,6}) failed/u);
     if (count) add(`${count[1]}: ${count[2]} failed.`);
   };
   return { line, entries: () => [...entries.values()], phase: () => phase };
