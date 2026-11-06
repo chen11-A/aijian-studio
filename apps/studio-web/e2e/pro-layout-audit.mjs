@@ -11,6 +11,7 @@ import { chromium } from "playwright";
 import { createServer } from "vite";
 import { installProAuditBridge, seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { auditFullPages, fullPageNames } from "./pro-layout-full.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -48,10 +49,19 @@ function emitGitHubErrors(report) {
     "candidate-control-outside-viewport",
     "document-overflow",
   ]);
-  const pages = new Set(["script", "board", "edit", "single", "navigation-failed"]);
+  const pages = new Set([
+    "script",
+    "board",
+    "edit",
+    "single",
+    "navigation-failed",
+    ...fullPageNames,
+  ]);
   const failed = report.results.filter((row) => !row.passed).slice(0, 8);
   for (const row of failed) {
-    const combination = /^(1280x800|1920x1080)-(16x9|9x16)-[123]versions$/.test(row.combination)
+    const combination = /^(1280x800|1920x1080)-(16x9|9x16)-(?:[123]versions|full)$/.test(
+      row.combination,
+    )
       ? row.combination
       : "unknown";
     const page = pages.has(row.page) ? row.page : "unknown";
@@ -78,6 +88,7 @@ function emitGitHubErrors(report) {
 
 function options() {
   const value = {
+    scope: "core",
     url: process.env.AIVORA_AUDIT_URL,
     browser: process.env.AIVORA_CHROMIUM,
     out: process.env.AIVORA_AUDIT_OUT ?? path.join(tmpdir(), "aivora-pro-layout-audit"),
@@ -87,13 +98,14 @@ function options() {
     const key = args[index];
     if (key === "--help") return null;
     if (
-      !["--url", "--browser", "--out"].includes(key) ||
+      !["--url", "--browser", "--out", "--scope"].includes(key) ||
       !args[index + 1] ||
       args[index + 1].startsWith("--")
     )
       throw new Error(`Invalid option: ${key}; use --help`);
     value[key.slice(2)] = args[++index];
   }
+  if (!["core", "full"].includes(value.scope)) throw new Error("--scope must be core or full");
   if (value.url) {
     const url = new URL(value.url);
     if (
@@ -172,7 +184,11 @@ async function run(config) {
   await checkOutputTarget(config.out);
   await mkdir(config.out, { recursive: true });
   const report = {
-    scope: "ProWorkspace script/board/edit and 1/2/3-version selection; synthetic IPC",
+    scope:
+      config.scope === "full"
+        ? "ProWorkspace extended navigation; synthetic IPC; not Electron or complete product acceptance"
+        : "ProWorkspace script/board/edit and 1/2/3-version selection; synthetic IPC",
+    scopeName: config.scope,
     viewports,
     aspects,
     chromiumSandbox: true,
@@ -238,172 +254,181 @@ async function run(config) {
     const libraryModuleUrl = new URL("/src/aivora/film/library.ts", config.url).href;
     const projectModuleUrl = new URL("/src/aivora/film/project.ts", config.url).href;
     const mediaUrl = new URL("/__pro-layout__/shot-a.mp4", config.url).href;
-    for (const viewport of viewports)
-      for (const aspect of aspects)
-        for (const versions of [1, 2, 3]) {
-          const combination = `${viewport.width}x${viewport.height}-${aspect.replace(":", "x")}-${versions}versions`;
-          const dir = path.join(config.out, combination);
-          await mkdir(dir, { recursive: true });
-          const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
-          const page = await context.newPage();
-          page.setDefaultTimeout(10000);
-          const pageerrors = [];
-          const blockedRequests = [];
-          page.on("pageerror", (error) => pageerrors.push(error.message));
-          await page.route("**/*", (route) => {
-            const url = new URL(route.request().url());
-            if (
-              /^https?:$/.test(url.protocol) &&
-              (url.origin !== new URL(config.url).origin ||
-                url.pathname === "/api" ||
-                url.pathname.startsWith("/api/"))
-            ) {
-              blockedRequests.push(url.origin + url.pathname);
-              return route.abort();
-            }
-            if (url.href === mediaUrl)
-              return route.fulfill({ contentType: "video/mp4", body: media });
-            return route.continue();
-          });
-          await page.addInitScript(installProAuditBridge);
-          const nav = (name) =>
-            page.locator("nav.tabs").getByRole("button", { name: new RegExp(name) });
-          const readSaved = () =>
-            page.evaluate(async (url) => {
-              const library = await import(url);
-              return library.readSaved(library.activeFilmId());
-            }, libraryModuleUrl);
-          async function snapshot(name, arrive) {
-            const result = {
-              combination,
-              page: name,
-              reached: false,
-              screenshot: path.join(combination, `${name}.png`),
-            };
-            try {
-              await arrive();
-              result.reached = true;
-              await page.evaluate(async () => {
-                await document.fonts.ready;
-                await new Promise((resolve) =>
-                  window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)),
-                );
-              });
-              result.geometry = await page.evaluate(probeProLayout);
-              assert.deepEqual(
-                result.geometry.issues,
-                [],
-                "Layout probe found inaccessible, covered or overflowing content",
-              );
-              assert.deepEqual(pageerrors, [], "Page raised an uncaught error");
-              assert.deepEqual(
-                blockedRequests,
-                [],
-                "App attempted external/API access during a local-only layout audit",
-              );
-              result.passed = true;
-            } catch (error) {
-              result.passed = false;
-              result.error = error.message;
-            }
-            await page
-              .screenshot({ path: path.join(config.out, result.screenshot) })
-              .catch((error) => {
-                result.passed = false;
-                result.screenshotError = error.message;
-              });
-            result.pageerrors = [...pageerrors];
-            result.blockedRequests = [...blockedRequests];
-            report.results.push(result);
-            console.log(`${result.passed ? "PASS" : "FAIL"} ${combination} ${name}`);
-            await persist();
-            return result;
-          }
-          try {
-            await page.goto(config.url, { waitUntil: "domcontentloaded" });
-            await page.evaluate(seedProProject, {
-              projectModuleUrl,
-              aspect,
-              versions,
-              videoUrl: mediaUrl,
+    let expectedResults = 24;
+    if (config.scope === "full") {
+      expectedResults = await auditFullPages({ browser, config, report, media, persist });
+    } else
+      for (const viewport of viewports)
+        for (const aspect of aspects)
+          for (const versions of [1, 2, 3]) {
+            const combination = `${viewport.width}x${viewport.height}-${aspect.replace(":", "x")}-${versions}versions`;
+            const dir = path.join(config.out, combination);
+            await mkdir(dir, { recursive: true });
+            const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
+            const page = await context.newPage();
+            page.setDefaultTimeout(10000);
+            const pageerrors = [];
+            const blockedRequests = [];
+            page.on("pageerror", (error) => pageerrors.push(error.message));
+            await page.route("**/*", (route) => {
+              const url = new URL(route.request().url());
+              if (
+                /^https?:$/.test(url.protocol) &&
+                (url.origin !== new URL(config.url).origin ||
+                  url.pathname === "/api" ||
+                  url.pathname.startsWith("/api/"))
+              ) {
+                blockedRequests.push(url.origin + url.pathname);
+                return route.abort();
+              }
+              if (url.href === mediaUrl)
+                return route.fulfill({ contentType: "video/mp4", body: media });
+              return route.continue();
             });
-            await page.reload({ waitUntil: "domcontentloaded" });
-            await page.locator("nav.tabs").waitFor();
-            if (versions === 3) {
-              await snapshot("script", async () => {
-                await nav("剧本").click();
-                await page.getByLabel("这一场", { exact: true }).waitFor();
-                assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "script");
+            await page.addInitScript(installProAuditBridge);
+            const nav = (name) =>
+              page.locator("nav.tabs").getByRole("button", { name: new RegExp(name) });
+            const readSaved = () =>
+              page.evaluate(async (url) => {
+                const library = await import(url);
+                return library.readSaved(library.activeFilmId());
+              }, libraryModuleUrl);
+            async function snapshot(name, arrive) {
+              const result = {
+                combination,
+                page: name,
+                reached: false,
+                screenshot: path.join(combination, `${name}.png`),
+              };
+              try {
+                await arrive();
+                result.reached = true;
+                await page.evaluate(async () => {
+                  await document.fonts.ready;
+                  await new Promise((resolve) =>
+                    window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)),
+                  );
+                });
+                result.geometry = await page.evaluate(probeProLayout);
+                assert.deepEqual(
+                  result.geometry.issues,
+                  [],
+                  "Layout probe found inaccessible, covered or overflowing content",
+                );
+                assert.deepEqual(pageerrors, [], "Page raised an uncaught error");
+                assert.deepEqual(
+                  blockedRequests,
+                  [],
+                  "App attempted external/API access during a local-only layout audit",
+                );
+                result.passed = true;
+              } catch (error) {
+                result.passed = false;
+                result.error = error.message;
+              }
+              await page
+                .screenshot({ path: path.join(config.out, result.screenshot) })
+                .catch((error) => {
+                  result.passed = false;
+                  result.screenshotError = error.message;
+                });
+              result.pageerrors = [...pageerrors];
+              result.blockedRequests = [...blockedRequests];
+              report.results.push(result);
+              console.log(`${result.passed ? "PASS" : "FAIL"} ${combination} ${name}`);
+              await persist();
+              return result;
+            }
+            try {
+              await page.goto(config.url, { waitUntil: "domcontentloaded" });
+              await page.evaluate(seedProProject, {
+                projectModuleUrl,
+                aspect,
+                versions,
+                videoUrl: mediaUrl,
               });
-              await snapshot("board", async () => {
+              await page.reload({ waitUntil: "domcontentloaded" });
+              await page.locator("nav.tabs").waitFor();
+              if (versions === 3) {
+                await snapshot("script", async () => {
+                  await nav("剧本").click();
+                  await page.getByLabel("这一场", { exact: true }).waitFor();
+                  assert.equal(
+                    await page.locator(".pro-root").getAttribute("data-stage"),
+                    "script",
+                  );
+                });
+                await snapshot("board", async () => {
+                  await nav("分镜").click();
+                  assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "board");
+                  assert.equal(await page.locator(".grid .card").count(), 6);
+                });
+                await snapshot("edit", async () => {
+                  await nav("剪辑").click();
+                  assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "edit");
+                  await page.locator(".preview-player").waitFor();
+                  assert.equal(await page.locator(".clip.v").count(), 6);
+                });
+              }
+              await snapshot("single", async () => {
                 await nav("分镜").click();
                 assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "board");
-                assert.equal(await page.locator(".grid .card").count(), 6);
+                await page.getByRole("button", { name: "单个镜头", exact: true }).click();
+                await page.locator(".cands > .nx-takes").waitFor();
+                assert.equal(await page.locator(".nx-take").count(), versions);
+                const before = await readSaved();
+                const originalTakes = takeSignature(before);
+                if (versions === 1) await page.locator(".nx-take").click();
+                for (let index = 2; index <= versions; index += 1) {
+                  await page.getByRole("button", { name: `用第 ${index} 版`, exact: true }).click();
+                  // Poll the serialized save synchronously: older Playwright versions treat a
+                  // Promise-returning predicate as truthy before the save has completed.
+                  await page.waitForFunction(
+                    ({ key, id, label }) => {
+                      const raw = window.localStorage.getItem(key);
+                      const saved = raw ? JSON.parse(raw) : null;
+                      return (
+                        saved?.shots?.[0]?.selectedTakeId === id &&
+                        document.querySelector(".nx-take.nx-in-use")?.getAttribute("aria-label") ===
+                          label
+                      );
+                    },
+                    {
+                      key: `aivora.film.v1.${before.id}`,
+                      id: before.shots[0].takes[index - 1].id,
+                      label: `第 ${index} 版`,
+                    },
+                  );
+                  assert.equal(
+                    await page.locator(".nx-take.nx-in-use").getAttribute("aria-label"),
+                    `第 ${index} 版`,
+                  );
+                }
+                const after = await readSaved();
+                assert.equal(after.shots[0].selectedTakeId, before.shots[0].takes[versions - 1].id);
+                assert.deepEqual(
+                  takeSignature(after),
+                  originalTakes,
+                  "Selecting a version changed take metadata",
+                );
+                assert.deepEqual(
+                  after.shots.slice(1).map((shot) => shot.selectedTakeId),
+                  before.shots.slice(1).map((shot) => shot.selectedTakeId),
+                );
+                assert.deepEqual(await page.evaluate(() => window.__proLayoutCalls), []);
               });
-              await snapshot("edit", async () => {
-                await nav("剪辑").click();
-                assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "edit");
-                await page.locator(".preview-player").waitFor();
-                assert.equal(await page.locator(".clip.v").count(), 6);
+            } catch (error) {
+              await snapshot("navigation-failed", () => {
+                throw error;
               });
+            } finally {
+              await context.close();
             }
-            await snapshot("single", async () => {
-              await nav("分镜").click();
-              assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "board");
-              await page.getByRole("button", { name: "单个镜头", exact: true }).click();
-              await page.locator(".cands > .nx-takes").waitFor();
-              assert.equal(await page.locator(".nx-take").count(), versions);
-              const before = await readSaved();
-              const originalTakes = takeSignature(before);
-              if (versions === 1) await page.locator(".nx-take").click();
-              for (let index = 2; index <= versions; index += 1) {
-                await page.getByRole("button", { name: `用第 ${index} 版`, exact: true }).click();
-                // Poll the serialized save synchronously: older Playwright versions treat a
-                // Promise-returning predicate as truthy before the save has completed.
-                await page.waitForFunction(
-                  ({ key, id, label }) => {
-                    const raw = window.localStorage.getItem(key);
-                    const saved = raw ? JSON.parse(raw) : null;
-                    return (
-                      saved?.shots?.[0]?.selectedTakeId === id &&
-                      document.querySelector(".nx-take.nx-in-use")?.getAttribute("aria-label") ===
-                        label
-                    );
-                  },
-                  {
-                    key: `aivora.film.v1.${before.id}`,
-                    id: before.shots[0].takes[index - 1].id,
-                    label: `第 ${index} 版`,
-                  },
-                );
-                assert.equal(
-                  await page.locator(".nx-take.nx-in-use").getAttribute("aria-label"),
-                  `第 ${index} 版`,
-                );
-              }
-              const after = await readSaved();
-              assert.equal(after.shots[0].selectedTakeId, before.shots[0].takes[versions - 1].id);
-              assert.deepEqual(
-                takeSignature(after),
-                originalTakes,
-                "Selecting a version changed take metadata",
-              );
-              assert.deepEqual(
-                after.shots.slice(1).map((shot) => shot.selectedTakeId),
-                before.shots.slice(1).map((shot) => shot.selectedTakeId),
-              );
-              assert.deepEqual(await page.evaluate(() => window.__proLayoutCalls), []);
-            });
-          } catch (error) {
-            await snapshot("navigation-failed", () => {
-              throw error;
-            });
-          } finally {
-            await context.close();
           }
-        }
     report.exitCode =
-      report.results.length === 24 && report.results.every((row) => row.passed) ? 0 : 1;
+      report.results.length === expectedResults && report.results.every((row) => row.passed)
+        ? 0
+        : 1;
   } catch (error) {
     report.setupError = error.message;
     report.setupCode = /sandbox/i.test(error.message)
@@ -440,7 +465,7 @@ try {
   const config = options();
   if (!config)
     console.log(
-      "Usage: node apps/studio-web/e2e/pro-layout-audit.mjs [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\nWithout --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.",
+      "Usage: node apps/studio-web/e2e/pro-layout-audit.mjs [--scope core|full] [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\nDefault core: 24 snapshots. Full: extended actual pages and exceptional states, separate from core. Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.",
     );
   else process.exitCode = await run(config);
 } catch (error) {

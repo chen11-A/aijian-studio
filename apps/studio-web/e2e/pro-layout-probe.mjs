@@ -1,6 +1,6 @@
 /** Browser-only geometry probe for the actual ProWorkspace, not the fixture/hash shell. */
-export function probeProLayout() {
-  const scope = document.querySelector(".pro-root");
+export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
+  const scope = document.querySelector(scopeSelector);
   if (!scope) throw new Error("ProWorkspace root is missing");
   const issues = [];
   const scrollOffscreen = [];
@@ -155,7 +155,8 @@ export function probeProLayout() {
   if (documentOverflow.x || documentOverflow.y)
     issues.push({ kind: "document-overflow", ...documentOverflow });
   return {
-    stage: scope.getAttribute("data-stage"),
+    scopeSelector,
+    stage: document.querySelector(".pro-root")?.getAttribute("data-stage"),
     documentOverflow,
     pickerMetrics,
     issues,

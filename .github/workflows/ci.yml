@@ -150,6 +150,20 @@ jobs:
           AIVORA_AUDIT_OUT: .aijian-dev/pro-layout-audit
         run: pnpm audit:pro-layout
 
+      - name: Audit extended actual ProWorkspace pages
+        if: ${{ always() && !cancelled() }}
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-layout-full
+        run: pnpm audit:pro-layout --scope full
+
+      - name: Audit core using a separately owned Vite URL
+        if: ${{ always() && !cancelled() }}
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-layout-url
+        run: node apps/studio-web/e2e/pro-layout-url-audit.mjs --scope core
+
       - name: Upload ProWorkspace layout evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -159,5 +173,11 @@ jobs:
             .aijian-dev/pro-layout-audit/report.json
             .aijian-dev/pro-layout-audit/1280x800-*/*.png
             .aijian-dev/pro-layout-audit/1920x1080-*/*.png
+            .aijian-dev/pro-layout-full/report.json
+            .aijian-dev/pro-layout-full/1280x800-*/*.png
+            .aijian-dev/pro-layout-full/1920x1080-*/*.png
+            .aijian-dev/pro-layout-url/report.json
+            .aijian-dev/pro-layout-url/1280x800-*/*.png
+            .aijian-dev/pro-layout-url/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7
