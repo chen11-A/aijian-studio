@@ -2,15 +2,9 @@
 
 ## Round5当前交付与接续分工
 
-B13已由总控提交f3dea3e（21文件），包含主进程真实阶段、独立执行ID/事件序号、实际close后的停止确认、partial保留及严格宿主迟到保护。GUI组件95a5fb2的40项由总控独立通过；e58026a增加32态浏览器门，原140态不删。完整TS和原静态/生成门正在当前progress树执行，未合dev、未称新浏览器或Windows取消验证成功。
+B13已由总控提交f3dea3e（21文件），包含主进程真实阶段、独立执行ID/事件序号、实际close后的停止确认、partial保留及严格宿主迟到保护。GUI组件95a5fb2的40项由总控独立通过；e58026a增加32态浏览器门，原140态不删。完整本地TS已exit0：desktop123文件2059、renderer385文件4781、媒体17/QC11，renderer分支87.50%；原typecheck:ts/build/contracts:check/lint全过。新CI run42265535461已原140态成功，新增32及完整质量继续；未合dev、未称Windows真实取消成功。
 
-#696 Windows质量失败已定位DOS短名/长名比较；修复73749be本地完整desktop2052项通过，新#698的140态浏览器全部成功，Linux/Windows质量仍运行。原dev仍6d1e082，main不变。后端转clean-recovery分支补无付费旧clean恢复；界面copy-polish第一批0257507已交付168定向项，继续修已有目录时保存错误被旧成功信息遮住。实际notice消费者追查修正见文案剩余核对，不以旧词搜索命中认定缺口。
-
-这份说明两边一起维护：第一部分是 GPT 写的逻辑和数据接口，第二部分是 Claude 写的界面接线。两部分说的是同一批组件，接口以第一部分为准，界面放在哪、怎么接以第二部分为准。
-
-# 第一部分：逻辑与界面交接（GPT）
-
-Claude 的六个组件（与 `aivora-next-components.zip` 相同，SHA-256 `0a73fd2f9c0ee88a222fc45f9db67f76c025f12aff8a12254042daa5a23ee394`）和适配层在 `claude/aivora-ui` 上，合并 `gpt/aivora-p3j@79e126d` 以后同在一个分支。下面是 GPT 的原文，只把开头这一段换成了合并后的情况。
+#696 Windows十项QC失败已定位DOS短名/长名比较；73749be修复后#698原十项失败已消除，剩三项旧fixture逐字短名断言。f981fa4只修测试，增加native精确参数、BigInt dev/ino及bytes验证，总控独立33项通过，已合入progress；待下一源码CI。原dev仍6d1e082，main不变。后端转clean-recovery补无付费旧clean恢复；界面copy-polish第一批0257507已交付168定向项，继续修已有目录时保存错误被旧成功信息遮住。实际notice消费者追查见文案剩余核对；阶段5-2持续审计已建立于docs/audit/5-2.md，不表示完整阶段5验收通过。
 
 ## 职责和当前交付边界
 
