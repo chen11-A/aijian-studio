@@ -1,3 +1,8 @@
+import type {
+  FilmProjectArchiveInput,
+  FilmProjectArchiveExport,
+  FilmProjectArchiveImport,
+} from "@aijian/contracts/film-project-archive";
 import type { FilmRangeGateway } from "@aijian/contracts/film-range";
 import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
 import type {
@@ -998,6 +1003,8 @@ export interface AijianDesktopBridge
       savedAt: string;
     }[]
   >;
+  exportFilmProjectArchive?: (input: FilmProjectArchiveInput) => Promise<FilmProjectArchiveExport>;
+  importFilmProjectArchive?: () => Promise<FilmProjectArchiveImport>;
   readFilmAudioWaveform?: (input: FilmAudioWaveformInput) => Promise<FilmAudioWaveformResult>;
   readFilmProject?: (id: string) => Promise<Record<string, unknown> | null>;
   prepareFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;

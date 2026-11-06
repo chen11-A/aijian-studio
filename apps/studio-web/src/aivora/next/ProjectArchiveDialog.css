@@ -1,0 +1,12 @@
+.pro-root .dialog.project-archive {
+  max-width: 620px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+.pro-root .dialog.project-archive p {
+  margin-block: 12px;
+  overflow-wrap: anywhere;
+}
+.pro-root .dialog.project-archive .acts {
+  flex-wrap: wrap;
+}
