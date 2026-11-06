@@ -94,6 +94,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
               bridge,
               modelIds: host.modelIds(),
               modelsChanged: host.modelsChanged,
+              captureFilm: host.current,
               billingProject: async () => billingProjectId,
               current: () => current() && host.current() === requestFilm,
               control: {

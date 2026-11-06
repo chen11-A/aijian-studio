@@ -1560,6 +1560,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       bridge,
       modelIds,
       billingProject: ensureBillingProject,
+      captureFilm: () => filmRef.current,
       current: () => filmRef.current?.id === requestProjectId && activeTurn.current === requestTurn,
       modelsChanged: setModelIds,
       control,

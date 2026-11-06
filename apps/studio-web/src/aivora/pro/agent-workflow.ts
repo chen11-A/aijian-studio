@@ -2,7 +2,15 @@ import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import { textModel } from "../film/project";
 import type { AgentId } from "../film/phase2";
 import { completeAgentBatched } from "../film/request-batches";
-import { recordAgentReply } from "./agent-capture";
+import {
+  captureEnabled,
+  captureEpoch,
+  captureScope,
+  sameCaptureScope,
+  sameCaptureInput,
+  recordAgentReply,
+  type CaptureFilm,
+} from "./agent-capture";
 import type { AgentReply, AgentRequestControl } from "./workflow";
 
 export async function completeMembershipAgent(
@@ -16,6 +24,7 @@ export async function completeMembershipAgent(
     current: () => boolean;
     modelsChanged: (ids: string[]) => void;
     control?: AgentRequestControl;
+    captureFilm?: () => CaptureFilm | null;
   },
 ): Promise<AgentReply> {
   const stale = (): AgentReply => ({
@@ -32,6 +41,11 @@ export async function completeMembershipAgent(
     host.current() &&
     !host.control?.signal.aborted &&
     (!host.control || Date.now() < host.control.deadlineAt);
+  if (!current()) return stale();
+  const requestEpoch = captureEpoch();
+  const input =
+    (agent === "director" || agent === "action") && captureEnabled() ? host.captureFilm?.() : null;
+  const capturedScope = input ? await captureScope(input) : null;
   if (!current()) return stale();
   const membership = await host.bridge.status();
   if (!current()) return stale();
@@ -109,7 +123,26 @@ export async function completeMembershipAgent(
     }
   });
   // 3JR-B11 (R2-02): kept word for word on this computer only when the person turned it on.
-  if (reply.text) recordAgentReply(agent, context, instruction, reply.text);
+  if (
+    reply.text &&
+    capturedScope &&
+    current() &&
+    captureEnabled() &&
+    requestEpoch === captureEpoch()
+  ) {
+    const live = host.captureFilm?.();
+    const latestScope = live ? await captureScope(live) : null;
+    const latestFilm = host.captureFilm?.();
+    if (
+      latestScope &&
+      sameCaptureScope(capturedScope, latestScope) &&
+      current() &&
+      live &&
+      latestFilm &&
+      sameCaptureInput(live, latestFilm)
+    )
+      recordAgentReply(agent, context, instruction, reply.text, capturedScope, requestEpoch);
+  }
   return reply;
 }
 

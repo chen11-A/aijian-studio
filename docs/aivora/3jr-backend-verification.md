@@ -485,3 +485,16 @@ Grok 的问题单写明 `directorVideoPrompt` 里也有「竖屏构图」，`5eb
 - `pnpm --filter @aijian/studio-web exec tsc -b --pretty false` 通过，日志 `/tmp/batch-scope-types-final.log`；`ProWorkspace.tsx` 和新增测试的目标 ESLint、Prettier 通过，日志 `/tmp/batch-scope-lint.log`。最初夹具误把请求结构当含镜头 ID、忽略媒体 URL 升级及默认串行队列，首轮失败日志保留在 `/tmp/batch-scope-first.log`；校正夹具后实跑通过，没有放宽未选范围或版本保留断言。
 
 当前为共享分支工作树中的实现与定向验证，提交、远端 dev、整合检查以总控记录为准。真实会员、Electron、安装包未验；没有调用付费服务，没有提交、推送或合并。5-3-05/10 的界面交互与 QA 由界面代理单独记录。
+
+## 3JR-B11 采集工程归属与正文版本（云端连续推进）
+
+负责人：`backend_round2`，`gpt-6.1-sol`、`medium`。修复只涉及采集业务、会员工作流、流水线宿主，以及工作台手动请求的 `captureFilm` callback；设置显示和下载组件归界面代理。本项保留默认关闭、仅本机和关闭即清理的约定，不调用真实会员服务。
+
+- 原缺口已确认：旧 `CapturedReply` 无作品身份，导出仅按场次/镜头 ID 取旧回复并现场重算当前原文 hash；两个作品复用 ID 或正文改变后可混用。记录现在显式保存 `projectId = film.id`、`sourceSha256 = SHA256(sourceText)`、`scriptSha256 = SHA256(JSON.stringify(scenes.map(scene => [scene.id, scene.text])))`，不保存请求上下文、原文/场次全文或凭证。原始回复仍仅在用户开启后按既有用途保存。
+- `recordAgentReply` 前四参数不变，第五参数为可选 `CaptureScope`，缺 scope 不采集；第六参数为请求开始时的 epoch，缺省为当前 epoch。`captureScope(film)` 异步返回上述 ID/hash 或 null。工作流 host 的可选 `captureFilm` 读取当前作品；手动和流水线请求均已提供，只有采集开关开启且 agent 为 director/action 才计算 hash。
+- 请求开始捕获 scope/epoch；回包后核对当前工程、原文及场次正文。关闭再开启、清空、切作品、正文变化、最终 hash 等待期间的输入变化均拒绝旧采集，保留原会员回复处理结果。最终 digest 返回前后同步核对正文，媒体更新不误当正文变化；hash 不可用时只停止可选采集，不破坏已成功回复。
+- `captureFile(film)` 保留 `{name,text,scenes}|null` 返回接口，入参包含 `id`；先按三重身份筛选，再按场次/镜头组装，拒绝把旧回复贴上新 hash。无身份/不完整 hash 的历史记录过滤并从本机存储清理，不猜测迁移归属；有效但正文不匹配的记录不会被导出。导出组装和 digest 使用同一输入快照，关闭/清空期间进行中的旧导出返回 null。
+- 实跑：后端 `agent-capture.test.ts`（5）、独立 `agent-capture-scope.test.ts`（18）、`ProWorkspace.capture-scope.test.tsx`（2）、`agent-workflow-stall.test.ts`（3）、`pipeline-workspace-host.test.ts`（7），5 文件 35 项通过；联合界面 `ReplyCaptureSettings.test.tsx` 11 项，共 6 文件 46 项通过，0 失败、0 未选择，日志 `/tmp/capture-scope-final.log`。新测试真实执行会员工作流但桥为测试桩，覆盖跨作品同 ID、改原文/场次、旧记录清理、迟到回复、关闭/清空 epoch、最终 hash 竞态及媒体保留；手动宿主测试通过真实按钮和编辑触发采集/拒绝，流水线宿主断言实际接入当前作品 getter。
+- web `tsc -b --pretty false`、改动业务/测试及工作台的目标 ESLint、Prettier、`git diff --check` 通过，日志 `/tmp/capture-scope-types-final.log`、`/tmp/capture-scope-lint.log`。首轮 27/28 通过，唯一失败为测试负断言误中作品标题的同词，日志 `/tmp/capture-scope-first.log` 保留；最终精确核对导出字段通过。没有用定向结果声明全仓已通过。
+
+当前新代码在共享工作树，当前分支提交、远端 dev 和最终联合门由总控记录。Chromium 合成回复下载见界面 QA，不等同于真实会员采集；真实会员、Electron 与安装包未验。没有提交、推送或合并。
