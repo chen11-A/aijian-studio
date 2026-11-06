@@ -3998,6 +3998,32 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("says on a folded property group how many of its fields are filled in (5-3-07)", async () => {
+  installDesktop();
+  window.localStorage.removeItem("aivora.board.groups");
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const summary = (name: string) =>
+    [...document.querySelectorAll<HTMLElement>(".pgroup > summary")].find(
+      (item) => item.textContent === name,
+    )!;
+  // The title text stays the group's name; the number is an attribute CSS draws.
+  expect(summary("画面").getAttribute("data-count")).toBeNull();
+  const ambience = screen.getByLabelText("这一镜的环境音") as HTMLTextAreaElement;
+  const before = Number(summary("声音").getAttribute("data-count")?.replace("· ", "") ?? 0);
+  fireEvent.change(ambience, { target: { value: "" } });
+  fireEvent.change(screen.getByLabelText("配乐情绪"), { target: { value: "" } });
+  const empty = Number(summary("声音").getAttribute("data-count")?.replace("· ", "") ?? 0);
+  expect(empty).toBeLessThanOrEqual(before);
+  fireEvent.change(ambience, { target: { value: "雨声" } });
+  fireEvent.change(screen.getByLabelText("配乐情绪"), { target: { value: "安静" } });
+  expect(summary("声音")).toHaveAttribute("data-count", `· ${empty + 2}`);
+  expect(summary("声音")).toHaveAttribute("title", `里面有 ${empty + 2} 项填了内容`);
+  // Open, the fields show for themselves and the number goes.
+  openGroup("声音");
+  await waitFor(() => expect(summary("声音").getAttribute("data-count")).toBeNull());
+});
+
 it("keeps only the logo, 作品 and the avatar on the start page (5-3-01)", async () => {
   installDesktop();
   render(<ProWorkspace projectId={PROJECT_ID} />);

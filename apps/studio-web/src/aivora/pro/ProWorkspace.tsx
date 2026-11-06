@@ -6112,14 +6112,18 @@ function PropGroup({
   id,
   title,
   defaultOpen = false,
+  filled = 0,
   children,
 }: {
   id: string;
   title: string;
   defaultOpen?: boolean;
+  /** 5-3-07: how many fields inside have something in them; a folded title shows 「· 2」. */
+  filled?: number;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(() => readGroupOpen(id, defaultOpen));
+  const count = !open && filled > 0 ? filled : 0;
   return (
     <details
       className="pgroup"
@@ -6131,7 +6135,13 @@ function PropGroup({
         writeGroupOpen(id, next);
       }}
     >
-      <summary>{title}</summary>
+      {/* The number is drawn by CSS, so the title stays the group's name. */}
+      <summary
+        data-count={count ? `· ${count}` : undefined}
+        title={count ? `里面有 ${count} 项填了内容` : undefined}
+      >
+        {title}
+      </summary>
       <div className="pgroup-body">{children}</div>
     </details>
   );
@@ -7021,7 +7031,17 @@ function BoardPage({
                   <p className="role-desc">这一镜的画面说明漏了{missingLocks.join("、")}的外貌。</p>
                 )}
               </PropGroup>
-              <PropGroup id="sound" title="声音">
+              <PropGroup
+                id="sound"
+                title="声音"
+                filled={
+                  [
+                    current.sound.source === "dub",
+                    current.sound.ambience.trim(),
+                    current.sound.musicMood.trim(),
+                  ].filter(Boolean).length
+                }
+              >
                 <div className="field">
                   <p className="role-desc">台词：{current.line || "这一镜没有台词"}</p>
                   <select
@@ -7073,7 +7093,19 @@ function BoardPage({
                   </button>
                 </div>
               </PropGroup>
-              <PropGroup id="advanced" title="高级">
+              <PropGroup
+                id="advanced"
+                title="高级"
+                filled={
+                  [
+                    current.styleNote,
+                    current.blocking,
+                    current.facing,
+                    current.action,
+                    current.performance,
+                  ].filter((text) => text?.trim()).length
+                }
+              >
                 <div className="adv">
                   <label htmlFor="shot-style-note">这一镜的画风</label>
                   <textarea

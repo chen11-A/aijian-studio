@@ -3225,6 +3225,12 @@ body:has(.pro-root) {
 .pro-root .pgroup[open] > summary::before {
   transform: rotate(90deg);
 }
+/* 5-3-07: a folded group says how many of its fields are filled in, 「声音 · 2」. */
+.pro-root .pgroup > summary[data-count]::after {
+  content: attr(data-count);
+  color: var(--text-3);
+  font-weight: 400;
+}
 .pro-root .pgroup-body {
   padding-bottom: 6px;
 }
