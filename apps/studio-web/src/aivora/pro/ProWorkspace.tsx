@@ -1,3 +1,9 @@
+import {
+  prepareHistoryInput,
+  historyRecordHash,
+  historyEntryView,
+} from "./actions/persistent-history";
+import type { FilmHistoryEntry } from "@aijian/contracts/film-history";
 import { legacyCleanCopyTargets, cleanCopySelectionHash } from "./actions/clean-copy-recovery";
 import { ExportProgress } from "../next/ExportProgress";
 import { acceptExportProgress, type ExportProgressScope } from "./actions/export-progress";
@@ -732,6 +738,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       apply: applyLive,
       ensureBillingProject: () => pipelineLive.current.ensureBillingProject(),
       acquireSaveOwnership: persistence.acquire,
+      beforeRun: (lease) => captureBeforePipeline(lease),
       bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
       modelIds: () => pipelineLive.current.modelIds,
       modelsChanged: setModelIds,
@@ -1762,6 +1769,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("先写下外貌，再出定妆照。");
       return;
     }
+    if (!window.aijian?.generateFilmStill) {
+      setNotice("请打开安装好的 AIVORA 再出图。");
+      return;
+    }
     if (workOwners.has(current.id, "portraits")) return;
     const release = workOwners.begin(current.id, "portraits");
     try {
@@ -1770,8 +1781,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         "portraits",
         () => filmRef.current?.id ?? "",
       );
+      let baseline: FilmProject;
+      try {
+        baseline = await captureBeforeGeneration(current, valid);
+      } catch {
+        if (valid())
+          setNotice({
+            code: "HISTORY_BACKUP_FAILED",
+            text: NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: "定妆照批次尚未开始生成，请先保存历史再试。",
+          });
+        return;
+      }
       await makeAllPortraits({
-        base: current,
+        base: baseline,
         characterIds: Array.isArray(selection)
           ? selection
           : characterId
@@ -1784,7 +1807,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           applyLive(next);
           await saveFilm(next);
         },
-        generate: (prompt, references) => requestFilmStill(current, prompt, references),
+        generate: (prompt, references) => requestFilmStill(baseline, prompt, references),
         progress: (batch) => {
           if (valid())
             emitNotice({
@@ -2684,7 +2707,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
     const release = workOwners.begin(base.id, `still:${current.id}`, "正在生成候选画面");
     try {
-      const ready = await prepareSceneMedia(base, [current], valid);
+      let baseline: FilmProject;
+      try {
+        baseline = await captureBeforeGeneration(base, valid);
+      } catch {
+        if (valid())
+          setNotice({
+            code: "HISTORY_BACKUP_FAILED",
+            text: NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: "四张候选画面尚未开始生成，请先保存历史再试。",
+          });
+        return;
+      }
+      const target = baseline.shots.find((row) => row.id === current.id);
+      if (!target) return;
+      const ready = await prepareSceneMedia(baseline, [target], valid);
       const result = await makeFourStills(
         ready,
         ready.shots.find((row) => row.id === current.id) ?? current,
@@ -2789,7 +2826,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     pipeline?: PipelineGenerationHost,
   ) {
     const id = filmRef.current?.id;
-    if (!id || generationRuns.current.has(id)) return;
+    if (!id || generationRuns.current.has(id) || persistentHistoryBusyRef.current) return;
     generationRuns.current.add(id);
     try {
       await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
@@ -2847,7 +2884,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     live = filmRef.current ?? live;
     // Billing preparation may yield while shots are edited or removed. Resolve only the
     // originally requested IDs against the live work; never revive a removed snapshot.
-    const latestTargets = selected.map((target) => live.shots.find((row) => row.id === target.id));
+    const latestGeneration = live;
+    if (!latestGeneration) return;
+    const latestTargets = selected.map((target) =>
+      latestGeneration.shots.find((row) => row.id === target.id),
+    );
     if (latestTargets.some((target) => !target)) {
       setNotice("所选镜头已经变化，请重新选择后生成。");
       return;
@@ -2855,6 +2896,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     selected = latestTargets.filter((target): target is FilmShot => Boolean(target));
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
+    if (canSubmit) {
+      try {
+        live = await captureBeforeGeneration(live, valid, pipeline);
+        if (!valid()) return;
+        const ids = selected.map((row) => row.id);
+        selected = ids
+          .map((id) => live!.shots.find((row) => row.id === id))
+          .filter((row): row is FilmShot => Boolean(row));
+        if (selected.length !== ids.length) throw new Error("HISTORY_STALE");
+      } catch {
+        if (valid())
+          setNotice({
+            code: "HISTORY_BACKUP_FAILED",
+            text: NOTICE_TEXT.HISTORY_BACKUP_FAILED,
+            detail: "本批尚未开始生成，未自动重试。请先保存历史再试。",
+          });
+        if (pipeline)
+          throw Object.assign(new Error("HISTORY_BACKUP_FAILED"), {
+            code: "HISTORY_BACKUP_FAILED",
+          });
+        return;
+      }
+    }
     const preparation = prepareGeneration(live, selected, {
       versions: requestedVersions,
       resume,
@@ -3705,6 +3769,230 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [coverOpen, setCoverOpen] = useState(false);
   // 4C-U02: 作品设置, with the work's history.
   const [workSettings, setWorkSettings] = useState(false);
+  const persistentHistoryBusyRef = useRef(false);
+  const [persistentHistoryBusy, setPersistentHistoryBusy] = useState(false);
+  const [persistentHistory, setPersistentHistory] = useState<FilmHistoryEntry[] | null>(null);
+  const [persistentHistoryLoading, setPersistentHistoryLoading] = useState(false);
+  const [persistentHistoryError, setPersistentHistoryError] = useState<string | null>(null);
+  const [persistentHistoryUnreadable, setPersistentHistoryUnreadable] = useState(0);
+  const [persistentHistoryRestoring, setPersistentHistoryRestoring] = useState("");
+  const [persistentHistoryRefresh, refreshPersistentHistory] = useState(0);
+  const historyHost = {
+    current: () => filmRef.current,
+    apply: applyLive,
+    acquire: persistence.acquire,
+  };
+  useEffect(() => {
+    let active = true;
+    const bridge = window.aijian,
+      id = film?.id;
+    setPersistentHistoryError(null);
+    setPersistentHistoryLoading(false);
+    setPersistentHistoryUnreadable(0);
+    setPersistentHistory(null);
+    if (
+      !workSettings ||
+      !id ||
+      !bridge?.listFilmHistory ||
+      !bridge.captureFilmHistory ||
+      !bridge.restoreFilmHistory
+    )
+      return;
+    setPersistentHistoryLoading(true);
+    void bridge
+      .listFilmHistory(id)
+      .then((result) => {
+        if (!active || filmRef.current?.id !== id) return;
+        if (result.kind !== "LIST") throw new Error("HISTORY_READ_FAILED");
+        setPersistentHistory(result.entries);
+        setPersistentHistoryUnreadable(result.unreadable);
+        if (result.unreadable && !result.entries.length)
+          setPersistentHistoryError("已找到历史文件，但暂时无法核验，原文件已保留。");
+      })
+      .catch(() => {
+        if (active && filmRef.current?.id === id) {
+          setPersistentHistoryError(NOTICE_TEXT.HISTORY_READ_FAILED);
+          setNotice({ code: "HISTORY_READ_FAILED", text: NOTICE_TEXT.HISTORY_READ_FAILED });
+        }
+      })
+      .finally(() => {
+        if (active) setPersistentHistoryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workSettings, film?.id, persistentHistoryRefresh]);
+  async function captureBeforePipeline(lease: Awaited<ReturnType<typeof persistence.acquire>>) {
+    try {
+      const base = filmRef.current;
+      if (!base) throw new Error("HISTORY_STALE");
+      const input = await prepareHistoryInput(base, historyHost, lease);
+      const result = await window.aijian!.captureFilmHistory!({
+        projectId: base.id,
+        expectedHash: input.expectedHash,
+        reason: "before-pipeline",
+      });
+      if (result.kind !== "CAPTURED" || !input.current()) throw new Error("HISTORY_BACKUP_FAILED");
+      refreshPersistentHistory((value) => value + 1);
+    } catch {
+      throw Object.assign(new Error("HISTORY_BACKUP_FAILED"), { code: "HISTORY_BACKUP_FAILED" });
+    }
+  }
+  async function captureBeforeGeneration(
+    base: FilmProject,
+    valid: () => boolean,
+    pipeline?: PipelineGenerationHost,
+  ) {
+    const bridge = window.aijian;
+    if (!bridge?.captureFilmHistory || !bridge.readFilmProject)
+      throw new Error("HISTORY_UNSUPPORTED");
+    if (pipeline) {
+      await pipeline.apply(base);
+      const accepted = filmRef.current;
+      if (!accepted || !valid()) throw new Error("HISTORY_STALE");
+      const stored = await bridge.readFilmProject(base.id);
+      if (!stored || stored.id !== base.id || filmRef.current !== accepted || !valid())
+        throw new Error("HISTORY_STALE");
+      const expectedHash = await historyRecordHash(stored);
+      const result = await bridge.captureFilmHistory({
+        projectId: base.id,
+        expectedHash,
+        reason: "before-batch-generation",
+      });
+      if (result.kind !== "CAPTURED" || filmRef.current !== accepted || !valid())
+        throw new Error("HISTORY_BACKUP_FAILED");
+      refreshPersistentHistory((value) => value + 1);
+      return accepted;
+    }
+    const input = await prepareHistoryInput(base, historyHost);
+    try {
+      const result = await bridge.captureFilmHistory({
+        projectId: base.id,
+        expectedHash: input.expectedHash,
+        reason: "before-batch-generation",
+      });
+      if (result.kind !== "CAPTURED" || !input.current() || !valid())
+        throw new Error("HISTORY_BACKUP_FAILED");
+    } finally {
+      await input.release();
+    }
+    if (!input.current() || !valid()) throw new Error("HISTORY_STALE");
+    refreshPersistentHistory((value) => value + 1);
+    return input.film;
+  }
+  async function keepCurrentHistory() {
+    const base = filmRef.current;
+    if (!base || persistentHistoryBusyRef.current) return;
+    persistentHistoryBusyRef.current = true;
+    setPersistentHistoryBusy(true);
+    let input: Awaited<ReturnType<typeof prepareHistoryInput>> | undefined;
+    try {
+      input = await prepareHistoryInput(base, historyHost);
+      const result = await window.aijian!.captureFilmHistory!({
+        projectId: base.id,
+        expectedHash: input.expectedHash,
+        reason: "manual",
+      });
+      if (!input.current()) return;
+      if (result.kind !== "CAPTURED") throw new Error("HISTORY_BACKUP_FAILED");
+      setNotice({ code: "HISTORY_SAVED", text: NOTICE_TEXT.HISTORY_SAVED });
+      refreshPersistentHistory((value) => value + 1);
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice({ code: "HISTORY_BACKUP_FAILED", text: NOTICE_TEXT.HISTORY_BACKUP_FAILED });
+    } finally {
+      try {
+        await input?.release();
+      } catch {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "SAVE_FAILED", text: NOTICE_TEXT.SAVE_FAILED });
+      }
+      persistentHistoryBusyRef.current = false;
+      setPersistentHistoryBusy(false);
+    }
+  }
+  async function restoreKeptHistory(historyId: string) {
+    const base = filmRef.current;
+    if (!base || persistentHistoryBusyRef.current) return;
+    if (
+      generationRuns.current.has(base.id) ||
+      Object.keys(workOwners.progress("")).length ||
+      asking
+    ) {
+      setNotice({
+        code: "HISTORY_RESTORE_FAILED",
+        text: NOTICE_TEXT.HISTORY_RESTORE_FAILED,
+        detail: "当前生成或编辑任务还在进行，请等完成后再恢复。",
+      });
+      return;
+    }
+    persistentHistoryBusyRef.current = true;
+    setPersistentHistoryBusy(true);
+    setPersistentHistoryRestoring(historyId);
+    let input: Awaited<ReturnType<typeof prepareHistoryInput>> | undefined;
+    try {
+      input = await prepareHistoryInput(base, historyHost);
+      const result = await window.aijian!.restoreFilmHistory!({
+        projectId: base.id,
+        historyId,
+        expectedHash: input.expectedHash,
+      });
+      if (!input.current()) {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "HISTORY_STALE", text: NOTICE_TEXT.HISTORY_STALE });
+        return;
+      }
+      if (result.kind === "RESTORED" || result.kind === "PARTIAL") {
+        if (
+          result.project &&
+          typeof result.project === "object" &&
+          !Array.isArray(result.project)
+        ) {
+          const restored = upgradeFilm(result.project as Partial<FilmProject>);
+          if (!restored || restored.id !== base.id) throw new Error("HISTORY_STALE");
+          applyLive(restored);
+          resetHistory(filmRef.current!);
+          setScene(restored.scenes[0]?.id ?? scene);
+          setShot(0);
+          setPlaying(false);
+          setPending(null);
+          setPendingRole(null);
+        }
+        if (result.kind === "RESTORED")
+          setNotice({ code: "HISTORY_RESTORED", text: NOTICE_TEXT.HISTORY_RESTORED });
+        else
+          setNotice({
+            code: "HISTORY_RESTORE_FAILED",
+            text: NOTICE_TEXT.HISTORY_RESTORE_FAILED,
+            detail: "内容可能已写入，但保存尚未完整确认。恢复前版本已保留，请先核对再操作。",
+          });
+        refreshPersistentHistory((value) => value + 1);
+      } else
+        setNotice({
+          code: result.code === "PROJECT_CHANGED" ? "HISTORY_STALE" : "HISTORY_RESTORE_FAILED",
+          text:
+            result.code === "PROJECT_CHANGED"
+              ? NOTICE_TEXT.HISTORY_STALE
+              : NOTICE_TEXT.HISTORY_RESTORE_FAILED,
+          detail: result.unchanged
+            ? "当前作品没有改动，历史文件仍保留。"
+            : "当前保存状态尚未确认，请先核对。",
+        });
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice({ code: "HISTORY_RESTORE_FAILED", text: NOTICE_TEXT.HISTORY_RESTORE_FAILED });
+    } finally {
+      try {
+        await input?.release();
+      } catch {
+        if (filmRef.current?.id === base.id)
+          setNotice({ code: "SAVE_FAILED", text: NOTICE_TEXT.SAVE_FAILED });
+      }
+      persistentHistoryBusyRef.current = false;
+      setPersistentHistoryBusy(false);
+      setPersistentHistoryRestoring("");
+    }
+  }
   // 4C-U03: 设置, the person's own defaults on this computer.
   const [appSettings, setAppSettings] = useState(false);
   const changePrefs = (next: Partial<AppPrefs>) => {
@@ -5041,8 +5329,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               </section>
               <section className="ws-sec" aria-label="历史版本">
                 <h3>历史版本</h3>
-                {/* GPT 4C-B02 gives the kept versions and restores one (next/INTEGRATION.md). */}
-                <HistoryList entries={null} onRestore={() => undefined} />
+                {window.aijian?.captureFilmHistory &&
+                window.aijian.restoreFilmHistory &&
+                window.aijian.listFilmHistory ? (
+                  <button
+                    className="btn sm"
+                    disabled={persistentHistoryBusy}
+                    onClick={() => void keepCurrentHistory()}
+                  >
+                    {persistentHistoryBusy ? "正在处理历史版本…" : "保存当前版本"}
+                  </button>
+                ) : null}
+                {persistentHistoryUnreadable > 0 && persistentHistory?.length ? (
+                  <p className="role-desc">
+                    有 {persistentHistoryUnreadable} 份历史暂时无法核验，原文件已保留。
+                  </p>
+                ) : null}
+                <HistoryList
+                  key={film?.id}
+                  entries={persistentHistory?.map(historyEntryView) ?? null}
+                  loading={persistentHistoryLoading}
+                  error={persistentHistoryError}
+                  restoring={persistentHistoryRestoring || (persistentHistoryBusy ? "saving" : "")}
+                  onRestore={(id) => void restoreKeptHistory(id)}
+                />
               </section>
               <div className="acts">
                 <span className="sp" />

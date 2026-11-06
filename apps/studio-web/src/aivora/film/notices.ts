@@ -361,6 +361,13 @@ const PREVIOUS_NOTICE_TEXT = {
 
 /** Preserve existing plain-text aliases when distinct codes share newly approved wording. */
 export const NOTICE_TEXT = {
+  HISTORY_SAVED: "当前版本已保存到历史。",
+  HISTORY_READ_FAILED: "历史版本暂时无法读取，请重试。",
+  HISTORY_RESTORED: "已恢复历史版本，恢复前的作品已另存。",
+  HISTORY_RESTORE_FAILED: "历史恢复尚未确认，请核对当前作品。",
+  HISTORY_BACKUP_FAILED: "历史快照没有保存，请先重试。",
+  HISTORY_STALE: "作品内容已变化，请重新选择历史版本。",
+
   EXPORT_QC_RUNNING: "正在准备并检查成片。",
   EXPORT_QC_READY: "技术检查完成，请审阅后再发布。",
   EXPORT_QC_FAILED: "导出前检查没有完成，请查看原因后重试。",

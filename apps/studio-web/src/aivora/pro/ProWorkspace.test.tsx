@@ -1,3 +1,5 @@
+import { historyRecordHash } from "./actions/persistent-history";
+import type { FilmHistoryEntry, FilmHistoryGateway } from "@aijian/contracts/film-history";
 import { qcFailureText } from "./actions/export-qc";
 import type {
   FilmExportQcInput,
@@ -179,7 +181,13 @@ describe("professional workspace", () => {
         sourceVideoPath: sourcePath,
       }));
       window.aijian!.extractFilmLastFrame = extract;
-      vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+      vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
+        const writes = vi
+          .mocked(window.aijian!.writeFilmProject!)
+          .mock.calls.map(([value]) => value)
+          .filter((value) => value.id === id);
+        return structuredClone(writes.at(-1) ?? film);
+      });
       window.localStorage.setItem("aivora.film.activeId", film.id);
       render(<ProWorkspace projectId={PROJECT_ID} />);
       await screen.findAllByText(film.title);
@@ -417,7 +425,13 @@ describe("professional workspace", () => {
     const prepared = prepareVideoQueue(film, [film.shots[0]!], 2, false).film;
     const takes = prepared.shots[0]!.takes;
     const stored = setVideoTaskState(prepared, takes[0]!.id, "running");
-    vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(stored);
+    vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
+      const writes = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.map(([film]) => film)
+        .filter((film) => film.id === id);
+      return structuredClone(writes.at(-1) ?? stored);
+    });
     window.localStorage.setItem("aivora.film.activeId", stored.id);
     render(<ProWorkspace projectId={PROJECT_ID} />);
     fireEvent.click(await screen.findByRole("button", { name: /后台生成/ }));
@@ -778,6 +792,16 @@ describe("professional workspace", () => {
     await waitFor(() =>
       expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
     );
+    // A previous task feed may already mark these slots done; wait for this batch's saved media.
+    await waitFor(() => {
+      const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+        FilmProject | undefined;
+      expect(
+        saved?.characters
+          .find((person) => person.name === "老刀")
+          ?.portraits.filter((item) => item.url),
+      ).toHaveLength(4);
+    });
     expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.click(stageTab("剪辑"));
@@ -827,7 +851,9 @@ describe("professional workspace", () => {
     // 4C-U02: a real 作品设置: where the style is changed, and the work's history.
     const settings = within(screen.getByRole("dialog", { name: "作品设置" }));
     expect(settings.getByRole("button", { name: "去改画风" })).toBeInTheDocument();
-    expect(settings.getByText(/还不能看历史版本/)).toBeInTheDocument();
+    expect(settings.queryByText(/还不能看历史版本/)).toBeNull();
+    expect(settings.getByRole("button", { name: "保存当前版本" })).toBeInTheDocument();
+    expect(await settings.findByText(/还没有存过的版本/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "2" });
     fireEvent.keyDown(window, { key: "i" });
     fireEvent.keyDown(window, { key: "Escape" });
@@ -2056,7 +2082,9 @@ it("makes every missing portrait from one button and shows each slot's state", a
   expect(document.querySelector(".refs4 .rain")).toBeNull();
   fireEvent.click(all);
   await waitFor(() => expect(screen.getAllByText("已完成")).toHaveLength(4));
-  expect(document.querySelector(".portrait-progress")).toHaveTextContent("都齐了");
+  await waitFor(() =>
+    expect(document.querySelector(".portrait-progress")).toHaveTextContent("都齐了"),
+  );
   // 3J-U19: a coded message is one sentence; the counts stay in the tooltip.
   expect(document.querySelector(".status-note")?.textContent ?? "").not.toMatch(/\d+\/\d+/);
   // 4A-U09: everyone is done, so the one primary button moves on to the storyboard.
@@ -2730,10 +2758,57 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
   }));
   const discardFilmExport = vi.fn(async () => undefined);
   const savedProjects = new Map<string, FilmProject>();
+  const historyRecords = new Map<string, { entry: FilmHistoryEntry; film: FilmProject }>();
+  let historySequence = 0;
+  const historyEntry = (
+    film: FilmProject,
+    reason: FilmHistoryEntry["reason"],
+  ): FilmHistoryEntry => ({
+    id: `hst_${(++historySequence).toString(16).padStart(32, "0")}`,
+    createdAt: new Date().toISOString(),
+    reason,
+    summary: {
+      scenes: film.scenes.length,
+      shots: film.shots.length,
+      done: film.shots.filter((shot) =>
+        shot.takes.some((take) => take.status === "done" && take.videoPath),
+      ).length,
+    },
+  });
 
   const revealFilmPath = vi.fn(async () => undefined);
   const openFilmPath = vi.fn(async () => undefined);
   window.aijian = {
+    listFilmHistory: vi.fn<FilmHistoryGateway["listFilmHistory"]>(async (projectId) => ({
+      kind: "LIST",
+      entries: [...historyRecords.values()]
+        .filter((value) => value.film.id === projectId)
+        .map((value) => value.entry),
+      unreadable: 0,
+    })),
+    captureFilmHistory: vi.fn<FilmHistoryGateway["captureFilmHistory"]>(async (input) => {
+      const saved = savedProjects.get(input.projectId);
+      if (!saved || (await historyRecordHash(saved)) !== input.expectedHash)
+        return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+      const entry = historyEntry(saved, input.reason);
+      historyRecords.set(entry.id, { entry, film: structuredClone(saved) });
+      return { kind: "CAPTURED", entry };
+    }),
+    restoreFilmHistory: vi.fn<FilmHistoryGateway["restoreFilmHistory"]>(async (input) => {
+      const saved = savedProjects.get(input.projectId),
+        target = historyRecords.get(input.historyId);
+      if (
+        !saved ||
+        !target ||
+        target.film.id !== input.projectId ||
+        (await historyRecordHash(saved)) !== input.expectedHash
+      )
+        return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+      const backup = historyEntry(saved, "before-restore");
+      historyRecords.set(backup.id, { entry: backup, film: structuredClone(saved) });
+      savedProjects.set(saved.id, structuredClone(target.film));
+      return { kind: "RESTORED", project: structuredClone(target.film), backup };
+    }),
     prepareFilmProject: vi.fn(async (film: FilmProject) => structuredClone(film)),
     createStoryFilm,
     generateFilmStill: vi.fn(async () => ({

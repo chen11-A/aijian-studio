@@ -112,6 +112,10 @@
     "./quit-save": {
       "types": "./src/quit-save.ts",
       "default": "./src/quit-save.ts"
+    },
+    "./film-history": {
+      "types": "./src/film-history.ts",
+      "default": "./src/film-history.ts"
     }
   },
   "scripts": {

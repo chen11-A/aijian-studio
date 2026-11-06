@@ -1,3 +1,4 @@
+import { registerFilmHistory } from "./film-history-ipc";
 import { createQuitSaveCoordinator, finishApprovedApplicationQuit } from "./quit-save";
 import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
 import { createStoryFilmClient } from "./story-film-client";
@@ -904,6 +905,14 @@ registerCleanCopyRecovery<IpcMainInvokeEvent>(
       );
     },
   },
+);
+registerFilmHistory<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  join(app.getPath("userData"), "films"),
 );
 const checkedPublishedPaths = new Set<string>();
 const qcResourceRoot = () =>

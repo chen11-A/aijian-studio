@@ -1,3 +1,4 @@
+import type { FilmHistoryGateway } from "@aijian/contracts/film-history";
 import type { QuitSaveGateway } from "@aijian/contracts/quit-save";
 import type { CleanCopyRecoveryGateway } from "@aijian/contracts/clean-copy-recovery";
 import type { FilmExportQcGateway } from "@aijian/contracts/film-export-qc";
@@ -1028,6 +1029,9 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  listFilmHistory?: FilmHistoryGateway["listFilmHistory"];
+  captureFilmHistory?: FilmHistoryGateway["captureFilmHistory"];
+  restoreFilmHistory?: FilmHistoryGateway["restoreFilmHistory"];
   recoverFilmCleanCopy?: CleanCopyRecoveryGateway["recoverFilmCleanCopy"];
   prepareFilmExport?: FilmExportQcGateway["prepareFilmExport"];
   publishFilmExport?: FilmExportQcGateway["publishFilmExport"];
