@@ -15,6 +15,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -55,6 +56,7 @@ from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
 from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE
+from aijian_api.story_speech_window import SPEECH_WINDOW, SpeechWindow, pad_pcm
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
 from aijian_api.user_messages import UserMessage, user_message
@@ -467,6 +469,15 @@ class StoryFilmService:
                 if request.shots
                 and request.provider != "grok_subscription"
                 and not any(shot.lines for shot in request.shots)
+                else (
+                    sum(
+                        _video_cap(request.video_model, _shot_references(shot))
+                        for shot in request.shots
+                    )
+                    if request.shots
+                    else _video_cap(request.video_model)
+                )
+                if request.provider == "grok_subscription"
                 else None
             )
             result = self._assemble_and_export(
@@ -525,8 +536,12 @@ class StoryFilmService:
                     maximum = error.detail.get("maxSeconds")
                     label = f"第 {shot_index} 镜" if shot_index is not None else "这一镜"
                     if isinstance(required, int | float) and isinstance(maximum, int | float):
+                        subject = (
+                            "对白及头尾留白" if error.detail.get("speech_window") == 1 else "对白"
+                        )
                         detail = (
-                            f"{label}对白约 {required:g} 秒，视频最多 {maximum:g} 秒；请拆分对白。"
+                            f"{label}{subject}约 {required:g} 秒，"
+                            f"视频最多 {maximum:g} 秒；请拆分对白。"
                         )
                 return replace(
                     failed,
@@ -844,16 +859,7 @@ class StoryFilmService:
                 )
                 if request.provider == "grok_subscription":
                     prepared = prepared_reference_image(shot.still)
-                    linked = [
-                        url
-                        for url in (
-                            reference_image_url(item)
-                            for item in (*shot.references, shot.reference)
-                            if item and (prepared is None or item != shot.still)
-                        )
-                        if url
-                    ]
-                    linked = list(dict.fromkeys(linked))
+                    linked = _shot_references(shot)
                     image, clip, speech = self._live_media(
                         child,
                         media_token,
@@ -872,7 +878,14 @@ class StoryFilmService:
                 clip_path.write_bytes(clip)
                 chosen = max(1, min(int(shot.duration_seconds), 15))
                 audio_path.write_bytes(speech)
-                if shot.lines or request.provider == "grok_subscription":
+                if _uses_speech_window(child):
+                    required = _speech_window_seconds(tools.ffmpeg_path, audio_path)
+                    cap = _video_cap(request.video_model, linked)
+                    _check_speech_window(required, cap, index)
+                    # Retain a longer returned action inside the real model cap. The
+                    # mandatory tail is a minimum, not a reason to trim to raw+1.
+                    chosen = cap
+                elif shot.lines or request.provider == "grok_subscription":
                     chosen = max(
                         chosen,
                         math.ceil(
@@ -880,6 +893,8 @@ class StoryFilmService:
                             + _NARRATION_TAIL_SECONDS
                         ),
                     )
+                if request.provider == "grok_subscription":
+                    chosen = min(chosen, _video_cap(request.video_model, linked))
                 source_dir = Path(self._repository.database_path).parent / "story-films"
                 source_dir.mkdir(parents=True, exist_ok=True)
                 stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
@@ -892,6 +907,8 @@ class StoryFilmService:
                     clip_path,
                     audio_path,
                     chosen,
+                    speech_window=SPEECH_WINDOW if _uses_speech_window(child) else None,
+                    strict_cap=request.provider == "grok_subscription",
                     shot_index=index,
                 )
                 actual = _media_duration(tools.ffprobe_path, clip_path)
@@ -948,6 +965,25 @@ class StoryFilmService:
                 )
                 video = video_path.read_bytes()
                 audio = audio_path.read_bytes()
+        # These are layout windows, not evidence of speech/word alignment.
+        self._shot_captions = [
+            (
+                text,
+                min(
+                    end,
+                    start
+                    + math.ceil(
+                        SPEECH_WINDOW.head_samples / SPEECH_WINDOW.sample_rate * _FRAME_RATE
+                    )
+                    / _FRAME_RATE,
+                )
+                if request.provider == "grok_subscription"
+                and (request.shots[index].lines or _spoken_line(request.shots[index].narration))
+                else start,
+                end,
+            )
+            for index, (text, start, end) in enumerate(self._shot_captions)
+        ]
         return picture or _FALLBACK_PNG, video, audio
 
     def _live_media(
@@ -964,6 +1000,9 @@ class StoryFilmService:
     ) -> tuple[bytes, bytes, bytes]:
         if not media_token or not live_media_enabled():
             raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
+        cap = _video_cap(
+            request.video_model, (*reference_images, *((reference_url,) if reference_url else ()))
+        )
         bundle = None if request.regenerate else self._saved_bundle(project_id, request)
         if bundle is not None:
             image_bytes, saved_clip, saved_speech = bundle
@@ -973,10 +1012,14 @@ class StoryFilmService:
                 cached_video.write_bytes(saved_clip)
                 cached_voice.write_bytes(saved_speech)
                 tools = self._tools()
-                if (
-                    _media_duration(tools.ffprobe_path, cached_voice)
-                    > _media_duration(tools.ffprobe_path, cached_video) + 1
-                ):
+                required = (
+                    _speech_window_seconds(tools.ffmpeg_path, cached_voice)
+                    if _uses_speech_window(request)
+                    else _media_duration(tools.ffprobe_path, cached_voice)
+                )
+                if _uses_speech_window(request):
+                    _check_speech_window(required, cap, request.shot_index)
+                if required > _media_duration(tools.ffprobe_path, cached_video) + 1:
                     raise StoryFilmError(
                         "VIDEO_TOO_SHORT", "已保存的视频不够长，请重新生成更长的视频。"
                     )
@@ -1054,8 +1097,6 @@ class StoryFilmService:
                 )
         self._ensure_running(project_id)
         kept = bool(image.data)
-        model = request.video_model or VIDEO_MODEL
-        cap = 10 if model == "grok-imagine-video" and (reference_images or reference_url) else 15
         duration = min(duration, cap)
         speech: bytes | None = None
         if request.dialogue_lines or _spoken_line(request.narration):
@@ -1081,20 +1122,10 @@ class StoryFilmService:
             with tempfile.TemporaryDirectory(prefix="aivora-speech-duration-") as temporary:
                 speech_file = Path(temporary) / f"speech{_audio_suffix(speech)}"
                 speech_file.write_bytes(speech)
-                spoken_seconds = _media_duration(self._tools().ffprobe_path, speech_file)
-            duration = max(
-                min(duration, cap), min(cap, math.ceil(spoken_seconds + _NARRATION_TAIL_SECONDS))
-            )
-            if spoken_seconds > cap:
-                raise StoryFilmError(
-                    "DIALOGUE_VIDEO_LIMIT",
-                    "这段对白超过单个视频可容纳的长度，请拆分镜头后重试。",
-                    detail={
-                        "requiredSeconds": spoken_seconds,
-                        "maxSeconds": cap,
-                        "shot_index": request.shot_index,
-                    },
-                )
+                tools = self._tools()
+                spoken_seconds = _speech_window_seconds(tools.ffmpeg_path, speech_file)
+            duration = max(min(duration, cap), min(cap, math.ceil(spoken_seconds - 1e-6)))
+            _check_speech_window(spoken_seconds, cap, request.shot_index)
             self._ensure_running(project_id)
         mark_film_progress(project_id, "video", shot_label or "正在生成视频。", image_saved=kept)
         clip, video_note = self._live_video(
@@ -1459,6 +1490,11 @@ class StoryFilmService:
             audio_path,
             max_seconds,
             tail_seconds=0 if request.shots else _NARRATION_TAIL_SECONDS,
+            normalized_voice=bool(request.shots) and request.provider == "grok_subscription",
+            strict_cap=request.provider == "grok_subscription",
+            speech_window=(
+                SPEECH_WINDOW if not request.shots and _uses_speech_window(request) else None
+            ),
         )
         store = MediaAssetStore(self._repository)
         image_asset = store.import_local(project_id, image_path, display_filename="关键画面.png")
@@ -1505,7 +1541,13 @@ class StoryFilmService:
                 {
                     "segment_id": "seg_caption",
                     "text": subtitle,
-                    "start_frame": 0,
+                    "start_frame": (
+                        math.ceil(
+                            SPEECH_WINDOW.head_samples / SPEECH_WINDOW.sample_rate * _FRAME_RATE
+                        )
+                        if _uses_speech_window(request)
+                        else 0
+                    ),
                     "end_frame": frames,
                     "render_profile": "noto-cjk-sc-bottom-v1",
                 }
@@ -1570,6 +1612,17 @@ class StoryFilmService:
             "ai_generated": True,
             "release_claim": False,
         }
+        if (not request.shots and _uses_speech_window(request)) or (
+            request.provider == "grok_subscription"
+            and any(shot.lines or _spoken_line(shot.narration) for shot in request.shots)
+        ):
+            manifest["speech_window"] = {
+                "version": SPEECH_WINDOW.version,
+                "sample_rate": SPEECH_WINDOW.sample_rate,
+                "head_samples": SPEECH_WINDOW.head_samples,
+                "minimum_tail_samples": SPEECH_WINDOW.tail_samples,
+                "scope": "spoken_shots",
+            }
         film_parent, film_revision = self._artifact_head(project_id, "story_film", None)
         record = self._repository.create_artifact_version(
             project_id=project_id,
@@ -2207,6 +2260,59 @@ def _loudnorm_filter(measured: dict[str, str] | None) -> str:
     )
 
 
+def _video_cap(model: str, references: tuple[str, ...] | list[str] = ()) -> int:
+    return 10 if (model or VIDEO_MODEL) == "grok-imagine-video" and references else 15
+
+
+def _shot_references(shot: StoryShot) -> list[str]:
+    prepared = prepared_reference_image(shot.still)
+    linked = [
+        url
+        for item in (*shot.references, shot.reference)
+        if item and (prepared is None or item != shot.still)
+        if (url := reference_image_url(item))
+    ]
+    return list(dict.fromkeys(linked))
+
+
+def _uses_speech_window(request: StoryFilmRequest) -> bool:
+    # Stub narration is a placeholder tone, not actual speech. Never pad an aggregate twice.
+    return request.provider == "grok_subscription" and bool(
+        any(line.text.strip() for line in request.dialogue_lines) or _spoken_line(request.narration)
+    )
+
+
+def _speech_window_seconds(ffmpeg: Path, audio: Path) -> float:
+    # Container duration (especially MP3 priming) is not the decoded sample clock.
+    import wave
+
+    decoded = audio.with_name(f"{audio.stem}-clock.wav")
+    _ffmpeg(
+        ffmpeg,
+        ["-i", str(audio), "-vn", "-ar", "48000", "-ac", "1", "-c:a", "pcm_s16le", str(decoded)],
+        stage="speech_clock",
+    )
+    try:
+        with wave.open(str(decoded), "rb") as pcm:
+            return SPEECH_WINDOW.required_seconds(pcm.getnframes() / pcm.getframerate())
+    finally:
+        decoded.unlink(missing_ok=True)
+
+
+def _check_speech_window(required: float, cap: int, shot_index: int | None) -> None:
+    if required > cap + 1e-6:
+        raise StoryFilmError(
+            "DIALOGUE_VIDEO_LIMIT",
+            "完整对白及头尾留白超过单个视频长度，请拆分镜头后重试。",
+            detail={
+                "requiredSeconds": required,
+                "maxSeconds": cap,
+                "shot_index": shot_index,
+                "speech_window": 1,
+            },
+        )
+
+
 def _normalize_film_media(
     ffmpeg: Path,
     ffprobe: Path,
@@ -2215,6 +2321,9 @@ def _normalize_film_media(
     max_seconds: int | None = None,
     *,
     tail_seconds: float = _NARRATION_TAIL_SECONDS,
+    speech_window: SpeechWindow | None = None,
+    normalized_voice: bool = False,
+    strict_cap: bool = False,
     shot_index: int | None = None,
 ) -> tuple[int, int, int, Path]:
     """Loudness-normalize the narration and hold the last frame instead of cutting it.
@@ -2223,6 +2332,8 @@ def _normalize_film_media(
     a short tail. A longer video is kept, and the narration is padded with
     silence rather than trimmed. A chosen length must accommodate all speech.
     Frame holds are limited to one second; insufficient video fails explicitly.
+    An explicit speech window includes its mandatory head/tail in narration_seconds;
+    the legacy default retains the optional tail behavior for existing callers.
     """
 
     payload = _ffprobe(ffprobe, ["-show_streams", "-of", "json", str(clip_path)])
@@ -2255,32 +2366,50 @@ def _normalize_film_media(
     clean.replace(clip_path)
     frames = _video_frames(ffprobe, clip_path)
     if max_seconds is not None and frames > max_seconds * _FRAME_RATE:
-        _fit_clip_length(ffmpeg, ffprobe, clip_path, max_seconds)
+        _fit_clip_length(
+            ffmpeg,
+            ffprobe,
+            clip_path,
+            max_seconds,
+            tolerance_seconds=0 if strict_cap else 0.25,
+        )
         frames = _video_frames(ffprobe, clip_path)
     with audio_path.open("rb") as stream:
         header = stream.read(16)
     demuxer = "mp3" if _audio_suffix(header) == ".mp3" else "wav"
     normalized = audio_path.with_name(f"{audio_path.stem}-norm.wav")
-    _ffmpeg(
-        ffmpeg,
-        [
-            "-f",
-            demuxer,
-            "-i",
-            str(audio_path),
-            "-af",
-            _loudnorm_filter(_measure_loudness(ffmpeg, demuxer, audio_path)),
-            "-ac",
-            "2",
-            "-ar",
-            "48000",
-            "-c:a",
-            "pcm_s16le",
-            str(normalized),
-        ],
-        stage="normalize_voice",
-    )
-    narration_seconds = _media_duration(ffprobe, normalized)
+    if normalized_voice:
+        # Every shot already passed loudness normalization before exact PCM padding.
+        # Resampling this aggregate again would smear speech into the reserved silence.
+        shutil.copyfile(audio_path, normalized)
+    else:
+        _ffmpeg(
+            ffmpeg,
+            [
+                "-f",
+                demuxer,
+                "-i",
+                str(audio_path),
+                "-af",
+                _loudnorm_filter(_measure_loudness(ffmpeg, demuxer, audio_path)),
+                "-ac",
+                "2",
+                "-ar",
+                "48000",
+                "-c:a",
+                "pcm_s16le",
+                str(normalized),
+            ],
+            stage="normalize_voice",
+        )
+    if speech_window is not None:
+        padded = normalized.with_name(f"{normalized.stem}-window.wav")
+        narration_seconds = pad_pcm(normalized, padded, speech_window)
+        padded.replace(normalized)
+        # The mandatory tail is already in the PCM. It must never be shortened.
+        tail_seconds = 0
+    else:
+        narration_seconds = _media_duration(ffprobe, normalized)
     if max_seconds is not None and narration_seconds > max_seconds + 1e-6:
         raise StoryFilmError(
             "DIALOGUE_VIDEO_LIMIT", "画面时长不够容纳完整对白，请增加时长或拆分镜头。"
@@ -2300,6 +2429,7 @@ def _normalize_film_media(
                 "requiredSeconds": narration_seconds,
                 "maxSeconds": frames / _FRAME_RATE + 1,
                 "shot_index": shot_index,
+                "speech_window": 1 if speech_window is not None else 0,
             },
         )
     # Reduce optional silence, never dialogue, to keep the actual frame hold <= one second.
@@ -2327,6 +2457,9 @@ def _normalize_film_media(
         )
         held.replace(clip_path)
         frames = _video_frames(ffprobe, clip_path)
+    # Check the final decoded frame count, including any actual tpad output.
+    if strict_cap and max_seconds is not None and frames > max_seconds * _FRAME_RATE:
+        raise StoryFilmError("MEDIA_ENCODE_FAILED", "画面仍超过本镜时长上限，请检查素材。")
     pad_seconds = max(frames / _FRAME_RATE + 0.08, narration_seconds)
     if max_seconds is not None:
         pad_seconds = min(pad_seconds, max_seconds + 0.08)
@@ -2355,14 +2488,21 @@ def _normalize_film_media(
     return width, height, frames, voiced
 
 
-def _fit_clip_length(ffmpeg: Path, ffprobe: Path, path: Path, seconds: int) -> None:
+def _fit_clip_length(
+    ffmpeg: Path,
+    ffprobe: Path,
+    path: Path,
+    seconds: int,
+    *,
+    tolerance_seconds: float = 0.25,
+) -> None:
     """Cut a longer model clip to the length the user chose. A shorter clip stays as it is."""
 
     try:
         actual = _media_duration(ffprobe, path)
     except StoryFilmError:
         return
-    if actual <= seconds + 0.25:
+    if actual <= seconds + tolerance_seconds:
         return
     trimmed = path.with_name(f"{path.stem}-fit.mp4")
     _ffmpeg(

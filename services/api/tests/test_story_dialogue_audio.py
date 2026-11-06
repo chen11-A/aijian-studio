@@ -253,7 +253,7 @@ def test_dialogue_over_video_cap_fails_before_video_submission(
     assert shot.lines == lines
     assert (
         result.user_message["detail"]
-        == f"第 1 镜对白约 {seconds} 秒，视频最多 {cap} 秒；请拆分对白。"
+        == f"第 1 镜对白及头尾留白约 {seconds + 1} 秒，视频最多 {cap} 秒；请拆分对白。"
     )
     assert all(
         value not in result.user_message["detail"]
