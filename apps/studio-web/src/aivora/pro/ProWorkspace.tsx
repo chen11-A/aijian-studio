@@ -1,4 +1,4 @@
-import { ProjectArchiveDialog } from "../next/ProjectArchiveDialog";
+import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
