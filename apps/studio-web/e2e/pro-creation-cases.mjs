@@ -294,6 +294,13 @@ export async function runCreationCases({ browser, config, report, media, persist
               );
               result.inputAndSelectionRejected = true;
               await geometry();
+              await reachable(
+                card.getByRole("button", { name: "关闭说明", exact: true }),
+                "video-review-close",
+              );
+              await reachable(card.locator("summary"), "video-prompt-text");
+              await card.locator("summary").click();
+              await card.locator("summary").click();
               await reachable(confirm(), "video-confirm");
             } else if (state === "seven-long-unknown") {
               await card.getByText("身份 · 待决定", { exact: true }).waitFor();
