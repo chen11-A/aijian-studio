@@ -1134,3 +1134,7 @@ CI #687 当前候选 dfcf8db：Linux job127792946853已全部成功（Test 08:31
 UI-LAYOUT-01接续实际交付：主批次已推送dev@6c247e7；仅pro.css新增4行让.cands的直接TakePicker跨满网格。无候选样式注入的真实Vite CSS复验12/12（1/2/3版×两窗口×两画幅）通过，标题/标签/按钮、实际选版持久化及其他take元数据保留均已验，前端生产构建exit0。CSS源SHA256=aa60e4c2158a5dfb15c9f4ad878a663b1c0ee9a548d90c1444e5abb17e94e52c；忽略目录ui-layout-fix保存实际报告/截图/补丁，base/candidate证据未改。本次局部变更交总控补充合dev，新自动CI另行核对，不能冒充已取得新提交双平台结果。其他新功能未开工。
 
 最终接入：主批次dev合并6c247e7已远端核对；局部CSS实现da15683经 --no-ff 合并0f8f4bd已推送dev并读回。实际CSS哈希及12组合/生产构建证据与合入源码一致；后续仅更新进度文档。完整双平台绿灯来自代码基线CI #687，补充CSS及合并提交的新CI单独运行，未把旧run冒充新结果。两位代理当前批次均已交付，其他新功能尚未开始。
+
+Round3开工（基线dev@bd228da，分支codex/aivora-round3）：backend独占安全promptZh/promptEn字段投影与ProWorkspace/相关prompter宿主；frontend独占SuggestionFieldDiff/SuggestionCard显示及新pro-layout-audit脚本。共享显示接口SuggestionFieldRow={key,label,kind:changed|added|removed,before:string|null,after:string|null}，null缺失、空字符串为空；字段数标题与确认修改不混用旧镜头计数/相似度，卡片不盲接全局撤销。初期组件12项通过；实际业务/宿主/正式布局脚本在做，总控负责CI入口评审、接入验证与合并，本批尚未提交或合dev。
+
+Round3集成冻结：单镜promptZh/promptEn固定基线字段卡及确认接线、busy拒绝保护、2个准确业务码已实现；投影21/新宿主8/notice108定向与GUI13组件通过，完整TS桌面2031/renderer4700（媒体17/QC11）通过，type/build/contracts/lint全部exit0。真实布局脚本/命令/独立普通Ubuntu job已加入，当前执行环境Chrome沙箱阻止本机正向启动，仅环境exit2与注释/静态已验；24状态正向转远端CI，不冒充本机成功。用户制作流程文档的采纳记录已另写，尚未将全部模板实现。本批准备推送功能分支，未合dev。
