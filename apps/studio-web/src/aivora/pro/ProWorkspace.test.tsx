@@ -4300,6 +4300,43 @@ it("right-clicks a card, a scene or a clip for the same things as 「更多」 (
   expect(screen.getByText(/已剪掉这一段/)).toBeInTheDocument();
 });
 
+it("opens fullscreen only for the active edit preview, leaving fields and sound alone (5-3-12)", async () => {
+  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "requestFullscreen");
+  const request = vi.fn(async () => undefined);
+  Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
+    configurable: true,
+    value: request,
+  });
+  try {
+    installDesktop();
+    await openSample();
+    fireEvent.click(stageTab("剪辑"));
+    const player = document.querySelector(".preview-player");
+    expect(player).toContainElement(screen.getByRole("button", { name: "播放" }));
+    fireEvent.keyDown(window, { key: "f" });
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    await act(async () => undefined);
+    const field = screen.getByLabelText("改这一镜的描述");
+    field.focus();
+    fireEvent.keyDown(field, { key: "f" });
+    expect(request).toHaveBeenCalledTimes(1);
+    field.blur();
+    fireEvent.click(screen.getByRole("button", { name: "声音" }));
+    expect(document.querySelector(".preview-player")).toBeNull();
+    fireEvent.keyDown(window, { key: "f" });
+    expect(request).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "预览" }));
+    fireEvent.doubleClick(document.querySelector(".screen")!);
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.keyDown(window, { key: "f" });
+    expect(request).toHaveBeenCalledTimes(2);
+  } finally {
+    if (original) Object.defineProperty(HTMLElement.prototype, "requestFullscreen", original);
+    else Reflect.deleteProperty(HTMLElement.prototype, "requestFullscreen");
+  }
+});
+
 it("plays with J / K / L and moves by cut with ↑ / ↓ on 剪辑 (5-3-09)", async () => {
   installDesktop();
   await openSample();

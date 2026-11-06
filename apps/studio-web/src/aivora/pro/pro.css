@@ -1459,6 +1459,26 @@ body:has(.pro-root) {
   display: flex;
   flex-direction: column;
 }
+/* 5-3-12: fullscreen keeps the same video element, clock and transport controls. */
+.pro-root .preview-player {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  background: #07080a;
+}
+.pro-root .preview-player:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+.pro-root .preview-player .fullscreen-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: var(--panel);
+}
 .pro-root .row3 {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr;

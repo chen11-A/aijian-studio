@@ -29,6 +29,7 @@ import {
 } from "./actions/book-import";
 import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
 import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
+import { PreviewFullscreen } from "./PreviewFullscreen";
 import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
 import {
   prepareArtTransaction,
@@ -268,8 +269,9 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ["I / O", "剪辑页设入点 / 出点"],
   ["Delete", "剪辑页剪掉选中的片段"],
   ["Ctrl+滚轮", "剪辑页时间线放大 / 缩小"],
+  ["F", "剪辑页预览全屏 / 退出全屏"],
   ["M", "预览静音 / 有声"],
-  ["Esc", "关掉菜单和对话框"],
+  ["Esc", "退出预览全屏，或关掉菜单和对话框"],
 ];
 
 /** 5-3-09: ← / → move the playhead one frame at 30 frames a second. */
@@ -7905,7 +7907,7 @@ function EditPage({
   onKeep,
   onChooseTake,
   onTab,
-  onNotice: _onNotice,
+  onNotice,
   onRangeGenerate,
   onPlaying,
   audible,
@@ -8444,7 +8446,7 @@ function EditPage({
                 )}
               </div>
             ) : (
-              <>
+              <PreviewFullscreen ignoreShortcut={typingInField} onNotice={onNotice}>
                 <div className="screen">
                   {previewSrc ? (
                     <PreviewVideo
@@ -8510,7 +8512,7 @@ function EditPage({
                   </div>
                   {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
                 </div>
-              </>
+              </PreviewFullscreen>
             )}
           </section>
         </>
