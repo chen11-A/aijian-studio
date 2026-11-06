@@ -4,6 +4,7 @@ import {
   historyEntryView,
 } from "./actions/persistent-history";
 import type { FilmHistoryEntry } from "@aijian/contracts/film-history";
+import { audioWaveformToken } from "../film/audio-waveform-data";
 import { invalidateAudioWaveforms } from "./actions/audio-waveforms";
 import { useAudioWaveforms } from "./use-audio-waveforms";
 import { legacyCleanCopyTargets, cleanCopySelectionHash } from "./actions/clean-copy-recovery";
@@ -8888,7 +8889,9 @@ function GeneratePage({
  */
 function Wave({ clip, verifiedKey }: { clip: AudioClip; verifiedKey?: string }) {
   const waveform = clip.waveform;
-  const peaks = waveform && verifiedKey === waveform.sourceKey ? waveform.peaks : undefined;
+  const measuredToken = audioWaveformToken(waveform);
+  const peaks =
+    waveform && measuredToken && verifiedKey === measuredToken ? waveform.peaks : undefined;
   if (!(clip.durationSeconds > 0) || !peaks || peaks.length < 2)
     return <span className="wave" aria-hidden="true" />;
   const coverage = Math.min(1, waveform!.analyzedSeconds / clip.durationSeconds);
