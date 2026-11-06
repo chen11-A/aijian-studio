@@ -1,3 +1,4 @@
+import { resolveBundledAudioLibraryRoot } from "./film-audio-library-root";
 import { registerFilmAudioLibrary } from "./film-audio-library-ipc";
 import { loadAudioNormalizer } from "./film-audio-normalize";
 import { createFilmAudioPreview } from "./film-audio-preview";
@@ -1064,9 +1065,11 @@ registerFilmAudioLibrary<IpcMainInvokeEvent>(
     filmsRoot: join(app.getPath("userData"), "films"),
     storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
     libraryRoot: () =>
-      app.isPackaged
-        ? join(process.resourcesPath, "audio-library")
-        : join(__dirname, "audio-library"),
+      resolveBundledAudioLibraryRoot({
+        isPackaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        mainDir: __dirname,
+      }),
     tools: () =>
       verifiedQcTools(
         process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
