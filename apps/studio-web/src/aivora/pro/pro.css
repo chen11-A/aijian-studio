@@ -3980,3 +3980,17 @@ body:has(.pro-root) {
   color: var(--text-3);
   font-size: 12px;
 }
+
+.pro-root .clean-copy-repair {
+  flex: none;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+.pro-root .clean-copy-repair .role-desc {
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+}
+.pro-root .clean-copy-repair .btn + .role-desc {
+  margin: 8px 0 0;
+}

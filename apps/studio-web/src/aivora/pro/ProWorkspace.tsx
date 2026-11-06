@@ -31,6 +31,7 @@ import { isBillingProjectId, resolveBillingProject } from "./actions/billing-pro
 import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
 import { PreviewFullscreen } from "./PreviewFullscreen";
 import { ReplyCaptureSettings } from "./ReplyCaptureSettings";
+import { CleanCopyRepair } from "./CleanCopyRepair";
 import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
 import {
   prepareArtTransaction,
@@ -65,6 +66,7 @@ import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
 import { exportFilmSelection } from "./actions/export-selection";
+import { remakeCleanCopies, shotsNeedingCleanCopy } from "./actions/clean-copy";
 import { revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { makeFourStills } from "./still-workflow";
@@ -556,6 +558,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [pendingDelete, setPendingDelete] = useState(false);
   const workOwners = useWorkOwners(film?.id ?? "");
   const exporting = workOwners.busy("export");
+  const cleanCopyBusy = workOwners.busy("clean-copy");
+  const cleanCopySaveVersions = useRef(new Map<string, FilmProject>());
   const [asking, setAsking] = useState(false);
   const [pendingRetry, setPendingRetry] = useState<{
     role: Role;
@@ -676,6 +680,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setPendingBatch(null);
     if (next) next = applyContinuityChecks(next);
     filmRef.current = next;
+    if (next && cleanCopySaveVersions.current.has(next.id))
+      cleanCopySaveVersions.current.set(next.id, next);
     setFilmState(next);
   }
   const persistence = useMemo(
@@ -2840,6 +2846,60 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     await assembleCurrentFilm(current, paths, () => filmRef.current, applyLive, setNotice, valid);
   }
 
+  async function repairCleanCopies(shotIds: readonly string[] | null): Promise<void> {
+    const live = filmRef.current;
+    if (!live || workOwners.has(live.id, "clean-copy")) return;
+    if (!window.aijian?.remakeStoryFilmCleanCopy) {
+      setNotice("补做不带字幕的版本需要桌面版。");
+      return;
+    }
+    const base = structuredClone(live);
+    const ids = shotIds === null ? shotsNeedingCleanCopy(base) : [...shotIds];
+    if (!ids.length) {
+      setNotice("没有需要补做的镜头。");
+      return;
+    }
+    const release = workOwners.begin(base.id, "clean-copy");
+    cleanCopySaveVersions.current.set(base.id, live);
+    setNotice("正在补做不带字幕的版本。");
+    try {
+      const billingProject = await ensureBillingProject();
+      if (filmRef.current?.id !== base.id) return;
+      if (!billingProject) {
+        setNotice("这一次没有记到作品上，请稍后再试。");
+        return;
+      }
+      const result = await remakeCleanCopies(base, ids, billingProject, {
+        current: () => filmRef.current,
+        apply: applyLive,
+        persist: async (snapshot) => {
+          // This result was committed before a possible work switch. Save that work's
+          // snapshot through its queue even when it is no longer the visible work.
+          const saved = await persistence.save(
+            snapshot,
+            () => cleanCopySaveVersions.current.get(snapshot.id) === snapshot,
+          );
+          if (!saved) throw new Error("CLEAN_COPY_SAVE_DEFERRED");
+          const visible = filmRef.current;
+          // The browser library remembers every write as active; a delayed save of
+          // the old work must not change which work is reopened next time.
+          if (visible && visible.id !== snapshot.id && !filmDiskReady())
+            window.localStorage.setItem("aivora.film.activeId", visible.id);
+        },
+      });
+      const latest = filmRef.current;
+      if (latest?.id !== base.id) return;
+      if (!shotsNeedingCleanCopy(filmRef.current).length) setCleanCopyBlockedAt(null);
+      setNotice(result.notice);
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice("补做中断，已经保存的版本会保留。请查看剩余镜头后重试。");
+    } finally {
+      cleanCopySaveVersions.current.delete(base.id);
+      release();
+    }
+  }
+
   async function startExport(directoryOverride?: string, allowPartial = false) {
     const bridge = window.aijian;
     if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) {
@@ -2890,6 +2950,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         },
       );
       if (!valid() || result.status === "stale") return;
+      if (
+        result.error?.code === "EXPORT_SUBTITLES_BAKED" &&
+        exportSettingsRef.current.projectId === current.id &&
+        exportSettingsRef.current.subtitles === exportSubs
+      )
+        setCleanCopyBlockedAt({ projectId: current.id, subtitles: exportSubs });
       if (result.directory) setExportDir(result.directory);
       if (result.primaryPath) setExportFile(result.primaryPath);
       if (result.status === "done")
@@ -3002,6 +3068,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // 4B-U06: how the export is made. GPT's export reads these (next/INTEGRATION.md, 导出对话框).
   const [exportQuality, setExportQuality] = useState<"1080p" | "720p">("1080p");
   const [exportSubs, setExportSubs] = useState<"burn" | "srt" | "none">("burn");
+  const [cleanCopyBlockedAt, setCleanCopyBlockedAt] = useState<{
+    projectId: string;
+    subtitles: string;
+  } | null>(null);
+  const exportSettingsRef = useRef({ projectId: film?.id ?? "", subtitles: exportSubs });
+  exportSettingsRef.current = { projectId: film?.id ?? "", subtitles: exportSubs };
+  const cleanCopyBlocked =
+    cleanCopyBlockedAt?.projectId === film?.id && cleanCopyBlockedAt?.subtitles === exportSubs;
+  useEffect(() => {
+    setCleanCopyBlockedAt(null);
+  }, [film?.id, exportSubs]);
   const canCropAspect =
     typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
   // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
@@ -3680,6 +3757,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && !bench && (
                 <BoardPage
+                  onCleanCopy={(ids) => void repairCleanCopies(ids)}
+                  cleanCopyBusy={cleanCopyBusy}
                   quiet={exportView.lead}
                   onNext={() => setStage("edit")}
                   film={film}
@@ -3741,6 +3820,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && bench && (
                 <GeneratePage
+                  onCleanCopy={(ids) => void repairCleanCopies(ids)}
+                  cleanCopyBusy={cleanCopyBusy}
                   beginner={prefs.beginner}
                   quiet={exportView.lead}
                   onMute={() => setSoundOn((value) => !value)}
@@ -4624,6 +4705,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   {partialExport && partialExport.length > 0 ? (
                     <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
                   ) : null}
+                  {film && cleanCopyBlocked ? (
+                    <CleanCopyRepair
+                      mode="export"
+                      count={shotsNeedingCleanCopy(film).length}
+                      busy={cleanCopyBusy}
+                      onRepair={() => void repairCleanCopies(null)}
+                    />
+                  ) : null}
                   {/* 4B-U06: the export's progress stays in the dialog. */}
                   {exporting ? (
                     <div className="export-progress" role="status">
@@ -4665,7 +4754,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     )}
                     <button
                       className="btn primary"
-                      disabled={exporting}
+                      disabled={exporting || cleanCopyBusy}
                       onClick={() => void startExport()}
                     >
                       {exporting ? "正在导出" : "导出"}
@@ -6294,6 +6383,8 @@ function BoardPage({
   onNext,
   onReject,
   film,
+  onCleanCopy,
+  cleanCopyBusy,
   shots,
   shot,
   onShot,
@@ -6333,6 +6424,8 @@ function BoardPage({
   onFixCoverage,
 }: {
   film: FilmProject;
+  onCleanCopy: (ids: readonly string[]) => void;
+  cleanCopyBusy: boolean;
   shots: FilmShot[];
   shot: number;
   onShot: (index: number) => void;
@@ -6962,6 +7055,12 @@ function BoardPage({
               </section>
             ) : null}
             <div className="pb">
+              <CleanCopyRepair
+                mode="shot"
+                count={shotsNeedingCleanCopy(film).includes(current.id) ? 1 : 0}
+                busy={cleanCopyBusy}
+                onRepair={() => onCleanCopy([current.id])}
+              />
               {/* 4C-U05: 画面 open; 声音 and 高级 folded until opened, and each remembers. */}
               <PropGroup id="picture" title="画面" defaultOpen>
                 <div className="field">
@@ -7476,6 +7575,8 @@ function GeneratePage({
   onMute,
   assistant = null,
   film,
+  onCleanCopy,
+  cleanCopyBusy,
   shots,
   shot,
   onShot,
@@ -7491,6 +7592,8 @@ function GeneratePage({
   audible,
 }: {
   film: FilmProject;
+  onCleanCopy: (ids: readonly string[]) => void;
+  cleanCopyBusy: boolean;
   shots: FilmShot[];
   shot: number;
   onShot: (index: number) => void;
@@ -7618,6 +7721,14 @@ function GeneratePage({
               })()
             )}
           </div>
+          {current ? (
+            <CleanCopyRepair
+              mode="shot"
+              count={shotsNeedingCleanCopy(film).includes(current.id) ? 1 : 0}
+              busy={cleanCopyBusy}
+              onRepair={() => onCleanCopy([current.id])}
+            />
+          ) : null}
           <div className="cands">
             {takes.length === 0 && (
               <p className="role-desc">还没有版本。在右边点「生成 {versions} 个版本」。</p>

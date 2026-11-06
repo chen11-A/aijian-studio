@@ -498,3 +498,17 @@ Grok 的问题单写明 `directorVideoPrompt` 里也有「竖屏构图」，`5eb
 - web `tsc -b --pretty false`、改动业务/测试及工作台的目标 ESLint、Prettier、`git diff --check` 通过，日志 `/tmp/capture-scope-types-final.log`、`/tmp/capture-scope-lint.log`。首轮 27/28 通过，唯一失败为测试负断言误中作品标题的同词，日志 `/tmp/capture-scope-first.log` 保留；最终精确核对导出字段通过。没有用定向结果声明全仓已通过。
 
 当前新代码在共享工作树，当前分支提交、远端 dev 和最终联合门由总控记录。Chromium 合成回复下载见界面 QA，不等同于真实会员采集；真实会员、Electron 与安装包未验。没有提交、推送或合并。
+
+## 4B-B12 clean-copy 选择范围、过期与持久化（云端）
+
+负责人：`backend_round2`，`gpt-6.1-sol`、`medium`。沿用既有 `remakeCleanCopies` 和本机重建接口，不生成视频、不调用真实会员。显示入口由界面代理接线，后端只修改 helper、主工作台 return 前业务区及独立回归。
+
+- helper 在首次 await 前冻结镜头 ID、所选 takeId 和 videoPath；每次派发前、回包后都核对当前工程和当前选版。作品切换、镜头删除、版本替换或选择变化时不派发旧请求、不写回旧结果，新增 `stale` outcome 明确提示「作品或版本已经变化，已跳过旧结果」，不会假报「补好了」或「没有需要补做」。原先版本已替换却断言 done 的旧测试已按真实语义改正。
+- 写入只补当前目标版本的 cleanVideoPath/字幕时间并清理其失败说明，保留原片、其他版本、当前选版及并行正文编辑。仅宿主实际应用并能读回目标 clean 路径时才报 done。失败/异常采用稳定中文分类，服务错误和 Exception.message 中的本机路径不进入状态栏。
+- 宿主提供 `repairCleanCopies(shotIds: readonly string[] | null): Promise<void>`、`cleanCopyBusy`、`cleanCopyBlocked`，通过既有工程所有权防重入，计费准备后再由 helper 复核选择。无字幕导出受 `EXPORT_SUBTITLES_BAKED` 阻止时提供批次入口；该状态绑定作品及字幕模式，切换后失效。补做后不自动重新生成或再次导出。
+- helper host 新增可选 `persist(snapshot)`，每镜应用后立即经既有 persistence 队列保存实际 written 快照，再做下一镜。业务区跟踪本项原工程最后一次归一化 live 对象：同工程已有更新时拒绝旧快照覆盖，切到其他作品后仍可保存原工程已经应用的结果；明确处理队列拒绝/写失败。浏览器旧工程延迟写入后只恢复当前可见工程 activeId，不写新作品内容。后续保存失败提示「补做中断，已经保存的版本会保留。请查看剩余镜头后重试」，不自动重发。
+- 实跑 `clean-copy.test.ts` 4项、独立 `clean-copy-scope.test.ts` 12项、独立 `ProWorkspace.clean-copy-scope.test.tsx` 6项，加界面宿主2项与显示3项，共5文件27项通过、0失败/0未选择，日志 `/tmp/clean-copy-final.log`。宿主覆盖重复点击、请求及计费等待中换版、部分成功后切作品、队列阻塞后切作品持久化/activeId、后续写失败保留已保存版本、同工程新编辑拒旧快照。所有会员/桌面调用均为测试桩，没有真实生成调用。
+- web `tsc -b --pretty false`、工作台/helper/独立回归目标 ESLint、Prettier、`git diff --check` 通过，日志 `/tmp/clean-copy-types.log`、`/tmp/clean-copy-lint.log`。本轮目标结果不等于全仓整体验收；总控继续执行完整工作台与静态集成门。
+- 总控另行实跑 `pytest test_story_film.py -k 'clean_copy or remake'`：8通过、21未选择，24.36秒，日志 `.aijian-dev/cloud-setup/clean-copy-service-tests.log`。这组真实本机FFmpeg夹具覆盖重建后视频+音频、原片字节不变、两次输出不同、provider调用为空及API路由返回文件；不是会员、Electron或用户真实工程验收，与网页测试数量分开记录。
+
+源码与本轮文档已交付冻结，当前分支提交及远端dev由总控登记；没有自行提交、推送、合并，没有扩大B13。Chromium替身IPC界面证据见界面QA，真实会员、Electron和安装包仍未验。

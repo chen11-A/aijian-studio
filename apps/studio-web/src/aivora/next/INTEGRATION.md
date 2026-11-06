@@ -1082,3 +1082,17 @@ frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backs
 `captureScope(film)` 返回 `Promise<CaptureScope | null>`，其中 `CaptureScope = {projectId, sourceSha256, scriptSha256}`；projectId 使用本机 `film.id`，原文 hash 针对 `sourceText`，场次 hash 针对按顺序的 `[scene.id, scene.text]` 数组。仅开关开启的导演/动作请求计算，原文和上下文不写入采集存储。`recordAgentReply(agent, context, instruction, reply, scope?, requestEpoch = captureEpoch())` 缺 scope 不采集，旧无归属记录清理。`completeMembershipAgent` host 新增可选 `captureFilm: () => CaptureFilm | null`，手动及流水线都读取当前工程；请求开始和回包后核对身份/输入与关闭清理 epoch。
 
 `captureFile(film)` 仍返回 `{name,text,scenes}|null`，film 需要完整的 id/sourceText/scenes/shots/title；按三重身份筛选再组装，正文不匹配返回 null，关闭或清空会使进行中的旧导出失效。界面已经传完整 film，接口返回和下载行为不变。后端 35 项与设置 11 项联合 6 文件 46 项通过，具体证据见 `docs/aivora/3jr-backend-verification.md`；当前工作树待总控接入，真实会员未验。
+
+### 4B-U09 无字幕版本补做入口（界面待总控集成）
+
+独立 `CleanCopyRepair` 纯显示组件已接入分镜当前镜头属性、单镜版本页与导出受阻三处。单镜依据 `shotsNeedingCleanCopy(film)` 检查真实所选 take：有台词、有完成视频、没有 `cleanVideoPath` 才显示，切换到已有无字幕副本的版本后入口消失。组件不调用生成接口，主工作台通过后端 `repairCleanCopies(shotIds|null)` 调度，`cleanCopyBusy` 控制补做按钮及导出按钮，避免半成品导出。
+
+导出批次入口仅在 `EXPORT_SUBTITLES_BAKED` 受阻状态下出现，显示当前待补数量；部分成功后按最新工程更新剩余数。成功、缺原合成记录或失败均保留准确说明，不暴露路径和原始错误，不自动重新生成视频，也不自动再次导出。补做使用原合成记录，保留原视频、其他版本及版本选择。工程和选版 stale 保护由后端提供，详见后端验证记录。
+
+验证：显示组件 3 项、新增宿主组合 2 项通过；联合既有 clean-copy 测试共 9 项通过。web `tsc -b --pretty false`、新增组件/测试的目标 ESLint、Prettier（含 CSS）通过。系统 Chromium 保留沙箱，1280×800、1920×1080 × 单镜/导出两流程共四组合通过，`pageerror=[]`：切换已有副本版本隐藏入口、切回缺副本版本手动补做、导出受阻后批量补做 2→部分成功剩 1，以及不自动导出。脚本 `.aijian-dev/clean-copy-ui-check.mjs` 使用替身 IPC，不能作为真实会员、真实视频或完整 Electron 链路通过的声明。总控另行执行的真实本机服务验证与本界面证据分别记录，完整集成和发布由总控登记。
+
+### 4B-B12 无字幕补做宿主与过期保护（后端）
+
+`repairCleanCopies(shotIds: readonly string[] | null): Promise<void>` 为本机业务handler，null按当前所选版本中缺副本的镜头计算；`cleanCopyBusy`按工程防重入，`cleanCopyBlocked`绑定导出受阻时的工程与字幕模式。计费准备后继续按原镜头/takeId/videoPath核对当前选择，不将过期目标重定向到新版本。helper新增 `stale` outcome，明确已跳过变化的作品/版本，不报告done；缺原合成记录继续返回missing，不自动生成。
+
+helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快照；宿主使用既有队列和本项最后live对象guard，保留切作品前已成功结果，拒绝同工程较旧快照覆盖后改内容。旧工程浏览器延迟写回后恢复当前可见工程activeId；失败中断明确保留已保存版本。后端22项加界面5项，共5文件27项实跑通过，web类型/目标静态通过，具体证据见后端验证记录；当前待总控集成提交，不代表真实会员验收。
