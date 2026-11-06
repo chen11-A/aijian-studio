@@ -3998,6 +3998,52 @@ it("splits the status bar in three and tells the assistant what it is looking at
   expect(screen.getByText(/^正在看：第 \d+ 场第 \d+ 个镜头$/)).toBeInTheDocument();
 });
 
+it("puts a search box over a cast of more than ten people (5-3-14)", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  const [model] = film.characters;
+  const names = [
+    "林晚",
+    "沈砚",
+    "林国栋",
+    "周叔",
+    "阿杰",
+    "小雨",
+    "老陈",
+    "王医生",
+    "护士长",
+    "刀疤",
+    "司机",
+    "店员",
+  ];
+  film.characters = names.map((name, index) => ({ ...model!, id: `person-${index}`, name }));
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findByRole("button", { name: /后台生成/ });
+  fireEvent.click(stageTab("角色与场景"));
+  const listed = () =>
+    [...document.querySelectorAll(".scene .t")].map((item) => item.firstChild?.textContent);
+  expect(listed()).toHaveLength(12);
+  const search = screen.getByRole("searchbox", { name: "找人物" });
+  expect(search).toHaveAttribute("placeholder", "找人物（共 12 个）");
+  fireEvent.change(search, { target: { value: "林" } });
+  expect(listed()).toEqual(["林晚", "林国栋"]);
+  // Picking one from the narrowed list opens that person.
+  fireEvent.click(screen.getByText("林国栋"));
+  expect(document.querySelector(".scene.on .t")?.firstChild?.textContent).toBe("林国栋");
+  fireEvent.change(search, { target: { value: "张三" } });
+  expect(listed()).toHaveLength(0);
+  expect(screen.getByText("没有名字里带「张三」的人物。")).toBeInTheDocument();
+});
+
+it("keeps a short cast list without a search box (5-3-14)", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  expect(screen.queryByRole("searchbox", { name: "找人物" })).toBeNull();
+});
+
 it("shows the first frame on 单个镜头 before there is a video (5-3-13)", async () => {
   installDesktop();
   const film = sampleFilm();

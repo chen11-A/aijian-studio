@@ -5420,6 +5420,10 @@ function CastPage({
   const [who, setWho] = useState(0);
   const [place, setPlace] = useState(0);
   const [side, setSide] = useState<"people" | "places" | "props">("people");
+  // 5-3-14: with more than ten people, a search box above the list narrows it by name.
+  const [castQuery, setCastQuery] = useState("");
+  const castSearch = film.characters.length > 10;
+  const castNeedle = castSearch ? castQuery.trim().toLowerCase() : "";
   const character = film.characters[who];
   // 3JR-U03: the 场景 tab edits the place picked on the left, not the person picked before.
   // referenceImage, layout and sceneId come with GPT's 4A-B10 / 3JR-B08; until then they are
@@ -5590,24 +5594,41 @@ function CastPage({
               )}
             </div>
           )}
+          {side === "people" && castSearch ? (
+            <input
+              className="input cast-search"
+              type="search"
+              aria-label="找人物"
+              placeholder={`找人物（共 ${film.characters.length} 个）`}
+              value={castQuery}
+              onChange={(event) => setCastQuery(event.target.value)}
+            />
+          ) : null}
           {side === "people" &&
-            film.characters.map((item, index) => (
-              <button
-                key={item.id}
-                className={index === who ? "scene on" : "scene"}
-                onClick={() => setWho(index)}
-              >
-                <span className="no">{String(index + 1).padStart(2, "0")}</span>
-                <span className="t">
-                  {item.name}
-                  <small>
-                    {VIEWS.every((view) => has(item, view))
-                      ? "定妆照齐了"
-                      : `定妆照 ${VIEWS.filter((view) => has(item, view)).length}/4`}
-                  </small>
-                </span>
-              </button>
-            ))}
+          castNeedle &&
+          !film.characters.some((item) => item.name.toLowerCase().includes(castNeedle)) ? (
+            <p className="role-desc">没有名字里带「{castQuery.trim()}」的人物。</p>
+          ) : null}
+          {side === "people" &&
+            film.characters.map((item, index) =>
+              castNeedle && !item.name.toLowerCase().includes(castNeedle) ? null : (
+                <button
+                  key={item.id}
+                  className={index === who ? "scene on" : "scene"}
+                  onClick={() => setWho(index)}
+                >
+                  <span className="no">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="t">
+                    {item.name}
+                    <small>
+                      {VIEWS.every((view) => has(item, view))
+                        ? "定妆照齐了"
+                        : `定妆照 ${VIEWS.filter((view) => has(item, view)).length}/4`}
+                    </small>
+                  </span>
+                </button>
+              ),
+            )}
           {film.characters.length === 0 && (
             <p className="role-desc">
               {film.scenes.some((item) => item.text.trim())
