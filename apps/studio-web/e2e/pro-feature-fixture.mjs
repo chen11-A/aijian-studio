@@ -1,6 +1,6 @@
 /** Browser-only synthetic ABI. No audio samples, suppliers or native filesystem are contacted. */
 export function installFeatureBridge({ state }) {
-  const audit = { text: [], waves: [], pending: [], forbidden: [] };
+  const audit = { text: [], waves: [], pending: [], assemblies: [], forbidden: [] };
   window.__proFeatureAudit = audit;
   const clone = (value) => JSON.parse(JSON.stringify(value));
   audit.saved = () => {
@@ -22,11 +22,23 @@ export function installFeatureBridge({ state }) {
     "generateFilmStill",
     "generateFilmVideo",
     "createStoryFilm",
-    "assembleFilm",
     "importMusic",
     "remakeStoryFilmCleanCopy",
   ])
     bridge[name] = async () => forbidden(name);
+  bridge.assembleFilm = async (seriesId, paths, musicPath, gainDb, dialogue) => {
+    audit.assemblies.push({
+      projectId: audit.saved()?.id,
+      seriesId,
+      paths: clone(paths),
+      musicPath,
+      gainDb,
+      dialogue: clone(dialogue),
+    });
+    // Local preview assembly is a legitimate optional ABI, distinct from paid generation/export.
+    // Refuse predictably: this UI gate never runs FFmpeg or claims a real joined preview.
+    throw new Error("SYNTHETIC_LOCAL_PREVIEW_UNAVAILABLE");
+  };
   bridge.prepareFilmProject = async (film) => clone(film);
   bridge.readFilmAudioWaveform = async (input) => {
     audit.waves.push(clone(input));

@@ -104,6 +104,16 @@ function emitGitHubErrors(report, profile) {
       "export-quality",
       "export-aspect",
       "export-dir",
+      "waveform-refresh",
+      "waveform-loading",
+      "timeline-regenerate",
+      "timeline-voice",
+      "timeline-cut",
+      "timeline-clear-selection",
+      "timeline-zoom-in",
+      "timeline-zoom-out",
+      "shot-description",
+      "music-import",
     ]);
     const tags = new Set([
       "BUTTON",
@@ -150,6 +160,19 @@ function emitGitHubErrors(report, profile) {
       "nx-adv",
       "nx-scroll",
       "nx-export-facts",
+      "ws",
+      "fix",
+      "edit",
+      "pane",
+      "pb",
+      "sheet",
+      "field",
+      "monitor",
+      "timeline",
+      "ttool",
+      "tbody",
+      "tracks",
+      "bin",
     ]);
     const number = (value) =>
       typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 1_000_000
@@ -157,7 +180,11 @@ function emitGitHubErrors(report, profile) {
         : "unknown";
     const rect = (value) => [value?.x, value?.y, value?.width, value?.height].map(number).join(",");
     const details = (row.geometry?.issues ?? [])
-      .filter((issue) => issue.kind === "covered-center")
+      .filter(
+        (issue) =>
+          issue.kind === "covered-center" ||
+          (profile.kind === "features" && issue.kind === "control-clipped-without-scroll"),
+      )
       .slice(0, 2)
       .map((issue, index) => {
         const d = issue.diagnostic ?? {};
@@ -170,6 +197,16 @@ function emitGitHubErrors(report, profile) {
               .slice(0, 3)
               .join(".")
           : "";
+        if (issue.kind === "control-clipped-without-scroll") {
+          const clipTag = tags.has(d.clipTag) ? d.clipTag : "OTHER";
+          const clipClasses = Array.isArray(d.clipClasses)
+            ? d.clipClasses
+                .filter((name) => classes.has(name))
+                .slice(0, 3)
+                .join(".")
+            : "";
+          return ` control${index + 1}=${safeControl} tag${index + 1}=${safeTag} clip${index + 1}=${clipTag}.${clipClasses || "other"} box${index + 1}=${rect(issue.box)} clipBox${index + 1}=${rect(d.clipBox)} scroll${index + 1}=${Number(d.scrollX === true)},${Number(d.scrollY === true)}`;
+        }
         return ` control${index + 1}=${safeControl} tag${index + 1}=${safeTag} hit${index + 1}=${hitTag}.${hitClasses || "other"} box${index + 1}=${rect(issue.box)} visible${index + 1}=${rect(d.visible)} hitBox${index + 1}=${rect(d.hitBox)} point${index + 1}=${number(d.point?.x)},${number(d.point?.y)} scroll${index + 1}=${Number(d.scrollX === true)},${Number(d.scrollY === true)}`;
       })
       .join("");
