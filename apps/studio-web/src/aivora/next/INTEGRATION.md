@@ -1068,3 +1068,7 @@ F进入/Esc退出全部通过；确认 `.safe-guide` 与 `.ctrl` 同在全屏DOM
 frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backspace 的过时否定提示和二次确认，分镜删除及剪辑属性说明 Ctrl+Z。`ProWorkspace.undo-interactions.test.tsx` 的 6 项宿主回归验证拖放、非相邻批删、Delete/Backspace/剪掉后恢复媒体路径、两个旧版本与音轨；输入框、菜单、对话框及未选片段保护仍通过。动作层 7 项与更新后的旧宿主 2 项通过。系统 Chromium 保留沙箱，1280×800、1920×1080 两窗口的拖放/批删/Delete→Ctrl+Z 通过，pageerror=[]。
 
 生成确认按钮已按后端接口接到 `confirmBatchGeneration`，业务实现和生成范围/取消/并发回归归后端。跨场结构、后改字段及依赖冲突仍由既有动作层拒绝，不能把这次用户同场镜头操作的撤销扩展成所有删除都可恢复。工程媒体记录已核验，真实文件、Electron、会员及安装包未验；完整集成检查由总控执行。
+
+### 3JR-U06 原始回复保存与排查导出（进行中）
+
+frontend_round2（Sol medium）已完成接口与设置位置核对，正在准备独立 `ReplyCaptureSettings` 显示组件；等待总控 GO 后写源码。主工作台仅增加渲染接线（`getFilm` 取 `filmRef.current`，`onNotice` 显示结果），后端同步修复采集记录的工程/正文/场次归属与关闭清理 epoch。默认关闭，关闭清除本机记录；仅用户点击导出时生成匹配当前作品的文件，空记录或失配明确提示，不生成空 JSON，不自动上传。导出 await 后核对作品/正文/场次仍相同，再触发下载并释放 Blob URL。当前无本项新验证结果。
