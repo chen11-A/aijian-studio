@@ -1385,19 +1385,33 @@ export function removeShot(film: FilmProject, shotId: string): FilmProject {
 export function moveShot(film: FilmProject, shotId: string, direction: -1 | 1): FilmProject {
   const current = film.shots.find((item) => item.id === shotId);
   if (!current) return film;
+  const local = film.shots
+    .filter((item) => item.sceneId === current.sceneId)
+    .findIndex((item) => item.id === shotId);
+  return moveShotTo(film, shotId, local + direction);
+}
+
+/**
+ * 5-3-05: the shot moved to `index` among its scene's shots (0 is first), in one change. The
+ * scene's shots are renumbered and stay where they were among the other scenes' shots, so the
+ * page history can take the move back. Out of range or no move leaves the film as it is.
+ */
+export function moveShotTo(film: FilmProject, shotId: string, index: number): FilmProject {
+  const current = film.shots.find((item) => item.id === shotId);
+  if (!current || !Number.isInteger(index)) return film;
   const sceneShots = film.shots.filter((item) => item.sceneId === current.sceneId);
   const local = sceneShots.findIndex((item) => item.id === shotId);
-  const target = local + direction;
-  if (target < 0 || target >= sceneShots.length) return film;
+  if (index < 0 || index >= sceneShots.length || index === local) return film;
   const reordered = sceneShots.slice();
-  const moved = reordered[local];
-  if (!moved) return film;
   reordered.splice(local, 1);
-  reordered.splice(target, 0, moved);
-  const numbered = reordered.map((item, index) => ({ ...item, no: index + 1 }));
+  reordered.splice(index, 0, current);
+  const numbered = reordered.map((item, position) =>
+    item.no === position + 1 ? item : { ...item, no: position + 1 },
+  );
+  let next = 0;
   return {
     ...film,
-    shots: [...film.shots.filter((item) => item.sceneId !== current.sceneId), ...numbered],
+    shots: film.shots.map((item) => (item.sceneId === current.sceneId ? numbered[next++]! : item)),
   };
 }
 

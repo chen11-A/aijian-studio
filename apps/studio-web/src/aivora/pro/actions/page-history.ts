@@ -11,6 +11,7 @@ import {
 import { applyArtTransaction, undoArtTransaction, type ArtTransaction } from "./art-transaction";
 import {
   diffEditorStructure,
+  diffUserShotEdit,
   applyEditorStructure,
   undoEditorStructure,
   type EditorStructureTransaction,
@@ -45,7 +46,12 @@ export function createEditorPageHistory() {
     if (structural.length) {
       const collection = structural.length === 1 ? structural[0]!.split(":")[0] : "";
       if (!diff.changes.length && (collection === "shots" || collection === "scenes")) {
-        const transaction = diffEditorStructure(before, after, selection, { collection });
+        let transaction = diffEditorStructure(before, after, selection, { collection });
+        // 5-3: a drag, a multi-delete, a cut or a deleted shot with pictures, in one scene.
+        if (transaction.unsupported.length && collection === "shots") {
+          const own = diffUserShotEdit(before, after, selection);
+          if (!own.unsupported.length) transaction = own;
+        }
         if (!transaction.unsupported.length) {
           past.set(
             key(scope),
@@ -114,7 +120,12 @@ export function createEditorPageHistory() {
         stack!.pop();
         to.set(id, [...(to.get(id) ?? []), { structure: result.receipt }]);
       }
-      return { film: result.film, conflicts: result.conflicts };
+      // 5-3-03: what was taken back or put again, for the status line.
+      return {
+        film: result.film,
+        conflicts: result.conflicts,
+        ...(result.receipt && receipt.structure.label ? { label: receipt.structure.label } : {}),
+      };
     }
     if (
       receipt.protectLocks &&
