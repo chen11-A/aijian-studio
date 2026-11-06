@@ -125,6 +125,20 @@ describe("structured business notices", () => {
     ["配音语气还需核对，已保留原语气。", "PERFORMANCE_VOICE_REVIEW"],
     ["表演指导写好了。点「写入分镜」写到这一镜。", "PERFORMANCE_READY"],
     ["没有登录，已用离线表演指导。点「写入分镜」写到这一镜。", "PERFORMANCE_OFFLINE"],
+    // The button is 「放进分镜」 / 「放进剧本」 now; the old wording is still recognised.
+    ["表演指导写好了。点「放进分镜」放到这一镜。", "PERFORMANCE_READY"],
+    [
+      "没登录，先用软件自己的规则写了表演，请看一下。点「放进分镜」放到这一镜。",
+      "PERFORMANCE_OFFLINE",
+    ],
+    ["已放进分镜。你改过的镜头没有被盖掉。", "SHOTS_APPLIED"],
+    ["镜头已经放进分镜。", "SHOTS_APPLIED"],
+    ["已放进这一镜。你改过的字没有被盖掉。", "SHOT_APPLIED"],
+    ["已放进剧本。你改过的场没有被盖掉。", "SCRIPT_APPLIED"],
+    ["剧本已经放进去了。", "SCRIPT_APPLIED"],
+    ["画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。", "ART_APPLIED"],
+    ["读到 3 场。点「放进剧本」才会放进去。", "IMPORT_READY"],
+    ["这句话超过 15 秒，拆成两镜。点「放进分镜」才会放进去。", "DURATION_SPLIT_REQUIRED"],
   ])("keeps new action notice %s specific", (text, code) => {
     expect(normalizeNotice(text).code).toBe(code);
   });

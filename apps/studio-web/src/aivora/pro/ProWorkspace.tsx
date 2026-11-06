@@ -1330,7 +1330,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             turn,
             result.partial
               ? `${NOTICE_TEXT.TEXT_TIMEOUT} 已保留导演初稿，补充尚未完成。`
-              : `导演拆好了。点「写入分镜」才会写入。${supplementWarnings.current.join(" ")}`,
+              : `导演拆好了。点「放进分镜」才会放进去。${supplementWarnings.current.join(" ")}`,
           );
         } else finishTurn(turn, `${result.detail} 没有写入镜头。`);
         return;
@@ -1465,14 +1465,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       void fillCast(latest);
       setNotice(
         draft.transaction.kind === "writer"
-          ? "已放入剧本。你改过的场没有被盖掉。"
-          : "已写入分镜。你改过的镜头没有被盖掉。",
+          ? "已放进剧本。你改过的场没有被盖掉。"
+          : "已放进分镜。你改过的镜头没有被盖掉。",
       );
       const placed = turnsRef.current.map((item) =>
-        item.who === "agent" && item.text.includes("才会写入")
+        item.who === "agent" && (item.text.includes("才会放进去") || item.text.includes("才会写入"))
           ? {
               ...item,
-              text: draft.transaction.kind === "writer" ? "剧本已经写入。" : "镜头已经写入分镜。",
+              text:
+                draft.transaction.kind === "writer" ? "剧本已经放进去了。" : "镜头已经放进分镜。",
             }
           : item,
       );
@@ -2025,7 +2026,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         )
       )
         setNotice(
-          stored ? "已写入这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
+          stored ? "已放进这一镜。你改过的字没有被盖掉。" : "没有写到应用数据目录，可以重试。",
         );
     } catch {
       if (
@@ -2090,7 +2091,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
         setNotice(
           stored
-            ? "已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。"
+            ? "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
             : "美术建议已应用，但还没有保存。",
         );
     } catch {
@@ -2150,8 +2151,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       applied: false,
       mode: "art",
     });
-    finishTurn(turn, "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
-    noteAgent("art", "art", "美术写好了。点「写入分镜」才会写入外貌、场景和道具。");
+    finishTurn(turn, "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
+    noteAgent("art", "art", "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
 
     setPending(null);
     setPendingRole(null);
@@ -2420,7 +2421,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         mode: "shots",
         shots: splitShots,
       });
-      setNotice("这句话超过 15 秒，拆成两镜。点「写入分镜」才会写入。");
+      setNotice("这句话超过 15 秒，拆成两镜。点「放进分镜」才会放进去。");
       return;
     }
     setFilm(

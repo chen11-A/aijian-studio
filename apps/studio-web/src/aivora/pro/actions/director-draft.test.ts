@@ -34,7 +34,7 @@ it("keeps offline drafting without a request or enrichment", async () => {
   expect(result).toMatchObject({
     status: "complete",
     event: "offline",
-    notice: expect.stringContaining("没有登录，已用离线拆镜"),
+    notice: expect.stringContaining("没登录，先用软件自己的规则拆了镜头"),
   });
   expect(s.host.request).not.toHaveBeenCalled();
   expect(s.host.enrich).not.toHaveBeenCalled();

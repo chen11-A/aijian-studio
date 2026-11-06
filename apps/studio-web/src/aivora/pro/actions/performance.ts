@@ -35,7 +35,7 @@ export async function planPerformanceDraft(
 ): Promise<PerformanceDraftResult> {
   const gaze = gazeHandoff(current.characters);
   let line = `${performanceLine(current.picture)}${gaze ? ` ${gaze}` : ""}`;
-  let note = "没有登录，已用离线表演指导。点「写入分镜」写到这一镜。";
+  let note = "没登录，先用软件自己的规则写了表演，请看一下。点「放进分镜」放到这一镜。";
   const context = `镜头 id：${current.id}；人物：${current.characters.join("、")}\n${current.picture}`;
   const instruction =
     "写这一镜的表演，shot_id 使用给出的 id，who 写人物名字，其他人物放 others 并写 name。";
@@ -78,7 +78,7 @@ export async function planPerformanceDraft(
       (planned?.shots[0]?.performancePlan?.people.length
         ? performancePlanPrompt({ ...planned.shots[0]!, userFields: [] })
         : "") || parsed;
-    note = "表演指导写好了。点「写入分镜」写到这一镜。";
+    note = "表演指导写好了。点「放进分镜」放到这一镜。";
   }
   if (performanceState?.unassigned.length) {
     line = current.performance;

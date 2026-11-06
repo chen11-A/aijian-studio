@@ -588,16 +588,16 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "打开示例" }));
     pickHelper("编剧");
     fireEvent.click(screen.getByRole("button", { name: "让编剧分场" }));
-    expect(await screen.findByText(/离线编剧/)).toBeInTheDocument();
+    expect(await screen.findByText(/先用软件自己的规则写了剧本/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放进剧本" }));
-    expect(await screen.findByText(/已放入剧本/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放进剧本/)).toBeInTheDocument();
     // Replacing the script clears obsolete automatic shots. Build the new script's
     // shots before editing one away and checking the remaining ungenerated shots.
     pickHelper("导演");
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
-    expect(await screen.findByText(/离线拆镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/先用软件自己的规则拆了镜头/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-    expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放进分镜/)).toBeInTheDocument();
 
     fireEvent.click(
       screen
@@ -682,12 +682,12 @@ describe("professional workspace", () => {
     render(<ProWorkspace />);
     fireEvent.click(screen.getByRole("button", { name: "打开示例" }));
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
-    expect(await screen.findByText(/离线拆镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/先用软件自己的规则拆了镜头/)).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("COVERAGE_INCOMPLETE");
     if (document.body.textContent?.includes("还有内容需要补齐"))
       expect(document.body.textContent).not.toContain("为保留全部台词和结尾");
     fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-    expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放进分镜/)).toBeInTheDocument();
   });
 
   it("walks the stages, confirms agents, and keeps a hand edit", async () => {
@@ -701,7 +701,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "让编剧分场" }));
     expect(await screen.findByText(/编剧写好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放进剧本" }));
-    expect(await screen.findByText(/已放入剧本/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放进剧本/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "改成短剧" }));
     expect(await screen.findByText(/编剧写好了/)).toBeInTheDocument();
@@ -723,12 +723,12 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
     expect(await screen.findByRole("button", { name: "放进分镜" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-    expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放进分镜/)).toBeInTheDocument();
     pickHelper("动作指导");
     fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
     expect(await screen.findByText(/动作指导写好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-    expect(await screen.findByText(/已写入这一镜/)).toBeInTheDocument();
+    expect(await screen.findByText(/已放进这一镜/)).toBeInTheDocument();
 
     fireEvent.click(stageTab("分镜"));
     fireEvent.change(screen.getByLabelText("动作要点"), { target: { value: "我改过这一下" } });
@@ -760,7 +760,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "请表演指导看看" }));
     expect(await screen.findByText(/表演指导写好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-    expect(screen.getByText(/已写入这一镜|你改过的/)).toBeInTheDocument();
+    expect(screen.getByText(/已放进这一镜|你改过的/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "属性" }));
     moreAction("前移");
     moreAction("后移");
@@ -1517,7 +1517,7 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
     expect(await screen.findByText(/美术写好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-    expect(await screen.findByText(/已写入画风、外貌、场景和道具/)).toBeInTheDocument();
+    expect(await screen.findByText(/画风、外貌、场景和道具已放进去/)).toBeInTheDocument();
     openBoardTools();
     fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
     expect(await screen.findByText(/提示词写好了/)).toBeInTheDocument();
@@ -1710,9 +1710,9 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   await waitFor(() =>
     expect(completeText.mock.calls.length).toBeGreaterThanOrEqual(beforeSend + 3),
   );
-  expect((await screen.findAllByText(/还不能看画面|没有按格式返回|离线/)).length).toBeGreaterThan(
-    0,
-  );
+  expect(
+    (await screen.findAllByText(/还不能看画面|没有按格式返回|离线|软件自己的规则/)).length,
+  ).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
   await expectSavedPipelineCode("WRITER_PARSE_FAILED");
   expect(window.aijian!.createStoryFilm).not.toHaveBeenCalled();
@@ -2861,7 +2861,7 @@ it("does not write an offline cast when the model fails", async () => {
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
   expect(await screen.findByText(/导演拆好了/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-  expect(await screen.findByText(/已写入分镜/)).toBeInTheDocument();
+  expect(await screen.findByText(/已放进分镜/)).toBeInTheDocument();
 });
 
 it("shows a saved still again and uses lane mute, solo, and volume", async () => {
@@ -4719,7 +4719,7 @@ it("B11 applies and undoes a fixed art proposal without losing a subsequently ge
   fireEvent.click(stageTab("剧本"));
   pickHelper("美术");
   fireEvent.click(await screen.findByRole("button", { name: "放进分镜" }));
-  expect(await screen.findByText(/已写入画风、外貌、场景和道具/)).toBeInTheDocument();
+  expect(await screen.findByText(/画风、外貌、场景和道具已放进去/)).toBeInTheDocument();
   const writes = () =>
     vi.mocked(window.aijian!.writeFilmProject!).mock.calls.map(([film]) => film as FilmProject);
   const applied = writes()
@@ -4936,7 +4936,7 @@ it.each(["undo", "page"] as const)(
     if (action === "undo") fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     else fireEvent.click(stageTab("分镜"));
     await act(async () => finish());
-    expect(screen.queryByText(/已写入画风、外貌、场景和道具/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/画风、外貌、场景和道具已放进去/)).not.toBeInTheDocument();
   },
 );
 
