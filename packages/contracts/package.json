@@ -132,6 +132,10 @@
     "./film-audio-mix-plan": {
       "types": "./src/film-audio-mix-plan.d.ts",
       "default": "./src/film-audio-mix-plan.js"
+    },
+    "./film-project-archive": {
+      "types": "./src/film-project-archive.ts",
+      "default": "./src/film-project-archive.ts"
     }
   },
   "scripts": {

@@ -5,6 +5,15 @@ import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
 import type { AudioMixPreviewResult, MixLane } from "@aijian/contracts/film-audio-mix";
+import { SevenPartVideoReview } from "../next/SevenPartVideoReview";
+import {
+  compileSevenPartVideo,
+  reviewedVideoText,
+  VIDEO_FACTS_STALE,
+} from "../film/seven-part-video";
+import { rangeVideoBody } from "./actions/video-prompt-review";
+import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
+import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
   prepareHistoryInput,
@@ -590,6 +599,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const account = useGrokAccount();
   const [film, setFilmState] = useState<FilmProject | null>(null);
   const [stage, setStage] = useState<Stage>("script");
+  const [archiveMode, setArchiveMode] = useState<"export" | "import" | null>(null);
+  const archiveOrigin = useRef<string | null>(null);
   const [pickedScene, setScene] = useState("02");
   // 3JR-B01: when a new set of scenes arrives (一键成片 writes them), the page already shows the
   // first scene before the effect below stores it. Actions use the scene the page shows, so a
@@ -2360,6 +2371,125 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setPendingRole(null);
   }
 
+  const [videoReview, setVideoReview] = useState<{
+    request: NonNullable<ReturnType<typeof editorHost.capture>>;
+    facts: ReturnType<typeof compileSevenPartVideo>;
+    before: string | null;
+    modelText: string;
+    changed: boolean;
+    result: "saved" | "unsaved" | "rejected" | null;
+  } | null>(null);
+  const [videoReviewBusy, setVideoReviewBusy] = useState(false);
+  const videoReviewWorking = useRef(false);
+  function videoReviewMatches(review: NonNullable<typeof videoReview>) {
+    const live = filmRef.current,
+      selected = editorSelection.current;
+    const origin = review.request.selection;
+    const target = live?.shots.find((item) => item.id === origin.shotId);
+    const compiled = live && target ? compileSevenPartVideo(live, target) : null;
+    return !!(
+      live &&
+      target &&
+      live.id === origin.projectId &&
+      selected.page === origin.page &&
+      selected.shotId === origin.shotId &&
+      selected.sceneId === origin.sceneId &&
+      compiled &&
+      compiled.issues.length === 0 &&
+      compiled.draft.factsKey === review.facts.draft.factsKey
+    );
+  }
+  function organizeVideoFacts() {
+    if (videoReviewWorking.current) return;
+    const request = editorHost.capture();
+    const target = request?.base.shots.find((item) => item.id === request.selection.shotId);
+    if (!request || !target) return;
+    const facts = compileSevenPartVideo(request.base, target);
+    const proposed = {
+      ...request.base,
+      shots: request.base.shots.map((item) =>
+        item.id === target.id ? { ...item, reviewedVideoPrompt: facts.draft } : item,
+      ),
+    };
+    let modelText = "";
+    if (!facts.issues.length) {
+      try {
+        modelText =
+          storyFilmBatches(
+            proposed,
+            [proposed.shots.find((item) => item.id === target.id)!],
+            proposed.draft,
+          )[0]?.shots?.[0]?.prompt ?? "";
+      } catch (error) {
+        facts.issues.push(
+          error instanceof Error &&
+            /VOICE_.*REQUIRED/.test(String((error as { code?: string }).code))
+            ? "台词的声音选择尚未完成，请先核对说话人和声音。"
+            : "完整提交文本无法使用；请精简过长的说明，或调整时长、拆分镜头后重新整理。",
+        );
+      }
+    }
+    const diff = editorHost.preview(request, proposed);
+    if (!diff || diff.unsupported.length) return;
+    let before: string | null =
+      target.reviewedVideoPrompt === undefined
+        ? null
+        : "原保存说明已过期或无法核对，暂不展示其内容。";
+    try {
+      const checked = reviewedVideoText(request.base, target);
+      if (checked !== undefined) before = checked;
+    } catch {
+      /* No raw unverified body reaches the display. */
+    }
+    setVideoReview({
+      request,
+      facts,
+      before,
+      modelText,
+      changed: diff.changes.length > 0,
+      result: null,
+    });
+  }
+  async function confirmVideoFacts() {
+    const review = videoReview;
+    if (
+      !review ||
+      !review.changed ||
+      videoReviewWorking.current ||
+      review.result ||
+      review.facts.issues.length
+    )
+      return;
+    if (!videoReviewMatches(review)) {
+      setVideoReview((current) =>
+        current?.request.id === review.request.id ? { ...current, result: "rejected" } : current,
+      );
+      return;
+    }
+    videoReviewWorking.current = true;
+    setVideoReviewBusy(true);
+    try {
+      const result = await editorHost.apply(review.request.id);
+      if (result.completionCurrent === false) return;
+      setVideoReview((current) =>
+        current?.request.id === review.request.id
+          ? {
+              ...current,
+              result:
+                result.status === "saved"
+                  ? "saved"
+                  : result.status === "applied_unsaved"
+                    ? "unsaved"
+                    : "rejected",
+            }
+          : current,
+      );
+    } finally {
+      videoReviewWorking.current = false;
+      setVideoReviewBusy(false);
+    }
+  }
+
   function planPrompter() {
     return withForeground(planPrompterWork, "PLANPROMPTER_FAILED");
   }
@@ -3088,7 +3218,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       });
     } catch (error) {
       if (!valid()) return;
-      const styleFailure = styleFailureNotice(error) ?? continuityFailureNotice(error);
+      const reviewFailure =
+        error instanceof Error && error.message === VIDEO_FACTS_STALE.text
+          ? VIDEO_FACTS_STALE
+          : null;
+      const styleFailure =
+        reviewFailure ?? styleFailureNotice(error) ?? continuityFailureNotice(error);
       const reason =
         styleFailure?.text ??
         (error instanceof Error && error.message === "TASK_TIMEOUT"
@@ -4149,11 +4284,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setRangeMessage("正在生成所选画面段；生成结果会先保留，再检查是否能够接回原片。");
     try {
       const target = ready.project.shots.find((row) => row.id === ready.shotId)!;
-      const body = storyFilmBatches(
+      const body = rangeVideoBody(
         ready.project,
-        [{ ...target, line: "", lines: [], seconds: ready.plan.generationSeconds }],
+        target,
+        ready.plan.generationSeconds,
         ready.project.draft,
-      )[0];
+      );
       const prompt = body?.shots?.[0]?.prompt;
       if (!prompt) throw new Error("RANGE_PROMPT_REQUIRED");
       const result = await executeRangeRedo(ready, prompt, {
@@ -4370,6 +4506,40 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setNotice("已记下审片意见。版本仍由你选。");
   };
   const promptCard = roleCards.prompter;
+  const videoFactsSuggestion = (
+    <>
+      <button className="btn" disabled={videoReviewBusy} onClick={organizeVideoFacts}>
+        整理视频说明
+      </button>
+      {videoReview &&
+      videoReview.request.selection.projectId === film?.id &&
+      videoReview.request.selection.shotId === shownShots[shot]?.id ? (
+        <SevenPartVideoReview
+          facts={{
+            sections: videoReview.facts.sections,
+            issues: videoReview.facts.issues,
+            draft: { text: videoReview.facts.draft.text },
+          }}
+          changed={videoReview.changed}
+          before={videoReview.before}
+          modelText={videoReview.modelText}
+          busy={videoReviewBusy}
+          stale={!videoReviewMatches(videoReview)}
+          result={
+            videoReview.result &&
+            videoReview.result !== "rejected" &&
+            shownShots[shot]?.reviewedVideoPrompt?.factsKey !== videoReview.facts.draft.factsKey
+              ? "undone"
+              : videoReview.result
+          }
+          onConfirm={() => void confirmVideoFacts()}
+          onDismiss={() => {
+            if (!videoReviewWorking.current) setVideoReview(null);
+          }}
+        />
+      ) : null}
+    </>
+  );
   const promptSuggestion =
     promptCard?.fieldRows !== undefined &&
     promptCard.editorDiff?.selection.projectId === film?.id &&
@@ -4387,6 +4557,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         onReject={rejectPendingPrompt}
       />
     ) : null;
+  const shotPromptSuggestions = (
+    <>
+      {videoFactsSuggestion}
+      {promptSuggestion}
+    </>
+  );
   const shotAssistant = (
     <>
       <Assistant
@@ -4420,7 +4596,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         scope={film ? scopeOf(film, scene, shownShots[shot] ?? null) : ""}
         mentions={film ? mentionsOf(film, shownShots) : []}
       />
-      {promptSuggestion}
+      {shotPromptSuggestions}
     </>
   );
   // 4A-U10: M mutes and unmutes the previews; the switch moved from the top bar to the player.
@@ -4611,6 +4787,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {item.title}
                   </button>
                 ))}
+                <button
+                  onClick={() => {
+                    archiveOrigin.current = filmRef.current?.id ?? null;
+                    setArchiveMode("import");
+                    setMenu(null);
+                  }}
+                >
+                  打开工程包
+                </button>
+                <button
+                  disabled={!film}
+                  onClick={() => {
+                    archiveOrigin.current = filmRef.current?.id ?? null;
+                    setArchiveMode("export");
+                    setMenu(null);
+                  }}
+                >
+                  导出工程包
+                </button>
                 <p className="menu-group">这一部</p>
                 {episodes.map((item) => (
                   <button
@@ -4987,7 +5182,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   structured={structured}
                   card={sceneCard}
                   qcCard={roleCards.qc ?? null}
-                  promptSuggestion={promptSuggestion}
+                  promptSuggestion={shotPromptSuggestions}
                   onRedoRange={redoFromReview}
                   onDismiss={keepReview}
                   onReject={rejectPendingSuggestion}
@@ -5476,6 +5671,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {rangeReady.plan.effective.start.toFixed(3)}–
                     {rangeReady.plan.effective.end.toFixed(3)} 秒
                   </p>
+                  <details>
+                    <summary>本次局部画面提交文本</summary>
+                    <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                      {(() => {
+                        try {
+                          const target = rangeReady.project.shots.find(
+                            (item) => item.id === rangeReady.shotId,
+                          )!;
+                          return (
+                            rangeVideoBody(
+                              rangeReady.project,
+                              target,
+                              rangeReady.plan.generationSeconds,
+                              rangeReady.project.draft,
+                            )?.shots?.[0]?.prompt ?? "尚未得到局部说明。"
+                          );
+                        } catch {
+                          return "全镜说明或当前事实已变化，请重新整理后检查局部范围。本次尚未派发。";
+                        }
+                      })()}
+                    </p>
+                    <p>
+                      这是局部画面请求，另编本次时长；原完整音轨保留，未验证口型，不重新绑定存档中的全镜说明。
+                    </p>
+                  </details>
                   <p>
                     {confirmEstimate([{ seconds: rangeReady.plan.generationSeconds }], 1)}
                     ；需要的首帧从原片本机提取。只派发一次，接回失败不自动重试。
@@ -5767,6 +5987,49 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               </div>
             </div>
           </div>
+        ) : null}
+
+        {archiveMode ? (
+          <ProjectArchiveDialog
+            mode={archiveMode}
+            projectId={film?.id ?? null}
+            onClose={() => setArchiveMode(null)}
+            onExport={async () => {
+              const current = filmRef.current;
+              if (!current) return { kind: "FAILED", code: "INVALID_INPUT" };
+              return exportProjectArchive(current, {
+                current: () => filmRef.current,
+                apply: applyLive,
+                acquire: (id) => persistence.acquire(id),
+              });
+            }}
+            onImport={async () =>
+              window.aijian?.importFilmProjectArchive
+                ? window.aijian.importFilmProjectArchive()
+                : { kind: "FAILED", code: "RUNTIME_UNAVAILABLE" }
+            }
+            onImported={async (id) => {
+              const origin = archiveOrigin.current;
+              if ((filmRef.current?.id ?? null) !== origin) return false;
+              const imported = await readSaved(id);
+              if (!imported || (filmRef.current?.id ?? null) !== origin) return false;
+              const settled = settleOpenedFilm(imported);
+              applyLive(settled.film);
+              setScene(settled.film.scenes[0]?.id ?? "scene-1");
+              setShot(0);
+              setPlaying(false);
+              setStage("script");
+              setBench(false);
+              setMenu(null);
+              setArchiveMode(null);
+              setNotice({
+                code: "STEP_COMPLETE",
+                text: NOTICE_TEXT.STEP_COMPLETE,
+                detail: "工程包已导入为独立新作品。历史版本和账号信息未带入。",
+              });
+              return true;
+            }}
+          />
         ) : null}
         {workSettings && film ? (
           <div className="dialog-back">
@@ -7678,7 +7941,12 @@ function CastPage({
                     const slot = character
                       ? portraits.slots[`${character.id}:${item.view}`]
                       : undefined;
-                    const state = url ? "done" : (slot?.state ?? "empty");
+                    // A completed task is not proof this snapshot still has its media.
+                    const state = url
+                      ? "done"
+                      : slot?.state === "done"
+                        ? "empty"
+                        : (slot?.state ?? "empty");
                     const front = item.view === "正面";
                     return (
                       <figure
@@ -10236,7 +10504,7 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
-            {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
+            {/* 4C-U01: coarse shot selection; the dialog checks actual seconds. Speech stays unchanged. */}
             <span className="lab">
               已选{" "}
               {picked.first === picked.last
@@ -10247,12 +10515,12 @@ function EditPage({
             {picked.hasLine ? (
               <span
                 className="sel-hint"
-                title="台词不会从中间切开：选到一句台词的一部分，重做时这一整句都会重来。"
+                title="当前没有可靠的逐句语音对齐，秒级重做不自动扩展整句，也不重配对白或验证口型。"
               >
-                这句台词会整句重来
+                仅重做画面，保留原音轨
               </span>
             ) : null}
-            {/* 4A-U10: one 重新生成. One shot opens its 单镜 panel, a longer part is queued. */}
+            {/* 4C-U01: an existing take opens seconds review; a shot without video opens ordinary creation. */}
             <button
               className="btn primary"
               title={actions.regenerate.reason}

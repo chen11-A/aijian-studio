@@ -25,6 +25,11 @@ def stage_qc_resources(destination: Path) -> None:
     )
 
 
+def stage_project_archive_resources(destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "packages/aivora-media/archive.mjs", destination / "archive.mjs")
+
+
 def load_prerequisite_helpers():
     spec = importlib.util.spec_from_file_location(
         "prerequisites", HERE / "prepare-prerequisites.py"
@@ -155,6 +160,7 @@ def main() -> None:
     shutil.copy2(ROOT / "config/media-toolchain-lock.json", resources / "config")
     # The original read-only QC engine runs in Electron main; no duplicated detector.
     stage_qc_resources(resources / "qc")
+    stage_project_archive_resources(resources / "project-archive")
     # No FFmpeg binary is copied here: the existing media distribution gate remains unchanged.
     receipt = {
         "schema_version": 1,

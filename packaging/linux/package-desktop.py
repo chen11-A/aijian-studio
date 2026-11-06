@@ -45,6 +45,11 @@ def stage_qc_resources(destination: Path) -> None:
     )
 
 
+def stage_project_archive_resources(destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "packages/aivora-media/archive.mjs", destination / "archive.mjs")
+
+
 def digest(path: Path) -> str:
     # Ubuntu 22.04's system Python is 3.10 and has no hashlib.file_digest.
     hasher = hashlib.sha256()
@@ -294,6 +299,7 @@ def build(output: Path, cache: Path) -> None:
     helper.bundle_python(output / "runtime/python")
     helper.copy_tree(ROOT / "services/api/src/aijian_api", output / "services/api/src/aijian_api")
     stage_qc_resources(output / "qc")
+    stage_project_archive_resources(output / "project-archive")
     profile = stage_ffmpeg(cache, output)
     templates = ROOT / "packaging/linux"
     for name in ("launch-aivora.sh", "check-runtime.py", "README.zh-CN.md"):

@@ -1,0 +1,32 @@
+.nx-root.nx-video-review {
+  height: auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+}
+.nx-root.nx-video-review p,
+.nx-root.nx-video-review dd,
+.nx-root.nx-video-review li {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.nx-root .nx-video-facts {
+  display: grid;
+  gap: 8px;
+}
+.nx-root .nx-video-facts dt {
+  font-weight: 600;
+}
+.nx-root .nx-video-facts dd {
+  margin: 4px 0 0;
+}
+.nx-root.nx-video-review .acts {
+  position: static;
+  flex-wrap: wrap;
+}
+.nx-root .nx-video-model {
+  max-height: 280px;
+  overflow: auto;
+}

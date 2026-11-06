@@ -9,7 +9,7 @@ import { File as NodeFile } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
 import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
@@ -1101,21 +1101,107 @@ describe("professional workspace", () => {
   }, 20_000);
 
   it("writes a still, keeps the reported length, and plays without a sound device", async () => {
+    const generationOrder: string[] = [];
     let playbacks = 0;
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(async () => {
       playbacks += 1;
       if (playbacks === 1) throw new Error("no device");
     });
-    const createStoryFilm = vi.fn(async () => ({
-      data: {
-        status: "SUCCEEDED",
-        message: "",
-        output_path: "/tmp/aivora/shot.mp4",
-        preview_image: "https://example.test/frame.png",
-        duration_seconds: "4",
-      },
-    }));
+    const createStoryFilm = vi.fn(async () => {
+      generationOrder.push("provider");
+      return {
+        data: {
+          status: "SUCCEEDED",
+          message: "",
+          output_path: "/tmp/aivora/shot.mp4",
+          preview_image: "https://example.test/frame.png",
+          duration_seconds: "4",
+        },
+      };
+    });
     installDesktop(createStoryFilm);
+    const captureHistory = window.aijian!.captureFilmHistory!;
+    window.aijian!.captureFilmHistory = vi.fn(async (input) => {
+      const result = await captureHistory(input);
+      if (result.kind === "CAPTURED") generationOrder.push("backup");
+      return result;
+    });
+    let awaitingPortraits = false,
+      awaitingGeneration = false;
+    let completePortraits!: () => void, failPortraits!: (error: Error) => void;
+    const portraitsCompleted = new Promise<void>((resolve, reject) => {
+      completePortraits = resolve;
+      failPortraits = reject;
+    });
+    let savePortraits!: () => void;
+    const portraitsSaved = new Promise<void>((resolve) => {
+      savePortraits = resolve;
+    });
+    const writeProject = window.aijian!.writeFilmProject!;
+    let savedPortraitViews: string[] = [];
+    window.aijian!.writeFilmProject = vi.fn(async (...args: Parameters<typeof writeProject>) => {
+      const stored = await writeProject(...args);
+      const person = (stored as Partial<FilmProject>).characters?.find(
+        (person) => person.id === "lin",
+      );
+      const views = ["正面", "侧面", "背面", "脸部"];
+      if (
+        views.every((view) =>
+          person?.portraits.some((portrait) => portrait.view === view && portrait.url),
+        )
+      ) {
+        savedPortraitViews = views;
+        savePortraits();
+      }
+      return stored;
+    });
+    let completeGeneration!: () => void, failGeneration!: (error: Error) => void;
+    const generationCompleted = new Promise<void>((resolve, reject) => {
+      completeGeneration = resolve;
+      failGeneration = reject;
+    });
+    const onGenerationCompleted = (event: Event) => {
+      const code = (event as CustomEvent<{ code?: string }>).detail?.code;
+      if (code === "PORTRAIT_DONE" && awaitingPortraits) {
+        awaitingPortraits = false;
+        completePortraits();
+      }
+      if (code === "GENERATION_DONE" && awaitingGeneration) {
+        awaitingGeneration = false;
+        completeGeneration();
+      }
+      if (
+        code &&
+        [
+          "HISTORY_BACKUP_FAILED",
+          "REQUEST_STALE",
+          "HISTORY_STALE",
+          "GENERATION_SELECTION_STALE",
+          "GENERATION_FAILED",
+          "PORTRAIT_FAILED",
+          "SAVE_FAILED",
+        ].includes(code)
+      ) {
+        const error = new Error(`EXPECTED_ACTION_TERMINATED:${code}`);
+        if (awaitingPortraits) {
+          awaitingPortraits = false;
+          failPortraits(error);
+        }
+        if (awaitingGeneration) {
+          awaitingGeneration = false;
+          failGeneration(error);
+        }
+      }
+    };
+    window.addEventListener("aivora-notice", onGenerationCompleted);
+    const finishWaiting = () => {
+      awaitingPortraits = false;
+      awaitingGeneration = false;
+      window.removeEventListener("aivora-notice", onGenerationCompleted);
+      play.mockRestore();
+    };
+    // Vitest invokes this even if its timeout ends a still-pending action wait.
+    onTestFinished(finishWaiting);
     let videos = 0;
     window.aijian = {
       ...window.aijian!,
@@ -1157,10 +1243,12 @@ describe("professional workspace", () => {
       moreAction("重新生成画面");
       expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
+      awaitingPortraits = true;
       fireEvent.click(screen.getByRole("button", { name: /^补齐.+的定妆照（还缺 \d 张）$/ }));
-      await waitFor(() =>
-        expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
-      );
+      // Old task-feed success can outlive a project snapshot. Wait for this action
+      // and its actual canonical URLs before editing another input or generating video.
+      await Promise.all([portraitsCompleted, portraitsSaved]);
+      expect(savedPortraitViews).toEqual(["正面", "侧面", "背面", "脸部"]);
       await waitFor(() =>
         expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
       );
@@ -1168,8 +1256,15 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+      generationOrder.length = 0;
+      // Backup and canonical saves legitimately precede the provider. Wait for the
+      // action's real completion event, within this test's existing 20s budget.
+      awaitingGeneration = true;
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+      await generationCompleted;
       expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
+      expect(createStoryFilm).toHaveBeenCalledTimes(1);
+      expect(generationOrder).toEqual(["backup", "provider"]);
       // 4C-U08: nothing in progress: a small button, still named for screen readers.
       expect(screen.getByRole("button", { name: "后台生成：没有在做的" })).toHaveClass("idle");
       const preview = document.querySelector("video.frame");
@@ -1192,12 +1287,12 @@ describe("professional workspace", () => {
       expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
       expect(await screen.findByRole("button", { name: "审核后发布" })).toBeDisabled();
-      expect(screen.getByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
+      expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "关闭" }));
       fireEvent.click(screen.getByRole("button", { name: "设入点" }));
       expect(screen.getByText("左右对比")).toBeInTheDocument();
     } finally {
-      play.mockRestore();
+      finishWaiting();
     }
   }, 20_000);
 
@@ -3936,7 +4031,7 @@ it("marks lip sync on the card and the clip, and a failed one as 口型未对上
   ]);
 });
 
-it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U01)", async () => {
+it("shows in-to-out shot selection, audio-preservation limits and 「版本 2/3」 (4C-U01)", async () => {
   installDesktop();
   const film = sampleFilm();
   const [talk] = film.shots;
@@ -3972,10 +4067,12 @@ it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U
   );
   fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
   expect(document.querySelector(".selbar .lab")).toHaveTextContent(/已选 镜头 \d+ · 00:00\.0–/);
-  expect(screen.getByText("这句台词会整句重来")).toHaveAttribute(
+  expect(screen.getByText("仅重做画面，保留原音轨")).toHaveAttribute(
     "title",
-    expect.stringContaining("这一整句都会重来"),
+    expect.stringContaining("不自动扩展整句，也不重配对白或验证口型"),
   );
+  expect(screen.queryByText("这句台词会整句重来")).not.toBeInTheDocument();
+  expect(document.querySelector("[title*=这一整句都会重来]")).toBeNull();
 });
 
 it("keeps the person's defaults in 设置: folder, 「AI 生成」, beginner mode (4C-U03)", async () => {
