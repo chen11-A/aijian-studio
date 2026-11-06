@@ -569,7 +569,8 @@ describe("film operations", () => {
     expect(storyFilmBatches({ ...film, aspectRatio: "9:16" }, [shot], false)[0]?.aspect_ratio).toBe(
       "9:16",
     );
-    expect(draftFaceWarning(true)).toContain("脸可能会变");
+    expect(draftFaceWarning(true)).toContain("不参考定妆照");
+    expect(draftFaceWarning(true)).toContain("可能和定妆照不一样");
     expect(draftFaceWarning(false)).toBe("");
     shot.poster = "";
     shot.stills = [];

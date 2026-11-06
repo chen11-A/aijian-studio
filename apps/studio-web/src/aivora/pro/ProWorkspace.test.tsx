@@ -992,7 +992,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
     expect(
-      screen.getByText("草稿用的是较快的模型，不能带定妆照，脸可能会变。"),
+      screen.getByText("快速试做不参考定妆照，人物的脸可能和定妆照不一样。"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText(/不能先出草稿/)).toBeInTheDocument();
@@ -3879,6 +3879,11 @@ it("shows the whole in-to-out part, a whole-line note and 「版本 2/3」 (4C-U
   expect(document.querySelector(".card .ver")).toHaveTextContent("版本 2/3");
   fireEvent.click(stageTab("剪辑"));
   expect(document.querySelector(".clip.v .ver")).toHaveTextContent("版本 2/3");
+  expect(document.querySelector(".clip.v .lb")).toHaveTextContent(`1-${talk!.no}`);
+  expect(document.querySelector(".clip.v")).toHaveAttribute(
+    "title",
+    `第 1 场第 ${talk!.no} 个镜头`,
+  );
   fireEvent.click(document.querySelector(".clip.v") as HTMLElement);
   expect(document.querySelector(".selbar .lab")).toHaveTextContent(/已选 镜头 \d+ · 00:00\.0–/);
   expect(screen.getByText("这句台词会整句重来")).toHaveAttribute(
@@ -4166,7 +4171,7 @@ it("shows the first frame on 单个镜头 before there is a video (5-3-13)", asy
   const frame = document.querySelector<HTMLElement>(".bigprev .frame")!;
   expect(frame).not.toHaveClass("rain");
   expect(frame.style.backgroundImage).toContain("-still.png");
-  expect(frame).toHaveTextContent("还没有视频，这是起始画面");
+  expect(frame).toHaveTextContent("还没有视频，这是开头画面");
   expect(screen.getByText(/还没有版本。在右边点/)).toBeInTheDocument();
 });
 
@@ -4555,7 +4560,11 @@ it("gives the four sound tracks a name, mute, solo and volume, and says when a t
   expect(ruler.slice(0, 3)).toEqual(["00:00.0", "00:05.0", "00:10.0"]);
   expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
     "title",
-    expect.stringContaining("配乐会在对白出现时让路"),
+    expect.stringContaining("有人说话时，配乐会自动变小，台词音量不变"),
+  );
+  expect(screen.getByRole("img", { name: "说明" })).toHaveAttribute(
+    "title",
+    expect.stringContaining("整片音量还不会自动调成一样大"),
   );
   expect(screen.getByLabelText("导入音乐")).toBeInTheDocument();
 });

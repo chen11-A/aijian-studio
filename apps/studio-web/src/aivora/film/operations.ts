@@ -55,7 +55,7 @@ export const CONTINUITY_REASON = CONTINUITY_NOTICE.text;
 export const PREVIEW_REASON =
   "单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。";
 export const LOUDNESS_NOTE =
-  "导入的配乐会在对白出现时让路，对白本身不降低。这一版不会把整片音量调成统一大小。";
+  "有人说话时，配乐会自动变小，台词音量不变。整片音量还不会自动调成一样大。";
 export const DESKTOP_REASON = "请打开安装好的 AIVORA，并打开一部作品，再生成。网页里不能直接出片。";
 
 /** Chinese labels for preset voices. The live list still comes from the account. */
@@ -1687,7 +1687,7 @@ function imageCue(references: { who: string; kind?: "location" }[], draft: boole
 }
 
 export function draftFaceWarning(draft: boolean): string {
-  return draft ? "草稿用的是较快的模型，不能带定妆照，脸可能会变。" : "";
+  return draft ? "快速试做不参考定妆照，人物的脸可能和定妆照不一样。" : "";
 }
 
 function isVoiceFile(path: string): boolean {

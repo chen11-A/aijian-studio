@@ -4489,17 +4489,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     <th>镜头</th>
                     <th>秒数</th>
                     <th>台词</th>
-                    <th>声音来源</th>
+                    <th>台词的声音</th>
                     <th>配乐</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pendingBatch.map((item) => (
                     <tr key={item.id}>
-                      <td>镜头 {item.no}</td>
+                      <td>{(film && scopeOf(film, item.sceneId, item)) || `镜头 ${item.no}`}</td>
                       <td>{item.seconds}</td>
                       <td>{item.line.trim() || "无"}</td>
-                      <td>{item.line.trim() ? "另外配音" : "无台词"}</td>
+                      <td>{item.line.trim() ? "另外配音" : "没有台词"}</td>
                       <td>
                         {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
                           ? "已导入"
@@ -4513,10 +4513,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               {draftFaceWarning(Boolean(film?.draft)) ? (
                 <p>{draftFaceWarning(Boolean(film?.draft))}</p>
               ) : null}
-              {pendingBatch.some((item) => fitShotToLine(item).warning) ? (
+              {pendingBatch.some(
+                (item) =>
+                  fitShotToLine(
+                    item,
+                    film?.scenes.find((sceneItem) => sceneItem.id === item.sceneId)?.no,
+                  ).warning,
+              ) ? (
                 <p>
                   {pendingBatch
-                    .map((item) => fitShotToLine(item).warning)
+                    .map(
+                      (item) =>
+                        fitShotToLine(
+                          item,
+                          film?.scenes.find((sceneItem) => sceneItem.id === item.sceneId)?.no,
+                        ).warning,
+                    )
                     .filter(Boolean)
                     .join("")}
                 </p>
@@ -8005,7 +8017,7 @@ function GeneratePage({
                     {takes.length > 0 ? (
                       <span className="badge none">{picked?.reason || "这一版还没有画面"}</span>
                     ) : still ? (
-                      <span className="still-note">还没有视频，这是起始画面</span>
+                      <span className="still-note">还没有视频，这是开头画面</span>
                     ) : null}
                   </div>
                 );
@@ -8059,7 +8071,7 @@ function GeneratePage({
             </div>
             <div className="pb" style={{ padding: "12px 14px" }}>
               <div className="sec-t">
-                起始画面<span className="from role-d">这一镜自己的画面</span>
+                开头画面<span className="from role-d">这一镜自己的画面</span>
                 <span className="sp" />
                 <span>不是定妆照</span>
               </div>
@@ -9307,8 +9319,11 @@ function EditPage({
                 {clips.map((clip, index) => {
                   const item = shots[index];
                   const ready = item ? shotReady(item) : false;
-                  const name = `镜头 ${item?.no ?? index + 1}`;
-                  const waiting = `${name} 还没生成（${item?.seconds ?? 0} 秒）`;
+                  const scene = film.scenes.find((row) => row.id === item?.sceneId);
+                  const number = item?.no ?? index + 1;
+                  const name = scene ? `${scene.no}-${number}` : `镜头 ${number}`;
+                  const fullName = (item && scopeOf(film, item.sceneId, item)) || `镜头 ${number}`;
+                  const waiting = `${fullName} 还没生成（${item?.seconds ?? 0} 秒）`;
                   return (
                     <button
                       key={clip.id}
@@ -9316,7 +9331,7 @@ function EditPage({
                         ready ? "clip v" : clip.folded ? "clip v empty folded" : "clip v empty"
                       }
                       style={{ left: clip.left, width: clip.width }}
-                      title={ready ? undefined : waiting}
+                      title={ready ? fullName : waiting}
                       aria-label={clip.folded ? "未生成" : undefined}
                       onClick={(event) => {
                         // A keyboard press has no pointer position: go to the clip's start.

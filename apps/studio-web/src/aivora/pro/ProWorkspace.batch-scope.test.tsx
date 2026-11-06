@@ -111,7 +111,9 @@ function queue() {
     within(table)
       .getAllByRole("row")
       .map((row) => row.querySelector("th,td")?.textContent),
-  ).toEqual(["镜头", "镜头 2", "镜头 4"]);
+  ).toEqual(["镜头", "第 1 场第 2 个镜头", "第 1 场第 4 个镜头"]);
+  expect(within(table).getByRole("columnheader", { name: "台词的声音" })).toBeInTheDocument();
+  expect(within(table).getAllByText("没有台词")).toHaveLength(2);
   return within(table).getByRole("button", { name: "开始生成" });
 }
 function deferredVideo() {
