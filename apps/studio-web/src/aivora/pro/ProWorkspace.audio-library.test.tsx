@@ -15,7 +15,7 @@ const { readProject, writeProject } = await vi.importActual<{
   readProject: (root: string, id: string) => Promise<Record<string, unknown> | null>;
   writeProject: (root: string, value: unknown) => Promise<Record<string, unknown>>;
 }>("../../../../desktop/src/film-library.ts");
-import { sampleFilm, type FilmProject } from "../film/project";
+import { sampleFilm, upgradeFilm, type FilmProject } from "../film/project";
 import { historyRecordHash } from "./actions/persistent-history";
 import * as editor from "./actions/editor-host";
 import * as persistenceModule from "./film-persistence";
@@ -293,8 +293,11 @@ async function open(realFs = false) {
     flushed,
   } as unknown as Window["aijian"];
   let onConfirmedRelease: (() => void) | undefined;
+  let persistence: ReturnType<typeof originalPersistence>;
+  let afterPendingRead: (() => void) | undefined;
   vi.spyOn(persistenceModule, "createFilmPersistence").mockImplementation((options) => {
     const p = originalPersistence(options);
+    persistence = p;
     const wrap = async (id: string, recovery = false) => {
       const lease = await (recovery ? p.acquireExternalRecovery(id) : p.acquire(id));
       let external = recovery;
@@ -322,6 +325,15 @@ async function open(realFs = false) {
     };
     return {
       ...p,
+      externalWriteState: (id: string) => {
+        const state = p.externalWriteState(id);
+        if (id === film.id && state && afterPendingRead) {
+          const complete = afterPendingRead;
+          afterPendingRead = undefined;
+          queueMicrotask(complete);
+        }
+        return state;
+      },
       save: (...args: Parameters<typeof p.save>) => trackQueueWork(p.save(...args)),
       flush: () => trackQueueWork(p.flush()),
       flushAll: () => trackQueueWork(p.flushAll()),
@@ -354,6 +366,25 @@ async function open(realFs = false) {
     apply: host.applyLive,
     mode: (v: typeof mode) => {
       mode = v;
+    },
+    settleAfterNextPendingRead: async () => {
+      const lease = await persistence.acquireExternalRecovery(film.id);
+      const stored = upgradeFilm((await raw(film.id)) as Partial<FilmProject>)!;
+      let done!: () => void;
+      const completed = new Promise<void>((resolve) => {
+        done = resolve;
+      });
+      afterPendingRead = () => {
+        const adopting = host.current()?.id === film.id;
+        if (adopting) host.applyLive(stored);
+        // This is the already-verified recovery's synchronous confirmation boundary,
+        // using the actual lease; no fabricated external state or extra native add.
+        expect(lease.confirmExternalWrite!(stored, adopting ? host.current()! : undefined)).toBe(
+          true,
+        );
+        void trackQueueWork(lease.release()).then(done);
+      };
+      return { completed };
     },
     holdNextOriginalRead: () => {
       let admit!: () => void, release!: () => void;
@@ -614,6 +645,41 @@ it("does not resurrect a retained pre-add draft after a deferred open read outli
     ),
   ).toBe(true);
   await act(async () => held.release());
+  await waitFor(() => expect(f.current().id).toBe(f.film.id));
+  expect(f.current().audioClips.some((c) => c.id === "audio-library-added")).toBe(true);
+  await act(async () => f.flush());
+  await waitFor(() =>
+    expect(f.flushed).toHaveBeenCalledWith({ requestId: "library-flush", status: "saved" }),
+  );
+  expect(
+    ((await f.raw(f.film.id))!.audioClips as FilmProject["audioClips"]).some(
+      (c) => c.id === "audio-library-added",
+    ),
+  ).toBe(true);
+  expect(f.add).toHaveBeenCalledOnce();
+});
+it("applies the final pending snapshot synchronously before a recovery confirmation microtask", async () => {
+  const f = await open();
+  f.mode("transport");
+  const dialog = await choose();
+  fireEvent.click(within(dialog).getByRole("button", { name: "加入当前版本" }));
+  await within(dialog).findByText(/本机写入尚未确认结束/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "另一集" }));
+  await waitFor(() => expect(f.current().id).toBe(f.other.id));
+  await act(async () => f.finish());
+  const held = f.holdNextOriginalRead();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "原集" }));
+  await held.admitted;
+  // Arm only after the menu read was admitted: its final pending lookup schedules
+  // the real recovery lease confirmation into the immediately following microtask.
+  const { completed } = await f.settleAfterNextPendingRead();
+  await act(async () => {
+    held.release();
+    await completed;
+  });
   await waitFor(() => expect(f.current().id).toBe(f.film.id));
   expect(f.current().audioClips.some((c) => c.id === "audio-library-added")).toBe(true);
   await act(async () => f.flush());
