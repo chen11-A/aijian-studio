@@ -141,7 +141,7 @@ describe("4B-B12 make the copy without subtitles again", () => {
     const result = await remakeCleanCopies(base, null, "prj_x", place);
     expect(place.latest().shots[0]!.takes[0]!.cleanVideoPath).toBeUndefined();
     expect(place.latest().shots[1]!.takes[0]).toEqual(base.shots[1]!.takes[0]);
-    expect(result.outcomes.map((item) => item.status)).toEqual(["done", "missing"]);
+    expect(result.outcomes.map((item) => item.status)).toEqual(["stale", "missing"]);
     expect(result.notice).toContain(
       `镜头 ${base.shots[1]!.no}找不到当时的合成记录，只能重新生成这个镜头。`,
     );
@@ -156,7 +156,7 @@ describe("4B-B12 make the copy without subtitles again", () => {
     const result = await remakeCleanCopies(base, [base.shots[1]!.id], "prj_x", host(base));
     expect(remake).toHaveBeenCalledTimes(1);
     expect(result.notice).toBe(
-      `镜头 ${base.shots[1]!.no}没有补成（成片服务没有完成。），可以再试一次。`,
+      `镜头 ${base.shots[1]!.no}没有补成（本机处理没有完成），可以再试一次。`,
     );
     expect(cleanCopyNotice([])).toBe("没有需要补做的镜头。");
   });

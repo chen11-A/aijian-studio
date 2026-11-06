@@ -228,3 +228,54 @@ it("keeps incomplete coverage general and reports a completed repair only for it
     statusLine("本场覆盖完整。", { code: "COVERAGE_COMPLETE", text: "本场覆盖完整。" })?.text,
   ).toBe("这一场的台词和结尾都有镜头了。");
 });
+
+describe("takeover generation, clean copy and capture notice contracts", () => {
+  it.each([
+    ["GENERATION_SELECTION_STALE", "所选镜头已经变化，请重新选择后生成。"],
+    ["GENERATION_ALREADY_RUNNING", "这一批还在生成，请等完成后再试。"],
+    ["CLEAN_COPY_NOT_REQUIRED", "没有需要补做的镜头。"],
+    ["CLEAN_COPY_PROGRESS", "正在补做不带字幕的版本。"],
+    ["CLEAN_COPY_INTERRUPTED", "补做中断，已经保存的版本会保留。请查看剩余镜头后重试。"],
+    ["CLEAN_COPY_DONE", "不带字幕的版本补好了。"],
+    ["CLEAN_COPY_FAILED", "不带字幕的版本没有补好，可以重试。"],
+    ["CLEAN_COPY_SOURCE_MISSING", "找不到原来的合成记录，暂时不能补做。"],
+    ["CLEAN_COPY_STALE", "作品或版本已经变化，已跳过旧结果。"],
+    ["CLEAN_COPY_PARTIAL", "部分镜头已补好，请查看剩余镜头后重试。"],
+    ["CAPTURE_ENABLED_REQUIRED", "先开启保存原始回复，再进行导演或动作生成。"],
+    ["CAPTURE_REPLY_MISSING", "这个作品还没有匹配的导演原始回复。开启保存后再进行生成。"],
+    ["CAPTURE_EXPORT_DONE", "排查文件已下载到本机。"],
+    ["CAPTURE_EXPORT_FAILED", "排查文件没有导出，请重试。"],
+  ])("renders %s using its specific final Chinese copy", (code, expected) => {
+    const { structured, shown } = shownFor({ code, text: expected });
+    expect(structured.code).toBe(code);
+    expect(statusLine(shown, structured)).toEqual({ code, text: expected, detail: "" });
+  });
+
+  it("keeps a partial repair's missing source detail without claiming the whole batch succeeded", () => {
+    const detail = "镜头 1 不带字幕的那份补好了。镜头 2 找不到当时的合成记录。";
+    const { structured, shown } = shownFor({
+      code: "CLEAN_COPY_PARTIAL",
+      text: NOTICE_COPY.CLEAN_COPY_PARTIAL!,
+      detail,
+    });
+    expect(statusLine(shown, structured)).toEqual({
+      code: "CLEAN_COPY_PARTIAL",
+      text: "部分镜头已补好，请查看剩余镜头后重试。",
+      detail,
+    });
+    expect(statusLine(shown, structured)?.text).not.toBe(NOTICE_COPY.CLEAN_COPY_DONE);
+  });
+
+  it("keeps a captured reply count in the caller's sentence and distinguishes it from a film export", () => {
+    const message = "已导出 2 场的排查文件，只下载到本机。";
+    const { structured, shown } = shownFor(message);
+    expect(structured.code).toBe("CAPTURE_EXPORT_DONE");
+    expect(statusLine(shown, structured)).toEqual({
+      code: "CAPTURE_EXPORT_DONE",
+      text: message,
+      detail: "",
+    });
+    expect(NOTICE_COPY.CAPTURE_EXPORT_DONE).not.toBe(NOTICE_COPY.EXPORT_DONE);
+    expect(NOTICE_COPY.CAPTURE_EXPORT_FAILED).not.toBe(NOTICE_COPY.EXPORT_FAILED);
+  });
+});

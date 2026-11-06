@@ -132,6 +132,7 @@ it("finishes billing and drains prior writes before capturing pipeline input; re
     async (_agent, _context, _instruction, host) => {
       expect(await host.billingProject()).toBe("billing-prepared");
       expect(host.current()).toBe(true);
+      expect(host.captureFilm?.()).toBe(env.live());
       expect(host.control?.signal.aborted).toBe(false);
       return { text: null, detail: "", code: "TEXT_REJECTED" };
     },

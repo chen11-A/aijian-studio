@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import approved from "./fixtures/claude-48a5825-notice-copy.json";
 import { normalizeNotice, NOTICE_TEXT } from "./notices";
+import { cleanCopyNotice, type CleanCopyOutcome } from "../pro/actions/clean-copy";
 
 describe("structured business notices", () => {
   it.each([
@@ -52,10 +53,38 @@ describe("structured business notices", () => {
       "VIDEO_TOO_SHORT",
       "DIALOGUE_VIDEO_REQUIRED",
     ]);
-    const legacyRows = rows.filter((row) => !addedCodes.has(row[1]!));
+    const takeoverCodes = new Set([
+      "GENERATION_SELECTION_STALE",
+      "GENERATION_ALREADY_RUNNING",
+      "CLEAN_COPY_NOT_REQUIRED",
+      "CLEAN_COPY_PROGRESS",
+      "CLEAN_COPY_INTERRUPTED",
+      "CLEAN_COPY_DONE",
+      "CLEAN_COPY_FAILED",
+      "CLEAN_COPY_SOURCE_MISSING",
+      "CLEAN_COPY_STALE",
+      "CLEAN_COPY_PARTIAL",
+      "CAPTURE_ENABLED_REQUIRED",
+      "CAPTURE_REPLY_MISSING",
+      "CAPTURE_EXPORT_DONE",
+      "CAPTURE_EXPORT_FAILED",
+    ]);
+    const legacyRows = rows.filter(
+      (row) => !addedCodes.has(row[1]!) && !takeoverCodes.has(row[1]!),
+    );
     const addedRows = rows.filter((row) => addedCodes.has(row[1]!));
+    const takeoverRows = rows.filter((row) => takeoverCodes.has(row[1]!));
     expect(legacyRows).toHaveLength(118);
     expect(addedRows).toHaveLength(106);
+    expect(takeoverRows).toHaveLength(14);
+    expect(new Set(takeoverRows.map((row) => row[1]))).toEqual(takeoverCodes);
+    for (const [, code, fallback, finalCopy] of takeoverRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT], code).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() }), code).toEqual({
+        code,
+        text: finalCopy!.trim(),
+      });
+    }
     for (const [, code, old, replacement] of addedRows) {
       expect(normalizeNotice({ code: code!, text: old!.trim() })).toMatchObject({
         code,
@@ -99,6 +128,58 @@ describe("structured business notices", () => {
       detail: "没有写到应用数据目录，可以重试。",
     });
     expect(normalizeNotice("没有生成成功，可以重试。").code).toBe("GENERATION_FAILED");
+  });
+
+  it.each([
+    ["所选镜头已经变化，请重新选择后生成。", "GENERATION_SELECTION_STALE"],
+    ["这一批还在生成，请等完成后再试。", "GENERATION_ALREADY_RUNNING"],
+    ["补做不带字幕的版本需要桌面版。", "DESKTOP_REQUIRED"],
+    ["没有需要补做的镜头。", "CLEAN_COPY_NOT_REQUIRED"],
+    ["正在补做不带字幕的版本。", "CLEAN_COPY_PROGRESS"],
+    ["这一次没有记到作品上，请稍后再试。", "BILLING_PROJECT_REQUIRED"],
+    ["补做中断，已经保存的版本会保留。请查看剩余镜头后重试。", "CLEAN_COPY_INTERRUPTED"],
+    ["先打开一个作品，再导出排查文件。", "PROJECT_REQUIRED"],
+    ["先开启保存原始回复，再进行导演或动作生成。", "CAPTURE_ENABLED_REQUIRED"],
+    ["作品内容已变化，请重新导出排查文件。", "REQUEST_STALE"],
+    ["这个作品还没有匹配的导演原始回复。开启保存后再进行生成。", "CAPTURE_REPLY_MISSING"],
+    ["排查文件没有导出，请重试。", "CAPTURE_EXPORT_FAILED"],
+    ["已导出 3 场的排查文件，只下载到本机。", "CAPTURE_EXPORT_DONE"],
+  ])("assigns the takeover notice %s its actual business code %s", (text, code) => {
+    const notice = normalizeNotice(text);
+    expect(notice.code).toBe(code);
+    expect(notice.text).toBe(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]);
+    expect(notice.detail ?? notice.text).toBe(text);
+  });
+
+  it.each([
+    [["done"], "CLEAN_COPY_DONE"],
+    [["done", "done"], "CLEAN_COPY_DONE"],
+    [["failed"], "CLEAN_COPY_FAILED"],
+    [["missing", "missing"], "CLEAN_COPY_SOURCE_MISSING"],
+    [["stale"], "CLEAN_COPY_STALE"],
+    [["done", "failed"], "CLEAN_COPY_PARTIAL"],
+    [["done", "missing"], "CLEAN_COPY_PARTIAL"],
+    [["done", "stale"], "CLEAN_COPY_PARTIAL"],
+  ] as const)(
+    "classifies actual clean-copy outcomes %s without claiming full completion",
+    (statuses, code) => {
+      const outcomes: CleanCopyOutcome[] = statuses.map((status, index) => ({
+        shotId: `shot-${index + 1}`,
+        shot: `镜头 ${index + 1}`,
+        status,
+        ...(status === "failed" ? { reason: "本机处理没有完成" } : {}),
+      }));
+      const text = cleanCopyNotice(outcomes);
+      expect(normalizeNotice(text)).toMatchObject({ code, text: NOTICE_TEXT[code], detail: text });
+    },
+  );
+
+  it("gives every direct reply-capture component notice a registered business code", () => {
+    const source = readFileSync(resolve(__dirname, "../pro/ReplyCaptureSettings.tsx"), "utf8");
+    const messages = [...source.matchAll(/onNotice\("([^"\n]*)"\)/gu)].map((match) => match[1]!);
+    expect(messages).toHaveLength(5);
+    for (const text of messages)
+      expect(normalizeNotice(text).code, text).not.toBe("OPERATION_STATUS");
   });
 
   it("has a non-generic business code for every direct static workspace notice", () => {

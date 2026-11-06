@@ -1019,7 +1019,7 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 `LOCATION_SOURCE_REQUIRED` 表示场次缺少环境原文或地点，兜底短句为“这一场还没有可用的环境描述。”
 Claude 可为该 code 定最终文案。未运行真实会员生成，提供的是本地模拟回归证据。
 
-### 5-3 撤销（要后端补，Claude 界面已先兜底）
+### 5-3 撤销（历史问题单，当前接线状态见下）
 
 合进 r2（aivora/dev 52c1550）以后，按页撤销会拒绝下面这几种改动，Ctrl+Z 时状态栏写「这次改动不能安全撤销，已保留当前内容。」。这是 `actions/page-history.ts` 有意的限制（`diffEditorStructure` 只收焦点镜头、连续一段、剧本 / 分镜页、没有做好的画面和视频的结构改动），界面没有改它：
 
@@ -1028,4 +1028,105 @@ Claude 可为该 code 定最终文案。未运行真实会员生成，提供的�
 3. 剪辑页「剪掉」和 Delete（5-3-10）：页面是 `edit`，落在 `PAGE_SCOPE_MISMATCH`。想要：剪辑页剪掉的镜头能撤销。
 4. 删掉有画面或视频的镜头（分镜页「删除这一镜」、剪辑页「剪掉」）：落在 `DEPENDENT_WORK_EXISTS`。想要：撤销时把镜头连同它的画面和视频一起放回（`removeShot` 只是从作品里拿掉这一镜，文件是否还在请后端确认）。
 
-界面现在的兜底：提示里不再写「Ctrl+Z 可以撤回」；剪辑页按 Delete 先在选中条上问一句，再按一次才剪；多选删除多问一次「删了不能撤回」。后端支持后告诉 Claude，界面把这两处确认去掉、提示加回「Ctrl+Z 可以撤回」。
+以上是 r2 时的历史问题，不再代表当前后端能力：`0d8bcbb` 已提供同场排序、多选删除、剪辑删除及带媒体镜头恢复，`actions/page-history-user-shots.test.ts` 有对应回归。`8dde090` 补齐字段撤销/重做的标签及状态栏部分冲突提示。
+
+第二轮收尾前界面有过时兜底：剪辑页 Delete 先确认，再按一次才剪；多选删除写「删了不能撤回」。本轮已更新这些过时否定提示及确认，并补宿主组合测试验证拖放/多选删除/按键剪掉后 Ctrl+Z 的真实接线；不能再把这三项统一写成「等后端支持」。`shot-order.ts` 中关于不能撤销的注释也待同步。
+
+5-3-06 的多选生成入口已经由 `onBatchShots={queueBatch}` 接到确认表，并在确认后调用 `submitGeneration(rows)`；批量时长也已直接修改所选镜头。现有宿主测试到打开生成确认表为止，尚不能证明所选范围的生成提交及旧版本保留全部正确，仍需定向核对。
+
+### 5-3-12 剪辑预览全屏（云端接手）
+
+剪辑页预览使用 `pro/PreviewFullscreen.tsx`：双击画面或按 F 切换全屏，Esc 退出，
+也可点画面右上角的「全屏」按钮。原来的播放器、播放位置、声音和控制条保留在同一个容器，
+不另建播放器。不在输入框、菜单、对话框中抢占 F；切到声音、字幕或其他页面后释放快捷键。
+全屏由浏览器实际状态驱动，拒绝进入时给简短中文提示；设置的快捷键表已同步。
+
+无需新增后端接口或修改作品文件。安全框 `91e838f` 已由 `ce7bea5` 合入云端接手分支，
+与全屏实现无文本冲突；`.preview-player` 下保留 `.screen` 和 `.ctrl`，安全框仍在 `.screen` 内，
+进入原生全屏时随同原播放器和控制条一起显示。远端主线、发布与安装包状态另行核对。
+
+验证（云端复核）：显示组件全部 6 项测试通过；工作台按
+`fullscreen|preview|sound|play|mute|frame|cut` 筛选的宿主定向回归 16 项通过、121 项未选择，
+合计 22 项通过，不能称为完整工作台测试通过。studio-web `tsc -b --pretty false`、
+全屏组件及测试和工作台及测试的定向 ESLint、组件及测试/工作台/CSS/本文的 Prettier 检查均通过。
+测试里的全屏 API 模拟通过辅助函数更新状态，避免触发 `no-this-alias`。
+
+总控独立使用系统 Chromium（`chromiumSandbox: true`）在 Vite 样例工程验证：
+双击画面进入原生全屏、Esc 退出、F 进入/F 退出、按钮进入/Esc 退出全部通过，
+页面 `pageerror` 为 `[]`。此结果验证浏览器原生 Fullscreen API；Electron、会员生成、
+安装包尚未在本项验收，不将其计为通过。
+
+合入安全框后的验证（`ce7bea5`）：5-3宿主目标16项通过、123项未选择，全屏及撤销相关
+四文件24项通过，合计40项；类型、目标 ESLint、Prettier 均通过。系统 Chromium 保留沙箱，
+1280×800/1920×1080与16:9/9:16四种组合的安全框开关、画幅比例、双击全屏、Esc退出、
+F进入/Esc退出全部通过；确认 `.safe-guide` 与 `.ctrl` 同在全屏DOM，覆盖层不接收指针事件，
+正常窗口安全框开关和全屏内退出按钮未被遮挡，四组 `pageerror=[]`。使用内置样例数据，
+未验证真实生成成片播放、会员调用或Electron；不是全页布局走查通过的声明。
+
+### 5-3 第二轮界面收尾（已集成 `a124c12` / `29fdb8d`）
+
+frontend_round2（Sol medium）已移除同场多选删除与剪辑 Delete/Backspace 的过时否定提示和二次确认，分镜删除及剪辑属性说明 Ctrl+Z。`ProWorkspace.undo-interactions.test.tsx` 的 6 项宿主回归验证拖放、非相邻批删、Delete/Backspace/剪掉后恢复媒体路径、两个旧版本与音轨；输入框、菜单、对话框及未选片段保护仍通过。动作层 7 项与更新后的旧宿主 2 项通过。系统 Chromium 保留沙箱，1280×800、1920×1080 两窗口的拖放/批删/Delete→Ctrl+Z 通过，pageerror=[]。
+
+生成确认按钮已按后端接口接到 `confirmBatchGeneration`，业务实现和生成范围/取消/并发回归归后端。跨场结构、后改字段及依赖冲突仍由既有动作层拒绝，不能把这次用户同场镜头操作的撤销扩展成所有删除都可恢复。工程媒体记录已核验，真实文件、Electron、会员及安装包未验；完整集成检查由总控执行。
+
+### 3JR-U06 原始回复保存与排查导出（已集成 `61f68c5`）
+
+`ReplyCaptureSettings.tsx` 已作为独立显示组件接入「账号 → 设置 → 排查」。主工作台仅增加组件 import 和渲染，`getFilm` 读取 `filmRef.current`，结果由 `onNotice` 进入状态栏；不复制会员或采集业务代码。默认关闭，切换调用真实 `setCaptureEnabled`，关闭会清除本机记录。仅用户点击「导出排查文件」后调用 `captureFile(film)`，无作品、关闭状态、空或无匹配回复均给中文提示，不制造空 JSON。
+
+导出等待期间保存作品 ID、原文及按顺序的场次 ID/正文作为核对依据；等待结束后从 getter 重新读取，任一变化都不下载。关闭再开启或组件卸载也取消旧下载。文件通过 JSON Blob 与下载链接写到浏览器下载位置，链接随后移除，Blob URL 在下一任务释放；不自动上传。后端的工程/正文/场次 hash 及采集 epoch 保护由后端第二轮记录说明。
+
+验证：独立组件/宿主入口 11 项通过，联合既有采集测试共 16 项通过；web `tsc -b --pretty false`、组件及测试目标 ESLint、Prettier 通过。系统 Chromium 保留沙箱，在 1280×800 真实点击设置入口，验证默认关闭、打开、手动下载 JSON、下载内容的原文摘要匹配、关闭清空，`pageerror=[]`。脚本 `.aijian-dev/reply-capture-check.mjs` 使用带归属 scope 的本机合成回复，未调用真实会员，不能作为真实导演回复采集或 Electron 下载验收。全仓集成、远端及发布状态由总控记录。
+
+### 3JR-B11 采集归属接口（后端）
+
+`captureScope(film)` 返回 `Promise<CaptureScope | null>`，其中 `CaptureScope = {projectId, sourceSha256, scriptSha256}`；projectId 使用本机 `film.id`，原文 hash 针对 `sourceText`，场次 hash 针对按顺序的 `[scene.id, scene.text]` 数组。仅开关开启的导演/动作请求计算，原文和上下文不写入采集存储。`recordAgentReply(agent, context, instruction, reply, scope?, requestEpoch = captureEpoch())` 缺 scope 不采集，旧无归属记录清理。`completeMembershipAgent` host 新增可选 `captureFilm: () => CaptureFilm | null`，手动及流水线都读取当前工程；请求开始和回包后核对身份/输入与关闭清理 epoch。
+
+`captureFile(film)` 仍返回 `{name,text,scenes}|null`，film 需要完整的 id/sourceText/scenes/shots/title；按三重身份筛选再组装，正文不匹配返回 null，关闭或清空会使进行中的旧导出失效。界面已经传完整 film，接口返回和下载行为不变。后端 35 项与设置 11 项联合 6 文件 46 项通过，具体证据见 `docs/aivora/3jr-backend-verification.md`；已由 `d0f548b` 接入当前接管分支并推送，真实会员未验。
+
+### 4B-U09 无字幕版本补做入口（已集成当前接管分支 `c3e21e7`）
+
+独立 `CleanCopyRepair` 纯显示组件已接入分镜当前镜头属性、单镜版本页与导出受阻三处。单镜依据 `shotsNeedingCleanCopy(film)` 检查真实所选 take：有台词、有完成视频、没有 `cleanVideoPath` 才显示，切换到已有无字幕副本的版本后入口消失。组件不调用生成接口，主工作台通过后端 `repairCleanCopies(shotIds|null)` 调度，`cleanCopyBusy` 控制补做按钮及导出按钮，避免半成品导出。
+
+导出批次入口仅在 `EXPORT_SUBTITLES_BAKED` 受阻状态下出现，显示当前待补数量；部分成功后按最新工程更新剩余数。成功、缺原合成记录或失败均保留准确说明，不暴露路径和原始错误，不自动重新生成视频，也不自动再次导出。补做使用原合成记录，保留原视频、其他版本及版本选择。工程和选版 stale 保护由后端提供，详见后端验证记录。
+
+验证：显示组件 3 项、新增宿主组合 2 项通过；联合既有 clean-copy 测试共 9 项通过。web `tsc -b --pretty false`、新增组件/测试的目标 ESLint、Prettier（含 CSS）通过。系统 Chromium 保留沙箱，1280×800、1920×1080 × 单镜/导出两流程共四组合通过，`pageerror=[]`：切换已有副本版本隐藏入口、切回缺副本版本手动补做、导出受阻后批量补做 2→部分成功剩 1，以及不自动导出。脚本 `.aijian-dev/clean-copy-ui-check.mjs` 使用替身 IPC，不能作为真实会员、真实视频或完整 Electron 链路通过的声明。总控另行执行的真实本机服务验证与本界面证据分别记录，完整集成和发布由总控登记。
+
+### 4B-B12 无字幕补做宿主与过期保护（后端）
+
+`repairCleanCopies(shotIds: readonly string[] | null): Promise<void>` 为本机业务handler，null按当前所选版本中缺副本的镜头计算；`cleanCopyBusy`按工程防重入，`cleanCopyBlocked`绑定导出受阻时的工程与字幕模式。计费准备后继续按原镜头/takeId/videoPath核对当前选择，不将过期目标重定向到新版本。helper新增 `stale` outcome，明确已跳过变化的作品/版本，不报告done；缺原合成记录继续返回missing，不自动生成。
+
+helper host的可选 `persist(snapshot)`逐镜保存已实际应用的written快照；宿主使用既有队列和本项最后live对象guard，保留切作品前已成功结果，拒绝同工程较旧快照覆盖后改内容。旧工程浏览器延迟写回后恢复当前可见工程activeId；失败中断明确保留已保存版本。后端22项加界面5项，共5文件27项实跑通过，web类型/目标静态通过，具体证据见后端验证记录；已集成当前接管分支 `c3e21e7`，不代表已合远端 dev，也不代表真实会员或 Electron 验收。
+
+### 接管分支 CI 提示文案契约修复（已集成并推送 `d8b15eb`）
+
+总控在 GitHub Actions 公开页面核实 `a6d8b0f` 的 run `42177470800`：Linux/Windows 均失败，`film/notices.test.ts:109` 报新增静态提示「所选镜头已经变化，请重新选择后生成。」落入 `OPERATION_STATUS`。后端已补齐精确业务分类与本轮新增静态提示的回归，界面已补 `next/wiring/noticeCopy.ts` 的 14 个最终中文映射，分别处理生成选择失效/重复生成、无字幕补做结果和排查文件下载；`docs/design/copy-zh.md` 仅追加对应 14 行索引，原 118 条历史与 106 条既有新增记录及其完整性断言保留。新增 16 项纯显示契约覆盖逐码中文、部分成功原因及排查导出数量，不把不明失败归入通用业务码。
+
+本地复跑 `film/notices.test.ts`、`next/wiring/noticeCopy.test.ts`、`next/wiring/statusNotice.test.tsx` 共 113 项通过，原静态提示 CI 失败已在本地复现后修复；界面目标 ESLint、Prettier、diff 检查通过。后端另报包含新增宿主路径的 6 文件 132 项通过。以上是修复时的定向记录；该修复已集成并推送 `d8b15eb`，当前全量检查及远端结果见下，不代表已合入 dev。
+
+### 当前 CI 与本地全量验证位置
+
+上一轮产品修复提交为 `d8b15eb98358406d90f045e983871708be0137a2`，尚未合入 dev。总控核实 [run 42182358298（#683）](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298)：[Windows job 127774675497](https://github.com/chen11-A/aijian-studio/actions/runs/42182358298/job/127774675497) 在 Test 步骤 exit 1（该步骤 27 秒，job 总计 3m22s），公开页没有具体失败注释；Linux 仍在运行，不能将本地通过写成远端全部通过。
+
+历史对照：旧 dev `a4531da` 的 [run 42157717806（#677）](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806)，总控已直接核实 [Windows job 127695727475](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806/job/127695727475) 在 Test 失败（3m6s），[Ubuntu job 127695727812](https://github.com/chen11-A/aijian-studio/actions/runs/42157717806/job/127695727812) 成功（49m39s）。两次 Windows 失败原因是否相同尚不明确。
+
+本地基于 `d8b15eb` 的 TS 全量：桌面 115 文件 2031 项、renderer 377 文件 4662 项、Node 媒体 17 项及 QC 11 项全通过；桌面分支覆盖率 91.29%，renderer 87.45%。总控 `contracts:check → lint → typecheck → build` 整串 exit 0，生产依赖审计和故障证据 verify 通过。Python 全量已退出 0：5166 项通过、6 项跳过；行覆盖率 92.14%、分支覆盖率 83.61%，达到原定门槛。独立故障注入 66 项通过、4 项跳过；媒体契约复现、43 文件证据哈希及故障证据复现均退出 0。界面使用 Windows 单 worker 配置复核 GUI/提示相关 8 文件 141 项通过，但仍在 Linux 运行时，不能作为 Windows 原生验证。
+
+后端（Sol medium）已交付最小 CI 失败注释诊断补丁，总控审查及 8 项回归、真实 pnpm 启动探针、完整 lint 均通过，已推送诊断提交 `5e7f838`，[CI #684](https://github.com/chen11-A/aijian-studio/actions/runs/42185037044) 已启动，正核对远端结果；界面（Sol medium）已完成只读诊断与进度文档更新，未改产品代码。B13/U06 导出真实进度/取消仅有只读显示契约，未开始开发。诊断补丁保留原 pnpm test 命令、输出、退出码及所有覆盖率门槛，独立诊断回归也接入 CI。未涉及新的产品功能、真实会员调用、Electron 验收或 dev 合并。
+
+诊断后续：#684 的 Windows 在新增自测步骤失败，原 Test 未运行；后端已给自测补上不依赖 pnpm 环境的失败摘要，9 项本地回归及隔离失败夹具通过。另修正经本地目录别名复现的 CLI 入口静默跳过，不能据此判定 Windows 原生故障原因。总控准备推送新一轮定位。
+
+CI #685 原生 Windows 摘要定位到诊断自测 32/57 行两处路径字符串比较（ERR_ASSERTION）。后端仅修测试假定：以 BigInt 文件身份及真实 Node 执行返回参数验证入口，保留命令、参数数量、test 参数及别名 CLI probe。9 项本地自测、目标 lint/格式和真实 pnpm 探针均通过；原产品 Test 尚未运行，等待新一轮 Windows 结果。
+
+CI #686：Windows 诊断自测已通过，原 Test 实际执行 35 秒后失败于媒体中文工具路径测试 303/307 行；后端已独立复现裸名查找漏 .exe，正在修正 fixture。此次并非 GUI 测试失败，后续测试尚未执行，不能记为全部原生 Windows 通过。
+
+媒体 fixture 修正已交付：Windows 裸名查找增加 .exe 候选，显式 Windows 路径可识别；中文工具副本带 .exe 并复制，POSIX 保留符号链接。原视频、静音、LUFS、峰值和归档断言、阈值、skip 不变。Linux 媒体包 17 项通过、0 跳过，目标 lint/格式及原/新查找函数前后对照通过；等待总控推送后的 Windows 复验。
+
+当前媒体修正已推送 dfcf8db，CI #687 双平台运行中。产品修复基线 d8b15eb 的 Linux job127774675417 已全部成功；本轮新提交尚不能记为双平台通过或合 dev。当前源码冻结，总控跟进 CI；界面只读准备 5-3 剩余项与下一批任务。
+
+只读 Chromium 补查已归档：dfcf8db、两窗口×两画幅、48/48 页面/状态到达、pageerror=0；实际全屏/安全框、排查下载/关闭清空及补做6→3未自动导出均操作。UI-LAYOUT-01：单镜TakePicker占旧四列网格首列，1280下卡宽73px、标签86px/按钮78px越卡；已列下一批首项，未修改源码。报告位于当前云环境忽略目录ui-page-audit；未覆盖首页/库/新建/作品设置/场景道具、AI异常、真实会员/Electron/完整导出，正式CI布局门未接。
+
+CI #687 当前候选 dfcf8db：Linux job127792946853已全部成功（Test 08:31:54→09:21:15，构建及最终生成文件一致性均成功）；Windows仍在执行，尚未合dev。
+
+最终主批次验收：dfcf8db 的CI #687整体Success，Linux job127792946853/Windows job127792946832均succeeded，完整Test/故障注入/证据/审计/构建/生成一致性全部成功；总控准备按授权合dev。UI-LAYOUT-01的临时样式12组合验证通过，仓库CSS尚未改；主批次合入后实际应用并复验，其他新功能未开工。
+
+主批次已纳入本次 --no-ff 的 dev 合并提交：产品源码与双平台CI整体Success的dfcf8db完全一致，仅增加交接与验收文档；合并提交的新CI另行运行。UI-LAYOUT-01实际CSS补丁尚未应用，下一步由界面执行并复验12组合。

@@ -8,6 +8,20 @@ import type { UiNotice } from "../../film/contracts3j";
  * GPT adds a code that has no line here yet.
  */
 export const NOTICE_COPY: Readonly<Record<string, string>> = {
+  GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
+  GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
+  CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",
+  CLEAN_COPY_PROGRESS: "正在补做不带字幕的版本。",
+  CLEAN_COPY_INTERRUPTED: "补做中断，已经保存的版本会保留。请查看剩余镜头后重试。",
+  CLEAN_COPY_DONE: "不带字幕的版本补好了。",
+  CLEAN_COPY_FAILED: "不带字幕的版本没有补好，可以重试。",
+  CLEAN_COPY_SOURCE_MISSING: "找不到原来的合成记录，暂时不能补做。",
+  CLEAN_COPY_STALE: "作品或版本已经变化，已跳过旧结果。",
+  CLEAN_COPY_PARTIAL: "部分镜头已补好，请查看剩余镜头后重试。",
+  CAPTURE_ENABLED_REQUIRED: "先开启保存原始回复，再进行导演或动作生成。",
+  CAPTURE_REPLY_MISSING: "这个作品还没有匹配的导演原始回复。开启保存后再进行生成。",
+  CAPTURE_EXPORT_DONE: "排查文件已下载到本机。",
+  CAPTURE_EXPORT_FAILED: "排查文件没有导出，请重试。",
   LOCATION_SOURCE_REQUIRED: "这一场还没有可用的环境描述。",
   MULTI_VOICE_PROVIDER_REQUIRED: "分角色配音需要 Grok 会员。",
   DIALOGUE_VIDEO_LIMIT: "对白放不下，请拆成两个镜头。",

@@ -29,6 +29,9 @@ import {
 } from "./actions/book-import";
 import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
 import { prepareVoicePreview, type VoicePreview } from "./actions/voice-preview";
+import { PreviewFullscreen } from "./PreviewFullscreen";
+import { ReplyCaptureSettings } from "./ReplyCaptureSettings";
+import { CleanCopyRepair } from "./CleanCopyRepair";
 import { planShotDuration, durationInputUnchanged } from "./actions/shot-duration";
 import {
   prepareArtTransaction,
@@ -63,6 +66,7 @@ import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
 import { exportFilmSelection } from "./actions/export-selection";
+import { remakeCleanCopies, shotsNeedingCleanCopy } from "./actions/clean-copy";
 import { revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { makeFourStills } from "./still-workflow";
@@ -268,8 +272,9 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ["I / O", "剪辑页设入点 / 出点"],
   ["Delete", "剪辑页剪掉选中的片段"],
   ["Ctrl+滚轮", "剪辑页时间线放大 / 缩小"],
+  ["F", "剪辑页预览全屏 / 退出全屏"],
   ["M", "预览静音 / 有声"],
-  ["Esc", "关掉菜单和对话框"],
+  ["Esc", "退出预览全屏，或关掉菜单和对话框"],
 ];
 
 /** 5-3-09: ← / → move the playhead one frame at 30 frames a second. */
@@ -553,6 +558,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [pendingDelete, setPendingDelete] = useState(false);
   const workOwners = useWorkOwners(film?.id ?? "");
   const exporting = workOwners.busy("export");
+  const cleanCopyBusy = workOwners.busy("clean-copy");
+  const cleanCopySaveVersions = useRef(new Map<string, FilmProject>());
   const [asking, setAsking] = useState(false);
   const [pendingRetry, setPendingRetry] = useState<{
     role: Role;
@@ -649,7 +656,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [diskPath, setDiskPath] = useState("");
   const [diskFilmId, setDiskFilmId] = useState("");
   const [diskError, setDiskError] = useState("");
-  const [pendingBatch, setPendingBatch] = useState<FilmShot[] | null>(null);
+  const [pendingBatch, setPendingBatchState] = useState<FilmShot[] | null>(null);
+  const batchConfirmation = useRef<{ projectId: string; rows: FilmShot[] } | null>(null);
+  function setPendingBatch(rows: FilmShot[] | null) {
+    batchConfirmation.current = rows ? { projectId: filmRef.current?.id ?? "", rows } : null;
+    setPendingBatchState(rows);
+  }
   const [exportDir, setExportDir] = useState("");
   const [exportFile, setExportFile] = useState("");
   const [rename, setRename] = useState("");
@@ -664,8 +676,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         next.styleZh,
       );
     }
+    if (batchConfirmation.current && batchConfirmation.current.projectId !== next?.id)
+      setPendingBatch(null);
     if (next) next = applyContinuityChecks(next);
     filmRef.current = next;
+    if (next && cleanCopySaveVersions.current.has(next.id))
+      cleanCopySaveVersions.current.set(next.id, next);
     setFilmState(next);
   }
   const persistence = useMemo(
@@ -994,6 +1010,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     committed.current = result.film;
     setHistoryTick((value) => value + 1);
     rememberFilm(result.film);
+    const action = inverse ? "已撤销" : "已重做";
+    const detail = result.label ? `：${result.label}` : "";
+    setNotice(
+      result.conflicts.length
+        ? `${action}部分改动${detail}。其余内容后来改过，已保留。`
+        : `${action}${detail}`,
+    );
   }
   function undoEdit() {
     movePageHistory(true);
@@ -1544,6 +1567,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       bridge,
       modelIds,
       billingProject: ensureBillingProject,
+      captureFilm: () => filmRef.current,
       current: () => filmRef.current?.id === requestProjectId && activeTurn.current === requestTurn,
       modelsChanged: setModelIds,
       control,
@@ -2654,7 +2678,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       fallback: shownShots[shot],
       modelIds,
     });
-    const selected = preflight.selected;
+    let selected = preflight.selected;
     if (selected.length === 0) {
       setNotice("先在剧本里拆镜头。");
       return;
@@ -2669,6 +2693,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const billingProject = pipeline?.billingProjectId ?? (await ensureBillingProject());
     if (!valid()) return;
     live = filmRef.current ?? live;
+    // Billing preparation may yield while shots are edited or removed. Resolve only the
+    // originally requested IDs against the live work; never revive a removed snapshot.
+    const latestTargets = selected.map((target) => live.shots.find((row) => row.id === target.id));
+    if (latestTargets.some((target) => !target)) {
+      setNotice("所选镜头已经变化，请重新选择后生成。");
+      return;
+    }
+    selected = latestTargets.filter((target): target is FilmShot => Boolean(target));
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     const preparation = prepareGeneration(live, selected, {
@@ -2754,6 +2786,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
+  function confirmBatchGeneration() {
+    const confirmation = batchConfirmation.current;
+    // Consume synchronously: a retained/double-clicked button cannot dispatch twice.
+    setPendingBatch(null);
+    const live = filmRef.current;
+    if (!confirmation || !live || confirmation.projectId !== live.id) return;
+    if (generationRuns.current.has(live.id)) {
+      setNotice("这一批还在生成，请等完成后再试。");
+      return;
+    }
+    const ids = [...new Set(confirmation.rows.map((row) => row.id))];
+    const latest = ids.map((id) => live.shots.find((row) => row.id === id));
+    if (!ids.length || latest.some((row) => !row)) {
+      setNotice("所选镜头已经变化，请重新选择后生成。");
+      return;
+    }
+    // The table owns a selection, not a copy of mutable media/version state.
+    const rows = latest.map((row) => fitShotToLine(row!).shot);
+    const seconds = new Map(rows.map((row) => [row.id, row.seconds]));
+    if (rows.some((row) => live.shots.find((shot) => shot.id === row.id)?.seconds !== row.seconds))
+      applyLive({
+        ...live,
+        shots: live.shots.map((row) =>
+          seconds.has(row.id) ? { ...row, seconds: seconds.get(row.id)! } : row,
+        ),
+      });
+    void submitGeneration(rows);
+  }
+
   function queueBatch(rows: FilmShot[]) {
     const fitted = rows.map((item) => fitShotToLine(item));
     const warnings = fitted.map((item) => item.warning).filter(Boolean);
@@ -2783,6 +2844,60 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       () => filmRef.current?.id ?? "",
     );
     await assembleCurrentFilm(current, paths, () => filmRef.current, applyLive, setNotice, valid);
+  }
+
+  async function repairCleanCopies(shotIds: readonly string[] | null): Promise<void> {
+    const live = filmRef.current;
+    if (!live || workOwners.has(live.id, "clean-copy")) return;
+    if (!window.aijian?.remakeStoryFilmCleanCopy) {
+      setNotice("补做不带字幕的版本需要桌面版。");
+      return;
+    }
+    const base = structuredClone(live);
+    const ids = shotIds === null ? shotsNeedingCleanCopy(base) : [...shotIds];
+    if (!ids.length) {
+      setNotice("没有需要补做的镜头。");
+      return;
+    }
+    const release = workOwners.begin(base.id, "clean-copy");
+    cleanCopySaveVersions.current.set(base.id, live);
+    setNotice("正在补做不带字幕的版本。");
+    try {
+      const billingProject = await ensureBillingProject();
+      if (filmRef.current?.id !== base.id) return;
+      if (!billingProject) {
+        setNotice("这一次没有记到作品上，请稍后再试。");
+        return;
+      }
+      const result = await remakeCleanCopies(base, ids, billingProject, {
+        current: () => filmRef.current,
+        apply: applyLive,
+        persist: async (snapshot) => {
+          // This result was committed before a possible work switch. Save that work's
+          // snapshot through its queue even when it is no longer the visible work.
+          const saved = await persistence.save(
+            snapshot,
+            () => cleanCopySaveVersions.current.get(snapshot.id) === snapshot,
+          );
+          if (!saved) throw new Error("CLEAN_COPY_SAVE_DEFERRED");
+          const visible = filmRef.current;
+          // The browser library remembers every write as active; a delayed save of
+          // the old work must not change which work is reopened next time.
+          if (visible && visible.id !== snapshot.id && !filmDiskReady())
+            window.localStorage.setItem("aivora.film.activeId", visible.id);
+        },
+      });
+      const latest = filmRef.current;
+      if (latest?.id !== base.id) return;
+      if (!shotsNeedingCleanCopy(filmRef.current).length) setCleanCopyBlockedAt(null);
+      setNotice(result.notice);
+    } catch {
+      if (filmRef.current?.id === base.id)
+        setNotice("补做中断，已经保存的版本会保留。请查看剩余镜头后重试。");
+    } finally {
+      cleanCopySaveVersions.current.delete(base.id);
+      release();
+    }
   }
 
   async function startExport(directoryOverride?: string, allowPartial = false) {
@@ -2835,6 +2950,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         },
       );
       if (!valid() || result.status === "stale") return;
+      if (
+        result.error?.code === "EXPORT_SUBTITLES_BAKED" &&
+        exportSettingsRef.current.projectId === current.id &&
+        exportSettingsRef.current.subtitles === exportSubs
+      )
+        setCleanCopyBlockedAt({ projectId: current.id, subtitles: exportSubs });
       if (result.directory) setExportDir(result.directory);
       if (result.primaryPath) setExportFile(result.primaryPath);
       if (result.status === "done")
@@ -2947,6 +3068,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // 4B-U06: how the export is made. GPT's export reads these (next/INTEGRATION.md, 导出对话框).
   const [exportQuality, setExportQuality] = useState<"1080p" | "720p">("1080p");
   const [exportSubs, setExportSubs] = useState<"burn" | "srt" | "none">("burn");
+  const [cleanCopyBlockedAt, setCleanCopyBlockedAt] = useState<{
+    projectId: string;
+    subtitles: string;
+  } | null>(null);
+  const exportSettingsRef = useRef({ projectId: film?.id ?? "", subtitles: exportSubs });
+  exportSettingsRef.current = { projectId: film?.id ?? "", subtitles: exportSubs };
+  const cleanCopyBlocked =
+    cleanCopyBlockedAt?.projectId === film?.id && cleanCopyBlockedAt?.subtitles === exportSubs;
+  useEffect(() => {
+    setCleanCopyBlockedAt(null);
+  }, [film?.id, exportSubs]);
   const canCropAspect =
     typeof window !== "undefined" && "cancelFilmExport" in (window.aijian ?? {});
   // 4A-U04: the task drawer closes on Esc or a press outside it and its status-bar button.
@@ -3625,6 +3757,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && !bench && (
                 <BoardPage
+                  onCleanCopy={(ids) => void repairCleanCopies(ids)}
+                  cleanCopyBusy={cleanCopyBusy}
                   quiet={exportView.lead}
                   onNext={() => setStage("edit")}
                   film={film}
@@ -3686,6 +3820,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && bench && (
                 <GeneratePage
+                  onCleanCopy={(ids) => void repairCleanCopies(ids)}
+                  cleanCopyBusy={cleanCopyBusy}
                   beginner={prefs.beginner}
                   quiet={exportView.lead}
                   onMute={() => setSoundOn((value) => !value)}
@@ -4096,22 +4232,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </p>
               ) : null}
               <div className="acts">
-                <button
-                  className="btn primary"
-                  onClick={() => {
-                    const rows = pendingBatch;
-                    setPendingBatch(null);
-                    if (rows && filmRef.current) {
-                      applyLive({
-                        ...filmRef.current,
-                        shots: filmRef.current.shots.map(
-                          (shot) => rows.find((item) => item.id === shot.id) ?? shot,
-                        ),
-                      });
-                    }
-                    void submitGeneration(rows ?? undefined);
-                  }}
-                >
+                <button className="btn primary" onClick={confirmBatchGeneration}>
                   开始生成
                 </button>
                 <button className="btn" onClick={() => setPendingBatch(null)}>
@@ -4279,6 +4400,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   新手模式：每个镜头只出 1 个版本
                 </label>
               </section>
+              <ReplyCaptureSettings getFilm={() => filmRef.current} onNotice={setNotice} />
               <section className="ws-sec" aria-label="快捷键">
                 <h3>快捷键</h3>
                 {/* 4C-U04: only keys that do something; the same words as the buttons' tooltips. */}
@@ -4583,6 +4705,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   {partialExport && partialExport.length > 0 ? (
                     <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
                   ) : null}
+                  {film && cleanCopyBlocked ? (
+                    <CleanCopyRepair
+                      mode="export"
+                      count={shotsNeedingCleanCopy(film).length}
+                      busy={cleanCopyBusy}
+                      onRepair={() => void repairCleanCopies(null)}
+                    />
+                  ) : null}
                   {/* 4B-U06: the export's progress stays in the dialog. */}
                   {exporting ? (
                     <div className="export-progress" role="status">
@@ -4624,7 +4754,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     )}
                     <button
                       className="btn primary"
-                      disabled={exporting}
+                      disabled={exporting || cleanCopyBusy}
                       onClick={() => void startExport()}
                     >
                       {exporting ? "正在导出" : "导出"}
@@ -6253,6 +6383,8 @@ function BoardPage({
   onNext,
   onReject,
   film,
+  onCleanCopy,
+  cleanCopyBusy,
   shots,
   shot,
   onShot,
@@ -6292,6 +6424,8 @@ function BoardPage({
   onFixCoverage,
 }: {
   film: FilmProject;
+  onCleanCopy: (ids: readonly string[]) => void;
+  cleanCopyBusy: boolean;
   shots: FilmShot[];
   shot: number;
   onShot: (index: number) => void;
@@ -6387,7 +6521,7 @@ function BoardPage({
           divided: true,
           onSelect: () => {
             onFilm(removeShot(film, current.id));
-            onNotice("已删除这一镜。");
+            onNotice("已删除这一镜，可按 Ctrl+Z 撤销。");
           },
         },
       ]
@@ -6408,10 +6542,6 @@ function BoardPage({
   const [picked, setPicked] = useState<string[]>([]);
   const pickedShots = shots.filter((item) => picked.includes(item.id));
   const multi = pickedShots.length >= 2;
-  // Deleting several shots cannot be undone yet (INTEGRATION.md, 5-3 撤销): it asks once more.
-  const [askDelete, setAskDelete] = useState(false);
-  const pickedKey = picked.join(",");
-  useEffect(() => setAskDelete(false), [pickedKey]);
   useEffect(() => setPicked([]), [sceneKey]);
   useEffect(() => {
     if (!multi) return;
@@ -6880,37 +7010,22 @@ function BoardPage({
                 按住 Ctrl 点卡片，加一个或去掉一个；按住 Shift 点卡片，选一串。按 Esc 取消。
               </p>
             </div>
-            {askDelete ? (
-              <p className="multi-ask" role="alert">
-                删掉这 {pickedShots.length} 个镜头？删了不能撤回，做好的画面和视频也一起没了。
-              </p>
-            ) : null}
             <div className="pfoot2 one">
-              <button
-                className="btn"
-                type="button"
-                onClick={() => (askDelete ? setAskDelete(false) : setPicked([]))}
-              >
-                {askDelete ? "不删" : "取消多选"}
+              <button className="btn" type="button" onClick={() => setPicked([])}>
+                取消多选
               </button>
               <button
                 className="btn danger"
                 type="button"
                 onClick={() => {
-                  if (!askDelete) {
-                    setAskDelete(true);
-                    return;
-                  }
                   const count = pickedShots.length;
                   onFilm(pickedShots.reduce((next, item) => removeShot(next, item.id), film));
                   setPicked([]);
                   onShot(0);
-                  onNotice(`已删除 ${count} 个镜头。`);
+                  onNotice(`已删除 ${count} 个镜头，可按 Ctrl+Z 撤销。`);
                 }}
               >
-                {askDelete
-                  ? `确认删除 ${pickedShots.length} 个`
-                  : `删除这 ${pickedShots.length} 个`}
+                {`删除这 ${pickedShots.length} 个`}
               </button>
               {onBatchShots ? (
                 <button className="btn" type="button" onClick={() => onBatchShots(pickedShots)}>
@@ -6940,6 +7055,12 @@ function BoardPage({
               </section>
             ) : null}
             <div className="pb">
+              <CleanCopyRepair
+                mode="shot"
+                count={shotsNeedingCleanCopy(film).includes(current.id) ? 1 : 0}
+                busy={cleanCopyBusy}
+                onRepair={() => onCleanCopy([current.id])}
+              />
               {/* 4C-U05: 画面 open; 声音 and 高级 folded until opened, and each remembers. */}
               <PropGroup id="picture" title="画面" defaultOpen>
                 <div className="field">
@@ -7454,6 +7575,8 @@ function GeneratePage({
   onMute,
   assistant = null,
   film,
+  onCleanCopy,
+  cleanCopyBusy,
   shots,
   shot,
   onShot,
@@ -7469,6 +7592,8 @@ function GeneratePage({
   audible,
 }: {
   film: FilmProject;
+  onCleanCopy: (ids: readonly string[]) => void;
+  cleanCopyBusy: boolean;
   shots: FilmShot[];
   shot: number;
   onShot: (index: number) => void;
@@ -7596,6 +7721,14 @@ function GeneratePage({
               })()
             )}
           </div>
+          {current ? (
+            <CleanCopyRepair
+              mode="shot"
+              count={shotsNeedingCleanCopy(film).includes(current.id) ? 1 : 0}
+              busy={cleanCopyBusy}
+              onRepair={() => onCleanCopy([current.id])}
+            />
+          ) : null}
           <div className="cands">
             {takes.length === 0 && (
               <p className="role-desc">还没有版本。在右边点「生成 {versions} 个版本」。</p>
@@ -7898,7 +8031,7 @@ function EditPage({
   onKeep,
   onChooseTake,
   onTab,
-  onNotice: _onNotice,
+  onNotice,
   onRangeGenerate,
   onPlaying,
   audible,
@@ -7955,6 +8088,10 @@ function EditPage({
   onSubtitleStyle?: (styleId: SubtitleStyleId) => void;
 }) {
   const [monitor, setMonitor] = useState<"preview" | "sound" | "subs">("preview");
+  // 5-3-11: guides over the preview: where titles stay readable, and on a portrait work, where
+  // the platforms put their buttons and captions.
+  const [safeArea, setSafeArea] = useState(false);
+  const tall = film.aspectRatio === "9:16";
   // 4B-U03: the style being looked at; 「用这个样式」 keeps it on the work.
   const [subtitlePick, setSubtitlePick] = useState<string>(
     (film as FilmProject & { subtitleStyle?: string }).subtitleStyle ?? "",
@@ -8012,19 +8149,11 @@ function EditPage({
     box.addEventListener("wheel", onWheel, { passive: false });
     return () => box.removeEventListener("wheel", onWheel);
   }, []);
-  // 5-3-10: Delete or Backspace takes out the picked clip, the same as 「剪掉」. A cut here
-  // cannot be undone yet (INTEGRATION.md, 5-3 撤销), so the first press asks and the second
-  // cuts; Esc or picking another clip lets it go. Never while typing or with a dialog open.
-  const [askCut, setAskCut] = useState(false);
-  useEffect(() => setAskCut(false), [shot, range]);
+  // 5-3-10: use the same page-scoped cut history as the timeline button.
+  // Keep Delete/Backspace for fields, dialogs and menus when they own the keyboard.
   const cutKey = useRef<() => boolean>(() => false);
   cutKey.current = () => {
     if (!range) return false;
-    if (!askCut) {
-      setAskCut(true);
-      return true;
-    }
-    setAskCut(false);
     onAction("cut");
     return true;
   };
@@ -8395,6 +8524,19 @@ function EditPage({
               </div>
               <span className="meta">{film.title}</span>
               <span className="sp" />
+              {monitor === "preview" ? (
+                <button
+                  type="button"
+                  className="btn sm safe-toggle"
+                  aria-pressed={safeArea}
+                  title={
+                    tall ? "画出平台的按钮和标题会挡住的地方" : "画出字幕和标题不会被切掉的范围"
+                  }
+                  onClick={() => setSafeArea((value) => !value)}
+                >
+                  安全框
+                </button>
+              ) : null}
             </div>
             {monitor === "subs" ? (
               // 4B-U03: the subtitle look, on a landscape and a portrait frame; the portrait one
@@ -8437,7 +8579,7 @@ function EditPage({
                 )}
               </div>
             ) : (
-              <>
+              <PreviewFullscreen ignoreShortcut={typingInField} onNotice={onNotice}>
                 <div className="screen">
                   {previewSrc ? (
                     <PreviewVideo
@@ -8463,6 +8605,23 @@ function EditPage({
                       </span>
                     </div>
                   )}
+                  {safeArea ? (
+                    <div className="safe-guide" data-overlay="" aria-hidden="true">
+                      {tall ? (
+                        <>
+                          <span className="safe-side" />
+                          <span className="safe-band">平台的按钮和标题会挡住这里</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="safe-box" />
+                          <span className="safe-box inner">
+                            <span className="safe-note">字幕和标题放在这个框里</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="ctrl">
                   <span className="tc">
@@ -8503,7 +8662,7 @@ function EditPage({
                   </div>
                   {onMute ? <MuteButton muted={!audible} onMute={onMute} /> : null}
                 </div>
-              </>
+              </PreviewFullscreen>
             )}
           </section>
         </>
@@ -8553,7 +8712,9 @@ function EditPage({
                 onChange={(event) => onRewrite(event.target.value)}
               />
               {/* 4A-U10: the actions on this part are on the timeline bar below, once. */}
-              <p className="role-desc">重做、换配音、剪掉，用下面时间线上的按钮。</p>
+              <p className="role-desc">
+                重做、换配音、剪掉，用下面时间线上的按钮。剪掉后可按 Ctrl+Z 撤销。
+              </p>
             </div>
             <p className="role-desc hint">
               有台词时，导出会把配乐压低
@@ -8567,13 +8728,8 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
-            {askCut ? (
-              <span className="lab cut-ask" role="alert">
-                再按一次 Delete 剪掉镜头 {current?.no ?? shot + 1}，剪掉后不能撤回。按 Esc 不剪。
-              </span>
-            ) : null}
             {/* 4C-U01: the whole part between in and out, and a note when a line is in it. */}
-            <span className="lab" hidden={askCut}>
+            <span className="lab">
               已选{" "}
               {picked.first === picked.last
                 ? `镜头 ${shots[picked.first]?.no ?? picked.first + 1}`

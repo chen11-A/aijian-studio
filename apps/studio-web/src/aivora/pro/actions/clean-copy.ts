@@ -6,11 +6,16 @@ import { exportMedia } from "./generation-run";
 export type CleanCopyOutcome = {
   shotId: string;
   shot: string;
-  status: "done" | "failed" | "missing";
+  status: "done" | "failed" | "missing" | "stale";
   reason?: string;
 };
 
-type Host = { current: () => FilmProject | null; apply: (next: FilmProject) => void };
+type Host = {
+  current: () => FilmProject | null;
+  apply: (next: FilmProject) => void;
+  /** Persist the already applied result before proceeding to another target. */
+  persist?: (snapshot: FilmProject) => Promise<void>;
+};
 
 /** The take an export uses for this shot, the same choice as chosenExport makes. */
 function chosenTake(shot: FilmShot): FilmTake | undefined {
@@ -38,7 +43,16 @@ function withResult(
   takeId: string,
   videoPath: string,
   patch: (take: FilmTake) => FilmTake,
-): FilmProject {
+): FilmProject | null {
+  const shot = film.shots.find((item) => item.id === shotId);
+  const selected = shot && chosenTake(shot);
+  if (
+    !selected ||
+    selected.id !== takeId ||
+    selected.videoPath !== videoPath ||
+    selected.cleanVideoPath?.trim()
+  )
+    return null;
   return {
     ...film,
     shots: film.shots.map((shot) =>
@@ -70,48 +84,134 @@ export async function remakeCleanCopies(
   const bridge = window.aijian;
   const wanted = new Set(shotIds ?? shotsNeedingCleanCopy(base));
   const outcomes: CleanCopyOutcome[] = [];
-  for (const shot of base.shots) {
-    if (!wanted.has(shot.id)) continue;
+  // Freeze only the requested version identities before the first await.
+  const targets = base.shots.flatMap((shot) => {
     const take = chosenTake(shot);
-    const label = `镜头 ${shot.no}`;
-    if (!take || take.cleanVideoPath?.trim()) continue;
+    return wanted.has(shot.id) && take && !take.cleanVideoPath?.trim()
+      ? [{ shotId: shot.id, shot: `镜头 ${shot.no}`, takeId: take.id, videoPath: take.videoPath }]
+      : [];
+  });
+  for (const target of targets) {
+    const stale = () =>
+      outcomes.push({ shotId: target.shotId, shot: target.shot, status: "stale" });
+    const currentTarget = () => {
+      const live = host.current();
+      const shot =
+        live?.id === base.id ? live.shots.find((item) => item.id === target.shotId) : undefined;
+      const take = shot && chosenTake(shot);
+      return (
+        take?.id === target.takeId &&
+        take.videoPath === target.videoPath &&
+        !take.cleanVideoPath?.trim()
+      );
+    };
+    if (host.current()?.id !== base.id) {
+      stale();
+      break;
+    }
+    if (!currentTarget()) {
+      stale();
+      continue;
+    }
     if (!bridge?.remakeStoryFilmCleanCopy) {
-      outcomes.push({ shotId: shot.id, shot: label, status: "failed", reason: "需要桌面版" });
+      outcomes.push({
+        shotId: target.shotId,
+        shot: target.shot,
+        status: "failed",
+        reason: "需要桌面版",
+      });
       continue;
     }
     let data: Record<string, unknown>;
     try {
-      data = (await bridge.remakeStoryFilmCleanCopy(projectId, take.videoPath)).data;
-    } catch (error) {
-      const text = error instanceof Error && error.message ? error.message : "没有连上本机服务";
-      outcomes.push({ shotId: shot.id, shot: label, status: "failed", reason: text.slice(0, 200) });
+      data = (await bridge.remakeStoryFilmCleanCopy(projectId, target.videoPath)).data;
+    } catch {
+      if (!currentTarget()) {
+        stale();
+        if (host.current()?.id !== base.id) break;
+        continue;
+      }
+      outcomes.push({
+        shotId: target.shotId,
+        shot: target.shot,
+        status: "failed",
+        reason: "本机处理没有完成",
+      });
       continue;
     }
     const latest = host.current();
-    if (!latest || latest.id !== base.id) break;
+    if (!latest || latest.id !== base.id) {
+      stale();
+      break;
+    }
+    if (!currentTarget()) {
+      stale();
+      continue;
+    }
     const media = exportMedia(data);
     if (data.status === "SUCCEEDED" && media.cleanVideoPath) {
-      host.apply(
-        withResult(latest, shot.id, take.id, take.videoPath, (item) => {
-          const next: FilmTake = { ...item, cleanVideoPath: media.cleanVideoPath };
-          if (media.subtitleCues) next.subtitleCues = media.subtitleCues;
-          delete next.cleanCopyReason;
-          return next;
-        }),
-      );
-      outcomes.push({ shotId: shot.id, shot: label, status: "done" });
+      const updated = withResult(latest, target.shotId, target.takeId, target.videoPath, (item) => {
+        const next: FilmTake = { ...item, cleanVideoPath: media.cleanVideoPath };
+        if (media.subtitleCues) next.subtitleCues = media.subtitleCues;
+        delete next.cleanCopyReason;
+        return next;
+      });
+      if (!updated) {
+        stale();
+        continue;
+      }
+      host.apply(updated);
+      const written = host.current();
+      const shot =
+        written?.id === base.id
+          ? written.shots.find((item) => item.id === target.shotId)
+          : undefined;
+      const take = shot && chosenTake(shot);
+      if (
+        written &&
+        take?.id === target.takeId &&
+        take.videoPath === target.videoPath &&
+        take.cleanVideoPath === media.cleanVideoPath
+      ) {
+        await host.persist?.(written);
+        outcomes.push({ shotId: target.shotId, shot: target.shot, status: "done" });
+      } else stale();
     } else if (data.status === "NOT_FOUND") {
-      outcomes.push({ shotId: shot.id, shot: label, status: "missing" });
+      outcomes.push({ shotId: target.shotId, shot: target.shot, status: "missing" });
     } else {
-      const reason = media.cleanCopyReason || "不带字幕的那份没有做出来";
-      host.apply(
-        withResult(latest, shot.id, take.id, take.videoPath, (item) => ({
+      // Service error text can contain local paths. Present only known Chinese categories.
+      const reasons: Record<string, string> = {
+        EXPORT_FAILED: "合成没有完成",
+        MEDIA_ENCODE_FAILED: "整理画面或配音时没有成功",
+        PROBE_FAILED: "没有读到可以合成的画面",
+        CLEAN_COPY_MISSING: "合成说做好了，但文件不在",
+      };
+      const detail =
+        typeof data.clean_copy_error === "string" ? reasons[data.clean_copy_error] : undefined;
+      const reason = detail ? `不带字幕的那份没有做出来（${detail}）` : "不带字幕的那份没有做出来";
+      const updated = withResult(
+        latest,
+        target.shotId,
+        target.takeId,
+        target.videoPath,
+        (item) => ({
           ...item,
           cleanCopyReason: reason,
           ...(media.subtitleCues && !item.subtitleCues ? { subtitleCues: media.subtitleCues } : {}),
-        })),
+        }),
       );
-      outcomes.push({ shotId: shot.id, shot: label, status: "failed", reason });
+      if (!updated) {
+        stale();
+        continue;
+      }
+      host.apply(updated);
+      const written = host.current();
+      if (!written || written.id !== base.id) {
+        stale();
+        break;
+      }
+      await host.persist?.(written);
+      outcomes.push({ shotId: target.shotId, shot: target.shot, status: "failed", reason });
     }
   }
   return { outcomes, notice: cleanCopyNotice(outcomes) };
@@ -141,5 +241,7 @@ export function cleanCopyNotice(outcomes: readonly CleanCopyOutcome[]): string {
         missing.length > 1 ? "这几个" : "这个"
       }镜头。`,
     );
+  for (const item of outcomes.filter((entry) => entry.status === "stale"))
+    parts.push(`${item.shot}的作品或版本已经变化，已跳过旧结果。`);
   return parts.join("");
 }

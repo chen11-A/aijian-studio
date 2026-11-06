@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import { parseReplayManifest, replay3jr, REPLAY_SOURCE_SHA256 } from "../film/replay3jr";
 import { sampleFilm, type FilmProject } from "../film/project";
@@ -8,7 +8,9 @@ import {
   captureEnabled,
   captureFile,
   capturedReplies,
-  recordAgentReply,
+  recordAgentReply as recordReply,
+  captureScope,
+  type CaptureScope,
   setCaptureEnabled,
 } from "./agent-capture";
 import { completeMembershipAgent } from "./agent-workflow";
@@ -38,6 +40,13 @@ function film(): FilmProject {
   ];
   return base;
 }
+
+let scope: CaptureScope;
+beforeEach(async () => {
+  scope = (await captureScope(film()))!;
+});
+const recordAgentReply = (...args: Parameters<typeof recordReply>) =>
+  recordReply(args[0], args[1], args[2], args[3], scope);
 
 const directed = (scene: string, picture: string) =>
   JSON.stringify({ shots: [{ picture, line: "" }], scene_id: scene });
@@ -125,6 +134,7 @@ describe("3JR-B11 (R2-02) keeping the director's and action's replies on this co
       billingProject: async () => `prj_${"a".repeat(32)}`,
       current: () => true,
       modelsChanged: () => undefined,
+      captureFilm: film,
     });
     expect(capturedReplies().at(-1)).toMatchObject({ agent: "director", sceneId: "s2", reply });
   });

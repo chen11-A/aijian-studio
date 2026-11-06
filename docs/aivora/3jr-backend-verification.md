@@ -454,3 +454,72 @@ Grok 的问题单写明 `directorVideoPrompt` 里也有「竖屏构图」，`5eb
 界面要做的（3JR-U06，交给界面会话）：设置里的开关和说明「保存导演和动作的原始回复（只存本机，用于排查）」；「导出排查文件」按钮调 `captureFile(film)`，把 `text` 存成 `name`。
 
 测试：新增 `agent-capture.test.ts` 5 条（关着不存、关掉删掉；导出的文件场次顺序对、正式回复和补拍分开、动作按镜头编号归场、原文哈希等于测试小说的；没有回复时为空；会员回复成功时会存；回放工具收第 3 场、仍要第 1、2 场、场号超出原文时拒绝）。测试小说导出的文件能被回放工具解析。studio-web 全量 363 文件、4500 条通过；`pnpm typecheck`、eslint、prettier 通过。
+
+## 5-3-03 后端：字段撤销、重做的操作说明（云端接手）
+
+本节取代上文「字段改动还没有 label」的待办状态。基于 `aivora/dev@a4531da`，只改按页历史逻辑，没有改宿主界面。
+
+- `createEditorPageHistory().undo/redo` 的字段改动现在也返回可选 `label`，例如「修改镜头 1 的画面」「修改 2 个镜头的时长」。结构历史的既有说明保持不变。
+- 说明只根据真正成功恢复的字段生成，不包含字段值、内部字段名或原始标识。部分冲突只描述成功部分；全冲突、跨作品拒绝时不返回成功说明。动作的主字段与有序动作节拍归成同一项。
+- 比较后再写入、用户锁、按页范围、后来生成的媒体及后来修改的其他字段保护保持不变。界面仍需消费返回的 `label`，不能把接口已给说成状态栏已经接通。
+- 验证：新增 `page-history-field-label.test.ts` 7 条，加既有 `page-history.test.ts`、`page-history-user-shots.test.ts`、`editor-changes.test.ts`，共 4 文件 25 条通过。覆盖实际撤销/重做、后续媒体保留、部分冲突、全部拒绝、多镜头记录、动作字段归组、助手回执及仅编辑保护变化。目标 ESLint、Prettier 通过；最终集成类型检查由总控在界面并行修改收尾后执行。
+
+未调用会员或付费服务；本地逻辑回归不代表真实会员与整品验收通过。
+
+### 5-3-03 宿主接线复核（云端）
+
+- 复核现有字段说明实现，未发现需要修改的标签问题。`ProWorkspace.tsx` 的 `movePageHistory` 成功应用后消费可选 `label`，状态栏显示「已撤销：修改场次的剧本」或「已重做：修改场次的剧本」；没有说明的旧事务仍显示「已撤销／已重做」。
+- 部分撤销显示「已撤销部分改动：……。其余内容后来改过，已保留。」；全部冲突保留原拒绝提示，不宣称成功，不展示正文、字段值或内部冲突码。原比较后写入、用户锁、媒体保护均未改动，重做遇到任一字段冲突仍整次拒绝。
+- 新增 `ProWorkspace.history.test.tsx` 4 项宿主测试：实际编辑与撤销/重做的状态栏和存盘读回、部分撤销保留冲突字段及后续重做、重做原子拒绝、全冲突不报成功。冲突用例将真实历史实例接入宿主，按键触发实际恢复及存盘，不模拟恢复结果。
+- 验证：`pnpm --filter @aijian/studio-web exec vitest run src/aivora/pro/ProWorkspace.history.test.tsx src/aivora/pro/actions/page-history-field-label.test.ts src/aivora/pro/actions/page-history.test.ts src/aivora/pro/actions/page-history-user-shots.test.ts src/aivora/pro/actions/editor-changes.test.ts`：5 文件、29 项通过；既有 `ProWorkspace.test.tsx -t 'undo|history|B11'`：17 项通过、120 项未选择，合计 46 项通过，不称为全量工作台测试。`pnpm --filter @aijian/studio-web typecheck`、上述历史文件与宿主目标 ESLint、相关文件及两份文档 Prettier、`git diff --check` 均通过。
+- 本项仅修改宿主业务函数，未修改渲染区、样式或全屏组件。总控另报最终全仓类型（TS、mypy310）、构建、lint（ESLint、Ruff、Prettier、Ruff format）均通过，详见总控汇总；没有调用付费服务，没有提交、推送、合并或发布。
+
+## 5-3-06 所选批次范围与并发保护（云端第二轮）
+
+负责人：`backend_round2`，`gpt-6.1-sol`、`medium`。沿用既有多选时长、`queueBatch(rows)` 和 `submitGeneration(rows)`，没有重写接口；源码只改 `ProWorkspace` 主函数 return 前业务区，确认按钮 JSX 的单行接线由界面代理完成。
+
+- 发现并修复：原确认按钮将确认表中的旧镜头整行写回，可覆盖确认期间刚完成的版本。现在确认只保存作品身份与所选集合，`confirmBatchGeneration(): void` 同步消费一次；按所选 IDs 重新读取 live 镜头，只合并拟合台词所需的时长，保留当前 takes、素材、任务和其他字段。取消清除确认；切换作品清除旧确认；有同作品生成任务时拒绝再次确认，不写入旧快照。
+- 等待计费准备后再次按原所选 IDs 解析当前镜头，任一目标已删除即停止，不使用移除前的快照或邻镜兜底。现有生成运行的作品身份和 token 检查继续隔离迟到结果。
+- 新增独立 `ProWorkspace.batch-scope.test.tsx`，7 项真实宿主回归：非相邻镜头 2/4 的确认表与实际请求素材严格对应；未选镜头 1/3 无新增版本和任务；取消无提交；所选时长修改/撤销；连续点击及运行中再次确认；确认表打开期间完成的旧批次版本保留；计费等待期间删除目标不提交或复活；切换到含相同镜头 IDs 的另一作品后旧确认消失、迟到结果不污染新作品。桌面桥均为测试桩，不调用真实会员服务。
+- 实跑：`pnpm --filter @aijian/studio-web exec vitest run src/aivora/pro/ProWorkspace.batch-scope.test.tsx src/aivora/pro/actions/generation-prepare.test.ts src/aivora/pro/actions/generation-run.test.ts src/aivora/film/generation-queue.test.ts --reporter=dot`，4 文件、42 项通过，0 失败，0 未选择。日志 `/tmp/batch-scope-final.log`。独立宿主 7 项，既有业务 35 项，不把本次定向写成全仓测试。
+- `pnpm --filter @aijian/studio-web exec tsc -b --pretty false` 通过，日志 `/tmp/batch-scope-types-final.log`；`ProWorkspace.tsx` 和新增测试的目标 ESLint、Prettier 通过，日志 `/tmp/batch-scope-lint.log`。最初夹具误把请求结构当含镜头 ID、忽略媒体 URL 升级及默认串行队列，首轮失败日志保留在 `/tmp/batch-scope-first.log`；校正夹具后实跑通过，没有放宽未选范围或版本保留断言。
+
+当前为共享分支工作树中的实现与定向验证，提交、远端 dev、整合检查以总控记录为准。真实会员、Electron、安装包未验；没有调用付费服务，没有提交、推送或合并。5-3-05/10 的界面交互与 QA 由界面代理单独记录。
+
+## 3JR-B11 采集工程归属与正文版本（云端连续推进）
+
+负责人：`backend_round2`，`gpt-6.1-sol`、`medium`。修复只涉及采集业务、会员工作流、流水线宿主，以及工作台手动请求的 `captureFilm` callback；设置显示和下载组件归界面代理。本项保留默认关闭、仅本机和关闭即清理的约定，不调用真实会员服务。
+
+- 原缺口已确认：旧 `CapturedReply` 无作品身份，导出仅按场次/镜头 ID 取旧回复并现场重算当前原文 hash；两个作品复用 ID 或正文改变后可混用。记录现在显式保存 `projectId = film.id`、`sourceSha256 = SHA256(sourceText)`、`scriptSha256 = SHA256(JSON.stringify(scenes.map(scene => [scene.id, scene.text])))`，不保存请求上下文、原文/场次全文或凭证。原始回复仍仅在用户开启后按既有用途保存。
+- `recordAgentReply` 前四参数不变，第五参数为可选 `CaptureScope`，缺 scope 不采集；第六参数为请求开始时的 epoch，缺省为当前 epoch。`captureScope(film)` 异步返回上述 ID/hash 或 null。工作流 host 的可选 `captureFilm` 读取当前作品；手动和流水线请求均已提供，只有采集开关开启且 agent 为 director/action 才计算 hash。
+- 请求开始捕获 scope/epoch；回包后核对当前工程、原文及场次正文。关闭再开启、清空、切作品、正文变化、最终 hash 等待期间的输入变化均拒绝旧采集，保留原会员回复处理结果。最终 digest 返回前后同步核对正文，媒体更新不误当正文变化；hash 不可用时只停止可选采集，不破坏已成功回复。
+- `captureFile(film)` 保留 `{name,text,scenes}|null` 返回接口，入参包含 `id`；先按三重身份筛选，再按场次/镜头组装，拒绝把旧回复贴上新 hash。无身份/不完整 hash 的历史记录过滤并从本机存储清理，不猜测迁移归属；有效但正文不匹配的记录不会被导出。导出组装和 digest 使用同一输入快照，关闭/清空期间进行中的旧导出返回 null。
+- 实跑：后端 `agent-capture.test.ts`（5）、独立 `agent-capture-scope.test.ts`（18）、`ProWorkspace.capture-scope.test.tsx`（2）、`agent-workflow-stall.test.ts`（3）、`pipeline-workspace-host.test.ts`（7），5 文件 35 项通过；联合界面 `ReplyCaptureSettings.test.tsx` 11 项，共 6 文件 46 项通过，0 失败、0 未选择，日志 `/tmp/capture-scope-final.log`。新测试真实执行会员工作流但桥为测试桩，覆盖跨作品同 ID、改原文/场次、旧记录清理、迟到回复、关闭/清空 epoch、最终 hash 竞态及媒体保留；手动宿主测试通过真实按钮和编辑触发采集/拒绝，流水线宿主断言实际接入当前作品 getter。
+- web `tsc -b --pretty false`、改动业务/测试及工作台的目标 ESLint、Prettier、`git diff --check` 通过，日志 `/tmp/capture-scope-types-final.log`、`/tmp/capture-scope-lint.log`。首轮 27/28 通过，唯一失败为测试负断言误中作品标题的同词，日志 `/tmp/capture-scope-first.log` 保留；最终精确核对导出字段通过。没有用定向结果声明全仓已通过。
+
+当前新代码在共享工作树，当前分支提交、远端 dev 和最终联合门由总控记录。Chromium 合成回复下载见界面 QA，不等同于真实会员采集；真实会员、Electron 与安装包未验。没有提交、推送或合并。
+
+## 4B-B12 clean-copy 选择范围、过期与持久化（云端）
+
+负责人：`backend_round2`，`gpt-6.1-sol`、`medium`。沿用既有 `remakeCleanCopies` 和本机重建接口，不生成视频、不调用真实会员。显示入口由界面代理接线，后端只修改 helper、主工作台 return 前业务区及独立回归。
+
+- helper 在首次 await 前冻结镜头 ID、所选 takeId 和 videoPath；每次派发前、回包后都核对当前工程和当前选版。作品切换、镜头删除、版本替换或选择变化时不派发旧请求、不写回旧结果，新增 `stale` outcome 明确提示「作品或版本已经变化，已跳过旧结果」，不会假报「补好了」或「没有需要补做」。原先版本已替换却断言 done 的旧测试已按真实语义改正。
+- 写入只补当前目标版本的 cleanVideoPath/字幕时间并清理其失败说明，保留原片、其他版本、当前选版及并行正文编辑。仅宿主实际应用并能读回目标 clean 路径时才报 done。失败/异常采用稳定中文分类，服务错误和 Exception.message 中的本机路径不进入状态栏。
+- 宿主提供 `repairCleanCopies(shotIds: readonly string[] | null): Promise<void>`、`cleanCopyBusy`、`cleanCopyBlocked`，通过既有工程所有权防重入，计费准备后再由 helper 复核选择。无字幕导出受 `EXPORT_SUBTITLES_BAKED` 阻止时提供批次入口；该状态绑定作品及字幕模式，切换后失效。补做后不自动重新生成或再次导出。
+- helper host 新增可选 `persist(snapshot)`，每镜应用后立即经既有 persistence 队列保存实际 written 快照，再做下一镜。业务区跟踪本项原工程最后一次归一化 live 对象：同工程已有更新时拒绝旧快照覆盖，切到其他作品后仍可保存原工程已经应用的结果；明确处理队列拒绝/写失败。浏览器旧工程延迟写入后只恢复当前可见工程 activeId，不写新作品内容。后续保存失败提示「补做中断，已经保存的版本会保留。请查看剩余镜头后重试」，不自动重发。
+- 实跑 `clean-copy.test.ts` 4项、独立 `clean-copy-scope.test.ts` 12项、独立 `ProWorkspace.clean-copy-scope.test.tsx` 6项，加界面宿主2项与显示3项，共5文件27项通过、0失败/0未选择，日志 `/tmp/clean-copy-final.log`。宿主覆盖重复点击、请求及计费等待中换版、部分成功后切作品、队列阻塞后切作品持久化/activeId、后续写失败保留已保存版本、同工程新编辑拒旧快照。所有会员/桌面调用均为测试桩，没有真实生成调用。
+- web `tsc -b --pretty false`、工作台/helper/独立回归目标 ESLint、Prettier、`git diff --check` 通过，日志 `/tmp/clean-copy-types.log`、`/tmp/clean-copy-lint.log`。本轮目标结果不等于全仓整体验收；总控继续执行完整工作台与静态集成门。
+- 总控另行实跑 `pytest test_story_film.py -k 'clean_copy or remake'`：8通过、21未选择，24.36秒，日志 `.aijian-dev/cloud-setup/clean-copy-service-tests.log`。这组真实本机FFmpeg夹具覆盖重建后视频+音频、原片字节不变、两次输出不同、provider调用为空及API路由返回文件；不是会员、Electron或用户真实工程验收，与网页测试数量分开记录。
+
+源码与本轮文档已交付冻结，当前分支提交及远端dev由总控登记；没有自行提交、推送、合并，没有扩大B13。Chromium替身IPC界面证据见界面QA，真实会员、Electron和安装包仍未验。
+
+## 接管分支 CI 业务提示完整性修复
+
+总控从允许的 GitHub Actions 网页读取 `a6d8b0f` / run `42177470800`：Linux、Windows均Failure，公开注释指出 `film/notices.test.ts:109`「每条工作台静态提示都有具体业务码」失败；「所选镜头已经变化，请重新选择后生成。」此前落为 `OPERATION_STATUS`。旧185项、209项是当时的定向范围，未覆盖这项契约，不抹掉线上CI失败，也不把修复定向写成CI已绿。
+
+- `backend_round2`（Sol medium）审查接管以来工作台新增静态提示，增加精确的生成选区失效/批次运行中、clean-copy与排查文件业务码，桌面版/计费准备/无作品/输入变化复用语义匹配的已有码。新增14码的fallback和最终中文由界面同步到 `NOTICE_COPY` 及 `docs/design/copy-zh.md`，未修改历史fixture或放宽静态扫描。
+- 新规则也覆盖实际 `cleanCopyNotice` 生成的done/failed/missing/stale及部分成功，排查文件下载单独归类，不混用成片导出。具体镜头、数量和未完成原因保留在detail；字符串状态的原有展示保持，实际宿主原数据/失败语义断言不删不弱化。新增码不在legacy表中，使用明确的own-key检查后才索引旧表，保留原有别名行为。
+- `notices.test.ts` 保留118历史与106既有新增计数，新增14独立分组，逐项精确验证code/fallback/最终文案；补新增静态提示逐项归类、实际helper单项/部分结果归类、排查组件静态通知完整性回归。新增规则限定具体业务句式，没有通用匹配绕过。
+- 实跑 `film/notices.test.ts`、`next/wiring/noticeCopy.test.ts`、`next/wiring/statusNotice.test.tsx`、`pro/ProWorkspace.clean-copy.test.tsx`、`pro/ProWorkspace.clean-copy-scope.test.tsx`、`pro/ReplyCaptureSettings.test.tsx`：6文件132项通过，日志 `/tmp/ci-notices-related.log`；web `tsc -b --pretty false`、notices源码/测试目标ESLint与Prettier、`git diff --check`均通过，日志 `/tmp/ci-notices-types.log`、`/tmp/ci-notices-lint.log`。
+
+本项没有提交、推送、合并或调用真实会员。总控继续执行完整前端测试/覆盖率及Python等CI要求，再提交推送并核对新run；当前线上Failure不改成通过，远端dev未推进。

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, rm, writeFile, symlink, stat } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, symlink, stat, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -291,21 +291,29 @@ test("中文空格工具路径、静音轨与高峰值音频", media, async (t) 
   const dir = await temporary(t);
   // Resolve PATH executables without invoking a shell.
   const locate = async (binary) => {
-    if (binary.includes("/")) return path.resolve(binary);
-    for (const folder of process.env.PATH.split(path.delimiter)) {
-      const candidate = path.join(folder, binary);
-      try {
-        if ((await stat(candidate)).isFile()) return candidate;
-      } catch {
-        /* next PATH directory */
+    const folders =
+      path.isAbsolute(binary) || /[/\\]/.test(binary)
+        ? [""]
+        : (process.env.PATH ?? "").split(path.delimiter);
+    const suffixes =
+      process.platform === "win32" && !binary.toLowerCase().endsWith(".exe") ? ["", ".exe"] : [""];
+    for (const folder of folders)
+      for (const suffix of suffixes) {
+        const candidate = path.resolve(folder, binary + suffix);
+        try {
+          if ((await stat(candidate)).isFile()) return candidate;
+        } catch {
+          /* next PATH directory or executable suffix */
+        }
       }
-    }
     throw new Error("工具不存在");
   };
-  const customFfmpeg = path.join(dir, "视频 工具");
-  const customFfprobe = path.join(dir, "探测 工具");
-  await symlink(await locate(ffmpegPath), customFfmpeg);
-  await symlink(await locate(ffprobePath), customFfprobe);
+  const extension = process.platform === "win32" ? ".exe" : "";
+  const customFfmpeg = path.join(dir, "视频 工具" + extension);
+  const customFfprobe = path.join(dir, "探测 工具" + extension);
+  const prepareTool = process.platform === "win32" ? copyFile : symlink;
+  await prepareTool(await locate(ffmpegPath), customFfmpeg);
+  await prepareTool(await locate(ffprobePath), customFfprobe);
   const ass = path.join(dir, "静音 字幕.ass");
   await writeFile(ass, generateSubtitles([]).ass);
   for (const silence of [true, false]) {

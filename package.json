@@ -26,6 +26,7 @@
     "typecheck:ts": "pnpm -r --if-present typecheck",
     "typecheck:py": "uv run mypy",
     "test": "pnpm test:ts && pnpm test:py",
+    "test:ci": "node scripts/ci-test-diagnostics.mjs",
     "test:e2e:desktop": "pnpm --filter @aijian/studio-web build && pnpm --filter @aijian/desktop build && node scripts/e2e/desktop-provider-smoke.mjs",
     "evidence:provider-ui": "pnpm --filter @aijian/studio-web build && pnpm --filter @aijian/desktop build && node scripts/e2e/desktop-provider-smoke.mjs",
     "build:e2e:recovery-harness": "pnpm exec tsc -p scripts/e2e/headless-harness.tsconfig.json --noEmit && pnpm --filter @aijian/studio-web exec vite build --config ../../scripts/e2e/headless-harness.vite.config.ts",
