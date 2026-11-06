@@ -18,6 +18,8 @@ export default tseslint.config(
       // gpt/aivora-modules 原样合入、自带 vitest/tsc，还没接进主程序 [M-02]
       "packages/aivora-modules/**",
       "assets/audio-library/**",
+      // 3i 审计复现脚本（gpt/audit-p3i），只作历史记录 [M-02]
+      "docs/audit/tests/**",
     ],
   },
   eslint.configs.recommended,
