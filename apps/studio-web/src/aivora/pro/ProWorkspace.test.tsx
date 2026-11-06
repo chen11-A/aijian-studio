@@ -3106,17 +3106,18 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
     importMusic: vi.fn(async () => ({ path: "/tmp/aivora/films/bed.mp3" })),
     filePath: () => "/tmp/song.mp3",
   });
-  Object.assign(window.aijianGrok ?? {}, {
-    speak: vi.fn(async () => ({
-      kind: "OK",
-      audioBase64: "QQ==",
-      mime: "audio/mpeg",
-      seconds: 1,
-      timestamps: false,
-    })),
-  });
+  const speak = vi.fn(async () => ({
+    kind: "OK",
+    audioBase64: "QQ==",
+    mime: "audio/mpeg",
+    seconds: 1,
+    timestamps: false,
+  }));
+  Object.assign(window.aijianGrok ?? {}, { speak });
   await openSample();
   fireEvent.click(stageTab("分镜"));
+  // Voice belongs to the actual selected done take, not an ungenerated shot's empty id.
+  fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
   fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
   expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /候选画面/ }));
@@ -3129,6 +3130,17 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   fireEvent.click(screen.getByRole("button", { name: "换配音" }));
   expect(await screen.findByText("这一句已重配，画面没有重新生成。")).toBeInTheDocument();
   expect(document.querySelector("[data-voice='1']")).toBeTruthy();
+  await waitFor(async () => {
+    const last = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    const stored = (await readSaved(last.id))!;
+    const voice = stored.audioClips.find((clip) => clip.label === "配音")!;
+    const shot = stored.shots.find((row) => row.id === voice.shotId)!;
+    expect(voice.takeId).toBeTruthy();
+    expect(voice.takeId).toBe(shot.selectedTakeId);
+    expect(shot.takes.find((take) => take.id === voice.takeId)?.status).toBe("done");
+  });
+  expect(createStoryFilm).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
   fireEvent.change(screen.getByLabelText("导入音乐"), {
     target: { files: [new File(["song"], "bed.mp3", { type: "audio/mpeg" })] },
   });
@@ -3143,7 +3155,16 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   expect(screen.getByText("只听配乐。音量没有改。")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("配乐音量"), { target: { value: "50" } });
   expect(screen.getByText("音量已记下，导出时用这个音量。")).toBeInTheDocument();
-  expect(desktop.assembleFilm).toBeDefined();
+  await waitFor(async () => {
+    const last = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)![0] as FilmProject;
+    const stored = (await readSaved(last.id))!;
+    expect(stored.audioMix?.lanes.score).toEqual({ gainDb: -6, muted: false });
+    expect(stored.audioClips.find((clip) => clip.lane === "score")?.loop).toBe(true);
+    expect(stored.audioClips.find((clip) => clip.lane === "score")?.gainDb).toBe(-22);
+  });
+  expect(createStoryFilm).toHaveBeenCalledOnce();
+  expect(speak).toHaveBeenCalledOnce();
+  expect(desktop.assembleFilm).not.toHaveBeenCalled();
 });
 
 it("puts the spoken file on the dialogue lane and leaves a finished job alone", async () => {
