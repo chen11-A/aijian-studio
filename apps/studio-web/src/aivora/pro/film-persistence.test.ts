@@ -122,3 +122,15 @@ it("freezes the payload before a caller can mutate a pending snapshot", async ()
   expect(await save).toMatchObject({ title });
   expect(write.mock.calls[0]![0]).not.toBe(live);
 });
+it("returns the same completed native stored receipt from the owned save without an extra write or changing ownership", async () => {
+  const current = sampleFilm(),
+    stored = { ...current, directory: "/actual/stored", savedAt: "2026-01-01T00:00:00.000Z" },
+    write = vi.fn(async () => stored),
+    p = createFilmPersistence({ current: () => current, write });
+  const lease = await p.acquire(current.id);
+  expect(await lease.save(current, () => true)).toBe(stored);
+  expect(write).toHaveBeenCalledOnce();
+  await lease.release();
+  expect(write).toHaveBeenCalledOnce();
+  expect(p.externalWriteState(current.id)).toBeNull();
+});

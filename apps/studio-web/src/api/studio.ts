@@ -1056,6 +1056,7 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  verifyFilmDialogueSplitBackup?: FilmDialogueSplitGateway["verifyFilmDialogueSplitBackup"];
   prepareFilmDialogueSplit?: FilmDialogueSplitGateway["prepareFilmDialogueSplit"];
   applyFilmDialogueSplit?: FilmDialogueSplitGateway["applyFilmDialogueSplit"];
   listFilmHistory?: FilmHistoryGateway["listFilmHistory"];

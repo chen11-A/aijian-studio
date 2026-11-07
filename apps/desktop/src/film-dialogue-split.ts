@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import {
   dialogueSplitContext,
   planDialogueSplit,
+  projectDialogueSplitRecord,
 } from "@aijian/contracts/film-dialogue-split-plan";
 import type {
   FilmDialogueSplitInput,
+  FilmDialogueSplitBackupResult,
   FilmDialogueSplitApplyInput,
   FilmDialogueSplitReady,
   FilmDialogueSplitFailure,
@@ -189,100 +191,17 @@ function split(
   ready: FilmDialogueSplitReady,
   backup: FilmHistoryEntry,
 ) {
-  // Validated whole arrays, never silently filter away unrelated rows.
-  const shots = record.shots as Record<string, unknown>[],
-    target = shots.find((shot) => shot.id === input.shotId)!;
-  const keys = [
-    "sceneId",
-    "size",
-    "angle",
-    "move",
-    "picture",
-    "action",
-    "performance",
-    "styleNote",
-    "characters",
-    "delivery",
-    "tag",
-    "blocking",
-    "facing",
-    "posterPosition",
-  ];
-  const creative = Object.fromEntries(
-    keys
-      .filter((key) => target[key] !== undefined)
-      .map((key) => [key, structuredClone(target[key])]),
+  const childIds = ready.plan.parts.map(() => randomUUID());
+  const next = projectDialogueSplitRecord(
+    record,
+    input.shotId,
+    ready.plan,
+    ready.reviewFingerprint,
+    backup.id,
+    childIds,
   );
-  const sound = object(target.sound) ?? {};
-  const children = ready.plan.parts.map((part, index) => ({
-    ...creative,
-    id: randomUUID(),
-    no: Number(target.no) + index,
-    line: part.text,
-    lines: [{ speaker: part.speaker, text: part.text }],
-    speaker: part.speaker,
-    seconds: part.estimatedSeconds,
-    source: "user:dialogue-split",
-    userFields: [
-      ...new Set([
-        ...(Array.isArray(target.userFields)
-          ? target.userFields.filter(
-              (field): field is string =>
-                typeof field === "string" && Object.hasOwn(creative, field),
-            )
-          : []),
-        "line",
-        "seconds",
-      ]),
-    ],
-    takes: [],
-    stills: [],
-    poster: "",
-    selectedTakeId: "",
-    sound: {
-      source: sound.source ?? "native",
-      ambience: sound.ambience ?? "",
-      musicMood: sound.musicMood ?? "",
-      sfx: [],
-    },
-    splitSource: {
-      schemaVersion: 1,
-      historyId: backup.id,
-      sourceShotId: target.id,
-      sourceLineIndex: part.sourceLineIndex,
-      startOffset: part.startOffset,
-      endOffset: part.endOffset,
-      reviewFingerprint: ready.reviewFingerprint,
-    },
-  }));
-  const at = shots.indexOf(target),
-    delta = children.length - 1;
-  const next = {
-    ...record,
-    assemblyPath: "",
-    assemblyUrl: "",
-    exportPath: "",
-    productionPipeline: undefined,
-    productionInputFingerprint: undefined,
-    pipeline: undefined,
-    shots: shots.flatMap((shot, index) =>
-      shot === target
-        ? children
-        : [
-            index > at && shot.sceneId === target.sceneId
-              ? { ...shot, no: Number(shot.no) + delta }
-              : shot,
-          ],
-    ),
-    scenes: (record.scenes as Record<string, unknown>[]).map((scene) => {
-      if (scene.id !== target.sceneId) return scene;
-      const copy = { ...scene };
-      delete copy.coverage;
-      delete copy.shotBudget;
-      return copy;
-    }),
-  };
-  return { next, childIds: children.map((child) => child.id) };
+  if (!next) throw Error("UNSUPPORTED_PLAN");
+  return { next: next as FilmRecord, childIds };
 }
 export function createFilmDialogueSplits(host: {
   filmsRoot: string;
@@ -312,6 +231,31 @@ export function createFilmDialogueSplits(host: {
         : null,
     );
   return {
+    async verifyBackup(value: unknown): Promise<FilmDialogueSplitBackupResult> {
+      const input = object(value);
+      if (
+        !input ||
+        Object.keys(input).sort().join() !== "beforeHash,historyId,projectId" ||
+        typeof input.projectId !== "string" ||
+        !/^film_[a-z0-9]{16,40}$/.test(input.projectId) ||
+        typeof input.historyId !== "string" ||
+        !/^hst_[a-f0-9]{32}$/.test(input.historyId) ||
+        typeof input.beforeHash !== "string" ||
+        !/^[a-f0-9]{64}$/.test(input.beforeHash)
+      )
+        return error("INVALID_INPUT");
+      const { projectId, historyId, beforeHash } = input;
+      if (active.has(projectId)) return error("BUSY");
+      active.add(projectId);
+      try {
+        const entry = await history.verifyDialogueSplitBackup({ projectId, historyId, beforeHash });
+        return entry
+          ? { kind: "VERIFIED", projectId, historyId, beforeHash, entry }
+          : error("BACKUP_FAILED");
+      } finally {
+        active.delete(projectId);
+      }
+    },
     async prepare(value: unknown, owner = -1): Promise<FilmDialogueSplitPrepareResult> {
       let id = "",
         acquired = false;

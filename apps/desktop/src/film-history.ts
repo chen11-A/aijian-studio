@@ -316,6 +316,33 @@ export function createFilmHistory(host: Host) {
         });
       });
     },
+    /** Read-only main-owned full snapshot proof. Never restores or returns snapshot contents. */
+    async verifyDialogueSplitBackup(input: {
+      projectId: string;
+      historyId: string;
+      beforeHash: string;
+    }): Promise<FilmHistoryEntry | null> {
+      if (
+        !idPattern.test(input.projectId) ||
+        !historyPattern.test(input.historyId) ||
+        !/^[a-f0-9]{64}$/.test(input.beforeHash)
+      )
+        return null;
+      try {
+        return await transactFilmProject(host.filmsRoot, input.projectId, async (record) => {
+          if (!record || record.id !== input.projectId || !validRecord(record)) return null;
+          const stored = await snapshot(record, input.historyId);
+          if (
+            stored.entry.reason !== "before-dialogue-split" ||
+            filmHistoryRecordHash(stored.snapshot) !== input.beforeHash
+          )
+            return null;
+          return stored.entry;
+        });
+      } catch {
+        return null;
+      }
+    },
     async list(projectId: unknown): Promise<FilmHistoryList> {
       if (typeof projectId !== "string" || !idPattern.test(projectId))
         return failure("INVALID_INPUT");

@@ -9,7 +9,11 @@ it("allows only exact authorized main-frame arguments with no record/path callba
     { filmsRoot: "/must-not-read", beforeCommit },
   );
   for (const [channel, handler] of handlers) {
-    expect(["film:dialogue-split-prepare", "film:dialogue-split-apply"]).toContain(channel);
+    expect([
+      "film:dialogue-split-prepare",
+      "film:dialogue-split-apply",
+      "film:dialogue-split-verify-backup",
+    ]).toContain(channel);
     await expect(handler(false, {})).rejects.toThrow("not authorized");
     await expect(handler(true, {}, {})).rejects.toThrow("Invalid dialogue split request");
     expect(
