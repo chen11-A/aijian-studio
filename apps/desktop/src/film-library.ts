@@ -773,6 +773,15 @@ function validReferenceImage(source: string): boolean {
 
 type ImageRow = { b64_json?: unknown; url?: unknown };
 
+/** The exact original image-wire normalization, shared with native budget checks. */
+export function normalizeFilmStillPrompt(prompt: string): string {
+  return prompt
+    .replace(/<IMAGE_\d+>\s*(?:是|为)[^。！？!?\n]*(?:[。！？!?\n]|$)/g, "")
+    .replace(/<IMAGE_\d+>/g, "")
+    .trim()
+    .slice(0, 2000);
+}
+
 export async function requestStill(options: {
   prompt: string;
   token: string | null;
@@ -782,11 +791,7 @@ export async function requestStill(options: {
   aspectRatio?: "9:16" | "16:9";
   references?: readonly string[];
 }): Promise<{ path: string; reason: string }> {
-  const prompt = options.prompt
-    .replace(/<IMAGE_\d+>\s*(?:是|为)[^。！？!?\n]*(?:[。！？!?\n]|$)/g, "")
-    .replace(/<IMAGE_\d+>/g, "")
-    .trim()
-    .slice(0, 2000);
+  const prompt = normalizeFilmStillPrompt(options.prompt);
   if (!options.token) return { path: "", reason: "需要重新登录后再出图。" };
   if (!prompt) return { path: "", reason: "没有可以出图的提示词。" };
   const references = [...new Set(options.references ?? [])];

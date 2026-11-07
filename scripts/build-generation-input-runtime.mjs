@@ -11,6 +11,7 @@ const exportsExpected = [
   "keyframePrompt",
   "locationGenerationPrompt",
   "locationImageCurrent",
+  "pipelineSelectedVideo",
   "portraitPrompts",
   "prepareSceneLocations",
   "sceneLocation",
