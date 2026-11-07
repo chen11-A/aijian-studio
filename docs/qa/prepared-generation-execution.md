@@ -33,12 +33,15 @@ remain separate. Binding a future pipeline take occurs once, only after its cano
 queued/running slot exists. Preparing or recording a context never confirms a generation
 quantity or replaces the existing membership, fee, cancellation and current-input gates.
 
-Each issued target explicitly reports `preparation: CLIENT_IMAGES | STORYFILM_CACHE`.
-The latter requires the original exact cache lookup and complete readable media/window
-checks. It only permits skipping client prerequisite image requests: it never claims
-a new image was made, authorizes a POST after a late cache miss, or replaces final API
-cache/policy/body guards. Unverifiable historical cache bytes are retained, not silently
-relabelled as a verified current input or automatically regenerated.
+Each issued target includes an ordered `slotPreparations` table containing exactly one
+explicit `CLIENT_IMAGES | STORYFILM_CACHE` fact per issued video slot. Its old target
+`preparation` is only a conservative summary (CACHE only when every slot is CACHE),
+never authority to skip images for all versions. A real cache result for the first slot
+does not cover later newly generated versions. Shared prerequisite image dependencies
+exclude cache-only slots. Each cache verdict requires the original exact cache lookup
+and complete readable media/window checks. It never authorizes a POST after a late
+cache miss, replaces final API cache/policy/body guards, or relabels unverifiable old
+bytes as current input. See `prepared-generation-slot-cache-contract.md`.
 
 The optional third last-frame argument is `{executionId, stageId}`. Its issued stage
 has kind `continuity-frame`, targetId equal to the continuing shot and sourceShotId

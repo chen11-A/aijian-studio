@@ -34,7 +34,7 @@ function exact(value: unknown, keys: readonly string[]): value is Record<string,
   );
 }
 
-type Registration<State> = {
+export type GenerationExecutionRegistration<State> = {
   public: Omit<Prepared, "kind" | "executionId">;
   /** Native compiler's dependency graph, not supplied or returned by the renderer. */
   stageSlots: ReadonlyMap<string, readonly string[]>;
@@ -44,7 +44,7 @@ type Registration<State> = {
 type Entry<State> = {
   id: string;
   owner: GenerationExecutionOwner;
-  registration: Registration<State>;
+  registration: GenerationExecutionRegistration<State>;
   public: Omit<Prepared, "kind" | "executionId">;
   stageSlots: Map<string, readonly string[]>;
   slots: Map<
@@ -88,7 +88,10 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
         if (preparing.get(projectId)?.token === token) preparing.delete(projectId);
       };
     },
-    register(owner: GenerationExecutionOwner, registration: Registration<State>): Prepared {
+    register(
+      owner: GenerationExecutionOwner,
+      registration: GenerationExecutionRegistration<State>,
+    ): Prepared {
       if (
         !Number.isSafeInteger(owner.id) ||
         owner.id < 0 ||
