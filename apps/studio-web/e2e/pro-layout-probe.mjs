@@ -7,6 +7,16 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["查看完整句拆镜方案", "dialogue-split-open"],
+    ["重新检查", "dialogue-split-refresh"],
+    ["接受这份拆镜结构", "dialogue-split-apply"],
+    ["我已核对完整台词、旧素材去向与新增视频数量", "dialogue-split-accept"],
+    ["核对拆镜保存结果", "dialogue-split-recover"],
+    ["查看两份状态", "dialogue-split-conflict"],
+    ["采用已核对的拆镜版并放弃这份保留稿", "dialogue-split-adopt"],
+    ["拆镜保留稿文字备忘", "dialogue-split-memo"],
+    ["查看并复制保留稿的文字备忘", "dialogue-split-copy"],
+
     ["查看本镜声音建议", "shot-audio-open"],
     ["刷新建议", "shot-audio-refresh"],
     ["选用所选轨道的完整建议", "shot-audio-apply"],
@@ -160,6 +170,8 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     if (element.classList.contains("bundled-audio-item")) return "library-asset";
     if (element.closest(".bundled-audio-used-row") && element.tagName === "BUTTON")
       return "library-remove";
+    if (element.tagName === "BUTTON" && /^拆镜保存待核对（\d+）$/.test(label))
+      return "dialogue-split-pending";
     if (element.tagName === "BUTTON" && /^本地素材保存待核对（\d+）$/.test(label))
       return "library-pending";
     if (element.closest(".bundled-audio-dialog") && element.labels?.length)
