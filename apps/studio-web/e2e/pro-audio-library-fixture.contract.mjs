@@ -15,7 +15,7 @@ import {
   installAudioLibraryBridge,
   loadLibraryAuditCatalog,
 } from "./pro-audio-library-fixture.mjs";
-import { audioLibraryStates } from "./pro-audio-library-cases.mjs";
+import { audioLibraryStates, libraryTargetDiagnostic } from "./pro-audio-library-cases.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url)),
   originalWindow = globalThis.window;
 let server, project, folder, catalog;
@@ -239,6 +239,7 @@ test("annotation metadata stays bounded, double-whitelisted and does not disclos
       `;emitGitHubErrors(input,{kind:"audio-library"});`,
     {
       audioLibraryStates,
+      libraryTargetDiagnostic,
       audioMixStates: [],
       creationStates: [],
       featureStates: [],
@@ -253,6 +254,13 @@ test("annotation metadata stays bounded, double-whitelisted and does not disclos
           combination: i ? "PRIVATE_TOKEN" : `1280x800-16x9-${audioLibraryStates[0]}`,
           reached: true,
           error: "PRIVATE_STACK",
+          targetReadiness: {
+            state: "PRIVATE_BODY",
+            reply: "PRIVATE_TOKEN",
+            calls: Infinity,
+            matched: "PRIVATE_PATH",
+            busy: -1,
+          },
           checkLine: i ? Infinity : 123,
           geometry: {
             issues: [
@@ -281,4 +289,39 @@ test("annotation metadata stays bounded, double-whitelisted and does not disclos
       s.startsWith("::error title=Pro audio library audit::PRO_AUDIO_LIBRARY_AUDIT"),
     ),
   );
+});
+
+test("target failure diagnostics expose only closed states and bounded counters, never payload text", async () => {
+  const f = setup();
+  const result = await f.bridge.inspectBundledFilmAudioTarget(await f.target());
+  assert.equal(result.kind, "TARGET");
+  assert.equal(f.audit.inspects[0].reply, "TARGET");
+  assert.equal(
+    libraryTargetDiagnostic({
+      state: "EMPTY",
+      reply: f.audit.inspects[0].reply,
+      calls: 1,
+      matched: 1,
+      busy: 0,
+      writes: 2,
+      previews: 1,
+      assemblies: 1,
+    }),
+    " targetState=EMPTY targetReply=TARGET targetCalls=1 targetMatched=1 targetBusy=0 libraryWrites=2 libraryPreview=1 libraryAssembly=1",
+  );
+  const privateText = "PRIVATE_TOKEN_/secret/file\n::error raw body";
+  const output = libraryTargetDiagnostic({
+    state: privateText,
+    reply: privateText,
+    calls: 1001,
+    matched: -1,
+    busy: NaN,
+    writes: Infinity,
+    previews: privateText,
+    assemblies: 1.5,
+    raw: privateText,
+  });
+  assert(!output.includes("PRIVATE"));
+  assert(!output.includes("::error"));
+  assert.equal(output.match(/unknown/g).length, 8);
 });

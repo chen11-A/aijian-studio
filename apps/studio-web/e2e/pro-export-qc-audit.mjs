@@ -13,7 +13,7 @@ import { progressStates } from "./pro-export-progress-cases.mjs";
 import { featureStates } from "./pro-feature-cases.mjs";
 import { creationStates } from "./pro-creation-cases.mjs";
 import { audioMixStates } from "./pro-audio-mix-cases.mjs";
-import { audioLibraryStates } from "./pro-audio-library-cases.mjs";
+import { audioLibraryStates, libraryTargetDiagnostic } from "./pro-audio-library-cases.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -306,7 +306,7 @@ function emitGitHubErrors(report, profile) {
         ? ` reachControl=${row.failedControl} reachBox=${rect(row.reachability?.at(-1)?.box)}`
         : "";
     console.error(
-      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}`,
+      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}${profile.kind === "audio-library" ? libraryTargetDiagnostic(row.targetReadiness) : ""}`,
     );
   }
 }
