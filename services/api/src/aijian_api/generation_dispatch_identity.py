@@ -101,3 +101,28 @@ def _image_identity(value: object) -> dict[str, str]:
     if not raw:
         raise ValueError("INPUT_UNVERIFIABLE")
     return {"sha256": hashlib.sha256(raw).hexdigest(), "mime": prefix[5:]}
+
+
+def story_creation_input_identity(account: str, targets: list[dict[str, object]]) -> str:
+    """Hash the ordered original generation recipe, never generated image results.
+
+    The caller builds effective prompts/voices with the production pure producers.
+    Image references are replaced by their actual bytes, not mutable URLs.
+    """
+    if not _DIGEST.fullmatch(account):
+        raise ValueError("ACCOUNT_UNVERIFIABLE")
+    if not targets or len(targets) > 256:
+        raise ValueError("INPUT_UNVERIFIABLE")
+    return hashlib.sha256(
+        json.dumps(
+            {"schema": "story-creation-v1", "account": account, "targets": targets},
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+
+
+def story_reference_identity(source: str) -> dict[str, str]:
+    return _image_identity({"url": source})

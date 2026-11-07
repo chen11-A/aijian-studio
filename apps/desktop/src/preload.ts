@@ -596,6 +596,12 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("story-film:video-recover", projectId, attemptId),
   saveRecoveredGenerationVideo: (projectId: string, attemptId: string) =>
     ipcRenderer.invoke("story-film:video-recovery-save", projectId, attemptId),
+  getStoryCreationFailurePolicy: (projectId: string) =>
+    ipcRenderer.invoke("story-film:creation-failure-policy", projectId),
+  configureStoryCreationFailurePolicy: (
+    projectId: string,
+    input: ConfigureGenerationFailurePolicy,
+  ) => ipcRenderer.invoke("story-film:configure-creation-failure-policy", projectId, input),
   getGenerationFailurePolicy: (projectId: string) =>
     ipcRenderer.invoke("story-film:failure-policy", projectId),
   configureGenerationFailurePolicy: (projectId: string, input: ConfigureGenerationFailurePolicy) =>

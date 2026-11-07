@@ -82,6 +82,12 @@ describe("structured business notices", () => {
       "ASSISTANT_REFERENCE_SYNTAX",
       "ASSISTANT_REFERENCE_STALE",
     ]);
+    const creationFailureCodes = new Set([
+      "CREATION_UNCONFIGURED",
+      "CREATION_INPUT_UNVERIFIABLE",
+      "CREATION_INPUT_FAILURE_LIMIT",
+      "CREATION_ATTEMPT_ALREADY_RESERVED",
+    ]);
     const videoFailureCodes = new Set([
       "VIDEO_FAILURE_UNCONFIGURED",
       "VIDEO_FAILURE_ACCOUNT_UNVERIFIABLE",
@@ -117,6 +123,7 @@ describe("structured business notices", () => {
     ]);
     const legacyRows = rows.filter(
       (row) =>
+        !creationFailureCodes.has(row[1]!) &&
         !videoFailureCodes.has(row[1]!) &&
         !referenceCodes.has(row[1]!) &&
         !writerStructureCodes.has(row[1]!) &&
@@ -131,6 +138,16 @@ describe("structured business notices", () => {
         !historyCodes.has(row[1]!) &&
         !assemblyCodes.has(row[1]!),
     );
+    const creationFailureRows = rows.filter((row) => creationFailureCodes.has(row[1]!));
+    expect(creationFailureRows).toHaveLength(4);
+    expect(new Set(creationFailureRows.map((row) => row[1]))).toEqual(creationFailureCodes);
+    for (const [, code, fallback, copy] of creationFailureRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: copy!.trim(),
+      });
+    }
     const videoFailureRows = rows.filter((row) => videoFailureCodes.has(row[1]!));
     expect(videoFailureRows).toHaveLength(5);
     expect(new Set(videoFailureRows.map((row) => row[1]))).toEqual(videoFailureCodes);

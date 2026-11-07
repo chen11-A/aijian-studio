@@ -1983,6 +1983,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/story-creation-failure-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Creation */
+        get: operations["getStoryCreationFailurePolicy"];
+        /** Configure Creation */
+        put: operations["configureStoryCreationFailurePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/story-film": {
         parameters: {
             query?: never;
@@ -10155,6 +10173,24 @@ export interface components {
             schema_version: "1.0.0";
             /** Version Number */
             version_number: number;
+        };
+        /** StoryCreationFailurePolicyData */
+        StoryCreationFailurePolicyData: {
+            /** Failure Limit */
+            failure_limit: number | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Scope
+             * @default GROK_STORY_CREATION_FAILURES
+             * @constant
+             */
+            scope: "GROK_STORY_CREATION_FAILURES";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "UNCONFIGURED" | "CONFIGURED";
         };
         /** StoryDialogueBody */
         StoryDialogueBody: {
@@ -20210,6 +20246,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getStoryCreationFailurePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryCreationFailurePolicyData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configureStoryCreationFailurePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigureGenerationFailure"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryCreationFailurePolicyData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

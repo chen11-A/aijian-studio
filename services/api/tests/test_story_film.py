@@ -58,6 +58,11 @@ def _configured_project(tmp_path):
         expected_revision=0,
         failure_limit=10,
     )
+    GenerationFailureStore(repository, scope="story_creation").configure(
+        project_id,
+        expected_revision=0,
+        failure_limit=10,
+    )
     return repository, project_id
 
 

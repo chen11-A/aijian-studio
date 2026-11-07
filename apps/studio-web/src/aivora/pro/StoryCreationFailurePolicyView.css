@@ -1,0 +1,17 @@
+.pro-root .dialog.story-creation-failure-policy {
+  max-width: 680px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+.pro-root .story-creation-failure-policy p {
+  margin-block: 12px;
+  overflow-wrap: anywhere;
+}
+.pro-root .story-creation-failure-policy label {
+  display: grid;
+  gap: 8px;
+}
+.pro-root .story-creation-failure-policy > .acts {
+  position: static;
+  flex-wrap: wrap;
+}

@@ -49,6 +49,11 @@ def test_unconfigured_and_unverified_account_precede_all_new_media(tmp_path, mon
     assert result.user_message["code"] == "VIDEO_FAILURE_UNCONFIGURED"
     assert not transport.requests
     GenerationFailureStore(repository).configure(project, expected_revision=0, failure_limit=1)
+    GenerationFailureStore(repository, scope="story_creation").configure(
+        project,
+        expected_revision=0,
+        failure_limit=10,
+    )
     result = service.produce(
         project,
         replace(_request("grok_subscription"), idempotency_key=f"story-film:v1:{uuid4()}"),
@@ -65,6 +70,11 @@ def test_real_post_and_get_success_then_cache_need_no_new_allowance(tmp_path, mo
     transport = scripted(clip, voice)
     store = GenerationFailureStore(repository)
     store.configure(project, expected_revision=0, failure_limit=1)
+    GenerationFailureStore(repository, scope="story_creation").configure(
+        project,
+        expected_revision=0,
+        failure_limit=10,
+    )
     service = StoryFilmService(repository, toolchain, transport=transport)
     service._sleep = lambda _: None
     request = _request("grok_subscription")
@@ -154,6 +164,11 @@ def test_submitted_unknown_survives_new_key_and_restart_without_another_video_po
     _clip, voice = _media_bytes(tmp_path)
     store = GenerationFailureStore(repository)
     store.configure(project, expected_revision=0, failure_limit=1)
+    GenerationFailureStore(repository, scope="story_creation").configure(
+        project,
+        expected_revision=0,
+        failure_limit=10,
+    )
     # POST is entered but no response is available: an actual uncertain dispatch,
     # not a local validation failure or a GET poll counted as another generation.
     transport = _ScriptedTransport(
@@ -201,6 +216,11 @@ def test_two_identical_video_inputs_in_one_film_release_each_known_success(tmp_p
     clip, voice = _media_bytes(tmp_path)
     store = GenerationFailureStore(repository)
     store.configure(project, expected_revision=0, failure_limit=1)
+    GenerationFailureStore(repository, scope="story_creation").configure(
+        project,
+        expected_revision=0,
+        failure_limit=1,
+    )
     # Distinct target indices, identical actual video bodies; raw voice can be reused.
     responses = [XaiHttpResponse(200, voice, "audio/wav")]
     for _ in range(2):
@@ -219,6 +239,15 @@ def test_two_identical_video_inputs_in_one_film_release_each_known_success(tmp_p
     assert len(posts) == 2, result.message
     assert posts[0].body == posts[1].body
     assert result.status == "SUCCEEDED", result.message
+    with repository._connection() as connection:
+        assert (
+            connection.execute("SELECT status FROM story_creation_failure_attempt").fetchall()[0][0]
+            == "SUCCEEDED"
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM story_creation_failure_attempt").fetchone()[0]
+            == 1
+        )
 
 
 def test_known_video_success_is_not_reclassified_by_local_export_failure(tmp_path, monkeypatch):
@@ -227,6 +256,11 @@ def test_known_video_success_is_not_reclassified_by_local_export_failure(tmp_pat
     clip, voice = _media_bytes(tmp_path)
     store = GenerationFailureStore(repository)
     store.configure(project, expected_revision=0, failure_limit=1)
+    GenerationFailureStore(repository, scope="story_creation").configure(
+        project,
+        expected_revision=0,
+        failure_limit=10,
+    )
     transport = scripted(clip, voice)
     service = StoryFilmService(repository, toolchain, transport=transport)
     service._sleep = lambda _: None
@@ -266,6 +300,11 @@ def test_known_unverifiable_reference_blocks_before_any_new_image_or_tts(
     repository, project = _project(tmp_path)
     _allow_live(monkeypatch, tmp_path / "status.log")
     GenerationFailureStore(repository).configure(project, expected_revision=0, failure_limit=1)
+    GenerationFailureStore(repository, scope="story_creation").configure(
+        project,
+        expected_revision=0,
+        failure_limit=10,
+    )
     transport = _ScriptedTransport([])
     service = StoryFilmService(repository, toolchain, transport=transport)
     shot = StoryShot(
