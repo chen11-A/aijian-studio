@@ -4,6 +4,8 @@ import path from "node:path";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
+import { installAssemblyAuditBridge, readAssemblyReadiness } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import { loadLibraryAuditCatalog } from "./pro-audio-library-fixture.mjs";
@@ -50,10 +52,13 @@ export async function runShotAudioCases({ browser, config, report, media, persis
             rejectedWrites: window.__shotAudioAudit.rejectedWrites,
             flushes: window.__shotAudioAudit.flushes,
             assemblies: window.__proCreationAudit.assemblies,
+            nativeAssemblies: window.__assemblyAudit.calls,
+            legacyAssemblies: window.__assemblyAudit.legacy,
             forbidden: [
               ...window.__shotAudioAudit.forbidden,
               ...window.__proCreationAudit.forbidden,
               ...window.__exportQcAudit.forbidden,
+              ...window.__assemblyAudit.forbidden,
             ],
           }));
         const frame = () =>
@@ -126,9 +131,9 @@ export async function runShotAudioCases({ browser, config, report, media, persis
           if (u.href === mediaUrl) return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state: "clean", aspect });
-        await page.addInitScript(installCreationBridge, { state });
-        await page.addInitScript(installShotAudioBridge, { state, catalog });
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installCreationBridge.toString()})(${JSON.stringify({ state })});(${installShotAudioBridge.toString()})(${JSON.stringify({ state, catalog })});(${installAssemblyAuditBridge.toString()})();`,
+        });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
           await page.evaluate(seedProProject, {
@@ -146,6 +151,8 @@ export async function runShotAudioCases({ browser, config, report, media, persis
           );
           await nav("剪辑").click();
           assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "edit");
+          await page.waitForFunction(() => window.__assemblyAudit.calls.length === 1);
+          await waitAssemblyIdle(page, seed.projectId);
           await button("重试音轨试听").waitFor();
           const before = await record(seed.projectId);
           assert.equal(before.shots.length, 6);
@@ -327,6 +334,11 @@ export async function runShotAudioCases({ browser, config, report, media, persis
           );
           assert.deepEqual(after.audioClips, before.audioClips);
           assert.deepEqual(after.characters, before.characters);
+          await page.waitForFunction(
+            (count) => window.__assemblyAudit.calls.length === count,
+            state === "shot-audio-pending-stale" ? 2 : 1,
+          );
+          await waitAssemblyIdle(page, seed.projectId);
           const actual = await calls();
           assert.equal(
             actual.calls.length,
@@ -334,22 +346,18 @@ export async function runShotAudioCases({ browser, config, report, media, persis
           );
           assert(actual.calls.every((c) => c.matched));
           assert.deepEqual(actual.forbidden, []);
-          assert.equal(actual.assemblies.length, 1);
-          assert.deepEqual(actual.assemblies[0], {
-            projectId: before.id,
-            seriesId: before.seriesId,
-            paths: before.shots.map(
-              (s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath,
-            ),
-            musicPath: "",
-            gainDb: -14,
-            dialogue: before.shots.map(() => ""),
-          });
+          assert.deepEqual(actual.assemblies, []);
+          assert.deepEqual(actual.legacyAssemblies, []);
+          assertAssemblyRequests(
+            actual.nativeAssemblies,
+            state === "shot-audio-pending-stale" ? [before, after] : [before],
+          );
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = actual;
           result.passed = true;
         } catch (error) {
+          result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-shot-audio-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
           );

@@ -10,6 +10,7 @@ import path from "node:path";
 import { TextEncoder } from "node:util";
 import { runInNewContext } from "node:vm";
 import { createServer } from "vite";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installCreationBridge } from "./pro-creation-fixture.mjs";
 import { seedAudioMixProject, installAudioMixBridge } from "./pro-audio-mix-fixture.mjs";
 import { audioMixStates, silentWav } from "./pro-audio-mix-cases.mjs";
@@ -77,6 +78,7 @@ function setup(state = "mix-lane-settings") {
   const bytes = silentWav(),
     sha = createHash("sha256").update(bytes).digest("hex");
   installAudioMixBridge({ state, planUrl, wavBase64: bytes.toString("base64"), wavSha256: sha });
+  installAssemblyAuditBridge();
   const creation = window.__proCreationAudit,
     audit = window.__proAudioMixAudit,
     bridge = window.aijian;

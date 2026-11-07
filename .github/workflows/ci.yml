@@ -498,3 +498,44 @@ jobs:
             .aijian-dev/pro-dialogue-split-audit/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7
+
+  pro-assembly:
+    name: pro-assembly (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify common assembly fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-assembly-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace shared assembly actual clocks and cancellation
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-assembly-audit
+        run: node apps/studio-web/e2e/pro-assembly-audit.mjs
+
+      - name: Upload common assembly execution UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-assembly-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-assembly-audit/report.json
+            .aijian-dev/pro-assembly-audit/1280x800-*/*.png
+            .aijian-dev/pro-assembly-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7

@@ -6,6 +6,8 @@ import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
+import { installAssemblyAuditBridge, readAssemblyReadiness } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import { installAudioMixBridge, seedAudioMixProject } from "./pro-audio-mix-fixture.mjs";
@@ -35,21 +37,6 @@ export function silentWav() {
   return bytes;
 }
 const takeFacts = (film) => film.shots.map((s) => ({ id: s.id, takes: s.takes }));
-const expectedAssembly = (film) => ({
-  projectId: film.id,
-  seriesId: film.seriesId,
-  paths: film.shots.map((s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath),
-  musicPath: film.audioClips.find((c) => c.lane === "score" && c.path)?.path ?? "",
-  gainDb: film.audioClips.find((c) => c.lane === "score" && c.path)?.gainDb ?? -14,
-  // Fixed fixture expectation: only this selected-and-enabled voice is eligible. Old,
-  // disabled and unbound clips are retained as negative data, never fallback choices.
-  dialogue: film.shots.map((s) => {
-    const voice = film.audioClips.find((c) => c.id === "mix-dialogue");
-    return s.id === voice.shotId && s.selectedTakeId === voice.takeId && voice.enabled !== false
-      ? "/synthetic/mix-dialogue.wav"
-      : "";
-  }),
-});
 export async function runAudioMixCases({ browser, config, report, media, persist }) {
   const projectModuleUrl = new URL("/src/aivora/film/project.ts", config.url).href;
   const planPath = fileURLToPath(
@@ -93,10 +80,13 @@ export async function runAudioMixCases({ browser, config, report, media, persist
             waves: window.__proAudioMixAudit.waves,
             prepare: window.__proAudioMixAudit.prepare,
             assemblies: window.__proCreationAudit.assemblies,
+            nativeAssemblies: window.__assemblyAudit.calls,
+            legacyAssemblies: window.__assemblyAudit.legacy,
             forbidden: [
               ...window.__proAudioMixAudit.forbidden,
               ...window.__proCreationAudit.forbidden,
               ...window.__exportQcAudit.forbidden,
+              ...window.__assemblyAudit.forbidden,
             ],
           }));
         const button = (name) => page.getByRole("button", { name, exact: true });
@@ -155,13 +145,8 @@ export async function runAudioMixCases({ browser, config, report, media, persist
           if (u.href === mediaUrl) return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state: "clean", aspect });
-        await page.addInitScript(installCreationBridge, { state });
-        await page.addInitScript(installAudioMixBridge, {
-          state,
-          planUrl,
-          wavBase64: wav.toString("base64"),
-          wavSha256: createHash("sha256").update(wav).digest("hex"),
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installCreationBridge.toString()})(${JSON.stringify({ state })});(${installAudioMixBridge.toString()})(${JSON.stringify({ state, planUrl, wavBase64: wav.toString("base64"), wavSha256: createHash("sha256").update(wav).digest("hex") })});(${installAssemblyAuditBridge.toString()})();`,
         });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
@@ -178,7 +163,16 @@ export async function runAudioMixCases({ browser, config, report, media, persist
           await page.waitForFunction(() =>
             Object.hasOwn(window.__proCreationAudit.saved().characters[0], "gender"),
           );
-          const before = await saved();
+          const before = await saved(),
+            expectedAssemblies = [];
+          async function admitted(film) {
+            expectedAssemblies.push(film);
+            await page.waitForFunction(
+              (count) => window.__assemblyAudit.calls.length === count,
+              expectedAssemblies.length,
+            );
+            await waitAssemblyIdle(page, film.id);
+          }
           assert.equal(before.shots.length, 6);
           assert.ok(before.shots.every((s) => s.takes.length === 3));
           await nav("剪辑").click();
@@ -188,6 +182,7 @@ export async function runAudioMixCases({ browser, config, report, media, persist
           await geometry();
           if (state === "mix-lane-settings") {
             await ready();
+            await admitted(before);
             const settings = [
               ["对白", "dialogue", 1],
               ["环境音", "ambience", 2],
@@ -198,7 +193,16 @@ export async function runAudioMixCases({ browser, config, report, media, persist
               const slider = page.getByRole("slider", { name: `${label}音量`, exact: true });
               await slider.scrollIntoViewIfNeeded();
               await slider.press("End");
-              for (let i = 0; i < steps; i++) await slider.press("ArrowLeft");
+              for (let i = 0; i < steps; i++) {
+                await slider.press("ArrowLeft");
+                await page.waitForFunction(
+                  ({ lane, gainDb }) =>
+                    window.__proCreationAudit.saved().audioMix?.lanes[lane].gainDb === gainDb,
+                  { lane, gainDb: -(i + 1) / 10 },
+                );
+                // Serialize actual consumed revisions, not arbitrary time windows or loose N calls.
+                await admitted(await saved());
+              }
               assert.equal(await slider.inputValue(), String(100 - steps));
               await page.waitForFunction(
                 ({ lane, gainDb }) =>
@@ -211,16 +215,19 @@ export async function runAudioMixCases({ browser, config, report, media, persist
               () => window.__proCreationAudit.saved().audioMix?.lanes.dialogue.muted === true,
             );
             const configured = await saved();
+            await admitted(configured);
             assert.deepEqual(configured.audioClips, before.audioClips);
             assert.equal(configured.audioMix.autoAdjustVolume, false);
             await chooseSecond();
             await ready();
+            await admitted(await saved());
             assert.equal(await button("静音对白").getAttribute("aria-pressed"), "true");
             assert.deepEqual((await saved()).audioMix, configured.audioMix);
             result.persistedLanes = Object.keys(configured.audioMix.lanes).sort();
             await geometry();
           } else if (state === "mix-solo-export") {
             await ready();
+            await admitted(before);
             await reachable(button("单听环境音"));
             await button("单听环境音").click();
             await page.getByText("当前只试听环境音，不改变导出。", { exact: true }).waitFor();
@@ -282,6 +289,7 @@ export async function runAudioMixCases({ browser, config, report, media, persist
             await geometry();
           } else {
             await page.waitForFunction(() => window.__proAudioMixAudit.pending.length === 1);
+            assert.equal(await page.evaluate(() => window.__assemblyAudit.calls.length), 0);
             await chooseSecond();
             await page.waitForFunction(() => window.__proAudioMixAudit.pending.length === 2);
             const requests = (await audit()).requests;
@@ -305,6 +313,7 @@ export async function runAudioMixCases({ browser, config, report, media, persist
             await geometry();
           }
           const after = await saved();
+          if (["mix-preview-retry", "mix-stale-reply"].includes(state)) await admitted(after);
           assert.deepEqual(takeFacts(after), takeFacts(before));
           assert.deepEqual(after.audioClips, before.audioClips);
           const calls = await audit();
@@ -321,16 +330,16 @@ export async function runAudioMixCases({ browser, config, report, media, persist
           );
           assert.ok(calls.reads.every((r) => r.matched));
           assert.ok(calls.waves.every((r) => r.matched));
-          const expected = [expectedAssembly(before)];
-          if (["mix-lane-settings", "mix-stale-reply"].includes(state))
-            expected.push(expectedAssembly(after));
-          assert.deepEqual(calls.assemblies, expected);
+          assert.deepEqual(calls.assemblies, []);
+          assert.deepEqual(calls.legacyAssemblies, []);
+          assertAssemblyRequests(calls.nativeAssemblies, expectedAssemblies);
           assert.deepEqual(calls.forbidden, []);
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = calls;
           result.passed = true;
         } catch (error) {
+          result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-audio-mix-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
           );

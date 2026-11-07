@@ -4,6 +4,8 @@ import path from "node:path";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
+import { installAssemblyAuditBridge, readAssemblyReadiness } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import {
@@ -95,10 +97,13 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
             waves: window.__proAudioLibraryAudit.waves,
             files: window.__proAudioLibraryAudit.files,
             assemblies: window.__proCreationAudit.assemblies,
+            nativeAssemblies: window.__assemblyAudit.calls,
+            legacyAssemblies: window.__assemblyAudit.legacy,
             forbidden: [
               ...window.__proAudioLibraryAudit.forbidden,
               ...window.__proCreationAudit.forbidden,
               ...window.__exportQcAudit.forbidden,
+              ...window.__assemblyAudit.forbidden,
             ],
           }));
         async function geometry(phase = "state") {
@@ -171,9 +176,9 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
           if (u.href === mediaUrl) return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state: "clean", aspect });
-        await page.addInitScript(installCreationBridge, { state });
-        await page.addInitScript(installAudioLibraryBridge, { state, catalog });
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installCreationBridge.toString()})(${JSON.stringify({ state })});(${installAudioLibraryBridge.toString()})(${JSON.stringify({ state, catalog })});(${installAssemblyAuditBridge.toString()})();`,
+        });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
           await page.evaluate(seedProProject, {
@@ -188,12 +193,15 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
           await page.waitForFunction(() =>
             Object.hasOwn(window.__proCreationAudit.saved().characters[0], "gender"),
           );
-          const before = await saved();
+          const before = await saved(),
+            expectedAssemblies = [before];
           assert.equal(before.shots.length, 6);
           assert.ok(before.shots.every((s) => s.takes.length === 3));
           await nav("剪辑").click();
           assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "edit");
           await button("重试音轨试听").waitFor();
+          await page.waitForFunction(() => window.__assemblyAudit.calls.length === 1);
+          await waitAssemblyIdle(page, before.id);
           await reachable(button("选用本地音效/配乐"), "library-open");
           await button("选用本地音效/配乐").click();
           const dialog = page.getByRole("dialog", { name: "选用本地音效或配乐" });
@@ -265,6 +273,9 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
               const added = await record(before.id),
                 clip = added.audioClips.find((c) => c.id === "audio-library-browser-added");
               assert.ok(clip);
+              expectedAssemblies.push(added);
+              await page.waitForFunction(() => window.__assemblyAudit.calls.length === 2);
+              await waitAssemblyIdle(page, before.id);
               assert.equal(clip.libraryAsset.assetId, asset.id);
               assert.equal(clip.libraryAsset.sha256, asset.sha256);
               assert.equal(
@@ -289,6 +300,9 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
                 before.id,
               );
               const removed = await record(before.id);
+              expectedAssemblies.push(removed);
+              await page.waitForFunction(() => window.__assemblyAudit.calls.length === 3);
+              await waitAssemblyIdle(page, before.id);
               assert.deepEqual(removed.audioClips, before.audioClips);
               assert.deepEqual(mediaFacts(removed), mediaFacts(before));
               assert.deepEqual((await audit()).files, files);
@@ -403,28 +417,16 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
           assert.ok(calls.adds.every((row) => row.matched));
           assert.ok(calls.previews.every((row) => row.matched));
           assert.ok(calls.waves.every((row) => row.matched));
-          const expectedProjects = [before];
-
-          assert.equal(calls.assemblies.length, expectedProjects.length);
-          for (let i = 0; i < expectedProjects.length; i++) {
-            const film = expectedProjects[i];
-            assert.deepEqual(calls.assemblies[i], {
-              projectId: film.id,
-              seriesId: film.seriesId,
-              paths: film.shots.map(
-                (s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath,
-              ),
-              musicPath: "",
-              gainDb: -14,
-              dialogue: film.shots.map(() => ""),
-            });
-          }
+          assert.deepEqual(calls.assemblies, []);
+          assert.deepEqual(calls.legacyAssemblies, []);
+          assertAssemblyRequests(calls.nativeAssemblies, expectedAssemblies);
           assert.deepEqual(calls.forbidden, []);
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = calls;
           result.passed = true;
         } catch (error) {
+          result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-audio-library-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
           );
@@ -457,7 +459,7 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
                 busy: a.inspects.filter((c) => c.busy === true).length,
                 writes: a.writes.length,
                 previews: a.previews.length,
-                assemblies: window.__proCreationAudit.assemblies.length,
+                assemblies: window.__assemblyAudit.calls.length,
               };
             })
             .catch(() => null);
