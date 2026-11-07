@@ -104,7 +104,10 @@ it.each(["invalid", "empty", "rejected"])(
     expect(host.apply).not.toHaveBeenCalled();
     expect(host.current()?.characters).toEqual([]);
     expect(host.notice).toHaveBeenCalledWith(
-      kind === "rejected" ? "人物提取失败，可以重试。" : "没有认出人物和场景，没有写入猜测。",
+      expect.objectContaining({
+        code: kind === "rejected" ? "CAST_PARSE_FAILED" : "CAST_NOT_FOUND",
+        detail: "本次没有新增人物或场景。",
+      }),
     );
   },
 );
@@ -119,4 +122,24 @@ it("does not replace a newer notice with a failed cast response", async () => {
   await pending;
   expect(host.notice).not.toHaveBeenCalled();
   expect(host.apply).not.toHaveBeenCalled();
+});
+
+it("preserves an account/provider reason instead of misreporting a format failure or adding guessed people", async () => {
+  const { base, host } = setup();
+  const before = structuredClone(base);
+  host.request = vi.fn<CastExtractionHost["request"]>().mockResolvedValue({
+    text: null,
+    code: "ENTITLEMENT_DENIED",
+    detail: "当前会员暂时没有文字生成功能。",
+  });
+  await extractAndMergeCast(base, castExtractionStory(base)!, host);
+  expect(host.request).toHaveBeenCalledOnce();
+  expect(host.apply).not.toHaveBeenCalled();
+  expect(host.current()).toEqual(before);
+  expect(host.notice).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: "ENTITLEMENT_DENIED",
+      detail: "当前会员暂时没有文字生成功能。 本次没有新增人物或场景。",
+    }),
+  );
 });

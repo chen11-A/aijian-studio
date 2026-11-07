@@ -1,3 +1,5 @@
+import type { UiNotice } from "../../film/contracts3j";
+import { agentFailureNotice } from "./agent-failure-notice";
 import { updateShot } from "../../film/operations";
 import { parseLooseJson, prompterFromModel, withIdentityLocks } from "../../film/phase2";
 import { keyframePrompt, type FilmProject, type FilmShot } from "../../film/project";
@@ -9,7 +11,7 @@ export type PrompterActionHost = {
 };
 export type PrompterActionResult =
   | { status: "stale" }
-  | { status: "rejected"; notice: string }
+  | { status: "rejected"; notice: string; structuredNotice: UiNotice }
   | { status: "ready"; film: FilmProject; zh: string; en: string; missing: string[] };
 
 /** Prepare the same two prompt-field updates; the workspace retains final guard and persistence. */
@@ -23,7 +25,10 @@ export async function planPrompterDraft(
   if (!host.current()) return { status: "stale" };
   const parsed = reply.text ? prompterFromModel(parseLooseJson(reply.text)) : null;
   if (!parsed)
-    return { status: "rejected", notice: reply.text ? "提示词没有按格式返回。" : reply.detail };
+    return {
+      status: "rejected",
+      ...agentFailureNotice(reply, "PLANPROMPTER_FAILED", "本次没有修改画面说明。"),
+    };
   const zh = withIdentityLocks(parsed.zh || locked.prompt, film.characters, shot.characters);
   return {
     status: "ready",

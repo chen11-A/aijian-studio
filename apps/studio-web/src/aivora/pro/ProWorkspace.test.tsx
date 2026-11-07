@@ -1801,10 +1801,10 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
 
   pickHelper("美术");
   fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
-  expect(await screen.findByText(/美术没有按格式返回/)).toBeInTheDocument();
+  expect(await screen.findByText(/美术这次没写完.*本次没有修改作品/)).toBeInTheDocument();
   openBoardTools();
   fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
-  expect(await screen.findByText(/提示词没有按格式返回/)).toBeInTheDocument();
+  expect(await screen.findByText(/画面说明这次没写完.*本次没有修改画面说明/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "审一下这一镜的文字" }));
   expect(await screen.findByText(/还不能看画面/)).toBeInTheDocument();
   fireEvent.click(stageTab("剧本"));
@@ -1825,10 +1825,10 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   mode = "bad";
   pickHelper("美术");
   fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
-  expect(await screen.findByText(/美术没有按格式返回/)).toBeInTheDocument();
+  expect(await screen.findByText(/美术这次没写完.*本次没有修改作品/)).toBeInTheDocument();
   openBoardTools();
   fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
-  expect(await screen.findByText(/提示词没有按格式返回/)).toBeInTheDocument();
+  expect(await screen.findByText(/画面说明这次没写完.*本次没有修改画面说明/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "审一下这一镜的文字" }));
   expect(await screen.findByText(/还不能看画面/)).toBeInTheDocument();
   fireEvent.click(stageTab("剧本"));
@@ -1842,9 +1842,9 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   await waitFor(() =>
     expect(completeText.mock.calls.length).toBeGreaterThanOrEqual(beforeSend + 3),
   );
-  expect(
-    (await screen.findAllByText(/还不能看画面|没有按格式返回|离线|软件自己的规则/)).length,
-  ).toBeGreaterThan(0);
+  expect((await screen.findAllByText(/美术这次没写完.*本次没有修改作品/)).length).toBeGreaterThan(
+    0,
+  );
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
   await expectSavedPipelineCode("WRITER_PARSE_FAILED");
   expect(window.aijian!.createStoryFilm).not.toHaveBeenCalled();
