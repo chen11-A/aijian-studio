@@ -37,6 +37,7 @@ describe("main delivery evidence presentation", () => {
     expect(view).toEqual({
       kind: "failed",
       reason: "write-failed",
+      cleanupUnconfirmed: false,
       files: [{ name: "已落视频.mp4", role: "视频", aspect: "16:9", facts: [] }],
     });
   });
@@ -74,4 +75,19 @@ describe("main delivery evidence presentation", () => {
       expect(deliveryEvidenceView(raw, "PUBLISHED")).toEqual({ kind: "invalid" });
     }
   });
+});
+it("accepts already-written complete JSON on cleanup-only PARTIAL solely with main's explicit flag", () => {
+  const raw = writtenDelivery(),
+    before = structuredClone(raw);
+  expect(deliveryEvidenceView(raw, "PARTIAL")).toEqual({ kind: "invalid" });
+  raw.cleanupUnconfirmed = true;
+  const view = deliveryEvidenceView(raw, "PARTIAL");
+  expect(view.kind).toBe("written");
+  if (view.kind !== "written") throw Error("missing written view");
+  expect(view.cleanupUnconfirmed).toBe(true);
+  expect(view.filesPartial).toBe(false);
+  expect(view.sha).toBe(before.manifestSha256);
+  expect(raw.manifest).toEqual(before.manifest);
+  Object.assign(raw, { cleanupUnconfirmed: false });
+  expect(deliveryEvidenceView(raw, "PARTIAL")).toEqual({ kind: "invalid" });
 });

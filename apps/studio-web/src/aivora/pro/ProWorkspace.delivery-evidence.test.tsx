@@ -284,3 +284,62 @@ it("keeps real written evidence when only the engineering record save fails", as
   expect(screen.getByRole("button", { name: "打开文件夹" })).toBeEnabled();
   expect(f.publish).toHaveBeenCalledTimes(1);
 });
+it.each(["WRITTEN", "FAILED"] as const)(
+  "keeps actual %s evidence and truthful cleanup uncertainty without repeating publish",
+  async (kind) => {
+    const f = await open(),
+      written = writtenDelivery();
+    written.cleanupUnconfirmed = true;
+    f.publish.mockResolvedValueOnce({
+      kind: "PARTIAL",
+      outputs: [{ aspectRatio: "16:9", path: "/synthetic/cleanup-written.mp4" }],
+      deliveryEvidence:
+        kind === "WRITTEN"
+          ? written
+          : {
+              kind: "FAILED",
+              code: "EVIDENCE_WRITE_FAILED",
+              cleanupUnconfirmed: true,
+              files: [{ role: "video", aspectRatio: "16:9", fileName: "已落视频.mp4" }],
+            },
+    });
+    f.publishNow();
+    if (kind === "WRITTEN") {
+      await screen.findByText("清单已写入，暂存清理未确认。");
+      expect(screen.getByRole("heading", { name: "交付清单已生成" })).toBeInTheDocument();
+      expect(screen.getByText(written.manifestSha256)).toBeInTheDocument();
+      expect(
+        screen.queryByText("本次导出仅完成一部分，已写出的文件保留。"),
+      ).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(document.querySelector(".status-note")?.getAttribute("title")).toContain(
+          "交付清单已写入，暂存清理尚未确认。",
+        ),
+      );
+    } else {
+      await screen.findByText("交付清单与暂存清理尚未确认。");
+      expect(screen.getByText("已落视频.mp4")).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "交付清单已生成" })).not.toBeInTheDocument();
+    }
+    expect(document.querySelector(".status-note")?.getAttribute("title")).not.toContain(
+      "其余没有发布",
+    );
+    expect(f.publish).toHaveBeenCalledTimes(1);
+    expect(f.prepare).toHaveBeenCalledTimes(1);
+    expect(f.provider).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "打开文件夹" })).toBeEnabled();
+  },
+);
+it("refuses the complete-manifest/partial-operation combination without the explicit cleanup flag", async () => {
+  const f = await open();
+  f.publish.mockResolvedValueOnce({
+    kind: "PARTIAL",
+    outputs: [{ aspectRatio: "16:9", path: "/synthetic/inconsistent.mp4" }],
+    deliveryEvidence: writtenDelivery(),
+  });
+  f.publishNow();
+  await screen.findByText("交付证据没有读懂，请核对已发布的文件。");
+  expect(screen.queryByRole("heading", { name: "交付清单已生成" })).not.toBeInTheDocument();
+  expect(f.publish).toHaveBeenCalledTimes(1);
+  expect(f.provider).not.toHaveBeenCalled();
+});
