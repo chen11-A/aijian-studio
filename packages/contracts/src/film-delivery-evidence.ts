@@ -1,4 +1,4 @@
-import type { FilmExportQcSettings } from "./film-export-qc";
+import type { FilmExportQcSettings } from "./film-export-qc.js";
 
 /** Facts from the checked final file. Null is explicitly unknown, never inferred from settings. */
 export type FilmDeliveryTechnical = {
@@ -70,12 +70,15 @@ export type FilmDeliveryManifest = {
 export type FilmDeliveryEvidenceResult =
   | {
       kind: "WRITTEN";
+      /** Public files are real; private temporary cleanup was not confirmed. */
+      cleanupUnconfirmed?: true;
       fileName: string;
       manifestSha256: string;
       manifest: FilmDeliveryManifest;
     }
   | {
       kind: "FAILED";
+      cleanupUnconfirmed?: true;
       code: "EVIDENCE_WRITE_FAILED" | "EVIDENCE_UNAVAILABLE";
       /** Only files main has confirmed exist; no invented sidecars or expected filenames. */
       files: FilmDeliveryFileReference[];

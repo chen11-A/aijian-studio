@@ -93,6 +93,10 @@ export async function checkExport(mp4Path, options = {}) {
     intervalIssues(type, readIntervals(visual, type, duration, frameDuration), duration, dialogue),
   );
   const audioStream = probe.streams.find((stream) => stream.codec_type === "audio");
+  if (typeof options.onMediaInfo === "function") {
+    // Reuse this exact read-only probe. Never expose raw metadata/tags or paths.
+    options.onMediaInfo(technicalMediaInfo(probe, video, width, height));
+  }
   let audio = { present: Boolean(audioStream), integratedLufs: null, truePeakDbtp: null };
   if (audioStream) {
     const audioLog = (
@@ -132,5 +136,62 @@ export async function checkExport(mp4Path, options = {}) {
       subtitleLayout: subtitles?.layout ?? null,
     },
     issues,
+  };
+}
+
+/** Curated facts only; this adds no probe, detector, thresholds, or quality claim. */
+export function technicalMediaInfo(probe, video, displayWidth, displayHeight) {
+  const number = (value, minimum = 0, maximum = 1e9) => {
+    if (!["string", "number"].includes(typeof value) || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
+  };
+  const name = (value) =>
+    typeof value === "string" &&
+    /^[a-zA-Z0-9_.()+-]{1,48}$/.test(value) &&
+    !["unknown", "unspecified", "N/A"].includes(value)
+      ? value
+      : null;
+  const videoDuration = number(video?.duration, Number.EPSILON);
+  const formatDuration = number(probe?.format?.duration, Number.EPSILON);
+  const rate =
+    typeof video?.avg_frame_rate === "string" &&
+    /^(?:[0-9]+)\/(?:[0-9]+)$/.test(video.avg_frame_rate)
+      ? video.avg_frame_rate.split("/").map(Number)
+      : [];
+  const fps =
+    rate.length === 2 && rate[1] > 0 ? number(rate[0] / rate[1], Number.EPSILON, 1000) : null;
+  const audio = Array.isArray(probe?.streams)
+    ? probe.streams.filter((row) => row?.codec_type === "audio")
+    : null;
+  return {
+    durationSeconds: videoDuration ?? formatDuration,
+    durationBasis:
+      videoDuration !== null ? "video-stream" : formatDuration !== null ? "container" : "unknown",
+    video: video
+      ? {
+          codec: name(video.codec_name),
+          width: number(video.width, 1, 32768),
+          height: number(video.height, 1, 32768),
+          displayWidth: number(displayWidth, 1, 32768),
+          displayHeight: number(displayHeight, 1, 32768),
+          averageFrameRate: fps,
+          pixelFormat: name(video.pix_fmt),
+          colorSpace: name(video.color_space),
+          colorPrimaries: name(video.color_primaries),
+          colorTransfer: name(video.color_transfer),
+          colorRange: name(video.color_range),
+        }
+      : null,
+    audioTracks:
+      audio && audio.length <= 128
+        ? audio.map((row) => ({
+            index: number(row.index, 0, 65535),
+            codec: name(row.codec_name),
+            sampleRate: number(row.sample_rate, 1, 768000),
+            channels: number(row.channels, 1, 128),
+            channelLayout: name(row.channel_layout),
+          }))
+        : null,
   };
 }
