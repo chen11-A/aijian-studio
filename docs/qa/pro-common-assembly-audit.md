@@ -1,6 +1,6 @@
 # Pro 共享合成浏览器检查
 
-本片在独立工作树准备，等待 B08 冻结产品基线后统一合入、静态与正常 Chrome CI 验证。旧 308 态和几何阈值保留；旧桌面夹具的合成调用改核新 `assembleFilmProject`，禁止回退 `assembleFilm`。没有把尚未运行的新页面写成通过。
+本片在独立工作树已合入冻结产品与 preview 生命周期基线 `07b1ca1`；Node、静态与受控宿主探针已验，正常 Chrome 仍待新 CI 验证。旧 308 态和几何阈值保留；旧桌面夹具的合成调用改核新 `assembleFilmProject`，禁止回退 `assembleFilm`。没有把尚未运行的新页面写成通过。
 
 新增四态 × 两窗口（1280×800、1920×1080）× 两画幅（16:9、9:16）：
 
@@ -26,6 +26,8 @@ foreign 基线只观测来自固定 ProWorkspace 文件的真实 400ms autosave�
 - 未知/缺缓存状态不会注入 session clock。fixture 只模拟输入工程和 native 回执；产品需自行派生本机播放 URL。
 - Node 契约验证默认拒绝、精确 CAS/选版、实际时钟、部分结果、取消 ACK 与停止的区别、legacy 禁用及媒体 spy 的窄范围。它们不能替代正常 Chrome、真实 native 文件/FFmpeg、打包资源或 Electron 验收。
 
-复跑入口：`node apps/studio-web/e2e/pro-assembly-audit.mjs`；可用既有 `--url`、`--browser`、`--out` 安全参数。新增独立普通 Ubuntu `pro-assembly` job（16 态），原 workflow 全前缀与旧 308 态不变，总目标 324。artifact 仅明确 report.json 与两个窗口的 PNG，隐藏目录、7 天保留；完整 source hash 固定覆盖 ABI、主进程/gateway、renderer 时钟/工作流/媒体映射、夹具与核心计算文件，不接受任意 hash 路径参数。
+复跑入口：`node apps/studio-web/e2e/pro-assembly-audit.mjs`；可用既有 `--url`、`--browser`、`--out` 安全参数。新增独立普通 Ubuntu `pro-assembly` job（16 态），原 workflow 全前缀保留；旧 308 态数量和几何保留，新 ABI oracle 按上文适配，总目标 324。artifact 仅明确 report.json 与两个窗口的 PNG，隐藏目录、7 天保留；完整 source hash 固定覆盖 ABI、主进程/gateway、renderer 时钟/工作流/媒体映射、夹具与核心计算文件，不接受任意 hash 路径参数。
 
 当前夹具日志：`/tmp/common-assembly-browser-fixture-contract.log`。旧契约联合阶段日志：`/tmp/common-assembly-browser-contracts-stage.log`；最终产品合入与 CI 结果另补，不能复用其他源码的通过结果。
+
+冻结前验证：同源 71 项 Node 契约通过（`/tmp/common-assembly-browser-contracts-final.log`），原真实 Pro/queue probe 从 before 16 次 preview 修后为 8 次，assembly 1、cancel 0、forbidden 0；实际 header scope 与 Pro 400ms timer 观察命中（`/tmp/common-assembly-preview-probe-after.json`、`/tmp/common-assembly-preview-probe-after.log`）。这是一项宿主探针，不计入 324 Chrome 正向；before 日志 `/tmp/common-assembly-preview-probe-before.log` 保留。

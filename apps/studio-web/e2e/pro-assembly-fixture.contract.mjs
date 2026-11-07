@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { webcrypto } from "node:crypto";
 import { TextEncoder } from "node:util";
-import { URL } from "node:url";
-import { readFile } from "node:fs/promises";
+import { URL, fileURLToPath } from "node:url";
+import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { runInNewContext } from "node:vm";
 import { assemblyStates } from "./pro-assembly-cases.mjs";
-import { assertAssemblyRequests } from "./pro-assembly-assertions.mjs";
+import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
 import {
   installAssemblyAuditBridge,
   installAssemblyMediaRequests,
@@ -213,10 +215,10 @@ test("assembly CLI is fixed at sixteen states and rejects unsafe options before 
     ["--url", "https://example.invalid"],
     ["--out", process.cwd()],
   ]) {
-    const result = spawnSync(process.execPath, [cli.pathname, ...args], { encoding: "utf8" });
+    const result = spawnSync(process.execPath, [fileURLToPath(cli), ...args], { encoding: "utf8" });
     assert.equal(result.status, 2);
   }
-  const help = spawnSync(process.execPath, [cli.pathname, "--help"], { encoding: "utf8" });
+  const help = spawnSync(process.execPath, [fileURLToPath(cli), "--help"], { encoding: "utf8" });
   assert.equal(help.status, 0);
   assert.match(help.stdout, /16 expected/u);
   assert.match(help.stdout, /sandbox is always enabled/u);
@@ -284,6 +286,7 @@ test("save readiness observes scoped Pro timer generations and actual writes wit
   const storage = { [`aivora.film.v1.${f.raw.id}`]: JSON.stringify(f.raw) };
   storage.getItem = (key) => storage[key] ?? null;
   window.localStorage = storage;
+  window.requestAnimationFrame = (callback) => Promise.resolve().then(() => callback(0));
   window.document = {
     querySelector: (selector) =>
       selector === ".pro-root"
@@ -321,6 +324,13 @@ test("save readiness observes scoped Pro timer generations and actual writes wit
     });
   installAssemblyAuditBridge();
   const audit = window.__assemblyAudit;
+  await window.aijian.assembleFilmProject(await f.input(), "12345678-1234-4234-8234-123456789abc");
+  const page = {
+    evaluate: (fn, arg) => fn(arg),
+    waitForFunction: (fn, arg) => {
+      assert.equal(fn(arg), true);
+    },
+  };
   const cancelled = window.setTimeout(() => calls++, 400);
   assert.equal(timers.get(cancelled).delay, 400);
   assert.equal(calls, 0);
@@ -343,6 +353,7 @@ test("save readiness observes scoped Pro timer generations and actual writes wit
   }, 400);
   assert.equal(audit.saveTimers[1].generation, 2);
   assert.equal(calls, 0);
+  await assert.rejects(waitAssemblyIdle(page, f.raw.id));
   const result = timers.get(id).handler();
   assert.equal(calls, 1);
   assert.equal(audit.saveTimers[1].status, "fired");
@@ -351,9 +362,12 @@ test("save readiness observes scoped Pro timer generations and actual writes wit
     1,
     "A fired timer is not a completed asynchronous save",
   );
+  await assert.rejects(waitAssemblyIdle(page, f.raw.id));
   releaseWrite();
   assert.deepEqual(await result, f.raw);
   assert.equal(audit.pendingWrites[f.raw.id], 0);
+  await waitAssemblyIdle(page, f.raw.id);
+  assert.equal(audit.lastReadiness.operationId, "12345678-1234-4234-8234-123456789abc");
   storage[`aivora.film.v1.film_duplicate00000001`] = JSON.stringify({
     ...f.raw,
     id: "film_duplicate00000001",
@@ -363,4 +377,33 @@ test("save readiness observes scoped Pro timer generations and actual writes wit
     { projectId: null, stage: "edit" },
     "Ambiguous rendered scope cannot borrow another project's readiness",
   );
+  await assert.rejects(waitAssemblyIdle(page, f.raw.id));
+});
+
+test("missing-browser setup preserves the fixed sixteen-state report and safe environment annotation", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "assembly-audit-negative-"));
+  try {
+    const out = join(folder, "report"),
+      missing = join(folder, "missing-chrome");
+    const result = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("./pro-assembly-audit.mjs", import.meta.url)),
+        "--browser",
+        missing,
+        "--out",
+        out,
+      ],
+      { encoding: "utf8", env: { ...process.env, GITHUB_ACTIONS: "true" } },
+    );
+    assert.equal(result.status, 2);
+    const report = JSON.parse(await readFile(join(out, "report.json"), "utf8"));
+    assert.equal(report.expectedResults, 16);
+    assert.deepEqual(report.expectedStates, assemblyStates);
+    assert.equal(report.chromiumSandbox, true);
+    assert.match(result.stderr, /PRO_ASSEMBLY_SETUP_BROWSER_DISCOVERY/u);
+    assert(!result.stderr.includes(missing));
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
 });

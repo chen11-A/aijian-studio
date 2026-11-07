@@ -51,7 +51,14 @@ export async function waitAssemblyIdle(page, projectId) {
     const own = audit.saveTimers.filter(
       (t) => t.projectId === projectId && t.stage === scope.stage,
     );
-    const marker = { projectId, stage: scope.stage, generation: own.at(-1)?.generation ?? 0 };
+    const marker = {
+      projectId,
+      stage: scope.stage,
+      generation: own.at(-1)?.generation ?? 0,
+      operationId:
+        audit.calls.filter((call) => call.input?.projectId === projectId).at(-1)?.operationId ??
+        null,
+    };
     audit.lastReadiness = marker;
     return scope.projectId === projectId ? marker : null;
   }, projectId);
@@ -68,6 +75,8 @@ export async function waitAssemblyIdle(page, projectId) {
     return (
       scope.projectId === marker.projectId &&
       scope.stage === marker.stage &&
+      audit.calls.filter((call) => call.input?.projectId === marker.projectId).at(-1)
+        ?.operationId === marker.operationId &&
       (own.at(-1)?.generation ?? 0) >= marker.generation &&
       own.every((t) => t.status !== "scheduled") &&
       !audit.saveTimers.some((t) => t.projectId === null && t.status === "scheduled") &&

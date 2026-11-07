@@ -112,7 +112,9 @@ function auditIdentity(kind) {
 function assemblyReadinessCopy(value) {
   if (!value || typeof value !== "object") return "";
   const count = (n) => (Number.isSafeInteger(n) && n >= 0 && n <= 4096 ? n : "unknown");
-  const phase = ["scoped", "scope-changed"].includes(value.phase) ? value.phase : "unknown";
+  const phase = ["scoped", "scope-changed", "native-changed"].includes(value.phase)
+    ? value.phase
+    : "unknown";
   return ` assemblyScope=${phase} assemblyGen=${count(value.generation)} saveTimersPending=${count(value.pendingTimers)} unboundSaveTimers=${count(value.unboundTimers)} writesPending=${count(value.pendingWrites)} nativePending=${count(value.pendingNative)} saving=${Number(value.saving === true)}`;
 }
 
@@ -628,6 +630,7 @@ async function run(config, profile) {
           "apps/studio-web/src/aivora/pro/workflow.ts",
           "apps/studio-web/src/aivora/pro/edit-timeline.ts",
           "apps/studio-web/src/aivora/pro/use-audio-mix-preview.ts",
+          "apps/studio-web/src/aivora/pro/audio-mix-preview-key.ts",
           "apps/studio-web/src/aivora/pro/use-audio-waveforms.ts",
           "apps/studio-web/src/api/studio.ts",
           "apps/desktop/src/film-assembly-ipc.ts",

@@ -380,9 +380,12 @@ export function readAssemblyReadiness() {
     );
   return {
     phase:
-      scope.projectId === marker.projectId && scope.stage === marker.stage
-        ? "scoped"
-        : "scope-changed",
+      scope.projectId !== marker.projectId || scope.stage !== marker.stage
+        ? "scope-changed"
+        : audit.calls.filter((call) => call.input?.projectId === marker.projectId).at(-1)
+              ?.operationId !== marker.operationId
+          ? "native-changed"
+          : "scoped",
     generation: own.at(-1)?.generation ?? 0,
     pendingTimers: own.filter((t) => t.status === "scheduled").length,
     unboundTimers: audit.saveTimers.filter((t) => !t.projectId && t.status === "scheduled").length,
