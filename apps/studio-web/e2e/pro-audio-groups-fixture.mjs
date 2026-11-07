@@ -1,5 +1,7 @@
 /** Controlled apply ABI, not real media copying, planner authorization or playback. */
-export function installAudioGroupsBridge({ state, helperModuleUrl }) {
+export function installAudioGroupsBridge({ state, helperModuleUrl, scope = "shot" }) {
+  if (!["shot", "scene"].includes(scope)) throw Error("INVALID_AUDIT_AUDIO_SCOPE");
+  const scene = scope === "scene";
   const clone = (value) => JSON.parse(JSON.stringify(value)),
     bridge = window.aijian,
     creation = window.__proCreationAudit,
@@ -20,9 +22,10 @@ export function installAudioGroupsBridge({ state, helperModuleUrl }) {
     mode:
       state === "audio-groups-busy"
         ? "hold"
-        : state === "audio-groups-unknown"
+        : state === "audio-groups-unknown" || (scene && state === "scene-audio-unknown")
           ? "transport"
-          : state === "audio-groups-partial-conflict"
+          : state === "audio-groups-partial-conflict" ||
+              (scene && state === "scene-audio-partial-conflict")
             ? "partial-ack"
             : "success",
     serial: 0,
@@ -53,10 +56,11 @@ export function installAudioGroupsBridge({ state, helperModuleUrl }) {
     });
     return result;
   };
-  const suggest = bridge.suggestBundledFilmShotAudio;
-  bridge.suggestBundledFilmShotAudio = async (input) => {
+  const suggestMethod = scene ? "suggestBundledFilmSceneAudio" : "suggestBundledFilmShotAudio";
+  const suggest = bridge[suggestMethod];
+  bridge[suggestMethod] = async (input) => {
     const result = await suggest(input);
-    if (result.kind === "SUGGESTED")
+    if (result.kind === (scene ? "SCENE_SUGGESTED" : "SUGGESTED"))
       audit.review = { plan: clone(result), raw: raw(input.projectId) };
     return result;
   };
@@ -107,8 +111,9 @@ export function installAudioGroupsBridge({ state, helperModuleUrl }) {
 
       return {
         id: `group-${serial}-clip-${i}`,
-        shotId: request.input.shotId,
-        takeId: request.input.takeId,
+        shotId: scene ? segment.shotId : request.input.shotId,
+        takeId: scene ? segment.takeId : request.input.takeId,
+        ...(scene ? { sceneAudioBinding: clone(request.plan.sceneAudioBinding) } : {}),
         lane: segment.lane,
         label: a.name,
         ...segment.placement,
@@ -170,19 +175,30 @@ export function installAudioGroupsBridge({ state, helperModuleUrl }) {
     audit.active = false;
     return { kind: "ADDED", project: clone(project), receipt };
   };
-  bridge.applyBundledFilmShotAudio = async (input) => {
+  const applyMethod = scene ? "applyBundledFilmSceneAudio" : "applyBundledFilmShotAudio";
+  bridge[applyMethod] = async (input) => {
     const review = audit.review,
       value = raw(input.projectId),
       shot = value?.shots.find((s) => s.id === input.shotId);
     const matched =
       !!review &&
       Object.keys(input).sort().join() ===
-        "catalogSha256,expectedProjectHash,lanes,pickerSha256,planFingerprint,projectId,shotId,takeId" &&
+        (scene
+          ? "catalogSha256,expectedProjectHash,expectedSelection,lanes,pickerSha256,planFingerprint,projectId,sceneId"
+          : "catalogSha256,expectedProjectHash,lanes,pickerSha256,planFingerprint,projectId,shotId,takeId") &&
       input.expectedProjectHash === (await creation.hash(value)) &&
       input.projectId === review.plan.projectId &&
-      input.shotId === review.plan.shotId &&
-      input.takeId === review.plan.takeId &&
-      shot?.selectedTakeId === input.takeId &&
+      (scene
+        ? input.sceneId === review.plan.sceneId &&
+          JSON.stringify(input.expectedSelection) ===
+            JSON.stringify(value.shots.map((s) => ({ shotId: s.id, takeId: s.selectedTakeId }))) &&
+          JSON.stringify(input.expectedSelection) ===
+            JSON.stringify(
+              review.plan.clock.shots.map(({ shotId, takeId }) => ({ shotId, takeId })),
+            )
+        : input.shotId === review.plan.shotId &&
+          input.takeId === review.plan.takeId &&
+          shot?.selectedTakeId === input.takeId) &&
       input.catalogSha256 === review.plan.catalogSha256 &&
       input.pickerSha256 === review.plan.pickerSha256 &&
       input.planFingerprint === review.plan.planFingerprint &&

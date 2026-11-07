@@ -22,6 +22,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     ["查看并复制保留稿的文字备忘", "dialogue-split-copy"],
 
     ["查看本镜声音建议", "shot-audio-open"],
+    ["查看本场声音建议", "scene-audio-open"],
     ["刷新建议", "shot-audio-refresh"],
     ["选用所选轨道的完整建议", "shot-audio-apply"],
     ["选用本地音效/配乐", "library-open"],
