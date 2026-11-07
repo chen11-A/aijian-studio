@@ -309,3 +309,13 @@ it("distinguishes current-scene director structure review from actual applicatio
     expect(statusLine(text!, notice)).toEqual({ code, text, detail: "" });
   }
 });
+
+it("distinguishes full-project writer structure review from actual application", () => {
+  for (const [code, text] of [
+    ["WRITER_STRUCTURE_READY", "全项目编剧结构建议已准备好，确认后才修改。"],
+    ["WRITER_STRUCTURE_APPLIED", "全项目编剧场次结构已修改。"],
+  ]) {
+    const notice = normalizeNotice({ code: code!, text: text! });
+    expect(statusLine(text!, notice)).toEqual({ code, text, detail: "" });
+  }
+});
