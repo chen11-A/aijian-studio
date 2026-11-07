@@ -1,0 +1,16 @@
+.pro-root .dialog.generation-failure-policy {
+  max-width: 620px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+.pro-root .generation-failure-policy p {
+  margin-block: 12px;
+  overflow-wrap: anywhere;
+}
+.pro-root .generation-failure-policy label {
+  display: grid;
+  gap: 8px;
+}
+.pro-root .generation-failure-policy .acts {
+  flex-wrap: wrap;
+}

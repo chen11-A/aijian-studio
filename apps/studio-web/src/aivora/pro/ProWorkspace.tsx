@@ -19,6 +19,7 @@ import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useDialogueSplit } from "./use-dialogue-split";
 import { useRiskTrialReview } from "./use-risk-trial-review";
+import { useGenerationFailurePolicy } from "./use-generation-failure-policy";
 import {
   captureAssistantReferences,
   assistantReferencesCurrent,
@@ -1049,6 +1050,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setStage("board");
     },
   });
+  const generationFailurePolicy = useGenerationFailurePolicy(film, () => filmRef.current);
   const audioLibrary = useBundledAudioLibrary(film, stage === "edit", audioLibraryHost);
   const shotAudioSuggestions = useShotAudioSuggestions(
     film,
@@ -6849,6 +6851,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
         )}
         {riskTrialReview.view}
+        {generationFailurePolicy.view}
         {pendingBatch && (
           <div className="dialog-back">
             <div
@@ -7209,6 +7212,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   去改画风
+                </button>
+              </section>
+              <section className="ws-sec" aria-label="视频提交失败保护">
+                <h3>视频提交失败保护</h3>
+                <p className="role-desc">
+                  设置本集同一输入的视频提交失败及未决次数上限，不代替会员或费用确认。
+                </p>
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    setWorkSettings(false);
+                    generationFailurePolicy.open();
+                  }}
+                >
+                  设置视频提交失败上限
                 </button>
               </section>
               <section className="ws-sec" aria-label="历史版本">
