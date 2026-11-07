@@ -1,0 +1,102 @@
+{
+  "source": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+  "run": "42419046672",
+  "browserJobsPassed": 16,
+  "browserJobsTotal": 16,
+  "windowsTargetedJobsPassed": 2,
+  "fullQuality": "PENDING",
+  "jobs": [
+    {
+      "job": "128543303945",
+      "name": "pro-layout (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303990",
+      "name": "pro-creation (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304088",
+      "name": "pro-audio-mix (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303960",
+      "name": "pro-audio-library (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304021",
+      "name": "pro-shot-audio (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303822",
+      "name": "pro-audio-groups (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304196",
+      "name": "speech-window (windows, targeted)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304138",
+      "name": "pro-dialogue-split (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304254",
+      "name": "audio-library-write (windows, targeted)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304171",
+      "name": "pro-assembly (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304281",
+      "name": "pro-scene-audio (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304156",
+      "name": "Pro assistant references UI audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304243",
+      "name": "Pro trial review and video failure policy audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304078",
+      "name": "Pro delivery evidence and existing UI interaction audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303981",
+      "name": "Pro explicit original video recovery audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304113",
+      "name": "Pro explicit actual-version trial review audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304192",
+      "name": "Pro explicit story creation failure policy audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304001",
+      "name": "Pro existing editor interaction audit",
+      "status": "succeeded"
+    }
+  ],
+  "originalBrowserCombinations": 484,
+  "lastLayoutUploadCompletedAt": "2026-11-07T22:17:49Z"
+}

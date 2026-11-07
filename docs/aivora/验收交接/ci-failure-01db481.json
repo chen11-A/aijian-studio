@@ -1,0 +1,18 @@
+{
+  "source": "01db481725bee8811119a549d305cff7b87951fe",
+  "run": "42418376360",
+  "job": "128541288205",
+  "platform": "ubuntu-latest",
+  "step": "Test",
+  "completedAt": "2026-11-07T22:13:35Z",
+  "failedFiles": 1,
+  "failedTests": 1,
+  "file": "apps/studio-web/src/aivora/pro/ProWorkspace.history.test.tsx",
+  "line": 107,
+  "case": "does not announce success when every field conflicts",
+  "expected": "内容后来改过，这次没有覆盖。",
+  "actual": "这次改动不能安全撤销，已保留当前内容。",
+  "contentPreserved": true,
+  "cause": "UNDER_INVESTIGATION; no invented hydration diagnosis",
+  "status": "PRESERVED"
+}
