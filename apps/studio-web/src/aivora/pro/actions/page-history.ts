@@ -118,10 +118,11 @@ type Entry =
   | { structure: EditorStructureTransaction }
   | { art: ArtTransaction; artToken: string }
   | { direction: ShotDirectionTransaction; directionToken: string }
-  | { story: StoryConfirmation };
+  | { story: StoryConfirmation; storyOrigin: EditorSelection; storyToken: string };
 export function createEditorPageHistory() {
   let directionSerial = 0;
   let artSerial = 0;
+  let storySerial = 0;
   const past = new Map<string, Entry[]>(),
     future = new Map<string, Entry[]>();
   const key = (scope: EditorSelection) => JSON.stringify([scope.projectId, scope.page]);
@@ -176,7 +177,14 @@ export function createEditorPageHistory() {
         : applyStoryConfirmation(current, receipt.story);
       if (result.receipt) {
         stack!.pop();
-        to.set(id, [...(to.get(id) ?? []), { story: result.receipt }]);
+        to.set(id, [
+          ...(to.get(id) ?? []),
+          {
+            story: result.receipt,
+            storyOrigin: receipt.storyOrigin,
+            storyToken: receipt.storyToken,
+          },
+        ]);
       }
       return { film: result.film, conflicts: result.conflicts };
     }
@@ -314,16 +322,63 @@ export function createEditorPageHistory() {
     ]);
     return result;
   }
+  function storyEntry(scope: EditorSelection, token: string) {
+    if (!token || typeof token !== "string") return null;
+    const entries = [past, future].flatMap((map, side) =>
+      (map.get(key(scope)) ?? []).flatMap((entry, index) =>
+        "story" in entry && entry.storyToken === token ? [{ entry, index, side }] : [],
+      ),
+    );
+    if (entries.length !== 1 || !sameSelection(entries[0]!.entry.storyOrigin, scope)) return null;
+    return entries[0]!;
+  }
+  function storyReceiptState(scope: EditorSelection, token: string) {
+    const found = storyEntry(scope, token);
+    return !found
+      ? ("missing" as const)
+      : found.side === 0
+        ? ("applied" as const)
+        : ("undone" as const);
+  }
+  function undoStoryReceipt(current: FilmProject, scope: EditorSelection, token: string) {
+    const reject = (code: string) => ({
+      film: current,
+      receipt: null,
+      conflicts: [code],
+      code: "STRUCTURE_CONFLICT" as const,
+    });
+    if (current.id !== scope.projectId) return reject("PROJECT_MISMATCH");
+    const found = storyEntry(scope, token);
+    if (!found || found.side !== 0) return reject("STORY_RECEIPT_MISSING");
+    const result = undoStoryConfirmation(current, found.entry.story);
+    if (!result.receipt) return result;
+    past.get(key(scope))!.splice(found.index, 1);
+    future.set(key(scope), [
+      ...(future.get(key(scope)) ?? []),
+      { story: result.receipt, storyOrigin: found.entry.storyOrigin, storyToken: token },
+    ]);
+    return result;
+  }
   return {
     record,
+    storyReceiptState,
+    undoStoryReceipt,
     artReceiptState,
     undoArtReceipt,
     directionReceiptState,
     undoDirectionReceipt,
     recordStory: (story: StoryConfirmation, origin: EditorSelection) => {
       const id = key(origin);
-      past.set(id, [...(past.get(id) ?? []), { story: structuredClone(story) }].slice(-50));
+      const storyToken = `story-receipt-${++storySerial}`;
+      past.set(
+        id,
+        [
+          ...(past.get(id) ?? []),
+          { story: structuredClone(story), storyOrigin: structuredClone(origin), storyToken },
+        ].slice(-50),
+      );
       future.delete(id);
+      return storyToken;
     },
     recordDirection: (direction: ShotDirectionTransaction) => {
       const id = key(direction.selection);
