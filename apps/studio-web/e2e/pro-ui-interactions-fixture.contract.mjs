@@ -14,6 +14,7 @@ import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installEvidenceLegacyBridge } from "./pro-evidence-legacy-fixture.mjs";
 import {
   installUiInteractionsBridge,
+  observeUiSeekMetadata,
   seedUiInteractionsProject,
 } from "./pro-ui-interactions-fixture.mjs";
 import { uiInteractionStates } from "./pro-ui-interactions-cases.mjs";
@@ -239,4 +240,28 @@ test("actual setup failure reports sixteen expected combinations with sandbox en
   } finally {
     await rm(out, { recursive: true, force: true });
   }
+});
+
+test("seek admission observation delegates real native listener lifecycle without changing media state", () => {
+  setup();
+  const video = new globalThis.EventTarget();
+  const state = observeUiSeekMetadata(video);
+  assert.equal(state.registrations, 0);
+  let callbacks = 0;
+  video.addEventListener(
+    "loadedmetadata",
+    () => {
+      callbacks += 1;
+    },
+    { once: true },
+  );
+  assert.equal(state.registrations, 1);
+  video.dispatchEvent(new globalThis.Event("loadedmetadata"));
+  video.dispatchEvent(new globalThis.Event("loadedmetadata"));
+  assert.equal(callbacks, 1);
+  video.addEventListener("timeupdate", () => undefined);
+  assert.equal(state.registrations, 1);
+  assert.equal(Object.hasOwn(video, "currentTime"), false);
+  assert.equal(Object.hasOwn(video, "duration"), false);
+  assert.equal(Object.hasOwn(video, "readyState"), false);
 });

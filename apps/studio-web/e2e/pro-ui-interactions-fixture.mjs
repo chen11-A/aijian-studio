@@ -51,3 +51,15 @@ export function seedUiInteractionsProject() {
   window.localStorage.setItem(`aivora.film.v1.${film.id}`, text);
   return { projectId: film.id, shotIds: film.shots.map((s) => s.id), seriesId: film.seriesId };
 }
+
+/** Observe only real per-element metadata listener admissions; never changes media state. */
+export function observeUiSeekMetadata(video) {
+  const state = { registrations: 0 };
+  const add = video.addEventListener;
+  video.addEventListener = function (type, listener, options) {
+    if (type === "loadedmetadata") state.registrations += 1;
+    return add.call(this, type, listener, options);
+  };
+  window.__uiInteractionsAudit.seekMetadata = state;
+  return state;
+}
