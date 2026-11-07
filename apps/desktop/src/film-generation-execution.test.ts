@@ -1,9 +1,13 @@
+import { existsSync } from "node:fs";
+import { promisify } from "node:util";
+import { verifiedQcTools, type QcRunner } from "./film-export-qc-runtime";
+import type { generationSelectedMedia } from "./film-generation-selected-media";
 import { createHash, createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 import { mkdtemp, mkdir, readFile, realpath, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { delimiter, join, resolve } from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import { delimiter, dirname, join, resolve } from "node:path";
+import { execFile, spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
@@ -264,15 +268,19 @@ async function createFixture(
     }
     throw Error("UNEXPECTED_ROUTE");
   });
-  const implementation = createNativeFilmGenerationExecutions({
+  const mediaDispatchLease = vi.fn<
+    Parameters<typeof createNativeFilmGenerationExecutions>[0]["mediaDispatchLease"]
+  >(async () => ({ account, current: () => active }));
+  const factoryHost: Parameters<typeof createNativeFilmGenerationExecutions>[0] = {
     filmsRoot: () => filmsRoot,
     storyFilmsRoot: () => storyRoot,
     session: () => session,
-    mediaDispatchLease: async () => ({ account, current: () => active }),
+    mediaDispatchLease,
     storySourceOwner: async () => false,
     fetcher,
     producer: async () => producer,
-  });
+  };
+  const implementation = createNativeFilmGenerationExecutions(factoryHost);
   const factory = {
     ...implementation,
     prepare: (...args: Parameters<typeof implementation.prepare>) =>
@@ -294,7 +302,12 @@ async function createFixture(
   return {
     root,
     filmsRoot,
+    storyRoot,
     frame,
+    mediaDispatchLease,
+    useLocalMedia: (host: Parameters<typeof generationSelectedMedia>[3]) => {
+      factoryHost.selectedMediaHost = async () => host;
+    },
     record: stored,
     owner,
     factory,
@@ -1013,6 +1026,137 @@ it.skipIf(!ffmpegOnPath()).each(["line", "unproved-reference"])(
     expect(replies.flatMap((reply) => reply.sent)).toEqual([]);
     expect(replies.every((reply) => reply.attempts.length === 0)).toBe(true);
     expect(await readProject(f.filmsRoot, f.record.id)).toEqual(stored);
+  },
+  30_000,
+);
+
+async function localSelectedFixture(
+  f: Awaited<ReturnType<typeof fixture>>,
+  beforeProbe?: () => Promise<void>,
+) {
+  const configured = process.env.AIVORA_FFMPEG;
+  const ffmpeg =
+    configured ??
+    (process.env.PATH ?? "")
+      .split(delimiter)
+      .map((root) => join(root, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"))
+      .find((path) => existsSync(path));
+  if (!ffmpeg) throw Error("TEST_MEDIA_TOOLS_UNAVAILABLE");
+  const tools = await verifiedQcTools(
+    dirname(ffmpeg),
+    resolve(
+      "../../config",
+      process.platform === "win32"
+        ? "media-toolchain-lock.json"
+        : "draft-media-toolchain-linux-dev-lock.json",
+    ),
+  );
+  const execute = promisify(execFile);
+  const run: QcRunner = async (binary, args, options) => {
+    if (binary === tools.ffprobePath) await beforeProbe?.();
+    return execute(binary, args, {
+      encoding: "utf8",
+      maxBuffer: options?.maxBuffer ?? 65536,
+      timeout: options?.timeoutMs ?? 30000,
+      signal: options?.signal,
+    });
+  };
+  const path = join(dirname(f.frame), "selected.mp4");
+  await run(tools.ffmpegPath, [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "testsrc2=s=128x72:r=25:d=0.64",
+    "-c:v",
+    "libx264",
+    "-pix_fmt",
+    "yuv420p",
+    path,
+  ]);
+  const record = structuredClone(f.record);
+  generationRows(generationRows(record.shots)[0]!.takes)[0]!.videoPath = path;
+  await writeProject(f.filmsRoot, record);
+  const stored = (await readProject(f.filmsRoot, f.record.id))!;
+  f.useLocalMedia({
+    filmsRoot: f.filmsRoot,
+    storyFilmsRoot: f.storyRoot,
+    tools,
+    run,
+    videoOwner: async () => false,
+  });
+  f.mediaDispatchLease.mockResolvedValue(null);
+  return {
+    path,
+    stored,
+    input: {
+      ...f.input,
+      mode: "pipeline" as const,
+      expectedProjectHash: filmHistoryRecordHash(stored),
+    },
+  };
+}
+it.skipIf(!ffmpegOnPath())(
+  "returns local NOT_NEEDED from real owned stream/SHA verification without account, slots, API or writes",
+  async () => {
+    const f = await fixture(),
+      local = await localSelectedFixture(f);
+    const made = await f.factory.prepare(f.owner, local.input);
+    expect(made).toEqual({
+      kind: "NOT_NEEDED",
+      projectId: f.record.id,
+      projectHash: local.input.expectedProjectHash,
+      reason: "LOCAL_SELECTED_MEDIA",
+      selected: [{ shotId: "shot-one", takeId: "old" }],
+    });
+    expect(f.mediaDispatchLease).not.toHaveBeenCalled();
+    expect(f.fetcher).not.toHaveBeenCalled();
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(local.stored);
+  },
+  30_000,
+);
+it.skipIf(!ffmpegOnPath())(
+  "does not call an absent selected file reusable or turn it into an unconfirmed new paid slot",
+  async () => {
+    const f = await fixture(),
+      local = await localSelectedFixture(f);
+    await rm(local.path);
+    await expect(f.factory.prepare(f.owner, local.input)).resolves.toEqual({
+      kind: "FAILED",
+      code: "SOURCE_UNVERIFIABLE",
+    });
+    expect(f.mediaDispatchLease).not.toHaveBeenCalled();
+    expect(f.fetcher).not.toHaveBeenCalled();
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(local.stored);
+  },
+  30_000,
+);
+it.skipIf(!ffmpegOnPath()).each(["owner", "canonical"] as const)(
+  "rejects a late %s change during actual local stream verification without issuing an execution",
+  async (change) => {
+    const f = await fixture();
+    let changed = false;
+    const local = await localSelectedFixture(f, async () => {
+      if (changed) return;
+      changed = true;
+      if (change === "owner") f.stop();
+      else {
+        const edited = (await readProject(f.filmsRoot, f.record.id))!;
+        edited.title = "late creative edit";
+        await writeProject(f.filmsRoot, edited);
+      }
+    });
+    await expect(f.factory.prepare(f.owner, local.input)).resolves.toEqual({
+      kind: "FAILED",
+      code: change === "owner" ? "EXECUTION_UNAVAILABLE" : "PROJECT_CHANGED",
+    });
+    expect(changed).toBe(true);
+    expect(f.mediaDispatchLease).not.toHaveBeenCalled();
+    expect(f.fetcher).not.toHaveBeenCalled();
+    const final = (await readProject(f.filmsRoot, f.record.id))!;
+    if (change === "owner") expect(final).toEqual(local.stored);
+    else expect(final.title).toBe("late creative edit");
   },
   30_000,
 );

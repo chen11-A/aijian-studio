@@ -1,3 +1,4 @@
+import { pipelineSelectedVideo } from "../../film/pipeline-media-selection";
 import type { FilmProject } from "../../film/project";
 import { ProtectedGenerationFailure } from "../../film/generation-execution-failure";
 import { NOTICE_TEXT } from "../../film/notices";
@@ -13,6 +14,8 @@ import type {
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
 
+type NoNewMedia = Extract<FilmGenerationExecutionResult, { kind: "NOT_NEEDED" }>;
+type SelectedPair = { shotId: string; takeId: string };
 type Prepared = Extract<FilmGenerationExecutionResult, { kind: "PREPARED" }>;
 export type GenerationExecutionBridge = Partial<FilmGenerationExecutionGateway>;
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -54,7 +57,11 @@ export function generationExecutionNotice(error: unknown): UiNotice {
         ? error.message
         : "";
   const code =
-    typeof raw === "string" && raw.startsWith("CREATION_") && Object.hasOwn(NOTICE_TEXT, raw)
+    typeof raw === "string" &&
+    (raw.startsWith("CREATION_") ||
+      raw.startsWith("GENERATION_EXECUTION_") ||
+      raw === "GENERATION_SELECTION_STALE") &&
+    Object.hasOwn(NOTICE_TEXT, raw)
       ? raw
       : raw === "VIDEO_UNCONFIGURED"
         ? "VIDEO_FAILURE_UNCONFIGURED"
@@ -185,11 +192,41 @@ export function validGenerationExecution(
   return true;
 }
 
+/** Exact readonly receipt consistency. IDs are references, never dispatch authority. */
+export function validNoNewMediaExecution(
+  value: unknown,
+  input: FilmGenerationExecutionInput,
+  expected: readonly SelectedPair[],
+): value is NoNewMedia {
+  return (
+    input.mode === "pipeline" &&
+    exact(value, ["kind", "projectId", "projectHash", "reason", "selected"]) &&
+    value.kind === "NOT_NEEDED" &&
+    value.projectId === input.projectId &&
+    value.projectHash === input.expectedProjectHash &&
+    value.reason === "LOCAL_SELECTED_MEDIA" &&
+    Array.isArray(value.selected) &&
+    value.selected.length > 0 &&
+    value.selected.length === input.targets.length &&
+    expected.length === input.targets.length &&
+    new Set(input.targets.map((target) => target.shotId)).size === input.targets.length &&
+    value.selected.every(
+      (pair, index) =>
+        exact(pair, ["shotId", "takeId"]) &&
+        pair.shotId === input.targets[index]?.shotId &&
+        pair.shotId === expected[index]?.shotId &&
+        pair.takeId === expected[index]?.takeId &&
+        locator(pair.takeId),
+    )
+  );
+}
+
 /** One confirmed run; all opaque locators remain in memory and retire before late UI discard. */
 export function createGenerationExecutionSession(
   bridge: GenerationExecutionBridge,
   current: () => boolean,
 ) {
+  let localMedia: NoNewMedia | undefined;
   let prepared: Prepared | undefined,
     retired = false,
     started = false;
@@ -207,7 +244,11 @@ export function createGenerationExecutionSession(
     }
   }
   return {
-    async prepare(input: FilmGenerationExecutionInput, requestCurrent: () => boolean = () => true) {
+    async prepare(
+      input: FilmGenerationExecutionInput,
+      requestCurrent: () => boolean = () => true,
+      expectedSelection: readonly SelectedPair[] = [],
+    ) {
       if (retired || !current() || !requestCurrent()) return fail("GENERATION_EXECUTION_STALE");
       if (started) return fail("GENERATION_EXECUTION_ALREADY_PREPARED");
       if (!bridge.prepareFilmGenerationExecution || !bridge.retireFilmGenerationExecution)
@@ -218,6 +259,14 @@ export function createGenerationExecutionSession(
         result = await bridge.prepareFilmGenerationExecution(input);
       } catch {
         return fail("GENERATION_EXECUTION_UNCONFIRMED");
+      }
+      if (validNoNewMediaExecution(result, input, expectedSelection)) {
+        if (retired || !current() || !requestCurrent()) {
+          retired = true;
+          return fail("GENERATION_EXECUTION_STALE");
+        }
+        localMedia = result;
+        return;
       }
       if (!validGenerationExecution(result, input)) {
         if (
@@ -235,6 +284,11 @@ export function createGenerationExecutionSession(
         notifyRetire({ executionId: result.executionId });
         return fail("GENERATION_EXECUTION_STALE");
       }
+    },
+    noNewMedia() {
+      if (retired || !current()) return fail("GENERATION_EXECUTION_STALE");
+      if (!prepared && !localMedia) return fail("GENERATION_EXECUTION_UNAVAILABLE");
+      return Boolean(localMedia);
     },
     preparation(shotId: string, index?: number): "CLIENT_IMAGES" | "STORYFILM_CACHE" {
       const target = alive().targets.find((target) => target.shotId === shotId);
@@ -340,7 +394,24 @@ export async function prepareCurrentGenerationExecution(
     historyRecordHash(raw),
   ]);
   if (!guard() || acceptedKey !== rawKey) return fail("GENERATION_EXECUTION_STALE");
-  await session.prepare({ projectId: base.id, expectedProjectHash, ...scope }, guard);
+  const expectedSelection = scope.targets.flatMap(({ shotId }) => {
+    const shot = base.shots.find((shot) => shot.id === shotId);
+    if (!shot) return [];
+    const path = pipelineSelectedVideo(shot);
+    const chosen = shot.takes.filter(
+      (take) =>
+        path &&
+        take.videoPath === path &&
+        take.status === "done" &&
+        (!shot.selectedTakeId || take.id === shot.selectedTakeId),
+    );
+    return chosen.length === 1 ? [{ shotId, takeId: chosen[0]!.id }] : [];
+  });
+  await session.prepare(
+    { projectId: base.id, expectedProjectHash, ...scope },
+    guard,
+    expectedSelection,
+  );
 }
 
 export function protectedGenerationFailure(code: string) {

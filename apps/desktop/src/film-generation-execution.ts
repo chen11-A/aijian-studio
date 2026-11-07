@@ -1,3 +1,4 @@
+import { generationSelectedMedia } from "./film-generation-selected-media";
 import { forecastGenerationReferences } from "./film-generation-forecast";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -123,7 +124,8 @@ function forecastKey(
   return filmHistoryRecordText({ targets: forecast.targets, stages: forecast.stages });
 }
 /** Fixed-reference ordinary regenerate sink. Planned references, cache, local
- * continuity and pipeline remain closed until their real adapters are composed.
+ * continuity and pending pipeline remain closed until their real adapters are composed.
+ * An all-selected pipeline may return a separately verified readonly local receipt.
  * A transient execution or stored path is never dispatch permission. */
 export function createNativeFilmGenerationExecutions(host: {
   filmsRoot: () => string;
@@ -133,10 +135,56 @@ export function createNativeFilmGenerationExecutions(host: {
   storySourceOwner: (projectId: string, path: string, sha256: string) => Promise<boolean>;
   fetcher: typeof fetch;
   producer?: () => Promise<CanonicalGenerationProducer>;
+  selectedMediaHost?: (
+    current: () => boolean,
+  ) => Promise<Parameters<typeof generationSelectedMedia>[3]>;
 }) {
   const service = createFilmGenerationExecutionService<State>({
     async prepare(input, owner) {
-      if (input.mode !== "video") return fail("UNSUPPORTED_SCOPE");
+      if (input.mode === "pipeline") {
+        if (!host.selectedMediaHost) return fail("UNSUPPORTED_SCOPE");
+        try {
+          if (!owner.current()) return fail("EXECUTION_UNAVAILABLE");
+          const record = await readProject(host.filmsRoot(), input.projectId);
+          if (
+            !record ||
+            record.id !== input.projectId ||
+            filmHistoryRecordHash(record) !== input.expectedProjectHash
+          )
+            return fail("PROJECT_CHANGED");
+          // The actual controller's video scope is every canonical shot, in order.
+          // Never accept a renderer subset as proof that a whole pipeline needs no media.
+          const shotIds = generationRows(record.shots).map((shot) => String(shot.id));
+          if (
+            shotIds.length !== input.targets.length ||
+            shotIds.some((id, index) => input.targets[index]?.shotId !== id)
+          )
+            return fail("UNSUPPORTED_SCOPE");
+          const producer = await (host.producer ?? loadCanonicalGenerationProducer)();
+          const mediaHost = await host.selectedMediaHost(owner.current);
+          if (!owner.current()) return fail("EXECUTION_UNAVAILABLE");
+          const selected = await generationSelectedMedia(producer, record, shotIds, mediaHost);
+          if (selected.pendingShotIds.size) return fail("UNSUPPORTED_SCOPE");
+          const fresh = await readProject(host.filmsRoot(), input.projectId);
+          if (!fresh || filmHistoryRecordHash(fresh) !== input.expectedProjectHash)
+            return fail("PROJECT_CHANGED");
+          await selected.verify(fresh);
+          const final = await readProject(host.filmsRoot(), input.projectId);
+          if (!owner.current()) return fail("EXECUTION_UNAVAILABLE");
+          if (!final || filmHistoryRecordHash(final) !== input.expectedProjectHash)
+            return fail("PROJECT_CHANGED");
+          return {
+            kind: "NOT_NEEDED" as const,
+            projectId: record.id,
+            projectHash: input.expectedProjectHash,
+            reason: "LOCAL_SELECTED_MEDIA" as const,
+            selected: selected.selected.map(({ shotId, takeId }) => ({ shotId, takeId })),
+          };
+        } catch (error) {
+          if (!owner.current()) return fail("EXECUTION_UNAVAILABLE");
+          throw fixed(error, "SOURCE_UNVERIFIABLE");
+        }
+      }
       let state: State | undefined;
       try {
         const accountLease = await host.mediaDispatchLease();

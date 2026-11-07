@@ -61,6 +61,13 @@ export type FilmPipelineHost = {
   save: (film: FilmProject, isCurrent: () => boolean) => Promise<void>;
   request: PipelineAgentHost["request"];
   notify?: (notice: UiNotice) => void;
+  /** Only the actual workspace host may return a current native local-reuse result.
+   * This skips unconsumed image work without inventing portrait/poster artifacts. */
+  reuseLocalSelectedMedia?: (
+    film: FilmProject,
+    targetId: string,
+    context: FilmPipelineContext,
+  ) => Promise<FilmPipelineResult | null>;
   generatePortraits?: MediaAction;
   generateStill?: MediaAction;
   video?: MediaAction;
@@ -531,6 +538,8 @@ async function executeMedia(
       return Boolean(portrait && (await validMedia(portrait.url, "image")));
     };
     if (await complete(film)) return { status: "done", film };
+    const reuse = await host.reuseLocalSelectedMedia?.(film, targetId, ctx);
+    if (reuse) return reuse;
     if (!host.generatePortraits) return failure("PORTRAIT_CAPABILITY_REQUIRED");
     const result = await host.generatePortraits(film, targetId, ctx);
     const next = result.film ?? ctx.current();
@@ -551,6 +560,10 @@ async function executeMedia(
     const existing = step === "stills" ? shot.poster : selectedVideo(shot);
     if (existing && (await validMedia(existing, step === "stills" ? "image" : "video")))
       return { status: "done", film };
+    if (step === "stills") {
+      const reuse = await host.reuseLocalSelectedMedia?.(film, targetId, ctx);
+      if (reuse) return reuse;
+    }
     const action = step === "stills" ? host.generateStill : host.video;
     if (!action) return failure("MEDIA_CAPABILITY_REQUIRED");
     const result = await action(film, targetId, ctx);
