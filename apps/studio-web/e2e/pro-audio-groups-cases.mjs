@@ -325,6 +325,18 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
               (id) => window.__audioGroupsAudit.writes.some((w) => w.projectId === id),
               seed.otherId,
             );
+            // The waveform hook saves before/after its read, then the real mix
+            // preview admits another save. A first write is not a settled baseline.
+            await page.waitForFunction(
+              (id) => window.__audioGroupsAudit.previews.some((p) => p.projectId === id),
+              seed.otherId,
+            );
+            await button("重试音轨试听").waitFor();
+            await button("刷新音频波形").waitFor();
+            await page.waitForFunction(() => {
+              const where = document.querySelector(".statusbar .where");
+              return !!where && !where.textContent.includes("正在保存");
+            });
             const otherRaw = await record(seed.otherId),
               otherWrites = (await calls()).groupWrites.filter(
                 (w) => w.projectId === seed.otherId,
