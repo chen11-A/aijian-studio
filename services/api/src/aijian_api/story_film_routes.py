@@ -7,11 +7,12 @@ from dataclasses import asdict
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from aijian_api.contracts import ErrorResponse
 from aijian_api.episode_contracts import PROJECT_ID_PATTERN
+from aijian_api.generation_dispatch_identity import account_attestation
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.repository import StudioRepository
 from aijian_api.story_film import (
@@ -292,6 +293,7 @@ def story_film_plan() -> StoryFilmPlanData:
 def create_story_film_router(
     repository_provider: RepositoryProvider,
     toolchain_provider: ToolchainProvider,
+    dispatch_signing_key: str | None = None,
 ) -> APIRouter:
     router = APIRouter()
     errors: dict[int | str, dict[str, Any]] = {
@@ -377,6 +379,20 @@ def create_story_film_router(
             request_id=request.state.request_id,
         )
 
+    async def verified_dispatch_account(
+        request: Request,
+        project_id: str,
+        idempotency_key: Annotated[str, Header(alias="Idempotency-Key", pattern=_KEY)],
+    ) -> str | None:
+        return account_attestation(
+            request.headers.get("X-Aivora-Generation-Account"),
+            key=dispatch_signing_key,
+            project_id=project_id,
+            idempotency_key=idempotency_key,
+            body=await request.body(),
+            bearer=request.headers.get("X-Aivora-Media-Bearer"),
+        )
+
     @router.post(
         "/api/v1/projects/{project_id}/story-film",
         operation_id="createStoryFilm",
@@ -388,6 +404,7 @@ def create_story_film_router(
         project_id: Annotated[str, Field(pattern=PROJECT_ID_PATTERN)],
         payload: CreateStoryFilmBody,
         idempotency_key: Annotated[str, Header(alias="Idempotency-Key", pattern=_KEY)],
+        dispatch_account: str | None = Depends(verified_dispatch_account),
     ) -> StoryFilmResponse:
         token = request.headers.get("X-Aivora-Media-Bearer")
         if token is not None:
@@ -440,6 +457,7 @@ def create_story_film_router(
                 ),
             ),
             media_token=token,
+            dispatch_account=dispatch_account,
         )
         return StoryFilmResponse(data=_data(result), request_id=request.state.request_id)
 

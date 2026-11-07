@@ -856,7 +856,7 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
   },
   async () => {
     try {
-      return await getGrokRuntime().mediaAccessToken();
+      return await getGrokRuntime().mediaDispatchAccount();
     } catch {
       return null;
     }
@@ -1057,7 +1057,8 @@ registerFilmRanges<IpcMainInvokeEvent>(
     generate: async (projectId, input, canDispatch) => {
       const body = parseStoryFilmCreate(input);
       if (!sidecar) throw new Error("Local API unavailable");
-      const bearer = await getGrokRuntime().mediaAccessToken();
+      const account = await getGrokRuntime().mediaDispatchAccount();
+      const bearer = account?.bearer;
       if (!bearer || bearer.length > 8192 || /[\r\n]/.test(bearer))
         throw new Error("Member authorization unavailable");
       if (!(await canDispatch())) throw new Error("Range input changed before dispatch");
@@ -1065,6 +1066,7 @@ registerFilmRanges<IpcMainInvokeEvent>(
         projectId,
         body,
         bearer,
+        account ?? undefined,
       );
     },
   },

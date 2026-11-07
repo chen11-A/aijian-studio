@@ -1,3 +1,4 @@
+import type { ConfigureGenerationFailurePolicy } from "@aijian/contracts/generation-failure-policy";
 import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
@@ -582,6 +583,10 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("projects:list") as Promise<ProjectListResponse>,
   createProject: (input: CreateProjectInput): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
+  getGenerationFailurePolicy: (projectId: string) =>
+    ipcRenderer.invoke("story-film:failure-policy", projectId),
+  configureGenerationFailurePolicy: (projectId: string, input: ConfigureGenerationFailurePolicy) =>
+    ipcRenderer.invoke("story-film:configure-failure-policy", projectId, input),
   getStoryFilmPlan: (projectId: string) => ipcRenderer.invoke("story-film:plan", projectId),
   supportsStoryFilmLocalScope: true,
   createStoryFilm: (projectId: string, input: StoryFilmCreateInput, scope?: StoryFilmLocalScope) =>
