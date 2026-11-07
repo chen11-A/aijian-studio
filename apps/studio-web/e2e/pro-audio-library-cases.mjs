@@ -232,6 +232,18 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
             await refresh.click();
           }
           await dialog.getByText("当前版本已核对：2.25 秒。", { exact: true }).waitFor();
+          // Target copy/asset metadata commit before the duration-reset passive effect.
+          // Await the actual controlled field as well; never retry target/native dispatch.
+          const durationField = await dialog.getByLabel("使用时长（秒）").elementHandle();
+          assert.ok(durationField);
+          try {
+            await page.waitForFunction(
+              (field) => field.isConnected && field.value === "2.25",
+              durationField,
+            );
+          } finally {
+            await durationField.dispose();
+          }
           assert.equal(await dialog.getByLabel("使用时长（秒）").inputValue(), "2.25");
           if (state === "library-catalog" || state === "library-target-guard") {
             await reachable(add, "library-add");
