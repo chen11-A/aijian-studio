@@ -15,6 +15,7 @@ import {
   seedEvidenceLegacyProject,
 } from "./pro-evidence-legacy-fixture.mjs";
 import {
+  READY_SHOT_MENU,
   installUiInteractionsBridge,
   seedUiInteractionsProject,
 } from "./pro-ui-interactions-fixture.mjs";
@@ -131,7 +132,7 @@ it("context menus use actual scene/board/clip lists, dismiss on Escape and mirro
   const labels = within(menu)
     .getAllByRole("menuitem")
     .map((e) => e.textContent);
-  assert.deepEqual(labels, ["前移", "后移", "出 4 张候选", "重新生成画面", "删除这一镜"]);
+  assert.deepEqual(labels, READY_SHOT_MENU);
   fireEvent.keyDown(menu, { key: "Escape" });
   await waitFor(() => assert.equal(screen.queryByRole("menu"), null));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
@@ -200,7 +201,23 @@ it("folded sound/advanced badges count actual edits, disappear when open and upd
   await fold("声音", true);
   fireEvent.change(screen.getByLabelText("这一镜的环境音"), { target: { value: "门外雨声" } });
   fireEvent.change(screen.getByLabelText("配乐情绪"), { target: { value: "平静" } });
+  const nativeToggle = [];
+  summary("声音").parentElement.addEventListener(
+    "toggle",
+    () =>
+      nativeToggle.push({
+        open: summary("声音").parentElement.open,
+        count: summary("声音").getAttribute("data-count"),
+      }),
+    { capture: true },
+  );
+  await waitFor(() => assert.equal(f.raw().shots[0].sound.musicMood, "平静"));
   await fold("声音", false);
+  await waitFor(() => assert.equal(summary("声音").getAttribute("data-count"), "· 2"));
+  assert(
+    nativeToggle.some((t) => !t.open && t.count === null),
+    "Native details.open precedes the React count render",
+  );
   assert.equal(summary("声音").getAttribute("data-count"), "· 2");
   await fold("声音", true);
   assert.equal(summary("声音").getAttribute("data-count"), null);
@@ -218,6 +235,12 @@ it("real edit transport keys and Delete/Backspace retain input/menu guards then 
   const f = await open("ui-transport-delete");
   fireEvent.click(tab("剪辑"));
   await waitFor(() => assert.equal(window.__assemblyAudit.artifacts.length, 1));
+  assert.equal(window.document.querySelectorAll(".pro-root .ph h3").length, 0);
+  fireEvent.click(
+    within(window.document.querySelector(".pane.monitor .monitor-tabs")).getByRole("button", {
+      name: "预览",
+    }),
+  );
   fireEvent.keyDown(window, { key: "l" });
   assert(screen.getByRole("button", { name: "暂停" }));
   fireEvent.keyDown(window, { key: "l" });

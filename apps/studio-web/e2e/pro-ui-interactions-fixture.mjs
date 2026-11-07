@@ -1,3 +1,4 @@
+export const READY_SHOT_MENU = ["前移", "后移", "出 4 张候选", "重新生成画面", "删除这一镜"];
 /** Fixed local-only native ABI extensions; no model/media generation or CSS injection. */
 export function installUiInteractionsBridge() {
   const audit = { renames: [], orphanRefusals: [], forbidden: [] };
