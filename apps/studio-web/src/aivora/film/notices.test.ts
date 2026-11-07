@@ -82,6 +82,7 @@ describe("structured business notices", () => {
       "ASSISTANT_REFERENCE_SYNTAX",
       "ASSISTANT_REFERENCE_STALE",
     ]);
+    const writerStructureCodes = new Set(["WRITER_STRUCTURE_READY", "WRITER_STRUCTURE_APPLIED"]);
     const directorStructureCodes = new Set([
       "DIRECTOR_STRUCTURE_READY",
       "DIRECTOR_STRUCTURE_APPLIED",
@@ -110,6 +111,7 @@ describe("structured business notices", () => {
     const legacyRows = rows.filter(
       (row) =>
         !referenceCodes.has(row[1]!) &&
+        !writerStructureCodes.has(row[1]!) &&
         !directorStructureCodes.has(row[1]!) &&
         !artFieldCodes.has(row[1]!) &&
         !actionFieldCodes.has(row[1]!) &&
@@ -198,6 +200,16 @@ describe("structured business notices", () => {
     expect(directorRows).toHaveLength(2);
     expect(new Set(directorRows.map((row) => row[1]))).toEqual(directorStructureCodes);
     for (const [, code, fallback, finalCopy] of directorRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: finalCopy!.trim(),
+      });
+    }
+    const writerRows = rows.filter((row) => writerStructureCodes.has(row[1]!));
+    expect(writerRows).toHaveLength(2);
+    expect(new Set(writerRows.map((row) => row[1]))).toEqual(writerStructureCodes);
+    for (const [, code, fallback, finalCopy] of writerRows) {
       expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
       expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
         code,

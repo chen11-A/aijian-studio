@@ -596,3 +596,41 @@ it.each(["rename", "delete"])(
     expect(f.media).not.toHaveBeenCalled();
   },
 );
+it("can send a fresh art request from the accessible Cast composer after releasing a stale cross-page reply without losing the next draft", async () => {
+  const f = await open({ role: "art", hold: true });
+  const nav = screen.getByRole("navigation", { name: "创作阶段" });
+  fireEvent.click(within(nav).getByRole("button", { name: /角色/ }));
+  type("@参考甲 请调整全作品画风。");
+  send();
+  await waitFor(() => expect(f.completeText).toHaveBeenCalledOnce());
+  const next = "下一条未发送的新稿";
+  type(next);
+  fireEvent.click(within(nav).getByRole("button", { name: /剧本/ }));
+  fireEvent.click(within(nav).getByRole("button", { name: /角色/ }));
+  fireEvent.change(screen.getByLabelText("正在和："), { target: { value: "art" } });
+  expect(screen.getByLabelText("跟助手说")).toHaveValue(next);
+  fireEvent.change(screen.getByLabelText("人物名字"), { target: { value: "参考甲已改名" } });
+  await f.finish();
+  expect(screen.getByLabelText("跟助手说")).toHaveValue(next);
+  expect(screen.queryByRole("region", { name: "助手的建议" })).toBeNull();
+  const button = screen.getByRole("button", { name: "发送" });
+  expect(button).toHaveAttribute("aria-label", "发送");
+  expect(button.textContent?.trim()).not.toBe("发送");
+  expect(button).toBeEnabled();
+  expect(screen.queryByText("正在写…")).toBeNull();
+  expect(f.host().current()!.styleZh).toBe(f.film.styleZh);
+  expect(f.write.mock.calls.some(([raw]) => raw.styleZh !== f.film.styleZh)).toBe(false);
+  const fresh = "@参考甲已改名 请调整全作品画风。";
+  f.completeText.mockResolvedValueOnce({
+    kind: "OK",
+    text: JSON.stringify({ prompt_block_zh: "新请求的合法画风" }),
+  });
+  type(fresh);
+  fireEvent.click(button);
+  await screen.findByRole("region", { name: "助手的建议" });
+  expect(f.completeText).toHaveBeenCalledTimes(2);
+  expect(f.completeText.mock.calls[0]![0].text).not.toContain(fresh);
+  expect(f.completeText.mock.calls[1]![0].text).toContain(fresh);
+  expect(f.host().current()!.styleZh).toBe(f.film.styleZh);
+  expect(f.media).not.toHaveBeenCalled();
+});

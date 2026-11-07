@@ -7,6 +7,11 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["提到人物、场景或镜头", "reference-menu"],
+    ["跟助手说", "reference-input"],
+    ["人物名字", "reference-name"],
+    ["发送", "reference-send"],
+    ["正在和：", "reference-role"],
     ["播放", "timeline-play"],
     ["暂停", "timeline-pause"],
     ["设入点", "timeline-mark-in"],
@@ -88,6 +93,10 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const controlIds = new Set(["export-quality", "export-aspect", "export-dir"]);
   const safeClasses = new Set([
+    "reference-summary",
+    "mention-menu",
+    "nx-suggest",
+    "nx-field-diff",
     "shot-audio-suggestions",
     "shot-audio-lane",
     "shot-audio-envelope",
@@ -160,6 +169,15 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const tag = (element) => (safeTags.has(element.tagName) ? element.tagName : "OTHER");
   const controlName = (element, label) => {
+    if (element.matches('.mention-menu button[role="menuitem"]')) return "reference-option";
+    if (element.closest(".nx-suggest") && element.tagName === "BUTTON") {
+      const fixed = {
+        确认修改: "reference-confirm",
+        撤销: "reference-undo",
+        不要: "reference-reject",
+      };
+      if (Object.hasOwn(fixed, label)) return fixed[label];
+    }
     if (element.matches("button.clip.v")) return "timeline-video";
     if (element.tagName === "INPUT" && element.closest(".shot-audio-choice")) {
       const text = element.closest("label")?.textContent.replace(/\s+/g, " ").trim() ?? "";
