@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AudioMixPreviewResult } from "@aijian/contracts/film-audio-mix";
-import type { FilmProject } from "../film/project";
+import { upgradeFilm, type FilmProject } from "../film/project";
+import { audioMixPreviewKey } from "./audio-mix-preview-key";
 import { historyRecordHash } from "./actions/persistent-history";
 export type AudioPreviewView = {
   result: AudioMixPreviewResult | null;
@@ -22,10 +23,12 @@ export function useAudioMixPreview(
     unsupported: false,
   });
   const [epoch, retry] = useState(0);
-  const [viewFor, setViewFor] = useState<FilmProject | null>(null);
+  const [viewFor, setViewFor] = useState("");
+  const key = film ? audioMixPreviewKey(film) : "";
+  const scope = JSON.stringify([key, enabled, epoch]);
   useEffect(() => {
     const bridge = window.aijian;
-    setViewFor(film);
+    setViewFor(scope);
     if (!enabled || !film) {
       setView({ result: null, busy: false, unsupported: false });
       return;
@@ -37,7 +40,10 @@ export function useAudioMixPreview(
     let active = true,
       attempts = 0,
       timer: number;
-    const current = () => active && host.current() === film;
+    const current = () => {
+      const live = host.current();
+      return active && live?.id === film.id && audioMixPreviewKey(live) === key;
+    };
     setView({ result: null, busy: true, unsupported: false });
     const busy = () => {
       if (!current()) return;
@@ -51,7 +57,11 @@ export function useAudioMixPreview(
     };
     const run = async () => {
       try {
-        const stored = await host.save(film, current);
+        const snapshot = host.current();
+        if (!snapshot || !current()) return;
+        // Metadata adoption and assembly references do not restart this budget. Save only
+        // the actual latest object, never the older effect's project snapshot.
+        const stored = await host.save(snapshot, () => current() && host.current() === snapshot);
         if (!current()) return;
         if (!stored) {
           busy();
@@ -59,7 +69,8 @@ export function useAudioMixPreview(
         }
         const raw = await bridge.readFilmProject!(film.id);
         if (!current()) return;
-        if (!raw || raw.id !== film.id) {
+        const canonical = raw?.id === film.id ? upgradeFilm(raw) : null;
+        if (!canonical || audioMixPreviewKey(canonical) !== key) {
           setView({
             result: { kind: "FAILED", code: "PROJECT_CHANGED" },
             busy: false,
@@ -92,15 +103,19 @@ export function useAudioMixPreview(
     };
     // The per-render wrappers read the stable live ref/save queue. Depending on their
     // identity would restart probing on clock updates rather than on creative changes.
-  }, [film, enabled, epoch]);
+  }, [key, enabled, epoch]);
+  const supported = Boolean(window.aijian?.getFilmAudioMixPreview && window.aijian.readFilmProject);
+  const ownsView = viewFor === scope;
   return {
-    ...view,
+    ...(ownsView
+      ? view
+      : { result: null, busy: enabled && Boolean(film) && supported, unsupported: !supported }),
     settled:
       !enabled ||
       !film ||
       !window.aijian?.getFilmAudioMixPreview ||
       !window.aijian.readFilmProject ||
-      (viewFor === film && !view.busy),
+      (ownsView && !view.busy),
     retry: () => retry((value) => value + 1),
   };
 }

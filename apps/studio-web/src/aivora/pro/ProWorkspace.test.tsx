@@ -917,11 +917,43 @@ describe("professional workspace", () => {
     await waitFor(() => expect(createStoryFilm.mock.calls.length).toBeGreaterThanOrEqual(8));
     fireEvent.click(stageTab("剪辑"));
     await waitFor(() => expect(desktop.assembleFilmProject).toHaveBeenCalled());
+    const assemblyProjectId = desktop.assembleFilmProject.mock.calls.at(-1)![0].projectId;
+    await waitFor(async () => {
+      const stored = await readSaved(assemblyProjectId);
+      expect(stored?.assemblyPath).toBe("/tmp/aivora/rough.mp4");
+      expect(stored?.jobs.some((job) => job.status === "running" || job.status === "queued")).toBe(
+        false,
+      );
+    });
     expect(desktop.assembleFilm).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     desktop.publishFilmExport.mockResolvedValueOnce({ kind: "CANCELLED" });
+    const prepareDefault = desktop.prepareFilmExport.getMockImplementation()!;
+    let releaseCheck!: () => void;
+    const checkHold = new Promise<void>((done) => {
+      releaseCheck = done;
+    });
+    desktop.prepareFilmExport.mockImplementationOnce(async (input) => {
+      const checked = await prepareDefault(input);
+      expect(checked.kind).toBe("READY");
+      await checkHold;
+      return checked;
+    });
     fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
-    fireEvent.click(await screen.findByRole("button", { name: "审核后发布" }));
+    await waitFor(() => expect(desktop.prepareFilmExport).toHaveBeenCalledOnce());
+    const publishReady = await screen.findByRole("button", { name: "审核后发布" });
+    try {
+      expect(publishReady).toBeDisabled();
+      fireEvent.click(publishReady);
+      expect(desktop.publishFilmExport).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        releaseCheck();
+        await desktop.prepareFilmExport.mock.results[0]!.value;
+      });
+    }
+    await waitFor(() => expect(publishReady).toBeEnabled());
+    fireEvent.click(publishReady);
     await waitFor(() => expect(desktop.publishFilmExport).toHaveBeenCalledTimes(1));
     desktop.publishFilmExport.mockResolvedValueOnce({ kind: "FAILED", code: "PUBLISH_FAILED" });
     fireEvent.click(screen.getByRole("button", { name: "审核后发布" }));
