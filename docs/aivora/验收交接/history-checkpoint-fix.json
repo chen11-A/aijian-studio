@@ -1,0 +1,40 @@
+{
+  "source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+  "parent": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+  "author": "GPT-6.1 Sol / medium frontend agent",
+  "targetGatesAllExit0": true,
+  "wholeHistoryFileCases": 4,
+  "originalCheckpointGuardCases": 4,
+  "files": 2,
+  "seconds": 5.59,
+  "originalLocalDidNotReproduceCI": true,
+  "mechanism": "CI actual message uniquely identifies pre-record baseline branch, before intended undo receipt conflict. Test observes original guarded timer callback genuinely returning true, preserving original 500ms delay and guards; then seeds old receipt. Two blind 550ms sleeps removed. No direct callback invocation, forced true, private commit, product/message/timeout change.",
+  "newFullCI": "42420151861 PENDING",
+  "logs": {
+    "original": {
+      "path": "/tmp/acceptance-history-original.log",
+      "bytes": 242,
+      "sha256": "d77f11e06c04a5f50e32f15f8adc5137b39963a7ff2c9e35a392f7a14fd16d04"
+    },
+    "final": {
+      "path": "/tmp/acceptance-history-final.log",
+      "bytes": 242,
+      "sha256": "a58fa5504bdd5c93c9263aa2519bdbb989d3672fb0eac4ca1897338e9f35bfea"
+    },
+    "types": {
+      "path": "/tmp/acceptance-history-types.log",
+      "bytes": 24,
+      "sha256": "5cfb036289d819b2a87e947d65f4532031dd37753f3cf2def0f77d398eea1737"
+    },
+    "eslint": {
+      "path": "/tmp/acceptance-history-eslint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "prettier": {
+      "path": "/tmp/acceptance-history-prettier.log",
+      "bytes": 66,
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    }
+  }
+}

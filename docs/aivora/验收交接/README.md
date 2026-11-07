@@ -11,7 +11,7 @@
 - browser-targeted-ci.json：原16浏览器任务/484组合及Windows定向；不代替双平台完整quality。
 - worktrees.json：交接时目录和分支位置。
 
-完整API及50a6a3e/01db481本地完整界面回执已补齐；最新147aad4的原完整CI（含最终界面）回执在实际结束后补齐。临时原日志分别保留 `/tmp/aivora-handoff-*` 和 `/tmp/aivora-status-42415135411*`，失败或暂停记录没有覆盖。
+完整API及50a6a3e/01db481本地完整界面回执已补齐；最新babefa9的原完整CI（含最终界面）回执在实际结束后补齐。临时原日志分别保留 `/tmp/aivora-handoff-*` 和 `/tmp/aivora-status-42415135411*`，失败或暂停记录没有覆盖。
 
 ## 复跑入口
 
@@ -36,3 +36,5 @@ node --test scripts/build-runtime.test.mjs
 `source-equivalence.json` 记录de2与50a6a3e的完整差异白名单：只有测试和QA；各旧源回执仍按原来源标注。`historical-worktrees.json`只供找回历史目录，不能把旧分支当作当前验收源。
 
 新增验收测试修复：`trial-readiness-fix.json`、`trial-initial-recovery-fix.json`、`browser-catalog-fix.json` 对应三处真实异步边界；`web-50a6a3e.json`、`web-01db481.json` 均明确各自来源，不能把目标筛选未选当原全量skip。最终云端结果单独记录，不以旧成功或失败互相覆盖。
+
+`history-checkpoint-fix.json` 保存原历史callback真实终态观察的验证；移除两处盲等，旧01db失败按源保留。最终代码源为babefa9，实际差异白名单以source-equivalence.json为准。

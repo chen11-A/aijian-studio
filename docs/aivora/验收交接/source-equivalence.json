@@ -1,12 +1,14 @@
 {
   "base": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
-  "validationFix": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+  "validationFix": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
   "changedPaths": [
     "apps/studio-web/src/aivora/pro/ProWorkspace.actual-risk-trial.test.tsx",
+    "apps/studio-web/src/aivora/pro/ProWorkspace.history.test.tsx",
     "apps/studio-web/src/aivora/pro/ProWorkspace.test.tsx",
     "docs/qa/acceptance-actual-trial-form-readiness.md",
     "docs/qa/acceptance-actual-trial-initial-recovery.md",
-    "docs/qa/acceptance-browser-generation-catalog.md"
+    "docs/qa/acceptance-browser-generation-catalog.md",
+    "docs/qa/acceptance-history-initial-checkpoint.md"
   ],
   "allOtherTrackedPathsIdentical": true,
   "proofExitCode": 0,
@@ -18,6 +20,7 @@
   "previousValidationFix": "50a6a3ea9299c0bf0f68dca45f62febad1adf054",
   "previousValidationFixes": [
     "50a6a3ea9299c0bf0f68dca45f62febad1adf054",
-    "01db481725bee8811119a549d305cff7b87951fe"
+    "01db481725bee8811119a549d305cff7b87951fe",
+    "147aad4111a4a9765ad7b78c2445d53dbc29f7cf"
   ]
 }

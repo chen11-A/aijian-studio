@@ -5,15 +5,15 @@
       "role": "交接记录",
       "path": "/workspace/aivora-audio-next-integration",
       "branch": "codex/aivora-handoff-records",
-      "runtimeAndTestsSource": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+      "runtimeAndTestsSource": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
       "head": "Resolve containing records branch tip; its only differences from code source are docs/aivora records.",
       "cleanCheck": "Final git status checked after the documentation commit; do not embed a self-referential commit hash."
     },
     {
       "role": "前端最终验收修复",
       "path": "/workspace/aivora-copy-assistant-tail",
-      "branch": "codex/aivora-acceptance-browser-generation",
-      "head": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+      "branch": "codex/aivora-acceptance-history-ready",
+      "head": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
       "dirty": false
     },
     {
