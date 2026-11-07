@@ -170,7 +170,15 @@ export function installMentionsBridge({ state }) {
       context: clone(context),
       projectId: input.projectId,
     });
-    if (audit.hold) await new Promise((resolve) => audit.pending.push({ resolve }));
+    if (audit.hold) {
+      const pending = { resolve: () => {}, delivered: false };
+      const blocked = new Promise((resolve) => {
+        pending.resolve = resolve;
+      });
+      audit.pending.push(pending);
+      await blocked;
+      pending.delivered = true;
+    }
     return { kind: "OK", text };
   };
 }

@@ -296,12 +296,14 @@ export async function runMentionCases({ browser, config, report, media, persist 
             assert.equal(await composer().inputValue(), next);
             await page.getByLabel("人物名字", { exact: true }).fill(`${seed.person}已改名`);
             await page.evaluate(() => window.__proMentionsAudit.release(0));
+            // This observes the synthetic transport return, not the host's completion.
+            // The real follow-up request/card below proves the composer can continue.
             await page.waitForFunction(
-              () =>
-                [...document.querySelectorAll("button")].find(
-                  (b) => b.textContent.trim() === "发送",
-                )?.disabled === false,
+              () => window.__proMentionsAudit.pending[0]?.delivered === true,
             );
+            await send().waitFor({ state: "visible" });
+            assert.equal(await send().isEnabled(), true);
+            await send().click({ trial: true });
             assert.equal(await composer().inputValue(), next);
             assert.equal(await card().count(), 0);
             assert.equal((await calls()).requests.length, 1);
