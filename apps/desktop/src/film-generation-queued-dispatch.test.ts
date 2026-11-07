@@ -1,3 +1,4 @@
+import { dispatchProtectedGenerationStill } from "./film-generation-still-dispatch";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -100,4 +101,37 @@ it("observes an immediately rejected transport without poisoning the original wr
   await expect(dispatchGenerationOnProjectQueue(f.options)).rejects.toBe(error);
   expect((await writeProject(f.root, { ...f.saved, title: "仍可保存" })).title).toBe("仍可保存");
   expect(f.dispatch).toHaveBeenCalledTimes(1);
+});
+
+it("preserves the final queue gate's fixed code through the actual protected still driver", async () => {
+  const f = await fixture(),
+    entered = deferred<void>(),
+    verified = deferred<void>();
+  releases.push(() => verified.resolve());
+  f.verifyCanonical.mockImplementation(async () => {
+    entered.resolve();
+    await verified.promise;
+  });
+  const fetcher = vi.fn<typeof fetch>(),
+    notSent = vi.fn(async () => undefined),
+    observed = vi.fn(async () => undefined);
+  const pending = dispatchProtectedGenerationStill({
+    prompt: "受控画面",
+    token: "synthetic",
+    destination: join(f.root, "frame.png"),
+    current: f.current,
+    fetcher,
+    beforePost: (_wire, dispatch) => dispatchGenerationOnProjectQueue({ ...f.options, dispatch }),
+    notSent,
+    observed,
+  });
+  work.push(pending);
+  await entered.promise;
+  f.current.mockReturnValue(false);
+  verified.resolve();
+  expect(await pending).toMatchObject({ path: "", code: "EXECUTION_UNAVAILABLE" });
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(notSent).toHaveBeenCalledTimes(1);
+  expect(observed).not.toHaveBeenCalled();
+  expect(await readProject(f.root, f.saved.id)).toEqual(f.saved);
 });

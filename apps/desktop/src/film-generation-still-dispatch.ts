@@ -1,3 +1,4 @@
+import { GenerationExecutionServiceError } from "./film-generation-execution-service";
 import { requestStill } from "./film-library";
 import { GenerationExecutionRegistryError } from "./film-generation-execution-registry";
 import type {
@@ -34,7 +35,9 @@ const current = (guard: () => boolean) => {
   }
 };
 const failureCode = (error: unknown): FilmGenerationExecutionFailure =>
-  error instanceof GenerationStillDispatchError || error instanceof GenerationExecutionRegistryError
+  error instanceof GenerationStillDispatchError ||
+  error instanceof GenerationExecutionRegistryError ||
+  error instanceof GenerationExecutionServiceError
     ? error.code
     : "WRITE_UNCONFIRMED";
 const reason = "生成记录尚未确认，请先核对任务和素材。";
