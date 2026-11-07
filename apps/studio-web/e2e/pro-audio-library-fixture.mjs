@@ -85,24 +85,29 @@ export function installAudioLibraryBridge({ state, catalog }) {
   };
   native.inspectBundledFilmAudioTarget = async (input) => {
     const matched = await validTarget(input);
-    audit.inspects.push({ input: clone(input), matched, busy: audit.active });
-    if (audit.active) return { kind: "FAILED", code: "BUSY", unchanged: true };
-    if (!matched) return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+    const call = { input: clone(input), matched, busy: audit.active, reply: "PENDING" };
+    audit.inspects.push(call);
+    const reply = (result) => {
+      call.reply = result.kind === "TARGET" ? "TARGET" : result.code;
+      return result;
+    };
+    if (audit.active) return reply({ kind: "FAILED", code: "BUSY", unchanged: true });
+    if (!matched) return reply({ kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true });
     if (audit.mode === "hold-target")
       return new Promise((resolve) => {
-        audit.pendingTargets.push({ resolve });
+        audit.pendingTargets.push({ resolve: (result) => resolve(reply(result)) });
         audit.targetAdmitted?.();
       });
     if (audit.mode === "target-failed")
-      return { kind: "FAILED", code: "SOURCE_UNVERIFIED", unchanged: true };
-    return {
+      return reply({ kind: "FAILED", code: "SOURCE_UNVERIFIED", unchanged: true });
+    return reply({
       kind: "TARGET",
       projectId: input.projectId,
       shotId: input.shotId,
       takeId: input.takeId,
       projectHash: input.expectedProjectHash,
       durationSeconds: audit.duration,
-    };
+    });
   };
   audit.resolveTarget = () => {
     const pending = audit.pendingTargets.shift();
