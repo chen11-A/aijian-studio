@@ -603,6 +603,9 @@ contextBridge.exposeInMainWorld("aijian", {
       "film:dialogue-split-apply",
       input,
     )) as FilmDialogueSplitGateway["applyFilmDialogueSplit"],
+  verifyFilmDialogueSplitBackup: (
+    input: Parameters<FilmDialogueSplitGateway["verifyFilmDialogueSplitBackup"]>[0],
+  ) => ipcRenderer.invoke("film:dialogue-split-verify-backup", input),
   listFilmHistory: (projectId: Parameters<FilmHistoryGateway["listFilmHistory"]>[0]) =>
     ipcRenderer.invoke("film:history-list", projectId),
   getFilmAudioMixPreview: (

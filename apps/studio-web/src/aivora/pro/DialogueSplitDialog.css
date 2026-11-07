@@ -1,0 +1,33 @@
+.pro-root .dialog.dialogue-split-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 112px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.pro-root .dialogue-split-dialog article {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 8px 0;
+}
+.pro-root .dialogue-split-line {
+  white-space: pre-wrap;
+}
+.pro-root .dialogue-split-accept {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 16px 0;
+}
+.pro-root .dialogue-split-accept input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+.pro-root .dialogue-split-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 0;
+}

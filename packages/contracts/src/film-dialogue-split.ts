@@ -58,7 +58,24 @@ export type FilmDialogueSplitApplyResult =
       childIds: string[];
     }
   | FilmDialogueSplitFailure;
+export type FilmDialogueSplitBackupInput = {
+  projectId: string;
+  historyId: string;
+  beforeHash: string;
+};
+export type FilmDialogueSplitBackupResult =
+  | {
+      kind: "VERIFIED";
+      projectId: string;
+      historyId: string;
+      beforeHash: string;
+      entry: FilmHistoryEntry;
+    }
+  | FilmDialogueSplitFailure;
 export type FilmDialogueSplitGateway = {
+  verifyFilmDialogueSplitBackup: (
+    input: FilmDialogueSplitBackupInput,
+  ) => Promise<FilmDialogueSplitBackupResult>;
   prepareFilmDialogueSplit: (
     input: FilmDialogueSplitInput,
   ) => Promise<FilmDialogueSplitPrepareResult>;

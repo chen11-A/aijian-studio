@@ -351,3 +351,148 @@ export function dialogueEvidenceContext(record, shotId, takeId) {
     },
   };
 }
+
+/** One deterministic structural projection. Main owns IDs, validated plan, backup and CAS;
+ * renderer may use this only to compare an entire canonical delta, never to write authority. */
+export function projectDialogueSplitRecord(
+  record,
+  shotId,
+  plan,
+  reviewFingerprint,
+  historyId,
+  childIds,
+) {
+  if (
+    !object(record) ||
+    !Array.isArray(record.shots) ||
+    !Array.isArray(record.scenes) ||
+    record.shots.some((s) => !object(s) || typeof s.id !== "string") ||
+    record.scenes.some((s) => !object(s) || typeof s.id !== "string") ||
+    new Set(record.shots.map((s) => s.id)).size !== record.shots.length ||
+    record.shots.filter((s) => s.id === shotId).length !== 1 ||
+    !object(plan) ||
+    plan.kind !== "READY" ||
+    !Array.isArray(plan.parts) ||
+    plan.parts.length < 2 ||
+    plan.parts.length > 128 ||
+    !Array.isArray(childIds) ||
+    childIds.length !== plan.parts.length ||
+    new Set(childIds).size !== childIds.length ||
+    childIds.some((id) => typeof id !== "string" || !id || record.shots.some((s) => s.id === id)) ||
+    typeof historyId !== "string" ||
+    !/^hst_[a-f0-9]{32}$/.test(historyId) ||
+    typeof reviewFingerprint !== "string" ||
+    !/^[a-f0-9]{64}$/.test(reviewFingerprint)
+  )
+    return null;
+  const existingIds = new Set(),
+    pendingObjects = [record];
+  while (pendingObjects.length) {
+    const value = pendingObjects.pop();
+    if (!value || typeof value !== "object") continue;
+    if (!Array.isArray(value) && typeof value.id === "string") existingIds.add(value.id);
+    for (const item of Object.values(value))
+      if (item && typeof item === "object") pendingObjects.push(item);
+  }
+  if (
+    childIds.some(
+      (id) =>
+        existingIds.has(id) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(id),
+    )
+  )
+    return null;
+  // Validated whole arrays, never silently filter away unrelated rows.
+  const shots = record.shots,
+    target = shots.find((shot) => shot.id === shotId);
+  const keys = [
+    "sceneId",
+    "size",
+    "angle",
+    "move",
+    "picture",
+    "action",
+    "performance",
+    "styleNote",
+    "characters",
+    "delivery",
+    "tag",
+    "blocking",
+    "facing",
+    "posterPosition",
+  ];
+  const creative = Object.fromEntries(
+    keys
+      .filter((key) => target[key] !== undefined)
+      .map((key) => [key, globalThis.structuredClone(target[key])]),
+  );
+  const sound = object(target.sound) ? target.sound : {};
+  const children = plan.parts.map((part, index) => ({
+    ...creative,
+    id: childIds[index],
+    no: Number(target.no) + index,
+    line: part.text,
+    lines: [{ speaker: part.speaker, text: part.text }],
+    speaker: part.speaker,
+    seconds: part.estimatedSeconds,
+    source: "user:dialogue-split",
+    userFields: [
+      ...new Set([
+        ...(Array.isArray(target.userFields)
+          ? target.userFields.filter(
+              (field) => typeof field === "string" && Object.hasOwn(creative, field),
+            )
+          : []),
+        "line",
+        "seconds",
+      ]),
+    ],
+    takes: [],
+    stills: [],
+    poster: "",
+    selectedTakeId: "",
+    sound: {
+      source: sound.source ?? "native",
+      ambience: sound.ambience ?? "",
+      musicMood: sound.musicMood ?? "",
+      sfx: [],
+    },
+    splitSource: {
+      schemaVersion: 1,
+      historyId: historyId,
+      sourceShotId: target.id,
+      sourceLineIndex: part.sourceLineIndex,
+      startOffset: part.startOffset,
+      endOffset: part.endOffset,
+      reviewFingerprint: reviewFingerprint,
+    },
+  }));
+  const at = shots.indexOf(target),
+    delta = children.length - 1;
+  const next = {
+    ...record,
+    assemblyPath: "",
+    assemblyUrl: "",
+    exportPath: "",
+    productionPipeline: undefined,
+    productionInputFingerprint: undefined,
+    pipeline: undefined,
+    shots: shots.flatMap((shot, index) =>
+      shot === target
+        ? children
+        : [
+            index > at && shot.sceneId === target.sceneId
+              ? { ...shot, no: Number(shot.no) + delta }
+              : shot,
+          ],
+    ),
+    scenes: record.scenes.map((scene) => {
+      if (scene.id !== target.sceneId) return scene;
+      const copy = { ...scene };
+      delete copy.coverage;
+      delete copy.shotBudget;
+      return copy;
+    }),
+  };
+  return next;
+}
