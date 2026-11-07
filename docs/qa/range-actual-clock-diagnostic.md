@@ -11,3 +11,9 @@
 正常 `517 / 42373106030 / 128405096846` 两条公开数据为 observed=2.1、expected=3.12，源起点1.2、时长2.4；clip=(457,801,177,81)，area=(217,731,1720,316)，logical=(240,177)，pointer终点=(598.6,744)。终点几何对应目标0.8，实际差值不是一位小数读数量化误差，尚未确定拖动为何提前停止。
 
 只在第二次实际 drag 的 mouse.down 前，为当时原 track-area 注册 capture 观察；不改默认行为。up 后两帧取快照并移除自身监听，下一次启用也先幂等移除旧监听。固定八事件：pointerdown/gotpointercapture/pointermove/pointerup/lostpointercapture/pointercancel/dragstart/dragend。记录各事件有限计数与前12条固定类型、buttons 0–7、ruler/clip/track-area/other 命中、有限坐标与当时 ruler 数值；布尔只报告原 area 是否连接、selection 是否折叠。既不读取选择文本，也不调用 preventDefault。公开计数仅0–64，其余数值保持abs<=200000/finite/number双过滤。隐私负例包含伪事件名/命中、错误布尔、PRIVATE、NaN/Infinity/超界；真实默认契约验证监听移除和0次preventDefault。
+
+## 已确认原生文字拖拽及局部修复
+
+`6c5 / 42373840130 / 128407283871` 两个1920组合的真实事件均为：原 area 仍连接、selectionCollapsed=false；pointerdown1/capture1/move1/up0/lost1/cancel1/dragstart1/dragend1。down在ruler (510.1,744)，第一move(524.85,744)后出现ruler dragstart，继而pointercancel/lost，最终dragend到(598,744)。实际时间2.1、期望3.12。该序列确认是原生选中文字拖拽夺走scrub，非节点卸载、量化或终点几何。
+
+只在真实ruler的左键pointerdown阻止原生默认文字选择并显式保留键盘focus，额外阻止该ruler内的dragstart；事件继续冒泡给原track-area的capture/seek。track-area原move/up/cancel、所有输入、右键、其它拖镜排序及时间计算均未改。没有改浏览器mouse轨迹、0.1断言、metadata或getter。原生行为回归before在defaultPrevented=false失败（`/tmp/ruler-native-drag-before.log`），after实际Pro通过（`/tmp/ruler-native-drag-after-stage.log`）：原文字已选时禁止native drag、六步source-clock精确映射、取消后不继续seek、ruler focus+键盘单步、输入与右键不拦、原media/1assembly/0provider。最终正常Chrome原32态仍须root推新source验证，受控DOM通过不代替真实浏览器正向。

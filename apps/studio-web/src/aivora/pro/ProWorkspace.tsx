@@ -12045,6 +12045,14 @@ function EditPage({
                 tabIndex={0}
                 aria-label="播放位置"
                 title="点或拖到这里，预览跳到这个时间"
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  // Keep the ruler's scrub gesture out of native text-selection dragging.
+                  // Preserve its normal keyboard focus while the parent owns pointer capture.
+                  event.preventDefault();
+                  event.currentTarget.focus();
+                }}
+                onDragStart={(event) => event.preventDefault()}
                 aria-valuemin={0}
                 aria-valuemax={Math.round(total * 10) / 10}
                 aria-valuenow={Math.round(headSeconds * 10) / 10}
