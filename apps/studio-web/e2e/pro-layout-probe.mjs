@@ -7,6 +7,8 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["查看本镜声音建议", "shot-audio-open"],
+    ["刷新建议", "shot-audio-refresh"],
     ["选用本地音效/配乐", "library-open"],
     ["加入当前版本", "library-add"],
     ["核对当前版本时长", "library-target-refresh"],
@@ -70,6 +72,9 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const controlIds = new Set(["export-quality", "export-aspect", "export-dir"]);
   const safeClasses = new Set([
+    "shot-audio-suggestions",
+    "shot-audio-lane",
+    "shot-audio-envelope",
     "bundled-audio-dialog",
     "bundled-audio-list",
     "bundled-audio-body",
