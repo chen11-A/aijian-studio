@@ -67,7 +67,10 @@ async function waitForReviewForm(dialog: HTMLElement) {
     expect(within(dialog).getByRole("checkbox")).toBeEnabled();
   });
 }
-async function open(checkpoint = false) {
+async function open(
+  checkpoint = false,
+  control: { beforeRecoveryWrite?: () => Promise<void>; observePendingRecovery?: true } = {},
+) {
   const native = await vi.importActual<{ createFilmRiskTrials(host: unknown): Native }>(
     resolve("../desktop/src/film-risk-trial.ts"),
   );
@@ -172,6 +175,10 @@ async function open(checkpoint = false) {
     return queue;
   });
   let pipelineHost!: pipeline.PipelineWorkspaceHost;
+  let recovering = false,
+    heldRecoveryWrite = false;
+  const initialRecoveryStarted = gate<void>();
+  let initialRecovery: Promise<unknown> | undefined;
   const nativePipeline = pipeline.createPipelineWorkspaceHost,
     recoveries = new Set<Promise<unknown>>();
   vi.spyOn(pipeline, "createPipelineWorkspaceHost").mockImplementation((value) => {
@@ -179,11 +186,22 @@ async function open(checkpoint = false) {
     const adapter = nativePipeline(value),
       originalRecover = adapter.recover;
     adapter.recover = () => {
+      recovering = true;
       const task = originalRecover();
+      if (!initialRecovery) {
+        initialRecovery = task;
+        initialRecoveryStarted.resolve();
+      }
       recoveries.add(task);
       void task.then(
-        () => recoveries.delete(task),
-        () => recoveries.delete(task),
+        () => {
+          recovering = false;
+          recoveries.delete(task);
+        },
+        () => {
+          recovering = false;
+          recoveries.delete(task);
+        },
       );
       return task;
     };
@@ -201,7 +219,11 @@ async function open(checkpoint = false) {
   });
   const writes = new Set<Promise<unknown>>();
   const write = vi.fn((value: FilmProject) => {
-    const task = library.writeProject(filmsRoot, value);
+    const hold = recovering && !heldRecoveryWrite && control.beforeRecoveryWrite;
+    if (hold) heldRecoveryWrite = true;
+    const task = hold
+      ? hold().then(() => library.writeProject(filmsRoot, value))
+      : library.writeProject(filmsRoot, value);
     writes.add(task);
     void task.then(
       () => writes.delete(task),
@@ -255,10 +277,19 @@ async function open(checkpoint = false) {
   localStorage.setItem("aivora.film.activeId", film.id);
   render(<ProWorkspace />);
   await screen.findByLabelText("这一场");
-  await act(async () => {
-    while (recoveries.size) await Promise.allSettled([...recoveries]);
-    await queue.flushAll();
-  });
+  const settleRecovery = () =>
+    act(async () => {
+      // The persisted checkpoint has a real mount-time recovery. An empty Set
+      // before its effect starts is not evidence that its save owner was released.
+      if (checkpoint) {
+        await initialRecoveryStarted.promise;
+        await initialRecovery;
+      }
+      while (recoveries.size) await Promise.allSettled([...recoveries]);
+      expect((await queue.flushAll()).status).toBe("saved");
+    });
+  // The controlled negative case intentionally inspects the real owned-write phase.
+  if (!control.observePendingRecovery) await settleRecovery();
   cleanups.push(async () => {
     await act(async () => {
       while (recoveries.size) await Promise.allSettled([...recoveries]);
@@ -270,6 +301,7 @@ async function open(checkpoint = false) {
   });
   return {
     film,
+    settleRecovery,
     host,
     queue,
     prepare,
@@ -538,4 +570,44 @@ it("keeps human choices unavailable until the actual native media read completes
   expect(f.record).not.toHaveBeenCalled();
   expect(f.check).not.toHaveBeenCalled();
   expect(f.provider).not.toHaveBeenCalled();
+});
+
+it("does not treat visible checkpoint UI as a released initial recovery save lease", async () => {
+  const entered = gate<void>(),
+    release = gate<void>();
+  const opening = open(true, {
+    observePendingRecovery: true,
+    beforeRecoveryWrite: async () => {
+      entered.resolve();
+      await release.promise;
+    },
+  });
+  try {
+    await entered.promise;
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "创作阶段" })).getByRole("button", {
+        name: /剪辑/,
+      }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "审核实际版本试片" }));
+    const blocked = await screen.findByRole("dialog", { name: "实际版本试片审核" });
+    await within(blocked).findByText("当前编辑还没保存上，请先核对保存状态，再准备试片。");
+    expect(blocked).toHaveAttribute("aria-busy", "false");
+    expect(window.aijian!.prepareFilmRiskTrial).not.toHaveBeenCalled();
+    expect(window.aijian!.recordFilmRiskTrialDecision).not.toHaveBeenCalled();
+    expect(window.aijian!.createStoryFilm).not.toHaveBeenCalled();
+    fireEvent.click(within(blocked).getByRole("button", { name: "关闭" }));
+    await act(async () => release.resolve());
+    const f = await opening;
+    await f.settleRecovery();
+    const ready = await f.review();
+    expect(ready.querySelector("video")).not.toBeNull();
+    expect(f.prepare).toHaveBeenCalledTimes(1);
+    expect(f.mediaRead).toHaveBeenCalledTimes(1);
+    expect(f.record).not.toHaveBeenCalled();
+    expect(f.provider).not.toHaveBeenCalled();
+  } finally {
+    release.resolve();
+    await opening;
+  }
 });
