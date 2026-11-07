@@ -72,6 +72,7 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
         const audit = () =>
           page.evaluate(() => ({
             catalog: window.__proAudioLibraryAudit.catalog,
+            writes: window.__proAudioLibraryAudit.writes,
             inspects: window.__proAudioLibraryAudit.inspects,
             adds: window.__proAudioLibraryAudit.adds,
             previews: window.__proAudioLibraryAudit.previews,
@@ -274,13 +275,36 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
               await nav("剧本").click();
               assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "script");
               await page.getByRole("button", { name: /本地素材保存待核对/ }).waitFor();
+              const originalBeforeSwitch = await record(before.id);
               await button("作品").click();
               await button("合成第2集").click();
+              const currentEpisode = page.locator(".topbar .ep");
+              await currentEpisode.filter({ hasText: /^\/\s*合成第2集$/ }).waitFor();
               await page.waitForFunction(
-                (id) => window.localStorage.getItem("aivora.film.activeId") === id,
+                (id) =>
+                  window.__proAudioLibraryAudit.writes.some((write) => write.projectId === id),
                 result.seed.otherId,
               );
+              await page
+                .locator(".sb-right .where")
+                .filter({ hasText: /作品保存在|已保存在这台电脑上/ })
+                .waitFor();
               const other = await record(result.seed.otherId);
+              assert.equal(
+                await page.evaluate(async (id) => {
+                  const last = window.__proAudioLibraryAudit.writes
+                    .filter((write) => write.projectId === id)
+                    .at(-1);
+                  return (
+                    last?.hash ===
+                    (await window.__proCreationAudit.hash(window.__proCreationAudit.record(id)))
+                  );
+                }, result.seed.otherId),
+                true,
+              );
+              assert.deepEqual(await record(before.id), originalBeforeSwitch);
+              const writesBeforeRecovery = (await audit()).writes.length;
+              result.currentWorkVerified = { episodeVisible: true, canonicalWriteComplete: true };
               await reachable(
                 page.getByRole("button", { name: /本地素材保存待核对/ }),
                 "library-pending",
@@ -313,6 +337,13 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
               await adopt.click();
               await panel.getByText("本地素材保存状态已核对。", { exact: true }).waitFor();
               assert.deepEqual(await record(result.seed.otherId), other);
+              assert.equal(await currentEpisode.innerText(), "/ 合成第2集");
+              assert.equal(
+                (await audit()).writes
+                  .slice(writesBeforeRecovery)
+                  .some((write) => write.projectId === result.seed.otherId),
+                false,
+              );
               assert.deepEqual(mediaFacts(await record(before.id)), mediaFacts(before));
               assert.equal((await record(before.id)).title, "本机后来保存的片名");
               assert.equal((await audit()).adds.length, 1);
