@@ -12040,7 +12040,7 @@ function EditPage({
                             : null;
                   if (to === null) return;
                   event.preventDefault();
-                  seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, to))));
+                  goTo(to);
                 }}
               >
                 {spacedTicks(

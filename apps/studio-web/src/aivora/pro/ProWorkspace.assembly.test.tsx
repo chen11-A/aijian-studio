@@ -496,3 +496,58 @@ it("rechecks main when a controlled same-source waveform refresh reports differe
   expect(f.oldAssemble).not.toHaveBeenCalled();
   expect(f.provider).not.toHaveBeenCalled();
 });
+it("moves a focused ruler in actual native seconds across cuts and boundaries without double bubbling", async () => {
+  const f = await open();
+  await waitFor(() => expect(f.disk().assemblyPath).toBe("/trusted/new-assembly.mp4"));
+  const before = structuredClone(f.host().current()!.shots);
+  const video = document.querySelector<HTMLVideoElement>(".screen video")!;
+  Object.defineProperty(video, "duration", { configurable: true, value: 3 });
+  Object.defineProperty(video, "readyState", { configurable: true, value: 1 });
+  fireEvent.loadedMetadata(video);
+  const ruler = screen.getByRole("slider", { name: "播放位置" });
+  async function press(key: string, expected: number, shiftKey = false) {
+    ruler.focus();
+    const event = new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true });
+    fireEvent(ruler, event);
+    expect(event.defaultPrevented).toBe(true);
+    await waitFor(() => expect(video.currentTime).toBeCloseTo(expected, 8));
+    fireEvent.timeUpdate(video);
+  }
+  await press("ArrowRight", 1);
+  await press("ArrowRight", 2);
+  await press("ArrowLeft", 1);
+  await press("Home", 0);
+  await press("ArrowLeft", 0);
+  await press("End", 3);
+  await press("ArrowRight", 3);
+  await press("ArrowLeft", 0, true);
+  await press("ArrowRight", 3, true);
+  expect(f.host().current()!.shots).toEqual(before);
+  expect(f.assemble).toHaveBeenCalledTimes(1);
+  expect(f.cancel).not.toHaveBeenCalled();
+  expect(f.oldAssemble).not.toHaveBeenCalled();
+  expect(f.provider).not.toHaveBeenCalled();
+});
+it("keeps unknown-clock whole-file ruler seeking separate from forbidden per-shot jumps and range marks", async () => {
+  const f = await open({ unknownClock: true });
+  const video = document.querySelector<HTMLVideoElement>(".screen video")!;
+  Object.defineProperty(video, "duration", { configurable: true, value: 3 });
+  Object.defineProperty(video, "readyState", { configurable: true, value: 1 });
+  fireEvent.loadedMetadata(video);
+  const ruler = screen.getByRole("slider", { name: "播放位置" });
+  ruler.focus();
+  fireEvent.keyDown(ruler, { key: "ArrowRight" });
+  await waitFor(() => expect(video.currentTime).toBe(1));
+  fireEvent.timeUpdate(video);
+  ruler.blur();
+  fireEvent.keyDown(window, { key: "ArrowDown" });
+  fireEvent.click(screen.getByRole("button", { name: "设入点" }));
+  expect(document.querySelector(".status-note")).toHaveTextContent(
+    NOTICE_TEXT.ASSEMBLY_CLOCK_REQUIRED,
+  );
+  expect(video.currentTime).toBe(1);
+  expect(document.querySelector(".selbar")).toBeNull();
+  expect(f.assemble).not.toHaveBeenCalled();
+  expect(f.oldAssemble).not.toHaveBeenCalled();
+  expect(f.provider).not.toHaveBeenCalled();
+});
