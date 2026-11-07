@@ -10,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from aijian_api.generation_failure_store import GenerationFailureError, GenerationFailureStore
+from aijian_api.media_probe import _open_local_source
 from aijian_api.repository import StudioRepository
 from aijian_api.story_film import StoryFilmService
 from aijian_api.video_recovery_lock import VideoRecoveryBusy, VideoRecoveryLock
@@ -41,19 +42,34 @@ class VideoRecoveryService:
         if not 0 < size <= MAX_RECOVERY_BYTES:
             return None
         try:
-            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-            with os.fdopen(descriptor, "rb") as stream:
+            named_before = path.lstat()
+            with _open_local_source(path) as stream:
                 before = os.fstat(stream.fileno())
                 if not stat.S_ISREG(before.st_mode) or before.st_size != size:
                     return None
                 data = stream.read(MAX_RECOVERY_BYTES + 1)
                 after = os.fstat(stream.fileno())
-                named = path.lstat()
+                # On Windows path.stat and fd.stat expose different ctime meanings.
+                # Compare all identity/time fields through the same handle API,
+                # while independently requiring the named path to remain stable.
+                with _open_local_source(path) as named_stream:
+                    named_handle = os.fstat(named_stream.fileno())
+                    named_after = path.lstat()
             fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
-            if not stat.S_ISREG(named.st_mode) or any(
-                getattr(before, key) != getattr(after, key)
-                or getattr(after, key) != getattr(named, key)
-                for key in fields
+            path_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+            if (
+                not stat.S_ISREG(named_before.st_mode)
+                or not stat.S_ISREG(named_after.st_mode)
+                or not stat.S_ISREG(named_handle.st_mode)
+                or any(
+                    getattr(before, key) != getattr(after, key)
+                    or getattr(after, key) != getattr(named_handle, key)
+                    or getattr(named_before, key) != getattr(named_after, key)
+                    for key in fields
+                )
+                or any(
+                    getattr(named_after, key) != getattr(named_handle, key) for key in path_fields
+                )
             ):
                 return None
         except OSError:
