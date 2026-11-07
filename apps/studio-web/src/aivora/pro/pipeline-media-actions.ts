@@ -12,7 +12,10 @@ import { makeAllPortraits } from "./portrait-workflow";
 import { ensureShotFrame } from "./still-workflow";
 import { fileMediaUrl, requestStill } from "./workflow";
 
+import type { GenerationExecutionSession } from "./actions/generation-execution";
+
 export type PipelineMediaContext = {
+  execution?: GenerationExecutionSession;
   signal: AbortSignal;
   isCurrent: () => boolean;
   current: () => FilmProject;
@@ -42,6 +45,16 @@ export async function makePipelinePortraits(
       apply: context.commitPartial,
       generate: (prompt: string, references: string[]) =>
         generate(film.seriesId, withStyleBible(prompt, film.styleZh), film.aspectRatio, references),
+      generateFor: (locationId: string, prompt: string, references: string[]) => {
+        if (!context.execution) throw new Error("GENERATION_EXECUTION_UNAVAILABLE");
+        return generate(
+          film.seriesId,
+          withStyleBible(prompt, film.styleZh),
+          film.aspectRatio,
+          references,
+          context.execution.image("location-reference", locationId),
+        );
+      },
     };
     const result = planned?.sceneId
       ? await ensureSceneReferences({ ...host, sceneIds: [planned.sceneId] })
@@ -71,6 +84,16 @@ export async function makePipelinePortraits(
     apply: context.commitPartial,
     generate: (prompt, references) =>
       generate(film.seriesId, withStyleBible(prompt, film.styleZh), film.aspectRatio, references),
+    generateFor: (characterId, view, prompt, references) => {
+      if (!context.execution) throw new Error("GENERATION_EXECUTION_UNAVAILABLE");
+      return generate(
+        film.seriesId,
+        withStyleBible(prompt, film.styleZh),
+        film.aspectRatio,
+        references,
+        context.execution.image("portrait", characterId, view),
+      );
+    },
     progress: () => undefined, // The existing task feed reports each image's progress.
   });
   if (!valid(context) || result.cancelled) return stale();
@@ -94,6 +117,7 @@ export async function makePipelineStill(
   if (!shot || !valid(context)) return stale();
   try {
     const ready = await prepareShotSceneReferences(film, [shot], {
+      execution: context.execution,
       current: context.current,
       valid: () => valid(context),
       apply: context.commitPartial,
@@ -101,6 +125,7 @@ export async function makePipelineStill(
     const currentShot = ready.shots.find((item) => item.id === shot.id);
     if (!currentShot || !valid(context)) return stale();
     await ensureShotFrame(ready, currentShot, {
+      execution: context.execution,
       current: context.current,
       valid: () => valid(context),
       apply: context.commitPartial,
@@ -138,6 +163,7 @@ export async function assemblePipelineFilm(
     // The controller already persisted this running checkpoint under its original lease.
     const accepted = context.current();
     const control = {
+      execution: context.execution,
       current: context.current,
       valid: () => valid(context),
       signal: context.signal,

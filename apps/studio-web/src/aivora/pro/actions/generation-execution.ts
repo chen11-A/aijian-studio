@@ -1,4 +1,6 @@
 import type { FilmProject } from "../../film/project";
+import { NOTICE_TEXT } from "../../film/notices";
+import type { UiNotice } from "../../film/contracts3j";
 import { historyRecordHash } from "./persistent-history";
 import type {
   FilmGenerationExecutionGateway,
@@ -37,6 +39,36 @@ const fail = (code: string): never => {
   throw Object.assign(new Error(code), { code });
 };
 
+/** Keep fixed native failure codes internally, while presenting the actual failed gate. */
+export function generationExecutionNotice(error: unknown): UiNotice {
+  const raw =
+    error && typeof error === "object" && "code" in error
+      ? error.code
+      : error instanceof Error
+        ? error.message
+        : "";
+  const code =
+    typeof raw === "string" && raw.startsWith("CREATION_") && Object.hasOwn(NOTICE_TEXT, raw)
+      ? raw
+      : raw === "GENERATION_EXECUTION_STALE" ||
+          raw === "PROJECT_CHANGED" ||
+          raw === "GENERATION_EXECUTION_STAGE_UNAVAILABLE" ||
+          raw === "GENERATION_EXECUTION_SLOT_UNAVAILABLE"
+        ? "GENERATION_SELECTION_STALE"
+        : raw === "GENERATION_EXECUTION_UNAVAILABLE"
+          ? "GENERATION_EXECUTION_UNAVAILABLE"
+          : raw === "ACCOUNT_UNAVAILABLE"
+            ? "GENERATION_EXECUTION_ACCOUNT_UNAVAILABLE"
+            : raw === "SOURCE_UNVERIFIABLE"
+              ? "GENERATION_EXECUTION_SOURCE_UNVERIFIABLE"
+              : raw === "UNSUPPORTED_SCOPE"
+                ? "GENERATION_EXECUTION_SCOPE_UNSUPPORTED"
+                : raw === "BUSY"
+                  ? "GENERATION_EXECUTION_BUSY"
+                  : "GENERATION_EXECUTION_UNCONFIRMED";
+  return { code, text: NOTICE_TEXT[code as keyof typeof NOTICE_TEXT] };
+}
+
 /** Validate only the declared transient table. It is not a failure identity or authorization. */
 export function validGenerationExecution(
   value: unknown,
@@ -49,14 +81,21 @@ export function validGenerationExecution(
     value.projectId !== input.projectId ||
     value.projectHash !== input.expectedProjectHash ||
     !Array.isArray(value.targets) ||
-    value.targets.length !== input.targets.length ||
+    (input.mode === "video"
+      ? value.targets.length !== input.targets.length
+      : value.targets.length === 0 || value.targets.length > input.targets.length) ||
     !Array.isArray(value.stages)
   )
     return false;
   const ids = new Set<string>([value.executionId]);
-  for (let i = 0; i < input.targets.length; i++) {
-    const target = value.targets[i],
-      wanted = input.targets[i]!;
+  let nextInput = 0;
+  for (const target of value.targets) {
+    if (!record(target)) return false;
+    if (input.mode === "pipeline")
+      while (nextInput < input.targets.length && input.targets[nextInput]?.shotId !== target.shotId)
+        nextInput++;
+    const wanted = input.targets[nextInput++];
+    if (!wanted) return false;
     if (
       !exact(target, ["shotId", "videoSlotIds"]) ||
       target.shotId !== wanted.shotId ||

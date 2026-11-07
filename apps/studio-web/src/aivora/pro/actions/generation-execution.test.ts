@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type {
+  FilmGenerationImageStage,
   FilmGenerationExecutionInput,
   FilmGenerationExecutionResult,
 } from "@aijian/contracts/film-generation-execution";
@@ -25,9 +26,17 @@ const input: FilmGenerationExecutionInput = {
     { shotId: "shot2", versions: 1 },
   ],
 };
-function prepared(): Extract<FilmGenerationExecutionResult, { kind: "PREPARED" }> {
+type MutablePrepared = {
+  kind: "PREPARED";
+  executionId: string;
+  projectId: string;
+  projectHash: string;
+  targets: { shotId: string; videoSlotIds: string[] }[];
+  stages: Array<FilmGenerationImageStage>;
+};
+function prepared(): MutablePrepared {
   return {
-    kind: "PREPARED",
+    kind: "PREPARED" as const,
     executionId: "execution-1",
     projectId: input.projectId,
     projectHash: input.expectedProjectHash,
@@ -37,14 +46,17 @@ function prepared(): Extract<FilmGenerationExecutionResult, { kind: "PREPARED" }
     ],
     stages: [
       { stageId: "place", kind: "location-reference", targetId: "location1" },
-      { stageId: "front", kind: "portrait", targetId: "person1", view: "正面" },
-      { stageId: "side", kind: "portrait", targetId: "person1", view: "侧面" },
+      { stageId: "front", kind: "portrait", targetId: "person1", view: "正面" as const },
+      { stageId: "side", kind: "portrait", targetId: "person1", view: "侧面" as const },
       { stageId: "frame", kind: "shot-frame", targetId: "shot1" },
     ],
   };
 }
 function env() {
-  const prepare = vi.fn(async (): Promise<FilmGenerationExecutionResult> => prepared()),
+  const prepare = vi.fn(
+      async (_input: FilmGenerationExecutionInput): Promise<FilmGenerationExecutionResult> =>
+        prepared(),
+    ),
     retire = vi.fn(async () => ({ kind: "RETIRED" as const }));
   return {
     prepare,
@@ -159,6 +171,37 @@ it("rejects incomplete, foreign, ambiguous or extra-field prepared replies as wh
     change(p);
     expect(validGenerationExecution(p, input)).toBe(false);
   }
+});
+it("accepts only the native-issued ordered pipeline subset, without expanding reusable targets", () => {
+  const pipeline = { ...input, mode: "pipeline" as const };
+  const subset = prepared();
+  subset.targets = [subset.targets[1]!];
+  expect(validGenerationExecution(subset, pipeline)).toBe(true);
+  expect(validGenerationExecution(subset, input)).toBe(false);
+  expect(validGenerationExecution({ ...subset, targets: [] }, pipeline)).toBe(false);
+  expect(
+    validGenerationExecution(
+      { ...subset, targets: [...subset.targets, ...subset.targets] },
+      pipeline,
+    ),
+  ).toBe(false);
+  expect(
+    validGenerationExecution(
+      { ...subset, targets: [{ shotId: "unknown", videoSlotIds: ["new"] }] },
+      pipeline,
+    ),
+  ).toBe(false);
+  const session = createGenerationExecutionSession(
+    {
+      prepareFilmGenerationExecution: async () => subset,
+      retireFilmGenerationExecution: async () => ({ kind: "RETIRED" }),
+    },
+    () => true,
+  );
+  return session.prepare(pipeline).then(() => {
+    expect(() => session.video("shot1", 0, "extra")).toThrow("SLOT_UNAVAILABLE");
+    expect(session.video("shot2", 0, "issued").videoSlotId).toBe("video3");
+  });
 });
 it("uses a fresh complete raw CAS after saved metadata drift, but rejects creative drift without adoption", async () => {
   const film = sampleFilm();

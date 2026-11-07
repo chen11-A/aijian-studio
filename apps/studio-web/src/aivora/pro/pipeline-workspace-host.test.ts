@@ -1,3 +1,5 @@
+import { historyRecordHash } from "./actions/persistent-history";
+import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
 import { applyVideoResponse } from "./actions/generation-run";
 import { webcrypto } from "node:crypto";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -110,6 +112,31 @@ function setup(initial = fixture()) {
     submitGeneration: vi.fn<PipelineWorkspaceHost["submitGeneration"]>(async () => undefined),
     cancelGeneration: vi.fn(),
   };
+  window.aijian = {
+    readFilmProject: vi.fn(async () => structuredClone(disk.at(-1) ?? initial)),
+    prepareFilmGenerationExecution: vi.fn<
+      FilmGenerationExecutionGateway["prepareFilmGenerationExecution"]
+    >(async (input) => {
+      const raw = disk.at(-1) ?? initial;
+      if (input.expectedProjectHash !== (await historyRecordHash(raw)))
+        return { kind: "FAILED", code: "PROJECT_CHANGED" };
+      expect(input.targets).toEqual(
+        filmPipelineTargets(raw, "video").map((shotId) => ({ shotId, versions: 1 })),
+      );
+      return {
+        kind: "PREPARED",
+        executionId: "pipeline-execution",
+        projectId: input.projectId,
+        projectHash: input.expectedProjectHash,
+        stages: [],
+        targets: input.targets.map((t) => ({
+          shotId: t.shotId,
+          videoSlotIds: [`video-${t.shotId}`],
+        })),
+      };
+    }),
+    retireFilmGenerationExecution: vi.fn(async () => ({ kind: "RETIRED" })),
+  } as unknown as Window["aijian"];
   const adapter = createPipelineWorkspaceHost(host);
   return {
     host,

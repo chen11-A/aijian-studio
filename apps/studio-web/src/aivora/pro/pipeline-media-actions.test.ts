@@ -9,6 +9,7 @@ import {
 } from "./pipeline-media-actions";
 import { requestShotStill, type requestStill } from "./workflow";
 import type * as Workflow from "./workflow";
+import { createGenerationExecutionSession } from "./actions/generation-execution";
 import { sceneLocationTargets } from "../film/location-reference";
 
 vi.mock("./workflow", async (original) => ({
@@ -16,14 +17,56 @@ vi.mock("./workflow", async (original) => ({
   requestShotStill: vi.fn(),
 }));
 
-function fixture() {
+async function fixture() {
   let film = sampleFilm();
   film = {
     ...film,
     characters: [{ ...film.characters[0]!, identity: "青年女性，短发", portraits: [] }],
     shots: [{ ...film.shots[0]!, poster: "", stills: [], takes: [] }],
   };
+  const stages = [
+    ...[
+      ...new Set([
+        ...sceneLocationTargets(film).map((p) => p.id),
+        ...film.locations.map((p) => p.id),
+        "one",
+        "two",
+      ]),
+    ].map((targetId, i) => ({
+      stageId: `location-${i}`,
+      kind: "location-reference" as const,
+      targetId,
+    })),
+    ...["正面", "侧面", "背面", "脸部"].map((view, i) => ({
+      stageId: `portrait-${i}`,
+      kind: "portrait" as const,
+      targetId: film.characters[0]!.id,
+      view: view as "正面" | "侧面" | "背面" | "脸部",
+    })),
+    { stageId: "frame", kind: "shot-frame" as const, targetId: film.shots[0]!.id },
+  ];
+  const execution = createGenerationExecutionSession(
+    {
+      prepareFilmGenerationExecution: async (input) => ({
+        kind: "PREPARED",
+        executionId: "media-unit",
+        projectId: input.projectId,
+        projectHash: input.expectedProjectHash,
+        stages,
+        targets: [{ shotId: film.shots[0]!.id, videoSlotIds: ["video"] }],
+      }),
+      retireFilmGenerationExecution: async () => ({ kind: "RETIRED" }),
+    },
+    () => true,
+  );
+  await execution.prepare({
+    projectId: film.id,
+    expectedProjectHash: "a".repeat(64),
+    mode: "pipeline",
+    targets: [{ shotId: film.shots[0]!.id, versions: 1 }],
+  });
   const context: PipelineMediaContext = {
+    execution,
     signal: new AbortController().signal,
     isCurrent: () => true,
     current: () => film,
@@ -35,7 +78,7 @@ function fixture() {
 }
 
 it("creates and persists a missing scene location before its actual pipeline image request", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   film.locations = [];
   const planned = sceneLocationTargets(film)[1]!;
   const generate = vi.fn(async () => {
@@ -54,7 +97,7 @@ it("creates and persists a missing scene location before its actual pipeline ima
 });
 
 it("persists exactly the requested portrait angle before completing its target", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   let finish!: () => void;
   const durable = new Promise<void>((resolve) => {
     finish = resolve;
@@ -92,7 +135,7 @@ it("persists exactly the requested portrait angle before completing its target",
 });
 
 it("passes the saved front anchor through the pipeline's real request adapter", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   let count = 0;
   const generate = vi.fn<typeof requestStill>(async () => ({
     url: `/media/portrait-${++count}.png`,
@@ -109,7 +152,7 @@ it("passes the saved front anchor through the pipeline's real request adapter", 
 });
 
 it("retains the portrait queue's single retry and never marks a failed angle done", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   const generate = vi.fn(async () => ({ url: "", reason: "fixture refusal" }));
   expect(
     await makePipelinePortraits(film, `${film.characters[0]!.id}@脸部`, context, generate),
@@ -119,7 +162,7 @@ it("retains the portrait queue's single retry and never marks a failed angle don
 });
 
 it("waits for the still's durable write before reporting success", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   const place =
     sceneLocationTargets(film).find((item) => item.sceneId === film.shots[0]!.sceneId) ??
     sceneLocationTargets(film)[0]!;
@@ -153,8 +196,8 @@ it("waits for the still's durable write before reporting success", async () => {
   expect(context.current().shots[0]!.poster).toBe("https://example.invalid/still.png");
 });
 
-function assemblyFixture(partial = false) {
-  const { film, context } = fixture();
+async function assemblyFixture(partial = false) {
+  const { film, context } = await fixture();
   const shot = film.shots[0]!;
   shot.takes = [
     {
@@ -194,7 +237,7 @@ function assemblyFixture(partial = false) {
 it("does not assemble a subset and still uses the shared audio path for a single clip", async () => {
   const previous = window.aijian;
   try {
-    const { film, context, assemble, oldAssemble } = assemblyFixture();
+    const { film, context, assemble, oldAssemble } = await assemblyFixture();
     expect(await assemblePipelineFilm(film, [], context)).toMatchObject({
       status: "blocked",
       code: "PIPELINE_MISSING_VIDEO",
@@ -218,7 +261,7 @@ it("does not assemble a subset and still uses the shared audio path for a single
 it("keeps a partial assembly available without claiming that audio succeeded", async () => {
   const previous = window.aijian;
   try {
-    const { film, context, oldAssemble } = assemblyFixture(true);
+    const { film, context, oldAssemble } = await assemblyFixture(true);
     const result = await assemblePipelineFilm(film, ["/fixture/shot.mp4"], context);
     expect(result).toMatchObject({ status: "needs-input", code: "ASSEMBLY_PARTIAL" });
     expect(result.film?.assemblyPath).toBe("/fixture/partial.mp4");
@@ -230,7 +273,7 @@ it("keeps a partial assembly available without claiming that audio succeeded", a
 });
 
 it("generates only the selected location through the actual bridge, with no images and the complete style", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   film.styleZh = "完整画风：雨夜冷光，木质纹理，保留胶片颗粒。";
   film.locations = [
     { id: "one", name: "书店", prompt: "书架", ambience: "" },
@@ -252,6 +295,7 @@ it("generates only the selected location through the actual bridge, with no imag
       expect.stringContaining(film.styleZh),
       film.aspectRatio,
       [],
+      context.execution!.image("location-reference", "two"),
     ]);
     expect(String(generateFilmStill.mock.calls[0]?.[1])).toContain("空镜，没有人物。街道。路灯");
     expect(context.current().locations[0]!.referenceImage).toBeUndefined();
@@ -266,7 +310,7 @@ it("generates only the selected location through the actual bridge, with no imag
 });
 
 it("never completes failed or cancelled location generation", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   film.locations = [{ id: "one", name: "书店", prompt: "书架", ambience: "" }];
   const refused = vi.fn(async () => ({ url: "", reason: "private refusal" }));
   expect(await makePipelinePortraits(film, "location:one", context, refused)).toMatchObject({
@@ -285,7 +329,7 @@ it("never completes failed or cancelled location generation", async () => {
 });
 
 it("refreshes a missing pipeline scene before requesting a shot image", async () => {
-  const { film, context } = fixture();
+  const { film, context } = await fixture();
   film.locations = [];
   const previous = window.aijian;
   const generate = vi.fn(async () => ({ path: "/media/pipeline-scene.png", reason: "" }));
@@ -314,4 +358,18 @@ it("refreshes a missing pipeline scene before requesting a shot image", async ()
   } finally {
     window.aijian = previous;
   }
+});
+
+it("does not dispatch an automatic image when the protected execution context is missing", async () => {
+  const { film, context } = await fixture();
+  delete context.execution;
+  const generate = vi.fn(async () => ({ url: "/media/forbidden.png", reason: "" }));
+  const result = await makePipelinePortraits(
+    film,
+    `${film.characters[0]!.id}@正面`,
+    context,
+    generate,
+  );
+  expect(result.status).not.toBe("done");
+  expect(generate).not.toHaveBeenCalled();
 });

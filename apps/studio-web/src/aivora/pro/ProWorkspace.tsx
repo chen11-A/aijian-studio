@@ -62,6 +62,7 @@ import {
   type ArtFieldReview,
 } from "./actions/art-field-review";
 import {
+  generationExecutionTargets,
   generationPreflight,
   prepareGeneration,
   prepareGenerationRetry,
@@ -107,6 +108,12 @@ import { createEditorHost } from "./actions/editor-host";
 import type { EditorSuggestion } from "./actions/editor-changes";
 import type { EditorSelection } from "./actions/editor-context";
 import { runPreparedGeneration } from "./actions/generation-run";
+import {
+  generationExecutionNotice,
+  createGenerationExecutionSession,
+  prepareCurrentGenerationExecution,
+  type GenerationExecutionSession,
+} from "./actions/generation-execution";
 import { preparePortraitIdentity } from "./actions/portrait-identity";
 import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
 import { planDirectorDraft, type DirectorDraftResult } from "./actions/director-draft";
@@ -240,6 +247,7 @@ import {
   canResumeTake,
   retryableVideoTask,
   cancelVideoTask,
+  videoTaskTarget,
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
 import { presentNotice, NOTICE_TEXT } from "../film/notices";
@@ -816,9 +824,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const filmRef = useRef<FilmProject | null>(null);
+  const generationExecutions = useRef(
+    new Map<
+      GenerationExecutionSession,
+      {
+        projectId: string;
+        slots: Map<string, { shotId: string; index: number }>;
+      }
+    >(),
+  );
+  function retireGenerationExecutions() {
+    for (const execution of generationExecutions.current.keys()) execution.retire();
+    generationExecutions.current.clear();
+    pipelineWorkspace.cancel();
+  }
   function setFilm(update: SetStateAction<FilmProject | null>) {
     const previous = filmRef.current;
     let next = typeof update === "function" ? update(previous) : update;
+    if (previous && previous.id !== next?.id) retireGenerationExecutions();
     if (previous && next && previous.id === next.id && previous.styleZh !== next.styleZh) {
       next = setFilmStyle(
         { ...next, styleZh: previous.styleZh, styleRevision: previous.styleRevision },
@@ -904,6 +927,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       notify: emitNotice,
     });
   }, [persistence]);
+  useEffect(() => {
+    const retire = () => {
+      ++runToken.current;
+      retireGenerationExecutions();
+    };
+    window.addEventListener("aivora-grok-changed", retire);
+    return () => {
+      window.removeEventListener("aivora-grok-changed", retire);
+      retire();
+    };
+  }, [pipelineWorkspace]);
   const productionActions = useProductionActions({
     current: () => filmRef.current,
     apply: async (next) => {
@@ -3822,6 +3856,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   function applyLive(next: FilmProject) {
     const current = filmRef.current;
+    if (current && current.id !== next.id) retireGenerationExecutions();
     const kept =
       current &&
       current.id === next.id &&
@@ -3842,9 +3877,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     shots: FilmShot[],
     valid: () => boolean,
     pipeline?: PipelineGenerationHost,
+    execution?: GenerationExecutionSession,
   ) {
     if (!window.aijian?.generateFilmStill) throw new Error(NOTICE_TEXT.DESKTOP_REQUIRED);
     return prepareShotSceneReferences(base, shots, {
+      execution,
       current: () => filmRef.current,
       valid,
       apply: async (next) => {
@@ -3935,6 +3972,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       apply: (next) => {
         if (next) applyLive(next);
         else {
+          retireGenerationExecutions();
           filmRef.current = null;
           setFilm(null);
         }
@@ -4105,94 +4143,163 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         return;
       }
     }
-    const preparation = prepareGeneration(live, selected, {
-      versions: requestedVersions,
-      resume,
-      takeIds,
-      blockedIds,
-      canSubmit,
-      blockedReason: blocked,
-    });
-    if (preparation.kind === "blocked") {
-      if (preparation.apply) await applyGeneration(preparation.film);
-      setNotice(preparation.notice);
-      return;
-    }
-    const prepared = preparation.prepared;
-    const next = prepared.film;
-    const groups = prepared.groups;
-    await applyGeneration(next);
-    try {
+    let execution = pipeline?.execution;
+    if (canSubmit && !execution) {
+      execution = createGenerationExecutionSession(bridge ?? {}, valid);
+      generationExecutions.current.set(execution, { projectId: live.id, slots: new Map() });
       try {
-        await prepareSceneMedia(next, selected, valid, pipeline);
+        await prepareCurrentGenerationExecution(
+          execution,
+          live,
+          {
+            mode: "video",
+            targets: generationExecutionTargets(live, selected, {
+              versions: requestedVersions,
+              resume,
+              takeIds,
+              blockedIds,
+            }),
+          },
+          {
+            current: () => filmRef.current,
+            valid,
+            read: async (id) => {
+              if (!bridge?.readFilmProject) throw new Error("GENERATION_EXECUTION_UNAVAILABLE");
+              return bridge.readFilmProject(id);
+            },
+          },
+        );
+        if (!valid()) {
+          execution.retire();
+          generationExecutions.current.delete(execution);
+          return;
+        }
       } catch (error) {
-        if (!valid()) return;
-        if (
-          error instanceof Error &&
-          ["WORK_STALE", "VIDEO_CANCELLED", "REQUEST_CANCELLED"].includes(error.message)
-        )
-          throw error;
-        const notice = stillFailureNotice(error);
-        const failed = failQueuedVideoPrerequisites(filmRef.current ?? next, groups, notice.text);
-        await applyGeneration(failed);
-        if (!pipeline && valid() && filmRef.current) await saveFilm(filmRef.current);
-        if (valid()) emitNotice(notice);
+        execution.retire();
+        generationExecutions.current.delete(execution);
+        if (valid()) emitNotice(generationExecutionNotice(error));
         return;
       }
-      await runPreparedGeneration(prepared, {
-        current: () => filmRef.current,
-        valid,
-        apply: applyGeneration,
-        persist: async (snapshot) => {
-          if (!pipeline) await saveFilm(snapshot);
-        },
-        stopped: () => stopRef.current,
-        paused: () => pauseRef.current,
-        cancelled: (jobId) => cancelledJobs.current.has(jobId),
-        request: (body, scope) =>
-          bridge!.supportsStoryFilmLocalScope
-            ? bridge!.createStoryFilm!(billingProject, body, scope)
-            : bridge!.createStoryFilm!(billingProject, body),
-        notice: emitNotice,
-        completed: ({ shotId, done, message }) => {
-          if (done && shotId === openShotRef.current) setPlaying(true);
-          setNotice((current) =>
-            current.startsWith("已暂停")
-              ? current
-              : done
-                ? "这一版已经生成。"
-                : message || "没有生成成功，可以重试。",
-          );
-        },
+    }
+    if (canSubmit && !execution) {
+      emitNotice(generationExecutionNotice(new Error("GENERATION_EXECUTION_UNAVAILABLE")));
+      return;
+    }
+    try {
+      const preparation = prepareGeneration(live, selected, {
+        versions: requestedVersions,
+        resume,
+        takeIds,
+        blockedIds,
+        canSubmit,
+        blockedReason: blocked,
       });
-    } catch (error) {
-      if (!valid()) return;
-      const reviewFailure =
-        error instanceof Error && error.message === VIDEO_FACTS_STALE.text
-          ? VIDEO_FACTS_STALE
-          : null;
-      const styleFailure =
-        reviewFailure ?? styleFailureNotice(error) ?? continuityFailureNotice(error);
-      const reason =
-        styleFailure?.text ??
-        (error instanceof Error && error.message === "TASK_TIMEOUT"
-          ? "等待结果超时，请先核对会员端结果。"
-          : error instanceof Error && error.message === "VIDEO_CANCELLED"
-            ? "已取消"
-            : error instanceof Error &&
-                (error.message.includes("首帧未完成") || /VOICE_.*REQUIRED/.test(error.message))
-              ? error.message
-              : "没有生成成功，可以重试。");
-      const latest = filmRef.current ?? next;
-      await applyGeneration(failRunningVideoTasks(latest, groups, reason));
-      if (latest.shots.some((row) => row.takes.some(canResumeTake))) {
-        pauseRef.current = true;
-        setPaused(true);
+      if (preparation.kind === "blocked") {
+        if (preparation.apply) await applyGeneration(preparation.film);
+        setNotice(preparation.notice);
+        return;
       }
-      if (styleFailure) emitNotice(styleFailure);
-      else if (error instanceof Error && error.message === "TASK_TIMEOUT")
-        emitNotice({ code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT, detail: reason });
-      else setNotice(reason);
+      const prepared = preparation.prepared;
+      const next = prepared.film;
+      const groups = prepared.groups;
+      if (execution) {
+        const slots = new Map<string, { shotId: string; index: number }>();
+        for (const group of groups)
+          group.takes.forEach((take, index) => {
+            // Validate all issued slots before any automatic image or video dispatch.
+            execution!.video(group.shot.id, index, take.id);
+            slots.set(take.id, { shotId: group.shot.id, index });
+          });
+        generationExecutions.current.set(execution, { projectId: next.id, slots });
+      }
+      if (!valid()) return;
+      await applyGeneration(next);
+      try {
+        try {
+          await prepareSceneMedia(next, selected, valid, pipeline, execution);
+        } catch (error) {
+          if (!valid()) return;
+          if (
+            error instanceof Error &&
+            ["WORK_STALE", "VIDEO_CANCELLED", "REQUEST_CANCELLED"].includes(error.message)
+          )
+            throw error;
+          const notice = stillFailureNotice(error);
+          const failed = failQueuedVideoPrerequisites(filmRef.current ?? next, groups, notice.text);
+          await applyGeneration(failed);
+          if (!pipeline && valid() && filmRef.current) await saveFilm(filmRef.current);
+          if (valid()) emitNotice(notice);
+          return;
+        }
+        await runPreparedGeneration(prepared, {
+          execution,
+          current: () => filmRef.current,
+          valid,
+          apply: applyGeneration,
+          persist: async (snapshot) => {
+            if (!pipeline) await saveFilm(snapshot);
+          },
+          stopped: () => stopRef.current,
+          paused: () => pauseRef.current,
+          cancelled: (jobId) => cancelledJobs.current.has(jobId),
+          request: (body, scope, issued) => {
+            if (!issued) throw new Error("GENERATION_EXECUTION_UNAVAILABLE");
+            return bridge!.createStoryFilm!(
+              billingProject,
+              body,
+              bridge!.supportsStoryFilmLocalScope ? scope : undefined,
+              issued,
+            );
+          },
+          notice: emitNotice,
+          completed: ({ shotId, done, message }) => {
+            if (done && shotId === openShotRef.current) setPlaying(true);
+            setNotice((current) =>
+              current.startsWith("已暂停")
+                ? current
+                : done
+                  ? "这一版已经生成。"
+                  : message || "没有生成成功，可以重试。",
+            );
+          },
+        });
+      } catch (error) {
+        if (!valid()) return;
+        const reviewFailure =
+          error instanceof Error && error.message === VIDEO_FACTS_STALE.text
+            ? VIDEO_FACTS_STALE
+            : null;
+        const styleFailure =
+          reviewFailure ?? styleFailureNotice(error) ?? continuityFailureNotice(error);
+        const reason =
+          styleFailure?.text ??
+          (error instanceof Error && error.message === "TASK_TIMEOUT"
+            ? "等待结果超时，请先核对会员端结果。"
+            : error instanceof Error && error.message === "VIDEO_CANCELLED"
+              ? "已取消"
+              : error instanceof Error &&
+                  (error.message.includes("首帧未完成") || /VOICE_.*REQUIRED/.test(error.message))
+                ? error.message
+                : "没有生成成功，可以重试。");
+        const latest = filmRef.current ?? next;
+        await applyGeneration(failRunningVideoTasks(latest, groups, reason));
+        if (latest.shots.some((row) => row.takes.some(canResumeTake))) {
+          pauseRef.current = true;
+          setPaused(true);
+        }
+        if (styleFailure) emitNotice(styleFailure);
+        else if (error instanceof Error && error.message === "TASK_TIMEOUT")
+          emitNotice({ code: "TASK_TIMEOUT", text: NOTICE_TEXT.TASK_TIMEOUT, detail: reason });
+        else setNotice(reason);
+      }
+    } catch (error) {
+      if (valid()) emitNotice(generationExecutionNotice(error));
+      if (pipeline) throw error;
+    } finally {
+      if (execution) {
+        generationExecutions.current.delete(execution);
+        if (!pipeline) execution.retire();
+      }
     }
   }
 
@@ -7075,6 +7182,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               onRemove={(taskId) => {
                 const cancelled = cancelVideoTask(filmRef.current ?? film, taskId);
                 if (!cancelled.jobId) return;
+                const target = videoTaskTarget(filmRef.current ?? film, taskId);
+                if (target)
+                  for (const [execution, run] of generationExecutions.current) {
+                    if (run.projectId !== film.id) continue;
+                    const slot = run.slots.get(target.take.id);
+                    if (slot) execution.retireSlot(slot.shotId, slot.index);
+                  }
                 cancelledJobs.current.add(cancelled.jobId);
                 applyLive(cancelled.film);
                 const billed = film.backendProjectId || projectId;
