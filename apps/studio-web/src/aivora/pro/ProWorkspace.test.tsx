@@ -1,3 +1,4 @@
+import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
 import { historyRecordHash } from "./actions/persistent-history";
 import type { FilmHistoryEntry, FilmHistoryGateway } from "@aijian/contracts/film-history";
 import { qcFailureText } from "./actions/export-qc";
@@ -915,7 +916,8 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     await waitFor(() => expect(createStoryFilm.mock.calls.length).toBeGreaterThanOrEqual(8));
     fireEvent.click(stageTab("剪辑"));
-    await waitFor(() => expect(desktop.assembleFilm).toHaveBeenCalled());
+    await waitFor(() => expect(desktop.assembleFilmProject).toHaveBeenCalled());
+    expect(desktop.assembleFilm).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     desktop.publishFilmExport.mockResolvedValueOnce({ kind: "CANCELLED" });
     fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
@@ -2735,15 +2737,21 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
     expect.any(String),
   );
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-  desktop.assembleFilm.mockImplementation(async () => ({
-    path: "/tmp/aivora/rough.mp4",
-    reason: "视频已接上。配乐没有混进去。",
-  }));
+  const completeAssembly = desktop.assembleFilmProject.getMockImplementation()!;
+  desktop.assembleFilmProject.mockImplementation(
+    async (input) =>
+      ({
+        ...(await completeAssembly(input)),
+        kind: "PARTIAL",
+        incomplete: "audio",
+      }) as FilmAssemblyResult,
+  );
   fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   fireEvent.click(stageTab("剪辑"));
-  expect(await screen.findByText(/配乐没有混进去/)).toBeInTheDocument();
+  expect(await screen.findByText(NOTICE_COPY.ASSEMBLY_PARTIAL!)).toBeInTheDocument();
+  expect(desktop.assembleFilm).not.toHaveBeenCalled();
 }, 20_000);
 
 it("names the shots that are not ready instead of exporting an empty cut", async () => {
@@ -2869,6 +2877,33 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
   }));
   const discardFilmExport = vi.fn(async () => undefined);
   const savedProjects = new Map<string, FilmProject>();
+  const assembleFilmProject = vi.fn(
+    async (input: FilmAssemblyInput): Promise<FilmAssemblyResult> => {
+      const canonical = savedProjects.get(input.projectId)!;
+      expect(input.expectedHash).toBe(await historyRecordHash(canonical));
+      expect(input.expectedSelection).toEqual(
+        canonical.shots.flatMap((shot) => {
+          const take = shot.takes.find(
+            (t) => t.id === shot.selectedTakeId && t.status === "done" && t.videoPath,
+          );
+          return take ? [{ shotId: shot.id, takeId: take.id }] : [];
+        }),
+      );
+      return {
+        kind: "ASSEMBLED",
+        projectId: input.projectId,
+        projectHash: input.expectedHash,
+        path: "/tmp/aivora/rough.mp4",
+        durationSeconds: input.expectedSelection.length * 2,
+        shots: input.expectedSelection.map((row, i) => ({
+          ...row,
+          startSeconds: i * 2,
+          durationSeconds: 2,
+        })),
+        limitations: [],
+      };
+    },
+  );
   const historyRecords = new Map<string, { entry: FilmHistoryEntry; film: FilmProject }>();
   let historySequence = 0;
   const historyEntry = (
@@ -2950,6 +2985,8 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
     renameFilmSeries: vi.fn(async () => undefined),
     readFilmMedia: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
     assembleFilm,
+    assembleFilmProject,
+    cancelFilmAssemblyOperation: vi.fn(),
     pickFilmFolder,
     exportFilmCut,
     prepareFilmExport,
@@ -2962,6 +2999,7 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
     models,
     completeText,
     assembleFilm,
+    assembleFilmProject,
     pickFilmFolder,
     exportFilmCut,
     prepareFilmExport,

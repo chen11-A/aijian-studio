@@ -122,3 +122,13 @@ describe("real export operation lifetime", () => {
     await rm(target, { force: true });
   });
 });
+
+it("does not confirm stopped when private cleanup could not be established", async () => {
+  const events: FilmExportProgressEvent[] = [];
+  const manager = createExportOperations((_owner, event) => events.push(event));
+  const op = manager.begin("owner", "project", "unclean")!;
+  expect(manager.cancel("owner", "unclean").kind).toBe("REQUESTED");
+  await op.finish("unknown", false);
+  expect(events.at(-1)).toMatchObject({ phase: "unknown", cancelState: "unavailable" });
+  expect(manager.cancel("owner", "unclean").kind).toBe("UNAVAILABLE");
+});

@@ -54,6 +54,12 @@ export async function resolveAudioMix(
   paths: Record<string, string>;
   hashes: Record<string, string>;
   sources: Record<string, MixSourceInfo>;
+  selectedSources: {
+    shotId: string;
+    takeId: string;
+    native: { path: string; sha256: string };
+    visual: { path: string; sha256: string };
+  }[];
 }> {
   const root = await realpath(host.filmsRoot),
     series = await realpath(join(root, record.seriesId));
@@ -93,6 +99,12 @@ export async function resolveAudioMix(
     probes.set(key, info);
     return info;
   };
+  const selectedSources: {
+    shotId: string;
+    takeId: string;
+    native: { path: string; sha256: string };
+    visual: { path: string; sha256: string };
+  }[] = [];
   const shots: MixShot[] = [],
     originals = new Map<string, { path: string; sha: string }>();
   let at = 0;
@@ -123,13 +135,17 @@ export async function resolveAudioMix(
     if (!sourceKeys.has(identity(path, hash)))
       sourceKeys.set(identity(path, hash), nativeSourceKey);
     sources[nativeSourceKey] = nativeInfo;
-    let visualInfo = nativeInfo;
+    let visualInfo = nativeInfo,
+      visualPath = path,
+      visualSha256 = hash;
     if (chosen.visualPath && chosen.visualPath !== chosen.videoPath) {
       const visual = trustedMediaPath(
         [...nativeRoots, ...(story ? [story] : [])],
         mediaUrlPath(chosen.visualPath),
       );
       const visualHash = await exportFileHash(visual, host.signal);
+      visualPath = visual;
+      visualSha256 = visualHash;
       if (
         !nativeRoots.some((root) => inside(root, visual)) &&
         !(
@@ -142,6 +158,12 @@ export async function resolveAudioMix(
         throw new Error("SOURCE_UNVERIFIED");
       visualInfo = await probeOnce(visual, visualHash);
     }
+    selectedSources.push({
+      shotId: chosen.shotId,
+      takeId: chosen.takeId,
+      native: { path, sha256: hash },
+      visual: { path: visualPath, sha256: visualSha256 },
+    });
     const durationSeconds = visualInfo.videoDurationSeconds;
     if (!(durationSeconds > 0)) throw new Error("INVALID_AUDIO_SOURCE");
     const hasLine =
@@ -258,5 +280,5 @@ export async function resolveAudioMix(
   if (plan.tracks.length > 128) throw new Error("AUDIO_MIX_LIMIT");
   if (plan.limitations.some((code) => code === "INVALID_CLIP" || code === "SOURCE_UNAVAILABLE"))
     throw new Error("INVALID_AUDIO_PLAN");
-  return { plan, paths, hashes, sources };
+  return { plan, paths, hashes, sources, selectedSources };
 }
