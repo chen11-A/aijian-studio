@@ -1,0 +1,35 @@
+{
+  "state": "completed",
+  "exitCode": 0,
+  "sha": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "completed": [
+    {
+      "stage": "install",
+      "exitCode": 0
+    },
+    {
+      "stage": "py-lint",
+      "exitCode": 0
+    },
+    {
+      "stage": "py-format",
+      "exitCode": 0
+    },
+    {
+      "stage": "py-types",
+      "exitCode": 0
+    },
+    {
+      "stage": "contracts",
+      "exitCode": 0
+    },
+    {
+      "stage": "full-python",
+      "exitCode": 0
+    },
+    {
+      "stage": "generated-clean",
+      "exitCode": 0
+    }
+  ]
+}

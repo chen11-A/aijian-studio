@@ -2,6 +2,7 @@
 
 所有本批运行代码固定为 `de2cb0629e4934ae9bbfd09e2da6f77a772cb97c`。本目录只存交接记录，不参与运行。最终结果以每份回执实际exit与[验收与交接](../验收与交接.md)为准；pending不是通过。
 
+- api.json、api-summary.json：原完整Python/API与原覆盖门。
 - native.json：原完整原生门和前置检查。
 - web.json：原完整界面门与Node合约。
 - production.json、production-summary.json：原collector、生产builder与隔离装载；不冒Electron运行。
@@ -10,7 +11,7 @@
 - browser-targeted-ci.json：原16浏览器任务/484组合及Windows定向；不代替双平台完整quality。
 - worktrees.json：交接时目录和分支位置。
 
-完整API与CI回执会在实际结束后补齐。临时原日志分别保留 `/tmp/aivora-handoff-*` 和 `/tmp/aivora-status-42415135411*`，失败或暂停记录没有覆盖。
+完整API回执已补齐；修复后界面与CI回执会在实际结束后补齐。临时原日志分别保留 `/tmp/aivora-handoff-*` 和 `/tmp/aivora-status-42415135411*`，失败或暂停记录没有覆盖。
 
 ## 复跑入口
 
@@ -31,3 +32,5 @@ node --test scripts/build-runtime.test.mjs
 编译后探针 `compiled-noop-probe.cjs.txt` 是独立验证脚本文本，不是应用源码；复制到临时.cjs后传实际app目录、collector资源目录、原Linux工具pin JSON和工具目录。探针要求app名以 `-production-app` 结尾，并读取同prefix的 `-production-receipt.json`，源码必须为de2cb06。它不授权供应商调用、不创建发布包。
 
 本次代码分支与文档归档分支分开。文档记录提交可跳过重复代码CI，运行代码的验收只看de2cb06的原完整CI，不能用文档提交跳过源码验证。未验收续接内容见 `../checkpoints/README.md`，未经新指示不恢复开发。
+
+`source-equivalence.json` 记录de2与50a6a3e的完整差异白名单：只有测试和QA；各旧源回执仍按原来源标注。`historical-worktrees.json`只供找回历史目录，不能把旧分支当作当前验收源。

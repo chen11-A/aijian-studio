@@ -1,0 +1,47 @@
+{
+  "source": "50a6a3ea9299c0bf0f68dca45f62febad1adf054",
+  "author": "GPT-6.1 Sol / medium frontend agent",
+  "scope": "test+QA only; actual actionable controls readiness; deterministic real native media completion gate",
+  "originalCI": "42415135411",
+  "originalAssertionsAndTimeoutsPreserved": true,
+  "targetFileOriginalTests": 7,
+  "targetFileFinalTests": 8,
+  "beforeLocalDidNotReproduceCI": true,
+  "targetGatesAllExit0": true,
+  "newFullWebAndCI": "PENDING",
+  "logs": {
+    "before": {
+      "path": "/tmp/acceptance-trial-wait-before.log",
+      "sha256": "6583f6708e05b72353b318847f610f4ff660dd9854b155345094bd68aa09fda6",
+      "summary": [
+        "Test Files  1 passed (1)",
+        "Tests  2 passed | 5 skipped (7)",
+        "Duration  3.68s (transform 1.74s, setup 155ms, import 1.91s, tests 928ms, environment 568ms)"
+      ]
+    },
+    "file": {
+      "path": "/tmp/acceptance-trial-wait-file.log",
+      "sha256": "f44fd181a25158dffacd6409a3df23fcf4519f2bcd3096c6cee22b2ae62ad1c8",
+      "summary": [
+        "Test Files  1 passed (1)",
+        "Tests  8 passed (8)",
+        "Duration  5.34s (transform 1.49s, setup 172ms, import 1.64s, tests 2.81s, environment 585ms)"
+      ]
+    },
+    "types": {
+      "path": "/tmp/acceptance-trial-wait-types.log",
+      "sha256": "5cfb036289d819b2a87e947d65f4532031dd37753f3cf2def0f77d398eea1737",
+      "summary": []
+    },
+    "eslint": {
+      "path": "/tmp/acceptance-trial-wait-eslint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": []
+    },
+    "prettier": {
+      "path": "/tmp/acceptance-trial-wait-prettier.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "summary": ["All matched files use Prettier code style!"]
+    }
+  }
+}

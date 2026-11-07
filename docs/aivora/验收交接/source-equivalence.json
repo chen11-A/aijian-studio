@@ -1,0 +1,15 @@
+{
+  "base": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "validationFix": "50a6a3ea9299c0bf0f68dca45f62febad1adf054",
+  "changedPaths": [
+    "apps/studio-web/src/aivora/pro/ProWorkspace.actual-risk-trial.test.tsx",
+    "docs/qa/acceptance-actual-trial-form-readiness.md"
+  ],
+  "allOtherTrackedPathsIdentical": true,
+  "proofExitCode": 0,
+  "reuseScope": "Native/API/runtime/collector/Windows installer results remain attributed to de2. Application and dependencies are identical. New test source requires full web and new CI; no borrowed test counts.",
+  "excludedUnfinishedCheckpoints": [
+    "939b4c975f38568d825d3d5e89a0a83106813ec0",
+    "166dc89d35d3cfab6f220a409b34a0874f38ee08"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "command": "pnpm test:py",
+  "exitCode": 0,
+  "passed": 5390,
+  "skipped": 6,
+  "seconds": 2028.8,
+  "linePercent": 92.18,
+  "branchPercent": 83.58,
+  "originalLineMinimum": 90.0,
+  "originalBranchMinimum": 83.5,
+  "coverageTotals": {
+    "covered_lines": 35208,
+    "num_statements": 38194,
+    "percent_covered": 90.36079920739762,
+    "percent_covered_display": "90",
+    "missing_lines": 2986,
+    "excluded_lines": 130,
+    "percent_statements_covered": 92.182018118029,
+    "percent_statements_covered_display": "92",
+    "num_branches": 10254,
+    "num_partial_branches": 1358,
+    "covered_branches": 8570,
+    "missing_branches": 1684,
+    "percent_branches_covered": 83.57714062804759,
+    "percent_branches_covered_display": "84"
+  },
+  "originalSummary": [
+    "================= 5390 passed, 6 skipped in 2028.80s (0:33:48) =================",
+    "Python coverage: line=92.18% (min 90.0%), branch=83.58% (min 83.5%)"
+  ],
+  "log": "/tmp/aivora-handoff-api-root-full-python.log",
+  "sha256": "e666e1d0532d4592ccb787d61fa98a4c3c801ff1c7d88ee9c52b584ab543b7cf",
+  "bytes": 75294
+}
