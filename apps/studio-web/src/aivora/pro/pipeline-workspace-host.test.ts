@@ -1,3 +1,4 @@
+import * as pipelineController from "./film-pipeline-controller";
 import { historyRecordHash } from "./actions/persistent-history";
 import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
 import { applyVideoResponse } from "./actions/generation-run";
@@ -504,4 +505,92 @@ it("retains only the explicit failed-target retry across the separate first-medi
   expect(f.host.submitGeneration).not.toHaveBeenCalled();
   const again = await f.adapter.continue();
   expect(again.steps.find((s) => s.id === "stills")!.targets).toEqual(actual);
+});
+
+it("preserves an unchanged legacy pipeline when this preflight first binds its billing project", async () => {
+  const initial = fixture();
+  initial.backendProjectId = "";
+  const legacy = await prime(initial, "review");
+  const steps = structuredClone(legacy.productionPipeline.steps);
+  const env = setup(legacy);
+  env.host.ensureBillingProject = async () => {
+    env.edit({ ...env.live(), backendProjectId: "billing-created-now" });
+    return "billing-created-now";
+  };
+  const result = await env.adapter.start();
+  expect(result.code).not.toBe("PIPELINE_INPUT_CHANGED");
+  expect(result.status).toBe("needs-input");
+  expect(env.live().backendProjectId).toBe("billing-created-now");
+  expect(env.live().productionPipeline?.steps.filter((s) => s.id !== "review")).toEqual(
+    steps.filter((s) => s.id !== "review"),
+  );
+  expect(env.live().productionInputFingerprint).toBe(await filmPipelineFingerprint(env.live()));
+  expect(completeMembershipAgent).not.toHaveBeenCalled();
+  expect(env.host.submitGeneration).not.toHaveBeenCalled();
+  expect(window.aijian?.prepareFilmGenerationExecution).not.toHaveBeenCalled();
+});
+
+it.each(["stale-input", "creative", "progress", "existing-id"] as const)(
+  "does not bootstrap a legacy billing binding over %s changes",
+  async (change) => {
+    const initial = fixture();
+    initial.backendProjectId = change === "existing-id" ? "already-bound" : "";
+    const legacy = await prime(initial, "review");
+    if (change === "stale-input") legacy.title += " old unaccepted edit";
+    const fingerprint = legacy.productionInputFingerprint;
+    const env = setup(legacy);
+    env.host.ensureBillingProject = async () => {
+      const live = structuredClone(env.live());
+      live.backendProjectId = "billing-created-now";
+      if (change === "creative") live.shots[0]!.picture += " changed during billing";
+      if (change === "progress") live.productionPipeline!.steps[0]!.targets[0]!.attempt = 7;
+      env.edit(live);
+      return "billing-created-now";
+    };
+    const result = await env.adapter.start();
+    expect(result.code).toBe("PIPELINE_INPUT_CHANGED");
+    expect(env.live().productionInputFingerprint).toBe(fingerprint);
+    expect(env.disk).toHaveLength(0);
+    expect(completeMembershipAgent).not.toHaveBeenCalled();
+    expect(env.host.submitGeneration).not.toHaveBeenCalled();
+    expect(window.aijian?.prepareFilmGenerationExecution).not.toHaveBeenCalled();
+  },
+);
+
+it("does not migrate a user edit arriving while the legacy digest is being checked", async () => {
+  const initial = fixture();
+  initial.backendProjectId = "";
+  const legacy = await prime(initial, "review");
+  const env = setup(legacy);
+  env.host.ensureBillingProject = async () => {
+    env.edit({ ...env.live(), backendProjectId: "billing-created-now" });
+    return "billing-created-now";
+  };
+  const entered = deferred<void>(),
+    release = deferred<void>();
+  const original = pipelineController.filmPipelineFingerprint;
+  const digest = vi
+    .spyOn(pipelineController, "filmPipelineFingerprint")
+    .mockImplementationOnce(async (film) => {
+      const result = await original(film);
+      entered.resolve();
+      await release.promise;
+      return result;
+    });
+  try {
+    const running = env.adapter.start();
+    await entered.promise;
+    env.edit({ ...env.live(), title: "new user title during digest" });
+    release.resolve();
+    const result = await running;
+    expect(result.code).toBe("PIPELINE_INPUT_CHANGED");
+    expect(env.live().title).toBe("new user title during digest");
+    expect(env.live().productionInputFingerprint).toBe(legacy.productionInputFingerprint);
+    expect(env.disk).toHaveLength(0);
+    expect(completeMembershipAgent).not.toHaveBeenCalled();
+    expect(env.host.submitGeneration).not.toHaveBeenCalled();
+  } finally {
+    release.resolve();
+    digest.mockRestore();
+  }
 });
