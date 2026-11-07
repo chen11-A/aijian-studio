@@ -583,6 +583,13 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("projects:list") as Promise<ProjectListResponse>,
   createProject: (input: CreateProjectInput): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
+  prepareFilmRiskTrial: (input: unknown) => ipcRenderer.invoke("film:risk-trial-prepare", input),
+  readFilmRiskTrialMedia: (projectId: string, reviewId: string) =>
+    ipcRenderer.invoke("film:risk-trial-media", projectId, reviewId),
+  recordFilmRiskTrialDecision: (input: unknown) =>
+    ipcRenderer.invoke("film:risk-trial-record", input),
+  checkFilmRiskTrialDecision: (input: unknown) =>
+    ipcRenderer.invoke("film:risk-trial-check", input),
   listGenerationVideoRecoveries: (projectId: string) =>
     ipcRenderer.invoke("story-film:video-recovery-list", projectId),
   recoverGenerationVideo: (projectId: string, attemptId: string) =>

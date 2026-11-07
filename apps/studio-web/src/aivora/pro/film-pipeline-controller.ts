@@ -115,6 +115,7 @@ function businessContent(film: FilmProject): string {
   const excluded = new Set([
     "productionPipeline",
     "productionInputFingerprint",
+    "riskTrialDecisions",
     "pipeline",
     "savedAt",
     "directory",

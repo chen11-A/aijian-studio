@@ -1,7 +1,8 @@
+import { applyVideoResponse } from "./actions/generation-run";
 import { webcrypto } from "node:crypto";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
-import { sampleFilm, type FilmProject } from "../film/project";
+import { sampleFilm, type FilmProject, type FilmTake } from "../film/project";
 import { createProductionPipeline, type ProductionStepId } from "../film/production-pipeline";
 import { prepareFilmSnapshot } from "../film/library";
 import { completeMembershipAgent } from "./agent-workflow";
@@ -20,7 +21,9 @@ beforeEach(() => {
   vi.mocked(completeMembershipAgent)
     .mockReset()
     .mockResolvedValue({ text: null, detail: "", code: "TEXT_REJECTED" });
-  vi.mocked(prepareFilmSnapshot).mockClear();
+  vi.mocked(prepareFilmSnapshot)
+    .mockReset()
+    .mockImplementation(async (film: FilmProject) => structuredClone(film));
 });
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -295,4 +298,143 @@ it("does not run a pre-dispatch snapshot or save an old running baseline during 
   expect(completeMembershipAgent).not.toHaveBeenCalled();
   expect(f.host.submitGeneration).not.toHaveBeenCalled();
   expect(f.release).toHaveBeenCalledOnce();
+});
+
+async function trialBatch() {
+  const initial = fixture();
+  initial.narrationVoiceId = "eve";
+  initial.shots[0] = {
+    ...initial.shots[0]!,
+    line: "雨落。",
+    lines: [{ speaker: "", text: "雨落。" }],
+  };
+  vi.mocked(prepareFilmSnapshot).mockImplementation(async (film) => ({
+    ...structuredClone(film),
+    shots: film.shots.map((shot) => ({
+      ...structuredClone(shot),
+      poster: shot.poster.startsWith("data:") ? `/media/materialized-${shot.id}.png` : shot.poster,
+      takes: shot.takes.map((take) => ({
+        ...take,
+        stillUrl: take.stillUrl.startsWith("data:")
+          ? `/media/materialized-${shot.id}.png`
+          : take.stillUrl,
+      })),
+    })),
+  }));
+  initial.shots.push({ ...structuredClone(initial.shots[0]!), id: "independent-next", no: 2 });
+  const env = setup(await prime(initial, "video"));
+  env.host.checkTrialDecision = vi.fn(async () => undefined);
+  vi.mocked(env.host.submitGeneration).mockImplementation(async ([shot], control) => {
+    const current = env.live();
+    const take: FilmTake = {
+      id: `trial-result-${shot!.id}`,
+      shotId: shot!.id,
+      index: 1,
+      status: "running",
+      videoPath: "",
+      videoUrl: "",
+      stillUrl: "",
+      prompt: "fixed",
+      reason: "",
+      createdAt: "",
+    };
+    const prepared = {
+      ...current,
+      shots: current.shots.map((row) =>
+        row.id === shot!.id ? { ...row, takes: [...row.takes, take] } : row,
+      ),
+    };
+    await control.apply(prepared);
+    const completed = applyVideoResponse(env.live(), shot!, take, {
+      status: "SUCCEEDED",
+      output_path: `/media/${shot!.id}.mp4`,
+      preview_image: "data:image/png;base64,AA==",
+      voice_path: `/media/${shot!.id}.wav`,
+      duration_seconds: 5,
+    });
+    await control.apply(completed.film);
+  });
+  return env;
+}
+it("checks the explicit accepted-trial path before dispatch and each actual video while keeping the original one-version billing scope", async () => {
+  const env = await trialBatch(),
+    decision = `rtd_${"a".repeat(32)}`;
+  await env.adapter.continueAfterTrial(decision);
+  expect(env.host.checkTrialDecision).toHaveBeenCalledTimes(3);
+  expect(vi.mocked(env.host.checkTrialDecision!).mock.calls.map((call) => call[2])).toEqual([
+    undefined,
+    env.live().shots[0]!.id,
+    "independent-next",
+  ]);
+  expect(env.host.submitGeneration).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(env.host.submitGeneration).mock.calls.map((call) => call[1].versions)).toEqual([
+    1, 1,
+  ]);
+  expect(
+    vi.mocked(env.host.submitGeneration).mock.calls.map((call) => call[1].billingProjectId),
+  ).toEqual(["billing-before", "billing-before"]);
+  expect(env.release).toHaveBeenCalledOnce();
+});
+it("stops the next actual request when the user edits the just-completed prior target while its check is pending", async () => {
+  const env = await trialBatch(),
+    entered = deferred<void>(),
+    release = deferred<void>();
+  env.host.checkTrialDecision = vi.fn(async (_id, _lease, target) => {
+    if (target === "independent-next") {
+      entered.resolve();
+      await release.promise;
+    }
+  });
+  const pending = env.adapter.continueAfterTrial(`rtd_${"b".repeat(32)}`);
+  try {
+    await Promise.race([
+      entered.promise,
+      pending.then(() => {
+        throw Error("pipeline settled before second target admission");
+      }),
+    ]);
+    expect(env.host.submitGeneration).toHaveBeenCalledOnce();
+    const live = env.live();
+    env.edit({
+      ...live,
+      shots: live.shots.map((shot, i) => (i ? shot : { ...shot, picture: "用户回改刚完成镜头" })),
+    });
+  } finally {
+    release.resolve();
+  }
+  await pending;
+  expect(env.host.submitGeneration).toHaveBeenCalledOnce();
+  expect(env.live().shots[0]!.picture).toBe("用户回改刚完成镜头");
+  expect(env.live().shots[0]!.takes.some((take) => take.status === "done" && take.videoPath)).toBe(
+    true,
+  );
+  expect(env.release).toHaveBeenCalledOnce();
+});
+it("does not replace the existing manual continuation or treat metadata recording as a new creative request", async () => {
+  const env = setup(await prime(fixture(), "video"));
+  env.host.checkTrialDecision = vi.fn(async () => {
+    throw Error("must not run on manual continue");
+  });
+  const before = await filmPipelineFingerprint(env.live());
+  const withDecision = {
+    ...env.live(),
+    riskTrialDecisions: [
+      {
+        schemaVersion: 1 as const,
+        id: `rtd_${"c".repeat(32)}`,
+        projectId: env.live().id,
+        shotId: env.live().shots[0]!.id,
+        takeId: "old",
+        inputFingerprint: "d".repeat(64),
+        decision: "accepted" as const,
+        note: "人工决定",
+        recordedAt: "2026-11-07T00:00:00.000Z",
+      },
+    ],
+  };
+  expect(await filmPipelineFingerprint(withDecision)).toBe(before);
+  env.edit(withDecision);
+  await env.adapter.continue();
+  expect(env.host.checkTrialDecision).not.toHaveBeenCalled();
+  expect(env.host.submitGeneration).toHaveBeenCalledOnce();
 });

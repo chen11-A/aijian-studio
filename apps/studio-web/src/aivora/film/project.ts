@@ -1,3 +1,4 @@
+import type { FilmRiskTrialDecision } from "@aijian/contracts/film-risk-trial";
 import { normalizeDialogueSplitSource } from "@aijian/contracts/film-dialogue-split-plan";
 import type { DialogueSplitSource } from "@aijian/contracts/film-dialogue-split";
 import type { AudioMixSettings } from "@aijian/contracts/film-audio-mix";
@@ -291,6 +292,8 @@ export type FilmProject = {
   artDesign?: ArtDesign;
   artDesignBaseline?: ArtDesign;
   reviewReports?: TextReviewReport[];
+  /** Human decisions remain metadata; native rechecks scope and bytes before use. */
+  riskTrialDecisions?: FilmRiskTrialDecision[];
   costumes?: CostumeRule[];
   costumeRisks?: CostumeRisk[];
   pipeline?: PipelineProgress;

@@ -123,7 +123,11 @@ import { applyContinuityChecks } from "../film/continuity-rules";
 import { continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
 import { createPipelineControls } from "./pipeline-controls";
-import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
+import {
+  createPipelineWorkspaceHost,
+  type PipelineVideoHost,
+  type PipelineSaveLease,
+} from "./pipeline-workspace-host";
 import { createFilmPersistence } from "./film-persistence";
 import { stillFailureNotice } from "./workflow";
 import { coverageNotice } from "../film/coverage-notice";
@@ -882,6 +886,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         };
       },
       beforeRun: (lease) => captureBeforePipeline(lease),
+      checkTrialDecision: (decisionId, lease, targetShotId) =>
+        checkAcceptedTrialDecision(decisionId, lease, targetShotId),
       bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
       modelIds: () => pipelineLive.current.modelIds,
       modelsChanged: setModelIds,
@@ -5057,6 +5063,37 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, [workSettings, film?.id, persistentHistoryRefresh]);
   function historyInputStale(error: unknown) {
     return error instanceof Error && error.message === "HISTORY_STALE";
+  }
+  async function checkAcceptedTrialDecision(
+    decisionId: string,
+    _lease: PipelineSaveLease,
+    targetShotId?: string,
+  ) {
+    const bridge = window.aijian,
+      base = filmRef.current;
+    const stale = () =>
+      Object.assign(new Error("PIPELINE_REQUEST_STALE"), { code: "PIPELINE_REQUEST_STALE" });
+    if (!base || !bridge?.readFilmProject || !bridge.checkFilmRiskTrialDecision) throw stale();
+    const current = () => filmRef.current === base;
+    // Pipeline already owns/drained its save lease and has persisted the current step.
+    // Never replay a renderer snapshot just to obtain a new native check hash.
+    const canonical = await bridge.readFilmProject(base.id);
+    if (!canonical || canonical.id !== base.id || !current()) throw stale();
+    const expectedHash = await historyRecordHash(canonical);
+    if (!current()) throw stale();
+    const checked = await bridge.checkFilmRiskTrialDecision({
+      projectId: base.id,
+      expectedHash,
+      decisionId,
+      ...(targetShotId ? { targetShotId } : {}),
+    });
+    if (
+      !current() ||
+      checked.kind !== "ACCEPTED" ||
+      checked.projectId !== base.id ||
+      checked.decisionId !== decisionId
+    )
+      throw stale();
   }
   async function captureBeforePipeline(lease: Awaited<ReturnType<typeof persistence.acquire>>) {
     try {
