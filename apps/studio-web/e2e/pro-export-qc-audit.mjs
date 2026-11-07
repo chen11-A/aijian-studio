@@ -205,6 +205,30 @@ function sceneApplyCopy(row, profile) {
   return ` sceneApplyCalls=${count(value.calls)} sceneMatched=${bit(value.matched)} sceneCas=${bit(value.casMatched)} sceneReview=${bit(value.reviewMatched)} sceneInitialCas=${bit(value.initialCas)} sceneFinalCas=${bit(value.finalCas)} sceneReply=${reply} sceneNativeWrites=${count(value.nativeWrites)} scenePending=${count(value.pending)} sceneSaved=${bit(value.saved)} sceneRebased=${bit(value.rebased)} sceneStale=${bit(value.stale)} sceneUnknown=${bit(value.unknown)}`;
 }
 
+function evidenceLegacyInteractionCopy(row, profile) {
+  if (profile.kind !== "evidence-legacy") return "";
+  const n = (v) =>
+      typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= 200000
+        ? Number(v.toFixed(1))
+        : "unknown",
+    bit = (v) => (v === true ? 1 : v === false ? 0 : "unknown"),
+    box = (v) =>
+      v && typeof v === "object" ? [n(v.x), n(v.y), n(v.width), n(v.height)].join(",") : "unknown";
+  const r = row.reachability,
+    d = row.dragAfter,
+    b = row.dragBefore;
+  const reach =
+    r && typeof r === "object"
+      ? ` reachComplete=${bit(r.complete)} reachHitSelf=${bit(r.hitSelf)} reachControlBox=${box(r.box)} reachVisible=${box(r.visible)} reachClip=${["mention-menu", "mention-wrap", "chat-context", "pane", "pro-root", "other"].includes(r.clipKind) ? r.clipKind : "other"} reachClipBox=${box(r.clipBox)} menuPosition=${["absolute", "fixed", "relative", "static"].includes(r.menuPosition) ? r.menuPosition : "unknown"} menuTop=${n(r.menuTop)} menuLeft=${n(r.menuLeft)} menuBox=${box(r.menuBox)}`
+      : "";
+  const hits = ["ruler", "preview-tab", "sound-tab", "subtitles-tab", "track-area", "other"];
+  const drag =
+    d && typeof d === "object"
+      ? ` dragStage=${["script", "cast", "board", "edit"].includes(d.stage) ? d.stage : "unknown"} dragMonitor=${["preview", "sound", "subtitles"].includes(d.monitor) ? d.monitor : "unknown"} dragVideos=${Number.isSafeInteger(d.videos) && d.videos >= 0 && d.videos <= 16 ? d.videos : "unknown"} dragAttached=${bit(d.attached)} dragCurrent=${bit(d.current)} dragAttribute=${bit(d.attribute)} dragReady=${Number.isInteger(d.ready) && d.ready >= 0 && d.ready <= 4 ? d.ready : "unknown"} dragTime=${n(d.time)} dragFromHit=${hits.includes(b?.hit) ? b.hit : "other"} dragToHit=${hits.includes(d.hit) ? d.hit : "other"} dragPoint=${n(d.x)},${n(d.y)}`
+      : "";
+  return reach + drag;
+}
+
 function emitGitHubErrors(report, profile) {
   const identity = auditIdentity(profile.kind);
   if (process.env.GITHUB_ACTIONS !== "true" || report.exitCode === 0) return;
@@ -553,7 +577,7 @@ function emitGitHubErrors(report, profile) {
         ? ` reachControl=${row.failedControl} reachBox=${rect(row.reachability?.at(-1)?.box)}`
         : "";
     console.error(
-      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}${assemblyReadinessCopy(row.assemblyReadiness)}${assemblyInteractionCopy(row, profile)}${sceneApplyCopy(row, profile)}${profile.kind === "audio-library" ? libraryTargetDiagnostic(row.targetReadiness) : ""}`,
+      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}${assemblyReadinessCopy(row.assemblyReadiness)}${assemblyInteractionCopy(row, profile)}${sceneApplyCopy(row, profile)}${evidenceLegacyInteractionCopy(row, profile)}${profile.kind === "audio-library" ? libraryTargetDiagnostic(row.targetReadiness) : ""}`,
     );
   }
 }

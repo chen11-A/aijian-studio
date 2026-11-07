@@ -13,6 +13,8 @@ import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-asserti
 import {
   installEvidenceLegacyBridge,
   seedEvidenceLegacyProject,
+  measureEvidenceControl,
+  readEvidencePointer,
 } from "./pro-evidence-legacy-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
 export const evidenceLegacyStates = [
@@ -103,34 +105,8 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
         async function reachable(control) {
           await control.scrollIntoViewIfNeeded();
           await frame();
-          const complete = await control.evaluate((element) => {
-            const r = element.getBoundingClientRect();
-            let l = 0,
-              t = 0,
-              right = window.innerWidth,
-              bottom = window.innerHeight;
-            for (let p = element.parentElement; p; p = p.parentElement) {
-              const css = window.getComputedStyle(p),
-                b = p.getBoundingClientRect();
-              if (/hidden|clip|auto|scroll/.test(css.overflowX)) {
-                l = Math.max(l, b.left);
-                right = Math.min(right, b.right);
-              }
-              if (/hidden|clip|auto|scroll/.test(css.overflowY)) {
-                t = Math.max(t, b.top);
-                bottom = Math.min(bottom, b.bottom);
-              }
-            }
-            return (
-              r.width > 2 &&
-              r.height > 2 &&
-              r.left >= l - 1 &&
-              r.right <= right + 1 &&
-              r.top >= t - 1 &&
-              r.bottom <= bottom + 1
-            );
-          });
-          assert.equal(complete, true, "Control must scroll fully into view");
+          result.reachability = await control.evaluate(measureEvidenceControl);
+          assert.equal(result.reachability.complete, true, "Control must scroll fully into view");
           await control.click({ trial: true });
         }
         async function review() {
@@ -518,13 +494,17 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
               const clip = await page.locator(".clip.v").nth(1).boundingBox(),
                 box = await ruler.boundingBox();
               assert(clip && box);
-              await page.mouse.move(clip.x + clip.width * 0.3, box.y + box.height / 2);
+              const from = { x: clip.x + clip.width * 0.3, y: box.y + box.height / 2 },
+                to = { x: clip.x + clip.width * fraction, y: box.y + box.height / 2 };
+              await page.mouse.move(from.x, from.y);
+              result.dragBefore = await page.evaluate(readEvidencePointer, from);
               await page.mouse.down();
               await page.mouse.move(clip.x + clip.width * fraction, box.y + box.height / 2, {
                 steps: 6,
               });
               await page.mouse.up();
               await frame();
+              result.dragAfter = await page.evaluate(readEvidencePointer, to);
               await video.evaluate((element) =>
                 element.dispatchEvent(new window.Event("loadedmetadata")),
               );
@@ -673,6 +653,9 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
           result.calls = final;
           result.passed = true;
         } catch (error) {
+          result.geometry = await page
+            .evaluate(probeProLayout, { scopeSelector })
+            .catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-evidence-legacy-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
           );
