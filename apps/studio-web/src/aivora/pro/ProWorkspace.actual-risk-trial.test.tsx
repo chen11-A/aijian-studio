@@ -56,6 +56,17 @@ type Native = {
     input: Parameters<FilmRiskTrialGateway["checkFilmRiskTrialDecision"]>[0],
   ): ReturnType<FilmRiskTrialGateway["checkFilmRiskTrialDecision"]>;
 };
+async function waitForReviewForm(dialog: HTMLElement) {
+  await within(dialog).findByText("实际素材时长：2.25 秒");
+  // A visible duration is display data; choices require the actual media/read
+  // lifecycle to finish and the form's disabled fieldset to become interactive.
+  await waitFor(() => {
+    expect(dialog).toHaveAttribute("aria-busy", "false");
+    expect(dialog.querySelector("video")).not.toBeNull();
+    expect(within(dialog).getByRole("radio", { name: "接受这个实际版本" })).toBeEnabled();
+    expect(within(dialog).getByRole("checkbox")).toBeEnabled();
+  });
+}
 async function open(checkpoint = false) {
   const native = await vi.importActual<{ createFilmRiskTrials(host: unknown): Native }>(
     resolve("../desktop/src/film-risk-trial.ts"),
@@ -288,7 +299,7 @@ async function open(checkpoint = false) {
       );
       fireEvent.click(screen.getByRole("button", { name: "审核实际版本试片" }));
       const dialog = await screen.findByRole("dialog", { name: "实际版本试片审核" });
-      await within(dialog).findByText("实际素材时长：2.25 秒");
+      await waitForReviewForm(dialog);
       return dialog;
     },
   };
@@ -385,8 +396,8 @@ it("does not continue from an accepted record or ended event, uses the original 
   await within(dialog).findByText("人工决定已记录：接受。");
   expect(f.check).not.toHaveBeenCalled();
   expect(f.provider).not.toHaveBeenCalled();
-  const continuing = within(dialog).getByRole("button", { name: "继续生成" });
-  expect(continuing).toBeEnabled();
+  const continuing = await within(dialog).findByRole("button", { name: "继续生成" });
+  await waitFor(() => expect(continuing).toBeEnabled());
   expect(dialog.textContent).toContain("1 次生成");
   expect(dialog.textContent).toContain("用会员额度");
   // Local test supplies the already existing API project and existing pre-run checkpoint;
@@ -489,3 +500,42 @@ it.each(["videoPath", "cleanVideoPath"] as const)(
     expect(f.prepare).toHaveBeenCalledTimes(1);
   },
 );
+
+it("keeps human choices unavailable until the actual native media read completes, then requires explicit acceptance", async () => {
+  const f = await open(),
+    entered = gate<void>(),
+    release = gate<void>(),
+    actual = f.mediaRead.getMockImplementation()!;
+  cleanups.unshift(async () => release.resolve());
+  f.mediaRead.mockImplementationOnce(async (...args) => {
+    const result = await actual(...args);
+    entered.resolve();
+    await release.promise;
+    return result;
+  });
+  const dialog = await f.startReview();
+  await entered.promise;
+  expect(dialog).toHaveAttribute("aria-busy", "true");
+  expect(within(dialog).getByText("正在读取本次核对的素材…")).toBeInTheDocument();
+  expect(within(dialog).queryByRole("radio")).toBeNull();
+  expect(within(dialog).queryByRole("checkbox")).toBeNull();
+  expect(within(dialog).queryByRole("button", { name: "保存本次人工决定" })).toBeNull();
+  expect(f.record).not.toHaveBeenCalled();
+  expect((await f.queue.flushAll()).status).toBe("saved");
+  await act(async () => {
+    release.resolve();
+    await f.mediaRead.mock.results[0]!.value;
+  });
+  await waitForReviewForm(dialog);
+  const saving = within(dialog).getByRole("button", { name: "保存本次人工决定" });
+  expect(saving).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole("radio", { name: "接受这个实际版本" }));
+  expect(saving).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole("checkbox"));
+  expect(saving).toBeEnabled();
+  expect(f.prepare).toHaveBeenCalledTimes(1);
+  expect(f.mediaRead).toHaveBeenCalledTimes(1);
+  expect(f.record).not.toHaveBeenCalled();
+  expect(f.check).not.toHaveBeenCalled();
+  expect(f.provider).not.toHaveBeenCalled();
+});
