@@ -88,6 +88,14 @@ async function open(state) {
     }),
   );
   await waitFor(() => assert.equal(window.__assemblyAudit.artifacts.length, 1));
+  // A native artifact precedes Pro's adoption/save; review only the settled edit input.
+  await waitAssemblyIdle(
+    {
+      evaluate: async (fn, arg) => fn(arg),
+      waitForFunction: async (fn, arg) => waitFor(() => assert.equal(fn(arg), true)),
+    },
+    seed.projectId,
+  );
   fireEvent.click(screen.getByRole("button", { name: "审核实际版本试片" }));
   const dialog = await screen.findByRole("dialog", { name: "实际版本试片审核" });
   if (state === "trial-stale-source") await within(dialog).findByText("正在读取本次核对的素材…");
@@ -163,6 +171,10 @@ it("the default lost-ACK fixture keeps real Pro unknown until one explicit BUSY 
   fireEvent.click(within(f.dialog).getByRole("radio", { name: "接受这个实际版本" }));
   fireEvent.click(within(f.dialog).getByRole("checkbox"));
   fireEvent.click(within(f.dialog).getByRole("button", { name: "保存本次人工决定" }));
+  // First observe the real queue's unknown-write accounting after the lost native ACK.
+  await waitFor(() =>
+    assert.equal(queues.at(-1).externalWriteState(f.seed.projectId)?.status, "unknown"),
+  );
   await screen.findByRole("button", { name: "试片记录待核对（1）" });
   assert.equal(f.audit.pending.length, 1);
   assert.equal(f.audit.records.length, 1);

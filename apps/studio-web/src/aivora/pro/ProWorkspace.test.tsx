@@ -2879,6 +2879,15 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  // Observe the whole original generation queue and its saved result before editing.
+  // Otherwise intermediate takes restart assembly and later generation notices replace its result.
+  await waitFor(() => {
+    const latest = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
+      FilmProject | undefined;
+    expect(createStoryFilm).toHaveBeenCalledTimes(sampleFilm().shots.length + 1);
+    expect(latest?.shots).toHaveLength(sampleFilm().shots.length);
+    expect(latest?.shots.every((shot) => shot.takes.at(-1)?.status === "done")).toBe(true);
+  });
   fireEvent.click(stageTab("剪辑"));
   expect(await screen.findByText(NOTICE_COPY.ASSEMBLY_PARTIAL!)).toBeInTheDocument();
   expect(desktop.assembleFilm).not.toHaveBeenCalled();
