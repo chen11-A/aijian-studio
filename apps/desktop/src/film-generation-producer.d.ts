@@ -23,3 +23,11 @@ export function withIdentityLocks(...args: unknown[]): unknown;
 
 export function locationImageFields(film: unknown, place: unknown, url: string): unknown;
 export function generationHadTakes(shot: unknown): boolean;
+
+export function generationQueuedTakeIndices(shot: unknown, versions: number): number[];
+export function prepareVideoQueue(
+  film: unknown,
+  targets: unknown[],
+  versions: number,
+  resume: boolean,
+): { film: unknown; groups: { takes: { id: string }[] }[] };

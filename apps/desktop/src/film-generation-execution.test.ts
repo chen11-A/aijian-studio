@@ -235,30 +235,17 @@ async function fixture() {
     },
   };
 }
-async function preparedVideo(f: Awaited<ReturnType<typeof fixture>>) {
-  const prepared = await f.factory.prepare(f.owner, f.input);
+async function preparedVideo(f: Awaited<ReturnType<typeof fixture>>, versions: 1 | 2 = 1) {
+  const prepared = await f.factory.prepare(f.owner, {
+    ...f.input,
+    targets: [{ shotId: "shot-one", versions }],
+  });
   expect(prepared.kind).toBe("PREPARED");
   if (prepared.kind !== "PREPARED") throw Error(prepared.code);
   const shot = generationRows(f.record.shots)[0]!;
-  const queued = {
-    ...shot,
-    takes: [
-      ...generationRows(shot.takes),
-      {
-        id: "new",
-        shotId: shot.id,
-        index: 2,
-        status: "running",
-        stillUrl: "",
-        videoPath: "",
-        videoUrl: "",
-        prompt: "",
-        createdAt: "",
-        reason: "",
-      },
-    ],
-  };
-  await writeProject(f.filmsRoot, { ...f.record, shots: [queued] });
+  const queued = producer.prepareVideoQueue(f.record, [shot], versions, false);
+  const newTakes = queued.groups[0]!.takes;
+  await writeProject(f.filmsRoot, queued.film as FilmRecord);
   const live = (await readProject(f.filmsRoot, f.record.id))!;
   const body = parseStoryFilmCreate(
     producer.generationVideoBody(live, generationRows(live.shots)[0], shot, undefined, false),
@@ -267,13 +254,14 @@ async function preparedVideo(f: Awaited<ReturnType<typeof fixture>>) {
   const target = prepared.targets[0]!;
   return {
     prepared,
+    newTakes,
     canonical: structuredClone(live),
     body,
     execution: {
       executionId: prepared.executionId,
       videoSlotId: target.videoSlotIds[0]!,
       shotId: target.shotId,
-      takeId: "new",
+      takeId: newTakes[0]!.id,
     },
   };
 }
@@ -445,4 +433,60 @@ it("rejects stale raw preparation without register, arm, source copies or StoryF
   ).toEqual({ kind: "FAILED", code: "PROJECT_CHANGED" });
   expect(f.fetcher).not.toHaveBeenCalled();
   expect(await readProject(f.filmsRoot, f.record.id)).toEqual(f.record);
+});
+
+it("binds each issued slot to the corresponding actual queue append, not another slot's take", async () => {
+  const f = await fixture(),
+    p = await preparedVideo(f, 2);
+  const call = (execution: typeof p.execution) =>
+    f.factory.video(f.owner, String(f.record.backendProjectId), p.body, undefined, execution);
+  await expect(call({ ...p.execution, takeId: p.newTakes[1]!.id })).rejects.toMatchObject({
+    code: "PROJECT_CHANGED",
+  });
+  expect(f.arms).toHaveLength(0);
+  await call(p.execution);
+  const second = { ...p.execution, videoSlotId: p.prepared.targets[0]!.videoSlotIds[1]! };
+  await expect(call(second)).rejects.toMatchObject({ code: "EXECUTION_UNAVAILABLE" });
+  expect(f.arms).toHaveLength(1);
+  expect(f.submissions).toHaveLength(1);
+  await call({ ...second, takeId: p.newTakes[1]!.id });
+  expect(f.arms).toHaveLength(2);
+  expect(f.submissions).toHaveLength(2);
+  expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
+});
+
+it("rejects old takes, reordered appends and replacement IDs after the queue has been pinned", async () => {
+  const f = await fixture(),
+    p = await preparedVideo(f, 2);
+  const call = (execution: typeof p.execution) =>
+    f.factory.video(f.owner, String(f.record.backendProjectId), p.body, undefined, execution);
+  const changed = structuredClone(p.canonical),
+    shot = generationRows(changed.shots)[0]!;
+  const takes = generationRows(shot.takes);
+  takes[0]!.status = "running";
+  await writeProject(f.filmsRoot, changed);
+  await expect(call({ ...p.execution, takeId: String(takes[0]!.id) })).rejects.toMatchObject({
+    code: "PROJECT_CHANGED",
+  });
+  shot.takes = [takes[0], takes[2], takes[1]];
+  await writeProject(f.filmsRoot, changed);
+  await expect(call(p.execution)).rejects.toMatchObject({ code: "PROJECT_CHANGED" });
+  expect(f.arms).toHaveLength(0);
+  await writeProject(f.filmsRoot, p.canonical);
+  await call(p.execution);
+  const replacement = structuredClone(p.canonical),
+    replacementShot = generationRows(replacement.shots)[0]!;
+  generationRows(replacementShot.takes)[2]!.id = "replacement-new-take";
+  await writeProject(f.filmsRoot, replacement);
+  const replacementStored = await readProject(f.filmsRoot, f.record.id);
+  await expect(
+    call({
+      ...p.execution,
+      videoSlotId: p.prepared.targets[0]!.videoSlotIds[1]!,
+      takeId: "replacement-new-take",
+    }),
+  ).rejects.toMatchObject({ code: "PROJECT_CHANGED" });
+  expect(f.arms).toHaveLength(1);
+  expect(f.submissions).toHaveLength(1);
+  expect(await readProject(f.filmsRoot, f.record.id)).toEqual(replacementStored);
 });

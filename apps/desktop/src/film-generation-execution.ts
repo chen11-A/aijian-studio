@@ -84,6 +84,7 @@ type State = {
   session: Session;
   current: () => boolean;
   attemptedSlots: Set<string>;
+  queuedBindings: Map<string, readonly string[]>;
 };
 
 /** First real fixed-frame, regenerate-only ordinary sink. Cache, planned references,
@@ -192,6 +193,7 @@ export function createNativeFilmGenerationExecutions(host: {
           session,
           current,
           attemptedSlots: new Set(),
+          queuedBindings: new Map(),
         };
         await sources.verify();
         const final = await readProject(host.filmsRoot(), input.projectId);
@@ -260,7 +262,6 @@ export function createNativeFilmGenerationExecutions(host: {
         return fail("INVALID_INPUT");
       if (state.attemptedSlots.has(execution.videoSlotId))
         return fail("CREATION_ATTEMPT_ALREADY_RESERVED");
-      state.attemptedSlots.add(execution.videoSlotId);
       const target = state.plan.targets.find((target) => target.shotId === execution.shotId);
       if (!target) return fail("EXECUTION_UNAVAILABLE");
       const validate = async (record: FilmRecord | null) => {
@@ -276,10 +277,36 @@ export function createNativeFilmGenerationExecutions(host: {
           shot = shots.find((shot) => shot.id === target.shotId);
         if (!shot || shot.selectedTakeId !== target.originalShot.selectedTakeId)
           return fail("PROJECT_CHANGED");
+        const original = generationRows(target.originalShot.takes),
+          liveTakes = generationRows(shot.takes),
+          count = target.videoSlots.length,
+          expectedIndices = state.producer.generationQueuedTakeIndices(target.originalShot, count),
+          appended = liveTakes.slice(original.length),
+          ids = appended.map((take) => String(take.id));
+        if (
+          liveTakes.length !== original.length + count ||
+          original.some((take, index) => liveTakes[index]?.id !== take.id) ||
+          appended.some(
+            (take, index) =>
+              take.shotId !== shot.id ||
+              take.index !== expectedIndices[index] ||
+              original.some((old) => old.id === take.id),
+          ) ||
+          new Set(ids).size !== count ||
+          ids[lease.slotIndex] !== execution.takeId
+        )
+          return fail("PROJECT_CHANGED");
+        const pinned = state.queuedBindings.get(target.shotId);
+        if (
+          pinned &&
+          (pinned.length !== ids.length || pinned.some((id, index) => id !== ids[index]))
+        )
+          return fail("PROJECT_CHANGED");
         const all = shots.flatMap((shot) => generationRows(shot.takes));
         const takes = all.filter((take) => take.id === execution.takeId),
           take = takes[0];
         if (
+          ids.some((id) => all.filter((item) => item.id === id).length !== 1) ||
           takes.length !== 1 ||
           !take ||
           take.shotId !== shot.id ||
@@ -305,10 +332,14 @@ export function createNativeFilmGenerationExecutions(host: {
           return fail("PROJECT_CHANGED");
         await state.sources.verify();
         lease.assertCurrent();
+        state.queuedBindings.set(target.shotId, ids);
         return body;
       };
       const body = await validate(await readProject(host.filmsRoot(), state.projectId));
+      if (state.attemptedSlots.has(execution.videoSlotId))
+        return fail("CREATION_ATTEMPT_ALREADY_RESERVED");
       lease.bindVerifiedTake();
+      state.attemptedSlots.add(execution.videoSlotId);
       let armedWire: string | undefined;
       const submitting: typeof fetch = (url, init) =>
         dispatchGenerationOnProjectQueue({

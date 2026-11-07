@@ -17,4 +17,4 @@ export {
   locationImageFields,
 } from "../../../apps/studio-web/src/aivora/film/location-reference";
 
-export { generationHadTakes } from "../../../apps/studio-web/src/aivora/film/generation-queue";
+export { generationHadTakes, generationQueuedTakeIndices, prepareVideoQueue } from "../../../apps/studio-web/src/aivora/film/generation-queue";
