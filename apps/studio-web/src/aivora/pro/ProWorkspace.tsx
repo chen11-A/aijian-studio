@@ -15,6 +15,7 @@ import {
 import { rangeVideoBody } from "./actions/video-prompt-review";
 import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
+import { useShotAudioSuggestions } from "./use-shot-audio-suggestions";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
@@ -915,6 +916,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       skipHistory.current = true;
       setHistoryTick((value) => value + 1);
       return adopted;
+    },
+    persistence,
+  });
+  const shotAudioSuggestions = useShotAudioSuggestions(film, stage === "edit", {
+    current: () => filmRef.current,
+    selection: () => {
+      const scope = editorSelection.current;
+      const live = filmRef.current;
+      const shot = live?.shots.find((row) => row.id === scope.shotId);
+      return live && shot?.selectedTakeId && scope.page === "edit"
+        ? { projectId: live.id, page: scope.page, shotId: shot.id, takeId: shot.selectedTakeId }
+        : null;
     },
     persistence,
   });
@@ -5355,7 +5368,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRefreshWaveforms={audioWaveforms.refresh}
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
-                  libraryTools={audioLibrary.tools}
+                  libraryTools={
+                    <>
+                      {audioLibrary.tools}
+                      {shotAudioSuggestions.tools}
+                    </>
+                  }
                   onSceneMood={(sceneId, mood) => {
                     const ids = new Set(
                       film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
@@ -6019,6 +6037,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <NoticeLog log={status.log} />
           </div>
         ) : null}
+        {shotAudioSuggestions.dialog}
         {audioLibrary.dialog}
         {audioLibrary.pendingPanel}
         {appSettings ? (

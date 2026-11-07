@@ -1,0 +1,22 @@
+.pro-root .dialog.shot-audio-suggestions {
+  width: min(820px, calc(100vw - 48px));
+  max-height: calc(100vh - 112px);
+  overflow: auto;
+  min-height: 0;
+  overflow-wrap: anywhere;
+}
+.pro-root .shot-audio-suggestions .shot-audio-lane article {
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  min-width: 0;
+}
+.pro-root .shot-audio-suggestions dd {
+  margin: 4px 0 12px;
+}
+.pro-root .shot-audio-suggestions .acts {
+  position: static;
+  flex: none;
+  flex-wrap: wrap;
+}
