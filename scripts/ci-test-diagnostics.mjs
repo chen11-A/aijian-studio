@@ -250,6 +250,8 @@ try {
 }
 if (direct) {
   try {
+    if (process.argv[2] === "--speech-window-test" && process.argv.length !== 3)
+      throw new Error("UNEXPECTED_TARGET_ARGUMENTS");
     const invocation =
       process.argv[2] === "--self-test"
         ? {
@@ -260,7 +262,13 @@ if (direct) {
             ],
             phase: "diagnostics self-test",
           }
-        : pnpmInvocation(process.env.npm_execpath);
+        : process.argv[2] === "--speech-window-test"
+          ? {
+              command: "uv",
+              args: ["run", "pytest", "services/api/tests/test_story_speech_window.py"],
+              phase: "Python / speech-window",
+            }
+          : pnpmInvocation(process.env.npm_execpath);
     if (process.argv[2] === "--check-launcher")
       process.stdout.write("CI launcher verified: JavaScript entry, shell disabled.\n");
     else process.exitCode = await runTestDiagnostics(invocation);

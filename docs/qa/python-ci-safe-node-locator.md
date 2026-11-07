@@ -10,3 +10,12 @@
 - 原 `--self-test` 包装、目标 ESLint、Prettier、Node 语法检查和 `git diff --check` 按交付日志核验。
 
 没有修改生产 API、speech-window 策略、测试断言、全局 timeout/workers 或依赖锁。真实 Windows 失败根因仍待新的精确注释；本地脚本通过不能称 Windows 全质量通过。
+
+## 独立 Windows 快速定向
+
+后续窄提交在 workflow 末尾追加 `speech-window (windows, targeted)`，原 workflow 全部字节前缀保持不变。复用既有 Node 24.15、Python 3.12、uv frozen、`ci_media_tools.py` 的原固定 Windows 工具 pin；无需安装全部 JavaScript 依赖。原完整 quality/pytest/覆盖门仍运行，独立定向成功不等于 Windows 全质量成功。
+
+新固定 CLI `--speech-window-test` 只执行 `uv run pytest services/api/tests/test_story_speech_window.py`，拒绝额外参数；同 `shell:false` 包装保留真实 streams/exit 与受限注释。20 分钟仅为这个独立 CI job 的上限，没有修改原单测超时或 worker。
+
+- 原 `--self-test` 20 项通过（原 19 + 新真实 CLI 子进程边界回归）：实际转发固定 uv/pytest argv，成功 0、失败 23 和额外参数拒绝，私有参数不进注释。
+- 本地真实 uv/pytest 通过新 CLI 仅做 `PYTEST_ADDOPTS='--collect-only -q'`，17 项收集 exit 0（`/tmp/python-targeted-job-real-collect.log`）。没有把 collect-only 称为媒体测试通过；Windows 定向实际结果待 CI。
