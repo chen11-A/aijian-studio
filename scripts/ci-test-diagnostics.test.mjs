@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -11,6 +11,7 @@ import {
   escapeData,
   escapeProperty,
   failureSummary,
+  pytestSourceLocation,
   pnpmInvocation,
   runTestDiagnostics,
 } from "./ci-test-diagnostics.mjs";
@@ -327,4 +328,131 @@ test("real failing child preserves streams/status while runtime annotations omit
   assert.equal(annotations.length, 4);
   assert(annotations.every((line) => line.includes("exit 29")));
   assert.doesNotMatch(annotations.join("\n"), /PRIVATE_VALUE|private|D:|token=|ERR_PRIVATE/);
+});
+
+test("pytest node metadata uses a real repository declaration and excludes parameters and exception values", async () => {
+  const file = "services/api/tests/test_story_speech_window.py",
+    name = "test_padding_preserves_every_body_sample_and_original_bytes";
+  const summary = failureSummary();
+  summary.line(
+    `FAILED ${file.replaceAll("/", "\\")}::${name}[PRIVATE_PARAMETER] - AssertionError: PRIVATE_EXCEPTION /private/user`,
+  );
+  const declaredLine = pytestSourceLocation(file, name);
+  assert.equal(typeof declaredLine, "number");
+  const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
+  assert(source.split(/\r?\n/u)[declaredLine - 1].startsWith(`def ${name}(`));
+  assert.deepEqual(summary.entries(), [
+    { phase: "Python", message: `Failure location: ${file}` },
+    { phase: "Python", message: `Failure test: ${file}::${name}:${declaredLine}` },
+  ]);
+  assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE|AssertionError|private\/user/);
+});
+
+test("pytest declaration whitelist rejects forged names, nested methods, traversal, oversized source and directory aliases escaping the checkout", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pytest-safe-locator-"));
+  try {
+    const tests = join(directory, "services/api/tests");
+    await mkdir(tests, { recursive: true });
+    const file = "services/api/tests/test_fixture.py";
+    await writeFile(
+      join(directory, file),
+      "def test_real():\n    pass\n\nasync def test_async():\n    pass\n\nclass TestPrivate:\n    def test_nested(self):\n        pass\n",
+    );
+    assert.equal(pytestSourceLocation(file, "test_real", directory), 1);
+    assert.equal(pytestSourceLocation(file, "test_async", directory), 4);
+    for (const name of [
+      "test_forged",
+      "test_nested",
+      "test_real[PRIVATE]",
+      "not_test",
+      "test_" + "x".repeat(160),
+    ])
+      assert.equal(pytestSourceLocation(file, name, directory), null);
+    for (const unsafe of [
+      "services/api/tests/../test_fixture.py",
+      "/services/api/tests/test_fixture.py",
+      "private/test_fixture.py",
+    ])
+      assert.equal(pytestSourceLocation(unsafe, "test_real", directory), null);
+    await writeFile(join(tests, "test_large.py"), "def test_real():\n" + "#".repeat(1024 * 1024));
+    assert.equal(
+      pytestSourceLocation("services/api/tests/test_large.py", "test_real", directory),
+      null,
+    );
+    const aliasRoot = join(directory, "alias-root"),
+      outside = join(directory, "outside");
+    await mkdir(join(aliasRoot, "services/api"), { recursive: true });
+    await mkdir(outside);
+    await writeFile(join(outside, "test_escape.py"), "def test_private():\n    pass\n");
+    await symlink(
+      outside,
+      join(aliasRoot, "services/api/tests"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(
+      pytestSourceLocation("services/api/tests/test_escape.py", "test_private", aliasRoot),
+      null,
+    );
+    const summary = failureSummary("Python", directory);
+    summary.line(`FAILED ${file}::test_forged[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION`);
+    summary.line(`FAILED ${file}::TestPrivate::test_nested - PRIVATE_EXCEPTION`);
+    assert.deepEqual(summary.entries(), [
+      { phase: "Python", message: `Failure location: ${file}` },
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("pytest node metadata preserves the original six-entry bound", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pytest-bounded-locator-"));
+  try {
+    await mkdir(join(directory, "services/api/tests"), { recursive: true });
+    const file = "services/api/tests/test_fixture.py";
+    await writeFile(
+      join(directory, file),
+      Array.from({ length: 20 }, (_, index) => `def test_item_${index}():\n    pass`).join("\n"),
+    );
+    const summary = failureSummary("Python", directory);
+    for (let index = 0; index < 20; index++)
+      summary.line(`FAILED ${file}::test_item_${index}[PRIVATE] - PRIVATE`);
+    assert.equal(summary.entries().length, 6);
+    assert.equal(
+      summary.entries().filter((entry) => entry.message.startsWith("Failure test:")).length,
+      5,
+    );
+    assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("real pytest-shaped child keeps stdout, stderr and failure status while annotations show only verified node metadata", async () => {
+  const stdout = output(),
+    stderr = output();
+  const raw =
+    "FAILED services/api/tests/test_story_speech_window.py::test_padding_preserves_every_body_sample_and_original_bytes[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION\n";
+  const status = await runTestDiagnostics({
+    command: process.execPath,
+    args: [
+      "-e",
+      `process.stdout.write(${JSON.stringify(raw)});process.stderr.write('original stderr\\n');process.exitCode=17;`,
+    ],
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+  assert.equal(status, 17);
+  assert.equal(stderr.text(), "original stderr\n");
+  assert(stdout.text().startsWith(raw));
+  const annotations = stdout
+    .text()
+    .split("\n")
+    .filter((line) => line.startsWith("::error"));
+  assert.equal(annotations.length, 2);
+  assert(annotations.every((line) => line.includes("exit 17")));
+  assert.match(
+    annotations.join("\n"),
+    /::test_padding_preserves_every_body_sample_and_original_bytes/,
+  );
+  assert.doesNotMatch(annotations.join("\n"), /PRIVATE|AssertionError|private\//);
 });
