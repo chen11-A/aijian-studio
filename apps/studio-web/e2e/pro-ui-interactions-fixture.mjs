@@ -1,7 +1,29 @@
 /** Fixed local-only native ABI extensions; no model/media generation or CSS injection. */
 export function installUiInteractionsBridge() {
-  const audit = { renames: [], forbidden: [] };
+  const audit = { renames: [], orphanRefusals: [], forbidden: [] };
   window.__uiInteractionsAudit = audit;
+  const waveform = window.aijian.readFilmAudioWaveform;
+  window.aijian.readFilmAudioWaveform = async (input) => {
+    const raw = window.__proCreationAudit.record(input?.projectId),
+      clips = raw?.audioClips.filter((c) => c.id === input?.clipId) ?? [];
+    if (clips.length === 1 && !raw.shots.some((s) => s.id === clips[0].shotId)) {
+      const c = clips[0];
+      if (
+        Object.keys(input).sort().join() !== "clipId,expectedSourceKey,projectId" ||
+        !/^legacy-voice-[0-5]$/.test(c.id) ||
+        c.path !== `/synthetic/voice-${Number(c.id.at(-1))}.wav` ||
+        typeof input.expectedSourceKey !== "string" ||
+        !/^[a-f0-9]{64}$/.test(input.expectedSourceKey)
+      ) {
+        audit.forbidden.push("orphan-wave-scope");
+        throw Error("FORBIDDEN_ORPHAN_ANALYSIS");
+      }
+      audit.orphanRefusals.push({ input: { ...input }, code: "SOURCE_CHANGED" });
+      return { kind: "FAILED", code: "SOURCE_CHANGED" };
+    }
+    return waveform(input);
+  };
+
   window.aijian.renameFilmSeries = async (seriesId, title) => {
     const films = Object.keys(window.localStorage)
       .filter((k) => k.startsWith("aivora.film.v1."))

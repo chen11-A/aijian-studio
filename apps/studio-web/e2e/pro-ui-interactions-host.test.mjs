@@ -109,7 +109,9 @@ const kept = (f) => ({
     .sort((a, b) => a.id.localeCompare(b.id)),
   audioClips: f.audioClips,
 });
-function safe() {
+function safe(waves = 0, orphans = 0) {
+  assert.equal(window.__proEvidenceLegacyAudit.waveforms.length, waves);
+  assert.equal(window.__uiInteractionsAudit.orphanRefusals.length, orphans);
   assert.deepEqual(
     [
       ...window.__proCreationAudit.forbidden,
@@ -161,7 +163,7 @@ it("context menus use actual scene/board/clip lists, dismiss on Escape and mirro
   );
   fireEvent.keyDown(menu, { key: "Escape" });
   assert.deepEqual(kept(f.raw()), kept(f.before));
-  safe();
+  safe(6);
 });
 it("title Enter saves once, Escape/composition do not submit, and typing transport keys preserves media", async () => {
   const f = await open("ui-title-composition");
@@ -247,5 +249,5 @@ it("real edit transport keys and Delete/Backspace retain input/menu guards then 
     await settled(f, ++operations);
   }
   assert.deepEqual(kept(f.raw()), kept(f.before));
-  safe();
+  safe(28, 2);
 });

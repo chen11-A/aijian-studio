@@ -7,6 +7,10 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["改作品名", "interaction-title"],
+    ["这一镜的画风", "interaction-style"],
+    ["后移", "interaction-move"],
+    ["更多操作", "interaction-more"],
     ["设置创作流程失败上限", "story-policy-open"],
     ["保存创作流程上限", "story-policy-save"],
     ["重新核对创作流程上限", "story-policy-refresh"],

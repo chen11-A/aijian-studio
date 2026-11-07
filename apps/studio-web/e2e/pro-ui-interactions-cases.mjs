@@ -75,6 +75,7 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
         const calls = () =>
           page.evaluate(() => ({
             renames: window.__uiInteractionsAudit.renames,
+            orphanRefusals: window.__uiInteractionsAudit.orphanRefusals,
             waveforms: window.__proEvidenceLegacyAudit.waveforms,
             prepares: window.__proEvidenceLegacyAudit.prepares,
             publishes: window.__proEvidenceLegacyAudit.publishes,
@@ -108,7 +109,7 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
           await frame();
           result.reachability = await control.evaluate(measureEvidenceControl);
           assert.equal(result.reachability.complete, true, "Control must scroll fully into view");
-          await control.click({ trial: true });
+          if (!(await control.isDisabled())) await control.click({ trial: true });
         }
         async function metadata() {
           await page.waitForFunction(() => window.__assemblyAudit.artifacts.length === 1);
@@ -219,8 +220,12 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
               "出 4 张候选",
               "删除这一镜",
             ]);
+            scopeSelector = '.menu[aria-label="这一镜的更多操作"]';
+            await geometry("more-menu");
+            for (const control of await more.getByRole("button").all()) await reachable(control);
             await page.keyboard.press("Escape");
             await more.waitFor({ state: "hidden" });
+            scopeSelector = ".pro-root";
             await card.click({ button: "right" });
             await page.getByRole("menuitem", { name: "后移", exact: true }).click();
             await page.waitForFunction(
@@ -246,6 +251,8 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
               "加镜头",
               "生成这一场",
             ]);
+            for (const name of ["加镜头", "生成这一场"])
+              assert.equal(await button(name).count(), 1);
             scopeSelector = ".nx-context-menu";
             await geometry("scene-context");
             await page.keyboard.press("Escape");
@@ -284,6 +291,8 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
               selectionStart: 5,
               selectionEnd: 5,
             });
+            await page.keyboard.press("4");
+            assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "script");
             await page.keyboard.press("Enter");
             assert.equal(await field.count(), 1);
             assert.equal((await calls()).renames.length, 0);
@@ -378,9 +387,13 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             await button("导出成片").click();
             const dialog = page.getByRole("dialog", { name: "导出成片", exact: true });
             await dialog.waitFor();
+            scopeSelector = '.pro-root [role="dialog"][aria-label="导出成片"]';
+            await geometry("dialog-delete-guard");
             await page.keyboard.press("Backspace");
             assert.equal(await page.locator(".clip.v").count(), 6);
-            await dialog.getByRole("button", { name: "取消", exact: true }).click();
+            await reachable(dialog.getByRole("button", { name: "关闭", exact: true }));
+            await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+            scopeSelector = ".pro-root";
             for (const key of ["Delete", "Backspace"]) {
               await page.locator(".clip.v").first().click();
               await page.keyboard.press(key);
@@ -407,6 +420,11 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
           );
           assert.deepEqual(final.prepares, []);
           assert.deepEqual(final.publishes, []);
+          assert.equal(final.orphanRefusals.length, state === "ui-transport-delete" ? 2 : 0);
+          assert.equal(
+            final.waveforms.length,
+            state === "ui-transport-delete" ? 28 : state === "ui-context-menus" ? 6 : 0,
+          );
           assertAssemblyRequests(final.assembly, expectedAssembly);
           assert.deepEqual(final.cancels, []);
           assert.deepEqual(final.forbidden, []);
