@@ -647,6 +647,8 @@ def test_migration_48_adds_the_budget_ledger_without_rewriting_projects(tmp_path
     with sqlite3.connect(database) as connection:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 47
         names = {str(row[0]) for row in connection.execute("SELECT name FROM sqlite_master")}
+        assert "generation_failure_policy" not in names
+        assert "generation_failure_attempt" not in names
         project_name = connection.execute("SELECT name FROM projects").fetchone()[0]
         authorization_sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'remote_dispatch_snapshots'"
@@ -654,7 +656,19 @@ def test_migration_48_adds_the_budget_ledger_without_rewriting_projects(tmp_path
         assert "media_budget_revisions" not in names
     StudioRepository(database)
     with sqlite3.connect(database) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 50
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 51
+        new_tables = {
+            row[0]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        assert {"generation_failure_policy", "generation_failure_attempt"} <= new_tables
+        assert (
+            connection.execute("SELECT COUNT(*) FROM generation_failure_policy").fetchone()[0] == 0
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM generation_failure_attempt").fetchone()[0] == 0
+        )
+
         assert connection.execute("SELECT name FROM projects").fetchone()[0] == project_name
         assert connection.execute("SELECT COUNT(*) FROM media_budget_revisions").fetchone()[0] == 0
         assert (
