@@ -1,5 +1,5 @@
 import { resolveAudioMix } from "./film-audio-mix-sources";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
 import type {
@@ -9,14 +9,24 @@ import type {
   FilmAudioLibraryGateway,
   InspectBundledFilmAudioTargetInput,
   InspectBundledFilmAudioTargetResult,
+  SuggestBundledFilmShotAudioResult,
 } from "@aijian/contracts/film-audio-library";
-import { buildAudioMixPlan } from "@aijian/contracts/film-audio-mix-plan";
+import { audioMixSettings, buildAudioMixPlan } from "@aijian/contracts/film-audio-mix-plan";
 import { filmHistoryRecordHash } from "./film-history";
-import { readProject, transactFilmProject, type FilmRecord } from "./film-library";
+import { mediaUrlPath, readProject, transactFilmProject, type FilmRecord } from "./film-library";
 import { exportFileHash, copyExportFile } from "./film-export-io";
 import { probeMixSource } from "./film-audio-mix";
-import { loadTrustedAudioLibrary, publicAudioCatalog } from "./film-audio-library-runtime";
+import {
+  loadTrustedAudioLibrary,
+  publicAudioCatalog,
+  loadTrustedAudioPicker,
+} from "./film-audio-library-runtime";
 import type { QcRunner, QcTools } from "./film-export-qc-runtime";
+import {
+  shotAudioContext,
+  compileShotAudioSuggestion,
+  ShotAudioSuggestionLimit,
+} from "./film-shot-audio-suggestions";
 const object = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 const exact = (v: Record<string, unknown>, keys: string[]) =>
@@ -30,6 +40,7 @@ const failure = (error: unknown): FilmAudioLibraryFailure => ({
     "PROJECT_CHANGED",
     "SOURCE_UNVERIFIED",
     "PLACEMENT_UNSUPPORTED",
+    "PLAN_UNSUPPORTED",
     "BUSY",
     "WRITE_FAILED",
     "WRITE_UNCONFIRMED",
@@ -82,6 +93,23 @@ function input(value: unknown): AddBundledFilmAudioInput {
     fail("INVALID_INPUT");
   return row as unknown as AddBundledFilmAudioInput;
 }
+function targetInput(value: unknown): InspectBundledFilmAudioTargetInput {
+  const row = object(value);
+  if (
+    !row ||
+    !exact(row, ["projectId", "expectedProjectHash", "shotId", "takeId"]) ||
+    typeof row.projectId !== "string" ||
+    !/^film_[a-z0-9]{16,40}$/.test(row.projectId) ||
+    typeof row.expectedProjectHash !== "string" ||
+    !/^[a-f0-9]{64}$/.test(row.expectedProjectHash) ||
+    ![row.shotId, row.takeId].every(
+      (id) => typeof id === "string" && id.length > 0 && id.length <= 160 && !id.includes("\0"),
+    )
+  )
+    fail("INVALID_INPUT");
+  return { ...row } as unknown as InspectBundledFilmAudioTargetInput;
+}
+
 function selected(
   record: FilmRecord,
   request: Pick<AddBundledFilmAudioInput, "shotId" | "takeId">,
@@ -151,25 +179,176 @@ export function createFilmAudioLibrary(host: {
     });
   }
   return {
+    async suggestBundledFilmShotAudio(value): Promise<SuggestBundledFilmShotAudioResult> {
+      let project = "",
+        acquired = false;
+      try {
+        const request = targetInput(value);
+        project = request.projectId;
+        if (active.has(project)) fail("BUSY");
+        active.add(project);
+        acquired = true;
+        const current = async () => {
+          const record = await readProject(host.filmsRoot, project);
+          if (
+            !record ||
+            record.id !== project ||
+            filmHistoryRecordHash(record) !== request.expectedProjectHash
+          )
+            fail("PROJECT_CHANGED");
+          selected(record, request);
+          return record;
+        };
+        const base = await current();
+        const tools = await host.tools().catch(() => fail("TOOLS_UNAVAILABLE"));
+        const before = await selectedSources(base, request, tools).catch(() =>
+          fail("SOURCE_UNVERIFIED"),
+        );
+        let directory: string;
+        try {
+          directory = await realpath(host.libraryRoot());
+        } catch {
+          fail("LIBRARY_UNAVAILABLE");
+        }
+        const library = await loadTrustedAudioLibrary(directory).catch((error) =>
+          fail(
+            error instanceof Error && error.message === "ASSET_CHANGED"
+              ? "ASSET_CHANGED"
+              : "LIBRARY_UNAVAILABLE",
+          ),
+        );
+        const picker = await loadTrustedAudioPicker(directory).catch((error) =>
+          fail(
+            error instanceof Error && error.message === "ASSET_CHANGED"
+              ? "ASSET_CHANGED"
+              : "LIBRARY_UNAVAILABLE",
+          ),
+        );
+        const durationSeconds = before.plan.durationSeconds;
+        const context = shotAudioContext(base, request.shotId, durationSeconds);
+        const raw = picker.pickAudio(
+          context.scene,
+          library.assets.map((asset) => ({
+            id: asset.id,
+            path: asset.file,
+            type: asset.type,
+            category: asset.category,
+            name: asset.name,
+            tags: [...asset.tags],
+            scene: asset.scene,
+            source: asset.source,
+            author: asset.author,
+            license: asset.license,
+            duration: asset.durationSeconds,
+            loop: asset.loopable,
+            loopable: asset.loopable,
+            loudness: asset.loudness,
+          })),
+        );
+        const compiled = compileShotAudioSuggestion(
+          raw,
+          library,
+          durationSeconds,
+          context.allowMusic,
+          128 - before.plan.tracks.length,
+        );
+        const after = await selectedSources(await current(), request, tools).catch(() =>
+          fail("PROJECT_CHANGED"),
+        );
+        if (
+          durationSeconds !== after.plan.durationSeconds ||
+          JSON.stringify(before.hashes) !== JSON.stringify(after.hashes)
+        )
+          fail("PROJECT_CHANGED");
+        const latestLibrary = await loadTrustedAudioLibrary(directory).catch(() =>
+          fail("ASSET_CHANGED"),
+        );
+        if (
+          JSON.stringify(publicAudioCatalog(library)) !==
+          JSON.stringify(publicAudioCatalog(latestLibrary))
+        )
+          fail("ASSET_CHANGED");
+        await picker.verify().catch(() => fail("ASSET_CHANGED"));
+        try {
+          if ((await realpath(host.libraryRoot())) !== directory) fail("ASSET_CHANGED");
+        } catch {
+          fail("ASSET_CHANGED");
+        }
+        // The final probes may race a source replacement with the same duration.
+        // Rehash every actual native/clean source after all library work.
+        for (const [path, sha] of Object.entries(after.hashes))
+          if ((await exportFileHash(path).catch(() => "")) !== sha) fail("PROJECT_CHANGED");
+        await current();
+        const limitations = [...context.limitations, ...compiled.limitations];
+        const take = selected(base, request);
+        const nativePath = after.paths[`video:${request.shotId}:${request.takeId}`];
+        if (!nativePath) fail("PROJECT_CHANGED");
+        const visualPath =
+          typeof take.cleanVideoPath === "string" && take.cleanVideoPath
+            ? await realpath(mediaUrlPath(take.cleanVideoPath))
+            : nativePath;
+        if (!after.hashes[nativePath] || !after.hashes[visualPath]) fail("PROJECT_CHANGED");
+        // This is reviewed creative intent, not a write token. Fresh complete raw hashes
+        // still guard every read above and are returned separately for the next CAS.
+        const planFingerprint = createHash("sha256")
+          .update(
+            JSON.stringify({
+              version: "shot-audio-suggestion-v1",
+              target: { projectId: project, shotId: request.shotId, takeId: request.takeId },
+              context: context.semantic,
+              mix: audioMixSettings(base.audioMix),
+              catalog: library.manifestSha256,
+              picker: picker.sha256,
+              durationSeconds,
+              sources: {
+                native: {
+                  sha256: after.hashes[nativePath],
+                  clock: after.sources[`video:${request.shotId}:${request.takeId}`],
+                },
+                visual: { sha256: after.hashes[visualPath], durationSeconds },
+              },
+              clips: compiled.clips,
+              warnings: compiled.warnings,
+              limitations,
+            }),
+          )
+          .digest("hex");
+        return {
+          kind: "SUGGESTED",
+          projectId: project,
+          shotId: request.shotId,
+          takeId: request.takeId,
+          projectHash: request.expectedProjectHash,
+          durationSeconds,
+          catalogSha256: library.manifestSha256,
+          pickerSha256: picker.sha256,
+          planFingerprint,
+          ...compiled,
+          limitations,
+        };
+      } catch (error) {
+        if (error instanceof ShotAudioSuggestionLimit)
+          return {
+            kind: "FAILED",
+            code: "PLAN_UNSUPPORTED",
+            unchanged: true,
+            reason: "TRACK_LIMIT",
+            maxSegments: error.maxSegments,
+            minimumRequiredSegments: error.minimumRequiredSegments,
+          };
+        const result = failure(error);
+        return ["WRITE_FAILED", "WRITE_UNCONFIRMED"].includes(result.code)
+          ? { kind: "FAILED", code: "PLAN_UNSUPPORTED", unchanged: true }
+          : result;
+      } finally {
+        if (acquired) active.delete(project);
+      }
+    },
     async inspectBundledFilmAudioTarget(value): Promise<InspectBundledFilmAudioTargetResult> {
       let project = "",
         acquired = false;
       try {
-        const row = object(value);
-        if (
-          !row ||
-          !exact(row, ["projectId", "expectedProjectHash", "shotId", "takeId"]) ||
-          typeof row.projectId !== "string" ||
-          !/^film_[a-z0-9]{16,40}$/.test(row.projectId) ||
-          typeof row.expectedProjectHash !== "string" ||
-          !/^[a-f0-9]{64}$/.test(row.expectedProjectHash) ||
-          ![row.shotId, row.takeId].every(
-            (id) =>
-              typeof id === "string" && id.length > 0 && id.length <= 160 && !id.includes("\0"),
-          )
-        )
-          fail("INVALID_INPUT");
-        const request = row as unknown as InspectBundledFilmAudioTargetInput;
+        const request = targetInput(value);
         project = request.projectId;
         if (active.has(project)) fail("BUSY");
         active.add(project);
