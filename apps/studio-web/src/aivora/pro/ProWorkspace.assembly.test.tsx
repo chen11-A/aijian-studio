@@ -27,6 +27,7 @@ async function open(
     saveFailure?: boolean;
     metadataHold?: boolean;
     metadataBusy?: boolean;
+    assemblyAdmissionHold?: boolean;
   } = {},
 ) {
   let host!: Parameters<typeof originalHost>[0];
@@ -88,6 +89,15 @@ async function open(
     previewHold = new Promise<void>((done) => {
       releasePreview = done;
     });
+  let releaseAssemblyAdmission!: () => void;
+  const assemblyAdmission = new Promise<void>((done) => {
+    releaseAssemblyAdmission = done;
+  });
+  if (!options.assemblyAdmissionHold) releaseAssemblyAdmission();
+  let assemblyReady!: () => void;
+  const assemblyStarted = new Promise<void>((done) => {
+    assemblyReady = done;
+  });
   const metadataOrder: string[] = [];
   const wave = vi.fn(async (value: { expectedSourceKey: string }) => {
     metadataOrder.push("wave-start");
@@ -164,6 +174,7 @@ async function open(
   }
   const assemble = vi.fn(async (value: FilmAssemblyInput) => {
     metadataOrder.push("assembly");
+    await assemblyAdmission;
     expect(value.expectedHash).toBe(await historyRecordHash(disk));
     input = value;
     expect(value.expectedSelection).toEqual(
@@ -174,6 +185,7 @@ async function open(
     return options.deferred
       ? new Promise<FilmAssemblyResult>((done) => {
           resolve = done;
+          assemblyReady();
         })
       : result(value);
   });
@@ -232,6 +244,8 @@ async function open(
     releaseWave,
     releasePreview,
     metadataOrder,
+    releaseAssemblyAdmission,
+    assemblyStarted,
     complete: () => resolve(result(input!)),
   };
 }
@@ -408,9 +422,15 @@ it("admits the first edit assembly only after ordinary waveform saves and previe
 });
 
 it("keeps the original eight BUSY admissions across canonical adoption and assembly references, then retries only on an explicit click", async () => {
-  const f = await open({ metadataBusy: true, deferred: true });
+  const f = await open({ metadataBusy: true, deferred: true, assemblyAdmissionHold: true });
   try {
     await waitFor(() => expect(f.assemble).toHaveBeenCalledOnce(), { timeout: 5000 });
+    // A recorded bridge call is not yet past its asynchronous canonical-hash check.
+    expect(f.disk().assemblyPath).not.toBe("/trusted/new-assembly.mp4");
+    await act(async () => {
+      f.releaseAssemblyAdmission();
+      await Promise.race([f.assemblyStarted, f.assemble.mock.results[0]!.value]);
+    });
     expect(f.preview).toHaveBeenCalledTimes(8);
     expect(screen.getByRole("button", { name: "重试音轨试听" })).toBeInTheDocument();
     await act(async () => {
@@ -457,7 +477,14 @@ it("keeps the original eight BUSY admissions across canonical adoption and assem
     expect(f.provider).not.toHaveBeenCalled();
   } finally {
     await act(async () => {
-      f.complete();
+      f.releaseAssemblyAdmission();
+      const pending = f.assemble.mock.results[0]?.value;
+      if (pending) {
+        // Surface a real pre-admission assertion failure rather than waiting on its missing signal.
+        await Promise.race([f.assemblyStarted, pending]);
+        f.complete();
+        await pending;
+      }
     });
   }
 });
