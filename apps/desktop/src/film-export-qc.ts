@@ -637,6 +637,9 @@ export function createFilmExportQc(host: FilmQcHost) {
           shots,
           fileName,
           unverified: [
+            ...(base.mix.plan.limitations.includes("SCENE_AUDIO_BINDING_STALE")
+              ? ["整场配声的选版、实际时钟或完整成员已变化，整组未混入；请重新核对并选用。"]
+              : []),
             ...(base.mix.plan.limitations.includes("STALE_CLIP_IGNORED")
               ? ["旧版本或缺少选版绑定的音轨未混入，请核对当前版本。"]
               : []),

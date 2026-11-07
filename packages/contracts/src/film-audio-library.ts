@@ -1,3 +1,4 @@
+import type { SceneAudioBinding } from "./film-scene-audio-binding.js";
 import type { AudioMixEnvelope } from "./film-audio-mix.js";
 /** Bundled library identifiers and creative metadata only; no renderer-selected source paths. */
 export type BundledAudioAsset = {
@@ -41,7 +42,7 @@ export type FilmAudioLibraryFailure = {
     | "WRITE_UNCONFIRMED"
     | "TOOLS_UNAVAILABLE";
   unchanged: boolean;
-  reason?: "TRACK_LIMIT";
+  reason?: "TRACK_LIMIT" | "GLOBAL_CLOCK_UNAVAILABLE" | "SCENE_ORDER_UNSUPPORTED";
   maxSegments?: number;
   minimumRequiredSegments?: number;
 };
@@ -97,8 +98,10 @@ export type ShotAudioSuggestionNote = {
     | "ACTION_LABEL_MISSING"
     | "DEVICE_TIME_UNCONFIRMED"
     | "MATCH_MISSING"
-    | "PLANNED_TIMES_ONLY";
+    | "PLANNED_TIMES_ONLY"
+    | "SCENE_MUSIC_MOOD_CONFLICT";
   message: string;
+  shotIndex?: number;
   index?: number;
   seconds?: number;
 };
@@ -149,7 +152,55 @@ export type ApplyBundledFilmShotAudioInput = InspectBundledFilmAudioTargetInput 
 export type ApplyBundledFilmShotAudioResult =
   | { kind: "ADDED"; project: Record<string, unknown>; receipt: AudioSuggestionReceipt }
   | FilmAudioLibraryFailure;
+/** All current selected film shots, not a caller-selected subset or estimated timeline. */
+export type SuggestBundledFilmSceneAudioInput = {
+  projectId: string;
+  expectedProjectHash: string;
+  sceneId: string;
+  expectedSelection: { shotId: string; takeId: string }[];
+};
+export type SceneAudioSuggestedClip = ShotAudioSuggestedClip & { shotId: string; takeId: string };
+export type SuggestBundledFilmSceneAudioResult =
+  | {
+      kind: "SCENE_SUGGESTED";
+      projectId: string;
+      sceneId: string;
+      projectHash: string;
+      catalogSha256: string;
+      pickerSha256: string;
+      planFingerprint: string;
+      clock: {
+        durationSeconds: number;
+        shots: {
+          shotId: string;
+          takeId: string;
+          sceneId: string;
+          startSeconds: number;
+          durationSeconds: number;
+        }[];
+      };
+      sceneStartSeconds: number;
+      sceneDurationSeconds: number;
+      sceneAudioBinding: SceneAudioBinding;
+      clips: SceneAudioSuggestedClip[];
+      warnings: ShotAudioSuggestionNote[];
+      limitations: ShotAudioSuggestionNote[];
+    }
+  | FilmAudioLibraryFailure;
+export type ApplyBundledFilmSceneAudioInput = SuggestBundledFilmSceneAudioInput & {
+  catalogSha256: string;
+  pickerSha256: string;
+  planFingerprint: string;
+  lanes: ("ambience" | "sfx" | "score")[];
+};
+export type ApplyBundledFilmSceneAudioResult = ApplyBundledFilmShotAudioResult;
 export type FilmAudioLibraryGateway = {
+  suggestBundledFilmSceneAudio: (
+    input: SuggestBundledFilmSceneAudioInput,
+  ) => Promise<SuggestBundledFilmSceneAudioResult>;
+  applyBundledFilmSceneAudio: (
+    input: ApplyBundledFilmSceneAudioInput,
+  ) => Promise<ApplyBundledFilmSceneAudioResult>;
   applyBundledFilmShotAudio: (
     input: ApplyBundledFilmShotAudioInput,
   ) => Promise<ApplyBundledFilmShotAudioResult>;

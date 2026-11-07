@@ -13,3 +13,13 @@ export function audioSuggestionGroupInputs(
   group: AudioSuggestionGroup;
   members: { key: string; clipId: string; creativeInput: string }[];
 } | null;
+
+/** Consistency only. Actual file/root/owner/SHA validation remains the responsibility of main. */
+export function sceneAudioGroupState(
+  clips: unknown,
+  currentBindings: Readonly<Record<string, string>>,
+): {
+  sceneMemberIds: string[];
+  eligibleIds: string[];
+  stale: boolean;
+};

@@ -1149,3 +1149,114 @@ it("keeps the same-factory barrier until the actual queued write settles, even w
     await work;
   }
 });
+
+it.each(["before", "after", "readback-wrong"] as const)(
+  "keeps scene group %s write certainty and shared BUSY lifecycle without retrying or losing copies",
+  async (mode) => {
+    const f = await fixture();
+    const { stored } = await suggested(f);
+    const input = {
+      projectId: stored.id,
+      expectedProjectHash: filmHistoryRecordHash(stored),
+      sceneId: "scene",
+      expectedSelection: [{ shotId: "shot", takeId: "take" }],
+    };
+    const proposal = await f.library.suggestBundledFilmSceneAudio(input);
+    if (proposal.kind !== "SCENE_SUGGESTED") throw Error("SCENE_NOT_READY");
+    fault.mode = mode;
+    const result = await f.library.applyBundledFilmSceneAudio({
+      ...input,
+      catalogSha256: proposal.catalogSha256,
+      pickerSha256: proposal.pickerSha256,
+      planFingerprint: proposal.planFingerprint,
+      lanes: ["ambience", "sfx", "score"],
+    });
+    expect(result).toMatchObject({
+      kind: "FAILED",
+      code: mode === "before" ? "WRITE_FAILED" : "WRITE_UNCONFIRMED",
+      unchanged: mode === "before",
+    });
+    fault.mode = "";
+    const actual = (await readProject(f.filmsRoot, stored.id))!;
+    if (mode === "before") {
+      expect(actual.audioClips).toEqual([]);
+      expect(
+        (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
+      ).toEqual([]);
+    } else {
+      const clips = actual.audioClips as Record<string, unknown>[];
+      expect(clips).toHaveLength(proposal.clips.length);
+      for (const clip of clips)
+        expect(sha(await readFile(String(clip.path)))).toBe(
+          (clip.libraryAsset as { sha256: string }).sha256,
+        );
+    }
+    expect(
+      await f.library.inspectBundledFilmAudioTarget({
+        projectId: actual.id,
+        expectedProjectHash: filmHistoryRecordHash(actual),
+        shotId: "shot",
+        takeId: "take",
+      }),
+    ).toMatchObject({ kind: "TARGET" });
+  },
+  30000,
+);
+it("keeps the same scene reservation until an acknowledged write actually settles", async () => {
+  const f = await fixture();
+  const { stored } = await suggested(f);
+  const input = {
+    projectId: stored.id,
+    expectedProjectHash: filmHistoryRecordHash(stored),
+    sceneId: "scene",
+    expectedSelection: [{ shotId: "shot", takeId: "take" }],
+  };
+  const proposal = await f.library.suggestBundledFilmSceneAudio(input);
+  if (proposal.kind !== "SCENE_SUGGESTED") throw Error("SCENE_NOT_READY");
+  let release!: () => void, entered!: () => void;
+  fault.hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  fault.entered = entered;
+  fault.mode = "pending";
+  const pending = f.library.applyBundledFilmSceneAudio({
+    ...input,
+    catalogSha256: proposal.catalogSha256,
+    pickerSha256: proposal.pickerSha256,
+    planFingerprint: proposal.planFingerprint,
+    lanes: ["sfx"],
+  });
+  try {
+    await started;
+    expect(await f.library.suggestBundledFilmSceneAudio(input)).toMatchObject({
+      kind: "FAILED",
+      code: "BUSY",
+    });
+    expect(
+      await f.library.inspectBundledFilmAudioTarget({
+        projectId: input.projectId,
+        expectedProjectHash: input.expectedProjectHash,
+        shotId: "shot",
+        takeId: "take",
+      }),
+    ).toMatchObject({ kind: "FAILED", code: "BUSY" });
+  } finally {
+    release();
+    await pending;
+    fault.mode = "";
+    fault.hold = null;
+    fault.entered = null;
+  }
+  const actual = (await readProject(f.filmsRoot, stored.id))!;
+  expect(
+    await f.library.inspectBundledFilmAudioTarget({
+      projectId: actual.id,
+      expectedProjectHash: filmHistoryRecordHash(actual),
+      shotId: "shot",
+      takeId: "take",
+    }),
+  ).toMatchObject({ kind: "TARGET" });
+}, 30000);

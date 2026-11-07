@@ -1018,6 +1018,8 @@ export interface AijianDesktopBridge
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
+  suggestBundledFilmSceneAudio?: FilmAudioLibraryGateway["suggestBundledFilmSceneAudio"];
+  applyBundledFilmSceneAudio?: FilmAudioLibraryGateway["applyBundledFilmSceneAudio"];
   applyBundledFilmShotAudio?: FilmAudioLibraryGateway["applyBundledFilmShotAudio"];
   suggestBundledFilmShotAudio?: FilmAudioLibraryGateway["suggestBundledFilmShotAudio"];
   inspectBundledFilmAudioTarget?: FilmAudioLibraryGateway["inspectBundledFilmAudioTarget"];
