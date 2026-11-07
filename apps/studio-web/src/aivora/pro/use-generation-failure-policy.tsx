@@ -147,7 +147,7 @@ export function useGenerationFailurePolicy(
         result.kind === "POLICY" &&
         validPolicy(result.policy) &&
         result.policy.state === "CONFIGURED" &&
-        result.policy.revision > before.revision &&
+        result.policy.revision === before.revision + 1 &&
         result.policy.failure_limit === limit
       ) {
         policy.current = result.policy;

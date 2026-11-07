@@ -11,3 +11,5 @@
 本片联合结果：5 个文件 47 项通过（配置展示与实际宿主、原保存状态、writer 结构、候选审阅），日志 `/tmp/failure-policy-joint-final.log`。包括已关闭旧窗口的回调不能保存、刷新或关闭后来新会话。正式 web 类型与构建、合同检查、目标 ESLint/Prettier 和 diff 检查分别留在 `/tmp/failure-policy-*-final.log`；未运行重复完整库或本机无沙箱浏览器。
 
 输入身份包括实际首帧与参考图 bytes；重新做图后图像内容变化是另一视频输入，不承诺父级同创作稿整链总上限。本片不提供重启后未知视频任务的恢复或核销界面。
+
+真实消费者联合：合入后端 `9f5c0b5` 后，配置回执要求精确 `revision = expected_revision + 1`，不接受正确 limit 却跨 revision 的回执。受控旧行为 1 项失败保存在 `/tmp/failure-policy-revision-before.log`；修后配置/原保存/writer/候选/notice 联合 6 文件 126 项通过，日志 `/tmp/failure-policy-native-joint-host-final.log`。这与前述 47 项是不同快照，不累加为独立覆盖数。

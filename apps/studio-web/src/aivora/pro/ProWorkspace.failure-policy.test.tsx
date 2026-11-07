@@ -220,7 +220,7 @@ it("does not enable writing after a failed or malformed read and treats a mismat
   f.get.mockResolvedValueOnce(configured(2, 3));
   fireEvent.click(within(dialog).getByRole("button", { name: "重新核对" }));
   await within(dialog).findByText("已保存的上限：3 次。");
-  f.put.mockResolvedValueOnce(configured(3, 9));
+  f.put.mockResolvedValueOnce(configured(4, 4));
   fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "4" } });
   fireEvent.click(within(dialog).getByRole("button", { name: "保存上限" }));
   await within(dialog).findByText("保存结果尚未确认，请重新核对。不要重复提交。");
