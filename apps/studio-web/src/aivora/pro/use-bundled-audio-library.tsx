@@ -362,5 +362,27 @@ export function useBundledAudioLibrary(
       </section>
     </div>
   ) : null;
-  return { tools, dialog, pendingButton, pendingPanel };
+  async function runGroupOperation(id: string, operation: () => Promise<LibraryOutcome>) {
+    if (working.current || pending.current.has(id))
+      return { kind: "failed" as const, message: "请先核对上一轮素材保存结果，尚未开始本次操作。" };
+    working.current = true;
+    setBusy(true);
+    try {
+      const result = await operation();
+      finish(id, result);
+      return result;
+    } finally {
+      working.current = false;
+      setBusy(false);
+    }
+  }
+  return {
+    tools,
+    dialog,
+    pendingButton,
+    pendingPanel,
+    runGroupOperation,
+    pendingFor: (id: string) => pending.current.has(id),
+    busy,
+  };
 }

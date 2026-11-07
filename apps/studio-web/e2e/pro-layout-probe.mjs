@@ -9,6 +9,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const controlLabels = new Map([
     ["查看本镜声音建议", "shot-audio-open"],
     ["刷新建议", "shot-audio-refresh"],
+    ["选用所选轨道的完整建议", "shot-audio-apply"],
     ["选用本地音效/配乐", "library-open"],
     ["加入当前版本", "library-add"],
     ["核对当前版本时长", "library-target-refresh"],
@@ -75,6 +76,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     "shot-audio-suggestions",
     "shot-audio-lane",
     "shot-audio-envelope",
+    "shot-audio-groups",
     "bundled-audio-dialog",
     "bundled-audio-list",
     "bundled-audio-body",
@@ -143,6 +145,18 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const tag = (element) => (safeTags.has(element.tagName) ? element.tagName : "OTHER");
   const controlName = (element, label) => {
+    if (element.tagName === "INPUT" && element.closest(".shot-audio-choice")) {
+      const text = element.closest("label")?.textContent.replace(/\s+/g, " ").trim() ?? "";
+      const match = /^(环境音|音效|配乐) · 完整 (\d{1,3}) 段$/.exec(text);
+      if (match && Number(match[2]) <= 128)
+        return `shot-audio-lane-${{ 环境音: "ambience", 音效: "sfx", 配乐: "score" }[match[1]]}`;
+    }
+    if (
+      element.tagName === "BUTTON" &&
+      element.closest(".shot-audio-groups") &&
+      /^移除第[1-9]\d{0,3}组声音$/.test(label)
+    )
+      return "shot-audio-remove-group";
     if (element.classList.contains("bundled-audio-item")) return "library-asset";
     if (element.closest(".bundled-audio-used-row") && element.tagName === "BUTTON")
       return "library-remove";

@@ -35,3 +35,11 @@ node apps/studio-web/e2e/pro-shot-audio-audit.mjs --url http://127.0.0.1:5173/
 新 job 只上传 `.aijian-dev/pro-shot-audio-audit/report.json` 与两个窗口组合目录的 PNG，hidden=true、七天；不上传缓存或全工作区。报告含固定 source hashes（实际查看器/actions/队列、native 只读编译、DTO、目录和夹具），每态截图/几何/闭合失败行号。公开注释保留双白名单、有限整数与最多八条，不打印原始 DOM、正文、路径、哈希、错误或堆栈。
 
 本地仅 Node 契约、负向 CLI、语法、ESLint、Prettier 与 diff 检查。无可用沙箱 Chrome，不绕过运行；新增十六态正常 Chrome 正向待 CI，尚不能称布局通过。新 profile 的 `--url` 正向同样未验，不借用旧 profile 的证据。
+
+## 明确选用界面接入后的兼容
+
+原只读 viewer 基线的十六态已在 source `799b8cc`、run `42323473010` / job `128253230639` 正常沙箱 Chrome 通过。此历史结果不借给后续新源码。
+
+新增明确选轨 UI 后，本门仍保持原四态/十六组合及完整建议/关闭/过期/保存故障保障；按真实新界面断言三条轨道均未勾选、唯一确认按钮 disabled，所有 apply/add/生成仍 forbidden。没有隐藏真实确认控件来保旧“两按钮”断言，也没有把新按钮算已执行。源码指纹补入整组 controller/proof/helper；控制注释仅增加固定中文动作映射和有界轨道/组枚举，几何阈值不变。
+
+本门不模拟批量文件复制或成功 apply；整组选用/移除/未知写入由本批真实 Pro 宿主、真实持久队列和原 native 真文件测试验证。新 UI 全链路正常 Chrome 的显式选用/写入状态仍须另设后续验收，不能用本门默认未选来声称已通过。
