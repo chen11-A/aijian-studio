@@ -16,6 +16,14 @@ export type FilmGenerationImageStage = {
   view?: "正面" | "侧面" | "背面" | "脸部";
 };
 
+/** An issued local extraction, never a provider image operation or a paid slot. */
+export type FilmGenerationContinuityStage = {
+  stageId: string;
+  kind: "continuity-frame";
+  targetId: string;
+  sourceShotId: string;
+};
+
 export type FilmGenerationExecutionFailure =
   | "INVALID_INPUT"
   | "BUSY"
@@ -36,13 +44,23 @@ export type FilmGenerationExecutionResult =
       executionId: string;
       projectId: string;
       projectHash: string;
-      stages: readonly FilmGenerationImageStage[];
-      targets: readonly { shotId: string; videoSlotIds: readonly string[] }[];
+      stages: readonly (FilmGenerationImageStage | FilmGenerationContinuityStage)[];
+      targets: readonly {
+        shotId: string;
+        videoSlotIds: readonly string[];
+        /** Cache eligibility is a native observed fact, not permission to generate
+         * if the cache later disappears or fails the original final checks. */
+        preparation: "CLIENT_IMAGES" | "STORYFILM_CACHE";
+      }[];
     }
   | { kind: "FAILED"; code: FilmGenerationExecutionFailure };
 
 /** Optional fifth still argument. Only an issued stage can consume a prerequisite slot. */
 export type FilmGenerationStillExecution = { executionId: string; stageId: string };
+
+/** Optional third last-frame argument. Native derives and verifies the actual source
+ * from the issued stage, canonical selection and original source/intent lineage. */
+export type FilmGenerationExtractionExecution = { executionId: string; stageId: string };
 
 /** Optional fourth StoryFilm argument; the third dialogue-evidence scope is unchanged.
  * Native binds the slot once to the exact canonical queued/running take. */

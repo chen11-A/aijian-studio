@@ -33,6 +33,23 @@ remain separate. Binding a future pipeline take occurs once, only after its cano
 queued/running slot exists. Preparing or recording a context never confirms a generation
 quantity or replaces the existing membership, fee, cancellation and current-input gates.
 
+Each issued target explicitly reports `preparation: CLIENT_IMAGES | STORYFILM_CACHE`.
+The latter requires the original exact cache lookup and complete readable media/window
+checks. It only permits skipping client prerequisite image requests: it never claims
+a new image was made, authorizes a POST after a late cache miss, or replaces final API
+cache/policy/body guards. Unverifiable historical cache bytes are retained, not silently
+relabelled as a verified current input or automatically regenerated.
+
+The optional third last-frame argument is `{executionId, stageId}`. Its issued stage
+has kind `continuity-frame`, targetId equal to the continuing shot and sourceShotId
+equal to the canonical immediately preceding shot. Main derives the real selected
+source, verifies its owner/SHA and original-intent lineage, reuses the original local
+extractor/tools, and verifies source/output after completion. Extraction is not a
+provider POST and does not itself reserve a generation attempt. A renderer's old
+continuityFrame fields or supplied videoPath cannot establish this proof. Existing
+trusted local sources may be extracted again locally without a paid call; an unknown
+or incomplete preceding source cannot authorize the next provider request.
+
 `retireFilmGenerationExecution({executionId, videoSlotId?})` invalidates future native
 dispatch for the issued slot, or the whole execution when no slot is supplied. Ordinary
 TaskCenter cancellation of one take retires only its issued video slot, preserving the
