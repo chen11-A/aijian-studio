@@ -1,21 +1,34 @@
+import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import { prepareFilmSnapshot } from "../film/library";
 import type { FilmProject, FilmShot } from "../film/project";
 import { productionTargetKey, type ProductionRunOptions } from "../film/production-pipeline";
 import { completeMembershipAgent } from "./agent-workflow";
-import { createFilmPipelineController, type FilmPipelineHost } from "./film-pipeline-controller";
+import {
+  createFilmPipelineController,
+  filmPipelineTargets,
+  type FilmPipelineHost,
+} from "./film-pipeline-controller";
 import {
   assemblePipelineFilm,
   makePipelinePortraits,
   makePipelineStill,
 } from "./pipeline-media-actions";
 
+import {
+  generationExecutionNotice,
+  createGenerationExecutionSession,
+  prepareCurrentGenerationExecution,
+  type GenerationExecutionSession,
+} from "./actions/generation-execution";
+
 export type PipelineSaveLease = {
   save: FilmPipelineHost["save"];
   release: () => Promise<void>;
 };
 export type PipelineVideoHost = {
+  execution: GenerationExecutionSession;
   current: () => boolean;
   apply: (film: FilmProject) => Promise<void>;
   versions: 1;
@@ -51,9 +64,40 @@ const stop = (code: string): never => {
 
 /** A workspace lifecycle adapter; chat selection/activeTurn is deliberately not an input. */
 export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
-  let active: { projectId: string; abort: AbortController } | undefined;
+  type ActiveExecution = {
+    projectId: string;
+    abort: AbortController;
+    execution?: GenerationExecutionSession;
+  };
+  let active: ActiveExecution | undefined;
+  let mediaIntent:
+    | {
+        projectId: string;
+        fingerprint: string | undefined;
+        checkpoint: string;
+        options: Pick<ProductionRunOptions, "retryTargets" | "acceptInputs">;
+      }
+    | undefined;
+  function continueOptions(): ProductionRunOptions {
+    const pending = mediaIntent;
+    mediaIntent = undefined;
+    const live = host.current();
+    if (
+      pending &&
+      live?.id === pending.projectId &&
+      live.productionInputFingerprint === pending.fingerprint &&
+      live.productionPipeline?.status === "checkpoint" &&
+      ["portraits", "stills"].includes(live.productionPipeline.current ?? "") &&
+      JSON.stringify(live.productionPipeline.checkpoint) === pending.checkpoint
+    )
+      return { ...pending.options, continue: true };
+    return { continue: true };
+  }
+
   const cancel = () => {
+    mediaIntent = undefined;
     if (!active) return;
+    active.execution?.retire();
     active.abort.abort();
     host.cancelGeneration?.();
   };
@@ -65,7 +109,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
     if (active) return stop("PIPELINE_ALREADY_RUNNING");
     const projectId = host.current()?.id;
     if (!projectId) return stop("PROJECT_REQUIRED");
-    const session = { projectId, abort: new AbortController() };
+    const session: ActiveExecution = { projectId, abort: new AbortController() };
     active = session;
     let lease: PipelineSaveLease | undefined;
     const current = () =>
@@ -79,11 +123,64 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
       if (!current()) return stop("PIPELINE_REQUEST_STALE");
       if (!recover) await host.beforeRun?.(lease);
       if (trialDecisionId) {
-        if (!host.checkTrialDecision || host.current()?.productionPipeline?.status !== "checkpoint")
+        if (
+          !host.checkTrialDecision ||
+          host.current()?.productionPipeline?.status !== "checkpoint" ||
+          ["portraits", "stills"].includes(host.current()?.productionPipeline?.current ?? "")
+        )
           return stop("PIPELINE_REQUEST_STALE");
         await host.checkTrialDecision(trialDecisionId, lease);
       }
       if (!current()) return stop("PIPELINE_REQUEST_STALE");
+      let preparation: Promise<void> | undefined;
+      const execution = createGenerationExecutionSession(window.aijian ?? {}, current);
+      session.execution = execution;
+      const ensureExecution = async () => {
+        if (!preparation) {
+          const base = host.current();
+          if (!base || !current()) return stop("PIPELINE_REQUEST_STALE");
+          preparation = prepareCurrentGenerationExecution(
+            execution,
+            base,
+            {
+              mode: "pipeline",
+              targets: filmPipelineTargets(base, "video").map((shotId) => ({
+                shotId,
+                versions: 1 as const,
+              })),
+            },
+            {
+              current: host.current,
+              valid: current,
+              read: async (id) => {
+                if (!window.aijian?.readFilmProject)
+                  return stop("GENERATION_EXECUTION_UNAVAILABLE");
+                return window.aijian.readFilmProject(id);
+              },
+            },
+          ).catch((cause: unknown) => {
+            const notice = generationExecutionNotice(cause);
+            throw Object.assign(new Error(notice.code, { cause }), { code: notice.code });
+          });
+        }
+        await preparation;
+        if (!current()) return stop("PIPELINE_REQUEST_STALE");
+        return execution;
+      };
+      const protectedMedia = async (action: () => ReturnType<typeof makePipelineStill>) => {
+        try {
+          return await action();
+        } catch (error) {
+          if (!(error instanceof ProtectedGenerationFailure)) throw error;
+          const notice = generationExecutionNotice(error);
+          return {
+            status:
+              error.code === "WRITE_UNCONFIRMED" ? ("uncertain" as const) : ("blocked" as const),
+            code: notice.code,
+            detail: notice.text,
+          };
+        }
+      };
       const controller = createFilmPipelineController({
         current: host.current,
         apply: host.apply,
@@ -93,8 +190,14 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
         notify: host.notify,
         labels: host.labels,
         verifyMedia: host.verifyMedia,
-        generatePortraits: makePipelinePortraits,
-        generateStill: makePipelineStill,
+        generatePortraits: async (film, targetId, ctx) => {
+          const execution = await ensureExecution();
+          return protectedMedia(() => makePipelinePortraits(film, targetId, { ...ctx, execution }));
+        },
+        generateStill: async (film, targetId, ctx) => {
+          const execution = await ensureExecution();
+          return protectedMedia(() => makePipelineStill(film, targetId, { ...ctx, execution }));
+        },
         assemble: assemblePipelineFilm,
         // No vision capability is claimed: the controller requires explicit human review.
         request: async (agent, context, instruction, control) => {
@@ -135,7 +238,11 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
             if (!current() || !ctx.isCurrent())
               return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
           }
+          const execution = await ensureExecution();
+          if (!current() || !ctx.isCurrent())
+            return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
           await host.submitGeneration([shot], {
+            execution,
             current: () => current() && ctx.isCurrent(),
             apply: ctx.commitPartial,
             versions: 1,
@@ -149,10 +256,30 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
           return { status: "done", film: ctx.current() };
         },
       });
-      return recover
+      const result = recover
         ? await controller.recover()
         : await controller.run({ ...options, signal: session.abort.signal });
+      if (
+        !recover &&
+        current() &&
+        result.status === "checkpoint" &&
+        ["portraits", "stills"].includes(result.current ?? "")
+      ) {
+        mediaIntent = {
+          projectId,
+          fingerprint: host.current()?.productionInputFingerprint,
+          checkpoint: JSON.stringify(result.checkpoint),
+          options: {
+            ...(options.retryTargets ? { retryTargets: [...options.retryTargets] } : {}),
+            ...(options.acceptInputs
+              ? { acceptInputs: structuredClone(options.acceptInputs) }
+              : {}),
+          },
+        };
+      } else mediaIntent = undefined;
+      return result;
     } finally {
+      session.execution?.retire();
       try {
         await lease?.release();
       } finally {
@@ -161,7 +288,10 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
     }
   }
   return {
-    start: () => execute(),
+    start: () => {
+      mediaIntent = undefined;
+      return execute();
+    },
     recover: () => execute({}, true),
     retry: (keys: string[]) => execute({ retryTargets: [...keys] }),
     acceptReview: (reason: string) => {
@@ -173,7 +303,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
         acceptInputs: [{ key: productionTargetKey("review", "all"), reason: reason.trim() }],
       });
     },
-    continue: () => execute({ continue: true }),
+    continue: () => execute(continueOptions()),
     continueAfterTrial: (decisionId: string) => {
       if (!/^rtd_[a-f0-9]{32}$/.test(decisionId))
         return Promise.reject(
@@ -184,6 +314,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
     cancel,
     /** Call on project identity changes and cancel() on workspace unmount. */
     projectChanged: () => {
+      if (mediaIntent && host.current()?.id !== mediaIntent.projectId) mediaIntent = undefined;
       if (active && host.current()?.id !== active.projectId) cancel();
     },
   };

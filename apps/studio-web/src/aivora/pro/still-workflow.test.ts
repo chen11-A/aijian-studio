@@ -1,3 +1,6 @@
+import { generationExecutionFixture } from "./generation-execution.test-fixture";
+import { createGenerationExecutionSession } from "./actions/generation-execution";
+import { historyRecordHash } from "./actions/persistent-history";
 import type * as WorkflowModule from "./workflow";
 import { expect, it, vi } from "vitest";
 import { sampleFilm } from "../film/project";
@@ -9,6 +12,18 @@ vi.mock("./workflow", async (importOriginal) => ({
   requestShotStill: vi.fn(),
 }));
 const diagnostics = { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 };
+
+async function preframeExecution(base: ReturnType<typeof sampleFilm>) {
+  const bridge = generationExecutionFixture(async () => structuredClone(base));
+  const execution = createGenerationExecutionSession(bridge, () => true);
+  await execution.prepare({
+    projectId: base.id,
+    expectedProjectHash: await historyRecordHash(base),
+    mode: "video",
+    targets: [{ shotId: base.shots[0]!.id, versions: 1 }],
+  });
+  return execution;
+}
 
 it("queues candidates immediately and discards a delayed image after project switch", async () => {
   const base = sampleFilm();
@@ -85,7 +100,13 @@ it("publishes a video preframe as an image task and protects a late response", a
       }),
   );
   const apply = vi.fn();
-  const pending = ensureShotFrame(base, shot, { current: () => base, valid: () => valid, apply });
+  const execution = await preframeExecution(base);
+  const pending = ensureShotFrame(base, shot, {
+    current: () => base,
+    valid: () => valid,
+    apply,
+    execution,
+  });
   expect(
     taskSnapshot().tasks.some(
       (task) =>
@@ -93,6 +114,13 @@ it("publishes a video preframe as an image task and protects a late response", a
     ),
   ).toBe(true);
   await Promise.resolve();
+  expect(requestShotStill).toHaveBeenLastCalledWith(
+    base,
+    shot,
+    expect.any(String),
+    execution.image("shot-frame", shot.id),
+  );
+
   valid = false;
   resolve({ url: "late.png", reason: "", diagnostics });
   await expect(pending).rejects.toThrow("WORK_STALE");
@@ -120,8 +148,9 @@ it("3J-B19 video preframe failure does not forward developer diagnostics", async
   const reason = "首帧选用 5 张参考图，模型上限 13；请求失败。";
   vi.mocked(requestShotStill).mockReset().mockResolvedValue({ url: "", reason, diagnostics });
   const apply = vi.fn();
+  const execution = await preframeExecution(base);
   await expect(
-    ensureShotFrame(base, shot, { current: () => base, valid: () => true, apply }),
+    ensureShotFrame(base, shot, { current: () => base, valid: () => true, apply, execution }),
   ).rejects.toThrow(`镜头 ${shot.no} 首帧未完成：${stillFailureNotice(new Error(reason)).text}`);
   expect(apply).not.toHaveBeenCalled();
 });

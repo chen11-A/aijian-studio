@@ -1,3 +1,5 @@
+import { historyRecordHash } from "./actions/persistent-history";
+import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
 import { applyVideoResponse } from "./actions/generation-run";
 import { webcrypto } from "node:crypto";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -110,6 +112,36 @@ function setup(initial = fixture()) {
     submitGeneration: vi.fn<PipelineWorkspaceHost["submitGeneration"]>(async () => undefined),
     cancelGeneration: vi.fn(),
   };
+  window.aijian = {
+    readFilmProject: vi.fn(async () => structuredClone(disk.at(-1) ?? initial)),
+    prepareFilmGenerationExecution: vi.fn<
+      FilmGenerationExecutionGateway["prepareFilmGenerationExecution"]
+    >(async (input) => {
+      const raw = disk.at(-1) ?? initial;
+      if (input.expectedProjectHash !== (await historyRecordHash(raw)))
+        return { kind: "FAILED", code: "PROJECT_CHANGED" };
+      expect(input.targets).toEqual(
+        filmPipelineTargets(raw, "video").map((shotId) => ({ shotId, versions: 1 })),
+      );
+      return {
+        kind: "PREPARED",
+        executionId: "pipeline-execution",
+        projectId: input.projectId,
+        projectHash: input.expectedProjectHash,
+        stages: [],
+        targets: input.targets.map((t) => ({
+          shotId: t.shotId,
+          videoSlotIds: [`video-${t.shotId}`],
+          slotPreparations: [`video-${t.shotId}`].map((videoSlotId) => ({
+            videoSlotId,
+            preparation: "CLIENT_IMAGES" as const,
+          })),
+          preparation: "CLIENT_IMAGES" as const,
+        })),
+      };
+    }),
+    retireFilmGenerationExecution: vi.fn(async () => ({ kind: "RETIRED" })),
+  } as unknown as Window["aijian"];
   const adapter = createPipelineWorkspaceHost(host);
   return {
     host,
@@ -437,4 +469,39 @@ it("does not replace the existing manual continuation or treat metadata recordin
   await env.adapter.continue();
   expect(env.host.checkTrialDecision).not.toHaveBeenCalled();
   expect(env.host.submitGeneration).toHaveBeenCalledOnce();
+});
+
+it("retains only the explicit failed-target retry across the separate first-media confirmation", async () => {
+  const film = fixture();
+  film.shots.push({ ...structuredClone(film.shots[0]!), id: "other-shot" });
+  const initial = await prime(film, "stills");
+  const step = initial.productionPipeline!.steps.find((s) => s.id === "stills")!;
+  Object.assign(step, {
+    planned: true,
+    status: "failed",
+    done: 0,
+    total: 2,
+    targets: film.shots.map((s) => ({
+      id: s.id,
+      status: "failed",
+      attempt: 1,
+      code: "STILL_FAILED",
+    })),
+  });
+  initial.productionPipeline!.status = "failed";
+  initial.productionPipeline!.current = "stills";
+  const f = setup(initial);
+  const checkpoint = await f.adapter.retry([`stills/${film.shots[0]!.id}`]);
+  expect(checkpoint).toMatchObject({ status: "checkpoint", current: "stills", continued: false });
+  expect(checkpoint.checkpoint!.estimatedRequests).toBe(2);
+  expect(checkpoint.steps.find((s) => s.id === "stills")!.targets.map((t) => t.attempt)).toEqual([
+    1, 1,
+  ]);
+  const completed = await f.adapter.continue();
+  const actual = completed.steps.find((s) => s.id === "stills")!.targets;
+  expect(actual[0]).toMatchObject({ status: "done", attempt: 2 });
+  expect(actual[1]).toMatchObject({ status: "failed", attempt: 1 });
+  expect(f.host.submitGeneration).not.toHaveBeenCalled();
+  const again = await f.adapter.continue();
+  expect(again.steps.find((s) => s.id === "stills")!.targets).toEqual(actual);
 });

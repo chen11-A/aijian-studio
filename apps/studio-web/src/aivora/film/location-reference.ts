@@ -1,3 +1,4 @@
+import { ProtectedGenerationFailure } from "./generation-execution-failure";
 import type { FilmLocation, FilmProject, FilmShot } from "./project";
 import { withStyleBible } from "./style-bible";
 
@@ -174,6 +175,11 @@ export type LocationReferenceHost = {
   current: () => FilmProject | null;
   apply: (film: FilmProject) => void | Promise<void>;
   generate: (prompt: string, references: string[]) => Promise<{ url: string; reason: string }>;
+  generateFor?: (
+    locationId: string,
+    prompt: string,
+    references: string[],
+  ) => Promise<{ url: string; reason: string }>;
   isCurrent?: () => boolean;
   progress?: (result: LocationReferenceResult) => void;
 };
@@ -221,6 +227,18 @@ function inputSignature(film: FilmProject, place: FilmLocation): string {
     place.layout ?? "",
     sceneSignature(film, place),
   ]);
+}
+
+/** Shared original request text; no provider or filesystem work. */
+export function locationGenerationPrompt(film: FilmProject, place: FilmLocation): string {
+  const sourceScene = film.scenes.find((scene) => scene.id === place.sceneId);
+  return withStyleBible(
+    withLayoutBlock(
+      `空镜，没有人物。${sourceScene?.where || place.name}。${place.prompt}${sourceScene ? `\n只取这场原文中的环境，不画人物和事件、不增加原文没有的地点或道具：\n${sourceScene.text}` : ""}`,
+      layoutBlock(place.layout ?? ""),
+    ),
+    film.styleZh,
+  );
 }
 
 /** Host supplies requestFilmStill and durable apply; no alternate provider or fake images. */
@@ -287,17 +305,12 @@ export async function makeLocationReferences(
       }
       let response: { url: string; reason: string };
       try {
-        response = await generate(
-          withStyleBible(
-            withLayoutBlock(
-              `空镜，没有人物。${sourceScene?.where || place.name}。${place.prompt}${sourceScene ? `\n只取这场原文中的环境，不画人物和事件、不增加原文没有的地点或道具：\n${sourceScene.text}` : ""}`,
-              layoutBlock(place.layout ?? ""),
-            ),
-            base.styleZh,
-          ),
-          [],
-        );
-      } catch {
+        const prompt = locationGenerationPrompt(base, place);
+        response = host.generateFor
+          ? await host.generateFor(place.id, prompt, [])
+          : await generate(prompt, []);
+      } catch (error) {
+        if (error instanceof ProtectedGenerationFailure) throw error;
         continue;
       }
       if (!active()) {

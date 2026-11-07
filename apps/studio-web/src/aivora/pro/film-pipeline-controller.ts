@@ -1,3 +1,8 @@
+import { MEDIA_EXECUTION_ORDER } from "../film/production-pipeline";
+import {
+  pipelineMediaPath as mediaPath,
+  pipelineSelectedVideo as selectedVideo,
+} from "../film/pipeline-media-selection";
 import {
   locationAssociationUnique,
   locationImageCurrent,
@@ -7,7 +12,7 @@ import { applyContinuityChecks } from "../film/continuity-rules";
 import type { PipelineProgress, UiNotice } from "../film/contracts3j";
 import { detectDirectorCoverage, shotLines } from "../film/director-continuity";
 import { isFightScene, portraitPrompts, shotVoiceId } from "../film/operations";
-import { interruptStaleWork, upgradeFilm, type FilmProject, type FilmShot } from "../film/project";
+import { interruptStaleWork, upgradeFilm, type FilmProject } from "../film/project";
 import { fileMediaUrl } from "./workflow";
 import {
   createProductionPipeline,
@@ -251,42 +256,6 @@ export function filmPipelineCheckpoint(film: FilmProject): ProductionCheckpoint 
     risks,
   };
 }
-function mediaPath(path: string, kind: "image" | "video"): boolean {
-  let value = path.trim();
-  if (kind === "image" && /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(value))
-    return true;
-  try {
-    const url = new URL(value);
-    if (
-      kind === "image" &&
-      url.protocol === "https:" &&
-      url.hostname &&
-      !url.username &&
-      !url.password
-    )
-      return true;
-    if (url.protocol === "aivora-media:" && url.hostname === "local")
-      value = url.searchParams.get("path") ?? "";
-  } catch {
-    /* A desktop filesystem path is also valid. */
-  }
-  return (
-    (/^\//.test(value) || /^[a-z]:[\\/]/i.test(value)) &&
-    !value.includes("\0") &&
-    (kind === "video" ? /\.(mp4|webm|mov)$/i : /\.(png|jpe?g|webp)$/i).test(value)
-  );
-}
-function selectedVideo(shot: FilmShot): string {
-  const done = shot.takes.filter(
-    (take) => take.status === "done" && mediaPath(take.videoPath, "video"),
-  );
-  const selected = shot.selectedTakeId
-    ? done.find((take) => take.id === shot.selectedTakeId)
-    : done.length === 1
-      ? done[0]
-      : undefined;
-  return selected?.videoPath ?? "";
-}
 const failure = (
   code: string,
   status: FilmPipelineResult["status"] = "blocked",
@@ -419,6 +388,22 @@ export function createFilmPipelineController(host: FilmPipelineHost) {
             inputVersion: current() ? inputVersion : "stale",
           }),
           targets: (step) => filmPipelineTargets(expected, step),
+          executionOrder: MEDIA_EXECUTION_ORDER,
+          beforeMediaCheckpoint: () => ({
+            ...filmPipelineCheckpoint(expected),
+            // Full confirmed scope is the upper bound. Native, not path strings, decides cache reuse.
+            estimatedRequests: filmPipelineTargets(expected, "video").length,
+            risks: [
+              ...filmPipelineCheckpoint(expected).risks.filter(
+                (r) => r.code !== "VIDEO_SUBMISSIONS_ESTIMATE",
+              ),
+              {
+                code: "MEDIA_SCOPE_UPPER_BOUND",
+                text: "视频次数按完整镜头范围给出上限，本机核实可复用素材后可能减少；自动前置图与配音另占会员额度。",
+                severity: "info" as const,
+              },
+            ],
+          }),
           checkpoint: () => filmPipelineCheckpoint(expected),
           save: async (state, context) => {
             const completed = context.completion?.result.data as { film?: FilmProject } | undefined;

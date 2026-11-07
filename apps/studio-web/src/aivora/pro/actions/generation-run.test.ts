@@ -401,3 +401,25 @@ it.each(["edit", "cancel", "pause", "nested-line", "voice", "reference"])(
     }
   },
 );
+
+it("running cancellation leaves the remaining confirmed queue intact and never automatically continues", async () => {
+  const { queue, host } = setup(2);
+  const cancelled = new Set<string>();
+  host.cancelled = (jobId) => cancelled.has(jobId);
+  vi.mocked(host.request).mockImplementationOnce(async () => {
+    cancelled.add(`video:${queue.groups[0]!.takes[0]!.id}`);
+    throw new Error("VIDEO_CANCELLED");
+  });
+  const remaining = structuredClone(queue.groups[0]!.takes[1]);
+  await expect(runPreparedGeneration(queue, host)).rejects.toThrow("VIDEO_CANCELLED");
+  expect(host.request).toHaveBeenCalledTimes(1);
+  expect(host.current()?.shots[0]!.takes[1]).toEqual(remaining);
+});
+it("skips only a cancelled queued take and retains the original next-slot dispatch semantics", async () => {
+  const { queue, host } = setup(2);
+  host.cancelled = (jobId) => jobId === `video:${queue.groups[0]!.takes[0]!.id}`;
+  await runPreparedGeneration(queue, host);
+  expect(host.request).toHaveBeenCalledTimes(1);
+  expect(host.current()?.shots[0]!.takes[0]!.reason).toBe("已取消");
+  expect(host.current()?.shots[0]!.takes[1]!.status).toBe("done");
+});

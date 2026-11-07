@@ -1,3 +1,4 @@
+import type { FilmGenerationVideoExecution } from "@aijian/contracts/film-generation-execution";
 import { generationVideoRecovery } from "./generation-video-recovery";
 import {
   generationFailurePolicy,
@@ -91,6 +92,13 @@ export function registerStoryFilmHandlers<TEvent>(
     result: unknown,
   ) => Promise<string | null>,
   evidenceCurrent?: (event: TEvent) => () => boolean,
+  protectedCreate?: (
+    event: TEvent,
+    projectId: string,
+    body: StoryFilmCreateInput,
+    scope: StoryFilmLocalScope | undefined,
+    execution: FilmGenerationVideoExecution,
+  ) => ReturnType<ReturnType<typeof createStoryFilmClient>["create"]>,
 ): void {
   for (const [channel, mode] of [
     ["story-film:video-recovery-list", "list"],
@@ -186,16 +194,44 @@ export function registerStoryFilmHandlers<TEvent>(
 
   handle("story-film:create", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
-    if (args.length !== 2 && args.length !== 3) throw new Error("Unexpected story film arguments");
+    if (args.length !== 2 && args.length !== 3 && args.length !== 4)
+      throw new Error("Unexpected story film arguments");
     const projectId = args[0];
     if (typeof projectId !== "string" || !projectIdPattern.test(projectId)) {
       throw new Error("Invalid story film project");
     }
     const body = parseStoryFilmCreate(args[1]);
-    const scope = args.length === 3 ? parseStoryFilmLocalScope(args[2]) : undefined;
+    const scope =
+      args.length === 3 || (args.length === 4 && args[2] !== undefined)
+        ? parseStoryFilmLocalScope(args[2])
+        : undefined;
+    let execution: FilmGenerationVideoExecution | undefined;
+    if (args.length === 4) {
+      const raw = args[3];
+      const keys = ["executionId", "videoSlotId", "shotId", "takeId"] as const;
+      if (
+        !raw ||
+        typeof raw !== "object" ||
+        Array.isArray(raw) ||
+        Object.keys(raw).length !== keys.length ||
+        !keys.every(
+          (key) =>
+            Object.hasOwn(raw, key) &&
+            typeof Reflect.get(raw, key) === "string" &&
+            Reflect.get(raw, key).length > 0 &&
+            Reflect.get(raw, key).length <= 256 &&
+            Reflect.get(raw, key).trim() === Reflect.get(raw, key),
+        )
+      )
+        throw Error("INVALID_INPUT");
+      execution = raw as FilmGenerationVideoExecution;
+      // Protected requests never fall through to the legacy transport or obtain a legacy bearer.
+      if (!protectedCreate) throw Error("EXECUTION_UNAVAILABLE");
+    }
     // Synchronous document epoch capture spans bearer/HTTP waits without moving dispatch gates.
     const sameDocument = scope ? evidenceCurrent?.(event) : undefined;
-    const media = body.provider === "grok_subscription" ? await mediaBearerFor() : null;
+    const media =
+      !execution && body.provider === "grok_subscription" ? await mediaBearerFor() : null;
     const account = media && typeof media === "object" ? media : undefined;
     const bearer = safeBearer(account?.bearer ?? (typeof media === "string" ? media : null));
     const workspace = files?.workspace();
@@ -208,12 +244,14 @@ export function registerStoryFilmHandlers<TEvent>(
       }
       return fetcher(input, init);
     };
-    const result = await createStoryFilmClient(
-      submitting,
-      sessionFor(),
-      undefined,
-      mediaRoots,
-    ).create(projectId, body, bearer, account);
+    const result = execution
+      ? await protectedCreate!(event, projectId, body, scope, execution)
+      : await createStoryFilmClient(submitting, sessionFor(), undefined, mediaRoots).create(
+          projectId,
+          body,
+          bearer,
+          account,
+        );
     // Evidence-only read after the actual result; no new await before dispatch.
     const evidenceId =
       scope && (sameDocument?.() ?? true)

@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { createGenerationExecutionSession } from "./actions/generation-execution";
 import { sampleFilm, type FilmProject } from "../film/project";
 import {
   ensureContinuityFrame,
@@ -183,4 +184,55 @@ it("does not persist a remote frame or a frame from the wrong source video", asy
     });
   }
   expect(env.apply).not.toHaveBeenCalled();
+});
+
+it("a protected run re-verifies even an existing continuity frame with the exact native-issued local stage", async () => {
+  const env = setup();
+  await ensureContinuityFrame(env.film(), env.shot(), env.host);
+  env.extract.mockClear();
+  env.apply.mockClear();
+  const execution = createGenerationExecutionSession(
+    {
+      prepareFilmGenerationExecution: async (input) => ({
+        kind: "PREPARED",
+        executionId: "protected",
+        projectId: input.projectId,
+        projectHash: input.expectedProjectHash,
+        targets: [
+          {
+            shotId: "current",
+            videoSlotIds: ["slot"],
+            slotPreparations: ["slot"].map((videoSlotId) => ({
+              videoSlotId,
+              preparation: "CLIENT_IMAGES" as const,
+            })),
+            preparation: "CLIENT_IMAGES",
+          },
+        ],
+        stages: [
+          {
+            kind: "continuity-frame",
+            stageId: "local-frame",
+            targetId: "current",
+            sourceShotId: "previous",
+          },
+        ],
+      }),
+      retireFilmGenerationExecution: async () => ({ kind: "RETIRED" }),
+    },
+    () => true,
+  );
+  await execution.prepare({
+    projectId: env.film().id,
+    expectedProjectHash: "a".repeat(64),
+    mode: "video",
+    targets: [{ shotId: "current", versions: 1 }],
+  });
+  env.host.execution = execution;
+  await ensureContinuityFrame(env.film(), env.shot(), env.host);
+  expect(env.extract).toHaveBeenCalledExactlyOnceWith(env.film().seriesId, "/story/one.mp4", {
+    executionId: "protected",
+    stageId: "local-frame",
+  });
+  expect(env.apply).toHaveBeenCalledOnce();
 });

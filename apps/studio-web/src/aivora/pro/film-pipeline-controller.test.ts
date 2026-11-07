@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sampleFilm, upgradeFilm, type FilmProject } from "../film/project";
 import { readSaved, saveFilm } from "../film/library";
 import { fileMediaUrl, hydrateFilm } from "./workflow";
-import { createProductionPipeline, type ProductionStepId } from "../film/production-pipeline";
+import {
+  createProductionPipeline,
+  PRODUCTION_STEPS,
+  type ProductionStepId,
+} from "../film/production-pipeline";
 import { runPipelineAgentAction } from "./pipeline-agent-actions";
 import {
   createFilmPipelineController,
@@ -150,6 +154,19 @@ function setup(film = fixture()) {
     controller: () => createFilmPipelineController(host),
   };
 }
+async function runWithExplicitMediaConfirmation(
+  env: ReturnType<typeof setup>,
+  options: Parameters<ReturnType<typeof createFilmPipelineController>["run"]>[0] = {},
+) {
+  const checkpoint = await env.controller().run(options);
+  expect(checkpoint.status).toBe("checkpoint");
+  expect(["portraits", "stills"]).toContain(checkpoint.current);
+  expect(checkpoint.continued).toBe(false);
+  expect(checkpoint.checkpoint!.estimatedRequests).toBe(env.live().shots.length);
+  expect(env.host.video).not.toHaveBeenCalled();
+  return env.controller().run({ ...options, continue: true });
+}
+
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   const promise = new Promise<T>((done) => {
@@ -211,7 +228,7 @@ describe("film pipeline controller", () => {
         film: target.targetId === "script" ? { ...film, title: "writer result" } : film,
       };
     });
-    const result = await env.controller().run();
+    const result = await runWithExplicitMediaConfirmation(env);
     expect(order.slice(0, 3)).toEqual(["writer/script", "writer/cast", "art/art"]);
     expect(
       env.disk.some(
@@ -285,7 +302,7 @@ describe("film pipeline controller", () => {
         return { status: "done", film: ctx.current() };
       },
     );
-    await env.controller().run();
+    await runWithExplicitMediaConfirmation(env);
     expect(env.host.generatePortraits).toHaveBeenCalledTimes(4);
     expect(env.live().characters[0]?.portraits).toHaveLength(4);
   });
@@ -294,7 +311,7 @@ describe("film pipeline controller", () => {
     film.characters[0]!.portraits = [];
     const env = setup(await prime(film, "portraits"));
     env.host.generatePortraits = async (base) => ({ status: "done", film: base });
-    const result = await env.controller().run();
+    const result = await runWithExplicitMediaConfirmation(env);
     expect(result.status).toBe("failed");
     expect(result.steps.find((step) => step.id === "portraits")?.targets[0]?.code).toBe(
       "PORTRAITS_INCOMPLETE",
@@ -355,7 +372,7 @@ describe("film pipeline controller", () => {
       );
       return { status: "done", film: current };
     };
-    expect((await env.controller().run()).code).toBe("PIPELINE_INPUT_CHANGED");
+    expect((await runWithExplicitMediaConfirmation(env)).code).toBe("PIPELINE_INPUT_CHANGED");
     expect(env.disk.at(-1)?.characters[0]?.portraits).toHaveLength(1);
     expect(env.live().id).toBe("another-project");
   });
@@ -446,7 +463,7 @@ it("rejects a stale completion snapshot without erasing saved portrait progress"
     });
     return { status: "done", film: old };
   };
-  const result = await env.controller().run();
+  const result = await runWithExplicitMediaConfirmation(env);
   expect(result.status).toBe("blocked");
   expect(result.steps.find((step) => step.id === "portraits")?.targets[0]?.code).toBe(
     "STEP_RESULT_STALE",
@@ -747,6 +764,7 @@ it("plans locations after characters and resumes only the failed location target
   ];
   film.scenes[0]!.where = "书店";
   film.scenes.push({ ...film.scenes[0]!, id: "scene-two", where: "街道" });
+  film.shots.push({ ...film.shots[0]!, id: "scene-two-shot", sceneId: "scene-two" });
   expect(filmPipelineTargets(film, "portraits")).not.toContain("location:unused");
   expect(filmPipelineTargets(film, "portraits").slice(-2)).toEqual([
     "location:one",
@@ -774,10 +792,10 @@ it("plans locations after characters and resumes only the failed location target
       return { status: "done", film: ctx.current() };
     },
   );
-  expect((await env.controller().run()).status).toBe("failed");
+  expect((await runWithExplicitMediaConfirmation(env)).status).toBe("failed");
   expect(env.disk.at(-1)?.locations[0]!.referenceImage).toBe("/media/one.png");
   refuse = false;
-  await env.controller().run({ retryTargets: ["portraits/location:two"] });
+  await runWithExplicitMediaConfirmation(env, { retryTargets: ["portraits/location:two"] });
   expect(vi.mocked(env.host.generatePortraits!).mock.calls.map((call) => call[1])).toEqual([
     "location:one",
     "location:two",
@@ -810,7 +828,7 @@ it("reuses verified location images but rejects stale styles and false success",
     env.host.generatePortraits = vi.fn<NonNullable<FilmPipelineHost["generatePortraits"]>>(
       async (base) => ({ status: "done", film: base }),
     );
-    await env.controller().run();
+    await runWithExplicitMediaConfirmation(env);
     const target = env
       .live()
       .productionPipeline!.steps.find((step) => step.id === "portraits")!
@@ -841,7 +859,7 @@ it("plans a dedicated scene target instead of borrowing empty, unused or partial
 it("accepts a normalized clone only when it matches the exact saved business and pipeline state", async () => {
   const env = setup();
   env.host.apply = (next) => env.edit(structuredClone(next));
-  const result = await env.controller().run();
+  const result = await runWithExplicitMediaConfirmation(env);
   expect(result.status).toBe("needs-input");
   expect(result.current).toBe("review");
   expect(env.live().productionPipeline?.status).toBe("needs-input");
@@ -872,4 +890,72 @@ it("allows already assigned multi-speaker voices at the checkpoint", () => {
   expect(
     filmPipelineCheckpoint(film).risks.some((risk) => risk.code === "MULTI_VOICE_REQUIRED"),
   ).toBe(true);
+});
+
+it("fresh empty-shot work compiles textual structure before first media, confirms the full scope and keeps later human review separate", async () => {
+  const original = fixture(),
+    template = structuredClone(original.shots[0]!);
+  original.shots = [];
+  original.characters[0]!.portraits = [];
+  const env = setup(original),
+    order: string[] = [];
+  vi.mocked(runPipelineAgentAction).mockImplementation(async (film, target) => {
+    order.push(target.step);
+    if (target.step === "director")
+      return {
+        status: "done",
+        code: "STEP_COMPLETE",
+        film: { ...film, shots: [{ ...template, sceneId: target.targetId }] },
+      };
+    return { status: "done", code: "STEP_COMPLETE", film };
+  });
+  env.host.generatePortraits = vi.fn<NonNullable<FilmPipelineHost["generatePortraits"]>>(
+    async (_film, target, ctx) => {
+      expect(env.disk.at(-1)!.shots.map((s) => s.id)).toEqual([template.id]);
+      const [id, view] = target.split("@");
+      await ctx.commitPartial({
+        ...ctx.current(),
+        characters: ctx.current().characters.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                portraits: [
+                  ...p.portraits,
+                  { view: view!, prompt: "fixture", url: `/media/new-${view}.png` },
+                ],
+              }
+            : p,
+        ),
+      });
+      return { status: "done", film: ctx.current() };
+    },
+  );
+  const first = await env.controller().run();
+  expect(first).toMatchObject({
+    status: "checkpoint",
+    current: "portraits",
+    continued: false,
+    checkpoint: { shotCount: 1, estimatedRequests: 1 },
+  });
+  expect(first.steps.map((s) => s.id)).toEqual(PRODUCTION_STEPS);
+  expect(order).toEqual(["writer", "writer", "art", "director", "prompter"]);
+  expect(env.host.generatePortraits).not.toHaveBeenCalled();
+  expect(env.host.video).not.toHaveBeenCalled();
+  expect((await env.controller().run()).status).toBe("checkpoint");
+  expect(env.host.generatePortraits).not.toHaveBeenCalled();
+  const after = await env.controller().run({ continue: true });
+  expect(env.host.generatePortraits).toHaveBeenCalledTimes(4);
+  expect(after).toMatchObject({ status: "needs-input", current: "review", continued: false });
+  expect(env.host.video).not.toHaveBeenCalled();
+  expect(env.live().shots[0]!.poster).toBe(template.poster);
+});
+it("changed creative input invalidates the first-media confirmation before any automatic image", async () => {
+  const env = setup();
+  const first = await env.controller().run();
+  expect(first).toMatchObject({ status: "checkpoint", current: "portraits" });
+  env.host.generatePortraits = vi.fn();
+  env.edit({ ...env.live(), styleZh: "changed after checking" });
+  expect((await env.controller().run({ continue: true })).code).toBe("PIPELINE_INPUT_CHANGED");
+  expect(env.host.generatePortraits).not.toHaveBeenCalled();
+  expect(env.host.video).not.toHaveBeenCalled();
 });

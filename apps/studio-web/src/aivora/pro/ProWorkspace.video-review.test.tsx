@@ -1,3 +1,4 @@
+import { generationExecutionFixture } from "./generation-execution.test-fixture";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
@@ -83,6 +84,7 @@ async function open(withFailedHistory = false) {
   const still = vi.fn();
   const text = vi.fn();
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     readFilmProject: vi.fn(async (id: string) => structuredClone(id === other.id ? other : disk)),
     writeFilmProject: writes,
     prepareFilmProject: vi.fn(async (value: FilmProject) => structuredClone(value)),

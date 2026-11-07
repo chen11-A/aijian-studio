@@ -1,3 +1,9 @@
+import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
+import {
+  generationExecutionNotice,
+  protectedGenerationFailure,
+} from "./actions/generation-execution";
+import type { FilmGenerationStillExecution } from "@aijian/contracts/film-generation-execution";
 import {
   assemblyRenderKey,
   assemblySelection,
@@ -7,20 +13,14 @@ import {
 import { prepareHistoryInput } from "./actions/persistent-history";
 import type { FilmSaveLease } from "./film-persistence";
 import { mergeArtDesign } from "../film/art-design";
-import { constrainVisualPrompt, onScreenCharacters } from "../film/on-screen-characters";
-import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
-import { locationReference, withLocationLayout } from "../film/location-reference";
+import { mergeCostumes } from "../film/costume-rules";
+import { shotStillInput } from "../film/shot-still-input";
 import { setFilmStyle, withStyleBible } from "../film/style-bible";
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
 import type { FilmProject, FilmPortrait, FilmShot, FilmTake } from "../film/project";
-import {
-  autoVoiceForCharacter,
-  locationPlate,
-  firstFrameReferences,
-  portraitPrompts,
-} from "../film/operations";
+import { autoVoiceForCharacter, locationPlate, portraitPrompts } from "../film/operations";
 
 export type AgentReply = { text: string | null; detail: string; code?: string };
 export type AgentRequestControl = { deadlineAt: number; signal: AbortSignal };
@@ -179,13 +179,17 @@ export async function requestStill(
   prompt: string,
   aspectRatio: "9:16" | "16:9" = "9:16",
   references: string[] = [],
+  execution?: FilmGenerationStillExecution,
 ): Promise<{ url: string; reason: string }> {
   const bridge = window.aijian;
   if (!seriesId || !bridge?.generateFilmStill) {
     return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
   }
   try {
-    const result = await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
+    const result = execution
+      ? await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references, execution)
+      : await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
+    if (execution && result.code) throw protectedGenerationFailure(result.code);
     if (!result.path) {
       const providerReason = result.reason || "";
       return {
@@ -196,6 +200,8 @@ export async function requestStill(
     const url = fileMediaUrl(result.path);
     return { url: url || result.path, reason: "画面已生成。" };
   } catch (error) {
+    if (error instanceof ProtectedGenerationFailure) throw error;
+    if (execution) throw protectedGenerationFailure("WRITE_UNCONFIRMED");
     return { url: "", reason: stillFailureNotice(error).text };
   }
 }
@@ -256,12 +262,14 @@ export async function requestFilmStill(
   film: FilmProject,
   prompt: string,
   references: string[] = [],
+  execution?: FilmGenerationStillExecution,
 ): Promise<{ url: string; reason: string }> {
   return requestStill(
     film.seriesId,
     withStyleBible(prompt, film.styleZh),
     film.aspectRatio,
     references,
+    execution,
   );
 }
 
@@ -269,48 +277,33 @@ export async function requestShotStill(
   film: FilmProject,
   shot: FilmShot,
   prompt: string,
+  execution?: FilmGenerationStillExecution,
 ): Promise<{
   url: string;
   reason: string;
   diagnostics: { referenceCount: number; imageLimit: number; videoReferenceLimit: number };
 }> {
-  const visualFilm = { ...film, characters: onScreenCharacters(film, shot) };
-  const visible = visualFilm.characters.filter((person) =>
-    person.portraits.some((portrait) => portrait.url),
-  );
-  const portraitLimit = locationReference(visualFilm, shot) ? 4 : 5;
-  if (visible.length > portraitLimit)
+  const input = shotStillInput(film, shot, prompt);
+  if (input.kind === "FAILED")
     return {
       url: "",
       reason: NOTICE_TEXT.STILL_CAST_LIMIT,
       diagnostics: { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 },
     };
-  // One portrait per visible person before extra views, never silently omit a person.
-  const references = firstFrameReferences(visualFilm, shot);
   const made = await requestStill(
     film.seriesId,
-    withStyleBible(
-      constrainVisualPrompt(
-        withShotCostumes(
-          withLocationLayout(
-            prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
-            film,
-            shot,
-          ),
-          film,
-          shot,
-        ),
-        film,
-        shot,
-      ),
-      film.styleZh,
-    ),
-    film.aspectRatio === "16:9" ? "16:9" : "9:16",
-    references,
+    input.prompt,
+    input.aspectRatio,
+    input.references,
+    execution,
   );
   return {
     ...made,
-    diagnostics: { referenceCount: references.length, imageLimit: 5, videoReferenceLimit: 13 },
+    diagnostics: {
+      referenceCount: input.references.length,
+      imageLimit: 5,
+      videoReferenceLimit: 13,
+    },
   };
 }
 
@@ -565,6 +558,7 @@ export async function assembleCurrentFilm(
 
 /** Status copy is one canonical sentence; provider/selection diagnostics stay separate. */
 export function stillFailureNotice(error: unknown): UiNotice {
+  if (error instanceof ProtectedGenerationFailure) return generationExecutionNotice(error);
   if (
     error instanceof Error &&
     "code" in error &&

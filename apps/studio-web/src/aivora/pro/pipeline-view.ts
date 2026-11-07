@@ -1,5 +1,6 @@
 import type { FilmProject } from "../film/project";
 import {
+  MEDIA_EXECUTION_ORDER,
   isProductionPipeline,
   productionTargetKey,
   type ProductionStepId,
@@ -14,7 +15,13 @@ export function pipelineView(film: Pick<FilmProject, "id" | "productionPipeline"
   if (state.projectId !== film.id)
     return { kind: "invalid" as const, code: "PROJECT_RESULT_MISMATCH" as const };
   const finished = (status: string) => status === "done" || status === "accepted";
-  const first = state.steps.find((step) => !finished(step.status));
+  const first = MEDIA_EXECUTION_ORDER.map((id) => state.steps.find((step) => step.id === id)!).find(
+    (step) => !finished(step.status),
+  );
+  const checkpointPhase =
+    state.current === "portraits" || state.current === "stills"
+      ? ("before-media" as const)
+      : ("video" as const);
   const busy =
     state.status === "running" ||
     state.steps.some((step) => step.targets.some((target) => target.status === "running"));
@@ -38,6 +45,7 @@ export function pipelineView(film: Pick<FilmProject, "id" | "productionPipeline"
     code: state.code,
     steps,
     checkpoint,
+    checkpointPhase,
     busy,
     canAcceptReview:
       !busy &&
@@ -47,7 +55,7 @@ export function pipelineView(film: Pick<FilmProject, "id" | "productionPipeline"
       !busy &&
       state.status === "checkpoint" &&
       !state.continued &&
-      first?.id === "video" &&
+      (first?.id === "video" || first?.id === "portraits" || first?.id === "stills") &&
       Boolean(
         checkpoint &&
         checkpoint.shotCount > 0 &&

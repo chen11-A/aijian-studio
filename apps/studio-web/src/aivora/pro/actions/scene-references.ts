@@ -1,3 +1,4 @@
+import type { GenerationExecutionSession } from "./generation-execution";
 import {
   ensureSceneReferences,
   locationImageCurrent,
@@ -13,6 +14,7 @@ export type SceneReferenceHost = {
   valid: () => boolean;
   apply: (film: FilmProject) => void | Promise<void>;
   request?: typeof requestFilmStill;
+  execution?: GenerationExecutionSession;
 };
 
 /** Persist only selected scenes; a failed reference prevents dependent media requests. */
@@ -43,6 +45,17 @@ export async function prepareShotSceneReferences(
           isCurrent: () => host.valid() && !signal.aborted,
           generate: (prompt, references) =>
             (host.request ?? requestFilmStill)(live, prompt, references),
+          ...(host.execution
+            ? {
+                generateFor: (locationId: string, prompt: string, references: string[]) =>
+                  (host.request ?? requestFilmStill)(
+                    live,
+                    prompt,
+                    references,
+                    host.execution!.image("location-reference", locationId),
+                  ),
+              }
+            : {}),
         });
         if (result.cancelled || signal.aborted) throw new Error("WORK_STALE");
         if (result.failed) {

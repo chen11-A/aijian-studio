@@ -1,3 +1,4 @@
+import { generationExecutionFixture } from "./generation-execution.test-fixture";
 import type { FilmRiskTrialGateway } from "@aijian/contracts/film-risk-trial";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -86,6 +87,7 @@ async function open(
   });
   const provider = vi.fn();
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     ...options.extra,
     listFilmSeries: async () => [],
     readFilmProject: read,

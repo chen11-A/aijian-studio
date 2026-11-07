@@ -1,3 +1,5 @@
+import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
+import { sceneLocationTargets } from "../film/location-reference";
 import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
 import { historyRecordHash } from "./actions/persistent-history";
 import type { FilmHistoryEntry, FilmHistoryReason } from "@aijian/contracts/film-history";
@@ -86,7 +88,25 @@ function fixture(partial = false, count = 1) {
     completeText,
     cancelWork: vi.fn(async () => undefined),
   } as unknown as Window["aijianGrok"];
-  const video = vi.fn(async () => {
+  const video = vi.fn(async (...args: unknown[]) => {
+    const context = args[3] as {
+      executionId: string;
+      videoSlotId: string;
+      shotId: string;
+      takeId: string;
+    };
+    expect(args[0]).toBe(projectId);
+    expect(context).toEqual({
+      executionId: "native-pipeline",
+      videoSlotId: `slot-${context.shotId}`,
+      shotId: context.shotId,
+      takeId: context.takeId,
+    });
+    expect(
+      saved.shots
+        .find((shot) => shot.id === context.shotId)
+        ?.takes.some((take) => take.id === context.takeId),
+    ).toBe(true);
     order.push("member:video");
     return {
       data: {
@@ -119,7 +139,49 @@ function fixture(partial = false, count = 1) {
       ...(partial ? { incomplete: "audio" as const } : {}),
     };
   });
+  const prepare = vi.fn<FilmGenerationExecutionGateway["prepareFilmGenerationExecution"]>(
+    async (input) => {
+      expect(input.projectId).toBe(saved.id);
+      expect(input.mode).toBe("pipeline");
+      expect(input.expectedProjectHash).toBe(await historyRecordHash(saved));
+      expect(input.targets).toEqual(saved.shots.map((shot) => ({ shotId: shot.id, versions: 1 })));
+      expect(history.at(-1)?.entry.reason).toBe("before-pipeline");
+      expect(video).not.toHaveBeenCalled();
+      return {
+        kind: "PREPARED",
+        executionId: "native-pipeline",
+        projectId: input.projectId,
+        projectHash: input.expectedProjectHash,
+        targets: input.targets.map((target) => ({
+          shotId: target.shotId,
+          preparation: "CLIENT_IMAGES" as const,
+          videoSlotIds: [`slot-${target.shotId}`],
+          slotPreparations: [`slot-${target.shotId}`].map((videoSlotId) => ({
+            videoSlotId,
+            preparation: "CLIENT_IMAGES" as const,
+          })),
+        })),
+        stages: [
+          ...sceneLocationTargets(saved).map((place) => ({
+            kind: "location-reference" as const,
+            stageId: `location-${place.id}`,
+            targetId: place.id,
+          })),
+          ...saved.shots.map((shot) => ({
+            kind: "shot-frame" as const,
+            stageId: `frame-${shot.id}`,
+            targetId: shot.id,
+          })),
+        ],
+      };
+    },
+  );
+  const retire = vi.fn<FilmGenerationExecutionGateway["retireFilmGenerationExecution"]>(
+    async () => ({ kind: "RETIRED" }),
+  );
   window.aijian = {
+    prepareFilmGenerationExecution: prepare,
+    retireFilmGenerationExecution: retire,
     prepareFilmProject: vi.fn(async (value: FilmProject) => structuredClone(value)),
     writeFilmProject: vi.fn(async (value: FilmProject) => {
       saved = structuredClone(value as FilmProject);
@@ -160,7 +222,11 @@ function fixture(partial = false, count = 1) {
     }),
     listFilmSeries: vi.fn(async () => []),
     listFilmEpisodes: vi.fn(async () => []),
-    generateFilmStill: vi.fn(async () => ({ path: "/tmp/pipeline-image.png", reason: "" })),
+    generateFilmStill: vi.fn(async (...args: unknown[]) => {
+      expect(args[4]).toMatchObject({ executionId: "native-pipeline" });
+      expect(prepare.mock.results[0]?.type).toBe("return");
+      return { path: "/tmp/pipeline-image.png", reason: "" };
+    }),
     createStoryFilm: video,
     assembleFilm: legacyAssemble,
     assembleFilmProject: assemble,
@@ -169,6 +235,7 @@ function fixture(partial = false, count = 1) {
   localStorage.setItem("aivora.film.activeId", film.id);
   return {
     film,
+    prepare,
     completeText,
     video,
     assemble,
@@ -177,6 +244,22 @@ function fixture(partial = false, count = 1) {
     order,
     saved: () => structuredClone(saved),
   };
+}
+async function confirmFirstMedia(f: ReturnType<typeof fixture>) {
+  const progress = await screen.findByRole("region", { name: "一键成片进度" });
+  await waitFor(() =>
+    expect(within(progress).getByRole("button", { name: "继续生成" })).toBeEnabled(),
+  );
+  expect(f.saved().productionPipeline).toMatchObject({
+    status: "checkpoint",
+    current: "portraits",
+    continued: false,
+  });
+  expect(f.prepare).not.toHaveBeenCalled();
+  expect(f.video).not.toHaveBeenCalled();
+  expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+  expect(progress.textContent).toContain(`视频最多 ${f.saved().shots.length} 次生成`);
+  fireEvent.click(within(progress).getByRole("button", { name: "继续生成" }));
 }
 it("runs the real host to human review and a persisted checkpoint before any video", async () => {
   const f = fixture();
@@ -188,6 +271,7 @@ it("runs the real host to human review and a persisted checkpoint before any vid
     ),
   );
   fireEvent.click(await screen.findByRole("button", { name: "一键成片" }));
+  await confirmFirstMedia(f);
   await waitFor(
     () =>
       expect(
@@ -247,6 +331,7 @@ it.each([false, true])(
       ),
     );
     fireEvent.click(await screen.findByRole("button", { name: "一键成片" }));
+    await confirmFirstMedia(f);
     await waitFor(() =>
       expect(
         `${f.saved().productionPipeline?.status}/${f.saved().productionPipeline?.current}`,

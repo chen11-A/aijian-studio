@@ -223,3 +223,80 @@ it("last-frame IPC validates arguments and returns fixed capability/decoder fail
   });
   expect(JSON.stringify(result)).not.toContain(env.root);
 });
+
+it("protected still and continuity contexts never fall back to legacy source/token/provider paths when unavailable", async () => {
+  const env = lastFrameHost(),
+    roots = vi.fn(env.host.filmsRoot);
+  env.host.filmsRoot = roots;
+  const handlers = handlersFor(env.host),
+    context = { executionId: "gex-issued", stageId: "issued-stage" };
+  await expect(
+    handlers.get("film:still")!(true, series, "原提示", "16:9", ["/not-opened.png"], context),
+  ).resolves.toMatchObject({ path: "", code: "EXECUTION_UNAVAILABLE" });
+  await expect(
+    handlers.get("film:last-frame")!(true, series, "/not-opened.mp4", context),
+  ).resolves.toMatchObject({ path: "", code: "EXECUTION_UNAVAILABLE" });
+  expect(roots).not.toHaveBeenCalled();
+  expect(env.host.mediaToken).not.toHaveBeenCalled();
+  expect(env.host.fetcher).not.toHaveBeenCalled();
+  expect(env.probeDuration).not.toHaveBeenCalled();
+  expect(env.runFfmpeg).not.toHaveBeenCalled();
+});
+it("protected contexts delegate sender and exact input to the native adapter before legacy filesystem access", async () => {
+  const env = lastFrameHost(),
+    roots = vi.fn(env.host.filmsRoot);
+  env.host.filmsRoot = roots;
+  const still = vi.fn<NonNullable<FilmLibraryHost["protectedGeneration"]>["still"]>(async () => ({
+    path: "",
+    reason: "记录未确认。",
+    code: "WRITE_UNCONFIRMED",
+  }));
+  const lastFrame = vi.fn<NonNullable<FilmLibraryHost["protectedGeneration"]>["lastFrame"]>(
+    async () => ({ path: "", sourceVideoPath: "", code: "SOURCE_UNVERIFIABLE" }),
+  );
+  env.host.protectedGeneration = { still, lastFrame };
+  const handlers = handlersFor(env.host),
+    context = { executionId: "gex-issued", stageId: "issued-stage" };
+  await expect(
+    handlers.get("film:still")!(true, series, "原提示", "16:9", ["/not-opened.png"], context),
+  ).resolves.toMatchObject({ code: "WRITE_UNCONFIRMED" });
+  expect(still).toHaveBeenCalledExactlyOnceWith(true, {
+    seriesId: series,
+    prompt: "原提示",
+    aspectRatio: "16:9",
+    references: ["/not-opened.png"],
+    execution: context,
+  });
+  await handlers.get("film:last-frame")!(true, series, "/not-opened.mp4", context);
+  expect(lastFrame).toHaveBeenCalledExactlyOnceWith(true, {
+    seriesId: series,
+    videoPath: "/not-opened.mp4",
+    execution: context,
+  });
+  expect(roots).not.toHaveBeenCalled();
+  expect(env.host.mediaToken).not.toHaveBeenCalled();
+  expect(env.host.fetcher).not.toHaveBeenCalled();
+  expect(env.probeDuration).not.toHaveBeenCalled();
+  expect(env.runFfmpeg).not.toHaveBeenCalled();
+});
+it("protected dispatch still rejects foreign senders and malformed locator extras before adapter access", async () => {
+  const env = lastFrameHost();
+  const still = vi.fn<NonNullable<FilmLibraryHost["protectedGeneration"]>["still"]>();
+  const lastFrame = vi.fn<NonNullable<FilmLibraryHost["protectedGeneration"]>["lastFrame"]>();
+  env.host.protectedGeneration = { still, lastFrame };
+  const handlers = handlersFor(env.host),
+    context = { executionId: "gex-issued", stageId: "issued-stage" };
+  await expect(
+    handlers.get("film:still")!(false, series, "提示", "16:9", [], context),
+  ).rejects.toThrow("not authorized");
+  const extra = { ...context, source: "/not-opened" };
+  await expect(
+    handlers.get("film:still")!(true, series, "提示", "16:9", [], extra),
+  ).rejects.toThrow("Invalid film");
+  await expect(
+    handlers.get("film:last-frame")!(true, series, "/not-opened.mp4", extra),
+  ).resolves.toMatchObject({ code: "CONTINUITY_REQUEST_INVALID" });
+  expect(still).not.toHaveBeenCalled();
+  expect(lastFrame).not.toHaveBeenCalled();
+  expect(env.host.fetcher).not.toHaveBeenCalled();
+});

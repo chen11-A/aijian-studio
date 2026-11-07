@@ -13,6 +13,21 @@ export const PRODUCTION_STEPS = [
   "assembly",
 ] as const;
 export type ProductionStepId = (typeof PRODUCTION_STEPS)[number];
+/** Execution dependencies only. Schema-v1 stored steps retain PRODUCTION_STEPS order. */
+export const MEDIA_EXECUTION_ORDER: readonly ProductionStepId[] = [
+  "writer",
+  "art",
+  "director",
+  "action",
+  "performance",
+  "prompter",
+  "portraits",
+  "stills",
+  "review",
+  "video",
+  "assembly",
+];
+
 export type ProductionStatus =
   "queued" | "running" | "done" | "failed" | "blocked" | "needs-input" | "uncertain" | "accepted";
 export type ProductionTarget = {
@@ -65,6 +80,8 @@ export type ProductionHost = {
     context: { runId: string; signal: AbortSignal },
   ) => Promise<ProductionResult>;
   checkpoint: () => Promise<ProductionCheckpoint> | ProductionCheckpoint;
+  executionOrder?: readonly ProductionStepId[];
+  beforeMediaCheckpoint?: () => Promise<ProductionCheckpoint> | ProductionCheckpoint;
   /** Check isCurrent at the actual write boundary. Persist artifacts and this state together. */
   save: (
     state: ProductionPipeline,
@@ -325,6 +342,16 @@ export async function runProductionPipeline(
   const state = recoverProductionPipeline(saved);
   const continueAuthorized =
     options.continue === true && saved.status === "checkpoint" && Boolean(saved.checkpoint);
+  const beforeMedia = saved.current === "portraits" || saved.current === "stills";
+  const videoContinueAuthorized = continueAuthorized && !beforeMedia;
+  const order = host.executionOrder ?? PRODUCTION_STEPS;
+  if (
+    order.length !== PRODUCTION_STEPS.length ||
+    new Set(order).size !== order.length ||
+    order.some((id) => !PRODUCTION_STEPS.includes(id))
+  )
+    return { ...state, status: "blocked", code: "STATE_INVALID" };
+  let mediaConfirmed = false;
   if (owners.has(state.projectId))
     return { ...state, status: "blocked", code: "PIPELINE_ALREADY_RUNNING" };
   const owner = Symbol(state.projectId);
@@ -350,12 +377,50 @@ export async function runProductionPipeline(
     if (!current()) return { ...state, status: "blocked", code: "PIPELINE_INPUT_CHANGED" };
     state.runId = crypto.randomUUID();
     delete state.code;
-    for (const step of state.steps) {
+    for (const stepId of order) {
+      const step = state.steps.find((item) => item.id === stepId)!;
       if (!current()) return state;
       if (controller.signal.aborted) {
         state.status = "cancelled";
         await persist();
         return state;
+      }
+      const nextMediaTarget = step.targets.find((target) => !finished(target.status));
+      if (
+        !mediaConfirmed &&
+        host.beforeMediaCheckpoint &&
+        !finished(step.status) &&
+        (!nextMediaTarget ||
+          nextMediaTarget.status === "queued" ||
+          options.retryTargets?.includes(productionTargetKey(step.id, nextMediaTarget.id))) &&
+        (step.id === "portraits" || step.id === "stills")
+      ) {
+        const checkpoint = await host.beforeMediaCheckpoint();
+        if (!current()) return state;
+        if (!validCheckpoint(checkpoint)) {
+          state.status = "blocked";
+          state.code = "CHECKPOINT_INVALID";
+          await persist();
+          return state;
+        }
+        const blocked =
+          checkpoint.shotCount < 1 ||
+          checkpoint.seconds <= 0 ||
+          !checkpoint.coverage.length ||
+          checkpoint.coverage.some((scene) => !scene.ok) ||
+          checkpoint.risks.some((risk) => risk.severity === "block");
+        const accepted =
+          continueAuthorized &&
+          beforeMedia &&
+          saved.current === step.id &&
+          JSON.stringify(saved.checkpoint) === JSON.stringify(checkpoint);
+        state.checkpoint = checkpoint;
+        state.current = step.id;
+        state.status = blocked ? "blocked" : "checkpoint";
+        if (!(await persist()) || blocked || !accepted) return state;
+        mediaConfirmed = true;
+        state.status = "queued";
+        if (!(await persist())) return state;
       }
       if (step.id === "video" && !state.continued) {
         state.checkpoint = await host.checkpoint();
@@ -379,7 +444,7 @@ export async function runProductionPipeline(
           checkpoint.coverage.some((scene) => !scene.ok) ||
           checkpoint.risks.some((risk) => risk.severity === "block");
         state.status = blocked ? "blocked" : "checkpoint";
-        if (!(await persist()) || blocked || !continueAuthorized) return state;
+        if (!(await persist()) || blocked || !videoContinueAuthorized) return state;
         state.continued = true;
         state.status = "queued";
         state.current = "video";

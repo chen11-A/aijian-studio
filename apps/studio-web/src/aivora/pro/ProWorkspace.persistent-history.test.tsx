@@ -1,3 +1,4 @@
+import { generationExecutionFixture } from "./generation-execution.test-fixture";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { FilmHistoryEntry, FilmHistoryGateway } from "@aijian/contracts/film-history";
@@ -107,6 +108,7 @@ function fixture() {
     return { kind: "OK", text: "{}" };
   });
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     listFilmSeries: vi.fn(async () => [
       { id: film.seriesId, title: film.title, path: "", savedAt: "" },
     ]),

@@ -1,3 +1,7 @@
+import type {
+  FilmGenerationStillExecution,
+  FilmGenerationVideoExecution,
+} from "@aijian/contracts/film-generation-execution";
 import type { ConfigureGenerationFailurePolicy } from "@aijian/contracts/generation-failure-policy";
 import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
@@ -608,10 +612,17 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("story-film:configure-failure-policy", projectId, input),
   getStoryFilmPlan: (projectId: string) => ipcRenderer.invoke("story-film:plan", projectId),
   supportsStoryFilmLocalScope: true,
-  createStoryFilm: (projectId: string, input: StoryFilmCreateInput, scope?: StoryFilmLocalScope) =>
-    scope
-      ? ipcRenderer.invoke("story-film:create", projectId, input, scope)
-      : ipcRenderer.invoke("story-film:create", projectId, input),
+  createStoryFilm: (
+    projectId: string,
+    input: StoryFilmCreateInput,
+    scope?: StoryFilmLocalScope,
+    execution?: FilmGenerationVideoExecution,
+  ) =>
+    execution !== undefined
+      ? ipcRenderer.invoke("story-film:create", projectId, input, scope, execution)
+      : scope
+        ? ipcRenderer.invoke("story-film:create", projectId, input, scope)
+        : ipcRenderer.invoke("story-film:create", projectId, input),
   getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
   prepareFilmDialogueSplit: ((
@@ -708,8 +719,14 @@ contextBridge.exposeInMainWorld("aijian", {
     )) as FilmAudioLibraryGateway["addBundledFilmAudio"],
   readFilmMedia: (path: string, options?: { maxBytes?: number; expectedSha256?: string }) =>
     ipcRenderer.invoke("film:read-media", path, options) as Promise<Uint8Array>,
-  extractFilmLastFrame: (seriesId: string, videoPath: string) =>
-    ipcRenderer.invoke("film:last-frame", seriesId, videoPath),
+  extractFilmLastFrame: (
+    seriesId: string,
+    videoPath: string,
+    execution?: FilmGenerationStillExecution,
+  ) =>
+    execution !== undefined
+      ? ipcRenderer.invoke("film:last-frame", seriesId, videoPath, execution)
+      : ipcRenderer.invoke("film:last-frame", seriesId, videoPath),
   assembleFilm: (
     seriesId: string,
     sources: string[],
@@ -768,7 +785,11 @@ contextBridge.exposeInMainWorld("aijian", {
     prompt: string,
     aspectRatio?: "9:16" | "16:9",
     references: string[] = [],
-  ) => ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
+    execution?: FilmGenerationStillExecution,
+  ) =>
+    execution !== undefined
+      ? ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references, execution)
+      : ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
   exportFilmProjectArchive: (input: FilmProjectArchiveInput) =>

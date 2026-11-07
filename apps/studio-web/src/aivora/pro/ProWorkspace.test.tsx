@@ -1,3 +1,5 @@
+import type { FilmGenerationExecutionResult } from "@aijian/contracts/film-generation-execution";
+import { generationExecutionFixture } from "./generation-execution.test-fixture";
 import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
 import { historyRecordHash } from "./actions/persistent-history";
 import type { FilmHistoryEntry, FilmHistoryGateway } from "@aijian/contracts/film-history";
@@ -213,7 +215,19 @@ describe("professional workspace", () => {
       }
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
       await waitFor(() => expect(video).toHaveBeenCalledTimes(regenerateSource ? 2 : 1));
-      expect(extract).toHaveBeenCalledWith(film.seriesId, sourcePath);
+      const prepared: FilmGenerationExecutionResult = await vi.mocked(
+        window.aijian!.prepareFilmGenerationExecution!,
+      ).mock.results[0]!.value;
+      expect(prepared.kind).toBe("PREPARED");
+      if (prepared.kind !== "PREPARED") throw Error("expected protected preparation");
+      const stage = prepared.stages.find(
+        (stage) => stage.kind === "continuity-frame" && stage.targetId === next.id,
+      );
+      expect(stage).toMatchObject({ sourceShotId: source.id });
+      expect(extract).toHaveBeenCalledExactlyOnceWith(film.seriesId, sourcePath, {
+        executionId: prepared.executionId,
+        stageId: stage!.stageId,
+      });
       const body = (
         video.mock.calls.at(-1) as unknown as [string, { shots: { still: string }[] }]
       )[1];
@@ -1268,6 +1282,7 @@ describe("professional workspace", () => {
     onTestFinished(finishWaiting);
     let videos = 0;
     window.aijian = {
+      ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
       ...window.aijian!,
       generateFilmStill: vi
         .fn()
@@ -1516,6 +1531,7 @@ describe("professional workspace", () => {
       },
     ];
     window.aijian = {
+      ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
       ...window.aijian!,
       readFilmProject: vi.fn(async () => queued),
     } as unknown as Window["aijian"];
@@ -1646,6 +1662,7 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     speak,
   } as unknown as Window["aijianGrok"];
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     ...window.aijian!,
     generateFilmStill: vi.fn(async () => ({ path: "/tmp/aivora/still.png", reason: "" })),
   } as unknown as Window["aijian"];
@@ -2074,6 +2091,7 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
     { sceneId: "01", text: "别的场的动作" },
   ];
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     listFilmSeries: vi.fn(async () => [
       { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
     ]),
@@ -2150,6 +2168,7 @@ it("keeps the style of the whole work above the characters and warns which shots
   for (const item of film.shots)
     Object.assign(item, { regenerationRequired: { code: "STYLE_CHANGED", styleRevision: 2 } });
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     listFilmSeries: vi.fn(async () => [
       { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
     ]),
@@ -2187,6 +2206,7 @@ it("puts a yellow dot on a shot with a continuity reminder and explains it in �
     continuity: [{ kind: "prop", text: "刀上一镜在左手，这一镜到了右手。" }],
   });
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     listFilmSeries: vi.fn(async () => [
       { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
     ]),
@@ -2428,6 +2448,7 @@ it("keeps a separate review card and confirms the shots before video", async () 
     URL.createObjectURL = createUrl;
   }
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     ...window.aijian!,
     listFilmSeries: vi.fn(async () => [
       { id: "film_sampleseries00001", title: "已存作品", savedAt: "", path: "/films" },
@@ -2618,6 +2639,7 @@ it("reloads a saved video and can cancel a login that is still waiting", async (
   ];
   const readFilmMedia = vi.fn(async () => new Uint8Array([1, 2, 3, 4]));
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     listFilmSeries: vi.fn(async () => [
       { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
     ]),
@@ -2710,6 +2732,7 @@ it("says the call was not billed when a project cannot be created", async () => 
     completeText: vi.fn(),
   } as unknown as Window["aijianGrok"];
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     createProject: vi.fn(async () => {
       throw new Error("down");
     }),
@@ -2754,6 +2777,7 @@ it("creates a backend project before a clean-profile director call", async () =>
     completeText,
   } as unknown as Window["aijianGrok"];
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     createProject,
     listFilmSeries: vi.fn(async () => []),
     writeFilmProject: vi.fn(async (film: unknown) => film),
@@ -3031,6 +3055,7 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
   const revealFilmPath = vi.fn(async () => undefined);
   const openFilmPath = vi.fn(async () => undefined);
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     listFilmHistory: vi.fn<FilmHistoryGateway["listFilmHistory"]>(async (projectId) => ({
       kind: "LIST",
       entries: [...historyRecords.values()]

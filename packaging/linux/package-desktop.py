@@ -286,6 +286,12 @@ def build(output: Path, cache: Path) -> None:
         helper.command("node", str(compiler), "-p", str(config))
     helper.command(
         "node",
+        str(ROOT / "scripts/build-generation-input-runtime.mjs"),
+        "--out-dir",
+        str(desktop / "dist"),
+    )
+    helper.command(
+        "node",
         str(ROOT / "scripts/build-contracts-runtime.mjs"),
         "--out-dir",
         str(desktop / "node_modules/@aijian/contracts"),

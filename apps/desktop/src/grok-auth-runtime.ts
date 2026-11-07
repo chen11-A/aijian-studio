@@ -89,6 +89,12 @@ export type GrokRuntime = GrokLoginBridge & {
   /** Main-process only. Never send this value across IPC. */
   mediaAccessToken(): Promise<string | null>;
   mediaDispatchAccount(): Promise<GenerationDispatchAccount | null>;
+  /** A main-only, synchronous final guard across native bookkeeping awaits. Neither
+   * the closure nor its bearer is serialized to a renderer or persistent project. */
+  mediaDispatchLease(): Promise<{
+    account: GenerationDispatchAccount;
+    current: () => boolean;
+  } | null>;
   cancelWork(idempotencyKey?: string): void;
 };
 
@@ -764,6 +770,21 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     return accountSha256 ? { bearer, accountSha256 } : null;
   }
 
+  async function mediaDispatchLease() {
+    const account = await mediaDispatchAccount();
+    if (!account || !session) return null;
+    const captured = session;
+    return {
+      account,
+      current: () =>
+        session === captured &&
+        session.accessToken === account.bearer &&
+        now() < session.expiresAt &&
+        !session.inferenceDenied &&
+        stableGenerationAccount(session.subject, endpoints.api) === account.accountSha256,
+    };
+  }
+
   async function mediaAccessToken(): Promise<string | null> {
     await restore();
     if (!session) return null;
@@ -813,5 +834,6 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     },
     mediaAccessToken,
     mediaDispatchAccount,
+    mediaDispatchLease,
   };
 }

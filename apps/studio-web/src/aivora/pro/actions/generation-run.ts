@@ -20,6 +20,9 @@ import { fileMediaUrl, isVoiceFile } from "../workflow";
 import { NOTICE_TEXT, presentNotice } from "../../film/notices";
 import { awaitVideoResult } from "../video-request";
 
+import type { GenerationExecutionSession } from "./generation-execution";
+import type { FilmGenerationVideoExecution } from "@aijian/contracts/film-generation-execution";
+
 type CreateVideo = NonNullable<AijianDesktopBridge["createStoryFilm"]>;
 type Queue = ReturnType<typeof prepareVideoQueue>;
 export type GenerationRunHost = {
@@ -30,9 +33,11 @@ export type GenerationRunHost = {
   stopped: () => boolean;
   paused: () => boolean;
   cancelled: (jobId: string) => boolean;
+  execution?: GenerationExecutionSession;
   request: (
     body: Parameters<CreateVideo>[1],
     scope?: StoryFilmLocalScope,
+    execution?: FilmGenerationVideoExecution,
   ) => ReturnType<CreateVideo>;
   notice: (notice: UiNotice) => void;
   completed: (result: { shotId: string; done: boolean; message: string }) => void;
@@ -274,17 +279,23 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
       }
       if (await queueStopped()) return;
       const targetShot = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
-      const frameHost = { current: host.current, valid: host.valid, apply: host.apply };
-      const connectedShot = await (host.continuity ?? ensureContinuityFrame)(
-        current,
-        targetShot,
-        frameHost,
-      );
-      const shotNow = await (host.frame ?? ensureShotFrame)(
-        host.current() ?? current,
-        connectedShot,
-        frameHost,
-      );
+      const frameHost = {
+        current: host.current,
+        valid: host.valid,
+        apply: host.apply,
+        execution: host.execution,
+      };
+      const cached = host.execution?.preparation(group.shot.id, index) === "STORYFILM_CACHE";
+      const connectedShot = cached
+        ? targetShot
+        : await (host.continuity ?? ensureContinuityFrame)(current, targetShot, frameHost);
+      const shotNow = cached
+        ? connectedShot
+        : await (host.frame ?? ensureShotFrame)(
+            host.current() ?? current,
+            connectedShot,
+            frameHost,
+          );
       if (!host.valid()) return;
       const beforeSend = host.current() ?? current;
       if (host.cancelled(jobId)) {
@@ -351,6 +362,7 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
                   inputFingerprint,
                 }
               : undefined,
+            host.execution?.video(group.shot.id, index, take.id),
           ),
         () => !host.valid() || host.stopped() || host.cancelled(jobId),
       );
