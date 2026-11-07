@@ -1,3 +1,5 @@
+import type { UiNotice } from "../../film/contracts3j";
+import { agentFailureNotice } from "./agent-failure-notice";
 import { extractCastOffline, mergeCast, parseCastReply } from "../../film/operations";
 import type { FilmProject } from "../../film/project";
 import type { AgentReply } from "../workflow";
@@ -10,7 +12,7 @@ export type CastExtractionHost = {
   valid: () => boolean;
   noticeCurrent: () => boolean;
   apply: (film: FilmProject) => void;
-  notice: (text: string) => void;
+  notice: (text: string | UiNotice) => void;
 };
 export function castExtractionStory(base: FilmProject): string | null {
   if (base.characters.length > 0 && base.locations.length > 0) return null;
@@ -36,12 +38,19 @@ export async function extractAndMergeCast(
         story,
         '抽出人物和场景，只返回 JSON：{"characters":[{"name":"","identity":"","gender":"male/female/unknown","age_band":"child/young/adult/elder/unknown"}],"locations":[{"name":"","prompt":""}]}',
       )
-      .catch(() => ({ text: null, detail: "人物提取失败，可以重试。" }));
+      .catch(() => ({ text: null, detail: "", code: "CAST_PARSE_FAILED" }));
     if (!host.valid() || host.current()?.id !== base.id) return;
     const parsed = reply.text ? parseCastReply(reply.text) : null;
     if (parsed && (parsed.characters.length > 0 || parsed.locations.length > 0)) extracted = parsed;
     else {
-      if (host.noticeCurrent()) host.notice(reply.detail || "没有认出人物和场景，没有写入猜测。");
+      if (host.noticeCurrent())
+        host.notice(
+          agentFailureNotice(
+            reply,
+            reply.text ? "CAST_NOT_FOUND" : "CAST_PARSE_FAILED",
+            "本次没有新增人物或场景。",
+          ).structuredNotice,
+        );
       return;
     }
   }

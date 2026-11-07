@@ -53,18 +53,27 @@ it.each(["not JSON", "{}", "[]"])(
         request: async () => ({ text, detail: "ignored" }),
         current: () => true,
       }),
-    ).toEqual({ status: "rejected", notice: "美术没有按格式返回，这次没有改作品。" });
+    ).toMatchObject({
+      status: "rejected",
+      structuredNotice: { code: "PLANART_FAILED", detail: "本次没有修改作品。" },
+    });
   },
 );
 
-it("preserves the provider failure notice without inventing an offline art draft", async () => {
-  expect(
-    await planArtDraft(sampleFilm(), {
-      request: async () => ({ text: null, detail: "需要重新登录。" }),
-      current: () => true,
-    }),
-  ).toEqual({ status: "rejected", notice: "需要重新登录。 这次没有改作品。" });
-});
+it.each([null, "incomplete reply"])(
+  "preserves the provider failure notice without inventing an offline art draft (%s)",
+  async (text) => {
+    expect(
+      await planArtDraft(sampleFilm(), {
+        request: async () => ({ text, detail: "需要重新登录。", code: "REAUTH_REQUIRED" }),
+        current: () => true,
+      }),
+    ).toMatchObject({
+      status: "rejected",
+      structuredNotice: { code: "REAUTH_REQUIRED", detail: "需要重新登录。 本次没有修改作品。" },
+    });
+  },
+);
 
 it("discards a late reply after the turn or assistant scope changes", async () => {
   const film = sampleFilm();
