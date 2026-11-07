@@ -42,3 +42,5 @@ node --test scripts/build-runtime.test.mjs
 `browser-ci-babefa9.json`：最终源码的16个原浏览器任务/484组合和两个Windows定向已全过；Linux/Windows完整quality仍须单看最终ci.json，不能互相代替。
 
 `ci-linux-147aad4.json`：上一测试源的Linux完整quality通过；原Test 23:11:46 UTC成功，后续原质量步骤至生成干净23:12:14全部成功。不能代替最终babefa9或Windows完整结果。
+
+`ci-linux-babefa9.json`：最终源码Linux完整quality已通过（Test 23:18:29 UTC、生成干净23:18:58 UTC）；当前只剩最终Windows完整quality。

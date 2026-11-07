@@ -1,0 +1,160 @@
+{
+  "source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+  "run": "42420151861",
+  "job": "128546619436",
+  "platform": "ubuntu-latest",
+  "status": "SUCCESS",
+  "scope": "Final source complete Linux quality. Windows complete quality still pending.",
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:22:13Z"
+    },
+    {
+      "name": "Initialize containers",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:22:19Z"
+    },
+    {
+      "name": "Prepare Debian test container and pinned development media tools",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:22:46Z"
+    },
+    {
+      "name": "Check out repository",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:22:52Z"
+    },
+    {
+      "name": "Bind container Git trust to this workspace only",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:22:52Z"
+    },
+    {
+      "name": "Set up Node.js",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:22:57Z"
+    },
+    {
+      "name": "Enable pinned pnpm",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:22:58Z"
+    },
+    {
+      "name": "Set up Python",
+      "conclusion": "skipped",
+      "completed-at": "2026-11-07T22:22:58Z"
+    },
+    {
+      "name": "Set up uv",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:23:00Z"
+    },
+    {
+      "name": "Install JavaScript dependencies",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:23:06Z"
+    },
+    {
+      "name": "Install Python dependencies",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:23:13Z"
+    },
+    {
+      "name": "Verify exact Linux development media binaries",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:23:13Z"
+    },
+    {
+      "name": "Prepare exact Windows development media binaries",
+      "conclusion": "skipped",
+      "completed-at": "2026-11-07T22:23:13Z"
+    },
+    {
+      "name": "Verify generated contracts",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:23:20Z"
+    },
+    {
+      "name": "Lint",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:24:18Z"
+    },
+    {
+      "name": "Typecheck",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:24:55Z"
+    },
+    {
+      "name": "Verify CI test diagnostics",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T22:24:56Z"
+    },
+    {
+      "name": "Test",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:29Z"
+    },
+    {
+      "name": "Fault injection",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:43Z"
+    },
+    {
+      "name": "Reproduce fault-injection evidence",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:43Z"
+    },
+    {
+      "name": "Reproduce media contract evidence",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:46Z"
+    },
+    {
+      "name": "Verify evidence hashes",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:47Z"
+    },
+    {
+      "name": "Audit production JavaScript dependencies",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:48Z"
+    },
+    {
+      "name": "Build",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:58Z"
+    },
+    {
+      "name": "Verify clean generated state",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:18:58Z"
+    },
+    {
+      "name": "Post Set up uv",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:19:04Z"
+    },
+    {
+      "name": "Post Set up Node.js",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:19:04Z"
+    },
+    {
+      "name": "Post Check out repository",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:19:04Z"
+    },
+    {
+      "name": "Stop containers",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:19:09Z"
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T23:19:09Z"
+    }
+  ]
+}
