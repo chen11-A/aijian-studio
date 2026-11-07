@@ -79,3 +79,13 @@ it("rejects unauthorized, malformed, explicit-null and extra protected fields wi
   expect(f.fetcher).not.toHaveBeenCalled();
   expect(f.bearer).not.toHaveBeenCalled();
 });
+
+it("preserves the legacy explicit third-argument scope parser", async () => {
+  const f = fixture(true);
+  await expect(f.run(true, projectId, input, undefined)).rejects.toThrow(
+    "Invalid story film local scope",
+  );
+  expect(f.fetcher).not.toHaveBeenCalled();
+  expect(f.bearer).not.toHaveBeenCalled();
+  expect(f.protectedCreate).not.toHaveBeenCalled();
+});

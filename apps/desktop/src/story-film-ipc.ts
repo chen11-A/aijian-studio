@@ -202,7 +202,9 @@ export function registerStoryFilmHandlers<TEvent>(
     }
     const body = parseStoryFilmCreate(args[1]);
     const scope =
-      args.length >= 3 && args[2] !== undefined ? parseStoryFilmLocalScope(args[2]) : undefined;
+      args.length === 3 || (args.length === 4 && args[2] !== undefined)
+        ? parseStoryFilmLocalScope(args[2])
+        : undefined;
     let execution: FilmGenerationVideoExecution | undefined;
     if (args.length === 4) {
       const raw = args[3];
