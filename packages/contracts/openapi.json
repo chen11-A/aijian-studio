@@ -23066,6 +23066,86 @@
         "title": "StoryDialogueBody",
         "type": "object"
       },
+      "StoryDialogueLimitData": {
+        "additionalProperties": false,
+        "properties": {
+          "max_seconds": {
+            "enum": [
+              10,
+              15
+            ],
+            "title": "Max Seconds",
+            "type": "integer"
+          },
+          "raw_audio_saved": {
+            "title": "Raw Audio Saved",
+            "type": "boolean"
+          },
+          "raw_audio_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Audio Sha256"
+          },
+          "request_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Request Sha256",
+            "type": "string"
+          },
+          "required_seconds": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 36001.0,
+            "title": "Required Seconds",
+            "type": "number"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shot_index": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shot Index"
+          },
+          "speech_window": {
+            "const": 1,
+            "title": "Speech Window",
+            "type": "integer"
+          },
+          "target_video_submitted": {
+            "const": false,
+            "title": "Target Video Submitted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "schema_version",
+          "required_seconds",
+          "max_seconds",
+          "shot_index",
+          "speech_window",
+          "target_video_submitted",
+          "request_sha256",
+          "raw_audio_saved",
+          "raw_audio_sha256"
+        ],
+        "title": "StoryDialogueLimitData",
+        "type": "object"
+      },
       "StoryEntityDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -23319,6 +23399,16 @@
               }
             ],
             "title": "Clean Output Path"
+          },
+          "dialogue_limit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryDialogueLimitData"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "draft": {
             "default": true,

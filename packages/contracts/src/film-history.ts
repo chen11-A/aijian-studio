@@ -1,5 +1,9 @@
 export type FilmHistoryReason =
-  "manual" | "before-batch-generation" | "before-pipeline" | "before-restore";
+  | "manual"
+  | "before-batch-generation"
+  | "before-pipeline"
+  | "before-restore"
+  | "before-dialogue-split";
 export type FilmHistoryEntry = {
   id: string;
   createdAt: string;
@@ -29,7 +33,7 @@ export type FilmHistoryGateway = {
   captureFilmHistory: (input: {
     projectId: string;
     expectedHash: string;
-    reason: Exclude<FilmHistoryReason, "before-restore">;
+    reason: Exclude<FilmHistoryReason, "before-restore" | "before-dialogue-split">;
   }) => Promise<FilmHistoryCapture>;
   restoreFilmHistory: (input: {
     projectId: string;

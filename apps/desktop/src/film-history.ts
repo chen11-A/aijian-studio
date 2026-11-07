@@ -33,6 +33,7 @@ const reasons = new Set<FilmHistoryReason>([
   "before-batch-generation",
   "before-pipeline",
   "before-restore",
+  "before-dialogue-split",
 ]);
 const object = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -277,6 +278,71 @@ export function createFilmHistory(host: Host) {
     return next;
   }
   return {
+    /** Trusted main-only callback. Never exposed as an IPC taking a record or a function.
+     * The existing project queue owns canonical read, backup and conditional write together. */
+    async withDialogueSplitBackup<T>(
+      input: { projectId: string; expectedHash: string },
+      guard: (record: FilmRecord) => void | Promise<void>,
+      action: (
+        record: FilmRecord,
+        backup: FilmHistoryEntry,
+        write: (next: FilmRecord) => Promise<FilmRecord>,
+      ) => Promise<T>,
+    ): Promise<T> {
+      return transactFilmProject(host.filmsRoot, input.projectId, async (record, write) => {
+        if (
+          !record ||
+          record.id !== input.projectId ||
+          !validRecord(record) ||
+          filmHistoryRecordHash(record) !== input.expectedHash
+        )
+          throw Error("PROJECT_CHANGED");
+        await guard(record);
+        let backup: FilmHistoryEntry;
+        try {
+          backup = await append(record, "before-dialogue-split");
+        } catch {
+          throw Error("BACKUP_FAILED");
+        }
+        return action(record, backup, async (next) => {
+          const latest = await readProject(host.filmsRoot, input.projectId);
+          if (
+            !latest ||
+            latest.id !== input.projectId ||
+            filmHistoryRecordHash(latest) !== input.expectedHash
+          )
+            throw Error("PROJECT_CHANGED");
+          return write(next);
+        });
+      });
+    },
+    /** Read-only main-owned full snapshot proof. Never restores or returns snapshot contents. */
+    async verifyDialogueSplitBackup(input: {
+      projectId: string;
+      historyId: string;
+      beforeHash: string;
+    }): Promise<FilmHistoryEntry | null> {
+      if (
+        !idPattern.test(input.projectId) ||
+        !historyPattern.test(input.historyId) ||
+        !/^[a-f0-9]{64}$/.test(input.beforeHash)
+      )
+        return null;
+      try {
+        return await transactFilmProject(host.filmsRoot, input.projectId, async (record) => {
+          if (!record || record.id !== input.projectId || !validRecord(record)) return null;
+          const stored = await snapshot(record, input.historyId);
+          if (
+            stored.entry.reason !== "before-dialogue-split" ||
+            filmHistoryRecordHash(stored.snapshot) !== input.beforeHash
+          )
+            return null;
+          return stored.entry;
+        });
+      } catch {
+        return null;
+      }
+    },
     async list(projectId: unknown): Promise<FilmHistoryList> {
       if (typeof projectId !== "string" || !idPattern.test(projectId))
         return failure("INVALID_INPUT");

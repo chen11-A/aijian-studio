@@ -1,3 +1,4 @@
+import { matchAudioGroupAppend, type GroupAppendIntent } from "./audio-suggestion-proof";
 import type {
   AddBundledFilmAudioInput,
   BundledAudioAsset,
@@ -19,19 +20,25 @@ export type LibraryTarget = {
   seconds: number;
   hash: string;
 };
-export type PendingLibraryWrite = {
+type PendingAudioWriteBase = {
   before: FilmProject;
   canonicalBefore: FilmProject;
   rawBefore: Record<string, unknown>;
   hash: string;
   selection: LibrarySelection;
-  input: AddBundledFilmAudioInput;
-  asset: BundledAudioAsset;
   settled: boolean;
   expectedClipId?: string;
   localDraft?: FilmProject;
   observedRaw?: Record<string, unknown>;
 };
+export type PendingSingleLibraryWrite = PendingAudioWriteBase & {
+  kind?: "single";
+  input: AddBundledFilmAudioInput;
+  asset: BundledAudioAsset;
+};
+export type PendingGroupLibraryWrite = PendingAudioWriteBase &
+  GroupAppendIntent & { kind: "group" };
+export type PendingLibraryWrite = PendingSingleLibraryWrite | PendingGroupLibraryWrite;
 export type LibraryOutcome = {
   kind: "added" | "removed" | "failed" | "stale" | "unknown";
   message: string;
@@ -71,7 +78,7 @@ function capabilities() {
     throw new Error("LIBRARY_UNSUPPORTED");
   return b;
 }
-async function prepare(
+export async function prepareLibraryInput(
   base: FilmProject,
   selection: LibrarySelection,
   host: LibraryHost,
@@ -101,7 +108,7 @@ export async function inspectLibraryTarget(
   let lease: FilmSaveLease | undefined;
   try {
     lease = await host.persistence.acquire(base.id);
-    const prepared = await prepare(base, selection, host, lease);
+    const prepared = await prepareLibraryInput(base, selection, host, lease);
     const result = await capabilities().inspectBundledFilmAudioTarget!({
       projectId: base.id,
       expectedProjectHash: prepared.hash,
@@ -140,7 +147,7 @@ export async function inspectLibraryTarget(
     await lease?.release();
   }
 }
-function requireExternal(lease: FilmSaveLease) {
+export function requireAudioExternal(lease: FilmSaveLease) {
   if (!lease.beginExternalWrite || !lease.confirmExternalWrite || !lease.markExternalWriteUnknown)
     throw new Error("LIBRARY_SAVE_UNSUPPORTED");
   return {
@@ -156,7 +163,7 @@ function withoutVolatile(film: Record<string, unknown>) {
 }
 
 async function onlyAddedClip(
-  pending: PendingLibraryWrite,
+  pending: PendingSingleLibraryWrite,
   saved: FilmProject,
   raw: Record<string, unknown>,
 ) {
@@ -209,18 +216,26 @@ async function onlyAddedClip(
     return null;
   return clip;
 }
-async function settle(
+export async function settleLibraryWrite(
   host: LibraryHost,
   pending: PendingLibraryWrite,
   lease: FilmSaveLease,
   saved: FilmProject,
   raw: Record<string, unknown>,
 ): Promise<LibraryOutcome> {
-  const external = requireExternal(lease);
+  const external = requireAudioExternal(lease);
   pending.observedRaw = raw;
-  const added = await onlyAddedClip(pending, saved, raw);
+  const single = pending.kind !== "group" ? await onlyAddedClip(pending, saved, raw) : null;
+  const additions =
+    pending.kind === "group"
+      ? await matchAudioGroupAppend(pending, saved, raw)
+      : single
+        ? [single]
+        : null;
+  const added = additions?.[0];
   const unchanged = (await historyRecordHash(raw)) === pending.hash;
   if (
+    (pending.kind === "group" && pending.receiptClaimed && !additions) ||
     (pending.expectedClipId !== undefined && added?.id !== pending.expectedClipId) ||
     (!added && !unchanged)
   ) {
@@ -273,7 +288,9 @@ async function settle(
           kind: "added",
           clipId: added.id,
           message:
-            "素材已加入并保存。要撤销本次添加，请在当前版本的素材列表点‘移除’；素材文件会保留。",
+            pending.kind === "group"
+              ? `本次 ${additions!.length} 段声音已加入并保存；移除整组只移除本次引用，素材文件仍保留。`
+              : "素材已加入并保存。要撤销本次添加，请在当前版本的素材列表点‘移除’；素材文件会保留。",
         }
       : { kind: "failed", message: "核对后没有找到本次添加的片段，可检查后重新选择。" };
   }
@@ -283,11 +300,18 @@ async function settle(
     oldShot = pending.canonicalBefore.shots.find((s) => s.id === pending.selection.shotId);
   const take = shot?.takes.find((t) => t.id === pending.selection.takeId),
     oldTake = oldShot?.takes.find((t) => t.id === pending.selection.takeId);
-  const existing = added ? editing.audioClips.find((clip) => clip.id === added.id) : undefined;
-  const sameExisting =
-    !!existing &&
-    !!added &&
-    (await historyRecordHash(existing)) === (await historyRecordHash(added));
+  const existing = (additions ?? []).filter((clip) =>
+    editing.audioClips.some((c) => c.id === clip.id),
+  );
+  const sameExisting = (
+    await Promise.all(
+      existing.map(
+        async (clip) =>
+          (await historyRecordHash(clip)) ===
+          (await historyRecordHash(editing.audioClips.find((c) => c.id === clip.id))),
+      ),
+    )
+  ).every(Boolean);
   if (host.current() !== live || !retainedDraftMatches()) {
     external.unknown(saved);
     return { kind: "unknown", message: "本页又有变化，请重新核对保存状态。", pending };
@@ -299,7 +323,7 @@ async function settle(
       !oldTake ||
       take.videoPath !== oldTake.videoPath ||
       take.cleanVideoPath !== oldTake.cleanVideoPath ||
-      (!!existing && !sameExisting) ||
+      (existing.length > 0 && !sameExisting) ||
       !pending.canonicalBefore.audioClips.every((old) =>
         editing.audioClips.some((c) => c.id === old.id),
       ) ||
@@ -313,12 +337,15 @@ async function settle(
     };
   }
   const merged =
-    added && !existing
+    additions && additions.some((c) => !existing.some((e) => e.id === c.id))
       ? {
           ...editing,
           savedAt: saved.savedAt,
           directory: saved.directory,
-          audioClips: [...editing.audioClips, added],
+          audioClips: [
+            ...editing.audioClips,
+            ...additions.filter((c) => !existing.some((e) => e.id === c.id)),
+          ],
         }
       : editing;
   const needsSave = (await historyRecordHash(merged)) !== (await historyRecordHash(saved));
@@ -364,12 +391,12 @@ async function settle(
       }
     : { kind: "failed", message: "没有找到本次添加，已保留并保存本页编辑。" };
 }
-async function readBack(
+export async function readBackLibraryWrite(
   host: LibraryHost,
   pending: PendingLibraryWrite,
   lease: FilmSaveLease,
 ): Promise<LibraryOutcome> {
-  const external = requireExternal(lease);
+  const external = requireAudioExternal(lease);
   try {
     // A valid non-BUSY inspect response proves prior add's factory lifecycle ended.
     // A transport failure, INVALID_INPUT or BUSY never proves that an old write stopped.
@@ -410,7 +437,7 @@ async function readBack(
       };
     }
     const saved = canonical(raw, pending.selection.projectId);
-    return await settle(host, pending, lease, saved, raw as Record<string, unknown>);
+    return await settleLibraryWrite(host, pending, lease, saved, raw as Record<string, unknown>);
   } catch {
     external.unknown();
     return { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending };
@@ -427,7 +454,7 @@ function libraryReleaseFailure(host: LibraryHost, pending?: PendingLibraryWrite)
     ...(pending?.expectedClipId ? { clipId: pending.expectedClipId } : {}),
   };
 }
-async function withLibraryCleanup(
+export async function withAudioWriteCleanup(
   host: LibraryHost,
   run: () => Promise<LibraryOutcome>,
   getLease: () => FilmSaveLease | undefined,
@@ -457,15 +484,15 @@ export async function addLibraryAsset(
     placement: AddBundledFilmAudioInput["placement"];
   },
 ): Promise<LibraryOutcome> {
-  let lease: FilmSaveLease | undefined, pending: PendingLibraryWrite | undefined;
-  return await withLibraryCleanup(
+  let lease: FilmSaveLease | undefined, pending: PendingSingleLibraryWrite | undefined;
+  return await withAudioWriteCleanup(
     host,
     async () => {
       try {
         if (!current(host, target.film, target.selection) || choice.assetId !== asset.id)
           return { kind: "stale", message: "作品或所选版本已变化，请重新核对。" };
         lease = await host.persistence.acquire(target.film.id);
-        const prepared = await prepare(target.film, target.selection, host, lease);
+        const prepared = await prepareLibraryInput(target.film, target.selection, host, lease);
         const result = await capabilities().inspectBundledFilmAudioTarget!({
           projectId: target.film.id,
           expectedProjectHash: prepared.hash,
@@ -495,7 +522,7 @@ export async function addLibraryAsset(
           lane: choice.lane,
           placement: choice.placement,
         };
-        const external = requireExternal(lease);
+        const external = requireAudioExternal(lease);
         pending = {
           before: prepared.accepted,
           canonicalBefore: prepared.stored,
@@ -512,7 +539,7 @@ export async function addLibraryAsset(
           pending.settled = true;
           if (outcome.kind === "ADDED") {
             pending.expectedClipId = outcome.clipId;
-            return await settle(
+            return await settleLibraryWrite(
               host,
               pending,
               lease,
@@ -522,13 +549,13 @@ export async function addLibraryAsset(
           }
           pending.settled = false;
           pending.observedRaw = undefined;
-          const checked = await readBack(host, pending, lease);
+          const checked = await readBackLibraryWrite(host, pending, lease);
           return checked.kind === "failed" && !["WRITE_UNCONFIRMED", "BUSY"].includes(outcome.code)
             ? { ...checked, message: LIBRARY_FAILURE[outcome.code] ?? checked.message }
             : checked;
         } catch {
           external.unknown();
-          return await readBack(host, pending, lease);
+          return await readBackLibraryWrite(host, pending, lease);
         }
       } catch {
         return pending
@@ -542,9 +569,9 @@ export async function addLibraryAsset(
 }
 export async function recoverLibraryWrite(host: LibraryHost, pending: PendingLibraryWrite) {
   const lease = await host.persistence.acquireExternalRecovery(pending.selection.projectId);
-  return await withLibraryCleanup(
+  return await withAudioWriteCleanup(
     host,
-    () => readBack(host, pending, lease),
+    () => readBackLibraryWrite(host, pending, lease),
     () => lease,
     () => pending,
   );
@@ -610,7 +637,7 @@ export async function adoptLibrarySavedVersion(
   review: LibraryConflictReview,
 ): Promise<LibraryOutcome> {
   const lease = await host.persistence.acquireExternalRecovery(pending.before.id);
-  return await withLibraryCleanup(
+  return await withAudioWriteCleanup(
     host,
     async () => {
       const valid = () =>
@@ -621,7 +648,7 @@ export async function adoptLibrarySavedVersion(
         return { kind: "unknown", message: "编辑副本又有变化，请重新查看两份状态。", pending };
       pending.settled = false;
       pending.observedRaw = undefined;
-      const checked = await readBack(host, pending, lease);
+      const checked = await readBackLibraryWrite(host, pending, lease);
       if (checked.kind !== "unknown") return checked;
       if (
         !pending.settled ||
@@ -639,7 +666,7 @@ export async function adoptLibrarySavedVersion(
         return { kind: "unknown", message: "编辑副本又有变化，请重新查看两份状态。", pending };
       const adopted = review.live?.id === saved.id ? host.apply(saved) : undefined;
       if (
-        !requireExternal(lease).confirm(saved, adopted, () =>
+        !requireAudioExternal(lease).confirm(saved, adopted, () =>
           adopted ? host.current() === adopted : valid(),
         )
       )
@@ -659,7 +686,7 @@ export async function removeLibraryClip(
   clipId: string,
 ): Promise<LibraryOutcome> {
   let lease: FilmSaveLease | undefined;
-  return await withLibraryCleanup(
+  return await withAudioWriteCleanup(
     host,
     async () => {
       try {

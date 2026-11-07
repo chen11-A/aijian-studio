@@ -20,3 +20,17 @@
   flex: none;
   flex-wrap: wrap;
 }
+
+.pro-root .shot-audio-suggestions .shot-audio-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.pro-root .shot-audio-groups {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pro-root .shot-audio-groups > div {
+  margin: 8px 0;
+}

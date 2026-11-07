@@ -1,3 +1,4 @@
+import { canonicalDialogueLines } from "@aijian/contracts/film-dialogue-split-plan";
 import { shotActions, shotActionText, withShotActions } from "./shot-actions";
 import { mergeDirectorPlans } from "./director-plan";
 import { extractScriptLines, type ScriptLine } from "./phase2";
@@ -8,13 +9,7 @@ import type { SceneCoverage } from "./contracts3j";
 
 /** Legacy scalar edits remain authoritative until the editor also updates lines. */
 export function shotLines(shot: Pick<FilmShot, "line" | "speaker" | "lines">): ScriptLine[] {
-  const lines = (shot.lines ?? []).filter((line) => line.text.trim());
-  if (
-    lines.length &&
-    (lines.map((line) => line.text).join("\n") === shot.line || lines[0]?.text === shot.line)
-  )
-    return lines;
-  return shot.line.trim() ? [{ speaker: shot.speaker ?? "", text: shot.line }] : lines;
+  return canonicalDialogueLines(shot);
 }
 
 export function dialogueSentences(text: string): string[] {

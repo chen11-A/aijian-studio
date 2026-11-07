@@ -6,6 +6,7 @@ export const HISTORY_REASON_LABEL: Record<FilmHistoryReason, string> = {
   "before-batch-generation": "批量生成前自动存的",
   "before-pipeline": "整部制作前自动存的",
   "before-restore": "恢复历史前保留的当前版本",
+  "before-dialogue-split": "拆镜前保留的原版",
 };
 function recordText(value: unknown): string {
   const normalize = (value: unknown): unknown =>

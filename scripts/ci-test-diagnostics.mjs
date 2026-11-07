@@ -2,8 +2,8 @@ import process from "node:process";
 import { spawn } from "node:child_process";
 import { stripVTControlCharacters } from "node:util";
 import { constants } from "node:os";
-import { extname, resolve } from "node:path";
-import { realpathSync, statSync } from "node:fs";
+import { extname, resolve, relative, isAbsolute } from "node:path";
+import { realpathSync, statSync, readFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 
@@ -25,10 +25,91 @@ export function pnpmInvocation(entry, executable = process.execPath) {
   return { command: executable, args: [javascript, "test"] };
 }
 
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+/** Only declared top-level test names in this checkout are safe node metadata.
+ * Never emit pytest parameter IDs, exception messages or an absolute path. */
+function pytestSourceLines(file, sourceRoot) {
+  if (!/^services\/api\/tests\/test_[A-Za-z0-9_]+\.py$/u.test(file) || file.length > 240)
+    return null;
+  try {
+    const root = realpathSync.native(sourceRoot),
+      source = realpathSync.native(resolve(root, file));
+    const part = relative(root, source);
+    if (!part || part.startsWith("..") || isAbsolute(part) || part.replaceAll("\\", "/") !== file)
+      return null;
+    const info = statSync(source);
+    if (!info.isFile() || info.size > 1024 * 1024) return null;
+    return readFileSync(source, "utf8").split(/\r?\n/u);
+  } catch {
+    return null;
+  }
+}
+export function pytestSourceLocation(file, name, sourceRoot = repositoryRoot) {
+  if (!/^test_[A-Za-z0-9_]{1,155}$/u.test(name)) return null;
+  const lines = pytestSourceLines(file, sourceRoot);
+  if (!lines) return null;
+  let found = null;
+  for (const [index, line] of lines.entries()) {
+    const definition = line.match(/^(?:async[ \t]+)?def[ \t]+(test_[A-Za-z0-9_]+)[ \t]*\(/u);
+    if (definition?.[1] === name) found = index + 1;
+  }
+  return found;
+}
+export function pytestFailureLocation(file, line, sourceRoot = repositoryRoot) {
+  if (!/^[1-9]\d{0,7}$/u.test(String(line))) return null;
+  const lines = pytestSourceLines(file, sourceRoot);
+  return lines && Number(line) <= lines.length ? Number(line) : null;
+}
+
+/** Closed test-local PCM statistics; no raw text/string fields can enter annotations. */
+export function emptySpeechPcmSummary(raw) {
+  if (typeof raw !== "string" || raw.length > 2048 || !raw.startsWith("CI_EMPTY_SPEECH_PCM "))
+    return null;
+  try {
+    const v = JSON.parse(raw.slice("CI_EMPTY_SPEECH_PCM ".length));
+    if (
+      !v ||
+      typeof v !== "object" ||
+      Array.isArray(v) ||
+      Object.keys(v).sort().join() !==
+        "channels,nonzero,ordinal,peakAbs,rate,referenced,rms,samples,schema,stage,width" ||
+      v.schema !== 1 ||
+      typeof v.referenced !== "boolean" ||
+      !["silent", "loudnorm", "fit", "final"].includes(v.stage) ||
+      ![16000, 48000].includes(v.rate) ||
+      ![1, 2].includes(v.channels) ||
+      v.width !== 2 ||
+      !Number.isInteger(v.ordinal) ||
+      v.ordinal < 1 ||
+      v.ordinal > 16 ||
+      !Number.isInteger(v.samples) ||
+      v.samples < 1 ||
+      v.samples > 2000000 ||
+      v.samples % v.channels !== 0 ||
+      !Number.isInteger(v.nonzero) ||
+      v.nonzero < 0 ||
+      v.nonzero > v.samples ||
+      !Number.isInteger(v.peakAbs) ||
+      v.peakAbs < 0 ||
+      v.peakAbs > 32768 ||
+      typeof v.rms !== "number" ||
+      !Number.isFinite(v.rms) ||
+      v.rms < 0 ||
+      v.rms > v.peakAbs ||
+      (v.nonzero === 0 ? v.peakAbs !== 0 || v.rms !== 0 : v.peakAbs === 0 || v.rms === 0)
+    )
+      return null;
+    return `Empty speech PCM: referenced=${v.referenced}; stage=${v.stage}#${v.ordinal}; rate=${v.rate}; channels=${v.channels}; width=${v.width}; samples=${v.samples}; nonzero=${v.nonzero}; peakAbs=${v.peakAbs}; RMS=${v.rms.toFixed(6)}.`;
+  } catch {
+    return null;
+  }
+}
+
 /** Keep metadata only: no assertion values, raw error messages, absolute paths or log tails. */
-export function failureSummary(initialPhase = "pnpm test") {
+export function failureSummary(initialPhase = "pnpm test", sourceRoot = repositoryRoot) {
   let phase = initialPhase;
   let failureBlock = false;
+  let pytestFailures = false;
   const entries = new Map();
   const add = (message) => {
     const key = `${phase}: ${message}`;
@@ -76,7 +157,32 @@ export function failureSummary(initialPhase = "pnpm test") {
     if (heap) add("Node heap limit reached.");
     if (/\bFAIL(?:ED)?\b|^\s*✖|^not ok\b|^\s*ERROR\b|failureType:|Coverage for/u.test(text))
       failureBlock = true;
+    if (/^=+\s+FAILURES\s+=+$/u.test(diagnostic.trim())) {
+      pytestFailures = true;
+      failureBlock = true;
+    } else if (
+      /^=+\s+(?:short test summary info|warnings summary|ERRORS)\b/u.test(diagnostic.trim())
+    ) {
+      pytestFailures = false;
+    }
     if (!failureBlock) return;
+    const pcm = pytestFailures ? emptySpeechPcmSummary(diagnostic) : null;
+    if (pcm) {
+      phase = "Python";
+      add(pcm);
+    }
+    const pytestFrame =
+      pytestFailures &&
+      diagnostic.match(
+        /^\s*(services\/api\/tests\/test_[A-Za-z0-9_]+\.py):([1-9]\d{0,7}):\s*(AssertionError|RuntimeError|ValueError|TypeError|OSError|FileNotFoundError|PermissionError|KeyError|IndexError|EOFError|TimeoutError|AttributeError)\b/u,
+      );
+    if (pytestFrame && entries.size < 6) {
+      const actualLine = pytestFailureLocation(pytestFrame[1], pytestFrame[2], sourceRoot);
+      if (actualLine) {
+        phase = "Python";
+        add(`Pytest failure frame: ${pytestFrame[1]}:${actualLine} (${pytestFrame[3]}).`);
+      }
+    }
     const file = text.match(
       /(?:^|[\s/'"(])((?:packages|apps|services|scripts|src|test)\/[A-Za-z0-9_./-]+\.(?:[cm]?[jt]sx?|py))(?::(\d+))?(?::\d+)?/u,
     );
@@ -95,6 +201,17 @@ export function failureSummary(initialPhase = "pnpm test") {
       else if (file[1].includes(".py")) phase = "Python";
       add(`Failure location: ${file[1]}${file[2] ? `:${file[2]}` : ""}`);
     }
+    const pytestNode = diagnostic.match(
+      /^\s*FAILED\s+(services\/api\/tests\/test_[A-Za-z0-9_]+\.py)::(test_[A-Za-z0-9_]{1,155})(?=\[|\s|$)/u,
+    );
+    if (pytestNode && entries.size < 6) {
+      const declaredLine = pytestSourceLocation(pytestNode[1], pytestNode[2], sourceRoot);
+      if (declaredLine) {
+        phase = "Python";
+        add(`Failure test: ${pytestNode[1]}::${pytestNode[2]}:${declaredLine}`);
+      }
+    }
+
     const timeout =
       vitestTimeout ?? text.match(/(?:timed out after|timeout(?: of)?)\s+([1-9]\d{0,9})\s*ms\b/iu);
     if (timeout && Number(timeout[1]) <= 2147483647) add(`Test timeout: ${timeout[1]} ms.`);
@@ -209,6 +326,8 @@ try {
 }
 if (direct) {
   try {
+    if (process.argv[2] === "--speech-window-test" && process.argv.length !== 3)
+      throw new Error("UNEXPECTED_TARGET_ARGUMENTS");
     const invocation =
       process.argv[2] === "--self-test"
         ? {
@@ -219,7 +338,13 @@ if (direct) {
             ],
             phase: "diagnostics self-test",
           }
-        : pnpmInvocation(process.env.npm_execpath);
+        : process.argv[2] === "--speech-window-test"
+          ? {
+              command: "uv",
+              args: ["run", "pytest", "services/api/tests/test_story_speech_window.py"],
+              phase: "Python / speech-window",
+            }
+          : pnpmInvocation(process.env.npm_execpath);
     if (process.argv[2] === "--check-launcher")
       process.stdout.write("CI launcher verified: JavaScript entry, shell disabled.\n");
     else process.exitCode = await runTestDiagnostics(invocation);

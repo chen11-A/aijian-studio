@@ -1,3 +1,5 @@
+import { normalizeDialogueSplitSource } from "@aijian/contracts/film-dialogue-split-plan";
+import type { DialogueSplitSource } from "@aijian/contracts/film-dialogue-split";
 import type { AudioMixSettings } from "@aijian/contracts/film-audio-mix";
 import { reviewedVideoText, type ReviewedVideoPrompt } from "./seven-part-video";
 import type { SceneShotBudget } from "./director-continuity";
@@ -222,6 +224,7 @@ export type FilmScene = {
 };
 
 export type FilmShot = {
+  splitSource?: DialogueSplitSource;
   sourceReview?: DirectorSourceReview;
   directorPlan?: ShotDirectorPlan;
   performancePlan?: ShotPerformancePlan;
@@ -1175,6 +1178,7 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
       })),
       shots: (value.shots ?? []).map((shot) => ({
         ...(shot.userFields?.includes("action") ? shot : withShotActions(shot, shotActions(shot))),
+        splitSource: normalizeDialogueSplitSource(shot.splitSource) ?? undefined,
         continuity: upgradeContinuity(shot.continuity),
         lines: shotLines({
           ...shot,

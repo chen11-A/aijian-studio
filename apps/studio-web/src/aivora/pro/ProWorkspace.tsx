@@ -14,7 +14,9 @@ import {
 } from "../film/seven-part-video";
 import { rangeVideoBody } from "./actions/video-prompt-review";
 import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
+import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
+import { useDialogueSplit } from "./use-dialogue-split";
 import { useShotAudioSuggestions } from "./use-shot-audio-suggestions";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
@@ -821,7 +823,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       current: () => filmRef.current,
       apply: applyLive,
       ensureBillingProject: () => pipelineLive.current.ensureBillingProject(),
-      acquireSaveOwnership: persistence.acquire,
+      acquireSaveOwnership: async (id) => {
+        const lease = await persistence.acquire(id);
+        return {
+          ...lease,
+          save: async (...args: Parameters<typeof lease.save>) => {
+            await lease.save(...args);
+          },
+        };
+      },
       beforeRun: (lease) => captureBeforePipeline(lease),
       bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
       modelIds: () => pipelineLive.current.modelIds,
@@ -891,7 +901,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   };
 
   const [historyTick, setHistoryTick] = useState(0);
-  const audioLibrary = useBundledAudioLibrary(film, stage === "edit", {
+  const audioLibraryHost: LibraryHost = {
     current: () => filmRef.current,
     selection: () => {
       const scope = editorSelection.current;
@@ -918,18 +928,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return adopted;
     },
     persistence,
-  });
-  const shotAudioSuggestions = useShotAudioSuggestions(film, stage === "edit", {
-    current: () => filmRef.current,
+  };
+  const audioLibrary = useBundledAudioLibrary(film, stage === "edit", audioLibraryHost);
+  const shotAudioSuggestions = useShotAudioSuggestions(
+    film,
+    stage === "edit",
+    audioLibraryHost,
+    audioLibrary,
+  );
+  const dialogueSplit = useDialogueSplit(film, stage === "edit" || stage === "board", {
+    ...audioLibraryHost,
     selection: () => {
-      const scope = editorSelection.current;
-      const live = filmRef.current;
-      const shot = live?.shots.find((row) => row.id === scope.shotId);
-      return live && shot?.selectedTakeId && scope.page === "edit"
-        ? { projectId: live.id, page: scope.page, shotId: shot.id, takeId: shot.selectedTakeId }
+      const selected = editorSelection.current,
+        live = filmRef.current;
+      const target = live?.shots.find((row) => row.id === selected.shotId);
+      return live && target && (selected.page === "edit" || selected.page === "board")
+        ? {
+            projectId: live.id,
+            shotId: target.id,
+            takeId: target.selectedTakeId,
+            page: selected.page,
+          }
         : null;
     },
-    persistence,
+    versions: () => versions,
+    onApplied: (message) =>
+      setNotice({ code: "STEP_COMPLETE", text: NOTICE_TEXT.STEP_COMPLETE, detail: message }),
   });
   const actions = videoActions(modelIds);
 
@@ -3300,7 +3324,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         stopped: () => stopRef.current,
         paused: () => pauseRef.current,
         cancelled: (jobId) => cancelledJobs.current.has(jobId),
-        request: (body) => bridge!.createStoryFilm!(billingProject, body),
+        request: (body, scope) =>
+          bridge!.supportsStoryFilmLocalScope
+            ? bridge!.createStoryFilm!(billingProject, body, scope)
+            : bridge!.createStoryFilm!(billingProject, body),
         notice: emitNotice,
         completed: ({ shotId, done, message }) => {
           if (done && shotId === openShotRef.current) setPlaying(true);
@@ -4680,6 +4707,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const shotPromptSuggestions = (
     <>
       {videoFactsSuggestion}
+      {dialogueSplit.tools}
       {promptSuggestion}
     </>
   );
@@ -5372,6 +5400,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     <>
                       {audioLibrary.tools}
                       {shotAudioSuggestions.tools}
+                      {dialogueSplit.tools}
                     </>
                   }
                   onSceneMood={(sceneId, mood) => {
@@ -5683,6 +5712,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
           <div className="sb-mid">
             {audioLibrary.pendingButton}
+            {dialogueSplit.pendingButton}
             <button
               className={busy ? "task" : "task idle"}
               data-menu="queue"
@@ -6038,6 +6068,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
         ) : null}
         {shotAudioSuggestions.dialog}
+        {dialogueSplit.dialog}
+        {dialogueSplit.pendingPanel}
         {audioLibrary.dialog}
         {audioLibrary.pendingPanel}
         {appSettings ? (
