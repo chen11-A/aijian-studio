@@ -274,17 +274,22 @@ export function AudioMixPreview({
       void context.close().catch(() => undefined);
     };
   }, [result]);
-  return result?.plan.limitations.includes("SCENE_AUDIO_BINDING_STALE") ? (
-    <span className="role-desc" role="status">
-      整场配声的选版、实际时钟或完整成员已变化，整组未试听；请重新核对并选用。
-    </span>
-  ) : failed ? (
-    <span className="role-desc" role="status">
-      当前音源无法在受控容量内完整试听，未播放未核验的声音；请在桌面版检查成片，不把静音当作试听成功。
-    </span>
-  ) : loading ? (
-    <span className="role-desc" role="status">
-      正在读取当前时间窗的已核验音源…
-    </span>
-  ) : null;
+  return (
+    <>
+      {result?.plan.limitations.includes("SCENE_AUDIO_BINDING_STALE") && (
+        <span className="role-desc" role="status">
+          整场配声的选版、实际时钟或完整成员已变化，整组未试听；请重新核对并选用。
+        </span>
+      )}
+      {failed ? (
+        <span className="role-desc" role="status">
+          当前音源无法在受控容量内完整试听，未播放未核验的声音；请在桌面版检查成片，不把静音当作试听成功。
+        </span>
+      ) : loading ? (
+        <span className="role-desc" role="status">
+          正在读取当前时间窗的已核验音源…
+        </span>
+      ) : null}
+    </>
+  );
 }

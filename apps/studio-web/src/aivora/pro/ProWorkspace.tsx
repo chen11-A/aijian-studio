@@ -18,6 +18,7 @@ import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useDialogueSplit } from "./use-dialogue-split";
+import { useSceneAudioSuggestions } from "./use-scene-audio-suggestions";
 import { useShotAudioSuggestions } from "./use-shot-audio-suggestions";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
@@ -938,6 +939,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     film,
     stage === "edit",
     audioLibraryHost,
+    audioLibrary,
+  );
+  const sceneAudioSuggestions = useSceneAudioSuggestions(
+    film,
+    stage === "edit",
+    {
+      ...audioLibraryHost,
+      sceneSelection: () => {
+        const selected = editorSelection.current,
+          live = filmRef.current;
+        return live && selected.page === "edit" && selected.sceneId
+          ? { projectId: live.id, page: selected.page, sceneId: selected.sceneId }
+          : null;
+      },
+    },
     audioLibrary,
   );
   const dialogueSplit = useDialogueSplit(film, stage === "edit" || stage === "board", {
@@ -5459,6 +5475,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     <>
                       {audioLibrary.tools}
                       {shotAudioSuggestions.tools}
+                      {sceneAudioSuggestions.tools}
                       {dialogueSplit.tools}
                     </>
                   }
@@ -6131,6 +6148,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
         ) : null}
         {shotAudioSuggestions.dialog}
+        {sceneAudioSuggestions.dialog}
         {dialogueSplit.dialog}
         {dialogueSplit.pendingPanel}
         {audioLibrary.dialog}
