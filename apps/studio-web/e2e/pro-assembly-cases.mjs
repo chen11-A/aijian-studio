@@ -11,6 +11,7 @@ import {
   installAssemblyMediaRequests,
   seedAssemblyProject,
   readAssemblyReadiness,
+  readAssemblyInteraction,
 } from "./pro-assembly-fixture.mjs";
 import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
 
@@ -139,6 +140,8 @@ export async function runAssemblyCases({ browser, config, report, media, persist
           assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "edit");
           await page.waitForFunction(() => window.__assemblyAudit.calls.length === 1);
           result.reached = true;
+          result.interactions = {};
+          result.interactions.entered = await page.evaluate(readAssemblyInteraction);
           if (state === "assembly-cancel-revision") {
             const first = await page.evaluate(() => window.__assemblyAudit.calls[0]);
             await page.locator(".pb.bin .it").first().click();
@@ -251,11 +254,13 @@ export async function runAssemblyCases({ browser, config, report, media, persist
                 before.shots[1].picture,
                 "Playback time updates must not steal the chosen editing shot",
               );
+              result.interactions.beforeMark = await page.evaluate(readAssemblyInteraction);
               await button("设入点").click();
               await page
                 .getByText("请先选择当前正在播放的镜头，再标记范围。", { exact: true })
                 .first()
                 .waitFor();
+              result.interactions.afterMark = await page.evaluate(readAssemblyInteraction);
               assert.equal(
                 await page.getByRole("button", { name: "取消选择", exact: true }).count(),
                 0,
@@ -327,6 +332,9 @@ export async function runAssemblyCases({ browser, config, report, media, persist
           result.calls = audit;
           result.passed = true;
         } catch (error) {
+          result.assemblyInteraction = await page
+            .evaluate(readAssemblyInteraction)
+            .catch(() => null);
           result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-assembly-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
