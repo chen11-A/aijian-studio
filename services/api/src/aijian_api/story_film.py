@@ -56,6 +56,7 @@ from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
 from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE
+from aijian_api.story_dialogue_limit import StoryDialogueLimit, dialogue_request_sha256
 from aijian_api.story_speech_window import SPEECH_WINDOW, SpeechWindow, pad_pcm
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
@@ -105,6 +106,7 @@ class StoryFilmError(RuntimeError):
         self.ffmpeg_stage = ffmpeg_stage
         self.exit_code = exit_code
         self.detail = detail
+        self.dialogue_limit: StoryDialogueLimit | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,6 +211,7 @@ class StoryFilmResult:
     # 4B-B11: why that copy is missing when the film has burned subtitles but no clean copy.
     clean_copy_error: str | None = None
     clean_copy_reason: str | None = None
+    dialogue_limit: StoryDialogueLimit | None = None
 
 
 def user_data_root() -> Path | None:
@@ -546,6 +549,7 @@ class StoryFilmService:
                 return replace(
                     failed,
                     user_message=user_message(error.code, error.message, detail),
+                    dialogue_limit=error.dialogue_limit,
                 )
             return failed
         self._ledger.complete_local_task(
@@ -986,6 +990,60 @@ class StoryFilmService:
         ]
         return picture or _FALLBACK_PNG, video, audio
 
+    def _check_before_target_video(
+        self,
+        request: StoryFilmRequest,
+        project_id: str,
+        raw_speech: bytes,
+        required: float,
+        cap: int,
+    ) -> None:
+        try:
+            _check_speech_window(required, cap, request.shot_index)
+        except StoryFilmError as error:
+            # Do not attach these flags to post-video checks or infer a batch-wide count.
+            if (
+                error.code == "DIALOGUE_VIDEO_LIMIT"
+                and cap in {10, 15}
+                and math.isfinite(required)
+                and cap < required <= 36001
+                and (request.shot_index is None or request.shot_index >= 1)
+            ):
+                saved = False
+                try:
+                    voice = self._saved_voice(
+                        self._image_directory(), self._image_stem(project_id, request)
+                    )
+                    if voice is not None:
+                        with voice.open("rb") as stored:
+                            saved = stored.read(len(raw_speech) + 1) == raw_speech
+                except OSError:
+                    pass
+                try:
+                    signature = dialogue_request_sha256(
+                        request.video_model or VIDEO_MODEL,
+                        request.voice_id or "eve",
+                        request.delivery,
+                        request.narration,
+                        tuple(
+                            (line.speaker, line.text, line.voice_id)
+                            for line in request.dialogue_lines
+                        ),
+                        speech_model=request.speech_model,
+                    )
+                except (UnicodeError, ValueError):
+                    # Preserve the original business failure if an old malformed string cannot hash.
+                    raise error from None
+                error.dialogue_limit = StoryDialogueLimit(
+                    required_seconds=required,
+                    max_seconds=cap,
+                    shot_index=request.shot_index,
+                    request_sha256=signature,
+                    raw_audio_saved=saved,
+                    raw_audio_sha256=hashlib.sha256(raw_speech).hexdigest() if saved else None,
+                )
+            raise
+
     def _live_media(
         self,
         request: StoryFilmRequest,
@@ -1018,7 +1076,9 @@ class StoryFilmService:
                     else _media_duration(tools.ffprobe_path, cached_voice)
                 )
                 if _uses_speech_window(request):
-                    _check_speech_window(required, cap, request.shot_index)
+                    self._check_before_target_video(
+                        request, project_id, saved_speech, required, cap
+                    )
                 if required > _media_duration(tools.ffprobe_path, cached_video) + 1:
                     raise StoryFilmError(
                         "VIDEO_TOO_SHORT", "已保存的视频不够长，请重新生成更长的视频。"
@@ -1125,7 +1185,7 @@ class StoryFilmService:
                 tools = self._tools()
                 spoken_seconds = _speech_window_seconds(tools.ffmpeg_path, speech_file)
             duration = max(min(duration, cap), min(cap, math.ceil(spoken_seconds - 1e-6)))
-            _check_speech_window(spoken_seconds, cap, request.shot_index)
+            self._check_before_target_video(request, project_id, speech, spoken_seconds, cap)
             self._ensure_running(project_id)
         mark_film_progress(project_id, "video", shot_label or "正在生成视频。", image_saved=kept)
         clip, video_note = self._live_video(

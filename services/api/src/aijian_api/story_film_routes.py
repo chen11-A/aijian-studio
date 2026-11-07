@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import asdict
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -137,12 +138,27 @@ class StoryFilmCueData(BaseModel):
     end_seconds: float
 
 
+class StoryDialogueLimitData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1]
+    required_seconds: float = Field(gt=0, le=36001, allow_inf_nan=False)
+    max_seconds: Literal[10, 15]
+    shot_index: int | None = Field(ge=1)
+    speech_window: Literal[1]
+    target_video_submitted: Literal[False]
+    request_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    raw_audio_saved: bool
+    raw_audio_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class StoryFilmData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["SUCCEEDED", "BLOCKED", "FAILED"]
     message: str
     user_message: UserMessage | None = None
+    dialogue_limit: StoryDialogueLimitData | None = None
     provider_label: str
     billing_label: str
     suggested_provider: Literal["stub", "grok_subscription"] | None = None
@@ -459,6 +475,9 @@ def _data(result: StoryFilmResult) -> StoryFilmData:
         live_call=result.live_call,
         preview_image=result.preview_image,
         voice_path=result.voice_path,
+        dialogue_limit=StoryDialogueLimitData(**asdict(result.dialogue_limit))
+        if result.dialogue_limit is not None
+        else None,
         clean_output_path=result.clean_output_path,
         subtitle_cues=[
             StoryFilmCueData(
