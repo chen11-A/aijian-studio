@@ -1,3 +1,7 @@
+import {
+  stableGenerationAccount,
+  type GenerationDispatchAccount,
+} from "./generation-dispatch-account";
 import type {
   GrokCatalogNotice,
   GrokLoginActionResult,
@@ -84,6 +88,7 @@ export type GrokRuntime = GrokLoginBridge & {
   restore(): Promise<void>;
   /** Main-process only. Never send this value across IPC. */
   mediaAccessToken(): Promise<string | null>;
+  mediaDispatchAccount(): Promise<GenerationDispatchAccount | null>;
   cancelWork(idempotencyKey?: string): void;
 };
 
@@ -750,6 +755,15 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
   }
 
+  async function mediaDispatchAccount(): Promise<GenerationDispatchAccount | null> {
+    const bearer = await mediaAccessToken();
+    // No await between capturing this token/session identity and returning the pair.
+    if (!bearer || !session || session.accessToken !== bearer || session.inferenceDenied)
+      return null;
+    const accountSha256 = stableGenerationAccount(session.subject, endpoints.api);
+    return accountSha256 ? { bearer, accountSha256 } : null;
+  }
+
   async function mediaAccessToken(): Promise<string | null> {
     await restore();
     if (!session) return null;
@@ -798,5 +812,6 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       });
     },
     mediaAccessToken,
+    mediaDispatchAccount,
   };
 }

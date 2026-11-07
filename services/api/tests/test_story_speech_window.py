@@ -24,7 +24,17 @@ from aijian_api.story_film import (
 from aijian_api.story_speech_window import SPEECH_WINDOW, pad_pcm
 from aijian_api.xai_media import XaiHttpResponse
 from test_draft_export_runtime import toolchain
-from test_story_film import _PNG, _allow_live, _project, _request, _ScriptedTransport
+from test_story_film import (
+    _PNG,
+    _allow_live,
+    _byte_image,
+    _byte_references,
+    _request,
+    _ScriptedTransport,
+)
+from test_story_film import (
+    _configured_project as _project,
+)
 
 
 def pcm(seconds):
@@ -145,6 +155,7 @@ def test_padding_over_cap_keeps_raw_voice_and_retry_does_not_submit_video_or_tts
     raw = pcm(cap - 0.8)  # Raw speech fits, mandatory head/tail does not.
     transport = _ScriptedTransport([XaiHttpResponse(200, raw, "audio/wav")])
     service = StoryFilmService(repository, toolchain, transport=transport)
+    service._dispatch_account = "a" * 64
     request = _request(provider="grok_subscription", video_model=model)
     image_file = service._persist_image(project, request, _PNG)
     from aijian_api.xai_media import XaiImage
@@ -156,7 +167,7 @@ def test_padding_over_cap_keeps_raw_voice_and_retry_does_not_submit_video_or_tts
                 "synthetic",
                 project,
                 prepared_image=XaiImage(_PNG, None, "fixture"),
-                reference_images=references,
+                reference_images=_byte_references(references),
             )
         assert failure.value.code == "DIALOGUE_VIDEO_LIMIT"
         assert failure.value.detail["requiredSeconds"] == pytest.approx(cap + 0.2)
@@ -205,21 +216,18 @@ def test_production_window_is_applied_once_and_proof_uses_final_derived_audio(
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
+    service._dispatch_account = "a" * 64
     service._sleep = lambda _: None
     request = _request(provider="grok_subscription", subtitle="完整对白")
     if shot_list:
         request = _request(
             provider="grok_subscription",
-            shots=(
-                StoryShot(
-                    "完整对白", "书店", 2, "完整对白", still="https://example.invalid/start.png"
-                ),
-            ),
+            shots=(StoryShot("完整对白", "书店", 2, "完整对白", still=_byte_image("start")),),
         )
     else:
         # Exact cached image is a local fixture, no image generation call.
         service._persist_image(project, request, _PNG)
-    result = service.produce(project, request, media_token="synthetic")
+    result = service.produce(project, request, media_token="synthetic", dispatch_account="a" * 64)
     assert result.status == "SUCCEEDED", result.message
     video_requests = [
         call for call in transport.requests if call.url.endswith("/videos/generations")
@@ -288,7 +296,7 @@ def test_production_window_is_applied_once_and_proof_uses_final_derived_audio(
     raw_paths = list((tmp_path / "story-films").glob("*-voice.wav"))
     assert any(path.read_bytes() == raw for path in raw_paths)
     count = len(transport.requests)
-    again = service.produce(project, request, media_token="synthetic")
+    again = service.produce(project, request, media_token="synthetic", dispatch_account="a" * 64)
     assert again.status == "BLOCKED"  # Existing subscription idempotency, no new dispatch.
     assert len(transport.requests) == count
     assert Path(result.output_path).is_file()
@@ -325,6 +333,7 @@ def test_exact_cap_auto_duration_and_raw_cache_reuse_never_add_another_video(
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
+    service._dispatch_account = "a" * 64
     service._sleep = lambda _: None
     request = _request(provider="grok_subscription", video_model=model)
     service._persist_image(project, request, _PNG)
@@ -335,7 +344,7 @@ def test_exact_cap_auto_duration_and_raw_cache_reuse_never_add_another_video(
         project,
         duration=2,
         prepared_image=image,
-        reference_images=references,
+        reference_images=_byte_references(references),
     )
     video_calls = [call for call in transport.requests if call.url.endswith("/videos/generations")]
     assert len(video_calls) == 1
@@ -347,7 +356,7 @@ def test_exact_cap_auto_duration_and_raw_cache_reuse_never_add_another_video(
             "synthetic",
             project,
             duration=2,
-            reference_images=references,
+            reference_images=_byte_references(references),
         )
         == first
     )
@@ -399,6 +408,7 @@ def test_empty_spoken_text_has_no_synthetic_window_or_policy(
     monkeypatch.setattr(story_film_module, "_silent_wav", traced_silence)
     monkeypatch.setattr(story_film_module, "_ffmpeg", traced_ffmpeg)
     service = StoryFilmService(repository, toolchain, transport=transport)
+    service._dispatch_account = "a" * 64
     service._sleep = lambda _: None
     request = _request(provider="grok_subscription", narration="", subtitle="")
     if referenced_shot:
@@ -413,13 +423,13 @@ def test_empty_spoken_text_has_no_synthetic_window_or_policy(
                     "静音场景",
                     12,
                     "",
-                    still="https://example.invalid/start.png",
-                    references=("https://example.invalid/ref.png",),
+                    still=_byte_image("start"),
+                    references=(_byte_image("reference"),),
                 ),
             ),
         )
     service._persist_image(project, request, _PNG)
-    result = service.produce(project, request, media_token="synthetic")
+    result = service.produce(project, request, media_token="synthetic", dispatch_account="a" * 64)
     assert result.status == "SUCCEEDED", result.message
     manifest = repository.get_artifact_version(project, "story_film", result.artifact_version_id)
     assert "speech_window" not in manifest.version.content
@@ -457,6 +467,7 @@ def test_two_shots_auto_extend_independently_keep_second_body_and_actual_layout(
         )
     transport = _ScriptedTransport(responses)
     service = StoryFilmService(repository, toolchain, transport=transport)
+    service._dispatch_account = "a" * 64
     service._sleep = lambda _: None
     shots = tuple(
         StoryShot(
@@ -464,7 +475,7 @@ def test_two_shots_auto_extend_independently_keep_second_body_and_actual_layout(
             f"场景{index}",
             2,
             f"第{index}句",
-            still="https://example.invalid/start.png",
+            still=_byte_image("start"),
         )
         for index in range(2)
     )
@@ -472,6 +483,7 @@ def test_two_shots_auto_extend_independently_keep_second_body_and_actual_layout(
         project,
         _request(provider="grok_subscription", shots=shots),
         media_token="synthetic",
+        dispatch_account="a" * 64,
     )
     assert result.status == "SUCCEEDED", result.message
     requested = [
@@ -536,19 +548,21 @@ def test_actual_long_provider_response_respects_effective_cap_in_production(
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
+    service._dispatch_account = "a" * 64
     service._sleep = lambda _: None
     shot = StoryShot(
         "完整对白",
         "书店",
         2,
         "完整对白",
-        still="https://example.invalid/start.png",
-        references=references,
+        still=_byte_image("start"),
+        references=_byte_references(references),
     )
     result = service.produce(
         project,
         _request(provider="grok_subscription", video_model=model, shots=(shot,)),
         media_token="synthetic",
+        dispatch_account="a" * 64,
     )
     assert result.status == "SUCCEEDED", result.message
     assert _video_frames(toolchain().ffprobe_path, Path(result.output_path)) <= cap * 24

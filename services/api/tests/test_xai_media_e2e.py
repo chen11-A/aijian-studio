@@ -22,7 +22,8 @@ from aijian_api.story_film import StoryFilmService, _normalize_film_media, _vide
 from aijian_api.task_queue_read import TaskQueueReader
 from aijian_api.xai_media import XaiMediaClient
 from test_draft_export_runtime import toolchain
-from test_story_film import _allow_live, _project, _request
+from test_story_film import _allow_live, _request
+from test_story_film import _configured_project as _project
 
 _PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ"
@@ -422,8 +423,14 @@ def _service(monkeypatch, tmp_path: Path, script: _Script):
     log_path = tmp_path / "grok-login.log"
     _allow_live(monkeypatch, log_path)
 
-    def client(transport, *, token, origin="https://api.x.ai", log=None):
-        return XaiMediaClient(transport, token=token, origin=f"https://{script.host}", log=log)
+    def client(transport, *, token, origin="https://api.x.ai", log=None, before_video_submit=None):
+        return XaiMediaClient(
+            transport,
+            token=token,
+            origin=f"https://{script.host}",
+            log=log,
+            before_video_submit=before_video_submit,
+        )
 
     monkeypatch.setattr("aijian_api.story_film.XaiMediaClient", client)
     service = StoryFilmService(repository, toolchain)
@@ -445,7 +452,10 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
     try:
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
         result = service.produce(
-            project_id, _request("grok_subscription"), media_token="subscription-token"
+            project_id,
+            _request("grok_subscription"),
+            media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
         assert result.status == "SUCCEEDED", result.message
         assert result.has_video and result.has_audio
@@ -482,7 +492,7 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         assert script.video_bodies, "video was not submitted after the image response"
         image = script.video_bodies[0]["image"]
         assert isinstance(image, dict)
-        assert image["url"] == f"https://{script.host}/imgen/frame.jpeg"
+        assert image["url"] == "data:image/jpeg;base64," + base64.b64encode(script.jpeg).decode()
         assert not str(image["url"]).startswith("/")
         assert "story-films" not in str(image["url"])
         assert script.polls >= 2
@@ -497,7 +507,10 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         assert names[:5] == ["image", "image_saved", "tts", "video_submit", "video_poll"]
         assert names.count("tts") == 1 and "compose" in names
         again = service.produce(
-            project_id, _request("grok_subscription"), media_token="subscription-token"
+            project_id,
+            _request("grok_subscription"),
+            media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
         assert again.status == "SUCCEEDED", again.message
         assert "已用上次已生成的画面" in again.message
@@ -508,6 +521,7 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
             project_id,
             _request("grok_subscription", narration="灯塔换了班，雾还没有散。"),
             media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
         assert changed.status == "SUCCEEDED", changed.message
         assert "已用上次已生成的画面" not in changed.message
@@ -518,6 +532,7 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
             project_id,
             _request("grok_subscription", regenerate=True),
             media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
         assert forced.status == "SUCCEEDED", forced.message
         assert script.image_posts == 3
@@ -545,7 +560,10 @@ def test_b64_json_image_is_a_data_uri_and_tts_returns_audio(
     try:
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
         result = service.produce(
-            project_id, _request("grok_subscription"), media_token="subscription-token"
+            project_id,
+            _request("grok_subscription"),
+            media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
         assert result.status == "SUCCEEDED", result.message
         _assert_window(result, script, tmp_path)
@@ -561,7 +579,7 @@ def test_b64_json_image_is_a_data_uri_and_tts_returns_audio(
         httpd.shutdown()
 
 
-def test_image_cdn_forbidden_still_submits_the_https_url(
+def test_image_cdn_forbidden_is_unverifiable_and_never_submits_video(
     tmp_path, monkeypatch, _trusted_certificate
 ):
     script = _Script()
@@ -572,18 +590,21 @@ def test_image_cdn_forbidden_still_submits_the_https_url(
     try:
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
         result = service.produce(
-            project_id, _request("grok_subscription"), media_token="subscription-token"
+            project_id,
+            _request("grok_subscription"),
+            media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
-        assert script.video_bodies, result.message
-        image = script.video_bodies[0]["image"]
-        assert isinstance(image, dict)
-        assert image["url"] == f"https://{script.host}/imgen/frame.jpeg"
+        assert script.video_bodies == []
+        assert result.status == "FAILED"
+        assert result.user_message["code"] == "VIDEO_FAILURE_INPUT_UNVERIFIABLE"
+        assert script.image_posts == 1 and script.image_gets == 1
         logged = _events(log_path)
         assert any(item.get("error_stage") == "image" for item in logged)
         assert any(item.get("error_code") for item in logged)
         assert "灯塔夜班" not in log_path.read_text(encoding="utf-8")
-        assert result.status == "SUCCEEDED", result.message
-        _assert_window(result, script, tmp_path)
+        assert script.polls == 0
+        assert script.tts == 0  # Once the real CDN download fails, no additional stage is charged.
     finally:
         httpd.shutdown()
 
@@ -599,7 +620,10 @@ def test_broken_clip_names_the_ffmpeg_exit_and_retries_without_xai(
     try:
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
         result = service.produce(
-            project_id, _request("grok_subscription"), media_token="subscription-token"
+            project_id,
+            _request("grok_subscription"),
+            media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
         assert result.status == "FAILED"
         assert "画面、视频和配音都已经做好" in result.message
@@ -609,7 +633,10 @@ def test_broken_clip_names_the_ffmpeg_exit_and_retries_without_xai(
         assert first[0]["error_stage"] in {"normalize_video", "probe_video"}
         assert str(first[0]["error_code"]).startswith("exit_")
         again = service.produce(
-            project_id, _request("grok_subscription"), media_token="subscription-token"
+            project_id,
+            _request("grok_subscription"),
+            media_token="subscription-token",
+            dispatch_account="a" * 64,
         )
         assert again.status == "FAILED"
         assert "画面、视频和配音都已经做好" in again.message
@@ -659,7 +686,10 @@ def test_old_short_response_is_rejected_without_cutting_raw_voice_or_repeating_u
         service, project_id, log_path = _service(monkeypatch, tmp_path, script)
         for _ in range(2):
             result = service.produce(
-                project_id, _request("grok_subscription"), media_token="subscription-token"
+                project_id,
+                _request("grok_subscription"),
+                media_token="subscription-token",
+                dispatch_account="a" * 64,
             )
             assert result.status == "FAILED"
             assert result.user_message["code"] == "VIDEO_TOO_SHORT"

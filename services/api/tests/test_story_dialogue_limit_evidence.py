@@ -19,7 +19,8 @@ from aijian_api.story_film import (
 from aijian_api.story_film_routes import _data
 from aijian_api.user_messages import user_message
 from fastapi.testclient import TestClient
-from test_story_film import HOST, TOKEN, _project, _request
+from test_story_film import HOST, TOKEN, _request
+from test_story_film import _configured_project as _project
 from test_story_speech_window import pcm
 
 
@@ -166,7 +167,9 @@ def test_produce_keeps_typed_facts_from_real_prevideo_audio_check_and_same_key_d
     service = StoryFilmService(repository, toolchain, transport=transport)
     request = _request(provider="grok_subscription", confirmed=True)
     service._persist_image(project_id, request, _PNG)
-    result = service.produce(project_id, request, media_token="synthetic")
+    result = service.produce(
+        project_id, request, media_token="synthetic", dispatch_account="a" * 64
+    )
     assert result.status == "FAILED"
     assert result.user_message["code"] == "DIALOGUE_VIDEO_LIMIT"
     assert result.dialogue_limit is not None
@@ -175,7 +178,9 @@ def test_produce_keeps_typed_facts_from_real_prevideo_audio_check_and_same_key_d
     assert result.dialogue_limit.required_seconds == pytest.approx(16.2)
     assert _data(result).dialogue_limit.model_dump() == asdict(result.dialogue_limit)
     assert len(transport.requests) == 1
-    replay = service.produce(project_id, request, media_token="synthetic")
+    replay = service.produce(
+        project_id, request, media_token="synthetic", dispatch_account="a" * 64
+    )
     assert replay.status == "BLOCKED"
     assert len(transport.requests) == 1
 
