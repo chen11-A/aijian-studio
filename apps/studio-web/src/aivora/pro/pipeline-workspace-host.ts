@@ -3,11 +3,16 @@ import { applyContinuityChecks } from "../film/continuity-rules";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import { prepareFilmSnapshot } from "../film/library";
 import type { FilmProject, FilmShot } from "../film/project";
-import { productionTargetKey, type ProductionRunOptions } from "../film/production-pipeline";
+import {
+  isProductionPipeline,
+  productionTargetKey,
+  type ProductionRunOptions,
+} from "../film/production-pipeline";
 import { completeMembershipAgent } from "./agent-workflow";
 import {
   createFilmPipelineController,
   filmPipelineTargets,
+  filmPipelineFingerprint,
   type FilmPipelineHost,
 } from "./film-pipeline-controller";
 import {
@@ -118,7 +123,8 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
     trialDecisionId?: string,
   ) {
     if (active) return stop("PIPELINE_ALREADY_RUNNING");
-    const projectId = host.current()?.id;
+    const initialBinding = structuredClone(host.current());
+    const projectId = initialBinding?.id;
     if (!projectId) return stop("PROJECT_REQUIRED");
     const session: ActiveExecution = { projectId, abort: new AbortController() };
     active = session;
@@ -133,6 +139,38 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
       lease = await host.acquireSaveOwnership(projectId);
       if (!current()) return stop("PIPELINE_REQUEST_STALE");
       if (!recover) await host.beforeRun?.(lease);
+      // A legacy plan may predate its first billing-project binding. Only this
+      // invocation's exact ID-only transition may migrate its stored digest.
+      // Keep all durable step facts and their original inputVersion intact.
+      if (
+        !recover &&
+        initialBinding &&
+        !initialBinding.backendProjectId &&
+        isProductionPipeline(initialBinding.productionPipeline) &&
+        initialBinding.productionPipeline.projectId === projectId &&
+        initialBinding.productionInputFingerprint
+      ) {
+        const bound = host.current();
+        const unchanged = () =>
+          current() &&
+          host.current() === bound &&
+          bound?.backendProjectId === billingProjectId &&
+          JSON.stringify({ ...bound, backendProjectId: initialBinding.backendProjectId }) ===
+            JSON.stringify(initialBinding);
+        if (unchanged()) {
+          const originalHash = await filmPipelineFingerprint(initialBinding);
+          if (unchanged() && originalHash === initialBinding.productionInputFingerprint) {
+            const boundHash = await filmPipelineFingerprint(bound!);
+            if (!unchanged()) return stop("PIPELINE_INPUT_CHANGED");
+            const migrated = { ...bound!, productionInputFingerprint: boundHash };
+            await lease.save(migrated, unchanged);
+            if (!unchanged()) return stop("PIPELINE_INPUT_CHANGED");
+            host.apply(migrated);
+            if (!current() || JSON.stringify(host.current()) !== JSON.stringify(migrated))
+              return stop("PIPELINE_INPUT_CHANGED");
+          }
+        }
+      }
       if (trialDecisionId) {
         if (
           !host.checkTrialDecision ||
