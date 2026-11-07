@@ -7,6 +7,16 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["技术记录（不代表观看或试听）", "delivery-technical"],
+    ["导出设置与实际选材记录", "delivery-selection"],
+    ["找人物", "legacy-person-search"],
+    ["取消多选", "legacy-cancel-multi"],
+    ["先不生成", "legacy-batch-cancel"],
+    ["开始生成", "legacy-batch-confirm"],
+    ["安全框", "preview-safe"],
+    ["全屏预览 (F)", "preview-fullscreen"],
+    ["退出全屏 (Esc)", "preview-exit-fullscreen"],
+    ["看全片", "timeline-fit"],
     ["查看试片候选", "risk-open"],
     ["在分镜查看", "risk-inspect"],
     ["刷新候选", "risk-refresh"],
@@ -185,6 +195,10 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
       };
       if (Object.hasOwn(fixed, label)) return fixed[label];
     }
+    if (element.tagName === "BUTTON" && /^(重新)?生成这 [1-9]\d{0,2} 个$/.test(label))
+      return "legacy-batch-open";
+    if (element.tagName === "BUTTON" && /^删除这 [1-9]\d{0,2} 个$/.test(label))
+      return "legacy-delete-shots";
     if (element.matches('.risk-trial-review input[type="radio"]')) return "risk-candidate";
     if (element.matches("button.clip.v")) return "timeline-video";
     if (element.tagName === "INPUT" && element.closest(".shot-audio-choice")) {

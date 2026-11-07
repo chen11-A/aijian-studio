@@ -709,3 +709,44 @@ jobs:
             .aijian-dev/pro-risk-policy-audit/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7
+
+  pro-evidence-legacy:
+    name: Pro delivery evidence and existing UI interaction audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify delivery evidence and existing UI fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-evidence-legacy-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace delivery evidence and existing UI interactions
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-evidence-legacy-audit
+        run: node apps/studio-web/e2e/pro-evidence-legacy-audit.mjs
+
+      - name: Upload delivery evidence and existing UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-evidence-legacy-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-evidence-legacy-audit/report.json
+            .aijian-dev/pro-evidence-legacy-audit/1280x800-*/*.png
+            .aijian-dev/pro-evidence-legacy-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7
