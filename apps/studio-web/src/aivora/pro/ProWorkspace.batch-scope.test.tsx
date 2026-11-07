@@ -1,3 +1,4 @@
+import { generationExecutionFixture } from "./generation-execution.test-fixture";
 import { historyRecordHash } from "./actions/persistent-history";
 import type { FilmHistoryGateway, FilmHistoryEntry } from "@aijian/contracts/film-history";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -55,6 +56,7 @@ function desktop(film: FilmProject, video = vi.fn(async () => success)) {
   });
   const captures: { entry: FilmHistoryEntry; film: FilmProject }[] = [];
   window.aijian = {
+    ...generationExecutionFixture(async (id) => window.aijian!.readFilmProject!(id)),
     listFilmHistory: vi.fn<FilmHistoryGateway["listFilmHistory"]>(async (projectId) => ({
       kind: "LIST",
       entries: captures.filter((value) => value.film.id === projectId).map((value) => value.entry),
