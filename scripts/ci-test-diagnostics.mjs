@@ -28,12 +28,8 @@ export function pnpmInvocation(entry, executable = process.execPath) {
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 /** Only declared top-level test names in this checkout are safe node metadata.
  * Never emit pytest parameter IDs, exception messages or an absolute path. */
-export function pytestSourceLocation(file, name, sourceRoot = repositoryRoot) {
-  if (
-    !/^services\/api\/tests\/test_[A-Za-z0-9_]+\.py$/u.test(file) ||
-    file.length > 240 ||
-    !/^test_[A-Za-z0-9_]{1,155}$/u.test(name)
-  )
+function pytestSourceLines(file, sourceRoot) {
+  if (!/^services\/api\/tests\/test_[A-Za-z0-9_]+\.py$/u.test(file) || file.length > 240)
     return null;
   try {
     const root = realpathSync.native(sourceRoot),
@@ -43,22 +39,33 @@ export function pytestSourceLocation(file, name, sourceRoot = repositoryRoot) {
       return null;
     const info = statSync(source);
     if (!info.isFile() || info.size > 1024 * 1024) return null;
-    const lines = readFileSync(source, "utf8").split(/\r?\n/u);
-    let found = null;
-    for (const [index, line] of lines.entries()) {
-      const definition = line.match(/^(?:async[ \t]+)?def[ \t]+(test_[A-Za-z0-9_]+)[ \t]*\(/u);
-      if (definition?.[1] === name) found = index + 1;
-    }
-    return found;
+    return readFileSync(source, "utf8").split(/\r?\n/u);
   } catch {
     return null;
   }
+}
+export function pytestSourceLocation(file, name, sourceRoot = repositoryRoot) {
+  if (!/^test_[A-Za-z0-9_]{1,155}$/u.test(name)) return null;
+  const lines = pytestSourceLines(file, sourceRoot);
+  if (!lines) return null;
+  let found = null;
+  for (const [index, line] of lines.entries()) {
+    const definition = line.match(/^(?:async[ \t]+)?def[ \t]+(test_[A-Za-z0-9_]+)[ \t]*\(/u);
+    if (definition?.[1] === name) found = index + 1;
+  }
+  return found;
+}
+export function pytestFailureLocation(file, line, sourceRoot = repositoryRoot) {
+  if (!/^[1-9]\d{0,7}$/u.test(String(line))) return null;
+  const lines = pytestSourceLines(file, sourceRoot);
+  return lines && Number(line) <= lines.length ? Number(line) : null;
 }
 
 /** Keep metadata only: no assertion values, raw error messages, absolute paths or log tails. */
 export function failureSummary(initialPhase = "pnpm test", sourceRoot = repositoryRoot) {
   let phase = initialPhase;
   let failureBlock = false;
+  let pytestFailures = false;
   const entries = new Map();
   const add = (message) => {
     const key = `${phase}: ${message}`;
@@ -106,7 +113,27 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
     if (heap) add("Node heap limit reached.");
     if (/\bFAIL(?:ED)?\b|^\s*✖|^not ok\b|^\s*ERROR\b|failureType:|Coverage for/u.test(text))
       failureBlock = true;
+    if (/^=+\s+FAILURES\s+=+$/u.test(diagnostic.trim())) {
+      pytestFailures = true;
+      failureBlock = true;
+    } else if (
+      /^=+\s+(?:short test summary info|warnings summary|ERRORS)\b/u.test(diagnostic.trim())
+    ) {
+      pytestFailures = false;
+    }
     if (!failureBlock) return;
+    const pytestFrame =
+      pytestFailures &&
+      diagnostic.match(
+        /^\s*(services\/api\/tests\/test_[A-Za-z0-9_]+\.py):([1-9]\d{0,7}):\s*(AssertionError|RuntimeError|ValueError|TypeError|OSError|FileNotFoundError|PermissionError|KeyError|IndexError|EOFError|TimeoutError|AttributeError)\b/u,
+      );
+    if (pytestFrame && entries.size < 6) {
+      const actualLine = pytestFailureLocation(pytestFrame[1], pytestFrame[2], sourceRoot);
+      if (actualLine) {
+        phase = "Python";
+        add(`Pytest failure frame: ${pytestFrame[1]}:${actualLine} (${pytestFrame[3]}).`);
+      }
+    }
     const file = text.match(
       /(?:^|[\s/'"(])((?:packages|apps|services|scripts|src|test)\/[A-Za-z0-9_./-]+\.(?:[cm]?[jt]sx?|py))(?::(\d+))?(?::\d+)?/u,
     );

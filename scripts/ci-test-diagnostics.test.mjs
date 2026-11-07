@@ -12,6 +12,7 @@ import {
   escapeProperty,
   failureSummary,
   pytestSourceLocation,
+  pytestFailureLocation,
   pnpmInvocation,
   runTestDiagnostics,
 } from "./ci-test-diagnostics.mjs";
@@ -501,4 +502,52 @@ test("fixed speech-window CLI uses the original pytest vector without pnpm, and 
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("pytest failure sections expose the verified actual failure frame separately from a test definition without error values", async () => {
+  const file = "services/api/tests/test_story_speech_window.py",
+    name = "test_empty_spoken_text_has_no_synthetic_window_or_policy";
+  const source = (await readFile(new URL(`../${file}`, import.meta.url), "utf8")).split(/\r?\n/u);
+  const definition = pytestSourceLocation(file, name),
+    actual =
+      source.findIndex(
+        (line, index) =>
+          index >= definition &&
+          line.includes('assert result.status == "SUCCEEDED", result.message'),
+      ) + 1;
+  assert(actual > definition);
+  assert.equal(pytestFailureLocation(file, actual), actual);
+  const summary = failureSummary();
+  summary.line(`${file}:${actual}: AssertionError: PRIVATE_OUTSIDE_SECTION`);
+  assert.deepEqual(summary.entries(), []);
+  summary.line("====================== FAILURES ======================");
+  summary.line(`${file.replaceAll("/", "\\")}:${actual}: AssertionError: PRIVATE_EXCEPTION_VALUE`);
+  summary.line("E PRIVATE_ASSERTION_VALUE");
+  summary.line("================ short test summary info ================");
+  summary.line(`${file}:${actual + 1}: RuntimeError: PRIVATE_OUTSIDE_SECTION`);
+  summary.line(`FAILED ${file}::${name}[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION_VALUE`);
+  assert.deepEqual(summary.entries(), [
+    { phase: "Python", message: `Pytest failure frame: ${file}:${actual} (AssertionError).` },
+    { phase: "Python", message: `Failure location: ${file}` },
+    { phase: "Python", message: `Failure test: ${file}::${name}:${definition}` },
+  ]);
+  assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE|E PRIVATE/);
+});
+
+test("pytest actual frame metadata rejects unverified files, out-of-source positions, open exception names and non-frame prose", () => {
+  const file = "services/api/tests/test_story_speech_window.py",
+    summary = failureSummary();
+  summary.line("================ FAILURES ================");
+  for (const row of [
+    `${file}:99999999: AssertionError: PRIVATE`,
+    `${file}:0: AssertionError`,
+    `${file}:-1: AssertionError`,
+    `${file}:391: PrivateError: PRIVATE`,
+    "services/api/tests/../test_private.py:1: AssertionError",
+    "services/api/tests/test_missing_private.py:1: AssertionError",
+    `Error in ${file}:391: AssertionError`,
+  ])
+    summary.line(row);
+  assert.deepEqual(summary.entries(), []);
+  assert.equal(pytestFailureLocation(file, 99999999), null);
 });
