@@ -42,9 +42,18 @@ export function DeliveryEvidence({
   view: DeliveryEvidenceView;
   partial: boolean;
 }) {
+  const cleanup = (view.kind === "written" || view.kind === "failed") && view.cleanupUnconfirmed;
+  const incompleteFiles = partial && !(view.kind === "written" && cleanup && !view.filesPartial);
   return (
     <section className="delivery-evidence" aria-label="交付证据">
-      {partial ? <p role="status">本次导出仅完成一部分，已写出的文件保留。</p> : null}
+      {incompleteFiles ? <p role="status">本次导出仅完成一部分，已写出的文件保留。</p> : null}
+      {cleanup ? (
+        <p role="status">
+          {view.kind === "written"
+            ? "清单已写入，暂存清理未确认。"
+            : "交付清单与暂存清理尚未确认。"}
+        </p>
+      ) : null}
       {view.kind === "not-provided" ? (
         <p role="status">这次导出未提供交付清单，暂时不能核对交付证据。</p>
       ) : view.kind === "invalid" ? (

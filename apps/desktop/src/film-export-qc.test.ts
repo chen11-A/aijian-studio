@@ -1,3 +1,5 @@
+import type { writeDeliveryManifest } from "./film-delivery-manifest";
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   mkdtemp,
@@ -10,14 +12,42 @@ import {
   symlink,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, delimiter, isAbsolute, join, resolve } from "node:path";
-import { existsSync } from "node:fs";
+import { basename, dirname, delimiter, isAbsolute, join, resolve } from "node:path";
+import { existsSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createFilmExportQc, qcInput } from "./film-export-qc";
 import { loadQcEngine, verifiedQcTools } from "./film-export-qc-runtime";
 import type { FilmExportQcInput } from "@aijian/contracts/film-export-qc";
 import type { FilmRecord } from "./film-library";
+const evidenceFault = vi.hoisted(() => ({
+  mode: "none" as "none" | "collision" | "changed" | "cleanup",
+}));
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown> & { rm: typeof rm }>();
+  return {
+    ...actual,
+    rm: async (...args: Parameters<typeof rm>) => {
+      if (evidenceFault.mode === "cleanup" && String(args[0]).includes(".aivora-delivery-"))
+        throw new Error("controlled cleanup denial");
+      return actual.rm(...args);
+    },
+  };
+});
+vi.mock("./film-delivery-manifest", async (importOriginal) => {
+  const actual = await importOriginal<{ writeDeliveryManifest: typeof writeDeliveryManifest }>();
+  return {
+    ...actual,
+    writeDeliveryManifest: (input: Parameters<typeof writeDeliveryManifest>[0]) =>
+      evidenceFault.mode === "none"
+        ? actual.writeDeliveryManifest(input)
+        : actual.writeDeliveryManifest(input, () => {
+            if (evidenceFault.mode === "changed")
+              writeFileSync(input.published[0]!.path, "changed exported video bytes");
+            return "11111111-1111-4111-8111-111111111111";
+          }),
+  };
+});
 function tool(name: string) {
   const binary = process.platform === "win32" ? `${name}.exe` : name;
   const explicit = process.env[name === "ffmpeg" ? "AIVORA_FFMPEG" : "AIVORA_FFPROBE"];
@@ -125,6 +155,7 @@ async function fixture(loud = false) {
   };
 }
 afterEach(async () => {
+  evidenceFault.mode = "none";
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 describe("trusted checked export", () => {
@@ -151,6 +182,36 @@ describe("trusted checked export", () => {
     expect(published.kind).toBe("PUBLISHED");
     if (published.kind !== "PUBLISHED") throw new Error("published required");
     expect(published.outputs).toHaveLength(2);
+    expect(published.deliveryEvidence?.kind).toBe("WRITTEN");
+    if (published.deliveryEvidence?.kind !== "WRITTEN")
+      throw new Error("written evidence required");
+    const delivered = published.deliveryEvidence;
+    const document = await readFile(join(f.output, delivered.fileName));
+    expect(createHash("sha256").update(document).digest("hex")).toBe(delivered.manifestSha256);
+    expect(JSON.parse(document.toString())).toEqual(delivered.manifest);
+    const expectedNames = published.outputs.flatMap((item) =>
+      [item.path, item.subtitlePath, item.coverPath]
+        .filter((path): path is string => !!path)
+        .map((path) => basename(path)),
+    );
+    expect(delivered.manifest.files.map((item) => item.fileName)).toEqual(expectedNames);
+    expect(
+      delivered.manifest.files
+        .filter((item) => item.role === "video")
+        .map((item) => item.technical?.video),
+    ).toEqual([
+      expect.objectContaining({ width: 1280, height: 720, averageFrameRate: 24 }),
+      expect.objectContaining({ width: 720, height: 1280, averageFrameRate: 24 }),
+    ]);
+    for (const item of delivered.manifest.files) {
+      const bytes = await readFile(join(f.output, item.fileName));
+      expect(bytes.length).toBe(item.bytes);
+      expect(createHash("sha256").update(bytes).digest("hex")).toBe(item.sha256);
+    }
+    expect(JSON.stringify(delivered)).not.toContain(f.root);
+    expect(JSON.stringify(delivered)).not.toContain(ready.qcReceipt);
+    expect(delivered.manifest.unverified.join()).toContain("未检查");
+
     expect(await readFile(f.source)).toEqual(original);
     expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
       kind: "FAILED",
@@ -389,8 +450,16 @@ describe("checked publication ownership and lifecycle", () => {
       const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
       expect(result.kind).toBe(kind === "mp4" ? "FAILED" : "PARTIAL");
       expect(await readFile(path, "utf8")).toBe("original user bytes");
-      if (result.kind === "PARTIAL")
+      if (result.kind === "PARTIAL") {
         expect(result.outputs[0]).not.toHaveProperty(kind === "srt" ? "subtitlePath" : "coverPath");
+        expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
+        if (result.deliveryEvidence?.kind !== "WRITTEN")
+          throw new Error("partial evidence required");
+        expect(result.deliveryEvidence.manifest.status).toBe("partial");
+        expect(result.deliveryEvidence.manifest.files.map((file) => file.fileName)).not.toContain(
+          basename(path),
+        );
+      }
     },
     30000,
   );
@@ -450,5 +519,64 @@ it("invalidates a publishing receipt when its sender closes during the native fo
   release(f.output);
   expect(await publishing).toEqual({ kind: "FAILED", code: "PROJECT_CHANGED" });
   expect(await readdir(f.output)).toEqual([]);
+  expect(await readdir(f.host.temporaryRoot)).toEqual([]);
+}, 30000);
+
+it.each(["collision", "changed"] as const)(
+  "retains actual outputs but never reports complete delivery when evidence %s fails",
+  async (mode) => {
+    const f = await fixture(),
+      source = await readFile(f.source);
+    const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+    const ready = await f.qc.prepare("owner", request);
+    if (ready.kind !== "READY") throw new Error("ready required");
+    const name = "aivora-delivery-11111111-1111-4111-8111-111111111111.json";
+    if (mode === "collision") await writeFile(join(f.output, name), "original user evidence");
+    evidenceFault.mode = mode;
+    const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+    expect(result.kind).toBe("PARTIAL");
+    if (result.kind !== "PARTIAL") throw new Error("partial result required");
+    expect(result.outputs).toHaveLength(1);
+    expect(result.deliveryEvidence).toMatchObject({
+      kind: "FAILED",
+      code: mode === "collision" ? "EVIDENCE_WRITE_FAILED" : "EVIDENCE_UNAVAILABLE",
+    });
+    if (result.deliveryEvidence?.kind !== "FAILED") throw new Error("failed evidence required");
+    expect(result.deliveryEvidence.files.some((item) => item.role === "video")).toBe(true);
+    expect(JSON.stringify(result.deliveryEvidence)).not.toContain(f.root);
+    if (mode === "collision")
+      expect(await readFile(join(f.output, name), "utf8")).toBe("original user evidence");
+    else expect((await readdir(f.output)).filter((name) => name.endsWith(".json"))).toEqual([]);
+    expect(await readFile(f.source)).toEqual(source);
+    expect(await readdir(f.host.temporaryRoot)).toEqual([]);
+    expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+      kind: "FAILED",
+      code: "RECEIPT_STALE",
+    });
+  },
+  30000,
+);
+
+it("preserves a hash-verified public manifest while reporting cleanup as a partial result", async () => {
+  const f = await fixture(),
+    original = await readFile(f.source);
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  evidenceFault.mode = "cleanup";
+  const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL" || result.deliveryEvidence?.kind !== "WRITTEN")
+    throw new Error("written partial fact required");
+  const evidence = result.deliveryEvidence;
+  expect(evidence.cleanupUnconfirmed).toBe(true);
+  expect(evidence.manifest.status).toBe("complete");
+  const bytes = await readFile(join(f.output, evidence.fileName));
+  expect(createHash("sha256").update(bytes).digest("hex")).toBe(evidence.manifestSha256);
+  expect(JSON.parse(bytes.toString())).toEqual(evidence.manifest);
+  expect(
+    (await readdir(f.output)).filter((name) => name.startsWith(".aivora-delivery-")),
+  ).toHaveLength(1);
+  expect(await readFile(f.source)).toEqual(original);
   expect(await readdir(f.host.temporaryRoot)).toEqual([]);
 }, 30000);

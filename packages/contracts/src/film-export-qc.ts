@@ -1,4 +1,4 @@
-import type { FilmDeliveryEvidenceResult } from "./film-delivery-evidence";
+import type { FilmDeliveryEvidenceResult } from "./film-delivery-evidence.js";
 
 /** Renderer sends identities and presentation settings, never execution or output paths. */
 export type FilmExportQcSettings = {

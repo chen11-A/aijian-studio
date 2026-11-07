@@ -14,10 +14,17 @@ export type DeliveryFileView = {
 export type DeliveryEvidenceView =
   | { kind: "not-provided" }
   | { kind: "invalid" }
-  | { kind: "failed"; reason: "unavailable" | "write-failed"; files: DeliveryFileView[] }
+  | {
+      kind: "failed";
+      reason: "unavailable" | "write-failed";
+      cleanupUnconfirmed: boolean;
+      files: DeliveryFileView[];
+    }
   | {
       kind: "written";
       partial: boolean;
+      filesPartial: boolean;
+      cleanupUnconfirmed: boolean;
       name: string;
       sha: string;
       createdAt: string;
@@ -230,6 +237,9 @@ export function deliveryEvidenceView(
 ): DeliveryEvidenceView {
   if (value === undefined) return { kind: "not-provided" };
   try {
+    if (value?.cleanupUnconfirmed !== undefined && value.cleanupUnconfirmed !== true)
+      return { kind: "invalid" };
+    const cleanupUnconfirmed = value?.cleanupUnconfirmed === true;
     if (value?.kind === "FAILED") {
       if (
         !["EVIDENCE_WRITE_FAILED", "EVIDENCE_UNAVAILABLE"].includes(value.code) ||
@@ -241,6 +251,7 @@ export function deliveryEvidenceView(
         ? {
             kind: "failed",
             reason: value.code === "EVIDENCE_UNAVAILABLE" ? "unavailable" : "write-failed",
+            cleanupUnconfirmed,
             files: files as DeliveryFileView[],
           }
         : { kind: "invalid" };
@@ -251,7 +262,8 @@ export function deliveryEvidenceView(
     if (
       !manifest ||
       manifest.schemaVersion !== 1 ||
-      manifest.status !== (resultKind === "PARTIAL" ? "partial" : "complete") ||
+      (manifest.status !== (resultKind === "PARTIAL" ? "partial" : "complete") &&
+        !(resultKind === "PARTIAL" && cleanupUnconfirmed && manifest.status === "complete")) ||
       typeof manifest.createdAt !== "string" ||
       !Number.isFinite(Date.parse(manifest.createdAt)) ||
       !Array.isArray(manifest.files) ||
@@ -297,6 +309,8 @@ export function deliveryEvidenceView(
     return {
       kind: "written",
       partial: resultKind === "PARTIAL",
+      filesPartial: manifest.status === "partial",
+      cleanupUnconfirmed,
       name: value.fileName,
       sha: value.manifestSha256,
       createdAt: manifest.createdAt,
