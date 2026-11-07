@@ -1,6 +1,7 @@
 import type {
   AudioSuggestionReceipt,
   ApplyBundledFilmShotAudioInput,
+  ApplyBundledFilmSceneAudioInput,
 } from "@aijian/contracts/film-audio-library";
 import {
   audioSuggestionGroupInputs,
@@ -8,6 +9,11 @@ import {
   audioSuggestionMemberSetInput,
 } from "@aijian/contracts/film-audio-suggestion-group";
 import type { FilmProject } from "../../film/project";
+import {
+  validSceneAudioPlan,
+  sceneAudioClockMatches,
+  type SceneAudioPlan,
+} from "./scene-audio-suggestions";
 import type { ShotAudioPlan } from "./shot-audio-suggestions";
 import { historyRecordHash } from "./persistent-history";
 type Clip = FilmProject["audioClips"][number];
@@ -69,14 +75,21 @@ export function validAudioReceipt(value: unknown): value is AudioSuggestionRecei
     return false;
   }
 }
-export type GroupAppendIntent = {
+type GroupAppendBase = {
   rawBefore: Record<string, unknown>;
   canonicalBefore: FilmProject;
-  input: ApplyBundledFilmShotAudioInput;
-  plan: ShotAudioPlan;
   receiptClaimed?: boolean;
   expectedReceipt?: unknown;
 };
+export type GroupAppendIntent = GroupAppendBase &
+  (
+    | { input: ApplyBundledFilmShotAudioInput; plan: ShotAudioPlan }
+    | { input: ApplyBundledFilmSceneAudioInput; plan: SceneAudioPlan }
+  );
+const isScene = (
+  p: GroupAppendIntent,
+): p is GroupAppendBase & { input: ApplyBundledFilmSceneAudioInput; plan: SceneAudioPlan } =>
+  p.plan.kind === "SCENE_SUGGESTED";
 const rawClips = (raw: Record<string, unknown>) =>
   Array.isArray(raw.audioClips) ? raw.audioClips : null;
 const withoutClipsAndSave = (raw: Record<string, unknown>) =>
@@ -92,8 +105,20 @@ export async function matchAudioGroupAppend(
   try {
     if (
       pending.plan.projectId !== pending.input.projectId ||
-      pending.plan.shotId !== pending.input.shotId ||
-      pending.plan.takeId !== pending.input.takeId ||
+      (isScene(pending)
+        ? !sceneAudioClockMatches(pending.plan, pending.canonicalBefore) ||
+          !validSceneAudioPlan(pending.plan, {
+            ...pending.input,
+            expectedProjectHash: pending.plan.projectHash,
+          }) ||
+          pending.plan.sceneId !== pending.input.sceneId ||
+          JSON.stringify(
+            pending.plan.clock.shots.map(({ shotId, takeId }) => ({ shotId, takeId })),
+          ) !== JSON.stringify(pending.input.expectedSelection)
+        : pending.plan.kind !== "SUGGESTED" ||
+          !("shotId" in pending.input) ||
+          pending.plan.shotId !== pending.input.shotId ||
+          pending.plan.takeId !== pending.input.takeId) ||
       pending.plan.planFingerprint !== pending.input.planFingerprint ||
       pending.plan.catalogSha256 !== pending.input.catalogSha256 ||
       pending.plan.pickerSha256 !== pending.input.pickerSha256 ||
@@ -189,8 +214,19 @@ export async function matchAudioGroupAppend(
         return null;
       const intent = {
         id: added.id,
-        shotId: pending.input.shotId,
-        takeId: pending.input.takeId,
+        shotId:
+          "shotId" in segment
+            ? segment.shotId
+            : "shotId" in pending.input
+              ? pending.input.shotId
+              : undefined,
+        takeId:
+          "takeId" in segment
+            ? segment.takeId
+            : "takeId" in pending.input
+              ? pending.input.takeId
+              : undefined,
+        ...(isScene(pending) ? { sceneAudioBinding: pending.plan.sceneAudioBinding } : {}),
         lane: segment.lane,
         label: asset.name,
         ...segment.placement,

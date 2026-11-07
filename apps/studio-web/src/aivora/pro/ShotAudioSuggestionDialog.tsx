@@ -1,3 +1,4 @@
+import type { SceneAudioPlan } from "./actions/scene-audio-suggestions";
 import type { ShotAudioPlan } from "./actions/shot-audio-suggestions";
 import "./ShotAudioSuggestionDialog.css";
 const lanes = [
@@ -20,10 +21,11 @@ function sourceLink(source: string) {
     return null;
   }
 }
-function empty(plan: ShotAudioPlan, lane: string) {
+function empty(plan: ShotAudioPlan | SceneAudioPlan, lane: string) {
   const codes = new Set([...plan.warnings, ...plan.limitations].map((n) => n.code));
   if (lane === "score") {
-    if (codes.has("MUSIC_DISABLED") || codes.has("MUSIC_QUIET")) return "本镜配乐留白。";
+    if (codes.has("MUSIC_DISABLED") || codes.has("MUSIC_QUIET"))
+      return plan.kind === "SCENE_SUGGESTED" ? "本场配乐留白。" : "本镜配乐留白。";
     if (codes.has("MUSIC_MOOD_UNDECIDED")) return "配乐情绪待决定，暂未安排素材。";
     if (codes.has("MUSIC_MATCH_MISSING")) return "本地目录没有匹配的配乐。";
   }
@@ -41,8 +43,9 @@ export function ShotAudioSuggestionDialog({
   existingClips = 0,
   onLanes,
   onApply,
+  sceneMode = false,
 }: {
-  plan: ShotAudioPlan | null;
+  plan: ShotAudioPlan | SceneAudioPlan | null;
   busy: boolean;
   message: string;
   onRefresh: () => void;
@@ -53,7 +56,9 @@ export function ShotAudioSuggestionDialog({
   existingClips?: number;
   onLanes?: (lanes: ("ambience" | "sfx" | "score")[]) => void;
   onApply?: () => void;
+  sceneMode?: boolean;
 }) {
+  const scenePlan = plan?.kind === "SCENE_SUGGESTED" ? plan : null;
   return (
     <div className="dialog-back">
       <section
@@ -63,9 +68,12 @@ export function ShotAudioSuggestionDialog({
         aria-labelledby="shot-audio-suggestions-title"
         className="dialog shot-audio-suggestions"
       >
-        <h2 id="shot-audio-suggestions-title">本镜声音建议</h2>
+        <h2 id="shot-audio-suggestions-title">{sceneMode ? "本场声音建议" : "本镜声音建议"}</h2>
         <p>
-          这是根据当前镜头文字和本地素材给出的安排。查看不会添加声音，也没有试听；明确选用后才加入。时间是计划值，不代表已观看或听过成片。
+          {sceneMode
+            ? "这是根据当前场次文字、全片实际选版时钟和本地素材给出的整场安排。"
+            : "这是根据当前镜头文字和本地素材给出的安排。"}
+          查看不会添加声音，也没有试听；明确选用后才加入。片段位置是计划值，不代表已观看或听过成片。
         </p>
         <p role="status" aria-live="polite">
           {applying
@@ -77,8 +85,18 @@ export function ShotAudioSuggestionDialog({
         {plan && (
           <>
             <p>
-              当前视频时长 {number(plan.durationSeconds)} 秒，共 {plan.clips.length}{" "}
-              段。建议只对应本次核对的版本；修改内容或素材后需刷新。
+              {scenePlan ? (
+                <>
+                  本场从全片第 {number(scenePlan.sceneStartSeconds)} 秒开始，实际跨度{" "}
+                  {number(scenePlan.sceneDurationSeconds)} 秒；全片{" "}
+                  {number(scenePlan.clock.durationSeconds)} 秒。
+                </>
+              ) : (
+                <>
+                  当前视频时长 {number(plan.kind === "SUGGESTED" ? plan.durationSeconds : 0)} 秒。
+                </>
+              )}{" "}
+              共 {plan.clips.length} 段。建议只对应本次核对的版本；修改内容或素材后需刷新。
             </p>
             {lanes.map(([lane, label]) => {
               const clips = plan.clips.filter((c) => c.lane === lane);
@@ -91,12 +109,36 @@ export function ShotAudioSuggestionDialog({
                   {clips.map((clip, index) => {
                     const p = clip.placement,
                       a = clip.asset,
-                      link = sourceLink(a.source);
+                      link = sourceLink(a.source),
+                      clockRow =
+                        scenePlan && "shotId" in clip && "takeId" in clip
+                          ? scenePlan.clock.shots.find(
+                              (row) => row.shotId === clip.shotId && row.takeId === clip.takeId,
+                            )
+                          : null;
                     return (
                       <article key={clip.key} aria-label={`${label}第${index + 1}段`}>
                         <h4>
                           {index + 1}. {a.name}
                         </h4>
+                        {scenePlan && "shotId" in clip && "takeId" in clip && (
+                          <p>
+                            全片第{" "}
+                            {scenePlan.clock.shots.findIndex(
+                              (row) => row.shotId === clip.shotId && row.takeId === clip.takeId,
+                            ) + 1}{" "}
+                            镜；以下起止时间均在该镜头内。
+                          </p>
+                        )}
+                        {clockRow && (
+                          <p>
+                            该镜实际从全片 {number(clockRow.startSeconds)} 秒开始，长{" "}
+                            {number(clockRow.durationSeconds)} 秒；本段计划在全片{" "}
+                            {number(clockRow.startSeconds + p.startSeconds)} →{" "}
+                            {number(clockRow.startSeconds + p.startSeconds + p.durationSeconds)}{" "}
+                            秒。
+                          </p>
+                        )}
                         <p>{clip.reason}</p>
                         <dl>
                           <dt>类别 / 使用场景</dt>
@@ -178,6 +220,9 @@ export function ShotAudioSuggestionDialog({
                   {plan.warnings.map((note, i) => (
                     <li key={i}>
                       {note.message}
+                      {scenePlan &&
+                        note.shotIndex !== undefined &&
+                        `（全片第 ${note.shotIndex + 1} 镜）`}
                       {note.index !== undefined && `（第 ${note.index} 项）`}
                       {note.seconds !== undefined && ` · ${number(note.seconds)} 秒`}
                     </li>
@@ -194,6 +239,9 @@ export function ShotAudioSuggestionDialog({
                   {plan.limitations.map((note, i) => (
                     <li key={i}>
                       {note.message}
+                      {scenePlan &&
+                        note.shotIndex !== undefined &&
+                        `（全片第 ${note.shotIndex + 1} 镜）`}
                       {note.index !== undefined && `（第 ${note.index} 项）`}
                       {note.seconds !== undefined && ` · ${number(note.seconds)} 秒`}
                     </li>

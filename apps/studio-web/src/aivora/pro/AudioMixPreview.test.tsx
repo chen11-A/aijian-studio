@@ -333,3 +333,14 @@ it("keeps a stale scene group silent and explains that its whole group needs rev
   expect(f.read).not.toHaveBeenCalled();
   expect(f.context.decodeAudioData).not.toHaveBeenCalled();
 });
+
+it("keeps the decode failure explanation alongside a stale scene-group warning", async () => {
+  const f = fixture();
+  f.result.plan.limitations = ["SCENE_AUDIO_BINDING_STALE"];
+  f.context.decodeAudioData.mockRejectedValue(new Error("private decoder failure"));
+  render(<AudioMixPreview result={f.result} clock={f.clock} playing audible />);
+  await screen.findByText(/未播放未核验的声音/);
+  expect(screen.getByText(/整场配声的选版、实际时钟或完整成员已变化/)).toBeInTheDocument();
+  expect(screen.queryByText(/private decoder failure/)).toBeNull();
+  expect(f.sources.every((source) => source.start.mock.calls.length === 0)).toBe(true);
+});
