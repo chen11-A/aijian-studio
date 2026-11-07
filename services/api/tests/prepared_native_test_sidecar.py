@@ -1,5 +1,6 @@
 """Private test adapter: actual signed HTTP routes, synthetic provider transport only."""
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -18,15 +19,16 @@ from test_story_film import TOKEN, _allow_live, _project
 
 def main():
     root = Path(sys.argv[1])
-    command = json.load(sys.stdin)
-    if command["kind"] == "init":
+    command = json.loads(sys.stdin.readline())
+    if command["kind"] in {"init", "serve"}:
         repo, project = _project(root)
         GenerationFailureStore(repo).configure(project, expected_revision=0, failure_limit=10)
         GenerationFailureStore(repo, scope="story_creation").configure(
             project, expected_revision=0, failure_limit=1
         )
-        print(json.dumps({"projectId": project}))
-        return
+        if command["kind"] == "init":
+            print(json.dumps({"projectId": project}))
+            return
     repo = StudioRepository(root / "workspace.db")
     sent = []
 
@@ -49,26 +51,39 @@ def main():
         with TestClient(
             app, base_url="http://127.0.0.1:51234", client=("127.0.0.1", 12345)
         ) as client:
-            response = client.post(
-                command["path"],
-                content=command["body"].encode(),
-                headers=command["headers"],
-            )
-    with repo._connection() as connection:
-        attempts = [
-            row[0]
-            for row in connection.execute("SELECT status FROM story_creation_failure_attempt")
-        ]
-    print(
-        json.dumps(
-            {
-                "status": response.status_code,
-                "body": response.json(),
-                "sent": sent,
-                "attempts": attempts,
-            }
-        )
-    )
+
+            def execute(value):
+                sent.clear()
+                response = client.post(
+                    value["path"], content=value["body"].encode(), headers=value["headers"]
+                )
+                with repo._connection() as connection:
+                    attempts = [
+                        row[0]
+                        for row in connection.execute(
+                            "SELECT status FROM story_creation_failure_attempt"
+                        )
+                    ]
+                print(
+                    json.dumps(
+                        {
+                            "requestId": value.get("requestId"),
+                            "requestSha256": hashlib.sha256(value["body"].encode()).hexdigest(),
+                            "status": response.status_code,
+                            "body": response.json(),
+                            "sent": sent,
+                            "attempts": attempts,
+                        }
+                    ),
+                    flush=True,
+                )
+
+            if command["kind"] == "serve":
+                print(json.dumps({"projectId": project}), flush=True)
+                for line in sys.stdin:
+                    execute(json.loads(line))
+            else:
+                execute(command)
 
 
 if __name__ == "__main__":

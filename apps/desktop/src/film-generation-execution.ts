@@ -1,3 +1,4 @@
+import { forecastGenerationReferences } from "./film-generation-forecast";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type {
@@ -104,12 +105,23 @@ type State = {
   account: GenerationDispatchAccount;
   session: Session;
   current: () => boolean;
+  plannedKey: string | null;
   attemptedSlots: Set<string>;
   attemptedStages: Set<string>;
   stageOrigins: Map<string, GenerationRegistrationInput["stages"][number]["origin"]>;
   queuedBindings: Map<string, readonly string[]>;
 };
 
+/** A current-input guard over the one shared forecast compiler, not a budget hash
+ * or permission. Opaque keys only bind the same already-issued native plan. */
+function forecastKey(
+  producer: CanonicalGenerationProducer,
+  plan: CanonicalGenerationPlan,
+  intent: Record<string, unknown>,
+): string {
+  const forecast = forecastGenerationReferences(producer, plan, intent);
+  return filmHistoryRecordText({ targets: forecast.targets, stages: forecast.stages });
+}
 /** Fixed-reference ordinary regenerate sink. Planned references, cache, local
  * continuity and pipeline remain closed until their real adapters are composed.
  * A transient execution or stored path is never dispatch permission. */
@@ -169,7 +181,10 @@ export function createNativeFilmGenerationExecutions(host: {
         // Never infer cache misses from metadata or file existence. This narrow branch
         // consumes the original queue's explicit regenerate instruction only.
         if (
-          plan.stages.some((stage) => stage.public.kind !== "shot-frame") ||
+          plan.stages.some(
+            (stage) =>
+              stage.public.kind !== "shot-frame" && stage.public.kind !== "location-reference",
+          ) ||
           plan.targets.some(
             (target) =>
               !producer.generationHadTakes(target.originalShot) ||
@@ -177,7 +192,14 @@ export function createNativeFilmGenerationExecutions(host: {
           )
         )
           return fail("UNSUPPORTED_SCOPE");
-        const registration = await buildGenerationRegistration(producer, plan, record, sources);
+        const planned = plan.stages.some((stage) => stage.public.kind === "location-reference");
+        const registration = await buildGenerationRegistration(
+          producer,
+          plan,
+          record,
+          sources,
+          planned ? { plannedReferences: true } : {},
+        );
         const identities = new Map<string, string>();
         for (const target of plan.targets)
           identities.set(target.key, await generationBodyIdentity(target.originalBody, sources));
@@ -215,6 +237,7 @@ export function createNativeFilmGenerationExecutions(host: {
           account: accountLease.account,
           session,
           current,
+          plannedKey: planned ? forecastKey(producer, plan, record) : null,
           attemptedSlots: new Set(),
           attemptedStages: new Set(),
           stageOrigins: new Map(registration.stages.map((stage) => [stage.key, stage.origin])),
@@ -273,6 +296,62 @@ export function createNativeFilmGenerationExecutions(host: {
       );
     },
   });
+  async function proveCurrentIntent(state: State, record: FilmRecord, current: () => boolean) {
+    if (!current()) return fail("EXECUTION_UNAVAILABLE");
+    if (
+      record.id !== state.projectId ||
+      record.seriesId !== state.seriesId ||
+      record.backendProjectId !== state.backendProjectId
+    )
+      return fail("PROJECT_CHANGED");
+    for (const target of state.plan.targets) {
+      const shot = generationRows(record.shots).find((shot) => shot.id === target.shotId);
+      if (!shot || shot.selectedTakeId !== target.originalShot.selectedTakeId)
+        return fail("PROJECT_CHANGED");
+      const actual = parseStoryFilmCreate(
+        state.producer.generationVideoBody(
+          record,
+          shot,
+          target.originalShot,
+          undefined,
+          record.draft === true,
+        ),
+      );
+      await state.sources.requestSources(actual);
+    }
+    const hashes = [...new Set(state.sources.identities().map((source) => source.sha256))];
+    const facts = hashes.length
+      ? await state.api.lineages(state.backendProjectId, hashes, state.account, current)
+      : [];
+    const intent = await restoreGenerationIntent(
+      state.producer,
+      record,
+      state.plan.targets.map((target) => target.shotId),
+      state.sources,
+      facts,
+    );
+    for (const target of state.plan.targets) {
+      const shot = generationRows(intent.shots).find((shot) => shot.id === target.shotId);
+      const original = parseStoryFilmCreate(
+        state.producer.generationVideoBody(
+          intent,
+          shot,
+          target.originalShot,
+          undefined,
+          record.draft === true,
+        ),
+      );
+      if (
+        (await generationBodyIdentity(original, state.sources)) !== state.identities.get(target.key)
+      )
+        return fail("PROJECT_CHANGED");
+    }
+    if (state.plannedKey !== forecastKey(state.producer, state.plan, intent))
+      return fail("PROJECT_CHANGED");
+    await state.sources.verify();
+    if (!current()) return fail("EXECUTION_UNAVAILABLE");
+    return { intent, facts };
+  }
   async function still(
     owner: GenerationExecutionOwner,
     input: {
@@ -293,7 +372,7 @@ export function createNativeFilmGenerationExecutions(host: {
       if (
         !stage ||
         !origin ||
-        stage.public.kind !== "shot-frame" ||
+        (stage.public.kind !== "shot-frame" && stage.public.kind !== "location-reference") ||
         input.seriesId !== state.seriesId
       )
         return fail("UNSUPPORTED_SCOPE");
@@ -306,13 +385,16 @@ export function createNativeFilmGenerationExecutions(host: {
           record.backendProjectId !== state.backendProjectId
         )
           return fail("PROJECT_CHANGED");
+        const proof = state.plannedKey
+          ? await proveCurrentIntent(state, record, lease.current)
+          : null;
         const actual = await verifyGenerationStageImage(
           state.producer,
           record,
           stage,
           origin,
           state.sources,
-          [],
+          proof?.facts ?? [],
         );
         if (normalizeFilmStillPrompt(actual.prompt) !== actual.prompt)
           return fail("UNSUPPORTED_SCOPE");
@@ -338,6 +420,7 @@ export function createNativeFilmGenerationExecutions(host: {
             ),
           );
           if (
+            !proof &&
             (await generationBodyIdentity(body, state.sources)) !== state.identities.get(target.key)
           )
             return fail("PROJECT_CHANGED");
@@ -534,7 +617,18 @@ export function createNativeFilmGenerationExecutions(host: {
         body.regenerate =
           lease.slotIndex > 0 || state.producer.generationHadTakes(target.originalShot);
         let intentBody = body;
-        if (state.plan.stages.length) {
+        if (state.plannedKey) {
+          const { intent } = await proveCurrentIntent(state, record, lease.current);
+          intentBody = parseStoryFilmCreate(
+            state.producer.generationVideoBody(
+              intent,
+              generationRows(intent.shots).find((shot) => shot.id === target.shotId),
+              target.originalShot,
+              undefined,
+              record.draft === true,
+            ),
+          );
+        } else if (state.plan.stages.length) {
           await state.sources.requestSources(body);
           const facts = await state.api.lineages(
             state.backendProjectId,
