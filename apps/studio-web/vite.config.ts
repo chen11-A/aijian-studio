@@ -1,6 +1,6 @@
 import { availableParallelism } from "node:os";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { coverageConfigDefaults, defineConfig } from "vitest/config";
 import { developmentCoreAssets } from "./build/developmentCoreAssets.ts";
 
 const buildProfile =
@@ -32,6 +32,8 @@ export default defineConfig({
     setupFiles: "./src/test/setup.ts",
     coverage: {
       provider: "v8",
+      // Audit fixtures imported by actual-Pro tests are test tools, not product coverage.
+      exclude: [...coverageConfigDefaults.exclude, "e2e/**"],
       reporter: ["text", "json-summary"],
       thresholds: {
         lines: 90,

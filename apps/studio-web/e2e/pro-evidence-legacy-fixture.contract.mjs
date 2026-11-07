@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { afterEach, before, after, test } from "node:test";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,7 +14,7 @@ import {
 } from "./pro-evidence-legacy-fixture.mjs";
 import { evidenceLegacyStates } from "./pro-evidence-legacy-cases.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-let server, folder, view;
+let server, folder, view, audioSourceKey;
 before(async () => {
   folder = await mkdtemp(path.join(tmpdir(), "evidence-legacy-contract-"));
   server = await createServer({
@@ -24,6 +25,7 @@ before(async () => {
     server: { middlewareMode: true, hmr: false },
   });
   view = await server.ssrLoadModule("/src/aivora/pro/actions/delivery-evidence-view.ts");
+  ({ audioSourceKey } = await server.ssrLoadModule("/src/aivora/pro/actions/audio-waveforms.ts"));
 });
 after(async () => {
   await server?.close();
@@ -51,6 +53,7 @@ function setup(state = "evidence-written") {
     aijian: {},
     aijianGrok: {},
     __proCreationAudit: {
+      hash: async (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex"),
       record: (id) => (id === film.id ? globalThis.structuredClone(film) : null),
     },
   };
@@ -199,6 +202,49 @@ test("the legacy seed keeps all audio/take references; empty/search modify only 
     } else assert.deepEqual(saved.shots[0].takes, film.shots[0].takes);
     if (state === "legacy-cast-search") assert.equal(saved.characters.length, 12);
   }
+});
+
+test("local waveform refusal validates exact canonical source keys and clip/selection scope without enabling paid dispatch", async () => {
+  const f = setup();
+  Object.assign(f.film, {
+    seriesId: "synthetic-series",
+    backendProjectId: `prj_${"a".repeat(32)}`,
+  });
+  const clip = {
+    id: "voice-main",
+    lane: "dialogue",
+    shotId: "shot-main",
+    takeId: "take-main",
+    label: "原对白",
+    path: "/synthetic/voice.wav",
+    offsetSeconds: 0,
+    durationSeconds: 1,
+  };
+  f.film.audioClips = [clip];
+  const input = {
+    projectId: f.film.id,
+    clipId: clip.id,
+    expectedSourceKey: await audioSourceKey(f.film, clip),
+  };
+  assert.deepEqual(await f.bridge.readFilmAudioWaveform(input), {
+    kind: "FAILED",
+    code: "TOOLS_UNAVAILABLE",
+  });
+  assert.equal(f.audit.waveforms.length, 1);
+  assert.equal(f.audit.waveforms[0].matched, true);
+  assert.deepEqual(f.audit.forbidden, []);
+  await assert.rejects(
+    f.bridge.readFilmAudioWaveform({ ...input, expectedSourceKey: "b".repeat(64) }),
+  );
+  await assert.rejects(f.bridge.readFilmAudioWaveform({ ...input, clipId: "unknown-clip" }));
+  f.film.shots[0].selectedTakeId = "";
+  const changed = { ...input, expectedSourceKey: await audioSourceKey(f.film, clip) };
+  assert.deepEqual(await f.bridge.readFilmAudioWaveform(changed), {
+    kind: "FAILED",
+    code: "SOURCE_CHANGED",
+  });
+  assert.deepEqual(f.film.audioClips, [clip]);
+  assert.deepEqual(f.audit.forbidden, ["waveform-key", "waveform-scope"]);
 });
 
 test("CLI declares thirty-two and rejects unsafe flags/output without printing private argument values", async () => {
