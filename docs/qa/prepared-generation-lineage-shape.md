@@ -1,0 +1,9 @@
+# Prepared image lineage optional-view correction
+
+The actual signed shot-frame image→disk→observation→video path exposed a producer/consumer mismatch: the API stored `view:null` on nonportrait stages, while the strict native lineage reader correctly allowed `view` only on portraits. Do not loosen that native reader.
+
+Registration now constructs the canonical stage fact with `view` only for a valid portrait. New nonportrait requests explicitly supplying any view, including null, and portraits missing a valid view fail before execution/attempt writes. The private lineage GET canonicalizes only the historical valid nonportrait/null encoding. It preserves the stored row and complete origin (including meaningful `previous:null`) verbatim; it does not drop unknown keys or repair wrong types/non-null nonportrait views into evidence.
+
+Controlled signed route roundtrip before fix: shot-frame and location-reference failed exact shape, portrait passed (2 failed/1 passed, 3.61s), `/tmp/prepared54-view-shape-before.log`. Final route coverage includes all three kinds, real registration/dispatch/READABLE observation/query, committed historical SQLite rows, raw-row preservation, unknown/malformed facts refused, and four invalid new-view shapes at zero execution/attempt write. Original v1/v2 actual StoryFilm signed consumer test remains in the complete file. The first new corruption injection omitted SQLite commit, so it did not change the stored row; explicit commit plus exact readback now proves the injection, with the failed log retained. No external transport or paid service is used by the new shape cases.
+
+This leaf does not enable missing capabilities, change source SHA/owner checks, alter budget settlement, cache semantics or schema. API54 b9's ongoing full gate is a different fixed source. Final targeted source and Python static checks are recorded with the handoff; no full-suite result is claimed by this leaf.
