@@ -27,3 +27,7 @@
 - 独立 Ubuntu `pro-ui-interactions` job，Node24.15，15分钟，正常 Chrome sandbox=true。先 Node9，再实际16；artifact 精确 `.aijian-dev/pro-ui-interactions-audit/report.json`、`1280x800-*/*.png`、`1920x1080-*/*.png`。公共诊断只固定 state/控件名/标签/有界数字与源码行号，不输出原 DOM/正文/路径/错误栈。源码 hash 覆盖真实 Pro/ContextMenu/dismiss/assembly/结构历史和新脚本。
 
 新增正常16待 root 专用候选运行。原平台/人工/真实 Windows OS 菜单、输入法与视听边界保留；父链自动前置图 P0 契约另在 backend 开发，本片不扩大生成许可或宣称该缺口已闭环。
+
+## 总控独立复核（2026-11-07 14:48 UTC）
+
+841整支含589首文件已无冲突根合526da674；产品/API/native/contracts/lock无diff。root全部153 Node、同defaultABI实际Pro4、目标ESLint/格式/diff及旧workflow字节前缀均0，日志`/tmp/aivora-ui-interactions-root-checks.log`。固定8a7原完整469文件5585/544.18秒与原覆盖门0，二者不拼新全库5589。新增正常Chrome16尚待本候选，484仍仅定义；不冒系统IME/真实本机合成或人工视听。
