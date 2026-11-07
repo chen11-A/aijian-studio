@@ -11,16 +11,23 @@
  * coverage is reported honestly as notes. Exits with 1 when anything fails.
  */
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 import process from "node:process";
 import console from "node:console";
 import { loadLibrary } from "./validate.mjs";
 
-const REPO = fileURLToPath(new URL("../../../", import.meta.url));
+const REPO = realpathSync.native(fileURLToPath(new URL("../../../", import.meta.url)));
+const CONTRACTS = join(REPO, "packages/contracts");
+const CONTRACT_SOURCE = realpathSync.native(join(CONTRACTS, "src"));
+const CONTRACT_EXPORTS = JSON.parse(readFileSync(join(CONTRACTS, "package.json"), "utf8")).exports;
+const inside = (root, file) => {
+  const part = relative(root, file);
+  return part !== "" && !part.startsWith("..") && !isAbsolute(part);
+};
 const FILM = "apps/studio-web/src/aivora/film";
 const ENTRIES = ["operations.ts", "phase2.ts", "project.ts", "director-continuity.ts"].map((name) =>
   join(REPO, FILM, name),
@@ -40,11 +47,32 @@ export function loadTypeScript() {
 const IMPORT = /(from\s+|import\s+)(["'])([^"']+)\2/gu;
 
 function resolveImport(from, spec) {
-  if (spec.endsWith("?raw")) return { file: resolve(dirname(from), spec.slice(0, -4)), raw: true };
+  if (spec.startsWith("@aijian/contracts/")) {
+    const key = spec.slice("@aijian/contracts/".length);
+    const entry = /^[a-zA-Z0-9-]+$/.test(key) ? CONTRACT_EXPORTS[`./${key}`] : null;
+    const source = entry && typeof entry === "object" ? entry.default : null;
+    if (typeof source !== "string" || !/^\.\/src\/[a-zA-Z0-9-]+\.(?:js|ts)$/u.test(source))
+      throw new Error("Parser dependency is not a public contracts runtime export");
+    const file = realpathSync.native(resolve(CONTRACTS, source));
+    if (!inside(CONTRACT_SOURCE, file) || file.endsWith(".d.ts"))
+      throw new Error("Parser contracts dependency escapes its source root");
+    return { file, raw: false };
+  }
+  if (isAbsolute(spec)) throw new Error("Absolute parser dependencies are unsupported");
   if (!spec.startsWith(".")) return null;
-  for (const candidate of [`${spec}.ts`, `${spec}/index.ts`, spec]) {
-    const file = resolve(dirname(from), candidate);
-    if (existsSync(file) && file.endsWith(".ts")) return { file, raw: false };
+  if (spec.endsWith("?raw")) {
+    const file = realpathSync.native(resolve(dirname(from), spec.slice(0, -4)));
+    if (!inside(REPO, file) || (inside(CONTRACT_SOURCE, from) && !inside(CONTRACT_SOURCE, file)))
+      throw new Error("Parser dependency escapes its source root");
+    return { file, raw: true };
+  }
+  for (const candidate of [spec, `${spec}.ts`, `${spec}/index.ts`]) {
+    const path = resolve(dirname(from), candidate);
+    if (!existsSync(path) || !/\.(?:ts|js)$/u.test(path) || path.endsWith(".d.ts")) continue;
+    const file = realpathSync.native(path);
+    if (!inside(REPO, file) || (inside(CONTRACT_SOURCE, from) && !inside(CONTRACT_SOURCE, file)))
+      throw new Error("Parser dependency escapes its source root");
+    return { file, raw: false };
   }
   throw new Error(`找不到 ${from} 里引用的 ${spec}`);
 }
@@ -53,7 +81,10 @@ function resolveImport(from, spec) {
 export async function transpile(ts, out) {
   const done = new Set();
   const target = (file, raw) =>
-    join(out, relative(REPO, file)).replace(raw ? /$/u : /\.ts$/u, raw ? ".raw.mjs" : ".mjs");
+    join(out, relative(REPO, file)).replace(
+      raw ? /$/u : /\.(?:ts|js)$/u,
+      raw ? ".raw.mjs" : ".mjs",
+    );
   const visit = async (file, raw) => {
     if (done.has(file)) return;
     done.add(file);
