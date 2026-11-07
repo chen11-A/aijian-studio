@@ -3,11 +3,12 @@ import { createRequire } from "node:module";
 import { mkdtemp, mkdir, readFile, realpath, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
-import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
+import { spawn, spawnSync } from "node:child_process";
+import { createInterface } from "node:readline";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
 import { createNativeFilmGenerationExecutions } from "./film-generation-execution";
-import { readProject, writeProject, type FilmRecord } from "./film-library";
+import { readProject, writeProject as writeProjectNative, type FilmRecord } from "./film-library";
 import { filmHistoryRecordHash } from "./film-history";
 import { generationRows } from "./film-generation-plan";
 import { parseStoryFilmCreate } from "./story-film-client";
@@ -15,7 +16,19 @@ import { ffmpegOnPath, ffmpegSkipReason } from "./test-ffmpeg";
 let producer: CanonicalGenerationProducer, compiledRoot: string;
 const roots: string[] = [],
   releaseAll: (() => void)[] = [],
-  pendingAll: Promise<unknown>[] = [];
+  pendingAll: Promise<unknown>[] = [],
+  sidecarClosures: (() => Promise<void>)[] = [];
+let testEpoch = Symbol("fixture");
+beforeEach(() => {
+  testEpoch = Symbol("fixture");
+});
+function track<T>(promise: Promise<T>): Promise<T> {
+  pendingAll.push(promise);
+  return promise;
+}
+function writeProject(...args: Parameters<typeof writeProjectNative>) {
+  return track(writeProjectNative(...args));
+}
 beforeAll(async () => {
   compiledRoot = await mkdtemp(join(tmpdir(), "execution-real-producer-"));
   const built = spawnSync(
@@ -32,8 +45,10 @@ afterAll(async () => {
   await rm(compiledRoot, { recursive: true, force: true });
 });
 afterEach(async () => {
+  testEpoch = Symbol("closed-fixture");
   for (const release of releaseAll.splice(0)) release();
-  await Promise.allSettled(pendingAll.splice(0));
+  while (pendingAll.length) await Promise.allSettled(pendingAll.splice(0));
+  for (const close of sidecarClosures.splice(0)) await close();
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 function deferred() {
@@ -43,12 +58,23 @@ function deferred() {
   });
   return { promise, resolve };
 }
+function responsePromise<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
 const sha = (raw: string) => createHash("sha256").update(raw).digest("hex");
-async function fixture(
+async function createFixture(
   privateFailure?: string,
   real?: { projectId: string; fetcher: typeof fetch },
   frameStage = false,
+  plannedLocation = false,
 ) {
+  const epoch = testEpoch;
   const root = await mkdtemp(join(tmpdir(), "native-execution-factory-"));
   roots.push(root);
   const filmsRoot = join(root, "films"),
@@ -150,9 +176,10 @@ async function fixture(
       },
     ],
   };
+  if (plannedLocation) record.locations = [];
   await writeProject(filmsRoot, record);
   let active = true;
-  const owner = { id: 4, current: () => active },
+  const owner = { id: 4, current: () => active && testEpoch === epoch },
     session = { origin: "http://127.0.0.1:51234", token: "s".repeat(43) },
     account = { bearer: "native-bearer", accountSha256: "d".repeat(64) };
   const registrations: unknown[] = [],
@@ -168,7 +195,17 @@ async function fixture(
       expect(new URL(String(url)).pathname).toMatch(/^\/v1\/images\/(?:edits|generations)$/);
       expect(init?.method).toBe("POST");
       imageCalls++;
-      return Response.json({ data: [{ b64_json: (await readFile(frame)).toString("base64") }] });
+      const bytes = await readFile(frame);
+      return Response.json({
+        data: [
+          {
+            b64_json: (plannedLocation
+              ? Buffer.concat([bytes, Buffer.from(String(imageCalls))])
+              : bytes
+            ).toString("base64"),
+          },
+        ],
+      });
     }
     const path = new URL(String(url)).pathname,
       raw = String(init?.body),
@@ -227,7 +264,7 @@ async function fixture(
     }
     throw Error("UNEXPECTED_ROUTE");
   });
-  const factory = createNativeFilmGenerationExecutions({
+  const implementation = createNativeFilmGenerationExecutions({
     filmsRoot: () => filmsRoot,
     storyFilmsRoot: () => storyRoot,
     session: () => session,
@@ -236,6 +273,17 @@ async function fixture(
     fetcher,
     producer: async () => producer,
   });
+  const factory = {
+    ...implementation,
+    prepare: (...args: Parameters<typeof implementation.prepare>) =>
+      track(implementation.prepare(...args)),
+    retire: (...args: Parameters<typeof implementation.retire>) =>
+      track(implementation.retire(...args)),
+    still: (...args: Parameters<typeof implementation.still>) =>
+      track(implementation.still(...args)),
+    video: (...args: Parameters<typeof implementation.video>) =>
+      track(implementation.video(...args)),
+  };
   const stored = (await readProject(filmsRoot, id))!;
   const input = {
     projectId: id,
@@ -272,6 +320,9 @@ async function fixture(
       holdArm = action;
     },
   };
+}
+function fixture(...args: Parameters<typeof createFixture>) {
+  return track(createFixture(...args));
 }
 async function preparedVideo(f: Awaited<ReturnType<typeof fixture>>, versions: 1 | 2 = 1) {
   const prepared = await f.factory.prepare(f.owner, {
@@ -408,12 +459,13 @@ it("same-path byte replacement after actual arm admission reaches no StoryFilm t
   expect(f.submissions).toHaveLength(0);
 });
 
-it("rejects unsupported planned-image, cache-eligible and pipeline scopes before private registration", async () => {
-  for (const kind of ["image", "cache", "pipeline"] as const) {
+it("rejects unsupported continuity, cache-eligible and pipeline scopes before private registration", async () => {
+  for (const kind of ["continuity", "cache", "pipeline"] as const) {
     const f = await fixture();
     const changed = structuredClone(f.record),
       shot = generationRows(changed.shots)[0]!;
-    if (kind === "image") {
+    if (kind === "continuity") {
+      shot.continuityFromShotId = "unverified-previous-shot";
       shot.poster = "";
       generationRows(shot.takes)[0]!.stillUrl = "";
       generationRows(changed.locations)[0]!.referenceImage = "";
@@ -545,55 +597,130 @@ it.each(["VIDEO_UNCONFIGURED", "VIDEO_INPUT_FAILURE_LIMIT"])(
   },
 );
 
+async function createSignedSidecar() {
+  const root = await mkdtemp(join(tmpdir(), "native-prepared-sidecar-"));
+  roots.push(root);
+  const repositoryRoot = resolve("../..");
+  type Reply = {
+    requestId: number;
+    requestSha256: string;
+    status: number;
+    body: unknown;
+    sent: string[];
+    attempts: string[];
+  };
+  const child = spawn(
+    "uv",
+    ["run", "python", "services/api/tests/prepared_native_test_sidecar.py", root],
+    {
+      cwd: repositoryRoot,
+      env: {
+        ...process.env,
+        PYTHONIOENCODING: "utf-8",
+        PYTHONPATH: [
+          resolve(repositoryRoot, "services/api/src"),
+          resolve(repositoryRoot, "services/api/tests"),
+          process.env.PYTHONPATH,
+        ]
+          .filter(Boolean)
+          .join(delimiter),
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+  const ready = responsePromise<string>();
+  let projectId: string | undefined,
+    stderr = "";
+  let sequence = 0;
+  const pending = new Map<
+    number,
+    { expectedSha256: string; response: ReturnType<typeof responsePromise<Reply>> }
+  >();
+  child.stderr.on("data", (chunk) => {
+    stderr = (stderr + String(chunk)).slice(-16000);
+  });
+  const lines = createInterface({ input: child.stdout });
+  lines.on("line", (line) => {
+    try {
+      const value = JSON.parse(line) as Reply & { projectId?: string };
+      if (!projectId) {
+        if (typeof value.projectId !== "string" || !/^prj_[a-f0-9]{32}$/.test(value.projectId))
+          throw Error("SIDECAR_TEST_INVALID_READY");
+        projectId = value.projectId;
+        ready.resolve(projectId);
+      } else {
+        const item = pending.get(value.requestId);
+        if (
+          !Number.isInteger(value.requestId) ||
+          value.requestId < 1 ||
+          value.requestId > 4096 ||
+          !item ||
+          value.requestSha256 !== item.expectedSha256 ||
+          !Number.isInteger(value.status) ||
+          value.status < 100 ||
+          value.status > 599 ||
+          !Array.isArray(value.sent) ||
+          !Array.isArray(value.attempts)
+        )
+          throw Error("SIDECAR_TEST_INVALID_REPLY");
+        pending.delete(value.requestId);
+        item.response.resolve(value);
+      }
+    } catch {
+      ready.reject(Error("SIDECAR_TEST_INVALID_REPLY"));
+      for (const item of pending.values())
+        item.response.reject(Error("SIDECAR_TEST_INVALID_REPLY"));
+      pending.clear();
+    }
+  });
+  child.on("error", () => {
+    ready.reject(Error("SIDECAR_TEST_SPAWN_FAILED"));
+  });
+  const exited = new Promise<number | null>((resolveExit) =>
+    child.on("close", (code) => {
+      ready.reject(Error("SIDECAR_TEST_EXITED"));
+      for (const item of pending.values()) item.response.reject(Error("SIDECAR_TEST_EXITED"));
+      pending.clear();
+      resolveExit(code);
+    }),
+  );
+  sidecarClosures.push(async () => {
+    child.stdin.end();
+    expect(await exited, stderr).toBe(0);
+    lines.close();
+  });
+  child.stdin.write(JSON.stringify({ kind: "serve" }) + "\n");
+  const actualProjectId = await ready.promise;
+  const replies: Reply[] = [];
+  const fetcher: typeof fetch = async (url, init) => {
+    const item = responsePromise<Reply>();
+    const requestId = ++sequence;
+    const body = String(init?.body);
+    pending.set(requestId, { response: item, expectedSha256: sha(body) });
+    child.stdin.write(
+      JSON.stringify({
+        kind: "request",
+        requestId,
+        path: new URL(String(url)).pathname,
+        body,
+        headers: Object.fromEntries(new Headers(init?.headers)),
+      }) + "\n",
+    );
+    const reply = await item.promise;
+    replies.push(reply);
+    return Response.json(reply.body, { status: reply.status });
+  };
+  return { projectId: actualProjectId, replies, fetcher };
+}
+
+function signedSidecar() {
+  return track(createSignedSidecar());
+}
+
 it.skipIf(!ffmpegOnPath()).each([false, true])(
   `crosses actual Python signed routes and original consumer with fixed frame stage=%s (${ffmpegSkipReason})`,
   async (frameStage) => {
-    const root = await mkdtemp(join(tmpdir(), "native-prepared-sidecar-"));
-    roots.push(root);
-    const repositoryRoot = resolve("../..");
-    type Reply = {
-      projectId: string;
-      status: number;
-      body: unknown;
-      sent: string[];
-      attempts: string[];
-    };
-    const request = (command: unknown): Reply => {
-      const response = spawnSync(
-        "uv",
-        ["run", "python", "services/api/tests/prepared_native_test_sidecar.py", root],
-        {
-          cwd: repositoryRoot,
-          input: JSON.stringify(command),
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            PYTHONIOENCODING: "utf-8",
-            PYTHONPATH: [
-              resolve(repositoryRoot, "services/api/src"),
-              resolve(repositoryRoot, "services/api/tests"),
-              process.env.PYTHONPATH,
-            ]
-              .filter(Boolean)
-              .join(delimiter),
-          },
-        },
-      );
-      expect(response.status, response.stderr).toBe(0);
-      return JSON.parse(response.stdout) as Reply;
-    };
-    const { projectId } = request({ kind: "init" });
-    const replies: Reply[] = [];
-    const realFetch: typeof fetch = async (url, init) => {
-      const reply = request({
-        kind: "request",
-        path: new URL(String(url)).pathname,
-        body: String(init?.body),
-        headers: Object.fromEntries(new Headers(init?.headers)),
-      });
-      replies.push(reply);
-      return Response.json(reply.body, { status: reply.status });
-    };
+    const { projectId, replies, fetcher: realFetch } = await signedSidecar();
     const f = await fixture(undefined, { projectId, fetcher: realFetch }, frameStage),
       p = await preparedVideo(f);
     expect(replies.map((reply) => reply.status)).toEqual([200, 200]);
@@ -786,3 +913,106 @@ it("preserves an unacknowledged image reservation without calling unsent or prov
   ).toHaveLength(0);
   expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
 });
+
+it.skipIf(!ffmpegOnPath())(
+  "uses actual planned-location lineage through the original frame and video consumers",
+  async () => {
+    const { projectId, replies, fetcher } = await signedSidecar();
+    const f = await fixture(undefined, { projectId, fetcher }, true, true),
+      p = await preparedVideo(f);
+    expect(p.prepared.stages.map((stage) => stage.kind)).toEqual([
+      "location-reference",
+      "shot-frame",
+    ]);
+    // The renderer's original pure materialization, not a seed or manually invented row.
+    await writeProject(f.filmsRoot, producer.prepareSceneLocations(p.canonical) as FilmRecord);
+    let live = (await readProject(f.filmsRoot, f.record.id))!;
+    for (const stage of p.prepared.stages) {
+      const shot = generationRows(live.shots)[0]!;
+      const place = generationRows(live.locations).find((place) => place.id === stage.targetId);
+      const frame =
+        stage.kind === "shot-frame"
+          ? (producer.shotStillInput(live, shot, producer.keyframePrompt(shot, live)) as {
+              prompt: string;
+              references: string[];
+            })
+          : undefined;
+      const prompt =
+        frame?.prompt ??
+        producer.withStyleBible(
+          producer.locationGenerationPrompt(live, place),
+          String(live.styleZh),
+        );
+      const made = await f.factory.still(f.owner, {
+        seriesId: String(f.record.seriesId),
+        prompt,
+        references: frame?.references ?? [],
+        aspectRatio: "16:9",
+        execution: { executionId: p.prepared.executionId, stageId: stage.stageId },
+      });
+      expect(made.code).toBeUndefined();
+      expect(made.path).not.toBe("");
+      if (stage.kind === "location-reference")
+        Object.assign(place!, producer.locationImageFields(live, place, made.path));
+      else shot.poster = made.path;
+      await writeProject(f.filmsRoot, live);
+      live = (await readProject(f.filmsRoot, f.record.id))!;
+    }
+    expect(f.imageCalls()).toBe(2);
+    const body = parseStoryFilmCreate(
+      producer.generationVideoBody(
+        live,
+        generationRows(live.shots)[0],
+        generationRows(f.record.shots)[0],
+        undefined,
+        false,
+      ),
+    );
+    body.regenerate = true;
+    const outcome = await f.factory.video(f.owner, projectId, body, undefined, p.execution);
+    expect(outcome.data.status).toBe("FAILED");
+    expect(replies.every((reply) => reply.status === 200)).toBe(true);
+    expect(replies.flatMap((reply) => reply.sent)).toEqual(["tts"]);
+    expect(replies.at(-1)!.attempts).toEqual(["UNKNOWN"]);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(live);
+  },
+  30_000,
+);
+
+it.skipIf(!ffmpegOnPath()).each(["line", "unproved-reference"])(
+  "refuses planned media before POST when the captured intent changes: %s",
+  async (change) => {
+    const { projectId, replies, fetcher } = await signedSidecar();
+    const f = await fixture(undefined, { projectId, fetcher }, true, true),
+      p = await preparedVideo(f);
+    const changed = producer.prepareSceneLocations(p.canonical) as FilmRecord;
+    const place = generationRows(changed.locations)[0]!;
+    if (change === "line") generationRows(changed.shots)[0]!.line = "这是后来修改的另一句台词。";
+    else Object.assign(place, producer.locationImageFields(changed, place, f.frame));
+    await writeProject(f.filmsRoot, changed);
+    const stored = (await readProject(f.filmsRoot, f.record.id))!;
+    const prompt = producer.withStyleBible(
+      producer.locationGenerationPrompt(stored, generationRows(stored.locations)[0]),
+      String(stored.styleZh),
+    );
+    const made = await f.factory.still(f.owner, {
+      seriesId: String(f.record.seriesId),
+      prompt,
+      references: [],
+      aspectRatio: "16:9",
+      execution: { executionId: p.prepared.executionId, stageId: p.prepared.stages[0]!.stageId },
+    });
+    expect(made.code).toBe("PROJECT_CHANGED");
+    expect(made.path).toBe("");
+    expect(f.imageCalls()).toBe(0);
+    expect(
+      f.fetcher.mock.calls.filter(([url]) =>
+        new URL(String(url)).pathname.endsWith("/image-dispatch"),
+      ),
+    ).toHaveLength(0);
+    expect(replies.flatMap((reply) => reply.sent)).toEqual([]);
+    expect(replies.every((reply) => reply.attempts.length === 0)).toBe(true);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(stored);
+  },
+  30_000,
+);
