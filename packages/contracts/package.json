@@ -5,6 +5,10 @@
   "type": "module",
   "types": "./src/generated.ts",
   "exports": {
+    "./generation-failure-policy": {
+      "types": "./src/generation-failure-policy.ts",
+      "default": "./src/generation-failure-policy.ts"
+    },
     ".": {
       "types": "./src/generated.ts",
       "default": "./src/generated.ts"
