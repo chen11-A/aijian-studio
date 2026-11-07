@@ -1,10 +1,21 @@
+import { createHash, randomUUID } from "node:crypto";
+import { join } from "node:path";
 import type {
   FilmGenerationExecutionFailure,
   FilmGenerationVideoExecution,
+  FilmGenerationStillExecution,
+  FilmGenerationStillResult,
 } from "@aijian/contracts/film-generation-execution";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { GenerationDispatchAccount } from "./generation-dispatch-account";
-import { readProject, type FilmRecord } from "./film-library";
+import {
+  readProject,
+  readMedia,
+  filmStillRequestBody,
+  normalizeFilmStillPrompt,
+  IMAGE_MODEL,
+  type FilmRecord,
+} from "./film-library";
 import { filmHistoryRecordHash, filmHistoryRecordText } from "./film-history";
 import {
   loadCanonicalGenerationProducer,
@@ -15,8 +26,16 @@ import {
   generationRows,
   type CanonicalGenerationPlan,
 } from "./film-generation-plan";
-import { buildGenerationRegistration } from "./film-generation-registration";
-import { generationBodyIdentity } from "./film-generation-lineage";
+import { dispatchProtectedGenerationStill } from "./film-generation-still-dispatch";
+import {
+  buildGenerationRegistration,
+  type GenerationRegistrationInput,
+} from "./film-generation-registration";
+import {
+  generationBodyIdentity,
+  restoreGenerationIntent,
+  verifyGenerationStageImage,
+} from "./film-generation-lineage";
 import { generationImageSources, type GenerationImageSources } from "./film-generation-sources";
 import {
   generationPreparationClient,
@@ -86,12 +105,14 @@ type State = {
   session: Session;
   current: () => boolean;
   attemptedSlots: Set<string>;
+  attemptedStages: Set<string>;
+  stageOrigins: Map<string, GenerationRegistrationInput["stages"][number]["origin"]>;
   queuedBindings: Map<string, readonly string[]>;
 };
 
-/** First real fixed-frame, regenerate-only ordinary sink. Cache, planned references,
- * local continuity and fresh media remain explicitly closed until their real adapters
- * are supplied; this is not the final complete execution factory. */
+/** Fixed-reference ordinary regenerate sink. Planned references, cache, local
+ * continuity and pipeline remain closed until their real adapters are composed.
+ * A transient execution or stored path is never dispatch permission. */
 export function createNativeFilmGenerationExecutions(host: {
   filmsRoot: () => string;
   storyFilmsRoot: () => string;
@@ -148,7 +169,7 @@ export function createNativeFilmGenerationExecutions(host: {
         // Never infer cache misses from metadata or file existence. This narrow branch
         // consumes the original queue's explicit regenerate instruction only.
         if (
-          plan.stages.length ||
+          plan.stages.some((stage) => stage.public.kind !== "shot-frame") ||
           plan.targets.some(
             (target) =>
               !producer.generationHadTakes(target.originalShot) ||
@@ -195,6 +216,8 @@ export function createNativeFilmGenerationExecutions(host: {
           session,
           current,
           attemptedSlots: new Set(),
+          attemptedStages: new Set(),
+          stageOrigins: new Map(registration.stages.map((stage) => [stage.key, stage.origin])),
           queuedBindings: new Map(),
         };
         await sources.verify();
@@ -206,7 +229,7 @@ export function createNativeFilmGenerationExecutions(host: {
           public: {
             projectId: record.id,
             projectHash: input.expectedProjectHash,
-            stages: [],
+            stages: plan.stages.map((stage) => stage.public),
             targets: plan.targets.map((target) => ({
               shotId: target.shotId,
               videoSlotIds: target.videoSlots.map((slot) => slot.id),
@@ -217,7 +240,14 @@ export function createNativeFilmGenerationExecutions(host: {
               })),
             })),
           },
-          stageSlots: new Map(),
+          stageSlots: new Map(
+            plan.stages.map((stage) => [
+              stage.public.stageId,
+              plan.targets
+                .filter((target) => stage.dependencies.includes(target.key))
+                .flatMap((target) => target.videoSlots.map((slot) => slot.id)),
+            ]),
+          ),
           privateState: state,
           accountCurrent: current,
         };
@@ -243,6 +273,183 @@ export function createNativeFilmGenerationExecutions(host: {
       );
     },
   });
+  async function still(
+    owner: GenerationExecutionOwner,
+    input: {
+      seriesId: string;
+      prompt: string;
+      aspectRatio: "9:16" | "16:9";
+      references: readonly string[];
+      execution: FilmGenerationStillExecution;
+    },
+  ): Promise<FilmGenerationStillResult> {
+    try {
+      const lease = service.stage(owner, input.execution, "image"),
+        state = lease.privateState;
+      const stage = state.plan.stages.find(
+          (item) => item.public.stageId === input.execution.stageId,
+        ),
+        origin = state.stageOrigins.get(input.execution.stageId);
+      if (
+        !stage ||
+        !origin ||
+        stage.public.kind !== "shot-frame" ||
+        input.seriesId !== state.seriesId
+      )
+        return fail("UNSUPPORTED_SCOPE");
+      const verify = async (record: FilmRecord | null) => {
+        lease.assertCurrent();
+        if (
+          !record ||
+          record.id !== state.projectId ||
+          record.seriesId !== state.seriesId ||
+          record.backendProjectId !== state.backendProjectId
+        )
+          return fail("PROJECT_CHANGED");
+        const actual = await verifyGenerationStageImage(
+          state.producer,
+          record,
+          stage,
+          origin,
+          state.sources,
+          [],
+        );
+        if (normalizeFilmStillPrompt(actual.prompt) !== actual.prompt)
+          return fail("UNSUPPORTED_SCOPE");
+        if (
+          normalizeFilmStillPrompt(input.prompt) !== actual.prompt ||
+          input.aspectRatio !== actual.aspectRatio ||
+          filmHistoryRecordText(input.references) !== filmHistoryRecordText(actual.references)
+        )
+          return fail("PROJECT_CHANGED");
+        for (const target of state.plan.targets.filter((target) =>
+          stage.dependencies.includes(target.key),
+        )) {
+          const shot = generationRows(record.shots).find((shot) => shot.id === target.shotId);
+          if (!shot || shot.selectedTakeId !== target.originalShot.selectedTakeId)
+            return fail("PROJECT_CHANGED");
+          const body = parseStoryFilmCreate(
+            state.producer.generationVideoBody(
+              record,
+              shot,
+              target.originalShot,
+              undefined,
+              record.draft === true,
+            ),
+          );
+          if (
+            (await generationBodyIdentity(body, state.sources)) !== state.identities.get(target.key)
+          )
+            return fail("PROJECT_CHANGED");
+        }
+        lease.assertCurrent();
+        return actual;
+      };
+      const actual = await verify(await readProject(host.filmsRoot(), state.projectId));
+      const references = await state.sources.materialize(actual.references);
+      const expectedWire = JSON.stringify(
+        filmStillRequestBody({ ...actual, references, model: IMAGE_MODEL }),
+      );
+      let bodyHash: string | undefined;
+      let reservationAcknowledged = false;
+      return await dispatchProtectedGenerationStill({
+        ...actual,
+        references,
+        token: state.account.bearer,
+        fetcher: host.fetcher,
+        current: lease.current,
+        destination: join(host.filmsRoot(), state.seriesId, "stills", `${randomUUID()}.png`),
+        beforePost: async (wire, dispatch) => {
+          try {
+            await verify(await readProject(host.filmsRoot(), state.projectId));
+            if (wire.init.body !== expectedWire) return fail("PROJECT_CHANGED");
+            if (state.attemptedStages.has(input.execution.stageId))
+              return fail("CREATION_ATTEMPT_ALREADY_RESERVED");
+            lease.assertCurrent();
+            state.attemptedStages.add(input.execution.stageId);
+            bodyHash = createHash("sha256").update(expectedWire).digest("hex");
+            try {
+              await state.api.beforeImage(
+                state.backendProjectId,
+                state.apiExecutionId,
+                input.execution.stageId,
+                bodyHash,
+                state.account,
+                lease.current,
+              );
+              reservationAcknowledged = true;
+            } catch (error) {
+              const outcome = fixed(error, "WRITE_UNCONFIRMED");
+              // A denied gate acquired nothing; a lost ACK may have acquired a
+              // hold. Neither is an acknowledged owned pending reservation that
+              // this local callback can release. Preserve uncertainty.
+              reservationAcknowledged = false;
+              throw outcome;
+            }
+            return await dispatchGenerationOnProjectQueue({
+              filmsRoot: host.filmsRoot(),
+              projectId: state.projectId,
+              current: lease.current,
+              verifyCanonical: async (record) => {
+                await verify(record);
+                await state.sources.verify();
+              },
+              dispatch,
+            });
+          } catch (error) {
+            throw fixed(error, "SOURCE_UNVERIFIABLE");
+          }
+        },
+        notSent: async () => {
+          if (bodyHash && reservationAcknowledged)
+            await state.api.imageUnsent(
+              state.backendProjectId,
+              state.apiExecutionId,
+              input.execution.stageId,
+              bodyHash,
+              state.account,
+              () => true,
+            );
+        },
+        observed: async (path, facts) => {
+          if (!bodyHash) return fail("WRITE_UNCONFIRMED");
+          let outputHash: string | null = null,
+            changedOutput = false;
+          if (
+            path &&
+            facts.outputSha256 &&
+            !facts.outputUnconfirmed &&
+            !facts.transportUnconfirmed
+          ) {
+            try {
+              await readMedia([host.filmsRoot()], path, { expectedSha256: facts.outputSha256 });
+              const source = await state.sources.capture(path);
+              if (source.sha256 !== facts.outputSha256) return fail("WRITE_UNCONFIRMED");
+              outputHash = facts.outputSha256;
+            } catch {
+              changedOutput = true;
+            }
+          }
+          await state.api.observedImage(
+            state.backendProjectId,
+            state.apiExecutionId,
+            input.execution.stageId,
+            bodyHash,
+            outputHash,
+            state.account,
+            () => true,
+          );
+          if (changedOutput) return fail("WRITE_UNCONFIRMED");
+        },
+      });
+    } catch (error) {
+      return {
+        path: "",
+        reason: "生成记录尚未确认，请先核对任务和素材。",
+        code: fixed(error, "WRITE_UNCONFIRMED").code,
+      };
+    }
+  }
   async function video(
     owner: GenerationExecutionOwner,
     projectId: string,
@@ -326,8 +533,35 @@ export function createNativeFilmGenerationExecutions(host: {
         );
         body.regenerate =
           lease.slotIndex > 0 || state.producer.generationHadTakes(target.originalShot);
+        let intentBody = body;
+        if (state.plan.stages.length) {
+          await state.sources.requestSources(body);
+          const facts = await state.api.lineages(
+            state.backendProjectId,
+            [...new Set(state.sources.identities().map((source) => source.sha256))],
+            state.account,
+            lease.current,
+          );
+          const intent = await restoreGenerationIntent(
+            state.producer,
+            record,
+            [target.shotId],
+            state.sources,
+            facts,
+          );
+          const intentShot = generationRows(intent.shots).find((shot) => shot.id === target.shotId);
+          intentBody = parseStoryFilmCreate(
+            state.producer.generationVideoBody(
+              intent,
+              intentShot,
+              target.originalShot,
+              undefined,
+              record.draft === true,
+            ),
+          );
+        }
         if (
-          (await generationBodyIdentity(body, state.sources)) !==
+          (await generationBodyIdentity(intentBody, state.sources)) !==
             state.identities.get(target.key) ||
           filmHistoryRecordText(body) !== filmHistoryRecordText(input)
         )
@@ -390,5 +624,5 @@ export function createNativeFilmGenerationExecutions(host: {
       throw fixed(error, sent ? "WRITE_UNCONFIRMED" : "SOURCE_UNVERIFIABLE");
     }
   }
-  return { ...service, video };
+  return { ...service, video, still };
 }

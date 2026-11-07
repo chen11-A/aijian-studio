@@ -1402,11 +1402,7 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     event.senderFrame === mainWindow.webContents.mainFrame,
   {
     protectedGeneration: {
-      still: async () => ({
-        path: "",
-        reason: "当前自动前置图输入暂不支持。",
-        code: "UNSUPPORTED_SCOPE",
-      }),
+      still: (event, input) => generationExecutions.still(generationExecutionOwner(event), input),
       lastFrame: async () => ({
         path: "",
         sourceVideoPath: "",

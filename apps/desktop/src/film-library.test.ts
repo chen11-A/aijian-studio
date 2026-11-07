@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -223,4 +223,31 @@ describe("film library", () => {
       join(packaged, "runtime", "ffmpeg", "bin", "ffmpeg"),
     );
   });
+});
+
+it("keeps the original single normalization on the actual still wire", async () => {
+  const root = mkdtempSync(join(tmpdir(), "aivora-wire-prompt-"));
+  try {
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        prompt: "巷口 <IMAGE_2>",
+        n: 1,
+        response_format: "b64_json",
+        quality: "medium",
+      });
+      return Response.json({
+        data: [{ b64_json: Buffer.from("original-writer-bytes").toString("base64") }],
+      });
+    });
+    const made = await requestStill({
+      prompt: "巷口 <IM<IMAGE_1>AGE_2>",
+      token: "synthetic",
+      fetcher,
+      destination: join(root, "still.png"),
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(await readFile(made.path, "utf8")).toBe("original-writer-bytes");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

@@ -782,6 +782,25 @@ export function normalizeFilmStillPrompt(prompt: string): string {
     .slice(0, 2000);
 }
 
+/** Single wire representation used by both the original writer and protected verification. */
+export function filmStillRequestBody(options: {
+  prompt: string;
+  model?: string;
+  aspectRatio?: "9:16" | "16:9";
+  references?: readonly string[];
+}) {
+  const references = [...new Set(options.references ?? [])];
+  return {
+    model: options.model ?? IMAGE_MODEL,
+    prompt: normalizeFilmStillPrompt(options.prompt),
+    n: 1,
+    ...(references.length ? { images: references.map((url) => ({ type: "image_url", url })) } : {}),
+    response_format: "b64_json",
+    quality: "medium",
+    ...(options.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
+  };
+}
+
 export async function requestStill(options: {
   prompt: string;
   token: string | null;
@@ -815,17 +834,7 @@ export async function requestStill(options: {
           Authorization: `Bearer ${options.token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: options.model ?? IMAGE_MODEL,
-          prompt,
-          n: 1,
-          ...(references.length
-            ? { images: references.map((url) => ({ type: "image_url", url })) }
-            : {}),
-          response_format: "b64_json",
-          quality: "medium",
-          ...(options.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
-        }),
+        body: JSON.stringify(filmStillRequestBody({ ...options, references })),
       },
     );
   } catch {
