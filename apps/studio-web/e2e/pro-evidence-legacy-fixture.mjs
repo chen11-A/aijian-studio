@@ -6,6 +6,7 @@ export function installEvidenceLegacyBridge({ state }) {
   const receipts = new Map();
   let serial = 0;
   const audit = {
+    waveforms: [],
     prepares: [],
     publishes: [],
     results: [],
@@ -32,6 +33,50 @@ export function installEvidenceLegacyBridge({ state }) {
   const forbidden = (name) => {
     audit.forbidden.push(name);
     throw Error("FORBIDDEN_EVIDENCE_LEGACY_DISPATCH");
+  };
+  // Optional local analysis is not paid dispatch. Validate the actual canonical source
+  // identity, then refuse tools predictably; this gate never invents peaks or decodes audio.
+  bridge.readFilmAudioWaveform = async (input) => {
+    const film = creation.record(input?.projectId),
+      clips = film?.audioClips?.filter((clip) => clip.id === input?.clipId) ?? [];
+    if (
+      !input ||
+      Object.keys(input).sort().join() !== "clipId,expectedSourceKey,projectId" ||
+      !film ||
+      clips.length !== 1 ||
+      typeof input.expectedSourceKey !== "string" ||
+      !/^[a-f0-9]{64}$/.test(input.expectedSourceKey)
+    )
+      return forbidden("waveform-scope");
+    const clip = clips[0],
+      shots = film.shots.filter((shot) => shot.id === clip.shotId);
+    if (!clip.path?.startsWith("/synthetic/") || shots.length !== 1)
+      return forbidden("waveform-source");
+    const shot = shots[0],
+      selected = typeof shot.selectedTakeId === "string" ? shot.selectedTakeId : "",
+      takes = shot.takes.filter((take) => take.id === selected);
+    if (takes.length > 1) return forbidden("waveform-source");
+    const take = takes[0],
+      expected = await creation.hash([
+        film.id,
+        clip.id,
+        clip.lane,
+        clip.shotId,
+        clip.takeId,
+        clip.label,
+        clip.path,
+        clip.offsetSeconds,
+        clip.durationSeconds,
+        selected,
+        take?.videoPath ?? "",
+        take?.status ?? "",
+        film.seriesId ?? "",
+        film.backendProjectId ?? "",
+      ]);
+    if (expected !== input.expectedSourceKey) return forbidden("waveform-key");
+    const code = selected !== clip.takeId ? "SOURCE_CHANGED" : "TOOLS_UNAVAILABLE";
+    audit.waveforms.push({ input: clone(input), matched: true, code });
+    return { kind: "FAILED", code };
   };
   bridge.createProject = async () => forbidden("createProject");
   for (const name of [
