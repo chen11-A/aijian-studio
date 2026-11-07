@@ -113,6 +113,14 @@ export function generationHadTakes(shot: FilmShot): boolean {
   return shot.takes.some((take) => take.status === "done");
 }
 
+/** Original append order shared by queue creation and native slot verification. */
+export function generationQueuedTakeIndices(shot: FilmShot, versions: number): number[] {
+  return Array.from(
+    { length: Math.max(1, Math.min(versions, 4)) },
+    (_, index) => shot.takes.length + index + 1,
+  );
+}
+
 export function prepareVideoQueue(
   film: FilmProject,
   targets: FilmShot[],
@@ -127,10 +135,10 @@ export function prepareVideoQueue(
       ? shot.takes.filter(
           (take) => take.status === "queued" && (!takeIds || takeIds.includes(take.id)),
         )
-      : Array.from({ length: Math.max(1, Math.min(versions, 4)) }, (_, index) => ({
+      : generationQueuedTakeIndices(shot, versions).map((index) => ({
           id: crypto.randomUUID(),
           shotId: shot.id,
-          index: shot.takes.length + index + 1,
+          index,
           status: "queued",
           stillUrl: "",
           videoPath: "",

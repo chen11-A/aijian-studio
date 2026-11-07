@@ -276,7 +276,12 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
       )
         return fail("EXECUTION_UNAVAILABLE");
       const isCurrent = () =>
-        current(entry) && !slot.retired && (!slot.takeId || slot.takeId === input.takeId);
+        current(entry) &&
+        !slot.retired &&
+        (!slot.takeId || slot.takeId === input.takeId) &&
+        !Array.from(entry.slots.values()).some(
+          (other) => other !== slot && other.takeId === input.takeId,
+        );
       return {
         privateState: entry.registration.privateState,
         shotId: slot.shotId,
