@@ -782,14 +782,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
-  const audioMixPreview = useAudioMixPreview(film, stage === "edit", {
-    current: () => filmRef.current,
-    save: (snapshot, guard) => persistence.save(snapshot, guard),
-  });
   const audioWaveforms = useAudioWaveforms(film, stage === "edit", {
     current: () => filmRef.current,
     apply: applyLive,
     save: (snapshot) => persistence.save(snapshot),
+  });
+  const audioMixPreview = useAudioMixPreview(film, stage === "edit" && audioWaveforms.primed, {
+    current: () => filmRef.current,
+    save: (snapshot, guard) => persistence.save(snapshot, guard),
   });
   const editorHost = useMemo(
     () =>

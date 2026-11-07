@@ -25,6 +25,13 @@ export function useAudioWaveforms(
   runRef.current = key;
   const [verifiedAt, setVerifiedAt] = useState("");
   const [settledAt, setSettledAt] = useState("");
+  const [primedAt, setPrimedAt] = useState("");
+  const sourceScope = JSON.stringify([film?.id ?? "", active, identity]);
+  const visit = useRef({ scope: "", revision: 0 });
+  // Refresh of the same source is not a new edit visit or a new source identity.
+  if (visit.current.scope !== sourceScope)
+    visit.current = { scope: sourceScope, revision: visit.current.revision + 1 };
+  const primeKey = JSON.stringify([sourceScope, visit.current.revision]);
   useEffect(() => {
     let cancelled = false;
     setVerified({});
@@ -74,6 +81,7 @@ export function useAudioWaveforms(
         if (current()) {
           setBusy(false);
           setSettledAt(key);
+          setPrimedAt(primeKey);
         }
       });
     return () => {
@@ -89,6 +97,14 @@ export function useAudioWaveforms(
       !window.aijian?.readFilmAudioWaveform ||
       !window.aijian.readFilmProject ||
       (settledAt === key && !busy),
+    // Scheduling only: main still verifies every source. A same-source explicit refresh
+    // does not disable/re-enable an already-admitted preview and reset its retry budget.
+    primed:
+      !active ||
+      !film ||
+      !window.aijian?.readFilmAudioWaveform ||
+      !window.aijian.readFilmProject ||
+      primedAt === primeKey,
     busy: active && busy,
     refresh: () => setRevision((v) => v + 1),
   };

@@ -1,3 +1,4 @@
+import type { AudioMixPreviewResult } from "@aijian/contracts/film-audio-mix";
 import { buildAudioMixPlan } from "@aijian/contracts/film-audio-mix-plan";
 import { filmAudioSourceIdentity } from "../film/audio-waveform-data";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -25,6 +26,7 @@ async function open(
     unknownClock?: boolean;
     saveFailure?: boolean;
     metadataHold?: boolean;
+    metadataBusy?: boolean;
   } = {},
 ) {
   let host!: Parameters<typeof originalHost>[0];
@@ -104,39 +106,43 @@ async function open(
       },
     };
   });
+  if (options.metadataBusy) releaseWave();
   let previewCalls = 0;
-  const preview = vi.fn(async (value: { projectId: string; expectedHash: string }) => {
-    expect(value.expectedHash).toBe(await historyRecordHash(disk));
-    if (++previewCalls === 1) await previewHold;
-    metadataOrder.push("preview-ready");
-    return {
-      kind: "READY",
-      fingerprint: value.expectedHash,
-      plan: buildAudioMixPlan({
-        projectId: disk.id,
-        durationSeconds: 3,
-        shots: disk.shots
-          .filter((s) => s.selectedTakeId)
-          .map((shot, i) => ({
-            shotId: shot.id,
-            takeId: shot.selectedTakeId!,
-            startSeconds: i ? 2 : 0,
-            durationSeconds: i ? 1 : 2,
-            nativeSourceKey: shot.selectedTakeId!,
-            hasDialogue: false,
-          })),
-        clips: [{ ...disk.audioClips[0]!, sourceKey: "score" }],
-        sources: {
-          t0: { durationSeconds: 2, hasAudio: true },
-          t1: { durationSeconds: 1, hasAudio: true },
-          score: { durationSeconds: 3, hasAudio: true },
-        },
-      }),
-      sourcePaths: { t0: "/trusted/0.mp4", t1: "/trusted/1.mp4", score: "/trusted/music.wav" },
-      sourceSha256: {},
-      sourceInfo: {},
-    };
-  });
+  const preview = vi.fn(
+    async (value: { projectId: string; expectedHash: string }): Promise<AudioMixPreviewResult> => {
+      expect(value.expectedHash).toBe(await historyRecordHash(disk));
+      if (options.metadataBusy) return { kind: "FAILED", code: "BUSY" };
+      if (++previewCalls === 1) await previewHold;
+      metadataOrder.push("preview-ready");
+      return {
+        kind: "READY",
+        fingerprint: value.expectedHash,
+        plan: buildAudioMixPlan({
+          projectId: disk.id,
+          durationSeconds: 3,
+          shots: disk.shots
+            .filter((s) => s.selectedTakeId)
+            .map((shot, i) => ({
+              shotId: shot.id,
+              takeId: shot.selectedTakeId!,
+              startSeconds: i ? 2 : 0,
+              durationSeconds: i ? 1 : 2,
+              nativeSourceKey: shot.selectedTakeId!,
+              hasDialogue: false,
+            })),
+          clips: [{ ...disk.audioClips[0]!, sourceKey: "score" }],
+          sources: {
+            t0: { durationSeconds: 2, hasAudio: true },
+            t1: { durationSeconds: 1, hasAudio: true },
+            score: { durationSeconds: 3, hasAudio: true },
+          },
+        }),
+        sourcePaths: { t0: "/trusted/0.mp4", t1: "/trusted/1.mp4", score: "/trusted/music.wav" },
+        sourceSha256: {},
+        sourceInfo: {},
+      };
+    },
+  );
   const oldAssemble = vi.fn(),
     provider = vi.fn(),
     cancel = vi.fn(async () => ({ kind: "REQUESTED" as const }));
@@ -203,7 +209,7 @@ async function open(
       models: [{ id: "grok-imagine-video-1.5", label: "video" }],
     })),
   } as unknown as Window["aijianGrok"];
-  if (options.metadataHold)
+  if (options.metadataHold || options.metadataBusy)
     Object.assign(window.aijian!, { readFilmAudioWaveform: wave, getFilmAudioMixPreview: preview });
   localStorage.setItem("aivora.film.activeId", film.id);
   render(<ProWorkspace />);
@@ -375,15 +381,16 @@ it("admits the first edit assembly only after ordinary waveform saves and previe
   const f = await open({ metadataHold: true });
   await waitFor(() => {
     expect(f.wave).toHaveBeenCalledOnce();
-    expect(f.preview).toHaveBeenCalledOnce();
   });
-  expect(f.assemble).not.toHaveBeenCalled();
-  await act(async () => {
-    f.releasePreview();
-  });
+  expect(f.preview).not.toHaveBeenCalled();
   expect(f.assemble).not.toHaveBeenCalled();
   await act(async () => {
     f.releaseWave();
+  });
+  await waitFor(() => expect(f.preview).toHaveBeenCalledOnce());
+  expect(f.assemble).not.toHaveBeenCalled();
+  await act(async () => {
+    f.releasePreview();
   });
   await waitFor(() => expect(f.disk().assemblyPath).toBe("/trusted/new-assembly.mp4"));
   expect(f.assemble).toHaveBeenCalledOnce();
@@ -396,6 +403,96 @@ it("admits the first edit assembly only after ordinary waveform saves and previe
   );
   expect(f.disk().audioClips[0]!.waveform?.peaks).toEqual([0.1, 0.2]);
   expect(f.cancel).not.toHaveBeenCalled();
+  expect(f.oldAssemble).not.toHaveBeenCalled();
+  expect(f.provider).not.toHaveBeenCalled();
+});
+
+it("keeps the original eight BUSY admissions across canonical adoption and assembly references, then retries only on an explicit click", async () => {
+  const f = await open({ metadataBusy: true, deferred: true });
+  try {
+    await waitFor(() => expect(f.assemble).toHaveBeenCalledOnce(), { timeout: 5000 });
+    expect(f.preview).toHaveBeenCalledTimes(8);
+    expect(screen.getByRole("button", { name: "重试音轨试听" })).toBeInTheDocument();
+    await act(async () => {
+      f.complete();
+    });
+    await waitFor(() => expect(f.disk().assemblyPath).toBe("/trusted/new-assembly.mp4"));
+    expect(screen.getByRole("button", { name: "重试音轨试听" })).toBeInTheDocument();
+    expect(f.preview).toHaveBeenCalledTimes(8);
+    expect(f.wave).toHaveBeenCalledOnce();
+    const originalWave = f.wave.getMockImplementation()!;
+    let releaseSameWave!: () => void;
+    const sameWaveHold = new Promise<void>((done) => {
+      releaseSameWave = done;
+    });
+    f.wave.mockImplementationOnce(async (input) => {
+      const wave = await originalWave(input);
+      await sameWaveHold;
+      return wave;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "刷新音频波形" }));
+    try {
+      await waitFor(() => expect(f.wave).toHaveBeenCalledTimes(2));
+    } finally {
+      await act(async () => {
+        releaseSameWave();
+        await f.wave.mock.results.at(-1)!.value;
+      });
+    }
+    await screen.findByRole("button", { name: "刷新音频波形" });
+    await screen.findByRole("button", { name: "重试音轨试听" }, { timeout: 5000 });
+    process.stdout.write(
+      `SAME_SOURCE_WAVE_REFRESH ${JSON.stringify({ previewCalls: f.preview.mock.calls.length, assemblyCalls: f.assemble.mock.calls.length, cancels: f.cancel.mock.calls.length })}\n`,
+    );
+    expect(f.preview).toHaveBeenCalledTimes(8);
+    f.preview.mockImplementationOnce(async (input) => {
+      expect(input.expectedHash).toBe(await historyRecordHash(f.disk()));
+      return { kind: "FAILED", code: "TOOLS_UNAVAILABLE" };
+    });
+    fireEvent.click(screen.getByRole("button", { name: "重试音轨试听" }));
+    await waitFor(() => expect(f.preview).toHaveBeenCalledTimes(9));
+    expect(f.assemble).toHaveBeenCalledOnce();
+    expect(f.cancel).not.toHaveBeenCalled();
+    expect(f.oldAssemble).not.toHaveBeenCalled();
+    expect(f.provider).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => {
+      f.complete();
+    });
+  }
+});
+it("rechecks main when a controlled same-source waveform refresh reports different bytes, without legacy or provider calls", async () => {
+  const f = await open({ metadataHold: true });
+  await waitFor(() => expect(f.wave).toHaveBeenCalledOnce());
+  await act(async () => f.releaseWave());
+  await waitFor(() => expect(f.preview).toHaveBeenCalledOnce());
+  await act(async () => f.releasePreview());
+  await waitFor(() => expect(f.disk().assemblyPath).toBe("/trusted/new-assembly.mp4"));
+  const originalWave = f.wave.getMockImplementation()!;
+  let releaseChanged!: () => void;
+  const hold = new Promise<void>((done) => {
+    releaseChanged = done;
+  });
+  f.wave.mockImplementationOnce(async (input) => {
+    const result = await originalWave(input);
+    await hold;
+    return { ...result, waveform: { ...result.waveform, sourceSha256: "c".repeat(64) } };
+  });
+  fireEvent.click(screen.getByRole("button", { name: "刷新音频波形" }));
+  try {
+    await waitFor(() => expect(f.wave).toHaveBeenCalledTimes(2));
+    expect(f.preview).toHaveBeenCalledOnce();
+  } finally {
+    await act(async () => {
+      releaseChanged();
+      await f.wave.mock.results.at(-1)!.value;
+    });
+  }
+  await waitFor(() => expect(f.preview).toHaveBeenCalledTimes(2));
+  expect(f.preview.mock.calls[0]![0].expectedHash).not.toBe(
+    f.preview.mock.calls[1]![0].expectedHash,
+  );
+  expect(f.disk().audioClips[0]!.waveform?.sourceSha256).toBe("c".repeat(64));
   expect(f.oldAssemble).not.toHaveBeenCalled();
   expect(f.provider).not.toHaveBeenCalled();
 });
