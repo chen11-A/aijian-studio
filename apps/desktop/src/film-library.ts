@@ -790,6 +790,8 @@ export async function requestStill(options: {
   model?: string;
   aspectRatio?: "9:16" | "16:9";
   references?: readonly string[];
+  /** Main-only original output witness; never an IPC or public response field. */
+  onImageBytes?: (bytes: Uint8Array) => void;
 }): Promise<{ path: string; reason: string }> {
   const prompt = normalizeFilmStillPrompt(options.prompt);
   if (!options.token) return { path: "", reason: "需要重新登录后再出图。" };
@@ -851,6 +853,7 @@ export async function requestStill(options: {
   if (!bytes || bytes.byteLength < 8 || bytes.byteLength > maxStillBytes) {
     return { path: "", reason: "出图没有成功，可以重试。" };
   }
+  options.onImageBytes?.(bytes);
   await mkdir(dirname(options.destination), { recursive: true });
   await writeFile(options.destination, bytes);
   return { path: options.destination, reason: "" };

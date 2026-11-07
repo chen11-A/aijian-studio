@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
+import { readMedia } from "./film-library";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, expect, it, vi } from "vitest";
 import {
@@ -48,6 +50,7 @@ it("uses the production serializer and real file write, then observes only the a
   const f = await setup();
   const result = await dispatchProtectedGenerationStill(f.options);
   expect(result.path).toBe(f.options.destination);
+  expect(Object.keys(result).sort()).toEqual(["path", "reason"]);
   expect(await readFile(result.path)).toEqual(image);
   expect(f.fetcher).toHaveBeenCalledTimes(1);
   expect(JSON.parse(String(f.fetcher.mock.calls[0]![1]!.body))).toMatchObject({
@@ -57,6 +60,7 @@ it("uses the production serializer and real file write, then observes only the a
   });
   expect(f.options.observed).toHaveBeenCalledExactlyOnceWith(result.path, {
     transportUnconfirmed: false,
+    outputSha256: createHash("sha256").update(image).digest("hex"),
   });
   expect(f.options.notSent).not.toHaveBeenCalled();
 });
@@ -184,3 +188,29 @@ it.each([503, 200])(
     });
   },
 );
+
+it("pins the original writer bytes so a late same-path replacement cannot become successful lineage", async () => {
+  const f = await setup();
+  const replacement = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const recorded: string[] = [];
+  let witness: unknown;
+  f.options.observed = async (path, facts) => {
+    witness = Reflect.get(facts, "outputSha256");
+    await writeFile(path!, replacement);
+    const bytes = await readMedia([dirname(f.options.destination)], path!, {
+      maxBytes: 12_000_000,
+      ...(typeof witness === "string" ? { expectedSha256: witness } : {}),
+    });
+    recorded.push(createHash("sha256").update(bytes).digest("hex"));
+  };
+  const result = await dispatchProtectedGenerationStill(f.options);
+  expect(result).toMatchObject({ path: f.options.destination, code: "WRITE_UNCONFIRMED" });
+  expect(witness).toBe(createHash("sha256").update(image).digest("hex"));
+  expect(recorded).toEqual([]);
+  expect(await readFile(f.options.destination)).toEqual(replacement);
+  expect(f.fetcher).toHaveBeenCalledTimes(1);
+  expect(f.options.notSent).not.toHaveBeenCalled();
+});
