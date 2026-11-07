@@ -47,3 +47,15 @@
 ## 根复核修后源（2026-11-07 15:24 UTC）
 
 a5+7b已根合ba14075；root153/14.35秒、actualPro4/8.24秒、ESLint/7syntax/9format/diff均0。旧workflow前缀与产品source8a7无diff，原全5585仍保固定来源；新增16待本源真实Chrome，不把该定向结果冒484正常通过。首61失败公开三类、开/关原生toggle暂态及精确写回/原真实tab的因果均保上文，未改产品/CSS/probe/原阈值。
+
+## 第二轮正常 Chrome：选中 toolbar 与每次 seek 生命周期
+
+source `10aea75` / run `42386264617` / job `128444200215`：15:27:03 失败/15:27:05 上传；公开最多8条为 context308、transport398各四组合。原468同轮全部成功，不从有限注释推其它新增态已过，也未读取需登录截图。
+
+本叶基10aea75，保a5/7b冻结。实际选中timeline clip的toolbar和右键菜单使用“剪掉”，原browser却继续找未选中工具栏的aria-label“删除”；同default actual Pro补原精确断言真失败。现等真实菜单/toolbar可见，再精确验证重新生成/换配音/剪掉；仍原scope、完整列表、Escape、几何及所有0provider/媒体保留，无CSS或产品修改。
+
+短host原手抄sample的scene顺序与normal的seedProProject不同，且没验证media时间。现直接调用同一seedProProject。真实默认seed受控before：首次metadata→L/L/K→下一切点，ruler为1.2而video.currentTime仍0，严格1.2断言真失败；闭合原始数值`/tmp/ui-interactions-transport-default-before.json`，两例before失败`/tmp/ui-interactions-second-real-before.log`。这证实原受控ABI只送首次metadata，PreviewPlayer在readyState<1时对每个新seek等待独立loadedmetadata，不能拿时间尺变化冒充视频已seek。
+
+Home沿原真实ruler处理，核ruler/currentTime双0后回真实预览tab焦点；每个原切点/帧按键均先观察该video实际addEventListener('loadedmetadata')准入，再送同原受控事件（原媒体已ready时则要求原真实DOM/head已达到精确值）。没有修改currentTime/readyState、没有新增duration覆盖、没有改seek轨迹/0.001/帧1/30容差。小观测器仅代理当前video.addEventListener原方法，默认ABI不启用；Node永久例核原生once语义和不触碰媒体状态。仍只证明synthetic metadata下的Pro入口/时码计算，非真实自定义协议/解码/试听。
+
+actual Pro四态后证4/4：`/tmp/ui-interactions-second-observed-after2.log`。Node单profile新增listener生命周期例后10/10：`/tmp/ui-interactions-second-contract.log`；全15契约预期154与目标静态日志见`/tmp/ui-interactions-second-all-contracts.log`、`/tmp/ui-interactions-second-eslint.log`、`/tmp/ui-interactions-second-format.log`。原468/profile/state/几何/退出/sandbox/禁派发和workflow字节均未改。正常Chrome新增16仍待root新运行，未以本地受控通过称484成功。

@@ -17,6 +17,7 @@ import {
 } from "./pro-evidence-legacy-fixture.mjs";
 import {
   READY_SHOT_MENU,
+  observeUiSeekMetadata,
   installUiInteractionsBridge,
   seedUiInteractionsProject,
 } from "./pro-ui-interactions-fixture.mjs";
@@ -299,13 +300,16 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             expectedAssembly.push(before);
             await page.locator(".clip.v").nth(1).click({ button: "right" });
             menu = page.getByRole("menu", { name: /^镜头 \d+ 的操作$/ });
+            await menu.waitFor({ state: "visible" });
             assert.deepEqual(await menu.getByRole("menuitem").allTextContents(), [
               "重新生成",
               "换配音",
               "剪掉",
             ]);
-            for (const name of ["重新生成", "换配音", "删除"])
+            for (const name of ["重新生成", "换配音", "剪掉"]) {
+              await button(name).waitFor({ state: "visible" });
               assert.equal(await button(name).count(), 1);
+            }
             scopeSelector = ".nx-context-menu";
             await geometry("timeline-context");
             await page.keyboard.press("Escape");
@@ -394,7 +398,52 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             await page.getByText("快放 2×", { exact: true }).waitFor();
             await page.keyboard.press("k");
             await button("播放").waitFor();
-            await page.keyboard.press("ArrowDown");
+            const ruler = page.getByRole("slider", { name: "播放位置", exact: true });
+            await video.evaluate(observeUiSeekMetadata);
+            const seek = async (press, expected, epsilon = 0.001) => {
+              const registrations = await page.evaluate(
+                () => window.__uiInteractionsAudit.seekMetadata.registrations,
+              );
+              await press();
+              await page.waitForFunction(
+                ({ registrations, expected, epsilon }) => {
+                  const video = window.document.querySelector(".preview-player video.frame");
+                  return (
+                    window.__uiInteractionsAudit.seekMetadata.registrations > registrations ||
+                    (video.readyState >= 1 &&
+                      Math.abs(video.currentTime - expected) < epsilon &&
+                      Number(
+                        window.document
+                          .querySelector('.ruler[role="slider"]')
+                          .getAttribute("aria-valuenow"),
+                      ) ===
+                        Math.round(expected * 10) / 10)
+                  );
+                },
+                { registrations, expected, epsilon },
+              );
+              if (
+                await page.evaluate(
+                  (before) => window.__uiInteractionsAudit.seekMetadata.registrations > before,
+                  registrations,
+                )
+              )
+                await video.evaluate((v) => v.dispatchEvent(new window.Event("loadedmetadata")));
+            };
+            await ruler.focus();
+            await seek(() => ruler.press("Home"), 0);
+            await page.waitForFunction(
+              () =>
+                window.document
+                  .querySelector('.ruler[role="slider"]')
+                  .getAttribute("aria-valuenow") === "0" &&
+                window.document.querySelector(".preview-player video.frame").currentTime === 0,
+            );
+            await page
+              .locator(".pane.monitor .monitor-tabs")
+              .getByRole("button", { name: "预览", exact: true })
+              .click();
+            await seek(() => page.keyboard.press("ArrowDown"), artifact.shots[1].startSeconds);
             await page.waitForFunction(
               (expected) =>
                 Math.abs(
@@ -403,20 +452,20 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
                 ) < 0.001,
               artifact.shots[1].startSeconds,
             );
-            await page.keyboard.press("ArrowUp");
+            await seek(() => page.keyboard.press("ArrowUp"), 0);
             await page.waitForFunction(
               () => window.document.querySelector(".preview-player video.frame").currentTime === 0,
             );
-            await page.keyboard.press("ArrowLeft");
+            await seek(() => page.keyboard.press("ArrowLeft"), 0);
             assert.equal(await video.evaluate((v) => v.currentTime), 0);
-            await page.keyboard.press("ArrowRight");
+            await seek(() => page.keyboard.press("ArrowRight"), 1 / 30, 0.0001);
             await page.waitForFunction(
               () =>
                 Math.abs(
                   window.document.querySelector(".preview-player video.frame").currentTime - 1 / 30,
                 ) < 0.0001,
             );
-            await page.keyboard.press("ArrowDown");
+            await seek(() => page.keyboard.press("ArrowDown"), artifact.shots[1].startSeconds);
             await page.keyboard.press("j");
             await page.getByText("倒放 1×", { exact: true }).waitFor();
             await page.keyboard.press("j");

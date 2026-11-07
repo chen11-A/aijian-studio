@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { it, afterEach, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor, cleanup } from "@testing-library/react";
-import { sampleFilm, FILM_KEY } from "../src/aivora/film/project";
+import { seedProProject } from "./pro-layout-fixture.mjs";
 import { ProWorkspace } from "../src/aivora/pro/ProWorkspace";
 import * as persistence from "../src/aivora/pro/film-persistence";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
@@ -16,6 +16,7 @@ import {
 } from "./pro-evidence-legacy-fixture.mjs";
 import {
   READY_SHOT_MENU,
+  observeUiSeekMetadata,
   installUiInteractionsBridge,
   seedUiInteractionsProject,
 } from "./pro-ui-interactions-fixture.mjs";
@@ -53,22 +54,12 @@ async function open(state) {
   installAssemblyAuditBridge({ mode: "complete" });
   installEvidenceLegacyBridge({ state });
   installUiInteractionsBridge();
-  const film = sampleFilm();
-  film.shots = film.shots.map((s) => ({
-    ...s,
-    selectedTakeId: `${s.id}-layout-1`,
-    takes: Array.from({ length: 3 }, (_, i) => ({
-      id: `${s.id}-layout-${i + 1}`,
-      shotId: s.id,
-      index: i + 1,
-      status: "done",
-      videoPath: `/synthetic/${s.id}-${i + 1}.mp4`,
-      videoUrl: "data:video/mp4;base64,AAAA",
-      createdAt: "",
-      prompt: "synthetic",
-    })),
-  }));
-  window.localStorage.setItem(FILM_KEY, JSON.stringify(film));
+  await seedProProject({
+    projectModuleUrl: "../src/aivora/film/project.ts",
+    aspect: "16:9",
+    versions: 3,
+    videoUrl: "data:video/mp4;base64,AAAA",
+  });
   seedEvidenceLegacyProject({ state });
   const seed = seedUiInteractionsProject();
   vi.spyOn(persistence, "createFilmPersistence").mockImplementation((v) => {
@@ -162,6 +153,9 @@ it("context menus use actual scene/board/clip lists, dismiss on Escape and mirro
       .map((e) => e.textContent),
     ["重新生成", "换配音", "剪掉"],
   );
+  // The selected-clip toolbar uses the same visible deletion verb as its menu.
+  for (const label of ["重新生成", "换配音", "剪掉"])
+    assert.equal(screen.queryAllByRole("button", { name: label }).length, 1);
   fireEvent.keyDown(menu, { key: "Escape" });
   assert.deepEqual(kept(f.raw()), kept(f.before));
   safe(6);
@@ -252,13 +246,45 @@ it("real edit transport keys and Delete/Backspace retain input/menu guards then 
       name: "预览",
     }),
   );
+  const video = window.document.querySelector(".preview-player video.frame");
+  const ruler = screen.getByRole("slider", { name: "播放位置" });
+  fireEvent.loadedMetadata(video);
+  const admissions = observeUiSeekMetadata(video);
+  const seek = (target, key) => {
+    const before = admissions.registrations;
+    fireEvent.keyDown(target, { key });
+    assert(admissions.registrations > before || video.readyState >= 1);
+    if (admissions.registrations > before) fireEvent.loadedMetadata(video);
+  };
+  assert.equal(Number(ruler.getAttribute("aria-valuenow")), 0);
+  assert.equal(video.currentTime, 0);
   fireEvent.keyDown(window, { key: "l" });
   assert(screen.getByRole("button", { name: "暂停" }));
   fireEvent.keyDown(window, { key: "l" });
   assert(screen.getByText("快放 2×"));
   fireEvent.keyDown(window, { key: "k" });
   assert(screen.getByRole("button", { name: "播放" }));
-  fireEvent.keyDown(window, { key: "ArrowDown" });
+  ruler.focus();
+  seek(ruler, "Home");
+  assert.equal(Number(ruler.getAttribute("aria-valuenow")), 0);
+  assert.equal(video.currentTime, 0);
+  const preview = within(window.document.querySelector(".pane.monitor .monitor-tabs")).getByRole(
+    "button",
+    { name: "预览" },
+  );
+  fireEvent.click(preview);
+  preview.focus();
+  seek(window, "ArrowDown");
+  assert(
+    Math.abs(video.currentTime - window.__assemblyAudit.artifacts[0].shots[1].startSeconds) < 0.001,
+  );
+  seek(window, "ArrowUp");
+  assert.equal(video.currentTime, 0);
+  seek(window, "ArrowLeft");
+  assert.equal(video.currentTime, 0);
+  seek(window, "ArrowRight");
+  assert(Math.abs(video.currentTime - 1 / 30) < 0.0001);
+  seek(window, "ArrowDown");
   fireEvent.keyDown(window, { key: "j" });
   assert(screen.getByText("倒放 1×"));
   fireEvent.keyDown(window, { key: "k" });
