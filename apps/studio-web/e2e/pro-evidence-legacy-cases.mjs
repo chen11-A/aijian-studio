@@ -490,7 +490,7 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
               element.dispatchEvent(new window.Event("timeupdate")),
             );
             assert.equal(Number(await ruler.getAttribute("aria-valuenow")), 1);
-            async function drag(fraction) {
+            async function drag(fraction, comparing = false) {
               const clip = await page.locator(".clip.v").nth(1).boundingBox(),
                 box = await ruler.boundingBox();
               assert(clip && box);
@@ -505,16 +505,54 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
               await page.mouse.up();
               await frame();
               result.dragAfter = await page.evaluate(readEvidencePointer, to);
-              await video.evaluate((element) =>
-                element.dispatchEvent(new window.Event("loadedmetadata")),
-              );
+              if (comparing) {
+                assert.equal(await page.locator(".preview-player video.frame").count(), 0);
+                assert.equal(
+                  await page.getByRole("heading", { name: "对比", exact: true }).count(),
+                  1,
+                );
+                const sources = await page
+                  .locator(".cmp-takes video")
+                  .evaluateAll((rows) => rows.map((row) => row.getAttribute("src")));
+                assert.deepEqual(
+                  sources,
+                  before.shots[1].takes.map((take) => take.videoUrl),
+                );
+              } else {
+                await video.evaluate((element) =>
+                  element.dispatchEvent(new window.Event("loadedmetadata")),
+                );
+              }
               await frame();
             }
             await drag(0.2);
             const globalIn = Number(await ruler.getAttribute("aria-valuenow"));
             assert(globalIn > artifact.shots[1].startSeconds);
             await button("设入点").click();
-            await drag(0.8);
+            await drag(0.8, true);
+            const globalOut = Number(await ruler.getAttribute("aria-valuenow"));
+            assert(
+              Math.abs(
+                globalOut -
+                  (artifact.shots[1].startSeconds + artifact.shots[1].durationSeconds * 0.8),
+              ) < 0.1,
+            );
+            await button("关掉对比").click();
+            await page.locator(".preview-player video.frame").waitFor();
+            await frame();
+            await page
+              .locator(".preview-player video.frame")
+              .evaluate((element) => element.dispatchEvent(new window.Event("loadedmetadata")));
+            await page.waitForFunction(
+              (expected) =>
+                Math.abs(
+                  document.querySelector(".preview-player video.frame").currentTime - expected,
+                ) < 0.1,
+              globalOut,
+            );
+            // The range toolbar has no mark-out control. Its explicit close preserves the
+            // recorded in-point and playhead, making the real mark-out button available.
+            await button("取消选择").click();
             await button("设出点").click();
             await button("重新生成").click();
             await page.getByLabel("局部重做入点", { exact: true }).waitFor();
