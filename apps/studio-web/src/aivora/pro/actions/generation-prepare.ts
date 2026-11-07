@@ -1,5 +1,7 @@
+import type { FilmGenerationExecutionInput } from "@aijian/contracts/film-generation-execution";
 import type { FilmProject, FilmShot } from "../../film/project";
 import {
+  canResumeTake,
   generationTargets,
   prepareBlockedVideoQueue,
   prepareVideoQueue,
@@ -110,4 +112,46 @@ export function prepareGenerationRetry(current: FilmProject, ids: string[]) {
       return take ? [take.id] : [];
     }),
   };
+}
+
+/** The exact count the original queue will consume, without allocating any take IDs. */
+export function generationExecutionTargets(
+  film: FilmProject,
+  selected: readonly FilmShot[],
+  options: {
+    versions: number;
+    resume?: boolean;
+    takeIds?: readonly string[];
+    blockedIds?: readonly string[];
+  },
+): FilmGenerationExecutionInput["targets"] {
+  const targets = selected.flatMap((target) => {
+    const shot = film.shots.find((s) => s.id === target.id);
+    if (!shot) return [];
+    const count = options.blockedIds
+      ? film.jobs.filter(
+          (job) =>
+            options.blockedIds!.includes(job.id) &&
+            job.kind === "video" &&
+            job.status === "blocked" &&
+            job.shotId === shot.id,
+        ).length
+      : options.resume
+        ? shot.takes.filter(
+            (take) =>
+              canResumeTake(take) && (!options.takeIds || options.takeIds.includes(take.id)),
+          ).length
+        : options.versions;
+    if (!count) return [];
+    if (!Number.isInteger(count) || count < 1 || count > 3)
+      throw Object.assign(new Error("GENERATION_EXECUTION_SCOPE_UNSUPPORTED"), {
+        code: "GENERATION_EXECUTION_SCOPE_UNSUPPORTED",
+      });
+    return [{ shotId: shot.id, versions: count as 1 | 2 | 3 }];
+  });
+  if (!targets.length || new Set(targets.map((t) => t.shotId)).size !== targets.length)
+    throw Object.assign(new Error("GENERATION_EXECUTION_SCOPE_UNSUPPORTED"), {
+      code: "GENERATION_EXECUTION_SCOPE_UNSUPPORTED",
+    });
+  return targets;
 }

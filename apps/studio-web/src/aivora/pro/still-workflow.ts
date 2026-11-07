@@ -1,3 +1,4 @@
+import type { GenerationExecutionSession } from "./actions/generation-execution";
 import { keyframePrompt } from "../film/project";
 import { withIdentityLocks } from "../film/phase2";
 import type { FilmProject, FilmShot } from "../film/project";
@@ -8,6 +9,7 @@ import { requestShotStill, stillFailureNotice } from "./workflow";
 type StillHost = {
   current: () => FilmProject | null;
   valid: () => boolean;
+  execution?: GenerationExecutionSession;
   apply: (film: FilmProject) => void | Promise<void>;
 };
 
@@ -77,7 +79,16 @@ export async function ensureShotFrame(
       title: "视频首帧",
     },
     async (signal) => {
-      const made = await requestShotStill(base, shot, keyframePrompt(shot, base));
+      if (!host.execution)
+        throw Object.assign(new Error("GENERATION_EXECUTION_UNAVAILABLE"), {
+          code: "GENERATION_EXECUTION_UNAVAILABLE",
+        });
+      const made = await requestShotStill(
+        base,
+        shot,
+        keyframePrompt(shot, base),
+        host.execution.image("shot-frame", shot.id),
+      );
       const live = host.current();
       if (signal.aborted || !host.valid() || live?.id !== base.id) throw new Error("WORK_STALE");
       if (!made.url)

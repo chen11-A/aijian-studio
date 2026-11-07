@@ -14,6 +14,13 @@ export type PortraitBatchOptions = {
   current: () => FilmProject | null;
   apply: (film: FilmProject) => void | Promise<void>;
   generate: (prompt: string, references: string[]) => Promise<{ url: string; reason: string }>;
+  /** Protected automatic caller chooses an exact issued stage, without changing manual calls. */
+  generateFor?: (
+    characterId: string,
+    view: string,
+    prompt: string,
+    references: string[],
+  ) => Promise<{ url: string; reason: string }>;
   /** Pipeline work can address one angle; ordinary whole-cast calls retain all angles. */
   views?: readonly string[];
   progress: (result: PortraitBatchResult) => void;
@@ -119,7 +126,9 @@ export async function makeAllPortraits(
                   code: "PORTRAIT_ANCHOR_REQUIRED",
                 });
               const references = item.view === "正面" ? [] : [anchor!];
-              const made = await generate(item.prompt, references);
+              const made = options.generateFor
+                ? await options.generateFor(item.characterId, item.view, item.prompt, references)
+                : await generate(item.prompt, references);
               if (!made.url) throw new Error(made.reason || "PORTRAIT_FAILED");
               if (signal.aborted) throw new Error("TASK_TIMEOUT");
               const { live, person } = target();

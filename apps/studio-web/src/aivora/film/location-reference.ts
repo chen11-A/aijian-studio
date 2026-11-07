@@ -174,6 +174,11 @@ export type LocationReferenceHost = {
   current: () => FilmProject | null;
   apply: (film: FilmProject) => void | Promise<void>;
   generate: (prompt: string, references: string[]) => Promise<{ url: string; reason: string }>;
+  generateFor?: (
+    locationId: string,
+    prompt: string,
+    references: string[],
+  ) => Promise<{ url: string; reason: string }>;
   isCurrent?: () => boolean;
   progress?: (result: LocationReferenceResult) => void;
 };
@@ -287,16 +292,16 @@ export async function makeLocationReferences(
       }
       let response: { url: string; reason: string };
       try {
-        response = await generate(
-          withStyleBible(
-            withLayoutBlock(
-              `空镜，没有人物。${sourceScene?.where || place.name}。${place.prompt}${sourceScene ? `\n只取这场原文中的环境，不画人物和事件、不增加原文没有的地点或道具：\n${sourceScene.text}` : ""}`,
-              layoutBlock(place.layout ?? ""),
-            ),
-            base.styleZh,
+        const prompt = withStyleBible(
+          withLayoutBlock(
+            `空镜，没有人物。${sourceScene?.where || place.name}。${place.prompt}${sourceScene ? `\n只取这场原文中的环境，不画人物和事件、不增加原文没有的地点或道具：\n${sourceScene.text}` : ""}`,
+            layoutBlock(place.layout ?? ""),
           ),
-          [],
+          base.styleZh,
         );
+        response = host.generateFor
+          ? await host.generateFor(place.id, prompt, [])
+          : await generate(prompt, []);
       } catch {
         continue;
       }

@@ -1,3 +1,4 @@
+import type { FilmGenerationStillExecution } from "@aijian/contracts/film-generation-execution";
 import {
   assemblyRenderKey,
   assemblySelection,
@@ -179,13 +180,16 @@ export async function requestStill(
   prompt: string,
   aspectRatio: "9:16" | "16:9" = "9:16",
   references: string[] = [],
+  execution?: FilmGenerationStillExecution,
 ): Promise<{ url: string; reason: string }> {
   const bridge = window.aijian;
   if (!seriesId || !bridge?.generateFilmStill) {
     return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
   }
   try {
-    const result = await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
+    const result = execution
+      ? await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references, execution)
+      : await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
     if (!result.path) {
       const providerReason = result.reason || "";
       return {
@@ -256,12 +260,14 @@ export async function requestFilmStill(
   film: FilmProject,
   prompt: string,
   references: string[] = [],
+  execution?: FilmGenerationStillExecution,
 ): Promise<{ url: string; reason: string }> {
   return requestStill(
     film.seriesId,
     withStyleBible(prompt, film.styleZh),
     film.aspectRatio,
     references,
+    execution,
   );
 }
 
@@ -269,6 +275,7 @@ export async function requestShotStill(
   film: FilmProject,
   shot: FilmShot,
   prompt: string,
+  execution?: FilmGenerationStillExecution,
 ): Promise<{
   url: string;
   reason: string;
@@ -307,6 +314,7 @@ export async function requestShotStill(
     ),
     film.aspectRatio === "16:9" ? "16:9" : "9:16",
     references,
+    execution,
   );
   return {
     ...made,
