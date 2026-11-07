@@ -1,3 +1,4 @@
+import { registerFilmDialogueSplits } from "./film-dialogue-split-ipc";
 import { resolveBundledAudioLibraryRoot } from "./film-audio-library-root";
 import { registerFilmAudioLibrary } from "./film-audio-library-ipc";
 import { loadAudioNormalizer } from "./film-audio-normalize";
@@ -915,6 +916,14 @@ registerCleanCopyRecovery<IpcMainInvokeEvent>(
       );
     },
   },
+);
+registerFilmDialogueSplits<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  { filmsRoot: join(app.getPath("userData"), "films") },
 );
 registerFilmHistory<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),

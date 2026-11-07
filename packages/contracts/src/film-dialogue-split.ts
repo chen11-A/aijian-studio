@@ -1,0 +1,60 @@
+import type { DialogueSplitPlan } from "./film-dialogue-split-plan.js";
+import type { FilmHistoryEntry } from "./film-history.js";
+export type FilmDialogueSplitInput = {
+  projectId: string;
+  expectedHash: string;
+  shotId: string;
+  versions: number;
+};
+export type FilmDialogueSplitFailure = {
+  kind: "FAILED";
+  code:
+    | "INVALID_INPUT"
+    | "PROJECT_CHANGED"
+    | "BUSY"
+    | "UNSUPPORTED_PLAN"
+    | "BACKUP_FAILED"
+    | "WRITE_FAILED"
+    | "WRITE_UNCONFIRMED";
+  unchanged: boolean;
+  reason?: string;
+  backup?: FilmHistoryEntry;
+};
+export type FilmDialogueSplitReady = {
+  kind: "READY";
+  projectId: string;
+  shotId: string;
+  projectHash: string;
+  reviewFingerprint: string;
+  model: string;
+  plan: Extract<DialogueSplitPlan, { kind: "READY" }>;
+  notes: string[];
+};
+export type FilmDialogueSplitPrepareResult = FilmDialogueSplitReady | FilmDialogueSplitFailure;
+export type FilmDialogueSplitApplyInput = FilmDialogueSplitInput & { reviewFingerprint: string };
+/** Creative linkage, not an authority or guarantee a portable archive contains local history. */
+export type DialogueSplitSource = {
+  schemaVersion: 1;
+  historyId: string;
+  sourceShotId: string;
+  sourceLineIndex: number;
+  startOffset: number;
+  endOffset: number;
+  reviewFingerprint: string;
+};
+export type FilmDialogueSplitApplyResult =
+  | {
+      kind: "APPLIED";
+      project: Record<string, unknown>;
+      backup: FilmHistoryEntry;
+      childIds: string[];
+    }
+  | FilmDialogueSplitFailure;
+export type FilmDialogueSplitGateway = {
+  prepareFilmDialogueSplit: (
+    input: FilmDialogueSplitInput,
+  ) => Promise<FilmDialogueSplitPrepareResult>;
+  applyFilmDialogueSplit: (
+    input: FilmDialogueSplitApplyInput,
+  ) => Promise<FilmDialogueSplitApplyResult>;
+};

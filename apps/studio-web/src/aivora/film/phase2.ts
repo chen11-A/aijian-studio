@@ -1,3 +1,4 @@
+import { speechSeconds as sharedSpeechSeconds } from "@aijian/contracts/film-dialogue-split-plan";
 import { parseArtDesign, type ArtDesign } from "./art-design";
 import { parseCostumes, type CostumeRule } from "./costume-rules";
 import {
@@ -849,9 +850,7 @@ export function soundFromDirector(
 }
 
 export function speechSeconds(line: string, measured: number | null): number {
-  if (measured !== null && measured > 0) return measured;
-  const chars = [...line.replace(/\s+/g, "")].length;
-  return chars > 0 ? chars / 4 : 0;
+  return sharedSpeechSeconds(line, measured);
 }
 
 export function splitSpokenLine(line: string): [string, string] | null {
