@@ -12,6 +12,7 @@ import { runQcCases, qcStates } from "./pro-export-qc-cases.mjs";
 import { progressStates } from "./pro-export-progress-cases.mjs";
 import { featureStates } from "./pro-feature-cases.mjs";
 import { creationStates } from "./pro-creation-cases.mjs";
+import { evidenceLegacyStates } from "./pro-evidence-legacy-cases.mjs";
 import { riskPolicyStates } from "./pro-risk-policy-cases.mjs";
 import { mentionStates } from "./pro-mentions-cases.mjs";
 import { sceneAudioStates } from "./pro-scene-audio-cases.mjs";
@@ -31,6 +32,14 @@ const viewports = [
 const aspects = ["16:9", "9:16"];
 
 function auditIdentity(kind) {
+  if (kind === "evidence-legacy")
+    return {
+      title: "Pro delivery and legacy UI audit",
+      code: "PRO_EVIDENCE_LEGACY",
+      label: "Pro delivery and legacy",
+      file: "pro-evidence-legacy-audit.mjs",
+      directory: "aivora-pro-evidence-legacy-audit",
+    };
   if (kind === "risk-policy")
     return {
       title: "Pro risk and policy audit",
@@ -192,31 +201,33 @@ function emitGitHubErrors(report, profile) {
   ]);
   for (const row of report.results.filter((item) => !item.passed).slice(0, 8)) {
     const states =
-      profile.kind === "risk-policy"
-        ? riskPolicyStates
-        : profile.kind === "mentions"
-          ? mentionStates
-          : profile.kind === "scene-audio"
-            ? sceneAudioStates
-            : profile.kind === "assembly"
-              ? assemblyStates
-              : profile.kind === "dialogue-split"
-                ? dialogueSplitStates
-                : profile.kind === "audio-groups"
-                  ? audioGroupStates
-                  : profile.kind === "shot-audio"
-                    ? shotAudioStates
-                    : profile.kind === "audio-library"
-                      ? audioLibraryStates
-                      : profile.kind === "audio-mix"
-                        ? audioMixStates
-                        : profile.kind === "creation"
-                          ? creationStates
-                          : profile.kind === "features"
-                            ? featureStates
-                            : profile.kind === "progress"
-                              ? progressStates
-                              : qcStates;
+      profile.kind === "evidence-legacy"
+        ? evidenceLegacyStates
+        : profile.kind === "risk-policy"
+          ? riskPolicyStates
+          : profile.kind === "mentions"
+            ? mentionStates
+            : profile.kind === "scene-audio"
+              ? sceneAudioStates
+              : profile.kind === "assembly"
+                ? assemblyStates
+                : profile.kind === "dialogue-split"
+                  ? dialogueSplitStates
+                  : profile.kind === "audio-groups"
+                    ? audioGroupStates
+                    : profile.kind === "shot-audio"
+                      ? shotAudioStates
+                      : profile.kind === "audio-library"
+                        ? audioLibraryStates
+                        : profile.kind === "audio-mix"
+                          ? audioMixStates
+                          : profile.kind === "creation"
+                            ? creationStates
+                            : profile.kind === "features"
+                              ? featureStates
+                              : profile.kind === "progress"
+                                ? progressStates
+                                : qcStates;
     const state = states.includes(row.page) ? row.page : "unknown";
     const safeCombination =
       /^(1280x800|1920x1080)-(16x9|9x16)-/.test(row.combination) &&
@@ -232,6 +243,18 @@ function emitGitHubErrors(report, profile) {
       ),
     ];
     const controls = new Set([
+      "delivery-technical",
+      "delivery-selection",
+      "legacy-person-search",
+      "legacy-cancel-multi",
+      "legacy-batch-cancel",
+      "legacy-batch-confirm",
+      "preview-safe",
+      "preview-fullscreen",
+      "preview-exit-fullscreen",
+      "timeline-fit",
+      "legacy-batch-open",
+      "legacy-delete-shots",
       "risk-open",
       "risk-inspect",
       "risk-refresh",
@@ -362,6 +385,8 @@ function emitGitHubErrors(report, profile) {
       "HTML",
     ]);
     const classes = new Set([
+      "delivery-evidence",
+      "delivery-file",
       "reference-summary",
       "mention-menu",
       "nx-suggest",
@@ -436,6 +461,7 @@ function emitGitHubErrors(report, profile) {
             "assembly",
             "mentions",
             "risk-policy",
+            "evidence-legacy",
           ].includes(profile.kind) &&
             issue.kind === "control-clipped-without-scroll"),
       )
@@ -480,6 +506,7 @@ function emitGitHubErrors(report, profile) {
       "scene-audio",
       "mentions",
       "risk-policy",
+      "evidence-legacy",
     ].includes(profile.kind)
       ? ` checkLine=${Number.isSafeInteger(row.checkLine) && row.checkLine >= 1 && row.checkLine <= 100000 ? row.checkLine : "unknown"}`
       : "";
@@ -588,31 +615,33 @@ async function run(config, profile) {
   await mkdir(config.out, { recursive: true });
   const report = {
     scope:
-      profile.kind === "risk-policy"
-        ? "Actual Pro read-only textual trial candidates and explicit server policy configuration with synthetic API responses; no paid dispatch, real API persistence, media quality or Electron assertion"
-        : profile.kind === "mentions"
-          ? "Actual Pro manual reference menus, fixed text/scope context, director structural confirmation/own inverse and stale guards with synthetic text/native ABI; no provider, media decoding, filesystem or Electron assertion"
-          : profile.kind === "scene-audio"
-            ? "Actual Pro complete-scene clock, full segment/note review, explicit lane apply/removal and global unknown recovery with synthetic ABI; no file copy, decoder, listening or Electron assertion"
-            : profile.kind === "assembly"
-              ? "Real ProWorkspace shared assembly, actual-clock calculations, retained partial, cancellation/revision and missing-session-clock guards with synthetic native ABI and controlled DOM media metadata/request spies; no codec, actual file/mixing/listening or Electron assertion"
-              : profile.kind === "dialogue-split"
-                ? "Real ProWorkspace complete native-plan review, explicit structural acceptance and global unknown/backup guards with synthetic native ABI; no actual filesystem/history-byte/decoding/provider/listening/Electron assertion"
-                : profile.kind === "audio-groups"
-                  ? "Real ProWorkspace complete-lane explicit selection, group-reference removal and global unknown recovery with synthetic native ABI; no filesystem, decoding, listening, paid provider or Electron assertion"
-                  : profile.kind === "shot-audio"
-                    ? "Real ProWorkspace read-only shot audio suggestions with complete synthetic native segments, envelopes and notes; no copy/apply/filesystem/decoding/listening/Electron assertion"
-                    : profile.kind === "audio-library"
-                      ? "Real ProWorkspace local catalog selection, target clock, add/remove and global save recovery with real public catalog metadata and synthetic native ABI; no filesystem/decoding/listening/Electron assertion"
-                      : profile.kind === "audio-mix"
-                        ? "Real ProWorkspace four-lane settings, solo/QC input and preview admission with synthetic native metadata and PCM silence; no provider, real export/mixing or listening-quality assertion"
-                        : profile.kind === "creation"
-                          ? "Real ProWorkspace seven-part text confirmation and project-archive menus with synthetic native ABI; no provider, real ZIP/file or Electron assertion"
-                          : profile.kind === "features"
-                            ? "Real ProWorkspace Cast field proposals, edit source-waveform and persistent-history UI with synthetic text/IPC metadata; no provider, decode, file or Electron assertion"
-                            : profile.kind === "progress"
-                              ? "Real ProWorkspace export progress/cancellation with synthetic events; no PID/file/provider/Electron assertion"
-                              : "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
+      profile.kind === "evidence-legacy"
+        ? "Actual Pro main-returned delivery records and existing drag/multiselect/undo/timeline/fullscreen/search controls with synthetic IPC, controlled metadata and real Fullscreen API; no real file/decode/listening/provider/Windows assertion"
+        : profile.kind === "risk-policy"
+          ? "Actual Pro read-only textual trial candidates and explicit server policy configuration with synthetic API responses; no paid dispatch, real API persistence, media quality or Electron assertion"
+          : profile.kind === "mentions"
+            ? "Actual Pro manual reference menus, fixed text/scope context, director structural confirmation/own inverse and stale guards with synthetic text/native ABI; no provider, media decoding, filesystem or Electron assertion"
+            : profile.kind === "scene-audio"
+              ? "Actual Pro complete-scene clock, full segment/note review, explicit lane apply/removal and global unknown recovery with synthetic ABI; no file copy, decoder, listening or Electron assertion"
+              : profile.kind === "assembly"
+                ? "Real ProWorkspace shared assembly, actual-clock calculations, retained partial, cancellation/revision and missing-session-clock guards with synthetic native ABI and controlled DOM media metadata/request spies; no codec, actual file/mixing/listening or Electron assertion"
+                : profile.kind === "dialogue-split"
+                  ? "Real ProWorkspace complete native-plan review, explicit structural acceptance and global unknown/backup guards with synthetic native ABI; no actual filesystem/history-byte/decoding/provider/listening/Electron assertion"
+                  : profile.kind === "audio-groups"
+                    ? "Real ProWorkspace complete-lane explicit selection, group-reference removal and global unknown recovery with synthetic native ABI; no filesystem, decoding, listening, paid provider or Electron assertion"
+                    : profile.kind === "shot-audio"
+                      ? "Real ProWorkspace read-only shot audio suggestions with complete synthetic native segments, envelopes and notes; no copy/apply/filesystem/decoding/listening/Electron assertion"
+                      : profile.kind === "audio-library"
+                        ? "Real ProWorkspace local catalog selection, target clock, add/remove and global save recovery with real public catalog metadata and synthetic native ABI; no filesystem/decoding/listening/Electron assertion"
+                        : profile.kind === "audio-mix"
+                          ? "Real ProWorkspace four-lane settings, solo/QC input and preview admission with synthetic native metadata and PCM silence; no provider, real export/mixing or listening-quality assertion"
+                          : profile.kind === "creation"
+                            ? "Real ProWorkspace seven-part text confirmation and project-archive menus with synthetic native ABI; no provider, real ZIP/file or Electron assertion"
+                            : profile.kind === "features"
+                              ? "Real ProWorkspace Cast field proposals, edit source-waveform and persistent-history UI with synthetic text/IPC metadata; no provider, decode, file or Electron assertion"
+                              : profile.kind === "progress"
+                                ? "Real ProWorkspace export progress/cancellation with synthetic events; no PID/file/provider/Electron assertion"
+                                : "Real ProWorkspace export→QC review with synthetic IPC; no real export/provider/Electron assertion",
     expectedStates: profile.states,
     ...([
       "creation",
@@ -625,28 +654,31 @@ async function run(config, profile) {
       "scene-audio",
       "mentions",
       "risk-policy",
+      "evidence-legacy",
     ].includes(profile.kind)
       ? {
           expectedResults:
-            (profile.kind === "risk-policy"
-              ? riskPolicyStates
-              : profile.kind === "mentions"
-                ? mentionStates
-                : profile.kind === "scene-audio"
-                  ? sceneAudioStates
-                  : profile.kind === "assembly"
-                    ? assemblyStates
-                    : profile.kind === "dialogue-split"
-                      ? dialogueSplitStates
-                      : profile.kind === "audio-groups"
-                        ? audioGroupStates
-                        : profile.kind === "shot-audio"
-                          ? shotAudioStates
-                          : profile.kind === "audio-library"
-                            ? audioLibraryStates
-                            : profile.kind === "audio-mix"
-                              ? audioMixStates
-                              : creationStates
+            (profile.kind === "evidence-legacy"
+              ? evidenceLegacyStates
+              : profile.kind === "risk-policy"
+                ? riskPolicyStates
+                : profile.kind === "mentions"
+                  ? mentionStates
+                  : profile.kind === "scene-audio"
+                    ? sceneAudioStates
+                    : profile.kind === "assembly"
+                      ? assemblyStates
+                      : profile.kind === "dialogue-split"
+                        ? dialogueSplitStates
+                        : profile.kind === "audio-groups"
+                          ? audioGroupStates
+                          : profile.kind === "shot-audio"
+                            ? shotAudioStates
+                            : profile.kind === "audio-library"
+                              ? audioLibraryStates
+                              : profile.kind === "audio-mix"
+                                ? audioMixStates
+                                : creationStates
             ).length *
             viewports.length *
             aspects.length,
@@ -738,6 +770,25 @@ async function run(config, profile) {
           "packages/aivora-media/media.mjs",
           "apps/desktop/src/film-assembly.ts",
           "packages/contracts/src/film-assembly.ts",
+          ...(profile.kind === "evidence-legacy"
+            ? [
+                "packages/contracts/src/film-delivery-evidence.ts",
+                "apps/desktop/src/film-delivery-evidence.ts",
+                "apps/desktop/src/film-delivery-manifest.ts",
+                "apps/desktop/src/film-export-qc.ts",
+                "apps/desktop/src/film-export-operation.ts",
+                "packages/aivora-qc/index.mjs",
+                "apps/studio-web/src/aivora/pro/DeliveryEvidence.tsx",
+                "apps/studio-web/src/aivora/pro/DeliveryEvidence.css",
+                "apps/studio-web/src/aivora/pro/use-export-delivery.tsx",
+                "apps/studio-web/src/aivora/pro/actions/delivery-evidence-view.ts",
+                "apps/studio-web/src/aivora/pro/PreviewFullscreen.tsx",
+                "apps/studio-web/src/aivora/pro/edit-timeline.ts",
+                "apps/studio-web/src/aivora/film/operations.ts",
+                "apps/studio-web/e2e/pro-evidence-legacy-cases.mjs",
+                "apps/studio-web/e2e/pro-evidence-legacy-fixture.mjs",
+              ]
+            : []),
           ...(profile.kind === "risk-policy"
             ? [
                 "apps/studio-web/src/aivora/pro/actions/risk-trial-review.ts",
@@ -970,27 +1021,29 @@ async function run(config, profile) {
     );
     const returnedExpected = await profile.runCases({ browser, config, report, media, persist });
     const expected =
-      profile.kind === "risk-policy"
-        ? riskPolicyStates.length * viewports.length * aspects.length
-        : profile.kind === "mentions"
-          ? mentionStates.length * viewports.length * aspects.length
-          : profile.kind === "scene-audio"
-            ? sceneAudioStates.length * viewports.length * aspects.length
-            : profile.kind === "assembly"
-              ? assemblyStates.length * viewports.length * aspects.length
-              : profile.kind === "dialogue-split"
-                ? dialogueSplitStates.length * viewports.length * aspects.length
-                : profile.kind === "audio-groups"
-                  ? audioGroupStates.length * viewports.length * aspects.length
-                  : profile.kind === "shot-audio"
-                    ? shotAudioStates.length * viewports.length * aspects.length
-                    : profile.kind === "audio-library"
-                      ? audioLibraryStates.length * viewports.length * aspects.length
-                      : profile.kind === "audio-mix"
-                        ? audioMixStates.length * viewports.length * aspects.length
-                        : profile.kind === "creation"
-                          ? creationStates.length * viewports.length * aspects.length
-                          : returnedExpected;
+      profile.kind === "evidence-legacy"
+        ? evidenceLegacyStates.length * viewports.length * aspects.length
+        : profile.kind === "risk-policy"
+          ? riskPolicyStates.length * viewports.length * aspects.length
+          : profile.kind === "mentions"
+            ? mentionStates.length * viewports.length * aspects.length
+            : profile.kind === "scene-audio"
+              ? sceneAudioStates.length * viewports.length * aspects.length
+              : profile.kind === "assembly"
+                ? assemblyStates.length * viewports.length * aspects.length
+                : profile.kind === "dialogue-split"
+                  ? dialogueSplitStates.length * viewports.length * aspects.length
+                  : profile.kind === "audio-groups"
+                    ? audioGroupStates.length * viewports.length * aspects.length
+                    : profile.kind === "shot-audio"
+                      ? shotAudioStates.length * viewports.length * aspects.length
+                      : profile.kind === "audio-library"
+                        ? audioLibraryStates.length * viewports.length * aspects.length
+                        : profile.kind === "audio-mix"
+                          ? audioMixStates.length * viewports.length * aspects.length
+                          : profile.kind === "creation"
+                            ? creationStates.length * viewports.length * aspects.length
+                            : returnedExpected;
     report.expectedResults = expected;
     report.exitCode =
       returnedExpected === expected &&
@@ -1041,7 +1094,7 @@ export async function runAuditCli(
     const config = options(profile);
     if (!config)
       console.log(
-        `Usage: node apps/studio-web/e2e/${identity.file} [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\n${profile.kind === "risk-policy" ? "Trial review and failure policy host" : profile.kind === "mentions" ? "Assistant references host" : profile.kind === "scene-audio" ? "Complete scene audio host" : profile.kind === "assembly" ? "Shared assembly native host" : profile.kind === "dialogue-split" ? "Dialogue split native-review host" : profile.kind === "audio-groups" ? "Audio groups execution host" : profile.kind === "shot-audio" ? "Shot audio suggestions host" : profile.kind === "audio-library" ? "Audio library host" : profile.kind === "audio-mix" ? "Audio mix host" : profile.kind === "creation" ? "Creation host" : profile.kind === "features" ? "Feature host" : profile.kind === "progress" ? "Progress host" : "QC host"}: ${profile.states.length} states × 4 viewport/aspect combinations (${profile.states.length * 4} expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.`,
+        `Usage: node apps/studio-web/e2e/${identity.file} [--url http://127.0.0.1:5173/] [--browser /path/to/chromium] [--out temp-or-.aijian-dev-directory]\n${profile.kind === "evidence-legacy" ? "Delivery evidence and existing UI host" : profile.kind === "risk-policy" ? "Trial review and failure policy host" : profile.kind === "mentions" ? "Assistant references host" : profile.kind === "scene-audio" ? "Complete scene audio host" : profile.kind === "assembly" ? "Shared assembly native host" : profile.kind === "dialogue-split" ? "Dialogue split native-review host" : profile.kind === "audio-groups" ? "Audio groups execution host" : profile.kind === "shot-audio" ? "Shot audio suggestions host" : profile.kind === "audio-library" ? "Audio library host" : profile.kind === "audio-mix" ? "Audio mix host" : profile.kind === "creation" ? "Creation host" : profile.kind === "features" ? "Feature host" : profile.kind === "progress" ? "Progress host" : "QC host"}: ${profile.states.length} states × 4 viewport/aspect combinations (${profile.states.length * 4} expected). Without --url, starts and closes an in-process Vite server. Exit: 0 passed; 1 audit regression; 2 setup/usage error. Chromium sandbox is always enabled.`,
       );
     else process.exitCode = await run(config, profile);
   } catch (error) {

@@ -75,8 +75,8 @@ export async function waitAssemblyIdle(page, projectId) {
     return (
       scope.projectId === marker.projectId &&
       scope.stage === marker.stage &&
-      audit.calls.filter((call) => call.input?.projectId === marker.projectId).at(-1)
-        ?.operationId === marker.operationId &&
+      (audit.calls.filter((call) => call.input?.projectId === marker.projectId).at(-1)
+        ?.operationId ?? null) === marker.operationId &&
       (own.at(-1)?.generation ?? 0) >= marker.generation &&
       own.every((t) => t.status !== "scheduled") &&
       !audit.saveTimers.some((t) => t.projectId === null && t.status === "scheduled") &&
