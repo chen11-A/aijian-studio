@@ -84,7 +84,8 @@ async function openExport(aspectRatio: "16:9" | "9:16", failSecond = false) {
   const exportFilmCut = vi.fn(),
     assembleFilm = vi.fn(),
     pickFilmFolder = vi.fn(),
-    openFilmPath = vi.fn(async () => undefined);
+    openFilmPath = vi.fn(async () => undefined),
+    createStoryFilm = vi.fn();
   const writeFilmProject = vi.fn(async (value: FilmProject) => {
     stored = structuredClone(value);
     return structuredClone(value);
@@ -101,6 +102,7 @@ async function openExport(aspectRatio: "16:9" | "9:16", failSecond = false) {
     assembleFilm,
     pickFilmFolder,
     openFilmPath,
+    createStoryFilm,
   } as unknown as NonNullable<typeof window.aijian>;
   localStorage.setItem("aivora.film.activeId", film.id);
   render(<ProWorkspace />);
@@ -117,6 +119,7 @@ async function openExport(aspectRatio: "16:9" | "9:16", failSecond = false) {
     pickFilmFolder,
     openFilmPath,
     writeFilmProject,
+    createStoryFilm,
     film,
   };
 }
@@ -179,10 +182,29 @@ it("UI keeps the first real published output playable and saved when the second 
       f.writeFilmProject.mock.calls.some(([value]) => value.exportPath === "/actual/first.mp4"),
     ).toBe(true),
   );
-  expect(document.querySelector(".status-note")?.getAttribute("title")).toContain(
-    "已有文件保留，其余没有发布",
+  await waitFor(() =>
+    expect(document.querySelector(".status-note")?.getAttribute("title")).toContain(
+      "部分交付尚未完成，已确认写出的文件保留，请核对下方记录。",
+    ),
   );
+  expect(await f.publishFilmExport.mock.results[0]!.value).toEqual({
+    kind: "PARTIAL",
+    outputs: [{ aspectRatio: "16:9", path: "/actual/first.mp4" }],
+  });
+  expect(
+    within(f.dialog).getByText("本次导出仅完成一部分，已写出的文件保留。"),
+  ).toBeInTheDocument();
+  expect(
+    within(f.dialog).getByText("这次导出未提供交付清单，暂时不能核对交付证据。"),
+  ).toBeInTheDocument();
+  expect(
+    within(f.dialog).queryByRole("heading", { name: "交付清单已生成" }),
+  ).not.toBeInTheDocument();
+  expect(f.publishFilmExport).toHaveBeenCalledTimes(1);
+  expect(f.openFilmPath).toHaveBeenCalledExactlyOnceWith("/actual/first.mp4");
   expect(f.exportFilmCut).not.toHaveBeenCalled();
+  expect(f.assembleFilm).not.toHaveBeenCalled();
+  expect(f.createStoryFilm).not.toHaveBeenCalled();
 });
 it("UI binds chosen 清晰度/字幕 and the persisted cover to the reviewed project instead of passing paths", async () => {
   const f = await openExport("9:16");
