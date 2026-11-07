@@ -22,6 +22,7 @@ it("admits only the authorized main frame and exact argument counts before readi
     ["film:audio-library-add", [{}]],
     ["film:audio-library-target", [{}]],
     ["film:audio-library-shot-suggest", [{}]],
+    ["film:audio-library-shot-apply", [{}]],
   ] as const)
     await expect(handlers.get(name)!(false, ...args)).rejects.toThrow("not authorized");
   await expect(handlers.get("film:audio-library-list")!(true, "/forged/root")).rejects.toThrow(
@@ -51,6 +52,15 @@ it("admits only the authorized main frame and exact argument counts before readi
       expectedProjectHash: "a".repeat(64),
       shotId: "shot",
       takeId: "take",
+      path: "/forged",
+    }),
+  ).toMatchObject({ kind: "FAILED", code: "INVALID_INPUT" });
+  await expect(handlers.get("film:audio-library-shot-apply")!(true, {}, "/forged")).rejects.toThrow(
+    "Invalid audio library request",
+  );
+  expect(
+    await handlers.get("film:audio-library-shot-apply")!(true, {
+      projectId: "film_aaaaaaaaaaaaaaaa",
       path: "/forged",
     }),
   ).toMatchObject({ kind: "FAILED", code: "INVALID_INPUT" });

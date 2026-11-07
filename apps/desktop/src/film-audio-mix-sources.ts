@@ -74,6 +74,25 @@ export async function resolveAudioMix(
   const paths: Record<string, string> = {},
     hashes: Record<string, string> = {},
     sources: Record<string, MixSourceInfo> = {};
+  // Scope-local reuse only, after every caller's own root/owner/SHA validation.
+  const probes = new Map<string, Awaited<ReturnType<typeof probeMixSource>>>();
+  const sourceKeys = new Map<string, string>();
+  const identity = (path: string, sha: string) => JSON.stringify([path, sha]);
+  const probeOnce = async (path: string, sha: string) => {
+    if (hashes[path] && hashes[path] !== sha) throw new Error("SOURCE_CHANGED");
+    hashes[path] = sha;
+    const key = identity(path, sha);
+    const cached = probes.get(key);
+    if (cached) {
+      if ((await exportFileHash(path, host.signal)) !== sha) throw new Error("SOURCE_CHANGED");
+      return cached;
+    }
+    const info = await probeMixSource(path, host.tools, host.run, host.signal);
+    // A probe may race replacement; do not cache data for unverified bytes.
+    if ((await exportFileHash(path, host.signal)) !== sha) throw new Error("SOURCE_CHANGED");
+    probes.set(key, info);
+    return info;
+  };
   const shots: MixShot[] = [],
     originals = new Map<string, { path: string; sha: string }>();
   let at = 0;
@@ -99,9 +118,10 @@ export async function resolveAudioMix(
     )
       throw new Error("SOURCE_UNVERIFIED");
     paths[nativeSourceKey] = path;
-    hashes[path] = hash;
     originals.set(chosen.shotId, { path, sha: hash });
-    const nativeInfo = await probeMixSource(path, host.tools, host.run, host.signal);
+    const nativeInfo = await probeOnce(path, hash);
+    if (!sourceKeys.has(identity(path, hash)))
+      sourceKeys.set(identity(path, hash), nativeSourceKey);
     sources[nativeSourceKey] = nativeInfo;
     let visualInfo = nativeInfo;
     if (chosen.visualPath && chosen.visualPath !== chosen.videoPath) {
@@ -120,8 +140,7 @@ export async function resolveAudioMix(
         )
       )
         throw new Error("SOURCE_UNVERIFIED");
-      hashes[visual] = visualHash;
-      visualInfo = await probeMixSource(visual, host.tools, host.run, host.signal);
+      visualInfo = await probeOnce(visual, visualHash);
     }
     const durationSeconds = visualInfo.videoDurationSeconds;
     if (!(durationSeconds > 0)) throw new Error("INVALID_AUDIO_SOURCE");
@@ -208,9 +227,10 @@ export async function resolveAudioMix(
       if (path !== original.path || hash !== original.sha) throw new Error("SOURCE_UNVERIFIED");
       sourceKey = `video:${shotId}:${takeId}`;
     }
+    sourceKey = sourceKeys.get(identity(path, hash)) ?? sourceKey;
+    sourceKeys.set(identity(path, hash), sourceKey);
     paths[sourceKey] = path;
-    hashes[path] = hash;
-    sources[sourceKey] = await probeMixSource(path, host.tools, host.run, host.signal);
+    sources[sourceKey] = await probeOnce(path, hash);
     clips.push({
       id: text(clip.id),
       sourceKey,

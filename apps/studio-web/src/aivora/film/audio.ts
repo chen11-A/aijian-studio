@@ -1,3 +1,5 @@
+import { normalizeAudioSuggestionGroup } from "@aijian/contracts/film-audio-suggestion-group";
+import type { AudioSuggestionGroup } from "@aijian/contracts/film-audio-library";
 import type { AudioMixEnvelope } from "@aijian/contracts/film-audio-mix";
 import type { AudioLibraryProvenance } from "@aijian/contracts/film-audio-library";
 import { normalizeLibraryProvenance } from "./audio-library-provenance";
@@ -79,6 +81,7 @@ export type AudioClip = {
   gainDb: number;
   path?: string;
   libraryAsset?: AudioLibraryProvenance;
+  suggestionGroup?: AudioSuggestionGroup;
   loop?: boolean;
   envelope?: AudioMixEnvelope;
   /** Retained audio alternatives; missing means enabled. */
@@ -176,6 +179,9 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
         // Preserve creative data; the trusted planner rejects malformed envelopes.
         // Dropping only the field would accidentally play the original at full gain.
         ...(row.envelope !== undefined ? { envelope: row.envelope } : {}),
+        ...(normalizeAudioSuggestionGroup(row.suggestionGroup)
+          ? { suggestionGroup: normalizeAudioSuggestionGroup(row.suggestionGroup)! }
+          : {}),
         ...(normalizeLibraryProvenance(row.libraryAsset)
           ? { libraryAsset: normalizeLibraryProvenance(row.libraryAsset) }
           : {}),
