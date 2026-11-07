@@ -208,3 +208,42 @@ describe("timeline zoom (5-3-08)", () => {
     expect(rulerStep(600, 6)).toBe(30);
   });
 });
+
+describe("native assembly actual clocks", () => {
+  const shown = [shot("a", 99, true), shot("unfinished", 99), shot("c", 99, true)];
+  const actual = {
+    durationSeconds: 3,
+    shots: [
+      { shotId: "a", takeId: "a-t", startSeconds: 0, durationSeconds: 2 },
+      { shotId: "c", takeId: "c-t", startSeconds: 2, durationSeconds: 1 },
+    ],
+  };
+  it("uses actual selected-source times and excludes unfinished estimates without scaling to browser metadata", () => {
+    const segments = cutSegments(shown, 100, actual);
+    expect(segments).toEqual([
+      { shotId: "a", start: 0, seconds: 2 },
+      { shotId: "c", start: 2, seconds: 1 },
+    ]);
+    expect(cutPosition(segments, 2.5)).toEqual({ shotId: "c", fraction: 0.5 });
+    expect(cutTimeAt(segments, shown, 2, 0.5)).toBe(2.5);
+  });
+  it("does not estimate missing, reordered, discontinuous or changed selected-version clocks", () => {
+    expect(cutSegments(shown, 100, null)).toEqual([]);
+    expect(cutSegments(shown, 100, { ...actual, shots: [...actual.shots].reverse() })).toEqual([]);
+    expect(
+      cutSegments(shown, 100, {
+        ...actual,
+        shots: actual.shots.map((r, i) => ({ ...r, startSeconds: i ? 2.1 : 0 })),
+      }),
+    ).toEqual([]);
+    expect(
+      cutSegments(
+        shown.map((s, i) =>
+          i ? s : { ...s, selectedTakeId: "new", takes: [{ ...s.takes[0]!, id: "new" }] },
+        ),
+        100,
+        actual,
+      ),
+    ).toEqual([]);
+  });
+});

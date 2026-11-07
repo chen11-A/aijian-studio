@@ -152,6 +152,10 @@
     "./film-dialogue-split": {
       "types": "./src/film-dialogue-split.ts",
       "default": "./src/film-dialogue-split.ts"
+    },
+    "./film-assembly": {
+      "types": "./src/film-assembly.ts",
+      "default": "./src/film-assembly.ts"
     }
   },
   "scripts": {

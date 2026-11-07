@@ -95,7 +95,7 @@ export function createExportOperations(
       };
       return {
         work,
-        finish: async (phase: FilmExportPhase) => {
+        finish: async (phase: FilmExportPhase, stoppedConfirmed = true) => {
           // No new stop request is accepted after the result is determined.
           entry.view.cancelState = entry.controller.signal.aborted ? "requested" : "unavailable";
           emit(entry);
@@ -104,7 +104,8 @@ export function createExportOperations(
           entry.running = false;
           entry.view.phase = phase;
           entry.view.progress = undefined;
-          entry.view.cancelState = entry.controller.signal.aborted ? "stopped" : "unavailable";
+          entry.view.cancelState =
+            entry.controller.signal.aborted && stoppedConfirmed ? "stopped" : "unavailable";
           emit(entry);
         },
       };

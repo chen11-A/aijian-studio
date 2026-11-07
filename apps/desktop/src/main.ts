@@ -1,3 +1,4 @@
+import { registerFilmAssemblies } from "./film-assembly-ipc";
 import { createDialogueLimitRegistry } from "./film-dialogue-limit";
 import { registerFilmDialogueSplits } from "./film-dialogue-split-ipc";
 import { resolveBundledAudioLibraryRoot } from "./film-audio-library-root";
@@ -1167,6 +1168,80 @@ ipcMain.handle("film:audio-mix-preview", async (event, ...args) => {
     throw new Error("Audio preview sender is not authorized");
   return audioPreviewPlan(args[0]);
 });
+registerFilmAssemblies<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  (event) => String(event.sender.id),
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    temporaryRoot: join(app.getPath("userData"), "cache", "assembly"),
+    tools: async (signal) => {
+      const runner = await loadQcRunner(qcResourceRoot());
+      return verifiedQcTools(
+        process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+        process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+          join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+        process.platform,
+        async (binary) =>
+          (await runner(binary, ["-version"], { signal, timeoutMs: 10000, maxBuffer: 65536 }))
+            .stdout,
+        signal,
+      );
+    },
+    runner: () => loadQcRunner(qcResourceRoot()),
+    normalizer: () =>
+      loadAudioNormalizer(
+        !app.isPackaged && !existsSync(join(qcResourceRoot(), "audio-normalize.mjs"))
+          ? resolve(qcResourceRoot(), "../aivora-media")
+          : qcResourceRoot(),
+      ),
+    videoOwner: async (projectId, path, sha) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        path,
+        sha,
+      ),
+    audioOwner: async (projectId, _path, sha, selected) =>
+      storyFilmAudioOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        sha,
+        selected,
+      ),
+    font: () => {
+      const font = bundledSubtitleFont(process.resourcesPath ?? "", {
+        execPath: process.execPath,
+        repositoryRoot: resolve(__dirname, "../../.."),
+      });
+      if (!font) throw Error("TOOLS_UNAVAILABLE");
+      return font;
+    },
+  },
+  (event, dispose) => {
+    const sender = event.sender;
+    let done = false;
+    const invalidate = () => {
+      if (done) return;
+      done = true;
+      sender.removeListener("did-start-navigation", navigate);
+      sender.removeListener("render-process-gone", invalidate);
+      sender.removeListener("destroyed", invalidate);
+      dispose();
+    };
+    const navigate = (details: WebContentsDidStartNavigationEventParams) => {
+      if (details.isMainFrame && !details.isSameDocument) invalidate();
+    };
+    sender.on("did-start-navigation", navigate);
+    sender.once("render-process-gone", invalidate);
+    sender.once("destroyed", invalidate);
+  },
+  (event, snapshot) => event.sender.send("film:assembly-progress", snapshot),
+);
 registerFilmExportQc<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>

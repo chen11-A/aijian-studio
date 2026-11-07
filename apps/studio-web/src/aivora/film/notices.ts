@@ -375,6 +375,10 @@ export const NOTICE_TEXT = {
   EXPORT_QC_BLOCKED: "检查发现要先处理的问题，暂不能发布。",
 
   ...PREVIOUS_NOTICE_TEXT,
+  ASSEMBLY_PARTIAL: "粗剪已有文件，声音或字幕处理还没完成。",
+  ASSEMBLY_SOURCE_CLOCK_MISMATCH: "所选原视频与不带字幕版本的实际时长不同，请先核对。",
+  ASSEMBLY_SHOT_REQUIRED: "请先选择当前正在播放的镜头，再标记范围。",
+  ASSEMBLY_CLOCK_REQUIRED: "粗剪时钟尚未核验，请重新合成后再按镜头跳转或标记范围。",
   PROMPTER_SUGGESTION_READY: "画面说明已准备好，确认后才修改。",
   PROMPTER_FIELDS_APPLIED: "画面说明已修改。",
   GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
