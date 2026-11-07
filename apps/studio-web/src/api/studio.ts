@@ -6,6 +6,7 @@ import type {
 } from "@aijian/contracts/generation-video-recovery";
 import type {
   GenerationFailurePolicyResult,
+  StoryCreationFailurePolicyResult,
   ConfigureGenerationFailurePolicy,
 } from "@aijian/contracts/generation-failure-policy";
 import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
@@ -957,6 +958,11 @@ export interface AijianDesktopBridge
     projectId: string,
     attemptId: string,
   ): Promise<SaveRecoveredGenerationVideoResult>;
+  getStoryCreationFailurePolicy?(projectId: string): Promise<StoryCreationFailurePolicyResult>;
+  configureStoryCreationFailurePolicy?(
+    projectId: string,
+    input: ConfigureGenerationFailurePolicy,
+  ): Promise<StoryCreationFailurePolicyResult>;
   getGenerationFailurePolicy?(projectId: string): Promise<GenerationFailurePolicyResult>;
   configureGenerationFailurePolicy?(
     projectId: string,
