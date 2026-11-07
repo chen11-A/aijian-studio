@@ -182,6 +182,12 @@ def main() -> None:
         command("node", str(compiler), "-p", str(config))
     command(
         "node",
+        str(ROOT / "scripts/build-generation-input-runtime.mjs"),
+        "--out-dir",
+        str(desktop / "dist"),
+    )
+    command(
+        "node",
         str(ROOT / "scripts/build-contracts-runtime.mjs"),
         "--out-dir",
         str(desktop / "node_modules/@aijian/contracts"),

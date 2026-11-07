@@ -83,6 +83,9 @@ function filesIn(directory) {
 function sourceFingerprint() {
   const inputs = [
     ...filesIn(join(root, "apps/desktop/src")).filter((path) => path.endsWith(".ts")),
+    ...filesIn(join(root, "apps/studio-web/src/aivora/film")).filter((path) =>
+      path.endsWith(".ts"),
+    ),
     ...filesIn(join(root, "packages/contracts/src")).filter(
       (path) => path.endsWith(".ts") || path.endsWith(".js") || path.endsWith(".d.ts"),
     ),
@@ -94,6 +97,10 @@ function sourceFingerprint() {
       "packaging/windows/app-runtime.package.json",
       "pnpm-lock.yaml",
       "scripts/build-contracts-runtime.mjs",
+      "scripts/build-generation-input-runtime.mjs",
+      "packages/aivora-modules/generation-input/index.ts",
+      "apps/studio-web/src/aivora/pro/actions/video-prompt-review.ts",
+      "apps/studio-web/src/aivora/pro/capabilities.ts",
       "scripts/build-desktop-runtime.mjs",
       "scripts/desktop-runtime-closure.mjs",
       "scripts/desktop-runtime-resources.mjs",
@@ -132,6 +139,11 @@ try {
 } finally {
   rmSync(temporary, { recursive: true, force: true });
 }
+command(
+  join(root, "scripts/build-generation-input-runtime.mjs"),
+  "--out-dir",
+  join(output, "dist"),
+);
 command(
   join(root, "scripts/build-contracts-runtime.mjs"),
   "--out-dir",

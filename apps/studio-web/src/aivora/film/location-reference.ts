@@ -228,6 +228,18 @@ function inputSignature(film: FilmProject, place: FilmLocation): string {
   ]);
 }
 
+/** Shared original request text; no provider or filesystem work. */
+export function locationGenerationPrompt(film: FilmProject, place: FilmLocation): string {
+  const sourceScene = film.scenes.find((scene) => scene.id === place.sceneId);
+  return withStyleBible(
+    withLayoutBlock(
+      `空镜，没有人物。${sourceScene?.where || place.name}。${place.prompt}${sourceScene ? `\n只取这场原文中的环境，不画人物和事件、不增加原文没有的地点或道具：\n${sourceScene.text}` : ""}`,
+      layoutBlock(place.layout ?? ""),
+    ),
+    film.styleZh,
+  );
+}
+
 /** Host supplies requestFilmStill and durable apply; no alternate provider or fake images. */
 export async function makeLocationReferences(
   host: LocationReferenceHost,
@@ -292,13 +304,7 @@ export async function makeLocationReferences(
       }
       let response: { url: string; reason: string };
       try {
-        const prompt = withStyleBible(
-          withLayoutBlock(
-            `空镜，没有人物。${sourceScene?.where || place.name}。${place.prompt}${sourceScene ? `\n只取这场原文中的环境，不画人物和事件、不增加原文没有的地点或道具：\n${sourceScene.text}` : ""}`,
-            layoutBlock(place.layout ?? ""),
-          ),
-          base.styleZh,
-        );
+        const prompt = locationGenerationPrompt(base, place);
         response = host.generateFor
           ? await host.generateFor(place.id, prompt, [])
           : await generate(prompt, []);
