@@ -34,18 +34,22 @@ export function attestGenerationAccount(input: {
   body: string;
   account: GenerationDispatchAccount;
   now?: number;
+  preparedArmId?: string;
 }): string {
   if (!/^[0-9a-f]{64}$/.test(input.account.accountSha256))
     throw new Error("Generation account unavailable");
+  if (input.preparedArmId !== undefined && !/^[a-f0-9]{32}$/.test(input.preparedArmId))
+    throw new Error("Generation context unavailable");
   const expires = Math.floor((input.now ?? Date.now()) / 1000) + 60;
   const message = [
-    "aivora-video-account-v1",
+    input.preparedArmId ? "aivora-video-account-v2" : "aivora-video-account-v1",
     input.projectId,
     input.idempotencyKey,
     digest(input.body),
     digest(input.account.bearer),
     input.account.accountSha256,
     String(expires),
+    ...(input.preparedArmId ? [input.preparedArmId] : []),
   ].join("\n");
   const signature = createHmac("sha256", input.sessionKey).update(message).digest("hex");
   return Buffer.from(

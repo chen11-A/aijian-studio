@@ -203,6 +203,7 @@ export function createStoryFilmClient(
       input: StoryFilmCreateInput,
       mediaBearer?: string,
       dispatchAccount?: GenerationDispatchAccount,
+      prepared?: { arm: (rawBody: string) => Promise<{ armId: string; current: () => boolean }> },
     ) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
       const shots =
@@ -229,20 +230,40 @@ export function createStoryFilmClient(
         ...(input.aspect_ratio ? { aspect_ratio: input.aspect_ratio } : {}),
         ...(shots && shots.length > 0 ? { shots } : {}),
       });
-      if (dispatchAccount && mediaBearer === dispatchAccount.bearer) {
-        requestHeaders["X-Aivora-Generation-Account"] = attestGenerationAccount({
-          sessionKey: session.token,
-          projectId,
-          idempotencyKey,
+      const send = (context?: { armId: string; current: () => boolean }) => {
+        if (
+          context &&
+          (!dispatchAccount ||
+            mediaBearer !== dispatchAccount.bearer ||
+            !/^[a-f0-9]{32}$/.test(context.armId) ||
+            !context.current())
+        )
+          throw Error("EXECUTION_UNAVAILABLE");
+        if (dispatchAccount && mediaBearer === dispatchAccount.bearer) {
+          requestHeaders["X-Aivora-Generation-Account"] = attestGenerationAccount({
+            sessionKey: session.token,
+            projectId,
+            idempotencyKey,
+            body,
+            account: dispatchAccount,
+            ...(context ? { preparedArmId: context.armId } : {}),
+          });
+        }
+        if (context) requestHeaders["X-Aivora-Prepared-Generation"] = context.armId;
+        // No await is inserted after this final owner/account/current check.
+        if (context && !context.current()) throw Error("EXECUTION_UNAVAILABLE");
+        return fetcher(`${origin}/api/v1/projects/${projectId}/story-film`, {
+          method: "POST",
+          headers: requestHeaders,
           body,
-          account: dispatchAccount,
-        });
+        }).then(read);
+      };
+      if (prepared) {
+        if (!dispatchAccount || mediaBearer !== dispatchAccount.bearer)
+          throw Error("ACCOUNT_UNAVAILABLE");
+        return prepared.arm(body).then(send);
       }
-      return fetcher(`${origin}/api/v1/projects/${projectId}/story-film`, {
-        method: "POST",
-        headers: requestHeaders,
-        body,
-      }).then(read);
+      return send();
     },
   };
 }

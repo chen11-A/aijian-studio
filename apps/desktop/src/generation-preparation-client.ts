@@ -124,6 +124,35 @@ export function generationPreparationClient(host: {
         throw Error("EXECUTION_UNAVAILABLE");
       return value.items as unknown[];
     },
+    async armVideo(
+      project: string,
+      execution: string,
+      target: string,
+      slot: number,
+      take: string,
+      bodyHash: string,
+      account: GenerationDispatchAccount,
+      current: () => boolean,
+    ) {
+      if (!id(execution)) throw Error("EXECUTION_UNAVAILABLE");
+      const value = generationObject(
+        await post(
+          project,
+          `/${execution}/video-arm`,
+          {
+            target_key: target,
+            slot_index: slot,
+            take_key: take,
+            body_sha256: bodyHash,
+          },
+          account,
+          current,
+        ),
+      );
+      if (!value || !exact(value, ["arm_id"]) || !id(value.arm_id))
+        throw Error("WRITE_UNCONFIRMED");
+      return value.arm_id;
+    },
     beforeImage: (
       project: string,
       execution: string,
