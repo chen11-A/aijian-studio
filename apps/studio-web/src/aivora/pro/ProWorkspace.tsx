@@ -3296,7 +3296,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         stopped: () => stopRef.current,
         paused: () => pauseRef.current,
         cancelled: (jobId) => cancelledJobs.current.has(jobId),
-        request: (body) => bridge!.createStoryFilm!(billingProject, body),
+        request: (body, scope) =>
+          bridge!.supportsStoryFilmLocalScope
+            ? bridge!.createStoryFilm!(billingProject, body, scope)
+            : bridge!.createStoryFilm!(billingProject, body),
         notice: emitNotice,
         completed: ({ shotId, done, message }) => {
           if (done && shotId === openShotRef.current) setPlaying(true);

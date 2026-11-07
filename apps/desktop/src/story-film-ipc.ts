@@ -1,3 +1,6 @@
+import { parseStoryFilmLocalScope, publicDialogueLimit } from "./film-dialogue-limit";
+import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
+import type { StoryFilmCreateInput } from "./story-film-client";
 import { styleDiagnostics, type StyleDiagnostics } from "./style-diagnostics";
 import { realpathSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
@@ -73,6 +76,14 @@ export function registerStoryFilmHandlers<TEvent>(
   fetcher: typeof fetch = globalThis.fetch,
   files?: StoryFilmFiles,
   logStyle?: (detail: StyleDiagnostics) => void,
+  limitEvidence?: (
+    event: TEvent,
+    projectId: string,
+    body: StoryFilmCreateInput,
+    scope: StoryFilmLocalScope,
+    result: unknown,
+  ) => Promise<string | null>,
+  evidenceCurrent?: (event: TEvent) => () => boolean,
 ): void {
   handle("story-film:plan", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
@@ -106,12 +117,15 @@ export function registerStoryFilmHandlers<TEvent>(
 
   handle("story-film:create", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
-    if (args.length !== 2) throw new Error("Unexpected story film arguments");
+    if (args.length !== 2 && args.length !== 3) throw new Error("Unexpected story film arguments");
     const projectId = args[0];
     if (typeof projectId !== "string" || !projectIdPattern.test(projectId)) {
       throw new Error("Invalid story film project");
     }
     const body = parseStoryFilmCreate(args[1]);
+    const scope = args.length === 3 ? parseStoryFilmLocalScope(args[2]) : undefined;
+    // Synchronous document epoch capture spans bearer/HTTP waits without moving dispatch gates.
+    const sameDocument = scope ? evidenceCurrent?.(event) : undefined;
     const bearer =
       body.provider === "grok_subscription" ? safeBearer(await mediaBearerFor()) : undefined;
     const workspace = files?.workspace();
@@ -124,11 +138,25 @@ export function registerStoryFilmHandlers<TEvent>(
       }
       return fetcher(input, init);
     };
-    return createStoryFilmClient(submitting, sessionFor(), undefined, mediaRoots).create(
-      projectId,
-      body,
-      bearer,
-    );
+    const result = await createStoryFilmClient(
+      submitting,
+      sessionFor(),
+      undefined,
+      mediaRoots,
+    ).create(projectId, body, bearer);
+    // Evidence-only read after the actual result; no new await before dispatch.
+    const evidenceId =
+      scope && (sameDocument?.() ?? true)
+        ? await limitEvidence?.(event, projectId, body, scope, result).catch(() => null)
+        : null;
+    const data = { ...result.data };
+    if ("dialogue_limit" in data) {
+      const summary = publicDialogueLimit(data.dialogue_limit);
+      if (summary) data.dialogue_limit = summary;
+      else delete data.dialogue_limit;
+    }
+    if (evidenceId && (sameDocument?.() ?? true)) data.dialogue_limit_evidence_id = evidenceId;
+    return { ...result, data };
   });
 
   // 4B-B12: only a film inside this workspace's story films, made again without subtitles.

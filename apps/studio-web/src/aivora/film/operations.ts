@@ -1,3 +1,4 @@
+import { canonicalShotVoiceId } from "@aijian/contracts/film-dialogue-split-plan";
 import { reviewedVideoText, videoFactCast } from "./seven-part-video";
 import {
   adultAgeLabel,
@@ -1564,24 +1565,7 @@ export function motionPrompt(shot: FilmShot, film?: FilmProject): string {
 }
 
 export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
-  const speakers = [
-    ...new Set(
-      shotLines(shot)
-        .map((line) => line.speaker.trim())
-        .filter(Boolean),
-    ),
-  ];
-  if (speakers.length > 1) return "";
-  const named = speakers[0] || shot.speaker?.trim() || "";
-  if (named) return film.characters.find((person) => person.name === named)?.voiceId ?? "";
-  const fromLine = film.characters.find(
-    (person) => person.name && shot.line.trim().startsWith(person.name),
-  );
-  if (fromLine) return fromLine.voiceId;
-  const names = shot.characters.filter((name) => name && name !== "人物" && name !== "空镜");
-  if (names.length === 1)
-    return film.characters.find((person) => person.name === names[0])?.voiceId ?? "";
-  return names.length ? "" : film.narrationVoiceId || "";
+  return canonicalShotVoiceId(shot, film);
 }
 
 /**

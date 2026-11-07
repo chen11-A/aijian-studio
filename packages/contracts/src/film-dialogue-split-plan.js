@@ -89,7 +89,7 @@ function sentenceRanges(text, segmenter) {
   }
   return ranges;
 }
-export function planDialogueSplit(value) {
+export function planDialogueSplit(value, verifiedLimit = false) {
   const request = input(value);
   if (!request) return { kind: "UNSUPPORTED", code: "INVALID_INPUT" };
   if (request.lines.some((line) => !line.text.trim()))
@@ -100,7 +100,7 @@ export function planDialogueSplit(value) {
     request.lines.reduce((sum, line) => sum + speechSeconds(line.text, null), 0) +
     headSeconds +
     tailSeconds;
-  if (estimatedOriginalSeconds <= request.maxVideoSeconds)
+  if (!verifiedLimit && estimatedOriginalSeconds <= request.maxVideoSeconds)
     return { kind: "UNSUPPORTED", code: "WITHIN_CAP" };
   if (typeof Intl.Segmenter !== "function")
     return { kind: "UNSUPPORTED", code: "SEGMENTER_UNAVAILABLE" };
@@ -124,6 +124,7 @@ export function planDialogueSplit(value) {
       start = end;
     };
     for (const [left, right] of units) {
+      if (verifiedLimit && end > start) append();
       if (
         left !== end ||
         speechSeconds(line.text.slice(left, right), null) + headSeconds + tailSeconds >
@@ -260,5 +261,93 @@ export function normalizeDialogueSplitSource(value) {
     startOffset: value.startOffset,
     endOffset: value.endOffset,
     reviewFingerprint: value.reviewFingerprint,
+  };
+}
+
+/** Same canonical voice selection as ordinary generation; no media or authorization. */
+export function canonicalShotVoiceId(shot, film) {
+  const speakers = [
+    ...new Set(
+      canonicalDialogueLines(shot)
+        .map((line) => line.speaker.trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (speakers.length > 1) return "";
+  const people = Array.isArray(film.characters) ? film.characters : [];
+  const named = speakers[0] || shot.speaker?.trim() || "";
+  if (named) return people.find((person) => person.name === named)?.voiceId ?? "";
+  const fromLine = people.find((person) => person.name && shot.line.trim().startsWith(person.name));
+  if (fromLine) return fromLine.voiceId;
+  const names = (shot.characters ?? []).filter(
+    (name) => name && name !== "人物" && name !== "空镜",
+  );
+  if (names.length === 1) return people.find((person) => person.name === names[0])?.voiceId ?? "";
+  return names.length ? "" : film.narrationVoiceId || "";
+}
+/** Internal request-creative projection, including reference identities. Hash before IPC;
+ * never expose this object as a DTO. No raw audio, receipt or mutable take status. */
+export function dialogueEvidenceContext(record, shotId, takeId) {
+  if (!object(record) || !Array.isArray(record.shots)) return null;
+  const shots = record.shots.filter((shot) => object(shot) && shot.id === shotId);
+  if (shots.length !== 1) return null;
+  const shot = shots[0];
+  const fields = [
+    "sceneId",
+    "no",
+    "line",
+    "lines",
+    "speaker",
+    "characters",
+    "seconds",
+    "picture",
+    "action",
+    "performance",
+    "delivery",
+    "promptZh",
+    "promptEn",
+    "styleNote",
+    "size",
+    "angle",
+    "move",
+    "userFields",
+    "reviewedVideoPrompt",
+    "continuityFromShotId",
+  ];
+  return {
+    version: "dialogue-limit-input-v1",
+    projectId: record.id,
+    shotId,
+    takeId,
+    backendProjectId: record.backendProjectId,
+    draft: record.draft,
+    selectedTakeId: shot.selectedTakeId === takeId ? "" : (shot.selectedTakeId ?? ""),
+    creative: Object.fromEntries(
+      fields.filter((key) => shot[key] !== undefined).map((key) => [key, shot[key]]),
+    ),
+    voices: (Array.isArray(record.characters) ? record.characters : []).map((person) => [
+      person.name,
+      person.voiceId,
+    ]),
+    narrationVoiceId: record.narrationVoiceId,
+    sourceText: record.sourceText,
+    scene: (Array.isArray(record.scenes) ? record.scenes : []).filter(
+      (scene) => scene?.id === shot.sceneId,
+    ),
+    styleZh: record.styleZh,
+    referenceIdentity: {
+      poster: shot.poster,
+      stills: (Array.isArray(shot.stills) ? shot.stills : []).map((still) => [still.id, still.url]),
+      portraits: (Array.isArray(record.characters) ? record.characters : []).map((person) => [
+        person.id,
+        person.name,
+        person.identity,
+        person.gender,
+        person.ageBand,
+        person.voiceDefault,
+        person.portraits,
+      ]),
+      locations: record.locations,
+    },
   };
 }

@@ -1,3 +1,4 @@
+import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type {
   FilmAudioLibraryGateway,
@@ -581,8 +582,11 @@ contextBridge.exposeInMainWorld("aijian", {
   createProject: (input: CreateProjectInput): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
   getStoryFilmPlan: (projectId: string) => ipcRenderer.invoke("story-film:plan", projectId),
-  createStoryFilm: (projectId: string, input: StoryFilmCreateInput) =>
-    ipcRenderer.invoke("story-film:create", projectId, input),
+  supportsStoryFilmLocalScope: true,
+  createStoryFilm: (projectId: string, input: StoryFilmCreateInput, scope?: StoryFilmLocalScope) =>
+    scope
+      ? ipcRenderer.invoke("story-film:create", projectId, input, scope)
+      : ipcRenderer.invoke("story-film:create", projectId, input),
   getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
   prepareFilmDialogueSplit: ((
