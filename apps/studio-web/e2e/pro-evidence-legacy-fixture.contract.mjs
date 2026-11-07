@@ -381,6 +381,26 @@ test("public annotations double-filter states/controls/geometry and bounded line
                 box: { x: 20, y: 30, width: 100, height: 30 },
                 visible: { x: 0, y: 0, width: 340, height: 720 },
               },
+          rangeClock: i
+            ? {
+                observed: "PRIVATE_URL",
+                expected: Infinity,
+                first: NaN,
+                sourceStart: -Infinity,
+                logicalLeft: "PRIVATE_ID",
+                logicalWidth: 999999999,
+                clip: { x: "PRIVATE", y: Infinity, width: NaN, height: 12 },
+              }
+            : {
+                observed: 2.7,
+                expected: 3.12,
+                first: 1.7,
+                sourceStart: 1.2,
+                sourceDuration: 2.4,
+                logicalLeft: 100,
+                logicalWidth: 88,
+                max: 9,
+              },
           dragBefore: { hit: i ? "PRIVATE" : "ruler" },
           dragAfter: i
             ? {
@@ -433,6 +453,8 @@ test("public annotations double-filter states/controls/geometry and bounded line
   assert(lines[0].includes("dragFromHit=ruler dragToHit=sound-tab"));
   assert(lines[1].includes("menuPosition=unknown"));
   assert(lines[1].includes("dragStage=unknown"));
+  assert.match(lines[0], /rangeObserved=2.7 rangeExpected=3.12/);
+  assert.match(lines[1], /rangeObserved=unknown rangeExpected=unknown/);
   const start = source.indexOf("    const expected =\n"),
     end = source.indexOf("    report.expectedResults = expected;");
   assert.equal(
