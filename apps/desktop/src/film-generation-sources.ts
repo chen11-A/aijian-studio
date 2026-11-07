@@ -4,6 +4,23 @@ import { extname, isAbsolute, join, relative, sep } from "node:path";
 import { mediaUrlPath, readMedia, trustedMediaPath } from "./film-library";
 import type { StoryFilmCreateInput } from "./story-film-client";
 
+export type GenerationRequestSource = {
+  role: "still" | "reference" | "references";
+  index: number;
+  source: string;
+  canonicalPath: string | null;
+  sha256: string;
+  mime: "image/png" | "image/jpeg" | "image/webp";
+};
+/** The existing provider adapter chooses local-image MIME by these byte signatures. */
+const localWireMime = (bytes: Uint8Array): GenerationRequestSource["mime"] =>
+  bytes[0] === 0xff && bytes[1] === 0xd8
+    ? "image/jpeg"
+    : Buffer.from(bytes.subarray(0, 4)).toString("ascii") === "RIFF" &&
+        Buffer.from(bytes.subarray(0, 16)).includes(Buffer.from("WEBP"))
+      ? "image/webp"
+      : "image/png";
+
 export type GenerationImageSource = {
   source: string;
   path: string | null;
@@ -145,6 +162,35 @@ export async function generationImageSources(host: {
   return {
     capture,
     requestSources,
+    async requestSourceRoles(body: StoryFilmCreateInput): Promise<GenerationRequestSource[]> {
+      if (body.shots?.length !== 1) return fail();
+      const shot = body.shots[0]!;
+      const roles: GenerationRequestSource[] = [];
+      const append = async (
+        role: GenerationRequestSource["role"],
+        index: number,
+        source: string,
+      ) => {
+        const value = await capture(source);
+        const bytes = Buffer.from(value.dataUrl.slice(value.dataUrl.indexOf(",") + 1), "base64");
+        roles.push({
+          role,
+          index,
+          source,
+          canonicalPath: value.path,
+          sha256: value.sha256,
+          mime:
+            role === "still" || value.path !== null
+              ? localWireMime(bytes)
+              : (value.mime as GenerationRequestSource["mime"]),
+        });
+      };
+      if (shot.still) await append("still", 0, shot.still);
+      if (shot.reference) await append("reference", 0, shot.reference);
+      for (const [index, source] of (shot.references ?? []).entries())
+        await append("references", index, source);
+      return roles;
+    },
     async materialize(sources: readonly string[]) {
       const result: string[] = [];
       for (const source of sources) {

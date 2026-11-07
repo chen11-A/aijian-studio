@@ -97,6 +97,32 @@ export async function restoreGenerationIntent(
   const shots = generationRows(result.shots),
     people = generationRows(result.characters),
     places = generationRows(result.locations);
+  const referencesMatch = async (
+    origin: Record<string, unknown>,
+    references: readonly string[],
+  ) => {
+    if (!Array.isArray(origin.references)) return false; // Older facts carry no reference proof.
+    if (
+      origin.references.length > 13 ||
+      origin.references.some((raw) => {
+        const row = object(raw);
+        return (
+          !row ||
+          Object.keys(row).length !== 2 ||
+          typeof row.sha256 !== "string" ||
+          !/^[a-f0-9]{64}$/.test(row.sha256) ||
+          !["image/png", "image/jpeg", "image/webp"].includes(String(row.mime))
+        );
+      })
+    )
+      return fail();
+    const actual: { sha256: string; mime: string }[] = [];
+    for (const source of references) {
+      const value = await sources.capture(source);
+      actual.push({ sha256: value.sha256, mime: value.mime });
+    }
+    return same(origin.references, actual);
+  };
   const applied = new Map<string, unknown>();
   const accept = (field: string, previous: unknown) => {
     if (applied.has(field) && !same(applied.get(field), previous)) return fail();
@@ -137,6 +163,10 @@ export async function restoreGenerationIntent(
           ) !== origin.prompt
         )
           continue;
+        const front = person.portraits.map(object).find((row) => row?.view === "正面" && row.url);
+        const originalReferences =
+          stage.view === "正面" ? [] : front && typeof front.url === "string" ? [front.url] : [];
+        if (!(await referencesMatch(origin, originalReferences))) continue;
         if (origin.previous !== null && !object(origin.previous)) return fail();
         accept(`person:${person.id}:${stage.view}`, origin.previous);
       }
@@ -159,6 +189,7 @@ export async function restoreGenerationIntent(
         )
           continue;
         if (origin.previous !== null && !object(origin.previous)) return fail();
+        if (!(await referencesMatch(origin, []))) continue;
         const base = object(origin.base);
         if (!base) return fail();
         const consumed = ["name", "prompt", "layout"];
@@ -231,6 +262,12 @@ export async function restoreGenerationIntent(
         input.kind !== "READY" ||
         typeof input.prompt !== "string" ||
         origin.prompt !== normalizeFilmStillPrompt(input.prompt)
+      )
+        continue;
+      if (
+        !Array.isArray(input.references) ||
+        input.references.some((value) => typeof value !== "string") ||
+        !(await referencesMatch(origin, input.references as string[]))
       )
         continue;
       if (typeof origin.previousPoster !== "string") return fail();

@@ -140,6 +140,17 @@ export function locationLayout(film: FilmProject, shot: FilmShot): string {
   return place?.layout?.trim() ? layoutBlock(place.layout) : "";
 }
 
+/** Exact original generated-image fields; shared by the writer and a read-only
+ * prerequisite forecast. Calling this pure reducer is not proof an image exists. */
+export function locationImageFields(film: FilmProject, place: FilmLocation, url: string) {
+  return {
+    referenceImage: url,
+    referenceStyleRevision: film.styleRevision ?? 0,
+    referenceLayout: place.layout ?? "",
+    ...(place.sceneId ? { referenceSceneSignature: sceneSignature(film, place) } : {}),
+  };
+}
+
 export function locationImageCurrent(film: FilmProject, place: FilmLocation): boolean {
   return (
     isLocationImage(place.referenceImage) &&
@@ -336,12 +347,7 @@ export async function makeLocationReferences(
             item.id === place.id
               ? {
                   ...item,
-                  referenceImage: response.url,
-                  referenceStyleRevision: base.styleRevision ?? 0,
-                  referenceLayout: place.layout ?? "",
-                  ...(place.sceneId
-                    ? { referenceSceneSignature: sceneSignature(base, place) }
-                    : {}),
+                  ...locationImageFields(base, place, response.url),
                 }
               : item,
           ),
