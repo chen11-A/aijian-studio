@@ -366,6 +366,7 @@ body:has(.pro-root) {
   overflow: hidden;
 }
 .pro-root .statusbar .sb-left,
+.pro-root .statusbar .sb-mid,
 .pro-root .statusbar .sb-right {
   display: flex;
   align-items: center;
@@ -374,6 +375,10 @@ body:has(.pro-root) {
 }
 .pro-root .statusbar .sb-right {
   justify-content: flex-end;
+}
+.pro-root .statusbar .sb-mid > .btn.sm {
+  height: 20px;
+  flex: none;
 }
 .pro-root .statusbar .task.idle {
   color: var(--text-3);
