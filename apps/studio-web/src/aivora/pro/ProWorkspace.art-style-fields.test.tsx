@@ -136,7 +136,7 @@ describe("real art style field proposal", () => {
     expect(proposal).toHaveTextContent("建议变更 1 个字段");
     expect(proposal).toHaveTextContent(env.film.styleZh);
     expect(proposal).toHaveTextContent(nextStyle);
-    expect(screen.getByText(/改画风会把已有镜头标为需要重做/)).toBeInTheDocument();
+    expect(screen.getByText(/修改画风会将全项目镜头标为需要核对画风/)).toBeInTheDocument();
     expect(env.host().current()!.styleZh).toBe(env.film.styleZh);
     expect(env.writes.mock.calls.some(([value]) => value.styleZh === nextStyle)).toBe(false);
     expect(within(proposal).queryByRole("button", { name: "撤销" })).toBeNull();
@@ -152,14 +152,26 @@ describe("real art style field proposal", () => {
     expect(env.video).not.toHaveBeenCalled();
   });
 
-  it("falls back for an entire multi-field transaction and does not pretend only style will apply", async () => {
+  it("reviews the complete known multi-field transaction rather than pretending only style will apply", async () => {
     const env = await open({ complex: true });
     plan();
-    await screen.findByText("美术 · 画风和外貌");
-    expect(screen.queryByRole("list", { name: "字段改动" })).toBeNull();
-    expect(screen.queryByText("建议变更 1 个字段")).toBeNull();
-    expect(screen.getByRole("button", { name: "放进分镜" })).toBeInTheDocument();
+    const proposal = await card();
+    expect(proposal).toHaveTextContent("建议变更 4 个字段");
+    expect(within(proposal).getAllByRole("listitem")).toHaveLength(4);
+    expect(proposal).toHaveTextContent("全项目 · 美术声明（不证明已有素材）");
+    expect(proposal).toHaveTextContent("全项目 · 后续建议参考声明");
+    expect(proposal).toHaveTextContent("全项目 · 画风说明");
+    expect(proposal).toHaveTextContent("新增道具 · 旧书");
+    expect(proposal).toHaveTextContent("主角手中的书");
     expect(env.host().current()!.styleZh).toBe(env.film.styleZh);
+    expect(env.host().current()!.props).toEqual([]);
+    expect(env.writes.mock.calls.some(([value]) => value.styleZh === nextStyle)).toBe(false);
+    confirm();
+    await waitFor(() => expect(env.disk.get(env.film.id)!.styleZh).toBe(nextStyle));
+    expect(env.host().current()!.props).toEqual([
+      expect.objectContaining({ name: "旧书", note: "主角手中的书" }),
+    ]);
+    expect(env.video).not.toHaveBeenCalled();
   });
 
   it("rejects a conflict against the captured baseline without reporting application", async () => {
@@ -204,7 +216,7 @@ describe("real art style field proposal", () => {
     confirm();
     await waitFor(() => expect(env.disk.get(env.film.id)!.styleZh).toBe(nextStyle));
     expect(env.host().current()!.shots[0]!.takes).toEqual(latest.shots[0]!.takes);
-    fireEvent.click(screen.getByRole("button", { name: "撤销" }));
+    fireEvent.click(screen.getByTitle("撤销 (Ctrl+Z)"));
     await waitFor(() => expect(env.host().current()!.styleZh).toBe(env.film.styleZh));
     expect(env.host().current()!.characters[0]!.portraits).toEqual(latest.characters[0]!.portraits);
     expect(env.host().current()!.shots[0]!.poster).toBe(latest.shots[0]!.poster);
@@ -242,7 +254,11 @@ describe("real art style field proposal", () => {
     plan();
     await card();
     confirm();
-    await screen.findByText(/美术建议已应用，但还没有保存|美术的建议.*还没保存/);
+    await screen.findByText("修改没存上，可以再试一次。");
+    expect(document.querySelector(".status-note")).toHaveAttribute(
+      "title",
+      expect.stringContaining("美术建议已应用，但还没有保存。"),
+    );
     expect(env.host().current()!.styleZh).toBe(nextStyle);
     expect(env.disk.get(env.film.id)!.styleZh).toBe(env.film.styleZh);
     expect(env.video).not.toHaveBeenCalled();
