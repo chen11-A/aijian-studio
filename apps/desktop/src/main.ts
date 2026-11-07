@@ -1,3 +1,5 @@
+import { createFilmRiskTrials } from "./film-risk-trial";
+import { registerFilmRiskTrials } from "./film-risk-trial-ipc";
 import { registerFilmAssemblies } from "./film-assembly-ipc";
 import { createDialogueLimitRegistry } from "./film-dialogue-limit";
 import { registerFilmDialogueSplits } from "./film-dialogue-split-ipc";
@@ -360,6 +362,7 @@ function createMainWindow(): BrowserWindow {
   window.webContents.on("did-start-navigation", (_event, _url, isSameDocument, isMainFrame) => {
     if (isMainFrame && !isSameDocument) {
       dialogueLimits.disposeOwner(dialogueLimitOwner);
+      riskTrials.disposeOwner(dialogueLimitOwner);
       nativePreviewDocumentEpoch += 1;
       nativePreviewHost.invalidateAll();
     }
@@ -396,6 +399,7 @@ function createMainWindow(): BrowserWindow {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
     dialogueLimits.disposeOwner(dialogueLimitOwner);
+    riskTrials.disposeOwner(dialogueLimitOwner);
     mainWindow = null;
   });
 
@@ -1094,6 +1098,34 @@ registerFilmAudioWaveforms<IpcMainInvokeEvent>(
         hash,
       ),
   },
+);
+const riskTrials = createFilmRiskTrials({
+  filmsRoot: join(app.getPath("userData"), "films"),
+  storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+  tools: () =>
+    verifiedQcTools(
+      process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+      process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+        join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+    ),
+  run: async (binary, args, options) =>
+    (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+  videoOwner: async (projectId, path, sha) =>
+    storyFilmQcOwner(
+      join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+      projectId,
+      path,
+      sha,
+    ),
+});
+registerFilmRiskTrials<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  (event) => event.sender.id,
+  riskTrials,
 );
 registerFilmAudioLibrary<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),

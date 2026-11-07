@@ -1,3 +1,4 @@
+import type { FilmRiskTrialGateway } from "@aijian/contracts/film-risk-trial";
 import type {
   GenerationVideoRecoveryListResult,
   GenerationVideoRecoveryResult,
@@ -943,6 +944,10 @@ export interface AijianDesktopBridge
   health(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
+  prepareFilmRiskTrial?: FilmRiskTrialGateway["prepareFilmRiskTrial"];
+  readFilmRiskTrialMedia?: FilmRiskTrialGateway["readFilmRiskTrialMedia"];
+  recordFilmRiskTrialDecision?: FilmRiskTrialGateway["recordFilmRiskTrialDecision"];
+  checkFilmRiskTrialDecision?: FilmRiskTrialGateway["checkFilmRiskTrialDecision"];
   listGenerationVideoRecoveries?(projectId: string): Promise<GenerationVideoRecoveryListResult>;
   recoverGenerationVideo?(
     projectId: string,

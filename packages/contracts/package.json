@@ -172,6 +172,14 @@
     "./generation-video-recovery": {
       "types": "./src/generation-video-recovery.ts",
       "default": "./src/generation-video-recovery.ts"
+    },
+    "./film-risk-trial": {
+      "types": "./src/film-risk-trial.ts",
+      "default": "./src/film-risk-trial.ts"
+    },
+    "./film-risk-trial-context": {
+      "types": "./src/film-risk-trial-context.d.ts",
+      "default": "./src/film-risk-trial-context.js"
     }
   },
   "scripts": {

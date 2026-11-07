@@ -83,7 +83,11 @@ const unknown = (
   pending: PendingSplitWrite,
   message = failure.WRITE_UNCONFIRMED!,
 ): SplitOutcome => ({ kind: "unknown", message, pending });
-function still(host: SplitHost, base: FilmProject, scope: SplitScope) {
+function still(
+  host: Pick<SplitHost, "current" | "selection">,
+  base: FilmProject,
+  scope: SplitScope,
+) {
   return host.current() === base && JSON.stringify(host.selection()) === JSON.stringify(scope);
 }
 /** Validate complete source coverage without recomputing ICU sentence decisions in another runtime. */
@@ -181,7 +185,7 @@ export function validNativeSplitReview(
   return true;
 }
 async function preflight(
-  host: SplitHost,
+  host: Pick<SplitHost, "current" | "selection" | "apply" | "onCanonicalPrepared">,
   base: FilmProject,
   scope: SplitScope,
   lease: FilmSaveLease,
@@ -626,3 +630,6 @@ export async function recoverNativeSplit(
   }
   return releaseSplit(host, lease, outcome, pending);
 }
+
+/** Reuse the existing receipt-checked checkpoint without adding another save queue. */
+export { preflight as prepareCurrentFilmCheckpoint };
