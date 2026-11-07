@@ -3,6 +3,7 @@ import type {
   FilmGenerationExecutionGateway,
   FilmGenerationExtractionExecution,
   FilmGenerationStillExecution,
+  FilmGenerationStillResult,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
 import type {
@@ -1099,7 +1100,7 @@ export interface AijianDesktopBridge
     aspectRatio?: "9:16" | "16:9",
     references?: string[],
     execution?: FilmGenerationStillExecution,
-  ) => Promise<{ path: string; reason: string }>;
+  ) => Promise<FilmGenerationStillResult>;
   prepareFilmGenerationExecution?: FilmGenerationExecutionGateway["prepareFilmGenerationExecution"];
   retireFilmGenerationExecution?: FilmGenerationExecutionGateway["retireFilmGenerationExecution"];
   pickFilmFolder?: () => Promise<string | null>;
