@@ -82,6 +82,7 @@ describe("structured business notices", () => {
       "ASSISTANT_REFERENCE_SYNTAX",
       "ASSISTANT_REFERENCE_STALE",
     ]);
+    const artFieldCodes = new Set(["ART_SUGGESTION_READY", "ART_FIELDS_APPLIED"]);
     const actionFieldCodes = new Set(["ACTION_SUGGESTION_READY", "ACTION_FIELDS_APPLIED"]);
     const performanceFieldCodes = new Set([
       "PERFORMANCE_SUGGESTION_READY",
@@ -105,6 +106,7 @@ describe("structured business notices", () => {
     const legacyRows = rows.filter(
       (row) =>
         !referenceCodes.has(row[1]!) &&
+        !artFieldCodes.has(row[1]!) &&
         !actionFieldCodes.has(row[1]!) &&
         !performanceFieldCodes.has(row[1]!) &&
         !addedCodes.has(row[1]!) &&
@@ -171,6 +173,16 @@ describe("structured business notices", () => {
     expect(actionFieldRows).toHaveLength(2);
     expect(new Set(actionFieldRows.map((row) => row[1]))).toEqual(actionFieldCodes);
     for (const [, code, fallback, finalCopy] of actionFieldRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: finalCopy!.trim(),
+      });
+    }
+    const artFieldRows = rows.filter((row) => artFieldCodes.has(row[1]!));
+    expect(artFieldRows).toHaveLength(2);
+    expect(new Set(artFieldRows.map((row) => row[1]))).toEqual(artFieldCodes);
+    for (const [, code, fallback, finalCopy] of artFieldRows) {
       expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
       expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
         code,

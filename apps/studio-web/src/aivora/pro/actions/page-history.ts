@@ -116,11 +116,12 @@ type Entry =
   | (EditorReceipt & { protectLocks?: boolean })
   | { blocked: true }
   | { structure: EditorStructureTransaction }
-  | { art: ArtTransaction }
+  | { art: ArtTransaction; artToken: string }
   | { direction: ShotDirectionTransaction; directionToken: string }
   | { story: StoryConfirmation };
 export function createEditorPageHistory() {
   let directionSerial = 0;
+  let artSerial = 0;
   const past = new Map<string, Entry[]>(),
     future = new Map<string, Entry[]>();
   const key = (scope: EditorSelection) => JSON.stringify([scope.projectId, scope.page]);
@@ -198,7 +199,7 @@ export function createEditorPageHistory() {
         : applyArtTransaction(current, receipt.art);
       if (result.receipt) {
         stack!.pop();
-        to.set(id, [...(to.get(id) ?? []), { art: result.receipt }]);
+        to.set(id, [...(to.get(id) ?? []), { art: result.receipt, artToken: receipt.artToken }]);
       }
       return { film: result.film, conflicts: result.conflicts };
     }
@@ -281,8 +282,42 @@ export function createEditorPageHistory() {
     ]);
     return result;
   }
+  function artEntry(scope: EditorSelection, token: string) {
+    if (!token || typeof token !== "string") return null;
+    const entries = [past, future].flatMap((map, side) =>
+      (map.get(key(scope)) ?? []).flatMap((entry, index) =>
+        "art" in entry && entry.artToken === token ? [{ entry, index, side }] : [],
+      ),
+    );
+    if (entries.length !== 1 || !sameSelection(entries[0]!.entry.art.selection, scope)) return null;
+    return entries[0]!;
+  }
+  function artReceiptState(scope: EditorSelection, token: string) {
+    const found = artEntry(scope, token);
+    return !found
+      ? ("missing" as const)
+      : found.side === 0
+        ? ("applied" as const)
+        : ("undone" as const);
+  }
+  function undoArtReceipt(current: FilmProject, scope: EditorSelection, token: string) {
+    const reject = (code: string) => ({ film: current, receipt: null, conflicts: [code] });
+    if (current.id !== scope.projectId) return reject("PROJECT_MISMATCH");
+    const found = artEntry(scope, token);
+    if (!found || found.side !== 0) return reject("ART_RECEIPT_MISSING");
+    const result = undoArtTransaction(current, found.entry.art);
+    if (!result.receipt) return result;
+    past.get(key(scope))!.splice(found.index, 1);
+    future.set(key(scope), [
+      ...(future.get(key(scope)) ?? []),
+      { art: result.receipt, artToken: token },
+    ]);
+    return result;
+  }
   return {
     record,
+    artReceiptState,
+    undoArtReceipt,
     directionReceiptState,
     undoDirectionReceipt,
     recordStory: (story: StoryConfirmation, origin: EditorSelection) => {
@@ -304,8 +339,10 @@ export function createEditorPageHistory() {
     },
     recordArt: (art: ArtTransaction) => {
       const id = key(art.selection);
-      past.set(id, [...(past.get(id) ?? []), { art: structuredClone(art) }].slice(-50));
+      const artToken = `art-receipt-${++artSerial}`;
+      past.set(id, [...(past.get(id) ?? []), { art: structuredClone(art), artToken }].slice(-50));
       future.delete(id);
+      return artToken;
     },
     recordReceipt: (receipt: EditorReceipt) => {
       const id = key(receipt.selection);
