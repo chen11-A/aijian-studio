@@ -73,6 +73,41 @@ async function open(
     takes: [],
     selectedTakeId: "",
   }));
+  if (options.directorReady) {
+    film.jobs = [];
+    film.audioClips = [];
+    film.shots = film.shots.map((s, i) => ({
+      ...s,
+      id: `reference-original-${i}`,
+      poster: "",
+      stills: [],
+      continuityFromShotId: undefined,
+      continuityFrame: undefined,
+    }));
+    const retained = {
+      ...structuredClone(film.shots[0]!),
+      id: "reference-retained-media",
+      sceneId: film.scenes[1]!.id,
+      no: 1,
+      poster: "/synthetic/original-other-frame.png",
+      selectedTakeId: "reference-kept-take",
+    };
+    retained.takes = [
+      {
+        id: retained.selectedTakeId,
+        shotId: retained.id,
+        index: 1,
+        status: "done",
+        videoPath: "/synthetic/original-other.mp4",
+        videoUrl: "",
+        stillUrl: retained.poster,
+        createdAt: "",
+        prompt: "原版本",
+        reason: "",
+      },
+    ];
+    film.shots.push(retained);
+  }
   const other = {
     ...structuredClone(film),
     id: "film_reference_other01",
@@ -477,3 +512,87 @@ it("inherits the captured director references and scene-wide task scope in the r
   expect(f.host().current()!.shots).toEqual(before);
   expect(f.media).not.toHaveBeenCalled();
 });
+
+it("confirms a reference-bearing director structural card, keeps its own inverse after replacing the selected first shot, and preserves unrelated media", async () => {
+  const f = await open({ role: "director", directorReady: true });
+  const before = structuredClone(f.host().current()!);
+  type("参考 @参考甲 和 @镜头1，保持原文。");
+  send();
+  const proposal = await screen.findByRole("region", { name: "助手的建议" });
+  expect(proposal).toHaveTextContent("镜头顺序");
+  expect(screen.getByText(/建议生成时参考：参考甲、镜头 1；修改范围：当前场/)).toBeInTheDocument();
+  expect(f.host().current()!.shots[0]!.id).toBe(before.shots[0]!.id);
+  expect(f.write.mock.calls.some(([film]) => film.shots[0]!.id !== before.shots[0]!.id)).toBe(
+    false,
+  );
+  const requests = f.completeText.mock.calls.length;
+  fireEvent.click(within(proposal).getByRole("button", { name: "确认修改" }));
+  await within(proposal).findByRole("button", { name: "撤销" });
+  const replacement = f.host().current()!.shots[0]!.id;
+  expect(replacement).not.toBe(before.shots[0]!.id);
+  await waitFor(() => expect(f.disk.get(f.film.id)!.shots[0]!.id).toBe(replacement));
+  expect(f.host().selection().shotId).toBe(replacement);
+  const live = f.host().current()!;
+  f.adopt({
+    ...live,
+    title: "结构应用后的新标题",
+    shots: live.shots.map((shot) =>
+      shot.id === "reference-retained-media"
+        ? { ...shot, poster: "/synthetic/later-other-frame.png" }
+        : shot,
+    ),
+  });
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "助手的建议" })).getByRole("button", {
+      name: "撤销",
+    }),
+  );
+  await waitFor(() => expect(f.host().current()!.shots[0]!.id).toBe(before.shots[0]!.id));
+  expect(
+    f
+      .host()
+      .current()!
+      .shots.map((s) => s.id),
+  ).toEqual(before.shots.map((s) => s.id));
+  expect(f.host().current()!.title).toBe("结构应用后的新标题");
+  const retained = f
+    .host()
+    .current()!
+    .shots.find((s) => s.id === "reference-retained-media")!;
+  expect(retained.poster).toBe("/synthetic/later-other-frame.png");
+  expect(retained.takes).toEqual(before.shots.find((s) => s.id === retained.id)!.takes);
+  expect(retained.selectedTakeId).toBe("reference-kept-take");
+  expect(f.completeText).toHaveBeenCalledTimes(requests);
+  expect(f.completeText.mock.calls.some(([input]) => input.agent === "writer")).toBe(false);
+  expect(f.media).not.toHaveBeenCalled();
+});
+it.each(["rename", "delete"])(
+  "rejects the new fixed director review after referenced-person %s without any structural write",
+  async (change) => {
+    const f = await open({ role: "director", directorReady: true });
+    type("参考 @参考甲 和 @镜头1，保持原文。");
+    send();
+    await screen.findByRole("button", { name: "确认修改" });
+    const callback = f.cards.find((card) =>
+      card.fieldRows?.some((row) => row.label.includes("镜头顺序")),
+    )!.onApply;
+    const live = f.host().current()!;
+    f.adopt({
+      ...live,
+      characters:
+        change === "rename"
+          ? live.characters.map((p) =>
+              p.id === f.film.characters[0]!.id ? { ...p, name: "改名后的参考人物" } : p,
+            )
+          : live.characters.filter((p) => p.id !== f.film.characters[0]!.id),
+    });
+    const before = structuredClone(f.host().current()),
+      writes = f.write.mock.calls.length,
+      requests = f.completeText.mock.calls.length;
+    await act(async () => callback());
+    expect(f.host().current()).toEqual(before);
+    expect(f.write).toHaveBeenCalledTimes(writes);
+    expect(f.completeText).toHaveBeenCalledTimes(requests);
+    expect(f.media).not.toHaveBeenCalled();
+  },
+);
