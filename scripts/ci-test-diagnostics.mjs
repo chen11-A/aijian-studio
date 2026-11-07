@@ -61,6 +61,50 @@ export function pytestFailureLocation(file, line, sourceRoot = repositoryRoot) {
   return lines && Number(line) <= lines.length ? Number(line) : null;
 }
 
+/** Closed test-local PCM statistics; no raw text/string fields can enter annotations. */
+export function emptySpeechPcmSummary(raw) {
+  if (typeof raw !== "string" || raw.length > 2048 || !raw.startsWith("CI_EMPTY_SPEECH_PCM "))
+    return null;
+  try {
+    const v = JSON.parse(raw.slice("CI_EMPTY_SPEECH_PCM ".length));
+    if (
+      !v ||
+      typeof v !== "object" ||
+      Array.isArray(v) ||
+      Object.keys(v).sort().join() !==
+        "channels,nonzero,ordinal,peakAbs,rate,referenced,rms,samples,schema,stage,width" ||
+      v.schema !== 1 ||
+      typeof v.referenced !== "boolean" ||
+      !["silent", "loudnorm", "fit", "final"].includes(v.stage) ||
+      ![16000, 48000].includes(v.rate) ||
+      ![1, 2].includes(v.channels) ||
+      v.width !== 2 ||
+      !Number.isInteger(v.ordinal) ||
+      v.ordinal < 1 ||
+      v.ordinal > 16 ||
+      !Number.isInteger(v.samples) ||
+      v.samples < 1 ||
+      v.samples > 2000000 ||
+      v.samples % v.channels !== 0 ||
+      !Number.isInteger(v.nonzero) ||
+      v.nonzero < 0 ||
+      v.nonzero > v.samples ||
+      !Number.isInteger(v.peakAbs) ||
+      v.peakAbs < 0 ||
+      v.peakAbs > 32768 ||
+      typeof v.rms !== "number" ||
+      !Number.isFinite(v.rms) ||
+      v.rms < 0 ||
+      v.rms > v.peakAbs ||
+      (v.nonzero === 0 ? v.peakAbs !== 0 || v.rms !== 0 : v.peakAbs === 0 || v.rms === 0)
+    )
+      return null;
+    return `Empty speech PCM: referenced=${v.referenced}; stage=${v.stage}#${v.ordinal}; rate=${v.rate}; channels=${v.channels}; width=${v.width}; samples=${v.samples}; nonzero=${v.nonzero}; peakAbs=${v.peakAbs}; RMS=${v.rms.toFixed(6)}.`;
+  } catch {
+    return null;
+  }
+}
+
 /** Keep metadata only: no assertion values, raw error messages, absolute paths or log tails. */
 export function failureSummary(initialPhase = "pnpm test", sourceRoot = repositoryRoot) {
   let phase = initialPhase;
@@ -122,6 +166,11 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
       pytestFailures = false;
     }
     if (!failureBlock) return;
+    const pcm = pytestFailures ? emptySpeechPcmSummary(diagnostic) : null;
+    if (pcm) {
+      phase = "Python";
+      add(pcm);
+    }
     const pytestFrame =
       pytestFailures &&
       diagnostic.match(

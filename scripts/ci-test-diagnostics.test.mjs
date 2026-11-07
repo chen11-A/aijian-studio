@@ -13,6 +13,7 @@ import {
   failureSummary,
   pytestSourceLocation,
   pytestFailureLocation,
+  emptySpeechPcmSummary,
   pnpmInvocation,
   runTestDiagnostics,
 } from "./ci-test-diagnostics.mjs";
@@ -550,4 +551,92 @@ test("pytest actual frame metadata rejects unverified files, out-of-source posit
     summary.line(row);
   assert.deepEqual(summary.entries(), []);
   assert.equal(pytestFailureLocation(file, 99999999), null);
+});
+
+test("closed PCM diagnostics show only bounded physical numbers inside pytest failure sections", () => {
+  const value = {
+    schema: 1,
+    referenced: true,
+    stage: "loudnorm",
+    ordinal: 2,
+    rate: 48000,
+    channels: 2,
+    width: 2,
+    samples: 9600,
+    nonzero: 24,
+    peakAbs: 1,
+    rms: 0.05,
+  };
+  const raw = "CI_EMPTY_SPEECH_PCM " + JSON.stringify(value),
+    expected =
+      "Empty speech PCM: referenced=true; stage=loudnorm#2; rate=48000; channels=2; width=2; samples=9600; nonzero=24; peakAbs=1; RMS=0.050000.";
+  assert.equal(emptySpeechPcmSummary(raw), expected);
+  const summary = failureSummary();
+  summary.line(raw);
+  assert.deepEqual(summary.entries(), []);
+  summary.line("================ FAILURES ================");
+  summary.line(raw);
+  assert.deepEqual(summary.entries(), [{ phase: "Python", message: expected }]);
+  const zero = {
+    ...value,
+    stage: "silent",
+    rate: 16000,
+    channels: 1,
+    samples: 3200,
+    nonzero: 0,
+    peakAbs: 0,
+    rms: 0,
+  };
+  assert.match(
+    emptySpeechPcmSummary("CI_EMPTY_SPEECH_PCM " + JSON.stringify(zero)),
+    /nonzero=0; peakAbs=0; RMS=0.000000/,
+  );
+});
+
+test("PCM diagnostic whitelist rejects secrets, arbitrary text, non-finite or physically invalid numbers and unknown formats", () => {
+  const valid = {
+    schema: 1,
+    referenced: false,
+    stage: "final",
+    ordinal: 4,
+    rate: 48000,
+    channels: 2,
+    width: 2,
+    samples: 9600,
+    nonzero: 24,
+    peakAbs: 1,
+    rms: 0.05,
+  };
+  for (const invalid of [
+    { ...valid, path: "PRIVATE_PATH" },
+    { ...valid, stage: "PRIVATE_STAGE" },
+    { ...valid, referenced: "PRIVATE_PARAMETER" },
+    { ...valid, schema: 2 },
+    { ...valid, ordinal: 17 },
+    { ...valid, rate: 44100 },
+    { ...valid, channels: 8 },
+    { ...valid, width: 4 },
+    { ...valid, samples: 2000002 },
+    { ...valid, samples: 1 },
+    { ...valid, nonzero: 9601 },
+    { ...valid, nonzero: -1 },
+    { ...valid, peakAbs: 32769 },
+    { ...valid, rms: 2 },
+    { ...valid, nonzero: 0 },
+    { ...valid, rms: 0 },
+    { ...valid, samples: "9600" },
+  ])
+    assert.equal(emptySpeechPcmSummary("CI_EMPTY_SPEECH_PCM " + JSON.stringify(invalid)), null);
+  for (const raw of [
+    "CI_EMPTY_SPEECH_PCM " + JSON.stringify(valid).replace('"rms":0.05', '"rms":NaN'),
+    "CI_EMPTY_SPEECH_PCM " + JSON.stringify(valid).replace('"rms":0.05', '"rms":Infinity'),
+    "PRIVATE arbitrary text",
+    "CI_EMPTY_SPEECH_PCM " + "x".repeat(3000),
+    'CI_EMPTY_SPEECH_PCM {"path":"PRIVATE_PATH"}',
+  ])
+    assert.equal(emptySpeechPcmSummary(raw), null);
+  const summary = failureSummary();
+  summary.line("================ FAILURES ================");
+  summary.line('CI_EMPTY_SPEECH_PCM {"path":"PRIVATE_PATH"}');
+  assert.deepEqual(summary.entries(), []);
 });
