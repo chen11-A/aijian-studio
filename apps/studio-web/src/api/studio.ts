@@ -1,3 +1,7 @@
+import type {
+  GenerationFailurePolicyResult,
+  ConfigureGenerationFailurePolicy,
+} from "@aijian/contracts/generation-failure-policy";
 import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
@@ -934,6 +938,11 @@ export interface AijianDesktopBridge
   health(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
+  getGenerationFailurePolicy?(projectId: string): Promise<GenerationFailurePolicyResult>;
+  configureGenerationFailurePolicy?(
+    projectId: string,
+    input: ConfigureGenerationFailurePolicy,
+  ): Promise<GenerationFailurePolicyResult>;
   getStoryFilmPlan?(projectId: string): Promise<{
     data: {
       providers: Array<{
