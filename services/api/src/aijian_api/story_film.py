@@ -26,7 +26,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 from uuid import uuid4
 
 from aijian_api.artifacts import canonical_content_hash
@@ -62,10 +62,13 @@ from aijian_api.media_asset_store import MediaAssetError, MediaAssetStore
 from aijian_api.media_budget_policy import BudgetAmount, evaluate_media_budget
 from aijian_api.media_budget_store import MediaBudgetStore
 from aijian_api.media_toolchain import MediaToolchain
+from aijian_api.prepared_generation_sources import materialize_request, parse_sources
+from aijian_api.prepared_generation_store import PreparedGenerationStore
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
 from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE
+from aijian_api.story_creation_cache import Role, StoryCreationCache, StoryCreationCacheError
 from aijian_api.story_dialogue_limit import StoryDialogueLimit, dialogue_request_sha256
 from aijian_api.story_pcm_silence import is_exact_zero_pcm
 from aijian_api.story_speech_window import SPEECH_WINDOW, SpeechWindow, pad_pcm
@@ -407,6 +410,10 @@ class StoryFilmService:
         self._creation_sent = False
         self._creation_video_expected: tuple[int | None, dict[str, str], int] | None = None
         self._dispatch_account: str | None = None
+        self._prepared_generation: tuple[str, str] | None = None
+        self._production_cache = False
+        self._pending_cache_image: bytes | None = None
+        self._cache_image_saved = False
         self._video_reservation: FailureReservation | None = None
         self._video_recovery_lock: VideoRecoveryLock | None = None
         self._ledger = LocalTaskLedger(repository.database_path)
@@ -422,9 +429,14 @@ class StoryFilmService:
         *,
         media_token: str | None = None,
         dispatch_account: str | None = None,
+        prepared_generation: tuple[str, str] | None = None,
     ) -> StoryFilmResult:
         self._dispatch_account = dispatch_account
         self._begin_creation(request)
+        self._prepared_generation = prepared_generation
+        self._production_cache = prepared_generation is not None
+        self._pending_cache_image = None
+        self._cache_image_saved = False
         self._partial_note = None
         self._reuse_note = None
         self._shot_captions = None
@@ -452,6 +464,35 @@ class StoryFilmService:
                 return replace(
                     _blocked(text, provider_label, billing_label, None, None),
                     user_message=user_message(code, text),
+                )
+        if self._prepared_generation is not None:
+            try:
+                arm, body_sha = self._prepared_generation
+                request = materialize_request(
+                    request,
+                    parse_sources(
+                        PreparedGenerationStore(self._repository).runtime_video_sources(
+                            project_id,
+                            account=dispatch_account or "",
+                            arm_id=arm,
+                            body_sha256=body_sha,
+                        )
+                    ),
+                )
+                self._begin_creation(request)
+                self._assert_prepared_runtime(project_id)
+            except (GenerationFailureError, ValueError, StoryFilmError):
+                return replace(
+                    _blocked(
+                        "实际生成输入无法核验，没有发起新的生成。",
+                        provider_label,
+                        billing_label,
+                        None,
+                        None,
+                    ),
+                    user_message=user_message(
+                        "CREATION_INPUT_UNVERIFIABLE", "实际生成输入无法核验，没有发起新的生成。"
+                    ),
                 )
         blocked = self._preflight(project_id, request, media_token)
         if blocked is not None:
@@ -1089,12 +1130,15 @@ class StoryFilmService:
             ):
                 saved = False
                 try:
-                    voice = self._saved_voice(
-                        self._image_directory(), self._image_stem(project_id, request)
-                    )
-                    if voice is not None:
-                        with voice.open("rb") as stored:
-                            saved = stored.read(len(raw_speech) + 1) == raw_speech
+                    if self._production_cache:
+                        saved = self._cache_part(project_id, request, "voice") == raw_speech
+                    else:
+                        voice = self._saved_voice(
+                            self._image_directory(), self._image_stem(project_id, request)
+                        )
+                        if voice is not None:
+                            with voice.open("rb") as stored:
+                                saved = stored.read(len(raw_speech) + 1) == raw_speech
                 except OSError:
                     pass
                 try:
@@ -1233,9 +1277,22 @@ class StoryFilmService:
         )
         self._partial_note = None
         self._ensure_running(project_id)
-        saved = None if request.regenerate else self._find_saved_image(project_id, request)
-        if saved is not None:
-            data = saved.read_bytes()
+        cached_image = (
+            self._cache_part(project_id, request, "image")
+            if self._production_cache and not request.regenerate and prepared_image is None
+            else None
+        )
+        saved = (
+            None
+            if self._production_cache or request.regenerate
+            else self._find_saved_image(project_id, request)
+        )
+        if saved is not None or cached_image is not None:
+            if cached_image is None:
+                assert saved is not None
+                data = saved.read_bytes()
+            else:
+                data = cached_image
             image = XaiImage(data=data, source_url=None, model=request.image_model or IMAGE_MODEL)
             append_grok_status("image_saved", code="reused")
             self._reuse_note = "已用上次已生成的画面。"
@@ -1248,6 +1305,8 @@ class StoryFilmService:
             )
         elif prepared_image is not None:
             image = prepared_image
+            if self._production_cache and image.data:
+                self._pending_cache_image = image.data
             append_grok_status("image_saved", code="reused")
             mark_film_progress(
                 project_id,
@@ -1290,24 +1349,38 @@ class StoryFilmService:
         speech: bytes | None = None
         if request.dialogue_lines or _spoken_line(request.narration):
             mark_film_progress(project_id, "speech", "正在生成配音。", image_saved=kept)
-            saved_voice = self._saved_voice(
-                self._image_directory(), self._image_stem(project_id, request)
+            cached_voice_bytes = (
+                self._cache_part(project_id, request, "voice") if self._production_cache else None
             )
-            if saved_voice is not None:
-                speech = saved_voice.read_bytes()
+            saved_voice = (
+                None
+                if self._production_cache
+                else self._saved_voice(
+                    self._image_directory(), self._image_stem(project_id, request)
+                )
+            )
+            if saved_voice is not None or cached_voice_bytes is not None:
+                if cached_voice_bytes is None:
+                    assert saved_voice is not None
+                    speech = saved_voice.read_bytes()
+                else:
+                    speech = cached_voice_bytes
             else:
                 speech = self._dialogue_speech(client, request, project_id)
                 # A newly synthesized voice must never pair with an older cached clip.
-                (
-                    self._image_directory() / f"{self._image_stem(project_id, request)}-clip.mp4"
-                ).unlink(missing_ok=True)
-                for suffix in (".wav", ".mp3"):
-                    if suffix != _audio_suffix(speech):
-                        (
-                            self._image_directory()
-                            / f"{self._image_stem(project_id, request)}-voice{suffix}"
-                        ).unlink(missing_ok=True)
+                if not self._production_cache:
+                    (
+                        self._image_directory()
+                        / f"{self._image_stem(project_id, request)}-clip.mp4"
+                    ).unlink(missing_ok=True)
+                    for suffix in (".wav", ".mp3"):
+                        if suffix != _audio_suffix(speech):
+                            (
+                                self._image_directory()
+                                / f"{self._image_stem(project_id, request)}-voice{suffix}"
+                            ).unlink(missing_ok=True)
                 self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
+            assert speech is not None
             with tempfile.TemporaryDirectory(prefix="aivora-speech-duration-") as temporary:
                 speech_file = Path(temporary) / f"speech{_audio_suffix(speech)}"
                 speech_file.write_bytes(speech)
@@ -1365,8 +1438,11 @@ class StoryFilmService:
             if request.shot_index in self._creation_videos and self._verified_speech_bytes(speech):
                 self._creation_verified.add(request.shot_index)
                 self._settle_creation_success(project_id)
-            self._store_part(project_id, request, clip, "-clip.mp4")
-            self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
+            if self._production_cache:
+                self._creation_cache(project_id, request).put_bundle(picture, clip, speech)
+            else:
+                self._store_part(project_id, request, clip, "-clip.mp4")
+                self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
         return picture, clip, speech
 
     def _dialogue_speech(
@@ -1467,6 +1543,38 @@ class StoryFilmService:
         ).encode()
         return hashlib.sha256(raw).hexdigest()[:16]
 
+    def _creation_cache(self, project_id: str, request: StoryFilmRequest) -> StoryCreationCache:
+        try:
+            if self._prepared_generation is not None:
+                recipe = PreparedGenerationStore(self._repository).original_video_recipe(
+                    project_id,
+                    account=self._dispatch_account or "",
+                    arm_id=self._prepared_generation[0],
+                    body_sha256=self._prepared_generation[1],
+                )
+            else:
+                recipe = self._creation_targets()[(request.shot_index or 1) - 1]
+            return StoryCreationCache(
+                self._image_directory(),
+                project_id,
+                recipe,
+                Path(self._repository.database_path),
+            )
+        except (GenerationFailureError, ValueError, IndexError) as error:
+            raise StoryFilmError(
+                "CREATION_INPUT_UNVERIFIABLE", "缓存的完整创作输入无法核验。"
+            ) from error
+
+    def _cache_part(self, project_id: str, request: StoryFilmRequest, role: str) -> bytes | None:
+        try:
+            if role not in {"image", "voice", "video"}:
+                raise ValueError("role")
+            return self._creation_cache(project_id, request).part(cast(Role, role))
+        except (StoryCreationCacheError, ValueError) as error:
+            raise StoryFilmError(
+                "CREATION_INPUT_UNVERIFIABLE", "缓存的完整文件无法核验。"
+            ) from error
+
     def _find_saved_image(self, project_id: str, request: StoryFilmRequest) -> Path | None:
         directory = self._image_directory()
         stem = self._image_stem(project_id, request)
@@ -1479,6 +1587,16 @@ class StoryFilmService:
     def _saved_bundle(
         self, project_id: str, request: StoryFilmRequest
     ) -> tuple[bytes, bytes, bytes] | None:
+        if self._production_cache:
+            try:
+                result = self._creation_cache(project_id, request).bundle()
+                if result is None and self._find_saved_image(project_id, request) is not None:
+                    raise StoryCreationCacheError("LEGACY_CACHE_UNVERIFIABLE")
+                return result
+            except StoryCreationCacheError as error:
+                raise StoryFilmError(
+                    "CREATION_INPUT_UNVERIFIABLE", "旧缓存缺少完整输入证明，未继续生成。"
+                ) from error
         image = self._find_saved_image(project_id, request)
         if image is None:
             return None
@@ -1509,6 +1627,18 @@ class StoryFilmService:
     ) -> None:
         if not data:
             return
+        if self._production_cache:
+            role = (
+                "video"
+                if suffix == "-clip.mp4"
+                else "voice"
+                if suffix.startswith("-voice")
+                else None
+            )
+            if role is None:
+                raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "缓存类型无法核验。")
+            self._creation_cache(project_id, request).put(cast(Role, role), data)
+            return
         directory = self._image_directory()
         directory.mkdir(parents=True, exist_ok=True)
         stem = self._image_stem(project_id, request)
@@ -1537,6 +1667,10 @@ class StoryFilmService:
         return str(row["latest_version_id"]), int(row["revision"])
 
     def _persist_image(self, project_id: str, request: StoryFilmRequest, image: bytes) -> Path:
+        if self._production_cache:
+            cache = self._creation_cache(project_id, request)
+            cache.put("image", image)
+            return cache.directory / f"image-{hashlib.sha256(image).hexdigest()}.bin"
         directory = self._image_directory()
         directory.mkdir(parents=True, exist_ok=True)
         suffix = ".png"
@@ -1683,6 +1817,19 @@ class StoryFilmService:
             "speech_window": "head-0.4-tail-0.6" if _uses_speech_window(request) else None,
         }
 
+    def _assert_prepared_runtime(self, project_id: str) -> None:
+        if self._prepared_generation is None:
+            return
+        expected = PreparedGenerationStore(self._repository).runtime_video_recipe(
+            project_id,
+            account=self._dispatch_account or "",
+            arm_id=self._prepared_generation[0],
+            body_sha256=self._prepared_generation[1],
+        )
+        actual = self._creation_targets()
+        if len(actual) != 1 or actual[0] != expected:
+            raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "实际生成输入已变化。")
+
     def _check_creation_policy(self, project_id: str) -> None:
         policy = self._creation_store.policy(project_id)
         if policy is None:
@@ -1690,10 +1837,27 @@ class StoryFilmService:
         if policy.failure_limit == 0:
             raise StoryFilmError("CREATION_INPUT_FAILURE_LIMIT", "创作链失败上限为零。")
         try:
-            identity = story_creation_input_identity(
-                self._dispatch_account or "", self._creation_targets()
+            self._assert_prepared_runtime(project_id)
+            if (
+                self._prepared_generation is not None
+                and self._creation_targets()[0]["prepared_image"] is None
+            ):
+                raise StoryFilmError(
+                    "CREATION_INPUT_UNVERIFIABLE", "缓存未能复用，未继续发起新的生成。"
+                )
+            identity = (
+                PreparedGenerationStore(self._repository).video_context(
+                    project_id,
+                    account=self._dispatch_account or "",
+                    arm_id=self._prepared_generation[0],
+                    body_sha256=self._prepared_generation[1],
+                )
+                if self._prepared_generation is not None
+                else story_creation_input_identity(
+                    self._dispatch_account or "", self._creation_targets()
+                )
             )
-        except (ValueError, UnicodeError) as error:
+        except (GenerationFailureError, ValueError, UnicodeError) as error:
             raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "原始创作输入无法核验。") from error
         if self._creation_input is not None and self._creation_input != identity:
             raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "原始创作输入已变化。")
@@ -1705,19 +1869,46 @@ class StoryFilmService:
         # Runs after local/child-budget checks, immediately before transport.send.
         try:
             self._check_creation_policy(project_id)
-            self._check_creation_body(request, http, event)
+            if self._prepared_generation is not None:
+                self._check_creation_body(request, http, event, project_id=project_id)
+            else:
+                self._check_creation_body(request, http, event)
             if self._creation_reservation is None:
-                self._creation_reservation = self._creation_store.reserve(
-                    project_id,
-                    input_sha256=self._creation_input or "",
-                    attempt_key=request.idempotency_key,
+                self._creation_reservation = (
+                    PreparedGenerationStore(self._repository).claim_video(
+                        project_id,
+                        account=self._dispatch_account or "",
+                        arm_id=self._prepared_generation[0],
+                        body_sha256=self._prepared_generation[1],
+                        idempotency_key=request.idempotency_key,
+                    )
+                    if self._prepared_generation is not None
+                    else self._creation_store.reserve(
+                        project_id,
+                        input_sha256=self._creation_input or "",
+                        attempt_key=request.idempotency_key,
+                    )
                 )
+            if (
+                self._production_cache
+                and self._pending_cache_image is not None
+                and not self._cache_image_saved
+            ):
+                self._persist_image(project_id, request, self._pending_cache_image)
+                self._cache_image_saved = True
             self._ensure_running(project_id)
-        except (GenerationFailureError, StoryFilmError) as error:
+        except (GenerationFailureError, StoryFilmError, StoryCreationCacheError) as error:
             if not self._creation_sent and self._creation_reservation is not None:
-                self._creation_store.discard_before_transport(
-                    project_id, self._creation_reservation
-                )
+                if self._prepared_generation is not None:
+                    PreparedGenerationStore(self._repository).video_not_sent(
+                        project_id,
+                        account=self._dispatch_account or "",
+                        arm_id=self._prepared_generation[0],
+                    )
+                else:
+                    self._creation_store.discard_before_transport(
+                        project_id, self._creation_reservation
+                    )
                 self._creation_reservation = None
             # The old video callback reserved before this synchronous parent gate.
             # No child HTTP has entered transport when this callback rejects.
@@ -1729,11 +1920,15 @@ class StoryFilmService:
                     self._video_recovery_lock = None
             if isinstance(error, GenerationFailureError):
                 raise StoryFilmError(f"CREATION_{error}", "创作链失败保护未通过。") from error
+            if isinstance(error, StoryCreationCacheError):
+                raise StoryFilmError(
+                    "CREATION_INPUT_UNVERIFIABLE", "本机缓存未能确认，未继续生成。"
+                ) from error
             raise
         self._creation_sent = True
 
     def _check_creation_body(
-        self, request: StoryFilmRequest, http: XaiHttpRequest, event: str
+        self, request: StoryFilmRequest, http: XaiHttpRequest, event: str, *, project_id: str = ""
     ) -> None:
         """Verify the actual outgoing body against the original effective recipe.
 
@@ -1741,6 +1936,7 @@ class StoryFilmService:
         differ from the parent recipe; both remain bound by the video child ledger.
         """
         try:
+            self._assert_prepared_runtime(project_id)
             body = json.loads(http.body or b"")
             target = self._creation_targets()[(request.shot_index or 1) - 1]
             if not isinstance(body, dict) or http.method != "POST":

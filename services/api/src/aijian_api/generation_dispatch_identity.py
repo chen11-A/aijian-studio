@@ -24,8 +24,11 @@ def account_attestation(
     idempotency_key: str,
     body: bytes,
     bearer: str | None,
+    prepared_arm_id: str | None = None,
 ) -> str | None:
     if not encoded or not key or not bearer or len(encoded) > 2048:
+        return None
+    if prepared_arm_id is not None and not re.fullmatch(r"[a-f0-9]{32}", prepared_arm_id):
         return None
     try:
         value = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
@@ -40,13 +43,14 @@ def account_attestation(
             return None
         message = "\n".join(
             (
-                "aivora-video-account-v1",
+                "aivora-video-account-v2" if prepared_arm_id else "aivora-video-account-v1",
                 project_id,
                 idempotency_key,
                 hashlib.sha256(body).hexdigest(),
                 hashlib.sha256(bearer.encode()).hexdigest(),
                 account,
                 str(expires),
+                *((prepared_arm_id,) if prepared_arm_id else ()),
             )
         )
         expected = hmac.new(key.encode(), message.encode(), hashlib.sha256).hexdigest()

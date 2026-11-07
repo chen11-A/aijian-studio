@@ -403,6 +403,21 @@
         "title": "ApproveDraftReviewRevisionPlanRequest",
         "type": "object"
       },
+      "ArmedPreparedVideo": {
+        "additionalProperties": false,
+        "properties": {
+          "arm_id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Arm Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "arm_id"
+        ],
+        "title": "ArmedPreparedVideo",
+        "type": "object"
+      },
       "ArtifactHeadData": {
         "additionalProperties": false,
         "properties": {
@@ -9430,6 +9445,90 @@
         "title": "ExecutionVideoTransitionV1",
         "type": "object"
       },
+      "ExpectedPreparedSource": {
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "sha256"
+        ],
+        "title": "ExpectedPreparedSource",
+        "type": "object"
+      },
+      "ExpectedRuntimeSource": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_path": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Path"
+          },
+          "index": {
+            "maximum": 12.0,
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "mime": {
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ],
+            "title": "Mime",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "still",
+              "reference",
+              "references"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "sha256",
+          "role",
+          "index",
+          "mime",
+          "canonical_path"
+        ],
+        "title": "ExpectedRuntimeSource",
+        "type": "object"
+      },
       "FactConflictDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -14402,6 +14501,335 @@
         "title": "PrepareOfficialDirectorRequest",
         "type": "object"
       },
+      "PreparedClientFrame": {
+        "additionalProperties": false,
+        "properties": {
+          "aspect_ratio": {
+            "enum": [
+              "9:16",
+              "16:9"
+            ],
+            "title": "Aspect Ratio",
+            "type": "string"
+          },
+          "model": {
+            "const": "grok-imagine-image-2.0",
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "References",
+            "type": "array"
+          }
+        },
+        "required": [
+          "model",
+          "prompt",
+          "aspect_ratio",
+          "references"
+        ],
+        "title": "PreparedClientFrame",
+        "type": "object"
+      },
+      "PreparedImageDispatch": {
+        "additionalProperties": false,
+        "properties": {
+          "body_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Body Sha256",
+            "type": "string"
+          },
+          "stage_key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Stage Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_key",
+          "body_sha256"
+        ],
+        "title": "PreparedImageDispatch",
+        "type": "object"
+      },
+      "PreparedImageObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "body_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Body Sha256",
+            "type": "string"
+          },
+          "output_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Sha256"
+          },
+          "stage_key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Stage Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_key",
+          "body_sha256",
+          "output_sha256"
+        ],
+        "title": "PreparedImageObservation",
+        "type": "object"
+      },
+      "PreparedLineageFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PreparedLineageFacts",
+        "type": "object"
+      },
+      "PreparedLineageQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "output_sha256s": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Output Sha256S",
+            "type": "array"
+          }
+        },
+        "required": [
+          "output_sha256s"
+        ],
+        "title": "PreparedLineageQuery",
+        "type": "object"
+      },
+      "PreparedRetirement": {
+        "additionalProperties": false,
+        "properties": {
+          "slot_index": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slot Index"
+          },
+          "target_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Key"
+          }
+        },
+        "title": "PreparedRetirement",
+        "type": "object"
+      },
+      "PreparedStageBody": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "location-reference",
+              "portrait",
+              "shot-frame"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "origin": {
+            "additionalProperties": true,
+            "title": "Origin",
+            "type": "object"
+          },
+          "target_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_keys": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Target Keys",
+            "type": "array"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "enum": [
+                  "正面",
+                  "侧面",
+                  "背面",
+                  "脸部"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "target_id",
+          "origin",
+          "target_keys"
+        ],
+        "title": "PreparedStageBody",
+        "type": "object"
+      },
+      "PreparedTargetBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CreateStoryFilmBody"
+          },
+          "client_frame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreparedClientFrame"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "first_regenerate": {
+            "default": false,
+            "title": "First Regenerate",
+            "type": "boolean"
+          },
+          "key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ExpectedPreparedSource"
+            },
+            "maxItems": 20,
+            "title": "Sources",
+            "type": "array"
+          },
+          "versions": {
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Versions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "versions",
+          "body",
+          "sources"
+        ],
+        "title": "PreparedTargetBody",
+        "type": "object"
+      },
+      "PreparedVideoArm": {
+        "additionalProperties": false,
+        "properties": {
+          "body_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Body Sha256",
+            "type": "string"
+          },
+          "slot_index": {
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Slot Index",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ExpectedRuntimeSource"
+            },
+            "maxItems": 15,
+            "title": "Sources",
+            "type": "array"
+          },
+          "take_key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Take Key",
+            "type": "string"
+          },
+          "target_key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Target Key",
+            "type": "string"
+          },
+          "wire_body": {
+            "maxLength": 1048576,
+            "minLength": 1,
+            "title": "Wire Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "slot_index",
+          "take_key",
+          "body_sha256",
+          "wire_body",
+          "sources"
+        ],
+        "title": "PreparedVideoArm",
+        "type": "object"
+      },
       "ProductExportAssetRef": {
         "additionalProperties": false,
         "description": "Reference to an immutable imported media version, using its native hash shape.",
@@ -17461,6 +17889,19 @@
         "title": "RecordDesktopSubscriptionDispatch",
         "type": "object"
       },
+      "RecordedPreparedFact": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "RECORDED",
+            "default": "RECORDED",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "title": "RecordedPreparedFact",
+        "type": "object"
+      },
       "RecoveredVideoFile": {
         "additionalProperties": false,
         "properties": {
@@ -17509,6 +17950,55 @@
           "description"
         ],
         "title": "ReferenceDeclarationV1",
+        "type": "object"
+      },
+      "RegisterPreparedExecution": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PreparedStageBody"
+            },
+            "maxItems": 1024,
+            "title": "Stages",
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/PreparedTargetBody"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "targets",
+          "stages"
+        ],
+        "title": "RegisterPreparedExecution",
+        "type": "object"
+      },
+      "RegisteredPreparedExecution": {
+        "additionalProperties": false,
+        "properties": {
+          "execution_id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Execution Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "execution_id"
+        ],
+        "title": "RegisteredPreparedExecution",
         "type": "object"
       },
       "RejectOfficialDirectorRequest": {
@@ -37525,6 +38015,476 @@
           }
         },
         "summary": "Consumer"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions": {
+      "post": {
+        "operationId": "register_api_v1_projects__project_id__prepared_generation_executions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPreparedExecution"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredPreparedExecution"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions/lineages": {
+      "post": {
+        "operationId": "lineages_api_v1_projects__project_id__prepared_generation_executions_lineages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparedLineageQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedLineageFacts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lineages"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-dispatch": {
+      "post": {
+        "operationId": "reserve_image_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_dispatch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{32}$",
+              "title": "Execution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparedImageDispatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedPreparedFact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reserve Image"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-observation": {
+      "post": {
+        "operationId": "observe_image_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_observation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{32}$",
+              "title": "Execution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparedImageObservation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedPreparedFact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Observe Image"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-unsent": {
+      "post": {
+        "operationId": "image_unsent_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_unsent_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{32}$",
+              "title": "Execution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparedImageDispatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedPreparedFact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Image Unsent"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/retire": {
+      "post": {
+        "operationId": "retire_api_v1_projects__project_id__prepared_generation_executions__execution_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{32}$",
+              "title": "Execution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparedRetirement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedPreparedFact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/video-arm": {
+      "post": {
+        "operationId": "arm_video_api_v1_projects__project_id__prepared_generation_executions__execution_id__video_arm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{32}$",
+              "title": "Execution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparedVideoArm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArmedPreparedVideo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Arm Video"
       }
     },
     "/api/v1/projects/{project_id}/production-brief": {

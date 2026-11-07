@@ -1556,6 +1556,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/prepared-generation-executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register */
+        post: operations["register_api_v1_projects__project_id__prepared_generation_executions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prepared-generation-executions/lineages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lineages */
+        post: operations["lineages_api_v1_projects__project_id__prepared_generation_executions_lineages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reserve Image */
+        post: operations["reserve_image_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_dispatch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-observation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Observe Image */
+        post: operations["observe_image_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_observation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-unsent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Image Unsent */
+        post: operations["image_unsent_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_unsent_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire */
+        post: operations["retire_api_v1_projects__project_id__prepared_generation_executions__execution_id__retire_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/video-arm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Arm Video */
+        post: operations["arm_video_api_v1_projects__project_id__prepared_generation_executions__execution_id__video_arm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/production-brief": {
         parameters: {
             query?: never;
@@ -2656,6 +2775,11 @@ export interface components {
             approval_id: string;
             /** Expected Plan Hash */
             expected_plan_hash: string;
+        };
+        /** ArmedPreparedVideo */
+        ArmedPreparedVideo: {
+            /** Arm Id */
+            arm_id: string;
         };
         /** ArtifactHeadData */
         ArtifactHeadData: {
@@ -5578,6 +5702,34 @@ export interface components {
             /** Transition Id */
             transition_id: string;
         };
+        /** ExpectedPreparedSource */
+        ExpectedPreparedSource: {
+            /** Sha256 */
+            sha256: string;
+            /** Source */
+            source: string;
+        };
+        /** ExpectedRuntimeSource */
+        ExpectedRuntimeSource: {
+            /** Canonical Path */
+            canonical_path: string | null;
+            /** Index */
+            index: number;
+            /**
+             * Mime
+             * @enum {string}
+             */
+            mime: "image/png" | "image/jpeg" | "image/webp";
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "still" | "reference" | "references";
+            /** Sha256 */
+            sha256: string;
+            /** Source */
+            source: string;
+        };
         /** FactConflictDraftV1 */
         FactConflictDraftV1: {
             /** Conflict Id */
@@ -7282,6 +7434,109 @@ export interface components {
             profile_id: string;
             storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
         };
+        /** PreparedClientFrame */
+        PreparedClientFrame: {
+            /**
+             * Aspect Ratio
+             * @enum {string}
+             */
+            aspect_ratio: "9:16" | "16:9";
+            /**
+             * Model
+             * @constant
+             */
+            model: "grok-imagine-image-2.0";
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: string[];
+        };
+        /** PreparedImageDispatch */
+        PreparedImageDispatch: {
+            /** Body Sha256 */
+            body_sha256: string;
+            /** Stage Key */
+            stage_key: string;
+        };
+        /** PreparedImageObservation */
+        PreparedImageObservation: {
+            /** Body Sha256 */
+            body_sha256: string;
+            /** Output Sha256 */
+            output_sha256: string | null;
+            /** Stage Key */
+            stage_key: string;
+        };
+        /** PreparedLineageFacts */
+        PreparedLineageFacts: {
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** PreparedLineageQuery */
+        PreparedLineageQuery: {
+            /** Output Sha256S */
+            output_sha256s: string[];
+        };
+        /** PreparedRetirement */
+        PreparedRetirement: {
+            /** Slot Index */
+            slot_index?: number | null;
+            /** Target Key */
+            target_key?: string | null;
+        };
+        /** PreparedStageBody */
+        PreparedStageBody: {
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "location-reference" | "portrait" | "shot-frame";
+            /** Origin */
+            origin: {
+                [key: string]: unknown;
+            };
+            /** Target Id */
+            target_id: string;
+            /** Target Keys */
+            target_keys: string[];
+            /** View */
+            view?: ("正面" | "侧面" | "背面" | "脸部") | null;
+        };
+        /** PreparedTargetBody */
+        PreparedTargetBody: {
+            body: components["schemas"]["CreateStoryFilmBody"];
+            client_frame?: components["schemas"]["PreparedClientFrame"] | null;
+            /**
+             * First Regenerate
+             * @default false
+             */
+            first_regenerate: boolean;
+            /** Key */
+            key: string;
+            /** Sources */
+            sources: components["schemas"]["ExpectedPreparedSource"][];
+            /** Versions */
+            versions: number;
+        };
+        /** PreparedVideoArm */
+        PreparedVideoArm: {
+            /** Body Sha256 */
+            body_sha256: string;
+            /** Slot Index */
+            slot_index: number;
+            /** Sources */
+            sources: components["schemas"]["ExpectedRuntimeSource"][];
+            /** Take Key */
+            take_key: string;
+            /** Target Key */
+            target_key: string;
+            /** Wire Body */
+            wire_body: string;
+        };
         /**
          * ProductExportAssetRef
          * @description Reference to an immutable imported media version, using its native hash shape.
@@ -8347,6 +8602,15 @@ export interface components {
             /** Request Sha256 */
             request_sha256: string;
         };
+        /** RecordedPreparedFact */
+        RecordedPreparedFact: {
+            /**
+             * Kind
+             * @default RECORDED
+             * @constant
+             */
+            kind: "RECORDED";
+        };
         /** RecoveredVideoFile */
         RecoveredVideoFile: {
             /** Bytes */
@@ -8365,6 +8629,20 @@ export interface components {
              * @enum {string}
              */
             reference_kind: "inspiration" | "research" | "other";
+        };
+        /** RegisterPreparedExecution */
+        RegisterPreparedExecution: {
+            /** Key */
+            key: string;
+            /** Stages */
+            stages: components["schemas"]["PreparedStageBody"][];
+            /** Targets */
+            targets: components["schemas"]["PreparedTargetBody"][];
+        };
+        /** RegisteredPreparedExecution */
+        RegisteredPreparedExecution: {
+            /** Execution Id */
+            execution_id: string;
         };
         /** RejectOfficialDirectorRequest */
         RejectOfficialDirectorRequest: {
@@ -18457,6 +18735,270 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    register_api_v1_projects__project_id__prepared_generation_executions_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterPreparedExecution"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisteredPreparedExecution"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lineages_api_v1_projects__project_id__prepared_generation_executions_lineages_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreparedLineageQuery"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreparedLineageFacts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reserve_image_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_dispatch_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreparedImageDispatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordedPreparedFact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    observe_image_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_observation_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreparedImageObservation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordedPreparedFact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    image_unsent_api_v1_projects__project_id__prepared_generation_executions__execution_id__image_unsent_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreparedImageDispatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordedPreparedFact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retire_api_v1_projects__project_id__prepared_generation_executions__execution_id__retire_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreparedRetirement"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordedPreparedFact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    arm_video_api_v1_projects__project_id__prepared_generation_executions__execution_id__video_arm_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreparedVideoArm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmedPreparedVideo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

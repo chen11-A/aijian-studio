@@ -106,31 +106,55 @@ class GenerationFailureStore:
             raise GenerationFailureError("INVALID_DISPATCH_IDENTITY")
         key = hashlib.sha256(attempt_key.encode()).hexdigest()
         with self._transaction() as connection:
-            self._project(connection, project_id)
-            policy = connection.execute(
-                f"SELECT revision,failure_limit FROM {self._policy_table} WHERE project_id=?",
-                (project_id,),
-            ).fetchone()
-            if policy is None:
-                raise GenerationFailureError("UNCONFIGURED")
-            if connection.execute(
-                f"SELECT 1 FROM {self._attempt_table} WHERE project_id=? AND attempt_key_sha256=?",
-                (project_id, key),
-            ).fetchone():
-                raise GenerationFailureError("ATTEMPT_ALREADY_RESERVED")
-            used = connection.execute(
-                f"SELECT COUNT(*) FROM {self._attempt_table} "
-                "WHERE project_id=? AND input_sha256=? AND status!='SUCCEEDED'",
-                (project_id, input_sha256),
-            ).fetchone()
-            if used is None or int(used[0]) >= int(policy[1]):
-                raise GenerationFailureError("INPUT_FAILURE_LIMIT")
-            identifier = uuid4().hex
-            connection.execute(
-                f"INSERT INTO {self._attempt_table} VALUES(?,?,?,?,?,'PENDING')",
-                (identifier, project_id, input_sha256, key, int(policy[0])),
+            return self.reserve_in_transaction(
+                connection, project_id, input_sha256=input_sha256, attempt_key_sha256=key
             )
-            return FailureReservation(identifier, input_sha256)
+
+    def reserve_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        project_id: str,
+        *,
+        input_sha256: str,
+        attempt_key_sha256: str,
+    ) -> FailureReservation:
+        """Use the same ledger gate inside an atomic prerequisite dependency reservation.
+
+        This is an internal service seam, not a caller-supplied SQL connection API. The
+        caller owns the original repository's active IMMEDIATE write transaction.
+        No policy or existing reservation is reset by composing this operation.
+        """
+        if (
+            not connection.in_transaction
+            or not _DIGEST.fullmatch(input_sha256)
+            or not _DIGEST.fullmatch(attempt_key_sha256)
+        ):
+            raise GenerationFailureError("INVALID_DISPATCH_IDENTITY")
+        self._project(connection, project_id)
+        policy = connection.execute(
+            f"SELECT revision,failure_limit FROM {self._policy_table} WHERE project_id=?",
+            (project_id,),
+        ).fetchone()
+        if policy is None:
+            raise GenerationFailureError("UNCONFIGURED")
+        if connection.execute(
+            f"SELECT 1 FROM {self._attempt_table} WHERE project_id=? AND attempt_key_sha256=?",
+            (project_id, attempt_key_sha256),
+        ).fetchone():
+            raise GenerationFailureError("ATTEMPT_ALREADY_RESERVED")
+        used = connection.execute(
+            f"SELECT COUNT(*) FROM {self._attempt_table} "
+            "WHERE project_id=? AND input_sha256=? AND status!='SUCCEEDED'",
+            (project_id, input_sha256),
+        ).fetchone()
+        if used is None or int(used[0]) >= int(policy[1]):
+            raise GenerationFailureError("INPUT_FAILURE_LIMIT")
+        identifier = uuid4().hex
+        connection.execute(
+            f"INSERT INTO {self._attempt_table} VALUES(?,?,?,?,?,'PENDING')",
+            (identifier, project_id, input_sha256, attempt_key_sha256, int(policy[0])),
+        )
+        return FailureReservation(identifier, input_sha256)
 
     def discard_before_transport(self, project_id: str, reservation: FailureReservation) -> None:
         """Only the synchronous pre-send gate can prove this hold never entered HTTP.
@@ -139,13 +163,20 @@ class GenerationFailureStore:
         The original task ledger still retains the canceled task/idempotency key.
         """
         with self._transaction() as connection:
-            result = connection.execute(
-                f"DELETE FROM {self._attempt_table} WHERE id=? AND project_id=? "
-                "AND input_sha256=? AND status='PENDING'",
-                (reservation.attempt_id, project_id, reservation.input_sha256),
-            )
-            if result.rowcount != 1:
-                raise GenerationFailureError("ATTEMPT_NOT_UNSUBMITTED")
+            self.discard_in_transaction(connection, project_id, reservation)
+
+    def discard_in_transaction(
+        self, connection: sqlite3.Connection, project_id: str, reservation: FailureReservation
+    ) -> None:
+        if not connection.in_transaction:
+            raise GenerationFailureError("ATTEMPT_NOT_UNSUBMITTED")
+        result = connection.execute(
+            f"DELETE FROM {self._attempt_table} WHERE id=? AND project_id=? "
+            "AND input_sha256=? AND status='PENDING'",
+            (reservation.attempt_id, project_id, reservation.input_sha256),
+        )
+        if result.rowcount != 1:
+            raise GenerationFailureError("ATTEMPT_NOT_UNSUBMITTED")
 
     def settle(
         self,
@@ -156,12 +187,23 @@ class GenerationFailureStore:
         if status not in {"UNKNOWN", "FAILED", "SUCCEEDED"}:
             raise GenerationFailureError("INVALID_ATTEMPT_STATUS")
         with self._transaction() as connection:
-            # Terminal evidence cannot be overwritten by an old callback.
-            result = connection.execute(
-                f"UPDATE {self._attempt_table} SET status=? "
-                "WHERE id=? AND project_id=? AND input_sha256=? "
-                "AND status IN ('PENDING','UNKNOWN')",
-                (status, reservation.attempt_id, project_id, reservation.input_sha256),
-            )
-            if result.rowcount != 1:
-                raise GenerationFailureError("ATTEMPT_NOT_PENDING")
+            self.settle_in_transaction(connection, project_id, reservation, status)
+
+    def settle_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        project_id: str,
+        reservation: FailureReservation,
+        status: Literal["UNKNOWN", "FAILED", "SUCCEEDED"],
+    ) -> None:
+        if not connection.in_transaction or status not in {"UNKNOWN", "FAILED", "SUCCEEDED"}:
+            raise GenerationFailureError("INVALID_ATTEMPT_STATUS")
+        # Terminal evidence cannot be overwritten by an old callback.
+        result = connection.execute(
+            f"UPDATE {self._attempt_table} SET status=? "
+            "WHERE id=? AND project_id=? AND input_sha256=? "
+            "AND status IN ('PENDING','UNKNOWN')",
+            (status, reservation.attempt_id, project_id, reservation.input_sha256),
+        )
+        if result.rowcount != 1:
+            raise GenerationFailureError("ATTEMPT_NOT_PENDING")
