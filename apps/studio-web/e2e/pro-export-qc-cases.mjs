@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 
 export const qcStates = [
@@ -54,7 +55,9 @@ export async function runQcCases({ browser, config, report, media, persist }) {
             return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state, aspect });
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state, aspect })});(${installAssemblyAuditBridge.toString()})();`,
+        });
         const dialog = page.getByRole("dialog", { name: "导出成片", exact: true });
         const publish = dialog.getByRole("button", { name: "审核后发布", exact: true });
         const cancel = dialog.getByRole("button", { name: "取消本次导出", exact: true });
@@ -273,6 +276,13 @@ export async function runQcCases({ browser, config, report, media, persist }) {
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = actual;
+          const assembly = await page.evaluate(() => ({
+            calls: window.__assemblyAudit.calls,
+            legacy: window.__assemblyAudit.legacy,
+            forbidden: window.__assemblyAudit.forbidden,
+          }));
+          assert.deepEqual(assembly, { calls: [], legacy: [], forbidden: [] });
+          result.assembly = assembly;
           result.passed = true;
         } catch (error) {
           result.error = error.message;

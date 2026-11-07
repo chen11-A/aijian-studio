@@ -4,6 +4,8 @@ import path from "node:path";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
+import { installAssemblyAuditBridge, readAssemblyReadiness } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import { loadLibraryAuditCatalog } from "./pro-audio-library-fixture.mjs";
@@ -55,11 +57,14 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
             rejectedWrites: window.__shotAudioAudit.rejectedWrites,
             flushes: window.__shotAudioAudit.flushes,
             assemblies: window.__proCreationAudit.assemblies,
+            nativeAssemblies: window.__assemblyAudit.calls,
+            legacyAssemblies: window.__assemblyAudit.legacy,
             forbidden: [
               ...window.__shotAudioAudit.forbidden,
               ...window.__audioGroupsAudit.forbidden,
               ...window.__proCreationAudit.forbidden,
               ...window.__exportQcAudit.forbidden,
+              ...window.__assemblyAudit.forbidden,
             ],
           }));
         const frame = () =>
@@ -132,12 +137,8 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
           if (u.href === mediaUrl) return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state: "clean", aspect });
-        await page.addInitScript(installCreationBridge, { state });
-        await page.addInitScript(installShotAudioBridge, { state, catalog });
-        await page.addInitScript(installAudioGroupsBridge, {
-          state,
-          helperModuleUrl: new URL("/e2e/pro-audio-groups-browser-helper.mjs", config.url).href,
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installCreationBridge.toString()})(${JSON.stringify({ state })});(${installShotAudioBridge.toString()})(${JSON.stringify({ state, catalog })});(${installAudioGroupsBridge.toString()})(${JSON.stringify({ state, helperModuleUrl: new URL("/e2e/pro-audio-groups-browser-helper.mjs", config.url).href })});(${installAssemblyAuditBridge.toString()})();`,
         });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
@@ -157,7 +158,10 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
           await nav("剪辑").click();
           assert.equal(await page.locator(".pro-root").getAttribute("data-stage"), "edit");
           await button("重试音轨试听").waitFor();
-          const before = await record(seed.projectId);
+          await page.waitForFunction(() => window.__assemblyAudit.calls.length === 1);
+          await waitAssemblyIdle(page, seed.projectId);
+          const before = await record(seed.projectId),
+            expectedAssemblies = [before];
           assert.equal(before.shots.length, 6);
           assert(before.shots.every((s) => s.takes.length === 3));
           assert.equal(before.audioClips.length, 1);
@@ -235,6 +239,9 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
             await dialog.getByText(/声音已加入并保存/).waitFor();
             await waitClips(5);
             const added = await record(seed.projectId);
+            expectedAssemblies.push(added);
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 2);
+            await waitAssemblyIdle(page, seed.projectId);
             assert.deepEqual(added.audioClips[0], before.audioClips[0]);
             assert.deepEqual(sourceIdentity(added), sourceIdentity(before));
             assert.deepEqual(
@@ -275,6 +282,9 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
             await remove.click();
             await waitClips(1);
             const removed = await record(seed.projectId);
+            expectedAssemblies.push(removed);
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 3);
+            await waitAssemblyIdle(page, seed.projectId);
             assert.deepEqual(removed.audioClips, before.audioClips);
             assert.deepEqual(sourceIdentity(removed), sourceIdentity(before));
             assert.deepEqual((await calls()).copied, files);
@@ -292,6 +302,9 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
             await page.evaluate(() => window.__audioGroupsAudit.finish());
             await dialog.getByText(/声音已加入并保存/).waitFor();
             await waitClips(5);
+            expectedAssemblies.push(await record(seed.projectId));
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 2);
+            await waitAssemblyIdle(page, seed.projectId);
             await geometry("native-confirmed");
             await closeReview();
             await quit("saved");
@@ -337,10 +350,18 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
               const where = document.querySelector(".statusbar .where");
               return !!where && !where.textContent.includes("正在保存");
             });
+            // New shared assembly performs a legitimate canonical save after mix readiness.
+            // Its actual admission must finish before the foreign no-write recovery baseline.
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 2);
+            await waitAssemblyIdle(page, seed.otherId);
+            await page.waitForFunction(
+              () => !document.querySelector(".statusbar .where")?.textContent.includes("正在保存"),
+            );
             const otherRaw = await record(seed.otherId),
               otherWrites = (await calls()).groupWrites.filter(
                 (w) => w.projectId === seed.otherId,
               ).length;
+            expectedAssemblies.push(otherRaw);
             await page.evaluate(() => window.__audioGroupsAudit.finish());
             await pendingButton().click();
             scopeSelector = ".bundled-audio-dialog";
@@ -395,6 +416,9 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
                 !document.querySelector("footer")?.textContent.includes("本地素材保存待核对（1）"),
             );
             assert.equal((await calls()).calls.length, 1);
+            expectedAssemblies.push(await record(seed.projectId));
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 2);
+            await waitAssemblyIdle(page, seed.projectId);
             await geometry("explicit-fresh-saved-adopted");
           }
           const after = await record(seed.projectId),
@@ -406,23 +430,15 @@ export async function runAudioGroupCases({ browser, config, report, media, persi
           assert(actual.calls.every((c) => c.matched));
           assert.equal(actual.nativeWrites, 1);
           assert.deepEqual(actual.forbidden, []);
-          // Selected ambience/sfx do not affect the legacy local assembly input.
-          assert.equal(actual.assemblies.length, 1);
-          assert.deepEqual(actual.assemblies[0], {
-            projectId: before.id,
-            seriesId: before.seriesId,
-            paths: before.shots.map(
-              (s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath,
-            ),
-            musicPath: "",
-            gainDb: -14,
-            dialogue: before.shots.map(() => ""),
-          });
+          assert.deepEqual(actual.assemblies, []);
+          assert.deepEqual(actual.legacyAssemblies, []);
+          assertAssemblyRequests(actual.nativeAssemblies, expectedAssemblies);
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = actual;
           result.passed = true;
         } catch (error) {
+          result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-audio-groups-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
           );

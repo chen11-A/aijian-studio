@@ -4,6 +4,8 @@ import path from "node:path";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
+import { installAssemblyAuditBridge, readAssemblyReadiness } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installFeatureBridge, seedFeatureProject } from "./pro-feature-fixture.mjs";
 export const featureStates = [
@@ -52,6 +54,8 @@ export async function runFeatureCases({ browser, config, report, media, persist 
             waves: window.__proFeatureAudit.waves,
             pending: window.__proFeatureAudit.pending.length,
             assemblies: window.__proFeatureAudit.assemblies,
+            nativeAssemblies: window.__assemblyAudit.calls,
+            legacyAssemblies: window.__assemblyAudit.legacy,
             history: window.__proFeatureAudit.history
               ? {
                   lists: window.__proFeatureAudit.history.list.length,
@@ -60,7 +64,11 @@ export async function runFeatureCases({ browser, config, report, media, persist 
                   pending: window.__proFeatureAudit.history.pending.length,
                 }
               : undefined,
-            forbidden: [...window.__proFeatureAudit.forbidden, ...window.__exportQcAudit.forbidden],
+            forbidden: [
+              ...window.__proFeatureAudit.forbidden,
+              ...window.__exportQcAudit.forbidden,
+              ...window.__assemblyAudit.forbidden,
+            ],
           }));
         const nav = (label) =>
           page
@@ -99,8 +107,9 @@ export async function runFeatureCases({ browser, config, report, media, persist 
             return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state: "clean", aspect });
-        await page.addInitScript(installFeatureBridge, { state });
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installFeatureBridge.toString()})(${JSON.stringify({ state })});(${installAssemblyAuditBridge.toString()})();`,
+        });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
           await page.evaluate(seedProProject, {
@@ -310,6 +319,9 @@ export async function runFeatureCases({ browser, config, report, media, persist 
               const f = window.__proFeatureAudit.saved();
               return f.audioClips[0]?.waveform?.peaks.length === 256;
             });
+            // The native assembly starts only after the real waveform/save admission settled.
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 1);
+            await waitAssemblyIdle(page, before.id);
             if (state === "waveform-unknown-stale") {
               await page.getByRole("button", { name: "刷新音频波形", exact: true }).click();
               await page.waitForFunction(() => window.__proFeatureAudit.pending.length === 2);
@@ -333,59 +345,47 @@ export async function runFeatureCases({ browser, config, report, media, persist 
             await geometry();
             assert.equal((await calls()).text, 0);
           }
+          if (state === "waveform-unknown-stale")
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 2);
+          if (state.startsWith("waveform")) await waitAssemblyIdle(page, before.id);
           result.calls = await calls();
           if (state.startsWith("waveform")) {
-            const expectedAssembly = (film) => ({
-              projectId: film.id,
-              seriesId: film.seriesId,
-              paths: film.shots.map(
-                (s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath,
-              ),
-              musicPath: film.audioClips.find((c) => c.lane === "score" && c.path)?.path ?? "",
-              gainDb: film.audioClips.find((c) => c.lane === "score" && c.path)?.gainDb ?? -14,
-              dialogue: film.shots.map(
-                (s) =>
-                  film.audioClips.find(
-                    (c) =>
-                      c.lane === "dialogue" &&
-                      c.shotId === s.id &&
-                      c.takeId === s.selectedTakeId &&
-                      c.enabled !== false &&
-                      c.path,
-                  )?.path ?? "",
-              ),
-            });
             assert.equal(
               before.shots.length,
               6,
               "Waveform cases retain the real multi-shot project",
             );
             assert.equal(
-              result.calls.assemblies.length,
+              result.calls.nativeAssemblies.length,
               state === "waveform-known" ? 1 : 2,
               "Only initial and actual selected-version preview assembly requests are allowed",
             );
-            assert.deepEqual(result.calls.assemblies[0], expectedAssembly(before));
             if (state === "waveform-unknown-stale") {
               const after = await saved();
-              assert.deepEqual(result.calls.assemblies[1], expectedAssembly(after));
-              assert.ok(result.calls.assemblies[0].dialogue.includes(before.audioClips[0].path));
-              assert.ok(
-                result.calls.assemblies[1].dialogue.every((voice) => voice === ""),
-                "The newly selected version must not inherit the old take's voice",
+              assertAssemblyRequests(result.calls.nativeAssemblies, [before, after]);
+              assert.notEqual(
+                result.calls.nativeAssemblies[0].input.expectedSelection.find(
+                  (row) => row.shotId === before.audioClips[0].shotId,
+                ).takeId,
+                result.calls.nativeAssemblies[1].input.expectedSelection.find(
+                  (row) => row.shotId === before.audioClips[0].shotId,
+                ).takeId,
               );
               assert.deepEqual(
                 after.audioClips,
                 before.audioClips,
                 "Keep the original bound clips after rejecting their stale waveform",
               );
-            }
-          } else assert.deepEqual(result.calls.assemblies, []);
+            } else assertAssemblyRequests(result.calls.nativeAssemblies, [before]);
+          } else assert.deepEqual(result.calls.nativeAssemblies, []);
+          assert.deepEqual(result.calls.assemblies, []);
+          assert.deepEqual(result.calls.legacyAssemblies, []);
           assert.deepEqual(result.calls.forbidden, []);
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.passed = true;
         } catch (error) {
+          result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const checkFrame =
             typeof error.stack === "string"
               ? error.stack

@@ -4,6 +4,7 @@ import path from "node:path";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installExportProgressBridge } from "./pro-export-progress-fixture.mjs";
 
@@ -136,7 +137,7 @@ export async function runProgressCases({ browser, config, report, media, persist
         });
         // One init script fixes ordering: both functions have no captured Node dependencies.
         await page.addInitScript({
-          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installExportProgressBridge.toString()})(${JSON.stringify({ state, aspect })});`,
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installExportProgressBridge.toString()})(${JSON.stringify({ state, aspect })});(${installAssemblyAuditBridge.toString()})();`,
         });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
@@ -325,6 +326,13 @@ export async function runProgressCases({ browser, config, report, media, persist
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = actual;
+          const assembly = await page.evaluate(() => ({
+            calls: window.__assemblyAudit.calls,
+            legacy: window.__assemblyAudit.legacy,
+            forbidden: window.__assemblyAudit.forbidden,
+          }));
+          assert.deepEqual(assembly, { calls: [], legacy: [], forbidden: [] });
+          result.assembly = assembly;
           result.passed = true;
         } catch (error) {
           result.error = error.message;

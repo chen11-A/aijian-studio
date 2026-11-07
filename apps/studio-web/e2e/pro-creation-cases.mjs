@@ -4,6 +4,7 @@ import path from "node:path";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 export const creationStates = [
@@ -63,9 +64,12 @@ export async function runCreationCases({ browser, config, report, media, persist
             exports: window.__proCreationAudit.exports,
             imports: window.__proCreationAudit.imports,
             assemblies: window.__proCreationAudit.assemblies,
+            nativeAssemblies: window.__assemblyAudit.calls,
+            legacyAssemblies: window.__assemblyAudit.legacy,
             forbidden: [
               ...window.__proCreationAudit.forbidden,
               ...window.__exportQcAudit.forbidden,
+              ...window.__assemblyAudit.forbidden,
             ],
           }));
         async function geometry() {
@@ -137,8 +141,9 @@ export async function runCreationCases({ browser, config, report, media, persist
             return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state: "clean", aspect });
-        await page.addInitScript(installCreationBridge, { state });
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installCreationBridge.toString()})(${JSON.stringify({ state })});(${installAssemblyAuditBridge.toString()})();`,
+        });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
           await page.evaluate(seedProProject, {
@@ -467,6 +472,8 @@ export async function runCreationCases({ browser, config, report, media, persist
           const observed = await calls();
           assert.deepEqual(observed.forbidden, []);
           assert.deepEqual(observed.assemblies, []);
+          assert.deepEqual(observed.nativeAssemblies, []);
+          assert.deepEqual(observed.legacyAssemblies, []);
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = {

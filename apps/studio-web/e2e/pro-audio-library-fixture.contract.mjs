@@ -10,6 +10,7 @@ import { fileURLToPath, URL } from "node:url";
 import { TextEncoder } from "node:util";
 import { runInNewContext } from "node:vm";
 import { createServer } from "vite";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import {
   installAudioLibraryBridge,
@@ -76,6 +77,7 @@ function setup(state = "library-catalog") {
   const seed = seedCreationProject({ state });
   installCreationBridge({ state });
   installAudioLibraryBridge({ state, catalog });
+  installAssemblyAuditBridge();
   const creation = window.__proCreationAudit,
     audit = window.__proAudioLibraryAudit,
     bridge = window.aijian;

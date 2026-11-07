@@ -10,6 +10,7 @@ import { fileURLToPath, URL } from "node:url";
 import { TextEncoder } from "node:util";
 import { runInNewContext } from "node:vm";
 import { createServer } from "vite";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import { loadLibraryAuditCatalog } from "./pro-audio-library-fixture.mjs";
 import { installShotAudioBridge, seedShotAudioProject } from "./pro-shot-audio-fixture.mjs";
@@ -83,6 +84,7 @@ function setup(state = audioGroupStates[0]) {
     helperModuleUrl: new URL("./pro-audio-groups-browser-helper.mjs", import.meta.url).href,
   });
   window.__audioGroupsAudit.helpers = groupHelpers;
+  installAssemblyAuditBridge();
   const creation = window.__proCreationAudit,
     audit = window.__shotAudioAudit,
     bridge = window.aijian;
