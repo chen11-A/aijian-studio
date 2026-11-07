@@ -27,3 +27,7 @@
 独立 `pro-story-policy` Ubuntu job，Node24.15，15分钟。先持续执行9项 Node 契约，再运行正常沙箱 Chrome；保留外 HTTP/API 禁止及原安全 CLI。artifact 仅精确三条：`.aijian-dev/pro-story-policy-audit/report.json`、`1280x800-*/*.png`、`1920x1080-*/*.png`。源码 hash 覆盖实际配置合同、native、preload、Pro、view/hook及本片脚本；公共注释只固定 state/控件/有限几何与行号，无原始正文/身份/路径/错误栈。
 
 这是实际 UI 加 synthetic policy ABI 的交互/隔离证据，不能替代 API 持久化、原子计数/占位、真实账户/费用或媒体测试。当前已知自动前置画面 `prepareSceneMedia`/`ensureShotFrame`/`requestStill` 仍有父上下文贯穿待办；本配置 QA 不声称整条自动前置图已受父保护，也不以读取 GET 代替原子准入。原视频设置、试片人工接受及费用/数量确认保持独立；此片不提供 usage/remaining、不自动核销未知或继续生成。
+
+## 总控独立复核（2026-11-07 14:04 UTC）
+
+3e52已无冲突根合fe52d48；产品/API/contracts/lock相对冻结d5无diff。root独立全部144 Node（21.85秒）、同默认ABI实际Pro6（tests4.99秒/total7.90秒）、7mjs目标ESLint及9文件Prettier/diff均0，日志`/tmp/aivora-story-policy-browser-root-checks.log`。实际正常Chrome新增16尚待CI，468仍仅为定义数量。d5原完整web467文件5577/592.75秒及原覆盖门通过，二者不是新全库5583。自动前置图父准入缺口仍单独在制，不用配置界面验证将其销项。
