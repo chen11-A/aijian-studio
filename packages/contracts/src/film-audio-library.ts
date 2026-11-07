@@ -128,7 +128,31 @@ export type SuggestBundledFilmShotAudioResult =
       limitations: ShotAudioSuggestionNote[];
     }
   | FilmAudioLibraryFailure;
+export type AudioSuggestionGroup = {
+  schemaVersion: 1;
+  groupId: string;
+  planFingerprint: string;
+  key: string;
+  memberCount: number;
+  memberSetSha256: string;
+};
+export type AudioSuggestionMemberReceipt = { key: string; clipId: string; creativeSha256: string };
+export type AudioSuggestionReceipt = Omit<AudioSuggestionGroup, "key"> & {
+  members: AudioSuggestionMemberReceipt[];
+};
+export type ApplyBundledFilmShotAudioInput = InspectBundledFilmAudioTargetInput & {
+  catalogSha256: string;
+  pickerSha256: string;
+  planFingerprint: string;
+  lanes: ("ambience" | "sfx" | "score")[];
+};
+export type ApplyBundledFilmShotAudioResult =
+  | { kind: "ADDED"; project: Record<string, unknown>; receipt: AudioSuggestionReceipt }
+  | FilmAudioLibraryFailure;
 export type FilmAudioLibraryGateway = {
+  applyBundledFilmShotAudio: (
+    input: ApplyBundledFilmShotAudioInput,
+  ) => Promise<ApplyBundledFilmShotAudioResult>;
   suggestBundledFilmShotAudio: (
     input: SuggestBundledFilmShotAudioInput,
   ) => Promise<SuggestBundledFilmShotAudioResult>;

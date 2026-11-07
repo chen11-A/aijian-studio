@@ -1,3 +1,11 @@
+import {
+  audioSuggestionGroupInputs,
+  audioSuggestionMemberSetInput,
+} from "@aijian/contracts/film-audio-suggestion-group";
+import type {
+  ApplyBundledFilmShotAudioInput,
+  AudioSuggestionReceipt,
+} from "@aijian/contracts/film-audio-library";
 import type * as FilmLibraryModule from "./film-library";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import {
@@ -33,11 +41,25 @@ import { loadProjectArchiveEngine } from "./film-project-archive-runtime";
 import { resolveAudioMix } from "./film-audio-mix-sources";
 import { renderAudioMix, probeMixSource } from "./film-audio-mix";
 import type { AddBundledFilmAudioInput } from "@aijian/contracts/film-audio-library";
-const fault = vi.hoisted(() => ({ mode: "" }));
+const fault = vi.hoisted(() => ({
+  mode: "",
+  applied: false,
+  hold: null as Promise<void> | null,
+  entered: null as (() => void) | null,
+}));
 vi.mock("./film-library", async (original) => {
   const actual = await original<typeof FilmLibraryModule>();
   return {
     ...actual,
+    readProject: async (...args: Parameters<typeof actual.readProject>) => {
+      if (["unreadable", "readback-empty"].includes(fault.mode) && fault.applied) return null;
+      const record = await actual.readProject(...args);
+      if (fault.mode === "readback-wrong" && fault.applied && record)
+        return { ...record, id: "film_cccccccccccccccc" };
+      return fault.mode === "readback-stale" && fault.applied && record
+        ? { ...record, audioClips: [] }
+        : record;
+    },
     transactFilmProject: (
       root: string,
       id: string,
@@ -50,7 +72,13 @@ vi.mock("./film-library", async (original) => {
         action(current, async (next) => {
           if (fault.mode === "before") throw Error("write failure");
           const stored = await write(next);
-          if (fault.mode === "after") throw Error("index update failure");
+          fault.applied = true;
+          if (fault.mode === "pending") {
+            fault.entered?.();
+            await fault.hold;
+          }
+          if (fault.mode === "after" || fault.mode === "unreadable")
+            throw Error("index update failure");
           return stored;
         }),
       ),
@@ -96,6 +124,9 @@ afterAll(async () => {
 });
 afterEach(async () => {
   fault.mode = "";
+  fault.applied = false;
+  fault.hold = null;
+  fault.entered = null;
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 async function fixture() {
@@ -614,4 +645,452 @@ it("rejects a changed clean visual file after preparation even when the saved re
   ).toMatchObject({ kind: "FAILED", code: "PROJECT_CHANGED" });
   expect(await readFile(f.video)).toEqual(original);
   expect((await readdir(f.media)).sort()).toEqual(["clean.mp4", "native.mp4"]);
+});
+
+async function suggested(f: Awaited<ReturnType<typeof fixture>>) {
+  const record = structuredClone(f.record);
+  Object.assign(record.shots![0] as Record<string, unknown>, {
+    picture: "雨夜街道，手机震动",
+    sound: {
+      musicMood: "温暖",
+      sfx: [
+        { atSeconds: 0, text: "手机震动" },
+        { atSeconds: 0.5, text: "手机震动" },
+        { atSeconds: 1, text: "手机震动" },
+        { atSeconds: 1.5, text: "手机震动" },
+      ],
+      ambience: "",
+    },
+  });
+  const stored = await writeProject(f.filmsRoot, record);
+  const input = {
+    projectId: stored.id,
+    expectedProjectHash: filmHistoryRecordHash(stored),
+    shotId: "shot",
+    takeId: "take",
+  };
+  const proposal = await f.library.suggestBundledFilmShotAudio(input);
+  if (proposal.kind !== "SUGGESTED") throw Error(proposal.code);
+  const request: ApplyBundledFilmShotAudioInput = {
+    ...input,
+    catalogSha256: proposal.catalogSha256,
+    pickerSha256: proposal.pickerSha256,
+    planFingerprint: proposal.planFingerprint,
+    lanes: ["ambience", "sfx", "score"],
+  };
+  return { stored, proposal, request };
+}
+function completeGroup(clips: unknown, receipt: AudioSuggestionReceipt) {
+  const inputs = audioSuggestionGroupInputs(clips, receipt.groupId);
+  if (!inputs) return false;
+  const members = inputs.members.map(({ creativeInput, ...member }) => ({
+    ...member,
+    creativeSha256: sha(Buffer.from(creativeInput)),
+  }));
+  return (
+    inputs.group.memberCount === receipt.memberCount &&
+    inputs.group.memberSetSha256 === receipt.memberSetSha256 &&
+    sha(Buffer.from(audioSuggestionMemberSetInput(members))) === receipt.memberSetSha256
+  );
+}
+it("applies whole lane segments atomically with one copy per asset, complete receipt and real portable/FFmpeg roundtrip", async () => {
+  const f = await fixture(),
+    { request, proposal } = await suggested(f),
+    source = await readFile(f.video);
+  // A normal save between review and apply changes raw CAS, not reviewed intent.
+  const refreshed = await writeProject(f.filmsRoot, (await readProject(f.filmsRoot, f.record.id))!);
+  expect(filmHistoryRecordHash(refreshed)).not.toBe(request.expectedProjectHash);
+  request.expectedProjectHash = filmHistoryRecordHash(refreshed);
+  const result = await f.library.applyBundledFilmShotAudio(request);
+  expect(result.kind).toBe("ADDED");
+  if (result.kind !== "ADDED") throw Error(result.code);
+  const clips = result.project.audioClips as Record<string, unknown>[];
+  expect(clips).toHaveLength(proposal.clips.length);
+  expect(completeGroup(clips, result.receipt)).toBe(true);
+  for (const planned of proposal.clips) {
+    const member = result.receipt.members.find((member) => member.key === planned.key)!;
+    const actual = clips.find((clip) => clip.id === member.clipId)!;
+    expect(actual).toMatchObject({
+      ...planned.placement,
+      lane: planned.lane,
+      shotId: "shot",
+      takeId: "take",
+      label: planned.asset.name,
+      libraryAsset: { assetId: planned.asset.id, sha256: planned.asset.sha256 },
+    });
+    expect(actual.envelope).toEqual(planned.envelope);
+    expect(sha(await readFile(String(actual.path)))).toBe(planned.asset.sha256);
+  }
+  expect(new Set(clips.map((clip) => clip.path)).size).toBe(
+    new Set(proposal.clips.map((clip) => clip.asset.id)).size,
+  );
+  const sfx = clips.filter((clip) => clip.lane === "sfx");
+  expect(sfx).toHaveLength(4);
+  expect(new Set(sfx.map((clip) => clip.path)).size).toBeLessThan(sfx.length);
+  const normalizeUrl = pathToFileURL(resolve("../studio-web/src/aivora/film/audio.ts")).href;
+  const { normalizeAudioClips: normalize } = (await import(normalizeUrl)) as {
+    normalizeAudioClips: (value: unknown) => Record<string, unknown>[];
+  };
+  const normalized = normalize(clips);
+  expect(completeGroup(normalized, result.receipt)).toBe(true);
+  const stored = await writeProject(f.filmsRoot, { ...result.project, audioClips: normalized });
+  const zip = join(f.root, "suggestions.aivora.zip"),
+    archive = createProjectArchives({
+      filmsRoot: f.filmsRoot,
+      storyFilmsRoot: f.storyFilmsRoot,
+      temporaryRoot: join(f.root, "archives"),
+      engine: () => loadProjectArchiveEngine(resolve("../../packages/aivora-media")),
+      pickExport: async () => zip,
+      pickImport: async () => zip,
+    });
+  expect(
+    await archive.export({ projectId: stored.id, expectedHash: filmHistoryRecordHash(stored) }),
+  ).toMatchObject({ kind: "EXPORTED" });
+  const imported = await archive.import();
+  if (imported.kind !== "IMPORTED") throw Error("ARCHIVE_NOT_IMPORTED");
+  const restored = (await readProject(f.filmsRoot, imported.projectId))!;
+  expect(completeGroup(restored.audioClips, result.receipt)).toBe(true);
+  const shot = restored.shots![0] as { id: string; takes: { id: string; videoPath: string }[] },
+    take = shot.takes[0]!;
+  const resolved = await resolveAudioMix(
+    restored,
+    [{ shotId: shot.id, takeId: take.id, videoPath: take.videoPath }],
+    { filmsRoot: f.filmsRoot, storyFilmsRoot: f.storyFilmsRoot, tools, run },
+  );
+  expect(new Set(resolved.plan.tracks.map((track) => track.sourceKey)).size).toBe(
+    new Set(clips.map((clip) => clip.path)).size,
+  );
+  const output = join(f.root, "group.mp4");
+  await renderAudioMix(take.videoPath, output, resolved.plan, resolved.paths, tools, run);
+  expect((await probeMixSource(output, tools, run)).hasAudio).toBe(true);
+  const measured = await run(tools.ffmpegPath, [
+    "-v",
+    "info",
+    "-i",
+    output,
+    "-af",
+    "astats=metadata=0:reset=0",
+    "-f",
+    "null",
+    "-",
+  ]);
+  expect(measured.stderr).toMatch(/Number of samples: [1-9]\d*/);
+  expect(await readFile(f.video)).toEqual(source);
+  expect(await f.library.applyBundledFilmShotAudio(request)).toMatchObject({
+    kind: "FAILED",
+    code: "PROJECT_CHANGED",
+    unchanged: true,
+  });
+  expect((await readProject(f.filmsRoot, f.record.id))!.audioClips).toHaveLength(clips.length);
+}, 30000);
+it("selects a complete lane subset while preserving existing clips, and rejects modified or incomplete creative groups", async () => {
+  const f = await fixture(),
+    { request, proposal } = await suggested(f);
+  const previous = {
+    id: "old-disabled",
+    lane: "score",
+    shotId: "shot",
+    takeId: "old-version",
+    label: "旧版保留",
+    path: "/unresolved-old.ogg",
+    startSeconds: 0,
+    durationSeconds: 1,
+    offsetSeconds: 0,
+    gainDb: -5,
+    enabled: false,
+  };
+  const oldRecord = await readProject(f.filmsRoot, f.record.id);
+  const fresh = await writeProject(f.filmsRoot, { ...oldRecord!, audioClips: [previous] });
+  const result = await f.library.applyBundledFilmShotAudio({
+    ...request,
+    expectedProjectHash: filmHistoryRecordHash(fresh),
+    lanes: ["sfx"],
+  });
+  if (result.kind !== "ADDED") throw Error(result.code);
+  expect(
+    (result.project.audioClips as Record<string, unknown>[]).find(
+      (clip) => clip.id === previous.id,
+    ),
+  ).toEqual(previous);
+  const clips = (result.project.audioClips as Record<string, unknown>[]).filter(
+    (clip) => clip.id !== previous.id,
+  );
+  expect(clips).toHaveLength(proposal.clips.filter((clip) => clip.lane === "sfx").length);
+  expect(clips.every((clip) => clip.lane === "sfx")).toBe(true);
+  expect(completeGroup(clips, result.receipt)).toBe(true);
+  expect(completeGroup(clips.slice(1), result.receipt)).toBe(false);
+  expect(completeGroup([...clips, clips[0]], result.receipt)).toBe(false);
+  expect(
+    completeGroup([...clips, { ...clips[0], suggestionGroup: undefined }], result.receipt),
+  ).toBe(false);
+  const changed = structuredClone(clips);
+  changed[0]!.gainDb = -3;
+  expect(completeGroup(changed, result.receipt)).toBe(false);
+  changed[0]!.gainDb = 0;
+  changed[0]!.envelope = {
+    schemaVersion: 1,
+    baseGainDb: 0,
+    fades: [{ direction: "in", startSeconds: 0, durationSeconds: 0.2 }],
+  };
+  expect(completeGroup(changed, result.receipt)).toBe(false);
+  const wrongKey = structuredClone(clips);
+  (wrongKey[0]!.suggestionGroup as Record<string, unknown>).key = (
+    wrongKey[1]!.suggestionGroup as Record<string, unknown>
+  ).key;
+  expect(completeGroup(wrongKey, result.receipt)).toBe(false);
+});
+it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] as const)(
+  "rejects late %s mutation before the sole CAS and removes only private unreferenced copies",
+  async (mode) => {
+    const f = await fixture();
+    const clean = join(f.media, "actual-clean.mp4");
+    if (mode === "clean") {
+      await copyFile(f.video, clean);
+      (f.record.shots![0] as { takes: Record<string, unknown>[] }).takes[0]!.cleanVideoPath = clean;
+    }
+    const { request } = await suggested(f);
+    // Each test owns its modified bundle; do not mutate the shared module fixture.
+    const own = join(f.root, "bundle");
+    await (await import("node:fs/promises")).cp(bundle, own, { recursive: true });
+    f.host.libraryRoot = () => own;
+    const before = await readFile(f.video);
+    let called = false;
+    f.host.beforeCommit = async () => {
+      called = true;
+      if (mode === "project" || mode === "take") {
+        const current = (await readProject(f.filmsRoot, f.record.id))!;
+        if (mode === "project") current.title = "new edit";
+        else {
+          const shot = current.shots![0] as {
+            takes: Record<string, unknown>[];
+            selectedTakeId: string;
+          };
+          shot.takes.push({ id: "other", shotId: "shot", status: "done", videoPath: f.video });
+          shot.selectedTakeId = "other";
+        }
+        await writeProject(f.filmsRoot, current);
+      } else if (mode === "source") await writeFile(f.video, "new bytes");
+      else if (mode === "clean") {
+        const oldSha = sha(await readFile(clean));
+        await run(tools.ffmpegPath, [
+          "-v",
+          "error",
+          "-y",
+          "-f",
+          "lavfi",
+          "-i",
+          "color=c=blue:s=160x90:r=24:d=2",
+          "-c:v",
+          "libx264",
+          "-an",
+          clean,
+        ]);
+        expect(sha(await readFile(clean))).not.toBe(oldSha);
+      } else if (mode === "library") await writeFile(join(own, "manifest.json"), "{}");
+      else
+        await writeFile(
+          join(own, mode === "picker" ? "audio-picker.mjs" : "audio-picker-synonyms.mjs"),
+          "export const changed=true;",
+        );
+    };
+    const result = await f.library.applyBundledFilmShotAudio(request);
+    expect(called).toBe(true);
+    expect(result.kind).toBe("FAILED");
+    expect(result).toMatchObject({ unchanged: true });
+    expect((await readProject(f.filmsRoot, f.record.id))!.audioClips).toEqual([]);
+    expect(
+      (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
+    ).toEqual([]);
+    if (mode !== "source") expect(await readFile(f.video)).toEqual(before);
+  },
+);
+it.each([
+  "before",
+  "after",
+  "unreadable",
+  "readback-stale",
+  "readback-empty",
+  "readback-wrong",
+] as const)(
+  "reports %s write failure accurately and preserves possibly referenced group copies",
+  async (mode) => {
+    const f = await fixture(),
+      { request } = await suggested(f);
+    fault.mode = mode;
+    expect(await f.library.applyBundledFilmShotAudio(request)).toMatchObject({
+      kind: "FAILED",
+      code: mode === "before" ? "WRITE_FAILED" : "WRITE_UNCONFIRMED",
+      unchanged: mode === "before",
+    });
+    fault.mode = "";
+    const actual = (await readProject(f.filmsRoot, f.record.id))!;
+    expect(
+      await f.library.inspectBundledFilmAudioTarget({
+        projectId: actual.id,
+        expectedProjectHash: filmHistoryRecordHash(actual),
+        shotId: "shot",
+        takeId: "take",
+      }),
+    ).toMatchObject({ kind: "TARGET" });
+    if (mode === "before") {
+      expect(actual.audioClips).toEqual([]);
+      expect(
+        (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
+      ).toEqual([]);
+    } else {
+      const clips = actual.audioClips as Record<string, unknown>[];
+      expect(clips.length).toBeGreaterThan(1);
+      for (const clip of clips)
+        expect(sha(await readFile(String(clip.path)))).toBe(
+          (clip.libraryAsset as { sha256: string }).sha256,
+        );
+    }
+  },
+);
+it("shares BUSY through apply completion and rejects unsafe exact inputs at zero copy/write", async () => {
+  const f = await fixture(),
+    { request } = await suggested(f);
+  let release!: () => void, entered!: () => void;
+  const hold = new Promise<void>((yes) => (release = yes)),
+    started = new Promise<void>((yes) => (entered = yes));
+  f.host.beforeCommit = async () => {
+    entered();
+    await hold;
+  };
+  const pending = f.library.applyBundledFilmShotAudio(request);
+  try {
+    await Promise.race([
+      started,
+      pending.then(() => {
+        throw Error("COMMIT_NOT_STARTED");
+      }),
+    ]);
+    expect(await f.library.applyBundledFilmShotAudio(request)).toMatchObject({ code: "BUSY" });
+    expect(
+      await f.library.inspectBundledFilmAudioTarget({
+        projectId: request.projectId,
+        expectedProjectHash: request.expectedProjectHash,
+        shotId: request.shotId,
+        takeId: request.takeId,
+      }),
+    ).toMatchObject({ code: "BUSY" });
+  } finally {
+    release();
+    await pending;
+  }
+  expect(
+    await f.library.inspectBundledFilmAudioTarget({
+      projectId: request.projectId,
+      expectedProjectHash: request.expectedProjectHash,
+      shotId: request.shotId,
+      takeId: request.takeId,
+    }),
+  ).toMatchObject({ code: "PROJECT_CHANGED" });
+  const g = await fixture(),
+    prepared = await suggested(g),
+    before = await readdir(g.media);
+  for (const patch of [
+    { lanes: [] },
+    { lanes: ["sfx", "sfx"] },
+    { lanes: ["dialogue"] },
+    { path: "/forged" },
+    { planFingerprint: "0".repeat(64) },
+    { catalogSha256: "0".repeat(64) },
+  ]) {
+    expect(
+      await g.library.applyBundledFilmShotAudio({
+        ...prepared.request,
+        ...patch,
+      } as ApplyBundledFilmShotAudioInput),
+    ).toMatchObject({ kind: "FAILED", unchanged: true });
+  }
+  expect(await readdir(g.media)).toEqual(before);
+  expect((await readProject(g.filmsRoot, g.record.id))!.audioClips).toEqual([]);
+});
+
+it("rejects an over-128 combined plan without writing or silently dropping existing/new segments", async () => {
+  const f = await fixture(),
+    { request } = await suggested(f);
+  const sound = join(f.media, "existing.ogg");
+  await copyFile(
+    (await loadTrustedAudioLibrary(bundle)).assets.find((asset) => asset.id === f.asset.id)!.file,
+    sound,
+  );
+  const existing = Array.from({ length: 128 }, (_, index) => ({
+    id: `existing-${index}`,
+    lane: "sfx",
+    shotId: "shot",
+    takeId: "take",
+    label: "旧音效",
+    path: sound,
+    startSeconds: 0,
+    durationSeconds: 0.1,
+    offsetSeconds: 0,
+    gainDb: 0,
+    loop: false,
+    enabled: true,
+  }));
+  const old = (await readProject(f.filmsRoot, f.record.id))!;
+  const stored = await writeProject(f.filmsRoot, { ...old, audioClips: existing });
+  const before = await readFile(join(f.episode, "project.json")),
+    bytes = await readFile(sound);
+  expect(
+    await f.library.applyBundledFilmShotAudio({
+      ...request,
+      expectedProjectHash: filmHistoryRecordHash(stored),
+      lanes: ["sfx"],
+    }),
+  ).toMatchObject({ kind: "FAILED", code: "PLAN_UNSUPPORTED", unchanged: true });
+  expect(await readFile(join(f.episode, "project.json"))).toEqual(before);
+  expect(await readFile(sound)).toEqual(bytes);
+  expect((await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-"))).toEqual(
+    [],
+  );
+});
+
+it("keeps the same-factory barrier until the actual queued write settles, even when bytes already landed", async () => {
+  const f = await fixture(),
+    { request } = await suggested(f);
+  let release!: () => void, entered!: () => void;
+  fault.hold = new Promise<void>((yes) => (release = yes));
+  const started = new Promise<void>((yes) => (entered = yes));
+  fault.entered = entered;
+  fault.mode = "pending";
+  const work = f.library.applyBundledFilmShotAudio(request);
+  let settled = false;
+  void work.then(() => {
+    settled = true;
+  });
+  try {
+    await Promise.race([
+      started,
+      work.then(() => {
+        throw Error("WRITE_NOT_STARTED");
+      }),
+    ]);
+    const actual = (await readProject(f.filmsRoot, f.record.id))!;
+    expect((actual.audioClips as unknown[]).length).toBeGreaterThan(1);
+    expect(settled).toBe(false);
+    expect(
+      await f.library.inspectBundledFilmAudioTarget({
+        projectId: actual.id,
+        expectedProjectHash: filmHistoryRecordHash(actual),
+        shotId: "shot",
+        takeId: "take",
+      }),
+    ).toMatchObject({ code: "BUSY" });
+    release();
+    expect(await work).toMatchObject({ kind: "ADDED" });
+    expect(
+      await f.library.inspectBundledFilmAudioTarget({
+        projectId: actual.id,
+        expectedProjectHash: filmHistoryRecordHash(actual),
+        shotId: "shot",
+        takeId: "take",
+      }),
+    ).toMatchObject({ kind: "TARGET" });
+  } finally {
+    release();
+    await work;
+  }
 });

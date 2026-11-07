@@ -11,6 +11,7 @@ it("keeps the sandbox bridge electron-only and forwards identity/placement to fi
   let bridge!: {
     listBundledFilmAudio: () => Promise<unknown>;
     inspectBundledFilmAudioTarget: (input: unknown) => Promise<unknown>;
+    applyBundledFilmShotAudio: (input: unknown) => Promise<unknown>;
     suggestBundledFilmShotAudio: (input: unknown) => Promise<unknown>;
     addBundledFilmAudio: (input: unknown) => Promise<unknown>;
   };
@@ -45,11 +46,20 @@ it("keeps the sandbox bridge electron-only and forwards identity/placement to fi
     shotId: input.shotId,
     takeId: input.takeId,
   };
+  const apply = {
+    ...target,
+    catalogSha256: "a".repeat(64),
+    pickerSha256: "b".repeat(64),
+    planFingerprint: "c".repeat(64),
+    lanes: ["sfx"],
+  };
+  await bridge.applyBundledFilmShotAudio(apply);
   await bridge.suggestBundledFilmShotAudio(target);
   await bridge.inspectBundledFilmAudioTarget(target);
   await bridge.listBundledFilmAudio();
   await bridge.addBundledFilmAudio(input);
   expect(invoke.mock.calls).toEqual([
+    ["film:audio-library-shot-apply", apply],
     ["film:audio-library-shot-suggest", target],
     ["film:audio-library-target", target],
     ["film:audio-library-list"],

@@ -288,3 +288,38 @@ it("loads a fade-zero active source and schedules independent envelope ramps thr
   expect(f.sources[1]!.stop).toHaveBeenCalledOnce();
   expect(f.gains[4]!.disconnect).toHaveBeenCalledOnce();
 });
+it("shares one decoded mono buffer for independent same-source segments through seek, rate and solo", async () => {
+  const f = fixture();
+  f.result.plan.tracks.push({
+    ...f.result.plan.tracks.find((track) => track.key === "voice")!,
+    key: "voice-second",
+    offsetSeconds: 2,
+    gainDb: -3,
+  });
+  const view = render(<AudioMixPreview result={f.result} clock={f.clock} playing audible />);
+  await waitFor(() => expect(f.context.decodeAudioData).toHaveBeenCalledTimes(2));
+  f.tick();
+  const voices = f.sources.filter((source) => source.buffer?.label === 1);
+  expect(voices).toHaveLength(2);
+  expect(voices[0]!.buffer).toBe(voices[1]!.buffer);
+  expect(f.read.mock.calls.filter(([path]) => path === "/verified/voice")).toHaveLength(1);
+  f.seek(2, 0.2);
+  f.tick();
+  view.rerender(<AudioMixPreview result={f.result} clock={f.clock} playing audible rate={2} />);
+  f.tick();
+  expect(f.context.decodeAudioData).toHaveBeenCalledTimes(2);
+  expect(
+    f.sources
+      .filter((source) => source.buffer?.label === 1)
+      .slice(-2)
+      .every((source) => source.playbackRate.value === 2),
+  ).toBe(true);
+  view.rerender(<AudioMixPreview result={f.result} clock={f.clock} playing audible solo="score" />);
+  f.tick();
+  expect(
+    f.sources
+      .filter((source) => source.buffer?.label === 1)
+      .every((source) => source.stop.mock.calls.length === 1),
+  ).toBe(true);
+  expect(f.context.decodeAudioData).toHaveBeenCalledTimes(2);
+});
