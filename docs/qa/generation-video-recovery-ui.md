@@ -15,3 +15,9 @@
 正常 Chrome 新专项尚未接入；这份宿主验证是受控 ABI/UI，不能替代真实会员/provider、Windows native 保存、实际解码与人耳试听。native/API 固定证据及原完整门由根独立记录，不在此累加本地子集或冒称全门完成。
 
 最终本片：`/tmp/generation-recovery-ui-host-final.log` 新宿主完整 17/17 通过（14.28 秒总时长）；包括额外两条找回结果未确认只读刷新场景。正式 web 类型 `/tmp/generation-recovery-ui-types-complete.log`、最终生产构建 `/tmp/generation-recovery-ui-build-complete.log`、原合同生成对比 `/tmp/generation-recovery-ui-contracts-final.log` 均 exit 0，目标 ESLint 与交付格式/diff 通过。此前 8 文件 71 项是增加这两条之前的独立兼容阶段，未与 17 项累加成新全量。没有本机无沙箱正向或新正常 Chrome 验收声明。
+
+## 总控独立联合检查
+
+root将88与真实0816/纯SQL折行2c59、已冻共同boot修24无冲突联合为d5f79c04，新固定完整renderer进程1443318运行中，原完整API5264仍运行。API/native源逐项分别与2c59/0816无diff；后者已根原完整161文件2378、SDK42实际隔离require与compiled recovery入口通过，首并发12超时日志保留，未放宽原门。
+
+新正常恢复16的e440纯QA另接dc14769，root独立全部12 Node契约120/120（22.88秒）、目标ESLint/8文件格式/diff0，日志`/tmp/aivora-video-recovery-browser-root-checks.log`。恢复功能分支另推启动正常Chrome；新16、旧420及完整quality不能在未出结果时写成功，旧legacy4分支首正常失败仍由界面另树诊断。
