@@ -287,6 +287,102 @@ test("coverage metadata keeps original ERROR formats and rejects invalid or unbo
   }
 });
 
+// Observed in the local b9 Python run: 5330 passed / 6 skipped, checker exit 1.
+// This is evidence of the local checker failure, not the unavailable historical CI log.
+const pythonCoverageFailure = "Python coverage: line=92.03% (min 90.0%), branch=83.25% (min 83.5%)";
+
+test("Python checker metadata reports only metrics strictly below their own minimum", () => {
+  for (const [line, expected] of [
+    [pythonCoverageFailure, ["Coverage branches: 83.25%, required 83.5%."]],
+    [
+      "Python coverage: line=89.99% (min 90.0%), branch=83.50% (min 83.5%)",
+      ["Coverage lines: 89.99%, required 90.0%."],
+    ],
+    [
+      "Python coverage: line=89.99% (min 90.0%), branch=83.49% (min 83.5%)",
+      ["Coverage lines: 89.99%, required 90.0%.", "Coverage branches: 83.49%, required 83.5%."],
+    ],
+    ["Python coverage: line=90.00% (min 90.0%), branch=83.50% (min 83.5%)", []],
+    ["Python coverage: line=100.00% (min 100.0%), branch=0.00% (min 0.0%)", []],
+    [
+      "Python coverage: line=0.00% (min 100.0%), branch=100.00% (min 100.0%)",
+      ["Coverage lines: 0.00%, required 100.0%."],
+    ],
+  ]) {
+    const summary = failureSummary("TypeScript / web");
+    summary.line(line);
+    summary.line(line + "\r"); // The same checker on CRLF streams deduplicates.
+    assert.deepEqual(
+      summary.entries(),
+      expected.map((message) => ({ phase: "Python", message })),
+    );
+    assert.equal(summary.phase(), "Python");
+  }
+});
+
+test("Python checker rejects malformed numbers, out-of-range fields and any extra text", () => {
+  const fields = ["92.03", "90.0", "83.25", "83.5"];
+  const invalid = [];
+  for (const field of fields) {
+    for (const value of [
+      "NaN",
+      "Infinity",
+      "-1.00",
+      "100.01",
+      "100.1",
+      "101.00",
+      "101.0",
+      "1e2",
+      "1.2.3",
+      "9999999999999999999999",
+    ])
+      invalid.push(pythonCoverageFailure.replace(field, value));
+  }
+  invalid.push(
+    pythonCoverageFailure + " PRIVATE_VALUE /private/token=SECRET",
+    pythonCoverageFailure + " ",
+    pythonCoverageFailure + "\n",
+    "PRIVATE_VALUE " + pythonCoverageFailure,
+    pythonCoverageFailure.replace("branch=", "branch=PRIVATE_VALUE"),
+    pythonCoverageFailure.replace(", branch=83.25% (min 83.5%)", ""),
+    pythonCoverageFailure.replace("line=", "lines="),
+  );
+  for (const line of invalid) {
+    const summary = failureSummary("TypeScript / web");
+    summary.line(line);
+    assert.deepEqual(summary.entries(), [], line);
+    assert.equal(summary.phase(), "TypeScript / web", line);
+  }
+});
+
+test("real child Python checker output preserves streams and exit status with only safe failure annotations", async () => {
+  for (const exitCode of [0, 1, 7]) {
+    const stdout = output();
+    const stderr = output();
+    const privateError = "invalid coverage report: PRIVATE_VALUE /private/token=SECRET\n";
+    const status = await runTestDiagnostics({
+      command: process.execPath,
+      args: [
+        "-e",
+        `process.stdout.write(${JSON.stringify(pythonCoverageFailure)}); process.stderr.write(${JSON.stringify(privateError)}); process.exitCode=${exitCode};`,
+      ],
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+      phase: "TypeScript / web",
+    });
+    assert.equal(status, exitCode);
+    assert.equal(stderr.text(), privateError);
+    assert.equal(
+      stdout.text(),
+      pythonCoverageFailure +
+        (exitCode === 0
+          ? ""
+          : `::error title=CI Test / Python / exit ${exitCode}::Coverage branches: 83.25%25, required 83.5%25.\n`),
+    );
+    assert.doesNotMatch(stdout.text(), /PRIVATE_VALUE|private\/token|SECRET/);
+  }
+});
+
 test("restricted source positions and failure codes cannot be arbitrary log values", () => {
   const summary = failureSummary();
   summary.line("Error: Worker exited unexpectedly");
