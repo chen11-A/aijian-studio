@@ -1076,7 +1076,8 @@ describe("professional workspace", () => {
   }, 20_000);
 
   it("refuses a draft the catalog does not list and a page without a project", async () => {
-    installDesktop();
+    const provider = vi.fn();
+    installDesktop(provider);
     window.aijianGrok = {
       status: vi.fn(async () => ({
         provider: "GROK_LOGIN",
@@ -1110,6 +1111,17 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "设入点" }));
     cleanup();
     window.localStorage.clear();
+    const actualModels = window.aijianGrok!.models;
+    let releaseModels!: () => void;
+    const modelsReady = new Promise<void>((done) => {
+      releaseModels = done;
+    });
+    onTestFinished(() => releaseModels());
+    const delayedModels = vi.fn(async () => {
+      await modelsReady;
+      return actualModels();
+    });
+    window.aijianGrok = { ...window.aijianGrok!, models: delayedModels };
     render(<ProWorkspace />);
     fireEvent.click(screen.getAllByRole("button", { name: "打开示例" })[0]!);
     await waitFor(() =>
@@ -1118,6 +1130,7 @@ describe("professional workspace", () => {
         "Grok 会员 · 已连接",
       ),
     );
+    expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "off");
     fireEvent.click(
       screen
         .getAllByRole("button")
@@ -1126,11 +1139,27 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "单个镜头" })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: "生成 1 个版本" })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: "开始生成" })[0]!);
+    expect(await screen.findByText(/模型列表里还没有成片用的视频模型/)).toBeInTheDocument();
+    expect(provider).not.toHaveBeenCalled();
+    expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+    // A connected account is not a completed model catalog. Finishing the real
+    // catalog response must not automatically replay that earlier rejected action.
+    releaseModels();
+    await waitForGenerationCatalog();
+    expect(provider).not.toHaveBeenCalled();
+    expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+    expect(screen.queryByText(/网页里不能直接出片/)).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "生成 1 个版本" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "开始生成" })[0]!);
     expect(await screen.findByText(/网页里不能直接出片/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
     expect(screen.getAllByText(/网页里不能直接出片/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByRole("button", { name: "再试一次" })[0]!);
     expect((await screen.findAllByText(/网页里不能直接出片/)).length).toBeGreaterThan(0);
+    expect(delayedModels).toHaveBeenCalledOnce();
+    expect(provider).not.toHaveBeenCalled();
+    expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+    expect(window.aijian!.prepareFilmGenerationExecution).not.toHaveBeenCalled();
   });
 
   it("records an undo step and the project menu", async () => {
@@ -3159,6 +3188,9 @@ async function openSample() {
       "Grok 会员 · 已连接",
     ),
   );
+  await waitForGenerationCatalog();
+}
+async function waitForGenerationCatalog() {
   await waitFor(() =>
     expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
   );
