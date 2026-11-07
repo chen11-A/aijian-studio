@@ -39,6 +39,8 @@ export const NOTICE_COPY: Readonly<Record<string, string>> = {
   ART_FIELDS_APPLIED: "全项目美术字段已修改。",
   DIRECTOR_STRUCTURE_READY: "本场导演结构建议已准备好，确认后才修改。",
   DIRECTOR_STRUCTURE_APPLIED: "本场导演镜头结构已修改。",
+  WRITER_STRUCTURE_READY: "全项目编剧结构建议已准备好，确认后才修改。",
+  WRITER_STRUCTURE_APPLIED: "全项目编剧场次结构已修改。",
   GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
   GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
   CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",
