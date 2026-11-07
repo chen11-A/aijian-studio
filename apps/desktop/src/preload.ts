@@ -583,6 +583,12 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("projects:list") as Promise<ProjectListResponse>,
   createProject: (input: CreateProjectInput): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
+  listGenerationVideoRecoveries: (projectId: string) =>
+    ipcRenderer.invoke("story-film:video-recovery-list", projectId),
+  recoverGenerationVideo: (projectId: string, attemptId: string) =>
+    ipcRenderer.invoke("story-film:video-recover", projectId, attemptId),
+  saveRecoveredGenerationVideo: (projectId: string, attemptId: string) =>
+    ipcRenderer.invoke("story-film:video-recovery-save", projectId, attemptId),
   getGenerationFailurePolicy: (projectId: string) =>
     ipcRenderer.invoke("story-film:failure-policy", projectId),
   configureGenerationFailurePolicy: (projectId: string, input: ConfigureGenerationFailurePolicy) =>
