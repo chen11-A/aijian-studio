@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
 import { sampleFilm } from "../film/project";
 import {
   assemblePipelineFilm,
@@ -152,31 +153,80 @@ it("waits for the still's durable write before reporting success", async () => {
   expect(context.current().shots[0]!.poster).toBe("https://example.invalid/still.png");
 });
 
-it("does not assemble a subset and still uses the audio path for a single clip", async () => {
+function assemblyFixture(partial = false) {
   const { film, context } = fixture();
-  const assemble = vi.fn(async () => ({ path: "/fixture/final.mp4", reason: "" }));
-  expect(await assemblePipelineFilm(film, [], context, assemble)).toMatchObject({
-    status: "blocked",
-    code: "PIPELINE_MISSING_VIDEO",
-  });
-  expect(assemble).not.toHaveBeenCalled();
-  expect(await assemblePipelineFilm(film, ["/fixture/shot.mp4"], context, assemble)).toMatchObject({
-    status: "done",
-    path: "/fixture/final.mp4",
-  });
-  expect(assemble).toHaveBeenCalledOnce();
-});
-
-it("keeps a partial assembly available without claiming that audio succeeded", async () => {
-  const { film, context } = fixture();
-  const assemble = vi.fn(async () => ({
-    path: "/fixture/partial.mp4",
-    reason: "fixture audio failure",
+  const shot = film.shots[0]!;
+  shot.takes = [
+    {
+      id: "assembled-take",
+      shotId: shot.id,
+      index: 1,
+      stillUrl: "",
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+      status: "done",
+      videoPath: "/fixture/shot.mp4",
+    },
+  ];
+  shot.selectedTakeId = shot.takes[0]!.id;
+  const oldAssemble = vi.fn();
+  const assemble = vi.fn(async (input: FilmAssemblyInput): Promise<FilmAssemblyResult> => ({
+    kind: partial ? "PARTIAL" : "ASSEMBLED",
+    projectId: input.projectId,
+    projectHash: input.expectedHash,
+    path: partial ? "/fixture/partial.mp4" : "/fixture/final.mp4",
+    durationSeconds: 2,
+    shots: [{ ...input.expectedSelection[0]!, startSeconds: 0, durationSeconds: 2 }],
+    limitations: [],
+    ...(partial ? { incomplete: "audio" as const } : {}),
   }));
-  const result = await assemblePipelineFilm(film, ["/fixture/shot.mp4"], context, assemble);
-  expect(result).toMatchObject({ status: "needs-input", code: "ASSEMBLY_PARTIAL" });
-  expect(result.film?.assemblyPath).toBe("/fixture/partial.mp4");
-  expect(result.detail).not.toContain("fixture audio failure");
+  window.aijian = {
+    ...window.aijian,
+    assembleFilm: oldAssemble,
+    assembleFilmProject: assemble,
+    cancelFilmAssemblyOperation: vi.fn(),
+    readFilmProject: vi.fn(async () => structuredClone(context.current())),
+  } as NonNullable<typeof window.aijian>;
+  return { film, context, assemble, oldAssemble };
+}
+it("does not assemble a subset and still uses the shared audio path for a single clip", async () => {
+  const previous = window.aijian;
+  try {
+    const { film, context, assemble, oldAssemble } = assemblyFixture();
+    expect(await assemblePipelineFilm(film, [], context)).toMatchObject({
+      status: "blocked",
+      code: "PIPELINE_MISSING_VIDEO",
+    });
+    expect(assemble).not.toHaveBeenCalled();
+    expect(await assemblePipelineFilm(film, ["/fixture/shot.mp4"], context)).toMatchObject({
+      status: "done",
+      path: "/fixture/final.mp4",
+    });
+    expect(assemble).toHaveBeenCalledOnce();
+    expect(assemble.mock.calls[0]![0]).toMatchObject({
+      projectId: film.id,
+      expectedSelection: [{ shotId: film.shots[0]!.id, takeId: "assembled-take" }],
+    });
+    expect(assemble.mock.calls[0]![0].expectedHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(oldAssemble).not.toHaveBeenCalled();
+  } finally {
+    window.aijian = previous;
+  }
+});
+it("keeps a partial assembly available without claiming that audio succeeded", async () => {
+  const previous = window.aijian;
+  try {
+    const { film, context, oldAssemble } = assemblyFixture(true);
+    const result = await assemblePipelineFilm(film, ["/fixture/shot.mp4"], context);
+    expect(result).toMatchObject({ status: "needs-input", code: "ASSEMBLY_PARTIAL" });
+    expect(result.film?.assemblyPath).toBe("/fixture/partial.mp4");
+    expect(result.detail).toContain("声音处理未完整完成");
+    expect(oldAssemble).not.toHaveBeenCalled();
+  } finally {
+    window.aijian = previous;
+  }
 });
 
 it("generates only the selected location through the actual bridge, with no images and the complete style", async () => {

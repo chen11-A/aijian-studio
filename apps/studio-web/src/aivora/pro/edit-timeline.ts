@@ -1,3 +1,4 @@
+import type { AssemblyClock } from "./assembly";
 import type { FilmShot, FilmTake } from "../film/project";
 
 /** A shot's box on the 剪辑 timeline, in pixels from the left of the track area. */
@@ -112,7 +113,36 @@ export function cutTake(shot: FilmShot): FilmTake | undefined {
  * video file are not in the cut. The planned lengths are stretched to the cut's real length
  * once the player knows it, so the playhead does not drift on long films.
  */
-export function cutSegments(shots: readonly FilmShot[], cutSeconds = 0): CutSegment[] {
+export function cutSegments(
+  shots: readonly FilmShot[],
+  cutSeconds = 0,
+  clock?: AssemblyClock | null,
+): CutSegment[] {
+  // Explicitly unknown new-native clocks never fall back to proportional estimates.
+  if (clock === null) return [];
+  if (clock) {
+    let at = 0,
+      previous = -1;
+    const result: CutSegment[] = [];
+    for (const row of clock.shots) {
+      const index = shots.findIndex((shot) => shot.id === row.shotId),
+        shot = shots[index];
+      if (
+        index <= previous ||
+        !shot ||
+        cutTake(shot)?.id !== row.takeId ||
+        !Number.isFinite(row.startSeconds) ||
+        Math.abs(row.startSeconds - at) > 0.000001 ||
+        !Number.isFinite(row.durationSeconds) ||
+        row.durationSeconds <= 0
+      )
+        return [];
+      result.push({ shotId: row.shotId, start: row.startSeconds, seconds: row.durationSeconds });
+      at += row.durationSeconds;
+      previous = index;
+    }
+    return Math.abs(at - clock.durationSeconds) <= 0.000001 ? result : [];
+  }
   const used = shots.filter((shot) => cutTake(shot));
   const planned = used.reduce((sum, shot) => sum + Math.max(0, shot.seconds), 0);
   const scale = cutSeconds > 0 && planned > 0 ? cutSeconds / planned : 1;

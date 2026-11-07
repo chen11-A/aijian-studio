@@ -14,6 +14,8 @@ import {
   pytestSourceLocation,
   pytestFailureLocation,
   emptySpeechPcmSummary,
+  libraryWritePhaseSummary,
+  libraryWriteInvocation,
   pnpmInvocation,
   runTestDiagnostics,
 } from "./ci-test-diagnostics.mjs";
@@ -639,4 +641,147 @@ test("PCM diagnostic whitelist rejects secrets, arbitrary text, non-finite or ph
   summary.line("================ FAILURES ================");
   summary.line('CI_EMPTY_SPEECH_PCM {"path":"PRIVATE_PATH"}');
   assert.deepEqual(summary.entries(), []);
+});
+
+test("accepts only bounded closed library-write phases and retains the six-annotation ceiling", () => {
+  const valid = {
+    v: 1,
+    mode: "readback-wrong",
+    stage: "apply",
+    elapsedMs: 4901,
+    completed: [
+      { stage: "fixture", elapsedMs: 200 },
+      { stage: "suggest", elapsedMs: 300 },
+    ],
+    probes: 12,
+  };
+  for (const mode of [
+    "before",
+    "after",
+    "unreadable",
+    "readback-stale",
+    "readback-empty",
+    "readback-wrong",
+  ])
+    assert(
+      libraryWritePhaseSummary("CI_LIBRARY_WRITE_PHASE " + JSON.stringify({ ...valid, mode })),
+    );
+  const line = "CI_LIBRARY_WRITE_PHASE " + JSON.stringify(valid);
+  assert.match(
+    libraryWritePhaseSummary(line),
+    /variant=readback-wrong; stage=apply; elapsed=4901ms/,
+  );
+  const summary = failureSummary();
+  summary.line(line);
+  assert.deepEqual(summary.entries(), []);
+  summary.line("FAIL src/film-audio-library.test.ts > PRIVATE_PARAM");
+  assert.match(summary.entries()[0].message, /Audio library write phase/);
+  for (let index = 0; index < 10; index++)
+    summary.line("CI_LIBRARY_WRITE_PHASE " + JSON.stringify({ ...valid, elapsedMs: 4901 + index }));
+  assert.equal(summary.entries().length, 6);
+  assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE/);
+});
+test("rejects private strings, unknown shape, nonfinite and unbounded library-write metadata", () => {
+  const valid = {
+    v: 1,
+    mode: "before",
+    stage: "write",
+    elapsedMs: 100,
+    completed: [{ stage: "fixture", elapsedMs: 50 }],
+    probes: 0,
+  };
+  for (const row of [
+    { ...valid, path: "PRIVATE_PATH" },
+    { ...valid, mode: "PRIVATE_PARAM" },
+    { ...valid, stage: "PRIVATE_STAGE" },
+    { ...valid, elapsedMs: -1 },
+    { ...valid, elapsedMs: 120001 },
+    { ...valid, elapsedMs: "100" },
+    { ...valid, probes: 4097 },
+    { ...valid, probes: NaN },
+    { ...valid, completed: [null] },
+    { ...valid, completed: [{ stage: "fixture", elapsedMs: 120 }] },
+    { ...valid, completed: Array(17).fill({ stage: "write", elapsedMs: 1 }) },
+    { ...valid, completed: [{ stage: "fixture", elapsedMs: 1, secret: "PRIVATE" }] },
+  ])
+    assert.equal(libraryWritePhaseSummary("CI_LIBRARY_WRITE_PHASE " + JSON.stringify(row)), null);
+  for (const row of [
+    "PRIVATE",
+    "CI_LIBRARY_WRITE_PHASE " + "x".repeat(3000),
+    "CI_LIBRARY_WRITE_PHASE " + JSON.stringify(valid).replace('"elapsedMs":100', '"elapsedMs":NaN'),
+    "CI_LIBRARY_WRITE_PHASE " +
+      JSON.stringify(valid).replace('"elapsedMs":100', '"elapsedMs":Infinity'),
+  ])
+    assert.equal(libraryWritePhaseSummary(row), null);
+});
+
+test("fixed library-write CLI selects the exact original six variants, disables shell and preserves child 0/23 without leaking parameters", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "library-write-cli-"));
+  try {
+    const hook = join(directory, "spawn-hook.cjs"),
+      record = join(directory, "invocation.json"),
+      entry = join(directory, "pnpm.cjs");
+    await writeFile(entry, "process.stdout.write('fixture');");
+    const script = fileURLToPath(new URL("./ci-test-diagnostics.mjs", import.meta.url));
+    const payload = {
+      v: 1,
+      mode: "readback-empty",
+      stage: "readback",
+      elapsedMs: 4900,
+      completed: [{ stage: "fixture", elapsedMs: 400 }],
+      probes: 12,
+    };
+    const line =
+      "CI_LIBRARY_WRITE_PHASE " +
+      JSON.stringify(payload) +
+      "\nFAIL src/film-audio-library.test.ts > PRIVATE_PARAMETER\nError: Test timed out in 5000ms.\n";
+    const expected = libraryWriteInvocation(entry);
+    assert.equal(expected.args.length, 9);
+    for (const status of [0, 23]) {
+      const child = `process.stdout.write(${JSON.stringify(line)});process.stderr.write('original stderr\\n');process.exitCode=${status};`;
+      await writeFile(
+        hook,
+        `const fs=require('node:fs'),cp=require('node:child_process'),original=cp.spawn;cp.spawn=(command,args,options)=>{fs.writeFileSync(${JSON.stringify(record)},JSON.stringify({command,args,shell:options.shell}));return original(process.execPath,['-e',${JSON.stringify(child)}],options);};require('node:module').syncBuiltinESMExports();`,
+      );
+      const result = spawnSync(
+        process.execPath,
+        ["--require", hook, script, "--audio-library-write-test"],
+        { encoding: "utf8", shell: false, env: { ...process.env, npm_execpath: entry } },
+      );
+      assert.equal(result.status, status);
+      assert.equal(result.stderr, "original stderr\n");
+      assert(result.stdout.startsWith(line));
+      const invoked = JSON.parse(await readFile(record, "utf8"));
+      assert.equal(invoked.command, process.execPath);
+      assert.equal(invoked.shell, false);
+      const [actualFile, fixtureFile] = await Promise.all([
+        stat(invoked.args[0], { bigint: true }),
+        stat(entry, { bigint: true }),
+      ]);
+      assert.equal(actualFile.dev, fixtureFile.dev);
+      assert.equal(actualFile.ino, fixtureFile.ino);
+      assert.deepEqual(invoked.args.slice(1), expected.args.slice(1));
+      const annotations = result.stdout.split("\n").filter((row) => row.startsWith("::error"));
+      assert(
+        status === 0 ? annotations.length === 0 : annotations.length > 0 && annotations.length <= 6,
+      );
+      if (status)
+        assert(annotations.some((row) => row.includes("variant=readback-empty; stage=readback")));
+      assert.doesNotMatch(
+        annotations.join("\n"),
+        /PRIVATE|AssertionError|invocation.json|pnpm.cjs/,
+      );
+    }
+    await rm(record);
+    const rejected = spawnSync(
+      process.execPath,
+      ["--require", hook, script, "--audio-library-write-test", "PRIVATE_PATH"],
+      { encoding: "utf8", shell: false, env: { ...process.env, npm_execpath: entry } },
+    );
+    assert.equal(rejected.status, 1);
+    await assert.rejects(readFile(record, "utf8"), { code: "ENOENT" });
+    assert.doesNotMatch(rejected.stdout + rejected.stderr, /PRIVATE_PATH/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

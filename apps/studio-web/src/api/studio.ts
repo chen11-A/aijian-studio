@@ -1,3 +1,4 @@
+import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
@@ -1017,6 +1018,8 @@ export interface AijianDesktopBridge
   writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
+  suggestBundledFilmSceneAudio?: FilmAudioLibraryGateway["suggestBundledFilmSceneAudio"];
+  applyBundledFilmSceneAudio?: FilmAudioLibraryGateway["applyBundledFilmSceneAudio"];
   applyBundledFilmShotAudio?: FilmAudioLibraryGateway["applyBundledFilmShotAudio"];
   suggestBundledFilmShotAudio?: FilmAudioLibraryGateway["suggestBundledFilmShotAudio"];
   inspectBundledFilmAudioTarget?: FilmAudioLibraryGateway["inspectBundledFilmAudioTarget"];
@@ -1057,6 +1060,9 @@ export interface AijianDesktopBridge
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
   verifyFilmDialogueSplitBackup?: FilmDialogueSplitGateway["verifyFilmDialogueSplitBackup"];
+  assembleFilmProject?: FilmAssemblyGateway["assembleFilmProject"];
+  cancelFilmAssemblyOperation?: FilmAssemblyGateway["cancelFilmAssemblyOperation"];
+  onFilmAssemblyProgress?: FilmAssemblyGateway["onFilmAssemblyProgress"];
   prepareFilmDialogueSplit?: FilmDialogueSplitGateway["prepareFilmDialogueSplit"];
   applyFilmDialogueSplit?: FilmDialogueSplitGateway["applyFilmDialogueSplit"];
   listFilmHistory?: FilmHistoryGateway["listFilmHistory"];

@@ -1,3 +1,4 @@
+import { assemblyRenderKey, assemblyClock, assemblyClockState } from "./assembly";
 import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./actions/prepared-voice";
 import { audioTimelineBox } from "./audio-mix-timeline";
 import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
@@ -159,7 +160,6 @@ import {
   generationEstimate,
   spokenLine,
   draftFaceWarning,
-  dialogueTracks,
   fitShotToLine,
   subtitleCues,
   updateShot,
@@ -782,14 +782,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
-  const audioMixPreview = useAudioMixPreview(film, stage === "edit", {
-    current: () => filmRef.current,
-    save: (snapshot, guard) => persistence.save(snapshot, guard),
-  });
   const audioWaveforms = useAudioWaveforms(film, stage === "edit", {
     current: () => filmRef.current,
     apply: applyLive,
     save: (snapshot) => persistence.save(snapshot),
+  });
+  const audioMixPreview = useAudioMixPreview(film, stage === "edit" && audioWaveforms.primed, {
+    current: () => filmRef.current,
+    save: (snapshot, guard) => persistence.save(snapshot, guard),
   });
   const editorHost = useMemo(
     () =>
@@ -882,6 +882,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const cancelledJobs = useRef(new Set<string>());
   const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
+  const assemblyTail = useRef<Promise<void>>(Promise.resolve());
+  const assemblyInputKey = useMemo(() => (film ? assemblyRenderKey(film) : ""), [film]);
+  const assemblyPipelineBusy = film?.productionPipeline?.status === "running";
+  const [assemblyReadReadyKey, setAssemblyReadReadyKey] = useState("");
   const openShotRef = useRef("");
   const storyDraft = useRef<StoryDraft | null>(null);
   const applyingStory = useRef(false);
@@ -3420,7 +3424,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     queueBatch(rows);
   }
 
-  async function joinedCut(paths: string[]) {
+  async function joinedCut(paths: string[], signal?: AbortSignal) {
     const current = filmRef.current;
     if (!current) return;
     const valid = requestSequences.current.begin(
@@ -3428,7 +3432,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       "assembly",
       () => filmRef.current?.id ?? "",
     );
-    await assembleCurrentFilm(current, paths, () => filmRef.current, applyLive, setNotice, valid);
+    await assembleCurrentFilm(current, paths, () => filmRef.current, applyLive, setNotice, valid, {
+      acquire: persistence.acquire,
+      signal,
+    });
   }
 
   const recoveryBusyRef = useRef(false);
@@ -3613,28 +3620,80 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         ? "ws gen"
         : `ws ${stage === "board" ? "board" : stage}`;
 
+  // Let the existing ordinary metadata/save jobs finish before taking exclusive save ownership.
+  // Admission is latched per consumed input, so canonical adoption/metadata writes cannot abort it.
   useEffect(() => {
-    if (stage !== "edit" || !film) return;
-    const paths = film.shots
+    if (
+      stage === "edit" &&
+      audioWaveforms.settled &&
+      audioMixPreview.settled &&
+      !audioMixPreview.busy &&
+      (audioMixPreview.result ||
+        audioMixPreview.unsupported ||
+        !window.aijian?.getFilmAudioMixPreview)
+    )
+      setAssemblyReadReadyKey(assemblyInputKey);
+  }, [
+    stage,
+    assemblyInputKey,
+    audioWaveforms.settled,
+    audioMixPreview.settled,
+    audioMixPreview.busy,
+    audioMixPreview.result,
+    audioMixPreview.unsupported,
+  ]);
+  useEffect(() => {
+    const current = filmRef.current;
+    if (
+      assemblyReadReadyKey !== assemblyInputKey ||
+      stage !== "edit" ||
+      !current ||
+      assemblyPipelineBusy ||
+      !window.aijian?.assembleFilmProject
+    )
+      return;
+    if (assemblyClockState(current) === "verified") {
+      // A completed pipeline already produced this exact input, including a retained partial.
+      assembledKey.current = assemblyInputKey;
+      return;
+    }
+    const paths = current.shots
       .map(
         (item) =>
-          item.takes.find((take) => take.id === item.selectedTakeId && take.videoPath)?.videoPath ||
-          item.takes.find((take) => take.status === "done" && take.videoPath)?.videoPath ||
+          item.takes.find(
+            (take) => take.id === item.selectedTakeId && take.status === "done" && take.videoPath,
+          )?.videoPath ||
+          (!item.selectedTakeId
+            ? item.takes.find((take) => take.status === "done" && take.videoPath)?.videoPath
+            : "") ||
           "",
       )
-      .filter((item) => item);
-    if (paths.length < 2) return;
-    const music = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
-    const key = [
-      paths.join("|"),
-      dialogueTracks(film).join("|"),
-      music?.path ?? "",
-      music?.gainDb ?? "",
-    ].join("\n");
-    if (assembledKey.current === key) return;
+      .filter(Boolean);
+    if (paths.length < 2 || assembledKey.current === assemblyInputKey) return;
+    const abort = new AbortController(),
+      key = assemblyInputKey;
     assembledKey.current = key;
-    void joinedCut(paths);
-  }, [stage, film]);
+    assemblyTail.current = assemblyTail.current
+      .catch(() => undefined)
+      .then(async () => {
+        const latest = filmRef.current;
+        if (abort.signal.aborted || !latest || assemblyRenderKey(latest) !== key) return;
+        await joinedCut(paths, abort.signal);
+        if (
+          assembledKey.current === key &&
+          assemblyClockState(filmRef.current ?? latest) !== "verified"
+        )
+          assembledKey.current = "";
+      });
+    return () => {
+      abort.abort();
+      if (
+        assembledKey.current === key &&
+        assemblyClockState(filmRef.current ?? current) !== "verified"
+      )
+        assembledKey.current = "";
+    };
+  }, [stage, assemblyInputKey, assemblyPipelineBusy, assemblyReadReadyKey]);
 
   const liveSignature = useMemo(() => (film ? filmSignature(film) : ""), [film]);
   const dirty =
@@ -5493,7 +5552,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         end:
                           rangeSeconds?.shotId === target.id && rangeSeconds.takeId === take.id
                             ? rangeSeconds.end
-                            : (take.durationSeconds ?? target.seconds),
+                            : (assemblyClock(film)?.shots.find(
+                                (row) => row.shotId === target.id && row.takeId === take.id,
+                              )?.durationSeconds ??
+                              take.durationSeconds ??
+                              target.seconds),
                       });
                     setSpan({ from: shot, to: span?.to ?? shot });
                     setRange(true);
@@ -10010,6 +10073,9 @@ function EditPage({
   /** 4B-U03: 「用这个样式」, kept on the work for every subtitle. */
   onSubtitleStyle?: (styleId: SubtitleStyleId) => void;
 }) {
+  const cutClock = useMemo(() => assemblyClock(film), [film]);
+  const cutClockState = useMemo(() => assemblyClockState(film), [film]);
+  const nativeAssembly = Boolean(window.aijian?.assembleFilmProject);
   const [monitor, setMonitor] = useState<"preview" | "sound" | "subs">("preview");
   // 5-3-11: guides over the preview: where titles stay readable, and on a portrait work, where
   // the platforms put their buttons and captions.
@@ -10132,7 +10198,8 @@ function EditPage({
     current?.takes.find((item) => item.id === current.selectedTakeId) ??
     current?.takes.find((item) => item.status === "done");
   const previewSrc =
-    film.assemblyUrl || fileMediaUrl(chosenTake?.videoUrl || chosenTake?.videoPath);
+    (cutClockState !== "stale" ? fileMediaUrl(film.assemblyUrl || film.assemblyPath) : "") ||
+    fileMediaUrl(chosenTake?.videoUrl || chosenTake?.videoPath);
   const mixSettings = audioMixSettings(film.audioMix);
   const actualMixPlan = audioPreview.result?.kind === "READY" ? audioPreview.result.plan : null;
   const musicGain = mixSettings.lanes.score.gainDb;
@@ -10156,9 +10223,15 @@ function EditPage({
   );
   // 3JR-U01: the joined cut plays the whole film, so its clock runs from the first shot with a
   // video, not from the start of the chosen shot. The playhead follows the shot playing.
-  const joined = Boolean(film.assemblyUrl);
-  const segments = joined ? cutSegments(film.shots, cutLength) : [];
-  const total = shots.reduce((sum, item) => sum + item.seconds, 0);
+  const joined = Boolean(film.assemblyUrl || film.assemblyPath) && cutClockState !== "stale";
+  const clockUnverified = joined && nativeAssembly && !cutClock;
+  const segments = joined
+    ? cutSegments(film.shots, cutLength, nativeAssembly ? (cutClock ?? null) : undefined)
+    : [];
+  const total =
+    joined && nativeAssembly
+      ? (cutClock?.durationSeconds ?? cutLength)
+      : shots.reduce((sum, item) => sum + item.seconds, 0);
   const showTime = (seconds: number) => {
     timeRef.current = seconds;
     setMediaTime(seconds);
@@ -10203,6 +10276,7 @@ function EditPage({
             ? 0
             : total;
     }
+    if (nativeAssembly) headSeconds = Math.min(Math.max(0, total), mediaTime);
   } else if (current && current.seconds > 0) {
     const fraction = Math.min(1, mediaTime / (takeLength > 0 ? takeLength : current.seconds));
     headLeft = (selected?.left ?? 1) + fraction * (selected?.width ?? 0);
@@ -10210,12 +10284,30 @@ function EditPage({
   }
   const sourceSeconds = joined
     ? (cutPosition(segments, mediaTime)?.fraction ?? 0) *
-      (chosenTake?.durationSeconds ?? current?.seconds ?? 0)
+      (segments.find((item) => item.shotId === cutPosition(segments, mediaTime)?.shotId)?.seconds ??
+        chosenTake?.durationSeconds ??
+        current?.seconds ??
+        0)
     : mediaTime;
+  const markSource = (mark: (seconds: number) => void) => {
+    if (clockUnverified) {
+      onNotice(NOTICE_TEXT.ASSEMBLY_CLOCK_REQUIRED);
+      return;
+    }
+    if (joined && nativeAssembly && cutPosition(segments, mediaTime)?.shotId !== current?.id) {
+      onNotice(NOTICE_TEXT.ASSEMBLY_SHOT_REQUIRED);
+      return;
+    }
+    mark(sourceSeconds);
+  };
   const seekTo = (x: number) => {
     const point = pointAt(clips, x);
     if (!point) return;
     if (joined) {
+      if (clockUnverified) {
+        onNotice(NOTICE_TEXT.ASSEMBLY_CLOCK_REQUIRED);
+        return;
+      }
       const at = cutTimeAt(segments, shots, point.index, point.fraction);
       if (at !== null) jump(at);
       if (point.index !== shot) onShot(point.index);
@@ -10250,9 +10342,20 @@ function EditPage({
     (list, item) => [...list, (list[list.length - 1] ?? 0) + item.seconds],
     [0],
   );
-  const goTo = (seconds: number) =>
-    seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, seconds))));
+  const goTo = (seconds: number) => {
+    if (joined && nativeAssembly) {
+      const at = Math.min(total, Math.max(0, seconds));
+      jump(at);
+      const position = cutPosition(segments, at),
+        index = shots.findIndex((item) => item.id === position?.shotId);
+      if (index >= 0 && index !== shot) onShot(index);
+    } else seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, seconds))));
+  };
   const goToCut = (index: number) => {
+    if (clockUnverified) {
+      onNotice(NOTICE_TEXT.ASSEMBLY_CLOCK_REQUIRED);
+      return;
+    }
     if (index >= shots.length) {
       const last = clips[clips.length - 1];
       if (last) seekTo(last.left + last.width);
@@ -10300,10 +10403,21 @@ function EditPage({
     }
     if (key === "ArrowUp" || key === "ArrowDown") {
       const later = key === "ArrowDown";
-      const index = later
-        ? cuts.findIndex((at) => at > headSeconds + 0.05)
-        : cuts.filter((at) => at < headSeconds - 0.05).length - 1;
-      if (index >= 0) goToCut(index);
+      if (joined && nativeAssembly) {
+        if (clockUnverified) onNotice(NOTICE_TEXT.ASSEMBLY_CLOCK_REQUIRED);
+        else {
+          const boundary = later
+            ? segments.find((row) => row.start > headSeconds + 0.05)
+            : [...segments].reverse().find((row) => row.start < headSeconds - 0.05);
+          if (boundary) goToCut(shots.findIndex((item) => item.id === boundary.shotId));
+          else if (later) goTo(total);
+        }
+      } else {
+        const index = later
+          ? cuts.findIndex((at) => at > headSeconds + 0.05)
+          : cuts.filter((at) => at < headSeconds - 0.05).length - 1;
+        if (index >= 0) goToCut(index);
+      }
       return true;
     }
     return false;
@@ -10496,11 +10610,23 @@ function EditPage({
             ) : (
               <PreviewFullscreen ignoreShortcut={typingInField} onNotice={onNotice}>
                 <div className="screen">
+                  {clockUnverified ? (
+                    <p className="muted" role="status">
+                      {NOTICE_TEXT.ASSEMBLY_CLOCK_REQUIRED}
+                    </p>
+                  ) : null}
+                  {joined && nativeAssembly ? (
+                    <p className="muted">时间线展示镜头计划，播放器按实际粗剪时钟计时。</p>
+                  ) : null}
                   {previewSrc ? (
                     <PreviewVideo
                       src={previewSrc}
                       mixPreview={
-                        audioPreview.result?.kind === "READY" ? audioPreview.result : null
+                        clockUnverified || (joined && cutClock?.incomplete && !hearLane)
+                          ? undefined
+                          : audioPreview.result?.kind === "READY"
+                            ? audioPreview.result
+                            : null
                       }
                       mixTimeOffset={
                         joined
@@ -10513,7 +10639,11 @@ function EditPage({
                       }
                       soloLane={hearLane}
                       playing={playing}
-                      audible={false}
+                      audible={
+                        clockUnverified || (joined && !!cutClock?.incomplete && !hearLane)
+                          ? audible
+                          : false
+                      }
                       sound={audible}
                       onPlaying={onPlaying}
                       onTime={showTime}
@@ -10803,7 +10933,7 @@ function EditPage({
               className="icon-btn"
               aria-label="设入点"
               title="设入点 (I)"
-              onClick={() => onMarkIn(sourceSeconds)}
+              onClick={() => markSource(onMarkIn)}
             >
               <Ic name="bracketL" />
             </button>
@@ -10811,7 +10941,7 @@ function EditPage({
               className="icon-btn"
               aria-label="设出点"
               title="设出点 (O)"
-              onClick={() => onMarkOut(sourceSeconds)}
+              onClick={() => markSource(onMarkOut)}
             >
               <Ic name="bracketR" />
             </button>

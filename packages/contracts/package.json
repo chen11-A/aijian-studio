@@ -152,6 +152,14 @@
     "./film-dialogue-split": {
       "types": "./src/film-dialogue-split.ts",
       "default": "./src/film-dialogue-split.ts"
+    },
+    "./film-assembly": {
+      "types": "./src/film-assembly.ts",
+      "default": "./src/film-assembly.ts"
+    },
+    "./film-scene-audio-binding": {
+      "types": "./src/film-scene-audio-binding.d.ts",
+      "default": "./src/film-scene-audio-binding.js"
     }
   },
   "scripts": {

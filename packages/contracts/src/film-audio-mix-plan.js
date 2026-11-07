@@ -1,3 +1,4 @@
+import { sceneAudioBinding } from "./film-scene-audio-binding.js";
 const lanes = ["dialogue", "ambience", "sfx", "score"];
 const finite = (value) => Number.isFinite(value);
 const usable = (info) =>
@@ -162,6 +163,18 @@ export function buildAudioMixPlan(input) {
   };
   const candidates = input.clips.filter((clip) => {
     if (clip.enabled === false) return false;
+    if (clip.sceneAudioBinding !== undefined) {
+      try {
+        sceneAudioBinding(clip.sceneAudioBinding);
+      } catch {
+        note("SCENE_AUDIO_BINDING_STALE");
+        return false;
+      }
+      if (!input.sceneAudioEligibleClipIds?.includes(clip.id)) {
+        note("SCENE_AUDIO_BINDING_STALE");
+        return false;
+      }
+    }
     if (!clip.sourceKey) return false; // A text-only sound intention is never an audio source.
     if (!selected(clip)) {
       note("STALE_CLIP_IGNORED");

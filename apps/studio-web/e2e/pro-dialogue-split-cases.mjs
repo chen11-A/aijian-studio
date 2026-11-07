@@ -4,6 +4,8 @@ import path from "node:path";
 import { URL } from "node:url";
 import { seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
+import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
+import { installAssemblyAuditBridge, readAssemblyReadiness } from "./pro-assembly-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import { loadLibraryAuditCatalog } from "./pro-audio-library-fixture.mjs";
@@ -56,6 +58,8 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
             waves: window.__dialogueSplitAudit.waves,
             writes: window.__dialogueSplitAudit.writes,
             assemblies: window.__dialogueSplitAudit.assemblies,
+            nativeAssemblies: window.__assemblyAudit.calls,
+            legacyAssemblies: window.__assemblyAudit.legacy,
             nativeWrites: window.__dialogueSplitAudit.nativeWrites,
             flushes: window.__shotAudioAudit.flushes,
             forbidden: [
@@ -63,6 +67,7 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
               ...window.__shotAudioAudit.forbidden,
               ...window.__proCreationAudit.forbidden,
               ...window.__exportQcAudit.forbidden,
+              ...window.__assemblyAudit.forbidden,
             ],
           }));
         const frame = () =>
@@ -135,12 +140,8 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
           if (u.href === mediaUrl) return route.fulfill({ contentType: "video/mp4", body: media });
           return route.continue();
         });
-        await page.addInitScript(installExportQcBridge, { state: "clean", aspect });
-        await page.addInitScript(installCreationBridge, { state });
-        await page.addInitScript(installShotAudioBridge, { state, catalog });
-        await page.addInitScript(installDialogueSplitBridge, {
-          state,
-          helperModuleUrl: new URL("/e2e/pro-dialogue-split-browser-helper.mjs", config.url).href,
+        await page.addInitScript({
+          content: `(${installExportQcBridge.toString()})(${JSON.stringify({ state: "clean", aspect })});(${installCreationBridge.toString()})(${JSON.stringify({ state })});(${installShotAudioBridge.toString()})(${JSON.stringify({ state, catalog })});(${installDialogueSplitBridge.toString()})(${JSON.stringify({ state, helperModuleUrl: new URL("/e2e/pro-dialogue-split-browser-helper.mjs", config.url).href })});(${installAssemblyAuditBridge.toString()})();`,
         });
         try {
           await page.goto(config.url, { waitUntil: "domcontentloaded" });
@@ -173,6 +174,8 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
             });
           }
           await ready(seed.projectId);
+          await page.waitForFunction(() => window.__assemblyAudit.calls.length === 1);
+          await waitAssemblyIdle(page, seed.projectId);
           const before = await record(seed.projectId),
             target = before.shots.find((s) => s.id === seed.shotId);
           assert.equal(before.shots.length, 6);
@@ -323,6 +326,8 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
             await button("合成第2集").click();
             await page.locator(".topbar .ep").filter({ hasText: "/ 合成第2集" }).waitFor();
             await ready(seed.otherId);
+            await page.waitForFunction(() => window.__assemblyAudit.calls.length === 2);
+            await waitAssemblyIdle(page, seed.otherId);
             const otherRaw = await record(seed.otherId),
               writes = (await calls()).writes.filter((w) => w.projectId === seed.otherId).length;
             await page.evaluate(() => window.__dialogueSplitAudit.finish());
@@ -420,8 +425,12 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
             state,
           );
           await page.waitForFunction(
-            (n) => window.__dialogueSplitAudit.assemblies.length === n,
-            adopted ? 2 : 1,
+            (n) => window.__assemblyAudit.calls.length === n,
+            adopted || state === "dialogue-split-foreign-conflict" ? 2 : 1,
+          );
+          await waitAssemblyIdle(
+            page,
+            state === "dialogue-split-foreign-conflict" ? seed.otherId : seed.projectId,
           );
           const actual = await calls();
           assert.equal(actual.applies.length, 1);
@@ -430,31 +439,24 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
           assert.deepEqual(actual.forbidden, []);
           if (state !== "dialogue-split-backup-delta-guard")
             assert(actual.verifies.some((v) => v.kind === "VERIFIED"));
-          const assembly = (paths) => ({
-            seriesId: before.seriesId,
-            paths,
-            musicPath: "",
-            gainDb: -14,
-            dialogue: paths.map(() => ""),
-          });
-          const first = assembly(
-            before.shots.map((s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath),
+          assert.deepEqual(actual.assemblies, []);
+          assert.deepEqual(actual.legacyAssemblies, []);
+          assertAssemblyRequests(
+            actual.nativeAssemblies,
+            adopted
+              ? [before, await record(seed.projectId)]
+              : state === "dialogue-split-foreign-conflict"
+                ? [before, await record(seed.otherId)]
+                : [before],
           );
-          assert.deepEqual(actual.assemblies[0], first);
-          assert.equal(actual.assemblies.length, adopted ? 2 : 1);
-          if (adopted)
-            assert.deepEqual(actual.assemblies[1], {
-              ...assembly(
-                before.shots
-                  .filter((s) => s.id !== seed.shotId)
-                  .map((s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath),
-              ),
-            });
+          assert.equal(actual.nativeAssemblies[0].input.expectedSelection.length, 6);
+          if (adopted) assert.equal(actual.nativeAssemblies[1].input.expectedSelection.length, 5);
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);
           result.calls = actual;
           result.passed = true;
         } catch (error) {
+          result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-dialogue-split-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
           );

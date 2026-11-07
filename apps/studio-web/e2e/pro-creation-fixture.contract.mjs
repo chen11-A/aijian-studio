@@ -11,6 +11,7 @@ import { runInNewContext } from "node:vm";
 import { spawnSync } from "node:child_process";
 import { createServer } from "vite";
 import { creationStates } from "./pro-creation-cases.mjs";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 let server, project, operations, compiler, folder;
@@ -77,6 +78,7 @@ function setup(state) {
   storage.setItem("aivora.film.active", JSON.stringify(film));
   const seed = seedCreationProject({ state });
   installCreationBridge({ state });
+  installAssemblyAuditBridge();
   return { seed, audit: window.__proCreationAudit, bridge: window.aijian, storage };
 }
 test("all eight fixed seeds retain real six-shot/three-version data and compile usable non-provider text", () => {
@@ -191,17 +193,19 @@ test("native ABI completion stores the new work but never changes active selecti
   assert.deepEqual(await bridge.readFilmProject(seed.projectId), before);
   assert(await bridge.readFilmProject(seed.importedId));
 });
-test("provider/old export calls stay forbidden while local assembly is separately recorded and refused", async () => {
+test("provider/old export and legacy assembly stay forbidden with the new native capability installed", async () => {
   const { audit, bridge } = setup("seven-preview");
   await assert.rejects(bridge.createStoryFilm(), /FORBIDDEN_CREATION_DISPATCH/);
   await assert.rejects(window.aijianGrok.completeText({}), /FORBIDDEN_CREATION_DISPATCH/);
   await assert.rejects(bridge.exportFilmCut(), /FORBIDDEN_CREATION_DISPATCH/);
   await assert.rejects(
     bridge.assembleFilm("series", ["one"], "", -14, [""]),
-    /SYNTHETIC_LOCAL_PREVIEW_UNAVAILABLE/,
+    /FORBIDDEN_ASSEMBLY_DISPATCH/,
   );
   assert.deepEqual(audit.forbidden, ["createStoryFilm", "completeText", "exportFilmCut"]);
-  assert.equal(audit.assemblies.length, 1);
+  assert.deepEqual(audit.assemblies, []);
+  assert.deepEqual(window.__assemblyAudit.legacy, ["assembleFilm"]);
+  assert.deepEqual(window.__assemblyAudit.forbidden, ["legacy-assemble"]);
 });
 test("CLI keeps original profile sizes and rejects remote/output inputs without leaking diagnostics", () => {
   for (const [name, count] of [

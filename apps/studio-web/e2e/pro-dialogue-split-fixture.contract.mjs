@@ -10,6 +10,7 @@ import { fileURLToPath, URL } from "node:url";
 import { TextEncoder } from "node:util";
 import { runInNewContext } from "node:vm";
 import { createServer } from "vite";
+import { installAssemblyAuditBridge } from "./pro-assembly-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import { loadLibraryAuditCatalog } from "./pro-audio-library-fixture.mjs";
 import { installShotAudioBridge, seedShotAudioProject } from "./pro-shot-audio-fixture.mjs";
@@ -86,6 +87,7 @@ function setup(state = dialogueSplitStates[0]) {
   });
   window.__dialogueSplitAudit.helpers = splitHelpers;
   seedDialogueSplitProject({ shotId: seed.shotId });
+  installAssemblyAuditBridge();
   const creation = window.__proCreationAudit,
     audit = window.__shotAudioAudit,
     bridge = window.aijian;
@@ -262,7 +264,7 @@ test("foreign background write never changes active selection and preview record
   await f.bridge.getFilmAudioMixPreview(input);
   assert.deepEqual(f.split.previews, [{ projectId: other.id, kind: "FAILED" }]);
 });
-test("history restore/capture, audio apply and paid providers remain forbidden, while local assembly is controlled separately", async () => {
+test("history restore/capture, audio apply and paid providers remain forbidden, with no legacy assembly fallback", async () => {
   const f = setup();
   for (const name of [
     "captureFilmHistory",
@@ -275,9 +277,11 @@ test("history restore/capture, audio apply and paid providers remain forbidden, 
     await assert.rejects(f.bridge[name]({}), /FORBIDDEN/);
   await assert.rejects(
     f.bridge.assembleFilm("series", ["a", "b"], "", -14, ["", ""]),
-    /LOCAL_ASSEMBLY/,
+    /FORBIDDEN_ASSEMBLY_DISPATCH/,
   );
-  assert.equal(f.split.assemblies.length, 1);
+  assert.deepEqual(f.split.assemblies, []);
+  assert.deepEqual(window.__assemblyAudit.legacy, ["assembleFilm"]);
+  assert.deepEqual(window.__assemblyAudit.forbidden, ["legacy-assemble"]);
   assert.equal(f.split.nativeWrites, 0);
 });
 test("CLI fixes sixteen states and rejects remote/output/unknown input without browser launch", () => {

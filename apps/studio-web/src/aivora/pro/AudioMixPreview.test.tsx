@@ -323,3 +323,13 @@ it("shares one decoded mono buffer for independent same-source segments through 
   ).toBe(true);
   expect(f.context.decodeAudioData).toHaveBeenCalledTimes(2);
 });
+it("keeps a stale scene group silent and explains that its whole group needs review", () => {
+  const f = fixture();
+  f.result.plan.tracks = [];
+  f.result.plan.limitations = ["SCENE_AUDIO_BINDING_STALE"];
+  const view = render(<AudioMixPreview result={f.result} clock={f.clock} playing audible />);
+  f.tick();
+  expect(view.getByRole("status")).toHaveTextContent("整组未试听");
+  expect(f.read).not.toHaveBeenCalled();
+  expect(f.context.decodeAudioData).not.toHaveBeenCalled();
+});

@@ -7,6 +7,10 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["播放", "timeline-play"],
+    ["暂停", "timeline-pause"],
+    ["设入点", "timeline-mark-in"],
+    ["设出点", "timeline-mark-out"],
     ["查看完整句拆镜方案", "dialogue-split-open"],
     ["重新检查", "dialogue-split-refresh"],
     ["接受这份拆镜结构", "dialogue-split-apply"],
@@ -155,6 +159,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const tag = (element) => (safeTags.has(element.tagName) ? element.tagName : "OTHER");
   const controlName = (element, label) => {
+    if (element.matches("button.clip.v")) return "timeline-video";
     if (element.tagName === "INPUT" && element.closest(".shot-audio-choice")) {
       const text = element.closest("label")?.textContent.replace(/\s+/g, " ").trim() ?? "";
       const match = /^(环境音|音效|配乐) · 完整 (\d{1,3}) 段$/.exec(text);

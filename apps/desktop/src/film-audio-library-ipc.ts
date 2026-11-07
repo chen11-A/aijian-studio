@@ -11,11 +11,21 @@ export function registerFilmAudioLibrary<T>(
     ["film:audio-library-target", 1],
     ["film:audio-library-shot-suggest", 1],
     ["film:audio-library-shot-apply", 1],
+    ["film:audio-library-scene-suggest", 1],
+    ["film:audio-library-scene-apply", 1],
   ] as const) {
     handle(channel, async (event, ...args) => {
       if (!authorized(event)) throw Error("Audio library sender is not authorized");
       if (args.length !== count) throw Error("Invalid audio library request");
       if (count === 0) return library.listBundledFilmAudio();
+      if (channel === "film:audio-library-scene-suggest")
+        return library.suggestBundledFilmSceneAudio(
+          args[0] as Parameters<typeof library.suggestBundledFilmSceneAudio>[0],
+        );
+      if (channel === "film:audio-library-scene-apply")
+        return library.applyBundledFilmSceneAudio(
+          args[0] as Parameters<typeof library.applyBundledFilmSceneAudio>[0],
+        );
       if (channel === "film:audio-library-shot-apply")
         return library.applyBundledFilmShotAudio(
           args[0] as Parameters<typeof library.applyBundledFilmShotAudio>[0],

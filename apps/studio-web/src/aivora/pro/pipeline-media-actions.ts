@@ -7,7 +7,7 @@ import { prepareShotSceneReferences } from "./actions/scene-references";
 import { withStyleBible } from "../film/style-bible";
 import type { ProductionResult } from "../film/production-pipeline";
 import type { FilmProject } from "../film/project";
-import { dialogueTracks } from "../film/operations";
+import { assemblySelection, readAssemblyInput, requestAssembly } from "./assembly";
 import { makeAllPortraits } from "./portrait-workflow";
 import { ensureShotFrame } from "./still-workflow";
 import { fileMediaUrl, requestStill } from "./workflow";
@@ -119,28 +119,52 @@ export async function assemblePipelineFilm(
   film: FilmProject,
   paths: string[],
   context: PipelineMediaContext,
-  assemble = window.aijian?.assembleFilm,
 ): Promise<MediaResult> {
   if (!valid(context)) return stale();
-  if (!assemble) return { status: "blocked", code: "DESKTOP_REQUIRED" };
-  if (paths.length !== film.shots.length || paths.length === 0 || paths.some((path) => !path))
+  if (
+    !window.aijian?.assembleFilmProject ||
+    !window.aijian.cancelFilmAssemblyOperation ||
+    !window.aijian.readFilmProject
+  )
+    return { status: "blocked", code: "DESKTOP_REQUIRED" };
+  if (
+    paths.length !== film.shots.length ||
+    !paths.length ||
+    paths.some((path) => !path) ||
+    assemblySelection(film).length !== film.shots.length
+  )
     return { status: "blocked", code: "PIPELINE_MISSING_VIDEO" };
   try {
-    const music = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
-    // The existing desktop path also handles one clip and applies its requested audio.
-    const result = await assemble(
-      film.seriesId,
-      paths,
-      music?.path ?? "",
-      music?.gainDb ?? -14,
-      dialogueTracks(film),
-    );
+    // The controller already persisted this running checkpoint under its original lease.
+    const accepted = context.current();
+    const control = {
+      current: context.current,
+      valid: () => valid(context),
+      signal: context.signal,
+    };
+    const input = await readAssemblyInput(accepted, control);
+    if (!input || !valid(context)) return stale();
+    const result = await requestAssembly(accepted, input, control);
     if (!valid(context)) return stale();
-    if (!result.path) return { status: "failed", code: "ASSEMBLY_FAILED" };
+    if (result.kind === "FAILED")
+      return {
+        status:
+          result.code === "PROJECT_CHANGED" || result.code === "OPERATION_STOPPED"
+            ? "uncertain"
+            : "failed",
+        code: result.code === "PROJECT_CHANGED" ? "PIPELINE_REQUEST_STALE" : "ASSEMBLY_FAILED",
+      };
     return {
-      status: result.reason ? "needs-input" : "done",
-      code: result.reason ? "ASSEMBLY_PARTIAL" : "ASSEMBLY_DONE",
-      detail: result.reason ? "成片已有文件，但声音处理未完整完成，请检查。" : undefined,
+      status: result.kind === "PARTIAL" ? "needs-input" : "done",
+      code: result.kind === "PARTIAL" ? "ASSEMBLY_PARTIAL" : "ASSEMBLY_DONE",
+      ...(result.kind === "PARTIAL"
+        ? {
+            detail:
+              result.incomplete === "subtitles"
+                ? "粗剪已有文件，但字幕处理未完成，请核对。"
+                : "粗剪已有文件，但声音处理未完整完成，请核对。",
+          }
+        : {}),
       path: result.path,
       film: {
         ...context.current(),

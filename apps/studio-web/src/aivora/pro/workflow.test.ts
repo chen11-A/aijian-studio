@@ -1,3 +1,5 @@
+import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
+import { createFilmPersistence } from "./film-persistence";
 import { NOTICE_TEXT } from "../film/notices";
 import { describe, it, expect, vi } from "vitest";
 import { blankFilm, FILM_KEY, readFilm, sampleFilm } from "../film/project";
@@ -255,34 +257,97 @@ it("preserves the image failure reason without adding reference counts", async (
   }
 });
 
-it("does not write a late assembled cut into another project", async () => {
-  const base = sampleFilm();
-  let current = base;
-  let resolve!: (value: { path: string; reason: string }) => void;
-  const assembleFilm = vi.fn(
-    () =>
-      new Promise<{ path: string; reason: string }>((done) => {
+it("does not write a late shared-mix cut into another project", async () => {
+  let current = sampleFilm();
+  current.shots = current.shots.slice(0, 2).map((shot, i) => ({
+    ...shot,
+    takes: [
+      {
+        id: `take-${i}`,
+        shotId: shot.id,
+        index: 1,
+        stillUrl: "",
+        videoUrl: "",
+        prompt: "",
+        createdAt: "",
+        reason: "",
+        status: "done",
+        videoPath: `/fixture/${i}.mp4`,
+      },
+    ],
+    selectedTakeId: `take-${i}`,
+  }));
+  const base = current;
+  let disk = structuredClone(base);
+  let resolve!: (value: FilmAssemblyResult) => void;
+  let started!: () => void;
+  const invoked = new Promise<void>((done) => {
+    started = done;
+  });
+  const assemble = vi.fn(
+    (_: FilmAssemblyInput) =>
+      new Promise<FilmAssemblyResult>((done) => {
         resolve = done;
+        started();
       }),
   );
   const previous = window.aijian;
-  window.aijian = { ...previous, assembleFilm } as NonNullable<typeof window.aijian>;
-  const apply = vi.fn();
+  const oldAssemble = vi.fn();
+  window.aijian = {
+    ...previous,
+    assembleFilm: oldAssemble,
+    assembleFilmProject: assemble,
+    cancelFilmAssemblyOperation: vi.fn(async () => ({ kind: "NOT_FOUND" })),
+    readFilmProject: vi.fn(async () => structuredClone(disk)),
+    captureFilmHistory: vi.fn(),
+    restoreFilmHistory: vi.fn(),
+    listFilmHistory: vi.fn(),
+  } as NonNullable<typeof window.aijian>;
+  const persistence = createFilmPersistence({
+    current: () => current,
+    write: async (film) => {
+      disk = structuredClone(film);
+      return structuredClone(disk);
+    },
+  });
+  const apply = vi.fn((next) => {
+    current = next;
+  });
   const notice = vi.fn();
   try {
     const pending = assembleCurrentFilm(
       base,
-      ["a.mp4", "b.mp4"],
+      ["/fixture/0.mp4", "/fixture/1.mp4"],
       () => current,
       apply,
       notice,
       () => true,
+      { acquire: persistence.acquire },
     );
+    await invoked;
+    const input = assemble.mock.calls[0]![0];
+    expect(input.expectedHash).toMatch(/^[a-f0-9]{64}$/);
     current = { ...base, id: "another-project" };
-    resolve({ path: "/old-project/cut.mp4", reason: "old result" });
+    apply.mockClear();
+    resolve({
+      kind: "ASSEMBLED",
+      projectId: base.id,
+      projectHash: input.expectedHash,
+      path: "/old-project/cut.mp4",
+      durationSeconds: 4,
+      shots: input.expectedSelection.map((row, i) => ({
+        ...row,
+        startSeconds: i * 2,
+        durationSeconds: 2,
+      })),
+      limitations: [],
+    });
     await pending;
     expect(apply).not.toHaveBeenCalled();
+    expect(current.id).toBe("another-project");
+    expect(current.assemblyPath).toBe(base.assemblyPath);
     expect(notice).not.toHaveBeenCalled();
+    expect(oldAssemble).not.toHaveBeenCalled();
   } finally {
     window.aijian = previous;
   }

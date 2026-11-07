@@ -1,3 +1,4 @@
+import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type {
@@ -641,6 +642,20 @@ contextBridge.exposeInMainWorld("aijian", {
   deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
   renameFilmSeries: (seriesId: string, title: string) =>
     ipcRenderer.invoke("film:rename", seriesId, title),
+  suggestBundledFilmSceneAudio: ((
+    input: Parameters<FilmAudioLibraryGateway["suggestBundledFilmSceneAudio"]>[0],
+  ) =>
+    ipcRenderer.invoke(
+      "film:audio-library-scene-suggest",
+      input,
+    )) as FilmAudioLibraryGateway["suggestBundledFilmSceneAudio"],
+  applyBundledFilmSceneAudio: ((
+    input: Parameters<FilmAudioLibraryGateway["applyBundledFilmSceneAudio"]>[0],
+  ) =>
+    ipcRenderer.invoke(
+      "film:audio-library-scene-apply",
+      input,
+    )) as FilmAudioLibraryGateway["applyBundledFilmSceneAudio"],
   applyBundledFilmShotAudio: ((
     input: Parameters<FilmAudioLibraryGateway["applyBundledFilmShotAudio"]>[0],
   ) =>
@@ -738,6 +753,22 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("film:project-archive-import") as Promise<FilmProjectArchiveImport>,
   readFilmAudioWaveform: (input: FilmAudioWaveformInput) =>
     ipcRenderer.invoke("film:audio-waveform", input) as Promise<FilmAudioWaveformResult>,
+  assembleFilmProject: ((input, operationId) =>
+    ipcRenderer.invoke(
+      "film:assembly-prepare",
+      input,
+      operationId,
+    )) as FilmAssemblyGateway["assembleFilmProject"],
+  cancelFilmAssemblyOperation: ((operationId) =>
+    ipcRenderer.invoke(
+      "film:assembly-cancel",
+      operationId,
+    )) as FilmAssemblyGateway["cancelFilmAssemblyOperation"],
+  onFilmAssemblyProgress: (listener: (view: FilmExportProgressEvent) => void) => {
+    const handler = (_event: unknown, view: FilmExportProgressEvent) => listener(view);
+    ipcRenderer.on("film:assembly-progress", handler);
+    return () => ipcRenderer.removeListener("film:assembly-progress", handler);
+  },
   prepareFilmExport: (input: FilmExportQcInput, operationId?: string) =>
     ipcRenderer.invoke("film:qc-prepare", input, operationId),
   publishFilmExport: (input: FilmExportQcPublishInput, operationId?: string) =>
