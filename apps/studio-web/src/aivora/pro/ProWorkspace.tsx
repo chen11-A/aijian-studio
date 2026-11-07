@@ -5354,17 +5354,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     promptCard.editorDiff?.selection.projectId === film?.id &&
     promptCard.editorDiff?.selection.shotId === shownShots[shot]?.id &&
     promptCard.editorDiff?.selection.sceneId === scene ? (
-      <SuggestionCard
-        unit="shot"
-        current={[]}
-        proposed={[]}
-        fieldRows={promptCard.fieldRows}
-        applied={promptCard.applied}
-        busy={asking || promptApplying}
-        onApply={() => void applyPendingPrompt()}
-        onAnother={() => void planPrompter()}
-        onReject={rejectPendingPrompt}
-      />
+      <>
+        {promptCard.references && (
+          <div className="reference-summary" aria-label="画面说明的参考与修改范围">
+            参考：{promptCard.references.labels.join("、") || "未指定"}；修改范围：当前镜头。
+            引用不切换编辑目标。
+          </div>
+        )}
+        <SuggestionCard
+          unit="shot"
+          current={[]}
+          proposed={[]}
+          fieldRows={promptCard.fieldRows}
+          applied={promptCard.applied}
+          busy={asking || promptApplying}
+          onApply={() => void applyPendingPrompt()}
+          onAnother={() => void planPrompter()}
+          onReject={rejectPendingPrompt}
+        />
+      </>
     ) : null;
   const shotPromptSuggestions = (
     <>

@@ -28,8 +28,14 @@ afterEach(async () => {
   while (requests.size) await Promise.allSettled([...requests]);
   vi.restoreAllMocks();
 });
-async function open(options: { role?: string; hold?: boolean; duplicate?: boolean } = {}) {
+async function open(
+  options: { role?: string; hold?: boolean; duplicate?: boolean; directorReady?: boolean } = {},
+) {
   const film = sampleFilm();
+  if (options.directorReady) {
+    film.scenes[0]!.text = "参考甲推开门，挥拳。";
+    film.scenes[0]!.tags = ["打斗"];
+  }
   film.backendProjectId = `prj_${"a".repeat(32)}`;
   film.characters = [
     { ...film.characters[0]!, id: "reference-person-1", name: "参考甲", identity: "蓝色外套" },
@@ -102,27 +108,36 @@ async function open(options: { role?: string; hold?: boolean; duplicate?: boolea
   const reply = (agent: string) => ({
     kind: "OK",
     text: JSON.stringify(
-      agent === "art"
-        ? { prompt_block_zh: "新的克制画风" }
-        : agent === "prompter"
-          ? { keyframe: { prompt_zh: "参考甲站在窗边", prompt_en: "A person stands by a window" } }
-          : agent === "performance"
+      agent === "director" && options.directorReady
+        ? { shots: [{ picture: film.scenes[0]!.text, characters: ["参考甲"], seconds: 3 }] }
+        : agent === "art"
+          ? {
+              prompt_block_zh: "新的克制画风",
+              identities: [
+                { name: "参考甲", identity: "新的蓝外套固定外貌", char_id: film.characters[0]!.id },
+              ],
+            }
+          : agent === "prompter"
             ? {
-                shots: [
-                  {
-                    shot_id: film.shots[0]!.id,
-                    who: "参考甲",
-                    emotion: "紧张",
-                    face: ["眼神一沉"],
-                    eyes: "看向门口",
-                    hands: "收紧",
-                    breath: "平稳",
-                    hold_s: 1,
-                    voice: { tone: "低声", pace: "慢", pauses: "短停", emotion: "克制" },
-                  },
-                ],
+                keyframe: { prompt_zh: "参考甲站在窗边", prompt_en: "A person stands by a window" },
               }
-            : {},
+            : agent === "performance"
+              ? {
+                  shots: [
+                    {
+                      shot_id: film.shots[0]!.id,
+                      who: "参考甲",
+                      emotion: "紧张",
+                      face: ["眼神一沉"],
+                      eyes: "看向门口",
+                      hands: "收紧",
+                      breath: "平稳",
+                      hold_s: 1,
+                      voice: { tone: "低声", pace: "慢", pauses: "短停", emotion: "克制" },
+                    },
+                  ],
+                }
+              : {},
     ),
   });
   const hold = deferred<void>();
@@ -246,6 +261,12 @@ it("keeps applied reference-bearing performance cards and their own undo usable 
 });
 it("uses the real existing place menu item and discards a late reply when that place was renamed", async () => {
   const f = await open({ role: "art", hold: true });
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "创作阶段" })).getByRole("button", {
+      name: /角色/,
+    }),
+  );
+  expect(f.host().selection().page).toBe("cast");
   fireEvent.click(screen.getByRole("button", { name: "提到人物、场景或镜头" }));
   fireEvent.click(
     within(screen.getByRole("menu", { name: "提到谁" })).getByRole("menuitem", { name: "@旧书店" }),
@@ -288,6 +309,11 @@ it.each([
   expect(sent.text).toContain(asked);
   expect(sent.text).toContain('"taskScope":"shot"');
   expect(sent.text).toContain('"no":2');
+  if (agent === "prompter") {
+    const scope = await screen.findByLabelText("画面说明的参考与修改范围");
+    expect(scope).toHaveTextContent("参考甲、镜头 2");
+    expect(scope).toHaveTextContent("修改范围：当前镜头");
+  }
   expect(f.host().current()!.shots[0]!.promptEn).toBe(f.film.shots[0]!.promptEn);
   expect(f.host().selection().shotId).toBe(f.film.shots[0]!.id);
   expect(f.media).not.toHaveBeenCalled();
@@ -362,5 +388,92 @@ it("rejects the old confirmation callback after a referenced entity changes, pre
   const before = structuredClone(f.host().current());
   await act(async () => callback());
   expect(f.host().current()).toEqual(before);
+  expect(f.media).not.toHaveBeenCalled();
+});
+
+it.each(["分镜", "剧本", "角色"])(
+  "keeps the new whole-project art review visible on %s and its own undo usable after changing the referenced person",
+  async (page) => {
+    const f = await open({ role: "art" });
+    if (page !== "分镜") {
+      const nav = screen.getByRole("navigation", { name: "创作阶段" });
+      fireEvent.click(within(nav).getByRole("button", { name: new RegExp(page) }));
+      fireEvent.change(screen.getByLabelText("正在和："), { target: { value: "art" } });
+    }
+    const original = f.host().current()!.characters[0]!.identity;
+    type("参考 @参考甲，调整全作品画风和外貌。");
+    send();
+    const card = await screen.findByRole("region", { name: "助手的建议" });
+    expect(card).toHaveTextContent("全项目");
+    expect(f.host().current()!.characters[0]!.identity).toBe(original);
+    fireEvent.click(within(card).getByRole("button", { name: "确认修改" }));
+    await within(card).findByRole("button", { name: "撤销" });
+    expect(f.host().current()!.characters[0]!.identity).toBe("新的蓝外套固定外貌");
+    await waitFor(() =>
+      expect(f.disk.get(f.film.id)!.characters[0]!.identity).toBe("新的蓝外套固定外貌"),
+    );
+    const latest = f.host().current()!;
+    f.adopt({
+      ...latest,
+      title: "应用后的新标题",
+      shots: latest.shots.map((s, i) =>
+        i === 0 ? { ...s, poster: "/synthetic/late-frame.png" } : s,
+      ),
+    });
+    fireEvent.click(within(card).getByRole("button", { name: "撤销" }));
+    await waitFor(() => expect(f.host().current()!.characters[0]!.identity).toBe(original));
+    expect(f.host().current()!.title).toBe("应用后的新标题");
+    expect(f.host().current()!.shots[0]!.poster).toBe("/synthetic/late-frame.png");
+    expect(f.media).not.toHaveBeenCalled();
+  },
+);
+it.each(["entity", "navigation"])(
+  "guards the new independent art-review confirmation after %s changes without writing old content",
+  async (change) => {
+    const f = await open({ role: "art" });
+    type("参考 @参考甲，调整全作品画风和外貌。");
+    send();
+    await screen.findByRole("region", { name: "助手的建议" });
+    const captured = f.cards.find(
+      (card) => card.fieldRows?.some((row) => row.label === "全项目 · 画风说明") && !card.applied,
+    )!;
+    if (change === "entity") {
+      const live = f.host().current()!;
+      f.adopt({
+        ...live,
+        characters: live.characters.filter((p) => p.id !== f.film.characters[0]!.id),
+      });
+    } else {
+      const nav = screen.getByRole("navigation", { name: "创作阶段" });
+      fireEvent.click(within(nav).getByRole("button", { name: /剧本/ }));
+      fireEvent.click(within(nav).getByRole("button", { name: /分镜/ }));
+    }
+    const before = structuredClone(f.host().current());
+    const count = f.write.mock.calls.length;
+    await act(async () => captured.onApply());
+    expect(f.host().current()).toEqual(before);
+    expect(f.write).toHaveBeenCalledTimes(count);
+    expect(f.media).not.toHaveBeenCalled();
+  },
+);
+
+it("inherits the captured director references and scene-wide task scope in the real performance and action supplements", async () => {
+  const f = await open({ role: "director", directorReady: true });
+  const before = structuredClone(f.host().current()!.shots);
+  const asked = "参考 @参考甲 和 @镜头2，保持原文，不增加剧情。";
+  type(asked);
+  send();
+  await screen.findByRole("region", { name: "助手的建议" });
+  const roles = f.completeText.mock.calls.map(([input]) => input.agent);
+  expect(roles).toContain("director");
+  expect(roles).toContain("performance");
+  expect(roles).toContain("action");
+  for (const [input] of f.completeText.mock.calls) {
+    expect(input.text).toContain(asked);
+    expect(input.text).toContain('"taskScope":"scene"');
+    expect(input.text).toContain('"name":"参考甲"');
+    expect(input.text).not.toContain("PRIVATE_CHARACTER_BINDING");
+  }
+  expect(f.host().current()!.shots).toEqual(before);
   expect(f.media).not.toHaveBeenCalled();
 });
