@@ -43,3 +43,7 @@
 本次基于 `61ce132`，54消费者另树检查点 `89e303c` 保留。仅改3个QA mjs及本说明；产品/安装器/原468步骤均不变。actual Pro 同默认夹具 **4/4**：`/tmp/ui-interactions-repair-host-final.log`；全部153 Node 与目标静态见 `/tmp/ui-interactions-repair-all-contracts.log`、`/tmp/ui-interactions-repair-eslint.log`、`/tmp/ui-interactions-repair-format.log`。新的正常 Chrome16仍待运行，不把本地受控通过当实际浏览器已修复。
 
 后续对称收尾：打开折叠组也等待真实 React 清空 data-count/title，关闭仍按2/1/0精确目标等待。永久原生 toggle capture 同时证明打开时 open=true而旧·2尚存的渲染窗口，未放宽字段计数或几何。
+
+## 根复核修后源（2026-11-07 15:24 UTC）
+
+a5+7b已根合ba14075；root153/14.35秒、actualPro4/8.24秒、ESLint/7syntax/9format/diff均0。旧workflow前缀与产品source8a7无diff，原全5585仍保固定来源；新增16待本源真实Chrome，不把该定向结果冒484正常通过。首61失败公开三类、开/关原生toggle暂态及精确写回/原真实tab的因果均保上文，未改产品/CSS/probe/原阈值。
