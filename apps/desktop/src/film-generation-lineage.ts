@@ -1,10 +1,16 @@
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
 import { compileCanonicalGenerationTarget } from "./film-generation-compiler";
 import type { GenerationImageSources } from "./film-generation-sources";
-import { generationObject as object, generationRows } from "./film-generation-plan";
+import {
+  generationObject as object,
+  generationRows,
+  compileCanonicalStageImage,
+  type PlannedGenerationStage,
+} from "./film-generation-plan";
 import { filmHistoryRecordText } from "./film-history";
 import type { StoryFilmCreateInput } from "./story-film-client";
 import { IMAGE_MODEL, normalizeFilmStillPrompt } from "./film-library";
+import { validForecastReferenceInputs } from "./film-generation-forecast";
 
 type ImageLineage = {
   output_sha256: string;
@@ -82,6 +88,44 @@ function lineages(values: readonly unknown[]): ImageLineage[] {
   return result;
 }
 
+/** Compare actual byte-proven references against fixed or planned creator inputs.
+ * A planned creator matches only a private READABLE output fact with the same entire
+ * creator graph. No URL, renderer metadata or arbitrary ID supplies this evidence. */
+export async function generationReferencesMatch(
+  expected: unknown,
+  references: readonly string[],
+  sources: GenerationImageSources,
+  facts: readonly unknown[],
+): Promise<boolean> {
+  if (!validForecastReferenceInputs(expected) || expected.length !== references.length)
+    return false;
+  const proofs = lineages(facts);
+  for (const [index, reference] of references.entries()) {
+    const actual = await sources.capture(reference),
+      input = expected[index]!;
+    if ("sha256" in input) {
+      if (actual.sha256 !== input.sha256 || actual.mime !== input.mime) return false;
+      continue;
+    }
+    const creator = input.plannedImage;
+    if (
+      !proofs.some((proof) => {
+        const origin = proof.stage.origin;
+        return (
+          proof.output_sha256 === actual.sha256 &&
+          origin.imageModel === creator.model &&
+          origin.prompt === creator.prompt &&
+          origin.aspectRatio === creator.aspectRatio &&
+          validForecastReferenceInputs(origin.references) &&
+          same(origin.references, creator.references)
+        );
+      })
+    )
+      return false;
+  }
+  return true;
+}
+
 /** Project only field-specific, byte-proven automatic effects back to their original
  * input. The returned record is a read-only compiler view and is NEVER written back.
  * Distinct plausible origins are rejected, never chosen by their available budget. */
@@ -97,32 +141,8 @@ export async function restoreGenerationIntent(
   const shots = generationRows(result.shots),
     people = generationRows(result.characters),
     places = generationRows(result.locations);
-  const referencesMatch = async (
-    origin: Record<string, unknown>,
-    references: readonly string[],
-  ) => {
-    if (!Array.isArray(origin.references)) return false; // Older facts carry no reference proof.
-    if (
-      origin.references.length > 13 ||
-      origin.references.some((raw) => {
-        const row = object(raw);
-        return (
-          !row ||
-          Object.keys(row).length !== 2 ||
-          typeof row.sha256 !== "string" ||
-          !/^[a-f0-9]{64}$/.test(row.sha256) ||
-          !["image/png", "image/jpeg", "image/webp"].includes(String(row.mime))
-        );
-      })
-    )
-      return fail();
-    const actual: { sha256: string; mime: string }[] = [];
-    for (const source of references) {
-      const value = await sources.capture(source);
-      actual.push({ sha256: value.sha256, mime: value.mime });
-    }
-    return same(origin.references, actual);
-  };
+  const referencesMatch = (origin: Record<string, unknown>, references: readonly string[]) =>
+    generationReferencesMatch(origin.references, references, sources, proofs);
   const applied = new Map<string, unknown>();
   const accept = (field: string, previous: unknown) => {
     if (applied.has(field) && !same(applied.get(field), previous)) return fail();
@@ -254,8 +274,18 @@ export async function restoreGenerationIntent(
     for (const shot of shots.filter((row) => targetIds.includes(String(row.id)))) {
       if (typeof shot.poster !== "string" || !shot.poster || !sources.has(shot.poster)) continue;
       if ((await sources.capture(shot.poster)).sha256 !== proof.output_sha256) continue;
+      const frameRecord = origin.referenceMode === "planned-v1" ? record : result;
+      const frameShot =
+        origin.referenceMode === "planned-v1"
+          ? generationRows(record.shots).find((row) => row.id === shot.id)
+          : shot;
+      if (!frameShot) return fail();
       const input = object(
-        producer.shotStillInput(result, shot, producer.keyframePrompt(shot, result)),
+        producer.shotStillInput(
+          frameRecord,
+          frameShot,
+          producer.keyframePrompt(frameShot, frameRecord),
+        ),
       );
       if (
         !input ||
@@ -282,4 +312,33 @@ export async function restoreGenerationIntent(
   // intent. It remains authoritative for all creative fields and review guards.
   for (const target of targetIds) compileCanonicalGenerationTarget(producer, result, target);
   return result;
+}
+
+/** Actual protected sink verification. The caller must compare this entire input
+ * against its actual serialized image request and recheck current/retired after this
+ * await immediately before fetch. The helper grants no dispatch or paid allowance. */
+export async function verifyGenerationStageImage(
+  producer: CanonicalGenerationProducer,
+  record: Record<string, unknown>,
+  stage: PlannedGenerationStage,
+  registeredOrigin: Record<string, unknown>,
+  sources: GenerationImageSources,
+  facts: readonly unknown[],
+): Promise<{ prompt: string; references: string[]; aspectRatio: "9:16" | "16:9" }> {
+  const actual = compileCanonicalStageImage(producer, record, stage);
+  const prompt = normalizeFilmStillPrompt(actual.prompt);
+  if (
+    registeredOrigin.imageModel !== IMAGE_MODEL ||
+    registeredOrigin.prompt !== prompt ||
+    registeredOrigin.aspectRatio !== actual.aspectRatio ||
+    !(await generationReferencesMatch(
+      registeredOrigin.references,
+      actual.references,
+      sources,
+      facts,
+    ))
+  )
+    return fail();
+  await sources.verify();
+  return { ...actual, prompt };
 }

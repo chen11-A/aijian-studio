@@ -9,7 +9,7 @@ from dataclasses import replace
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from aijian_api.contracts import PROJECT_ID_PATTERN
 from aijian_api.generation_dispatch_identity import account_attestation, story_reference_identity
@@ -47,6 +47,55 @@ class PreparedClientFrame(BaseModel):
     references: list[str] = Field(max_length=5)
 
 
+class ForecastByteIdentity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sha256: str = Field(pattern=_SHA)
+    mime: Literal["image/png", "image/jpeg", "image/webp"]
+
+
+class ForecastCreator(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    model: Literal["grok-imagine-image-2.0"]
+    prompt: str = Field(min_length=1, max_length=2000)
+    aspectRatio: Literal["9:16", "16:9"]
+    references: list[ForecastByteIdentity | ForecastPlannedIdentity] = Field(max_length=13)
+
+
+class ForecastPlannedIdentity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    plannedImage: ForecastCreator
+
+
+class ForecastSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source: str = Field(pattern=r"^https://aivora-planned\.invalid/internal-[0-9]{1,4}\.png$")
+    identity: ForecastPlannedIdentity
+
+
+class PreparedForecast(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: CreateStoryFilmBody
+    client_frame: PreparedClientFrame | None = None
+    sources: list[ForecastSource] = Field(min_length=1, max_length=1024)
+
+    @model_validator(mode="after")
+    def bounded_creator_graph(self) -> PreparedForecast:
+        pending: list[tuple[ForecastByteIdentity | ForecastPlannedIdentity, int]] = [
+            (row.identity, 0) for row in self.sources
+        ]
+        count = 0
+        while pending:
+            value, depth = pending.pop()
+            count += 1
+            if count > 2048 or depth > 8:
+                raise ValueError("INPUT_UNVERIFIABLE")
+            if isinstance(value, ForecastPlannedIdentity):
+                pending.extend((row, depth + 1) for row in value.plannedImage.references)
+        if len(self.model_dump_json()) > 1024 * 1024:
+            raise ValueError("INPUT_UNVERIFIABLE")
+        return self
+
+
 class PreparedTargetBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str = Field(pattern=_KEY)
@@ -55,6 +104,7 @@ class PreparedTargetBody(BaseModel):
     body: CreateStoryFilmBody
     sources: list[ExpectedPreparedSource] = Field(max_length=20)
     client_frame: PreparedClientFrame | None = None
+    forecast: PreparedForecast | None = None
 
 
 class PreparedStageBody(BaseModel):
@@ -191,32 +241,58 @@ def original_prepared_recipes(
             cache[key] = converted
             return converted
 
-        request = story_film_request(body, f"prepared:{payload.key}:{target.key}")
+        forecast = target.forecast
+        planned = (
+            {row.source: row.identity.model_dump() for row in forecast.sources} if forecast else {}
+        )
+        if forecast and len(planned) != len(forecast.sources):
+            raise GenerationFailureError("INPUT_UNVERIFIABLE")
+        # Only this signed, read-only compiler branch can interpret planned locators.
+        # No marker is materialized, cached or accepted by the actual send consumer.
+        effective = forecast.body if forecast else body
+        if effective.provider != body.provider or len(effective.shots) != 1:
+            raise GenerationFailureError("INPUT_UNVERIFIABLE")
+        consumed_planned: set[str] = set()
+
+        def reference(
+            source: str,
+            planned: dict[str, Any] = planned,
+            consumed_planned: set[str] = consumed_planned,
+            checked: Callable[[str], str] = checked,
+        ) -> str:
+            if source in planned:
+                consumed_planned.add(source)
+                return source
+            return checked(source)
+
+        def identity(source: str, planned: dict[str, Any] = planned) -> object:
+            return planned[source] if source in planned else story_reference_identity(source)
+
+        request = story_film_request(effective, f"prepared:{payload.key}:{target.key}")
         shot = request.shots[0]
         immutable = replace(
             shot,
             still=checked(shot.still),
-            reference=checked(shot.reference),
-            references=tuple(checked(item) for item in shot.references),
+            reference=reference(shot.reference),
+            references=tuple(reference(item) for item in shot.references),
         )
         service._begin_creation(replace(request, shots=(immutable,)))
-        recipes = service._creation_targets()
+        recipes = service._creation_targets(reference_identity=identity)
         if len(recipes) != 1:
             raise GenerationFailureError("INPUT_UNVERIFIABLE")
         recipe = recipes[0]
-        if target.client_frame is not None:
-            frame = target.client_frame
+        frame = forecast.client_frame if forecast else target.client_frame
+        if frame is not None:
             if immutable.still or frame.aspect_ratio != body.aspect_ratio:
                 raise GenerationFailureError("INPUT_UNVERIFIABLE")
-            # The client, not the API's hypothetical image stage, actually makes
-            # this first frame. Reuse the same original recipe fields and N; do
-            # not introduce an execution/local-ID namespace or count unused API
-            # image settings as though they were sent.
+            # Client first-frame generation replaces the unconsumed API image recipe.
             recipe["image_prompt"] = frame.prompt
             recipe["image_model"] = frame.model
             recipe["image_references"] = [
-                story_reference_identity(checked(source)) for source in frame.references
+                identity(reference(source)) for source in frame.references
             ]
+        if consumed_planned != set(planned):
+            raise GenerationFailureError("INPUT_UNVERIFIABLE")
         if used != set(declared):
             raise GenerationFailureError("INPUT_UNVERIFIABLE")
         result.append(

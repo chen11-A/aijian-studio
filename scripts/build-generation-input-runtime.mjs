@@ -8,6 +8,7 @@ import process from "node:process";
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const exportsExpected = [
   "generationHadTakes",
+  "generationQueuedTakeIndices",
   "generationVideoBody",
   "keyframePrompt",
   "locationGenerationPrompt",
@@ -16,6 +17,7 @@ const exportsExpected = [
   "pipelineSelectedVideo",
   "portraitPrompts",
   "prepareSceneLocations",
+  "prepareVideoQueue",
   "sceneLocation",
   "sceneLocationTargets",
   "shotLocation",
