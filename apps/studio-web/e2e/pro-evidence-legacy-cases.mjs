@@ -531,6 +531,50 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
             await button("设入点").click();
             await drag(0.8, true);
             const globalOut = Number(await ruler.getAttribute("aria-valuenow"));
+            result.rangeClock = await page.evaluate(
+              ({ observed, expected, sourceStart, sourceDuration, first }) => {
+                const number = (value) =>
+                  typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 200000
+                    ? value
+                    : null;
+                const rect = (element) => {
+                  const box = element?.getBoundingClientRect();
+                  return box
+                    ? {
+                        x: number(box.x),
+                        y: number(box.y),
+                        width: number(box.width),
+                        height: number(box.height),
+                      }
+                    : null;
+                };
+                const clip = document.querySelectorAll(".clip.v")[1],
+                  area = document.querySelector(".track-area"),
+                  ruler = document.querySelector('.ruler[role="slider"]'),
+                  tracks = document.querySelector(".tracks");
+                return {
+                  observed: number(observed),
+                  expected: number(expected),
+                  first: number(first),
+                  sourceStart: number(sourceStart),
+                  sourceDuration: number(sourceDuration),
+                  clip: rect(clip),
+                  area: rect(area),
+                  ruler: rect(ruler),
+                  scrollLeft: number(tracks?.scrollLeft),
+                  logicalLeft: number(parseFloat(clip?.style.left)),
+                  logicalWidth: number(parseFloat(clip?.style.width)),
+                  max: number(Number(ruler?.getAttribute("aria-valuemax"))),
+                };
+              },
+              {
+                observed: globalOut,
+                expected: artifact.shots[1].startSeconds + artifact.shots[1].durationSeconds * 0.8,
+                sourceStart: artifact.shots[1].startSeconds,
+                sourceDuration: artifact.shots[1].durationSeconds,
+                first: globalIn,
+              },
+            );
             assert(
               Math.abs(
                 globalOut -

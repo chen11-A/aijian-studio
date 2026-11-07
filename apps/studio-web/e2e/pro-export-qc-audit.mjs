@@ -226,7 +226,16 @@ function evidenceLegacyInteractionCopy(row, profile) {
     d && typeof d === "object"
       ? ` dragStage=${["script", "cast", "board", "edit"].includes(d.stage) ? d.stage : "unknown"} dragMonitor=${["preview", "sound", "subtitles"].includes(d.monitor) ? d.monitor : "unknown"} dragVideos=${Number.isSafeInteger(d.videos) && d.videos >= 0 && d.videos <= 16 ? d.videos : "unknown"} dragAttached=${bit(d.attached)} dragCurrent=${bit(d.current)} dragAttribute=${bit(d.attribute)} dragReady=${Number.isInteger(d.ready) && d.ready >= 0 && d.ready <= 4 ? d.ready : "unknown"} dragTime=${n(d.time)} dragFromHit=${hits.includes(b?.hit) ? b.hit : "other"} dragToHit=${hits.includes(d.hit) ? d.hit : "other"} dragPoint=${n(d.x)},${n(d.y)}`
       : "";
-  return reach + drag;
+  const clock = row.rangeClock;
+  const precise = (value) =>
+    typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 200000
+      ? Number(value.toFixed(4))
+      : "unknown";
+  const range =
+    clock && typeof clock === "object"
+      ? ` rangeObserved=${precise(clock.observed)} rangeExpected=${precise(clock.expected)} rangeFirst=${precise(clock.first)} rangeSourceStart=${precise(clock.sourceStart)} rangeSourceDuration=${precise(clock.sourceDuration)} rangeClip=${box(clock.clip)} rangeArea=${box(clock.area)} rangeRuler=${box(clock.ruler)} rangeScroll=${precise(clock.scrollLeft)} rangeLogical=${precise(clock.logicalLeft)},${precise(clock.logicalWidth)} rangeMax=${precise(clock.max)}`
+      : "";
+  return reach + drag + range;
 }
 
 function emitGitHubErrors(report, profile) {
