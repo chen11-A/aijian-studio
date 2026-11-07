@@ -1,0 +1,62 @@
+{
+  "source": "01db481725bee8811119a549d305cff7b87951fe",
+  "parent": "50a6a3ea9299c0bf0f68dca45f62febad1adf054",
+  "author": "GPT-6.1 Sol / medium frontend agent",
+  "targetGatesAllExit0": true,
+  "wholeFileTests": 9,
+  "seconds": 5.28,
+  "preservesOriginalAssertionsTimeoutsAndProduction": true,
+  "mechanism": "Hold one real recovery write under the original persistence owner; early explicit review yields original save alert and native prepare/record/provider zero. Release real write and finish recovery, then explicitly reopen review; one prepare/read. Fixture observes expected first recovery invocation and completion plus flush saved.",
+  "causalityLimit": "Controlled owner mechanism demonstrated; Windows original unique FS cause not established. New CI pending.",
+  "logs": {
+    "controlled-cause-final": {
+      "path": "/tmp/acceptance-trial-save-controlled-cause-final.log",
+      "bytes": 316,
+      "sha256": "d3d177b96d7a7269ad0d789abe6a1fe4e90e1c90fe460444c50b8abff130e029"
+    },
+    "file-final": {
+      "path": "/tmp/acceptance-trial-save-file-final.log",
+      "bytes": 712,
+      "sha256": "39d9309ed32ad80f3abe9a11b0d85dbd7b98b835252b4d3c260def2fd4d1ffac"
+    },
+    "types-final": {
+      "path": "/tmp/acceptance-trial-save-types-final.log",
+      "bytes": 24,
+      "sha256": "5cfb036289d819b2a87e947d65f4532031dd37753f3cf2def0f77d398eea1737"
+    },
+    "eslint-final": {
+      "path": "/tmp/acceptance-trial-save-eslint-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "prettier-final": {
+      "path": "/tmp/acceptance-trial-save-prettier-final.log",
+      "bytes": 66,
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    }
+  },
+  "normalTrace": [
+    "recover-enter",
+    "acquire-enter",
+    "acquire-ok",
+    "label-visible",
+    "lease-save-enter",
+    "lease-save-receipt",
+    "release-enter",
+    "release-done",
+    "recover-done",
+    "initial-flush-saved",
+    "open-return",
+    "review-click",
+    "acquire-enter",
+    "acquire-ok",
+    "lease-save-enter",
+    "lease-save-receipt",
+    "release-enter",
+    "release-done"
+  ],
+  "failedControlledAttemptsPreserved": [
+    "/tmp/acceptance-trial-save-controlled-cause.log",
+    "/tmp/acceptance-trial-save-controlled-second.log"
+  ]
+}
