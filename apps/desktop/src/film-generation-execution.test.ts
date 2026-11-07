@@ -279,7 +279,8 @@ async function preparedVideo(f: Awaited<ReturnType<typeof fixture>>, versions: 1
     targets: [{ shotId: "shot-one", versions }],
   });
   expect(prepared.kind, "code" in prepared ? prepared.code : "").toBe("PREPARED");
-  if (prepared.kind !== "PREPARED") throw Error(prepared.code);
+  if (prepared.kind !== "PREPARED")
+    throw Error(prepared.kind === "FAILED" ? prepared.code : "UNEXPECTED_NOT_NEEDED");
   const shot = generationRows(f.record.shots)[0]!;
   const queued = producer.prepareVideoQueue(f.record, [shot], versions, false);
   const newTakes = queued.groups[0]!.takes;
