@@ -23,3 +23,7 @@ Pipeline按完整有序filmPipelineTargets(video)请求，PREPARED仅允许nativ
 最终此检查点定向15文件306项0：`/tmp/generation-execution-fresh-checkpoint-joint-final.log`（9.56秒）。最后只把issued image/local-stage失效也品牌化阻止旧retry，独立core10再过`/tmp/generation-execution-stage-failure-after.log`，不与306相加。正式web类型阶段0、目标ESLint/Prettier/diff0；旧Pro139/其余生成宿主尚待全部补真实新能力后联合，不能用306称整库通过。
 
 仍非最终冻结交付：backend API54/ledger/plan/source/client/lineage尚在收尾。我下一步拥有native registry/IPC/preload/main/film-library sink hooks，等待真实helper checkpoint合入；不复制WIP/HTTP协议、prompt、源验证。正常Chrome新UI16的后续两处测试消费者失败由另一QA分支独立处理，本树在该叶期间保检查点。
+
+## Original PipelineWorkspace integration migration
+
+The original three real-Pro integration cases previously had no prepare/retire bridge and jumped from one-click directly to review. They now use the actual protected ABI: the first media checkpoint has zero prepare/still/video calls, shows the complete video upper bound and requires a real Continue click. The preparation mock checks the current full raw hash, ordered shot/one-version scope and original backup; subsequent still/video calls must carry the issued execution context. Existing separate human review/video confirmation, history order, complete/partial assembly and no repeated assembly assertions remain. `/tmp/generation-execution-pipeline-host-joined.log` is 2 files/12 tests (original integration 3 plus generation execution 9); no timeout increase or product fallback. Formal web types and owned ESLint pass. This is controlled ABI evidence, not API54 native dispatch proof.
