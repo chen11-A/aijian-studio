@@ -35,28 +35,44 @@ export function ShotAudioSuggestionDialog({
   message,
   onRefresh,
   onClose,
+  canApply = false,
+  applying = false,
+  selectedLanes = [],
+  existingClips = 0,
+  onLanes,
+  onApply,
 }: {
   plan: ShotAudioPlan | null;
   busy: boolean;
   message: string;
   onRefresh: () => void;
   onClose: () => void;
+  canApply?: boolean;
+  applying?: boolean;
+  selectedLanes?: readonly ("ambience" | "sfx" | "score")[];
+  existingClips?: number;
+  onLanes?: (lanes: ("ambience" | "sfx" | "score")[]) => void;
+  onApply?: () => void;
 }) {
   return (
     <div className="dialog-back">
       <section
         role="dialog"
         aria-modal="true"
-        aria-busy={busy}
+        aria-busy={busy || applying}
         aria-labelledby="shot-audio-suggestions-title"
         className="dialog shot-audio-suggestions"
       >
         <h2 id="shot-audio-suggestions-title">本镜声音建议</h2>
         <p>
-          这是根据当前镜头文字和本地素材给出的安排，尚未添加声音，也没有试听。时间是计划值，不代表已观看或听过成片。
+          这是根据当前镜头文字和本地素材给出的安排。查看不会添加声音，也没有试听；明确选用后才加入。时间是计划值，不代表已观看或听过成片。
         </p>
         <p role="status" aria-live="polite">
-          {busy ? "正在核对当前镜头并读取建议…" : message}
+          {applying
+            ? "正在加入并核对本次声音，请等待保存结果…"
+            : busy
+              ? "正在核对当前镜头并读取建议…"
+              : message}
         </p>
         {plan && (
           <>
@@ -189,11 +205,51 @@ export function ShotAudioSuggestionDialog({
             </section>
           </>
         )}
+        {plan && canApply && (
+          <fieldset disabled={busy || applying}>
+            <legend>明确选择本次要加入的轨道</legend>
+            <p>
+              每条轨道会加入完整建议片段，不替换作品已有的 {existingClips}{" "}
+              段声音。默认不选用；先核对以上全部安排与限制。
+            </p>
+            {lanes.map(([lane, label]) => {
+              const count = plan.clips.filter((c) => c.lane === lane).length;
+              return (
+                <label className="shot-audio-choice" key={lane}>
+                  <input
+                    type="checkbox"
+                    checked={selectedLanes.includes(lane)}
+                    disabled={count === 0}
+                    onChange={(event) =>
+                      onLanes?.(
+                        event.target.checked
+                          ? [...selectedLanes, lane]
+                          : selectedLanes.filter((v) => v !== lane),
+                      )
+                    }
+                  />
+                  {label} · 完整 {count} 段
+                </label>
+              );
+            })}
+            <p>
+              本次将追加 {plan.clips.filter((c) => selectedLanes.includes(c.lane)).length}{" "}
+              段。若要撤销这次添加，请移除对应的声音组；素材文件仍保留。
+            </p>
+            <button
+              className="btn primary"
+              disabled={busy || applying || selectedLanes.length === 0}
+              onClick={onApply}
+            >
+              选用所选轨道的完整建议
+            </button>
+          </fieldset>
+        )}
         <div className="acts">
-          <button className="btn" disabled={busy} onClick={onRefresh}>
+          <button className="btn" disabled={busy || applying} onClick={onRefresh}>
             刷新建议
           </button>
-          <button className="btn" onClick={onClose}>
+          <button className="btn" disabled={applying} onClick={onClose}>
             关闭
           </button>
         </div>

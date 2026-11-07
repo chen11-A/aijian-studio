@@ -14,6 +14,7 @@ import {
 } from "../film/seven-part-video";
 import { rangeVideoBody } from "./actions/video-prompt-review";
 import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
+import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useShotAudioSuggestions } from "./use-shot-audio-suggestions";
 import { exportProjectArchive } from "./actions/project-archive";
@@ -891,7 +892,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   };
 
   const [historyTick, setHistoryTick] = useState(0);
-  const audioLibrary = useBundledAudioLibrary(film, stage === "edit", {
+  const audioLibraryHost: LibraryHost = {
     current: () => filmRef.current,
     selection: () => {
       const scope = editorSelection.current;
@@ -918,19 +919,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return adopted;
     },
     persistence,
-  });
-  const shotAudioSuggestions = useShotAudioSuggestions(film, stage === "edit", {
-    current: () => filmRef.current,
-    selection: () => {
-      const scope = editorSelection.current;
-      const live = filmRef.current;
-      const shot = live?.shots.find((row) => row.id === scope.shotId);
-      return live && shot?.selectedTakeId && scope.page === "edit"
-        ? { projectId: live.id, page: scope.page, shotId: shot.id, takeId: shot.selectedTakeId }
-        : null;
-    },
-    persistence,
-  });
+  };
+  const audioLibrary = useBundledAudioLibrary(film, stage === "edit", audioLibraryHost);
+  const shotAudioSuggestions = useShotAudioSuggestions(
+    film,
+    stage === "edit",
+    audioLibraryHost,
+    audioLibrary,
+  );
   const actions = videoActions(modelIds);
 
   useEffect(() => {

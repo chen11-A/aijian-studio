@@ -174,8 +174,18 @@ export async function runShotAudioCases({ browser, config, report, media, persis
                   .count(),
                 2,
               );
-            assert.equal(await dialog.getByRole("button").count(), 2);
-            assert.equal(await dialog.getByRole("button", { name: /加入|撤销|选用/ }).count(), 0);
+            // The real product now exposes whole-lane confirmation; this profile
+            // verifies an untouched review remains entirely read-only.
+            assert.equal(await dialog.getByRole("button").count(), 3);
+            assert.equal(await dialog.getByRole("checkbox").count(), 3);
+            assert.equal(await dialog.getByRole("checkbox", { checked: true }).count(), 0);
+            assert.equal(
+              await dialog
+                .getByRole("button", { name: "选用所选轨道的完整建议", exact: true })
+                .isDisabled(),
+              true,
+            );
+            assert.equal(await dialog.locator("button.primary:visible").count(), 1);
             assert.equal(
               await dialog.getByRole("link", { name: "查看素材来源", exact: true }).count(),
               6,
