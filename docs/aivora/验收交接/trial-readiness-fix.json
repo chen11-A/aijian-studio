@@ -8,7 +8,7 @@
   "targetFileFinalTests": 8,
   "beforeLocalDidNotReproduceCI": true,
   "targetGatesAllExit0": true,
-  "newFullWebAndCI": "PENDING",
+  "newFullWebAndCI": "FULL_WEB_PASSED_472_FILES_5630_TESTS; NEW_CI_PENDING; OLD_WINDOWS_SAVE_PREREQUISITE_UNDER_INVESTIGATION",
   "logs": {
     "before": {
       "path": "/tmp/acceptance-trial-wait-before.log",

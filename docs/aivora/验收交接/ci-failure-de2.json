@@ -14,5 +14,18 @@
     "assertion": "保存本次人工决定 button enabled",
     "actual": "disabled"
   },
-  "status": "PRESERVED; investigating actual async completion without changing timeout or assertion"
+  "status": "PRESERVED; investigating actual async completion without changing timeout or assertion",
+  "runStatus": "FAILURE",
+  "windows": {
+    "job": "128531463799",
+    "step": "Test",
+    "completedAt": "2026-11-07T21:48:22Z",
+    "failedFiles": 1,
+    "failedTests": 1,
+    "file": "apps/studio-web/src/aivora/pro/ProWorkspace.actual-risk-trial.test.tsx",
+    "locations": [380, 291],
+    "case": "does not continue from accepted record or ended event",
+    "observed": "ready=false; alert 当前编辑还没保存上，请先核对保存状态，再准备试片。; missing 2.25s duration",
+    "cause": "UNDER_INVESTIGATION; not attributed to button readiness without evidence"
+  }
 }

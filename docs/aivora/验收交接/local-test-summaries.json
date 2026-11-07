@@ -22,5 +22,17 @@
       "Duration  551.68s (transform 11.91s, setup 64.92s, import 49.44s, tests 626.25s, environment 248.51s)",
       "All files          |    90.3 |    86.79 |   92.62 |   93.07 |"
     ]
+  },
+  "web-50a6a3e": {
+    "source": "50a6a3ea9299c0bf0f68dca45f62febad1adf054",
+    "log": "/tmp/aivora-handoff-web-final-root-full-web.log",
+    "bytes": 46941,
+    "sha256": "c34a574142f75774613ae32b9c63f307988994595791ce66ef5b0bdda4d84448",
+    "summaryLines": [
+      "Test Files  472 passed (472)",
+      "Tests  5630 passed (5630)",
+      "Duration  546.42s (transform 12.14s, setup 64.68s, import 48.01s, tests 625.94s, environment 244.38s)",
+      "All files          |   90.31 |    86.79 |   92.62 |   93.07 |"
+    ]
   }
 }
