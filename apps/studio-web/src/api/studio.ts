@@ -1,3 +1,4 @@
+import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
 import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
 import type {
@@ -1052,6 +1053,8 @@ export interface AijianDesktopBridge
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
+  prepareFilmDialogueSplit?: FilmDialogueSplitGateway["prepareFilmDialogueSplit"];
+  applyFilmDialogueSplit?: FilmDialogueSplitGateway["applyFilmDialogueSplit"];
   listFilmHistory?: FilmHistoryGateway["listFilmHistory"];
   getFilmAudioMixPreview?: AudioMixPreviewGateway["getFilmAudioMixPreview"];
   prepareFilmRange?: FilmRangeGateway["prepareFilmRange"];

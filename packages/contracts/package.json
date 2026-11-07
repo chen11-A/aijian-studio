@@ -144,6 +144,14 @@
     "./film-audio-suggestion-group": {
       "types": "./src/film-audio-suggestion-group.d.ts",
       "default": "./src/film-audio-suggestion-group.js"
+    },
+    "./film-dialogue-split-plan": {
+      "types": "./src/film-dialogue-split-plan.d.ts",
+      "default": "./src/film-dialogue-split-plan.js"
+    },
+    "./film-dialogue-split": {
+      "types": "./src/film-dialogue-split.ts",
+      "default": "./src/film-dialogue-split.ts"
     }
   },
   "scripts": {

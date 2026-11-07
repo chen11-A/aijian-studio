@@ -1,3 +1,4 @@
+import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type {
   FilmAudioLibraryGateway,
   AddBundledFilmAudioInput,
@@ -584,6 +585,20 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("story-film:create", projectId, input),
   getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
+  prepareFilmDialogueSplit: ((
+    input: Parameters<FilmDialogueSplitGateway["prepareFilmDialogueSplit"]>[0],
+  ) =>
+    ipcRenderer.invoke(
+      "film:dialogue-split-prepare",
+      input,
+    )) as FilmDialogueSplitGateway["prepareFilmDialogueSplit"],
+  applyFilmDialogueSplit: ((
+    input: Parameters<FilmDialogueSplitGateway["applyFilmDialogueSplit"]>[0],
+  ) =>
+    ipcRenderer.invoke(
+      "film:dialogue-split-apply",
+      input,
+    )) as FilmDialogueSplitGateway["applyFilmDialogueSplit"],
   listFilmHistory: (projectId: Parameters<FilmHistoryGateway["listFilmHistory"]>[0]) =>
     ipcRenderer.invoke("film:history-list", projectId),
   getFilmAudioMixPreview: (

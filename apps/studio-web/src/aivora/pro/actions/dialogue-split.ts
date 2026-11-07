@@ -1,12 +1,6 @@
+import { dialogueSplitContext } from "@aijian/contracts/film-dialogue-split-plan";
 import type { FilmProject } from "../../film/project";
-import { shotLines } from "../../film/director-continuity";
-import { shotReference } from "../../film/operations";
-import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../capabilities";
-import {
-  dialogueVideoCap,
-  planDialogueSplit,
-  type DialogueSplitPlan,
-} from "../../film/dialogue-split-plan";
+import { planDialogueSplit, type DialogueSplitPlan } from "../../film/dialogue-split-plan";
 import { historyRecordHash } from "./persistent-history";
 export type DialogueSplitPreview =
   | Exclude<DialogueSplitPlan, { kind: "READY" }>
@@ -21,54 +15,8 @@ export type DialogueSplitPreview =
     });
 export type DialogueSplitOptions = { versions: number };
 function capture(film: FilmProject, shotId: string, options: DialogueSplitOptions) {
-  if (
-    !film ||
-    !Array.isArray(film.shots) ||
-    !options ||
-    Object.keys(options).sort().join() !== "versions"
-  )
-    return null;
-  const matches = film.shots.filter((shot) => shot.id === shotId);
-  if (matches.length !== 1) return null;
-  const shot = matches[0]!,
-    model = film.draft ? VIDEO_DRAFT_MODEL : VIDEO_MODEL;
-  const refs = shotReference(shot, film),
-    cap = dialogueVideoCap(model, Boolean(refs.still || refs.references.length));
-  if (!cap) return null;
-  const lines = shotLines(shot).map((line) => ({ speaker: line.speaker, text: line.text }));
-  const scope = {
-    projectId: film.id,
-    sourceShotId: shot.id,
-    sceneId: shot.sceneId,
-    selectedTakeId: shot.selectedTakeId,
-    model,
-  };
-  const semantic = {
-    version: "dialogue-split-preview-v1",
-    scope,
-    versions: options.versions,
-    cap,
-    lines,
-    shot: {
-      seconds: shot.seconds,
-      picture: shot.picture,
-      action: shot.action,
-      characters: shot.characters,
-      speaker: shot.speaker,
-      delivery: shot.delivery,
-      userFields: shot.userFields,
-      selectedTakeId: shot.selectedTakeId,
-      poster: shot.poster,
-      takes: shot.takes.map((take) => ({
-        id: take.id,
-        status: take.status,
-        videoPath: take.videoPath,
-        cleanVideoPath: take.cleanVideoPath,
-      })),
-      stills: shot.stills.map((still) => ({ id: still.id, url: still.url })),
-    },
-  };
-  return { scope, semantic, request: { lines, maxVideoSeconds: cap, versions: options.versions } };
+  if (!options || Object.keys(options).sort().join() !== "versions") return null;
+  return dialogueSplitContext(film, shotId, options.versions);
 }
 /** Offline only: never call previewVoice/speak, generation, persistence or mutate the film. */
 export async function prepareDialogueSplitPreview(

@@ -1,3 +1,7 @@
+import {
+  LINE_HEAD_SECONDS as SHARED_HEAD,
+  LINE_TAIL_SECONDS as SHARED_TAIL,
+} from "@aijian/contracts/film-dialogue-split-plan";
 import { normalizeAudioSuggestionGroup } from "@aijian/contracts/film-audio-suggestion-group";
 import type { AudioSuggestionGroup } from "@aijian/contracts/film-audio-library";
 import type { AudioMixEnvelope } from "@aijian/contracts/film-audio-mix";
@@ -10,8 +14,8 @@ import { validFilmAudioWaveform } from "./audio-waveform-data";
  */
 
 export const SHOT_SECONDS_MAX = 15;
-export const LINE_HEAD_SECONDS = 0.4;
-export const LINE_TAIL_SECONDS = 0.6;
+export const LINE_HEAD_SECONDS = SHARED_HEAD;
+export const LINE_TAIL_SECONDS = SHARED_TAIL;
 
 export const AUDIO_LANE_ORDER = ["dialogue", "ambience", "sfx", "score"] as const;
 
