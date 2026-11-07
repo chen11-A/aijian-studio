@@ -309,7 +309,8 @@ def test_migration_52_preserves_existing_policy_attempt_rows_and_old_table_sql(t
         assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 52
         assert (
             connection.execute(
-                "SELECT name,sql FROM sqlite_master WHERE type='table' AND name!='generation_video_recovery' ORDER BY name"
+                "SELECT name,sql FROM sqlite_master WHERE type='table' "
+                "AND name!='generation_video_recovery' ORDER BY name"
             ).fetchall()
             == old_sql
         )
