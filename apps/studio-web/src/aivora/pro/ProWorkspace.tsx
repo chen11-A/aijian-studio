@@ -12050,7 +12050,7 @@ function EditPage({
                   // Keep the ruler's scrub gesture out of native text-selection dragging.
                   // Preserve its normal keyboard focus while the parent owns pointer capture.
                   event.preventDefault();
-                  event.currentTarget.focus();
+                  event.currentTarget.focus({ preventScroll: true });
                 }}
                 onDragStart={(event) => event.preventDefault()}
                 aria-valuemin={0}
