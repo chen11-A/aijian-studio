@@ -435,7 +435,7 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
             paths,
             musicPath: "",
             gainDb: -14,
-            dialogue: before.shots.map(() => ""),
+            dialogue: paths.map(() => ""),
           });
           const first = assembly(
             before.shots.map((s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath),
@@ -449,7 +449,6 @@ export async function runDialogueSplitCases({ browser, config, report, media, pe
                   .filter((s) => s.id !== seed.shotId)
                   .map((s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath),
               ),
-              dialogue: Array(8).fill(""),
             });
           assert.deepEqual(result.pageerrors, []);
           assert.deepEqual(result.blockedRequests, []);

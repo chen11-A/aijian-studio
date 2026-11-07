@@ -19,7 +19,7 @@ import * as splitHelpers from "./pro-dialogue-split-browser-helper.mjs";
 import { seedDialogueSplitProject } from "./pro-dialogue-split-fixture.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url)),
   originalWindow = globalThis.window;
-let server, project, folder, catalog, validator;
+let server, project, folder, catalog, validator, operations;
 before(async () => {
   folder = await mkdtemp(path.join(tmpdir(), "shot-audio-fixture-"));
   server = await createServer({
@@ -31,6 +31,7 @@ before(async () => {
   });
   project = await server.ssrLoadModule("/src/aivora/film/project.ts");
   validator = await server.ssrLoadModule("/src/aivora/pro/actions/dialogue-split-native.ts");
+  operations = await server.ssrLoadModule("/src/aivora/film/operations.ts");
   catalog = await loadLibraryAuditCatalog();
 });
 after(async () => {
@@ -144,7 +145,26 @@ test("default explicit acceptance appends no audio, preserves all original media
   assert.equal(result.kind, "APPLIED");
   assert.equal(result.childIds.length, 3);
   assert.equal(new Set(result.childIds).size, 3);
+  assert.equal(before.shots.length, 6);
   assert.equal(result.project.shots.length, 8);
+  assert.deepEqual(operations.dialogueTracks(before), Array(6).fill(""));
+  const exported = result.project.shots.flatMap((s) => {
+    const take = s.takes.find(
+      (t) => t.id === s.selectedTakeId && t.status === "done" && t.videoPath,
+    );
+    return take ? [take.videoPath] : [];
+  });
+  assert.equal(exported.length, 5);
+  assert.deepEqual(
+    exported,
+    before.shots
+      .filter((s) => s.id !== f.seed.shotId)
+      .map((s) => s.takes.find((t) => t.id === s.selectedTakeId).videoPath),
+  );
+  assert.deepEqual(
+    operations.dialogueTracks(result.project),
+    exported.map(() => ""),
+  );
   assert.deepEqual(result.project.audioClips, before.audioClips);
   const proof = await f.bridge.verifyFilmDialogueSplitBackup({
     projectId: before.id,
