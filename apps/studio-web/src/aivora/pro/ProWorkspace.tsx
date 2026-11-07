@@ -18,6 +18,7 @@ import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useDialogueSplit } from "./use-dialogue-split";
+import { useRiskTrialReview } from "./use-risk-trial-review";
 import {
   captureAssistantReferences,
   assistantReferencesCurrent,
@@ -1030,6 +1031,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     },
     persistence,
   };
+  const riskTrialReview = useRiskTrialReview(film, {
+    current: () => filmRef.current,
+    onInspect: (shotId, sceneId) => {
+      const live = filmRef.current;
+      if (!live) return;
+      const rows = live.shots
+        .filter((row) => row.sceneId === sceneId)
+        .slice()
+        .sort((a, b) => a.no - b.no);
+      const index = rows.findIndex((row) => row.id === shotId);
+      if (index < 0) return;
+      setScene(sceneId);
+      setShot(index);
+      setBench(false);
+      setStage("board");
+    },
+  });
   const audioLibrary = useBundledAudioLibrary(film, stage === "edit", audioLibraryHost);
   const shotAudioSuggestions = useShotAudioSuggestions(
     film,
@@ -5877,6 +5895,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 >
                   作品设置
                 </button>
+                <button
+                  disabled={!film}
+                  onClick={() => {
+                    setMenu(null);
+                    riskTrialReview.open();
+                  }}
+                >
+                  查看试片候选
+                </button>
                 <div className="menu-sep" role="separator" />
                 <button
                   className="danger"
@@ -6778,6 +6805,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </div>
           </div>
         )}
+        {riskTrialReview.view}
         {pendingBatch && (
           <div className="dialog-back">
             <div
