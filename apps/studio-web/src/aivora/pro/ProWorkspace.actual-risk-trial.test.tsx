@@ -366,6 +366,9 @@ it("accounts for a closed late native write, keeps BUSY unknown, and resolves fr
   await waitFor(() =>
     expect(screen.queryByRole("button", { name: "试片记录待核对（1）" })).toBeNull(),
   );
+  expect(
+    within(panel).getByText("人工决定已记录。继续仍须重新确认生成范围、数量与费用。"),
+  ).toBeVisible();
   expect(f.record).toHaveBeenCalledTimes(1);
   expect((await f.raw())!.riskTrialDecisions).toHaveLength(1);
   expect((await f.queue.flushAll()).status).toBe("saved");

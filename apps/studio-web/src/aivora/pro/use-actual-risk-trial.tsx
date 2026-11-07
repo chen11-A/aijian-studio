@@ -39,6 +39,7 @@ export function useActualRiskTrial(
     [pendingBusy, setPendingBusy] = useState(false),
     [tick, setTick] = useState(0),
     [messages, setMessages] = useState<Record<string, string>>({}),
+    [lastResolved, setLastResolved] = useState(""),
     [conflicts, setConflicts] = useState<Record<string, ActualTrialConflict>>({});
   const scope = JSON.stringify(host.selection()),
     key = actualTrialInputKey(film, host.selection()),
@@ -148,7 +149,10 @@ export function useActualRiskTrial(
   }
   function finish(id: string, result: ActualTrialOutcome) {
     if (result.pending) pending.current.set(id, result.pending);
-    else if (!h.current.persistence.externalWriteState(id)) pending.current.delete(id);
+    else if (!h.current.persistence.externalWriteState(id)) {
+      pending.current.delete(id);
+      setLastResolved(result.message);
+    }
     setMessages((before) => ({ ...before, [id]: result.message }));
     setTick((value) => value + 1);
   }
@@ -182,8 +186,21 @@ export function useActualRiskTrial(
     if (!context || recovering.current || recording.current || preparing.current) return;
     recovering.current = true;
     setPendingBusy(true);
+    const token = generation.current;
     try {
-      finish(id, await recoverActualTrial(h.current, context, discard));
+      const result = await recoverActualTrial(h.current, context, discard);
+      finish(id, result);
+      if (generation.current === token && review === context.review)
+        setState((before) =>
+          before.kind === "ready"
+            ? {
+                ...before,
+                message: result.message,
+                reviewExpired: true,
+                ...(result.recorded ? { recorded: result.recorded } : {}),
+              }
+            : before,
+        );
     } finally {
       recovering.current = false;
       setPendingBusy(false);
@@ -251,6 +268,7 @@ export function useActualRiskTrial(
           aria-label="试片记录保存状态"
         >
           <h2>试片记录保存状态</h2>
+          {lastResolved ? <p role="status">{lastResolved}</p> : null}
           <p>未确认时保留编辑副本。核对只读取原作品及实际素材，不会重复记录或继续生成。</p>
           {entries.map(([id, context]) => {
             const draft =
