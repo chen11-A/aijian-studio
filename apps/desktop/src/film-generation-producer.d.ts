@@ -8,6 +8,7 @@ export function generationVideoBody(
   draft: boolean,
 ): unknown;
 export function keyframePrompt(shot: unknown, film: unknown): string;
+export function pipelineSelectedVideo(shot: unknown): string;
 export function portraitPrompts(...args: unknown[]): unknown;
 export function sceneLocation(film: unknown, sceneId: string): unknown;
 export function sceneLocationTargets(film: unknown): unknown[];

@@ -5,6 +5,7 @@ export { keyframePrompt } from "../../../apps/studio-web/src/aivora/film/project
 export { withStyleBible } from "../../../apps/studio-web/src/aivora/film/style-bible";
 export { withIdentityLocks } from "../../../apps/studio-web/src/aivora/film/phase2";
 export { generationVideoBody } from "../../../apps/studio-web/src/aivora/pro/actions/video-prompt-review";
+export { pipelineSelectedVideo } from "../../../apps/studio-web/src/aivora/film/pipeline-media-selection";
 export { shotStillInput } from "../../../apps/studio-web/src/aivora/film/shot-still-input";
 export {
   prepareSceneLocations,

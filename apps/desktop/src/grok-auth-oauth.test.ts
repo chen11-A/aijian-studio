@@ -214,15 +214,22 @@ describe("Grok subscription login against a mock OAuth server", () => {
       expect(store.current()?.refreshToken).toBe("refresh-1");
 
       const beforeRefresh = await runtime.mediaDispatchAccount();
+      const lease = await runtime.mediaDispatchLease();
+      expect(lease?.account).toEqual(beforeRefresh);
+      expect(lease?.current()).toBe(true);
       expect(beforeRefresh?.bearer).toBe("access-1");
       expect(beforeRefresh?.accountSha256).toMatch(/^[0-9a-f]{64}$/);
       clock += 7200 * 1000;
+      expect(lease?.current()).toBe(false);
       expect(await runtime.models()).toMatchObject({ kind: "OK" });
       expect(store.current()?.refreshToken).toBe("refresh-2");
       expect(store.current()?.accessToken).toBe("access-2");
       const afterRefresh = await runtime.mediaDispatchAccount();
       expect(afterRefresh?.bearer).toBe("access-2");
       expect(afterRefresh?.accountSha256).toBe(beforeRefresh?.accountSha256);
+      const freshLease = await runtime.mediaDispatchLease();
+      expect(freshLease?.current()).toBe(true);
+      expect(freshLease?.account.accountSha256).toBe(lease?.account.accountSha256);
       const refresh = oauth.seen.filter((item) => item.body.includes("grant_type=refresh_token"));
       expect(refresh.some((item) => item.body.includes("refresh_token=refresh-1"))).toBe(true);
 
