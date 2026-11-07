@@ -21,7 +21,7 @@ ACCOUNT = "a" * 64
 BEARER = "synthetic-current-account-bearer"
 
 
-def post(client, project, suffix, value, *, arm=None):
+def post(client, project, suffix, value, *, arm=None, account=ACCOUNT, extra_headers=None):
     raw = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode()
     key = f"story-film:v1:{uuid4()}"
     expires = int(time.time()) + 60
@@ -32,7 +32,7 @@ def post(client, project, suffix, value, *, arm=None):
             key,
             hashlib.sha256(raw).hexdigest(),
             hashlib.sha256(BEARER.encode()).hexdigest(),
-            ACCOUNT,
+            account,
             str(expires),
             *((arm,) if arm else ()),
         )
@@ -41,7 +41,7 @@ def post(client, project, suffix, value, *, arm=None):
         base64.urlsafe_b64encode(
             json.dumps(
                 {
-                    "account": ACCOUNT,
+                    "account": account,
                     "expires": expires,
                     "signature": hmac.new(
                         TOKEN.encode(), message.encode(), hashlib.sha256
@@ -63,6 +63,7 @@ def post(client, project, suffix, value, *, arm=None):
             "X-Aivora-Media-Bearer": BEARER,
             "X-Aivora-Generation-Account": signed,
             **({"X-Aivora-Prepared-Generation": arm} if arm else {}),
+            **(extra_headers or {}),
         },
     )
 

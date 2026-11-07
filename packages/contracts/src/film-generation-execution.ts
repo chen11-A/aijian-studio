@@ -49,6 +49,15 @@ export type FilmGenerationSlotPreparation = {
 
 export type FilmGenerationExecutionResult =
   | {
+      /** Pipeline-only local reuse fact. No execution, provider success, human
+       * approval, cache eligibility or UNKNOWN settlement is implied. */
+      kind: "NOT_NEEDED";
+      projectId: string;
+      projectHash: string;
+      reason: "LOCAL_SELECTED_MEDIA";
+      selected: readonly { shotId: string; takeId: string }[];
+    }
+  | {
       kind: "PREPARED";
       executionId: string;
       projectId: string;
