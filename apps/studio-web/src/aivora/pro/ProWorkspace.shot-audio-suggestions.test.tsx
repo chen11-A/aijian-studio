@@ -34,7 +34,7 @@ afterEach(async () => {
   while (queued.size) await Promise.allSettled([...queued]);
   vi.restoreAllMocks();
 });
-async function open() {
+async function open(waitForInitialSave = true) {
   const film = soundFilm(),
     other = {
       ...structuredClone(film),
@@ -83,7 +83,10 @@ async function open() {
     return structuredClone(raw);
   });
   const suggest = vi.fn(async (input: SuggestBundledFilmShotAudioInput): Promise<SoundReply> => {
-    expect(input.expectedProjectHash).toBe(await historyRecordHash(disk.get(input.projectId)));
+    const canonicalHash = await historyRecordHash(disk.get(input.projectId));
+    if (input.expectedProjectHash !== canonicalHash)
+      return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+    expect(input.expectedProjectHash).toBe(canonicalHash);
     return soundPlan(input);
   });
   const provider = vi.fn(),
@@ -120,6 +123,7 @@ async function open() {
   localStorage.setItem("aivora.film.activeId", film.id);
   render(<ProWorkspace />);
   await screen.findByLabelText("这一场");
+  const writesBeforeEdit = write.mock.calls.length;
   fireEvent.click(
     within(screen.getByRole("navigation", { name: "创作阶段" })).getByRole("button", {
       name: /剪辑/,
@@ -128,6 +132,16 @@ async function open() {
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "查看本镜声音建议" })).toBeEnabled(),
   );
+  if (waitForInitialSave) {
+    let completed = -1;
+    await waitFor(() => {
+      completed = write.mock.calls.findIndex(
+        ([value], index) => index >= writesBeforeEdit && value.id === film.id,
+      );
+      expect(completed).toBeGreaterThanOrEqual(writesBeforeEdit);
+    });
+    await write.mock.results[completed]!.value;
+  }
   return {
     film,
     other,
@@ -324,6 +338,43 @@ it("invalidates a displayed plan on creative edits without auto-reading or touch
   await within(dialog).findByRole("heading", { name: "音效 · 2 段" });
   expect(f.suggest).toHaveBeenCalledTimes(2);
   expect(f.current().audioClips).toEqual(clips);
+  expect(f.add).not.toHaveBeenCalled();
+  expect(f.provider).not.toHaveBeenCalled();
+});
+it("retries a real stage autosave metadata race once with the fresh canonical hash, without adding or generating", async () => {
+  const f = await open(false),
+    entered = deferred<void>(),
+    released = deferred<void>();
+  const native = f.suggest.getMockImplementation()!;
+  let requestRaw: Record<string, unknown> | undefined;
+  f.suggest.mockImplementationOnce(async (input) => {
+    requestRaw = structuredClone(f.disk.get(input.projectId));
+    entered.resolve();
+    await released.promise;
+    return native(input);
+  });
+  const dialog = await view();
+  await entered.promise;
+  const writes = f.write.mock.calls.length;
+  let ordinaryWrite = -1;
+  await waitFor(() => {
+    ordinaryWrite = f.write.mock.calls.findIndex(
+      ([value], index) => index >= writes && value.id === f.film.id,
+    );
+    expect(ordinaryWrite).toBeGreaterThanOrEqual(writes);
+  });
+  await f.write.mock.results[ordinaryWrite]!.value;
+  const latest = f.disk.get(f.film.id)!;
+  expect(requestRaw).toBeDefined();
+  expect({ ...requestRaw, savedAt: "" }).toEqual({ ...latest, savedAt: "" });
+  expect(requestRaw!.savedAt).not.toBe(latest.savedAt);
+  await act(async () => released.resolve());
+  await within(dialog).findByRole("heading", { name: "音效 · 2 段" });
+  expect(f.suggest).toHaveBeenCalledTimes(2);
+  expect(f.suggest.mock.calls[1]![0].expectedProjectHash).toBe(
+    await historyRecordHash(f.disk.get(f.film.id)),
+  );
+  expect(within(dialog).getAllByRole("article")).toHaveLength(4);
   expect(f.add).not.toHaveBeenCalled();
   expect(f.provider).not.toHaveBeenCalled();
 });

@@ -185,6 +185,12 @@ async function fixture() {
     },
   });
   let onRelease: (() => void) | undefined;
+  let releaseSerial = 0;
+  const releaseWaiters: { after: number; resolve: () => void }[] = [];
+  const waitForLeaseRelease = (after: number) =>
+    releaseSerial > after
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => releaseWaiters.push({ after, resolve }));
   let dropReceipt = false,
     staleSecondRead = false,
     readNumber = 0;
@@ -213,7 +219,15 @@ async function fixture() {
                 onRelease = undefined;
                 task();
               }
-              await l.release();
+              try {
+                await l.release();
+              } finally {
+                releaseSerial++;
+                for (let i = releaseWaiters.length - 1; i >= 0; i--) {
+                  if (releaseWaiters[i]!.after < releaseSerial)
+                    releaseWaiters.splice(i, 1)[0]!.resolve();
+                }
+              }
             })(),
           ),
       };
@@ -346,6 +360,11 @@ async function fixture() {
     adopt: (f: FilmProject) => host.applyLive(f),
     queue: () => persistence,
     flush: () => flush?.({ requestId: "split-quit" }),
+    releaseSerial: () => releaseSerial,
+    waitForLeaseRelease,
+    holdAcknowledgedApply: () => {
+      hold = true;
+    },
     hold: () => {
       hold = true;
       transport = true;
@@ -428,6 +447,15 @@ const accept = (d: HTMLElement) => {
   fireEvent.click(within(d).getByRole("checkbox"));
   fireEvent.click(within(d).getByRole("button", { name: "接受这份拆镜结构" }));
 };
+async function acceptSettled(d: HTMLElement, f: Awaited<ReturnType<typeof fixture>>) {
+  const before = f.releaseSerial();
+  accept(d);
+  await f.waitForLeaseRelease(before);
+  expect(f.apply).toHaveBeenCalledOnce();
+  const result = await f.apply.mock.results[0]!.value;
+  expect(result.kind).toBe("APPLIED");
+}
+
 it("reviews the actual main complete plan with no write owner or media dispatch, and closes without applying", async () => {
   const f = await fixture(),
     before = f.current();
@@ -495,7 +523,7 @@ it("does not trust a successful apply ACK when actual backup bytes cannot be ver
     before = f.current();
   f.corrupt();
   const d = await review();
-  accept(d);
+  await acceptSettled(d, f);
   await screen.findByRole("button", { name: "拆镜保存待核对（1）" });
   expect(f.current().shots.map((s) => s.id)).toEqual(before.shots.map((s) => s.id));
   expect(f.apply).toHaveBeenCalledOnce();
@@ -594,9 +622,21 @@ it("late recovery verifies the original record without applying or writing the o
   await screen.findByRole("button", { name: "拆镜保存待核对（1）" });
   await waitFor(() => expect(within(d).getByRole("button", { name: "关闭" })).toBeEnabled());
   fireEvent.click(within(d).getByRole("button", { name: "关闭" }));
+  const beforeOpeningOther = f.write.mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "作品" }));
   fireEvent.click(await screen.findByRole("button", { name: "另一集" }));
   await waitFor(() => expect(document.querySelector(".topbar .ep")).toHaveTextContent("另一集"));
+  // The header can render before the passive autosave starts. Its actual completed
+  // write, not a momentarily non-saving footer, defines the foreign baseline.
+  let initialOtherWrite = -1;
+  await waitFor(() => {
+    initialOtherWrite = f.write.mock.calls.findIndex(
+      ([value], index) => index >= beforeOpeningOther && value.id === f.other.id,
+    );
+    expect(initialOtherWrite).toBeGreaterThanOrEqual(beforeOpeningOther);
+  });
+  await f.write.mock.results[initialOtherWrite]!.value;
+  expect(f.write.mock.calls[initialOtherWrite]![0]).toEqual(f.current());
   await waitFor(() =>
     expect(document.querySelector(".statusbar .where")).not.toHaveTextContent("正在保存"),
   );
@@ -877,7 +917,7 @@ it.each(["source", "duplicate-child", "extra-field"] as const)(
       before = f.current();
     f.corruptReply(kind);
     const d = await review();
-    accept(d);
+    await acceptSettled(d, f);
     await screen.findByRole("button", { name: "拆镜保存待核对（1）" });
     expect(f.current().shots.map((s) => s.id)).toEqual(before.shots.map((s) => s.id));
     expect(f.current().sourceText).not.toBe("未经确认的外围改动");
@@ -980,4 +1020,25 @@ it("does not adopt old canonical content after an in-place creative mutation dur
     expect(f.flushed).toHaveBeenCalledWith({ requestId: "split-quit", status: "saved" }),
   );
   expect((await f.disk())!.sourceText).toBe("等待回读时原对象里的新原文");
+});
+
+it("waits for the actual native and proof lifecycle before asserting unknown instead of treating an in-flight ACK as a result", async () => {
+  const f = await fixture();
+  f.corrupt();
+  f.holdAcknowledgedApply();
+  const d = await review();
+  const finished = acceptSettled(d, f);
+  await f.admitted;
+  let apiSettled = false;
+  void f.apply.mock.results[0]!.value.then(() => {
+    apiSettled = true;
+  });
+  expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull();
+  expect(apiSettled).toBe(false);
+  expect(f.queue().externalWriteState(f.film.id)?.status).toBe("pending");
+  expect(f.apply).toHaveBeenCalledOnce();
+  await act(async () => f.release());
+  await finished;
+  await screen.findByRole("button", { name: "拆镜保存待核对（1）" });
+  expect(f.paid).not.toHaveBeenCalled();
 });
