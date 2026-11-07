@@ -132,3 +132,18 @@ it("does not confirm stopped when private cleanup could not be established", asy
   expect(events.at(-1)).toMatchObject({ phase: "unknown", cancelState: "unavailable" });
   expect(manager.cancel("owner", "unclean").kind).toBe("UNAVAILABLE");
 });
+
+it("does not confirm stopped when main-owned cleanup is explicitly unconfirmed", async () => {
+  const events: FilmExportProgressEvent[] = [];
+  const operations = createExportOperations((_owner, value) => events.push(value));
+  const operation = operations.begin("owner", "project", "cleanup-unconfirmed");
+  if (!operation) throw new Error("operation required");
+  expect(operations.cancel("owner", "cleanup-unconfirmed").kind).toBe("REQUESTED");
+  operation.work.cleanupUnconfirmed?.();
+  await operation.finish("partial");
+  expect(events.at(-1)).toMatchObject({ phase: "partial", cancelState: "unavailable" });
+  expect(operations.cancel("owner", "cleanup-unconfirmed")).toMatchObject({
+    kind: "UNAVAILABLE",
+    snapshot: { cancelState: "unavailable" },
+  });
+});

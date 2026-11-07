@@ -11,6 +11,8 @@ export type ExportWork = {
   cancellable: (value: boolean) => void;
   published: (aspectRatio: "16:9" | "9:16") => void;
   track: <T>(work: Promise<T>) => Promise<T>;
+  /** Main-only: a stopped process is not cleanly stopped if private cleanup failed. */
+  cleanupUnconfirmed?: () => void;
 };
 type Entry = {
   owner: string;
@@ -18,6 +20,7 @@ type Entry = {
   view: FilmExportProgressEvent;
   running: boolean;
   pending: Set<Promise<unknown>>;
+  cleanupConfirmed: boolean;
 };
 /** Owner-bound operations have a stable ID and one monotonically increasing event sequence. */
 export function createExportOperations(
@@ -51,6 +54,7 @@ export function createExportOperations(
         controller: new AbortController(),
         running: true,
         pending: new Set(),
+        cleanupConfirmed: true,
         view: {
           operationId,
           projectId,
@@ -84,6 +88,9 @@ export function createExportOperations(
           });
           emit(entry);
         },
+        cleanupUnconfirmed: () => {
+          entry.cleanupConfirmed = false;
+        },
         track: <T>(promise: Promise<T>) => {
           entry.pending.add(promise);
           void promise.then(
@@ -105,7 +112,9 @@ export function createExportOperations(
           entry.view.phase = phase;
           entry.view.progress = undefined;
           entry.view.cancelState =
-            entry.controller.signal.aborted && stoppedConfirmed ? "stopped" : "unavailable";
+            entry.controller.signal.aborted && stoppedConfirmed && entry.cleanupConfirmed
+              ? "stopped"
+              : "unavailable";
           emit(entry);
         },
       };
