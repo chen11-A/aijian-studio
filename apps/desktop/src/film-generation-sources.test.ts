@@ -100,3 +100,64 @@ describe("generation image byte snapshots", () => {
     await expect(pool.capture("data:image/png;base64,YQ")).rejects.toThrow("SOURCE_UNVERIFIABLE");
   });
 });
+
+it("captures every consumed role and canonical identity instead of only an unordered hash set", async () => {
+  const f = await fixture(),
+    path = join(f.episode, "actual.png");
+  const bytes = Buffer.from([0xff, 0xd8, 1, 2]);
+  await writeFile(path, bytes);
+  const pool = await generationImageSources(f.host);
+  const values = await pool.requestSourceRoles({
+    scene_label: "当前镜",
+    narration: "你好。",
+    provider: "grok_subscription",
+    confirmed: false,
+    shots: [
+      {
+        prompt: "画面",
+        narration: "你好。",
+        duration_seconds: 3,
+        still: path,
+        reference: path,
+        references: [path, path],
+      },
+    ],
+  });
+  const canonical = (await pool.capture(path)).path;
+  expect(values).toEqual([
+    {
+      role: "still",
+      index: 0,
+      source: path,
+      canonicalPath: canonical,
+      sha256: hash(bytes),
+      mime: "image/jpeg",
+    },
+    {
+      role: "reference",
+      index: 0,
+      source: path,
+      canonicalPath: canonical,
+      sha256: hash(bytes),
+      mime: "image/jpeg",
+    },
+    {
+      role: "references",
+      index: 0,
+      source: path,
+      canonicalPath: canonical,
+      sha256: hash(bytes),
+      mime: "image/jpeg",
+    },
+    {
+      role: "references",
+      index: 1,
+      source: path,
+      canonicalPath: canonical,
+      sha256: hash(bytes),
+      mime: "image/jpeg",
+    },
+  ]);
+  await writeFile(path, Buffer.from([0xff, 0xd8, 3, 4]));
+  await expect(pool.verify()).rejects.toThrow("SOURCE_UNVERIFIABLE");
+});

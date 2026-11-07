@@ -1,4 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import type { GenerationRegistrationInput } from "./film-generation-registration";
+import type { GenerationRequestSource } from "./film-generation-sources";
 import {
   attestGenerationAccount,
   type GenerationDispatchAccount,
@@ -97,7 +99,7 @@ export function generationPreparationClient(host: {
   return {
     async register(
       project: string,
-      input: unknown,
+      input: GenerationRegistrationInput,
       account: GenerationDispatchAccount,
       current: () => boolean,
     ) {
@@ -130,11 +132,12 @@ export function generationPreparationClient(host: {
       target: string,
       slot: number,
       take: string,
-      bodyHash: string,
+      wireBody: string,
+      sources: readonly GenerationRequestSource[],
       account: GenerationDispatchAccount,
       current: () => boolean,
     ) {
-      if (!id(execution)) throw Error("EXECUTION_UNAVAILABLE");
+      if (!id(execution) || wireBody.length > 1024 * 1024) throw Error("EXECUTION_UNAVAILABLE");
       const value = generationObject(
         await post(
           project,
@@ -143,7 +146,12 @@ export function generationPreparationClient(host: {
             target_key: target,
             slot_index: slot,
             take_key: take,
-            body_sha256: bodyHash,
+            wire_body: wireBody,
+            body_sha256: createHash("sha256").update(wireBody).digest("hex"),
+            sources: sources.map(({ canonicalPath, ...row }) => ({
+              ...row,
+              canonical_path: canonicalPath,
+            })),
           },
           account,
           current,

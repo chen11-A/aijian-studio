@@ -1,5 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import type { GenerationRegistrationInput } from "./film-generation-registration";
 import { generationPreparationClient } from "./generation-preparation-client";
 
 const project = `prj_${"a".repeat(32)}`;
@@ -7,12 +8,32 @@ const execution = "b".repeat(32);
 const session = { origin: "http://127.0.0.1:51001", token: "s".repeat(43) };
 const account = { accountSha256: "c".repeat(64), bearer: "private-current-bearer" };
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+const registration: GenerationRegistrationInput = {
+  key: "first",
+  targets: [
+    {
+      key: "target",
+      versions: 1,
+      first_regenerate: false,
+      body: {
+        scene_label: "雨中等你",
+        narration: "你好。",
+        subtitle: "",
+        provider: "grok_subscription",
+        confirmed: false,
+        shots: [{ narration: "你好。", prompt: "原始画面", duration_seconds: 3 }],
+      },
+      sources: [],
+    },
+  ],
+  stages: [],
+};
 
 describe("private preparation facts client", () => {
   it("attests exact Chinese and empty wire bytes and uses only a fixed local route", async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ execution_id: execution })));
     const client = generationPreparationClient({ session: () => session, fetcher });
-    const input = { key: "first", targets: [{ text: "雨中等你", empty: "" }], stages: [] };
+    const input = registration;
     expect(await client.register(project, input, account, () => true)).toBe(execution);
     const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(`${session.origin}/api/v1/projects/${project}/prepared-generation-executions`);
@@ -40,15 +61,15 @@ describe("private preparation facts client", () => {
   it("does not send after owner retirement or to an untrusted origin/project", async () => {
     const fetcher = vi.fn();
     const client = generationPreparationClient({ session: () => session, fetcher });
-    await expect(client.register(project, {}, account, () => false)).rejects.toThrow(
+    await expect(client.register(project, registration, account, () => false)).rejects.toThrow(
       "EXECUTION_UNAVAILABLE",
     );
-    await expect(client.register("other", {}, account, () => true)).rejects.toThrow();
+    await expect(client.register("other", registration, account, () => true)).rejects.toThrow();
     const external = generationPreparationClient({
       session: () => ({ ...session, origin: "https://remote.example" }),
       fetcher,
     });
-    await expect(external.register(project, {}, account, () => true)).rejects.toThrow();
+    await expect(external.register(project, registration, account, () => true)).rejects.toThrow();
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -70,7 +91,7 @@ describe("private preparation facts client", () => {
       async () =>
         new Response(JSON.stringify({ detail: "ATTEMPT_ALREADY_RESERVED" }), { status: 409 }),
     );
-    await expect(client.register(project, {}, account, () => true)).rejects.toThrow(
+    await expect(client.register(project, registration, account, () => true)).rejects.toThrow(
       "CREATION_ATTEMPT_ALREADY_RESERVED",
     );
     fetcher.mockImplementation(async () => new Response(JSON.stringify({ kind: "RECORDED" })));
@@ -91,7 +112,8 @@ it("pins a private arm with an exact ACK without treating it as transport admiss
       "target",
       2,
       "queued-take",
-      "d".repeat(64),
+      JSON.stringify(registration.targets[0]!.body),
+      [],
       account,
       () => true,
     ),
@@ -104,7 +126,9 @@ it("pins a private arm with an exact ACK without treating it as transport admiss
     target_key: "target",
     slot_index: 2,
     take_key: "queued-take",
-    body_sha256: "d".repeat(64),
+    wire_body: JSON.stringify(registration.targets[0]!.body),
+    body_sha256: sha(JSON.stringify(registration.targets[0]!.body)),
+    sources: [],
   });
   fetcher.mockImplementation(
     async () => new Response(JSON.stringify({ arm_id: "e".repeat(32), admitted: true })),
@@ -116,7 +140,8 @@ it("pins a private arm with an exact ACK without treating it as transport admiss
       "target",
       2,
       "queued-take",
-      "d".repeat(64),
+      JSON.stringify(registration.targets[0]!.body),
+      [],
       account,
       () => true,
     ),

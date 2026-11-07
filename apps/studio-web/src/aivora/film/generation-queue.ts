@@ -107,6 +107,12 @@ export function cancelVideoTask(film: FilmProject, id: string) {
   };
 }
 
+/** Preserve the original queue's regenerate behavior; failed/cancelled takes do
+ * not by themselves turn the first new slot into a regeneration. */
+export function generationHadTakes(shot: FilmShot): boolean {
+  return shot.takes.some((take) => take.status === "done");
+}
+
 export function prepareVideoQueue(
   film: FilmProject,
   targets: FilmShot[],
@@ -159,7 +165,7 @@ export function prepareVideoQueue(
           })),
         ],
       };
-    return { shot, takes, hadTakes: shot.takes.some((take) => take.status === "done") };
+    return { shot, takes, hadTakes: generationHadTakes(shot) };
   });
   return { film: next, groups };
 }
