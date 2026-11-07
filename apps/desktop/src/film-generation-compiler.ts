@@ -28,3 +28,37 @@ export function compileCanonicalGenerationTarget(
     throw Error("UNSUPPORTED_SCOPE");
   return parsed;
 }
+
+/** Native-owned original queue snapshot and first issued appended take. Delegates
+ * the reviewed first-selection transition to the exact renderer request producer. */
+export function compileQueuedCanonicalGenerationTarget(
+  producer: CanonicalGenerationProducer,
+  record: Record<string, unknown>,
+  originalShot: Record<string, unknown>,
+  firstNewTakeId: string,
+): StoryFilmCreateInput {
+  if (
+    typeof originalShot.id !== "string" ||
+    !firstNewTakeId ||
+    firstNewTakeId.length > 160 ||
+    !Array.isArray(record.shots)
+  )
+    throw Error("UNSUPPORTED_SCOPE");
+  const matching = record.shots.filter(
+    (row) =>
+      row !== null && typeof row === "object" && !Array.isArray(row) && row.id === originalShot.id,
+  );
+  if (matching.length !== 1) throw Error("UNSUPPORTED_SCOPE");
+  const body = parseStoryFilmCreate(
+    producer.generationVideoBody(
+      record,
+      matching[0],
+      originalShot,
+      firstNewTakeId,
+      record.draft === true,
+    ),
+  );
+  if (body.provider !== "grok_subscription" || body.shots?.length !== 1)
+    throw Error("UNSUPPORTED_SCOPE");
+  return body;
+}

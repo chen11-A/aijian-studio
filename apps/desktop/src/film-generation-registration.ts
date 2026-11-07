@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
   forecastGenerationReferences,
+  buildGenerationForecastInputs,
+  forecastReferenceInputs,
+  type ForecastReferenceIdentity,
   type GenerationForecastInput,
 } from "./film-generation-forecast";
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
@@ -13,7 +16,7 @@ import type { GenerationImageSources } from "./film-generation-sources";
 import type { StoryFilmCreateInput } from "./story-film-client";
 import { IMAGE_MODEL } from "./film-library";
 
-export type GenerationReferenceIdentity = { sha256: string; mime: string };
+export type GenerationReferenceIdentity = ForecastReferenceIdentity;
 export type GenerationRegistrationInput = {
   key: string;
   targets: {
@@ -72,17 +75,28 @@ export async function buildGenerationRegistration(
   plan: CanonicalGenerationPlan,
   intent: Record<string, unknown>,
   sources: GenerationImageSources,
+  capabilities: { plannedReferences?: boolean } = {},
 ): Promise<GenerationRegistrationInput> {
-  requireCompleteIntent(producer, plan, intent);
+  if (!capabilities.plannedReferences) requireCompleteIntent(producer, plan, intent);
+  const forecast = capabilities.plannedReferences
+    ? forecastGenerationReferences(producer, plan, intent)
+    : undefined;
+  const forecastInputs = forecast
+    ? await buildGenerationForecastInputs(forecast, (source) => sources.capture(source))
+    : undefined;
   const prepared = generationObject(producer.prepareSceneLocations(intent));
   if (!prepared) return fail();
   const targets: GenerationRegistrationInput["targets"] = [];
   for (const target of plan.targets) {
     if (![1, 2, 3].includes(target.videoSlots.length)) return fail();
+    const forecastInput = forecastInputs?.find((row) => row.key === target.key);
+    if (forecastInputs && !forecastInput) return fail();
     const declared = new Map(
-      (await sources.requestSources(target.originalBody)).map((row) => [row.source, row]),
+      (forecastInput?.fixedSources ?? (await sources.requestSources(target.originalBody))).map(
+        (row) => [row.source, row],
+      ),
     );
-    if (target.clientFrame) {
+    if (!forecastInput && target.clientFrame) {
       for (const source of target.clientFrame.references) {
         const value = await sources.capture(source);
         declared.set(source, { source, sha256: value.sha256 });
@@ -97,6 +111,7 @@ export async function buildGenerationRegistration(
         producer.generationHadTakes(target.originalShot),
       body: structuredClone(target.originalBody),
       sources: [...declared.values()],
+      ...(forecastInput?.forecast ? { forecast: forecastInput.forecast } : {}),
       ...(target.clientFrame
         ? {
             client_frame: {
@@ -113,8 +128,13 @@ export async function buildGenerationRegistration(
   for (const stage of plan.stages) {
     const descriptor = stage.public;
     if (descriptor.kind === "continuity-frame") return fail();
-    let references: string[] = [];
-    if (descriptor.kind === "portrait" && descriptor.view !== "正面") {
+    const forecastCreator = forecast?.stages.find(
+      (row) => row.stageId === descriptor.stageId,
+    )?.creator;
+    if (forecast && !forecastCreator) return fail();
+    let references: readonly string[] = [];
+    if (forecastCreator) references = forecastCreator.references;
+    else if (descriptor.kind === "portrait" && descriptor.view !== "正面") {
       const person = generationRows(intent.characters).find(
         (row) => row.id === descriptor.targetId,
       );
@@ -137,17 +157,31 @@ export async function buildGenerationRegistration(
         return fail();
       references = frame.references as string[];
     }
-    const identities: GenerationReferenceIdentity[] = [];
-    for (const source of references) {
-      const value = await sources.capture(source);
-      identities.push({ sha256: value.sha256, mime: value.mime });
-    }
+    const identities: GenerationReferenceIdentity[] = forecast
+      ? await forecastReferenceInputs(forecast, references, (source) => sources.capture(source))
+      : [];
+    if (!forecast)
+      for (const source of references) {
+        const value = await sources.capture(source);
+        identities.push({ sha256: value.sha256, mime: value.mime });
+      }
     stages.push({
       key: descriptor.stageId,
       kind: descriptor.kind,
       target_id: descriptor.targetId,
       ...(descriptor.kind === "portrait" ? { view: descriptor.view } : {}),
-      origin: { ...structuredClone(stage.origin), references: identities },
+      origin: {
+        ...structuredClone(stage.origin),
+        ...(forecastCreator
+          ? {
+              imageModel: forecastCreator.model,
+              prompt: forecastCreator.prompt,
+              aspectRatio: forecastCreator.aspectRatio,
+              referenceMode: "planned-v1",
+            }
+          : {}),
+        references: identities,
+      },
       target_keys: [...stage.dependencies],
     });
   }

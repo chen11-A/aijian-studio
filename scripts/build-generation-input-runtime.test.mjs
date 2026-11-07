@@ -177,6 +177,74 @@ test("actual closed native producer preserves the editor's effective request, vo
       backendProjectId: "prj_bound",
       storySourceOwner: async () => false,
     });
+    const compilerModule = await source.ssrLoadModule(
+      "/apps/desktop/src/film-generation-compiler.ts",
+    );
+    const requestParser = await source.ssrLoadModule("/apps/desktop/src/story-film-client.ts");
+    for (const versions of [1, 3]) {
+      const queuedReview = queue.prepareVideoQueue(clean, [original], versions, false);
+      const firstNewTakeId = queuedReview.groups[0].takes[0].id;
+      await assert.rejects(() =>
+        lineageModule.restoreGenerationIntent(
+          exports,
+          queuedReview.film,
+          [original.id],
+          sources,
+          [],
+        ),
+      );
+      const projectedQueue = await lineageModule.restoreGenerationIntent(
+        exports,
+        queuedReview.film,
+        [original.id],
+        sources,
+        [],
+        { originalShot: original, firstNewTakeId },
+      );
+      assert.deepEqual(
+        json(projectedQueue.shots[0].reviewedVideoPrompt),
+        json(original.reviewedVideoPrompt),
+      );
+      assert.deepEqual(
+        json(
+          compilerModule.compileQueuedCanonicalGenerationTarget(
+            exports,
+            projectedQueue,
+            original,
+            firstNewTakeId,
+          ),
+        ),
+        json(
+          requestParser.parseStoryFilmCreate(
+            exports.generationVideoBody(
+              queuedReview.film,
+              queuedReview.film.shots[0],
+              original,
+              firstNewTakeId,
+              false,
+            ),
+          ),
+        ),
+      );
+      await assert.rejects(() =>
+        lineageModule.restoreGenerationIntent(
+          exports,
+          queuedReview.film,
+          [original.id],
+          sources,
+          [],
+          { originalShot: original, firstNewTakeId: "not-the-issued-first-take" },
+        ),
+      );
+      const changedQueue = json(queuedReview.film);
+      changedQueue.shots[0].picture = "用户在排队后真正改了创作画面。";
+      await assert.rejects(() =>
+        lineageModule.restoreGenerationIntent(exports, changedQueue, [original.id], sources, [], {
+          originalShot: original,
+          firstNewTakeId,
+        }),
+      );
+    }
     const captured = await sources.capture(image);
     const current = json(intent);
     current.shots[0].poster = image;
@@ -341,16 +409,50 @@ test("actual closed native producer preserves the editor's effective request, vo
         ),
       /UNSUPPORTED_SCOPE/,
     );
+    const registrationModule = await source.ssrLoadModule(
+      "/apps/desktop/src/film-generation-registration.ts",
+    );
+    const plannedRegistration = await registrationModule.buildGenerationRegistration(
+      exports,
+      plan,
+      intent,
+      sources,
+      { plannedReferences: true },
+    );
+    assert.ok(plannedRegistration.targets[0].forecast);
+    const plannedRegisteredFrame = plannedRegistration.stages.find(
+      (stage) => stage.kind === "shot-frame",
+    );
+    assert.deepEqual(json(plannedRegisteredFrame.origin.references), json(selectedInputs));
+    assert.equal(plannedRegisteredFrame.origin.prompt, forecastFrame.prompt);
+    const resumedPlan = planModule.compileCanonicalGenerationPlan(
+      exports,
+      withReferences,
+      intent,
+      scope,
+      new Set(),
+    );
+    assert.equal(resumedPlan.stages.length, 0); // Actual outputs are already readable.
+    assert.ok(resumedPlan.intentStages.length > 0); // Their original creator inputs are not forgotten.
+    const resumedRegistration = await registrationModule.buildGenerationRegistration(
+      exports,
+      resumedPlan,
+      intent,
+      sources,
+      { plannedReferences: true },
+    );
+    assert.deepEqual(
+      json(resumedRegistration.targets[0].forecast),
+      json(plannedRegistration.targets[0].forecast),
+    );
+    assert.equal(resumedRegistration.stages.length, 0); // Identity projection does not issue new image work.
     const plannedFrameProof = {
       output_sha256: captured.sha256,
       stage: {
         kind: "shot-frame",
         target_id: frame.public.targetId,
         origin: {
-          ...frame.origin,
-          prompt: forecastFrame.prompt,
-          referenceMode: "planned-v1",
-          references: selectedInputs,
+          ...plannedRegisteredFrame.origin,
         },
       },
     };
@@ -496,9 +598,6 @@ test("actual closed native producer preserves the editor's effective request, vo
     assert.notDeepEqual(
       json(await forecastModule.forecastReferenceInputs(forecast, [locationImage], byteA)),
       json(await forecastModule.forecastReferenceInputs(forecast, [locationImage], byteB)),
-    );
-    const registrationModule = await source.ssrLoadModule(
-      "/apps/desktop/src/film-generation-registration.ts",
     );
     await assert.rejects(
       () => registrationModule.buildGenerationRegistration(exports, plan, intent, sources),
