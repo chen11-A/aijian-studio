@@ -1160,3 +1160,7 @@ Round4最终接口/验门：da555d2/4badc24/ff4548a已提交，QC32门b18194b等
 最新接入：Round3基线663f6c9的CI #693整体Success，Linux127986935695/Windows127986935249与core24全部成功；总控以127ee760 --no-ff合dev，相对已验产品源码一致。QC另推eaff08b，新CI #696 core24/full60成功，其余尚在验；root完整TS最终复跑exit0（2050/4724+媒体17/QC11），renderer分支87.47%，相关Python34/静态门过，QC未混入本次dev源码。dev仅同步当前进度/中文草稿。B13在独立progress继续，GUI取消组件修正后37项，仅组件证明；事件/真实停止仍开发中。
 
 最新140态验收：eaff08b的CI #696/run42257745042 pro-layout job128029322839已全部succeeded（core24/full60/url24/QC32，证据上传成功），完整Linux/Windows质量仍Test。root通过9486b55同步已推dev6d1e082的文档/祖先，冲突仅root三份进度，产品源码未改。B13中立op/project/seq、ACK.snapshot与纯GUI接口已对齐，95a5fb2组件40项由root复跑；明确UNAVAILABLE false解锁、REQUESTED不等于stopped、旧attempt/未知网络不假取消，真实事件/宿主和下一轮浏览器门仍在开发。
+
+# Codex 校正：历史口型标记（2026-11-07）
+
+当前实际卡片/时间线只把旧take.lipSync展示为“口型待核验”，tooltip区分原记录为已完成、待处理或失败；原raw、选版、媒体与失败警示不变。旧4B-U07段落中的绿色已对齐、正在处理、可重试及已有独立配音描述仅保历史设计来源，不能当实际producer或观测验收。真实口型服务和完整试听仍须独立验证，见[核验记录](../../../../../docs/qa/historical-lipsync-marker-truth.md)。
