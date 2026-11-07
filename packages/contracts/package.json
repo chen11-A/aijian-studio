@@ -168,6 +168,10 @@
     "./film-scene-audio-binding": {
       "types": "./src/film-scene-audio-binding.d.ts",
       "default": "./src/film-scene-audio-binding.js"
+    },
+    "./generation-video-recovery": {
+      "types": "./src/generation-video-recovery.ts",
+      "default": "./src/generation-video-recovery.ts"
     }
   },
   "scripts": {
