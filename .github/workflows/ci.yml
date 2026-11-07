@@ -457,3 +457,44 @@ jobs:
 
       - name: Run original speech-window tests with safe failure diagnostics
         run: node scripts/ci-test-diagnostics.mjs --speech-window-test
+
+  pro-dialogue-split:
+    name: pro-dialogue-split (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify dialogue split fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-dialogue-split-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace native dialogue split review and acceptance
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-dialogue-split-audit
+        run: node apps/studio-web/e2e/pro-dialogue-split-audit.mjs
+
+      - name: Upload dialogue split execution UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-dialogue-split-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-dialogue-split-audit/report.json
+            .aijian-dev/pro-dialogue-split-audit/1280x800-*/*.png
+            .aijian-dev/pro-dialogue-split-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7
