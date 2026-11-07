@@ -33,7 +33,7 @@ afterEach(async () => {
   while (running.size) await Promise.allSettled([...running]);
   vi.restoreAllMocks();
 });
-async function open() {
+async function open(fixtureOptions: { ordinarySaveGate?: Promise<void> } = {}) {
   const film = soundFilm(),
     other = {
       ...structuredClone(film),
@@ -72,7 +72,11 @@ async function open() {
     return {
       ...queue,
       save: (...args: Parameters<typeof queue.save>) => {
-        const saved = track(queue.save(...args));
+        const saved = track(
+          fixtureOptions.ordinarySaveGate
+            ? fixtureOptions.ordinarySaveGate.then(() => queue.save(...args))
+            : queue.save(...args),
+        );
         void saved.then(
           (stored) => {
             if (stored?.id === other.id) otherSaved.resolve(stored);
@@ -442,56 +446,65 @@ it("safely rebases the retained original draft with the full group while another
   expect(f.apply).toHaveBeenCalledOnce();
 });
 it("re-reads once for save-time-only CAS drift, without changing creative input or adding any clip", async () => {
-  const f = await open();
-  const before = structuredClone(f.current());
-  const originalSuggest = f.suggest.getMockImplementation()!;
-  f.suggest.mockImplementationOnce(async (input) => {
-    f.disk.set(input.projectId, {
-      ...f.disk.get(input.projectId)!,
-      savedAt: "actual-later-save-time",
-    });
-    return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
-  });
-  const ready = deferred<void>(),
+  const ordinarySaveGate = deferred<void>(),
+    ready = deferred<void>(),
     transport = deferred<void>();
-  f.suggest.mockImplementationOnce(async (input) => {
-    const reply = await originalSuggest(input);
-    expect(reply.kind).toBe("SCENE_SUGGESTED");
-    ready.resolve();
-    await transport.promise;
-    return reply;
-  });
-  // Native CAS has completed; hold only delivery while the existing 400ms
-  // autosave actually writes. Do not advance timers or flush the queue.
-  const displayed = view();
-  await ready.promise;
-  await f.firstOrdinarySave();
-  transport.resolve();
-  await displayed;
-  expect(f.suggest).toHaveBeenCalledTimes(2);
-  expect(f.suggest.mock.calls[0]![0].expectedProjectHash).not.toBe(
-    f.suggest.mock.calls[1]![0].expectedProjectHash,
-  );
-  expect(f.suggestionReads).toHaveLength(1);
-  const accepted = f.suggestionReads[0]!;
-  expect(accepted.input).toEqual(f.suggest.mock.calls[1]![0]);
-  expect(accepted.hash).toBe(await historyRecordHash(accepted.raw));
-  expect(accepted.input.expectedProjectHash).toBe(accepted.hash);
-  expect(f.ordinarySaves()).toBe(1);
-  expect(await historyRecordHash(f.disk.get(f.film.id)!)).not.toBe(accepted.hash);
-  // Later legitimate saves may advance metadata. They cannot change this read receipt or
-  // any creative field; never compare an accepted request hash to a different-time record.
-  const creative = (raw: Record<string, unknown>) =>
-    Object.fromEntries(
-      Object.entries(raw).filter(([key]) => !["savedAt", "directory"].includes(key)),
+  try {
+    const f = await open({ ordinarySaveGate: ordinarySaveGate.promise });
+    const before = structuredClone(f.current());
+    const originalSuggest = f.suggest.getMockImplementation()!;
+    f.suggest.mockImplementationOnce(async (input) => {
+      f.disk.set(input.projectId, {
+        ...f.disk.get(input.projectId)!,
+        savedAt: "actual-later-save-time",
+      });
+      return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+    });
+    f.suggest.mockImplementationOnce(async (input) => {
+      const reply = await originalSuggest(input);
+      expect(reply.kind).toBe("SCENE_SUGGESTED");
+      ready.resolve();
+      await transport.promise;
+      return reply;
+    });
+    // The real 400ms saver may be admitted before or after the read under load.
+    // Gate only its queue admission so this case deterministically tests a later save;
+    // leave the timer, native CAS, actual queue/write and transport distinct.
+    const displayed = view();
+    await ready.promise;
+    expect(f.ordinarySaves()).toBe(0);
+    ordinarySaveGate.resolve();
+    await f.firstOrdinarySave();
+    transport.resolve();
+    await displayed;
+    expect(f.suggest).toHaveBeenCalledTimes(2);
+    expect(f.suggest.mock.calls[0]![0].expectedProjectHash).not.toBe(
+      f.suggest.mock.calls[1]![0].expectedProjectHash,
     );
-  expect(await historyRecordHash(creative(f.disk.get(f.film.id)!))).toBe(
-    await historyRecordHash(creative(accepted.raw)),
-  );
-  expect(f.current().audioClips).toEqual(before.audioClips);
-  expect(f.current().styleZh).toBe(before.styleZh);
-  expect(f.apply).not.toHaveBeenCalled();
-  expect(f.provider).not.toHaveBeenCalled();
+    expect(f.suggestionReads).toHaveLength(1);
+    const accepted = f.suggestionReads[0]!;
+    expect(accepted.input).toEqual(f.suggest.mock.calls[1]![0]);
+    expect(accepted.hash).toBe(await historyRecordHash(accepted.raw));
+    expect(accepted.input.expectedProjectHash).toBe(accepted.hash);
+    expect(f.ordinarySaves()).toBe(1);
+    expect(await historyRecordHash(f.disk.get(f.film.id)!)).not.toBe(accepted.hash);
+    // Later legitimate saves may advance metadata. They cannot change this read receipt or
+    // any creative field; never compare an accepted request hash to a different-time record.
+    const creative = (raw: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(raw).filter(([key]) => !["savedAt", "directory"].includes(key)),
+      );
+    expect(await historyRecordHash(creative(f.disk.get(f.film.id)!))).toBe(
+      await historyRecordHash(creative(accepted.raw)),
+    );
+    expect(f.current().audioClips).toEqual(before.audioClips);
+    expect(f.current().styleZh).toBe(before.styleZh);
+    expect(f.apply).not.toHaveBeenCalled();
+    expect(f.provider).not.toHaveBeenCalled();
+  } finally {
+    ordinarySaveGate.resolve();
+    transport.resolve();
+  }
 });
 it("does not use the metadata retry for a creative CAS change", async () => {
   const f = await open(),
