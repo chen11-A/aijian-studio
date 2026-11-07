@@ -235,7 +235,35 @@ function evidenceLegacyInteractionCopy(row, profile) {
     clock && typeof clock === "object"
       ? ` rangeObserved=${precise(clock.observed)} rangeExpected=${precise(clock.expected)} rangeFirst=${precise(clock.first)} rangeSourceStart=${precise(clock.sourceStart)} rangeSourceDuration=${precise(clock.sourceDuration)} rangeClip=${box(clock.clip)} rangeArea=${box(clock.area)} rangeRuler=${box(clock.ruler)} rangeScroll=${precise(clock.scrollLeft)} rangeLogical=${precise(clock.logicalLeft)},${precise(clock.logicalWidth)} rangeMax=${precise(clock.max)}`
       : "";
-  return reach + drag + range;
+  const trace = row.rangeEvents,
+    kinds = [
+      "pointerdown",
+      "gotpointercapture",
+      "pointermove",
+      "pointerup",
+      "lostpointercapture",
+      "pointercancel",
+      "dragstart",
+      "dragend",
+    ];
+  const count = (value) =>
+    Number.isSafeInteger(value) && value >= 0 && value <= 64 ? value : "unknown";
+  const events =
+    trace && typeof trace === "object"
+      ? ` rangeAttached=${bit(trace.attached)} rangeSelectionCollapsed=${bit(trace.selectionCollapsed)} rangeEventCounts=${kinds.map((kind) => count(trace.counts?.[kind])).join(",")} rangeEvents=${(Array.isArray(
+          trace.events,
+        )
+          ? trace.events
+          : []
+        )
+          .slice(0, 12)
+          .map(
+            (event) =>
+              `${kinds.includes(event?.kind) ? event.kind : "other"}:${Number.isInteger(event?.buttons) && event.buttons >= 0 && event.buttons <= 7 ? event.buttons : "unknown"}:${["ruler", "clip", "track-area", "other"].includes(event?.hit) ? event.hit : "other"}:${precise(event?.x)},${precise(event?.y)},${precise(event?.value)}`,
+          )
+          .join(";")}`
+      : "";
+  return reach + drag + range + events;
 }
 
 function emitGitHubErrors(report, profile) {

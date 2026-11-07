@@ -15,6 +15,7 @@ import {
   seedEvidenceLegacyProject,
   measureEvidenceControl,
   readEvidencePointer,
+  observeEvidenceRangeDrag,
 } from "./pro-evidence-legacy-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
 export const evidenceLegacyStates = [
@@ -498,6 +499,7 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
                 to = { x: clip.x + clip.width * fraction, y: box.y + box.height / 2 };
               await page.mouse.move(from.x, from.y);
               result.dragBefore = await page.evaluate(readEvidencePointer, from);
+              if (comparing) await page.evaluate(observeEvidenceRangeDrag, "start");
               await page.mouse.down();
               await page.mouse.move(clip.x + clip.width * fraction, box.y + box.height / 2, {
                 steps: 6,
@@ -506,6 +508,7 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
               await frame();
               result.dragAfter = await page.evaluate(readEvidencePointer, to);
               if (comparing) {
+                result.rangeEvents = await page.evaluate(observeEvidenceRangeDrag, "read");
                 assert.equal(await page.locator(".preview-player video.frame").count(), 0);
                 assert.equal(
                   await page.getByRole("heading", { name: "对比", exact: true }).count(),

@@ -447,3 +447,76 @@ export function readEvidencePointer({ x, y }) {
     y,
   };
 }
+
+/** Observe this drag's original track element only; never changes event defaults or selection. */
+export function observeEvidenceRangeDrag(command) {
+  if (command === "read") {
+    const value = window.__evidenceRangeDrag?.read() ?? null;
+    window.__evidenceRangeDrag?.close();
+    return value;
+  }
+  window.__evidenceRangeDrag?.close();
+  const area = window.document.querySelector(".track-area");
+  if (!area || command !== "start") return null;
+  const kinds = [
+    "pointerdown",
+    "gotpointercapture",
+    "pointermove",
+    "pointerup",
+    "lostpointercapture",
+    "pointercancel",
+    "dragstart",
+    "dragend",
+  ];
+  const events = [],
+    counts = Object.fromEntries(kinds.map((kind) => [kind, 0]));
+  const number = (value) =>
+    typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 200000 ? value : null;
+  let started = false,
+    closed = false;
+  const listeners = kinds.map((kind) => {
+    const listener = (event) => {
+      if (kind === "pointerdown") started = true;
+      if (!started || (kind === "pointermove" && event.buttons === 0)) return;
+      counts[kind]++;
+      if (events.length >= 12) return;
+      events.push({
+        kind,
+        buttons:
+          Number.isInteger(event.buttons) && event.buttons >= 0 && event.buttons <= 7
+            ? event.buttons
+            : null,
+        hit: event.target?.closest?.(".ruler")
+          ? "ruler"
+          : event.target?.closest?.(".clip.v")
+            ? "clip"
+            : event.target?.closest?.(".track-area")
+              ? "track-area"
+              : "other",
+        x: number(event.clientX),
+        y: number(event.clientY),
+        value: number(
+          Number(
+            window.document.querySelector('.ruler[role="slider"]')?.getAttribute("aria-valuenow"),
+          ),
+        ),
+      });
+    };
+    area.addEventListener(kind, listener, true);
+    return [kind, listener];
+  });
+  window.__evidenceRangeDrag = {
+    close: () => {
+      if (closed) return;
+      closed = true;
+      for (const [kind, listener] of listeners) area.removeEventListener(kind, listener, true);
+    },
+    read: () => ({
+      attached: area.isConnected === true,
+      selectionCollapsed: window.getSelection()?.isCollapsed ?? null,
+      counts: { ...counts },
+      events: events.map((event) => ({ ...event })),
+    }),
+  };
+  return null;
+}
