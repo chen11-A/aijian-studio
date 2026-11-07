@@ -3,10 +3,14 @@
 import hashlib
 import io
 import json
+import math
 import struct
+import sys
 import wave
+from array import array
 from pathlib import Path
 
+import aijian_api.story_film as story_film_module
 import pytest
 from aijian_api.story_film import (
     StoryFilmError,
@@ -366,6 +370,34 @@ def test_empty_spoken_text_has_no_synthetic_window_or_policy(
             XaiHttpResponse(200, original, "video/mp4"),
         ]
     )
+    stages = []
+    original_silence = story_film_module._silent_wav
+    original_ffmpeg = story_film_module._ffmpeg
+
+    def traced_silence(*args, **kwargs):
+        data = original_silence(*args, **kwargs)
+        info = _empty_speech_pcm(io.BytesIO(data))
+        if info is not None:
+            stages.append({"stage": "silent", **info})
+        return data
+
+    def traced_ffmpeg(binary, args, **kwargs):
+        result = original_ffmpeg(binary, args, **kwargs)
+        if kwargs.get("stage") == "normalize_voice" and "-af" in args:
+            audio_filter = args[args.index("-af") + 1]
+            if audio_filter.startswith("loudnorm="):
+                phase = "loudnorm"
+            elif audio_filter.startswith("apad=whole_dur="):
+                phase = "fit"
+            else:
+                return result
+            info = _empty_speech_pcm(str(args[-1]))
+            if info is not None and len(stages) < 16:
+                stages.append({"stage": phase, **info})
+        return result
+
+    monkeypatch.setattr(story_film_module, "_silent_wav", traced_silence)
+    monkeypatch.setattr(story_film_module, "_ffmpeg", traced_ffmpeg)
     service = StoryFilmService(repository, toolchain, transport=transport)
     service._sleep = lambda _: None
     request = _request(provider="grok_subscription", narration="", subtitle="")
@@ -392,7 +424,13 @@ def test_empty_spoken_text_has_no_synthetic_window_or_policy(
     manifest = repository.get_artifact_version(project, "story_film", result.artifact_version_id)
     assert "speech_window" not in manifest.version.content
     assert len(transport.requests) == 3
-    assert not any(samples(Path(result.voice_path))[2])
+    voice_bytes = samples(Path(result.voice_path))[2]
+    if any(voice_bytes):
+        final = _empty_speech_pcm(str(result.voice_path))
+        if final is not None:
+            stages.append({"stage": "final", **final})
+            _report_empty_speech_pcm(stages, referenced_shot)
+    assert not any(voice_bytes)
     if referenced_shot:
         assert _video_frames(toolchain().ffprobe_path, Path(result.output_path)) <= 10 * 24
         assert (tmp_path / "provider.mp4").read_bytes() == original
@@ -522,3 +560,62 @@ def test_actual_long_provider_response_respects_effective_cap_in_production(
     assert not any(data[round((cap - 0.6) * rate) * width :])
     assert (tmp_path / "long-provider.mp4").read_bytes() == original
     assert any(p.read_bytes() == original for p in (tmp_path / "story-films").glob("*-clip.mp4"))
+
+
+def _empty_speech_pcm(source):
+    """Closed test-only numbers, never a path, PCM dump or exception string."""
+    try:
+        with wave.open(source, "rb") as audio:
+            rate, channels, width = (
+                audio.getframerate(),
+                audio.getnchannels(),
+                audio.getsampwidth(),
+            )
+            if rate not in (16000, 48000) or channels not in (1, 2) or width != 2:
+                return None
+            count = nonzero = peak = squares = 0
+            while data := audio.readframes(4096):
+                values = array("h", data)
+                # Both current supported hosts are little endian; keep the format explicit.
+                if sys.byteorder != "little":
+                    values.byteswap()
+                count += len(values)
+                if count > 2_000_000:
+                    return None
+                nonzero += sum(value != 0 for value in values)
+                peak = max(peak, max(map(abs, values), default=0))
+                squares += sum(value * value for value in values)
+            if count == 0:
+                return None
+            return {
+                "rate": rate,
+                "channels": channels,
+                "width": width,
+                "samples": count,
+                "nonzero": nonzero,
+                "peakAbs": peak,
+                "rms": round(math.sqrt(squares / count), 6),
+            }
+    except (OSError, wave.Error, ValueError, OverflowError, EOFError, TypeError):
+        return None
+
+
+def _report_empty_speech_pcm(stages, referenced):
+    first = next((index for index, row in enumerate(stages) if row["nonzero"] > 0), None)
+    final = len(stages) - 1
+    silent = next((index for index, row in enumerate(stages) if row["stage"] == "silent"), None)
+    indices = [index for index in (first, final, silent) if index is not None]
+    for index in dict.fromkeys(indices):
+        print(
+            "CI_EMPTY_SPEECH_PCM "
+            + json.dumps(
+                {
+                    "schema": 1,
+                    "referenced": bool(referenced),
+                    "ordinal": index + 1,
+                    **stages[index],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )

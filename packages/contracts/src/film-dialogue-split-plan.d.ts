@@ -78,3 +78,12 @@ export function dialogueEvidenceContext(
   shotId: string,
   takeId: string,
 ): Record<string, unknown> | null;
+/** Pure expected-record projection, never permission to write or restore. */
+export function projectDialogueSplitRecord(
+  record: Record<string, unknown>,
+  shotId: string,
+  plan: Extract<DialogueSplitPlan, { kind: "READY" }>,
+  reviewFingerprint: string,
+  historyId: string,
+  childIds: readonly string[],
+): Record<string, unknown> | null;

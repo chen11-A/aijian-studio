@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -11,6 +11,9 @@ import {
   escapeData,
   escapeProperty,
   failureSummary,
+  pytestSourceLocation,
+  pytestFailureLocation,
+  emptySpeechPcmSummary,
   pnpmInvocation,
   runTestDiagnostics,
 } from "./ci-test-diagnostics.mjs";
@@ -327,4 +330,313 @@ test("real failing child preserves streams/status while runtime annotations omit
   assert.equal(annotations.length, 4);
   assert(annotations.every((line) => line.includes("exit 29")));
   assert.doesNotMatch(annotations.join("\n"), /PRIVATE_VALUE|private|D:|token=|ERR_PRIVATE/);
+});
+
+test("pytest node metadata uses a real repository declaration and excludes parameters and exception values", async () => {
+  const file = "services/api/tests/test_story_speech_window.py",
+    name = "test_padding_preserves_every_body_sample_and_original_bytes";
+  const summary = failureSummary();
+  summary.line(
+    `FAILED ${file.replaceAll("/", "\\")}::${name}[PRIVATE_PARAMETER] - AssertionError: PRIVATE_EXCEPTION /private/user`,
+  );
+  const declaredLine = pytestSourceLocation(file, name);
+  assert.equal(typeof declaredLine, "number");
+  const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
+  assert(source.split(/\r?\n/u)[declaredLine - 1].startsWith(`def ${name}(`));
+  assert.deepEqual(summary.entries(), [
+    { phase: "Python", message: `Failure location: ${file}` },
+    { phase: "Python", message: `Failure test: ${file}::${name}:${declaredLine}` },
+  ]);
+  assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE|AssertionError|private\/user/);
+});
+
+test("pytest declaration whitelist rejects forged names, nested methods, traversal, oversized source and directory aliases escaping the checkout", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pytest-safe-locator-"));
+  try {
+    const tests = join(directory, "services/api/tests");
+    await mkdir(tests, { recursive: true });
+    const file = "services/api/tests/test_fixture.py";
+    await writeFile(
+      join(directory, file),
+      "def test_real():\n    pass\n\nasync def test_async():\n    pass\n\nclass TestPrivate:\n    def test_nested(self):\n        pass\n",
+    );
+    assert.equal(pytestSourceLocation(file, "test_real", directory), 1);
+    assert.equal(pytestSourceLocation(file, "test_async", directory), 4);
+    for (const name of [
+      "test_forged",
+      "test_nested",
+      "test_real[PRIVATE]",
+      "not_test",
+      "test_" + "x".repeat(160),
+    ])
+      assert.equal(pytestSourceLocation(file, name, directory), null);
+    for (const unsafe of [
+      "services/api/tests/../test_fixture.py",
+      "/services/api/tests/test_fixture.py",
+      "private/test_fixture.py",
+    ])
+      assert.equal(pytestSourceLocation(unsafe, "test_real", directory), null);
+    await writeFile(join(tests, "test_large.py"), "def test_real():\n" + "#".repeat(1024 * 1024));
+    assert.equal(
+      pytestSourceLocation("services/api/tests/test_large.py", "test_real", directory),
+      null,
+    );
+    const aliasRoot = join(directory, "alias-root"),
+      outside = join(directory, "outside");
+    await mkdir(join(aliasRoot, "services/api"), { recursive: true });
+    await mkdir(outside);
+    await writeFile(join(outside, "test_escape.py"), "def test_private():\n    pass\n");
+    await symlink(
+      outside,
+      join(aliasRoot, "services/api/tests"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(
+      pytestSourceLocation("services/api/tests/test_escape.py", "test_private", aliasRoot),
+      null,
+    );
+    const summary = failureSummary("Python", directory);
+    summary.line(`FAILED ${file}::test_forged[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION`);
+    summary.line(`FAILED ${file}::TestPrivate::test_nested - PRIVATE_EXCEPTION`);
+    assert.deepEqual(summary.entries(), [
+      { phase: "Python", message: `Failure location: ${file}` },
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("pytest node metadata preserves the original six-entry bound", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pytest-bounded-locator-"));
+  try {
+    await mkdir(join(directory, "services/api/tests"), { recursive: true });
+    const file = "services/api/tests/test_fixture.py";
+    await writeFile(
+      join(directory, file),
+      Array.from({ length: 20 }, (_, index) => `def test_item_${index}():\n    pass`).join("\n"),
+    );
+    const summary = failureSummary("Python", directory);
+    for (let index = 0; index < 20; index++)
+      summary.line(`FAILED ${file}::test_item_${index}[PRIVATE] - PRIVATE`);
+    assert.equal(summary.entries().length, 6);
+    assert.equal(
+      summary.entries().filter((entry) => entry.message.startsWith("Failure test:")).length,
+      5,
+    );
+    assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("real pytest-shaped child keeps stdout, stderr and failure status while annotations show only verified node metadata", async () => {
+  const stdout = output(),
+    stderr = output();
+  const raw =
+    "FAILED services/api/tests/test_story_speech_window.py::test_padding_preserves_every_body_sample_and_original_bytes[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION\n";
+  const status = await runTestDiagnostics({
+    command: process.execPath,
+    args: [
+      "-e",
+      `process.stdout.write(${JSON.stringify(raw)});process.stderr.write('original stderr\\n');process.exitCode=17;`,
+    ],
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+  assert.equal(status, 17);
+  assert.equal(stderr.text(), "original stderr\n");
+  assert(stdout.text().startsWith(raw));
+  const annotations = stdout
+    .text()
+    .split("\n")
+    .filter((line) => line.startsWith("::error"));
+  assert.equal(annotations.length, 2);
+  assert(annotations.every((line) => line.includes("exit 17")));
+  assert.match(
+    annotations.join("\n"),
+    /::test_padding_preserves_every_body_sample_and_original_bytes/,
+  );
+  assert.doesNotMatch(annotations.join("\n"), /PRIVATE|AssertionError|private\//);
+});
+
+test("fixed speech-window CLI uses the original pytest vector without pnpm, and preserves real child success/failure status", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "speech cli hook-"));
+  try {
+    const hook = join(directory, "spawn-hook.cjs"),
+      record = join(directory, "invocation.json");
+    const line =
+      "FAILED services/api/tests/test_story_speech_window.py::test_padding_preserves_every_body_sample_and_original_bytes[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION\n";
+    const script = fileURLToPath(new URL("./ci-test-diagnostics.mjs", import.meta.url));
+    for (const status of [0, 23]) {
+      const child = `process.stdout.write(${JSON.stringify(line)});process.stderr.write('original stderr\\n');process.exitCode=${status};`;
+      await writeFile(
+        hook,
+        `const fs=require('node:fs'),cp=require('node:child_process');const original=cp.spawn;cp.spawn=(command,args,options)=>{fs.writeFileSync(${JSON.stringify(record)},JSON.stringify({command,args,shell:options.shell}));return original(process.execPath,['-e',${JSON.stringify(child)}],options);};require('node:module').syncBuiltinESMExports();`,
+      );
+      const result = spawnSync(
+        process.execPath,
+        ["--require", hook, script, "--speech-window-test"],
+        { encoding: "utf8", shell: false, env: { ...process.env, npm_execpath: "" } },
+      );
+      assert.equal(result.status, status);
+      assert.equal(result.stderr, "original stderr\n");
+      assert(result.stdout.startsWith(line));
+      assert.deepEqual(JSON.parse(await readFile(record, "utf8")), {
+        command: "uv",
+        args: ["run", "pytest", "services/api/tests/test_story_speech_window.py"],
+        shell: false,
+      });
+      const annotations = result.stdout.split("\n").filter((value) => value.startsWith("::error"));
+      assert.equal(annotations.length, status === 0 ? 0 : 2);
+      assert(annotations.every((value) => value.includes(`exit ${status}`)));
+      assert.doesNotMatch(annotations.join("\n"), /PRIVATE|AssertionError/);
+    }
+    await rm(record);
+    const rejected = spawnSync(
+      process.execPath,
+      ["--require", hook, script, "--speech-window-test", "PRIVATE_PATH.py"],
+      { encoding: "utf8", shell: false },
+    );
+    assert.equal(rejected.status, 1);
+    await assert.rejects(readFile(record, "utf8"), { code: "ENOENT" });
+    assert.doesNotMatch(rejected.stdout + rejected.stderr, /PRIVATE_PATH/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("pytest failure sections expose the verified actual failure frame separately from a test definition without error values", async () => {
+  const file = "services/api/tests/test_story_speech_window.py",
+    name = "test_empty_spoken_text_has_no_synthetic_window_or_policy";
+  const source = (await readFile(new URL(`../${file}`, import.meta.url), "utf8")).split(/\r?\n/u);
+  const definition = pytestSourceLocation(file, name),
+    actual =
+      source.findIndex(
+        (line, index) =>
+          index >= definition &&
+          line.includes('assert result.status == "SUCCEEDED", result.message'),
+      ) + 1;
+  assert(actual > definition);
+  assert.equal(pytestFailureLocation(file, actual), actual);
+  const summary = failureSummary();
+  summary.line(`${file}:${actual}: AssertionError: PRIVATE_OUTSIDE_SECTION`);
+  assert.deepEqual(summary.entries(), []);
+  summary.line("====================== FAILURES ======================");
+  summary.line(`${file.replaceAll("/", "\\")}:${actual}: AssertionError: PRIVATE_EXCEPTION_VALUE`);
+  summary.line("E PRIVATE_ASSERTION_VALUE");
+  summary.line("================ short test summary info ================");
+  summary.line(`${file}:${actual + 1}: RuntimeError: PRIVATE_OUTSIDE_SECTION`);
+  summary.line(`FAILED ${file}::${name}[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION_VALUE`);
+  assert.deepEqual(summary.entries(), [
+    { phase: "Python", message: `Pytest failure frame: ${file}:${actual} (AssertionError).` },
+    { phase: "Python", message: `Failure location: ${file}` },
+    { phase: "Python", message: `Failure test: ${file}::${name}:${definition}` },
+  ]);
+  assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE|E PRIVATE/);
+});
+
+test("pytest actual frame metadata rejects unverified files, out-of-source positions, open exception names and non-frame prose", () => {
+  const file = "services/api/tests/test_story_speech_window.py",
+    summary = failureSummary();
+  summary.line("================ FAILURES ================");
+  for (const row of [
+    `${file}:99999999: AssertionError: PRIVATE`,
+    `${file}:0: AssertionError`,
+    `${file}:-1: AssertionError`,
+    `${file}:391: PrivateError: PRIVATE`,
+    "services/api/tests/../test_private.py:1: AssertionError",
+    "services/api/tests/test_missing_private.py:1: AssertionError",
+    `Error in ${file}:391: AssertionError`,
+  ])
+    summary.line(row);
+  assert.deepEqual(summary.entries(), []);
+  assert.equal(pytestFailureLocation(file, 99999999), null);
+});
+
+test("closed PCM diagnostics show only bounded physical numbers inside pytest failure sections", () => {
+  const value = {
+    schema: 1,
+    referenced: true,
+    stage: "loudnorm",
+    ordinal: 2,
+    rate: 48000,
+    channels: 2,
+    width: 2,
+    samples: 9600,
+    nonzero: 24,
+    peakAbs: 1,
+    rms: 0.05,
+  };
+  const raw = "CI_EMPTY_SPEECH_PCM " + JSON.stringify(value),
+    expected =
+      "Empty speech PCM: referenced=true; stage=loudnorm#2; rate=48000; channels=2; width=2; samples=9600; nonzero=24; peakAbs=1; RMS=0.050000.";
+  assert.equal(emptySpeechPcmSummary(raw), expected);
+  const summary = failureSummary();
+  summary.line(raw);
+  assert.deepEqual(summary.entries(), []);
+  summary.line("================ FAILURES ================");
+  summary.line(raw);
+  assert.deepEqual(summary.entries(), [{ phase: "Python", message: expected }]);
+  const zero = {
+    ...value,
+    stage: "silent",
+    rate: 16000,
+    channels: 1,
+    samples: 3200,
+    nonzero: 0,
+    peakAbs: 0,
+    rms: 0,
+  };
+  assert.match(
+    emptySpeechPcmSummary("CI_EMPTY_SPEECH_PCM " + JSON.stringify(zero)),
+    /nonzero=0; peakAbs=0; RMS=0.000000/,
+  );
+});
+
+test("PCM diagnostic whitelist rejects secrets, arbitrary text, non-finite or physically invalid numbers and unknown formats", () => {
+  const valid = {
+    schema: 1,
+    referenced: false,
+    stage: "final",
+    ordinal: 4,
+    rate: 48000,
+    channels: 2,
+    width: 2,
+    samples: 9600,
+    nonzero: 24,
+    peakAbs: 1,
+    rms: 0.05,
+  };
+  for (const invalid of [
+    { ...valid, path: "PRIVATE_PATH" },
+    { ...valid, stage: "PRIVATE_STAGE" },
+    { ...valid, referenced: "PRIVATE_PARAMETER" },
+    { ...valid, schema: 2 },
+    { ...valid, ordinal: 17 },
+    { ...valid, rate: 44100 },
+    { ...valid, channels: 8 },
+    { ...valid, width: 4 },
+    { ...valid, samples: 2000002 },
+    { ...valid, samples: 1 },
+    { ...valid, nonzero: 9601 },
+    { ...valid, nonzero: -1 },
+    { ...valid, peakAbs: 32769 },
+    { ...valid, rms: 2 },
+    { ...valid, nonzero: 0 },
+    { ...valid, rms: 0 },
+    { ...valid, samples: "9600" },
+  ])
+    assert.equal(emptySpeechPcmSummary("CI_EMPTY_SPEECH_PCM " + JSON.stringify(invalid)), null);
+  for (const raw of [
+    "CI_EMPTY_SPEECH_PCM " + JSON.stringify(valid).replace('"rms":0.05', '"rms":NaN'),
+    "CI_EMPTY_SPEECH_PCM " + JSON.stringify(valid).replace('"rms":0.05', '"rms":Infinity'),
+    "PRIVATE arbitrary text",
+    "CI_EMPTY_SPEECH_PCM " + "x".repeat(3000),
+    'CI_EMPTY_SPEECH_PCM {"path":"PRIVATE_PATH"}',
+  ])
+    assert.equal(emptySpeechPcmSummary(raw), null);
+  const summary = failureSummary();
+  summary.line("================ FAILURES ================");
+  summary.line('CI_EMPTY_SPEECH_PCM {"path":"PRIVATE_PATH"}');
+  assert.deepEqual(summary.entries(), []);
 });

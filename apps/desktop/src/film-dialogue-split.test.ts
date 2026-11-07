@@ -6,6 +6,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile, readFile, rm, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { projectDialogueSplitRecord } from "@aijian/contracts/film-dialogue-split-plan";
+import { randomUUID } from "node:crypto";
 import { createFilmDialogueSplits } from "./film-dialogue-split";
 import { createFilmHistory, filmHistoryRecordHash } from "./film-history";
 import { writeProject, readProject, type FilmRecord } from "./film-library";
@@ -424,4 +426,137 @@ it("uses fresh raw CAS after an unchanged save while keeping the main-reviewed s
   expect(await f.api.apply({ ...fresh, reviewFingerprint: ready.reviewFingerprint })).toMatchObject(
     { kind: "APPLIED" },
   );
+});
+it("verifies the actual checksummed split backup against complete original hash without restoring or writing", async () => {
+  const f = await fixture(),
+    ready = await prepared(f),
+    result = await f.api.apply({ ...f.input, reviewFingerprint: ready.reviewFingerprint });
+  expect(result.kind).toBe("APPLIED");
+  if (result.kind !== "APPLIED") throw Error("not applied");
+  const bytes = await readFile(f.file),
+    proof = { projectId: f.id, historyId: result.backup.id, beforeHash: f.input.expectedHash };
+  expect(await f.api.verifyBackup(proof)).toEqual({
+    kind: "VERIFIED",
+    ...proof,
+    entry: result.backup,
+  });
+  expect(await readFile(f.file)).toEqual(bytes);
+  expect(await f.api.verifyBackup({ ...proof, beforeHash: "0".repeat(64) })).toMatchObject({
+    kind: "FAILED",
+    code: "BACKUP_FAILED",
+  });
+  expect(await f.api.verifyBackup({ ...proof, historyId: "hst_" + "0".repeat(32) })).toMatchObject({
+    kind: "FAILED",
+    code: "BACKUP_FAILED",
+  });
+  expect(await f.api.verifyBackup({ ...proof, projectId: "film_cccccccccccccccc" })).toMatchObject({
+    kind: "FAILED",
+    code: "BACKUP_FAILED",
+  });
+  expect(await f.api.verifyBackup({ ...proof, path: "forged" })).toMatchObject({
+    kind: "FAILED",
+    code: "INVALID_INPUT",
+  });
+  expect(await readFile(f.file)).toEqual(bytes);
+});
+it("never trusts matching history labels or summary when the snapshot bytes/checksum or original content differ", async () => {
+  const f = await fixture(),
+    ready = await prepared(f),
+    result = await f.api.apply({ ...f.input, reviewFingerprint: ready.reviewFingerprint });
+  if (result.kind !== "APPLIED") throw Error("not applied");
+  const path = join(f.episode, "history", result.backup.id + ".json"),
+    stored = JSON.parse(await readFile(path, "utf8")),
+    proof = { projectId: f.id, historyId: result.backup.id, beforeHash: f.input.expectedHash };
+  stored.snapshot.sourceText = "tampered creative body";
+  await writeFile(path, JSON.stringify(stored));
+  expect(await f.api.verifyBackup(proof)).toMatchObject({ kind: "FAILED", code: "BACKUP_FAILED" });
+  const body = { ...stored };
+  delete body.checksum;
+  stored.checksum = filmHistoryRecordHash(body);
+  await writeFile(path, JSON.stringify(stored));
+  expect(await f.api.verifyBackup(proof)).toMatchObject({ kind: "FAILED", code: "BACKUP_FAILED" });
+});
+it("backup verification remains BUSY until the original native write/readback lifecycle actually settles", async () => {
+  const f = await fixture(),
+    ready = await prepared(f);
+  let release!: () => void, entered!: () => void;
+  fault.mode = "pending";
+  fault.hold = new Promise<void>((r) => (release = r));
+  const admission = new Promise<void>((r) => (entered = r));
+  fault.entered = entered;
+  const pending = f.api.apply({ ...f.input, reviewFingerprint: ready.reviewFingerprint });
+  await admission;
+  const entries = await readdir(join(f.episode, "history")),
+    historyId = entries[0]!.replace(/\.json$/u, "");
+  expect(
+    await f.api.verifyBackup({ projectId: f.id, historyId, beforeHash: f.input.expectedHash }),
+  ).toMatchObject({ kind: "FAILED", code: "BUSY" });
+  release();
+  const result = await pending;
+  expect(result.kind).toBe("APPLIED");
+  expect(
+    await f.api.verifyBackup({ projectId: f.id, historyId, beforeHash: f.input.expectedHash }),
+  ).toMatchObject({ kind: "VERIFIED" });
+});
+it("shared structural projection rejects old shot/take/clip identities and duplicate new children without mutating the original", async () => {
+  const f = await fixture(),
+    ready = await prepared(f),
+    original = structuredClone(f.record),
+    historyId = "hst_" + "f".repeat(32),
+    ids = ready.plan.parts.map(() => randomUUID());
+  expect(
+    projectDialogueSplitRecord(
+      f.record,
+      "source",
+      ready.plan,
+      ready.reviewFingerprint,
+      historyId,
+      ids,
+    ),
+  ).not.toBeNull();
+  for (const old of ["source", "take", "old-voice"]) {
+    expect(
+      projectDialogueSplitRecord(
+        f.record,
+        "source",
+        ready.plan,
+        ready.reviewFingerprint,
+        historyId,
+        [old, ...ids.slice(1)],
+      ),
+    ).toBeNull();
+  }
+  expect(
+    projectDialogueSplitRecord(
+      f.record,
+      "source",
+      ready.plan,
+      ready.reviewFingerprint,
+      historyId,
+      ids.map(() => ids[0]!),
+    ),
+  ).toBeNull();
+  expect(f.record).toEqual(original);
+});
+it("valid checksum and original hash still do not grant a differently labelled or cross-series history entry as split backup", async () => {
+  const f = await fixture(),
+    ready = await prepared(f),
+    result = await f.api.apply({ ...f.input, reviewFingerprint: ready.reviewFingerprint });
+  if (result.kind !== "APPLIED") throw Error("not applied");
+  const path = join(f.episode, "history", result.backup.id + ".json"),
+    original = JSON.parse(await readFile(path, "utf8")),
+    proof = { projectId: f.id, historyId: result.backup.id, beforeHash: f.input.expectedHash };
+  for (const kind of ["reason", "series"]) {
+    const changed = structuredClone(original);
+    if (kind === "reason") changed.entry.reason = "manual";
+    else changed.seriesId = "film_cccccccccccccccc";
+    const body = { ...changed };
+    delete body.checksum;
+    changed.checksum = filmHistoryRecordHash(body);
+    await writeFile(path, JSON.stringify(changed));
+    expect(await f.api.verifyBackup(proof)).toMatchObject({
+      kind: "FAILED",
+      code: "BACKUP_FAILED",
+    });
+  }
 });

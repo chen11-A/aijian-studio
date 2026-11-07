@@ -3,7 +3,7 @@ import type { FilmProject } from "../film/project";
 
 type Guard = () => boolean;
 export type FilmSaveLease = {
-  save: (film: FilmProject, guard: Guard) => Promise<void>;
+  save: (film: FilmProject, guard: Guard) => Promise<FilmProject | void>;
   release: () => Promise<void>;
   beginExternalWrite?: (guard: Guard) => void;
   markExternalWriteUnknown?: (canonical?: FilmProject) => void;
@@ -230,6 +230,7 @@ export function createFilmPersistence(host: {
           throw new Error("PIPELINE_INPUT_CHANGED");
         const stored = await enqueue(film, guard, owner);
         if (!stored) throw new Error("PIPELINE_INPUT_CHANGED");
+        return stored;
       },
       beginExternalWrite: (guard) => {
         const before = host.current();
