@@ -1,0 +1,30 @@
+.pro-root .dialog.generation-video-recovery {
+  width: 700px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  min-width: 0;
+}
+.pro-root .generation-video-recovery p,
+.pro-root .generation-video-recovery dd {
+  overflow-wrap: anywhere;
+}
+.pro-root .generation-video-recovery .recovery-list {
+  padding-left: 24px;
+}
+.pro-root .generation-video-recovery li {
+  padding-block: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.pro-root .generation-video-recovery dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+}
+.pro-root .generation-video-recovery dd {
+  margin: 0;
+}
+.pro-root .generation-video-recovery .acts {
+  position: static;
+  flex-wrap: wrap;
+}

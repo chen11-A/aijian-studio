@@ -20,6 +20,7 @@ import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useDialogueSplit } from "./use-dialogue-split";
 import { useRiskTrialReview } from "./use-risk-trial-review";
 import { useGenerationFailurePolicy } from "./use-generation-failure-policy";
+import { useGenerationVideoRecovery } from "./use-generation-video-recovery";
 import {
   captureAssistantReferences,
   assistantReferencesCurrent,
@@ -1052,6 +1053,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     },
   });
   const generationFailurePolicy = useGenerationFailurePolicy(film, () => filmRef.current);
+  const generationVideoRecovery = useGenerationVideoRecovery(film, () => filmRef.current, account);
   const audioLibrary = useBundledAudioLibrary(film, stage === "edit", audioLibraryHost);
   const shotAudioSuggestions = useShotAudioSuggestions(
     film,
@@ -6857,6 +6859,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         )}
         {riskTrialReview.view}
         {generationFailurePolicy.view}
+        {generationVideoRecovery.view}
         {pendingBatch && (
           <div className="dialog-back">
             <div
@@ -7233,6 +7236,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   设置视频提交失败上限
+                </button>
+              </section>
+              <section className="ws-sec" aria-label="找回原视频素材">
+                <h3>找回原视频素材</h3>
+                <p className="role-desc">
+                  手动核对原任务并另存原始素材，不替换当前镜头或重新生成。
+                </p>
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    setWorkSettings(false);
+                    generationVideoRecovery.open();
+                  }}
+                >
+                  查看可核对的视频记录
                 </button>
               </section>
               <section className="ws-sec" aria-label="历史版本">
