@@ -455,3 +455,37 @@ it("exposes save failure before native preparation and preserves the actual draf
   expect(f.prepare).toHaveBeenCalledTimes(1);
   expect(f.provider).not.toHaveBeenCalled();
 });
+it.each(["videoPath", "cleanVideoPath"] as const)(
+  "retires the displayed Blob and old form when the same selected take changes %s",
+  async (field) => {
+    const f = await open(),
+      dialog = await f.review(),
+      before = f.host.current()!;
+    fireEvent.click(within(dialog).getByRole("radio", { name: "接受这个实际版本" }));
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(within(dialog).getByRole("button", { name: "保存本次人工决定" })).toBeEnabled();
+    await act(async () =>
+      f.host.applyLive({
+        ...before,
+        shots: before.shots.map((shot) =>
+          shot.id === before.shots[0]!.id
+            ? {
+                ...shot,
+                takes: shot.takes.map((take) =>
+                  take.id === "actual-take" ? { ...take, [field]: `${f.video}.changed.mp4` } : take,
+                ),
+              }
+            : shot,
+        ),
+      }),
+    );
+    await within(dialog).findByText("创作输入或选版已变化，请重新核对实际试片。");
+    expect(dialog.querySelector("video")).toBeNull();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:controlled-actual-trial");
+    expect(within(dialog).queryByRole("button", { name: "保存本次人工决定" })).toBeNull();
+    expect(f.record).not.toHaveBeenCalled();
+    expect(f.check).not.toHaveBeenCalled();
+    expect(f.provider).not.toHaveBeenCalled();
+    expect(f.prepare).toHaveBeenCalledTimes(1);
+  },
+);

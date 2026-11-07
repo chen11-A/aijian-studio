@@ -502,3 +502,37 @@ it("keeps a confirmed native record separate from a failed save of later edits d
   expect((await f.persistence.flushAll()).status).toBe("failed");
   expect(f.record).toHaveBeenCalledTimes(1);
 });
+
+it("binds only the selected trial's source/version identity, preserves metadata-only saves and independent target outputs", () => {
+  const f = fixture(),
+    before = f.current(),
+    key = actualTrialInputKey(before, f.scope);
+  for (const [field, value] of [
+    ["videoPath", "/private/replaced.mp4"],
+    ["cleanVideoPath", "/private/clean.mp4"],
+    ["index", 8],
+    ["prompt", "new version prompt"],
+    ["createdAt", "2026-11-07T02:00:00Z"],
+  ] as const) {
+    const film = copy(before);
+    Object.assign(film.shots[0]!.takes[0]!, { [field]: value });
+    expect(actualTrialInputKey(film, f.scope)).not.toBe(key);
+  }
+  const independent = copy(before);
+  independent.shots[1]!.takes = [
+    {
+      ...copy(before.shots[0]!.takes[0]!),
+      id: "independent-output",
+      shotId: independent.shots[1]!.id,
+      videoPath: "/private/other-target.mp4",
+    },
+  ];
+  independent.shots[1]!.selectedTakeId = "independent-output";
+  expect(actualTrialInputKey(independent, f.scope)).toBe(key);
+  expect(
+    actualTrialInputKey(
+      { ...before, savedAt: "later", directory: "/private/metadata-only" },
+      f.scope,
+    ),
+  ).toBe(key);
+});
