@@ -11,6 +11,7 @@ from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.visual_bible_contracts import VisualSafeAreaV1
 from fastapi.testclient import TestClient
+from prepared_generation_test_schema import assert_prepared_tables_empty
 from pydantic import ValidationError
 
 
@@ -87,7 +88,8 @@ def test_existing_stored_landscape_gets_do_not_migrate_or_rewrite_any_db_bytes(t
     )
     before = hashlib.sha256(repository.database_path.read_bytes()).hexdigest()
     with repository._connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert_prepared_tables_empty(connection)
         new_tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")

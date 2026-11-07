@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable
 from dataclasses import asdict
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from aijian_api.contracts import ErrorResponse
@@ -290,6 +291,53 @@ def story_film_plan() -> StoryFilmPlanData:
     )
 
 
+def story_film_request(payload: CreateStoryFilmBody, idempotency_key: str) -> StoryFilmRequest:
+    """The original route conversion, also used for native prerequisite identity checks."""
+    return StoryFilmRequest(
+        scene_label=payload.scene_label.strip(),
+        narration=payload.narration.strip(),
+        subtitle=payload.subtitle.strip() if payload.subtitle else None,
+        provider=payload.provider,
+        confirmed=payload.confirmed,
+        image_model=payload.image_model,
+        video_model=payload.video_model,
+        speech_model=payload.speech_model,
+        voice_id=payload.voice_id,
+        connection_revision=payload.connection_revision,
+        currency=payload.currency,
+        amount_micro=payload.amount_micro,
+        idempotency_key=idempotency_key,
+        regenerate=payload.regenerate,
+        style_block=payload.style_block.strip(),
+        aspect_ratio=payload.aspect_ratio,
+        shots=tuple(
+            StoryShot(
+                narration=shot.narration.strip(),
+                prompt=shot.prompt.strip(),
+                duration_seconds=shot.duration_seconds,
+                subtitle=shot.subtitle.strip(),
+                regenerate=shot.regenerate,
+                size=shot.size.strip(),
+                angle=shot.angle.strip(),
+                move=shot.move.strip(),
+                action=shot.action.strip(),
+                performance=shot.performance.strip(),
+                identity=shot.identity.strip(),
+                voice_id=shot.voice_id.strip(),
+                still=shot.still.strip(),
+                reference=shot.reference.strip(),
+                references=tuple(shot.references),
+                delivery=shot.delivery.strip(),
+                lines=tuple(
+                    StoryDialogue(line.speaker.strip(), line.text, line.voice_id)
+                    for line in shot.lines
+                ),
+            )
+            for shot in payload.shots
+        ),
+    )
+
+
 def create_story_film_router(
     repository_provider: RepositoryProvider,
     toolchain_provider: ToolchainProvider,
@@ -384,13 +432,19 @@ def create_story_film_router(
         project_id: str,
         idempotency_key: Annotated[str, Header(alias="Idempotency-Key", pattern=_KEY)],
     ) -> str | None:
+        body = await request.body()
+        arm = request.headers.get("X-Aivora-Prepared-Generation")
+        request.state.prepared_generation = (
+            (arm, hashlib.sha256(body).hexdigest()) if arm is not None else None
+        )
         return account_attestation(
             request.headers.get("X-Aivora-Generation-Account"),
             key=dispatch_signing_key,
             project_id=project_id,
             idempotency_key=idempotency_key,
-            body=await request.body(),
+            body=body,
             bearer=request.headers.get("X-Aivora-Media-Bearer"),
+            prepared_arm_id=arm,
         )
 
     @router.post(
@@ -406,59 +460,35 @@ def create_story_film_router(
         idempotency_key: Annotated[str, Header(alias="Idempotency-Key", pattern=_KEY)],
         dispatch_account: str | None = Depends(verified_dispatch_account),
     ) -> StoryFilmResponse:
+        prepared = getattr(request.state, "prepared_generation", None)
+        if prepared is not None and (
+            dispatch_account is None
+            or payload.provider != "grok_subscription"
+            or len(payload.shots) != 1
+        ):
+            raise HTTPException(403, "ACCOUNT_UNAVAILABLE")
         token = request.headers.get("X-Aivora-Media-Bearer")
         if token is not None:
             token = token.strip()
             if not token or len(token) > 8192 or any(ord(character) < 32 for character in token):
                 token = None
-        result = StoryFilmService(repository_provider(), toolchain_provider).produce(
-            project_id,
-            StoryFilmRequest(
-                scene_label=payload.scene_label.strip(),
-                narration=payload.narration.strip(),
-                subtitle=payload.subtitle.strip() if payload.subtitle else None,
-                provider=payload.provider,
-                confirmed=payload.confirmed,
-                image_model=payload.image_model,
-                video_model=payload.video_model,
-                speech_model=payload.speech_model,
-                voice_id=payload.voice_id,
-                connection_revision=payload.connection_revision,
-                currency=payload.currency,
-                amount_micro=payload.amount_micro,
-                idempotency_key=idempotency_key,
-                regenerate=payload.regenerate,
-                style_block=payload.style_block.strip(),
-                aspect_ratio=payload.aspect_ratio,
-                shots=tuple(
-                    StoryShot(
-                        narration=shot.narration.strip(),
-                        prompt=shot.prompt.strip(),
-                        duration_seconds=shot.duration_seconds,
-                        subtitle=shot.subtitle.strip(),
-                        regenerate=shot.regenerate,
-                        size=shot.size.strip(),
-                        angle=shot.angle.strip(),
-                        move=shot.move.strip(),
-                        action=shot.action.strip(),
-                        performance=shot.performance.strip(),
-                        identity=shot.identity.strip(),
-                        voice_id=shot.voice_id.strip(),
-                        still=shot.still.strip(),
-                        reference=shot.reference.strip(),
-                        references=tuple(shot.references),
-                        delivery=shot.delivery.strip(),
-                        lines=tuple(
-                            StoryDialogue(line.speaker.strip(), line.text, line.voice_id)
-                            for line in shot.lines
-                        ),
-                    )
-                    for shot in payload.shots
-                ),
-            ),
-            media_token=token,
-            dispatch_account=dispatch_account,
-        )
+        service = StoryFilmService(repository_provider(), toolchain_provider)
+        film_request = story_film_request(payload, idempotency_key)
+        if prepared is None:
+            result = service.produce(
+                project_id,
+                film_request,
+                media_token=token,
+                dispatch_account=dispatch_account,
+            )
+        else:
+            result = service.produce(
+                project_id,
+                film_request,
+                media_token=token,
+                dispatch_account=dispatch_account,
+                prepared_generation=prepared,
+            )
         return StoryFilmResponse(data=_data(result), request_id=request.state.request_id)
 
     return router

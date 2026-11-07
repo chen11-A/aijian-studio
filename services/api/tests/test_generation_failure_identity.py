@@ -68,3 +68,45 @@ def test_main_assertion_rejects_invalid_time_shape_or_identity(monkeypatch, case
 def test_reference_bytes_are_mandatory_not_arbitrary_metadata(image):
     with pytest.raises(ValueError, match="INPUT_UNVERIFIABLE"):
         video_input_identity("a" * 64, json.dumps({"image": image}).encode())
+
+
+@pytest.mark.parametrize("change", ["none", "arm", "body", "bearer", "removed"])
+def test_prepared_arm_attestation_is_bound_to_exact_wire_and_context(monkeypatch, change):
+    monkeypatch.setattr("aijian_api.generation_dispatch_identity.time.time", lambda: 1000)
+    body = '{"中文":"雨夜","empty":""}'.encode()
+    arm = "a" * 32
+    message = "\n".join(
+        (
+            "aivora-video-account-v2",
+            "project",
+            "attempt",
+            hashlib.sha256(body).hexdigest(),
+            hashlib.sha256(b"bearer").hexdigest(),
+            "b" * 64,
+            "1060",
+            arm,
+        )
+    )
+    encoded = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                {
+                    "account": "b" * 64,
+                    "expires": 1060,
+                    "signature": hmac.new(b"key", message.encode(), hashlib.sha256).hexdigest(),
+                }
+            ).encode()
+        )
+        .decode()
+        .rstrip("=")
+    )
+    verified = account_attestation(
+        encoded,
+        key="key",
+        project_id="project",
+        idempotency_key="attempt",
+        body=body + b" " if change == "body" else body,
+        bearer="different" if change == "bearer" else "bearer",
+        prepared_arm_id=None if change == "removed" else "c" * 32 if change == "arm" else arm,
+    )
+    assert verified == ("b" * 64 if change == "none" else None)

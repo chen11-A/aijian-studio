@@ -14,6 +14,7 @@ from aijian_api.main import create_app
 from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.security import SidecarSecurity
 from fastapi.testclient import TestClient
+from prepared_generation_test_schema import assert_prepared_tables_empty
 
 TOKEN = "r" * 43
 HOST = "127.0.0.1:43127"
@@ -67,7 +68,8 @@ def test_grok_and_chatgpt_logins_record_subscription_without_a_money_hold(tmp_pa
     )
     assert chat.account_kind == "gpt_login"
     with sqlite3.connect(repository.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert_prepared_tables_empty(connection)
         new_tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")

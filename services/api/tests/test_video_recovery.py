@@ -13,6 +13,11 @@ from aijian_api.video_recovery import VideoRecoveryService
 from aijian_api.video_recovery_lock import VideoRecoveryBusy, VideoRecoveryLock
 from aijian_api.video_recovery_store import VideoRecoveryStore
 from aijian_api.xai_media import XaiHttpResponse, XaiMediaClient
+from prepared_generation_test_schema import (
+    PREPARED_TABLES,
+    assert_prepared_tables_empty,
+    remove_empty_prepared_tables,
+)
 from test_draft_export_runtime import toolchain
 from test_story_film import _project
 
@@ -309,6 +314,7 @@ def test_migration_52_preserves_existing_policy_attempt_rows_and_old_table_sql(t
     store.settle(project, held, "UNKNOWN")
     with sqlite3.connect(repo.database_path) as connection:
         # Reconstruct actual v51, without either later migration's tables.
+        remove_empty_prepared_tables(connection)
         connection.execute("DROP TABLE generation_video_recovery")
         connection.execute("DROP TABLE story_creation_failure_attempt")
         connection.execute("DROP TABLE story_creation_failure_policy")
@@ -320,15 +326,17 @@ def test_migration_52_preserves_existing_policy_attempt_rows_and_old_table_sql(t
         old_policies = connection.execute("SELECT * FROM generation_failure_policy").fetchall()
     restarted = StudioRepository(repo.database_path)
     with sqlite3.connect(restarted.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
-        assert (
-            connection.execute(
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert_prepared_tables_empty(connection)
+        assert [
+            row
+            for row in connection.execute(
                 "SELECT name,sql FROM sqlite_master WHERE type='table' "
                 "AND name NOT IN ('generation_video_recovery', 'story_creation_failure_policy', "
                 "'story_creation_failure_attempt') ORDER BY name"
             ).fetchall()
-            == old_sql
-        )
+            if row[0] not in PREPARED_TABLES
+        ] == old_sql
         assert (
             connection.execute("SELECT * FROM generation_failure_attempt").fetchall()
             == old_attempts

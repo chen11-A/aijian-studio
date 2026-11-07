@@ -167,6 +167,7 @@ from aijian_api.official_text_routes import (
     create_official_text_public_router,
     create_official_text_write_router,
 )
+from aijian_api.prepared_generation_routes import create_prepared_generation_router
 from aijian_api.product_export_operation_routes import create_product_export_operation_router
 from aijian_api.product_export_runtime import ProductExportRuntime
 from aijian_api.product_timeline_export import ProductTimelineExportPreflightService
@@ -1274,6 +1275,13 @@ def create_app(
         app.include_router(create_generation_failure_router(get_repository))
         app.include_router(
             create_video_recovery_router(
+                get_repository,
+                get_media_probe_toolchain,
+                sidecar_security.token if sidecar_security is not None else None,
+            )
+        )
+        app.include_router(
+            create_prepared_generation_router(
                 get_repository,
                 get_media_probe_toolchain,
                 sidecar_security.token if sidecar_security is not None else None,
