@@ -93,16 +93,33 @@ try {
   }
   // Compile the existing loader; its AudioAsset import is type-only and emits no dependency
   // on the excluded npm module or a third implementation of catalog validation.
-  const compiled = ts.transpileModule(
-    readFileSync(join(root, "packages/aivora-modules/audio-library/index.ts"), "utf8"),
-    {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+  function compile(relativePath) {
+    const compiled = ts.transpileModule(readFileSync(join(root, relativePath), "utf8"), {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ES2022,
+        newLine: ts.NewLineKind.LineFeed,
+      },
       reportDiagnostics: true,
-    },
+    });
+    if (compiled.diagnostics?.some((item) => item.category === ts.DiagnosticCategory.Error))
+      throw Error("Audio runtime compilation failed");
+    return compiled.outputText;
+  }
+  const compiled = compile("packages/aivora-modules/audio-library/index.ts");
+  const synonyms = compile("packages/aivora-modules/audio-picker/synonyms.ts");
+  const synonymsSha256 = hash(Buffer.from(synonyms));
+  const pickerSource = compile("packages/aivora-modules/audio-picker/index.ts");
+  const dependency = /(['"])\.\/synonyms\.js\1/g;
+  if ([...pickerSource.matchAll(dependency)].length !== 1)
+    throw Error("Unexpected audio picker runtime dependency");
+  const picker = pickerSource.replace(
+    dependency,
+    `"./audio-picker-synonyms.mjs?sha256=${synonymsSha256}"`,
   );
-  if (compiled.diagnostics?.some((item) => item.category === ts.DiagnosticCategory.Error))
-    throw Error("Audio loader compilation failed");
-  writeFileSync(join(output, "audio-library.mjs"), compiled.outputText, { flag: "wx" });
+  writeFileSync(join(output, "audio-library.mjs"), compiled, { flag: "wx" });
+  writeFileSync(join(output, "audio-picker.mjs"), picker, { flag: "wx" });
+  writeFileSync(join(output, "audio-picker-synonyms.mjs"), synonyms, { flag: "wx" });
   writeFileSync(
     join(output, "resource-index.json"),
     JSON.stringify(
@@ -110,7 +127,9 @@ try {
         schemaVersion: 1,
         createdBy: "aivora-bundled-audio-builder",
         manifestSha256: hash(manifest),
-        loaderSha256: hash(Buffer.from(compiled.outputText)),
+        loaderSha256: hash(Buffer.from(compiled)),
+        pickerSha256: hash(Buffer.from(picker)),
+        synonymsSha256,
         assetCount: rows.length,
         files: [...files]
           .sort()
@@ -137,7 +156,7 @@ try {
     JSON.stringify({
       assetCount: rows.length,
       manifestSha256: hash(manifest),
-      outputFiles: files.size + 2,
+      outputFiles: files.size + 4,
     }),
   );
 } catch (error) {
