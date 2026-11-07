@@ -2,6 +2,7 @@ name: Windows integrated installer
 
 on:
   push:
+    branches: ["codex/aivora-windows-candidate"]
     tags: ["aivora-desktop-v*"]
   pull_request:
     branches: [codex/aivora-handoff-20261012]
