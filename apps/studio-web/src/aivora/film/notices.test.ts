@@ -76,6 +76,7 @@ describe("structured business notices", () => {
       "EXPORT_QC_STALE",
       "EXPORT_QC_BLOCKED",
     ]);
+    const actionFieldCodes = new Set(["ACTION_SUGGESTION_READY", "ACTION_FIELDS_APPLIED"]);
     const performanceFieldCodes = new Set([
       "PERFORMANCE_SUGGESTION_READY",
       "PERFORMANCE_FIELDS_APPLIED",
@@ -97,6 +98,7 @@ describe("structured business notices", () => {
     ]);
     const legacyRows = rows.filter(
       (row) =>
+        !actionFieldCodes.has(row[1]!) &&
         !performanceFieldCodes.has(row[1]!) &&
         !addedCodes.has(row[1]!) &&
         !takeoverCodes.has(row[1]!) &&
@@ -142,6 +144,16 @@ describe("structured business notices", () => {
     expect(performanceFieldRows).toHaveLength(2);
     expect(new Set(performanceFieldRows.map((row) => row[1]))).toEqual(performanceFieldCodes);
     for (const [, code, fallback, finalCopy] of performanceFieldRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: finalCopy!.trim(),
+      });
+    }
+    const actionFieldRows = rows.filter((row) => actionFieldCodes.has(row[1]!));
+    expect(actionFieldRows).toHaveLength(2);
+    expect(new Set(actionFieldRows.map((row) => row[1]))).toEqual(actionFieldCodes);
+    for (const [, code, fallback, finalCopy] of actionFieldRows) {
       expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
       expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
         code,
