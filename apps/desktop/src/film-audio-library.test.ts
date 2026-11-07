@@ -947,7 +947,7 @@ it.each([
     }
   },
 );
-it("shares BUSY through apply completion and rejects unsafe exact inputs at zero copy/write", async () => {
+it("shares BUSY until apply settles and releases its reservation only after completion", async () => {
   const f = await fixture(),
     { request } = await suggested(f);
   let release!: () => void, entered!: () => void;
@@ -986,6 +986,8 @@ it("shares BUSY through apply completion and rejects unsafe exact inputs at zero
       takeId: request.takeId,
     }),
   ).toMatchObject({ code: "PROJECT_CHANGED" });
+});
+it("rejects unsafe exact apply inputs at zero copy/write independently of a pending apply", async () => {
   const g = await fixture(),
     prepared = await suggested(g),
     before = await readdir(g.media);
