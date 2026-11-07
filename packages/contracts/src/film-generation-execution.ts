@@ -57,4 +57,13 @@ export type FilmGenerationExecutionGateway = {
   prepareFilmGenerationExecution(
     input: FilmGenerationExecutionInput,
   ): Promise<FilmGenerationExecutionResult>;
+  /** Retires future native dispatch. It neither stops an already sent HTTP request
+   * nor acknowledges provider cancellation or releases an uncertain reservation. */
+  retireFilmGenerationExecution(input: {
+    executionId: string;
+    /** Single-job cancellation; omission retires the whole execution. */
+    videoSlotId?: string;
+  }): Promise<
+    { kind: "RETIRED" } | { kind: "FAILED"; code: "INVALID_INPUT" | "EXECUTION_UNAVAILABLE" }
+  >;
 };

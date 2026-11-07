@@ -1099,6 +1099,7 @@ export interface AijianDesktopBridge
     execution?: FilmGenerationStillExecution,
   ) => Promise<{ path: string; reason: string }>;
   prepareFilmGenerationExecution?: FilmGenerationExecutionGateway["prepareFilmGenerationExecution"];
+  retireFilmGenerationExecution?: FilmGenerationExecutionGateway["retireFilmGenerationExecution"];
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
   verifyFilmDialogueSplitBackup?: FilmDialogueSplitGateway["verifyFilmDialogueSplitBackup"];

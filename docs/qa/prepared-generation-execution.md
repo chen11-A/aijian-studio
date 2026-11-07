@@ -33,6 +33,22 @@ remain separate. Binding a future pipeline take occurs once, only after its cano
 queued/running slot exists. Preparing or recording a context never confirms a generation
 quantity or replaces the existing membership, fee, cancellation and current-input gates.
 
+`retireFilmGenerationExecution({executionId, videoSlotId?})` invalidates future native
+dispatch for the issued slot, or the whole execution when no slot is supplied. Ordinary
+TaskCenter cancellation of one take retires only its issued video slot, preserving the
+other explicitly confirmed slots; shared image stages serve only still-active native
+dependencies. Whole-execution retirement is for leaving the project, owner destruction
+or terminating the pipeline/batch. A `RETIRED` acknowledgement is not confirmation
+that an HTTP request stopped. Native rechecks retirement after every reserve/materialize
+await and immediately before transport; navigation/destroy uses the same invalidation.
+Only a proven unsent, exclusively owned hold with no earlier sent child can be released.
+Existing sent or uncertain children remain occupied. Pipeline prerequisite cancellation
+cannot depend on a future queued take that does not yet exist.
+An image known to have completed and been read, followed by cancellation before any
+further POST, consumes a known incomplete/failed attempt rather than becoming a
+permanent remote unknown. An in-flight or unconfirmed child remains UNKNOWN. Both count
+against the original explicitly configured failure limit; retirement does not reset it.
+
 ## Durable lineage required before production handoff
 
 The implementation must persist a private association between each original target
