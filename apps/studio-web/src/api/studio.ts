@@ -1,3 +1,4 @@
+import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
 import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
@@ -945,6 +946,7 @@ export interface AijianDesktopBridge
     };
     request_id: string;
   }>;
+  supportsStoryFilmLocalScope?: boolean;
   createStoryFilm?(
     projectId: string,
     input: {
@@ -971,6 +973,7 @@ export interface AijianDesktopBridge
         identity?: string;
       }>;
     },
+    scope?: StoryFilmLocalScope,
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   getStoryFilmProgress?(projectId: string): Promise<{
     data: {

@@ -27,7 +27,14 @@ function parse(
   if (
     !v ||
     Object.keys(v).sort().join() !==
-      ["projectId", "expectedHash", "shotId", "versions", ...(apply ? ["reviewFingerprint"] : [])]
+      [
+        "projectId",
+        "expectedHash",
+        "shotId",
+        "versions",
+        ...(apply ? ["reviewFingerprint"] : []),
+        ...(v.limitEvidenceId !== undefined ? ["limitEvidenceId"] : []),
+      ]
         .sort()
         .join() ||
     typeof v.projectId !== "string" ||
@@ -40,7 +47,9 @@ function parse(
     !Number.isInteger(v.versions) ||
     Number(v.versions) < 1 ||
     Number(v.versions) > 4 ||
-    (apply && !hash(v.reviewFingerprint))
+    (apply && !hash(v.reviewFingerprint)) ||
+    (v.limitEvidenceId !== undefined &&
+      (typeof v.limitEvidenceId !== "string" || !/^dle_[a-f0-9]{32}$/.test(v.limitEvidenceId)))
   )
     throw Error("INVALID_INPUT");
   return { ...v } as unknown as FilmDialogueSplitApplyInput;
@@ -80,7 +89,11 @@ function busy(record: FilmRecord) {
     )
   );
 }
-function review(record: FilmRecord, input: FilmDialogueSplitInput): FilmDialogueSplitReady {
+function review(
+  record: FilmRecord,
+  input: FilmDialogueSplitInput,
+  evidence?: { requiredSeconds: number; maxSeconds: 10 | 15; rawAudioSaved: boolean } | null,
+): FilmDialogueSplitReady {
   if (Buffer.byteLength(JSON.stringify(record), "utf8") > 8_000_000)
     throw Error("UNSUPPORTED_PLAN");
   if (record.id !== input.projectId || filmHistoryRecordHash(record) !== input.expectedHash)
@@ -108,7 +121,11 @@ function review(record: FilmRecord, input: FilmDialogueSplitInput): FilmDialogue
   if (busy(record)) throw Error("BUSY");
   const context = dialogueSplitContext(record, input.shotId, input.versions);
   if (!context) throw Error("UNSUPPORTED_PLAN");
-  const plan = planDialogueSplit(context.request);
+  if (input.limitEvidenceId && !evidence) throw Error("PROJECT_CHANGED");
+  const plan = planDialogueSplit(
+    { ...context.request, ...(evidence ? { maxVideoSeconds: evidence.maxSeconds } : {}) },
+    !!evidence,
+  );
   if (plan.kind !== "READY") throw Error("UNSUPPORTED_PLAN");
   const shots = rows(record.shots),
     target = shots.find((shot) => shot.id === input.shotId)!;
@@ -144,14 +161,21 @@ function review(record: FilmRecord, input: FilmDialogueSplitInput): FilmDialogue
     shotId: input.shotId,
     projectHash: input.expectedHash,
     model: context.scope.model,
+    ...(evidence ? { actualLimit: { ...evidence, targetVideoSubmitted: false as const } } : {}),
     reviewFingerprint: filmHistoryRecordHash({
       version: "native-dialogue-split-v1",
       context: context.semantic,
+      ...(evidence ? { evidence, evidenceId: input.limitEvidenceId } : {}),
       plan,
     }),
     plan,
     notes: [
       "确认只调整分镜结构，不生成配音、图片或视频。",
+      ...(evidence
+        ? [
+            `本次目标在视频派发前超过语音时长上限；${evidence.rawAudioSaved ? "原配音已保留" : "原配音保存状态未核实"}，不切原音频，各子镜仍需重新估算与确认生成。`,
+          ]
+        : []),
       "原镜与全部旧版本在本机历史可恢复；工程包仅包含当前稿，不包含本机历史。",
       "旧音轨引用和文件保留，不自动转给新镜；全片音轨时间未自动重排。",
       "新镜暂沿用原画面说明，动作与音效时点需逐镜重新核对。",
@@ -264,6 +288,13 @@ export function createFilmDialogueSplits(host: {
   filmsRoot: string;
   history?: ReturnType<typeof createFilmHistory>;
   beforeCommit?: () => Promise<void>;
+  consumeLimitEvidence?: (id: string) => void;
+  limitEvidence?: (
+    owner: number,
+    id: string,
+    record: FilmRecord,
+    shotId: string,
+  ) => { requiredSeconds: number; maxSeconds: 10 | 15; rawAudioSaved: boolean } | null;
 }) {
   const history = host.history ?? createFilmHistory({ filmsRoot: host.filmsRoot }),
     active = new Set<string>();
@@ -272,8 +303,16 @@ export function createFilmDialogueSplits(host: {
     if (!value || value.id !== input.projectId) throw Error("PROJECT_CHANGED");
     return value;
   };
+  const reviewed = (record: FilmRecord, input: FilmDialogueSplitInput, owner: number) =>
+    review(
+      record,
+      input,
+      input.limitEvidenceId
+        ? host.limitEvidence?.(owner, input.limitEvidenceId, record, input.shotId)
+        : null,
+    );
   return {
-    async prepare(value: unknown): Promise<FilmDialogueSplitPrepareResult> {
+    async prepare(value: unknown, owner = -1): Promise<FilmDialogueSplitPrepareResult> {
       let id = "",
         acquired = false;
       try {
@@ -282,14 +321,14 @@ export function createFilmDialogueSplits(host: {
         if (active.has(id)) throw Error("BUSY");
         active.add(id);
         acquired = true;
-        return review(await current(input), input);
+        return reviewed(await current(input), input, owner);
       } catch (cause) {
         return error(cause instanceof Error ? cause.message : "");
       } finally {
         if (acquired) active.delete(id);
       }
     },
-    async apply(value: unknown): Promise<FilmDialogueSplitApplyResult> {
+    async apply(value: unknown, owner = -1): Promise<FilmDialogueSplitApplyResult> {
       let id = "",
         acquired = false,
         writeStarted = false,
@@ -306,12 +345,12 @@ export function createFilmDialogueSplits(host: {
         return await history.withDialogueSplitBackup(
           input,
           (record) => {
-            const plan = review(record, input);
+            const plan = reviewed(record, input, owner);
             if (plan.reviewFingerprint !== input.reviewFingerprint) throw Error("PROJECT_CHANGED");
           },
           async (record, snapshot, write) => {
             backup = snapshot;
-            const ready = review(record, input);
+            const ready = reviewed(record, input, owner);
             if (ready.reviewFingerprint !== input.reviewFingerprint) throw Error("PROJECT_CHANGED");
             const { next, childIds } = split(record, input, ready, snapshot);
             children = childIds;
@@ -321,6 +360,7 @@ export function createFilmDialogueSplits(host: {
             const actual = await current(input);
             if (filmHistoryRecordHash(actual) !== filmHistoryRecordHash(stored))
               throw Error("WRITE_UNCONFIRMED");
+            if (input.limitEvidenceId) host.consumeLimitEvidence?.(input.limitEvidenceId);
             return { kind: "APPLIED" as const, project: actual, backup: snapshot, childIds };
           },
         );
@@ -332,8 +372,11 @@ export function createFilmDialogueSplits(host: {
             !actual ||
             actual.id !== id ||
             rows(actual.shots).some((shot) => children.includes(String(shot.id)))
-          )
+          ) {
+            const evidenceId = object(value)?.limitEvidenceId;
+            if (typeof evidenceId === "string") host.consumeLimitEvidence?.(evidenceId);
             return error("WRITE_UNCONFIRMED", false, backup);
+          }
         }
         return error(cause instanceof Error ? cause.message : "", true, backup);
       } finally {

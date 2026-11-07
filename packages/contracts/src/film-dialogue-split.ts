@@ -5,6 +5,8 @@ export type FilmDialogueSplitInput = {
   expectedHash: string;
   shotId: string;
   versions: number;
+  /** Session-local main receipt; never persist in a project or portable archive. */
+  limitEvidenceId?: string;
 };
 export type FilmDialogueSplitFailure = {
   kind: "FAILED";
@@ -29,6 +31,12 @@ export type FilmDialogueSplitReady = {
   model: string;
   plan: Extract<DialogueSplitPlan, { kind: "READY" }>;
   notes: string[];
+  actualLimit?: {
+    requiredSeconds: number;
+    maxSeconds: 10 | 15;
+    rawAudioSaved: boolean;
+    targetVideoSubmitted: false;
+  };
 };
 export type FilmDialogueSplitPrepareResult = FilmDialogueSplitReady | FilmDialogueSplitFailure;
 export type FilmDialogueSplitApplyInput = FilmDialogueSplitInput & { reviewFingerprint: string };
@@ -57,4 +65,12 @@ export type FilmDialogueSplitGateway = {
   applyFilmDialogueSplit: (
     input: FilmDialogueSplitApplyInput,
   ) => Promise<FilmDialogueSplitApplyResult>;
+};
+
+/** IPC-only target identity. Never forwarded to the HTTP/provider body. */
+export type StoryFilmLocalScope = {
+  projectId: string;
+  shotId: string;
+  takeId: string;
+  inputFingerprint: string;
 };

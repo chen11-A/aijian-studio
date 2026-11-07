@@ -1,3 +1,4 @@
+import { createDialogueLimitRegistry } from "./film-dialogue-limit";
 import { registerFilmDialogueSplits } from "./film-dialogue-split-ipc";
 import { resolveBundledAudioLibraryRoot } from "./film-audio-library-root";
 import { registerFilmAudioLibrary } from "./film-audio-library-ipc";
@@ -353,9 +354,11 @@ function createMainWindow(): BrowserWindow {
     },
   });
 
+  const dialogueLimitOwner = window.webContents.id;
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("did-start-navigation", (_event, _url, isSameDocument, isMainFrame) => {
     if (isMainFrame && !isSameDocument) {
+      dialogueLimits.disposeOwner(dialogueLimitOwner);
       nativePreviewDocumentEpoch += 1;
       nativePreviewHost.invalidateAll();
     }
@@ -391,6 +394,7 @@ function createMainWindow(): BrowserWindow {
   window.on("closed", () => {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
+    dialogueLimits.disposeOwner(dialogueLimitOwner);
     mainWindow = null;
   });
 
@@ -835,6 +839,9 @@ ipcMain.handle("projects:create", (event, input: CreateProjectInput) => {
   }
   return clientFor(event).createProject(input);
 });
+const dialogueLimits = createDialogueLimitRegistry({
+  filmsRoot: join(app.getPath("userData"), "films"),
+});
 registerStoryFilmHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -886,6 +893,22 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
       httpStatus: 0,
       requestDispatched: true,
     }),
+  async (event, projectId, body, scope, result) => {
+    const owner = event.sender.id;
+    const current = () =>
+      !event.sender.isDestroyed() &&
+      mainWindow !== null &&
+      event.sender === mainWindow.webContents &&
+      event.senderFrame === mainWindow.webContents.mainFrame;
+    if (!current()) return null;
+    const id = await dialogueLimits.mint(owner, projectId, body, scope, result);
+    if (!current()) {
+      dialogueLimits.disposeOwner(owner);
+      return null;
+    }
+    return id;
+  },
+  (event) => dialogueLimits.guardOwner(event.sender.id),
 );
 registerTaskProgressHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -923,7 +946,12 @@ registerFilmDialogueSplits<IpcMainInvokeEvent>(
     mainWindow !== null &&
     event.sender === mainWindow.webContents &&
     event.senderFrame === mainWindow.webContents.mainFrame,
-  { filmsRoot: join(app.getPath("userData"), "films") },
+  {
+    filmsRoot: join(app.getPath("userData"), "films"),
+    limitEvidence: dialogueLimits.verify,
+    consumeLimitEvidence: dialogueLimits.consume,
+  },
+  (event) => event.sender.id,
 );
 registerFilmHistory<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
