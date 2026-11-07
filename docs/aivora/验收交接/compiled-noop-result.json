@@ -1,0 +1,26 @@
+{
+  "source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "result": "NOT_NEEDED",
+  "reason": "LOCAL_SELECTED_MEDIA",
+  "canonicalShots": 2,
+  "issuedExecution": false,
+  "sdkExports": 45,
+  "producer": "RETAINED_COMPILED_APP",
+  "selectedEvidence": "OWNED_STREAM_AND_SHA",
+  "videoSeconds": 0.5,
+  "formatSeconds": 1,
+  "realFfprobeCalls": 6,
+  "canonicalAndMediaUnchanged": true,
+  "repositoryRuntimeImports": 0,
+  "counters": {
+    "session": 0,
+    "account": 0,
+    "apiProvider": 0,
+    "globalFetch": 0,
+    "storySourceOwner": 0,
+    "prepareWrites": 0,
+    "selectedHost": 1,
+    "ownedLocalFallback": 0
+  },
+  "limits": "LOCAL_LINUX_CJS_ONLY_NOT_PROVIDER_SUCCESS_OR_UNKNOWN_SETTLEMENT"
+}

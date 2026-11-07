@@ -1,0 +1,51 @@
+{
+  "state": "completed",
+  "exitCode": 0,
+  "sha": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "completed": [
+    {
+      "stage": "install",
+      "exitCode": 0
+    },
+    {
+      "stage": "native-types",
+      "exitCode": 0
+    },
+    {
+      "stage": "native-build",
+      "exitCode": 0
+    },
+    {
+      "stage": "web-types",
+      "exitCode": 0
+    },
+    {
+      "stage": "contracts",
+      "exitCode": 0
+    },
+    {
+      "stage": "all-lint",
+      "exitCode": 0
+    },
+    {
+      "stage": "all-format",
+      "exitCode": 0
+    },
+    {
+      "stage": "actual-web-consumers",
+      "exitCode": 0
+    },
+    {
+      "stage": "full-native",
+      "exitCode": 0
+    },
+    {
+      "stage": "actual-cjs-intent-reuse",
+      "exitCode": 0
+    },
+    {
+      "stage": "generated-clean",
+      "exitCode": 0
+    }
+  ]
+}

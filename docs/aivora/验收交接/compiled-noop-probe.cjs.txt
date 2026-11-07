@@ -1,0 +1,148 @@
+"use strict";
+// Usage: node probe.cjs ABS_APP ABS_RESOURCES [ABS_PIN_JSON] [ABS_TOOLS_DIR]
+// Only this script and JSON test data are supplied externally; all product code is retained app code.
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const fsp = require("node:fs/promises");
+const path = require("node:path");
+const os = require("node:os");
+const crypto = require("node:crypto");
+const Module = require("node:module");
+const app = process.argv[2];
+const resources = process.argv[3];
+const pin = process.argv[4] || "/tmp/aivora-local-reuse-system-tools-lock.json";
+const toolsRoot = process.argv[5] || "/usr/bin";
+assert(process.argv.length <= 6, "UNEXPECTED_ARGUMENTS");
+for (const value of [app, resources, pin, toolsRoot]) assert(path.isAbsolute(value || ""), "ABSOLUTE_PATH_REQUIRED");
+const repoPath = (value) => typeof value === "string" && (value === "/workspace" || value.startsWith("/workspace/"));
+let rejectedRepositoryImports = 0;
+const originalResolve = Module._resolveFilename;
+Module._resolveFilename = function (...args) {
+  const resolved = originalResolve.apply(this, args);
+  const real = typeof resolved === "string" && path.isAbsolute(resolved) ? fs.realpathSync(resolved) : resolved;
+  if (repoPath(resolved) || repoPath(real)) {
+    rejectedRepositoryImports++;
+    throw Error("REPOSITORY_RUNTIME_IMPORT");
+  }
+  return resolved;
+};
+const sha = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
+function snapshot(root) {
+  const result = [];
+  function visit(folder) {
+    for (const name of fs.readdirSync(folder).sort()) {
+      const file = path.join(folder, name), info = fs.lstatSync(file, { bigint: true });
+      assert(!info.isSymbolicLink(), "FIXTURE_LINK_NOT_ALLOWED");
+      if (info.isDirectory()) visit(file);
+      else result.push({ path: path.relative(root, file), sha: sha(fs.readFileSync(file)), ino: String(info.ino), size: String(info.size), mtime: String(info.mtimeNs), ctime: String(info.ctimeNs) });
+    }
+  }
+  visit(root);
+  return result;
+}
+function denyWrites(counters) {
+  const restores = [];
+  const replace = (object, name, make) => {
+    if (typeof object[name] !== "function") return;
+    const previous = object[name];
+    object[name] = make(previous);
+    restores.push(() => { object[name] = previous; });
+  };
+  const denied = () => { counters.prepareWrites++; throw Error("PREPARE_MUST_BE_READONLY"); };
+  for (const name of ["writeFile", "appendFile", "rename", "rm", "unlink", "mkdir", "rmdir", "copyFile", "cp", "truncate", "chmod", "chown", "utimes", "link", "symlink", "createWriteStream"]) {
+    replace(fsp, name, () => denied);
+    replace(fs, name, () => denied);
+    replace(fs, `${name}Sync`, () => denied);
+  }
+  const readable = (flags) => typeof flags === "number" ? flags === fs.constants.O_RDONLY : flags === "r" || flags === "rs";
+  for (const [object, name] of [[fsp, "open"], [fs, "open"], [fs, "openSync"]])
+    replace(object, name, (previous) => function (file, flags, ...args) {
+      if (!readable(flags)) return denied();
+      return previous.call(this, file, flags, ...args);
+    });
+  return () => { for (const restore of restores.reverse()) restore(); };
+}
+(async () => {
+  const receiptPath = app.replace(/-production-app$/, "-production-receipt.json");
+  assert.notEqual(receiptPath, app, "PRODUCTION_APP_SUFFIX_REQUIRED");
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, "utf8"));
+  assert.equal(receipt.candidate_head, "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c", "FIXED_PRODUCTION_SOURCE_REQUIRED");
+  assert.equal(receipt.result, "PRODUCTION_APP_TREE_ONLY");
+  assert(fs.statSync(path.join(app, "dist", "film-generation-execution.js")).isFile());
+  assert(fs.statSync(path.join(resources, "qc", "media.mjs")).isFile());
+  assert(!repoPath(fs.realpathSync(app)) && !repoPath(fs.realpathSync(resources)), "ISOLATED_PRODUCTION_TREE_REQUIRED");
+  const request = Module.createRequire(path.join(app, "package.json"));
+  const manifest = JSON.parse(fs.readFileSync(path.join(app, "node_modules/@aijian/contracts/package.json"), "utf8"));
+  const exports = Object.keys(manifest.exports);
+  assert.equal(exports.length, 45);
+  for (const key of exports) request(manifest.name + (key === "." ? "" : key.slice(1)));
+  const library = request("./dist/film-library.js");
+  const { filmHistoryRecordHash } = request("./dist/film-history.js");
+  const { loadCanonicalGenerationProducer } = request("./dist/film-generation-compiler.js");
+  const { generationSelectedMedia } = request("./dist/film-generation-selected-media.js");
+  const { verifiedQcTools, loadQcRunner } = request("./dist/film-export-qc-runtime.js");
+  const { createNativeFilmGenerationExecutions } = request("./dist/film-generation-execution.js");
+  const producer = await loadCanonicalGenerationProducer();
+  assert.equal(typeof producer.pipelineSelectedVideo, "function");
+  const tools = await verifiedQcTools(toolsRoot, pin);
+  const originalRun = await loadQcRunner(path.join(resources, "qc"));
+  const counters = { session: 0, account: 0, apiProvider: 0, globalFetch: 0, storySourceOwner: 0, prepareWrites: 0, selectedHost: 0, ownedLocalFallback: 0 };
+  const blocked = (key) => () => { counters[key]++; throw Error("UNEXPECTED_PAID_OR_API_BOUNDARY"); };
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "compiled-local-noop-"));
+  let restoreWrites = () => {}, originalFetch = globalThis.fetch;
+  try {
+    const filmsRoot = path.join(root, "films"), storyFilmsRoot = path.join(root, "story");
+    const id = "film_aaaaaaaaaaaaaaaa", seriesId = "film_bbbbbbbbbbbbbbbb";
+    const media = path.join(filmsRoot, seriesId, "episodes", id, "media");
+    fs.mkdirSync(media, { recursive: true });
+    fs.mkdirSync(storyFilmsRoot);
+    const shots = [];
+    for (const [index, color] of ["red", "blue"].entries()) {
+      const videoPath = path.join(media, `shot-${index + 1}.mp4`);
+      // Deliberately longer audio/format clock: selected evidence must use video stream duration.
+      await originalRun(tools.ffmpegPath, ["-v", "error", "-nostdin", "-f", "lavfi", "-i", `color=c=${color}:s=160x90:r=24:d=0.5`, "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", videoPath], { timeoutMs: 30000, maxBuffer: 65536 });
+      const shotId = `shot-${index + 1}`, takeId = `take-${index + 1}`;
+      shots.push({ id: shotId, sceneId: "scene-one", no: index + 1, line: "", lines: [], selectedTakeId: takeId, takes: [{ id: takeId, shotId, index: 1, status: "done", videoPath }] });
+    }
+    await library.writeProject(filmsRoot, { id, seriesId, backendProjectId: `prj_${"c".repeat(32)}`, title: "Isolated local reuse fixture", scenes: [{ id: "scene-one", no: 1 }], shots, audioClips: [], jobs: [] });
+    const canonical = await library.readProject(filmsRoot, id);
+    assert(canonical);
+    const expectedHash = filmHistoryRecordHash(canonical), before = snapshot(root), clocks = [];
+    const run = async (binary, args, options) => {
+      assert.equal(binary, tools.ffprobePath, "NO_FFMPEG_OR_PROVIDER_DURING_PREPARE");
+      const result = await originalRun(binary, args, options);
+      const payload = JSON.parse(result.stdout);
+      const video = payload.streams.find((row) => row.codec_type === "video");
+      assert(Number(video.duration) > 0);
+      assert.equal(Number(video.duration), 0.5);
+      assert(Number(payload.format.duration) > Number(video.duration));
+      clocks.push({ video: Number(video.duration), format: Number(payload.format.duration) });
+      return result;
+    };
+    const mediaHost = { filmsRoot, storyFilmsRoot, tools, run, videoOwner: () => { counters.ownedLocalFallback++; throw Error("LOCAL_EPISODE_DOES_NOT_REQUIRE_STORY_OWNER"); } };
+    // Exercise the actual compiled selected helper once to assert its private stream evidence too.
+    const selected = await generationSelectedMedia(producer, canonical, shots.map((row) => row.id), mediaHost);
+    assert.equal(selected.pendingShotIds.size, 0);
+    assert.deepEqual(selected.selected.map((row) => [row.shotId, row.takeId, row.native.durationSeconds, row.visual.durationSeconds, row.verification]), shots.map((row) => [row.id, row.selectedTakeId, 0.5, 0.5, "OWNED_STREAM_AND_SHA"]));
+    for (const row of selected.selected) {
+      assert.equal(row.native.sha256, sha(fs.readFileSync(row.native.path)));
+      assert.equal(row.visual.sha256, sha(fs.readFileSync(row.visual.path)));
+    }
+    const native = createNativeFilmGenerationExecutions({ filmsRoot: () => filmsRoot, storyFilmsRoot: () => storyFilmsRoot, session: blocked("session"), mediaDispatchLease: blocked("account"), fetcher: blocked("apiProvider"), storySourceOwner: blocked("storySourceOwner"), selectedMediaHost: async (current) => { counters.selectedHost++; assert.equal(current(), true); return mediaHost; } });
+    globalThis.fetch = blocked("globalFetch");
+    restoreWrites = denyWrites(counters);
+    let result;
+    try {
+      result = await native.prepare({ id: 7, current: () => true }, { projectId: id, expectedProjectHash: expectedHash, mode: "pipeline", targets: shots.map((row) => ({ shotId: row.id, versions: 1 })) });
+    } finally { restoreWrites(); restoreWrites = () => {}; globalThis.fetch = originalFetch; }
+    assert.deepEqual(result, { kind: "NOT_NEEDED", projectId: id, projectHash: expectedHash, reason: "LOCAL_SELECTED_MEDIA", selected: shots.map((row) => ({ shotId: row.id, takeId: row.selectedTakeId })) });
+    assert(!Object.hasOwn(result, "executionId"));
+    assert.deepEqual(snapshot(root), before, "PREPARE_CHANGED_CANONICAL_OR_MEDIA");
+    assert.deepEqual(await library.readProject(filmsRoot, id), canonical);
+    for (const key of ["session", "account", "apiProvider", "globalFetch", "storySourceOwner", "prepareWrites", "ownedLocalFallback"]) assert.equal(counters[key], 0, key);
+    assert.equal(counters.selectedHost, 1);
+    assert.equal(rejectedRepositoryImports, 0);
+    assert.deepEqual(Object.keys(require.cache).filter(repoPath), []);
+    console.log(JSON.stringify({ source: receipt.candidate_head, result: result.kind, reason: result.reason, canonicalShots: shots.length, issuedExecution: false, sdkExports: exports.length, producer: "RETAINED_COMPILED_APP", selectedEvidence: "OWNED_STREAM_AND_SHA", videoSeconds: 0.5, formatSeconds: clocks[0].format, realFfprobeCalls: clocks.length, canonicalAndMediaUnchanged: true, repositoryRuntimeImports: 0, counters, limits: "LOCAL_LINUX_CJS_ONLY_NOT_PROVIDER_SUCCESS_OR_UNKNOWN_SETTLEMENT" }));
+  } finally { restoreWrites(); globalThis.fetch = originalFetch; fs.rmSync(root, { recursive: true, force: true }); }
+})().catch((error) => { console.error(error); process.exitCode = 1; });

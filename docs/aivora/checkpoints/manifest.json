@@ -1,0 +1,25 @@
+{
+  "accepted_product_source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "checkpoints": [
+    {
+      "name": "frontend-auto-source",
+      "commit": "939b4c975f38568d825d3d5e89a0a83106813ec0",
+      "base": "adb08bfdd5aad91605fdd22efc8bdbe2a3bc5b85",
+      "ref": "refs/heads/codex/aivora-generation-auto-source-intent",
+      "bundle": "frontend-auto-source.bundle",
+      "bytes": 6490,
+      "sha256": "6b1d400cee1ce70a5dd93d6034cdc3cfe97e894a8539cb48629561ecec8f09e5",
+      "status": "CHECKPOINT_ONLY_NOT_ACCEPTED_NOT_ENABLED"
+    },
+    {
+      "name": "backend-cache55",
+      "commit": "166dc89d35d3cfab6f220a409b34a0874f38ee08",
+      "base": "d658377cd866c6acbf89bf06f86399a619717df1",
+      "ref": "refs/heads/codex/aivora-prepared-generation-cache-ledger",
+      "bundle": "backend-cache55.bundle",
+      "bytes": 30663,
+      "sha256": "263ca0bbc9a507413f33f0373a8ba342432359c15ce49e91ef9894db564c96bc",
+      "status": "CHECKPOINT_ONLY_NOT_ACCEPTED_NOT_ENABLED"
+    }
+  ]
+}

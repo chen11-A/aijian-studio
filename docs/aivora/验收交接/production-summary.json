@@ -1,0 +1,16 @@
+{
+  "candidate_head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "result": "PRODUCTION_APP_TREE_ONLY",
+  "runtime_resolution": "STATIC_CJS_AND_REVIEWED_RESOURCE_CLOSURE_PASS",
+  "reachable_js_files": 237,
+  "electron_execution": "NOT_RUN",
+  "windows_execution": "NOT_RUN",
+  "installer": "NOT_BUILT",
+  "release_approved": false,
+  "bundled_resource_closure": {
+    "reviewedImportSites": 6,
+    "modules": 9,
+    "files": 470,
+    "authorization": false
+  }
+}
