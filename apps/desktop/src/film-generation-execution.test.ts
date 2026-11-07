@@ -2,7 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 import { mkdtemp, mkdir, readFile, realpath, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
@@ -11,6 +11,7 @@ import { readProject, writeProject, type FilmRecord } from "./film-library";
 import { filmHistoryRecordHash } from "./film-history";
 import { generationRows } from "./film-generation-plan";
 import { parseStoryFilmCreate } from "./story-film-client";
+import { ffmpegOnPath, ffmpegSkipReason } from "./test-ffmpeg";
 let producer: CanonicalGenerationProducer, compiledRoot: string;
 const roots: string[] = [],
   releaseAll: (() => void)[] = [],
@@ -43,14 +44,17 @@ function deferred() {
   return { promise, resolve };
 }
 const sha = (raw: string) => createHash("sha256").update(raw).digest("hex");
-async function fixture() {
+async function fixture(
+  privateFailure?: string,
+  real?: { projectId: string; fetcher: typeof fetch },
+) {
   const root = await mkdtemp(join(tmpdir(), "native-execution-factory-"));
   roots.push(root);
   const filmsRoot = join(root, "films"),
     storyRoot = join(root, "story");
   const id = `film_${"a".repeat(16)}`,
     seriesId = `film_${"b".repeat(16)}`,
-    backend = `prj_${"c".repeat(32)}`;
+    backend = real?.projectId ?? `prj_${"c".repeat(32)}`;
   const episode = join(filmsRoot, seriesId, "episodes", id),
     frame = join(episode, "frame.png");
   await mkdir(episode, { recursive: true });
@@ -86,6 +90,7 @@ async function fixture() {
     styleRevision: 0,
     stylePreset: "写实",
     sourceText: scene.text,
+    narrationVoiceId: real ? "eve" : "",
     characters: [],
     props: [],
     audioClips: [],
@@ -118,7 +123,7 @@ async function fixture() {
         move: "固定",
         seconds: 3,
         characters: [],
-        line: "",
+        line: real ? "雨停了。" : "",
         lines: [],
         speaker: "",
         sound: { ambience: "", sfx: [], musicMood: "", source: "native" },
@@ -178,6 +183,8 @@ async function fixture() {
         )
         .digest("hex"),
     );
+    if (real) return real.fetcher(url, init);
+    if (privateFailure) return Response.json({ detail: privateFailure }, { status: 409 });
     if (path.endsWith("/lineages")) return Response.json({ items: [] });
     if (path.endsWith("/video-arm")) {
       arms.push(JSON.parse(raw));
@@ -240,7 +247,7 @@ async function preparedVideo(f: Awaited<ReturnType<typeof fixture>>, versions: 1
     ...f.input,
     targets: [{ shotId: "shot-one", versions }],
   });
-  expect(prepared.kind).toBe("PREPARED");
+  expect(prepared.kind, "code" in prepared ? prepared.code : "").toBe("PREPARED");
   if (prepared.kind !== "PREPARED") throw Error(prepared.code);
   const shot = generationRows(f.record.shots)[0]!;
   const queued = producer.prepareVideoQueue(f.record, [shot], versions, false);
@@ -490,3 +497,90 @@ it("rejects old takes, reordered appends and replacement IDs after the queue has
   expect(f.submissions).toHaveLength(1);
   expect(await readProject(f.filmsRoot, f.record.id)).toEqual(replacementStored);
 });
+
+it.each(["VIDEO_UNCONFIGURED", "VIDEO_INPUT_FAILURE_LIMIT"])(
+  "keeps actual private %s gates fixed before registration or video",
+  async (code) => {
+    const f = await fixture(code);
+    await expect(f.factory.prepare(f.owner, f.input)).resolves.toMatchObject({
+      kind: "FAILED",
+      code,
+    });
+    expect(f.registrations).toHaveLength(0);
+    expect(f.arms).toHaveLength(0);
+    expect(f.submissions).toHaveLength(0);
+  },
+);
+
+it.skipIf(!ffmpegOnPath())(
+  `crosses the actual Python signed routes and original StoryFilm consumer (${ffmpegSkipReason})`,
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "native-prepared-sidecar-"));
+    roots.push(root);
+    const repositoryRoot = resolve("../..");
+    type Reply = {
+      projectId: string;
+      status: number;
+      body: unknown;
+      sent: string[];
+      attempts: string[];
+    };
+    const request = (command: unknown): Reply => {
+      const response = spawnSync(
+        "uv",
+        ["run", "python", "services/api/tests/prepared_native_test_sidecar.py", root],
+        {
+          cwd: repositoryRoot,
+          input: JSON.stringify(command),
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PYTHONIOENCODING: "utf-8",
+            PYTHONPATH: [
+              resolve(repositoryRoot, "services/api/src"),
+              resolve(repositoryRoot, "services/api/tests"),
+              process.env.PYTHONPATH,
+            ]
+              .filter(Boolean)
+              .join(delimiter),
+          },
+        },
+      );
+      expect(response.status, response.stderr).toBe(0);
+      return JSON.parse(response.stdout) as Reply;
+    };
+    const { projectId } = request({ kind: "init" });
+    const replies: Reply[] = [];
+    const realFetch: typeof fetch = async (url, init) => {
+      const reply = request({
+        kind: "request",
+        path: new URL(String(url)).pathname,
+        body: String(init?.body),
+        headers: Object.fromEntries(new Headers(init?.headers)),
+      });
+      replies.push(reply);
+      return Response.json(reply.body, { status: reply.status });
+    };
+    const f = await fixture(undefined, { projectId, fetcher: realFetch }),
+      p = await preparedVideo(f);
+    expect(replies.map((reply) => reply.status)).toEqual([200, 200]);
+    const outcome = await f.factory.video(f.owner, projectId, p.body, undefined, p.execution);
+    expect(
+      outcome.data.status,
+      JSON.stringify({
+        provider: p.body.provider,
+        sent: replies.flatMap((reply) => reply.sent),
+        attempts: replies.at(-1)?.attempts,
+      }),
+    ).toBe("FAILED");
+    expect(replies.map((reply) => reply.status)).toEqual([200, 200, 200, 200]);
+    expect(replies.flatMap((reply) => reply.sent)).toEqual(["tts"]);
+    expect(replies.at(-1)!.attempts).toEqual(["UNKNOWN"]);
+    await expect(
+      f.factory.video(f.owner, projectId, p.body, undefined, p.execution),
+    ).rejects.toMatchObject({ code: "CREATION_ATTEMPT_ALREADY_RESERVED" });
+    expect(replies).toHaveLength(4);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
+  },
+  30_000,
+);

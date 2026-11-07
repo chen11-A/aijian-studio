@@ -31,6 +31,8 @@ const failures = new Set([
   "ACCOUNT_UNAVAILABLE",
   "UNSUPPORTED_SCOPE",
   "EXECUTION_UNAVAILABLE",
+  "VIDEO_UNCONFIGURED",
+  "VIDEO_INPUT_FAILURE_LIMIT",
   "CREATION_UNCONFIGURED",
   "CREATION_INPUT_UNVERIFIABLE",
   "CREATION_INPUT_FAILURE_LIMIT",
@@ -54,24 +56,28 @@ export function generationExecutionNotice(error: unknown): UiNotice {
   const code =
     typeof raw === "string" && raw.startsWith("CREATION_") && Object.hasOwn(NOTICE_TEXT, raw)
       ? raw
-      : raw === "GENERATION_EXECUTION_STALE" ||
-          raw === "PROJECT_CHANGED" ||
-          raw === "GENERATION_EXECUTION_STAGE_UNAVAILABLE" ||
-          raw === "GENERATION_EXECUTION_SLOT_UNAVAILABLE"
-        ? "GENERATION_SELECTION_STALE"
-        : raw === "GENERATION_EXECUTION_UNAVAILABLE"
-          ? "GENERATION_EXECUTION_UNAVAILABLE"
-          : raw === "ACCOUNT_UNAVAILABLE"
-            ? "GENERATION_EXECUTION_ACCOUNT_UNAVAILABLE"
-            : raw === "SOURCE_UNVERIFIABLE"
-              ? "GENERATION_EXECUTION_SOURCE_UNVERIFIABLE"
-              : raw === "UNSUPPORTED_SCOPE"
-                ? "GENERATION_EXECUTION_SCOPE_UNSUPPORTED"
-                : raw === "BUSY"
-                  ? "GENERATION_EXECUTION_BUSY"
-                  : raw === "WRITE_UNCONFIRMED"
-                    ? "GENERATION_EXECUTION_WRITE_UNCONFIRMED"
-                    : "GENERATION_EXECUTION_UNCONFIRMED";
+      : raw === "VIDEO_UNCONFIGURED"
+        ? "VIDEO_FAILURE_UNCONFIGURED"
+        : raw === "VIDEO_INPUT_FAILURE_LIMIT"
+          ? "VIDEO_FAILURE_INPUT_FAILURE_LIMIT"
+          : raw === "GENERATION_EXECUTION_STALE" ||
+              raw === "PROJECT_CHANGED" ||
+              raw === "GENERATION_EXECUTION_STAGE_UNAVAILABLE" ||
+              raw === "GENERATION_EXECUTION_SLOT_UNAVAILABLE"
+            ? "GENERATION_SELECTION_STALE"
+            : raw === "GENERATION_EXECUTION_UNAVAILABLE"
+              ? "GENERATION_EXECUTION_UNAVAILABLE"
+              : raw === "ACCOUNT_UNAVAILABLE"
+                ? "GENERATION_EXECUTION_ACCOUNT_UNAVAILABLE"
+                : raw === "SOURCE_UNVERIFIABLE"
+                  ? "GENERATION_EXECUTION_SOURCE_UNVERIFIABLE"
+                  : raw === "UNSUPPORTED_SCOPE"
+                    ? "GENERATION_EXECUTION_SCOPE_UNSUPPORTED"
+                    : raw === "BUSY"
+                      ? "GENERATION_EXECUTION_BUSY"
+                      : raw === "WRITE_UNCONFIRMED"
+                        ? "GENERATION_EXECUTION_WRITE_UNCONFIRMED"
+                        : "GENERATION_EXECUTION_UNCONFIRMED";
   return { code, text: NOTICE_TEXT[code as keyof typeof NOTICE_TEXT] };
 }
 

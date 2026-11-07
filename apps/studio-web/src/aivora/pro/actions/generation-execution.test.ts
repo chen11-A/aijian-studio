@@ -16,6 +16,8 @@ import {
   createGenerationExecutionSession,
   prepareCurrentGenerationExecution,
   validGenerationExecution,
+  generationExecutionNotice,
+  isGenerationExecutionFailureCode,
 } from "./generation-execution";
 import { historyRecordHash } from "./persistent-history";
 const input: FilmGenerationExecutionInput = {
@@ -413,5 +415,27 @@ it("uses native per-slot cache facts and rejects missing, reordered or inconsist
     const invalid = prepared();
     mutation(invalid);
     expect(validGenerationExecution(invalid, input)).toBe(false);
+  }
+});
+
+it("preserves video policy gates separately from creator policy and ignores unknown code text", () => {
+  expect(generationExecutionNotice({ code: "VIDEO_UNCONFIGURED" }).code).toBe(
+    "VIDEO_FAILURE_UNCONFIGURED",
+  );
+  expect(generationExecutionNotice({ code: "VIDEO_INPUT_FAILURE_LIMIT" }).code).toBe(
+    "VIDEO_FAILURE_INPUT_FAILURE_LIMIT",
+  );
+  expect(generationExecutionNotice({ code: "CREATION_UNCONFIGURED" }).code).toBe(
+    "CREATION_UNCONFIGURED",
+  );
+  for (const code of ["VIDEO_UNCONFIGURED", "VIDEO_INPUT_FAILURE_LIMIT"])
+    expect(isGenerationExecutionFailureCode(code)).toBe(true);
+  for (const code of [
+    "VIDEO_UNCONFIGURED_PRIVATE",
+    "provider says VIDEO_UNCONFIGURED",
+    "VIDEO_FAILURE_INPUT_FAILURE_LIMIT",
+  ]) {
+    expect(isGenerationExecutionFailureCode(code)).toBe(false);
+    expect(generationExecutionNotice({ code }).code).toBe("GENERATION_EXECUTION_UNCONFIRMED");
   }
 });
