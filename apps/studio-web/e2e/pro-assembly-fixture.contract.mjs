@@ -355,7 +355,6 @@ test("save readiness observes scoped Pro timer generations and actual writes wit
     });
   installAssemblyAuditBridge();
   const audit = window.__assemblyAudit;
-  await window.aijian.assembleFilmProject(await f.input(), "12345678-1234-4234-8234-123456789abc");
   const page = {
     evaluate: (fn, arg) => fn(arg),
     waitForFunction: (fn, arg) => {
@@ -398,7 +397,29 @@ test("save readiness observes scoped Pro timer generations and actual writes wit
   assert.deepEqual(await result, f.raw);
   assert.equal(audit.pendingWrites[f.raw.id], 0);
   await waitAssemblyIdle(page, f.raw.id);
+  assert.equal(
+    audit.lastReadiness.operationId,
+    null,
+    "No native operation is a real initial idle state",
+  );
+  await window.aijian.assembleFilmProject(await f.input(), "12345678-1234-4234-8234-123456789abc");
+  await waitAssemblyIdle(page, f.raw.id);
   assert.equal(audit.lastReadiness.operationId, "12345678-1234-4234-8234-123456789abc");
+  const originalWait = page.waitForFunction;
+  page.waitForFunction = async (fn, marker) => {
+    await window.aijian.assembleFilmProject(
+      await f.input(),
+      "22345678-1234-4234-8234-123456789abc",
+    );
+    assert.equal(fn(marker), true);
+  };
+  await assert.rejects(
+    waitAssemblyIdle(page, f.raw.id),
+    "A new real operation cannot borrow an older readiness marker",
+  );
+  page.waitForFunction = originalWait;
+  await waitAssemblyIdle(page, f.raw.id);
+  assert.equal(audit.lastReadiness.operationId, "22345678-1234-4234-8234-123456789abc");
   storage[`aivora.film.v1.film_duplicate00000001`] = JSON.stringify({
     ...f.raw,
     id: "film_duplicate00000001",
