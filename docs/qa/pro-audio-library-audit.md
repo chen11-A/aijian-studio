@@ -28,3 +28,9 @@ AIVORA_CHROMIUM=/usr/bin/google-chrome node apps/studio-web/e2e/pro-audio-librar
 目录元数据来自仓库真实 manifest；target 时钟、复制／写入、故障／BUSY、文件注册表与冲突为 synthetic native ABI。没有加载素材声音，没有声称实际试听、206 文件逐个解码、真实 Ogg 复制或 ZIP／Electron 全链路通过。真实文件字节保留与原生媒体核验由产品独立宿主／native 测试互补。
 
 本地已跑 Node 契约与受限 CLI 负向、语法／ESLint／格式／差异检查；本机 Chrome 沙箱限制下不把环境失败记正向通过。16 态正常沙箱几何结果等待 CI。相关保存安全修 f28／后续 deferred-read 修正具有独立真实宿主证据，不能冒充本浏览器门的像素证据。
+
+## 当前作品观察补验
+
+run 42316677903／job 128230869345 的四个 unknown 组合已越过页脚几何门，继发失败是断言第 279 行等待 `localStorage.activeId`，不是新的遮挡证据。该库夹具为防旧工程写入抢选中，本来就不随 `writeFilmProject(other)` 改 activeId；实际 desktop `readSaved` 也不写此键，旧用例沿用 creation 夹具副作用作为当前作品依据不成立。
+
+现通过生产主 header 的当前集名 `/ 合成第2集` 观察实际切换，并等待这一工程的真实桥写入完成及页脚保存完成后建立 raw 基线；恢复后当前 header、独有画风和完整 raw 均保持，原工程不被导航写回、恢复期间不写新工程。新增 Node 契约明确默认 native write 保存另一工程但不改变 activeId／active。没有改夹具为无条件写抢选中，也没有删除 BUSY→完成／冲突选择／一次 add／零 provider／原 takes 和几何保障；四态／16 个组合保持，正常 Chrome 正向待新 CI。

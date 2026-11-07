@@ -116,6 +116,21 @@ test("four default states retain six shots/three versions and actual 206 public 
     );
   }
 });
+test("default native write persists another work without pretending to select it via activeId", async () => {
+  const f = setup("library-unknown-recovery");
+  const selected = window.localStorage.getItem("aivora.film.activeId"),
+    active = window.localStorage.getItem("aivora.film.active"),
+    original = f.creation.record(f.seed.projectId);
+  const other = f.creation.record(f.seed.otherId);
+  other.styleZh = "另一个作品的合成保存变化";
+  const stored = await f.bridge.writeFilmProject(other);
+  assert.deepEqual(stored, other);
+  assert.deepEqual(f.creation.record(f.seed.otherId), other);
+  assert.deepEqual(f.creation.record(f.seed.projectId), original);
+  assert.equal(window.localStorage.getItem("aivora.film.activeId"), selected);
+  assert.equal(window.localStorage.getItem("aivora.film.active"), active);
+  assert.deepEqual(f.audit.writes, [{ projectId: other.id, hash: await f.creation.hash(other) }]);
+});
 test("target guard default really holds the first request, then fails with no invented duration or add", async () => {
   const f = setup("library-target-guard");
   const admitted = new Promise((resolve) => {

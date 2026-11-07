@@ -35,6 +35,7 @@ export function installAudioLibraryBridge({ state, catalog }) {
     window.localStorage.setItem(`aivora.film.v1.${film.id}`, JSON.stringify(film));
   const audit = {
     catalog: 0,
+    writes: [],
     inspects: [],
     adds: [],
     previews: [],
@@ -65,6 +66,7 @@ export function installAudioLibraryBridge({ state, catalog }) {
     store(value);
     if (window.localStorage.getItem("aivora.film.activeId") === value.id)
       window.localStorage.setItem("aivora.film.active", JSON.stringify(value));
+    audit.writes.push({ projectId: value.id, hash: await creation.hash(value) });
     return clone(value);
   };
   native.listBundledFilmAudio = async () => {
