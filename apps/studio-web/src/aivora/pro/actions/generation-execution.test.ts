@@ -35,6 +35,7 @@ type MutablePrepared = {
   targets: {
     shotId: string;
     videoSlotIds: string[];
+    slotPreparations: { videoSlotId: string; preparation: "CLIENT_IMAGES" | "STORYFILM_CACHE" }[];
     preparation: "CLIENT_IMAGES" | "STORYFILM_CACHE";
   }[];
   stages: Array<FilmGenerationImageStage | FilmGenerationContinuityStage>;
@@ -49,9 +50,21 @@ function prepared(): MutablePrepared {
       {
         shotId: "shot1",
         videoSlotIds: ["video1", "video2"],
+        slotPreparations: ["video1", "video2"].map((videoSlotId) => ({
+          videoSlotId,
+          preparation: "CLIENT_IMAGES" as const,
+        })),
         preparation: "CLIENT_IMAGES" as const,
       },
-      { shotId: "shot2", videoSlotIds: ["video3"], preparation: "CLIENT_IMAGES" as const },
+      {
+        shotId: "shot2",
+        videoSlotIds: ["video3"],
+        slotPreparations: ["video3"].map((videoSlotId) => ({
+          videoSlotId,
+          preparation: "CLIENT_IMAGES" as const,
+        })),
+        preparation: "CLIENT_IMAGES" as const,
+      },
     ],
     stages: [
       { stageId: "place", kind: "location-reference", targetId: "location1" },
@@ -224,7 +237,15 @@ it("accepts only the native-issued ordered pipeline subset, without expanding re
       {
         ...subset,
         targets: [
-          { shotId: "unknown", videoSlotIds: ["new"], preparation: "CLIENT_IMAGES" as const },
+          {
+            shotId: "unknown",
+            videoSlotIds: ["new"],
+            slotPreparations: ["new"].map((videoSlotId) => ({
+              videoSlotId,
+              preparation: "CLIENT_IMAGES" as const,
+            })),
+            preparation: "CLIENT_IMAGES" as const,
+          },
         ],
       },
       pipeline,
@@ -355,4 +376,37 @@ it("requires explicit preparation and exact continuity source metadata in the is
   const cached = prepared();
   cached.targets[0]!.preparation = "STORYFILM_CACHE";
   expect(validGenerationExecution(cached, input)).toBe(false); // a client-only frame stage cannot be attached to a cached target
+});
+
+it("uses native per-slot cache facts and rejects missing, reordered or inconsistent tables", async () => {
+  const f = env(),
+    reply = prepared();
+  reply.targets[0]!.slotPreparations[0]!.preparation = "STORYFILM_CACHE";
+  f.prepare.mockResolvedValue(reply);
+  await f.session.prepare(input);
+  expect(f.session.preparation("shot1")).toBe("CLIENT_IMAGES");
+  expect(f.session.preparation("shot1", 0)).toBe("STORYFILM_CACHE");
+  expect(f.session.preparation("shot1", 1)).toBe("CLIENT_IMAGES");
+  expect(() => f.session.preparation("shot1", 2)).toThrow("GENERATION_EXECUTION_SLOT_UNAVAILABLE");
+  for (const mutation of [
+    (value: MutablePrepared) => {
+      Reflect.deleteProperty(value.targets[0]!, "slotPreparations");
+    },
+    (value: MutablePrepared) => {
+      value.targets[0]!.slotPreparations.reverse();
+    },
+    (value: MutablePrepared) => {
+      value.targets[0]!.slotPreparations.pop();
+    },
+    (value: MutablePrepared) => {
+      value.targets[0]!.preparation = "STORYFILM_CACHE";
+    },
+    (value: MutablePrepared) => {
+      Object.assign(value.targets[0]!.slotPreparations[0]!, { private: true });
+    },
+  ]) {
+    const invalid = prepared();
+    mutation(invalid);
+    expect(validGenerationExecution(invalid, input)).toBe(false);
+  }
 });

@@ -285,7 +285,7 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
         apply: host.apply,
         execution: host.execution,
       };
-      const cached = host.execution?.preparation(group.shot.id) === "STORYFILM_CACHE";
+      const cached = host.execution?.preparation(group.shot.id, index) === "STORYFILM_CACHE";
       const connectedShot = cached
         ? targetShot
         : await (host.continuity ?? ensureContinuityFrame)(current, targetShot, frameHost);

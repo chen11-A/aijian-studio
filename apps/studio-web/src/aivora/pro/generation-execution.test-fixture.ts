@@ -34,12 +34,18 @@ export function generationExecutionFixture(read: (id: string) => Promise<unknown
       );
       const executionId = `native-fixture-${++sequence}`;
       const stages = [
-        ...sceneLocationTargets(film).map((place) => ({
+        ...sceneLocationTargets({
+          ...film,
+          scenes: film.scenes.filter(
+            (scene) =>
+              input.mode === "pipeline" || selected.some((shot) => shot.sceneId === scene.id),
+          ),
+        }).map((place) => ({
           kind: "location-reference" as const,
           stageId: `location-${place.id}`,
           targetId: place.id,
         })),
-        ...film.characters.flatMap((person) =>
+        ...(input.mode === "pipeline" ? film.characters : []).flatMap((person) =>
           (["正面", "侧面", "背面", "脸部"] as const).map((view) => ({
             kind: "portrait" as const,
             stageId: `portrait-${person.id}-${view}`,
@@ -77,6 +83,10 @@ export function generationExecutionFixture(read: (id: string) => Promise<unknown
             { length: target.versions },
             (_, index) => `${executionId}-${target.shotId}-${index}`,
           ),
+          slotPreparations: Array.from(
+            { length: target.versions },
+            (_, index) => `${executionId}-${target.shotId}-${index}`,
+          ).map((videoSlotId) => ({ videoSlotId, preparation: "CLIENT_IMAGES" as const })),
         })),
       };
     }),

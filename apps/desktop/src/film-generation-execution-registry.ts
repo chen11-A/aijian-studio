@@ -47,7 +47,16 @@ type Entry<State> = {
   registration: Registration<State>;
   public: Omit<Prepared, "kind" | "executionId">;
   stageSlots: Map<string, readonly string[]>;
-  slots: Map<string, { shotId: string; index: number; retired: boolean; takeId: string | null }>;
+  slots: Map<
+    string,
+    {
+      shotId: string;
+      index: number;
+      retired: boolean;
+      takeId: string | null;
+      preparation: "CLIENT_IMAGES" | "STORYFILM_CACHE";
+    }
+  >;
   retired: boolean;
 };
 
@@ -118,10 +127,31 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
           target.videoSlotIds.length > 3
         )
           return fail("EXECUTION_UNAVAILABLE");
+        if (
+          !Array.isArray(target.slotPreparations) ||
+          target.slotPreparations.length !== target.videoSlotIds.length ||
+          !target.slotPreparations.every(
+            (slot, index) =>
+              exact(slot, ["videoSlotId", "preparation"]) &&
+              slot.videoSlotId === target.videoSlotIds[index] &&
+              ["CLIENT_IMAGES", "STORYFILM_CACHE"].includes(slot.preparation),
+          ) ||
+          target.preparation !==
+            (target.slotPreparations.every((slot) => slot.preparation === "STORYFILM_CACHE")
+              ? "STORYFILM_CACHE"
+              : "CLIENT_IMAGES")
+        )
+          return fail("EXECUTION_UNAVAILABLE");
         shotIds.add(target.shotId);
         target.videoSlotIds.forEach((id, index) => {
           addId(id);
-          slots.set(id, { shotId: target.shotId, index, retired: false, takeId: null });
+          slots.set(id, {
+            shotId: target.shotId,
+            index,
+            retired: false,
+            takeId: null,
+            preparation: target.slotPreparations[index]!.preparation,
+          });
         });
       }
       const stages = input.stages.map((stage) => {
@@ -130,7 +160,9 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
         if (
           (stage.kind === "continuity-frame" || stage.kind === "shot-frame") &&
           !input.targets.some(
-            (target) => target.shotId === stage.targetId && target.preparation === "CLIENT_IMAGES",
+            (target) =>
+              target.shotId === stage.targetId &&
+              target.slotPreparations.some((slot) => slot.preparation === "CLIENT_IMAGES"),
           )
         )
           return fail("EXECUTION_UNAVAILABLE");
@@ -165,7 +197,7 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
         if (
           !dependencies?.length ||
           new Set(dependencies).size !== dependencies.length ||
-          dependencies.some((id) => !slots.has(id))
+          dependencies.some((id) => slots.get(id)?.preparation !== "CLIENT_IMAGES")
         )
           return fail("EXECUTION_UNAVAILABLE");
         stageSlots.set(stage.stageId, [...dependencies]);
@@ -178,6 +210,7 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
           shotId: target.shotId,
           preparation: target.preparation,
           videoSlotIds: [...target.videoSlotIds],
+          slotPreparations: target.slotPreparations.map((slot) => ({ ...slot })),
         })),
       };
       const id = `gex_${randomBytes(16).toString("hex")}`;
@@ -245,6 +278,7 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
         privateState: entry.registration.privateState,
         shotId: slot.shotId,
         slotIndex: slot.index,
+        preparation: slot.preparation,
         current: isCurrent,
         /** Call only after canonical/body/source verification, never merely on renderer lookup. */
         bindVerifiedTake: () => {

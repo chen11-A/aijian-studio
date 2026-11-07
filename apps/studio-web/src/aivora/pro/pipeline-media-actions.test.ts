@@ -57,6 +57,10 @@ async function fixture() {
           {
             shotId: film.shots[0]!.id,
             videoSlotIds: ["video"],
+            slotPreparations: ["video"].map((videoSlotId) => ({
+              videoSlotId,
+              preparation: "CLIENT_IMAGES" as const,
+            })),
             preparation: "CLIENT_IMAGES" as const,
           },
         ],

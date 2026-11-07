@@ -16,9 +16,21 @@ function setup() {
         {
           shotId: "shot-one",
           videoSlotIds: ["slot-one", "slot-two"],
+          slotPreparations: ["slot-one", "slot-two"].map((videoSlotId) => ({
+            videoSlotId,
+            preparation: "CLIENT_IMAGES" as const,
+          })),
           preparation: "CLIENT_IMAGES" as const,
         },
-        { shotId: "shot-two", videoSlotIds: ["slot-three"], preparation: "CLIENT_IMAGES" as const },
+        {
+          shotId: "shot-two",
+          videoSlotIds: ["slot-three"],
+          slotPreparations: ["slot-three"].map((videoSlotId) => ({
+            videoSlotId,
+            preparation: "CLIENT_IMAGES" as const,
+          })),
+          preparation: "CLIENT_IMAGES" as const,
+        },
       ],
       stages: [
         { stageId: "shared", kind: "location-reference" as const, targetId: "place" },
@@ -192,4 +204,23 @@ it("does not revive an old document by replacing the caller's mutable owner call
   f.registration.accountCurrent = () => true;
   expect(lease.current()).toBe(false);
   expect(() => f.registry.stage(f.owner, f.stage(), "image")).toThrow("EXECUTION_UNAVAILABLE");
+});
+
+it("rejects client-image dependencies on a cache-only slot and retains per-slot facts on video leases", () => {
+  const f = setup();
+  Object.assign(f.registration.public.targets[0]!.slotPreparations[0]!, {
+    preparation: "STORYFILM_CACHE",
+  });
+  expect(() => f.registry.register(f.owner, f.registration)).toThrow("EXECUTION_UNAVAILABLE");
+  f.registration.stageSlots.set("shared", ["slot-two", "slot-three"]);
+  f.registration.stageSlots.set("frame", ["slot-two"]);
+  const issued = f.registry.register(f.owner, f.registration);
+  expect(
+    f.registry.video(f.owner, {
+      executionId: issued.executionId,
+      videoSlotId: "slot-one",
+      shotId: "shot-one",
+      takeId: "new-take",
+    }).preparation,
+  ).toBe("STORYFILM_CACHE");
 });

@@ -198,7 +198,17 @@ it("a protected run re-verifies even an existing continuity frame with the exact
         executionId: "protected",
         projectId: input.projectId,
         projectHash: input.expectedProjectHash,
-        targets: [{ shotId: "current", videoSlotIds: ["slot"], preparation: "CLIENT_IMAGES" }],
+        targets: [
+          {
+            shotId: "current",
+            videoSlotIds: ["slot"],
+            slotPreparations: ["slot"].map((videoSlotId) => ({
+              videoSlotId,
+              preparation: "CLIENT_IMAGES" as const,
+            })),
+            preparation: "CLIENT_IMAGES",
+          },
+        ],
         stages: [
           {
             kind: "continuity-frame",

@@ -132,6 +132,10 @@ function setup(initial = fixture()) {
         targets: input.targets.map((t) => ({
           shotId: t.shotId,
           videoSlotIds: [`video-${t.shotId}`],
+          slotPreparations: [`video-${t.shotId}`].map((videoSlotId) => ({
+            videoSlotId,
+            preparation: "CLIENT_IMAGES" as const,
+          })),
           preparation: "CLIENT_IMAGES" as const,
         })),
       };

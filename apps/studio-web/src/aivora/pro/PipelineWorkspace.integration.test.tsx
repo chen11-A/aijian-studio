@@ -156,6 +156,10 @@ function fixture(partial = false, count = 1) {
           shotId: target.shotId,
           preparation: "CLIENT_IMAGES" as const,
           videoSlotIds: [`slot-${target.shotId}`],
+          slotPreparations: [`slot-${target.shotId}`].map((videoSlotId) => ({
+            videoSlotId,
+            preparation: "CLIENT_IMAGES" as const,
+          })),
         })),
         stages: [
           ...sceneLocationTargets(saved).map((place) => ({

@@ -103,13 +103,29 @@ export function validGenerationExecution(
     const wanted = input.targets[nextInput++];
     if (!wanted) return false;
     if (
-      !exact(target, ["shotId", "videoSlotIds", "preparation"]) ||
+      !exact(target, ["shotId", "videoSlotIds", "preparation", "slotPreparations"]) ||
       target.shotId !== wanted.shotId ||
       !["CLIENT_IMAGES", "STORYFILM_CACHE"].includes(String(target.preparation)) ||
       !Array.isArray(target.videoSlotIds) ||
       target.videoSlotIds.length !== wanted.versions
     )
       return false;
+    const videoSlotIds = target.videoSlotIds;
+    if (
+      !Array.isArray(target.slotPreparations) ||
+      target.slotPreparations.length !== target.videoSlotIds.length ||
+      !target.slotPreparations.every(
+        (slot, index) =>
+          exact(slot, ["videoSlotId", "preparation"]) &&
+          slot.videoSlotId === videoSlotIds[index] &&
+          ["CLIENT_IMAGES", "STORYFILM_CACHE"].includes(String(slot.preparation)),
+      )
+    )
+      return false;
+    const allCached = target.slotPreparations.every(
+      (slot) => slot.preparation === "STORYFILM_CACHE",
+    );
+    if (target.preparation !== (allCached ? "STORYFILM_CACHE" : "CLIENT_IMAGES")) return false;
     for (const id of target.videoSlotIds) {
       if (!locator(id) || ids.has(id)) return false;
       ids.add(id);
@@ -148,7 +164,10 @@ export function validGenerationExecution(
         (target: unknown) =>
           record(target) &&
           target.shotId === stage.targetId &&
-          target.preparation === "CLIENT_IMAGES",
+          Array.isArray(target.slotPreparations) &&
+          target.slotPreparations.some(
+            (slot: unknown) => record(slot) && slot.preparation === "CLIENT_IMAGES",
+          ),
       )
     )
       return false;
@@ -211,11 +230,16 @@ export function createGenerationExecutionSession(
         return fail("GENERATION_EXECUTION_STALE");
       }
     },
-    preparation(shotId: string): "CLIENT_IMAGES" | "STORYFILM_CACHE" {
-      return (
-        alive().targets.find((t) => t.shotId === shotId)?.preparation ??
-        fail("GENERATION_EXECUTION_SLOT_UNAVAILABLE")
-      );
+    preparation(shotId: string, index?: number): "CLIENT_IMAGES" | "STORYFILM_CACHE" {
+      const target = alive().targets.find((target) => target.shotId === shotId);
+      if (!target) return fail("GENERATION_EXECUTION_SLOT_UNAVAILABLE");
+      if (index === undefined)
+        return target.slotPreparations.some((slot) => slot.preparation === "CLIENT_IMAGES")
+          ? "CLIENT_IMAGES"
+          : "STORYFILM_CACHE";
+      const slot =
+        Number.isSafeInteger(index) && index >= 0 ? target.slotPreparations[index] : undefined;
+      return slot?.preparation ?? fail("GENERATION_EXECUTION_SLOT_UNAVAILABLE");
     },
     continuity(targetId: string, sourceShotId: string): FilmGenerationExtractionExecution {
       try {

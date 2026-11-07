@@ -58,6 +58,10 @@ function fixture() {
           shotId: t.shotId,
           preparation: "CLIENT_IMAGES" as const,
           videoSlotIds: Array.from({ length: t.versions }, (_, i) => `slot-${t.shotId}-${i}`),
+          slotPreparations: Array.from(
+            { length: t.versions },
+            (_, i) => `slot-${t.shotId}-${i}`,
+          ).map((videoSlotId) => ({ videoSlotId, preparation: "CLIENT_IMAGES" as const })),
         })),
         stages: [
           ...sceneLocationTargets(stored).map((p) => ({
@@ -241,7 +245,14 @@ it("only explicit native STORYFILM_CACHE skips all client images, without treati
     return {
       ...reply,
       stages: [],
-      targets: reply.targets.map((t) => ({ ...t, preparation: "STORYFILM_CACHE" })),
+      targets: reply.targets.map((t) => ({
+        ...t,
+        preparation: "STORYFILM_CACHE",
+        slotPreparations: t.slotPreparations.map((slot) => ({
+          ...slot,
+          preparation: "STORYFILM_CACHE" as const,
+        })),
+      })),
     };
   });
   delete window.aijian!.generateFilmStill;
@@ -325,7 +336,15 @@ it("fresh real Pro runs text structure first and waits for explicit complete med
       projectId: input.projectId,
       projectHash: input.expectedProjectHash,
       targets: [
-        { shotId: template.id, videoSlotIds: ["fresh-slot"], preparation: "CLIENT_IMAGES" },
+        {
+          shotId: template.id,
+          videoSlotIds: ["fresh-slot"],
+          slotPreparations: ["fresh-slot"].map((videoSlotId) => ({
+            videoSlotId,
+            preparation: "CLIENT_IMAGES" as const,
+          })),
+          preparation: "CLIENT_IMAGES",
+        },
       ],
       stages: [
         ...sceneLocationTargets(f.stored()).map((p) => ({
@@ -368,5 +387,50 @@ it("fresh real Pro runs text structure first and waits for explicit complete med
   expect(f.prepare).toHaveBeenCalledTimes(1);
   expect(f.still).toHaveBeenCalledTimes(2);
   expect(f.video).not.toHaveBeenCalled();
+  expect(JSON.stringify(f.stored())).not.toContain("native-execution");
+});
+
+it("keeps a native cached first slot separate from the later explicitly issued client-image version", async () => {
+  const f = fixture(),
+    original = f.prepare.getMockImplementation()!;
+  f.prepare.mockImplementation(async (input) => {
+    const reply = await original(input);
+    if (reply.kind !== "PREPARED") return reply;
+    return {
+      ...reply,
+      targets: reply.targets.map((target) => ({
+        ...target,
+        slotPreparations: target.slotPreparations.map((slot, index) => ({
+          ...slot,
+          preparation: index === 0 ? ("STORYFILM_CACHE" as const) : ("CLIENT_IMAGES" as const),
+        })),
+      })),
+    };
+  });
+  let calls = 0;
+  f.video.mockImplementation(async () => {
+    const frameCalls = (f.still.mock.calls as unknown as unknown[][]).filter(
+      (call) => (call[4] as { stageId: string }).stageId === "native-frame",
+    );
+    expect(frameCalls).toHaveLength(calls === 0 ? 0 : 1);
+    calls++;
+    return { data: { status: "SUCCEEDED", output_path: "/tmp/new-execution.mp4" } };
+  });
+  await open();
+  submit(2);
+  await waitFor(() => expect(f.video).toHaveBeenCalledTimes(2));
+  const contexts = f.video.mock.calls as unknown as unknown[][];
+  expect(contexts.map((call) => (call[3] as { videoSlotId: string }).videoSlotId)).toEqual([
+    `slot-${f.film.shots[0]!.id}-0`,
+    `slot-${f.film.shots[0]!.id}-1`,
+  ]);
+  expect(contexts.map((call) => (call[1] as { regenerate: boolean }).regenerate)).toEqual([
+    false,
+    true,
+  ]);
+  expect(f.prepare).toHaveBeenCalledTimes(1);
+  await waitFor(() =>
+    expect(f.stored().shots[0]!.takes.filter((take) => take.status === "done")).toHaveLength(2),
+  );
   expect(JSON.stringify(f.stored())).not.toContain("native-execution");
 });
