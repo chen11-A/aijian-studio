@@ -456,3 +456,49 @@ test("real pytest-shaped child keeps stdout, stderr and failure status while ann
   );
   assert.doesNotMatch(annotations.join("\n"), /PRIVATE|AssertionError|private\//);
 });
+
+test("fixed speech-window CLI uses the original pytest vector without pnpm, and preserves real child success/failure status", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "speech cli hook-"));
+  try {
+    const hook = join(directory, "spawn-hook.cjs"),
+      record = join(directory, "invocation.json");
+    const line =
+      "FAILED services/api/tests/test_story_speech_window.py::test_padding_preserves_every_body_sample_and_original_bytes[PRIVATE_PARAMETER] - PRIVATE_EXCEPTION\n";
+    const script = fileURLToPath(new URL("./ci-test-diagnostics.mjs", import.meta.url));
+    for (const status of [0, 23]) {
+      const child = `process.stdout.write(${JSON.stringify(line)});process.stderr.write('original stderr\\n');process.exitCode=${status};`;
+      await writeFile(
+        hook,
+        `const fs=require('node:fs'),cp=require('node:child_process');const original=cp.spawn;cp.spawn=(command,args,options)=>{fs.writeFileSync(${JSON.stringify(record)},JSON.stringify({command,args,shell:options.shell}));return original(process.execPath,['-e',${JSON.stringify(child)}],options);};require('node:module').syncBuiltinESMExports();`,
+      );
+      const result = spawnSync(
+        process.execPath,
+        ["--require", hook, script, "--speech-window-test"],
+        { encoding: "utf8", shell: false, env: { ...process.env, npm_execpath: "" } },
+      );
+      assert.equal(result.status, status);
+      assert.equal(result.stderr, "original stderr\n");
+      assert(result.stdout.startsWith(line));
+      assert.deepEqual(JSON.parse(await readFile(record, "utf8")), {
+        command: "uv",
+        args: ["run", "pytest", "services/api/tests/test_story_speech_window.py"],
+        shell: false,
+      });
+      const annotations = result.stdout.split("\n").filter((value) => value.startsWith("::error"));
+      assert.equal(annotations.length, status === 0 ? 0 : 2);
+      assert(annotations.every((value) => value.includes(`exit ${status}`)));
+      assert.doesNotMatch(annotations.join("\n"), /PRIVATE|AssertionError/);
+    }
+    await rm(record);
+    const rejected = spawnSync(
+      process.execPath,
+      ["--require", hook, script, "--speech-window-test", "PRIVATE_PATH.py"],
+      { encoding: "utf8", shell: false },
+    );
+    assert.equal(rejected.status, 1);
+    await assert.rejects(readFile(record, "utf8"), { code: "ENOENT" });
+    assert.doesNotMatch(rejected.stdout + rejected.stderr, /PRIVATE_PATH/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

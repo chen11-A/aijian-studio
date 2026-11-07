@@ -416,3 +416,44 @@ jobs:
             .aijian-dev/pro-audio-groups-audit/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7
+
+  speech-window-windows:
+    name: speech-window (windows, targeted)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: ${{ github.ref != 'refs/heads/codex/windows-installer-dev-20261008' }}
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --python 3.12
+
+      - name: Prepare exact Windows development media binaries
+        shell: pwsh
+        run: |
+          $prepared = uv run python scripts/ci_media_tools.py --root "${{ runner.temp }}/aivora-speech-window-media"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output $prepared
+          ($prepared | ConvertFrom-Json).root | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify CI test diagnostics
+        run: node scripts/ci-test-diagnostics.mjs --self-test
+
+      - name: Run original speech-window tests with safe failure diagnostics
+        run: node scripts/ci-test-diagnostics.mjs --speech-window-test
