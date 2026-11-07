@@ -144,6 +144,42 @@ export function emptySpeechPcmSummary(raw) {
   }
 }
 
+/** Only boolean comparisons of actual test-local identities; never stat values,
+ * filenames, exception strings, hashes or caller-defined diagnostic labels. */
+export function recoveryIdentitySummary(raw) {
+  const prefix = "CI_VIDEO_RECOVERY_IDENTITY ";
+  if (typeof raw !== "string" || raw.length > 2048 || !raw.startsWith(prefix)) return null;
+  try {
+    const value = JSON.parse(raw.slice(prefix.length));
+    const flags = [
+      "fdStable",
+      "fdRegular",
+      "pathRegular",
+      "sameDevice",
+      "sameInode",
+      "sameSize",
+      "sameMtime",
+      "sameCtime",
+      "namedHandleMatch",
+      "shaMatch",
+      "byteCountMatch",
+    ];
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      Object.keys(value).sort().join() !== [...flags, "schemaVersion", "stage"].sort().join() ||
+      value.schemaVersion !== 1 ||
+      value.stage !== "read-path" ||
+      flags.some((field) => typeof value[field] !== "boolean")
+    )
+      return null;
+    return `Video recovery read identity: ${flags.map((field) => `${field}=${value[field]}`).join("; ")}.`;
+  } catch {
+    return null;
+  }
+}
+
 const libraryWriteStages = new Set([
   "fixture",
   "suggest",
@@ -269,6 +305,11 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
     if (pcm) {
       phase = "Python";
       add(pcm);
+    }
+    const recoveryIdentity = pytestFailures ? recoveryIdentitySummary(diagnostic) : null;
+    if (recoveryIdentity) {
+      phase = "Python";
+      add(recoveryIdentity);
     }
     const pytestFrame =
       pytestFailures &&
@@ -433,9 +474,24 @@ try {
 if (direct) {
   try {
     if (
-      ["--speech-window-test", "--audio-library-write-test", "--delivery-manifest-test"].includes(
-        process.argv[2],
-      ) &&
+      process.argv[2] !== undefined &&
+      ![
+        "--self-test",
+        "--check-launcher",
+        "--speech-window-test",
+        "--video-recovery-test",
+        "--audio-library-write-test",
+        "--delivery-manifest-test",
+      ].includes(process.argv[2])
+    )
+      throw new Error("UNEXPECTED_TARGET_ARGUMENTS");
+    if (
+      [
+        "--speech-window-test",
+        "--video-recovery-test",
+        "--audio-library-write-test",
+        "--delivery-manifest-test",
+      ].includes(process.argv[2]) &&
       process.argv.length !== 3
     )
       throw new Error("UNEXPECTED_TARGET_ARGUMENTS");
@@ -455,11 +511,22 @@ if (direct) {
               args: ["run", "pytest", "services/api/tests/test_story_speech_window.py"],
               phase: "Python / speech-window",
             }
-          : process.argv[2] === "--audio-library-write-test"
-            ? libraryWriteInvocation(process.env.npm_execpath)
-            : process.argv[2] === "--delivery-manifest-test"
-              ? deliveryManifestInvocation(process.env.npm_execpath)
-              : pnpmInvocation(process.env.npm_execpath);
+          : process.argv[2] === "--video-recovery-test"
+            ? {
+                command: "uv",
+                args: [
+                  "run",
+                  "pytest",
+                  "services/api/tests/test_video_recovery.py",
+                  "services/api/tests/test_video_recovery_routes.py",
+                ],
+                phase: "Python / video-recovery",
+              }
+            : process.argv[2] === "--audio-library-write-test"
+              ? libraryWriteInvocation(process.env.npm_execpath)
+              : process.argv[2] === "--delivery-manifest-test"
+                ? deliveryManifestInvocation(process.env.npm_execpath)
+                : pnpmInvocation(process.env.npm_execpath);
     if (process.argv[2] === "--check-launcher")
       process.stdout.write("CI launcher verified: JavaScript entry, shell disabled.\n");
     else process.exitCode = await runTestDiagnostics(invocation);

@@ -458,6 +458,9 @@ jobs:
       - name: Run original speech-window tests with safe failure diagnostics
         run: node scripts/ci-test-diagnostics.mjs --speech-window-test
 
+      - name: Run original video recovery files with safe identity diagnostics
+        run: node scripts/ci-test-diagnostics.mjs --video-recovery-test
+
       - name: Enable pinned pnpm for targeted desktop regressions
         run: corepack enable pnpm
 

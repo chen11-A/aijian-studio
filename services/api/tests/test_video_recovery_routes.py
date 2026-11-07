@@ -10,6 +10,9 @@ from uuid import uuid4
 from aijian_api.video_recovery_routes import create_video_recovery_router
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from recovery_read_diagnostics import (
+    recovery_read_identity_observer as recovery_read_identity_observer,
+)
 from test_draft_export_runtime import toolchain
 from test_video_recovery import ACCOUNT, Transport, setup
 from test_video_recovery import media as media

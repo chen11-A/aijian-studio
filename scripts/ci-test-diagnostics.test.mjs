@@ -14,6 +14,7 @@ import {
   pytestSourceLocation,
   pytestFailureLocation,
   emptySpeechPcmSummary,
+  recoveryIdentitySummary,
   libraryWritePhaseSummary,
   libraryWriteInvocation,
   deliveryManifestInvocation,
@@ -836,6 +837,109 @@ test("fixed delivery-manifest CLI runs both original files and propagates 0/23; 
     assert.equal(rejected.status, 1);
     await assert.rejects(readFile(record, "utf8"), { code: "ENOENT" });
     assert.doesNotMatch(rejected.stdout + rejected.stderr, /PRIVATE_FILE/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("recovery identity diagnostics accept only closed booleans and remain inside pytest failures", () => {
+  const flags = [
+    "fdStable",
+    "fdRegular",
+    "pathRegular",
+    "sameDevice",
+    "sameInode",
+    "sameSize",
+    "sameMtime",
+    "sameCtime",
+    "namedHandleMatch",
+    "shaMatch",
+    "byteCountMatch",
+  ];
+  const row = {
+    schemaVersion: 1,
+    stage: "read-path",
+    ...Object.fromEntries(flags.map((key) => [key, true])),
+  };
+  const encode = (value) => `CI_VIDEO_RECOVERY_IDENTITY ${JSON.stringify(value)}`;
+  assert.match(recoveryIdentitySummary(encode(row)), /namedHandleMatch=true/);
+  for (const invalid of [
+    null,
+    [],
+    { ...row, source: "PRIVATE_PATH" },
+    { ...row, stage: "PRIVATE_STAGE" },
+    { ...row, schemaVersion: 2 },
+    { ...row, sameInode: "PRIVATE_INODE" },
+    { ...row, sameCtime: NaN },
+    { ...row, shaMatch: 1 },
+  ]) {
+    assert.equal(recoveryIdentitySummary(encode(invalid)), null);
+  }
+  assert.equal(recoveryIdentitySummary(encode(row) + "x".repeat(2049)), null);
+  const summary = failureSummary();
+  summary.line(encode(row));
+  assert.equal(summary.entries().length, 0);
+  summary.line("============================= FAILURES =============================");
+  for (let index = 0; index < 12; index++) {
+    summary.line(
+      encode({
+        ...row,
+        fdStable: Boolean(index & 1),
+        sameDevice: Boolean(index & 2),
+        sameInode: Boolean(index & 4),
+        sameSize: Boolean(index & 8),
+      }),
+    );
+  }
+  assert.equal(summary.entries().length, 6);
+  assert.doesNotMatch(JSON.stringify(summary.entries()), /PRIVATE|sha256|st_ino/);
+});
+
+test("fixed recovery CLI executes exactly both original files, preserves exit 23 and rejects caller arguments before spawn", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "recovery-cli-"));
+  try {
+    const hook = join(directory, "spawn-hook.cjs"),
+      record = join(directory, "invocation.json");
+    const script = fileURLToPath(new URL("./ci-test-diagnostics.mjs", import.meta.url));
+    for (const status of [0, 23]) {
+      const child = `process.stdout.write('original stdout\\n');process.stderr.write('original stderr\\n');process.exitCode=${status};`;
+      await writeFile(
+        hook,
+        `const fs=require('node:fs'),cp=require('node:child_process');const original=cp.spawn;cp.spawn=(command,args,options)=>{fs.writeFileSync(${JSON.stringify(record)},JSON.stringify({command,args,shell:options.shell}));return original(process.execPath,['-e',${JSON.stringify(child)}],options);};require('node:module').syncBuiltinESMExports();`,
+      );
+      const result = spawnSync(
+        process.execPath,
+        ["--require", hook, script, "--video-recovery-test"],
+        { encoding: "utf8", shell: false, env: { ...process.env, npm_execpath: "" } },
+      );
+      assert.equal(result.status, status);
+      assert.ok(result.stdout.startsWith("original stdout\n"));
+      assert.equal(result.stderr, "original stderr\n");
+      assert.deepEqual(JSON.parse(await readFile(record, "utf8")), {
+        command: "uv",
+        args: [
+          "run",
+          "pytest",
+          "services/api/tests/test_video_recovery.py",
+          "services/api/tests/test_video_recovery_routes.py",
+        ],
+        shell: false,
+      });
+    }
+    for (const args of [
+      ["--video-recovery-test", "PRIVATE_PATH.py"],
+      ["--video-recovery-test-PRIVATE"],
+    ]) {
+      await rm(record, { force: true });
+      const result = spawnSync(process.execPath, ["--require", hook, script, ...args], {
+        encoding: "utf8",
+        shell: false,
+        env: { ...process.env, npm_execpath: join(directory, "pnpm.cjs") },
+      });
+      assert.equal(result.status, 1);
+      await assert.rejects(readFile(record, "utf8"), { code: "ENOENT" });
+      assert.doesNotMatch(result.stdout + result.stderr, /PRIVATE_PATH|test-PRIVATE/);
+    }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
