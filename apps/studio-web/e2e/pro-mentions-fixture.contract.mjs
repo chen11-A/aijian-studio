@@ -184,10 +184,12 @@ test("stale default really admits and holds one reply until explicit transport r
     promise = f.bridge.completeText(f.request("art", `${f.seed.personToken} 请调整画风。`));
   assert.equal(f.audit.hold, true);
   assert.equal(f.audit.pending.length, 1);
+  assert.equal(f.audit.pending[0].delivered, false);
   assert.equal(f.audit.requests.length, 1);
   assert.equal(f.audit.writes.length, 0);
   f.audit.release(0);
   assert.equal((await promise).kind, "OK");
+  assert.equal(f.audit.pending[0].delivered, true);
 });
 test("duplicate or unknown references are rejected by the real parser with no fixture dispatch, missing context is not silently accepted", async () => {
   const f = setup("refs-invalid"),
