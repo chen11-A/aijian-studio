@@ -36,3 +36,11 @@
 所有生成均为注入的本地协议替身与合成媒体；TLS 仅本机服务器。未调用真实会员或付费提供方。完整 Python/覆盖率、原全 TypeScript、真实 Windows 和前端配置 UI 联合由总控在最终冻结源上另验。
 
 补充跨语言实际字节实证：`node /tmp/aivora-generation-budget-cross-language.cjs <冻结树>` 使用实际编译 main helper 签含中文和空字幕的 body，由实际 Python 验证器核正向及 body/key/bearer/幂等/过期/过远未来六个反例；`/tmp/generation-budget-final-cross-language.log` 通过，不输出凭据或签名。
+
+## 保留占位等待中的取消窗口
+
+`9f5c0b5` 冻结后独立复核发现：SQLite reserve 可能在原取消检查之后等待，取消期间旧回调返回仍会进入 POST。`/tmp/generation-budget-cancel-before.log` 的受控 gate 真复现一次错误 POST；没有真实提供方调用。
+
+修补只在同一个同步 pre-send 回调内，reserve 成功之后再次执行原 `_ensure_running`。若已取消，删除仅本次精确 PENDING 占位并保留原 task/idempotency 历史；这是尚未进入 HTTP 的确证，不是对未知提交的退款/核销。UNKNOWN 或任何终态不可删除，重启后的 PENDING 也没有对外释放入口。
+
+`/tmp/generation-budget-cancel-after.log` 最终同源五文件 34 通过，32.32 秒：新回归保留/释放受控 gate 并 await 原执行，取消后 0 POST，明确下一新任务仍可用一个槽；另一项证明 UNKNOWN 不能被该清理释放。原 32 项预算生产/SQLite/API/签名矩阵一并保留。`generation-budget-cancel-types.log` 正式 Python 317 文件通过，目标 Ruff/格式/diff 通过。该增量不改 HTTP/IPC/OpenAPI、原 schema、费用或 provider 参数；TypeScript、UI 与原冻结树未修改。
