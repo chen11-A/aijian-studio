@@ -159,3 +159,45 @@ it("distinguishes real local waveform admission from paid dispatch while preserv
   assert.deepEqual(f.record().audioClips, before.audioClips);
   assert.equal(typeof audioSourceKey, "function");
 });
+
+it("keeps actual ruler seconds while marking a range replaces the monitor with the real version comparison", async () => {
+  const f = await open("legacy-timeline-range");
+  f.nav("剪辑");
+  await waitFor(() => assert.equal(window.__assemblyAudit.artifacts.length, 1));
+  const artifact = window.__assemblyAudit.artifacts[0];
+  await waitFor(() => assert.equal(f.record().assemblyPath, artifact.path));
+  const before = globalThis.structuredClone(f.record());
+  const video = document.querySelector(".preview-player video.frame");
+  assert(video);
+  fireEvent.loadedMetadata(video);
+  const ruler = screen.getByRole("slider", { name: "播放位置" });
+  fireEvent.keyDown(window, { key: "ArrowDown" });
+  fireEvent.keyDown(ruler, { key: "ArrowRight" });
+  fireEvent.loadedMetadata(video);
+  await waitFor(() => assert.equal(video.currentTime, 2.2));
+  fireEvent.timeUpdate(video);
+  fireEvent.click(screen.getByRole("button", { name: "设入点", exact: true }));
+  assert.equal(document.querySelector(".preview-player video.frame"), null);
+  assert(screen.getByRole("heading", { name: "对比", exact: true }));
+  assert.equal(document.querySelectorAll(".cmp-takes video").length, 3);
+  assert.equal(screen.queryByRole("button", { name: "设出点", exact: true }), null);
+  // No old monitor metadata is delivered: the same real ruler owns the current time.
+  fireEvent.keyDown(ruler, { key: "ArrowRight" });
+  assert.equal(Number(ruler.getAttribute("aria-valuenow")), 3.2);
+  fireEvent.click(screen.getByRole("button", { name: "关掉对比", exact: true }));
+  const restored = document.querySelector(".preview-player video.frame");
+  assert(restored);
+  fireEvent.loadedMetadata(restored);
+  await waitFor(() => assert.equal(restored.currentTime, 3.2));
+  fireEvent.click(screen.getByRole("button", { name: "取消选择", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "设出点", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "重新生成", exact: true }));
+  const dialog = await screen.findByRole("dialog", { name: "秒级局部重做" });
+  assert(Math.abs(Number(within(dialog).getByLabelText("局部重做入点").value) - 1) < 1e-9);
+  assert(Math.abs(Number(within(dialog).getByLabelText("局部重做出点").value) - 2) < 1e-9);
+  assert.deepEqual(f.record().shots, before.shots);
+  assert.deepEqual(f.record().audioClips, before.audioClips);
+  assert.equal(window.__assemblyAudit.calls.length, 1);
+  assert.deepEqual(window.__proCreationAudit.forbidden, []);
+  assert.deepEqual(window.__proEvidenceLegacyAudit.forbidden, []);
+});

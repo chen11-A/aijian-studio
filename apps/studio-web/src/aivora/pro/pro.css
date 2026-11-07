@@ -557,7 +557,7 @@ body:has(.pro-root) {
   position: relative;
   flex: none;
 }
-.pro-root .mention-menu {
+.pro-root .menu.mention-menu {
   top: auto;
   right: 0;
   bottom: 30px;
