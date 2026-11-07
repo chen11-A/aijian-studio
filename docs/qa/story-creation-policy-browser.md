@@ -31,3 +31,7 @@
 ## 总控独立复核（2026-11-07 14:04 UTC）
 
 3e52已无冲突根合fe52d48；产品/API/contracts/lock相对冻结d5无diff。root独立全部144 Node（21.85秒）、同默认ABI实际Pro6（tests4.99秒/total7.90秒）、7mjs目标ESLint及9文件Prettier/diff均0，日志`/tmp/aivora-story-policy-browser-root-checks.log`。实际正常Chrome新增16尚待CI，468仍仅为定义数量。d5原完整web467文件5577/592.75秒及原覆盖门通过，二者不是新全库5583。自动前置图父准入缺口仍单独在制，不用配置界面验证将其销项。
+
+## 正常 Chrome 新增16通过（2026-11-07 14:11 UTC）
+
+功能候选4f8ece4b4b014022ac0a995e7e7855e91ad98fc0已触发[run42380081407](https://github.com/chen11-A/aijian-studio/actions/runs/42380081407)。独立新增配置job128425655078实际契约14:09:12成功、四态×四组合Chrome14:10:23成功、证据上传14:10:25成功；同轮旧试片16 job128425654997于14:09:04/06成功。layout其余步骤与整轮quality仍执行，不能由新增16称全468已通过。原sandbox、原几何门和禁provider均保留；artifact需登录，未下载或目视截图。
