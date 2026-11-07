@@ -4058,3 +4058,17 @@ body:has(.pro-root) {
 .pro-root .monitor > .ph > .safe-toggle {
   flex: none;
 }
+
+/* Scope references are text, not a new editing selection or authority. */
+.pro-root .reference-summary {
+  font-size: 12px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.pro-root .reference-summary p {
+  margin: 3px 0;
+}
+.pro-root .mention-menu button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
