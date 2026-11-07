@@ -7,6 +7,13 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["查看试片候选", "risk-open"],
+    ["在分镜查看", "risk-inspect"],
+    ["刷新候选", "risk-refresh"],
+    ["设置视频提交失败上限", "policy-open"],
+    ["保存上限", "policy-save"],
+    ["正在保存…", "policy-saving"],
+    ["新的上限（整数 0–1000）", "policy-limit"],
     ["提到人物、场景或镜头", "reference-menu"],
     ["跟助手说", "reference-input"],
     ["人物名字", "reference-name"],
@@ -178,6 +185,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
       };
       if (Object.hasOwn(fixed, label)) return fixed[label];
     }
+    if (element.matches('.risk-trial-review input[type="radio"]')) return "risk-candidate";
     if (element.matches("button.clip.v")) return "timeline-video";
     if (element.tagName === "INPUT" && element.closest(".shot-audio-choice")) {
       const text = element.closest("label")?.textContent.replace(/\s+/g, " ").trim() ?? "";
