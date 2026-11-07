@@ -390,6 +390,11 @@ it("uses native per-slot cache facts and rejects missing, reordered or inconsist
   expect(() => f.session.preparation("shot1", 2)).toThrow("GENERATION_EXECUTION_SLOT_UNAVAILABLE");
   for (const mutation of [
     (value: MutablePrepared) => {
+      Object.assign(value.targets[0]!.slotPreparations[0]!, {
+        preparation: { toString: () => "CLIENT_IMAGES" },
+      });
+    },
+    (value: MutablePrepared) => {
       Reflect.deleteProperty(value.targets[0]!, "slotPreparations");
     },
     (value: MutablePrepared) => {

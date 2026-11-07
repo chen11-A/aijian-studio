@@ -134,7 +134,7 @@ export function createFilmGenerationExecutionRegistry<State>(maxExecutions = 128
             (slot, index) =>
               exact(slot, ["videoSlotId", "preparation"]) &&
               slot.videoSlotId === target.videoSlotIds[index] &&
-              ["CLIENT_IMAGES", "STORYFILM_CACHE"].includes(slot.preparation),
+              (slot.preparation === "CLIENT_IMAGES" || slot.preparation === "STORYFILM_CACHE"),
           ) ||
           target.preparation !==
             (target.slotPreparations.every((slot) => slot.preparation === "STORYFILM_CACHE")

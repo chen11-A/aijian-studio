@@ -118,7 +118,7 @@ export function validGenerationExecution(
         (slot, index) =>
           exact(slot, ["videoSlotId", "preparation"]) &&
           slot.videoSlotId === videoSlotIds[index] &&
-          ["CLIENT_IMAGES", "STORYFILM_CACHE"].includes(String(slot.preparation)),
+          (slot.preparation === "CLIENT_IMAGES" || slot.preparation === "STORYFILM_CACHE"),
       )
     )
       return false;
