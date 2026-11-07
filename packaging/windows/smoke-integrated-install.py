@@ -1,4 +1,4 @@
-"""Silent-install the integrated Windows build to a custom /D directory, smoke, uninstall.
+"""Install the integrated candidate, verify same-candidate reinstall/readback, then uninstall.
 
 This is separate from test-installed-dev-core.py. That test is locked to the
 media-free development branch and must keep refusing bundled ffmpeg.
@@ -25,6 +25,59 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def data_snapshot(profile: Path) -> dict[str, dict[str, tuple[int, str]]]:
+    """Hash only real user data after app/sidecar shutdown, never Chromium caches/logs."""
+    result: dict[str, dict[str, tuple[int, str]]] = {}
+    for name in ("workspace", "films", "story-films"):
+        root = profile / name
+        if root.is_symlink():
+            raise ValueError("Preservation root must not be a link")
+        files: dict[str, tuple[int, str]] = {}
+        if root.exists():
+            for path in sorted(root.rglob("*")):
+                if path.is_symlink():
+                    raise ValueError("Preservation data must not contain links")
+                if path.is_file():
+                    if len(files) >= 20_000:
+                        raise ValueError("Preservation data exceeds its file bound")
+                    files[path.relative_to(root).as_posix()] = (path.stat().st_size, digest(path))
+        result[name] = files
+    sentinel = profile / "reinstall-unknown-user-file.txt"
+    if not sentinel.is_file() or sentinel.is_symlink():
+        raise ValueError("Original profile sentinel is missing")
+    result["unknown_user_file"] = {sentinel.name: (sentinel.stat().st_size, digest(sentinel))}
+    return result
+
+
+def assert_data_preserved(profile: Path, expected: dict[str, dict[str, tuple[int, str]]]) -> None:
+    if data_snapshot(profile) != expected:
+        raise ValueError("Reinstallation or uninstall changed original user data bytes")
+
+
+def assert_stopped(install: Path) -> None:
+    """Observe only this exact isolated install; do not stop unrelated runner processes."""
+    result = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-Command",
+            "$root = $env:AIVORA_SMOKE_INSTALL_ROOT; "
+            "@(Get-CimInstance Win32_Process | Where-Object { "
+            "$_.ExecutablePath -and (($_.ExecutablePath -ieq (Join-Path $root 'AIVORA.exe')) "
+            "-or ($_.Name -eq 'aijian-sidecar.exe' -and "
+            "$_.ExecutablePath.StartsWith($root + '\\', "
+            "[System.StringComparison]::OrdinalIgnoreCase))) }).Count",
+        ],
+        env={**os.environ, "AIVORA_SMOKE_INSTALL_ROOT": str(install)},
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    )
+    if result.stdout.strip() != "0":
+        raise ValueError("The original installed app or sidecar is still running")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", type=Path, required=True)
@@ -40,8 +93,10 @@ def main() -> None:
     install = Path(os.environ["RUNNER_TEMP"]) / "AivoraIntegratedInstall"
     user_data = Path(os.environ["APPDATA"]) / "AIVORA"
     legacy_user_data = Path(os.environ["APPDATA"]) / "AIVORA Dev Core"
+    private = Path(os.environ["RUNNER_TEMP"]) / "AivoraIntegratedReinstall"
     if (
-        install.exists()
+        private.exists()
+        or install.exists()
         or user_data.exists()
         or legacy_user_data.exists()
         or args.delivery.exists()
@@ -51,6 +106,9 @@ def main() -> None:
     if len(installers) != 1 or installers[0].name != "AIVORA-Setup-0.3.0-win-x64.exe":
         raise ValueError("Expected AIVORA-Setup-0.3.0-win-x64.exe")
     installer = installers[0]
+    installer_sha = digest(installer)
+    private.mkdir()
+    checkpoint = private / "checkpoint.json"
     if "Dev Core" in installer.name or "0.1.0-dev" in installer.name:
         raise ValueError("Shipped installer name still uses a development label")
     subprocess.run([str(installer), "/S", "/D=" + str(install)], check=True, timeout=180)
@@ -79,6 +137,10 @@ def main() -> None:
             str(executable),
             "--report",
             str(report),
+            "--checkpoint",
+            str(checkpoint),
+            "--installer-sha256",
+            installer_sha,
         ],
         cwd=ROOT,
         check=True,
@@ -87,9 +149,46 @@ def main() -> None:
     database = user_data / "workspace/workspace.sqlite3"
     if not database.is_file():
         raise ValueError("Smoke did not leave a local workspace database")
-    before = digest(database)
+    assert_stopped(install)
     retained = install / "user-created-keep.txt"
     retained.write_text("保留工作区之外的用户文件。", encoding="utf-8")
+    profile_sentinel = user_data / "reinstall-unknown-user-file.txt"
+    profile_sentinel.write_bytes(b"Unknown profile file; never replace with a new seed.\x00\xff")
+    before = data_snapshot(user_data)
+    program_before = digest(executable)
+    sentinel_before = digest(retained)
+    checkpoint_sha = digest(checkpoint)
+    subprocess.run([str(installer), "/S", "/D=" + str(install)], check=True, timeout=180)
+    assert_stopped(install)
+    if digest(installer) != installer_sha or digest(executable) != program_before:
+        raise ValueError("Reinstall did not retain the same candidate program bytes")
+    assert_data_preserved(user_data, before)
+    if not retained.is_file() or digest(retained) != sentinel_before:
+        raise ValueError("Reinstall changed the unknown install-directory file")
+    subprocess.run(
+        [
+            "node",
+            str(ROOT / "scripts/e2e/windows-integrated-smoke.mjs"),
+            "--exe",
+            str(executable),
+            "--report",
+            str(args.evidence / "INTEGRATED-REINSTALL-SMOKE.json"),
+            "--checkpoint",
+            str(checkpoint),
+            "--installer-sha256",
+            installer_sha,
+            "--verify-checkpoint-sha256",
+            checkpoint_sha,
+        ],
+        cwd=ROOT,
+        check=True,
+        timeout=240,
+    )
+    assert_stopped(install)
+    # A restarted real application may checkpoint SQLite or update its own runtime
+    # bookkeeping. The installer preservation assertion above is byte-for-byte;
+    # native full raw readback is a separate assertion, not a metadata filter.
+    after_restart = data_snapshot(user_data)
     uninstallers = list(install.glob("Uninstall*.exe"))
     if len(uninstallers) != 1:
         raise ValueError("Expected one uninstaller")
@@ -100,10 +199,11 @@ def main() -> None:
     if (
         executable.exists()
         or not database.is_file()
-        or digest(database) != before
         or not retained.is_file()
+        or digest(retained) != sentinel_before
     ):
         raise ValueError("Uninstall removed the app incompletely or changed the workspace")
+    assert_data_preserved(user_data, after_restart)
     result = {
         "schema_version": 1,
         "result": "PASS",
@@ -119,6 +219,12 @@ def main() -> None:
         "display_version": "0.3.0",
         "user_data_directory": "AIVORA",
         "health_and_window": "PASS",
+        "same_candidate_reinstall": "PASS",
+        "reinstall_user_data_bytes": "PRESERVED",
+        "reinstall_original_sample_raw_readback": "PASS",
+        "reinstall_saved_settings_readback": "PASS",
+        "reinstall_unknown_files": "PRESERVED",
+        "different_version_migration": "NOT_TESTED",
         "uninstall_app_removed": "PASS",
         "uninstall_workspace_preserved": "PASS",
         "signed": False,
