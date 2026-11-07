@@ -117,9 +117,10 @@ type Entry =
   | { blocked: true }
   | { structure: EditorStructureTransaction }
   | { art: ArtTransaction }
-  | { direction: ShotDirectionTransaction }
+  | { direction: ShotDirectionTransaction; directionToken: string }
   | { story: StoryConfirmation };
 export function createEditorPageHistory() {
+  let directionSerial = 0;
   const past = new Map<string, Entry[]>(),
     future = new Map<string, Entry[]>();
   const key = (scope: EditorSelection) => JSON.stringify([scope.projectId, scope.page]);
@@ -184,7 +185,10 @@ export function createEditorPageHistory() {
         : applyShotDirection(current, receipt.direction);
       if (result.receipt) {
         stack!.pop();
-        to.set(id, [...(to.get(id) ?? []), { direction: result.receipt }]);
+        to.set(id, [
+          ...(to.get(id) ?? []),
+          { direction: result.receipt, directionToken: receipt.directionToken },
+        ]);
       }
       return { film: result.film, conflicts: result.conflicts };
     }
@@ -238,8 +242,49 @@ export function createEditorPageHistory() {
       ...(result.receipt ? { label: fieldHistoryLabel(current, result.receipt.changes) } : {}),
     };
   }
+  const sameSelection = (a: EditorSelection, b: EditorSelection) =>
+    a.projectId === b.projectId &&
+    a.page === b.page &&
+    a.sceneId === b.sceneId &&
+    a.shotId === b.shotId;
+  function directionEntry(scope: EditorSelection, token: string) {
+    if (!token || typeof token !== "string") return null;
+    const id = key(scope);
+    const entries = [past, future].flatMap((map, side) =>
+      (map.get(id) ?? []).flatMap((entry, index) =>
+        "direction" in entry && entry.directionToken === token ? [{ entry, index, side }] : [],
+      ),
+    );
+    if (entries.length !== 1 || !sameSelection(entries[0]!.entry.direction.selection, scope))
+      return null;
+    return entries[0]!;
+  }
+  function directionReceiptState(scope: EditorSelection, token: string) {
+    const found = directionEntry(scope, token);
+    return !found
+      ? ("missing" as const)
+      : found.side === 0
+        ? ("applied" as const)
+        : ("undone" as const);
+  }
+  function undoDirectionReceipt(current: FilmProject, scope: EditorSelection, token: string) {
+    const reject = (code: string) => ({ film: current, receipt: null, conflicts: [code] });
+    if (current.id !== scope.projectId) return reject("PROJECT_MISMATCH");
+    const found = directionEntry(scope, token);
+    if (!found || found.side !== 0) return reject("DIRECTION_RECEIPT_MISSING");
+    const result = undoShotDirection(current, found.entry.direction);
+    if (!result.receipt) return result;
+    past.get(key(scope))!.splice(found.index, 1);
+    future.set(key(scope), [
+      ...(future.get(key(scope)) ?? []),
+      { direction: result.receipt, directionToken: token },
+    ]);
+    return result;
+  }
   return {
     record,
+    directionReceiptState,
+    undoDirectionReceipt,
     recordStory: (story: StoryConfirmation, origin: EditorSelection) => {
       const id = key(origin);
       past.set(id, [...(past.get(id) ?? []), { story: structuredClone(story) }].slice(-50));
@@ -247,8 +292,15 @@ export function createEditorPageHistory() {
     },
     recordDirection: (direction: ShotDirectionTransaction) => {
       const id = key(direction.selection);
-      past.set(id, [...(past.get(id) ?? []), { direction: structuredClone(direction) }].slice(-50));
+      const directionToken = `direction-receipt-${++directionSerial}`;
+      past.set(
+        id,
+        [...(past.get(id) ?? []), { direction: structuredClone(direction), directionToken }].slice(
+          -50,
+        ),
+      );
       future.delete(id);
+      return directionToken;
     },
     recordArt: (art: ArtTransaction) => {
       const id = key(art.selection);

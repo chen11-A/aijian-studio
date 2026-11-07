@@ -122,7 +122,7 @@ export function SuggestionCard(props: SuggestionCardProps) {
           <>
             <span className="nx-muted">{fieldMode ? "已应用这次字段修改。" : "已放进去。"}</span>
             {props.onUndo ? (
-              <button type="button" className="nx-btn nx-sm" onClick={props.onUndo}>
+              <button type="button" className="nx-btn nx-sm" disabled={busy} onClick={props.onUndo}>
                 撤销
               </button>
             ) : null}
