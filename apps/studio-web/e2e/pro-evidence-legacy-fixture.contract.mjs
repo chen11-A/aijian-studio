@@ -13,6 +13,7 @@ import {
   seedEvidenceLegacyProject,
   measureEvidenceControl,
   readEvidencePointer,
+  observeEvidenceRangeDrag,
 } from "./pro-evidence-legacy-fixture.mjs";
 import { evidenceLegacyStates } from "./pro-evidence-legacy-cases.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -381,6 +382,39 @@ test("public annotations double-filter states/controls/geometry and bounded line
                 box: { x: 20, y: 30, width: 100, height: 30 },
                 visible: { x: 0, y: 0, width: 340, height: 720 },
               },
+          rangeEvents: i
+            ? {
+                attached: "PRIVATE",
+                selectionCollapsed: "PRIVATE",
+                counts: { pointerdown: Infinity },
+                events: [
+                  {
+                    kind: "PRIVATE",
+                    buttons: 900,
+                    hit: "PRIVATE",
+                    x: Infinity,
+                    y: "PRIVATE",
+                    value: 999999999,
+                  },
+                ],
+              }
+            : {
+                attached: true,
+                selectionCollapsed: false,
+                counts: {
+                  pointerdown: 1,
+                  gotpointercapture: 1,
+                  pointermove: 1,
+                  pointerup: 0,
+                  lostpointercapture: 1,
+                  pointercancel: 1,
+                  dragstart: 1,
+                  dragend: 1,
+                },
+                events: [
+                  { kind: "pointercancel", buttons: 0, hit: "ruler", x: 400, y: 700, value: 2.1 },
+                ],
+              },
           rangeClock: i
             ? {
                 observed: "PRIVATE_URL",
@@ -455,6 +489,9 @@ test("public annotations double-filter states/controls/geometry and bounded line
   assert(lines[1].includes("dragStage=unknown"));
   assert.match(lines[0], /rangeObserved=2.7 rangeExpected=3.12/);
   assert.match(lines[1], /rangeObserved=unknown rangeExpected=unknown/);
+  assert.match(lines[0], /rangeAttached=1 rangeSelectionCollapsed=0/);
+  assert.match(lines[0], /rangeEvents=pointercancel:0:ruler:400,700,2.1/);
+  assert.match(lines[1], /rangeEvents=other:unknown:other:unknown,unknown,unknown/);
   const start = source.indexOf("    const expected =\n"),
     end = source.indexOf("    report.expectedResults = expected;");
   assert.equal(
@@ -495,4 +532,55 @@ test("real CLI setup failure retains thirty-two expected combinations and sandbo
   } finally {
     await rm(folder, { recursive: true, force: true });
   }
+});
+
+test("range drag observation attaches to the original area, keeps event defaults and never reads selection text", () => {
+  const handlers = new Map(),
+    removed = [],
+    area = {
+      isConnected: true,
+      addEventListener: (kind, listener) => handlers.set(kind, listener),
+      removeEventListener: (kind) => removed.push(kind),
+    },
+    target = {
+      closest: (selector) => (selector === ".ruler" || selector === ".track-area" ? area : null),
+    };
+  globalThis.window = {
+    document: {
+      querySelector: (selector) =>
+        selector === ".track-area" ? area : { getAttribute: () => "2.1" },
+    },
+    getSelection: () => ({
+      isCollapsed: false,
+      toString: () => {
+        throw Error("MUST_NOT_READ_PRIVATE_SELECTION");
+      },
+    }),
+  };
+  observeEvidenceRangeDrag("start");
+  let prevented = 0;
+  for (const kind of [
+    "pointerdown",
+    "gotpointercapture",
+    "pointermove",
+    "dragstart",
+    "pointercancel",
+    "lostpointercapture",
+    "dragend",
+  ])
+    handlers.get(kind)({
+      target,
+      clientX: 598.6,
+      clientY: 744,
+      buttons: 1,
+      preventDefault: () => prevented++,
+    });
+  const trace = observeEvidenceRangeDrag("read");
+  assert.equal(prevented, 0);
+  assert.equal(trace.selectionCollapsed, false);
+  assert.equal(trace.counts.pointercancel, 1);
+  assert.equal(trace.events.length, 7);
+  observeEvidenceRangeDrag("start");
+  assert.equal(removed.length, 8);
+  assert.equal(observeEvidenceRangeDrag("read").events.length, 0);
 });
