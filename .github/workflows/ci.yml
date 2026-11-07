@@ -841,3 +841,44 @@ jobs:
             .aijian-dev/pro-actual-trial-audit/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7
+
+  pro-story-policy:
+    name: Pro explicit story creation failure policy audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify story policy fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-story-policy-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace explicit story creation failure policy
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-story-policy-audit
+        run: node apps/studio-web/e2e/pro-story-policy-audit.mjs
+
+      - name: Upload story policy UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-story-policy-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-story-policy-audit/report.json
+            .aijian-dev/pro-story-policy-audit/1280x800-*/*.png
+            .aijian-dev/pro-story-policy-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7
