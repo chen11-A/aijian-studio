@@ -10,6 +10,8 @@ it("keeps failure policy on fixed sandbox IPC channels with no account/token arg
   }).outputText;
   const invoke = vi.fn(async () => ({ kind: "FAILED", code: "UNAVAILABLE" }));
   let bridge!: {
+    getStoryCreationFailurePolicy: (project: string) => Promise<unknown>;
+    configureStoryCreationFailurePolicy: (project: string, input: unknown) => Promise<unknown>;
     getGenerationFailurePolicy: (project: string) => Promise<unknown>;
     configureGenerationFailurePolicy: (project: string, input: unknown) => Promise<unknown>;
   };
@@ -31,8 +33,12 @@ it("keeps failure policy on fixed sandbox IPC channels with no account/token arg
   const input = { expected_revision: 0, failure_limit: 0 };
   await bridge.getGenerationFailurePolicy(project);
   await bridge.configureGenerationFailurePolicy(project, input);
+  await bridge.getStoryCreationFailurePolicy(project);
+  await bridge.configureStoryCreationFailurePolicy(project, input);
   expect(invoke.mock.calls).toEqual([
     ["story-film:failure-policy", project],
     ["story-film:configure-failure-policy", project, input],
+    ["story-film:creation-failure-policy", project],
+    ["story-film:configure-creation-failure-policy", project, input],
   ]);
 });

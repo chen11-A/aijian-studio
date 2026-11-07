@@ -423,13 +423,23 @@ def _service(monkeypatch, tmp_path: Path, script: _Script):
     log_path = tmp_path / "grok-login.log"
     _allow_live(monkeypatch, log_path)
 
-    def client(transport, *, token, origin="https://api.x.ai", log=None, before_video_submit=None):
+    def client(
+        transport,
+        *,
+        token,
+        origin="https://api.x.ai",
+        log=None,
+        before_video_submit=None,
+        before_generation_submit=None,
+    ):
+        assert before_generation_submit is not None
         return XaiMediaClient(
             transport,
             token=token,
             origin=f"https://{script.host}",
             log=log,
             before_video_submit=before_video_submit,
+            before_generation_submit=before_generation_submit,
         )
 
     monkeypatch.setattr("aijian_api.story_film.XaiMediaClient", client)

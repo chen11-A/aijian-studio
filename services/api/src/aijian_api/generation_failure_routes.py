@@ -24,6 +24,13 @@ class GenerationFailurePolicyData(BaseModel):
     scope: Literal["GROK_VIDEO_SUBMIT_FAILURES"] = "GROK_VIDEO_SUBMIT_FAILURES"
 
 
+class StoryCreationFailurePolicyData(BaseModel):
+    state: Literal["UNCONFIGURED", "CONFIGURED"]
+    revision: int
+    failure_limit: int | None
+    scope: Literal["GROK_STORY_CREATION_FAILURES"] = "GROK_STORY_CREATION_FAILURES"
+
+
 def create_generation_failure_router(
     repository: Callable[[], StudioRepository],
 ) -> APIRouter:
@@ -70,6 +77,49 @@ def create_generation_failure_router(
                 404 if str(error) == "PROJECT_NOT_FOUND" else 409, str(error)
             ) from error
         return GenerationFailurePolicyData(
+            state="CONFIGURED",
+            revision=policy.revision,
+            failure_limit=policy.failure_limit,
+        )
+
+    @router.get(
+        "/api/v1/projects/{project_id}/story-creation-failure-policy",
+        response_model=StoryCreationFailurePolicyData,
+        operation_id="getStoryCreationFailurePolicy",
+    )
+    def read_creation(
+        project_id: Annotated[str, Path(pattern=PROJECT_ID_PATTERN)],
+    ) -> StoryCreationFailurePolicyData:
+        try:
+            policy = GenerationFailureStore(repository(), scope="story_creation").policy(project_id)
+        except GenerationFailureError as error:
+            raise HTTPException(404, "PROJECT_NOT_FOUND") from error
+        return StoryCreationFailurePolicyData(
+            state="UNCONFIGURED" if policy is None else "CONFIGURED",
+            revision=0 if policy is None else policy.revision,
+            failure_limit=None if policy is None else policy.failure_limit,
+        )
+
+    @router.put(
+        "/api/v1/projects/{project_id}/story-creation-failure-policy",
+        response_model=StoryCreationFailurePolicyData,
+        operation_id="configureStoryCreationFailurePolicy",
+    )
+    def configure_creation(
+        project_id: Annotated[str, Path(pattern=PROJECT_ID_PATTERN)],
+        body: ConfigureGenerationFailure,
+    ) -> StoryCreationFailurePolicyData:
+        try:
+            policy = GenerationFailureStore(repository(), scope="story_creation").configure(
+                project_id,
+                expected_revision=body.expected_revision,
+                failure_limit=body.failure_limit,
+            )
+        except GenerationFailureError as error:
+            raise HTTPException(
+                404 if str(error) == "PROJECT_NOT_FOUND" else 409, str(error)
+            ) from error
+        return StoryCreationFailurePolicyData(
             state="CONFIGURED",
             revision=policy.revision,
             failure_limit=policy.failure_limit,

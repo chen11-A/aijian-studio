@@ -24,3 +24,10 @@ GENERATION_FAILURE_MIGRATION = (
     ON generation_failure_attempt(project_id, input_sha256, status)
     """,
 )
+
+# Separate explicit scope: never infer an allowance from the older video policy.
+# Reuse the exact bounded ledger constraints without altering either historical table.
+STORY_CREATION_FAILURE_MIGRATION = tuple(
+    statement.replace("generation_failure", "story_creation_failure")
+    for statement in GENERATION_FAILURE_MIGRATION
+)

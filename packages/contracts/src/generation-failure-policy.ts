@@ -13,3 +13,11 @@ export type GenerationFailurePolicyResult =
       kind: "FAILED";
       code: "POLICY_CHANGED" | "PROJECT_NOT_FOUND" | "UNAVAILABLE" | "WRITE_UNCONFIRMED";
     };
+
+/** Original ordered StoryFilm Grok image/TTS/video recipe; separate explicit allowance. */
+export type StoryCreationFailurePolicy = Omit<GenerationFailurePolicy, "scope"> & {
+  scope: "GROK_STORY_CREATION_FAILURES";
+};
+export type StoryCreationFailurePolicyResult =
+  | { kind: "POLICY"; policy: StoryCreationFailurePolicy }
+  | Exclude<GenerationFailurePolicyResult, { kind: "POLICY" }>;
