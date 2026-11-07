@@ -66,7 +66,20 @@ export function actualTrialInputKey(
       !trialObject(takes[0])?.videoPath
     )
       return null;
-    return JSON.stringify([scope, riskTrialCreative(film), riskTrialTarget(film, shot)]);
+    const take = trialObject(takes[0])!;
+    // Match the selected native trial source/version inputs, not other targets' outputs.
+    // This is local invalidation only; main still probes/hashes and authorizes nothing here.
+    const selectedTrial = Object.fromEntries(
+      ["id", "shotId", "status", "videoPath", "cleanVideoPath", "index", "prompt", "createdAt"].map(
+        (field) => [field, take[field]],
+      ),
+    );
+    return JSON.stringify([
+      scope,
+      riskTrialCreative(film),
+      riskTrialTarget(film, shot),
+      selectedTrial,
+    ]);
   } catch {
     return null;
   }

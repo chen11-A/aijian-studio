@@ -28,3 +28,9 @@ Owned：`ActualRiskTrialReview.tsx/.css/.test.tsx`、`use-actual-risk-trial.tsx`
 真实 Pro 跨层测试走 main factory、临时文件、原 persistence 队列与 canonical read/write；本片媒体 probe 受控，文件 bytes 并非真实编码验收，不声称 FFmpeg/codec/听感/人眼完整观看已通过。测试覆盖默认四桥0调用、原文needs-changes保存、真main仍active时BUSY保未知、producer完成后global fresh恢复、关闭晚读、保存失败0prepare、接受/ended不继续，以及同路径实际视频 bytes 改变后显式继续被真实main拒绝、0provider与原媒体保留。actions还锁住两种hash微任务、confirm false、真实释放阶段新稿保存失败与非授权错误不能解锁。
 
 正式 `tsc -b`/web build 和目标静态以本树最终日志为准。原完整覆盖率门由 root 在冻结联合源运行，不预先排除任何生产源码；跨workspace main源码由实际测试读取不等于可以降低原90门。本片尚无新增正常 Chrome 试片专项/实际 Electron 播放或真实会员费用证据；后续独立门需保原所有矩阵和几何，并明确合成 IPC 边界。
+
+## 同版本换源的 UI 退休
+
+root审阅确认中立 `riskTrialTarget` 特意不含 takes，旧本地 key 因而不足以识别同takeId换源。本片另在本地 key 绑定仅所选试片的 id/shotId/status/videoPath/cleanVideoPath/index/prompt/createdAt，和 main 的实际所选源/版本消费对齐；不渲染路径或持久化 key，不据此授信，也不误伤其他独立目标的普通输出。savedAt/directory保存元数据仍不触发失效。同路径外部bytes变化没有文件watch，仍由main record/check真实重核，不能冒称 UI 后台监控全部文件。
+
+实际Pro旧key的两条videoPath/cleanVideoPath回归均失败，保留 `/tmp/actual-trial-source-key-before.log`。补后立即退休旧Blob、撤销objectURL、隐藏旧表单且0record/check/provider；版本字段变化和独立目标输出/保存元数据对照同测。四目标最终 **40项通过**：`/tmp/actual-trial-source-key-after.log`，取代前37对应目标快照而不相加；原161联合仍按此前来源记录。
