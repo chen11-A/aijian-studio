@@ -1,0 +1,48 @@
+.pro-root .dialog.risk-trial-review {
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+.pro-root .risk-trial-review p {
+  margin: 4px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pro-root .risk-trial-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.pro-root .risk-trial-body fieldset,
+.pro-root .risk-trial-detail {
+  min-width: 0;
+  margin: 0;
+}
+.pro-root .risk-trial-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.pro-root .risk-trial-choice input {
+  flex: none;
+}
+.pro-root .risk-trial-choice small {
+  display: block;
+  white-space: pre-wrap;
+  color: var(--text-2);
+}
+.pro-root .risk-trial-review > .acts {
+  flex-wrap: wrap;
+  flex: none;
+}
+@media (max-width: 700px) {
+  .pro-root .risk-trial-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
