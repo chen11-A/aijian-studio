@@ -295,3 +295,20 @@ test("setup failure retains fixed sixteen-result report and bounded environment 
   assert.match(result.stderr, /PRO_AUDIO_GROUPS_SETUP_BROWSER_DISCOVERY/);
   assert(!result.stderr.includes(path.join(folder, "missing-chrome")));
 });
+test("default preview wrapper records only a completed, hash-checked current-project reply without adding or saving", async () => {
+  const f = setup(),
+    other = f.creation.record(f.seed.otherId);
+  const input = { projectId: other.id, expectedHash: await f.creation.hash(other) };
+  assert.deepEqual(f.groups.previews, []);
+  const result = await f.bridge.getFilmAudioMixPreview(input);
+  assert.deepEqual(f.groups.previews, [{ ...input, kind: result.kind }]);
+  assert.equal(result.kind, "FAILED");
+  assert.equal(result.code, "SOURCE_UNVERIFIED");
+  assert.equal(f.groups.writes.length, 0);
+  assert.equal(f.groups.calls.length, 0);
+  await assert.rejects(
+    f.bridge.getFilmAudioMixPreview({ ...input, expectedHash: "0".repeat(64) }),
+    /FORBIDDEN/,
+  );
+  assert.equal(f.groups.previews.length, 1);
+});

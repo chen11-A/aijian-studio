@@ -10,6 +10,7 @@ export function installAudioGroupsBridge({ state, helperModuleUrl }) {
   const audit = {
     calls: [],
     inspects: [],
+    previews: [],
     writes: [],
     nativeWrites: 0,
     copied: {},
@@ -41,6 +42,16 @@ export function installAudioGroupsBridge({ state, helperModuleUrl }) {
     readonly.writes++;
     audit.writes.push({ projectId: value.id, hash: await creation.hash(value) });
     return clone(value);
+  };
+  const preview = bridge.getFilmAudioMixPreview;
+  bridge.getFilmAudioMixPreview = async (input) => {
+    const result = await preview(input);
+    audit.previews.push({
+      projectId: input.projectId,
+      expectedHash: input.expectedHash,
+      kind: result.kind,
+    });
+    return result;
   };
   const suggest = bridge.suggestBundledFilmShotAudio;
   bridge.suggestBundledFilmShotAudio = async (input) => {
