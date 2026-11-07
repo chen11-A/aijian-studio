@@ -57,6 +57,7 @@ from aijian_api.repository import StudioRepository
 from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE
 from aijian_api.story_dialogue_limit import StoryDialogueLimit, dialogue_request_sha256
+from aijian_api.story_pcm_silence import is_exact_zero_pcm
 from aijian_api.story_speech_window import SPEECH_WINDOW, SpeechWindow, pad_pcm
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
@@ -2451,7 +2452,11 @@ def _normalize_film_media(
                 "-i",
                 str(audio_path),
                 "-af",
-                _loudnorm_filter(_measure_loudness(ffmpeg, demuxer, audio_path)),
+                (
+                    "anull"
+                    if demuxer == "wav" and is_exact_zero_pcm(audio_path)
+                    else _loudnorm_filter(_measure_loudness(ffmpeg, demuxer, audio_path))
+                ),
                 "-ac",
                 "2",
                 "-ar",
