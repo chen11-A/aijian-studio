@@ -54,7 +54,14 @@ async function open() {
   const files = new Set([film.audioClips[0]!.path!]),
     admitted = deferred<void>();
   const otherSaved = deferred<FilmProject>();
+  const firstOrdinarySave = deferred<FilmProject>();
+  let ordinarySaves = 0;
   const heldNative = deferred<Awaited<ReturnType<typeof sceneGroupResult>>>();
+  const suggestionReads: {
+    input: SuggestBundledFilmSceneAudioInput;
+    raw: Record<string, unknown>;
+    hash: string;
+  }[] = [];
   vi.spyOn(editor, "createEditorHost").mockImplementation((options) => {
     host = options;
     return originalHost(options);
@@ -69,6 +76,10 @@ async function open() {
         void saved.then(
           (stored) => {
             if (stored?.id === other.id) otherSaved.resolve(stored);
+            if (stored?.id === film.id) {
+              ordinarySaves++;
+              firstOrdinarySave.resolve(stored);
+            }
           },
           () => undefined,
         );
@@ -94,9 +105,20 @@ async function open() {
     async (
       input: SuggestBundledFilmSceneAudioInput,
     ): Promise<SuggestBundledFilmSceneAudioResult> => {
-      if (input.expectedProjectHash !== (await historyRecordHash(disk.get(input.projectId))))
-        return { kind: "FAILED" as const, code: "PROJECT_CHANGED" as const, unchanged: true };
-      expect(input.expectedSelection).toHaveLength(film.shots.length);
+      const read = structuredClone(disk.get(input.projectId)!);
+      if (input.expectedProjectHash !== (await historyRecordHash(read)))
+        return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+      expect(input.expectedSelection).toEqual(
+        (read.shots as FilmProject["shots"]).map((shot) => ({
+          shotId: shot.id,
+          takeId: shot.selectedTakeId,
+        })),
+      );
+      const finalRead = structuredClone(disk.get(input.projectId)!);
+      const hash = await historyRecordHash(finalRead);
+      if (input.expectedProjectHash !== hash)
+        return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+      suggestionReads.push({ input: structuredClone(input), raw: finalRead, hash });
       return scenePlan(input);
     },
   );
@@ -187,6 +209,9 @@ async function open() {
     provider,
     admitted,
     otherSaved: () => otherSaved.promise,
+    firstOrdinarySave: () => firstOrdinarySave.promise,
+    ordinarySaves: () => ordinarySaves,
+    suggestionReads,
     rejectNative: () => heldNative.reject(Error("PRIVATE_LATE_TRANSPORT")),
     current: () => host.current()!,
     change: (f: FilmProject) =>
@@ -417,8 +442,9 @@ it("safely rebases the retained original draft with the full group while another
   expect(f.apply).toHaveBeenCalledOnce();
 });
 it("re-reads once for save-time-only CAS drift, without changing creative input or adding any clip", async () => {
-  const f = await open(),
-    before = structuredClone(f.current());
+  const f = await open();
+  const before = structuredClone(f.current());
+  const originalSuggest = f.suggest.getMockImplementation()!;
   f.suggest.mockImplementationOnce(async (input) => {
     f.disk.set(input.projectId, {
       ...f.disk.get(input.projectId)!,
@@ -426,13 +452,41 @@ it("re-reads once for save-time-only CAS drift, without changing creative input 
     });
     return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
   });
-  await view();
+  const ready = deferred<void>(),
+    transport = deferred<void>();
+  f.suggest.mockImplementationOnce(async (input) => {
+    const reply = await originalSuggest(input);
+    expect(reply.kind).toBe("SCENE_SUGGESTED");
+    ready.resolve();
+    await transport.promise;
+    return reply;
+  });
+  // Native CAS has completed; hold only delivery while the existing 400ms
+  // autosave actually writes. Do not advance timers or flush the queue.
+  const displayed = view();
+  await ready.promise;
+  await f.firstOrdinarySave();
+  transport.resolve();
+  await displayed;
   expect(f.suggest).toHaveBeenCalledTimes(2);
   expect(f.suggest.mock.calls[0]![0].expectedProjectHash).not.toBe(
     f.suggest.mock.calls[1]![0].expectedProjectHash,
   );
-  expect(f.suggest.mock.calls[1]![0].expectedProjectHash).toBe(
-    await historyRecordHash(f.disk.get(f.film.id)),
+  expect(f.suggestionReads).toHaveLength(1);
+  const accepted = f.suggestionReads[0]!;
+  expect(accepted.input).toEqual(f.suggest.mock.calls[1]![0]);
+  expect(accepted.hash).toBe(await historyRecordHash(accepted.raw));
+  expect(accepted.input.expectedProjectHash).toBe(accepted.hash);
+  expect(f.ordinarySaves()).toBe(1);
+  expect(await historyRecordHash(f.disk.get(f.film.id)!)).not.toBe(accepted.hash);
+  // Later legitimate saves may advance metadata. They cannot change this read receipt or
+  // any creative field; never compare an accepted request hash to a different-time record.
+  const creative = (raw: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(raw).filter(([key]) => !["savedAt", "directory"].includes(key)),
+    );
+  expect(await historyRecordHash(creative(f.disk.get(f.film.id)!))).toBe(
+    await historyRecordHash(creative(accepted.raw)),
   );
   expect(f.current().audioClips).toEqual(before.audioClips);
   expect(f.current().styleZh).toBe(before.styleZh);
