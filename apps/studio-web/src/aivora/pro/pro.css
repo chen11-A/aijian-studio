@@ -3780,13 +3780,13 @@ body:has(.pro-root) {
   background: var(--panel-3);
   white-space: nowrap;
 }
-/* 4B-U07: 口型 on a shot card and its timeline clip; 口型未对上 in the warning color. */
+/* Legacy lip-sync markers are unverified; only historical failure keeps warning emphasis. */
 .pro-root .lips {
   margin-left: 4px;
   padding: 0 4px;
   border-radius: 3px;
   font-size: 12px;
-  color: var(--ok);
+  color: var(--muted);
   background: var(--panel-3);
   white-space: nowrap;
 }

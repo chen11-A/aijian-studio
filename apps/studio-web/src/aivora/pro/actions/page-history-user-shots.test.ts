@@ -183,3 +183,42 @@ describe("5-3 the user's own shot changes can be undone", () => {
     ).toEqual(["DEPENDENT_WORK_EXISTS"]);
   });
 });
+
+describe("cut history with native assembly completion", () => {
+  it("undoes only the cut while retaining newer derived assembly references", () => {
+    const before = {
+      ...film(),
+      assemblyPath: "/private/original-cut.mp4",
+      assemblyUrl: "aivora-media://local/?path=original-cut.mp4",
+    };
+    const removed = before.shots[1]!;
+    const after = {
+      ...removeShot(before, removed.id),
+      assemblyPath: "/private/new-five-shot-cut.mp4",
+      assemblyUrl: "aivora-media://local/?path=new-five-shot-cut.mp4",
+    };
+    const scope = { projectId: before.id, page: "edit" as const, sceneId: removed.sceneId };
+    const history = createEditorPageHistory();
+    expect(history.record(before, after, scope)).toEqual([]);
+    const undone = history.undo({ ...after, styleZh: "later unrelated style" }, scope);
+    expect(undone.film.styleZh).toBe("later unrelated style");
+    expect(undone.conflicts).toEqual([]);
+    expect(undone.film.shots).toEqual(before.shots);
+    expect(undone.film.audioClips).toEqual(before.audioClips);
+    expect(undone.film.assemblyPath).toBe(after.assemblyPath);
+    expect(undone.film.assemblyUrl).toBe(after.assemblyUrl);
+    expect(history.redo(undone.film, scope).film.shots).toEqual(after.shots);
+    expect(
+      diffUserShotEdit(before, { ...after, styleZh: "a later creative edit" }, scope).unsupported,
+    ).toEqual(["OTHER_COLLECTION_CHANGED"]);
+    expect(diffUserShotEdit(before, { ...after, audioClips: [] }, scope).unsupported).toEqual([
+      "OTHER_COLLECTION_CHANGED",
+    ]);
+    expect(diffUserShotEdit(before, { ...after, characters: [] }, scope).unsupported).toEqual([
+      "OTHER_COLLECTION_CHANGED",
+    ]);
+    expect(
+      diffUserShotEdit(before, { ...after, id: "another-project" }, scope).unsupported,
+    ).toEqual(["PROJECT_MISMATCH"]);
+  });
+});

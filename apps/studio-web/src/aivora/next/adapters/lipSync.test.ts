@@ -15,12 +15,14 @@ describe("lipSyncTag", () => {
     expect(lipSyncTag(shot([take("a", "done", { lipSync: "none" })]))).toBeNull();
   });
 
-  it("says 口型 when it is done or being done, and when it failed that it can be tried again", () => {
-    expect(lipSyncTag(shot([take("a", "done", { lipSync: "done" })]))?.text).toBe("口型");
-    expect(lipSyncTag(shot([take("a", "done", "pending")]))?.title).toBe("正在对口型");
+  it("labels all old marker states as unverified and preserves the historical failed styling", () => {
+    expect(lipSyncTag(shot([take("a", "done", { lipSync: "done" })]))?.text).toBe("口型待核验");
+    expect(lipSyncTag(shot([take("a", "done", "pending")]))?.title).toBe(
+      "历史口型标记为待处理，当前未核验实际口型状态。",
+    );
     const failed = lipSyncTag(shot([take("a", "done", { lipSync: "failed" })]));
-    expect(failed).toMatchObject({ text: "口型未对上", failed: true });
-    expect(failed?.title).toContain("可重试");
+    expect(failed).toMatchObject({ text: "口型待核验", failed: true });
+    expect(failed?.title).toBe("历史口型标记为失败，实际对齐与声音尚未核验。");
   });
 
   it("reads the chosen take, not just the first one", () => {
