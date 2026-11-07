@@ -182,6 +182,24 @@ test("unknown scope/attempt, generation, project creation and legacy export rema
     "completeText",
   ]);
 });
+test("default settings history listing is read-only and exact-project scoped without manufacturing backups or recovery", async () => {
+  const f = setup();
+  const before = f.record(f.seed.projectId);
+  assert.deepEqual(await f.bridge.listFilmHistory(f.seed.projectId), {
+    kind: "LIST",
+    entries: [],
+    unreadable: 0,
+  });
+  assert.deepEqual(f.audit.histories, [{ projectId: f.seed.projectId }]);
+  assert.deepEqual(f.audit.lists, []);
+  assert.deepEqual(f.audit.recovers, []);
+  assert.deepEqual(f.audit.saves, []);
+  assert.deepEqual(f.audit.writes, []);
+  assert.deepEqual(f.record(f.seed.projectId), before);
+  await assert.rejects(f.bridge.listFilmHistory("unknown-work"));
+  assert.deepEqual(f.audit.forbidden, ["history-scope"]);
+});
+
 test("CLI declares sixteen and rejects unsafe flags/output without printing private argument values", async () => {
   const entry = path.join(root, "apps/studio-web/e2e/pro-video-recovery-audit.mjs");
   const help = spawnSync(process.execPath, [entry, "--help"], { cwd: root, encoding: "utf8" });
