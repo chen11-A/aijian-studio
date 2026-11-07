@@ -59,6 +59,13 @@ export function assemblyRenderKey(film: FilmProject) {
         enabled: clip.enabled !== false,
         ...(clip.loop !== undefined ? { loop: clip.loop } : {}),
         ...(clip.envelope !== undefined ? { envelope: clip.envelope } : {}),
+        ...(clip.sceneAudioBinding === undefined
+          ? {}
+          : {
+              sceneAudioBinding: clip.sceneAudioBinding,
+              // Scene membership affects playback; ordinary single-shot provenance remains metadata.
+              suggestionGroup: clip.suggestionGroup ?? null,
+            }),
       })),
       audioMix: audioMixSettings(film.audioMix),
       subtitleStyle: film.subtitleStyle ?? "white",

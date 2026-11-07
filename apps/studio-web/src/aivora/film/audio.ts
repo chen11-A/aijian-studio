@@ -1,3 +1,4 @@
+import type { SceneAudioBinding } from "@aijian/contracts/film-scene-audio-binding";
 import {
   LINE_HEAD_SECONDS as SHARED_HEAD,
   LINE_TAIL_SECONDS as SHARED_TAIL,
@@ -86,6 +87,7 @@ export type AudioClip = {
   path?: string;
   libraryAsset?: AudioLibraryProvenance;
   suggestionGroup?: AudioSuggestionGroup;
+  sceneAudioBinding?: SceneAudioBinding;
   loop?: boolean;
   envelope?: AudioMixEnvelope;
   /** Retained audio alternatives; missing means enabled. */
@@ -183,6 +185,10 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
         // Preserve creative data; the trusted planner rejects malformed envelopes.
         // Dropping only the field would accidentally play the original at full gain.
         ...(row.envelope !== undefined ? { envelope: row.envelope } : {}),
+        // Do not turn malformed binding metadata into an unbound audible clip.
+        ...(row.sceneAudioBinding !== undefined
+          ? { sceneAudioBinding: row.sceneAudioBinding }
+          : {}),
         ...(normalizeAudioSuggestionGroup(row.suggestionGroup)
           ? { suggestionGroup: normalizeAudioSuggestionGroup(row.suggestionGroup)! }
           : {}),

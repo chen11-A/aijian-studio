@@ -3,11 +3,15 @@ import {
   audioSuggestionMemberSetInput,
 } from "@aijian/contracts/film-audio-suggestion-group";
 import { resolveAudioMix } from "./film-audio-mix-sources";
+import { sceneAudioSelectionInput } from "@aijian/contracts/film-scene-audio-binding";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
 import type {
   ApplyBundledFilmShotAudioInput,
+  ApplyBundledFilmSceneAudioInput,
+  SuggestBundledFilmSceneAudioInput,
+  SuggestBundledFilmSceneAudioResult,
   ApplyBundledFilmShotAudioResult,
   AudioSuggestionReceipt,
   AddBundledFilmAudioInput,
@@ -31,6 +35,8 @@ import {
 import type { QcRunner, QcTools } from "./film-export-qc-runtime";
 import {
   shotAudioContext,
+  sceneAudioContext,
+  compileSceneAudioSuggestion,
   compileShotAudioSuggestion,
   ShotAudioSuggestionLimit,
 } from "./film-shot-audio-suggestions";
@@ -38,25 +44,33 @@ const object = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 const exact = (v: Record<string, unknown>, keys: string[]) =>
   Object.keys(v).sort().join() === keys.sort().join();
-const failure = (error: unknown): FilmAudioLibraryFailure => ({
-  kind: "FAILED",
-  code: ([
-    "INVALID_INPUT",
-    "LIBRARY_UNAVAILABLE",
-    "ASSET_CHANGED",
-    "PROJECT_CHANGED",
-    "SOURCE_UNVERIFIED",
-    "PLACEMENT_UNSUPPORTED",
-    "PLAN_UNSUPPORTED",
-    "BUSY",
-    "WRITE_FAILED",
-    "WRITE_UNCONFIRMED",
-    "TOOLS_UNAVAILABLE",
-  ].includes(error instanceof Error ? error.message : "")
-    ? (error as Error).message
-    : "WRITE_FAILED") as FilmAudioLibraryFailure["code"],
-  unchanged: true,
-});
+class SceneAudioScopeError extends Error {
+  constructor(readonly reason: "GLOBAL_CLOCK_UNAVAILABLE" | "SCENE_ORDER_UNSUPPORTED") {
+    super("PLAN_UNSUPPORTED");
+  }
+}
+const failure = (error: unknown): FilmAudioLibraryFailure =>
+  error instanceof SceneAudioScopeError
+    ? { kind: "FAILED", code: "PLAN_UNSUPPORTED", unchanged: true, reason: error.reason }
+    : {
+        kind: "FAILED",
+        code: ([
+          "INVALID_INPUT",
+          "LIBRARY_UNAVAILABLE",
+          "ASSET_CHANGED",
+          "PROJECT_CHANGED",
+          "SOURCE_UNVERIFIED",
+          "PLACEMENT_UNSUPPORTED",
+          "PLAN_UNSUPPORTED",
+          "BUSY",
+          "WRITE_FAILED",
+          "WRITE_UNCONFIRMED",
+          "TOOLS_UNAVAILABLE",
+        ].includes(error instanceof Error ? error.message : "")
+          ? (error as Error).message
+          : "WRITE_FAILED") as FilmAudioLibraryFailure["code"],
+        unchanged: true,
+      };
 function fail(code: FilmAudioLibraryFailure["code"]): never {
   throw Error(code);
 }
@@ -154,6 +168,88 @@ function applyInput(value: unknown): ApplyBundledFilmShotAudioInput {
     planFingerprint: String(row.planFingerprint),
     lanes: [...row.lanes] as ApplyBundledFilmShotAudioInput["lanes"],
   };
+}
+function sceneInput(
+  value: unknown,
+  apply = false,
+): SuggestBundledFilmSceneAudioInput | ApplyBundledFilmSceneAudioInput {
+  const row = object(value);
+  const keys = ["projectId", "expectedProjectHash", "sceneId", "expectedSelection"];
+  if (
+    !row ||
+    !exact(
+      row,
+      apply ? [...keys, "catalogSha256", "pickerSha256", "planFingerprint", "lanes"] : keys,
+    ) ||
+    typeof row.projectId !== "string" ||
+    !/^film_[a-z0-9]{16,40}$/.test(row.projectId) ||
+    typeof row.expectedProjectHash !== "string" ||
+    !/^[a-f0-9]{64}$/.test(row.expectedProjectHash) ||
+    typeof row.sceneId !== "string" ||
+    !row.sceneId ||
+    row.sceneId.length > 160 ||
+    row.sceneId.includes("\0") ||
+    !Array.isArray(row.expectedSelection) ||
+    !row.expectedSelection.length ||
+    row.expectedSelection.length > 128 ||
+    row.expectedSelection.some((raw) => {
+      const pair = object(raw);
+      return (
+        !pair ||
+        !exact(pair, ["shotId", "takeId"]) ||
+        ![pair.shotId, pair.takeId].every(
+          (id) => typeof id === "string" && id.length > 0 && id.length <= 160 && !id.includes("\0"),
+        )
+      );
+    }) ||
+    new Set(row.expectedSelection.map((raw) => object(raw)?.shotId)).size !==
+      row.expectedSelection.length
+  )
+    fail("INVALID_INPUT");
+  if (
+    apply &&
+    (![row.catalogSha256, row.pickerSha256, row.planFingerprint].every(
+      (v) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v),
+    ) ||
+      !Array.isArray(row.lanes) ||
+      !row.lanes.length ||
+      row.lanes.length > 3 ||
+      new Set(row.lanes).size !== row.lanes.length ||
+      row.lanes.some((v) => !["ambience", "sfx", "score"].includes(String(v))))
+  )
+    fail("INVALID_INPUT");
+  return structuredClone(row) as unknown as
+    SuggestBundledFilmSceneAudioInput | ApplyBundledFilmSceneAudioInput;
+}
+function sceneSelection(record: FilmRecord, request: SuggestBundledFilmSceneAudioInput) {
+  if (Array.isArray(record.shots) && record.shots.length !== request.expectedSelection.length)
+    throw new SceneAudioScopeError("GLOBAL_CLOCK_UNAVAILABLE");
+  if (
+    !Array.isArray(record.shots) ||
+    !Array.isArray(record.scenes) ||
+    record.scenes.filter((raw) => object(raw)?.id === request.sceneId).length !== 1
+  )
+    fail("PROJECT_CHANGED");
+  const ids = new Set<string>();
+  return request.expectedSelection.map((pair, index) => {
+    const shot = object(record.shots![index]);
+    if (
+      !shot ||
+      shot.id !== pair.shotId ||
+      typeof shot.sceneId !== "string" ||
+      ids.has(pair.shotId)
+    )
+      fail("PROJECT_CHANGED");
+    ids.add(pair.shotId);
+    const take = selected(record, pair);
+    return {
+      ...pair,
+      videoPath: String(take.videoPath),
+      ...(typeof take.cleanVideoPath === "string" && take.cleanVideoPath
+        ? { visualPath: take.cleanVideoPath }
+        : {}),
+    };
+  });
 }
 const digest = (input: string) => createHash("sha256").update(input).digest("hex");
 const projectBusy = (record: FilmRecord) =>
@@ -377,231 +473,413 @@ export function createFilmAudioLibrary(host: {
       limitations,
     };
   }
+  async function compileSceneSuggestion(
+    request: SuggestBundledFilmSceneAudioInput,
+  ): Promise<Extract<SuggestBundledFilmSceneAudioResult, { kind: "SCENE_SUGGESTED" }>> {
+    const current = async () => {
+      const record = await readProject(host.filmsRoot, request.projectId);
+      if (
+        !record ||
+        record.id !== request.projectId ||
+        filmHistoryRecordHash(record) !== request.expectedProjectHash
+      )
+        fail("PROJECT_CHANGED");
+      sceneSelection(record, request);
+      return record;
+    };
+    const base = await current();
+    const tools = await host.tools().catch(() => fail("TOOLS_UNAVAILABLE"));
+    const resolve = (record: FilmRecord) =>
+      resolveAudioMix({ ...record, audioClips: [] }, sceneSelection(record, request), {
+        filmsRoot: host.filmsRoot,
+        storyFilmsRoot: host.storyFilmsRoot,
+        tools,
+        run: host.run,
+        videoOwner: host.videoOwner,
+      });
+    const before = await resolve(base).catch(() => fail("SOURCE_UNVERIFIED"));
+    const clock = before.plan.shots.map((shot, index) => ({
+      shotId: shot.shotId,
+      takeId: shot.takeId,
+      sceneId: String(object(base.shots![index])?.sceneId),
+      startSeconds: shot.startSeconds,
+      durationSeconds: shot.durationSeconds,
+    }));
+    const rows = clock.map((shot, index) => ({
+      ...shot,
+      nativeSha256: before.selectedSources[index]!.native.sha256,
+      visualSha256: before.selectedSources[index]!.visual.sha256,
+    }));
+    let selectionInput: string;
+    try {
+      selectionInput = sceneAudioSelectionInput(request.sceneId, rows);
+    } catch {
+      throw new SceneAudioScopeError("SCENE_ORDER_UNSUPPORTED");
+    }
+    const target = clock.filter((shot) => shot.sceneId === request.sceneId);
+    const sceneStartSeconds = target[0]!.startSeconds;
+    const windows = target.map((shot) => ({
+      ...shot,
+      startSeconds: shot.startSeconds - sceneStartSeconds,
+    }));
+    const context = sceneAudioContext(base, windows);
+    const directory = await Promise.resolve()
+      .then(() => host.libraryRoot())
+      .then((path) => realpath(path))
+      .catch(() => fail("LIBRARY_UNAVAILABLE"));
+    const library = await loadTrustedAudioLibrary(directory).catch(() =>
+      fail("LIBRARY_UNAVAILABLE"),
+    );
+    const picker = await loadTrustedAudioPicker(directory).catch(() => fail("LIBRARY_UNAVAILABLE"));
+    const raw = picker.pickAudio(
+      context.scene,
+      library.assets.map((asset) => ({
+        id: asset.id,
+        path: asset.file,
+        type: asset.type,
+        category: asset.category,
+        name: asset.name,
+        tags: [...asset.tags],
+        scene: asset.scene,
+        source: asset.source,
+        author: asset.author,
+        license: asset.license,
+        duration: asset.durationSeconds,
+        loop: asset.loopable,
+        loopable: asset.loopable,
+        loudness: asset.loudness,
+      })),
+    );
+    const compiled = compileSceneAudioSuggestion(
+      raw,
+      library,
+      windows,
+      context.allowMusic,
+      128 - before.plan.tracks.length,
+    );
+    const after = await resolve(await current()).catch(() => fail("PROJECT_CHANGED"));
+    if (
+      JSON.stringify(before.selectedSources) !== JSON.stringify(after.selectedSources) ||
+      JSON.stringify(before.plan.shots) !== JSON.stringify(after.plan.shots) ||
+      JSON.stringify(before.hashes) !== JSON.stringify(after.hashes)
+    )
+      fail("PROJECT_CHANGED");
+    const finalLibrary = await loadTrustedAudioLibrary(directory).catch(() =>
+      fail("ASSET_CHANGED"),
+    );
+    if (
+      JSON.stringify(publicAudioCatalog(library)) !==
+      JSON.stringify(publicAudioCatalog(finalLibrary))
+    )
+      fail("ASSET_CHANGED");
+    await picker.verify().catch(() => fail("ASSET_CHANGED"));
+    if ((await realpath(host.libraryRoot()).catch(() => "")) !== directory) fail("ASSET_CHANGED");
+    for (const [path, sha] of Object.entries(after.hashes))
+      if ((await exportFileHash(path).catch(() => "")) !== sha) fail("PROJECT_CHANGED");
+    await current();
+    const limitations = [...context.limitations, ...compiled.limitations];
+    const sceneAudioBinding = {
+      schemaVersion: 1 as const,
+      sceneId: request.sceneId,
+      selectionSha256: digest(selectionInput),
+    };
+    const planFingerprint = digest(
+      JSON.stringify({
+        version: "scene-audio-suggestion-v1",
+        projectId: request.projectId,
+        sceneId: request.sceneId,
+        context: context.semantic,
+        mix: audioMixSettings(base.audioMix),
+        catalog: library.manifestSha256,
+        picker: picker.sha256,
+        selection: JSON.parse(selectionInput),
+        clips: compiled.clips,
+        warnings: compiled.warnings,
+        limitations,
+      }),
+    );
+    return {
+      kind: "SCENE_SUGGESTED",
+      projectId: request.projectId,
+      sceneId: request.sceneId,
+      projectHash: request.expectedProjectHash,
+      catalogSha256: library.manifestSha256,
+      pickerSha256: picker.sha256,
+      planFingerprint,
+      clock: { durationSeconds: before.plan.durationSeconds, shots: clock },
+      sceneStartSeconds,
+      sceneDurationSeconds: windows.reduce((sum, shot) => sum + shot.durationSeconds, 0),
+      sceneAudioBinding,
+      ...compiled,
+      limitations,
+    };
+  }
+  async function applySuggestion(
+    value: unknown,
+    scene: boolean,
+  ): Promise<ApplyBundledFilmShotAudioResult> {
+    let project = "",
+      folder = "",
+      acquired = false,
+      writeStarted = false,
+      retain = false;
+    const pendingIds = new Set<string>();
+    try {
+      const request = scene
+        ? (sceneInput(value, true) as ApplyBundledFilmSceneAudioInput)
+        : applyInput(value);
+      project = request.projectId;
+      if (active.has(project)) fail("BUSY");
+      active.add(project);
+      acquired = true;
+      const base = await readProject(host.filmsRoot, project);
+      if (
+        !base ||
+        base.id !== project ||
+        filmHistoryRecordHash(base) !== request.expectedProjectHash
+      )
+        fail("PROJECT_CHANGED");
+      if (projectBusy(base)) fail("BUSY");
+      const recompile = () =>
+        "sceneId" in request ? compileSceneSuggestion(request) : compileSuggestion(request);
+      const proposal = await recompile();
+      const matches = (result: typeof proposal) => {
+        if (
+          result.catalogSha256 !== request.catalogSha256 ||
+          result.pickerSha256 !== request.pickerSha256
+        )
+          fail("ASSET_CHANGED");
+        if (result.planFingerprint !== request.planFingerprint) fail("PROJECT_CHANGED");
+      };
+      matches(proposal);
+      const clips = proposal.clips.filter((clip) => request.lanes.includes(clip.lane));
+      if (!clips.length) fail("PLAN_UNSUPPORTED");
+      const directory = await realpath(host.libraryRoot()).catch(() => fail("LIBRARY_UNAVAILABLE"));
+      const library = await loadTrustedAudioLibrary(directory).catch(() => fail("ASSET_CHANGED"));
+      const picker = await loadTrustedAudioPicker(directory).catch(() => fail("ASSET_CHANGED"));
+      if (
+        library.manifestSha256 !== request.catalogSha256 ||
+        picker.sha256 !== request.pickerSha256
+      )
+        fail("ASSET_CHANGED");
+      const local = await episode(base).catch(() => fail("SOURCE_UNVERIFIED"));
+      const media = join(local, "media");
+      await mkdir(media, { recursive: true });
+      if (relative(local, await realpath(media)) !== "media") fail("SOURCE_UNVERIFIED");
+      folder = await mkdtemp(join(media, ".audio-suggestion-"));
+      const copies = new Map<string, string>();
+      const groupId = `audio-group-${randomUUID()}`;
+      const additions = [];
+      for (const clip of clips) {
+        const asset = library.assets.find(
+          (asset) => asset.id === clip.asset.id && asset.sha256 === clip.asset.sha256,
+        );
+        if (!asset) fail("ASSET_CHANGED");
+        const identity = JSON.stringify([asset.id, asset.sha256]);
+        let path = copies.get(identity);
+        if (!path) {
+          path = join(folder, `${copies.size}.ogg`);
+          await copyExportFile(asset.file, path);
+          if (
+            (await exportFileHash(path)) !== asset.sha256 ||
+            (await exportFileHash(asset.file)) !== asset.sha256
+          )
+            fail("ASSET_CHANGED");
+          copies.set(identity, path);
+        }
+        const id = `audio-${randomUUID()}`;
+        pendingIds.add(id);
+        additions.push({
+          id,
+          lane: clip.lane,
+          shotId:
+            "shotId" in clip ? String(clip.shotId) : "shotId" in request ? request.shotId : "",
+          takeId:
+            "takeId" in clip ? String(clip.takeId) : "takeId" in request ? request.takeId : "",
+          ...("sceneAudioBinding" in proposal
+            ? { sceneAudioBinding: proposal.sceneAudioBinding }
+            : {}),
+          label: asset.name,
+          ...clip.placement,
+          ...(clip.envelope ? { envelope: structuredClone(clip.envelope) } : {}),
+          enabled: true,
+          path,
+          libraryAsset: asset.provenance,
+          key: clip.key,
+        });
+      }
+      const members = additions.map((clip) => ({
+        key: clip.key,
+        clipId: clip.id,
+        creativeSha256: digest(audioSuggestionMemberInput(clip)),
+      }));
+      const receipt: AudioSuggestionReceipt = {
+        schemaVersion: 1,
+        groupId,
+        planFingerprint: proposal.planFingerprint,
+        memberCount: members.length,
+        memberSetSha256: digest(audioSuggestionMemberSetInput(members)),
+        members,
+      };
+      const persistent = additions.map(({ key, ...clip }) => ({
+        ...clip,
+        suggestionGroup: {
+          schemaVersion: 1 as const,
+          groupId,
+          planFingerprint: receipt.planFingerprint,
+          key,
+          memberCount: receipt.memberCount,
+          memberSetSha256: receipt.memberSetSha256,
+        },
+      }));
+      const tools = await host.tools().catch(() => fail("TOOLS_UNAVAILABLE"));
+      await host.beforeCommit?.();
+      return await transactFilmProject(host.filmsRoot, project, async (current, write) => {
+        if (
+          !current ||
+          current.id !== project ||
+          filmHistoryRecordHash(current) !== request.expectedProjectHash ||
+          projectBusy(current) ||
+          (await episode(current)) !== local
+        )
+          fail("PROJECT_CHANGED");
+        if ("sceneId" in request) sceneSelection(current, request);
+        else selected(current, request);
+        if ((await realpath(host.libraryRoot())) !== directory) fail("ASSET_CHANGED");
+        // Recompile the reviewed entire plan; lane selection never clips its segments.
+        matches(await recompile());
+        const next = {
+          ...current,
+          audioClips: [
+            ...(Array.isArray(current.audioClips) ? current.audioClips : []),
+            ...persistent,
+          ],
+        };
+        const choices =
+          "sceneId" in request
+            ? sceneSelection(current, request)
+            : (() => {
+                const take = selected(current, request);
+                return [
+                  {
+                    shotId: request.shotId,
+                    takeId: request.takeId,
+                    videoPath: String(take.videoPath),
+                    ...(typeof take.cleanVideoPath === "string"
+                      ? { visualPath: take.cleanVideoPath }
+                      : {}),
+                  },
+                ];
+              })();
+        const resolved = await resolveAudioMix(next, choices, {
+          filmsRoot: host.filmsRoot,
+          storyFilmsRoot: host.storyFilmsRoot,
+          tools,
+          run: host.run,
+          videoOwner: host.videoOwner,
+          audioOwner: host.audioOwner,
+        }).catch((error: unknown) => {
+          if (error instanceof Error && error.message === "SOURCE_UNVERIFIED")
+            fail("SOURCE_UNVERIFIED");
+          if (error instanceof Error && error.message === "SOURCE_CHANGED") fail("PROJECT_CHANGED");
+          fail("PLAN_UNSUPPORTED");
+        });
+        // Validate real source windows, including every selected segment, rather than silently trimming.
+        for (const clip of persistent) {
+          const track = resolved.plan.tracks.find((track) => track.key === clip.id);
+          if (
+            clip.gainDb > -40 &&
+            !audioMixSettings(current.audioMix).lanes[clip.lane].muted &&
+            (!track ||
+              Math.abs(track.endSeconds - track.startSeconds - clip.durationSeconds) > 0.000001)
+          )
+            fail("PLACEMENT_UNSUPPORTED");
+        }
+        const nativePath = resolved.paths[`video:${choices[0]!.shotId}:${choices[0]!.takeId}`];
+        if (!nativePath) fail("SOURCE_UNVERIFIED");
+        const args = audioMixArgs(
+          nativePath,
+          join(folder, "output.mp4"),
+          resolved.plan,
+          resolved.paths,
+        );
+        const filter = args.indexOf("-filter_complex");
+        if (filter >= 0) {
+          args[filter] = "-filter_complex_script";
+          args[filter + 1] = join(folder, "filter.txt");
+        }
+        if (audioMixCommandLength(tools.ffmpegPath, args) > 30000) fail("PLAN_UNSUPPORTED");
+        await picker.verify().catch(() => fail("ASSET_CHANGED"));
+        const finalCatalog = await loadTrustedAudioLibrary(directory).catch(() =>
+          fail("ASSET_CHANGED"),
+        );
+        if (
+          JSON.stringify(publicAudioCatalog(finalCatalog)) !==
+            JSON.stringify(publicAudioCatalog(library)) ||
+          (await realpath(host.libraryRoot())) !== directory
+        )
+          fail("ASSET_CHANGED");
+        for (const [path, sha] of Object.entries(resolved.hashes))
+          if ((await exportFileHash(path)) !== sha) fail("PROJECT_CHANGED");
+        const finalRecord = await readProject(host.filmsRoot, project);
+        if (
+          !finalRecord ||
+          finalRecord.id !== project ||
+          filmHistoryRecordHash(finalRecord) !== request.expectedProjectHash
+        )
+          fail("PROJECT_CHANGED");
+        writeStarted = true;
+        const stored = await write(next);
+        retain = true;
+        const actual = await readProject(host.filmsRoot, project);
+        if (!actual || filmHistoryRecordHash(actual) !== filmHistoryRecordHash(stored))
+          fail("WRITE_UNCONFIRMED");
+        return { kind: "ADDED" as const, project: actual, receipt };
+      });
+    } catch (error) {
+      if (writeStarted) {
+        const current = await readProject(host.filmsRoot, project).catch(() => undefined);
+        if (
+          retain ||
+          !current ||
+          current.id !== project ||
+          (Array.isArray(current.audioClips) &&
+            current.audioClips.some((clip) => pendingIds.has(String(object(clip)?.id))))
+        ) {
+          retain = true;
+          return { kind: "FAILED", code: "WRITE_UNCONFIRMED", unchanged: false };
+        }
+      }
+      if (error instanceof ShotAudioSuggestionLimit)
+        return {
+          kind: "FAILED",
+          code: "PLAN_UNSUPPORTED",
+          unchanged: true,
+          reason: "TRACK_LIMIT",
+          maxSegments: error.maxSegments,
+          minimumRequiredSegments: error.minimumRequiredSegments,
+        };
+      return failure(error);
+    } finally {
+      if (folder && !retain)
+        await rm(folder, { recursive: true, force: true }).catch(() => undefined);
+      if (acquired) active.delete(project);
+    }
+  }
   return {
-    async applyBundledFilmShotAudio(value): Promise<ApplyBundledFilmShotAudioResult> {
+    applyBundledFilmShotAudio: (value) => applySuggestion(value, false),
+    applyBundledFilmSceneAudio: (value) => applySuggestion(value, true),
+    async suggestBundledFilmSceneAudio(value): Promise<SuggestBundledFilmSceneAudioResult> {
       let project = "",
-        folder = "",
-        acquired = false,
-        writeStarted = false,
-        retain = false;
-      const pendingIds = new Set<string>();
+        acquired = false;
       try {
-        const request = applyInput(value);
+        const request = sceneInput(value);
         project = request.projectId;
         if (active.has(project)) fail("BUSY");
         active.add(project);
         acquired = true;
-        const base = await readProject(host.filmsRoot, project);
-        if (
-          !base ||
-          base.id !== project ||
-          filmHistoryRecordHash(base) !== request.expectedProjectHash
-        )
-          fail("PROJECT_CHANGED");
-        if (projectBusy(base)) fail("BUSY");
-        const proposal = await compileSuggestion(request);
-        const matches = (result: typeof proposal) => {
-          if (
-            result.catalogSha256 !== request.catalogSha256 ||
-            result.pickerSha256 !== request.pickerSha256
-          )
-            fail("ASSET_CHANGED");
-          if (result.planFingerprint !== request.planFingerprint) fail("PROJECT_CHANGED");
-        };
-        matches(proposal);
-        const clips = proposal.clips.filter((clip) => request.lanes.includes(clip.lane));
-        if (!clips.length) fail("PLAN_UNSUPPORTED");
-        const directory = await realpath(host.libraryRoot()).catch(() =>
-          fail("LIBRARY_UNAVAILABLE"),
-        );
-        const library = await loadTrustedAudioLibrary(directory).catch(() => fail("ASSET_CHANGED"));
-        const picker = await loadTrustedAudioPicker(directory).catch(() => fail("ASSET_CHANGED"));
-        if (
-          library.manifestSha256 !== request.catalogSha256 ||
-          picker.sha256 !== request.pickerSha256
-        )
-          fail("ASSET_CHANGED");
-        const local = await episode(base).catch(() => fail("SOURCE_UNVERIFIED"));
-        const media = join(local, "media");
-        await mkdir(media, { recursive: true });
-        if (relative(local, await realpath(media)) !== "media") fail("SOURCE_UNVERIFIED");
-        folder = await mkdtemp(join(media, ".audio-suggestion-"));
-        const copies = new Map<string, string>();
-        const groupId = `audio-group-${randomUUID()}`;
-        const additions = [];
-        for (const clip of clips) {
-          const asset = library.assets.find(
-            (asset) => asset.id === clip.asset.id && asset.sha256 === clip.asset.sha256,
-          );
-          if (!asset) fail("ASSET_CHANGED");
-          const identity = JSON.stringify([asset.id, asset.sha256]);
-          let path = copies.get(identity);
-          if (!path) {
-            path = join(folder, `${copies.size}.ogg`);
-            await copyExportFile(asset.file, path);
-            if (
-              (await exportFileHash(path)) !== asset.sha256 ||
-              (await exportFileHash(asset.file)) !== asset.sha256
-            )
-              fail("ASSET_CHANGED");
-            copies.set(identity, path);
-          }
-          const id = `audio-${randomUUID()}`;
-          pendingIds.add(id);
-          additions.push({
-            id,
-            lane: clip.lane,
-            shotId: request.shotId,
-            takeId: request.takeId,
-            label: asset.name,
-            ...clip.placement,
-            ...(clip.envelope ? { envelope: structuredClone(clip.envelope) } : {}),
-            enabled: true,
-            path,
-            libraryAsset: asset.provenance,
-            key: clip.key,
-          });
-        }
-        const members = additions.map((clip) => ({
-          key: clip.key,
-          clipId: clip.id,
-          creativeSha256: digest(audioSuggestionMemberInput(clip)),
-        }));
-        const receipt: AudioSuggestionReceipt = {
-          schemaVersion: 1,
-          groupId,
-          planFingerprint: proposal.planFingerprint,
-          memberCount: members.length,
-          memberSetSha256: digest(audioSuggestionMemberSetInput(members)),
-          members,
-        };
-        const persistent = additions.map(({ key, ...clip }) => ({
-          ...clip,
-          suggestionGroup: {
-            schemaVersion: 1 as const,
-            groupId,
-            planFingerprint: receipt.planFingerprint,
-            key,
-            memberCount: receipt.memberCount,
-            memberSetSha256: receipt.memberSetSha256,
-          },
-        }));
-        const tools = await host.tools().catch(() => fail("TOOLS_UNAVAILABLE"));
-        await host.beforeCommit?.();
-        return await transactFilmProject(host.filmsRoot, project, async (current, write) => {
-          if (
-            !current ||
-            current.id !== project ||
-            filmHistoryRecordHash(current) !== request.expectedProjectHash ||
-            projectBusy(current) ||
-            (await episode(current)) !== local
-          )
-            fail("PROJECT_CHANGED");
-          selected(current, request);
-          if ((await realpath(host.libraryRoot())) !== directory) fail("ASSET_CHANGED");
-          // Recompile the reviewed entire plan; lane selection never clips its segments.
-          matches(await compileSuggestion(request));
-          const next = {
-            ...current,
-            audioClips: [
-              ...(Array.isArray(current.audioClips) ? current.audioClips : []),
-              ...persistent,
-            ],
-          };
-          const take = selected(current, request);
-          const resolved = await resolveAudioMix(
-            next,
-            [
-              {
-                shotId: request.shotId,
-                takeId: request.takeId,
-                videoPath: String(take.videoPath),
-                ...(typeof take.cleanVideoPath === "string"
-                  ? { visualPath: take.cleanVideoPath }
-                  : {}),
-              },
-            ],
-            {
-              filmsRoot: host.filmsRoot,
-              storyFilmsRoot: host.storyFilmsRoot,
-              tools,
-              run: host.run,
-              videoOwner: host.videoOwner,
-              audioOwner: host.audioOwner,
-            },
-          ).catch((error: unknown) => {
-            if (error instanceof Error && error.message === "SOURCE_UNVERIFIED")
-              fail("SOURCE_UNVERIFIED");
-            if (error instanceof Error && error.message === "SOURCE_CHANGED")
-              fail("PROJECT_CHANGED");
-            fail("PLAN_UNSUPPORTED");
-          });
-          // Validate real source windows, including every selected segment, rather than silently trimming.
-          for (const clip of persistent) {
-            const track = resolved.plan.tracks.find((track) => track.key === clip.id);
-            if (
-              clip.gainDb > -40 &&
-              !audioMixSettings(current.audioMix).lanes[clip.lane].muted &&
-              (!track ||
-                Math.abs(track.endSeconds - track.startSeconds - clip.durationSeconds) > 0.000001)
-            )
-              fail("PLACEMENT_UNSUPPORTED");
-          }
-          const nativePath = resolved.paths[`video:${request.shotId}:${request.takeId}`];
-          if (!nativePath) fail("SOURCE_UNVERIFIED");
-          const args = audioMixArgs(
-            nativePath,
-            join(folder, "output.mp4"),
-            resolved.plan,
-            resolved.paths,
-          );
-          const filter = args.indexOf("-filter_complex");
-          if (filter >= 0) {
-            args[filter] = "-filter_complex_script";
-            args[filter + 1] = join(folder, "filter.txt");
-          }
-          if (audioMixCommandLength(tools.ffmpegPath, args) > 30000) fail("PLAN_UNSUPPORTED");
-          await picker.verify().catch(() => fail("ASSET_CHANGED"));
-          const finalCatalog = await loadTrustedAudioLibrary(directory).catch(() =>
-            fail("ASSET_CHANGED"),
-          );
-          if (
-            JSON.stringify(publicAudioCatalog(finalCatalog)) !==
-              JSON.stringify(publicAudioCatalog(library)) ||
-            (await realpath(host.libraryRoot())) !== directory
-          )
-            fail("ASSET_CHANGED");
-          for (const [path, sha] of Object.entries(resolved.hashes))
-            if ((await exportFileHash(path)) !== sha) fail("PROJECT_CHANGED");
-          const finalRecord = await readProject(host.filmsRoot, project);
-          if (
-            !finalRecord ||
-            finalRecord.id !== project ||
-            filmHistoryRecordHash(finalRecord) !== request.expectedProjectHash
-          )
-            fail("PROJECT_CHANGED");
-          writeStarted = true;
-          const stored = await write(next);
-          retain = true;
-          const actual = await readProject(host.filmsRoot, project);
-          if (!actual || filmHistoryRecordHash(actual) !== filmHistoryRecordHash(stored))
-            fail("WRITE_UNCONFIRMED");
-          return { kind: "ADDED" as const, project: actual, receipt };
-        });
+        return await compileSceneSuggestion(request);
       } catch (error) {
-        if (writeStarted) {
-          const current = await readProject(host.filmsRoot, project).catch(() => undefined);
-          if (
-            retain ||
-            !current ||
-            current.id !== project ||
-            (Array.isArray(current.audioClips) &&
-              current.audioClips.some((clip) => pendingIds.has(String(object(clip)?.id))))
-          ) {
-            retain = true;
-            return { kind: "FAILED", code: "WRITE_UNCONFIRMED", unchanged: false };
-          }
-        }
         if (error instanceof ShotAudioSuggestionLimit)
           return {
             kind: "FAILED",
@@ -613,8 +891,6 @@ export function createFilmAudioLibrary(host: {
           };
         return failure(error);
       } finally {
-        if (folder && !retain)
-          await rm(folder, { recursive: true, force: true }).catch(() => undefined);
         if (acquired) active.delete(project);
       }
     },

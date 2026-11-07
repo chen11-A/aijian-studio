@@ -642,6 +642,20 @@ contextBridge.exposeInMainWorld("aijian", {
   deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
   renameFilmSeries: (seriesId: string, title: string) =>
     ipcRenderer.invoke("film:rename", seriesId, title),
+  suggestBundledFilmSceneAudio: ((
+    input: Parameters<FilmAudioLibraryGateway["suggestBundledFilmSceneAudio"]>[0],
+  ) =>
+    ipcRenderer.invoke(
+      "film:audio-library-scene-suggest",
+      input,
+    )) as FilmAudioLibraryGateway["suggestBundledFilmSceneAudio"],
+  applyBundledFilmSceneAudio: ((
+    input: Parameters<FilmAudioLibraryGateway["applyBundledFilmSceneAudio"]>[0],
+  ) =>
+    ipcRenderer.invoke(
+      "film:audio-library-scene-apply",
+      input,
+    )) as FilmAudioLibraryGateway["applyBundledFilmSceneAudio"],
   applyBundledFilmShotAudio: ((
     input: Parameters<FilmAudioLibraryGateway["applyBundledFilmShotAudio"]>[0],
   ) =>

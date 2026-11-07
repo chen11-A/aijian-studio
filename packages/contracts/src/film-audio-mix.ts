@@ -1,3 +1,4 @@
+import type { SceneAudioBinding } from "./film-scene-audio-binding.js";
 /** Pure timeline/gain arithmetic shared by preview and trusted export. No paths, filesystem,
  * probing, subprocesses or authorization live in this module. */
 export type MixLane = "dialogue" | "ambience" | "sfx" | "score";
@@ -46,6 +47,7 @@ export type MixClip = {
   loop?: boolean;
   enabled?: boolean;
   envelope?: AudioMixEnvelope;
+  sceneAudioBinding?: SceneAudioBinding;
 };
 export type AudioMixSettings = {
   schemaVersion: 1;
@@ -83,6 +85,7 @@ export type AudioMixPlan = {
     | "NATIVE_DIALOGUE_UNKNOWN"
     | "STALE_CLIP_IGNORED"
     | "SOURCE_UNAVAILABLE"
+    | "SCENE_AUDIO_BINDING_STALE"
     | "INVALID_CLIP"
   )[];
 };
@@ -93,6 +96,8 @@ export type AudioMixInput = {
   clips: readonly MixClip[];
   sources: Readonly<Record<string, MixSourceInfo>>;
   controls?: MixControls;
+  /** Computed from actual selected sources by main. Scheduling consistency, not file authority. */
+  sceneAudioEligibleClipIds?: readonly string[];
 };
 export type AudioMixPreviewResult =
   | {

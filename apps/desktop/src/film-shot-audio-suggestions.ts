@@ -5,6 +5,7 @@ import { audioMixEnvelope } from "@aijian/contracts/film-audio-mix-plan";
 import type { AudioMixEnvelope } from "@aijian/contracts/film-audio-mix";
 import type {
   ShotAudioSuggestedClip,
+  SceneAudioSuggestedClip,
   ShotAudioSuggestionNote,
 } from "@aijian/contracts/film-audio-library";
 export class ShotAudioSuggestionLimit extends Error {
@@ -159,6 +160,7 @@ export function compileShotAudioSuggestion(
   duration: number,
   allowMusic: boolean,
   maxClips: number,
+  shotOffsets: readonly number[] = [0],
 ) {
   const selection = object(raw),
     catalog = publicAudioCatalog(library).assets;
@@ -259,9 +261,46 @@ export function compileShotAudioSuggestion(
   }
   for (const cue of array(selection.ambience)) compile(cue, "ambience");
   const shots = array(selection.shots);
-  if (shots.length !== 1) unsupported();
+  if (shots.length !== shotOffsets.length) unsupported();
   // Ambience shot views are deliberately not rendered a second time.
-  for (const cue of array(object(shots[0]).effects)) compile(cue, "sfx");
+  for (const [index, shot] of shots.entries()) {
+    const offset = shotOffsets[index]!;
+    for (const rawCue of array(object(shot).effects)) {
+      const cue = object(rawCue);
+      compile(
+        {
+          ...cue,
+          ...(cue.gainAutomation === undefined
+            ? {}
+            : {
+                gainAutomation: array(cue.gainAutomation).map((raw) => {
+                  const row = object(raw);
+                  return {
+                    ...row,
+                    start: number(row.start) + offset,
+                    end: number(row.end) + offset,
+                  };
+                }),
+              }),
+          segments: array(cue.segments).map((raw) => {
+            const segment = object(raw);
+            return {
+              ...segment,
+              time: number(segment.time) + offset,
+              end: number(segment.end) + offset,
+              ...(segment.fadeInStart === undefined
+                ? {}
+                : { fadeInStart: number(segment.fadeInStart) + offset }),
+              ...(segment.fadeOutStart === undefined
+                ? {}
+                : { fadeOutStart: number(segment.fadeOutStart) + offset }),
+            };
+          }),
+        },
+        "sfx",
+      );
+    }
+  }
   if (allowMusic && selection.music !== null) compile(selection.music, "score", true);
   if (allowMusic && selection.music === null) {
     limitations.push(
@@ -275,4 +314,125 @@ export function compileShotAudioSuggestion(
   );
   if (warnings.length > 512) unsupported();
   return { clips, warnings, limitations };
+}
+
+export type SceneAudioWindow = {
+  shotId: string;
+  takeId: string;
+  startSeconds: number;
+  durationSeconds: number;
+};
+/** A scene uses the same picker and compiler once, then crops its master clips to actual shot clocks.
+ * Source offsets advance across cuts; fades remain on the original scene clock, not restarted. */
+export function compileSceneAudioSuggestion(
+  raw: unknown,
+  library: TrustedAudioLibrary,
+  windows: readonly SceneAudioWindow[],
+  allowMusic: boolean,
+  maxClips: number,
+) {
+  if (!windows.length || windows.length > 128) unsupported();
+  let duration = 0;
+  for (const window of windows) {
+    if (
+      !window.shotId ||
+      !window.takeId ||
+      Math.abs(window.startSeconds - duration) > 1e-6 ||
+      !finite(window.durationSeconds) ||
+      window.durationSeconds <= 0
+    )
+      unsupported();
+    duration += window.durationSeconds;
+  }
+  const compiled = compileShotAudioSuggestion(
+    raw,
+    library,
+    duration,
+    allowMusic,
+    maxClips,
+    windows.map((window) => window.startSeconds),
+  );
+  const clips: SceneAudioSuggestedClip[] = [];
+  for (const clip of compiled.clips) {
+    const from = clip.placement.startSeconds,
+      to = from + clip.placement.durationSeconds;
+    for (const window of windows) {
+      const start = Math.max(from, window.startSeconds),
+        end = Math.min(to, window.startSeconds + window.durationSeconds);
+      if (end <= start + 1e-9) continue;
+      if (clips.length >= maxClips || clips.length >= 128)
+        throw new ShotAudioSuggestionLimit(Math.min(maxClips, 128), clips.length + 1);
+      const delta = start - from;
+      const envelope = audioMixEnvelope(clip.envelope);
+      const automation = envelope.gainAutomation?.flatMap((row) => {
+        const a = Math.max(row.startSeconds, delta),
+          b = Math.min(row.endSeconds, end - from);
+        return b <= a ? [] : [{ ...row, startSeconds: a - delta, endSeconds: b - delta }];
+      });
+      clips.push({
+        ...clip,
+        key: `${clip.key}:part:${clips.length + 1}`,
+        shotId: window.shotId,
+        takeId: window.takeId,
+        placement: {
+          ...clip.placement,
+          startSeconds: start - window.startSeconds,
+          durationSeconds: end - start,
+          offsetSeconds: clip.placement.offsetSeconds + delta,
+        },
+        envelope: audioMixEnvelope({
+          ...envelope,
+          ...(envelope.fades
+            ? {
+                fades: envelope.fades.map((fade) => ({
+                  ...fade,
+                  startSeconds: fade.startSeconds - delta,
+                })),
+              }
+            : {}),
+          ...(automation ? { gainAutomation: automation } : {}),
+        }),
+      });
+    }
+  }
+  return { ...compiled, clips };
+}
+
+export function sceneAudioContext(record: FilmRecord, windows: readonly SceneAudioWindow[]) {
+  const contexts = windows.map((window) =>
+    shotAudioContext(record, window.shotId, window.durationSeconds),
+  );
+  const moods = contexts.map((context) => context.semantic.mood);
+  const consistent = moods.every((mood) => mood === moods[0]);
+  const first = contexts[0];
+  if (!first) unsupported();
+  const limitations: ShotAudioSuggestionNote[] = contexts.flatMap((context, index) =>
+    context.limitations
+      .filter((item) => !["MUSIC_MOOD_UNDECIDED", "MUSIC_DISABLED"].includes(item.code))
+      .map((item) => ({ ...item, shotIndex: index + 1 })),
+  );
+  if (!consistent)
+    limitations.push(note("SCENE_MUSIC_MOOD_CONFLICT", "本场配乐情绪尚未统一，暂不建议配乐。"));
+  else
+    limitations.push(
+      ...first.limitations.filter((item) =>
+        ["MUSIC_MOOD_UNDECIDED", "MUSIC_DISABLED"].includes(item.code),
+      ),
+    );
+  if (
+    limitations.length > 512 ||
+    contexts.reduce((sum, context) => sum + context.scene.description.length, 0) > 8192
+  )
+    unsupported();
+  return {
+    scene: {
+      duration: windows.reduce((sum, window) => sum + window.durationSeconds, 0),
+      emotions: consistent ? first.scene.emotions : [],
+      description: [...new Set(contexts.map((context) => context.scene.description))].join(" "),
+      shots: contexts.flatMap((context) => context.scene.shots),
+    },
+    semantic: contexts.map((context) => context.semantic),
+    allowMusic: consistent && first.allowMusic,
+    limitations,
+  };
 }

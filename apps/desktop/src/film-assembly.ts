@@ -207,7 +207,11 @@ export function createFilmAssemblies(host: FilmAssemblyHost) {
         const sources: string[] = [],
           cues: ExportCue[] = [];
         const limitations = [
-          ...mix.plan.limitations,
+          ...mix.plan.limitations.map((code) =>
+            code === "SCENE_AUDIO_BINDING_STALE"
+              ? "整场配声的选版、实际时钟或完整成员已变化，整组未混入；请重新核对并选用。"
+              : code,
+          ),
           "技术粗剪不代表完整观看、试听或对白完整性已经验证。",
         ];
         for (const [index, choice] of choices.entries()) {
