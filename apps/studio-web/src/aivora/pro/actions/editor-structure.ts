@@ -291,6 +291,14 @@ export function diffUserShotEdit(
     afterRest = { ...proposed } as Record<string, unknown>;
   delete beforeRest.shots;
   delete afterRest.shots;
+  // A native reassembly can complete while a user's cut is waiting for its history
+  // checkpoint. These are derived playback references, not another creative edit.
+  // The inverse still replaces only shots and keeps the current references; the
+  // assembly render key must validate/rebuild the clock for the restored selection.
+  for (const field of ["assemblyPath", "assemblyUrl"] as const) {
+    delete beforeRest[field];
+    delete afterRest[field];
+  }
   if (!same(beforeRest, afterRest)) return reject("OTHER_COLLECTION_CHANGED");
   const segment = current.shots.slice(start, end + 1);
   for (const shot of replacement) {

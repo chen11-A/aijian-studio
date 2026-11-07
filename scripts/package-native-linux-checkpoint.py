@@ -212,6 +212,21 @@ def main() -> None:
     stage_qc_resources(output / "qc")
     stage_project_archive_resources(output / "project-archive")
     stage_audio_library_resources(output / "audio-library")
+    # Audit this packager's actual compiled app and original collected resources.
+    with (output / "RUNTIME-CLOSURE.json").open("w", encoding="utf-8") as receipt:
+        subprocess.run(
+            [
+                "node",
+                str(ROOT / "scripts/verify-desktop-runtime.mjs"),
+                "--app-dir",
+                str(desktop),
+                "--resources-root",
+                str(output),
+            ],
+            cwd=ROOT,
+            stdout=receipt,
+            check=True,
+        )
     copy_file(
         ROOT / "config/media-toolchain-lock.json", output / "config/media-toolchain-lock.json"
     )
