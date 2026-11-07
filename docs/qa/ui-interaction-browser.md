@@ -31,3 +31,15 @@
 ## 总控独立复核（2026-11-07 14:48 UTC）
 
 841整支含589首文件已无冲突根合526da674；产品/API/native/contracts/lock无diff。root全部153 Node、同defaultABI实际Pro4、目标ESLint/格式/diff及旧workflow字节前缀均0，日志`/tmp/aivora-ui-interactions-root-checks.log`。固定8a7原完整469文件5585/544.18秒与原覆盖门0，二者不拼新全库5589。新增正常Chrome16尚待本候选，484仍仅定义；不冒系统IME/真实本机合成或人工视听。
+
+## 首轮正常 Chrome 后的纯 QA 修正
+
+固定 source `61ce132` / run `42383321459` / job `128435359411`：Node 契约成功，实际 Chrome 14:52:49 失败/14:52:51 上传；公开最多8条，已确认菜单204、折叠计数320、运输入口342，不能由有限注释推其余组合通过。原 legacy32 同轮成功，不回退产品/样式或几何门。
+
+- browser 的 multiline 菜单列表漏同步，仍写旧四项；短 host 已准确验证 done 三版的五项。现两消费者共用固定 `READY_SHOT_MENU`，并先等待实际 menu visible，仍精确比较全列表。旧错误发生在改为 `.nx-context-menu` scope 前，catch 的全 `.pro-root` 探针把 fixed 菜单与左 pane 比；这不是产品 CSS 根因证据，未改 CSS/probe。
+- 原 fold 只等原生 details.open，便立即读取依赖 React state 的 data-count。实际 Pro 的原生 toggle capture 永久观测已证明 open=false、count=null 窗口，之后才显示·2；原短 host 包在 React act 中，之前没有揭露浏览器此读取时点。现实际 Tab blur、等待本次声场 canonical 已保存，再等 open/count/title 都达到真实目标，保原精确2/1/空、展开不显示数量与全部媒体断言。不 sleep、不改超时、不手设 state/DOM open。
+- 正常 EditPage 的预览标题实际是 monitor-tabs，`.pro-root .ph h3` 数量为0，原通用标题 click 没有有效目标。新 actual Pro 永久断言核该事实，browser 改用真实可见“预览”tab取得非输入焦点，仍原 metadata/seek/J/K/L/帧方向/切点/Delete/Backspace/完整媒体与0provider，原指针/容差不改。
+
+本次基于 `61ce132`，54消费者另树检查点 `89e303c` 保留。仅改3个QA mjs及本说明；产品/安装器/原468步骤均不变。actual Pro 同默认夹具 **4/4**：`/tmp/ui-interactions-repair-host-final.log`；全部153 Node 与目标静态见 `/tmp/ui-interactions-repair-all-contracts.log`、`/tmp/ui-interactions-repair-eslint.log`、`/tmp/ui-interactions-repair-format.log`。新的正常 Chrome16仍待运行，不把本地受控通过当实际浏览器已修复。
+
+后续对称收尾：打开折叠组也等待真实 React 清空 data-count/title，关闭仍按2/1/0精确目标等待。永久原生 toggle capture 同时证明打开时 open=true而旧·2尚存的渲染窗口，未放宽字段计数或几何。

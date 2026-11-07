@@ -16,6 +16,7 @@ import {
   measureEvidenceControl,
 } from "./pro-evidence-legacy-fixture.mjs";
 import {
+  READY_SHOT_MENU,
   installUiInteractionsBridge,
   seedUiInteractionsProject,
 } from "./pro-ui-interactions-fixture.mjs";
@@ -175,13 +176,57 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             await reachable(s);
             if (((await s.locator("..").getAttribute("open")) !== null) !== open) await s.click();
             await page.waitForFunction(
-              ({ name, open }) =>
-                [...window.document.querySelectorAll(".pgroup")].find(
-                  (d) => d.querySelector("summary")?.textContent === name,
-                )?.open === open,
+              ({ name, open }) => {
+                const d = [...window.document.querySelectorAll(".pgroup")].find(
+                    (d) => d.querySelector("summary")?.textContent === name,
+                  ),
+                  summary = d?.querySelector("summary");
+                return (
+                  d?.open === open &&
+                  (!open ||
+                    (summary?.getAttribute("data-count") === null &&
+                      summary?.getAttribute("title") === null))
+                );
+              },
               { name, open },
             );
             return s;
+          }
+          async function counted(name, count) {
+            await page.waitForFunction(
+              ({ name, count }) => {
+                const d = [...window.document.querySelectorAll(".pgroup")].find(
+                    (d) => d.querySelector("summary")?.textContent === name,
+                  ),
+                  s = d?.querySelector("summary");
+                return (
+                  d?.open === false &&
+                  s?.getAttribute("data-count") === (count ? `· ${count}` : null) &&
+                  s?.getAttribute("title") === (count ? `里面有 ${count} 项填了内容` : null)
+                );
+              },
+              { name, count },
+            );
+          }
+          async function savedSound(ambience, musicMood) {
+            await page.waitForFunction(
+              ({ id, shotId, ambience, musicMood }) => {
+                const f = window.__proCreationAudit.record(id),
+                  shot = f?.shots.find((s) => s.id === shotId),
+                  receipt = window.__proEvidenceLegacyAudit.filmWrites.at(-1),
+                  written = receipt?.stored?.shots.find((s) => s.id === shotId);
+                return (
+                  shot?.sound.source === "native" &&
+                  shot.sound.ambience === ambience &&
+                  shot.sound.musicMood === musicMood &&
+                  receipt?.projectId === id &&
+                  written?.sound.source === "native" &&
+                  written.sound.ambience === ambience &&
+                  written.sound.musicMood === musicMood
+                );
+              },
+              { id: seed.projectId, shotId: before.shots[0].id, ambience, musicMood },
+            );
           }
           async function edit(n) {
             await nav("剪辑").click();
@@ -201,12 +246,8 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             const card = page.locator(".grid .card").nth(1);
             await card.click({ button: "right" });
             let menu = page.getByRole("menu", { name: /^镜头 \d+ 的操作$/ });
-            assert.deepEqual(await menu.getByRole("menuitem").allTextContents(), [
-              "前移",
-              "后移",
-              "出 4 张候选",
-              "删除这一镜",
-            ]);
+            await menu.waitFor({ state: "visible" });
+            assert.deepEqual(await menu.getByRole("menuitem").allTextContents(), READY_SHOT_MENU);
             scopeSelector = ".nx-context-menu";
             await geometry("board-context");
             await page.keyboard.press("Escape");
@@ -214,12 +255,8 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             scopeSelector = ".pro-root";
             await button("更多操作").click();
             const more = page.getByRole("menu", { name: "这一镜的更多操作", exact: true });
-            assert.deepEqual(await more.getByRole("button").allTextContents(), [
-              "前移",
-              "后移",
-              "出 4 张候选",
-              "删除这一镜",
-            ]);
+            await more.waitFor({ state: "visible" });
+            assert.deepEqual(await more.getByRole("button").allTextContents(), READY_SHOT_MENU);
             scopeSelector = '.menu[aria-label="这一镜的更多操作"]';
             await geometry("more-menu");
             for (const control of await more.getByRole("button").all()) await reachable(control);
@@ -316,30 +353,41 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             await fold("声音", true);
             await page.getByLabel("这一镜的环境音", { exact: true }).fill("门外雨声");
             await page.getByLabel("配乐情绪", { exact: true }).fill("平静");
+            await page.getByLabel("配乐情绪", { exact: true }).press("Tab");
+            await savedSound("门外雨声", "平静");
             let s = await fold("声音", false);
+            await counted("声音", 2);
             assert.equal(await s.getAttribute("data-count"), "· 2");
             assert.equal(await s.getAttribute("title"), "里面有 2 项填了内容");
             await geometry("sound-folded-count");
             await fold("声音", true);
             assert.equal(await summary("声音").getAttribute("data-count"), null);
             await page.getByLabel("配乐情绪", { exact: true }).fill("");
+            await page.getByLabel("配乐情绪", { exact: true }).press("Tab");
+            await savedSound("门外雨声", "");
             s = await fold("声音", false);
+            await counted("声音", 1);
             assert.equal(await s.getAttribute("data-count"), "· 1");
             await fold("高级", true);
             await page.getByLabel("这一镜的画风", { exact: true }).fill("保留真实编辑");
             s = await fold("高级", false);
+            await counted("高级", 1);
             assert.equal(await s.getAttribute("data-count"), "· 1");
             await geometry("advanced-folded-count");
             await fold("高级", true);
             assert.equal(await summary("高级").getAttribute("data-count"), null);
             await page.getByLabel("这一镜的画风", { exact: true }).fill("");
             s = await fold("高级", false);
+            await counted("高级", 0);
             assert.equal(await s.getAttribute("data-count"), null);
             await keep();
           } else {
             const { artifact, video } = await edit(1);
             expectedAssembly.push(before);
-            await page.locator(".ph h3").first().click();
+            await page
+              .locator(".pane.monitor .monitor-tabs")
+              .getByRole("button", { name: "预览", exact: true })
+              .click();
             await page.keyboard.press("l");
             await button("暂停").waitFor();
             await page.keyboard.press("l");
