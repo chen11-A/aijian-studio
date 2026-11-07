@@ -316,6 +316,16 @@ export function installAssemblyAuditBridge({
     emit(operation, artifact.kind === "PARTIAL" ? "partial" : "completed", "unavailable");
     operation.resolve(artifact);
   };
+  window.addEventListener?.("aivora-notice", (event) => {
+    const code = event.detail?.code;
+    audit.noticeCode = [
+      "ASSEMBLY_SHOT_REQUIRED",
+      "ASSEMBLY_CLOCK_REQUIRED",
+      "ASSEMBLY_PARTIAL",
+    ].includes(code)
+      ? code
+      : "OTHER";
+  });
   audit.hash = hash;
 }
 
@@ -324,9 +334,9 @@ export function installAssemblyMediaRequests() {
   const audit = window.__assemblyAudit,
     prototype = window.HTMLMediaElement?.prototype;
   if (!prototype || !audit) return;
-  const isArtifact = (element) => {
+  const isArtifact = (source) => {
     try {
-      const url = new window.URL(element.currentSrc || element.src);
+      const url = new window.URL(source);
       return (
         url.protocol === "aivora-media:" &&
         ["/synthetic/assembly/restarted.mp4", ...audit.artifacts.map((a) => a.path)].includes(
@@ -341,16 +351,16 @@ export function installAssemblyMediaRequests() {
     pause = prototype.pause;
   prototype.play = function () {
     audit.mediaCalls = (audit.mediaCalls ?? 0) + 1;
-    audit.mediaCurrentMatched = isArtifact(this);
-    audit.mediaAttributeMatched = isArtifact({ src: this.src });
-    if (isArtifact(this)) {
+    audit.mediaCurrentMatched = isArtifact(this.currentSrc);
+    audit.mediaAttributeMatched = isArtifact(this.src);
+    if (isArtifact(this.src)) {
       audit.playRequests.push("synthetic-assembly");
       return Promise.resolve();
     }
     return play.call(this);
   };
   prototype.pause = function () {
-    if (isArtifact(this)) {
+    if (isArtifact(this.src)) {
       audit.pauseRequests.push("synthetic-assembly");
       return;
     }
@@ -427,5 +437,10 @@ export function readAssemblyInteraction() {
     playRequests: audit.playRequests.length,
     pauseRequests: audit.pauseRequests.length,
     playing: !!document.querySelector('.pane.monitor [aria-label="暂停"]'),
+    mediaTime: monitor?.currentTime,
+    sliderTime: Number(
+      document.querySelector('[aria-label="播放位置"]')?.getAttribute("aria-valuenow") ?? NaN,
+    ),
+    noticeCode: audit.noticeCode ?? "NONE",
   };
 }

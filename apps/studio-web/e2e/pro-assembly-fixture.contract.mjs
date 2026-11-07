@@ -205,6 +205,16 @@ test("media spy intercepts only declared synthetic artifacts and does not invent
   assert.equal(nativePlay, 1);
   assert.equal(nativePause, 1);
   assert.equal(f.audit.playRequests.length, 1);
+  // currentSrc can retain the previously loaded shot while React requests the artifact.
+  synthetic.currentSrc = ordinary.src;
+  await synthetic.play();
+  assert.equal(f.audit.playRequests.length, 2);
+  assert.equal(nativePlay, 1);
+  // Conversely, a formerly loaded artifact cannot authorize a new ordinary URL.
+  ordinary.currentSrc = synthetic.src;
+  await ordinary.play();
+  assert.equal(f.audit.playRequests.length, 2);
+  assert.equal(nativePlay, 2);
 });
 
 test("assembly CLI is fixed at sixteen states and rejects unsafe options before a browser", () => {
@@ -274,6 +284,9 @@ test("assembly public annotations retain eight-item bound and never emit arbitra
             playRequests: 0,
             pauseRequests: NaN,
             playing: false,
+            mediaTime: i ? Infinity : 1.25,
+            sliderTime: i ? "PRIVATE_PATH" : 1.2,
+            noticeCode: i ? "PRIVATE_BODY" : "ASSEMBLY_SHOT_REQUIRED",
           },
           geometry: { issues: [] },
         })),
@@ -282,6 +295,8 @@ test("assembly public annotations retain eight-item bound and never emit arbitra
   );
   assert.equal(errors.length, 8);
   assert(errors[0].includes("rangeBeforeMark=0"));
+  assert(errors[0].includes("mediaTime=1.25 sliderTime=1.2 notice=ASSEMBLY_SHOT_REQUIRED"));
+  assert(errors[1].includes("mediaTime=unknown sliderTime=unknown notice=unknown"));
   assert(errors[1].includes("rangeNow=unknown"));
   assert(errors[1].includes("mediaCalls=unknown"));
   assert(errors[0].includes("state=assembly-actual-clock"));

@@ -63,6 +63,14 @@ export async function runAssemblyCases({ browser, config, report, media, persist
           await page.screenshot({ path: path.join(config.out, screenshot) });
           assert.deepEqual(result.geometry.issues, []);
         }
+        async function focusTransport() {
+          // The episode title is inside the real project-menu button. Close that menu by
+          // toggling the same control, not Escape (which would also clear a real range).
+          await button("作品").click();
+          await page.getByRole("menu", { name: "作品菜单" }).waitFor();
+          await button("作品").click();
+          await page.getByRole("menu", { name: "作品菜单" }).waitFor({ state: "hidden" });
+        }
         async function mediaMetadata(duration) {
           const video = page.locator(".pane.monitor video");
           await video.waitFor();
@@ -187,7 +195,7 @@ export async function runAssemblyCases({ browser, config, report, media, persist
             await button("播放").click();
             await page.waitForFunction(() => window.__assemblyAudit.playRequests.length > 0);
             await button("暂停").click();
-            await page.locator(".topbar .ep").click();
+            await focusTransport();
             await page.keyboard.press("Shift+ArrowRight");
             await requestedTime(video, 1);
             const previous = await video.evaluate((e) => e.currentTime);
@@ -228,7 +236,7 @@ export async function runAssemblyCases({ browser, config, report, media, persist
               before.shots.reduce((sum, s) => sum + s.seconds, 0),
             );
             // Actual edit transport moves to the next measured cut without opening range editing.
-            await page.locator(".topbar .ep").click();
+            await focusTransport();
             await page.keyboard.press("ArrowDown");
             await requestedTime(video, artifact.shots[1].startSeconds);
             if (state === "assembly-actual-clock") {
@@ -256,11 +264,11 @@ export async function runAssemblyCases({ browser, config, report, media, persist
               );
               result.interactions.beforeMark = await page.evaluate(readAssemblyInteraction);
               await button("设入点").click();
+              result.interactions.afterMark = await page.evaluate(readAssemblyInteraction);
               await page
                 .getByText("请先选择当前正在播放的镜头，再标记范围。", { exact: true })
                 .first()
                 .waitFor();
-              result.interactions.afterMark = await page.evaluate(readAssemblyInteraction);
               assert.equal(
                 await page.getByRole("button", { name: "取消选择", exact: true }).count(),
                 0,
