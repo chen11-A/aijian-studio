@@ -1,0 +1,45 @@
+.pro-root .delivery-evidence {
+  min-width: 0;
+  margin-block: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.pro-root .delivery-evidence p,
+.pro-root .delivery-evidence h3,
+.pro-root .delivery-evidence h4 {
+  margin-block: 8px;
+}
+.pro-root .delivery-evidence code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.pro-root .delivery-evidence dl {
+  margin-block: 8px;
+}
+.pro-root .delivery-evidence dt {
+  color: var(--text-2);
+}
+.pro-root .delivery-evidence dd {
+  min-width: 0;
+  margin: 2px 0 8px;
+}
+.pro-root .delivery-evidence .delivery-file {
+  min-width: 0;
+  padding-block: 8px;
+  border-top: 1px solid var(--line);
+}
+.pro-root .delivery-evidence .delivery-name {
+  font-weight: 600;
+  user-select: text;
+}
+.pro-root .delivery-evidence summary {
+  cursor: pointer;
+}
+
+.pro-root .dialog.export:has(.delivery-evidence) > .acts {
+  position: static;
+  bottom: auto;
+}
