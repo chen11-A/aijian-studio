@@ -118,6 +118,14 @@ function assemblyReadinessCopy(value) {
   return ` assemblyScope=${phase} assemblyGen=${count(value.generation)} saveTimersPending=${count(value.pendingTimers)} unboundSaveTimers=${count(value.unboundTimers)} writesPending=${count(value.pendingWrites)} nativePending=${count(value.pendingNative)} saving=${Number(value.saving === true)}`;
 }
 
+function assemblyInteractionCopy(row, profile) {
+  if (profile.kind !== "assembly" || !row.assemblyInteraction) return "";
+  const value = row.assemblyInteraction;
+  const count = (n) => (Number.isSafeInteger(n) && n >= 0 && n <= 4096 ? n : "unknown");
+  const flag = (v) => Number(v === true);
+  return ` rangeEntered=${count(row.interactions?.entered?.range)} rangeBeforeMark=${count(row.interactions?.beforeMark?.range)} rangeAfterMark=${count(row.interactions?.afterMark?.range)} rangeNow=${count(value.range)} projectMenu=${flag(value.menu)} comparison=${flag(value.comparison)} monitorCurrent=${flag(value.currentMatched)} monitorAttribute=${flag(value.attributeMatched)} mediaCalls=${count(value.mediaCalls)} mediaCurrent=${flag(value.mediaCurrentMatched)} mediaAttribute=${flag(value.mediaAttributeMatched)} playRequests=${count(value.playRequests)} pauseRequests=${count(value.pauseRequests)} playing=${flag(value.playing)}`;
+}
+
 function emitGitHubErrors(report, profile) {
   const identity = auditIdentity(profile.kind);
   if (process.env.GITHUB_ACTIONS !== "true" || report.exitCode === 0) return;
@@ -405,7 +413,7 @@ function emitGitHubErrors(report, profile) {
         ? ` reachControl=${row.failedControl} reachBox=${rect(row.reachability?.at(-1)?.box)}`
         : "";
     console.error(
-      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}${assemblyReadinessCopy(row.assemblyReadiness)}${profile.kind === "audio-library" ? libraryTargetDiagnostic(row.targetReadiness) : ""}`,
+      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}${assemblyReadinessCopy(row.assemblyReadiness)}${assemblyInteractionCopy(row, profile)}${profile.kind === "audio-library" ? libraryTargetDiagnostic(row.targetReadiness) : ""}`,
     );
   }
 }

@@ -3219,7 +3219,7 @@ body:has(.pro-root) {
   margin-bottom: 12px;
 }
 .pro-root .ws.fix {
-  grid-template-rows: minmax(0, 1fr) 232px;
+  grid-template-rows: minmax(0, 1fr) 272px;
   grid-template-columns: 1fr 330px;
 }
 .pro-root .ws.fix .timeline {
@@ -3247,7 +3247,7 @@ body:has(.pro-root) {
   grid-template-columns: 280px 1fr 300px;
 }
 .pro-root .ws.fix {
-  grid-template-rows: minmax(0, 1fr) 232px;
+  grid-template-rows: minmax(0, 1fr) 272px;
   grid-template-columns: 1fr 330px;
 }
 .pro-root .ws.cast {
@@ -3260,6 +3260,10 @@ body:has(.pro-root) {
   }
   .pro-root .ws.board {
     grid-template-columns: 280px 1fr 380px;
+  }
+  /* Range editing retains all four audio rows and their controls. */
+  .pro-root .ws.fix {
+    grid-template-rows: minmax(0, 1fr) 360px;
   }
   .pro-root .ws.edit {
     grid-template-rows: minmax(0, 1fr) 360px;

@@ -262,12 +262,28 @@ test("assembly public annotations retain eight-item bound and never emit arbitra
                 pendingNative: 0,
                 saving: true,
               },
+          interactions: { beforeMark: { range: i ? "PRIVATE_KEY" : 0 } },
+          assemblyInteraction: {
+            range: i ? Infinity : 1,
+            menu: "PRIVATE_BODY",
+            mediaCalls: i ? -1 : 2,
+            currentMatched: true,
+            attributeMatched: true,
+            mediaAttributeMatched: true,
+            mediaCurrentMatched: "PRIVATE_SECRET",
+            playRequests: 0,
+            pauseRequests: NaN,
+            playing: false,
+          },
           geometry: { issues: [] },
         })),
       },
     },
   );
   assert.equal(errors.length, 8);
+  assert(errors[0].includes("rangeBeforeMark=0"));
+  assert(errors[1].includes("rangeNow=unknown"));
+  assert(errors[1].includes("mediaCalls=unknown"));
   assert(errors[0].includes("state=assembly-actual-clock"));
   assert(errors[0].includes("checkLine=77"));
   assert(errors[0].includes("assemblyScope=scoped assemblyGen=2 saveTimersPending=1"));

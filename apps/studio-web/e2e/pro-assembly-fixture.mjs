@@ -340,6 +340,9 @@ export function installAssemblyMediaRequests() {
   const play = prototype.play,
     pause = prototype.pause;
   prototype.play = function () {
+    audit.mediaCalls = (audit.mediaCalls ?? 0) + 1;
+    audit.mediaCurrentMatched = isArtifact(this);
+    audit.mediaAttributeMatched = isArtifact({ src: this.src });
     if (isArtifact(this)) {
       audit.playRequests.push("synthetic-assembly");
       return Promise.resolve();
@@ -392,5 +395,37 @@ export function readAssemblyReadiness() {
     pendingWrites: audit.pendingWrites[marker.projectId] ?? 0,
     pendingNative: audit.pendingNative[marker.projectId] ?? 0,
     saving: !!window.document.querySelector(".statusbar .where")?.textContent.includes("正在保存"),
+  };
+}
+
+/** Closed diagnostic facts only; no source URL, text, IDs or DOM serialization. */
+export function readAssemblyInteraction() {
+  const audit = window.__assemblyAudit;
+  const monitor = document.querySelector(".pane.monitor video");
+  const declared = (source) => {
+    try {
+      const url = new window.URL(source);
+      return (
+        url.protocol === "aivora-media:" &&
+        ["/synthetic/assembly/restarted.mp4", ...audit.artifacts.map((a) => a.path)].includes(
+          url.searchParams.get("path"),
+        )
+      );
+    } catch {
+      return false;
+    }
+  };
+  return {
+    range: document.querySelectorAll(".selbar").length,
+    menu: !!document.querySelector('[role="menu"][data-menu="project"]'),
+    comparison: !!document.querySelector(".cmp"),
+    currentMatched: declared(monitor?.currentSrc),
+    attributeMatched: declared(monitor?.src),
+    mediaCalls: audit.mediaCalls ?? 0,
+    mediaCurrentMatched: audit.mediaCurrentMatched === true,
+    mediaAttributeMatched: audit.mediaAttributeMatched === true,
+    playRequests: audit.playRequests.length,
+    pauseRequests: audit.pauseRequests.length,
+    playing: !!document.querySelector('.pane.monitor [aria-label="暂停"]'),
   };
 }
