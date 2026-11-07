@@ -25,6 +25,8 @@ type History = {
   list: (id: string) => Promise<FilmHistoryList>;
   capture: (input: unknown) => Promise<FilmHistoryCapture>;
   restore: (input: unknown) => Promise<FilmHistoryRestore>;
+  // Opaque test relay: actual main owns callback arguments and result; no browser type import.
+  withDialogueSplitBackup: (...args: unknown[]) => Promise<unknown>;
 };
 type Native = {
   prepare: (input: unknown) => Promise<FilmDialogueSplitPrepareResult>;
@@ -276,10 +278,12 @@ async function fixture() {
     if (failSave) throw Error("PRIVATE_SAVE");
     return (await nativeLibrary.writeProject(films, value)) as unknown as FilmProject;
   });
+  let actualNativeResult: Promise<FilmDialogueSplitApplyResult> | undefined;
   const prepare = vi.fn(native.prepare),
     verify = vi.fn(native.verifyBackup),
     apply = vi.fn(async (input: Parameters<typeof native.apply>[0]) => {
       const run = tracked(native.apply(input));
+      actualNativeResult = run;
       if (transport) {
         void run.catch(() => undefined);
         throw Error("PRIVATE_TRANSPORT");
@@ -368,6 +372,23 @@ async function fixture() {
     hold: () => {
       hold = true;
       transport = true;
+    },
+    nativeResult: () => {
+      if (!actualNativeResult) throw Error("NATIVE_APPLY_NOT_STARTED");
+      return actualNativeResult;
+    },
+    holdNativeCleanup: () => {
+      const entered = deferred<void>(),
+        released = deferred<void>(),
+        original = history.withDialogueSplitBackup;
+      releases.push(() => released.resolve());
+      history.withDialogueSplitBackup = async (...args: unknown[]) => {
+        const result = await original(...args);
+        entered.resolve();
+        await released.promise;
+        return result;
+      };
+      return { entered: entered.promise, release: () => released.resolve() };
     },
     admitted: admitted.promise,
     release: () => release.resolve(),
@@ -552,6 +573,7 @@ it("retains unknown during actual native pending, then fresh full structure and 
     expect(f.flushed).toHaveBeenCalledWith({ requestId: "split-quit", status: "unknown" }),
   );
   await act(async () => f.release());
+  expect((await f.nativeResult()).kind).toBe("APPLIED");
   await waitFor(async () =>
     expect((await f.disk())!.shots as unknown[]).toHaveLength(f.film.shots.length + 2),
   );
@@ -593,6 +615,7 @@ it("keeps a late original draft until the user explicitly adopts the fully verif
     target: { value: "必须保留并展示的后来描述" },
   });
   await act(async () => f.release());
+  expect((await f.nativeResult()).kind).toBe("APPLIED");
   await waitFor(async () =>
     expect((await f.disk())!.shots as unknown[]).toHaveLength(f.film.shots.length + 2),
   );
@@ -644,6 +667,7 @@ it("late recovery verifies the original record without applying or writing the o
     raw = await f.disk(f.other.id),
     writes = f.write.mock.calls.filter(([v]) => v.id === f.other.id).length;
   await act(async () => f.release());
+  expect((await f.nativeResult()).kind).toBe("APPLIED");
   await waitFor(async () =>
     expect((await f.disk())!.shots as unknown[]).toHaveLength(f.film.shots.length + 2),
   );
@@ -668,6 +692,7 @@ it("rechecks the live ref after a measurement hash yields before applying or cle
   await waitFor(() => expect(within(d).getByRole("button", { name: "关闭" })).toBeEnabled());
   fireEvent.click(within(d).getByRole("button", { name: "关闭" }));
   await act(async () => f.release());
+  expect((await f.nativeResult()).kind).toBe("APPLIED");
   await waitFor(async () =>
     expect((await f.disk())!.shots as unknown[]).toHaveLength(f.film.shots.length + 2),
   );
@@ -702,6 +727,7 @@ it("rechecks the live ref after a measurement hash yields before applying or cle
 it("rechecks the retained original draft even when the foreign current ref returns to the identical object during a hash", async () => {
   const f = await fixture();
   f.hold();
+  const nativeCleanup = f.holdNativeCleanup();
   const d = await review();
   accept(d);
   await f.admitted;
@@ -717,6 +743,7 @@ it("rechecks the retained original draft even when the foreign current ref retur
   const other = f.current(),
     retained = f.queue().externalWriteState(f.film.id)!.draft;
   await act(async () => f.release());
+  await nativeCleanup.entered;
   await waitFor(async () =>
     expect((await f.disk())!.shots as unknown[]).toHaveLength(f.film.shots.length + 2),
   );
@@ -735,6 +762,14 @@ it("rechecks the retained original draft even when the foreign current ref retur
   });
   fireEvent.click(screen.getByRole("button", { name: "拆镜保存待核对（1）" }));
   const p = await screen.findByRole("dialog", { name: "拆镜保存状态" });
+  fireEvent.click(within(p).getByRole("button", { name: "核对拆镜保存结果" }));
+  await within(p).findByText(/结构或原版备份尚不能完整核对/);
+  expect(await f.verify.mock.results[0]!.value).toMatchObject({ kind: "FAILED", code: "BUSY" });
+  expect(held).toBe(false);
+  expect(screen.getByRole("button", { name: "拆镜保存待核对（1）" })).toBeVisible();
+  expect(f.apply).toHaveBeenCalledOnce();
+  await act(async () => nativeCleanup.release());
+  expect((await f.nativeResult()).kind).toBe("APPLIED");
   fireEvent.click(within(p).getByRole("button", { name: "核对拆镜保存结果" }));
   await entered.promise;
   await act(async () => {
