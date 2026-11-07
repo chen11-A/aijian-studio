@@ -15,7 +15,11 @@ import { installCreationBridge, seedCreationProject } from "./pro-creation-fixtu
 import { loadLibraryAuditCatalog } from "./pro-audio-library-fixture.mjs";
 import { installShotAudioBridge, seedShotAudioProject } from "./pro-shot-audio-fixture.mjs";
 import { sceneAudioStates } from "./pro-scene-audio-cases.mjs";
-import { installSceneAudioBridge, seedSceneAudioProject } from "./pro-scene-audio-fixture.mjs";
+import {
+  installSceneAudioBridge,
+  seedSceneAudioProject,
+  readSceneAudioApplyState,
+} from "./pro-scene-audio-fixture.mjs";
 import { installAudioGroupsBridge } from "./pro-audio-groups-fixture.mjs";
 import * as groupHelpers from "./pro-audio-groups-browser-helper.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url)),
@@ -156,6 +160,18 @@ test("explicit scene add uses one complete-lane RPC and actual shipped whole-gro
   const reply = await f.bridge.applyBundledFilmSceneAudio(input);
   assert.equal(reply.kind, "ADDED");
   assert.equal(f.groups.calls.length, 1);
+  assert.equal(f.groups.calls[0].reply, "ADDED");
+  assert.equal(f.groups.calls[0].casMatched, true);
+  assert.equal(f.groups.calls[0].reviewMatched, true);
+  assert.equal(f.groups.calls[0].initialCas, true);
+  assert.equal(f.groups.calls[0].finalCas, true);
+  window.document = { querySelector: () => null, querySelectorAll: () => [] };
+  const observed = readSceneAudioApplyState();
+  assert.equal(observed.calls, 1);
+  assert.equal(observed.nativeWrites, 1);
+  assert.equal(observed.reply, "ADDED");
+  assert.equal(observed.saved, false);
+  assert.equal(observed.rebased, false);
   assert.equal(reply.receipt.memberCount, 4);
   assert.deepEqual(reply.project.audioClips.slice(0, 1), before.audioClips);
   assert.deepEqual(reply.project.shots, before.shots);
@@ -283,6 +299,30 @@ test("public scene annotations only emit closed states, controls, finite geometr
           combination: i ? "PRIVATE_PATH" : `1280x800-16x9-${sceneAudioStates[0]}`,
           checkLine: i ? "PRIVATE_KEY" : 88,
           error: "PRIVATE_SECRET",
+          sceneApply: i
+            ? {
+                calls: Infinity,
+                matched: "PRIVATE",
+                reply: "PRIVATE",
+                nativeWrites: -1,
+                saved: "PRIVATE",
+                rebased: NaN,
+              }
+            : {
+                calls: 1,
+                matched: true,
+                casMatched: true,
+                reviewMatched: true,
+                initialCas: true,
+                finalCas: true,
+                reply: "ADDED",
+                nativeWrites: 1,
+                pending: 0,
+                saved: false,
+                rebased: true,
+                stale: false,
+                unknown: false,
+              },
           geometry: {
             issues: [
               {
@@ -306,6 +346,11 @@ test("public scene annotations only emit closed states, controls, finite geometr
   assert(lines[0].includes("PRO_SCENE_AUDIO_AUDIT"));
   assert(lines[0].includes("checkLine=88"));
   assert(lines[0].includes("control1=scene-audio-open"));
+  assert(lines[0].includes("sceneApplyCalls=1 sceneMatched=1 sceneCas=1 sceneReview=1"));
+  assert(lines[0].includes("sceneReply=ADDED sceneNativeWrites=1"));
+  assert(lines[0].includes("sceneSaved=0 sceneRebased=1"));
+  assert(lines[1].includes("sceneReply=UNKNOWN"));
+  assert(lines[1].includes("sceneApplyCalls=unknown"));
   assert(
     lines.every(
       (line) => !line.includes("PRIVATE") && !line.includes("NaN") && !line.includes("Infinity"),

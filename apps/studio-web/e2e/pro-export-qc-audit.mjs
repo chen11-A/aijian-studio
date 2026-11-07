@@ -186,6 +186,25 @@ function assemblyInteractionCopy(row, profile) {
   return ` rangeEntered=${count(row.interactions?.entered?.range)} rangeBeforeMark=${count(row.interactions?.beforeMark?.range)} rangeAfterMark=${count(row.interactions?.afterMark?.range)} rangeNow=${count(value.range)} projectMenu=${flag(value.menu)} comparison=${flag(value.comparison)} monitorCurrent=${flag(value.currentMatched)} monitorAttribute=${flag(value.attributeMatched)} mediaCalls=${count(value.mediaCalls)} mediaCurrent=${flag(value.mediaCurrentMatched)} mediaAttribute=${flag(value.mediaAttributeMatched)} playRequests=${count(value.playRequests)} pauseRequests=${count(value.pauseRequests)} playing=${flag(value.playing)} mediaTime=${seconds(value.mediaTime)} sliderTime=${seconds(value.sliderTime)} notice=${notice} beforeTime=${seconds(row.interactions?.beforeMark?.mediaTime)} afterTime=${seconds(row.interactions?.afterMark?.mediaTime)} afterNotice=${noticeValue(row.interactions?.afterMark?.noticeCode)}`;
 }
 
+function sceneApplyCopy(row, profile) {
+  if (profile.kind !== "scene-audio" || !row.sceneApply || typeof row.sceneApply !== "object")
+    return "";
+  const value = row.sceneApply,
+    count = (v) => (Number.isSafeInteger(v) && v >= 0 && v <= 4096 ? v : "unknown"),
+    bit = (v) => (v === true ? 1 : v === false ? 0 : "unknown");
+  const reply = [
+    "PENDING",
+    "REJECTED",
+    "TRANSPORT_UNKNOWN",
+    "ADDED",
+    "PROJECT_CHANGED",
+    "UNKNOWN",
+  ].includes(value.reply)
+    ? value.reply
+    : "UNKNOWN";
+  return ` sceneApplyCalls=${count(value.calls)} sceneMatched=${bit(value.matched)} sceneCas=${bit(value.casMatched)} sceneReview=${bit(value.reviewMatched)} sceneInitialCas=${bit(value.initialCas)} sceneFinalCas=${bit(value.finalCas)} sceneReply=${reply} sceneNativeWrites=${count(value.nativeWrites)} scenePending=${count(value.pending)} sceneSaved=${bit(value.saved)} sceneRebased=${bit(value.rebased)} sceneStale=${bit(value.stale)} sceneUnknown=${bit(value.unknown)}`;
+}
+
 function emitGitHubErrors(report, profile) {
   const identity = auditIdentity(profile.kind);
   if (process.env.GITHUB_ACTIONS !== "true" || report.exitCode === 0) return;
@@ -534,7 +553,7 @@ function emitGitHubErrors(report, profile) {
         ? ` reachControl=${row.failedControl} reachBox=${rect(row.reachability?.at(-1)?.box)}`
         : "";
     console.error(
-      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}${assemblyReadinessCopy(row.assemblyReadiness)}${assemblyInteractionCopy(row, profile)}${profile.kind === "audio-library" ? libraryTargetDiagnostic(row.targetReadiness) : ""}`,
+      `::error title=${identity.title}::${identity.code}_AUDIT combination=${combination} state=${state} reached=${Number(row.reached)} kinds=${found.join(",") || "assertion"}${checkLine}${details}${reach}${scopeScroll}${assemblyReadinessCopy(row.assemblyReadiness)}${assemblyInteractionCopy(row, profile)}${sceneApplyCopy(row, profile)}${profile.kind === "audio-library" ? libraryTargetDiagnostic(row.targetReadiness) : ""}`,
     );
   }
 }

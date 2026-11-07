@@ -97,7 +97,9 @@ export function installAudioGroupsBridge({ state, helperModuleUrl, scope = "shot
   const helpers = () => (audit.helpers ??= import(helperModuleUrl));
   const commit = async (request) => {
     const current = raw(request.input.projectId);
-    if ((await creation.hash(current)) !== request.input.expectedProjectHash) {
+    const initialCas = (await creation.hash(current)) === request.input.expectedProjectHash;
+    if (request.diagnostic) request.diagnostic.initialCas = initialCas;
+    if (!initialCas) {
       audit.active = false;
       return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
     }
@@ -165,7 +167,10 @@ export function installAudioGroupsBridge({ state, helperModuleUrl, scope = "shot
     };
     // Mirror native's final CAS after all asynchronous digest work. No staged
     // file registry or canonical record is committed when this check fails.
-    if ((await creation.hash(raw(request.input.projectId))) !== request.input.expectedProjectHash) {
+    const finalCas =
+      (await creation.hash(raw(request.input.projectId))) === request.input.expectedProjectHash;
+    if (request.diagnostic) request.diagnostic.finalCas = finalCas;
+    if (!finalCas) {
       audit.active = false;
       return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
     }
@@ -180,13 +185,15 @@ export function installAudioGroupsBridge({ state, helperModuleUrl, scope = "shot
     const review = audit.review,
       value = raw(input.projectId),
       shot = value?.shots.find((s) => s.id === input.shotId);
+    let casMatched = null,
+      reviewMatched = null;
     const matched =
       !!review &&
       Object.keys(input).sort().join() ===
         (scene
           ? "catalogSha256,expectedProjectHash,expectedSelection,lanes,pickerSha256,planFingerprint,projectId,sceneId"
           : "catalogSha256,expectedProjectHash,lanes,pickerSha256,planFingerprint,projectId,shotId,takeId") &&
-      input.expectedProjectHash === (await creation.hash(value)) &&
+      (casMatched = input.expectedProjectHash === (await creation.hash(value))) &&
       input.projectId === review.plan.projectId &&
       (scene
         ? input.sceneId === review.plan.sceneId &&
@@ -209,21 +216,50 @@ export function installAudioGroupsBridge({ state, helperModuleUrl, scope = "shot
         (l) =>
           ["ambience", "sfx", "score"].includes(l) && review.plan.clips.some((c) => c.lane === l),
       ) &&
-      (await creation.hash(body(value))) === (await creation.hash(body(review.raw)));
-    audit.calls.push({ input: clone(input), matched });
-    if (!matched || audit.active) return forbidden("apply-input-or-duplicate");
+      (reviewMatched =
+        (await creation.hash(body(value))) === (await creation.hash(body(review.raw))));
+    const diagnostic = {
+      input: clone(input),
+      matched,
+      casMatched,
+      reviewMatched,
+      reply: "PENDING",
+    };
+    audit.calls.push(diagnostic);
+    if (!matched || audit.active) {
+      diagnostic.reply = "REJECTED";
+      return forbidden("apply-input-or-duplicate");
+    }
     audit.active = true;
-    const request = { input: clone(input), plan: clone(review.plan) };
+    const request = { input: clone(input), plan: clone(review.plan), diagnostic };
     if (audit.mode === "transport") {
       audit.unknown = request;
+      diagnostic.reply = "TRANSPORT_UNKNOWN";
       throw Error("SYNTHETIC_GROUP_TRANSPORT_UNKNOWN");
     }
     if (audit.mode === "hold")
       return new Promise((resolve) => {
-        audit.pending.push({ request, resolve });
+        audit.pending.push({
+          request,
+          resolve: (value) => {
+            diagnostic.reply =
+              value.kind === "ADDED"
+                ? "ADDED"
+                : value.code === "PROJECT_CHANGED"
+                  ? "PROJECT_CHANGED"
+                  : "UNKNOWN";
+            resolve(value);
+          },
+        });
         audit.admitted?.();
       });
     const result = await commit(request);
+    diagnostic.reply =
+      result.kind === "ADDED"
+        ? "ADDED"
+        : result.code === "PROJECT_CHANGED"
+          ? "PROJECT_CHANGED"
+          : "UNKNOWN";
     return audit.mode === "partial-ack" && result.kind === "ADDED"
       ? { ...result, receipt: { ...result.receipt, members: result.receipt.members.slice(0, -1) } }
       : result;

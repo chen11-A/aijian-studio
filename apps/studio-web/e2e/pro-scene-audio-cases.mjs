@@ -10,7 +10,11 @@ import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge, seedCreationProject } from "./pro-creation-fixture.mjs";
 import { loadLibraryAuditCatalog } from "./pro-audio-library-fixture.mjs";
 import { installShotAudioBridge, seedShotAudioProject } from "./pro-shot-audio-fixture.mjs";
-import { installSceneAudioBridge, seedSceneAudioProject } from "./pro-scene-audio-fixture.mjs";
+import {
+  installSceneAudioBridge,
+  seedSceneAudioProject,
+  readSceneAudioApplyState,
+} from "./pro-scene-audio-fixture.mjs";
 import { installAudioGroupsBridge } from "./pro-audio-groups-fixture.mjs";
 export const sceneAudioStates = [
   "scene-audio-review",
@@ -475,6 +479,7 @@ export async function runSceneAudioCases({ browser, config, report, media, persi
           result.calls = actual;
           result.passed = true;
         } catch (error) {
+          result.sceneApply = await page.evaluate(readSceneAudioApplyState).catch(() => null);
           result.assemblyReadiness = await page.evaluate(readAssemblyReadiness).catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-scene-audio-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],

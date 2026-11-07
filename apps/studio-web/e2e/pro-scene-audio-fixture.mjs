@@ -106,3 +106,36 @@ export function installSceneAudioBridge({ catalog }) {
   // Expose only fixed synthetic counters for assertions; the readonly preview adapter remains intact.
   audit.readonly = readonly;
 }
+
+/** Closed diagnostic observations only; never returns DOM text, opaque IDs, hash or paths. */
+export function readSceneAudioApplyState() {
+  const group = window.__audioGroupsAudit,
+    last = group?.calls.at(-1),
+    text = window.document.querySelector(".shot-audio-suggestions")?.textContent ?? "";
+  return {
+    calls: group?.calls.length ?? 0,
+    matched: typeof last?.matched === "boolean" ? last.matched : null,
+    casMatched: typeof last?.casMatched === "boolean" ? last.casMatched : null,
+    reviewMatched: typeof last?.reviewMatched === "boolean" ? last.reviewMatched : null,
+    initialCas: typeof last?.initialCas === "boolean" ? last.initialCas : null,
+    finalCas: typeof last?.finalCas === "boolean" ? last.finalCas : null,
+    reply: [
+      "PENDING",
+      "REJECTED",
+      "TRANSPORT_UNKNOWN",
+      "ADDED",
+      "PROJECT_CHANGED",
+      "UNKNOWN",
+    ].includes(last?.reply)
+      ? last.reply
+      : "UNKNOWN",
+    nativeWrites: group?.nativeWrites ?? 0,
+    pending: group?.pending.length ?? 0,
+    saved: text.includes("声音已加入并保存"),
+    rebased: text.includes("素材已加入原版本，保留了本页后来的编辑"),
+    stale: text.includes("本场内容已变化，本次没有选用") || text.includes("当前编辑又有变化"),
+    unknown: [...window.document.querySelectorAll("button")].some((button) =>
+      /^本地素材保存待核对（[1-9]\d{0,3}）$/.test(button.textContent.trim()),
+    ),
+  };
+}
