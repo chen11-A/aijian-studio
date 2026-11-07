@@ -1,0 +1,116 @@
+{
+  "source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "run": "42415347324",
+  "job": "128532105173",
+  "status": "SUCCESS",
+  "duration": "8m 29s",
+  "artifact": "unsigned test installer",
+  "scope": "Windows runner synthetic install/same-candidate reinstall/readback/uninstall; no tag release",
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:20:13Z"
+    },
+    {
+      "name": "Run actions/checkout@v7.0.1",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:20:26Z"
+    },
+    {
+      "name": "Run actions/setup-node@v7.0.0",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:20:35Z"
+    },
+    {
+      "name": "Run actions/setup-python@v7.0.0",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:20:35Z"
+    },
+    {
+      "name": "Set up uv",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:20:38Z"
+    },
+    {
+      "name": "Verify and prepare fixed Windows tool inputs",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:20:49Z"
+    },
+    {
+      "name": "Restore locked JavaScript dependencies without lifecycle scripts",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:21:08Z"
+    },
+    {
+      "name": "Freeze the Windows sidecar",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:21:49Z"
+    },
+    {
+      "name": "Build the media-free core, then add the locked FFmpeg pair",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:26:59Z"
+    },
+    {
+      "name": "Join two real shots with the bundled ffmpeg",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:27:03Z"
+    },
+    {
+      "name": "Compose a Chinese subtitle with the bundled font",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:27:06Z"
+    },
+    {
+      "name": "Install without admin into the current user",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:27:25Z"
+    },
+    {
+      "name": "Check installer preservation helpers",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:27:27Z"
+    },
+    {
+      "name": "Silent install, same-candidate reinstall/readback, and uninstall",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:28:18Z"
+    },
+    {
+      "name": "Upload unsigned integrated installer",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:28:22Z"
+    },
+    {
+      "name": "Publish verified Windows wizard installer to the tag release",
+      "conclusion": "skipped",
+      "completed-at": "2026-11-07T21:28:22Z"
+    },
+    {
+      "name": "Post Set up uv",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:28:22Z"
+    },
+    {
+      "name": "Post Run actions/setup-python@v7.0.0",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:28:23Z"
+    },
+    {
+      "name": "Post Run actions/setup-node@v7.0.0",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:28:23Z"
+    },
+    {
+      "name": "Post Run actions/checkout@v7.0.1",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:28:25Z"
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success",
+      "completed-at": "2026-11-07T21:28:25Z"
+    }
+  ]
+}

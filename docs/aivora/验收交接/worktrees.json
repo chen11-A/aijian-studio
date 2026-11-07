@@ -1,0 +1,40 @@
+{
+  "note": "Source snapshots are preserved; do not reset old validated worktrees. Primary records may be dirty until final documentation commit.",
+  "worktrees": [
+    {
+      "role": "验收代码与交接记录",
+      "path": "/workspace/aivora-audio-next-integration",
+      "branch": "codex/aivora-handoff-records",
+      "head": "8593a6855f5a0080a38e08e681c8667715ad1ec9",
+      "dirty": true
+    },
+    {
+      "role": "前端续接检查点",
+      "path": "/workspace/aivora-copy-assistant-tail",
+      "branch": "codex/aivora-generation-auto-source-intent",
+      "head": "939b4c975f38568d825d3d5e89a0a83106813ec0",
+      "dirty": false
+    },
+    {
+      "role": "后端续接检查点",
+      "path": "/workspace/aivora-audio-library-runtime",
+      "branch": "codex/aivora-prepared-generation-cache-ledger",
+      "head": "166dc89d35d3cfab6f220a409b34a0874f38ee08",
+      "dirty": false
+    },
+    {
+      "role": "原生/界面固定验证目录",
+      "path": "/workspace/aivora-art-style-host-compat",
+      "branch": "codex/aivora-local-reuse-joint-validation",
+      "head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+      "dirty": false
+    },
+    {
+      "role": "API固定验证目录",
+      "path": "/workspace/aivora-art-style-diff",
+      "branch": "codex/aivora-handoff-api-validation",
+      "head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+      "dirty": false
+    }
+  ]
+}

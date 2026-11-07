@@ -1,0 +1,18 @@
+{
+  "source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "run": "42415135411",
+  "job": "128531463916",
+  "platform": "ubuntu-latest",
+  "step": "Test",
+  "exitCode": 1,
+  "diagnostics": {
+    "filesFailed": 1,
+    "testsFailed": 2,
+    "file": "apps/studio-web/src/aivora/pro/ProWorkspace.actual-risk-trial.test.tsx",
+    "line": 466,
+    "cases": ["same selected take changes videoPath", "same selected take changes cleanVideoPath"],
+    "assertion": "保存本次人工决定 button enabled",
+    "actual": "disabled"
+  },
+  "status": "PRESERVED; investigating actual async completion without changing timeout or assertion"
+}

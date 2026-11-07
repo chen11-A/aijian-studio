@@ -1,0 +1,832 @@
+{
+  "observedAt": "2026-11-07T21:43:00Z",
+  "scope": "Cloud worktree inventory; historical source snapshots are not current accepted products. No user local files examined.",
+  "count": 165,
+  "worktrees": [
+    {
+      "path": "/workspace/aijian-studio",
+      "head": "836562b896648e68b7686d2a176255351e12de54",
+      "branch": "refs/heads/aivora/dev"
+    },
+    {
+      "path": "/workspace/aivora-action-field-cards",
+      "head": "051409af28b50e397c0e98ce72078cc5f1356593",
+      "branch": "refs/heads/codex/aivora-action-field-cards"
+    },
+    {
+      "path": "/workspace/aivora-action-scene-validation",
+      "head": "5efa2a7f700d92901da8d024953124abdcaea1fb",
+      "branch": "refs/heads/codex/aivora-delivered-runtime-cut"
+    },
+    {
+      "path": "/workspace/aivora-action-walk-validation",
+      "head": "0c65ec07ba4560faa211967299069dfe2ca6c79d",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-action-workflow-fixture-fix",
+      "head": "b9c11891babece9dece5761c6b28b2e2e8d49d28",
+      "branch": "refs/heads/codex/aivora-prepared-generation-budget"
+    },
+    {
+      "path": "/workspace/aivora-actual-risk-trial-ui",
+      "head": "29140d5c8f1d570c9d6d81e63fed37300a22ebdc",
+      "branch": "refs/heads/codex/aivora-integrated-reinstall-smoke"
+    },
+    {
+      "path": "/workspace/aivora-art-checkpoint-validation",
+      "head": "2df3d4a3c0c35bee1b5857b5c65ea8461221d5cd",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-art-field-cards",
+      "head": "a1e32878225f3b2b8562de2d32419af416c9452f",
+      "branch": "refs/heads/codex/aivora-lipsync-marker-truth"
+    },
+    {
+      "path": "/workspace/aivora-art-scene-validation",
+      "head": "63118c11a553a661dd01fa68415a4960ed534333",
+      "branch": "refs/heads/codex/aivora-art-scene-validation"
+    },
+    {
+      "path": "/workspace/aivora-art-seven-agent-fixture-fix",
+      "head": "3394240805e36dbc3d0e11f152b8b82b3e4d66d0",
+      "branch": "refs/heads/codex/aivora-ci-web-observation-validation"
+    },
+    {
+      "path": "/workspace/aivora-art-style-diff",
+      "head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+      "branch": "refs/heads/codex/aivora-handoff-api-validation"
+    },
+    {
+      "path": "/workspace/aivora-art-style-host-compat",
+      "head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+      "branch": "refs/heads/codex/aivora-local-reuse-joint-validation"
+    },
+    {
+      "path": "/workspace/aivora-assembly-audit-repair",
+      "head": "83574c8a1c0103cc4d1ab022029cd5fe277b5654",
+      "branch": "refs/heads/codex/aivora-assembly-audit-repair"
+    },
+    {
+      "path": "/workspace/aivora-assembly-browser-validation",
+      "head": "878d73f93f12c142a527a13c0b8d56ee51f9331f",
+      "branch": "refs/heads/codex/aivora-assembly-browser-validation"
+    },
+    {
+      "path": "/workspace/aivora-assembly-cancel-fixture-fix",
+      "head": "73ec5973e8505461203854a88751512fcff45647",
+      "branch": "refs/heads/codex/aivora-assembly-cancel-fixture-fix"
+    },
+    {
+      "path": "/workspace/aivora-assembly-interaction-fix",
+      "head": "d81124a60cb982187e4073ce6426b20d1e4ff4ab",
+      "branch": "refs/heads/codex/aivora-assembly-interaction-fix"
+    },
+    {
+      "path": "/workspace/aivora-assembly-interaction-validation",
+      "head": "2926dd251957f1448b82a81bdd942f1ea0ed8ae5",
+      "branch": "refs/heads/codex/aivora-assembly-interaction-validation"
+    },
+    {
+      "path": "/workspace/aivora-assembly-preview-key",
+      "head": "9866a9c65ff432ed6b297193133e473abc169073",
+      "branch": "refs/heads/codex/aivora-assembly-preview-key"
+    },
+    {
+      "path": "/workspace/aivora-assembly-preview-validation",
+      "head": "07b1ca1888d208546e27527d22755153803fd58d",
+      "branch": "refs/heads/codex/aivora-assembly-preview-validation"
+    },
+    {
+      "path": "/workspace/aivora-assembly-repair-validation",
+      "head": "b32a788db1639b8aa419222022f5a0ee64969a43",
+      "branch": "refs/heads/codex/aivora-assembly-repair-validation"
+    },
+    {
+      "path": "/workspace/aivora-assistant-pane-scroll",
+      "head": "4b1379271a81c9cbfedffee4488c582a872f560d",
+      "branch": "refs/heads/codex/aivora-assistant-pane-scroll"
+    },
+    {
+      "path": "/workspace/aivora-audio-envelopes",
+      "head": "b6ab07d7ee3ee0b9e34551924a180fc47fd643fc",
+      "branch": "refs/heads/codex/aivora-prepared-generation-coverage-validation"
+    },
+    {
+      "path": "/workspace/aivora-audio-fixture-web-validation",
+      "head": "8b69113319a53f06491d6c876a5aa50a3b9d09d6",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-audio-group-joint-validation",
+      "head": "c944dc2a2ccfbd5d1baa82edcd9f2caada4ff86e",
+      "branch": "refs/heads/codex/aivora-audio-group-joint-validation"
+    },
+    {
+      "path": "/workspace/aivora-audio-group-native-validation",
+      "head": "ce8172afbb316a212d5c3ba4f1b26d8d8f233d48",
+      "branch": "refs/heads/codex/aivora-audio-group-native-validation"
+    },
+    {
+      "path": "/workspace/aivora-audio-groups-browser",
+      "head": "b201a6c24d25a4b76b16354e5f48deac0d5740d5",
+      "branch": "refs/heads/codex/aivora-audio-groups-browser"
+    },
+    {
+      "path": "/workspace/aivora-audio-groups-readiness",
+      "head": "da2507b9a62ad0538968743384fcb98594d3c976",
+      "branch": "refs/heads/codex/aivora-audio-groups-readiness"
+    },
+    {
+      "path": "/workspace/aivora-audio-library-browser",
+      "head": "c589bc27cc7fdb6950714bd762fe42e67493174e",
+      "branch": "refs/heads/codex/aivora-audio-library-browser"
+    },
+    {
+      "path": "/workspace/aivora-audio-library-foreign-guard",
+      "head": "73f10e5c2c6fef3b4a54b49480d54a933f9001d0",
+      "branch": "refs/heads/codex/aivora-audio-library-foreign-guard"
+    },
+    {
+      "path": "/workspace/aivora-audio-library-resource-root",
+      "head": "4190a0f1fee166328d414e921c1fe3de71863e0d",
+      "branch": "refs/heads/codex/aivora-prepared-generation-cache-runtime"
+    },
+    {
+      "path": "/workspace/aivora-audio-library-runtime",
+      "head": "166dc89d35d3cfab6f220a409b34a0874f38ee08",
+      "branch": "refs/heads/codex/aivora-prepared-generation-cache-ledger"
+    },
+    {
+      "path": "/workspace/aivora-audio-library-target",
+      "head": "d658377cd866c6acbf89bf06f86399a619717df1",
+      "branch": "refs/heads/codex/aivora-prepared-generation-cache-consumer"
+    },
+    {
+      "path": "/workspace/aivora-audio-library-ui",
+      "head": "71bcb4ae1b2786025b116726d00a9d657f6042da",
+      "branch": "refs/heads/codex/aivora-audio-library-ui"
+    },
+    {
+      "path": "/workspace/aivora-audio-mix-audit",
+      "head": "886564d1a3d9f038cec18ad97bf263827352083c",
+      "branch": "refs/heads/codex/aivora-audio-mix-audit"
+    },
+    {
+      "path": "/workspace/aivora-audio-next-integration",
+      "head": "8593a6855f5a0080a38e08e681c8667715ad1ec9",
+      "branch": "refs/heads/codex/aivora-handoff-records"
+    },
+    {
+      "path": "/workspace/aivora-audio-safety-validation",
+      "head": "4283295563e2ecd35bb736cbcd0eb462490418a6",
+      "branch": "refs/heads/codex/aivora-audio-safety-validation"
+    },
+    {
+      "path": "/workspace/aivora-audio-waveforms",
+      "head": "8918e7ac6ab293d427d24aa4ce1cffffce008978",
+      "branch": "refs/heads/codex/aivora-audio-waveforms"
+    },
+    {
+      "path": "/workspace/aivora-budget-billing-diagnostic",
+      "head": "96d5bfc7e20aca43583bb221f3ebaf69f8e5241c",
+      "branch": "refs/heads/codex/aivora-budget-billing-diagnostic"
+    },
+    {
+      "path": "/workspace/aivora-budget-schema51-validation",
+      "head": "93093195b66e5454ffa7bb89028fa49d85d4e4d8",
+      "branch": "refs/heads/codex/aivora-budget-schema51-validation"
+    },
+    {
+      "path": "/workspace/aivora-card-field-transactions",
+      "head": "9db403f9bbc035f1fc0ac6875db32ea494ff3d8b",
+      "branch": "refs/heads/codex/aivora-card-field-transactions"
+    },
+    {
+      "path": "/workspace/aivora-ci-diagnostics",
+      "head": "ad6a5a1fcc47f2268d37282973e908d884c1ff81",
+      "branch": "refs/heads/codex/aivora-ci-diagnostics"
+    },
+    {
+      "path": "/workspace/aivora-clean-recovery",
+      "head": "d491b903519f7d21958cef702fbc8bf635390bf6",
+      "branch": "refs/heads/codex/aivora-clean-recovery"
+    },
+    {
+      "path": "/workspace/aivora-common-assembly",
+      "head": "7c7b46e8926f7f8bf8e467f5caacd107c12007cf",
+      "branch": "refs/heads/codex/aivora-common-assembly"
+    },
+    {
+      "path": "/workspace/aivora-common-assembly-browser",
+      "head": "7a5b9061a66b740fcd69f5efb3cbb11a1d846611",
+      "branch": "refs/heads/codex/aivora-common-assembly-browser"
+    },
+    {
+      "path": "/workspace/aivora-common-assembly-validation",
+      "head": "c3830efbff064ab088a9c345036fd5eff6062c66",
+      "branch": "refs/heads/codex/aivora-common-assembly-validation"
+    },
+    {
+      "path": "/workspace/aivora-common-audio-mix",
+      "head": "a448a601cf0271f8106c91f7b19da11655357b41",
+      "branch": "refs/heads/codex/aivora-common-audio-mix"
+    },
+    {
+      "path": "/workspace/aivora-copy-assistant-tail",
+      "head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+      "branch": "refs/heads/codex/aivora-acceptance-trial-wait"
+    },
+    {
+      "path": "/workspace/aivora-copy-final",
+      "head": "781036ed1d2264834c9bf7891aa554713531b2f7",
+      "branch": "refs/heads/codex/aivora-copy-final"
+    },
+    {
+      "path": "/workspace/aivora-copy-polish",
+      "head": "848677f792c88dc313507c4785c91e1c6d1a4f14",
+      "branch": "refs/heads/codex/aivora-copy-polish"
+    },
+    {
+      "path": "/workspace/aivora-copy-tail-validation",
+      "head": "e8373d09675b9cd65495dc29d790c655e376ea87",
+      "branch": "refs/heads/codex/aivora-copy-tail-validation"
+    },
+    {
+      "path": "/workspace/aivora-delivery-evidence",
+      "head": "d571ed492c913ae8c25966d11b099bdfc39148bb",
+      "branch": "refs/heads/codex/aivora-delivery-evidence"
+    },
+    {
+      "path": "/workspace/aivora-delivery-evidence-integration",
+      "head": "6a864da404f286dab791d259a68f5c0039c86589",
+      "branch": "refs/heads/codex/aivora-delivery-evidence-integration"
+    },
+    {
+      "path": "/workspace/aivora-delivery-evidence-ui",
+      "head": "0f2fdee77b0545c2d751c4a7a80c0e51a7631863",
+      "branch": "refs/heads/codex/aivora-delivery-evidence-ui"
+    },
+    {
+      "path": "/workspace/aivora-delivery-joint-validation",
+      "head": "963217d31fcbf3b31aa96a3eeba0b7735ae8ca57",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-delivery-web-repair-validation",
+      "head": "35afcada5897c96cce0d6834905bc32d84b39600",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-dialogue-consumer-validation",
+      "head": "a6ddb0040398db4bd81460ec6d8fcbddd6127f74",
+      "branch": "refs/heads/codex/aivora-dialogue-consumer-validation"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-declaration-lint-fix",
+      "head": "462a842fa71a4a969acf4d73e960525a08e47e91",
+      "branch": "refs/heads/codex/aivora-dialogue-declaration-lint-fix"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-limit-api-validation",
+      "head": "c53e0127543c1711b6e4e8e27dee59238cf984d7",
+      "branch": "refs/heads/codex/aivora-dialogue-limit-api-validation"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-limit-consumer",
+      "head": "1ce801dee23739b66ce6111002cedfdb416edaef",
+      "branch": "refs/heads/codex/aivora-dialogue-limit-consumer"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-limit-evidence",
+      "head": "44d9d4850dc86dea3c067a045cf9b21ef49741f2",
+      "branch": "refs/heads/codex/aivora-dialogue-limit-evidence"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-native-validation",
+      "head": "e6596bd388b605d54d4a3de6a05af664f81e1de4",
+      "branch": "refs/heads/codex/aivora-dialogue-native-validation"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-split",
+      "head": "edf3897d96d49c0ae22e0cbaee6e129e59450136",
+      "branch": "refs/heads/codex/aivora-dialogue-split"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-split-audit-oracle",
+      "head": "78c993e1af1e3ba2f37973a0f394469f57b20eca",
+      "branch": "refs/heads/codex/aivora-dialogue-split-audit-oracle"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-split-browser",
+      "head": "f6c065975d9652fb89dcceab7c3e479a73cf9e2e",
+      "branch": "refs/heads/codex/aivora-dialogue-split-browser"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-split-native",
+      "head": "61cf755db42a251864bf6ffc3f8df874eb566405",
+      "branch": "refs/heads/codex/aivora-dialogue-split-native"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-split-ui",
+      "head": "f4b05ce6c2f453b20d0a45c0194f5a3b6c3b8f4f",
+      "branch": "refs/heads/codex/aivora-dialogue-split-ui"
+    },
+    {
+      "path": "/workspace/aivora-dialogue-ui-validation",
+      "head": "7e4d714bbe3d3bf251bc58aff2c1d5c87b923d5f",
+      "branch": "refs/heads/codex/aivora-dialogue-ui-validation"
+    },
+    {
+      "path": "/workspace/aivora-director-refs-integration",
+      "head": "7ab83fbd4eed2bb258e025b0435ab371752a453e",
+      "branch": "refs/heads/codex/aivora-director-refs-integration"
+    },
+    {
+      "path": "/workspace/aivora-director-refs-validation",
+      "head": "bd6c14bbfa4937fdea04541d5c54cd23f959ddbd",
+      "branch": "refs/heads/codex/aivora-director-refs-validation"
+    },
+    {
+      "path": "/workspace/aivora-director-structure-cards",
+      "head": "87931f3563c69cdcb6381dff324af2941876ac2f",
+      "branch": "refs/heads/codex/aivora-director-structure-cards"
+    },
+    {
+      "path": "/workspace/aivora-evidence-boot-readiness",
+      "head": "24b81811f24304e5284e47947133764bd4c25150",
+      "branch": "refs/heads/codex/aivora-evidence-boot-readiness"
+    },
+    {
+      "path": "/workspace/aivora-evidence-legacy-actions-fix",
+      "head": "b9aa2bc35ca4eb0d08dd9abf3070c185512f0bb3",
+      "branch": "refs/heads/codex/aivora-evidence-legacy-actions-fix"
+    },
+    {
+      "path": "/workspace/aivora-evidence-legacy-browser",
+      "head": "fad4a7886fba263bc8dc6554ca7c178ad6a83334",
+      "branch": "refs/heads/codex/aivora-evidence-legacy-browser"
+    },
+    {
+      "path": "/workspace/aivora-evidence-menu-range",
+      "head": "15597d302fe49396d05c1efa7ceb10d802c53972",
+      "branch": "refs/heads/codex/aivora-evidence-menu-range"
+    },
+    {
+      "path": "/workspace/aivora-export-partial-oracle",
+      "head": "63a965753bb173b0d7855408398df25c8e7802b2",
+      "branch": "refs/heads/codex/aivora-export-partial-oracle"
+    },
+    {
+      "path": "/workspace/aivora-export-progress",
+      "head": "c4de873112ba6a16c32468d138538ff69d5fc4eb",
+      "branch": "refs/heads/codex/aivora-export-progress"
+    },
+    {
+      "path": "/workspace/aivora-export-qc",
+      "head": "f981fa49a6b23348585cc11e2e0ce50b4efe791c",
+      "branch": "refs/heads/codex/aivora-export-qc"
+    },
+    {
+      "path": "/workspace/aivora-feature-art-label-audit",
+      "head": "47786fc10cd58c4d9931a26922254274c4970cd7",
+      "branch": "refs/heads/codex/aivora-feature-art-label-audit"
+    },
+    {
+      "path": "/workspace/aivora-feature-audit",
+      "head": "5b66f8a93893bae21edcf1d6acc71042eaf86a24",
+      "branch": "refs/heads/codex/aivora-feature-audit"
+    },
+    {
+      "path": "/workspace/aivora-final-checkpoint-fixtures",
+      "head": "f7b31d92be69532cafdb0b9d5adff19c486d0214",
+      "branch": "refs/heads/codex/aivora-final-checkpoint-fixtures"
+    },
+    {
+      "path": "/workspace/aivora-foreign-guard-validation",
+      "head": "73f10e5c2c6fef3b4a54b49480d54a933f9001d0",
+      "branch": "refs/heads/codex/aivora-foreign-guard-validation"
+    },
+    {
+      "path": "/workspace/aivora-generation-budget-cancel",
+      "head": "a6be5e40c12408673caade8afd13a19fb7cbc36e",
+      "branch": "refs/heads/codex/aivora-generation-budget-cancel"
+    },
+    {
+      "path": "/workspace/aivora-generation-failure-policy-ui",
+      "head": "ef9b9c91b9e797f0d13e19e3b29ad9f5427c85f1",
+      "branch": "refs/heads/codex/aivora-generation-failure-policy-ui"
+    },
+    {
+      "path": "/workspace/aivora-generation-input-budget",
+      "head": "9f5c0b5ce4ae7fdf1f5ca22d03039c90849d2120",
+      "branch": "refs/heads/codex/aivora-generation-input-budget"
+    },
+    {
+      "path": "/workspace/aivora-generation-policy-copy",
+      "head": "877481ba68348810238730f6194fa844151fcfa6",
+      "branch": "refs/heads/codex/aivora-generation-policy-copy"
+    },
+    {
+      "path": "/workspace/aivora-generation-policy-integration",
+      "head": "f0e68d9e36aaf36ffe394c5ab10bd4972be505a3",
+      "branch": "refs/heads/codex/aivora-generation-policy-integration"
+    },
+    {
+      "path": "/workspace/aivora-generation-unknown-recovery",
+      "head": "0816ee1b836cdcd9508962eddd942503bab89357",
+      "branch": "refs/heads/codex/aivora-generation-unknown-recovery"
+    },
+    {
+      "path": "/workspace/aivora-generation-video-recovery-browser",
+      "head": "e440da73b979680564f28512bfb03022afa3acd6",
+      "branch": "refs/heads/codex/aivora-generation-video-recovery-browser"
+    },
+    {
+      "path": "/workspace/aivora-generation-video-recovery-ui",
+      "head": "88ebad5f4337a83af0e055f47f543e2dd50542a0",
+      "branch": "refs/heads/codex/aivora-generation-video-recovery-ui"
+    },
+    {
+      "path": "/workspace/aivora-group-baseline-validation",
+      "head": "3790cd50e0cb5759f13636c5e1986b16ec53e3d5",
+      "branch": "refs/heads/codex/aivora-group-baseline-validation"
+    },
+    {
+      "path": "/workspace/aivora-group-foreign-rebase-diagnosis",
+      "head": "a059bc7a73227258f282c40ea86e54a46bd0494c",
+      "branch": "refs/heads/codex/aivora-group-foreign-rebase-diagnosis"
+    },
+    {
+      "path": "/workspace/aivora-history-integration-fix",
+      "head": "c657201282beab5d0cb43bd1f694c8e8f10fd404",
+      "branch": "refs/heads/codex/aivora-windows-recovery-identity"
+    },
+    {
+      "path": "/workspace/aivora-interrupted-audit",
+      "head": "f8753e8b8692dab9baa3af2e8945096ba0691a04",
+      "branch": "refs/heads/codex/aivora-ui-interactions-consumers-fix"
+    },
+    {
+      "path": "/workspace/aivora-layout-full",
+      "head": "1e48526fb2ad422b47da432abc3a2ff734ac7120",
+      "branch": "refs/heads/codex/aivora-layout-full"
+    },
+    {
+      "path": "/workspace/aivora-legacy-menu-compare-fix",
+      "head": "742ccd079b01605efcfff9bc461f06018cee5682",
+      "branch": "refs/heads/codex/aivora-legacy-menu-compare-fix"
+    },
+    {
+      "path": "/workspace/aivora-library-duration-readiness",
+      "head": "9cf01b89d2f3463c45db977780ff294c1c37ec24",
+      "branch": "refs/heads/codex/aivora-library-duration-readiness"
+    },
+    {
+      "path": "/workspace/aivora-library-footer-fix",
+      "head": "267d6f67837a73bb68680e1c4aba7e16703b2436",
+      "branch": "refs/heads/codex/aivora-library-footer-fix"
+    },
+    {
+      "path": "/workspace/aivora-library-recovery-audit",
+      "head": "c2651b1bbb551b0d75291dd6fbd1c4ecccf4d98c",
+      "branch": "refs/heads/codex/aivora-library-recovery-audit"
+    },
+    {
+      "path": "/workspace/aivora-library-target-readiness",
+      "head": "e0c0d5427dee0a51a99d1175204efc0d06e66b57",
+      "branch": "refs/heads/codex/aivora-library-target-readiness"
+    },
+    {
+      "path": "/workspace/aivora-library-write-validation",
+      "head": "d280b73b35664ba3829409051361d00d76f6e054",
+      "branch": "refs/heads/codex/aivora-library-write-validation"
+    },
+    {
+      "path": "/workspace/aivora-mentions-browser",
+      "head": "e79f30f2e23f160d01bc30a908062ff05f75df9d",
+      "branch": "refs/heads/codex/aivora-mentions-browser"
+    },
+    {
+      "path": "/workspace/aivora-mentions-stale-repair",
+      "head": "9c5b566783840744bb86025872fc5c310b6794a4",
+      "branch": "refs/heads/codex/aivora-mentions-stale-repair"
+    },
+    {
+      "path": "/workspace/aivora-mix-preview-audit",
+      "head": "16f8146a326228f670e9ae7dc4873bac55109b31",
+      "branch": "refs/heads/codex/aivora-mix-preview-audit"
+    },
+    {
+      "path": "/workspace/aivora-parser-fixed-validation",
+      "head": "aecf193a8fd2f9cf829575c704880cd1446d2466",
+      "branch": "refs/heads/codex/aivora-parser-fixed-validation"
+    },
+    {
+      "path": "/workspace/aivora-parser-runtime-fix",
+      "head": "fe3991b450a0bd45ea761e312f31f9e866562a4f",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-performance-field-validation",
+      "head": "96179c4ff738b170da889d45bafe0521831734dc",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-persistent-history",
+      "head": "d6a697cbe917937263e2d57235ab3a2d8b2e4f70",
+      "branch": "refs/heads/codex/aivora-persistent-history"
+    },
+    {
+      "path": "/workspace/aivora-preflight-readback-diagnosis",
+      "head": "3a366ccce544b2f183c0d8ff22c71ef716d487e5",
+      "branch": "refs/heads/codex/aivora-preflight-readback-diagnosis"
+    },
+    {
+      "path": "/workspace/aivora-progress-layout",
+      "head": "0b0ba3e690d2e4543671cd4666e7e91b0456f2e8",
+      "branch": "refs/heads/codex/aivora-progress-layout"
+    },
+    {
+      "path": "/workspace/aivora-project-archive",
+      "head": "aa4f3b329483f4fca807a8038c2aa164e2d30b84",
+      "branch": "refs/heads/codex/aivora-project-archive"
+    },
+    {
+      "path": "/workspace/aivora-python-ci-diagnostics",
+      "head": "8aa7e1561c4b49c3be499229652ea40021ca0422",
+      "branch": "refs/heads/codex/aivora-python-ci-diagnostics"
+    },
+    {
+      "path": "/workspace/aivora-python-node-locator-validation",
+      "head": "2f8d9be34063dbe4c89cb46e386514d9218f7809",
+      "branch": "refs/heads/codex/aivora-python-node-locator-validation"
+    },
+    {
+      "path": "/workspace/aivora-quit-save",
+      "head": "f24a07ba70bd2a906cffe7bc01245ed5985cffb9",
+      "branch": "refs/heads/codex/aivora-quit-save"
+    },
+    {
+      "path": "/workspace/aivora-range-actual-clock-audit",
+      "head": "49394c680d2c9f84ae3feeacf2a31fea96a72b6a",
+      "branch": "refs/heads/codex/aivora-story-creation-policy-ui"
+    },
+    {
+      "path": "/workspace/aivora-range-dispatch-audit",
+      "head": "8b7a22e41ddfd4f8b33cd27448f0545ca3dbe530",
+      "branch": "refs/heads/codex/aivora-windows-delivery-canonical"
+    },
+    {
+      "path": "/workspace/aivora-range-redo",
+      "head": "5bd2d0cec187b99c21436dc3a3b4261d0ecc8dbd",
+      "branch": "refs/heads/codex/aivora-range-redo"
+    },
+    {
+      "path": "/workspace/aivora-readonly-validation",
+      "head": "e0d5bb8463d62a9167ed0b15e92183458af520de",
+      "branch": "refs/heads/codex/aivora-readonly-validation"
+    },
+    {
+      "path": "/workspace/aivora-recovery-coverage-validation",
+      "head": "6ede896a6a6ac2472dd9d6d492c464c372b55810",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-recovery-integration",
+      "head": "d5d54307d17c62fdb88977b1986f2f7863541a7b",
+      "branch": "refs/heads/codex/aivora-story-creation-integration"
+    },
+    {
+      "path": "/workspace/aivora-recovery-local-capabilities",
+      "head": "0134eb25b7d378994b0d327c6896db0288f653f6",
+      "branch": "refs/heads/codex/aivora-recovery-local-capabilities"
+    },
+    {
+      "path": "/workspace/aivora-recovery-subprocess-fixture-fix",
+      "head": "6825e0719fb6e6647debb262a7ee4ef7e8502e46",
+      "branch": "refs/heads/codex/aivora-recovery-subprocess-fixture-fix"
+    },
+    {
+      "path": "/workspace/aivora-recovery-ui-validation",
+      "head": "d5f79c04e6e31afc7329919fed57dcb437c43806",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-reviewed-audio-candidate",
+      "head": "4de3e25f4f1fc9bb2bbd048018a4e01b65fae377",
+      "branch": "refs/heads/codex/aivora-reviewed-audio-candidate"
+    },
+    {
+      "path": "/workspace/aivora-risk-budget-validation",
+      "head": "96d5bfc7e20aca43583bb221f3ebaf69f8e5241c",
+      "branch": "refs/heads/codex/aivora-risk-budget-validation"
+    },
+    {
+      "path": "/workspace/aivora-risk-policy-browser",
+      "head": "da15c35608bd28fb553dda852a243384c995d8ab",
+      "branch": "refs/heads/codex/aivora-risk-policy-browser"
+    },
+    {
+      "path": "/workspace/aivora-risk-trial-binding",
+      "head": "1758d4b38572cba5cbcb7b75c5c255a2f1c18030",
+      "branch": "refs/heads/codex/aivora-risk-trial-binding"
+    },
+    {
+      "path": "/workspace/aivora-risk-trial-review",
+      "head": "12607b74bca68cf583d8ad18cc151d2142d751ff",
+      "branch": "refs/heads/codex/aivora-risk-trial-review"
+    },
+    {
+      "path": "/workspace/aivora-risk-writer-integration",
+      "head": "05431559f57cfbba2459bf828a36588f8de56797",
+      "branch": "refs/heads/codex/aivora-risk-writer-integration"
+    },
+    {
+      "path": "/workspace/aivora-risk-writer-validation",
+      "head": "ed705de37f23b8bde14ae840d6295c7e5a05e8a2",
+      "branch": "refs/heads/codex/aivora-risk-writer-validation"
+    },
+    {
+      "path": "/workspace/aivora-ruler-clock-diagnostic",
+      "head": "bfcc7238e7a8f25e0f6f643e3379de17a2339378",
+      "branch": "refs/heads/codex/aivora-ruler-clock-diagnostic"
+    },
+    {
+      "path": "/workspace/aivora-scene-apply-readiness",
+      "head": "3cf5629fce9776503504cdadc8e813086758b484",
+      "branch": "refs/heads/codex/aivora-scene-apply-readiness"
+    },
+    {
+      "path": "/workspace/aivora-scene-audio-browser",
+      "head": "4b32ca1201f58e5c85804124b055376de951bd54",
+      "branch": "refs/heads/codex/aivora-scene-audio-browser"
+    },
+    {
+      "path": "/workspace/aivora-scene-audio-suggestions",
+      "head": "312d6d2ce9d3ef1ae19c8fdbfbd3db87b925a9ed",
+      "branch": "refs/heads/codex/aivora-scene-audio-suggestions"
+    },
+    {
+      "path": "/workspace/aivora-scene-audio-suggestions-ui",
+      "head": "869ce539b36401f8c3838eeb4b4289ad2683811f",
+      "branch": "refs/heads/codex/aivora-scene-audio-suggestions-ui"
+    },
+    {
+      "path": "/workspace/aivora-scene-audio-ui-integration",
+      "head": "b100cfd2a417b204dc0fd55de1cf2e6cc1368183",
+      "branch": "refs/heads/codex/aivora-scene-audio-ui-integration"
+    },
+    {
+      "path": "/workspace/aivora-scene-browser-validation",
+      "head": "f2cf6b657b15def1d7f2755dec791cf8a58e85dc",
+      "branch": "refs/heads/codex/aivora-scene-browser-validation"
+    },
+    {
+      "path": "/workspace/aivora-scene-cas-checkpoint",
+      "head": "2436f2918a84ca1f1154169e80904464e2844391",
+      "branch": "refs/heads/codex/aivora-scene-cas-checkpoint"
+    },
+    {
+      "path": "/workspace/aivora-scene-field-ui-validation",
+      "head": "b100cfd2a417b204dc0fd55de1cf2e6cc1368183",
+      "branch": "refs/heads/codex/aivora-scene-field-ui-validation"
+    },
+    {
+      "path": "/workspace/aivora-scene-native-validation",
+      "head": "5b3e8b77ce04cbb8f4739ae21e1943aa6e36d6f3",
+      "branch": "refs/heads/codex/aivora-scene-native-validation"
+    },
+    {
+      "path": "/workspace/aivora-schema-51-fixture-fix",
+      "head": "b8f3b30799e8dec7a49cb8457dd9d93c7acefcd6",
+      "branch": "refs/heads/codex/aivora-schema-51-fixture-fix"
+    },
+    {
+      "path": "/workspace/aivora-scope-mentions",
+      "head": "e3b756451befc61f6fcdab4f1e97d075558a5cab",
+      "branch": "refs/heads/codex/aivora-scope-mentions"
+    },
+    {
+      "path": "/workspace/aivora-seven-part-prompts",
+      "head": "fe92525ad9cce492e119785a4efa7a414b122fc8",
+      "branch": "refs/heads/codex/aivora-seven-part-prompts"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-apply",
+      "head": "1d8ee54cf18b36a964526e708d197d87213b617e",
+      "branch": "refs/heads/codex/aivora-shot-audio-apply"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-apply-test-fix",
+      "head": "0e2f3353b01fc55c76e609d3191f8829ec6d4c36",
+      "branch": "refs/heads/codex/aivora-shot-audio-apply-test-fix"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-apply-test-validation",
+      "head": "c1bd0861688515dcc74307906acd02000338440e",
+      "branch": "refs/heads/codex/aivora-shot-audio-apply-test-validation"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-apply-ui",
+      "head": "1bdc84f292791d78ece3f359d2c607bc46ff1367",
+      "branch": "refs/heads/codex/aivora-shot-audio-apply-ui"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-apply-validation",
+      "head": "4b77b677a71ba10f76fe335905c6101ecf56fdf7",
+      "branch": "refs/heads/codex/aivora-shot-audio-apply-validation"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-suggestions",
+      "head": "6e003ba0ba92e7fdc1b10c23044dfa7957acecf0",
+      "branch": "refs/heads/codex/aivora-shot-audio-suggestions"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-suggestions-browser",
+      "head": "79b38b870779f5b6f59cd34c27c9201db654d1fb",
+      "branch": "refs/heads/codex/aivora-shot-audio-suggestions-browser"
+    },
+    {
+      "path": "/workspace/aivora-shot-audio-suggestions-ui",
+      "head": "777f2e762bb50b7671bd13ddf644e510c27bfbc1",
+      "branch": "refs/heads/codex/aivora-shot-audio-suggestions-ui"
+    },
+    {
+      "path": "/workspace/aivora-silent-pcm-fix",
+      "head": "0041f7740598703da4f5aeda154d7cbed8e8c278",
+      "branch": "refs/heads/codex/aivora-silent-pcm-fix"
+    },
+    {
+      "path": "/workspace/aivora-silent-pcm-validation",
+      "head": "143abc1fce0ca4cc7d4bc36b3db62b5e5186f034",
+      "branch": "refs/heads/codex/aivora-silent-pcm-validation"
+    },
+    {
+      "path": "/workspace/aivora-speech-window",
+      "head": "ea950570f3d615025dc3ac5ec92b8b26dc44b6cf",
+      "branch": "refs/heads/codex/aivora-speech-window"
+    },
+    {
+      "path": "/workspace/aivora-speech-window-e2e",
+      "head": "ea55dc3e0b7d059b03f4b450f47cf3cd18f3ee25",
+      "branch": "refs/heads/codex/aivora-speech-window-e2e"
+    },
+    {
+      "path": "/workspace/aivora-split-hash-gate-diagnosis",
+      "head": "9e7f25b287835152b7dfef46e5ab2a3b999ca071",
+      "branch": "refs/heads/codex/aivora-split-hash-gate-diagnosis"
+    },
+    {
+      "path": "/workspace/aivora-unknown-recovery-lint-validation",
+      "head": "2c59dd763c4d865d61ce871a90e35c83628d9f28",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-unknown-recovery-subprocess-validation",
+      "head": "6825e0719fb6e6647debb262a7ee4ef7e8502e46",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-unknown-recovery-validation",
+      "head": "0816ee1b836cdcd9508962eddd942503bab89357",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-video-recovery-lint-fix",
+      "head": "fc710e884884b4883f9fecfc11add6c1462f23e5",
+      "branch": "refs/heads/codex/aivora-creative-failure-budget"
+    },
+    {
+      "path": "/workspace/aivora-windows-checks",
+      "head": "ca303d3e38c1c91f131110bbb36f7bc23dbc32da",
+      "branch": "refs/heads/codex/aivora-bounded-runtime-resources"
+    },
+    {
+      "path": "/workspace/aivora-windows-empty-speech",
+      "head": "ef58c36764a0d35ab472bbbea2d14e49ed09e46c",
+      "branch": "refs/heads/codex/aivora-windows-empty-speech"
+    },
+    {
+      "path": "/workspace/aivora-windows-library-write",
+      "head": "5ad0850f880bca4175056b64db5fc95f91d0f56e",
+      "branch": "refs/heads/codex/aivora-windows-library-write"
+    },
+    {
+      "path": "/workspace/aivora-windows-media-regression",
+      "head": "c00aef392d4fd774516946c9966910a1c95601d4",
+      "branch": "refs/heads/codex/aivora-windows-media-regression"
+    },
+    {
+      "path": "/workspace/aivora-writer-refs-validation",
+      "head": "8a7b8f254ef7b2cced0ae7739e364443c9c8f308",
+      "detached": true
+    },
+    {
+      "path": "/workspace/aivora-writer-structure-cards",
+      "head": "2083f4ec8cf0b5b9951ce16e7be7bf612914fc10",
+      "branch": "refs/heads/codex/aivora-writer-structure-cards"
+    }
+  ]
+}

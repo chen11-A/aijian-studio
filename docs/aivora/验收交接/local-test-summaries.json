@@ -1,0 +1,26 @@
+{
+  "native": {
+    "source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+    "log": "/tmp/aivora-handoff-native-root-full-native.log",
+    "bytes": 2234,
+    "sha256": "f3d7117885617df307406ebfe6a71338318f7a43952258cc33152493fc26759b",
+    "summaryLines": [
+      "Test Files  175 passed (175)",
+      "Tests  2500 passed (2500)",
+      "Duration  183.19s (transform 4.73s, setup 0ms, import 17.35s, tests 319.78s, environment 14ms)",
+      "All files          |   90.68 |    91.29 |   93.36 |   92.21 |"
+    ]
+  },
+  "web": {
+    "source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+    "log": "/tmp/aivora-handoff-web-ready-root-full-web.log",
+    "bytes": 46891,
+    "sha256": "4dc015b1a4f6dfceef411610591021b65a28e545218f9a8faf1e97450ba18e68",
+    "summaryLines": [
+      "Test Files  472 passed (472)",
+      "Tests  5629 passed (5629)",
+      "Duration  551.68s (transform 11.91s, setup 64.92s, import 49.44s, tests 626.25s, environment 248.51s)",
+      "All files          |    90.3 |    86.79 |   92.62 |   93.07 |"
+    ]
+  }
+}
