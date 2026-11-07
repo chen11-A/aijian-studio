@@ -7,7 +7,7 @@ import type {
   AudioSuggestionReceipt,
 } from "@aijian/contracts/film-audio-library";
 import type * as FilmLibraryModule from "./film-library";
-import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it, onTestFailed, vi } from "vitest";
 import {
   mkdtemp,
   mkdir,
@@ -43,6 +43,7 @@ import { renderAudioMix, probeMixSource } from "./film-audio-mix";
 import type { AddBundledFilmAudioInput } from "@aijian/contracts/film-audio-library";
 const fault = vi.hoisted(() => ({
   mode: "",
+  observe: null as null | ((stage: "write" | "write-ack" | "readback") => void),
   applied: false,
   hold: null as Promise<void> | null,
   entered: null as (() => void) | null,
@@ -52,6 +53,7 @@ vi.mock("./film-library", async (original) => {
   return {
     ...actual,
     readProject: async (...args: Parameters<typeof actual.readProject>) => {
+      if (fault.mode && fault.applied) fault.observe?.("readback");
       if (["unreadable", "readback-empty"].includes(fault.mode) && fault.applied) return null;
       const record = await actual.readProject(...args);
       if (fault.mode === "readback-wrong" && fault.applied && record)
@@ -70,8 +72,10 @@ vi.mock("./film-library", async (original) => {
     ) =>
       actual.transactFilmProject(root, id, (current, write) =>
         action(current, async (next) => {
+          fault.observe?.("write");
           if (fault.mode === "before") throw Error("write failure");
           const stored = await write(next);
+          fault.observe?.("write-ack");
           fault.applied = true;
           if (fault.mode === "pending") {
             fault.entered?.();
@@ -124,6 +128,7 @@ afterAll(async () => {
 });
 afterEach(async () => {
   fault.mode = "";
+  fault.observe = null;
   fault.applied = false;
   fault.hold = null;
   fault.entered = null;
@@ -914,36 +919,84 @@ it.each([
 ] as const)(
   "reports %s write failure accurately and preserves possibly referenced group copies",
   async (mode) => {
-    const f = await fixture(),
-      { request } = await suggested(f);
-    fault.mode = mode;
-    expect(await f.library.applyBundledFilmShotAudio(request)).toMatchObject({
-      kind: "FAILED",
-      code: mode === "before" ? "WRITE_FAILED" : "WRITE_UNCONFIRMED",
-      unchanged: mode === "before",
+    const begin = performance.now();
+    let stage = "fixture",
+      stageAt = begin,
+      probes = () => 0;
+    const completed: { stage: string; elapsedMs: number }[] = [];
+    const snapshot = () => ({
+      v: 1,
+      mode,
+      stage,
+      elapsedMs: Math.round(performance.now() - begin),
+      completed: [...completed],
+      probes: probes(),
     });
-    fault.mode = "";
-    const actual = (await readProject(f.filmsRoot, f.record.id))!;
-    expect(
-      await f.library.inspectBundledFilmAudioTarget({
-        projectId: actual.id,
-        expectedProjectHash: filmHistoryRecordHash(actual),
-        shotId: "shot",
-        takeId: "take",
-      }),
-    ).toMatchObject({ kind: "TARGET" });
-    if (mode === "before") {
-      expect(actual.audioClips).toEqual([]);
+    let gateObservation: ReturnType<typeof snapshot> | undefined;
+    // Observation only: no cancellation, retry, deadline or change to the original 5s gate.
+    const observer = setTimeout(() => {
+      gateObservation = snapshot();
+    }, 4900);
+    observer.unref();
+    const advance = (next: string) => {
+      const now = performance.now();
+      if (completed.length < 16) completed.push({ stage, elapsedMs: Math.round(now - stageAt) });
+      stage = next;
+      stageAt = now;
+    };
+    onTestFailed(() => {
+      process.stderr.write(
+        `CI_LIBRARY_WRITE_PHASE ${JSON.stringify(gateObservation ?? snapshot())}\n`,
+      );
+    });
+    try {
+      const f = await fixture();
+      probes = () => f.host.run.mock.calls.length;
+      advance("suggest");
+      const { request } = await suggested(f);
+      advance("apply");
+      fault.observe = advance;
+      f.host.beforeCommit = async () => {
+        advance("commit");
+      };
+      fault.mode = mode;
+      expect(await f.library.applyBundledFilmShotAudio(request)).toMatchObject({
+        kind: "FAILED",
+        code: mode === "before" ? "WRITE_FAILED" : "WRITE_UNCONFIRMED",
+        unchanged: mode === "before",
+      });
+      fault.mode = "";
+      fault.observe = null;
+      advance("actual-read");
+      const actual = (await readProject(f.filmsRoot, f.record.id))!;
+      advance("inspect");
       expect(
-        (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
-      ).toEqual([]);
-    } else {
-      const clips = actual.audioClips as Record<string, unknown>[];
-      expect(clips.length).toBeGreaterThan(1);
-      for (const clip of clips)
-        expect(sha(await readFile(String(clip.path)))).toBe(
-          (clip.libraryAsset as { sha256: string }).sha256,
-        );
+        await f.library.inspectBundledFilmAudioTarget({
+          projectId: actual.id,
+          expectedProjectHash: filmHistoryRecordHash(actual),
+          shotId: "shot",
+          takeId: "take",
+        }),
+      ).toMatchObject({ kind: "TARGET" });
+      advance("hash-check");
+      if (mode === "before") {
+        expect(actual.audioClips).toEqual([]);
+        expect(
+          (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
+        ).toEqual([]);
+      } else {
+        const clips = actual.audioClips as Record<string, unknown>[];
+        expect(clips.length).toBeGreaterThan(1);
+        for (const clip of clips)
+          expect(sha(await readFile(String(clip.path)))).toBe(
+            (clip.libraryAsset as { sha256: string }).sha256,
+          );
+      }
+      advance("done");
+    } finally {
+      clearTimeout(observer);
+      if (process.env.AIVORA_TEST_SAFE_PHASES === "1")
+        process.stderr.write(`CI_LIBRARY_WRITE_PHASE ${JSON.stringify(snapshot())}\n`);
     }
   },
 );

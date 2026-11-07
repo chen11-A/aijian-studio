@@ -25,6 +25,26 @@ export function pnpmInvocation(entry, executable = process.execPath) {
   return { command: executable, args: [javascript, "test"] };
 }
 
+/** One exact six-variant regression, never caller-selected files or patterns. */
+export function libraryWriteInvocation(entry, executable = process.execPath) {
+  const launcher = pnpmInvocation(entry, executable);
+  return {
+    command: launcher.command,
+    args: [
+      launcher.args[0],
+      "--filter",
+      "@aijian/desktop",
+      "exec",
+      "vitest",
+      "run",
+      "src/film-audio-library.test.ts",
+      "-t",
+      "^reports (?:before|after|unreadable|readback-stale|readback-empty|readback-wrong) write failure accurately and preserves possibly referenced group copies$",
+    ],
+    phase: "TypeScript / desktop / library-write",
+  };
+}
+
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 /** Only declared top-level test names in this checkout are safe node metadata.
  * Never emit pytest parameter IDs, exception messages or an absolute path. */
@@ -105,12 +125,69 @@ export function emptySpeechPcmSummary(raw) {
   }
 }
 
+const libraryWriteStages = new Set([
+  "fixture",
+  "suggest",
+  "apply",
+  "commit",
+  "write",
+  "write-ack",
+  "readback",
+  "actual-read",
+  "inspect",
+  "hash-check",
+  "done",
+]);
+/** Closed test-local timing only. No parameters, identifiers, paths or exception text. */
+export function libraryWritePhaseSummary(line) {
+  const prefix = "CI_LIBRARY_WRITE_PHASE ";
+  if (!line.startsWith(prefix) || line.length > 2048) return null;
+  try {
+    const row = JSON.parse(line.slice(prefix.length));
+    const object = (value) => value && typeof value === "object" && !Array.isArray(value);
+    const milliseconds = (value) => Number.isInteger(value) && value >= 0 && value <= 120000;
+    if (
+      !object(row) ||
+      Object.keys(row).sort().join() !== "completed,elapsedMs,mode,probes,stage,v" ||
+      row.v !== 1 ||
+      ![
+        "before",
+        "after",
+        "unreadable",
+        "readback-stale",
+        "readback-empty",
+        "readback-wrong",
+      ].includes(row.mode) ||
+      !libraryWriteStages.has(row.stage) ||
+      !milliseconds(row.elapsedMs) ||
+      !Number.isInteger(row.probes) ||
+      row.probes < 0 ||
+      row.probes > 4096 ||
+      !Array.isArray(row.completed) ||
+      row.completed.length > 16 ||
+      row.completed.some(
+        (value) =>
+          !object(value) ||
+          Object.keys(value).sort().join() !== "elapsedMs,stage" ||
+          !libraryWriteStages.has(value.stage) ||
+          !milliseconds(value.elapsedMs),
+      ) ||
+      row.completed.reduce((total, value) => total + value.elapsedMs, 0) > row.elapsedMs + 16
+    )
+      return null;
+    return `Audio library write phase: variant=${row.mode}; stage=${row.stage}; elapsed=${row.elapsedMs}ms; completed=${row.completed.map((value) => `${value.stage}:${value.elapsedMs}ms`).join("|") || "none"}; probes=${row.probes}.`;
+  } catch {
+    return null;
+  }
+}
+
 /** Keep metadata only: no assertion values, raw error messages, absolute paths or log tails. */
 export function failureSummary(initialPhase = "pnpm test", sourceRoot = repositoryRoot) {
   let phase = initialPhase;
   let failureBlock = false;
   let pytestFailures = false;
   const entries = new Map();
+  const libraryPhases = new Map();
   const add = (message) => {
     const key = `${phase}: ${message}`;
     if (entries.size < 6) entries.set(key, { phase, message });
@@ -128,6 +205,9 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
       /^(?:apps\/(?:studio-web|desktop) test:|@aijian\/(?:studio-web|desktop):test:)\s*/u,
       "",
     );
+    const libraryPhase = libraryWritePhaseSummary(diagnostic);
+    if (libraryPhase && libraryPhases.size < 6)
+      libraryPhases.set(libraryPhase, { phase: "TypeScript / desktop", message: libraryPhase });
     // Fixed upstream runtime phrases only: never append their file list, cause or stack.
     const workerExit = /^\s*(?:Error:\s*)?Worker exited unexpectedly(?:[.\s]|$)/u.test(diagnostic);
     const pool = diagnostic.match(
@@ -247,7 +327,14 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
     const count = text.match(/^\s*(Test Files|Tests)\s+([1-9]\d{0,6}) failed/u);
     if (count) add(`${count[1]}: ${count[2]} failed.`);
   };
-  return { line, entries: () => [...entries.values()], phase: () => phase };
+  return {
+    line,
+    entries: () =>
+      failureBlock
+        ? [...libraryPhases.values(), ...entries.values()].slice(0, 6)
+        : [...entries.values()],
+    phase: () => phase,
+  };
 }
 
 function observe(stream, output, summary) {
@@ -326,7 +413,10 @@ try {
 }
 if (direct) {
   try {
-    if (process.argv[2] === "--speech-window-test" && process.argv.length !== 3)
+    if (
+      ["--speech-window-test", "--audio-library-write-test"].includes(process.argv[2]) &&
+      process.argv.length !== 3
+    )
       throw new Error("UNEXPECTED_TARGET_ARGUMENTS");
     const invocation =
       process.argv[2] === "--self-test"
@@ -344,7 +434,9 @@ if (direct) {
               args: ["run", "pytest", "services/api/tests/test_story_speech_window.py"],
               phase: "Python / speech-window",
             }
-          : pnpmInvocation(process.env.npm_execpath);
+          : process.argv[2] === "--audio-library-write-test"
+            ? libraryWriteInvocation(process.env.npm_execpath)
+            : pnpmInvocation(process.env.npm_execpath);
     if (process.argv[2] === "--check-launcher")
       process.stdout.write("CI launcher verified: JavaScript entry, shell disabled.\n");
     else process.exitCode = await runTestDiagnostics(invocation);
