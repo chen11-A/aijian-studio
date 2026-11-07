@@ -123,7 +123,22 @@ function assemblyInteractionCopy(row, profile) {
   const value = row.assemblyInteraction;
   const count = (n) => (Number.isSafeInteger(n) && n >= 0 && n <= 4096 ? n : "unknown");
   const flag = (v) => Number(v === true);
-  return ` rangeEntered=${count(row.interactions?.entered?.range)} rangeBeforeMark=${count(row.interactions?.beforeMark?.range)} rangeAfterMark=${count(row.interactions?.afterMark?.range)} rangeNow=${count(value.range)} projectMenu=${flag(value.menu)} comparison=${flag(value.comparison)} monitorCurrent=${flag(value.currentMatched)} monitorAttribute=${flag(value.attributeMatched)} mediaCalls=${count(value.mediaCalls)} mediaCurrent=${flag(value.mediaCurrentMatched)} mediaAttribute=${flag(value.mediaAttributeMatched)} playRequests=${count(value.playRequests)} pauseRequests=${count(value.pauseRequests)} playing=${flag(value.playing)}`;
+  const seconds = (n) =>
+    typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 36000
+      ? Math.round(n * 1000) / 1000
+      : "unknown";
+  const noticeValue = (code) =>
+    [
+      "NONE",
+      "OTHER",
+      "ASSEMBLY_SHOT_REQUIRED",
+      "ASSEMBLY_CLOCK_REQUIRED",
+      "ASSEMBLY_PARTIAL",
+    ].includes(code)
+      ? code
+      : "unknown";
+  const notice = noticeValue(value.noticeCode);
+  return ` rangeEntered=${count(row.interactions?.entered?.range)} rangeBeforeMark=${count(row.interactions?.beforeMark?.range)} rangeAfterMark=${count(row.interactions?.afterMark?.range)} rangeNow=${count(value.range)} projectMenu=${flag(value.menu)} comparison=${flag(value.comparison)} monitorCurrent=${flag(value.currentMatched)} monitorAttribute=${flag(value.attributeMatched)} mediaCalls=${count(value.mediaCalls)} mediaCurrent=${flag(value.mediaCurrentMatched)} mediaAttribute=${flag(value.mediaAttributeMatched)} playRequests=${count(value.playRequests)} pauseRequests=${count(value.pauseRequests)} playing=${flag(value.playing)} mediaTime=${seconds(value.mediaTime)} sliderTime=${seconds(value.sliderTime)} notice=${notice} beforeTime=${seconds(row.interactions?.beforeMark?.mediaTime)} afterTime=${seconds(row.interactions?.afterMark?.mediaTime)} afterNotice=${noticeValue(row.interactions?.afterMark?.noticeCode)}`;
 }
 
 function emitGitHubErrors(report, profile) {
