@@ -17,10 +17,13 @@ from test_draft_export_runtime import toolchain
 from test_story_film import (
     _PNG,
     _allow_live,
+    _byte_image,
     _media_bytes,
-    _project,
     _request,
     _ScriptedTransport,
+)
+from test_story_film import (
+    _configured_project as _project,
 )
 
 
@@ -91,16 +94,16 @@ def test_debug_requires_explicit_opt_in_and_still_logs_only_metadata(tmp_path, m
     }
 
 
-@pytest.mark.parametrize("remote_still", [False, True])
+@pytest.mark.parametrize("prepared_still", [False, True])
 def test_service_autoframe_uses_five_refs_and_video_keeps_thirteen(
-    tmp_path, monkeypatch, remote_still
+    tmp_path, monkeypatch, prepared_still
 ):
     repository, project_id = _project(tmp_path)
     _allow_live(monkeypatch, tmp_path / "agents.log")
     clip, speech = _media_bytes(tmp_path)
     portrait = tmp_path / "portrait.png"
     portrait.write_bytes(_PNG)
-    refs = (str(portrait), *(f"https://example.invalid/face-{index}.png" for index in range(12)))
+    refs = (str(portrait), *(_byte_image(f"face-{index}") for index in range(12)))
     responses = [
         XaiHttpResponse(200, speech, "audio/wav"),
         XaiHttpResponse(200, json.dumps({"request_id": "ref-video"}).encode()),
@@ -112,7 +115,7 @@ def test_service_autoframe_uses_five_refs_and_video_keeps_thirteen(
         ),
         XaiHttpResponse(200, clip, "video/mp4"),
     ]
-    if not remote_still:
+    if not prepared_still:
         responses.insert(
             0,
             XaiHttpResponse(
@@ -127,16 +130,19 @@ def test_service_autoframe_uses_five_refs_and_video_keeps_thirteen(
         "<IMAGE_1> 是人物定妆照。雨夜书店。",
         2,
         "台词。",
-        still="https://example.invalid/start.png" if remote_still else "",
+        still=_byte_image("start") if prepared_still else "",
         references=refs,
     )
     result = service.produce(
-        project_id, _request(provider="grok_subscription", shots=(shot,)), media_token="synthetic"
+        project_id,
+        _request(provider="grok_subscription", shots=(shot,)),
+        media_token="synthetic",
+        dispatch_account="a" * 64,
     )
     assert result.status == "SUCCEEDED", result.message
     expected_refs = ("data:image/png;base64," + base64.b64encode(_PNG).decode(), *refs[1:])
     image_requests = [request for request in transport.requests if "/images/" in request.url]
-    if remote_still:
+    if prepared_still:
         assert image_requests == []
     else:
         assert image_requests[0].url.endswith("/images/edits")
@@ -152,8 +158,8 @@ def test_service_autoframe_uses_five_refs_and_video_keeps_thirteen(
     video = json.loads(video_request.body)
     assert video["reference_images"] == [{"url": url} for url in expected_refs]
     assert video["image"]["url"] == (
-        "https://example.invalid/start.png"
-        if remote_still
+        _byte_image("start")
+        if prepared_still
         else "data:image/png;base64," + base64.b64encode(_PNG).decode()
     )
 
@@ -176,7 +182,10 @@ def test_multiple_speakers_stop_before_billing_without_losing_lines_or_subtitles
     lines = (StoryDialogue("甲", "第一句。"), StoryDialogue("乙", "第二句。"))
     shot = StoryShot("第一句。第二句。", "书店", 3, "第一句。第二句。", lines=lines)
     result = service.produce(
-        project_id, _request(provider="grok_subscription", shots=(shot,)), media_token="synthetic"
+        project_id,
+        _request(provider="grok_subscription", shots=(shot,)),
+        media_token="synthetic",
+        dispatch_account="a" * 64,
     )
     assert result.status == "BLOCKED"
     assert _data(result).user_message["code"] == "MULTI_VOICE_REQUIRED"

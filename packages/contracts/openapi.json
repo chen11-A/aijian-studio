@@ -2936,6 +2936,29 @@
         "title": "CompleteOfficialTextRequest",
         "type": "object"
       },
+      "ConfigureGenerationFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "maximum": 9007199254740990.0,
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "failure_limit": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Failure Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "failure_limit"
+        ],
+        "title": "ConfigureGenerationFailure",
+        "type": "object"
+      },
       "ContextEntryKind": {
         "enum": [
           "ROLE_INVARIANTS",
@@ -9859,6 +9882,46 @@
         "maxLength": 240,
         "minLength": 1,
         "type": "string"
+      },
+      "GenerationFailurePolicyData": {
+        "properties": {
+          "failure_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Limit"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scope": {
+            "const": "GROK_VIDEO_SUBMIT_FAILURES",
+            "default": "GROK_VIDEO_SUBMIT_FAILURES",
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "UNCONFIGURED",
+              "CONFIGURED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "revision",
+          "failure_limit"
+        ],
+        "title": "GenerationFailurePolicyData",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -36624,6 +36687,94 @@
         "summary": "Get Fake Timeline Run Operation"
       }
     },
+    "/api/v1/projects/{project_id}/generation-failure-policy": {
+      "get": {
+        "operationId": "getGenerationFailurePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationFailurePolicyData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read"
+      },
+      "put": {
+        "operationId": "configureGenerationFailurePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureGenerationFailure"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationFailurePolicyData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configure"
+      }
+    },
     "/api/v1/projects/{project_id}/invalidation-operations": {
       "get": {
         "operationId": "listInvalidationOperations",
@@ -39336,7 +39487,6 @@
             "name": "project_id",
             "required": true,
             "schema": {
-              "pattern": "^prj_[0-9a-f]{32}$",
               "title": "Project Id",
               "type": "string"
             }

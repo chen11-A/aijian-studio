@@ -1,3 +1,7 @@
+import {
+  attestGenerationAccount,
+  type GenerationDispatchAccount,
+} from "./generation-dispatch-account";
 import { randomUUID } from "node:crypto";
 import { accessSync, constants, statSync } from "node:fs";
 import { extname, isAbsolute } from "node:path";
@@ -194,7 +198,12 @@ export function createStoryFilmClient(
         }),
       }).then(read);
     },
-    create(projectId: string, input: StoryFilmCreateInput, mediaBearer?: string) {
+    create(
+      projectId: string,
+      input: StoryFilmCreateInput,
+      mediaBearer?: string,
+      dispatchAccount?: GenerationDispatchAccount,
+    ) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
       const shots =
         input.provider === "stub"
@@ -207,22 +216,32 @@ export function createStoryFilmClient(
         "Idempotency-Key": idempotencyKey,
       };
       if (mediaBearer) requestHeaders["X-Aivora-Media-Bearer"] = mediaBearer;
+      const body = JSON.stringify({
+        scene_label: input.scene_label,
+        narration: input.narration,
+        subtitle: input.subtitle ?? null,
+        provider: input.provider,
+        confirmed: input.confirmed,
+        ...(input.voice_id ? { voice_id: input.voice_id } : {}),
+        ...(input.video_model ? { video_model: input.video_model } : {}),
+        ...(input.regenerate ? { regenerate: true } : {}),
+        ...(input.style_block ? { style_block: input.style_block } : {}),
+        ...(input.aspect_ratio ? { aspect_ratio: input.aspect_ratio } : {}),
+        ...(shots && shots.length > 0 ? { shots } : {}),
+      });
+      if (dispatchAccount && mediaBearer === dispatchAccount.bearer) {
+        requestHeaders["X-Aivora-Generation-Account"] = attestGenerationAccount({
+          sessionKey: session.token,
+          projectId,
+          idempotencyKey,
+          body,
+          account: dispatchAccount,
+        });
+      }
       return fetcher(`${origin}/api/v1/projects/${projectId}/story-film`, {
         method: "POST",
         headers: requestHeaders,
-        body: JSON.stringify({
-          scene_label: input.scene_label,
-          narration: input.narration,
-          subtitle: input.subtitle ?? null,
-          provider: input.provider,
-          confirmed: input.confirmed,
-          ...(input.voice_id ? { voice_id: input.voice_id } : {}),
-          ...(input.video_model ? { video_model: input.video_model } : {}),
-          ...(input.regenerate ? { regenerate: true } : {}),
-          ...(input.style_block ? { style_block: input.style_block } : {}),
-          ...(input.aspect_ratio ? { aspect_ratio: input.aspect_ratio } : {}),
-          ...(shots && shots.length > 0 ? { shots } : {}),
-        }),
+        body,
       }).then(read);
     },
   };

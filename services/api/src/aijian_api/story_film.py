@@ -46,6 +46,12 @@ from aijian_api.episode_media_assembly_contracts import (
     EpisodeMediaAssemblyVersionData,
 )
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
+from aijian_api.generation_dispatch_identity import video_input_identity
+from aijian_api.generation_failure_store import (
+    FailureReservation,
+    GenerationFailureError,
+    GenerationFailureStore,
+)
 from aijian_api.grok_status_log import append_grok_status
 from aijian_api.media_asset_contracts import MediaAssetData
 from aijian_api.media_asset_store import MediaAssetError, MediaAssetStore
@@ -66,6 +72,7 @@ from aijian_api.xai_media import (
     IMAGE_MODEL,
     TTS_MODEL,
     VIDEO_MODEL,
+    XaiHttpRequest,
     XaiImage,
     XaiMediaClient,
     XaiMediaError,
@@ -381,6 +388,9 @@ class StoryFilmService:
         self._repository = repository
         self._toolchain_provider = toolchain_provider
         self._transport = transport
+        self._failure_store = GenerationFailureStore(repository)
+        self._dispatch_account: str | None = None
+        self._video_reservation: FailureReservation | None = None
         self._ledger = LocalTaskLedger(repository.database_path)
         self._sleep = time.sleep
         self._partial_note: str | None = None
@@ -393,7 +403,9 @@ class StoryFilmService:
         request: StoryFilmRequest,
         *,
         media_token: str | None = None,
+        dispatch_account: str | None = None,
     ) -> StoryFilmResult:
+        self._dispatch_account = dispatch_account
         self._partial_note = None
         self._reuse_note = None
         self._shot_captions = None
@@ -528,6 +540,31 @@ class StoryFilmService:
                 fix="可以重试。" if grok else "请改用本地占位再试一次。",
                 preview_image=preview if isinstance(preview, str) else None,
             )
+            if isinstance(error, StoryFilmError) and error.code in {
+                "UNCONFIGURED",
+                "ACCOUNT_UNVERIFIABLE",
+                "INPUT_UNVERIFIABLE",
+                "INPUT_FAILURE_LIMIT",
+                "ATTEMPT_ALREADY_RESERVED",
+            }:
+                texts = {
+                    "UNCONFIGURED": "请先设置同输入视频失败上限，尚未发起新的生成。",
+                    "ACCOUNT_UNVERIFIABLE": "当前登录身份无法核验，尚未发起新的生成。",
+                    "INPUT_UNVERIFIABLE": "视频输入的实际内容无法核验，没有提交视频。",
+                    "INPUT_FAILURE_LIMIT": "同输入的视频失败或未决次数已达设置上限，没有提交视频。",
+                    "ATTEMPT_ALREADY_RESERVED": (
+                        "这次视频提交已有记录，未重复提交；请先核对原任务。"
+                    ),
+                }
+                text = texts[error.code]
+                return replace(
+                    failed,
+                    message=text,
+                    user_message=user_message(
+                        f"VIDEO_FAILURE_{error.code}",
+                        text,
+                    ),
+                )
             if isinstance(error, StoryFilmError) and error.code in {
                 "DIALOGUE_VIDEO_LIMIT",
                 "VIDEO_TOO_SHORT",
@@ -1098,13 +1135,38 @@ class StoryFilmService:
                 preview_image=preview,
             )
             return image_bytes, saved_clip, saved_speech
+        self._check_video_failure_policy(project_id)
+        if prepared_image is not None and not prepared_image.data:
+            raise StoryFilmError(
+                "INPUT_UNVERIFIABLE", "首帧图片的实际内容无法核验，尚未发起新的生成。"
+            )
+        if any(
+            source.startswith("https://")
+            for source in (*reference_images, *((reference_url,) if reference_url else ()))
+        ):
+            raise StoryFilmError(
+                "INPUT_UNVERIFIABLE", "参考图片的实际内容无法核验，尚未发起新的生成。"
+            )
         if self._transport is None:
             from aijian_api.xai_media_transport import urllib_xai_transport
 
             transport = urllib_xai_transport()
         else:
             transport = self._transport
-        client = XaiMediaClient(transport, token=media_token)
+        self._video_reservation = None
+
+        def before_submit(http: XaiHttpRequest) -> None:
+            try:
+                digest = video_input_identity(self._dispatch_account or "", http.body or b"")
+                self._video_reservation = self._failure_store.reserve(
+                    project_id,
+                    input_sha256=digest,
+                    attempt_key=f"{request.idempotency_key}:{request.shot_index}",
+                )
+            except (GenerationFailureError, ValueError) as error:
+                raise StoryFilmError(str(error), "视频失败保护未通过，没有提交视频。") from error
+
+        client = XaiMediaClient(transport, token=media_token, before_video_submit=before_submit)
         self._partial_note = None
         self._ensure_running(project_id)
         saved = None if request.regenerate else self._find_saved_image(project_id, request)
@@ -1157,6 +1219,8 @@ class StoryFilmService:
                     shot_label or "画面地址已拿到，正在交给视频。",
                 )
         self._ensure_running(project_id)
+        if not image.data:
+            raise StoryFilmError("INPUT_UNVERIFIABLE", "首帧图片的实际内容无法核验，没有提交视频。")
         kept = bool(image.data)
         duration = min(duration, cap)
         speech: bytes | None = None
@@ -1422,7 +1486,84 @@ class StoryFilmService:
         path.write_bytes(image)
         return path
 
+    def _check_video_failure_policy(self, project_id: str) -> None:
+        policy = self._failure_store.policy(project_id)
+        if policy is None:
+            raise StoryFilmError("UNCONFIGURED", "请先设置同输入视频失败上限，尚未发起新的生成。")
+        if policy.failure_limit == 0:
+            raise StoryFilmError("INPUT_FAILURE_LIMIT", "视频失败上限为零，尚未发起新的生成。")
+        if self._dispatch_account is None or not re.fullmatch(
+            r"[0-9a-f]{64}", self._dispatch_account
+        ):
+            raise StoryFilmError("ACCOUNT_UNVERIFIABLE", "当前登录身份无法核验，尚未发起新的生成。")
+
+    def _verified_video_bytes(self, data: bytes) -> bool:
+        # A task id is only acceptance. Probe downloaded bytes before releasing a
+        # failure hold; a later local subtitle/mix/export failure is not a failed POST.
+        if not data:
+            return False
+        try:
+            with tempfile.TemporaryDirectory(prefix="aivora-video-receipt-") as temporary:
+                video = Path(temporary) / "download.mp4"
+                video.write_bytes(data)
+                payload = _ffprobe(
+                    self._tools().ffprobe_path,
+                    [
+                        "-select_streams",
+                        "v:0",
+                        "-count_frames",
+                        "-show_entries",
+                        "stream=codec_type,width,height,nb_read_frames",
+                        "-of",
+                        "json",
+                        str(video),
+                    ],
+                )
+                streams = payload.get("streams")
+                if not isinstance(streams, list) or not streams or not isinstance(streams[0], dict):
+                    return False
+                stream = streams[0]
+                return (
+                    stream.get("codec_type") == "video"
+                    and int(str(stream.get("width", "0"))) > 0
+                    and int(str(stream.get("height", "0"))) > 0
+                    and int(str(stream.get("nb_read_frames", "0"))) > 0
+                )
+        except (StoryFilmError, OSError, ValueError, TypeError):
+            # Preserve the existing downstream failure/cache handling, but never
+            # call unreadable/unknown downloaded bytes a successful video attempt.
+            return False
+
+    def _settle_video_attempt(self, project_id: str, *, succeeded: bool) -> None:
+        if self._video_reservation is not None:
+            self._failure_store.settle(
+                project_id, self._video_reservation, "SUCCEEDED" if succeeded else "UNKNOWN"
+            )
+            self._video_reservation = None
+
     def _live_video(
+        self,
+        client: XaiMediaClient,
+        request: StoryFilmRequest,
+        image: object,
+        project_id: str,
+        *,
+        duration: int = 2,
+        reference_images: tuple[str, ...] = (),
+    ) -> tuple[bytes | None, str | None]:
+        try:
+            return self._submit_and_poll_video(
+                client,
+                request,
+                image,
+                project_id,
+                duration=duration,
+                reference_images=reference_images,
+            )
+        finally:
+            self._settle_video_attempt(project_id, succeeded=False)
+
+    def _submit_and_poll_video(
         self,
         client: XaiMediaClient,
         request: StoryFilmRequest,
@@ -1444,7 +1585,7 @@ class StoryFilmService:
                     ),
                     request.style_block,
                 ),
-                image=image,
+                image=replace(image, source_url=None) if image.data else image,
                 model=request.video_model or VIDEO_MODEL,
                 duration=max(
                     1,
@@ -1473,10 +1614,18 @@ class StoryFilmService:
                 return None, "画面已生成，视频这一步没有成功，可以重试"
             if polled.status == "done" and polled.video_url:
                 try:
-                    return client.download(polled.video_url), None
+                    downloaded = client.download(polled.video_url)
+                    if self._video_reservation is not None and self._verified_video_bytes(
+                        downloaded
+                    ):
+                        self._settle_video_attempt(project_id, succeeded=True)
+                    return downloaded, None
                 except XaiMediaError:
                     return None, "画面已生成，视频这一步没有成功，可以重试"
             if polled.status in {"failed", "expired"}:
+                if self._video_reservation is not None:
+                    self._failure_store.settle(project_id, self._video_reservation, "FAILED")
+                    self._video_reservation = None
                 client.cancel_video(submitted.request_id)
                 return None, "画面已生成，视频这一步没有成功，可以重试"
             self._sleep(2)

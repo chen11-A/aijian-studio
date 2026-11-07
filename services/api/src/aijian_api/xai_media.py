@@ -99,6 +99,7 @@ class XaiMediaClient:
         token: str,
         origin: str = XAI_API_ORIGIN,
         log: Callable[..., None] | None = None,
+        before_video_submit: Callable[[XaiHttpRequest], None] | None = None,
     ) -> None:
         if not isinstance(token, str) or token.strip() == "" or any(ord(c) < 32 for c in token):
             raise XaiMediaError("TOKEN_MISSING", "缺少可用的登录凭证，没有发起生成。")
@@ -106,6 +107,7 @@ class XaiMediaClient:
         self._token = token.strip()
         self._origin = origin.rstrip("/")
         self._log = log
+        self._before_video_submit = before_video_submit
 
     def generate_image(
         self,
@@ -369,6 +371,8 @@ class XaiMediaClient:
         return self._json_body(response)
 
     def _send(self, request: XaiHttpRequest, event: str) -> XaiHttpResponse:
+        if event == "video_submit" and self._before_video_submit is not None:
+            self._before_video_submit(request)
         started = time.monotonic()
         request_bytes = len(request.body or b"")
         reference_count = 0

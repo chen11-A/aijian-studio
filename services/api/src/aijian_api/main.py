@@ -128,6 +128,7 @@ from aijian_api.fake_timeline_workflow import (
     SourceRequiredError,
 )
 from aijian_api.fake_timeline_workflow_routes import create_fake_timeline_workflow_router
+from aijian_api.generation_failure_routes import create_generation_failure_router
 from aijian_api.ingestion import MAX_SOURCE_BYTES, SourceValidationError, ingest_text_file
 from aijian_api.invalidation_routes import (
     InvalidationReportCorruptError,
@@ -1269,7 +1270,14 @@ def create_app(
         app.include_router(
             create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))
         )
-        app.include_router(create_story_film_router(get_repository, get_media_probe_toolchain))
+        app.include_router(create_generation_failure_router(get_repository))
+        app.include_router(
+            create_story_film_router(
+                get_repository,
+                get_media_probe_toolchain,
+                sidecar_security.token if sidecar_security is not None else None,
+            )
+        )
         app.include_router(
             create_draft_review_router(
                 get_repository,
