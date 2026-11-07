@@ -34,5 +34,17 @@
       "Duration  546.42s (transform 12.14s, setup 64.68s, import 48.01s, tests 625.94s, environment 244.38s)",
       "All files          |   90.31 |    86.79 |   92.62 |   93.07 |"
     ]
+  },
+  "web-01db481": {
+    "source": "01db481725bee8811119a549d305cff7b87951fe",
+    "log": "/tmp/aivora-handoff-web-recovery-root-full-web.log",
+    "bytes": 47003,
+    "sha256": "a16919a95e4500a011a2f4f1c3aaeaf981cb997864135c4421645a617b9bccd6",
+    "summaryLines": [
+      "Test Files  472 passed (472)",
+      "Tests  5631 passed (5631)",
+      "Duration  546.95s (transform 10.97s, setup 65.24s, import 46.75s, tests 624.52s, environment 246.11s)",
+      "All files          |   90.31 |    86.79 |   92.62 |   93.07 |"
+    ]
   }
 }

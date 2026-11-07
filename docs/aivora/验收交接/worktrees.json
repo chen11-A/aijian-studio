@@ -1,40 +1,53 @@
 {
-  "note": "Source snapshots are preserved; do not reset old validated worktrees. Primary records may be dirty until final documentation commit.",
+  "note": "Core handoff paths; historical-worktrees.json is an earlier location snapshot, not an accepted product list. Auto-source checkpoint ref 939b4c9 stays preserved although frontend directory now checks out acceptance fix.",
   "worktrees": [
     {
-      "role": "验收代码与交接记录",
+      "role": "交接记录",
       "path": "/workspace/aivora-audio-next-integration",
       "branch": "codex/aivora-handoff-records",
-      "head": "8593a6855f5a0080a38e08e681c8667715ad1ec9",
-      "dirty": true
+      "runtimeAndTestsSource": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+      "head": "Resolve containing records branch tip; its only differences from code source are docs/aivora records.",
+      "cleanCheck": "Final git status checked after the documentation commit; do not embed a self-referential commit hash."
     },
     {
-      "role": "前端续接检查点",
+      "role": "前端最终验收修复",
       "path": "/workspace/aivora-copy-assistant-tail",
-      "branch": "codex/aivora-generation-auto-source-intent",
-      "head": "939b4c975f38568d825d3d5e89a0a83106813ec0",
+      "branch": "codex/aivora-acceptance-browser-generation",
+      "head": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
       "dirty": false
     },
     {
-      "role": "后端续接检查点",
+      "role": "后端未验收检查点",
       "path": "/workspace/aivora-audio-library-runtime",
       "branch": "codex/aivora-prepared-generation-cache-ledger",
       "head": "166dc89d35d3cfab6f220a409b34a0874f38ee08",
       "dirty": false
     },
     {
-      "role": "原生/界面固定验证目录",
+      "role": "原生/界面基线验证",
       "path": "/workspace/aivora-art-style-host-compat",
       "branch": "codex/aivora-local-reuse-joint-validation",
       "head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
       "dirty": false
     },
     {
-      "role": "API固定验证目录",
+      "role": "API基线验证",
       "path": "/workspace/aivora-art-style-diff",
       "branch": "codex/aivora-handoff-api-validation",
       "head": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
       "dirty": false
+    },
+    {
+      "role": "恢复边界验证",
+      "path": "/workspace/aivora-acceptance-trial-save-boundary",
+      "branch": "codex/aivora-acceptance-trial-save-boundary",
+      "head": "01db481725bee8811119a549d305cff7b87951fe",
+      "dirty": false
     }
-  ]
+  ],
+  "unfinishedRefs": {
+    "frontend": "codex/aivora-generation-auto-source-intent@939b4c975f38568d825d3d5e89a0a83106813ec0",
+    "backend": "codex/aivora-prepared-generation-cache-ledger@166dc89d35d3cfab6f220a409b34a0874f38ee08"
+  },
+  "portableArchive": "../checkpoints/manifest.json"
 }

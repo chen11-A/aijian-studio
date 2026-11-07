@@ -1,0 +1,46 @@
+{
+  "source": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+  "parent": "01db481725bee8811119a549d305cff7b87951fe",
+  "author": "GPT-6.1 Sol / medium frontend agent",
+  "targetGatesAllExit0": true,
+  "targetCases": 1,
+  "seconds": 4.57,
+  "capabilityCases": 3,
+  "controlledBeforeExitCode": 1,
+  "cause": "CONNECTED precedes separate model catalog completion. Before explicit action must observe original generation-catalog ready boundary.",
+  "permanentRegression": "Hold actual models response; early explicit action yields original missing-model refusal and 0 calls; actual catalog delivery causes no replay; explicit new confirmation yields original no-project browser refusal. Original queue/retry assertions retained.",
+  "productionDependenciesWorkflowTimeoutsThresholdsUnchanged": true,
+  "newFullCI": "42419046672 PENDING",
+  "logs": {
+    "controlled-before": {
+      "path": "/tmp/acceptance-browser-generation-controlled-before.log",
+      "bytes": 16370,
+      "sha256": "a0823a46f67f51a0f0c97bc831720227dd6faad08d87cc7fd78e4341371a7836"
+    },
+    "target-final": {
+      "path": "/tmp/acceptance-browser-generation-target-final.log",
+      "bytes": 258,
+      "sha256": "f3fc5d80ae1a152b6096646be906f78c13b58f2d3679ba762eaf190b5193d03e"
+    },
+    "capabilities": {
+      "path": "/tmp/acceptance-browser-generation-capabilities.log",
+      "bytes": 238,
+      "sha256": "e88230b201c1074a5524862501c660efed10f631683d3a695918d6fccd88ce3b"
+    },
+    "types": {
+      "path": "/tmp/acceptance-browser-generation-types.log",
+      "bytes": 24,
+      "sha256": "5cfb036289d819b2a87e947d65f4532031dd37753f3cf2def0f77d398eea1737"
+    },
+    "eslint": {
+      "path": "/tmp/acceptance-browser-generation-eslint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "prettier": {
+      "path": "/tmp/acceptance-browser-generation-prettier.log",
+      "bytes": 66,
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    }
+  }
+}

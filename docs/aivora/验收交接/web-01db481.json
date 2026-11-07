@@ -1,0 +1,43 @@
+{
+  "state": "completed",
+  "exitCode": 0,
+  "sha": "01db481725bee8811119a549d305cff7b87951fe",
+  "completed": [
+    {
+      "stage": "install",
+      "exitCode": 0
+    },
+    {
+      "stage": "web-types",
+      "exitCode": 0
+    },
+    {
+      "stage": "web-build",
+      "exitCode": 0
+    },
+    {
+      "stage": "contracts",
+      "exitCode": 0
+    },
+    {
+      "stage": "web-lint",
+      "exitCode": 0
+    },
+    {
+      "stage": "web-format",
+      "exitCode": 0
+    },
+    {
+      "stage": "node-contracts",
+      "exitCode": 0
+    },
+    {
+      "stage": "full-web",
+      "exitCode": 0
+    },
+    {
+      "stage": "generated-clean",
+      "exitCode": 0
+    }
+  ]
+}
