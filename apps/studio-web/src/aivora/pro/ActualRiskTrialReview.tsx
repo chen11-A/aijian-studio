@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { FilmRiskTrialDecision, FilmRiskTrialReady } from "@aijian/contracts/film-risk-trial";
 import "./ActualRiskTrialReview.css";
 export type ActualTrialRecord = { value: FilmRiskTrialDecision; verified: boolean };
@@ -14,6 +14,7 @@ export type ActualTrialViewState =
       mediaFailed: boolean;
       message?: string;
       recorded?: ActualTrialRecord;
+      reviewExpired?: boolean;
     };
 /** Human input only; playback, main checks and saved notes never choose a decision for the user. */
 export function ActualRiskTrialReview({
@@ -28,6 +29,7 @@ export function ActualRiskTrialReview({
   onMediaError,
   onCheckPending,
   onContinue,
+  continuation,
 }: {
   state: ActualTrialViewState;
   busy: boolean;
@@ -40,6 +42,7 @@ export function ActualRiskTrialReview({
   onMediaError: () => void;
   onCheckPending?: () => void;
   onContinue?: (decisionId: string) => void;
+  continuation?: ReactNode;
 }) {
   const [decision, setDecision] = useState<"accepted" | "needs-changes" | null>(null),
     [note, setNote] = useState(""),
@@ -49,7 +52,13 @@ export function ActualRiskTrialReview({
     setDecision(null);
     setHumanChecked(false);
   }, [reviewId]);
-  const editable = state.kind === "ready" && !busy && !stale && !pending;
+  const editable =
+    state.kind === "ready" &&
+    !busy &&
+    !stale &&
+    !pending &&
+    !state.recorded &&
+    !state.reviewExpired;
   const canRecord =
     editable &&
     !!state.mediaSrc &&
@@ -142,6 +151,10 @@ export function ActualRiskTrialReview({
               </section>
             ) : null}
             {state.message ? <p role="status">{state.message}</p> : null}
+            {state.reviewExpired && !recorded ? (
+              <p className="role-desc">请重新核对实际素材后再记录，说明原文仍保留。</p>
+            ) : null}
+            {recorded ? <p className="role-desc">若要更改人工决定，请重新核对实际素材。</p> : null}
             <fieldset disabled={!editable}>
               <legend>本次人工决定（未默认选择）</legend>
               <label>
@@ -188,6 +201,9 @@ export function ActualRiskTrialReview({
         )}
         {stale ? <p role="alert">创作输入、选版或当前会话已变化，本次试片需重新核对。</p> : null}
         {pending ? <p role="alert">人工决定的保存结果尚未确认，不会自动重复记录。</p> : null}
+        {recorded?.verified && recorded.value.decision === "accepted" && !stale && !pending && !busy
+          ? continuation
+          : null}
         <div className="acts">
           <button className="btn" type="button" onClick={onClose}>
             关闭

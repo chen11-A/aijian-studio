@@ -287,7 +287,9 @@ export async function readActualTrialMedia(
     return {
       kind: "failed",
       message:
-        result?.kind === "FAILED"
+        result?.kind === "FAILED" &&
+        typeof result.code === "string" &&
+        Object.hasOwn(TRIAL_FAILURE, result.code)
           ? TRIAL_FAILURE[result.code]
           : "实际素材没有完整读到，请重新核对；这不代表已经播放。",
     };

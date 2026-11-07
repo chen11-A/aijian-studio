@@ -1,12 +1,16 @@
 import { afterEach, expect, it, vi } from "vitest";
 import type {
+  FilmRiskTrialDecision,
+  FilmRiskTrialRecordInput,
   FilmRiskTrialGateway,
   FilmRiskTrialInput,
   FilmRiskTrialReady,
 } from "@aijian/contracts/film-risk-trial";
 import { sampleFilm, type FilmProject } from "../../film/project";
 import { createFilmPersistence } from "../film-persistence";
+import * as hashes from "./persistent-history";
 import { historyRecordHash } from "./persistent-history";
+import { recordActualTrial, recoverActualTrial } from "./actual-risk-trial-record";
 import {
   actualTrialInputKey,
   prepareActualTrial,
@@ -91,8 +95,8 @@ function fixture() {
     kind: "MEDIA" as const,
     bytes: new Uint8Array([1, 2, 3]),
   }));
-  const record = vi.fn(),
-    check = vi.fn();
+  const record = vi.fn<FilmRiskTrialGateway["recordFilmRiskTrialDecision"]>(),
+    check = vi.fn<FilmRiskTrialGateway["checkFilmRiskTrialDecision"]>();
   window.aijian = {
     readFilmProject: vi.fn(async () => copy(disk)),
     prepareFilmRiskTrial: prepare,
@@ -239,4 +243,262 @@ it("requires an explicit unique actual selected version and reports missing nati
   delete window.aijian!.prepareFilmRiskTrial;
   expect(await prepareActualTrial(f.host, () => true)).toEqual({ kind: "unsupported" });
   expect(f.writes).toHaveLength(0);
+});
+
+async function recordingFixture() {
+  const f = fixture();
+  const binding = {
+    global: "b".repeat(64),
+    trial: "c".repeat(64),
+    targets: [{ shotId: f.scope.shotId, fingerprint: "d".repeat(64) }],
+  };
+  const fingerprint = await historyRecordHash({
+    projectId: f.scope.projectId,
+    shotId: f.scope.shotId,
+    takeId: f.scope.takeId,
+    binding,
+  });
+  f.prepare.mockImplementation(async (input) => {
+    if (input.expectedHash !== (await historyRecordHash(f.raw())))
+      return { kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true };
+    const rows = f.raw().riskTrialDecisions ?? [];
+    const prior = rows.at(-1);
+    return {
+      ...f.ready(input),
+      inputFingerprint: fingerprint,
+      existingDecision: prior
+        ? (Object.fromEntries(
+            Object.entries(prior).filter(([key]) => key !== "binding"),
+          ) as unknown as FilmRiskTrialDecision)
+        : null,
+    };
+  });
+  const first = await prepareActualTrial(f.host, () => true);
+  if (first.kind !== "ready") throw Error("READY_REQUIRED");
+  const write = (input: FilmRiskTrialRecordInput) => {
+    const decision = {
+      schemaVersion: 1 as const,
+      id: `rtd_${"e".repeat(32)}`,
+      projectId: input.projectId,
+      shotId: f.scope.shotId,
+      takeId: f.scope.takeId,
+      inputFingerprint: fingerprint,
+      decision: input.decision,
+      note: input.note,
+      recordedAt: "2026-11-07T01:00:00.000Z",
+    };
+    f.setRaw({
+      ...f.raw(),
+      savedAt: "2026-11-07T01:00:00.000Z",
+      riskTrialDecisions: [
+        ...(f.raw().riskTrialDecisions ?? []),
+        Object.assign({ ...decision }, { binding }),
+      ],
+    });
+    return {
+      kind: "RECORDED" as const,
+      project: f.raw() as unknown as Record<string, unknown>,
+      decision,
+    };
+  };
+  f.record.mockImplementation(async (input) => write(input));
+  return { ...f, review: first.review, write };
+}
+it("records exactly once through native, validates the full append and source receipt, and preserves all existing media", async () => {
+  const f = await recordingFixture(),
+    before = copy(f.current());
+  const result = await recordActualTrial(f.host, f.review, "accepted", "  人工原文🙂  ");
+  expect(result.kind).toBe("recorded");
+  expect(result.recorded?.verified).toBe(true);
+  expect(result.recorded?.value.note).toBe("  人工原文🙂  ");
+  expect(f.record).toHaveBeenCalledTimes(1);
+  expect(f.check).not.toHaveBeenCalled();
+  expect(f.current().shots).toEqual(before.shots);
+  expect(f.current().audioClips).toEqual(before.audioClips);
+  expect(f.current().riskTrialDecisions).toEqual(f.raw().riskTrialDecisions);
+  expect(f.persistence.externalWriteState(before.id)).toBeNull();
+  expect((await f.persistence.flushAll()).status).toBe("saved");
+});
+it("keeps a lost ACK globally unknown while main is BUSY, then checks one complete append without repeating record", async () => {
+  const f = await recordingFixture();
+  let busy = true;
+  f.record.mockImplementationOnce(async (input) => {
+    f.write(input);
+    throw Error("LOST_ACK_PRIVATE");
+  });
+  const producer = f.prepare.getMockImplementation()!;
+  f.prepare.mockImplementation(async (input) =>
+    busy ? { kind: "FAILED", code: "BUSY", unchanged: true } : producer(input),
+  );
+  const result = await recordActualTrial(f.host, f.review, "needs-changes", "还需核对");
+  expect(result.kind).toBe("unknown");
+  expect(result.pending).toBeTruthy();
+  expect((await f.persistence.flushAll()).status).toBe("unknown");
+  expect((await recoverActualTrial(f.host, result.pending!)).kind).toBe("unknown");
+  busy = false;
+  const recovered = await recoverActualTrial(f.host, result.pending!);
+  expect(recovered.kind).toBe("recorded");
+  expect(recovered.recorded?.verified).toBe(true);
+  expect(f.record).toHaveBeenCalledTimes(1);
+  expect((await f.persistence.flushAll()).status).toBe("saved");
+});
+it("does not confuse malformed or partial raw deltas with a recorded decision", async () => {
+  const f = await recordingFixture();
+  f.record.mockImplementationOnce(async (input) => {
+    const result = f.write(input);
+    f.setRaw({ ...f.raw(), title: "意外其他改动" });
+    return result;
+  });
+  const result = await recordActualTrial(f.host, f.review, "accepted", "");
+  expect(result.kind).toBe("unknown");
+  expect(f.current().riskTrialDecisions).toBeUndefined();
+  expect(f.record).toHaveBeenCalledTimes(1);
+  expect((await f.persistence.flushAll()).status).toBe("unknown");
+});
+it("preserves late edits as conflict, then explicitly adopts only a fresh verified saved version", async () => {
+  const f = await recordingFixture(),
+    admitted = deferred<void>(),
+    reply = deferred<void>();
+  f.record.mockImplementationOnce(async (input) => {
+    const result = f.write(input);
+    admitted.resolve();
+    await reply.promise;
+    return result;
+  });
+  const recording = recordActualTrial(f.host, f.review, "accepted", "人工记录");
+  await admitted.promise;
+  f.edit({ title: "后来仍保留的草稿" });
+  await f.persistence.save(f.current());
+  reply.resolve();
+  const result = await recording;
+  expect(result.kind).toBe("unknown");
+  expect(f.current().title).toBe("后来仍保留的草稿");
+  const context = result.pending!;
+  expect(context.observedRaw).toBeTruthy();
+  const conflict = {
+    raw: context.observedRaw!,
+    live: f.current(),
+    draft: f.persistence.externalWriteState(f.scope.projectId)!.draft,
+  };
+  const resolved = await recoverActualTrial(f.host, context, conflict);
+  expect(resolved.kind).toBe("recorded");
+  expect(f.current().title).toBe(context.rawBefore.title);
+  expect(f.record).toHaveBeenCalledTimes(1);
+  expect((await f.persistence.flushAll()).status).toBe("saved");
+});
+it("keeps transport failure unknown until a legal gate and two complete exact-before reads prove no write", async () => {
+  const f = await recordingFixture();
+  f.record.mockRejectedValueOnce(Error("UNREACHABLE_PRIVATE"));
+  f.prepare.mockRejectedValueOnce(Error("UNREACHABLE_PRIVATE"));
+  const result = await recordActualTrial(f.host, f.review, "needs-changes", "");
+  expect(result.kind).toBe("unknown");
+  expect((await recoverActualTrial(f.host, result.pending!)).kind).toBe("unknown");
+  expect((await f.persistence.flushAll()).status).toBe("unknown");
+  const resolved = await recoverActualTrial(f.host, result.pending!);
+  expect(resolved.kind).toBe("failed");
+  expect(f.persistence.externalWriteState(f.scope.projectId)).toBeNull();
+  expect(f.current().riskTrialDecisions).toBeUndefined();
+  expect(f.record).toHaveBeenCalledTimes(1);
+});
+
+it.each(["current", "foreign"] as const)(
+  "rechecks %s current/draft identity after a yielded proof before confirming or applying",
+  async (kind) => {
+    const f = await recordingFixture();
+    f.record.mockImplementationOnce(async (input) => {
+      f.write(input);
+      throw Error("LOST_ACK");
+    });
+    const first = await recordActualTrial(f.host, f.review, "accepted", "guard");
+    expect(first.kind).toBe("unknown");
+    const retained = f.persistence.externalWriteState(f.scope.projectId)!.draft;
+    const other = { ...copy(f.current()), id: "film_other_actualtrial", title: "另一作品" };
+    if (kind === "foreign") f.host.apply(other);
+    const entered = deferred<void>(),
+      released = deferred<void>(),
+      originalHash = hashes.historyRecordHash;
+    let held = false;
+    vi.spyOn(hashes, "historyRecordHash").mockImplementation(async (value) => {
+      if (value === retained && !held) {
+        held = true;
+        entered.resolve();
+        await released.promise;
+      }
+      return originalHash(value);
+    });
+    const recovery = recoverActualTrial(f.host, first.pending!);
+    await entered.promise;
+    f.host.apply({ ...retained, title: "原稿微任务期间新编辑" });
+    f.persistence.externalWriteState(f.scope.projectId);
+    if (kind === "foreign") f.host.apply(other);
+    released.resolve();
+    expect((await recovery).kind).toBe("unknown");
+    expect(f.persistence.externalWriteState(f.scope.projectId)!.draft.title).toBe(
+      "原稿微任务期间新编辑",
+    );
+    expect(f.current()).toBe(
+      kind === "foreign" ? other : f.persistence.externalWriteState(f.scope.projectId)!.draft,
+    );
+    expect(f.record).toHaveBeenCalledTimes(1);
+  },
+);
+it("never clears pending when the final queue confirmation returns false", async () => {
+  const f = await recordingFixture();
+  f.record.mockImplementationOnce(async (input) => {
+    f.write(input);
+    throw Error("LOST_ACK");
+  });
+  const first = await recordActualTrial(f.host, f.review, "accepted", "");
+  const acquire = f.persistence.acquireExternalRecovery;
+  vi.spyOn(f.persistence, "acquireExternalRecovery").mockImplementation(async (id) => {
+    const lease = await acquire(id);
+    return { ...lease, confirmExternalWrite: () => false };
+  });
+  expect((await recoverActualTrial(f.host, first.pending!)).kind).toBe("unknown");
+  expect((await f.persistence.flushAll()).status).toBe("unknown");
+  expect(f.record).toHaveBeenCalledTimes(1);
+});
+it("retains a proved human fact but gives no verified continuation when main can no longer verify the source", async () => {
+  const f = await recordingFixture();
+  f.prepare.mockResolvedValueOnce({ kind: "FAILED", code: "SOURCE_UNVERIFIED", unchanged: true });
+  const result = await recordActualTrial(f.host, f.review, "accepted", "原人工记录");
+  expect(result.kind).toBe("recorded");
+  expect(result.recorded?.verified).toBe(false);
+  expect(result.message).toContain("试片需重新核对");
+  expect(f.check).not.toHaveBeenCalled();
+  expect((await f.persistence.flushAll()).status).toBe("saved");
+});
+it("does not use INVALID_INPUT or transport as a no-write lifecycle proof", async () => {
+  const f = await recordingFixture();
+  f.record.mockRejectedValueOnce(Error("LOST_ACK"));
+  const first = await recordActualTrial(f.host, f.review, "needs-changes", "");
+  f.prepare.mockResolvedValueOnce({ kind: "FAILED", code: "INVALID_INPUT", unchanged: true });
+  expect((await recoverActualTrial(f.host, first.pending!)).kind).toBe("unknown");
+  f.prepare.mockResolvedValueOnce({ kind: "FAILED", code: "PROJECT_CHANGED", unchanged: true });
+  expect((await recoverActualTrial(f.host, first.pending!)).kind).toBe("failed");
+  expect(f.record).toHaveBeenCalledTimes(1);
+  expect((await f.persistence.flushAll()).status).toBe("saved");
+});
+it("keeps a confirmed native record separate from a failed save of later edits during release", async () => {
+  const f = await recordingFixture(),
+    acquire = f.persistence.acquire;
+  vi.spyOn(f.persistence, "acquire").mockImplementation(async (id) => {
+    const lease = await acquire(id);
+    return {
+      ...lease,
+      release: async () => {
+        f.edit({ title: "之后未保存的新标题" });
+        f.fail();
+        await lease.release();
+      },
+    };
+  });
+  const result = await recordActualTrial(f.host, f.review, "accepted", "已保存人工事实");
+  expect(result.kind).toBe("failed");
+  expect(result.recorded?.value.note).toBe("已保存人工事实");
+  expect(result.pending).toBeUndefined();
+  expect(f.persistence.externalWriteState(f.scope.projectId)).toBeNull();
+  expect(f.current().title).toBe("之后未保存的新标题");
+  expect((await f.persistence.flushAll()).status).toBe("failed");
+  expect(f.record).toHaveBeenCalledTimes(1);
 });

@@ -18,6 +18,7 @@ import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useDialogueSplit } from "./use-dialogue-split";
+import { useActualRiskTrial } from "./use-actual-risk-trial";
 import { useRiskTrialReview } from "./use-risk-trial-review";
 import { useGenerationFailurePolicy } from "./use-generation-failure-policy";
 import { useGenerationVideoRecovery } from "./use-generation-video-recovery";
@@ -1100,6 +1101,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     versions: () => versions,
     onApplied: (message) =>
       setNotice({ code: "STEP_COMPLETE", text: NOTICE_TEXT.STEP_COMPLETE, detail: message }),
+  });
+  const actualRiskTrial = useActualRiskTrial(film, stage === "edit" || stage === "board", {
+    ...audioLibraryHost,
+    selection: () => {
+      const selected = editorSelection.current,
+        live = filmRef.current;
+      const target = live?.shots.find((row) => row.id === selected.shotId);
+      return live && target && (selected.page === "edit" || selected.page === "board")
+        ? {
+            projectId: live.id,
+            shotId: target.id,
+            takeId: target.selectedTakeId,
+            page: selected.page,
+          }
+        : null;
+    },
+    continuation: (decisionId) => {
+      const props = pipelineWorkspace.props(),
+        live = filmRef.current;
+      return live && props.canContinue ? (
+        <PipelineSteps
+          {...props}
+          onContinue={() => void pipelineWorkspace.props().onContinueAfterTrial(decisionId)}
+          targetName={(_, id) => pipelineTargetName(live, id)}
+          sceneName={(id) => pipelineSceneName(live, id)}
+        />
+      ) : null;
+    },
   });
   const actions = videoActions(modelIds);
 
@@ -5685,6 +5714,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     <>
       {videoFactsSuggestion}
       {dialogueSplit.tools}
+      {actualRiskTrial.tools}
       {promptSuggestion}
     </>
   );
@@ -6389,6 +6419,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       {shotAudioSuggestions.tools}
                       {sceneAudioSuggestions.tools}
                       {dialogueSplit.tools}
+                      {actualRiskTrial.tools}
                     </>
                   }
                   onSceneMood={(sceneId, mood) => {
@@ -6705,6 +6736,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <div className="sb-mid">
             {audioLibrary.pendingButton}
             {dialogueSplit.pendingButton}
+            {actualRiskTrial.pendingButton}
             <button
               className={busy ? "task" : "task idle"}
               data-menu="queue"
@@ -7064,6 +7096,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         ) : null}
         {shotAudioSuggestions.dialog}
         {sceneAudioSuggestions.dialog}
+        {actualRiskTrial.dialog}
+        {actualRiskTrial.pendingPanel}
         {dialogueSplit.dialog}
         {dialogueSplit.pendingPanel}
         {audioLibrary.dialog}
