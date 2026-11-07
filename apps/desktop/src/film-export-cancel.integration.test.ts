@@ -225,6 +225,13 @@ it("keeps picker unavailable, later stops the next aspect and retains only the a
   if (result.kind !== "PARTIAL") throw new Error("partial required");
   expect(result.outputs).toHaveLength(1);
   expect(result.outputs[0]!.aspectRatio).toBe("16:9");
+  expect(result.deliveryEvidence).toMatchObject({ kind: "FAILED", code: "EVIDENCE_UNAVAILABLE" });
+  if (result.deliveryEvidence?.kind !== "FAILED")
+    throw new Error("stopped evidence must be unavailable");
+  expect(result.deliveryEvidence.files.every((file) => file.aspectRatio === "16:9")).toBe(true);
+  expect(result.deliveryEvidence.files.some((file) => file.role === "video")).toBe(true);
+  expect((await readdir(f.output)).filter((name) => name.endsWith(".json"))).toEqual([]);
+
   expect((await stat(result.outputs[0]!.path)).size).toBeGreaterThan(0);
   expect(await stop).toMatchObject({ kind: "REQUESTED" });
   expect(f.events.at(-1)).toMatchObject({
@@ -239,4 +246,33 @@ it("keeps picker unavailable, later stops the next aspect and retains only the a
     kind: "FAILED",
     code: "RECEIPT_STALE",
   });
+}, 30000);
+
+it("returns the actual written evidence through authorized export IPC after managed work settles", async () => {
+  const f = await fixture(),
+    original = digest(await readFile(f.source));
+  const ready = (await f.handlers.get("film:qc-prepare")!(
+    f.event,
+    f.input,
+    "evidence-prepare",
+  )) as FilmExportQcPrepared;
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const published = (await f.handlers.get("film:qc-publish")!(
+    f.event,
+    { ...f.input, qcReceipt: ready.qcReceipt },
+    "evidence-publish",
+  )) as FilmExportQcPublishResult;
+  expect(published.kind).toBe("PUBLISHED");
+  if (published.kind !== "PUBLISHED" || published.deliveryEvidence?.kind !== "WRITTEN")
+    throw new Error("written evidence required");
+  const evidence = published.deliveryEvidence;
+  const bytes = await readFile(join(f.output, evidence.fileName));
+  expect(digest(bytes)).toBe(evidence.manifestSha256);
+  expect(JSON.parse(bytes.toString())).toEqual(evidence.manifest);
+  expect(evidence.manifest.files.filter((file) => file.role === "video")).toHaveLength(2);
+  expect(f.events.at(-1)).toMatchObject({ phase: "completed", cancelState: "unavailable" });
+  expect(f.live.size).toBe(0);
+  expect(await readdir(f.host.temporaryRoot)).toEqual([]);
+  expect(digest(await readFile(f.source))).toBe(original);
+  expect(JSON.stringify(evidence)).not.toContain(f.host.temporaryRoot);
 }, 30000);

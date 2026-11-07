@@ -1,3 +1,11 @@
+import { deliveryQc, deliverySelection, deliveryTechnical } from "./film-delivery-evidence";
+import { writeDeliveryManifest } from "./film-delivery-manifest";
+import type {
+  FilmDeliveryTechnical,
+  FilmDeliveryQcSummary,
+  FilmDeliveryManifest,
+  FilmDeliveryEvidenceResult,
+} from "@aijian/contracts/film-delivery-evidence";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
 import { normalizeMixedAudio, type AudioNormalizer } from "./film-audio-normalize";
 import { resolveAudioMix } from "./film-audio-mix-sources";
@@ -174,11 +182,15 @@ type Prepared = {
     hash: string;
     extras: FilmExportExtras;
     extraHashes: Record<string, string>;
+    technical: FilmDeliveryTechnical | null;
+    qc: FilmDeliveryQcSummary;
   }[];
   owner: string;
   ownerGeneration: number;
   blocked: boolean;
   fileName: string;
+  selection: FilmDeliveryManifest["selection"];
+  unverified: string[];
 };
 /** Main's persisted project and selection are authoritative; renderer never supplies media paths. */
 export function createFilmExportQc(host: FilmQcHost) {
@@ -572,7 +584,11 @@ export function createFilmExportQc(host: FilmQcHost) {
             total: input.settings.aspects.length,
             unit: "画幅",
           });
+          let technical: FilmDeliveryTechnical | null = null;
           const checking = engine(path, {
+            onMediaInfo: (value) => {
+              technical = deliveryTechnical(value);
+            },
             signal: work?.signal,
             ...tools,
             ...(srtPath ? { srtPath } : {}),
@@ -590,7 +606,15 @@ export function createFilmExportQc(host: FilmQcHost) {
           const extraHashes: Record<string, string> = {};
           for (const extra of Object.values(extras))
             if (extra) extraHashes[extra] = await sha(extra, work);
-          outputs.push({ aspectRatio, path, hash: await sha(path, work), extras, extraHashes });
+          outputs.push({
+            aspectRatio,
+            path,
+            hash: await sha(path, work),
+            extras,
+            extraHashes,
+            technical,
+            qc: deliveryQc(report),
+          });
           if (normalizer) {
             const measured = await normalizer.measureAudioLoudness(
               path,
@@ -611,6 +635,25 @@ export function createFilmExportQc(host: FilmQcHost) {
         const fileName = safeExportName(
           `${text(base.record.seriesTitle) || text(base.record.title)}-${text(base.record.episodeTitle) || "成片"}`,
         );
+        const unverified: string[] = [
+          ...(base.mix.plan.limitations.includes("SCENE_AUDIO_BINDING_STALE")
+            ? ["整场配声的选版、实际时钟或完整成员已变化，整组未混入；请重新核对并选用。"]
+            : []),
+          ...(base.mix.plan.limitations.includes("STALE_CLIP_IGNORED")
+            ? ["旧版本或缺少选版绑定的音轨未混入，请核对当前版本。"]
+            : []),
+          ...(base.mix.plan.limitations.includes("NATIVE_DIALOGUE_UNKNOWN")
+            ? ["部分原声尚未分类对白，配乐按整个有声片段保守避让；未做语音识别。"]
+            : []),
+          input.settings.autoAdjustVolume
+            ? audioApplicable
+              ? "已按最终文件复测全片响度；此项不代表试听或对白完整性验证。"
+              : "本次没有有声内容，有限响度目标未适用；静音保持静音。"
+            : "自动调整音量已关闭，保留片段和整轨设置，仍按原QC规则测量。",
+          "台词是否说完未检查：需要真实播放和试听。",
+          "人物、动作连续性与口型同步需要人工观看；烧录字幕未做视觉检测，旁路字幕仅估算时间和布局。",
+          "音乐避让按有声片段保守处理；尚无可靠的逐句语音对齐，不证明对白完整性。",
+        ];
         const token = randomUUID();
         receipts.set(token, {
           input,
@@ -621,6 +664,8 @@ export function createFilmExportQc(host: FilmQcHost) {
           owner,
           ownerGeneration,
           fileName,
+          selection: deliverySelection(base.record, base.clips, shots),
+          unverified: [...unverified],
           blocked: reports.some(
             (item) =>
               Array.isArray(object(item.report)?.issues) &&
@@ -636,25 +681,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           outputs: reports,
           shots,
           fileName,
-          unverified: [
-            ...(base.mix.plan.limitations.includes("SCENE_AUDIO_BINDING_STALE")
-              ? ["整场配声的选版、实际时钟或完整成员已变化，整组未混入；请重新核对并选用。"]
-              : []),
-            ...(base.mix.plan.limitations.includes("STALE_CLIP_IGNORED")
-              ? ["旧版本或缺少选版绑定的音轨未混入，请核对当前版本。"]
-              : []),
-            ...(base.mix.plan.limitations.includes("NATIVE_DIALOGUE_UNKNOWN")
-              ? ["部分原声尚未分类对白，配乐按整个有声片段保守避让；未做语音识别。"]
-              : []),
-            input.settings.autoAdjustVolume
-              ? audioApplicable
-                ? "已按最终文件复测全片响度；此项不代表试听或对白完整性验证。"
-                : "本次没有有声内容，有限响度目标未适用；静音保持静音。"
-              : "自动调整音量已关闭，保留片段和整轨设置，仍按原QC规则测量。",
-            "台词是否说完未检查：需要真实播放和试听。",
-            "人物、动作连续性与口型同步需要人工观看；烧录字幕未做视觉检测，旁路字幕仅估算时间和布局。",
-            "音乐避让按有声片段保守处理；尚无可靠的逐句语音对齐，不证明对白完整性。",
-          ],
+          unverified,
         };
       } catch (error) {
         return work?.signal.aborted
@@ -680,6 +707,40 @@ export function createFilmExportQc(host: FilmQcHost) {
         subtitlePath?: string;
         coverPath?: string;
       }[] = [];
+      let preparedForEvidence: Prepared | undefined;
+      let evidenceDirectory = "";
+      let deliveryEvidence: FilmDeliveryEvidenceResult | undefined;
+      const evidence = async (complete: boolean): Promise<FilmDeliveryEvidenceResult> => {
+        if (deliveryEvidence) return deliveryEvidence;
+        const prepared = preparedForEvidence;
+        if (!prepared || !evidenceDirectory)
+          return { kind: "FAILED", code: "EVIDENCE_UNAVAILABLE", files: [] };
+        deliveryEvidence = await writeDeliveryManifest({
+          directory: evidenceDirectory,
+          published: outputs,
+          checked: prepared.outputs.map((item) => ({
+            aspectRatio: item.aspectRatio,
+            videoSha256: item.hash,
+            subtitleSha256: item.extras.subtitlePath
+              ? item.extraHashes[item.extras.subtitlePath]
+              : undefined,
+            coverSha256: item.extras.coverPath
+              ? item.extraHashes[item.extras.coverPath]
+              : undefined,
+            technical: item.technical,
+            qc: item.qc,
+          })),
+          selection: prepared.selection,
+          settings: prepared.input.settings,
+          unverified: prepared.unverified,
+          complete,
+          now: now(),
+          work,
+          assertCurrent: () =>
+            current(prepared.input, prepared.fingerprint, owner, prepared.ownerGeneration, work),
+        });
+        return deliveryEvidence;
+      };
       try {
         const input = qcInput(value);
         token = text(object(value)?.qcReceipt);
@@ -691,6 +752,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           JSON.stringify(input) !== JSON.stringify(prepared.input)
         )
           fail("RECEIPT_STALE");
+        preparedForEvidence = prepared;
         if (publishing.has(token)) fail("BUSY");
         publishing.add(token);
         publishKey = token;
@@ -708,6 +770,7 @@ export function createFilmExportQc(host: FilmQcHost) {
         consumed = true;
         cleanupFolder = prepared.folder;
         const target = await realpath(directory);
+        evidenceDirectory = target;
         if (!(await stat(target)).isDirectory()) fail("PUBLISH_FAILED");
         // Receipt identity makes each output name unique; existing originals are never overwritten.
         for (const output of prepared.outputs) {
@@ -772,14 +835,20 @@ export function createFilmExportQc(host: FilmQcHost) {
             await rm(temporary, { recursive: true, force: true });
           }
         }
+        const delivered = await evidence(true);
         await rm(prepared.folder, { recursive: true, force: true });
-        return { kind: "PUBLISHED", outputs };
+        return {
+          kind:
+            delivered.kind === "WRITTEN" && !delivered.cleanupUnconfirmed ? "PUBLISHED" : "PARTIAL",
+          outputs,
+          deliveryEvidence: delivered,
+        };
       } catch (error) {
         const failed = work?.signal.aborted
           ? { kind: "FAILED" as const, code: "OPERATION_STOPPED" as const }
           : failure(error);
         return outputs.length
-          ? { kind: "PARTIAL", outputs }
+          ? { kind: "PARTIAL", outputs, deliveryEvidence: await evidence(false) }
           : failed.code === "CHECK_FAILED"
             ? { kind: "FAILED", code: "PUBLISH_FAILED" }
             : failed;

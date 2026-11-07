@@ -419,3 +419,42 @@ test("issue IDs use two decimal places and audio actions match repair intent", (
   assert.equal(audio.find((entry) => entry.type === "true_peak").severity, "block");
   assert.ok(audio.every((entry) => entry.action === "adjust_volume"));
 });
+
+test("observes final technical facts from the existing probe without extra processes or schema changes", async (t) => {
+  if (missingMediaTools(t)) return;
+  const root = await mkdtemp(join(tmpdir(), "qc-facts-"));
+  try {
+    const path = join(root, "facts.mp4");
+    synth(path, "testsrc=size=160x90:rate=24", "sine=frequency=731:sample_rate=48000", 1);
+    const observations = [],
+      started = [],
+      closed = [];
+    const report = await checkExport(path, {
+      ffmpegPath: ffmpeg,
+      ffprobePath: ffprobe,
+      onMediaInfo: (value) => observations.push(value),
+      onProcess: (pid, done) => (done ? closed : started).push(pid),
+    });
+    assert.equal(observations.length, 1);
+    const facts = observations[0];
+    assert.equal(facts.video.width, 160);
+    assert.equal(facts.video.height, 90);
+    assert.equal(facts.video.averageFrameRate, 24);
+    assert.equal(facts.video.codec, "mpeg4");
+    assert.equal(facts.audioTracks[0].codec, "aac");
+    assert.equal(facts.audioTracks[0].sampleRate, 48000);
+    assert.equal(facts.video.colorSpace, null);
+    assert.equal(started.length, 3); // existing probe + visual detector + audio detector only
+    assert.equal(closed.length, 3);
+    assert.deepEqual(Object.keys(report).sort(), [
+      "assumptions",
+      "audio",
+      "issues",
+      "media",
+      "schemaVersion",
+    ]);
+    assert.equal(JSON.stringify(facts).includes(root), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

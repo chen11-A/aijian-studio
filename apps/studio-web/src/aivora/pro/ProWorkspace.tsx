@@ -49,6 +49,7 @@ import { acceptExportProgress, type ExportProgressScope } from "./actions/export
 import type { FilmExportProgressEvent } from "@aijian/contracts/film-export-qc";
 import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/film-export-qc";
 import { ExportCheck } from "../next/ExportCheck";
+import { useExportDelivery } from "./use-export-delivery";
 import { readQcReport, type QcIssue } from "../next/qcReport";
 import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
@@ -805,7 +806,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     batchConfirmation.current = rows ? { projectId: filmRef.current?.id ?? "", rows } : null;
     setPendingBatchState(rows);
   }
-  const [exportFile, setExportFile] = useState("");
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const filmRef = useRef<FilmProject | null>(null);
@@ -1033,6 +1033,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     },
     persistence,
   };
+  const exportDelivery = useExportDelivery(film?.id ?? null, () => filmRef.current?.id ?? null);
   const riskTrialReview = useRiskTrialReview(film, {
     current: () => filmRef.current,
     onInspect: (shotId, sceneId) => {
@@ -4635,7 +4636,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const epoch = ++exportQcEpoch.current;
     exportQcBusyRef.current = true;
     setExportQcBusy(true);
-    setExportFile("");
+    exportDelivery.clear();
     setExportQcAspect(0);
     const old = exportQc?.ready;
     if (old) void bridge.discardFilmExport?.(old.qcReceipt).catch(() => undefined);
@@ -4801,6 +4802,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         });
         return;
       }
+      exportDelivery.remember(check.input.projectId, result);
       const path = result.outputs[0]?.path;
       let recorded = true;
       setExportQc(null);
@@ -4811,7 +4813,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         const execution = exportExecutionScope.current;
         if (execution?.operationId === operationId)
           execution.key = filmQcKey(filmRef.current, exportQcCurrent.current.input);
-        setExportFile(path);
         try {
           recorded = Boolean(await saveFilm(filmRef.current!));
         } catch {
@@ -4824,7 +4825,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text: result.kind === "PARTIAL" ? NOTICE_TEXT.EXPORT_FAILED : NOTICE_TEXT.EXPORT_DONE,
         detail:
           result.kind === "PARTIAL"
-            ? "已有文件保留，其余没有发布，请核对后重新检查。"
+            ? result.deliveryEvidence?.cleanupUnconfirmed
+              ? result.deliveryEvidence.kind === "WRITTEN"
+                ? "交付清单已写入，暂存清理尚未确认。"
+                : "已有文件保留，交付清单与暂存清理尚未确认。"
+              : "部分交付尚未完成，已确认写出的文件保留，请核对下方记录。"
             : !recorded
               ? "文件已发布，工程中的导出记录尚未保存。"
               : undefined,
@@ -7542,28 +7547,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       <span className="bar" aria-hidden="true" />
                       <span>正在导出：拼接、混音、写文件。长一点的片子要几分钟。</span>
                     </div>
-                  ) : exportFile ? (
-                    <p className="export-done" role="status" title={exportFile}>
-                      导出好了：{exportFile}
-                    </p>
-                  ) : null}
+                  ) : (
+                    exportDelivery.view
+                  )}
                   <div className="acts">
                     <button className="btn" onClick={() => setExportOpen(false)}>
                       关闭
                     </button>
-                    {exportFile ? (
+                    {exportDelivery.available ? (
                       <>
                         <button
                           className="btn"
                           title="打开导出的文件夹"
-                          onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
+                          onClick={exportDelivery.onReveal}
                         >
                           打开文件夹
                         </button>
                         <button
                           className="btn"
                           title="播放导出的文件"
-                          onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
+                          onClick={exportDelivery.onOpen}
                         >
                           播放
                         </button>

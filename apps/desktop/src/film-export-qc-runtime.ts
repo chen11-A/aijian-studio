@@ -10,6 +10,8 @@ export type QcEngine = (
   options: {
     signal?: AbortSignal;
     onProcess?: (pid: number, closed: boolean) => void;
+    /** Optional facts from the engine's existing probe, never renderer supplied. */
+    onMediaInfo?: (value: unknown) => void;
     ffmpegPath: string;
     ffprobePath: string;
     srtPath?: string;
@@ -101,6 +103,8 @@ export type QcRunner = (
   options?: {
     signal?: AbortSignal;
     onProcess?: (pid: number, closed: boolean) => void;
+    /** Optional facts from the engine's existing probe, never renderer supplied. */
+    onMediaInfo?: (value: unknown) => void;
     timeoutMs?: number;
     cwd?: string;
     env?: NodeJS.ProcessEnv;
