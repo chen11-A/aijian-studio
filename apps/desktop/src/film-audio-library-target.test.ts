@@ -1,8 +1,9 @@
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
-import { mkdir, mkdtemp, readFile, writeFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile, readdir, rm, symlink, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { createFilmAudioLibrary } from "./film-audio-library";
 import { readProject, writeProject, type FilmRecord } from "./film-library";
 import { filmHistoryRecordHash } from "./film-history";
@@ -38,9 +39,16 @@ beforeAll(async () => {
 afterEach(async () => {
   for (const folder of folders.splice(0)) await rm(folder, { recursive: true, force: true });
 });
-async function fixture(clean = false) {
-  const root = await mkdtemp(join(tmpdir(), "只读单镜时钟 "));
-  folders.push(root);
+async function fixture(clean = false, alias = false) {
+  const container = await mkdtemp(join(tmpdir(), "只读单镜时钟 "));
+  folders.push(container);
+  let root = container;
+  if (alias) {
+    const actual = join(container, "actual");
+    await mkdir(actual);
+    root = join(container, "alias");
+    await symlink(actual, root, process.platform === "win32" ? "junction" : "dir");
+  }
   const filmsRoot = join(root, "films"),
     storyFilmsRoot = join(root, "story");
   const id = "film_aaaaaaaaaaaaaaaa",
@@ -218,19 +226,41 @@ it.each(["project", "take"])(
     expect(await readdir(f.media)).toEqual(["原片 native.mp4"]);
   },
 );
-it.each(["native", "clean"])(
-  "rejects changed %s bytes after its final probe even when duration and project JSON stay the same",
-  async (kind) => {
-    const f = await fixture(true),
+it.each([
+  { kind: "native", alias: false },
+  { kind: "clean", alias: false },
+  { kind: "native", alias: true },
+  { kind: "clean", alias: true },
+])(
+  "rejects changed $kind bytes after its final probe (path alias=$alias)",
+  async ({ kind, alias }) => {
+    const f = await fixture(true, alias),
       before = await readFile(join(dirname(f.media), "project.json"));
     const source = kind === "native" ? f.native : f.cleanPath;
+    const sourceHash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+    const originalHash = sourceHash(await readFile(source));
+    let injected = 0,
+      sawAlias = false;
     f.effect(async (path, count) => {
-      if (path === source && count === 2) await f.generate(source, kind === "native" ? 2 : 1, true);
+      if (count !== 2) return;
+      const [actual, expected] = await Promise.all([
+        stat(path, { bigint: true }),
+        stat(source, { bigint: true }),
+      ]);
+      if (actual.dev !== expected.dev || actual.ino !== expected.ino) return;
+      expect(await readFile(path)).toEqual(await readFile(source));
+      sawAlias ||= path !== source;
+      injected++;
+      await f.generate(source, kind === "native" ? 2 : 1, true);
+      expect(sourceHash(await readFile(path))).not.toBe(originalHash);
     });
     expect(await f.api.inspectBundledFilmAudioTarget(f.input)).toMatchObject({
       kind: "FAILED",
       code: "PROJECT_CHANGED",
     });
+    expect(injected).toBe(1);
+    if (alias) expect(sawAlias).toBe(true);
+    expect(sourceHash(await readFile(source))).not.toBe(originalHash);
     expect(await readFile(join(dirname(f.media), "project.json"))).toEqual(before);
     expect(f.host.beforeCommit).not.toHaveBeenCalled();
   },

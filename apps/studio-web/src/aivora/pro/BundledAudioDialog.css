@@ -1,0 +1,66 @@
+.pro-root .bundled-audio-dialog {
+  width: min(860px, calc(100vw - 48px));
+  max-height: calc(100vh - 112px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+.pro-root .bundled-audio-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.pro-root .bundled-audio-body > div {
+  min-width: 0;
+}
+.pro-root .bundled-audio-list {
+  display: grid;
+  gap: 6px;
+  max-height: 300px;
+  overflow: auto;
+  margin: 8px 0;
+}
+.pro-root .bundled-audio-item {
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  white-space: normal;
+}
+.pro-root .bundled-audio-item[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pro-root .bundled-audio-dialog label {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+.pro-root .bundled-audio-dialog .bundled-audio-loop {
+  display: flex;
+  align-items: center;
+}
+.pro-root .bundled-audio-dialog p,
+.pro-root .bundled-audio-dialog dd,
+.pro-root .bundled-audio-item {
+  overflow-wrap: anywhere;
+}
+.pro-root .bundled-audio-dialog dd {
+  margin: 2px 0 8px;
+}
+.pro-root .bundled-audio-dialog .acts {
+  position: static;
+  flex: none;
+  flex-wrap: wrap;
+}
+.pro-root .bundled-audio-used-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

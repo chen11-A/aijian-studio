@@ -16,6 +16,20 @@ export type MixShot = {
   /** null means unclassified native audio: conservative whole-clip speech duck. */
   hasDialogue: boolean | null;
 };
+/** Creative gain/fade intent, never media ownership evidence. Times are clip-relative.
+ * Automation holds the picker's final baseline dB; it offsets the current absolute
+ * clip gain by (automation - baseGainDb). Base is a reference, never added twice.
+ */
+export type AudioMixGainCurve = {
+  initialGain: number;
+  points: { seconds: number; gain: number; interpolation: "linear" | "step" }[];
+};
+export type AudioMixEnvelope = {
+  schemaVersion: 1;
+  baseGainDb: number;
+  fades?: { direction: "in" | "out"; startSeconds: number; durationSeconds: number }[];
+  gainAutomation?: { startSeconds: number; endSeconds: number; gainDb: number }[];
+};
 export type MixClip = {
   id: string;
   lane: MixLane;
@@ -31,6 +45,7 @@ export type MixClip = {
   /** Repeat source from offset to source end; no seamless-edit claim. */
   loop?: boolean;
   enabled?: boolean;
+  envelope?: AudioMixEnvelope;
 };
 export type AudioMixSettings = {
   schemaVersion: 1;
@@ -53,6 +68,7 @@ export type MixTrack = {
   native: boolean;
   sourceChannels?: number;
   loopSeconds?: number;
+  envelope?: AudioMixEnvelope;
 };
 export type AudioMixPlan = {
   projectId: string;

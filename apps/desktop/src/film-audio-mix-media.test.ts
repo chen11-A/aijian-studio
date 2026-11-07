@@ -509,3 +509,97 @@ it("cancels an actual managed mix child, waits for close and removes its private
   expect((await readdir(root)).filter((name) => name.endsWith(".audio-filter.txt"))).toEqual([]);
   expect(await readFile(video)).toEqual(before);
 });
+
+it("executes cropped and master fades multiplied with absolute automation gain on a real looping source", async () => {
+  const f = await fixture(),
+    original = await readFile(f.video);
+  const short = join(f.root, "short-loop.wav");
+  await run(tools.ffmpegPath, [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=660:sample_rate=48000:duration=0.4",
+    "-c:a",
+    "pcm_s16le",
+    short,
+  ]);
+  f.paths.ambience = short;
+  f.input.sources.ambience = await probeMixSource(short, tools, run);
+  const source = await readFile(short);
+  const settings = audioMixSettings(undefined);
+  settings.lanes.dialogue.muted = true;
+  settings.lanes.ambience.gainDb = -2;
+  f.input.clips = [
+    {
+      ...f.input.clips[1]!,
+      startSeconds: 0,
+      durationSeconds: 4,
+      offsetSeconds: 0,
+      gainDb: -3,
+      loop: true,
+      envelope: {
+        schemaVersion: 1,
+        baseGainDb: -6,
+        fades: [
+          { direction: "in", startSeconds: -0.25, durationSeconds: 0.5 },
+          { direction: "in", startSeconds: 0, durationSeconds: 2 },
+          { direction: "out", startSeconds: 3, durationSeconds: 1 },
+        ],
+        gainAutomation: [
+          { startSeconds: 1, endSeconds: 2, gainDb: -12 },
+          { startSeconds: 2, endSeconds: 3, gainDb: -9 },
+        ],
+      },
+    },
+  ];
+  // A short loop boundary occurs well inside both fades/automation; only source time loops.
+  const plan = buildAudioMixPlan({ ...f.input, controls: { lanes: settings.lanes } }),
+    output = join(f.root, "envelopes.mp4");
+  await renderAudioMix(f.video, output, plan, f.paths, tools, run);
+  const { evaluateAudioMix } = await import("@aijian/contracts/film-audio-mix-plan");
+  for (const at of [0.2, 0.6, 1.25, 2.4, 3.45]) {
+    const expected = 0.125 * evaluateAudioMix(plan, at + 0.05)[0]!.gain;
+    const measured = await amplitude(output, at, 0.1, 660);
+    expect(Math.abs(measured - expected)).toBeLessThan(Math.max(0.001, expected * 0.08));
+  }
+  expect(await readFile(f.video)).toEqual(original);
+  expect(await readFile(f.paths.ambience!)).toEqual(source);
+}, 30000);
+
+it("really evaluates all 64 automation ranges through balanced numeric script without a parser-depth bypass", async () => {
+  const f = await fixture(),
+    settings = audioMixSettings(undefined);
+  settings.lanes.dialogue.muted = true;
+  f.input.clips = [
+    {
+      ...f.input.clips[1]!,
+      startSeconds: 0,
+      durationSeconds: 4,
+      gainDb: 0,
+      envelope: {
+        schemaVersion: 1,
+        baseGainDb: 0,
+        gainAutomation: Array.from({ length: 64 }, (_, index) => ({
+          startSeconds: index * 0.05,
+          endSeconds: (index + 1) * 0.05,
+          gainDb: index % 2 ? -18 : -6,
+        })),
+      },
+    },
+  ];
+  const output = join(f.root, "many-envelopes.mp4");
+  await renderAudioMix(
+    f.video,
+    output,
+    buildAudioMixPlan({ ...f.input, controls: { lanes: settings.lanes } }),
+    f.paths,
+    tools,
+    run,
+  );
+  for (const index of [0, 1, 30, 31, 62, 63]) {
+    const expected = 0.125 * 10 ** ((index % 2 ? -18 : -6) / 20);
+    expect(await amplitude(output, index * 0.05 + 0.015, 0.025, 660)).toBeCloseTo(expected, 2);
+  }
+}, 30000);

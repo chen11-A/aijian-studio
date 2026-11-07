@@ -14,6 +14,7 @@ import {
 } from "../film/seven-part-video";
 import { rangeVideoBody } from "./actions/video-prompt-review";
 import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
+import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
@@ -889,6 +890,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   };
 
   const [historyTick, setHistoryTick] = useState(0);
+  const audioLibrary = useBundledAudioLibrary(film, stage === "edit", {
+    current: () => filmRef.current,
+    selection: () => {
+      const scope = editorSelection.current;
+      const live = filmRef.current;
+      const target = live?.shots.find((row) => row.id === scope.shotId);
+      const take = target?.takes.find(
+        (row) => row.id === target.selectedTakeId && row.status === "done" && row.videoPath,
+      );
+      return live && target && take && scope.page === "edit"
+        ? { projectId: live.id, page: scope.page, shotId: target.id, takeId: take.id }
+        : null;
+    },
+    apply: (next) => {
+      const live = filmRef.current;
+      // Keep prior field undo, while the new clip has its own explicit remove control.
+      // Recording its media structure as a generic field edit would block that history.
+      if (live && committed.current?.id === live.id && committed.current !== live)
+        pageHistory.record(committed.current, live, historyScope.current);
+      applyLive(next);
+      const adopted = filmRef.current!;
+      committed.current = adopted;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      return adopted;
+    },
+    persistence,
+  });
   const actions = videoActions(modelIds);
 
   useEffect(() => {
@@ -3958,13 +3987,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   useDismiss(menu === "account", () => setMenu(null), '[data-menu="account"]');
   // UI wiring (3J-U13): the home page. Opening a saved work is the same as from the 作品 menu;
   // 一键成片 from home makes the work first and starts GPT's oneClickFilm once it is shown.
+  const readOpeningFilm = async (
+    id: string,
+    onOpened: (opened: FilmProject | null, retained: boolean) => void,
+  ) => {
+    const wasUncertain = !!persistence.externalWriteState(id);
+    let saved = await readSaved(id);
+    let pending = persistence.externalWriteState(id);
+    // The first read may have captured old disk bytes before an in-flight add
+    // settled. Once its quarantine cleared, read canonical again; never revive
+    // a retained draft from a completed external write.
+    if (wasUncertain && !pending) {
+      saved = await readSaved(id);
+      pending = persistence.externalWriteState(id);
+    }
+    // Keep this final state check and apply in the same synchronous segment.
+    onOpened(pending?.draft ?? saved, !!pending);
+  };
   const openSaved = (id: string) => {
-    void readSaved(id).then((saved) => {
-      if (!saved) {
+    void readOpeningFilm(id, (opened, retained) => {
+      if (!opened) {
         setNotice("没有打开这部作品。");
         return;
       }
-      const settled = settleOpenedFilm(saved);
+      const settled = settleOpenedFilm(opened);
       applyLive(settled.film);
       setScene(settled.film.scenes[0]?.id ?? "scene-1");
       setShot(0);
@@ -3973,7 +4019,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(
         settled.interrupted
           ? { code: "WORK_INTERRUPTED", text: NOTICE_TEXT.WORK_INTERRUPTED }
-          : `已打开${saved.seriesTitle || saved.title}。`,
+          : retained
+            ? {
+                code: "PROJECT_OPENED",
+                text: NOTICE_TEXT.PROJECT_OPENED,
+                detail: "已打开保留的编辑副本，本地素材保存状态仍待核对。",
+              }
+            : `已打开${opened.seriesTitle || opened.title}。`,
       );
     });
   };
@@ -4842,9 +4894,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   <button
                     key={item.id}
                     onClick={() => {
-                      void readSaved(item.id).then((saved) => {
-                        if (!saved) return;
-                        const settled = settleOpenedFilm(saved);
+                      void readOpeningFilm(item.id, (opened, retained) => {
+                        if (!opened) return;
+                        const settled = settleOpenedFilm(opened);
                         applyLive(settled.film);
                         setScene(settled.film.scenes[0]?.id ?? scene);
                         setPlaying(false);
@@ -4852,7 +4904,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         setNotice(
                           settled.interrupted
                             ? "上次关软件时还有镜头没做完，已经停下了。可以重新生成。"
-                            : `已打开${saved.episodeTitle}。`,
+                            : retained
+                              ? {
+                                  code: "PROJECT_OPENED",
+                                  text: NOTICE_TEXT.PROJECT_OPENED,
+                                  detail: "已打开保留的编辑副本，本地素材保存状态仍待核对。",
+                                }
+                              : `已打开${opened.episodeTitle}。`,
                         );
                       });
                     }}
@@ -5273,6 +5331,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRefreshWaveforms={audioWaveforms.refresh}
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
+                  libraryTools={audioLibrary.tools}
                   onSceneMood={(sceneId, mood) => {
                     const ids = new Set(
                       film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
@@ -5581,6 +5640,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             ) : null}
           </div>
           <div className="sb-mid">
+            {audioLibrary.pendingButton}
             <button
               className={busy ? "task" : "task idle"}
               data-menu="queue"
@@ -5935,6 +5995,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <NoticeLog log={status.log} />
           </div>
         ) : null}
+        {audioLibrary.dialog}
+        {audioLibrary.pendingPanel}
         {appSettings ? (
           <div className="dialog-back">
             <div className="dialog work-settings" role="dialog" aria-label="设置">
@@ -9788,6 +9850,7 @@ function EditPage({
   onRefreshWaveforms,
   onMute,
   assistant = null,
+  libraryTools = null,
   onSceneMood,
   onSceneVoice,
   onSubtitleStyle,
@@ -9864,6 +9927,7 @@ function EditPage({
   onMute?: () => void;
   /** 4A-U11: the same AI 助手 as 分镜, in the right column's second tab. */
   assistant?: ReactNode;
+  libraryTools?: ReactNode;
   /** 4B-U01: 这场的情绪, written to every shot of the scene (shot.sound.musicMood). */
   onSceneMood?: (sceneId: string, mood: Mood) => void;
   /** 4B-U01: the scene's voice level, written to its voice clips (gainDb). */
@@ -10503,6 +10567,7 @@ function EditPage({
                 重做、换配音、剪掉，用下面时间线上的按钮。剪掉后可按 Ctrl+Z 撤销。
               </p>
             </div>
+            {libraryTools}
             <p className="role-desc">
               {hearLane
                 ? `当前只试听${AUDIO_LANE_LABEL[hearLane]}，不改变导出。`
