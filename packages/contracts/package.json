@@ -140,6 +140,10 @@
     "./film-audio-library": {
       "types": "./src/film-audio-library.ts",
       "default": "./src/film-audio-library.ts"
+    },
+    "./film-audio-suggestion-group": {
+      "types": "./src/film-audio-suggestion-group.d.ts",
+      "default": "./src/film-audio-suggestion-group.js"
     }
   },
   "scripts": {

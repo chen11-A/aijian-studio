@@ -1,3 +1,4 @@
+import type { AudioMixEnvelope } from "./film-audio-mix.js";
 /** Bundled library identifiers and creative metadata only; no renderer-selected source paths. */
 export type BundledAudioAsset = {
   id: string;
@@ -34,11 +35,15 @@ export type FilmAudioLibraryFailure = {
     | "PROJECT_CHANGED"
     | "SOURCE_UNVERIFIED"
     | "PLACEMENT_UNSUPPORTED"
+    | "PLAN_UNSUPPORTED"
     | "BUSY"
     | "WRITE_FAILED"
     | "WRITE_UNCONFIRMED"
     | "TOOLS_UNAVAILABLE";
   unchanged: boolean;
+  reason?: "TRACK_LIMIT";
+  maxSegments?: number;
+  minimumRequiredSegments?: number;
 };
 export type FilmAudioLibraryCatalog = {
   kind: "CATALOG";
@@ -81,7 +86,76 @@ export type InspectBundledFilmAudioTargetResult =
       durationSeconds: number;
     }
   | FilmAudioLibraryFailure;
+export type ShotAudioSuggestionNote = {
+  code:
+    | "MUSIC_MOOD_UNDECIDED"
+    | "MUSIC_DISABLED"
+    | "MUSIC_QUIET"
+    | "MUSIC_MATCH_MISSING"
+    | "ACTION_TIME_UNCONFIRMED"
+    | "ACTION_TIME_INVALID"
+    | "ACTION_LABEL_MISSING"
+    | "DEVICE_TIME_UNCONFIRMED"
+    | "MATCH_MISSING"
+    | "PLANNED_TIMES_ONLY";
+  message: string;
+  index?: number;
+  seconds?: number;
+};
+export type ShotAudioSuggestedClip = {
+  key: string;
+  asset: BundledAudioAsset;
+  lane: "ambience" | "sfx" | "score";
+  placement: AddBundledFilmAudioInput["placement"];
+  envelope?: AudioMixEnvelope;
+  reason: string;
+};
+export type SuggestBundledFilmShotAudioInput = InspectBundledFilmAudioTargetInput;
+export type SuggestBundledFilmShotAudioResult =
+  | {
+      kind: "SUGGESTED";
+      projectId: string;
+      shotId: string;
+      takeId: string;
+      projectHash: string;
+      catalogSha256: string;
+      pickerSha256: string;
+      durationSeconds: number;
+      /** Plan equality only, never a file authorization or permission to execute. */
+      planFingerprint: string;
+      clips: ShotAudioSuggestedClip[];
+      warnings: ShotAudioSuggestionNote[];
+      limitations: ShotAudioSuggestionNote[];
+    }
+  | FilmAudioLibraryFailure;
+export type AudioSuggestionGroup = {
+  schemaVersion: 1;
+  groupId: string;
+  planFingerprint: string;
+  key: string;
+  memberCount: number;
+  memberSetSha256: string;
+};
+export type AudioSuggestionMemberReceipt = { key: string; clipId: string; creativeSha256: string };
+export type AudioSuggestionReceipt = Omit<AudioSuggestionGroup, "key"> & {
+  members: AudioSuggestionMemberReceipt[];
+};
+export type ApplyBundledFilmShotAudioInput = InspectBundledFilmAudioTargetInput & {
+  catalogSha256: string;
+  pickerSha256: string;
+  planFingerprint: string;
+  lanes: ("ambience" | "sfx" | "score")[];
+};
+export type ApplyBundledFilmShotAudioResult =
+  | { kind: "ADDED"; project: Record<string, unknown>; receipt: AudioSuggestionReceipt }
+  | FilmAudioLibraryFailure;
 export type FilmAudioLibraryGateway = {
+  applyBundledFilmShotAudio: (
+    input: ApplyBundledFilmShotAudioInput,
+  ) => Promise<ApplyBundledFilmShotAudioResult>;
+  suggestBundledFilmShotAudio: (
+    input: SuggestBundledFilmShotAudioInput,
+  ) => Promise<SuggestBundledFilmShotAudioResult>;
   inspectBundledFilmAudioTarget: (
     input: InspectBundledFilmAudioTargetInput,
   ) => Promise<InspectBundledFilmAudioTargetResult>;

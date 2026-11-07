@@ -15,6 +15,7 @@ import {
 import { rangeVideoBody } from "./actions/video-prompt-review";
 import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
+import { useShotAudioSuggestions } from "./use-shot-audio-suggestions";
 import { exportProjectArchive } from "./actions/project-archive";
 import { executeRangeRedo, type RangeReady } from "./actions/range-redo";
 import {
@@ -918,6 +919,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     },
     persistence,
   });
+  const shotAudioSuggestions = useShotAudioSuggestions(film, stage === "edit", {
+    current: () => filmRef.current,
+    selection: () => {
+      const scope = editorSelection.current;
+      const live = filmRef.current;
+      const shot = live?.shots.find((row) => row.id === scope.shotId);
+      return live && shot?.selectedTakeId && scope.page === "edit"
+        ? { projectId: live.id, page: scope.page, shotId: shot.id, takeId: shot.selectedTakeId }
+        : null;
+    },
+    persistence,
+  });
   const actions = videoActions(modelIds);
 
   useEffect(() => {
@@ -1746,7 +1759,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     control?: AgentRequestControl,
   ): Promise<AgentReply> {
     const bridge = grokBridge();
-    if (!connected || !bridge || !film) return { text: null, detail: "没有登录。" };
+    if (!film)
+      return { text: null, detail: NOTICE_TEXT.PROJECT_REQUIRED, code: "PROJECT_REQUIRED" };
+    if (!bridge || typeof bridge.completeText !== "function" || typeof bridge.status !== "function")
+      return { text: null, detail: NOTICE_TEXT.DESKTOP_REQUIRED, code: "DESKTOP_REQUIRED" };
+    if (!connected) {
+      const code = membershipDenied
+        ? "ENTITLEMENT_DENIED"
+        : account.state === "REAUTH_REQUIRED"
+          ? "REAUTH_REQUIRED"
+          : "GROK_MEMBERSHIP_REQUIRED";
+      return { text: null, detail: NOTICE_TEXT[code], code };
+    }
     const requestProjectId = film.id;
     const requestTurn = activeTurn.current;
     return completeMembershipAgent(agent, context, user, {
@@ -2075,8 +2099,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       await running;
     } catch {
       if (activeTurn.current === turn) {
-        finishTurn(turn, "这一阶段未完成，可以重试。");
-        emitNotice({ code, text: "这一阶段未完成，可以重试。" });
+        const failure = {
+          code,
+          text: NOTICE_TEXT[code as keyof typeof NOTICE_TEXT] ?? NOTICE_TEXT.OPERATION_STATUS,
+        };
+        finishTurn(turn, failure);
+        emitNotice(failure);
       }
     } finally {
       if (activeTurn.current === turn) {
@@ -2385,7 +2413,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!isTurnCurrent(turn) || result.status === "stale") return;
     if (result.status === "rejected") {
       setStructured([]);
-      finishTurn(turn, result.notice);
+      finishTurn(turn, result.structuredNotice);
+      setNotice(result.structuredNotice);
       noteAgent("art", "rejected", result.notice);
       return;
     }
@@ -2635,7 +2664,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     });
     if (!isTurnCurrent(turn) || result.status === "stale") return;
     if (result.status === "rejected") {
-      finishTurn(turn, result.notice);
+      finishTurn(turn, result.structuredNotice);
+      setNotice(result.structuredNotice);
       noteAgent("prompter", "rejected", result.notice);
       return;
     }
@@ -2667,12 +2697,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const applied = await editorHost.apply(request.id);
     if (!isTurnCurrent(turn) || applied.completionCurrent === false) return;
     if (applied.status !== "saved") {
-      finishTurn(
-        turn,
+      const rejectionCode = applied.conflicts[0] || "SUGGESTION_MISSING";
+      const completion: UiNotice =
         applied.status === "applied_unsaved"
-          ? "提示词已应用，但还没有保存。"
-          : "镜头已变更，这次建议没有写入。",
-      );
+          ? { code: "PROMPTER_APPLIED_UNSAVED", text: NOTICE_TEXT.PROMPTER_APPLIED_UNSAVED }
+          : {
+              code: rejectionCode,
+              text:
+                NOTICE_TEXT[rejectionCode as keyof typeof NOTICE_TEXT] ??
+                NOTICE_TEXT.PLANPROMPTER_FAILED,
+              detail: "本次没有修改画面说明。",
+            };
+      finishTurn(turn, completion);
+      setNotice(completion);
       return;
     }
     setStructured([result.zh, result.en ? `英文：${result.en}` : "英文还没写。"].filter(Boolean));
@@ -5331,7 +5368,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRefreshWaveforms={audioWaveforms.refresh}
                   onMute={() => setSoundOn((value) => !value)}
                   assistant={shotAssistant}
-                  libraryTools={audioLibrary.tools}
+                  libraryTools={
+                    <>
+                      {audioLibrary.tools}
+                      {shotAudioSuggestions.tools}
+                    </>
+                  }
                   onSceneMood={(sceneId, mood) => {
                     const ids = new Set(
                       film.shots.filter((item) => item.sceneId === sceneId).map((item) => item.id),
@@ -5995,6 +6037,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <NoticeLog log={status.log} />
           </div>
         ) : null}
+        {shotAudioSuggestions.dialog}
         {audioLibrary.dialog}
         {audioLibrary.pendingPanel}
         {appSettings ? (

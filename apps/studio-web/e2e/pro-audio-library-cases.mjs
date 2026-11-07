@@ -16,6 +16,22 @@ export const audioLibraryStates = [
   "library-add-remove",
   "library-unknown-recovery",
 ];
+/** Second whitelist before public annotations: never interpolate native/DOM payloads. */
+export function libraryTargetDiagnostic(value) {
+  if (!value || typeof value !== "object") return "";
+  const states = new Set([
+    "TARGET",
+    "PENDING",
+    "CHANGED",
+    "SAVE_UNCONFIRMED",
+    "SOURCE_UNVERIFIED",
+    "UNSUPPORTED",
+    "EMPTY",
+  ]);
+  const replies = new Set(["TARGET", "PENDING", "PROJECT_CHANGED", "SOURCE_UNVERIFIED", "BUSY"]);
+  const count = (v) => (Number.isSafeInteger(v) && v >= 0 && v <= 1000 ? String(v) : "unknown");
+  return ` targetState=${states.has(value.state) ? value.state : "unknown"} targetReply=${replies.has(value.reply) ? value.reply : "unknown"} targetCalls=${count(value.calls)} targetMatched=${count(value.matched)} targetBusy=${count(value.busy)} libraryWrites=${count(value.writes)} libraryPreview=${count(value.previews)} libraryAssembly=${count(value.assemblies)}`;
+}
 const mediaFacts = (film) => ({
   characters: film.characters,
   shots: film.shots.map((s) => ({ id: s.id, takes: s.takes, poster: s.poster })),
@@ -402,6 +418,37 @@ export async function runAudioLibraryCases({ browser, config, report, media, per
           );
           result.checkLine = Number.isSafeInteger(line) && line > 0 && line <= 100000 ? line : null;
           result.error = "PRO_AUDIO_LIBRARY_CASE_FAILED";
+          result.targetReadiness = await page
+            .evaluate(() => {
+              const a = window.__proAudioLibraryAudit;
+              if (!a) return null;
+              const dialog = document.querySelector(".bundled-audio-dialog");
+              const text = dialog?.textContent ?? "";
+              const state = text.includes("当前版本已核对：")
+                ? "TARGET"
+                : text.includes("作品或所选版本已变化")
+                  ? "CHANGED"
+                  : text.includes("检查保存状态") || text.includes("检查保存状态后")
+                    ? "SAVE_UNCONFIRMED"
+                    : text.includes("素材来源暂时无法核验")
+                      ? "SOURCE_UNVERIFIED"
+                      : text.includes("不支持本地素材时长核对")
+                        ? "UNSUPPORTED"
+                        : dialog?.getAttribute("aria-busy") === "true"
+                          ? "PENDING"
+                          : "EMPTY";
+              return {
+                state,
+                reply: a.inspects.at(-1)?.reply ?? "PENDING",
+                calls: a.inspects.length,
+                matched: a.inspects.filter((c) => c.matched === true).length,
+                busy: a.inspects.filter((c) => c.busy === true).length,
+                writes: a.writes.length,
+                previews: a.previews.length,
+                assemblies: window.__proCreationAudit.assemblies.length,
+              };
+            })
+            .catch(() => null);
         } finally {
           if (!result.passed) {
             result.geometry = await page

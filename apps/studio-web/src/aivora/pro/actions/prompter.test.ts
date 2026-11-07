@@ -52,18 +52,24 @@ it.each(["not JSON", "{}"])(
         request: async () => ({ text, detail: "" }),
         current: () => true,
       }),
-    ).toEqual({ status: "rejected", notice: "提示词没有按格式返回。" });
+    ).toMatchObject({
+      status: "rejected",
+      structuredNotice: { code: "PLANPROMPTER_FAILED", detail: "本次没有修改画面说明。" },
+    });
   },
 );
 
-it("retains the provider failure detail", async () => {
+it.each([null, "incomplete reply"])("retains the provider failure detail (%s)", async (text) => {
   const film = sampleFilm();
   expect(
     await planPrompterDraft(film, film.shots[0]!, {
-      request: async () => ({ text: null, detail: "需要重新登录。" }),
+      request: async () => ({ text, detail: "需要重新登录。", code: "REAUTH_REQUIRED" }),
       current: () => true,
     }),
-  ).toEqual({ status: "rejected", notice: "需要重新登录。" });
+  ).toMatchObject({
+    status: "rejected",
+    structuredNotice: { code: "REAUTH_REQUIRED", detail: "需要重新登录。 本次没有修改画面说明。" },
+  });
 });
 
 it("discards late replies after the host invalidates the turn or edited inputs", async () => {

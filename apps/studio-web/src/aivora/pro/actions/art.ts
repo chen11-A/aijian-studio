@@ -1,5 +1,7 @@
 import { artCastContext, aspectContext, type FilmProject } from "../../film/project";
 import { artFromModel, parseLooseJson } from "../../film/phase2";
+import type { UiNotice } from "../../film/contracts3j";
+import { agentFailureNotice } from "./agent-failure-notice";
 import { applyArtDraft, type AgentReply } from "../workflow";
 
 export type ArtActionHost = {
@@ -9,7 +11,7 @@ export type ArtActionHost = {
 };
 export type ArtActionResult =
   | { status: "stale" }
-  | { status: "rejected"; notice: string }
+  | { status: "rejected"; notice: string; structuredNotice: UiNotice }
   | { status: "ready"; lines: string[]; draft: FilmProject };
 
 /** Prepare an art suggestion only. Applying/saving still requires the workspace's user action. */
@@ -27,9 +29,7 @@ export async function planArtDraft(
   if (!parsed)
     return {
       status: "rejected",
-      notice: reply.text
-        ? "美术没有按格式返回，这次没有改作品。"
-        : `${reply.detail} 这次没有改作品。`,
+      ...agentFailureNotice(reply, "PLANART_FAILED", "本次没有修改作品。"),
     };
   return { status: "ready", lines: parsed.lines, draft: applyArtDraft(film, parsed) };
 }

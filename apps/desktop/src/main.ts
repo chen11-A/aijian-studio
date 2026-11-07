@@ -1078,6 +1078,13 @@ registerFilmAudioLibrary<IpcMainInvokeEvent>(
       ),
     run: async (binary, args, options) =>
       (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+    audioOwner: async (projectId, _path, sha, selected) =>
+      storyFilmAudioOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        projectId,
+        sha,
+        selected,
+      ),
     videoOwner: async (projectId, path, hash) =>
       storyFilmQcOwner(
         join(app.getPath("userData"), "workspace", "workspace.sqlite3"),

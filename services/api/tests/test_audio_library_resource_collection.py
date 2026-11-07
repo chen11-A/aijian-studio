@@ -90,6 +90,17 @@ def test_audio_collection_uses_the_same_actual_runtime_and_public_evidence(
         hashlib.sha256((destination / "manifest.json").read_bytes()).hexdigest()
         == index["manifestSha256"]
     )
+    for module, field in (
+        ("audio-picker.mjs", "pickerSha256"),
+        ("audio-picker-synonyms.mjs", "synonymsSha256"),
+    ):
+        assert hashlib.sha256((destination / module).read_bytes()).hexdigest() == index[field]
+    picker_digest = hashlib.sha256(
+        json.dumps(
+            ["audio-picker-runtime-v1", index["pickerSha256"], index["synonymsSha256"]],
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
     assert (destination / "LICENSES.md").read_bytes() == (
         ROOT / "assets/audio-library/LICENSES.md"
     ).read_bytes()
@@ -119,8 +130,15 @@ for (const name of ['film-audio-library-root', 'film-audio-library-runtime', 'fi
   const wanted = fs.statSync(expected, {bigint:true});
   if (actual.dev!==wanted.dev || actual.ino!==wanted.ino) throw Error('wrong resource identity');
   const runtime = require(path.join(mainDir, 'film-audio-library-runtime.js'));
-  const catalog = runtime.publicAudioCatalog(await runtime.loadTrustedAudioLibrary(selected));
-  console.log(JSON.stringify({count:catalog.assets.length,sha:catalog.manifestSha256}));
+  const library = await runtime.loadTrustedAudioLibrary(selected);
+  const catalog = runtime.publicAudioCatalog(library);
+  const picker = await runtime.loadTrustedAudioPicker(selected);
+  const raw = picker.pickAudio({duration:130,emotions:['温暖'],description:'温暖场景',
+    shots:[{duration:130,hasDialogue:false,actions:[]}]},
+    library.assets.map(a=>({...a,path:a.file,duration:a.durationSeconds,loop:a.loopable})));
+  await picker.verify();
+  console.log(JSON.stringify({count:catalog.assets.length,sha:catalog.manifestSha256,
+    picker:picker.sha256,segments:raw.music.segments.length}));
 })().catch(() => process.exit(1));
 """
     unrelated = tmp_path / "unrelated-cwd"
@@ -141,4 +159,8 @@ for (const name of ['film-audio-library-root', 'film-audio-library-runtime', 'fi
         capture_output=True,
         text=True,
     )
-    assert json.loads(probe.stdout) == {"count": 206, "sha": index["manifestSha256"]}
+    result = json.loads(probe.stdout)
+    assert result["count"] == 206
+    assert result["sha"] == index["manifestSha256"]
+    assert result["picker"] == picker_digest
+    assert result["segments"] >= 2

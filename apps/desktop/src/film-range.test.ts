@@ -385,12 +385,20 @@ it("blocks payment on failed snapshot, changed input and discarded plan", async 
 });
 it("preserves a paid late candidate in the original project after cancellation and newer editing", async () => {
   const f = await readyFixture();
-  let resolve!: () => void;
+  const sourceBytes = await readFile(f.source),
+    candidateBytes = await readFile(f.segment);
+  let release!: () => void, admit!: () => void;
   const hold = new Promise<void>((yes) => {
-    resolve = yes;
+    release = yes;
   });
+  const admitted = new Promise<void>((yes) => {
+    admit = yes;
+  });
+  const paidDispatch = vi.fn();
   f.provider.mockImplementationOnce(async (_id, _body, canDispatch) => {
-    if (!(await canDispatch())) throw new Error("not dispatched");
+    if (!(await canDispatch())) throw new Error("DISPATCH_NOT_ADMITTED");
+    paidDispatch();
+    admit();
     await hold;
     return { data: { status: "SUCCEEDED", output_path: f.segment } };
   });
@@ -401,25 +409,108 @@ it("preserves a paid late candidate in the original project after cancellation a
     confirmed: true,
     prompt: "画面",
   });
-  await vi.waitFor(() => expect(f.provider).toHaveBeenCalledOnce());
-  await f.host.discardFilmRange(f.current.id, f.ready.planId);
-  await writeProject(f.filmsRoot, { ...f.current, title: "后来编辑，不得覆盖" });
-  resolve();
-  const result = await work;
-  expect(result.kind).toBe("GENERATED");
-  const current = await readProject(f.filmsRoot, f.current.id);
-  expect(current!.title).toBe("后来编辑，不得覆盖");
-  expect((current!.shots as Record<string, unknown>[])[0]!.selectedTakeId).toBe("source");
-  expect((current!.shots as Record<string, unknown>[])[0]!.takes).toHaveLength(2);
-  if (result.kind !== "GENERATED") throw new Error("expected candidate");
-  expect(
-    await f.host.finishFilmRange({
-      projectId: f.current.id,
-      planId: f.ready.planId,
-      segmentTakeId: result.segmentTakeId,
-      expectedHash: filmHistoryRecordHash(current),
-    }),
-  ).toMatchObject({ kind: "FAILED", code: "PROJECT_CHANGED" });
+  try {
+    // Invocation precedes async canonical/source checks. Only this signal is past admission.
+    await Promise.race([
+      admitted,
+      work.then(() => {
+        throw Error("DISPATCH_NOT_ADMITTED");
+      }),
+    ]);
+    expect(f.provider).toHaveBeenCalledOnce();
+    expect(paidDispatch).toHaveBeenCalledOnce();
+    await f.host.discardFilmRange(f.current.id, f.ready.planId);
+    await writeProject(f.filmsRoot, { ...f.current, title: "后来编辑，不得覆盖" });
+    release();
+    const result = await work;
+    expect(result.kind).toBe("GENERATED");
+    const current = await readProject(f.filmsRoot, f.current.id);
+    expect(current!.title).toBe("后来编辑，不得覆盖");
+    const shot = (current!.shots as Record<string, unknown>[])[0]!;
+    expect(shot.selectedTakeId).toBe("source");
+    expect(shot.takes).toHaveLength(2);
+    if (result.kind !== "GENERATED") throw new Error("CANDIDATE_NOT_SAVED");
+    const candidate = (shot.takes as Record<string, unknown>[]).find(
+      (take) => take.id === result.segmentTakeId,
+    )!;
+    expect(await readFile(String(candidate.videoPath))).toEqual(candidateBytes);
+    expect(await readFile(f.source)).toEqual(sourceBytes);
+    expect(
+      await f.host.finishFilmRange({
+        projectId: f.current.id,
+        planId: f.ready.planId,
+        segmentTakeId: result.segmentTakeId,
+        expectedHash: filmHistoryRecordHash(current),
+      }),
+    ).toMatchObject({ kind: "FAILED", code: "PROJECT_CHANGED" });
+  } finally {
+    release();
+    await work;
+  }
+});
+it("does not dispatch payment when cancellation arrives after provider invocation but before admission", async () => {
+  const f = await readyFixture();
+  const sourceBytes = await readFile(f.source),
+    candidateBytes = await readFile(f.segment);
+  const projectFile = join(
+    f.filmsRoot,
+    f.current.seriesId,
+    "episodes",
+    f.current.id,
+    "project.json",
+  );
+  const projectBytes = await readFile(projectFile);
+  let release!: () => void, enter!: () => void;
+  const hold = new Promise<void>((yes) => {
+    release = yes;
+  });
+  const entered = new Promise<void>((yes) => {
+    enter = yes;
+  });
+  const paidDispatch = vi.fn();
+  let admission: boolean | undefined;
+  f.provider.mockImplementationOnce(async (_id, _body, canDispatch) => {
+    enter();
+    await hold;
+    admission = await canDispatch();
+    if (!admission) throw new Error("DISPATCH_NOT_ADMITTED");
+    paidDispatch();
+    return { data: { status: "SUCCEEDED", output_path: f.segment } };
+  });
+  const work = f.host.generateFilmRange({
+    projectId: f.current.id,
+    planId: f.ready.planId,
+    expectedHash: filmHistoryRecordHash(f.current),
+    confirmed: true,
+    prompt: "画面",
+  });
+  try {
+    await Promise.race([
+      entered,
+      work.then(() => {
+        throw Error("PROVIDER_NOT_ENTERED");
+      }),
+    ]);
+    expect(f.provider).toHaveBeenCalledOnce();
+    expect(admission).toBeUndefined();
+    expect(paidDispatch).not.toHaveBeenCalled();
+    await f.host.discardFilmRange(f.current.id, f.ready.planId);
+    release();
+    expect(await work).toMatchObject({ kind: "FAILED", requestMayHaveRun: false });
+    expect(admission).toBe(false);
+    expect(paidDispatch).not.toHaveBeenCalled();
+    expect(await readFile(projectFile)).toEqual(projectBytes);
+    expect(await readFile(f.source)).toEqual(sourceBytes);
+    expect(await readFile(f.segment)).toEqual(candidateBytes);
+    const current = await readProject(f.filmsRoot, f.current.id);
+    expect((current!.shots as Record<string, unknown>[])[0]).toMatchObject({
+      selectedTakeId: "source",
+    });
+    expect((current!.shots as Record<string, unknown>[])[0]!.takes).toHaveLength(1);
+  } finally {
+    release();
+    await work;
+  }
 });
 it("refuses negative/out-of-source endpoints, wrong owner and foreign series requests at zero provider calls", async () => {
   const f = await readyFixture();

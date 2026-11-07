@@ -275,6 +275,47 @@ describe("4A-U11 single-shot stored field suggestions", () => {
     },
   );
 
+  it.each(["busy", "save-failure"] as const)(
+    "keeps the unsupported display fallback honest about %s",
+    async (kind) => {
+      const env = await open(),
+        before = structuredClone(currentShot(env)),
+        url = "https://example.org/story-sign";
+      env.completeText.mockResolvedValue({
+        kind: "OK",
+        text: JSON.stringify({ keyframe: { prompt_zh: nextZh, prompt_en: url } }),
+      });
+      if (kind === "busy")
+        vi.spyOn(env.editor(), "apply").mockResolvedValue({
+          status: "rejected",
+          conflicts: ["BUSY"],
+        });
+      else
+        env.writes.mockImplementation(async (value) => {
+          if (value.shots.some((s) => s.promptEn === url))
+            throw Error("PRIVATE_SAVE_PATH /private/file");
+          return structuredClone(value);
+        });
+      request();
+      if (kind === "busy") {
+        await screen.findByText(/正在保存，请稍等.*本次没有修改画面说明/);
+        expect(currentShot(env)).toEqual(before);
+      } else {
+        await waitFor(() =>
+          expect(document.querySelector(".status-note")).toHaveTextContent(
+            "画面说明已经放进去，还没保存上。",
+          ),
+        );
+        expect(currentShot(env).promptEn).toBe(url);
+        expect(currentShot(env).poster).toBe(before.poster);
+        expect(currentShot(env).takes).toEqual(before.takes);
+        expect(document.body.textContent).not.toContain("PRIVATE_SAVE_PATH");
+      }
+      expect(env.completeText).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("button", { name: "确认修改" })).toBeNull();
+    },
+  );
+
   it.each(["input", "work"])("drops a late model reply after the %s changes", async (kind) => {
     const env = await open(true);
     request();

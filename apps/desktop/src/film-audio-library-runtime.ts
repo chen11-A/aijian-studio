@@ -10,8 +10,7 @@ import { exportFileHash } from "./film-export-io";
 type Entry = BundledAudioAsset & { file: string; provenance: AudioLibraryProvenance };
 export type TrustedAudioLibrary = { manifestSha256: string; assets: Entry[] };
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
-/** Fixed main-owned root only. Public catalog projection deliberately omits executable/file paths. */
-export async function loadTrustedAudioLibrary(rawRoot: string): Promise<TrustedAudioLibrary> {
+async function bundleRoot(rawRoot: string) {
   const root = await realpath(rawRoot);
   const inside = async (name: string) => {
     const file = await realpath(join(root, name)),
@@ -19,6 +18,11 @@ export async function loadTrustedAudioLibrary(rawRoot: string): Promise<TrustedA
     if (!part || part.startsWith("..") || isAbsolute(part)) throw Error("LIBRARY_UNAVAILABLE");
     return file;
   };
+  return { root, inside };
+}
+/** Fixed main-owned root only. Public catalog projection deliberately omits executable/file paths. */
+export async function loadTrustedAudioLibrary(rawRoot: string): Promise<TrustedAudioLibrary> {
+  const { root, inside } = await bundleRoot(rawRoot);
   const pinPath = await inside("resource-index.json");
   if ((await stat(pinPath)).size > 2 * 1024 * 1024) throw Error("LIBRARY_UNAVAILABLE");
   const pin = JSON.parse(await readFile(pinPath, "utf8"));
@@ -122,4 +126,67 @@ export function publicAudioCatalog(library: TrustedAudioLibrary) {
       sha256: asset.sha256,
     })),
   };
+}
+
+export type TrustedAudioPicker = {
+  /** Digest covers both compiled entry and synonyms, not merely the entry file. */
+  sha256: string;
+  pickAudio: (scene: unknown, assets: unknown) => unknown;
+  verify: () => Promise<void>;
+};
+export async function loadTrustedAudioPicker(rawRoot: string): Promise<TrustedAudioPicker> {
+  const { root, inside } = await bundleRoot(rawRoot);
+  const pinPath = await inside("resource-index.json");
+  const readPin = async () => {
+    if ((await stat(pinPath)).size > 2 * 1024 * 1024) throw Error("LIBRARY_UNAVAILABLE");
+    return readFile(pinPath);
+  };
+  const bytes = await readPin();
+  const pin = JSON.parse(bytes.toString("utf8"));
+  if (
+    pin.schemaVersion !== 1 ||
+    ![pin.pickerSha256, pin.synonymsSha256].every(
+      (value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value),
+    )
+  )
+    throw Error("LIBRARY_UNAVAILABLE");
+  const entry = await inside("audio-picker.mjs"),
+    synonyms = await inside("audio-picker-synonyms.mjs");
+  const verify = async () => {
+    if (
+      (await realpath(rawRoot)) !== root ||
+      (await inside("resource-index.json")) !== pinPath ||
+      hash(await readPin()) !== hash(bytes) ||
+      (await stat(entry)).size > 128 * 1024 ||
+      (await stat(synonyms)).size > 128 * 1024 ||
+      (await inside("audio-picker.mjs")) !== entry ||
+      (await inside("audio-picker-synonyms.mjs")) !== synonyms ||
+      (await exportFileHash(entry)) !== pin.pickerSha256 ||
+      (await exportFileHash(synonyms)) !== pin.synonymsSha256
+    )
+      throw Error("ASSET_CHANGED");
+  };
+  await verify();
+  if (
+    !(await readFile(entry, "utf8")).includes(
+      `"./audio-picker-synonyms.mjs?sha256=${pin.synonymsSha256}"`,
+    )
+  )
+    throw Error("ASSET_CHANGED");
+  const sha256 = hash(
+    Buffer.from(JSON.stringify(["audio-picker-runtime-v1", pin.pickerSha256, pin.synonymsSha256])),
+  );
+  const url = pathToFileURL(entry);
+  url.searchParams.set("sha256", sha256);
+  const runtime: unknown = await import(url.href);
+  if (
+    !runtime ||
+    typeof runtime !== "object" ||
+    !("pickAudio" in runtime) ||
+    typeof runtime.pickAudio !== "function"
+  )
+    throw Error("LIBRARY_UNAVAILABLE");
+  const pick = runtime.pickAudio;
+  await verify();
+  return { sha256, pickAudio: (scene, assets) => pick(scene, assets), verify };
 }
