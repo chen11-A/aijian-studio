@@ -1,6 +1,7 @@
 import type { FilmRiskTrialGateway } from "@aijian/contracts/film-risk-trial";
 import type {
   FilmGenerationExecutionGateway,
+  FilmGenerationExtractionExecution,
   FilmGenerationStillExecution,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
@@ -1072,6 +1073,7 @@ export interface AijianDesktopBridge
   extractFilmLastFrame?: (
     seriesId: string,
     videoPath: string,
+    execution?: FilmGenerationExtractionExecution,
   ) => Promise<{
     path: string;
     sourceVideoPath: string;
