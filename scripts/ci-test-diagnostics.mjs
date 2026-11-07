@@ -2,8 +2,8 @@ import process from "node:process";
 import { spawn } from "node:child_process";
 import { stripVTControlCharacters } from "node:util";
 import { constants } from "node:os";
-import { extname, resolve } from "node:path";
-import { realpathSync, statSync } from "node:fs";
+import { extname, resolve, relative, isAbsolute } from "node:path";
+import { realpathSync, statSync, readFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 
@@ -25,8 +25,38 @@ export function pnpmInvocation(entry, executable = process.execPath) {
   return { command: executable, args: [javascript, "test"] };
 }
 
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+/** Only declared top-level test names in this checkout are safe node metadata.
+ * Never emit pytest parameter IDs, exception messages or an absolute path. */
+export function pytestSourceLocation(file, name, sourceRoot = repositoryRoot) {
+  if (
+    !/^services\/api\/tests\/test_[A-Za-z0-9_]+\.py$/u.test(file) ||
+    file.length > 240 ||
+    !/^test_[A-Za-z0-9_]{1,155}$/u.test(name)
+  )
+    return null;
+  try {
+    const root = realpathSync.native(sourceRoot),
+      source = realpathSync.native(resolve(root, file));
+    const part = relative(root, source);
+    if (!part || part.startsWith("..") || isAbsolute(part) || part.replaceAll("\\", "/") !== file)
+      return null;
+    const info = statSync(source);
+    if (!info.isFile() || info.size > 1024 * 1024) return null;
+    const lines = readFileSync(source, "utf8").split(/\r?\n/u);
+    let found = null;
+    for (const [index, line] of lines.entries()) {
+      const definition = line.match(/^(?:async[ \t]+)?def[ \t]+(test_[A-Za-z0-9_]+)[ \t]*\(/u);
+      if (definition?.[1] === name) found = index + 1;
+    }
+    return found;
+  } catch {
+    return null;
+  }
+}
+
 /** Keep metadata only: no assertion values, raw error messages, absolute paths or log tails. */
-export function failureSummary(initialPhase = "pnpm test") {
+export function failureSummary(initialPhase = "pnpm test", sourceRoot = repositoryRoot) {
   let phase = initialPhase;
   let failureBlock = false;
   const entries = new Map();
@@ -95,6 +125,17 @@ export function failureSummary(initialPhase = "pnpm test") {
       else if (file[1].includes(".py")) phase = "Python";
       add(`Failure location: ${file[1]}${file[2] ? `:${file[2]}` : ""}`);
     }
+    const pytestNode = diagnostic.match(
+      /^\s*FAILED\s+(services\/api\/tests\/test_[A-Za-z0-9_]+\.py)::(test_[A-Za-z0-9_]{1,155})(?=\[|\s|$)/u,
+    );
+    if (pytestNode && entries.size < 6) {
+      const declaredLine = pytestSourceLocation(pytestNode[1], pytestNode[2], sourceRoot);
+      if (declaredLine) {
+        phase = "Python";
+        add(`Failure test: ${pytestNode[1]}::${pytestNode[2]}:${declaredLine}`);
+      }
+    }
+
     const timeout =
       vitestTimeout ?? text.match(/(?:timed out after|timeout(?: of)?)\s+([1-9]\d{0,9})\s*ms\b/iu);
     if (timeout && Number(timeout[1]) <= 2147483647) add(`Test timeout: ${timeout[1]} ms.`);
