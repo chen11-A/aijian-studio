@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
+import { dirname } from "node:path";
 import { GenerationExecutionServiceError } from "./film-generation-execution-service";
-import { requestStill } from "./film-library";
+import { readMedia, requestStill } from "./film-library";
 import { GenerationExecutionRegistryError } from "./film-generation-execution-registry";
 import type {
   FilmGenerationExecutionFailure,
@@ -13,7 +15,7 @@ export class GenerationStillDispatchError extends Error {
 }
 type Wire = { input: Parameters<typeof fetch>[0]; init: RequestInit };
 type OriginalOptions = Parameters<typeof requestStill>[0];
-export type ProtectedStillDispatch = Omit<OriginalOptions, "fetcher"> & {
+export type ProtectedStillDispatch = Omit<OriginalOptions, "fetcher" | "onImageBytes"> & {
   fetcher: typeof fetch;
   current: () => boolean;
   /** Trusted adapter verifies the actual wire body and reserves before calling dispatch.
@@ -24,7 +26,7 @@ export type ProtectedStillDispatch = Omit<OriginalOptions, "fetcher"> & {
   /** Native path only; the adapter hashes/verifies bytes and writes durable private facts. */
   observed: (
     path: string | null,
-    facts: { transportUnconfirmed: boolean; outputUnconfirmed?: true },
+    facts: { transportUnconfirmed: boolean; outputUnconfirmed?: true; outputSha256?: string },
   ) => Promise<void>;
 };
 const current = (guard: () => boolean) => {
@@ -51,6 +53,7 @@ export async function dispatchProtectedGenerationStill(
     transportUnconfirmed = false,
     outputUnconfirmed = false;
   let failure: FilmGenerationExecutionFailure | undefined;
+  let originalOutputSha256: string | undefined;
   if (!options.token || !current(options.current))
     return {
       path: "",
@@ -61,6 +64,9 @@ export async function dispatchProtectedGenerationStill(
   try {
     made = await requestStill({
       ...options,
+      onImageBytes: (bytes) => {
+        originalOutputSha256 = createHash("sha256").update(bytes).digest("hex");
+      },
       fetcher: async (input, init) => {
         if (init?.method !== "POST") {
           try {
@@ -123,10 +129,26 @@ export async function dispatchProtectedGenerationStill(
       code: failure ?? "UNSUPPORTED_SCOPE",
     };
   }
+  let observedPath = made.path || null;
+  if (observedPath) {
+    try {
+      if (!originalOutputSha256 || observedPath !== options.destination)
+        throw Error("output unconfirmed");
+      await readMedia([dirname(options.destination)], observedPath, {
+        maxBytes: 12_000_000,
+        expectedSha256: originalOutputSha256,
+      });
+    } catch {
+      observedPath = null;
+      outputUnconfirmed = true;
+      failure = "WRITE_UNCONFIRMED";
+    }
+  }
   try {
-    await options.observed(made.path || null, {
+    await options.observed(observedPath, {
       transportUnconfirmed,
       ...(outputUnconfirmed ? { outputUnconfirmed: true } : {}),
+      ...(observedPath ? { outputSha256: originalOutputSha256 } : {}),
     });
   } catch {
     failure = "WRITE_UNCONFIRMED";
