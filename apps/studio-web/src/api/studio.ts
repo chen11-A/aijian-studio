@@ -1,4 +1,9 @@
 import type {
+  GenerationVideoRecoveryListResult,
+  GenerationVideoRecoveryResult,
+  SaveRecoveredGenerationVideoResult,
+} from "@aijian/contracts/generation-video-recovery";
+import type {
   GenerationFailurePolicyResult,
   ConfigureGenerationFailurePolicy,
 } from "@aijian/contracts/generation-failure-policy";
@@ -938,6 +943,15 @@ export interface AijianDesktopBridge
   health(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
+  listGenerationVideoRecoveries?(projectId: string): Promise<GenerationVideoRecoveryListResult>;
+  recoverGenerationVideo?(
+    projectId: string,
+    attemptId: string,
+  ): Promise<GenerationVideoRecoveryResult>;
+  saveRecoveredGenerationVideo?(
+    projectId: string,
+    attemptId: string,
+  ): Promise<SaveRecoveredGenerationVideoResult>;
   getGenerationFailurePolicy?(projectId: string): Promise<GenerationFailurePolicyResult>;
   configureGenerationFailurePolicy?(
     projectId: string,
