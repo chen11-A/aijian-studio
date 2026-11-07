@@ -8,6 +8,8 @@ it("keeps native split bridge sandbox electron-only and forwards one scope to fi
   let bridge!: {
     prepareFilmDialogueSplit: (v: unknown) => Promise<unknown>;
     applyFilmDialogueSplit: (v: unknown) => Promise<unknown>;
+    createStoryFilm: (...v: unknown[]) => Promise<unknown>;
+    supportsStoryFilmLocalScope: boolean;
   };
   const compiled = ts.transpileModule(readFileSync(resolve("src/preload.ts"), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
@@ -35,8 +37,19 @@ it("keeps native split bridge sandbox electron-only and forwards one scope to fi
   await bridge.prepareFilmDialogueSplit(input);
   const apply = { ...input, reviewFingerprint: "b".repeat(64) };
   await bridge.applyFilmDialogueSplit(apply);
+  expect(bridge.supportsStoryFilmLocalScope).toBe(true);
+  const scope = {
+    projectId: "film_aaaaaaaaaaaaaaaa",
+    shotId: "source",
+    takeId: "running",
+    inputFingerprint: "c".repeat(64),
+  };
+  await bridge.createStoryFilm("backend", {}, scope);
+  await bridge.createStoryFilm("backend", {});
   expect(invoke.mock.calls).toEqual([
     ["film:dialogue-split-prepare", input],
     ["film:dialogue-split-apply", apply],
+    ["story-film:create", "backend", {}, scope],
+    ["story-film:create", "backend", {}],
   ]);
 });

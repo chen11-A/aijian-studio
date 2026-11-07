@@ -1,3 +1,7 @@
+import { dialogueEvidenceContext } from "@aijian/contracts/film-dialogue-split-plan";
+import { historyRecordHash } from "./persistent-history";
+import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
+import { rememberDialogueLimit } from "./dialogue-limit-session";
 import { generationVideoBody } from "./video-prompt-review";
 import { shotLines } from "../../film/director-continuity";
 import type { AijianDesktopBridge } from "../../../api/studio";
@@ -13,7 +17,7 @@ import { updateShot } from "../../film/operations";
 import { ensureContinuityFrame } from "../continuity-frame";
 import { ensureShotFrame } from "../still-workflow";
 import { fileMediaUrl, isVoiceFile } from "../workflow";
-import { presentNotice } from "../../film/notices";
+import { NOTICE_TEXT, presentNotice } from "../../film/notices";
 import { awaitVideoResult } from "../video-request";
 
 type CreateVideo = NonNullable<AijianDesktopBridge["createStoryFilm"]>;
@@ -26,7 +30,10 @@ export type GenerationRunHost = {
   stopped: () => boolean;
   paused: () => boolean;
   cancelled: (jobId: string) => boolean;
-  request: (body: Parameters<CreateVideo>[1]) => ReturnType<CreateVideo>;
+  request: (
+    body: Parameters<CreateVideo>[1],
+    scope?: StoryFilmLocalScope,
+  ) => ReturnType<CreateVideo>;
   notice: (notice: UiNotice) => void;
   completed: (result: { shotId: string; done: boolean; message: string }) => void;
   continuity?: typeof ensureContinuityFrame;
@@ -306,8 +313,45 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
         group.takes[0]?.id,
         current.draft,
       );
+      const evidenceContext = dialogueEvidenceContext(dispatched, group.shot.id, take.id);
+      const evidenceKey = JSON.stringify(evidenceContext);
+      const inputFingerprint = await historyRecordHash(evidenceContext).catch(() => undefined);
+      // This new await remains before the final existing cancellation/pause gate.
+      if (!host.valid()) return;
+      if (host.cancelled(jobId) || host.stopped()) {
+        await host.apply(cancelVideoTask(host.current() ?? dispatched, take.id).film);
+        if (await queueStopped()) return;
+        continue;
+      }
+      if (host.paused()) {
+        await host.apply(setVideoTaskState(host.current() ?? dispatched, take.id, "queued"));
+        await queueStopped();
+        return;
+      }
+      if (
+        JSON.stringify(dialogueEvidenceContext(host.current(), group.shot.id, take.id)) !==
+        evidenceKey
+      ) {
+        await host.apply(cancelVideoTask(host.current() ?? dispatched, take.id).film);
+        host.notice({
+          code: "GENERATION_SELECTION_STALE",
+          text: NOTICE_TEXT.GENERATION_SELECTION_STALE,
+        });
+        return;
+      }
       const response = await awaitVideoResult(
-        () => host.request({ ...body!, regenerate: index > 0 || group.hadTakes }),
+        () =>
+          host.request(
+            { ...body!, regenerate: index > 0 || group.hadTakes },
+            inputFingerprint
+              ? {
+                  projectId: dispatched.id,
+                  shotId: group.shot.id,
+                  takeId: take.id,
+                  inputFingerprint,
+                }
+              : undefined,
+          ),
         () => !host.valid() || host.stopped() || host.cancelled(jobId),
       );
       if (!host.valid()) return;
@@ -315,6 +359,7 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
         await host.apply(cancelVideoTask(host.current() ?? current, take.id).film);
         continue;
       }
+      rememberDialogueLimit(dispatched.id, group.shot.id, take.id, response.data);
       const result = applyVideoResponse(
         host.current() ?? current,
         group.shot,

@@ -1,3 +1,5 @@
+import type { FilmDialogueSplitInput } from "@aijian/contracts/film-dialogue-split";
+import { dialogueLimitEvidence } from "./dialogue-limit-session";
 import { dialogueSplitContext } from "@aijian/contracts/film-dialogue-split-plan";
 import type { FilmProject } from "../../film/project";
 import { planDialogueSplit, type DialogueSplitPlan } from "../../film/dialogue-split-plan";
@@ -48,4 +50,22 @@ export async function dialogueSplitPreviewCurrent(
   if (!film || reviewed.kind !== "READY" || reviewed.sourceShotId !== shotId) return false;
   const latest = await prepareDialogueSplitPreview(film, shotId, options);
   return latest.kind === "READY" && latest.inputFingerprint === reviewed.inputFingerprint;
+}
+
+/** Native review always uses main's canonical plan. The opaque hint is session-only;
+ * a caller-supplied ID or this helper's output is never authority without main verification. */
+export function nativeDialogueSplitInput(
+  film: FilmProject,
+  shotId: string,
+  expectedHash: string,
+  versions: number,
+): FilmDialogueSplitInput {
+  const limitEvidenceId = dialogueLimitEvidence(film, shotId);
+  return {
+    projectId: film.id,
+    shotId,
+    expectedHash,
+    versions,
+    ...(limitEvidenceId ? { limitEvidenceId } : {}),
+  };
 }

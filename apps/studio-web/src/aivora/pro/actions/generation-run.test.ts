@@ -366,3 +366,38 @@ it.each(["甲", "乙"])(
     );
   },
 );
+it.each(["edit", "cancel", "pause", "nested-line", "voice", "reference"])(
+  "rechecks %s after the new evidence digest wait and invokes no video request",
+  async (change) => {
+    const { queue, host } = setup();
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void, entered!: () => void;
+    const hold = new Promise<void>((r) => (release = r)),
+      started = new Promise<void>((r) => (entered = r));
+    const digest = vi.spyOn(crypto.subtle, "digest").mockImplementation(async (...args) => {
+      entered();
+      await hold;
+      return original(...args);
+    });
+    const pending = runPreparedGeneration(queue, host);
+    try {
+      await started;
+      expect(host.current()?.shots[0]?.takes[0]?.status).toBe("running");
+      expect(host.persist).toHaveBeenCalled();
+      if (change === "edit") host.current()!.shots[0]!.picture = "changed while hashing";
+      else if (change === "pause") host.paused = () => true;
+      else if (change === "nested-line")
+        host.current()!.shots[0]!.lines!.push({ speaker: "", text: "nested edit" });
+      else if (change === "voice") host.current()!.narrationVoiceId = "orion";
+      else if (change === "reference") host.current()!.shots[0]!.poster = "/changed-reference.png";
+      else host.cancelled = () => true;
+      release();
+      await pending;
+      expect(host.request).not.toHaveBeenCalled();
+    } finally {
+      release();
+      await pending;
+      digest.mockRestore();
+    }
+  },
+);

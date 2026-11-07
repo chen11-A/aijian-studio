@@ -50,7 +50,7 @@ export function canonicalDialogueLines(shot: {
   lines?: DialogueSplitLine[];
 }): DialogueSplitLine[];
 export function dialogueVideoCap(model: string, hasReferences: boolean): 10 | 15 | null;
-export function planDialogueSplit(value: unknown): DialogueSplitPlan;
+export function planDialogueSplit(value: unknown, verifiedLimit?: boolean): DialogueSplitPlan;
 export function dialogueSplitContext(
   record: unknown,
   shotId: string,
@@ -67,3 +67,14 @@ export function dialogueSplitContext(
   request: DialogueSplitInput;
 } | null;
 export function normalizeDialogueSplitSource(value: unknown): DialogueSplitSource | null;
+
+export function canonicalShotVoiceId(
+  shot: { line: string; speaker?: string; lines?: DialogueSplitLine[]; characters?: string[] },
+  film: { characters?: { name: string; voiceId: string }[]; narrationVoiceId?: string },
+): string;
+/** Stable creative input only; callers hash it. This is never authorization. */
+export function dialogueEvidenceContext(
+  record: unknown,
+  shotId: string,
+  takeId: string,
+): Record<string, unknown> | null;
