@@ -21,6 +21,7 @@ import { useDialogueSplit } from "./use-dialogue-split";
 import { useActualRiskTrial } from "./use-actual-risk-trial";
 import { useRiskTrialReview } from "./use-risk-trial-review";
 import { useGenerationFailurePolicy } from "./use-generation-failure-policy";
+import { useStoryCreationFailurePolicy } from "./use-story-creation-failure-policy";
 import { useGenerationVideoRecovery } from "./use-generation-video-recovery";
 import {
   captureAssistantReferences,
@@ -1060,6 +1061,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     },
   });
   const generationFailurePolicy = useGenerationFailurePolicy(film, () => filmRef.current);
+  const storyCreationFailurePolicy = useStoryCreationFailurePolicy(
+    film,
+    () => filmRef.current,
+    account,
+  );
   const generationVideoRecovery = useGenerationVideoRecovery(film, () => filmRef.current, account);
   const audioLibrary = useBundledAudioLibrary(film, stage === "edit", audioLibraryHost);
   const shotAudioSuggestions = useShotAudioSuggestions(
@@ -6928,6 +6934,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         )}
         {riskTrialReview.view}
         {generationFailurePolicy.view}
+        {storyCreationFailurePolicy.view}
         {generationVideoRecovery.view}
         {pendingBatch && (
           <div className="dialog-back">
@@ -7291,6 +7298,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   去改画风
+                </button>
+              </section>
+              <section className="ws-sec" aria-label="创作流程失败保护">
+                <h3>创作流程失败保护</h3>
+                <p className="role-desc">
+                  设置同一实际创作输入的整条成片流程失败及未决上限；不包括独立定妆照或单独配音，也不代替费用确认。
+                </p>
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    setWorkSettings(false);
+                    storyCreationFailurePolicy.open();
+                  }}
+                >
+                  设置创作流程失败上限
                 </button>
               </section>
               <section className="ws-sec" aria-label="视频提交失败保护">
