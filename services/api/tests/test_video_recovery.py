@@ -229,6 +229,7 @@ def test_os_lock_is_released_by_real_process_exit_not_a_timeout(tmp_path):
     import os
     import subprocess
     import sys
+    from pathlib import Path
 
     repo, _project_id, reservation = setup(tmp_path)
     code = (
@@ -237,12 +238,17 @@ def test_os_lock_is_released_by_real_process_exit_not_a_timeout(tmp_path):
         "lock=VideoRecoveryLock(Path(sys.argv[1]),sys.argv[2]);"
         "print('LOCKED',flush=True);sys.stdin.read(1)"
     )
+    child_environment = os.environ.copy()
+    # pytest pythonpath affects only this process; the real child must use this worktree too.
+    source = str(Path(__file__).resolve().parents[1] / "src")
+    inherited = child_environment.get("PYTHONPATH")
+    child_environment["PYTHONPATH"] = os.pathsep.join([source, *([inherited] if inherited else [])])
     child = subprocess.Popen(
         [sys.executable, "-c", code, str(repo.database_path), reservation.attempt_id],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         text=True,
-        env=os.environ.copy(),
+        env=child_environment,
     )
     try:
         assert child.stdout.readline().strip() == "LOCKED"
