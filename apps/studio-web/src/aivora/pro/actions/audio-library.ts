@@ -218,8 +218,6 @@ async function settle(
 ): Promise<LibraryOutcome> {
   const external = requireExternal(lease);
   pending.observedRaw = raw;
-  const heldDraft = host.persistence.externalWriteState(pending.selection.projectId)?.draft;
-  if (heldDraft && heldDraft !== pending.before) pending.localDraft = heldDraft;
   const added = await onlyAddedClip(pending, saved, raw);
   const unchanged = (await historyRecordHash(raw)) === pending.hash;
   if (
@@ -233,14 +231,33 @@ async function settle(
       pending,
     };
   }
+  const heldDraft = host.persistence.externalWriteState(pending.selection.projectId)?.draft;
+  if (heldDraft && heldDraft !== pending.before) pending.localDraft = heldDraft;
   const live = host.current();
   const foreign = live?.id !== saved.id;
   const editing = foreign ? pending.localDraft : live;
+  const retainedDraft = editing ?? pending.before;
+  let rebasingDraft: FilmProject | undefined;
+  const retainedDraftMatches = () => {
+    if (!foreign) return true;
+    const state = host.persistence.externalWriteState(saved.id);
+    // The only accepted transition is this lease's exact rebase snapshot.
+    return !state || state.draft === retainedDraft || state.draft === rebasingDraft;
+  };
   if (
     foreign &&
     (!editing || (await historyRecordHash(editing)) === (await historyRecordHash(pending.before)))
   ) {
-    external.confirm(saved);
+    // Hashing yields: both current work and the retained original draft can change.
+    // Final checks and confirmation must stay in one synchronous segment.
+    if (host.current() !== live || !retainedDraftMatches() || !external.confirm(saved)) {
+      external.unknown(saved);
+      return {
+        kind: "unknown",
+        message: "原作品编辑副本或当前页面又有变化，请重新核对保存状态。",
+        pending,
+      };
+    }
     return { kind: "stale", message: "结果已留在原作品，当前作品没有被覆盖。" };
   }
   if (!editing) {
@@ -271,7 +288,7 @@ async function settle(
     !!existing &&
     !!added &&
     (await historyRecordHash(existing)) === (await historyRecordHash(added));
-  if (host.current() !== live) {
+  if (host.current() !== live || !retainedDraftMatches()) {
     external.unknown(saved);
     return { kind: "unknown", message: "本页又有变化，请重新核对保存状态。", pending };
   }
@@ -305,7 +322,7 @@ async function settle(
         }
       : editing;
   const needsSave = (await historyRecordHash(merged)) !== (await historyRecordHash(saved));
-  if (host.current() !== live) {
+  if (host.current() !== live || !retainedDraftMatches()) {
     external.unknown(saved);
     return { kind: "unknown", message: "本页又有变化，请重新核对保存状态。", pending };
   }
@@ -313,7 +330,8 @@ async function settle(
   if (
     !fresh ||
     (await historyRecordHash(fresh)) !== (await historyRecordHash(raw)) ||
-    host.current() !== live
+    host.current() !== live ||
+    !retainedDraftMatches()
   ) {
     external.unknown(saved);
     return { kind: "unknown", message: "已保存的作品或本页又有变化，请重新核对。", pending };
@@ -321,9 +339,11 @@ async function settle(
   const draft = pending.localDraft;
   const adopted = foreign ? merged : merged !== live ? host.apply(merged) : editing;
   const valid = () =>
-    host.current() === (foreign ? live : adopted) && (!foreign || pending.localDraft === draft);
+    host.current() === (foreign ? live : adopted) &&
+    (!foreign || (pending.localDraft === draft && retainedDraftMatches()));
   try {
     if (needsSave) {
+      rebasingDraft = foreign ? adopted : undefined;
       if (!lease.rebaseExternalWrite || !(await lease.rebaseExternalWrite(saved, adopted, valid)))
         return { kind: "unknown", message: LIBRARY_FAILURE.WRITE_UNCONFIRMED!, pending };
     } else if (!external.confirm(saved, foreign ? undefined : adopted, valid))
