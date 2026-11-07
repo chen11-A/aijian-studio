@@ -182,6 +182,39 @@ class RecordedPreparedFact(BaseModel):
     kind: Literal["RECORDED"] = "RECORDED"
 
 
+def canonical_stage_fact(value: object) -> dict[str, object]:
+    """Normalize only the historical typed nonportrait/view:null encoding.
+
+    Preserve the stored evidence and origin verbatim. Unknown keys, non-null views
+    on nonportraits or missing portrait views are not repaired into valid proof.
+    """
+    required = {"kind", "target_id", "origin"}
+    if (
+        not isinstance(value, dict)
+        or set(value) not in (required, required | {"view"})
+        or not isinstance(value.get("kind"), str)
+        or value["kind"] not in {"shot-frame", "location-reference", "portrait"}
+        or not isinstance(value.get("target_id"), str)
+        or not 1 <= len(value["target_id"]) <= 160
+        or not isinstance(value.get("origin"), dict)
+    ):
+        raise GenerationFailureError("INPUT_UNVERIFIABLE")
+    result = dict(value)
+    if value["kind"] == "portrait":
+        if not isinstance(value.get("view"), str) or value["view"] not in {
+            "正面",
+            "侧面",
+            "背面",
+            "脸部",
+        }:
+            raise GenerationFailureError("INPUT_UNVERIFIABLE")
+    else:
+        if value.get("view") is not None:
+            raise GenerationFailureError("INPUT_UNVERIFIABLE")
+        result.pop("view", None)
+    return result
+
+
 def bounded_reference(source: str) -> str | None:
     try:
         return reference_snapshot(source)[0]
@@ -356,6 +389,12 @@ def create_prepared_generation_router(
         repo = repository()
         try:
             # Private origin facts are not executable filters, paths or authorization.
+            if any(
+                (stage.kind == "portrait" and stage.view is None)
+                or (stage.kind != "portrait" and "view" in stage.model_fields_set)
+                for stage in payload.stages
+            ):
+                raise GenerationFailureError("INPUT_UNVERIFIABLE")
             if any(len(json.dumps(stage.origin).encode()) > 64 * 1024 for stage in payload.stages):
                 raise GenerationFailureError("INVALID_DISPATCH_IDENTITY")
             targets = original_prepared_recipes(repo, tools, payload)
@@ -367,7 +406,7 @@ def create_prepared_generation_router(
                 stages=tuple(
                     PreparedStage(
                         stage.key,
-                        stage.model_dump(exclude={"key", "target_keys"}),
+                        canonical_stage_fact(stage.model_dump(exclude={"key", "target_keys"})),
                         tuple(stage.target_keys),
                     )
                     for stage in payload.stages
@@ -382,10 +421,11 @@ def create_prepared_generation_router(
         project_id: str, payload: PreparedLineageQuery, identity: str = Depends(account)
     ) -> PreparedLineageFacts:
         try:
+            items = PreparedGenerationStore(repository()).lineages(
+                project_id, account=identity, output_sha256s=tuple(payload.output_sha256s)
+            )
             return PreparedLineageFacts(
-                items=PreparedGenerationStore(repository()).lineages(
-                    project_id, account=identity, output_sha256s=tuple(payload.output_sha256s)
-                )
+                items=[{**item, "stage": canonical_stage_fact(item["stage"])} for item in items]
             )
         except GenerationFailureError as error:
             raise HTTPException(409, "INPUT_UNVERIFIABLE") from error
