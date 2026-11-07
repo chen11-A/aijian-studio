@@ -75,8 +75,17 @@ it("uses only the latest live object for a delayed metadata save and keeps the s
     written.push(snapshot);
     return structuredClone(disk);
   });
+  let completePreview!: () => void, admitPreview!: () => void;
+  const nativeReply = new Promise<void>((resolve) => {
+      completePreview = resolve;
+    }),
+    nativeAdmission = new Promise<void>((resolve) => {
+      admitPreview = resolve;
+    });
   const preview = vi.fn(async (input: { expectedHash: string }) => {
     expect(input.expectedHash).toBe(await historyRecordHash(disk));
+    admitPreview();
+    await nativeReply;
     return { kind: "FAILED", code: "TOOLS_UNAVAILABLE" };
   });
   window.aijian = {
@@ -99,11 +108,16 @@ it("uses only the latest live object for a delayed metadata save and keeps the s
   await waitFor(() => expect(preview).toHaveBeenCalledOnce());
   expect(written).toEqual([current]);
   expect(disk.title).toBe("latest metadata");
-  expect(result.current).toMatchObject({
-    busy: false,
-    settled: true,
-    result: { kind: "FAILED", code: "TOOLS_UNAVAILABLE" },
-  });
+  await act(async () => nativeAdmission);
+  expect(result.current).toMatchObject({ busy: true, settled: false, result: null });
+  await act(async () => completePreview());
+  await waitFor(() =>
+    expect(result.current).toMatchObject({
+      busy: false,
+      settled: true,
+      result: { kind: "FAILED", code: "TOOLS_UNAVAILABLE" },
+    }),
+  );
   current = { ...current, assemblyPath: "/private/another.mp4" };
   rerender({ value: current });
   expect(result.current).toMatchObject({
