@@ -1,0 +1,101 @@
+{
+  "source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+  "run": "42420151861",
+  "browserJobsPassed": 16,
+  "browserJobsTotal": 16,
+  "originalBrowserCombinations": 484,
+  "windowsTargetedJobsPassed": 2,
+  "fullQuality": "PENDING",
+  "jobs": [
+    {
+      "job": "128546619389",
+      "name": "pro-layout (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619319",
+      "name": "pro-creation (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619324",
+      "name": "pro-audio-mix (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619102",
+      "name": "pro-audio-library (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619302",
+      "name": "pro-shot-audio (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619461",
+      "name": "pro-audio-groups (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619275",
+      "name": "speech-window (windows, targeted)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619369",
+      "name": "pro-dialogue-split (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619415",
+      "name": "audio-library-write (windows, targeted)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619354",
+      "name": "pro-assembly (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619268",
+      "name": "pro-scene-audio (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619312",
+      "name": "Pro assistant references UI audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619421",
+      "name": "Pro trial review and video failure policy audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619377",
+      "name": "Pro delivery evidence and existing UI interaction audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619313",
+      "name": "Pro explicit original video recovery audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619323",
+      "name": "Pro explicit actual-version trial review audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619360",
+      "name": "Pro explicit story creation failure policy audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128546619332",
+      "name": "Pro existing editor interaction audit",
+      "status": "succeeded"
+    }
+  ]
+}

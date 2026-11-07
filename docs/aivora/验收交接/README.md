@@ -38,3 +38,5 @@ node --test scripts/build-runtime.test.mjs
 新增验收测试修复：`trial-readiness-fix.json`、`trial-initial-recovery-fix.json`、`browser-catalog-fix.json` 对应三处真实异步边界；`web-50a6a3e.json`、`web-01db481.json` 均明确各自来源，不能把目标筛选未选当原全量skip。最终云端结果单独记录，不以旧成功或失败互相覆盖。
 
 `history-checkpoint-fix.json` 保存原历史callback真实终态观察的验证；移除两处盲等，旧01db失败按源保留。最终代码源为babefa9，实际差异白名单以source-equivalence.json为准。
+
+`browser-ci-babefa9.json`：最终源码的16个原浏览器任务/484组合和两个Windows定向已全过；Linux/Windows完整quality仍须单看最终ci.json，不能互相代替。
