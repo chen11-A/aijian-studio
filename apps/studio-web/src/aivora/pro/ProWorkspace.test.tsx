@@ -15,6 +15,7 @@ import { sampleFilm, type FilmProject } from "../film/project";
 import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
 import { NOTICE_COPY } from "../next/wiring/noticeCopy";
+import * as directionTransactions from "./actions/shot-direction-transaction";
 import { ProWorkspace } from "./ProWorkspace";
 
 const PROJECT_ID = `prj_${"a".repeat(32)}`;
@@ -716,6 +717,8 @@ describe("professional workspace", () => {
   });
 
   it("walks the stages, confirms agents, and keeps a hand edit", async () => {
+    const transactionSpy = vi.spyOn(directionTransactions, "prepareShotDirection");
+    onTestFinished(() => transactionSpy.mockRestore());
     const { completeText } = installDesktop();
     await openSample();
     expect(screen.queryByRole("button", { name: "放进分镜" })).not.toBeInTheDocument();
@@ -760,7 +763,33 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
     fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
     expect(await screen.findByText(/有动作没对上镜头/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
+    const lockedActionConfirm = await screen.findByRole("button", { name: "确认修改" });
+    const lockedActionFields = screen.getByRole("list", { name: "字段改动" });
+    const lockedAction = transactionSpy.mock.results
+      .filter((result) => result.type === "return" && result.value.role === "action")
+      .at(-1)!.value;
+    const expectedFields =
+      lockedAction.changes.length +
+      Number(JSON.stringify(lockedAction.stateBefore) !== JSON.stringify(lockedAction.stateAfter)) +
+      Number(JSON.stringify(lockedAction.beatsBefore) !== JSON.stringify(lockedAction.beatsAfter));
+    expect(within(lockedActionFields).getAllByRole("listitem")).toHaveLength(expectedFields);
+    expect(lockedActionFields).toHaveTextContent("场内动作状态");
+    await waitFor(() => {
+      const saved = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.at(-1)![0] as FilmProject;
+      const target = saved.shots.find((row) => row.id === lockedAction.selection.shotId)!;
+      expect(target.action).toBe("我改过这一下");
+      expect(target.userFields).toContain("action");
+      for (const change of lockedAction.changes)
+        expect((target as unknown as Record<string, unknown>)[change.field]).toEqual(
+          change.before.value,
+        );
+      expect(
+        saved.scenes.find((row) => row.id === lockedAction.selection.sceneId)?.actionState,
+      ).toEqual(lockedAction.stateBefore.value);
+    });
+    fireEvent.click(lockedActionConfirm);
 
     expect(screen.getByText(/你改过的，没有盖掉/)).toBeInTheDocument();
     await waitFor(() => {
