@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "purpose": "reviewed-bundled-runtime-resource-closure",
+  "loaders": [
+    {
+      "source": "apps/desktop/src/film-export-qc-runtime.ts",
+      "sourceSha256": "2e8419087eb083f510473fcd2028639bbc837de1d1e8f2c1fe7ebf9b097eda4d",
+      "emitted": "dist/film-export-qc-runtime.js",
+      "emittedSha256": "3a825f3f6222ff3d218543e068bd335ce2a9bb0a6630fc9ebf8916c6762f03b0",
+      "imports": [
+        {
+          "function": "loadQcEngine",
+          "resource": "qc/index.mjs"
+        },
+        {
+          "function": "loadQcRunner",
+          "resource": "qc/media.mjs"
+        }
+      ]
+    },
+    {
+      "source": "apps/desktop/src/film-audio-normalize.ts",
+      "sourceSha256": "2e91e8f870ae246db578b870151ef44d3ff71cd2a8e1802a728f2f4980729d6c",
+      "emitted": "dist/film-audio-normalize.js",
+      "emittedSha256": "d631498562c2f473703bd7e608ac991a8185e4bbf5dcdfa5b24ee0e165bac5ed",
+      "imports": [
+        {
+          "function": "loadAudioNormalizer",
+          "resource": "qc/audio-normalize.mjs"
+        }
+      ]
+    },
+    {
+      "source": "apps/desktop/src/film-project-archive-runtime.ts",
+      "sourceSha256": "d101c982f7955793c361d63dba984660cc7d923fd725b3b0e3a67b44b927b57e",
+      "emitted": "dist/film-project-archive-runtime.js",
+      "emittedSha256": "55d6163a176104977cd0505d3ac00d4aacff3a0f11f4a3b84e20b6553dd7ead5",
+      "imports": [
+        {
+          "function": "loadProjectArchiveEngine",
+          "resource": "project-archive/archive.mjs"
+        }
+      ]
+    },
+    {
+      "source": "apps/desktop/src/film-audio-library-runtime.ts",
+      "sourceSha256": "866cd7426fd9048c5c583ba6df1952c92f52f610d411642e9cf589d042d6b2a8",
+      "emitted": "dist/film-audio-library-runtime.js",
+      "emittedSha256": "7548662cd3f08e17710b2ba14fdf75d48dbe44bda5afaa9e0d54c15d4788c007",
+      "imports": [
+        {
+          "function": "loadTrustedAudioLibrary",
+          "resource": "audio-library/audio-library.mjs"
+        },
+        {
+          "function": "loadTrustedAudioPicker",
+          "resource": "audio-library/audio-picker.mjs"
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "path": "audio-library/audio-library.mjs",
+      "sha256": "b46a6bbeca0dc89fd9884af407794911607da9217439d25fe1ef007fd48ed817"
+    },
+    {
+      "path": "audio-library/audio-picker-synonyms.mjs",
+      "sha256": "5b919d4f1e929a6a63bc4957c61fdea1ce8942f675c307a07937e3cb948d4f8f"
+    },
+    {
+      "path": "audio-library/audio-picker.mjs",
+      "sha256": "0488b3c10bdf471530da46c655b3ba90b0a45e808f2bc291418b8a74fd4cb3bc"
+    },
+    {
+      "path": "project-archive/archive.mjs",
+      "sha256": "723416b2614c5e1ab6b6c85a8bbfea2dc9c686ef664028dc4cbce317da8fa4b3"
+    },
+    {
+      "path": "qc/audio-normalize.mjs",
+      "sha256": "e2e1463dc542f221ae438f40be0ff5df9487c180e83bd3d5b9bf201ba8031b23"
+    },
+    {
+      "path": "qc/index.mjs",
+      "sha256": "d5f3ac197496b2271a81e2d0cd733e6766c70dde8187e4386822f1bfe611eb36"
+    },
+    {
+      "path": "qc/media.mjs",
+      "sha256": "1766902acd89f64133fb4f7e6a4cbed41492737ac35799af03d3c49e1f048159"
+    },
+    {
+      "path": "qc/rules.mjs",
+      "sha256": "1221107f3320a14830f8d66acb718763feca388132931086df82e1d0c7996f54"
+    },
+    {
+      "path": "qc/subtitles.mjs",
+      "sha256": "ec17443a78212b83ce768773675b615bda22737c108ca7cf88ad0e5de05302f8"
+    }
+  ],
+  "libraryIndexSha256": "11814bfc6274f7876b9c5fc09c7ad87548739f54ed3c314363fec7f5a3e51365",
+  "sourceFiles": {
+    "assets/audio-library/manifest.json": "fa02bc97deb0786e80759fdcb9cbe5b6ea03acd2fca52701cfae8dbd9b09d3cb",
+    "config/bundled-audio-resources.json": "2fa27b12f6b213910199ebf2567d2997a565612b241610ee21de4cb2c8072db5",
+    "packages/aivora-media/archive.mjs": "723416b2614c5e1ab6b6c85a8bbfea2dc9c686ef664028dc4cbce317da8fa4b3",
+    "packages/aivora-media/audio-normalize.mjs": "e2e1463dc542f221ae438f40be0ff5df9487c180e83bd3d5b9bf201ba8031b23",
+    "packages/aivora-modules/audio-library/index.ts": "ea0fa87db911a757bdb2b6ac00fafcb6396bf84cc329d1baa90861447019e388",
+    "packages/aivora-modules/audio-picker/index.ts": "025b3ae18919b0f4a2559a46dbef45574ba4dea6a07279d7e44b4f77958e36fa",
+    "packages/aivora-modules/audio-picker/synonyms.ts": "1ca34fcf7c151f2c8f71d99f753843355dcd41805467b6e617a0512e6905ddf1",
+    "packages/aivora-qc/index.mjs": "d5f3ac197496b2271a81e2d0cd733e6766c70dde8187e4386822f1bfe611eb36",
+    "packages/aivora-qc/media.mjs": "1766902acd89f64133fb4f7e6a4cbed41492737ac35799af03d3c49e1f048159",
+    "packages/aivora-qc/rules.mjs": "1221107f3320a14830f8d66acb718763feca388132931086df82e1d0c7996f54",
+    "packages/aivora-qc/subtitles.mjs": "ec17443a78212b83ce768773675b615bda22737c108ca7cf88ad0e5de05302f8",
+    "pnpm-lock.yaml": "5ade91b18e16cb4de7d9f1d83cd34e6bcd65b3fb24d2e83a2a12847f1a18d7f4",
+    "scripts/build-audio-library-resources.mjs": "1910e90e214a873a78ea117970d161b88c20bafc6ce608cfc68ea4b8ef81fd28"
+  }
+}
