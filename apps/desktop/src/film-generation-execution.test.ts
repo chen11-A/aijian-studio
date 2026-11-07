@@ -47,6 +47,7 @@ const sha = (raw: string) => createHash("sha256").update(raw).digest("hex");
 async function fixture(
   privateFailure?: string,
   real?: { projectId: string; fetcher: typeof fetch },
+  frameStage = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), "native-execution-factory-"));
   roots.push(root);
@@ -127,7 +128,7 @@ async function fixture(
         lines: [],
         speaker: "",
         sound: { ambience: "", sfx: [], musicMood: "", source: "native" },
-        poster: frame,
+        poster: frameStage ? "" : frame,
         stills: [],
         selectedTakeId: "old",
         userFields: [],
@@ -138,7 +139,7 @@ async function fixture(
             shotId: "shot-one",
             index: 1,
             status: "done",
-            stillUrl: frame,
+            stillUrl: frameStage ? "" : frame,
             videoPath: "",
             videoUrl: "",
             prompt: "",
@@ -158,7 +159,17 @@ async function fixture(
     arms: unknown[] = [],
     submissions: string[] = [];
   let holdArm: (() => Promise<void>) | undefined;
+  let observationFailure = false;
+  let reservationFailure: string | undefined;
+  let reservationUnknown = false;
+  let imageCalls = 0;
   const fetcher = vi.fn<typeof fetch>(async (url, init) => {
+    if (new URL(String(url)).hostname === "api.x.ai") {
+      expect(new URL(String(url)).pathname).toMatch(/^\/v1\/images\/(?:edits|generations)$/);
+      expect(init?.method).toBe("POST");
+      imageCalls++;
+      return Response.json({ data: [{ b64_json: (await readFile(frame)).toString("base64") }] });
+    }
     const path = new URL(String(url)).pathname,
       raw = String(init?.body),
       headers = new Headers(init?.headers);
@@ -191,6 +202,16 @@ async function fixture(
       await holdArm?.();
       return Response.json({ arm_id: "f".repeat(32) });
     }
+    if (path.endsWith("/image-dispatch")) {
+      if (reservationUnknown) throw Error("controlled lost reservation acknowledgement");
+      if (reservationFailure) return Response.json({ detail: reservationFailure }, { status: 409 });
+      await holdArm?.();
+      return Response.json({ kind: "RECORDED" });
+    }
+    if (path.endsWith("/image-observation") && observationFailure)
+      throw Error("controlled lost observation acknowledgement");
+    if (path.endsWith("/image-unsent") || path.endsWith("/image-observation"))
+      return Response.json({ kind: "RECORDED" });
     if (path.endsWith("/retire")) return Response.json({ kind: "RECORDED" });
     if (path.endsWith("/prepared-generation-executions")) {
       registrations.push(JSON.parse(raw));
@@ -234,6 +255,16 @@ async function fixture(
     arms,
     submissions,
     fetcher,
+    imageCalls: () => imageCalls,
+    loseReservation: () => {
+      reservationUnknown = true;
+    },
+    refuseImage: (code: string) => {
+      reservationFailure = code;
+    },
+    loseObservation: () => {
+      observationFailure = true;
+    },
     stop: () => {
       active = false;
     },
@@ -376,7 +407,7 @@ it("same-path byte replacement after actual arm admission reaches no StoryFilm t
   expect(f.submissions).toHaveLength(0);
 });
 
-it("rejects unsupported image, cache-eligible and pipeline scopes before private registration", async () => {
+it("rejects unsupported planned-image, cache-eligible and pipeline scopes before private registration", async () => {
   for (const kind of ["image", "cache", "pipeline"] as const) {
     const f = await fixture();
     const changed = structuredClone(f.record),
@@ -384,6 +415,7 @@ it("rejects unsupported image, cache-eligible and pipeline scopes before private
     if (kind === "image") {
       shot.poster = "";
       generationRows(shot.takes)[0]!.stillUrl = "";
+      generationRows(changed.locations)[0]!.referenceImage = "";
     }
     if (kind === "cache") generationRows(shot.takes)[0]!.status = "failed";
     await writeProject(f.filmsRoot, changed);
@@ -512,9 +544,9 @@ it.each(["VIDEO_UNCONFIGURED", "VIDEO_INPUT_FAILURE_LIMIT"])(
   },
 );
 
-it.skipIf(!ffmpegOnPath())(
-  `crosses the actual Python signed routes and original StoryFilm consumer (${ffmpegSkipReason})`,
-  async () => {
+it.skipIf(!ffmpegOnPath()).each([false, true])(
+  `crosses actual Python signed routes and original consumer with fixed frame stage=%s (${ffmpegSkipReason})`,
+  async (frameStage) => {
     const root = await mkdtemp(join(tmpdir(), "native-prepared-sidecar-"));
     roots.push(root);
     const repositoryRoot = resolve("../..");
@@ -561,9 +593,47 @@ it.skipIf(!ffmpegOnPath())(
       replies.push(reply);
       return Response.json(reply.body, { status: reply.status });
     };
-    const f = await fixture(undefined, { projectId, fetcher: realFetch }),
+    const f = await fixture(undefined, { projectId, fetcher: realFetch }, frameStage),
       p = await preparedVideo(f);
     expect(replies.map((reply) => reply.status)).toEqual([200, 200]);
+    if (frameStage) {
+      const shot = generationRows(p.canonical.shots)[0]!;
+      const actual = producer.shotStillInput(
+        p.canonical,
+        shot,
+        producer.keyframePrompt(shot, p.canonical),
+      ) as { kind: string; prompt: string; references: string[]; aspectRatio: "16:9" | "9:16" };
+      expect(actual.kind).toBe("READY");
+      const input = {
+        seriesId: String(f.record.seriesId),
+        prompt: actual.prompt,
+        references: actual.references,
+        aspectRatio: actual.aspectRatio,
+        execution: { executionId: p.prepared.executionId, stageId: p.prepared.stages[0]!.stageId },
+      };
+      const made = await f.factory.still(f.owner, input);
+      expect(made.code).toBeUndefined();
+      expect(made.path).not.toBe("");
+      expect(f.imageCalls()).toBe(1);
+      expect((await f.factory.still(f.owner, input)).code).toBe(
+        "CREATION_ATTEMPT_ALREADY_RESERVED",
+      );
+      expect(f.imageCalls()).toBe(1);
+      const next = structuredClone(p.canonical);
+      generationRows(next.shots)[0]!.poster = made.path;
+      await writeProject(f.filmsRoot, next);
+      p.canonical = (await readProject(f.filmsRoot, f.record.id))!;
+      p.body = parseStoryFilmCreate(
+        producer.generationVideoBody(
+          p.canonical,
+          generationRows(p.canonical.shots)[0],
+          generationRows(f.record.shots)[0],
+          undefined,
+          false,
+        ),
+      );
+      p.body.regenerate = true;
+    }
     const outcome = await f.factory.video(f.owner, projectId, p.body, undefined, p.execution);
     expect(
       outcome.data.status,
@@ -573,14 +643,145 @@ it.skipIf(!ffmpegOnPath())(
         attempts: replies.at(-1)?.attempts,
       }),
     ).toBe("FAILED");
-    expect(replies.map((reply) => reply.status)).toEqual([200, 200, 200, 200]);
+    expect(replies.map((reply) => reply.status)).toEqual(Array(frameStage ? 9 : 4).fill(200));
     expect(replies.flatMap((reply) => reply.sent)).toEqual(["tts"]);
     expect(replies.at(-1)!.attempts).toEqual(["UNKNOWN"]);
     await expect(
       f.factory.video(f.owner, projectId, p.body, undefined, p.execution),
     ).rejects.toMatchObject({ code: "CREATION_ATTEMPT_ALREADY_RESERVED" });
-    expect(replies).toHaveLength(4);
+    expect(replies).toHaveLength(frameStage ? 9 : 4);
     expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
   },
   30_000,
 );
+
+it.each(["retired", "owner", "changed-bytes"])(
+  "stops a fixed-reference frame before actual image POST when %s after reservation",
+  async (change) => {
+    const f = await fixture(undefined, undefined, true),
+      p = await preparedVideo(f),
+      entered = deferred(),
+      release = deferred();
+    releaseAll.push(release.resolve);
+    f.setHold(async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    const shot = generationRows(p.canonical.shots)[0]!;
+    const actual = producer.shotStillInput(
+      p.canonical,
+      shot,
+      producer.keyframePrompt(shot, p.canonical),
+    ) as { prompt: string; references: string[]; aspectRatio: "16:9" | "9:16" };
+    const input = {
+      seriesId: String(f.record.seriesId),
+      prompt: actual.prompt,
+      references: actual.references,
+      aspectRatio: actual.aspectRatio,
+      execution: { executionId: p.prepared.executionId, stageId: p.prepared.stages[0]!.stageId },
+    };
+    expect(
+      (await f.factory.still(f.owner, { ...input, prompt: input.prompt + " changed" })).code,
+    ).toBe("PROJECT_CHANGED");
+    expect(f.imageCalls()).toBe(0);
+    const pending = f.factory.still(f.owner, input);
+    pendingAll.push(pending);
+    await entered.promise;
+    if (change === "retired")
+      await f.factory.retire(f.owner, { executionId: p.prepared.executionId });
+    else if (change === "owner") f.stop();
+    else await writeFile(f.frame, "changed bytes at the original source path");
+    release.resolve();
+    const made = await pending;
+    expect(made.path).toBe("");
+    expect(made.code).toBe(
+      change === "changed-bytes" ? "SOURCE_UNVERIFIABLE" : "EXECUTION_UNAVAILABLE",
+    );
+    expect(f.imageCalls()).toBe(0);
+    expect(f.submissions).toHaveLength(0);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
+  },
+);
+
+it("retains the actual frame file when its lineage acknowledgement is unknown without repeating an image", async () => {
+  const f = await fixture(undefined, undefined, true),
+    p = await preparedVideo(f);
+  const shot = generationRows(p.canonical.shots)[0]!;
+  const actual = producer.shotStillInput(
+    p.canonical,
+    shot,
+    producer.keyframePrompt(shot, p.canonical),
+  ) as { prompt: string; references: string[]; aspectRatio: "16:9" | "9:16" };
+  const input = {
+    seriesId: String(f.record.seriesId),
+    prompt: actual.prompt,
+    references: actual.references,
+    aspectRatio: actual.aspectRatio,
+    execution: { executionId: p.prepared.executionId, stageId: p.prepared.stages[0]!.stageId },
+  };
+  f.loseObservation();
+  const made = await f.factory.still(f.owner, input);
+  expect(made.code).toBe("WRITE_UNCONFIRMED");
+  expect(made.path).not.toBe("");
+  expect(await readFile(made.path)).toEqual(await readFile(f.frame));
+  expect((await f.factory.still(f.owner, input)).code).toBe("CREATION_ATTEMPT_ALREADY_RESERVED");
+  expect(f.imageCalls()).toBe(1);
+  expect(f.submissions).toHaveLength(0);
+  expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
+});
+
+it.each(["VIDEO_UNCONFIGURED", "VIDEO_INPUT_FAILURE_LIMIT"])(
+  "does not release someone else's hold or hide an explicit %s image gate",
+  async (code) => {
+    const f = await fixture(undefined, undefined, true),
+      p = await preparedVideo(f);
+    const shot = generationRows(p.canonical.shots)[0]!;
+    const actual = producer.shotStillInput(
+      p.canonical,
+      shot,
+      producer.keyframePrompt(shot, p.canonical),
+    ) as { prompt: string; references: string[]; aspectRatio: "16:9" | "9:16" };
+    f.refuseImage(code);
+    const made = await f.factory.still(f.owner, {
+      seriesId: String(f.record.seriesId),
+      prompt: actual.prompt,
+      references: actual.references,
+      aspectRatio: actual.aspectRatio,
+      execution: { executionId: p.prepared.executionId, stageId: p.prepared.stages[0]!.stageId },
+    });
+    expect(made.code).toBe(code);
+    expect(f.imageCalls()).toBe(0);
+    expect(
+      f.fetcher.mock.calls.filter(([url]) =>
+        new URL(String(url)).pathname.endsWith("/image-unsent"),
+      ),
+    ).toHaveLength(0);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
+  },
+);
+
+it("preserves an unacknowledged image reservation without calling unsent or provider", async () => {
+  const f = await fixture(undefined, undefined, true),
+    p = await preparedVideo(f);
+  const shot = generationRows(p.canonical.shots)[0]!;
+  const actual = producer.shotStillInput(
+    p.canonical,
+    shot,
+    producer.keyframePrompt(shot, p.canonical),
+  ) as { prompt: string; references: string[]; aspectRatio: "16:9" | "9:16" };
+  f.loseReservation();
+  const input = {
+    seriesId: String(f.record.seriesId),
+    prompt: actual.prompt,
+    references: actual.references,
+    aspectRatio: actual.aspectRatio,
+    execution: { executionId: p.prepared.executionId, stageId: p.prepared.stages[0]!.stageId },
+  };
+  expect((await f.factory.still(f.owner, input)).code).toBe("WRITE_UNCONFIRMED");
+  expect((await f.factory.still(f.owner, input)).code).toBe("CREATION_ATTEMPT_ALREADY_RESERVED");
+  expect(f.imageCalls()).toBe(0);
+  expect(
+    f.fetcher.mock.calls.filter(([url]) => new URL(String(url)).pathname.endsWith("/image-unsent")),
+  ).toHaveLength(0);
+  expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
+});
