@@ -157,6 +157,14 @@ def test_padding_over_cap_keeps_raw_voice_and_retry_does_not_submit_video_or_tts
         assert failure.value.code == "DIALOGUE_VIDEO_LIMIT"
         assert failure.value.detail["requiredSeconds"] == pytest.approx(cap + 0.2)
         assert failure.value.detail["maxSeconds"] == cap
+        evidence = failure.value.dialogue_limit
+        assert evidence is not None
+        assert evidence.required_seconds == pytest.approx(cap + 0.2)
+        assert evidence.max_seconds == cap
+        assert evidence.shot_index is None
+        assert evidence.target_video_submitted is False
+        assert evidence.raw_audio_saved is True
+        assert evidence.raw_audio_sha256 == hashlib.sha256(raw).hexdigest()
     assert len(transport.requests) == 1
     assert b'"voice_id"' in transport.requests[0].body
     cached = service._saved_voice(service._image_directory(), service._image_stem(project, request))

@@ -10064,6 +10064,39 @@ export interface components {
              */
             voice_id: string;
         };
+        /** StoryDialogueLimitData */
+        StoryDialogueLimitData: {
+            /**
+             * Max Seconds
+             * @enum {integer}
+             */
+            max_seconds: 10 | 15;
+            /** Raw Audio Saved */
+            raw_audio_saved: boolean;
+            /** Raw Audio Sha256 */
+            raw_audio_sha256: string | null;
+            /** Request Sha256 */
+            request_sha256: string;
+            /** Required Seconds */
+            required_seconds: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Shot Index */
+            shot_index: number | null;
+            /**
+             * Speech Window
+             * @constant
+             */
+            speech_window: 1;
+            /**
+             * Target Video Submitted
+             * @constant
+             */
+            target_video_submitted: false;
+        };
         /** StoryEntityDraftV1 */
         StoryEntityDraftV1: {
             /** Aliases */
@@ -10141,6 +10174,7 @@ export interface components {
             clean_copy_reason?: string | null;
             /** Clean Output Path */
             clean_output_path?: string | null;
+            dialogue_limit?: components["schemas"]["StoryDialogueLimitData"] | null;
             /**
              * Draft
              * @default true
