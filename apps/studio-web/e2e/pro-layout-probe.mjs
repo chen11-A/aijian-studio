@@ -7,6 +7,20 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["选用本地音效/配乐", "library-open"],
+    ["加入当前版本", "library-add"],
+    ["核对当前版本时长", "library-target-refresh"],
+    ["查找名称或类别", "library-search"],
+    ["加入轨道", "library-lane"],
+    ["使用时长（秒）", "library-duration"],
+    ["开始时间（镜头内，秒）", "library-start"],
+    ["素材起点（秒）", "library-offset"],
+    ["片段音量（dB）", "library-gain"],
+    ["循环到所选时长", "library-loop"],
+    ["核对这部作品", "library-recover"],
+    ["查看冲突处理", "library-conflict"],
+    ["采用已保存版本并放弃这份未保存稿", "library-adopt-saved"],
+    ["未保存稿文字备忘", "library-draft-memo"],
     ["对白音量", "mix-dialogue-volume"],
     ["静音对白", "mix-dialogue-mute"],
     ["单听对白", "mix-dialogue-solo"],
@@ -56,6 +70,9 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const controlIds = new Set(["export-quality", "export-aspect", "export-dir"]);
   const safeClasses = new Set([
+    "bundled-audio-dialog",
+    "bundled-audio-list",
+    "bundled-audio-body",
     "nx-video-review",
     "nx-video-model",
     "nx-video-facts",
@@ -120,6 +137,18 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
     "HTML",
   ]);
   const tag = (element) => (safeTags.has(element.tagName) ? element.tagName : "OTHER");
+  const controlName = (element, label) => {
+    if (element.classList.contains("bundled-audio-item")) return "library-asset";
+    if (element.closest(".bundled-audio-used-row") && element.tagName === "BUTTON")
+      return "library-remove";
+    if (element.tagName === "BUTTON" && /^本地素材保存待核对（\d+）$/.test(label))
+      return "library-pending";
+    if (element.closest(".bundled-audio-dialog") && element.labels?.length)
+      return (
+        controlLabels.get(element.labels[0].textContent.replace(/\s+/g, " ").trim()) ?? "other"
+      );
+    return controlLabels.get(label) ?? "other";
+  };
   for (const element of scope.querySelectorAll("button,input,select,textarea,summary")) {
     if (element.closest("[hidden]")) continue;
     const closed = element.closest("details:not([open])");
@@ -198,7 +227,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
         label,
         box: bounds(box),
         diagnostic: {
-          control: controlIds.has(element.id) ? element.id : (controlLabels.get(label) ?? "other"),
+          control: controlIds.has(element.id) ? element.id : controlName(element, label),
           tag: tag(element),
           clipTag: clipAncestor ? tag(clipAncestor) : "OTHER",
           clipClasses: clipAncestor
@@ -228,9 +257,7 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
           hit: `${hit.tagName}.${hit.className}`,
           box: bounds(box),
           diagnostic: {
-            control: controlIds.has(element.id)
-              ? element.id
-              : (controlLabels.get(label) ?? "other"),
+            control: controlIds.has(element.id) ? element.id : controlName(element, label),
             tag: tag(element),
             hitTag: tag(hit),
             hitClasses: [...hit.classList].filter((name) => safeClasses.has(name)).slice(0, 3),
