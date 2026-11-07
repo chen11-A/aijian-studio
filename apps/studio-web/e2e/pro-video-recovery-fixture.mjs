@@ -2,7 +2,15 @@
 export function installVideoRecoveryBridge({ state }) {
   const clone = (value) => JSON.parse(JSON.stringify(value)),
     bridge = window.aijian;
-  const audit = { lists: [], recovers: [], saves: [], pending: [], writes: [], forbidden: [] };
+  const audit = {
+    histories: [],
+    lists: [],
+    recovers: [],
+    saves: [],
+    pending: [],
+    writes: [],
+    forbidden: [],
+  };
   window.__proVideoRecoveryAudit = audit;
   const forbidden = (name) => {
     audit.forbidden.push(name);
@@ -39,6 +47,14 @@ export function installVideoRecoveryBridge({ state }) {
     )
       return forbidden("invalid-project");
     return records().find((r) => r.backendProjectId === id);
+  };
+  // Work settings genuinely lists history before the recovery entry is clicked.
+  // This is a read-only local capability; capture/restore remain forbidden stubs.
+  bridge.listFilmHistory = async (id) => {
+    if (typeof id !== "string" || records().filter((record) => record.id === id).length !== 1)
+      return forbidden("history-scope");
+    audit.histories.push({ projectId: id });
+    return { kind: "LIST", entries: [], unreadable: 0 };
   };
   const check = (id, key) => {
     project(id);

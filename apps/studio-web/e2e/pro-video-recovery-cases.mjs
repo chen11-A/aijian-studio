@@ -50,6 +50,7 @@ export async function runVideoRecoveryCases({ browser, config, report, media, pe
         const record = (id) => page.evaluate((id) => window.__proCreationAudit.record(id), id);
         const calls = () =>
           page.evaluate(() => ({
+            histories: window.__proVideoRecoveryAudit.histories,
             lists: window.__proVideoRecoveryAudit.lists,
             recovers: window.__proVideoRecoveryAudit.recovers,
             saves: window.__proVideoRecoveryAudit.saves,
@@ -307,6 +308,13 @@ export async function runVideoRecoveryCases({ browser, config, report, media, pe
           }
           assert.deepEqual(await record(seed.projectId), before);
           audit = await calls();
+          assert.deepEqual(
+            audit.histories.map((call) => call.projectId),
+            [
+              seed.projectId,
+              ...(["recovery-late", "recovery-unavailable"].includes(state) ? [seed.otherId] : []),
+            ],
+          );
           assert.deepEqual(audit.assembly, []);
           assert.deepEqual(audit.forbidden, []);
           assert.deepEqual(result.pageerrors, []);
