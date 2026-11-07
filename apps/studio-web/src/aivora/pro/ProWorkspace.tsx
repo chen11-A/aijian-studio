@@ -40,7 +40,11 @@ import { ExportCheck } from "../next/ExportCheck";
 import { readQcReport, type QcIssue } from "../next/qcReport";
 import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
-import { projectArtStyleFields } from "./actions/art-style-field-rows";
+import {
+  prepareArtFieldReview,
+  artReviewCurrent,
+  type ArtFieldReview,
+} from "./actions/art-field-review";
 import {
   generationPreflight,
   prepareGeneration,
@@ -289,6 +293,8 @@ type RoleCard = {
   directionCardId?: string;
   directionReceiptToken?: string;
   artDiff?: ArtTransaction;
+  artCardId?: string;
+  artReceiptToken?: string;
   editorDiff?: EditorSuggestion;
   editorRequestId?: number;
   editorTurnId?: string;
@@ -896,6 +902,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const applyingStory = useRef(false);
   const artDraft = useRef<ArtTransaction | null>(null);
   const applyingArt = useRef(false);
+  const [artCardBusy, setArtCardBusy] = useState(false);
+  const [artFieldCard, setArtFieldCard] = useState<RoleCard | null>(null);
+  const artFieldCardRef = useRef<RoleCard | null>(null);
+  const artReviewRef = useRef<{
+    id: string;
+    transaction: ArtTransaction;
+    review: ArtFieldReview;
+  } | null>(null);
+  function showArtCard(card: RoleCard | null) {
+    artFieldCardRef.current = card;
+    setArtFieldCard(card);
+    if (!card) artReviewRef.current = null;
+  }
   const [directionFieldCard, setDirectionFieldCard] = useState<RoleCard | null>(null);
   const directionFieldCardRef = useRef<RoleCard | null>(null);
   const [directionCardBusy, setDirectionCardBusy] = useState(false);
@@ -910,6 +929,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     a.page === b.page &&
     a.sceneId === b.sceneId &&
     a.shotId === b.shotId;
+  const scopedArtFieldCard =
+    artFieldCard?.artDiff &&
+    sameDirectionScope(artFieldCard.artDiff.selection, editorSelection.current)
+      ? artFieldCard
+      : null;
   const scopedDirectionFieldCard =
     directionFieldCard?.directionDiff &&
     sameDirectionScope(directionFieldCard.directionDiff.selection, editorSelection.current)
@@ -1626,10 +1650,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   function applyPending() {
     const card =
-      (role === "action" || role === "performance") &&
-      scopedDirectionFieldCard?.directionDiff?.role === role
-        ? scopedDirectionFieldCard
-        : roleCards[role];
+      role === "art" && scopedArtFieldCard
+        ? scopedArtFieldCard
+        : (role === "action" || role === "performance") &&
+            scopedDirectionFieldCard?.directionDiff?.role === role
+          ? scopedDirectionFieldCard
+          : roleCards[role];
     if (
       (role === "action" || role === "performance") &&
       card?.directionCardId &&
@@ -1637,6 +1663,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     ) {
       if (card.applied) void undoPendingDirection(card.directionCardId, card.directionReceiptToken);
       else void applyPendingDirection(card.directionDiff, card.directionCardId);
+      return;
+    }
+    if (role === "art" && card?.artCardId && card.fieldRows !== undefined) {
+      if (card.applied) void undoPendingArt(card.artCardId, card.artReceiptToken);
+      else void applyPendingArt(card.artCardId);
       return;
     }
     if (role === "prompter" && card?.fieldRows !== undefined) {
@@ -2509,8 +2540,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function applyPendingArt() {
-    const transaction = artDraft.current;
+  async function applyPendingArt(cardId?: string) {
+    const fixed = artReviewRef.current;
+    const fieldCard = artFieldCardRef.current;
+    if (
+      cardId &&
+      (directionRoleRef.current !== "art" ||
+        fixed?.id !== cardId ||
+        fieldCard?.artCardId !== cardId ||
+        fieldCard.applied)
+    )
+      return;
+    const transaction = cardId ? fixed?.transaction : artDraft.current;
     const live = filmRef.current;
     if (!transaction || !live || applyingArt.current) return;
     const selection = editorSelection.current;
@@ -2524,7 +2565,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("当前选择已改变，请回到美术建议所在页面再应用。");
       return;
     }
-    const styleOnly = projectArtStyleFields(transaction, expected) !== null;
+    if (cardId && (!fixed || !artReviewCurrent(live, transaction, fixed.review.input))) {
+      setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
+      return;
+    }
     const result = applyArtTransaction(live, transaction);
     if (!result.receipt) {
       setNotice("内容后来改过，这次美术建议没有覆盖。请重新生成建议。");
@@ -2533,18 +2577,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const completionOrigin = structuredClone(editorSelection.current);
     let appliedVersion: FilmProject | null = null;
     applyingArt.current = true;
+    if (cardId) setArtCardBusy(true);
     try {
       if (committed.current?.id === live.id)
         pageHistory.record(committed.current, live, historyScope.current);
       applyLive(result.film);
       const applied = filmRef.current!;
       appliedVersion = applied;
-      pageHistory.recordArt(result.receipt);
+      const artReceiptToken = pageHistory.recordArt(result.receipt);
       committed.current = applied;
       skipHistory.current = true;
       setHistoryTick((value) => value + 1);
       artDraft.current = null;
-      markApplied("art");
+      if (cardId && fieldCard && artFieldCardRef.current?.artCardId === cardId)
+        showArtCard({ ...fieldCard, applied: true, artReceiptToken });
+      else markApplied("art");
       const stored = await persistence.save(applied);
       if (
         appliedVersion &&
@@ -2557,14 +2604,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
         setNotice(
           stored
-            ? styleOnly
-              ? {
-                  code: "STEP_COMPLETE",
-                  text: NOTICE_TEXT.STEP_COMPLETE,
-                  detail: "画风说明已修改。",
-                }
+            ? cardId
+              ? { code: "ART_FIELDS_APPLIED", text: NOTICE_TEXT.ART_FIELDS_APPLIED }
               : "画风、外貌、场景和道具已放进去。你改过的外貌没有被盖掉。"
-            : "美术建议已应用，但还没有保存。",
+            : {
+                code: "SAVE_FAILED",
+                text: NOTICE_TEXT.SAVE_FAILED,
+                detail: "美术建议已应用，但还没有保存。",
+              },
         );
     } catch {
       if (
@@ -2576,13 +2623,96 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           editorSelection.current,
         )
       )
-        setNotice("美术建议已应用，但还没有保存。");
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "美术建议已应用，但还没有保存。",
+        });
     } finally {
       applyingArt.current = false;
+      if (cardId) setArtCardBusy(false);
+    }
+  }
+
+  async function undoPendingArt(cardId: string, token: string | undefined) {
+    const card = artFieldCardRef.current,
+      live = filmRef.current;
+    if (
+      directionRoleRef.current !== "art" ||
+      !live ||
+      applyingArt.current ||
+      !token ||
+      !card?.applied ||
+      card.artCardId !== cardId ||
+      card.artReceiptToken !== token ||
+      !card.artDiff ||
+      !sameDirectionScope(card.artDiff.selection, editorSelection.current) ||
+      pageHistory.artReceiptState(editorSelection.current, token) !== "applied"
+    )
+      return;
+    if (committed.current?.id === live.id)
+      pageHistory.record(committed.current, live, historyScope.current);
+    const result = pageHistory.undoArtReceipt(live, editorSelection.current, token);
+    if (!result.receipt) {
+      setNotice("内容后来改过，这次没有覆盖。");
+      return;
+    }
+    const origin = structuredClone(editorSelection.current);
+    applyingArt.current = true;
+    setArtCardBusy(true);
+    let applied: FilmProject | null = null;
+    try {
+      applyLive(result.film);
+      applied = filmRef.current!;
+      committed.current = applied;
+      skipHistory.current = true;
+      setHistoryTick((value) => value + 1);
+      showArtCard(null);
+      const stored = await persistence.save(applied);
+      if (editorCompletionCurrent(applied, origin, filmRef.current, editorSelection.current))
+        setNotice(
+          stored
+            ? "已撤销"
+            : {
+                code: "SAVE_FAILED",
+                text: NOTICE_TEXT.SAVE_FAILED,
+                detail: "撤销已应用，但还没保存上。请重试保存。",
+              },
+        );
+    } catch {
+      if (
+        applied &&
+        editorCompletionCurrent(applied, origin, filmRef.current, editorSelection.current)
+      )
+        setNotice({
+          code: "SAVE_FAILED",
+          text: NOTICE_TEXT.SAVE_FAILED,
+          detail: "撤销已应用，但还没保存上。请重试保存。",
+        });
+    } finally {
+      applyingArt.current = false;
+      setArtCardBusy(false);
     }
   }
 
   function rejectPendingSuggestion() {
+    if (role === "art" && scopedArtFieldCard?.artCardId) {
+      const card = artFieldCardRef.current;
+      if (
+        !card ||
+        card.artCardId !== scopedArtFieldCard.artCardId ||
+        directionRoleRef.current !== "art" ||
+        applyingArt.current ||
+        card.applied ||
+        !card.artDiff ||
+        !sameDirectionScope(card.artDiff.selection, editorSelection.current)
+      )
+        return;
+      showArtCard(null);
+      artDraft.current = null;
+      markApplied("art");
+      return;
+    }
     if (
       (role === "action" || role === "performance") &&
       scopedDirectionFieldCard?.directionDiff?.role === role &&
@@ -2637,12 +2767,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const transaction = prepareArtTransaction(base, result.draft, selection);
-    const fieldRows = projectArtStyleFields(transaction, selection);
+    const review = prepareArtFieldReview(base, transaction);
     artDraft.current = transaction;
     setStructured(result.lines);
-    publishCard("art", {
+    const card: RoleCard = {
       artDiff: transaction,
-      ...(fieldRows !== null ? { fieldRows } : {}),
+      ...(review !== null ? { fieldRows: review.fieldRows, artCardId: turn } : {}),
       title: "美术 · 画风和外貌",
       rows: result.lines.map((line, index) => ({
         id: `art-${index}`,
@@ -2650,18 +2780,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text: line,
         tail: "",
       })),
-      notes: [],
+      notes: review?.notes ?? [],
       applied: false,
       mode: "art",
-    });
+    };
+    showArtCard(null);
+    if (review) {
+      artReviewRef.current = { id: turn, transaction, review };
+      markApplied("art");
+      showArtCard(card);
+    } else publishCard("art", card);
     finishTurn(
       turn,
-      fieldRows !== null
-        ? {
-            code: "STEP_COMPLETE",
-            text: NOTICE_TEXT.STEP_COMPLETE,
-            detail: "画风说明已准备好，确认后才修改。",
-          }
+      review !== null
+        ? { code: "ART_SUGGESTION_READY", text: NOTICE_TEXT.ART_SUGGESTION_READY }
         : "美术写好了。点「放进分镜」，外貌、场景和道具才会改。",
     );
     noteAgent("art", "art", "美术写好了。点「放进分镜」，外貌、场景和道具才会改。");
@@ -4919,11 +5051,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         ) === "applied"))
       ? directionFieldCard
       : null;
+  useEffect(() => {
+    const card = artFieldCardRef.current;
+    if (
+      card?.artDiff &&
+      (!sameDirectionScope(card.artDiff.selection, editorSelection.current) ||
+        (card.applied &&
+          card.artReceiptToken &&
+          pageHistory.artReceiptState(card.artDiff.selection, card.artReceiptToken) !== "applied"))
+    )
+      showArtCard(null);
+  }, [film?.id, stage, scene, selectedEditorShot?.id, historyTick, pageHistory]);
+  const visibleArtCard =
+    artFieldCard?.artDiff &&
+    sameDirectionScope(artFieldCard.artDiff.selection, editorSelection.current) &&
+    (!artFieldCard.applied ||
+      (artFieldCard.artReceiptToken &&
+        pageHistory.artReceiptState(
+          artFieldCard.artDiff.selection,
+          artFieldCard.artReceiptToken,
+        ) === "applied"))
+      ? artFieldCard
+      : null;
   const displayedRoleCard =
-    (role === "action" || role === "performance") &&
-    visibleDirectionCard?.directionDiff?.role === role
-      ? visibleDirectionCard
-      : roleCards[role];
+    role === "art" && visibleArtCard
+      ? visibleArtCard
+      : (role === "action" || role === "performance") &&
+          visibleDirectionCard?.directionDiff?.role === role
+        ? visibleDirectionCard
+        : roleCards[role];
   // 4A-U11: 分镜, 单镜 and 剪辑 show the same assistant, with the same card for this scene.
   const sceneCard =
     displayedRoleCard?.shots && displayedRoleCard.shots.every((item) => item.sceneId !== scene)
@@ -5005,7 +5161,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         pending={pendingRole === role ? pending : null}
         onApply={applyPending}
         onReject={rejectPendingSuggestion}
-        busy={asking || directionCardBusy}
+        busy={asking || directionCardBusy || artCardBusy}
         shots={shownShots}
         chat={chat}
         onChat={setChat}
@@ -5488,7 +5644,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     );
                   }}
                   onFilm={setFilm}
-                  asking={asking || directionCardBusy}
+                  asking={asking || directionCardBusy || artCardBusy}
                   onPlan={() => {
                     chooseRole("director");
                     void planDirector();
@@ -5515,12 +5671,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   structured={structured}
                   turns={turns}
                   onRetry={pendingRetry ? () => void retryPending() : undefined}
-                  card={
-                    roleCards[role]?.shots &&
-                    roleCards[role]?.shots.every((item) => item.sceneId !== scene)
-                      ? null
-                      : (roleCards[role] ?? null)
-                  }
+                  card={sceneCard}
                   onRedoRange={() => {
                     setStage("edit");
                     setRange(true);
@@ -5543,7 +5694,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRole={chooseRole}
                   card={displayedRoleCard ?? null}
                   turns={turns}
-                  busy={asking || directionCardBusy}
+                  busy={asking || directionCardBusy || artCardBusy}
                   onApply={applyPending}
                   onReject={rejectPendingSuggestion}
                   onQuick={(label) => {
@@ -5567,7 +5718,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && !bench && (
                 <BoardPage
-                  assistantBusy={asking || directionCardBusy}
+                  assistantBusy={asking || directionCardBusy || artCardBusy}
                   onCleanCopy={(ids) => void repairCleanCopies(ids)}
                   cleanCopyBusy={cleanCopyBusy}
                   quiet={exportView.lead}
@@ -7108,11 +7259,13 @@ function Assistant({
           card.directionDiff?.role === "performance" ||
           card.directionDiff?.role === "action") ? (
           <>
-            {card.mode === "art" ? (
-              <p className="role-desc">
-                改画风会把已有镜头标为需要重做，原有素材会保留，不会自动重新生成。
-              </p>
-            ) : null}
+            {card.mode === "art"
+              ? card.notes.map((note, index) => (
+                  <p className="role-desc" key={index}>
+                    {note}
+                  </p>
+                ))
+              : null}
             {card.directionDiff?.role === "action" ? (
               <p className="role-desc">{DIFFICULTY_LEGEND}</p>
             ) : null}
@@ -7123,7 +7276,7 @@ function Assistant({
               fieldRows={card.fieldRows}
               applied={card.applied}
               busy={busy}
-              onUndo={card.directionReceiptToken ? onApply : undefined}
+              onUndo={card.directionReceiptToken || card.artReceiptToken ? onApply : undefined}
               onApply={onApply}
               onAnother={onSend}
               onReject={onReject}
