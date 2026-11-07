@@ -18,6 +18,10 @@ import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useDialogueSplit } from "./use-dialogue-split";
+import { useActualRiskTrial } from "./use-actual-risk-trial";
+import { useRiskTrialReview } from "./use-risk-trial-review";
+import { useGenerationFailurePolicy } from "./use-generation-failure-policy";
+import { useGenerationVideoRecovery } from "./use-generation-video-recovery";
 import {
   captureAssistantReferences,
   assistantReferencesCurrent,
@@ -47,6 +51,7 @@ import { acceptExportProgress, type ExportProgressScope } from "./actions/export
 import type { FilmExportProgressEvent } from "@aijian/contracts/film-export-qc";
 import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/film-export-qc";
 import { ExportCheck } from "../next/ExportCheck";
+import { useExportDelivery } from "./use-export-delivery";
 import { readQcReport, type QcIssue } from "../next/qcReport";
 import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
@@ -120,7 +125,11 @@ import { applyContinuityChecks } from "../film/continuity-rules";
 import { continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
 import { createPipelineControls } from "./pipeline-controls";
-import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
+import {
+  createPipelineWorkspaceHost,
+  type PipelineVideoHost,
+  type PipelineSaveLease,
+} from "./pipeline-workspace-host";
 import { createFilmPersistence } from "./film-persistence";
 import { stillFailureNotice } from "./workflow";
 import { coverageNotice } from "../film/coverage-notice";
@@ -803,7 +812,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     batchConfirmation.current = rows ? { projectId: filmRef.current?.id ?? "", rows } : null;
     setPendingBatchState(rows);
   }
-  const [exportFile, setExportFile] = useState("");
   const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const filmRef = useRef<FilmProject | null>(null);
@@ -880,6 +888,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         };
       },
       beforeRun: (lease) => captureBeforePipeline(lease),
+      checkTrialDecision: (decisionId, lease, targetShotId) =>
+        checkAcceptedTrialDecision(decisionId, lease, targetShotId),
       bridge: () => (pipelineLive.current.connected ? (grokBridge() ?? null) : null),
       modelIds: () => pipelineLive.current.modelIds,
       modelsChanged: setModelIds,
@@ -1031,6 +1041,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     },
     persistence,
   };
+  const exportDelivery = useExportDelivery(film?.id ?? null, () => filmRef.current?.id ?? null);
+  const riskTrialReview = useRiskTrialReview(film, {
+    current: () => filmRef.current,
+    onInspect: (shotId, sceneId) => {
+      const live = filmRef.current;
+      if (!live) return;
+      const rows = live.shots
+        .filter((row) => row.sceneId === sceneId)
+        .slice()
+        .sort((a, b) => a.no - b.no);
+      const index = rows.findIndex((row) => row.id === shotId);
+      if (index < 0) return;
+      setScene(sceneId);
+      setShot(index);
+      setBench(false);
+      setStage("board");
+    },
+  });
+  const generationFailurePolicy = useGenerationFailurePolicy(film, () => filmRef.current);
+  const generationVideoRecovery = useGenerationVideoRecovery(film, () => filmRef.current, account);
   const audioLibrary = useBundledAudioLibrary(film, stage === "edit", audioLibraryHost);
   const shotAudioSuggestions = useShotAudioSuggestions(
     film,
@@ -1071,6 +1101,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     versions: () => versions,
     onApplied: (message) =>
       setNotice({ code: "STEP_COMPLETE", text: NOTICE_TEXT.STEP_COMPLETE, detail: message }),
+  });
+  const actualRiskTrial = useActualRiskTrial(film, stage === "edit" || stage === "board", {
+    ...audioLibraryHost,
+    selection: () => {
+      const selected = editorSelection.current,
+        live = filmRef.current;
+      const target = live?.shots.find((row) => row.id === selected.shotId);
+      return live && target && (selected.page === "edit" || selected.page === "board")
+        ? {
+            projectId: live.id,
+            shotId: target.id,
+            takeId: target.selectedTakeId,
+            page: selected.page,
+          }
+        : null;
+    },
+    continuation: (decisionId) => {
+      const props = pipelineWorkspace.props(),
+        live = filmRef.current;
+      return live && props.canContinue ? (
+        <PipelineSteps
+          {...props}
+          onContinue={() => void pipelineWorkspace.props().onContinueAfterTrial(decisionId)}
+          targetName={(_, id) => pipelineTargetName(live, id)}
+          sceneName={(id) => pipelineSceneName(live, id)}
+        />
+      ) : null;
+    },
   });
   const actions = videoActions(modelIds);
 
@@ -4615,7 +4673,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const epoch = ++exportQcEpoch.current;
     exportQcBusyRef.current = true;
     setExportQcBusy(true);
-    setExportFile("");
+    exportDelivery.clear();
     setExportQcAspect(0);
     const old = exportQc?.ready;
     if (old) void bridge.discardFilmExport?.(old.qcReceipt).catch(() => undefined);
@@ -4781,6 +4839,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         });
         return;
       }
+      exportDelivery.remember(check.input.projectId, result);
       const path = result.outputs[0]?.path;
       let recorded = true;
       setExportQc(null);
@@ -4791,7 +4850,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         const execution = exportExecutionScope.current;
         if (execution?.operationId === operationId)
           execution.key = filmQcKey(filmRef.current, exportQcCurrent.current.input);
-        setExportFile(path);
         try {
           recorded = Boolean(await saveFilm(filmRef.current!));
         } catch {
@@ -4804,7 +4862,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text: result.kind === "PARTIAL" ? NOTICE_TEXT.EXPORT_FAILED : NOTICE_TEXT.EXPORT_DONE,
         detail:
           result.kind === "PARTIAL"
-            ? "已有文件保留，其余没有发布，请核对后重新检查。"
+            ? result.deliveryEvidence?.cleanupUnconfirmed
+              ? result.deliveryEvidence.kind === "WRITTEN"
+                ? "交付清单已写入，暂存清理尚未确认。"
+                : "已有文件保留，交付清单与暂存清理尚未确认。"
+              : "部分交付尚未完成，已确认写出的文件保留，请核对下方记录。"
             : !recorded
               ? "文件已发布，工程中的导出记录尚未保存。"
               : undefined,
@@ -5032,6 +5094,37 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, [workSettings, film?.id, persistentHistoryRefresh]);
   function historyInputStale(error: unknown) {
     return error instanceof Error && error.message === "HISTORY_STALE";
+  }
+  async function checkAcceptedTrialDecision(
+    decisionId: string,
+    _lease: PipelineSaveLease,
+    targetShotId?: string,
+  ) {
+    const bridge = window.aijian,
+      base = filmRef.current;
+    const stale = () =>
+      Object.assign(new Error("PIPELINE_REQUEST_STALE"), { code: "PIPELINE_REQUEST_STALE" });
+    if (!base || !bridge?.readFilmProject || !bridge.checkFilmRiskTrialDecision) throw stale();
+    const current = () => filmRef.current === base;
+    // Pipeline already owns/drained its save lease and has persisted the current step.
+    // Never replay a renderer snapshot just to obtain a new native check hash.
+    const canonical = await bridge.readFilmProject(base.id);
+    if (!canonical || canonical.id !== base.id || !current()) throw stale();
+    const expectedHash = await historyRecordHash(canonical);
+    if (!current()) throw stale();
+    const checked = await bridge.checkFilmRiskTrialDecision({
+      projectId: base.id,
+      expectedHash,
+      decisionId,
+      ...(targetShotId ? { targetShotId } : {}),
+    });
+    if (
+      !current() ||
+      checked.kind !== "ACCEPTED" ||
+      checked.projectId !== base.id ||
+      checked.decisionId !== decisionId
+    )
+      throw stale();
   }
   async function captureBeforePipeline(lease: Awaited<ReturnType<typeof persistence.acquire>>) {
     try {
@@ -5621,6 +5714,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     <>
       {videoFactsSuggestion}
       {dialogueSplit.tools}
+      {actualRiskTrial.tools}
       {promptSuggestion}
     </>
   );
@@ -5919,6 +6013,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   作品设置
+                </button>
+                <button
+                  disabled={!film}
+                  onClick={() => {
+                    setMenu(null);
+                    riskTrialReview.open();
+                  }}
+                >
+                  查看试片候选
                 </button>
                 <div className="menu-sep" role="separator" />
                 <button
@@ -6316,6 +6419,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       {shotAudioSuggestions.tools}
                       {sceneAudioSuggestions.tools}
                       {dialogueSplit.tools}
+                      {actualRiskTrial.tools}
                     </>
                   }
                   onSceneMood={(sceneId, mood) => {
@@ -6632,6 +6736,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <div className="sb-mid">
             {audioLibrary.pendingButton}
             {dialogueSplit.pendingButton}
+            {actualRiskTrial.pendingButton}
             <button
               className={busy ? "task" : "task idle"}
               data-menu="queue"
@@ -6821,6 +6926,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </div>
           </div>
         )}
+        {riskTrialReview.view}
+        {generationFailurePolicy.view}
+        {generationVideoRecovery.view}
         {pendingBatch && (
           <div className="dialog-back">
             <div
@@ -6988,6 +7096,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         ) : null}
         {shotAudioSuggestions.dialog}
         {sceneAudioSuggestions.dialog}
+        {actualRiskTrial.dialog}
+        {actualRiskTrial.pendingPanel}
         {dialogueSplit.dialog}
         {dialogueSplit.pendingPanel}
         {audioLibrary.dialog}
@@ -7181,6 +7291,38 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   去改画风
+                </button>
+              </section>
+              <section className="ws-sec" aria-label="视频提交失败保护">
+                <h3>视频提交失败保护</h3>
+                <p className="role-desc">
+                  设置本集同一输入的视频提交失败及未决次数上限，不代替会员或费用确认。
+                </p>
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    setWorkSettings(false);
+                    generationFailurePolicy.open();
+                  }}
+                >
+                  设置视频提交失败上限
+                </button>
+              </section>
+              <section className="ws-sec" aria-label="找回原视频素材">
+                <h3>找回原视频素材</h3>
+                <p className="role-desc">
+                  手动核对原任务并另存原始素材，不替换当前镜头或重新生成。
+                </p>
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    setWorkSettings(false);
+                    generationVideoRecovery.open();
+                  }}
+                >
+                  查看可核对的视频记录
                 </button>
               </section>
               <section className="ws-sec" aria-label="历史版本">
@@ -7495,28 +7637,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       <span className="bar" aria-hidden="true" />
                       <span>正在导出：拼接、混音、写文件。长一点的片子要几分钟。</span>
                     </div>
-                  ) : exportFile ? (
-                    <p className="export-done" role="status" title={exportFile}>
-                      导出好了：{exportFile}
-                    </p>
-                  ) : null}
+                  ) : (
+                    exportDelivery.view
+                  )}
                   <div className="acts">
                     <button className="btn" onClick={() => setExportOpen(false)}>
                       关闭
                     </button>
-                    {exportFile ? (
+                    {exportDelivery.available ? (
                       <>
                         <button
                           className="btn"
                           title="打开导出的文件夹"
-                          onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
+                          onClick={exportDelivery.onReveal}
                         >
                           打开文件夹
                         </button>
                         <button
                           className="btn"
                           title="播放导出的文件"
-                          onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
+                          onClick={exportDelivery.onOpen}
                         >
                           播放
                         </button>
@@ -11976,6 +12116,14 @@ function EditPage({
                 tabIndex={0}
                 aria-label="播放位置"
                 title="点或拖到这里，预览跳到这个时间"
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  // Keep the ruler's scrub gesture out of native text-selection dragging.
+                  // Preserve its normal keyboard focus while the parent owns pointer capture.
+                  event.preventDefault();
+                  event.currentTarget.focus({ preventScroll: true });
+                }}
+                onDragStart={(event) => event.preventDefault()}
                 aria-valuemin={0}
                 aria-valuemax={Math.round(total * 10) / 10}
                 aria-valuenow={Math.round(headSeconds * 10) / 10}
@@ -11994,7 +12142,7 @@ function EditPage({
                             : null;
                   if (to === null) return;
                   event.preventDefault();
-                  seekTo(xAtSeconds(shots, clips, Math.min(total, Math.max(0, to))));
+                  goTo(to);
                 }}
               >
                 {spacedTicks(

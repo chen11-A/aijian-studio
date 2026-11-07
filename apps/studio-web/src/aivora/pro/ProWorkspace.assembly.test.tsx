@@ -27,6 +27,7 @@ async function open(
     saveFailure?: boolean;
     metadataHold?: boolean;
     metadataBusy?: boolean;
+    assemblyAdmissionHold?: boolean;
   } = {},
 ) {
   let host!: Parameters<typeof originalHost>[0];
@@ -88,6 +89,15 @@ async function open(
     previewHold = new Promise<void>((done) => {
       releasePreview = done;
     });
+  let releaseAssemblyAdmission!: () => void;
+  const assemblyAdmission = new Promise<void>((done) => {
+    releaseAssemblyAdmission = done;
+  });
+  if (!options.assemblyAdmissionHold) releaseAssemblyAdmission();
+  let assemblyReady!: () => void;
+  const assemblyStarted = new Promise<void>((done) => {
+    assemblyReady = done;
+  });
   const metadataOrder: string[] = [];
   const wave = vi.fn(async (value: { expectedSourceKey: string }) => {
     metadataOrder.push("wave-start");
@@ -164,6 +174,7 @@ async function open(
   }
   const assemble = vi.fn(async (value: FilmAssemblyInput) => {
     metadataOrder.push("assembly");
+    await assemblyAdmission;
     expect(value.expectedHash).toBe(await historyRecordHash(disk));
     input = value;
     expect(value.expectedSelection).toEqual(
@@ -174,6 +185,7 @@ async function open(
     return options.deferred
       ? new Promise<FilmAssemblyResult>((done) => {
           resolve = done;
+          assemblyReady();
         })
       : result(value);
   });
@@ -232,6 +244,8 @@ async function open(
     releaseWave,
     releasePreview,
     metadataOrder,
+    releaseAssemblyAdmission,
+    assemblyStarted,
     complete: () => resolve(result(input!)),
   };
 }
@@ -408,9 +422,15 @@ it("admits the first edit assembly only after ordinary waveform saves and previe
 });
 
 it("keeps the original eight BUSY admissions across canonical adoption and assembly references, then retries only on an explicit click", async () => {
-  const f = await open({ metadataBusy: true, deferred: true });
+  const f = await open({ metadataBusy: true, deferred: true, assemblyAdmissionHold: true });
   try {
     await waitFor(() => expect(f.assemble).toHaveBeenCalledOnce(), { timeout: 5000 });
+    // A recorded bridge call is not yet past its asynchronous canonical-hash check.
+    expect(f.disk().assemblyPath).not.toBe("/trusted/new-assembly.mp4");
+    await act(async () => {
+      f.releaseAssemblyAdmission();
+      await Promise.race([f.assemblyStarted, f.assemble.mock.results[0]!.value]);
+    });
     expect(f.preview).toHaveBeenCalledTimes(8);
     expect(screen.getByRole("button", { name: "重试音轨试听" })).toBeInTheDocument();
     await act(async () => {
@@ -457,7 +477,14 @@ it("keeps the original eight BUSY admissions across canonical adoption and assem
     expect(f.provider).not.toHaveBeenCalled();
   } finally {
     await act(async () => {
-      f.complete();
+      f.releaseAssemblyAdmission();
+      const pending = f.assemble.mock.results[0]?.value;
+      if (pending) {
+        // Surface a real pre-admission assertion failure rather than waiting on its missing signal.
+        await Promise.race([f.assemblyStarted, pending]);
+        f.complete();
+        await pending;
+      }
     });
   }
 });
@@ -493,6 +520,61 @@ it("rechecks main when a controlled same-source waveform refresh reports differe
     f.preview.mock.calls[1]![0].expectedHash,
   );
   expect(f.disk().audioClips[0]!.waveform?.sourceSha256).toBe("c".repeat(64));
+  expect(f.oldAssemble).not.toHaveBeenCalled();
+  expect(f.provider).not.toHaveBeenCalled();
+});
+it("moves a focused ruler in actual native seconds across cuts and boundaries without double bubbling", async () => {
+  const f = await open();
+  await waitFor(() => expect(f.disk().assemblyPath).toBe("/trusted/new-assembly.mp4"));
+  const before = structuredClone(f.host().current()!.shots);
+  const video = document.querySelector<HTMLVideoElement>(".screen video")!;
+  Object.defineProperty(video, "duration", { configurable: true, value: 3 });
+  Object.defineProperty(video, "readyState", { configurable: true, value: 1 });
+  fireEvent.loadedMetadata(video);
+  const ruler = screen.getByRole("slider", { name: "播放位置" });
+  async function press(key: string, expected: number, shiftKey = false) {
+    ruler.focus();
+    const event = new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true });
+    fireEvent(ruler, event);
+    expect(event.defaultPrevented).toBe(true);
+    await waitFor(() => expect(video.currentTime).toBeCloseTo(expected, 8));
+    fireEvent.timeUpdate(video);
+  }
+  await press("ArrowRight", 1);
+  await press("ArrowRight", 2);
+  await press("ArrowLeft", 1);
+  await press("Home", 0);
+  await press("ArrowLeft", 0);
+  await press("End", 3);
+  await press("ArrowRight", 3);
+  await press("ArrowLeft", 0, true);
+  await press("ArrowRight", 3, true);
+  expect(f.host().current()!.shots).toEqual(before);
+  expect(f.assemble).toHaveBeenCalledTimes(1);
+  expect(f.cancel).not.toHaveBeenCalled();
+  expect(f.oldAssemble).not.toHaveBeenCalled();
+  expect(f.provider).not.toHaveBeenCalled();
+});
+it("keeps unknown-clock whole-file ruler seeking separate from forbidden per-shot jumps and range marks", async () => {
+  const f = await open({ unknownClock: true });
+  const video = document.querySelector<HTMLVideoElement>(".screen video")!;
+  Object.defineProperty(video, "duration", { configurable: true, value: 3 });
+  Object.defineProperty(video, "readyState", { configurable: true, value: 1 });
+  fireEvent.loadedMetadata(video);
+  const ruler = screen.getByRole("slider", { name: "播放位置" });
+  ruler.focus();
+  fireEvent.keyDown(ruler, { key: "ArrowRight" });
+  await waitFor(() => expect(video.currentTime).toBe(1));
+  fireEvent.timeUpdate(video);
+  ruler.blur();
+  fireEvent.keyDown(window, { key: "ArrowDown" });
+  fireEvent.click(screen.getByRole("button", { name: "设入点" }));
+  expect(document.querySelector(".status-note")).toHaveTextContent(
+    NOTICE_TEXT.ASSEMBLY_CLOCK_REQUIRED,
+  );
+  expect(video.currentTime).toBe(1);
+  expect(document.querySelector(".selbar")).toBeNull();
+  expect(f.assemble).not.toHaveBeenCalled();
   expect(f.oldAssemble).not.toHaveBeenCalled();
   expect(f.provider).not.toHaveBeenCalled();
 });

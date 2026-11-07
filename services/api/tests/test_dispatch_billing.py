@@ -601,11 +601,33 @@ def test_billing_records_are_immutable_and_migration_49_is_additive(tmp_path: Pa
             "SELECT sql FROM sqlite_master WHERE name = 'remote_dispatch_snapshots'"
         ).fetchone()[0]
         names = {str(row[0]) for row in connection.execute("SELECT name FROM sqlite_master")}
+        assert "generation_failure_policy" not in names
+        assert "generation_failure_attempt" not in names
+        assert "generation_video_recovery" not in names
         assert "dispatch_billing_records" not in names
         assert "media_budget_reservations" in names
     StudioRepository(legacy)
     with sqlite3.connect(legacy) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 50
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 52
+        new_tables = {
+            row[0]
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        assert {
+            "generation_failure_policy",
+            "generation_failure_attempt",
+            "generation_video_recovery",
+        } <= new_tables
+        assert (
+            connection.execute("SELECT COUNT(*) FROM generation_video_recovery").fetchone()[0] == 0
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM generation_failure_policy").fetchone()[0] == 0
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM generation_failure_attempt").fetchone()[0] == 0
+        )
+
         after = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'remote_dispatch_snapshots'"
         ).fetchone()[0]

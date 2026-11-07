@@ -72,6 +72,7 @@ from aijian_api.gate_policy import (
     VISUAL_ENVIRONMENT_GATE_POLICY_V2,
     GatePolicy,
 )
+from aijian_api.generation_failure_schema import GENERATION_FAILURE_MIGRATION
 from aijian_api.ingestion import ParsedSource
 from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
 from aijian_api.local_media_review_schema import LOCAL_MEDIA_REVIEW_MIGRATION
@@ -107,6 +108,7 @@ from aijian_api.source_manifest import (
     SourceManifestDocumentV1,
 )
 from aijian_api.sub2api_source_extract_schema import migration_23_statements
+from aijian_api.video_recovery_schema import VIDEO_RECOVERY_MIGRATION
 from aijian_api.visual_bible_schema import VISUAL_BIBLE_MIGRATION
 from aijian_api.workflow_schema import (
     MIGRATION_4,
@@ -123,7 +125,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 50
+SCHEMA_VERSION = 52
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -870,6 +872,8 @@ _MIGRATIONS = {
     48: MEDIA_BUDGET_MIGRATION,
     49: DISPATCH_BILLING_MIGRATION,
     50: DESKTOP_SUBSCRIPTION_MIGRATION,
+    51: GENERATION_FAILURE_MIGRATION,
+    52: VIDEO_RECOVERY_MIGRATION,
 }
 
 

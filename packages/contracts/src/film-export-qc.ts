@@ -1,3 +1,5 @@
+import type { FilmDeliveryEvidenceResult } from "./film-delivery-evidence.js";
+
 /** Renderer sends identities and presentation settings, never execution or output paths. */
 export type FilmExportQcSettings = {
   aspects: ("16:9" | "9:16")[];
@@ -42,6 +44,8 @@ export type FilmExportQcPublishInput = FilmExportQcInput & { qcReceipt: string }
 export type FilmExportQcPublishResult =
   | {
       kind: "PUBLISHED" | "PARTIAL";
+      /** Absent means legacy did not provide evidence; never synthesize it in renderer. */
+      deliveryEvidence?: FilmDeliveryEvidenceResult;
       outputs: {
         aspectRatio: "16:9" | "9:16";
         path: string;

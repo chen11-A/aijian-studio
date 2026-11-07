@@ -71,6 +71,18 @@ export function createPipelineControls(host: {
           }
           return invoke(projectId, host.workspace.continue);
         },
+        onContinueAfterTrial: (decisionId: string) => {
+          const latest = currentView();
+          if (
+            latest?.kind !== "ready" ||
+            !latest.canContinue ||
+            !/^rtd_[a-f0-9]{32}$/.test(decisionId)
+          ) {
+            notice("CHECKPOINT_INVALID");
+            return Promise.resolve(false);
+          }
+          return invoke(projectId, () => host.workspace.continueAfterTrial(decisionId));
+        },
         onAcceptReview: (reason: string) => {
           const latest = currentView();
           if (latest?.kind !== "ready" || !latest.canAcceptReview || !reason.trim()) {

@@ -458,6 +458,15 @@ jobs:
       - name: Run original speech-window tests with safe failure diagnostics
         run: node scripts/ci-test-diagnostics.mjs --speech-window-test
 
+      - name: Enable pinned pnpm for targeted desktop regressions
+        run: corepack enable pnpm
+
+      - name: Install frozen JavaScript dependencies for targeted desktop regressions
+        run: pnpm install --frozen-lockfile
+
+      - name: Run original delivery manifest and ownership files with safe failure diagnostics
+        run: pnpm test:delivery-manifest:ci
+
   pro-dialogue-split:
     name: pro-dialogue-split (ubuntu)
     runs-on: ubuntu-latest
@@ -666,5 +675,169 @@ jobs:
             .aijian-dev/pro-mentions-audit/report.json
             .aijian-dev/pro-mentions-audit/1280x800-*/*.png
             .aijian-dev/pro-mentions-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7
+
+  pro-risk-policy:
+    name: Pro trial review and video failure policy audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify trial review and failure policy fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-risk-policy-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace trial candidates and failure policy configuration
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-risk-policy-audit
+        run: node apps/studio-web/e2e/pro-risk-policy-audit.mjs
+
+      - name: Upload trial review and failure policy evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-risk-policy-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-risk-policy-audit/report.json
+            .aijian-dev/pro-risk-policy-audit/1280x800-*/*.png
+            .aijian-dev/pro-risk-policy-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7
+
+  pro-evidence-legacy:
+    name: Pro delivery evidence and existing UI interaction audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify delivery evidence and existing UI fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-evidence-legacy-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace delivery evidence and existing UI interactions
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-evidence-legacy-audit
+        run: node apps/studio-web/e2e/pro-evidence-legacy-audit.mjs
+
+      - name: Upload delivery evidence and existing UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-evidence-legacy-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-evidence-legacy-audit/report.json
+            .aijian-dev/pro-evidence-legacy-audit/1280x800-*/*.png
+            .aijian-dev/pro-evidence-legacy-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7
+
+  pro-video-recovery:
+    name: Pro explicit original video recovery audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify original video recovery fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-video-recovery-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace original video recovery and guarded native save
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-video-recovery-audit
+        run: node apps/studio-web/e2e/pro-video-recovery-audit.mjs
+
+      - name: Upload original video recovery UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-video-recovery-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-video-recovery-audit/report.json
+            .aijian-dev/pro-video-recovery-audit/1280x800-*/*.png
+            .aijian-dev/pro-video-recovery-audit/1920x1080-*/*.png
+          include-hidden-files: true
+          retention-days: 7
+
+  pro-actual-trial:
+    name: Pro explicit actual-version trial review audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify actual trial fixture, CLI and safety contracts
+        run: node --test apps/studio-web/e2e/pro-actual-trial-fixture.contract.mjs
+
+      - name: Audit actual ProWorkspace explicit trial decisions and guarded continuation
+        env:
+          AIVORA_CHROMIUM: /usr/bin/google-chrome
+          AIVORA_AUDIT_OUT: .aijian-dev/pro-actual-trial-audit
+        run: node apps/studio-web/e2e/pro-actual-trial-audit.mjs
+
+      - name: Upload actual trial UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pro-actual-trial-${{ github.sha }}
+          path: |
+            .aijian-dev/pro-actual-trial-audit/report.json
+            .aijian-dev/pro-actual-trial-audit/1280x800-*/*.png
+            .aijian-dev/pro-actual-trial-audit/1920x1080-*/*.png
           include-hidden-files: true
           retention-days: 7

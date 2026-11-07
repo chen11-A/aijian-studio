@@ -16,6 +16,7 @@ import {
   emptySpeechPcmSummary,
   libraryWritePhaseSummary,
   libraryWriteInvocation,
+  deliveryManifestInvocation,
   pnpmInvocation,
   runTestDiagnostics,
 } from "./ci-test-diagnostics.mjs";
@@ -781,6 +782,60 @@ test("fixed library-write CLI selects the exact original six variants, disables 
     assert.equal(rejected.status, 1);
     await assert.rejects(readFile(record, "utf8"), { code: "ENOENT" });
     assert.doesNotMatch(rejected.stdout + rejected.stderr, /PRIVATE_PATH/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("fixed delivery-manifest CLI runs both original files and propagates 0/23; extra arguments never spawn", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "delivery-cli-"));
+  try {
+    const entry = join(directory, "pnpm.cjs"),
+      record = join(directory, "child.json");
+    const script = fileURLToPath(new URL("./ci-test-diagnostics.mjs", import.meta.url));
+    await writeFile(entry, "// Fixed launcher fixture, overwritten before the child executes.");
+    const expected = deliveryManifestInvocation(entry);
+    assert.equal(expected.command, process.execPath);
+    assert.deepEqual(expected.args.slice(1), [
+      "--filter",
+      "@aijian/desktop",
+      "exec",
+      "vitest",
+      "run",
+      "src/film-delivery-manifest.test.ts",
+      "src/film-export-qc-ownership.test.ts",
+    ]);
+    await writeFile(
+      entry,
+      `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(record)},JSON.stringify(process.argv.slice(2)));process.stdout.write('FAIL src/film-delivery-manifest.test.ts > PRIVATE_PARAMETER\\nError: PRIVATE_ERROR\\n');process.exitCode=Number(process.env.TARGET_CHILD_EXIT);`,
+    );
+    for (const status of [0, 23]) {
+      const result = spawnSync(process.execPath, [script, "--delivery-manifest-test"], {
+        encoding: "utf8",
+        shell: false,
+        env: { ...process.env, npm_execpath: entry, TARGET_CHILD_EXIT: String(status) },
+      });
+      assert.equal(result.status, status);
+      assert.deepEqual(JSON.parse(await readFile(record, "utf8")), expected.args.slice(1));
+      const annotations = result.stdout.split("\n").filter((line) => line.startsWith("::error"));
+      assert(
+        status === 0 ? annotations.length === 0 : annotations.length > 0 && annotations.length <= 6,
+      );
+      assert.doesNotMatch(annotations.join("\n"), /PRIVATE|child.json|pnpm.cjs/);
+    }
+    await rm(record);
+    const rejected = spawnSync(
+      process.execPath,
+      [script, "--delivery-manifest-test", "PRIVATE_FILE"],
+      {
+        encoding: "utf8",
+        shell: false,
+        env: { ...process.env, npm_execpath: entry, TARGET_CHILD_EXIT: "0" },
+      },
+    );
+    assert.equal(rejected.status, 1);
+    await assert.rejects(readFile(record, "utf8"), { code: "ENOENT" });
+    assert.doesNotMatch(rejected.stdout + rejected.stderr, /PRIVATE_FILE/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

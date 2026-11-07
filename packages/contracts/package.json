@@ -5,6 +5,14 @@
   "type": "module",
   "types": "./src/generated.ts",
   "exports": {
+    "./film-delivery-evidence": {
+      "types": "./src/film-delivery-evidence.ts",
+      "default": "./src/film-delivery-evidence.ts"
+    },
+    "./generation-failure-policy": {
+      "types": "./src/generation-failure-policy.ts",
+      "default": "./src/generation-failure-policy.ts"
+    },
     ".": {
       "types": "./src/generated.ts",
       "default": "./src/generated.ts"
@@ -160,6 +168,18 @@
     "./film-scene-audio-binding": {
       "types": "./src/film-scene-audio-binding.d.ts",
       "default": "./src/film-scene-audio-binding.js"
+    },
+    "./generation-video-recovery": {
+      "types": "./src/generation-video-recovery.ts",
+      "default": "./src/generation-video-recovery.ts"
+    },
+    "./film-risk-trial": {
+      "types": "./src/film-risk-trial.ts",
+      "default": "./src/film-risk-trial.ts"
+    },
+    "./film-risk-trial-context": {
+      "types": "./src/film-risk-trial-context.d.ts",
+      "default": "./src/film-risk-trial-context.js"
     }
   },
   "scripts": {

@@ -11,6 +11,7 @@ function setup() {
     recover: vi.fn(async () => undefined),
     retry: vi.fn(async (_keys: string[]) => undefined),
     continue: vi.fn(async () => undefined),
+    continueAfterTrial: vi.fn(async (_decisionId: string) => undefined),
     acceptReview: vi.fn(async (_reason: string) => undefined),
     cancel: vi.fn(),
     projectChanged: vi.fn(),
@@ -159,4 +160,38 @@ it("reports known failure codes without leaking raw exceptions and allows a late
   expect(s.notify).toHaveBeenCalledWith(expect.objectContaining({ code: "PIPELINE_SAVE_FAILED" }));
   expect(JSON.stringify(s.notify.mock.calls)).not.toContain("private request");
   expect(await s.controls.start()).toBe(true);
+});
+
+it("keeps trial continuation behind the same live checkpoint, project and single busy gate", async () => {
+  const s = setup(),
+    id = `rtd_${"a".repeat(32)}`;
+  expect(await s.controls.props().onContinueAfterTrial(id)).toBe(false);
+  const state = reviewed(s, true);
+  state.checkpoint = {
+    shotCount: 1,
+    seconds: 3,
+    estimatedRequests: 1,
+    coverage: [{ sceneId: "scene", ok: true, missingLines: [], missingTail: null }],
+    risks: [],
+  };
+  const props = s.controls.props();
+  expect(await props.onContinueAfterTrial("wrong")).toBe(false);
+  let release!: () => void;
+  s.workspace.continueAfterTrial.mockImplementationOnce(
+    () =>
+      new Promise<undefined>((done) => {
+        release = () => done(undefined);
+      }),
+  );
+  const first = props.onContinueAfterTrial(id);
+  expect(await props.onContinueAfterTrial(id)).toBe(false);
+  expect(s.workspace.continueAfterTrial).toHaveBeenCalledExactlyOnceWith(id);
+  release();
+  expect(await first).toBe(true);
+  state.checkpoint.coverage[0]!.ok = false;
+  expect(await props.onContinueAfterTrial(id)).toBe(false);
+  state.checkpoint.coverage[0]!.ok = true;
+  s.switchProject();
+  expect(await props.onContinueAfterTrial(id)).toBe(false);
+  expect(s.workspace.continue).not.toHaveBeenCalled();
 });

@@ -1,3 +1,9 @@
+import { generationVideoRecovery } from "./generation-video-recovery";
+import {
+  generationFailurePolicy,
+  parseGenerationFailureConfiguration,
+} from "./generation-failure-policy";
+import type { GenerationDispatchAccount } from "./generation-dispatch-account";
 import { parseStoryFilmLocalScope, publicDialogueLimit } from "./film-dialogue-limit";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { StoryFilmCreateInput } from "./story-film-client";
@@ -72,7 +78,7 @@ export function registerStoryFilmHandlers<TEvent>(
   ) => void,
   authorized: (event: TEvent) => boolean,
   sessionFor: () => Session,
-  mediaBearerFor: () => Promise<string | null>,
+  mediaBearerFor: () => Promise<string | GenerationDispatchAccount | null>,
   fetcher: typeof fetch = globalThis.fetch,
   files?: StoryFilmFiles,
   logStyle?: (detail: StyleDiagnostics) => void,
@@ -85,6 +91,50 @@ export function registerStoryFilmHandlers<TEvent>(
   ) => Promise<string | null>,
   evidenceCurrent?: (event: TEvent) => () => boolean,
 ): void {
+  for (const [channel, mode] of [
+    ["story-film:video-recovery-list", "list"],
+    ["story-film:video-recover", "recover"],
+    ["story-film:video-recovery-save", "save"],
+  ] as const) {
+    handle(channel, async (event, ...args) => {
+      if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+      if (
+        args.length !== (mode === "list" ? 1 : 2) ||
+        typeof args[0] !== "string" ||
+        (mode !== "list" && typeof args[1] !== "string")
+      )
+        throw new Error("Invalid video recovery arguments");
+      return generationVideoRecovery(
+        fetcher,
+        sessionFor,
+        mediaBearerFor,
+        args[0],
+        mode,
+        args[1] as string | undefined,
+        files?.chooseExport,
+        evidenceCurrent?.(event) ?? (() => authorized(event)),
+      );
+    });
+  }
+
+  handle("story-film:failure-policy", async (event, ...args) => {
+    if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+    if (args.length !== 1 || typeof args[0] !== "string")
+      throw new Error("Invalid failure policy arguments");
+    return generationFailurePolicy(fetcher, sessionFor(), args[0]);
+  });
+  handle("story-film:configure-failure-policy", async (event, ...args) => {
+    if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+    if (args.length !== 2 || typeof args[0] !== "string")
+      throw new Error("Invalid failure policy arguments");
+    return generationFailurePolicy(
+      fetcher,
+      sessionFor(),
+      args[0],
+      parseGenerationFailureConfiguration(args[1]),
+    );
+  });
+
   handle("story-film:plan", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
     if (args.length !== 1) throw new Error("Unexpected story film arguments");
@@ -126,8 +176,9 @@ export function registerStoryFilmHandlers<TEvent>(
     const scope = args.length === 3 ? parseStoryFilmLocalScope(args[2]) : undefined;
     // Synchronous document epoch capture spans bearer/HTTP waits without moving dispatch gates.
     const sameDocument = scope ? evidenceCurrent?.(event) : undefined;
-    const bearer =
-      body.provider === "grok_subscription" ? safeBearer(await mediaBearerFor()) : undefined;
+    const media = body.provider === "grok_subscription" ? await mediaBearerFor() : null;
+    const account = media && typeof media === "object" ? media : undefined;
+    const bearer = safeBearer(account?.bearer ?? (typeof media === "string" ? media : null));
     const workspace = files?.workspace();
     const mediaRoots = workspace
       ? [join(dirname(workspace), "films"), join(workspace, "story-films")]
@@ -143,7 +194,7 @@ export function registerStoryFilmHandlers<TEvent>(
       sessionFor(),
       undefined,
       mediaRoots,
-    ).create(projectId, body, bearer);
+    ).create(projectId, body, bearer, account);
     // Evidence-only read after the actual result; no new await before dispatch.
     const evidenceId =
       scope && (sameDocument?.() ?? true)

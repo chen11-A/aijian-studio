@@ -7,6 +7,36 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   const bounds = (r) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   // Public diagnostics are identifiers from fixed UI labels, never arbitrary DOM text/IDs.
   const controlLabels = new Map([
+    ["查看可核对的视频记录", "recovery-open"],
+    ["找回原素材", "recovery-get"],
+    ["另存原素材", "recovery-save"],
+    ["重新读取列表", "recovery-refresh"],
+    ["技术记录（不代表观看或试听）", "delivery-technical"],
+    ["导出设置与实际选材记录", "delivery-selection"],
+    ["找人物", "legacy-person-search"],
+    ["取消多选", "legacy-cancel-multi"],
+    ["先不生成", "legacy-batch-cancel"],
+    ["开始生成", "legacy-batch-confirm"],
+    ["安全框", "preview-safe"],
+    ["全屏预览 (F)", "preview-fullscreen"],
+    ["退出全屏 (Esc)", "preview-exit-fullscreen"],
+    ["看全片", "timeline-fit"],
+    ["审核实际版本试片", "trial-open"],
+    ["重新核对实际素材", "trial-refresh"],
+    ["保存本次人工决定", "trial-record"],
+    ["接受这个实际版本", "trial-accept"],
+    ["这个实际版本需要修改", "trial-changes"],
+    ["我已人工核对本次素材，接受决定由我作出", "trial-human"],
+    ["核对试片保存结果", "trial-recover"],
+    ["采用已核对保存版并放弃这份保留稿", "trial-adopt"],
+    ["试片保留稿文字备忘", "trial-memo"],
+    ["查看试片候选", "risk-open"],
+    ["在分镜查看", "risk-inspect"],
+    ["刷新候选", "risk-refresh"],
+    ["设置视频提交失败上限", "policy-open"],
+    ["保存上限", "policy-save"],
+    ["正在保存…", "policy-saving"],
+    ["新的上限（整数 0–1000）", "policy-limit"],
     ["提到人物、场景或镜头", "reference-menu"],
     ["跟助手说", "reference-input"],
     ["人物名字", "reference-name"],
@@ -93,6 +123,8 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
   ]);
   const controlIds = new Set(["export-quality", "export-aspect", "export-dir"]);
   const safeClasses = new Set([
+    "generation-video-recovery",
+    "recovery-list",
     "reference-summary",
     "mention-menu",
     "nx-suggest",
@@ -178,6 +210,11 @@ export function probeProLayout({ scopeSelector = ".pro-root" } = {}) {
       };
       if (Object.hasOwn(fixed, label)) return fixed[label];
     }
+    if (element.tagName === "BUTTON" && /^(重新)?生成这 [1-9]\d{0,2} 个$/.test(label))
+      return "legacy-batch-open";
+    if (element.tagName === "BUTTON" && /^删除这 [1-9]\d{0,2} 个$/.test(label))
+      return "legacy-delete-shots";
+    if (element.matches('.risk-trial-review input[type="radio"]')) return "risk-candidate";
     if (element.matches("button.clip.v")) return "timeline-video";
     if (element.tagName === "INPUT" && element.closest(".shot-audio-choice")) {
       const text = element.closest("label")?.textContent.replace(/\s+/g, " ").trim() ?? "";

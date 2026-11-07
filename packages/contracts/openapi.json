@@ -2936,6 +2936,29 @@
         "title": "CompleteOfficialTextRequest",
         "type": "object"
       },
+      "ConfigureGenerationFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "maximum": 9007199254740990.0,
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "failure_limit": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Failure Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "failure_limit"
+        ],
+        "title": "ConfigureGenerationFailure",
+        "type": "object"
+      },
       "ContextEntryKind": {
         "enum": [
           "ROLE_INVARIANTS",
@@ -9859,6 +9882,46 @@
         "maxLength": 240,
         "minLength": 1,
         "type": "string"
+      },
+      "GenerationFailurePolicyData": {
+        "properties": {
+          "failure_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Limit"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scope": {
+            "const": "GROK_VIDEO_SUBMIT_FAILURES",
+            "default": "GROK_VIDEO_SUBMIT_FAILURES",
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "UNCONFIGURED",
+              "CONFIGURED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "revision",
+          "failure_limit"
+        ],
+        "title": "GenerationFailurePolicyData",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -17396,6 +17459,30 @@
           "idempotency_key"
         ],
         "title": "RecordDesktopSubscriptionDispatch",
+        "type": "object"
+      },
+      "RecoveredVideoFile": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "fileName": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "sha256",
+          "bytes"
+        ],
+        "title": "RecoveredVideoFile",
         "type": "object"
       },
       "ReferenceDeclarationV1": {
@@ -25952,6 +26039,139 @@
           "is_variable_frame_rate"
         ],
         "title": "VideoProbeData",
+        "type": "object"
+      },
+      "VideoRecoveryItem": {
+        "additionalProperties": false,
+        "properties": {
+          "attemptId": {
+            "title": "Attemptid",
+            "type": "string"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecoveredVideoFile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "enum": [
+              "UNKNOWN",
+              "RECOVERED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attemptId",
+          "state"
+        ],
+        "title": "VideoRecoveryItem",
+        "type": "object"
+      },
+      "VideoRecoveryList": {
+        "properties": {
+          "hasMore": {
+            "title": "Hasmore",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VideoRecoveryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "ATTEMPTS",
+            "default": "ATTEMPTS",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "title": "VideoRecoveryList",
+        "type": "object"
+      },
+      "VideoRecoveryResult": {
+        "properties": {
+          "attemptId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attemptid"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "BUSY",
+                  "NOT_FOUND",
+                  "UNAVAILABLE",
+                  "WRITE_UNCONFIRMED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecoveredVideoFile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "RECOVERED",
+              "UNKNOWN",
+              "FAILED"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "WAITING",
+                  "UNREACHABLE",
+                  "NO_VALID_VIDEO",
+                  "PROVIDER_FAILED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "VideoRecoveryResult",
         "type": "object"
       },
       "VisualAssetReferenceV1": {
@@ -36624,6 +36844,320 @@
         "summary": "Get Fake Timeline Run Operation"
       }
     },
+    "/api/v1/projects/{project_id}/generation-failure-policy": {
+      "get": {
+        "operationId": "getGenerationFailurePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationFailurePolicyData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read"
+      },
+      "put": {
+        "operationId": "configureGenerationFailurePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureGenerationFailure"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationFailurePolicyData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configure"
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-video-recoveries": {
+      "get": {
+        "operationId": "listGenerationVideoRecoveries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoRecoveryList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Attempts"
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-video-recoveries/{attempt_id}": {
+      "get": {
+        "operationId": "getRecoveredGenerationVideo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attempt_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "title": "Attempt Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoRecoveryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Describe"
+      },
+      "post": {
+        "operationId": "recoverGenerationVideo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attempt_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "title": "Attempt Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoRecoveryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recover"
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-video-recoveries/{attempt_id}/file": {
+      "get": {
+        "operationId": "readRecoveredGenerationVideo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attempt_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "title": "Attempt Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read File"
+      }
+    },
     "/api/v1/projects/{project_id}/invalidation-operations": {
       "get": {
         "operationId": "listInvalidationOperations",
@@ -39336,7 +39870,6 @@
             "name": "project_id",
             "required": true,
             "schema": {
-              "pattern": "^prj_[0-9a-f]{32}$",
               "title": "Project Id",
               "type": "string"
             }

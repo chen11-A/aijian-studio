@@ -1,3 +1,5 @@
+import { createFilmRiskTrials } from "./film-risk-trial";
+import { registerFilmRiskTrials } from "./film-risk-trial-ipc";
 import { registerFilmAssemblies } from "./film-assembly-ipc";
 import { createDialogueLimitRegistry } from "./film-dialogue-limit";
 import { registerFilmDialogueSplits } from "./film-dialogue-split-ipc";
@@ -360,6 +362,7 @@ function createMainWindow(): BrowserWindow {
   window.webContents.on("did-start-navigation", (_event, _url, isSameDocument, isMainFrame) => {
     if (isMainFrame && !isSameDocument) {
       dialogueLimits.disposeOwner(dialogueLimitOwner);
+      riskTrials.disposeOwner(dialogueLimitOwner);
       nativePreviewDocumentEpoch += 1;
       nativePreviewHost.invalidateAll();
     }
@@ -396,6 +399,7 @@ function createMainWindow(): BrowserWindow {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
     dialogueLimits.disposeOwner(dialogueLimitOwner);
+    riskTrials.disposeOwner(dialogueLimitOwner);
     mainWindow = null;
   });
 
@@ -856,7 +860,7 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
   },
   async () => {
     try {
-      return await getGrokRuntime().mediaAccessToken();
+      return await getGrokRuntime().mediaDispatchAccount();
     } catch {
       return null;
     }
@@ -1057,7 +1061,8 @@ registerFilmRanges<IpcMainInvokeEvent>(
     generate: async (projectId, input, canDispatch) => {
       const body = parseStoryFilmCreate(input);
       if (!sidecar) throw new Error("Local API unavailable");
-      const bearer = await getGrokRuntime().mediaAccessToken();
+      const account = await getGrokRuntime().mediaDispatchAccount();
+      const bearer = account?.bearer;
       if (!bearer || bearer.length > 8192 || /[\r\n]/.test(bearer))
         throw new Error("Member authorization unavailable");
       if (!(await canDispatch())) throw new Error("Range input changed before dispatch");
@@ -1065,6 +1070,7 @@ registerFilmRanges<IpcMainInvokeEvent>(
         projectId,
         body,
         bearer,
+        account ?? undefined,
       );
     },
   },
@@ -1092,6 +1098,34 @@ registerFilmAudioWaveforms<IpcMainInvokeEvent>(
         hash,
       ),
   },
+);
+const riskTrials = createFilmRiskTrials({
+  filmsRoot: join(app.getPath("userData"), "films"),
+  storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+  tools: () =>
+    verifiedQcTools(
+      process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+      process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+        join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+    ),
+  run: async (binary, args, options) =>
+    (await loadQcRunner(qcResourceRoot()))(binary, args, options),
+  videoOwner: async (projectId, path, sha) =>
+    storyFilmQcOwner(
+      join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+      projectId,
+      path,
+      sha,
+    ),
+});
+registerFilmRiskTrials<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  (event) => event.sender.id,
+  riskTrials,
 );
 registerFilmAudioLibrary<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),

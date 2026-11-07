@@ -82,6 +82,13 @@ describe("structured business notices", () => {
       "ASSISTANT_REFERENCE_SYNTAX",
       "ASSISTANT_REFERENCE_STALE",
     ]);
+    const videoFailureCodes = new Set([
+      "VIDEO_FAILURE_UNCONFIGURED",
+      "VIDEO_FAILURE_ACCOUNT_UNVERIFIABLE",
+      "VIDEO_FAILURE_INPUT_UNVERIFIABLE",
+      "VIDEO_FAILURE_INPUT_FAILURE_LIMIT",
+      "VIDEO_FAILURE_ATTEMPT_ALREADY_RESERVED",
+    ]);
     const writerStructureCodes = new Set(["WRITER_STRUCTURE_READY", "WRITER_STRUCTURE_APPLIED"]);
     const directorStructureCodes = new Set([
       "DIRECTOR_STRUCTURE_READY",
@@ -110,6 +117,7 @@ describe("structured business notices", () => {
     ]);
     const legacyRows = rows.filter(
       (row) =>
+        !videoFailureCodes.has(row[1]!) &&
         !referenceCodes.has(row[1]!) &&
         !writerStructureCodes.has(row[1]!) &&
         !directorStructureCodes.has(row[1]!) &&
@@ -123,6 +131,16 @@ describe("structured business notices", () => {
         !historyCodes.has(row[1]!) &&
         !assemblyCodes.has(row[1]!),
     );
+    const videoFailureRows = rows.filter((row) => videoFailureCodes.has(row[1]!));
+    expect(videoFailureRows).toHaveLength(5);
+    expect(new Set(videoFailureRows.map((row) => row[1]))).toEqual(videoFailureCodes);
+    for (const [, code, fallback, copy] of videoFailureRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: copy!.trim(),
+      });
+    }
     const referenceRows = rows.filter((row) => referenceCodes.has(row[1]!));
     expect(referenceRows).toHaveLength(4);
     expect(new Set(referenceRows.map((row) => row[1]))).toEqual(referenceCodes);

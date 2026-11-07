@@ -27,6 +27,7 @@
     "typecheck:py": "uv run mypy",
     "test": "pnpm test:ts && pnpm test:py",
     "test:ci": "node scripts/ci-test-diagnostics.mjs",
+    "test:delivery-manifest:ci": "node scripts/ci-test-diagnostics.mjs --delivery-manifest-test",
     "test:audio-library-write:ci": "node scripts/ci-test-diagnostics.mjs --audio-library-write-test",
     "test:e2e:desktop": "pnpm --filter @aijian/studio-web build && pnpm --filter @aijian/desktop build && node scripts/e2e/desktop-provider-smoke.mjs",
     "evidence:provider-ui": "pnpm --filter @aijian/studio-web build && pnpm --filter @aijian/desktop build && node scripts/e2e/desktop-provider-smoke.mjs",

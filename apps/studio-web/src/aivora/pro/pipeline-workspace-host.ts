@@ -34,6 +34,12 @@ export type PipelineWorkspaceHost = {
   modelsChanged: (ids: string[]) => void;
   submitGeneration: (shots: FilmShot[], host: PipelineVideoHost) => Promise<void>;
   beforeRun?: (lease: PipelineSaveLease) => Promise<void>;
+  /** Explicit human-trial path only; not provider, quantity or membership authorization. */
+  checkTrialDecision?: (
+    decisionId: string,
+    lease: PipelineSaveLease,
+    targetShotId?: string,
+  ) => Promise<void>;
   cancelGeneration?: () => void;
   notify?: FilmPipelineHost["notify"];
   labels?: FilmPipelineHost["labels"];
@@ -51,7 +57,11 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
     active.abort.abort();
     host.cancelGeneration?.();
   };
-  async function execute(options: ProductionRunOptions = {}, recover = false) {
+  async function execute(
+    options: ProductionRunOptions = {},
+    recover = false,
+    trialDecisionId?: string,
+  ) {
     if (active) return stop("PIPELINE_ALREADY_RUNNING");
     const projectId = host.current()?.id;
     if (!projectId) return stop("PROJECT_REQUIRED");
@@ -68,6 +78,11 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
       lease = await host.acquireSaveOwnership(projectId);
       if (!current()) return stop("PIPELINE_REQUEST_STALE");
       if (!recover) await host.beforeRun?.(lease);
+      if (trialDecisionId) {
+        if (!host.checkTrialDecision || host.current()?.productionPipeline?.status !== "checkpoint")
+          return stop("PIPELINE_REQUEST_STALE");
+        await host.checkTrialDecision(trialDecisionId, lease);
+      }
       if (!current()) return stop("PIPELINE_REQUEST_STALE");
       const controller = createFilmPipelineController({
         current: host.current,
@@ -115,6 +130,11 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
           if (!shot) return { status: "blocked", code: "SHOT_NOT_FOUND" };
           if (!current() || !ctx.isCurrent())
             return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
+          if (trialDecisionId) {
+            await host.checkTrialDecision!(trialDecisionId, lease!, targetId);
+            if (!current() || !ctx.isCurrent())
+              return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
+          }
           await host.submitGeneration([shot], {
             current: () => current() && ctx.isCurrent(),
             apply: ctx.commitPartial,
@@ -154,6 +174,13 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
       });
     },
     continue: () => execute({ continue: true }),
+    continueAfterTrial: (decisionId: string) => {
+      if (!/^rtd_[a-f0-9]{32}$/.test(decisionId))
+        return Promise.reject(
+          Object.assign(new Error("PIPELINE_REQUEST_STALE"), { code: "PIPELINE_REQUEST_STALE" }),
+        );
+      return execute({ continue: true }, false, decisionId);
+    },
     cancel,
     /** Call on project identity changes and cancel() on workspace unmount. */
     projectChanged: () => {
