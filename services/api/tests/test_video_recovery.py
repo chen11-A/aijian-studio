@@ -13,6 +13,9 @@ from aijian_api.video_recovery import VideoRecoveryService
 from aijian_api.video_recovery_lock import VideoRecoveryBusy, VideoRecoveryLock
 from aijian_api.video_recovery_store import VideoRecoveryStore
 from aijian_api.xai_media import XaiHttpResponse, XaiMediaClient
+from recovery_read_diagnostics import (
+    recovery_read_identity_observer as recovery_read_identity_observer,
+)
 from test_draft_export_runtime import toolchain
 from test_story_film import _project
 
