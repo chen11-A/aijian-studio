@@ -77,6 +77,12 @@ describe("structured business notices", () => {
       "EXPORT_QC_BLOCKED",
     ]);
     const promptFieldCodes = new Set(["PROMPTER_SUGGESTION_READY", "PROMPTER_FIELDS_APPLIED"]);
+    const assemblyCodes = new Set([
+      "ASSEMBLY_SHOT_REQUIRED",
+      "ASSEMBLY_PARTIAL",
+      "ASSEMBLY_SOURCE_CLOCK_MISMATCH",
+      "ASSEMBLY_CLOCK_REQUIRED",
+    ]);
     const historyCodes = new Set([
       "HISTORY_SAVED",
       "HISTORY_READ_FAILED",
@@ -91,7 +97,8 @@ describe("structured business notices", () => {
         !takeoverCodes.has(row[1]!) &&
         !promptFieldCodes.has(row[1]!) &&
         !exportQcCodes.has(row[1]!) &&
-        !historyCodes.has(row[1]!),
+        !historyCodes.has(row[1]!) &&
+        !assemblyCodes.has(row[1]!),
     );
     const addedRows = rows.filter((row) => addedCodes.has(row[1]!));
     const takeoverRows = rows.filter((row) => takeoverCodes.has(row[1]!));
@@ -110,6 +117,16 @@ describe("structured business notices", () => {
     expect(historyRows).toHaveLength(6);
     expect(new Set(historyRows.map((row) => row[1]))).toEqual(historyCodes);
     for (const [, code, fallback, finalCopy] of historyRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: finalCopy!.trim(),
+      });
+    }
+    const assemblyRows = rows.filter((row) => assemblyCodes.has(row[1]!));
+    expect(assemblyRows).toHaveLength(4);
+    expect(new Set(assemblyRows.map((row) => row[1]))).toEqual(assemblyCodes);
+    for (const [, code, fallback, finalCopy] of assemblyRows) {
       expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
       expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
         code,

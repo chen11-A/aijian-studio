@@ -1,3 +1,4 @@
+import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
@@ -1057,6 +1058,9 @@ export interface AijianDesktopBridge
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
   verifyFilmDialogueSplitBackup?: FilmDialogueSplitGateway["verifyFilmDialogueSplitBackup"];
+  assembleFilmProject?: FilmAssemblyGateway["assembleFilmProject"];
+  cancelFilmAssemblyOperation?: FilmAssemblyGateway["cancelFilmAssemblyOperation"];
+  onFilmAssemblyProgress?: FilmAssemblyGateway["onFilmAssemblyProgress"];
   prepareFilmDialogueSplit?: FilmDialogueSplitGateway["prepareFilmDialogueSplit"];
   applyFilmDialogueSplit?: FilmDialogueSplitGateway["applyFilmDialogueSplit"];
   listFilmHistory?: FilmHistoryGateway["listFilmHistory"];

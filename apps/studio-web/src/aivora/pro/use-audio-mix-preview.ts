@@ -15,15 +15,17 @@ export function useAudioMixPreview(
     current: () => FilmProject | null;
     save: (film: FilmProject, guard: () => boolean) => Promise<FilmProject | null>;
   },
-): AudioPreviewView {
+): AudioPreviewView & { settled: boolean } {
   const [view, setView] = useState<AudioPreviewView>({
     result: null,
     busy: false,
     unsupported: false,
   });
   const [epoch, retry] = useState(0);
+  const [viewFor, setViewFor] = useState<FilmProject | null>(null);
   useEffect(() => {
     const bridge = window.aijian;
+    setViewFor(film);
     if (!enabled || !film) {
       setView({ result: null, busy: false, unsupported: false });
       return;
@@ -91,5 +93,14 @@ export function useAudioMixPreview(
     // The per-render wrappers read the stable live ref/save queue. Depending on their
     // identity would restart probing on clock updates rather than on creative changes.
   }, [film, enabled, epoch]);
-  return { ...view, retry: () => retry((value) => value + 1) };
+  return {
+    ...view,
+    settled:
+      !enabled ||
+      !film ||
+      !window.aijian?.getFilmAudioMixPreview ||
+      !window.aijian.readFilmProject ||
+      (viewFor === film && !view.busy),
+    retry: () => retry((value) => value + 1),
+  };
 }

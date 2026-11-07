@@ -24,6 +24,7 @@ export function useAudioWaveforms(
   const runRef = useRef(key);
   runRef.current = key;
   const [verifiedAt, setVerifiedAt] = useState("");
+  const [settledAt, setSettledAt] = useState("");
   useEffect(() => {
     let cancelled = false;
     setVerified({});
@@ -70,7 +71,10 @@ export function useAudioWaveforms(
     })()
       .catch(() => undefined)
       .finally(() => {
-        if (current()) setBusy(false);
+        if (current()) {
+          setBusy(false);
+          setSettledAt(key);
+        }
       });
     return () => {
       cancelled = true;
@@ -78,6 +82,13 @@ export function useAudioWaveforms(
   }, [key]); // Source identity deliberately excludes waveform metadata and save timestamps.
   return {
     verified: verifiedAt === key ? verified : {},
+    // A new visit/source key is not ready merely because its effect has not painted busy yet.
+    settled:
+      !active ||
+      !film ||
+      !window.aijian?.readFilmAudioWaveform ||
+      !window.aijian.readFilmProject ||
+      (settledAt === key && !busy),
     busy: active && busy,
     refresh: () => setRevision((v) => v + 1),
   };

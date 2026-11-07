@@ -1,3 +1,11 @@
+import {
+  assemblyRenderKey,
+  assemblySelection,
+  readAssemblyInput,
+  requestAssembly,
+} from "./assembly";
+import { prepareHistoryInput } from "./actions/persistent-history";
+import type { FilmSaveLease } from "./film-persistence";
 import { mergeArtDesign } from "../film/art-design";
 import { constrainVisualPrompt, onScreenCharacters } from "../film/on-screen-characters";
 import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
@@ -10,7 +18,6 @@ import type { FilmProject, FilmPortrait, FilmShot, FilmTake } from "../film/proj
 import {
   autoVoiceForCharacter,
   locationPlate,
-  dialogueTracks,
   firstFrameReferences,
   portraitPrompts,
 } from "../film/operations";
@@ -501,24 +508,58 @@ export async function assembleCurrentFilm(
   apply: (film: FilmProject) => void,
   notice: (message: string) => void,
   valid: () => boolean,
+  host?: { acquire: (id: string) => Promise<FilmSaveLease>; signal?: AbortSignal },
 ): Promise<void> {
   const bridge = window.aijian;
-  if (paths.length < 2 || !bridge?.assembleFilm || !valid()) return;
+  if (paths.length < 2 || !valid()) return;
+  if (!bridge?.assembleFilmProject || !bridge.cancelFilmAssemblyOperation || !host) return;
+  let prepared: Awaited<ReturnType<typeof prepareHistoryInput>> | undefined;
+  let saving = false;
   try {
-    const music = base.audioClips.find((clip) => clip.lane === "score" && clip.path);
-    const result = await bridge.assembleFilm(
-      base.seriesId,
-      paths,
-      music?.path ?? "",
-      music ? music.gainDb : -14,
-      dialogueTracks(base),
+    prepared = await prepareHistoryInput(base, { current, apply, acquire: host.acquire });
+    if (!valid() || host.signal?.aborted || !prepared.current()) return;
+    const accepted = prepared.film,
+      renderKey = assemblyRenderKey(accepted),
+      control = {
+        current,
+        valid: () =>
+          valid() && current()?.id === base.id && assemblyRenderKey(current()!) === renderKey,
+        signal: host.signal,
+      };
+    if (assemblySelection(accepted).length !== paths.length) return;
+    const input = await readAssemblyInput(accepted, control);
+    if (!input) return;
+    const result = await requestAssembly(accepted, input, control);
+    if (!control.valid() || host.signal?.aborted) return;
+    if (result.kind === "FAILED") {
+      if (result.code !== "PROJECT_CHANGED" && result.code !== "OPERATION_STOPPED")
+        notice(
+          result.code === "SOURCE_TIME_MISMATCH"
+            ? NOTICE_TEXT.ASSEMBLY_SOURCE_CLOCK_MISMATCH
+            : NOTICE_TEXT.ASSEMBLY_FAILED,
+        );
+      return;
+    }
+    apply({ ...current()!, assemblyPath: result.path, assemblyUrl: fileMediaUrl(result.path) });
+    const written = current();
+    if (!written || written.id !== base.id) return;
+    saving = true;
+    await prepared.lease.save(
+      written,
+      () => valid() && !host.signal?.aborted && current() === written,
     );
-    const latest = current();
-    if (!valid() || !latest || latest.id !== base.id) return;
-    apply({ ...latest, assemblyPath: result.path, assemblyUrl: fileMediaUrl(result.path) });
-    if (result.reason) notice(result.reason);
+    if (result.kind === "PARTIAL" && valid() && !host.signal?.aborted && current() === written)
+      notice(NOTICE_TEXT.ASSEMBLY_PARTIAL);
   } catch {
-    if (valid() && current()?.id === base.id) notice("多镜头没有接上，没有导出。");
+    if (valid() && current()?.id === base.id && !host.signal?.aborted)
+      notice(saving ? NOTICE_TEXT.SAVE_FAILED : NOTICE_TEXT.ASSEMBLY_FAILED);
+  } finally {
+    try {
+      await prepared?.release();
+    } catch {
+      if (valid() && current()?.id === base.id && !host.signal?.aborted)
+        notice(NOTICE_TEXT.SAVE_FAILED);
+    }
   }
 }
 
