@@ -1,3 +1,4 @@
+import { generationVideoRecovery } from "./generation-video-recovery";
 import {
   generationFailurePolicy,
   parseGenerationFailureConfiguration,
@@ -90,6 +91,32 @@ export function registerStoryFilmHandlers<TEvent>(
   ) => Promise<string | null>,
   evidenceCurrent?: (event: TEvent) => () => boolean,
 ): void {
+  for (const [channel, mode] of [
+    ["story-film:video-recovery-list", "list"],
+    ["story-film:video-recover", "recover"],
+    ["story-film:video-recovery-save", "save"],
+  ] as const) {
+    handle(channel, async (event, ...args) => {
+      if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+      if (
+        args.length !== (mode === "list" ? 1 : 2) ||
+        typeof args[0] !== "string" ||
+        (mode !== "list" && typeof args[1] !== "string")
+      )
+        throw new Error("Invalid video recovery arguments");
+      return generationVideoRecovery(
+        fetcher,
+        sessionFor,
+        mediaBearerFor,
+        args[0],
+        mode,
+        args[1] as string | undefined,
+        files?.chooseExport,
+        evidenceCurrent?.(event) ?? (() => authorized(event)),
+      );
+    });
+  }
+
   handle("story-film:failure-policy", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
     if (args.length !== 1 || typeof args[0] !== "string")

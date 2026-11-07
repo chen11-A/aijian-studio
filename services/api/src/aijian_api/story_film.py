@@ -68,6 +68,8 @@ from aijian_api.story_speech_window import SPEECH_WINDOW, SpeechWindow, pad_pcm
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
 from aijian_api.user_messages import UserMessage, user_message
+from aijian_api.video_recovery_lock import VideoRecoveryLock
+from aijian_api.video_recovery_store import VideoRecoveryStore
 from aijian_api.xai_media import (
     IMAGE_MODEL,
     TTS_MODEL,
@@ -391,6 +393,7 @@ class StoryFilmService:
         self._failure_store = GenerationFailureStore(repository)
         self._dispatch_account: str | None = None
         self._video_reservation: FailureReservation | None = None
+        self._video_recovery_lock: VideoRecoveryLock | None = None
         self._ledger = LocalTaskLedger(repository.database_path)
         self._sleep = time.sleep
         self._partial_note: str | None = None
@@ -1165,6 +1168,9 @@ class StoryFilmService:
                 )
             except (GenerationFailureError, ValueError) as error:
                 raise StoryFilmError(str(error), "视频失败保护未通过，没有提交视频。") from error
+            self._video_recovery_lock = VideoRecoveryLock(
+                Path(self._repository.database_path), self._video_reservation.attempt_id
+            )
             try:
                 # SQLite reservation may have waited after the earlier cancel check.
                 # This is still before transport.send: no request has been issued.
@@ -1172,6 +1178,8 @@ class StoryFilmService:
             except StoryFilmError:
                 self._failure_store.discard_before_transport(project_id, self._video_reservation)
                 self._video_reservation = None
+                self._video_recovery_lock.close()
+                self._video_recovery_lock = None
                 raise
 
         client = XaiMediaClient(transport, token=media_token, before_video_submit=before_submit)
@@ -1569,7 +1577,12 @@ class StoryFilmService:
                 reference_images=reference_images,
             )
         finally:
-            self._settle_video_attempt(project_id, succeeded=False)
+            try:
+                self._settle_video_attempt(project_id, succeeded=False)
+            finally:
+                if self._video_recovery_lock is not None:
+                    self._video_recovery_lock.close()
+                    self._video_recovery_lock = None
 
     def _submit_and_poll_video(
         self,
@@ -1614,6 +1627,10 @@ class StoryFilmService:
             )
         except XaiMediaError:
             return None, "画面已生成，视频这一步没有成功，可以重试"
+        if self._video_reservation is not None and self._dispatch_account is not None:
+            VideoRecoveryStore(self._repository).attach(
+                project_id, self._video_reservation, self._dispatch_account, submitted.request_id
+            )
         for _ in range(90):
             self._ensure_running(project_id)
             try:

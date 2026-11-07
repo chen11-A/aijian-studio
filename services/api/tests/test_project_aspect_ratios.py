@@ -87,12 +87,19 @@ def test_existing_stored_landscape_gets_do_not_migrate_or_rewrite_any_db_bytes(t
     )
     before = hashlib.sha256(repository.database_path.read_bytes()).hexdigest()
     with repository._connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 51
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 52
         new_tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
-        assert {"generation_failure_policy", "generation_failure_attempt"} <= new_tables
+        assert {
+            "generation_failure_policy",
+            "generation_failure_attempt",
+            "generation_video_recovery",
+        } <= new_tables
+        assert (
+            connection.execute("SELECT COUNT(*) FROM generation_video_recovery").fetchone()[0] == 0
+        )
 
     listed = client.get("/api/v1/projects")
     fetched = client.get(f"/api/v1/projects/{project.id}")

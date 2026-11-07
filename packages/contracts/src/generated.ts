@@ -1453,6 +1453,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/generation-video-recoveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Attempts */
+        get: operations["listGenerationVideoRecoveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/generation-video-recoveries/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Describe */
+        get: operations["getRecoveredGenerationVideo"];
+        put?: never;
+        /** Recover */
+        post: operations["recoverGenerationVideo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/generation-video-recoveries/{attempt_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read File */
+        get: operations["readRecoveredGenerationVideo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/invalidation-operations": {
         parameters: {
             query?: never;
@@ -8277,6 +8329,15 @@ export interface components {
             /** Request Sha256 */
             request_sha256: string;
         };
+        /** RecoveredVideoFile */
+        RecoveredVideoFile: {
+            /** Bytes */
+            bytes: number;
+            /** Filename */
+            fileName: string;
+            /** Sha256 */
+            sha256: string;
+        };
         /** ReferenceDeclarationV1 */
         ReferenceDeclarationV1: {
             /** Description */
@@ -11174,6 +11235,45 @@ export interface components {
             time_base: components["schemas"]["PositiveRationalData"];
             /** Width */
             width: number;
+        };
+        /** VideoRecoveryItem */
+        VideoRecoveryItem: {
+            /** Attemptid */
+            attemptId: string;
+            file?: components["schemas"]["RecoveredVideoFile"] | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "UNKNOWN" | "RECOVERED";
+        };
+        /** VideoRecoveryList */
+        VideoRecoveryList: {
+            /** Hasmore */
+            hasMore: boolean;
+            /** Items */
+            items: components["schemas"]["VideoRecoveryItem"][];
+            /**
+             * Kind
+             * @default ATTEMPTS
+             * @constant
+             */
+            kind: "ATTEMPTS";
+        };
+        /** VideoRecoveryResult */
+        VideoRecoveryResult: {
+            /** Attemptid */
+            attemptId?: string | null;
+            /** Code */
+            code?: ("BUSY" | "NOT_FOUND" | "UNAVAILABLE" | "WRITE_UNCONFIRMED") | null;
+            file?: components["schemas"]["RecoveredVideoFile"] | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "RECOVERED" | "UNKNOWN" | "FAILED";
+            /** Reason */
+            reason?: ("WAITING" | "UNREACHABLE" | "NO_VALID_VIDEO" | "PROVIDER_FAILED") | null;
         };
         /** VisualAssetReferenceV1 */
         VisualAssetReferenceV1: {
@@ -17943,6 +18043,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationFailurePolicyData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listGenerationVideoRecoveries: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoRecoveryList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getRecoveredGenerationVideo: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoRecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recoverGenerationVideo: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoRecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readRecoveredGenerationVideo: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
