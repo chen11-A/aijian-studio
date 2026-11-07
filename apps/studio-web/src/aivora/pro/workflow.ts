@@ -7,20 +7,14 @@ import {
 import { prepareHistoryInput } from "./actions/persistent-history";
 import type { FilmSaveLease } from "./film-persistence";
 import { mergeArtDesign } from "../film/art-design";
-import { constrainVisualPrompt, onScreenCharacters } from "../film/on-screen-characters";
-import { mergeCostumes, withShotCostumes } from "../film/costume-rules";
-import { locationReference, withLocationLayout } from "../film/location-reference";
+import { mergeCostumes } from "../film/costume-rules";
+import { shotStillInput } from "../film/shot-still-input";
 import { setFilmStyle, withStyleBible } from "../film/style-bible";
 import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
 import type { FilmProject, FilmPortrait, FilmShot, FilmTake } from "../film/project";
-import {
-  autoVoiceForCharacter,
-  locationPlate,
-  firstFrameReferences,
-  portraitPrompts,
-} from "../film/operations";
+import { autoVoiceForCharacter, locationPlate, portraitPrompts } from "../film/operations";
 
 export type AgentReply = { text: string | null; detail: string; code?: string };
 export type AgentRequestControl = { deadlineAt: number; signal: AbortSignal };
@@ -274,43 +268,21 @@ export async function requestShotStill(
   reason: string;
   diagnostics: { referenceCount: number; imageLimit: number; videoReferenceLimit: number };
 }> {
-  const visualFilm = { ...film, characters: onScreenCharacters(film, shot) };
-  const visible = visualFilm.characters.filter((person) =>
-    person.portraits.some((portrait) => portrait.url),
-  );
-  const portraitLimit = locationReference(visualFilm, shot) ? 4 : 5;
-  if (visible.length > portraitLimit)
+  const input = shotStillInput(film, shot, prompt);
+  if (input.kind === "FAILED")
     return {
       url: "",
       reason: NOTICE_TEXT.STILL_CAST_LIMIT,
       diagnostics: { referenceCount: 0, imageLimit: 5, videoReferenceLimit: 13 },
     };
-  // One portrait per visible person before extra views, never silently omit a person.
-  const references = firstFrameReferences(visualFilm, shot);
-  const made = await requestStill(
-    film.seriesId,
-    withStyleBible(
-      constrainVisualPrompt(
-        withShotCostumes(
-          withLocationLayout(
-            prompt.replace(/[^。！？\n]*<IMAGE_\d+>[^。！？\n]*[。！？]?/gi, "").trim(),
-            film,
-            shot,
-          ),
-          film,
-          shot,
-        ),
-        film,
-        shot,
-      ),
-      film.styleZh,
-    ),
-    film.aspectRatio === "16:9" ? "16:9" : "9:16",
-    references,
-  );
+  const made = await requestStill(film.seriesId, input.prompt, input.aspectRatio, input.references);
   return {
     ...made,
-    diagnostics: { referenceCount: references.length, imageLimit: 5, videoReferenceLimit: 13 },
+    diagnostics: {
+      referenceCount: input.references.length,
+      imageLimit: 5,
+      videoReferenceLimit: 13,
+    },
   };
 }
 
