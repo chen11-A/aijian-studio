@@ -201,3 +201,72 @@ it("keeps actual ruler seconds while marking a range replaces the monitor with t
   assert.deepEqual(window.__proCreationAudit.forbidden, []);
   assert.deepEqual(window.__proEvidenceLegacyAudit.forbidden, []);
 });
+
+it("keeps ruler scrubbing and keyboard focus while preventing native text dragging, preserves inputs, and stops on pointer cancellation", async () => {
+  const f = await open("legacy-timeline-range");
+  f.nav("剪辑");
+  await waitFor(() => assert.equal(window.__assemblyAudit.artifacts.length, 1));
+  const artifact = window.__assemblyAudit.artifacts[0];
+  await waitFor(() => assert.equal(f.record().assemblyPath, artifact.path));
+  const before = globalThis.structuredClone(f.record());
+  const ruler = screen.getByRole("slider", { name: "播放位置" }),
+    area = document.querySelector(".track-area"),
+    video = document.querySelector(".preview-player video.frame"),
+    clip = document.querySelectorAll(".clip.v")[1];
+  const text = ruler.querySelector("span");
+  assert(area && video && clip && text);
+  const selected = document.createRange();
+  selected.selectNodeContents(text);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(selected);
+  assert.equal(window.getSelection().isCollapsed, false);
+  const left = Number.parseFloat(clip.style.left),
+    width = Number.parseFloat(clip.style.width);
+  const pointer = (element, kind, fraction, button = 0) => {
+    const event = new window.MouseEvent(kind, {
+      bubbles: true,
+      cancelable: true,
+      button,
+      buttons: 1,
+      clientX: left + width * fraction,
+    });
+    fireEvent(element, event);
+    return event;
+  };
+  const down = pointer(text, "pointerdown", 0.3);
+  assert.equal(down.defaultPrevented, true);
+  assert.equal(document.activeElement, ruler);
+  const drag = new window.Event("dragstart", { bubbles: true, cancelable: true });
+  fireEvent(text, drag);
+  assert.equal(drag.defaultPrevented, true);
+  let lastMove;
+  for (let step = 1; step <= 6; step++) {
+    lastMove = pointer(area, "pointermove", 0.3 + ((0.8 - 0.3) * step) / 6);
+    fireEvent.loadedMetadata(video);
+  }
+  assert(
+    Math.abs(
+      video.currentTime -
+        (artifact.shots[1].startSeconds +
+          artifact.shots[1].durationSeconds * ((lastMove.clientX - left) / width)),
+    ) < 1e-9,
+  );
+  const end = video.currentTime;
+  pointer(area, "pointercancel", 0.8);
+  pointer(area, "pointermove", 0.1);
+  fireEvent.loadedMetadata(video);
+  assert.equal(video.currentTime, end);
+  const input = screen.getByRole("textbox", { name: "改这一镜的描述" });
+  assert.equal(pointer(input, "pointerdown", 0.1).defaultPrevented, false);
+  assert.equal(pointer(text, "pointerdown", 0.1, 2).defaultPrevented, false);
+  ruler.focus();
+  fireEvent.keyDown(ruler, { key: "ArrowLeft" });
+  fireEvent.loadedMetadata(video);
+  assert(Math.abs(video.currentTime - (end - 1)) < 1e-9);
+  assert.deepEqual(f.record().shots, before.shots);
+  assert.deepEqual(f.record().audioClips, before.audioClips);
+  assert.equal(window.__assemblyAudit.calls.length, 1);
+  assert.deepEqual(window.__proCreationAudit.forbidden, []);
+  assert.deepEqual(window.__proEvidenceLegacyAudit.forbidden, []);
+  window.getSelection().removeAllRanges();
+});
