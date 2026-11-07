@@ -86,3 +86,32 @@ it.each(["gain", "trim", "path", "enabled", "envelope", "lane", "speech", "subti
     expect(audioMixPreviewKey(changed)).not.toBe(audioMixPreviewKey(film));
   },
 );
+it("rechecks scene binding and full group membership while ordinary shot-group metadata stays non-rendering", () => {
+  const film = fixture(),
+    clip = film.audioClips[0]!;
+  clip.suggestionGroup = {
+    schemaVersion: 1,
+    groupId: "group",
+    key: "member",
+    memberCount: 1,
+    memberSetSha256: "a".repeat(64),
+    planFingerprint: "b".repeat(64),
+  };
+  const ordinary = audioMixPreviewKey(film);
+  const metadata = structuredClone(film);
+  metadata.audioClips[0]!.suggestionGroup!.memberCount = 2;
+  expect(audioMixPreviewKey(metadata)).toBe(ordinary);
+  clip.sceneAudioBinding = {
+    schemaVersion: 1,
+    sceneId: film.shots[0]!.sceneId,
+    selectionSha256: "c".repeat(64),
+  };
+  const scene = audioMixPreviewKey(film);
+  expect(scene).not.toBe(ordinary);
+  const bound = structuredClone(film);
+  bound.audioClips[0]!.sceneAudioBinding!.selectionSha256 = "d".repeat(64);
+  expect(audioMixPreviewKey(bound)).not.toBe(scene);
+  const broken = structuredClone(film);
+  broken.audioClips[0]!.suggestionGroup!.memberCount = 2;
+  expect(audioMixPreviewKey(broken)).not.toBe(scene);
+});

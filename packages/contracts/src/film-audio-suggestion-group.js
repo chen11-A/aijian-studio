@@ -1,3 +1,4 @@
+import { sceneAudioBinding } from "./film-scene-audio-binding.js";
 import { audioMixEnvelope } from "./film-audio-mix-plan.js";
 const object = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : null);
 const text = (v, max = 200) =>
@@ -67,6 +68,9 @@ export function audioSuggestionMemberInput(value) {
     enabled: v.enabled,
     asset: { assetId: asset.assetId, sha256: asset.sha256 },
     envelope: v.envelope === undefined ? null : audioMixEnvelope(v.envelope),
+    ...(v.sceneAudioBinding === undefined
+      ? {}
+      : { sceneAudioBinding: sceneAudioBinding(v.sceneAudioBinding) }),
   });
 }
 export function audioSuggestionMemberSetInput(members) {
@@ -134,4 +138,50 @@ export function audioSuggestionGroupInputs(clips, groupId) {
     }
   }
   return { group, members };
+}
+
+/** All members of a scene group must still exist and share the current actual source clock.
+ * Current creative edits are never silently re-signed: removal separately checks the old digest.
+ * This is consistency only; no paths are accepted or authorized by this helper. */
+export function sceneAudioGroupState(clips, currentBindings) {
+  if (!Array.isArray(clips) || clips.length > 10000 || !object(currentBindings))
+    throw Error("INVALID_SCENE_AUDIO_GROUP");
+  const groups = new Set(),
+    sceneMemberIds = new Set(),
+    eligibleIds = new Set();
+  let stale = false;
+  for (const raw of clips) {
+    const clip = object(raw);
+    if (!clip || clip.sceneAudioBinding === undefined) continue;
+    if (text(clip.id)) sceneMemberIds.add(clip.id);
+    const group = normalizeAudioSuggestionGroup(clip.suggestionGroup);
+    if (group) groups.add(group.groupId);
+    else stale = true;
+  }
+  for (const groupId of groups) {
+    const rows = clips.filter((raw) => object(raw)?.suggestionGroup?.groupId === groupId);
+    for (const clip of rows) if (text(clip.id)) sceneMemberIds.add(clip.id);
+    const members = audioSuggestionGroupInputs(clips, groupId);
+    let binding;
+    try {
+      binding = sceneAudioBinding(rows[0]?.sceneAudioBinding);
+      if (
+        !members ||
+        rows.some((clip) => !text(clip.path, 32768)) ||
+        rows.some(
+          (clip) =>
+            JSON.stringify(sceneAudioBinding(clip.sceneAudioBinding)) !== JSON.stringify(binding),
+        ) ||
+        currentBindings[binding.sceneId] !== binding.selectionSha256
+      ) {
+        stale = true;
+        continue;
+      }
+    } catch {
+      stale = true;
+      continue;
+    }
+    for (const clip of rows) eligibleIds.add(clip.id);
+  }
+  return { sceneMemberIds: [...sceneMemberIds], eligibleIds: [...eligibleIds], stale };
 }
