@@ -5227,14 +5227,18 @@ it.each([false, true])(
     pickHelper("表演指导");
     fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "请生成表演草稿" } });
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
-    await screen.findByText(/表演 · 镜头/);
+    const confirm = await screen.findByRole("button", { name: "确认修改" });
+    const fields = screen.getByRole("list", { name: "字段改动" });
+    expect(fields).toHaveTextContent("原有表演");
+    expect(fields).toHaveTextContent("表演计划");
+    expect(fields).not.toHaveTextContent("配音语气");
     const saved = () =>
       vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject | undefined;
     expect(saved()?.shots.find((shot) => shot.id === target.id)?.performancePlan).toBeUndefined();
     expect(
       saved()?.scenes.find((scene) => scene.id === target.sceneId)?.performanceState,
     ).toBeUndefined();
-    fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
+    fireEvent.click(confirm);
     if (locked) {
       await screen.findAllByText("这一镜是你改过的，没有盖掉。");
       expect(saved()?.shots.find((shot) => shot.id === target.id)?.performancePlan).toBeUndefined();
@@ -5548,8 +5552,20 @@ it("B11 confirms performance while retaining a user-locked delivery", async () =
   pickHelper("表演指导");
   fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "写这一镜的表演" } });
   fireEvent.click(screen.getByRole("button", { name: "发送" }));
-  await screen.findByText(/表演 · 镜头/);
-  fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
+  const confirm = await screen.findByRole("button", { name: "确认修改" });
+  const fields = screen.getByRole("list", { name: "字段改动" });
+  expect(fields).toHaveTextContent("表演计划");
+  expect(fields).not.toHaveTextContent("配音语气");
+  expect(
+    vi
+      .mocked(window.aijian!.writeFilmProject!)
+      .mock.calls.every(
+        ([value]) =>
+          (value as FilmProject).shots.find((shot) => shot.id === target.id)?.performance ===
+          target.performance,
+      ),
+  ).toBe(true);
+  fireEvent.click(confirm);
   await waitFor(() => {
     const last = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as
       FilmProject | undefined;

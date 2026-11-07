@@ -381,6 +381,8 @@ export const NOTICE_TEXT = {
   ASSEMBLY_CLOCK_REQUIRED: "粗剪时钟尚未核验，请重新合成后再按镜头跳转或标记范围。",
   PROMPTER_SUGGESTION_READY: "画面说明已准备好，确认后才修改。",
   PROMPTER_FIELDS_APPLIED: "画面说明已修改。",
+  PERFORMANCE_SUGGESTION_READY: "表演建议已准备好，确认后才修改。",
+  PERFORMANCE_FIELDS_APPLIED: "表演字段已修改。",
   GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
   GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
   CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",
