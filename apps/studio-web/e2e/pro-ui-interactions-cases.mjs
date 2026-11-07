@@ -176,10 +176,18 @@ export async function runUiInteractionCases({ browser, config, report, media, pe
             await reachable(s);
             if (((await s.locator("..").getAttribute("open")) !== null) !== open) await s.click();
             await page.waitForFunction(
-              ({ name, open }) =>
-                [...window.document.querySelectorAll(".pgroup")].find(
-                  (d) => d.querySelector("summary")?.textContent === name,
-                )?.open === open,
+              ({ name, open }) => {
+                const d = [...window.document.querySelectorAll(".pgroup")].find(
+                    (d) => d.querySelector("summary")?.textContent === name,
+                  ),
+                  summary = d?.querySelector("summary");
+                return (
+                  d?.open === open &&
+                  (!open ||
+                    (summary?.getAttribute("data-count") === null &&
+                      summary?.getAttribute("title") === null))
+                );
+              },
               { name, open },
             );
             return s;

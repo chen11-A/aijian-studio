@@ -41,3 +41,5 @@
 - 正常 EditPage 的预览标题实际是 monitor-tabs，`.pro-root .ph h3` 数量为0，原通用标题 click 没有有效目标。新 actual Pro 永久断言核该事实，browser 改用真实可见“预览”tab取得非输入焦点，仍原 metadata/seek/J/K/L/帧方向/切点/Delete/Backspace/完整媒体与0provider，原指针/容差不改。
 
 本次基于 `61ce132`，54消费者另树检查点 `89e303c` 保留。仅改3个QA mjs及本说明；产品/安装器/原468步骤均不变。actual Pro 同默认夹具 **4/4**：`/tmp/ui-interactions-repair-host-final.log`；全部153 Node 与目标静态见 `/tmp/ui-interactions-repair-all-contracts.log`、`/tmp/ui-interactions-repair-eslint.log`、`/tmp/ui-interactions-repair-format.log`。新的正常 Chrome16仍待运行，不把本地受控通过当实际浏览器已修复。
+
+后续对称收尾：打开折叠组也等待真实 React 清空 data-count/title，关闭仍按2/1/0精确目标等待。永久原生 toggle capture 同时证明打开时 open=true而旧·2尚存的渲染窗口，未放宽字段计数或几何。

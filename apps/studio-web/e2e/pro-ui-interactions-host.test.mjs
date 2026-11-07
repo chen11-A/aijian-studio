@@ -195,7 +195,13 @@ it("folded sound/advanced badges count actual edits, disappear when open and upd
   const fold = async (name, want) => {
     const s = summary(name);
     if (s.parentElement.open !== want) fireEvent.click(s);
-    await waitFor(() => assert.equal(s.parentElement.open, want));
+    await waitFor(() => {
+      assert.equal(s.parentElement.open, want);
+      if (want) {
+        assert.equal(s.getAttribute("data-count"), null);
+        assert.equal(s.getAttribute("title"), null);
+      }
+    });
     return s;
   };
   await fold("声音", true);
@@ -220,7 +226,12 @@ it("folded sound/advanced badges count actual edits, disappear when open and upd
   );
   assert.equal(summary("声音").getAttribute("data-count"), "· 2");
   await fold("声音", true);
+  assert(
+    nativeToggle.some((t) => t.open && t.count === "· 2"),
+    "Native opening precedes clearing the prior React badge",
+  );
   assert.equal(summary("声音").getAttribute("data-count"), null);
+  assert.equal(summary("声音").getAttribute("title"), null);
   fireEvent.change(screen.getByLabelText("配乐情绪"), { target: { value: "" } });
   await fold("声音", false);
   assert.equal(summary("声音").getAttribute("data-count"), "· 1");
