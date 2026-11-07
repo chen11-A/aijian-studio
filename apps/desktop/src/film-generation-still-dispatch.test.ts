@@ -104,7 +104,10 @@ it("network uncertainty is never treated as a proven-unsent reservation or autom
   });
   expect(f.fetcher).toHaveBeenCalledTimes(1);
   expect(f.options.notSent).not.toHaveBeenCalled();
-  expect(f.options.observed).toHaveBeenCalledExactlyOnceWith(null, { transportUnconfirmed: true });
+  expect(f.options.observed).toHaveBeenCalledExactlyOnceWith(null, {
+    transportUnconfirmed: true,
+    outputUnconfirmed: true,
+  });
 });
 it("keeps a fixed native policy rejection separate from raw provider or transport text", async () => {
   const f = await setup();
@@ -163,3 +166,21 @@ it("observes dispatch after a real file write failure and preserves existing des
     outputUnconfirmed: true,
   });
 });
+
+it.each([503, 200])(
+  "keeps a sent response without proven output UNKNOWN and branded, without protected retries (status=%s)",
+  async (status) => {
+    const f = await setup();
+    f.fetcher.mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), { status }));
+    expect(await dispatchProtectedGenerationStill(f.options)).toMatchObject({
+      path: "",
+      code: "WRITE_UNCONFIRMED",
+    });
+    expect(f.fetcher).toHaveBeenCalledTimes(1);
+    expect(f.options.notSent).not.toHaveBeenCalled();
+    expect(f.options.observed).toHaveBeenCalledExactlyOnceWith(null, {
+      transportUnconfirmed: false,
+      outputUnconfirmed: true,
+    });
+  },
+);

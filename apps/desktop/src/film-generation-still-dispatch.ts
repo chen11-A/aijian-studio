@@ -47,7 +47,6 @@ export async function dispatchProtectedGenerationStill(
   let dispatched = false,
     transportUnconfirmed = false,
     outputUnconfirmed = false;
-  let postOk = false;
   let failure: FilmGenerationExecutionFailure | undefined;
   if (!options.token || !current(options.current))
     return {
@@ -88,7 +87,6 @@ export async function dispatchProtectedGenerationStill(
             return options.fetcher(input, init);
           });
           if (!dispatched) throw new GenerationStillDispatchError("EXECUTION_UNAVAILABLE");
-          postOk = response.ok;
           if (response.status === 401 || response.status === 403) failure = "ACCOUNT_UNAVAILABLE";
           return response;
         } catch (error) {
@@ -106,9 +104,9 @@ export async function dispatchProtectedGenerationStill(
     outputUnconfirmed = dispatched;
     failure = "WRITE_UNCONFIRMED";
   }
-  if (dispatched && postOk && !made.path) {
+  if (dispatched && !made.path) {
     outputUnconfirmed = true;
-    failure = "WRITE_UNCONFIRMED";
+    failure ??= "WRITE_UNCONFIRMED";
   }
   if (!dispatched) {
     try {
