@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
+import {
+  forecastGenerationReferences,
+  type GenerationForecastInput,
+} from "./film-generation-forecast";
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
 import {
   generationObject,
   generationRows,
   type CanonicalGenerationPlan,
-  type PlannedGenerationStage,
 } from "./film-generation-plan";
 import type { GenerationImageSources } from "./film-generation-sources";
 import type { StoryFilmCreateInput } from "./story-film-client";
@@ -18,6 +21,7 @@ export type GenerationRegistrationInput = {
     versions: 1 | 2 | 3;
     first_regenerate: boolean;
     body: StoryFilmCreateInput;
+    forecast?: GenerationForecastInput;
     sources: { source: string; sha256: string }[];
     client_frame?: {
       model: typeof IMAGE_MODEL;
@@ -39,72 +43,25 @@ const fail = (): never => {
   throw Error("UNSUPPORTED_SCOPE");
 };
 
-function withPlannedImage(
-  producer: CanonicalGenerationProducer,
-  record: Record<string, unknown>,
-  stage: PlannedGenerationStage,
-  marker: string,
-): Record<string, unknown> {
-  const next = structuredClone(record),
-    descriptor = stage.public;
-  if (descriptor.kind === "continuity-frame") return fail();
-  if (descriptor.kind === "location-reference") {
-    const prepared = generationObject(producer.prepareSceneLocations(next));
-    if (!prepared) return fail();
-    const place = generationRows(prepared.locations).find((row) => row.id === descriptor.targetId);
-    if (!place) return fail();
-    const fields = generationObject(producer.locationImageFields(prepared, place, marker));
-    if (!fields) return fail();
-    Object.assign(place, fields);
-    return prepared;
-  }
-  if (descriptor.kind === "portrait") {
-    const person = generationRows(next.characters).find((row) => row.id === descriptor.targetId);
-    if (!person || !Array.isArray(person.portraits)) return fail();
-    const portraits = person.portraits.map(generationObject);
-    if (portraits.some((row) => !row)) return fail();
-    const existing = portraits.find((row) => row?.view === descriptor.view);
-    if (existing) existing.url = marker;
-    else person.portraits.push({ view: descriptor.view, url: marker });
-    return next;
-  }
-  return next;
-}
-
-/** The current adapter handles complete fixed-reference intentions. A forthcoming
- * planned-reference compiler must replace this explicit guard before any scope
- * whose missing automatic references affect the effective target can be enabled.
- * The marker exists only in this temporary pure selector view, never on disk/API. */
+/** Keep the current fixed-reference capability closed until actual dynamic stage
+ * observations and lineage consumers have been connected to this same forecast. */
 function requireCompleteIntent(
   producer: CanonicalGenerationProducer,
   plan: CanonicalGenerationPlan,
   intent: Record<string, unknown>,
 ) {
-  const prepared = generationObject(producer.prepareSceneLocations(intent));
-  if (!prepared) return fail();
-  for (const stage of plan.stages) {
-    if (stage.public.kind === "continuity-frame") return fail();
-    if (stage.public.kind === "shot-frame") continue;
-    const marker = "https://aivora-planned.invalid/check-reference.png";
-    const projected = withPlannedImage(producer, prepared, stage, marker);
-    for (const target of plan.targets) {
-      const shot = generationRows(projected.shots).find((row) => row.id === target.shotId);
-      if (!shot) return fail();
-      const video = generationObject(producer.shotReference(shot, projected));
-      if (!video || !Array.isArray(video.references)) return fail();
-      if (
-        !String(target.originalBody.video_model ?? "").includes("lite") &&
-        video.references.some((row) => generationObject(row)?.url === marker)
-      )
-        return fail();
-      if (target.clientFrame) {
-        const frame = generationObject(
-          producer.shotStillInput(projected, shot, producer.keyframePrompt(shot, projected)),
-        );
-        if (!frame || frame.kind !== "READY" || !Array.isArray(frame.references)) return fail();
-        if (frame.references.includes(marker)) return fail();
-      }
-    }
+  const forecast = forecastGenerationReferences(producer, plan, intent);
+  for (const target of forecast.targets) {
+    const references = [
+      ...(target.clientFrame?.references ?? []),
+      ...(!String(target.body.video_model ?? "").includes("lite")
+        ? (target.body.shots ?? []).flatMap((shot) => [
+            ...(shot.references ?? []),
+            ...(shot.reference ? [shot.reference] : []),
+          ])
+        : []),
+    ];
+    if (references.some((source) => forecast.plannedSources.has(source))) return fail();
   }
 }
 

@@ -1710,7 +1710,9 @@ class StoryFilmService:
         self._creation_sent = False
         self._creation_video_expected = None
 
-    def _creation_targets(self) -> list[dict[str, object]]:
+    def _creation_targets(
+        self, reference_identity: Callable[[str], object] = story_reference_identity
+    ) -> list[dict[str, object]]:
         request = self._creation_request
         if request is None:
             raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "原始创作输入无法核验。")
@@ -1744,6 +1746,7 @@ class StoryFilmService:
                         max(1, min(int(shot.duration_seconds), 15)),
                         shot.still,
                         tuple(_shot_references(shot)),
+                        reference_identity=reference_identity,
                     )
                 )
         else:
@@ -1753,13 +1756,19 @@ class StoryFilmService:
                     2,
                     self._creation_single_still,
                     self._creation_single_references,
+                    reference_identity=reference_identity,
                 )
             )
         return targets
 
     @staticmethod
     def _creation_target(
-        request: StoryFilmRequest, duration: int, still: str, references: tuple[str, ...]
+        request: StoryFilmRequest,
+        duration: int,
+        still: str,
+        references: tuple[str, ...],
+        *,
+        reference_identity: Callable[[str], object] = story_reference_identity,
     ) -> dict[str, object]:
         references = tuple(dict.fromkeys(references))
         prepared = prepared_reference_image(still) if still else None
@@ -1787,14 +1796,12 @@ class StoryFilmService:
             ),
             "image_model": (request.image_model or IMAGE_MODEL) if prepared is None else None,
             "prepared_image": (
-                story_reference_identity(_image_reference(prepared)["url"])
+                reference_identity(_image_reference(prepared)["url"])
                 if prepared is not None
                 else None
             ),
             "image_references": (
-                [story_reference_identity(ref) for ref in references[:5]]
-                if prepared is None
-                else []
+                [reference_identity(ref) for ref in references[:5]] if prepared is None else []
             ),
             "video_prompt": _styled(
                 video_prompt(
@@ -1806,7 +1813,7 @@ class StoryFilmService:
             ),
             "video_model": request.video_model or VIDEO_MODEL,
             "video_references": [
-                story_reference_identity(ref)
+                reference_identity(ref)
                 for ref in references_for_model(request.video_model or VIDEO_MODEL, references)
             ],
             "requested_seconds": min(duration, _video_cap(request.video_model, references)),

@@ -293,6 +293,210 @@ test("actual closed native producer preserves the editor's effective request, vo
       json(exports.storyFilmBatches(notRestored, [notRestored.shots[0]], false)),
       json(exports.storyFilmBatches(intent, [intent.shots[0]], false)),
     );
+    const forecastModule = await source.ssrLoadModule(
+      "/apps/desktop/src/film-generation-forecast.ts",
+    );
+    const beforeForecast = json(intent);
+    const forecast = forecastModule.forecastGenerationReferences(exports, plan, intent);
+    assert.deepEqual(json(intent), beforeForecast); // No fake media reaches the actual record.
+    const forecastFrame = forecast.targets[0].clientFrame;
+    assert.ok(forecastFrame);
+    assert.ok(forecastFrame.references.some((ref) => forecast.plannedSources.has(ref)));
+    const actualCapture = async (ref) => {
+      assert.ok(!ref.startsWith("https://aivora-planned.invalid/"));
+      return sources.capture(ref);
+    };
+    const selectedInputs = await forecastModule.forecastReferenceInputs(
+      forecast,
+      forecastFrame.references,
+      actualCapture,
+    );
+    assert.ok(selectedInputs.some((input) => input.plannedImage));
+    const relabelled = json(plan);
+    relabelled.targets[0].key = "different-execution-target";
+    relabelled.stages.forEach((stage, index) => {
+      stage.public.stageId = `different-stage-${index}`;
+    });
+    const relabelForecast = forecastModule.forecastGenerationReferences(
+      exports,
+      relabelled,
+      intent,
+    );
+    assert.deepEqual(
+      json(
+        await forecastModule.forecastReferenceInputs(
+          relabelForecast,
+          relabelForecast.targets[0].clientFrame.references,
+          actualCapture,
+        ),
+      ),
+      json(selectedInputs),
+    );
+    await assert.rejects(
+      () =>
+        forecastModule.forecastReferenceInputs(
+          forecast,
+          ["https://aivora-planned.invalid/not-issued.png"],
+          actualCapture,
+        ),
+      /UNSUPPORTED_SCOPE/,
+    );
+    const plannedFrameProof = {
+      output_sha256: captured.sha256,
+      stage: {
+        kind: "shot-frame",
+        target_id: frame.public.targetId,
+        origin: {
+          ...frame.origin,
+          prompt: forecastFrame.prompt,
+          referenceMode: "planned-v1",
+          references: selectedInputs,
+        },
+      },
+    };
+    const plannedLocationProof = {
+      output_sha256: locationCapture.sha256,
+      stage: {
+        kind: "location-reference",
+        target_id: locationStage.public.targetId,
+        origin: { ...locationStage.origin, references: [] },
+      },
+    };
+    assert.equal(
+      await lineageModule.generationReferencesMatch(selectedInputs, [locationImage], sources, [
+        plannedLocationProof,
+      ]),
+      true,
+    );
+    assert.equal(
+      await lineageModule.generationReferencesMatch(selectedInputs, [locationImage], sources, []),
+      false,
+    );
+    const wrongCreator = json(plannedLocationProof);
+    wrongCreator.stage.origin.prompt += "用户变更原始参考创作";
+    assert.equal(
+      await lineageModule.generationReferencesMatch(selectedInputs, [locationImage], sources, [
+        wrongCreator,
+      ]),
+      false,
+    );
+    const verifiedStage = await lineageModule.verifyGenerationStageImage(
+      exports,
+      withReferences,
+      frame,
+      plannedFrameProof.stage.origin,
+      sources,
+      [plannedLocationProof],
+    );
+    assert.deepEqual(json(verifiedStage.references), [locationImage]);
+    assert.equal(verifiedStage.prompt, forecastFrame.prompt);
+    const editedStageRecord = json(withReferences);
+    editedStageRecord.shots[0].picture += "用户在派发前改变画面";
+    await assert.rejects(
+      () =>
+        lineageModule.verifyGenerationStageImage(
+          exports,
+          editedStageRecord,
+          frame,
+          plannedFrameProof.stage.origin,
+          sources,
+          [plannedLocationProof],
+        ),
+      /SOURCE_UNVERIFIABLE/,
+    );
+    const plannedRestored = await lineageModule.restoreGenerationIntent(
+      exports,
+      withReferences,
+      [withReferences.shots[0].id],
+      sources,
+      [plannedFrameProof, plannedLocationProof],
+    );
+    assert.equal(plannedRestored.shots[0].poster, intent.shots[0].poster);
+    assert.deepEqual(
+      json(exports.storyFilmBatches(plannedRestored, [plannedRestored.shots[0]], false)),
+      json(exports.storyFilmBatches(intent, [intent.shots[0]], false)),
+    );
+    const withPeople = json(intent);
+    withPeople.characters = [
+      {
+        ...json(film.characters[0]),
+        id: "visible-person",
+        name: "画中人",
+        identity: "蓝色长外套，短黑发。",
+        portraits: [],
+      },
+      {
+        ...json(film.characters[0]),
+        id: "unused-person",
+        name: "不在此镜的人",
+        identity: "红色外套，长发。",
+        portraits: [],
+      },
+    ];
+    withPeople.shots[0].characters = ["画中人"];
+    withPeople.shots[0].picture = "画中人站在原场景里。";
+    const pipelineScope = { ...scope, mode: "pipeline" };
+    const forecastPeople = (record) => {
+      const nextPlan = planModule.compileCanonicalGenerationPlan(
+        exports,
+        record,
+        record,
+        { ...pipelineScope, targets: [{ shotId: record.shots[0].id, versions: 1 }] },
+        new Set([record.shots[0].id]),
+      );
+      return forecastModule.forecastGenerationReferences(exports, nextPlan, record);
+    };
+    const peopleForecast = forecastPeople(withPeople);
+    const inputsForFrame = async (value) =>
+      json(
+        await forecastModule.forecastReferenceInputs(
+          value,
+          value.targets[0].clientFrame.references,
+          actualCapture,
+        ),
+      );
+    const usedPeople = await inputsForFrame(peopleForecast);
+    const mappedForecast = await forecastModule.buildGenerationForecastInputs(
+      peopleForecast,
+      actualCapture,
+    );
+    assert.equal(mappedForecast.length, 1);
+    assert.ok(mappedForecast[0].forecast.sources.length > 0);
+    const protocolSource = mappedForecast[0].forecast.sources[0];
+    assert.deepEqual(Object.keys(protocolSource).sort(), ["identity", "source"]);
+    assert.ok(protocolSource.identity.plannedImage);
+    assert.ok(!JSON.stringify(protocolSource.identity).includes("stageId"));
+    assert.ok(!JSON.stringify(protocolSource.identity).includes("visible-person"));
+    assert.ok(!JSON.stringify(protocolSource.identity).includes("https://aivora-planned.invalid/"));
+    assert.ok(JSON.stringify(usedPeople).includes("蓝色长外套"));
+    assert.ok(!JSON.stringify(usedPeople).includes("红色外套"));
+    // Side/back creators consume the issued front creator; no fabricated front bytes.
+    const sideCreator = peopleForecast.stages.find((stage) =>
+      stage.creator.prompt.includes("正侧面"),
+    );
+    assert.ok(sideCreator);
+    const sideReferences = await forecastModule.forecastReferenceInputs(
+      peopleForecast,
+      sideCreator.creator.references,
+      actualCapture,
+    );
+    assert.ok(sideReferences[0].plannedImage.prompt.includes("正面全身"));
+    const copiedShot = json(withPeople);
+    copiedShot.shots[0].id = "new-local-shot-id-same-creative-request";
+    copiedShot.characters[0].id = "new-local-character-id-same-visible-person";
+    assert.deepEqual(await inputsForFrame(forecastPeople(copiedShot)), usedPeople);
+    const unusedChanged = json(withPeople);
+    unusedChanged.characters[1].identity = "用户修改未出镜人物的造型。";
+    assert.deepEqual(await inputsForFrame(forecastPeople(unusedChanged)), usedPeople);
+    const usedChanged = json(withPeople);
+    usedChanged.characters[0].identity = "黄色雨衣，卷发。";
+    assert.notDeepEqual(await inputsForFrame(forecastPeople(usedChanged)), usedPeople);
+    const byteA = async () => ({ sha256: "a".repeat(64), mime: "image/png" });
+    const byteB = async () => ({ sha256: "b".repeat(64), mime: "image/png" });
+    assert.notDeepEqual(
+      json(await forecastModule.forecastReferenceInputs(forecast, [locationImage], byteA)),
+      json(await forecastModule.forecastReferenceInputs(forecast, [locationImage], byteB)),
+    );
     const registrationModule = await source.ssrLoadModule(
       "/apps/desktop/src/film-generation-registration.ts",
     );
