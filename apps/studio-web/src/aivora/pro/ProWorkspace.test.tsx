@@ -5384,8 +5384,16 @@ it("B11 keeps prompter undo on its page and restores only the applied prompt fie
 });
 
 it("B11 applies and undoes a fixed art proposal without losing a subsequently generated frame", async () => {
+  const cards = await import("../next/SuggestionCard");
+  const originalCard = cards.SuggestionCard;
+  let pending: Parameters<typeof originalCard>[0] | undefined;
+  const spy = vi.spyOn(cards, "SuggestionCard").mockImplementation((props) => {
+    if (props.fieldRows?.some((row) => row.label === "全项目 · 画风说明")) pending = props;
+    return originalCard(props);
+  });
+  onTestFinished(() => spy.mockRestore());
   const { completeText } = installDesktop();
-  completeText.mockResolvedValueOnce({
+  const reply = {
     kind: "OK",
     text: JSON.stringify({
       prompt_block_zh: "B11美术新画风",
@@ -5393,21 +5401,38 @@ it("B11 applies and undoes a fixed art proposal without losing a subsequently ge
       locations: [{ name: "B11新场景", prompt: "窗边书架", ambience: "雨声" }],
       props: [],
     }),
-  });
+  } as const;
+  completeText.mockResolvedValueOnce(reply);
   Object.assign(window.aijian!, {
     generateFilmStill: vi.fn(async () => ({ path: "/tmp/b11-later-frame.png", reason: "" })),
   });
   await openSample();
   pickHelper("美术");
   fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
-  expect(await screen.findByText(/美术写好了/)).toBeInTheDocument();
+  await screen.findByRole("button", { name: "确认修改" });
+  const old = pending!;
   fireEvent.click(stageTab("分镜"));
+  act(() => old.onApply());
+  expect(
+    vi
+      .mocked(window.aijian!.writeFilmProject!)
+      .mock.calls.some(([value]) => (value as FilmProject).styleZh === "B11美术新画风"),
+  ).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
   expect(await screen.findByText(/画面出好了/)).toBeInTheDocument();
   fireEvent.click(stageTab("剧本"));
   pickHelper("美术");
-  fireEvent.click(await screen.findByRole("button", { name: "放进分镜" }));
-  expect(await screen.findByText(/画风、外貌、场景和道具已放进去/)).toBeInTheDocument();
+  act(() => old.onApply());
+  expect(
+    vi
+      .mocked(window.aijian!.writeFilmProject!)
+      .mock.calls.some(([value]) => (value as FilmProject).styleZh === "B11美术新画风"),
+  ).toBe(false);
+  completeText.mockResolvedValueOnce(reply);
+  fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
+  await screen.findByRole("button", { name: "确认修改" });
+  fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
+  await screen.findByText("全项目美术字段已修改。");
   const writes = () =>
     vi.mocked(window.aijian!.writeFilmProject!).mock.calls.map(([film]) => film as FilmProject);
   const applied = writes()
@@ -5630,13 +5655,13 @@ it.each(["undo", "page"] as const)(
     });
     pickHelper("美术");
     fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
-    await screen.findByText(/美术写好了/);
-    fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
+    await screen.findByRole("button", { name: "确认修改" });
+    fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
     await waitFor(() => expect(finish).toBeDefined());
     if (action === "undo") fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     else fireEvent.click(stageTab("分镜"));
     await act(async () => finish());
-    expect(screen.queryByText(/画风、外貌、场景和道具已放进去/)).not.toBeInTheDocument();
+    expect(screen.queryByText("全项目美术字段已修改。")).not.toBeInTheDocument();
   },
 );
 
