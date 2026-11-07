@@ -18,6 +18,16 @@ import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import type { LibraryHost } from "./actions/audio-library";
 import { useBundledAudioLibrary } from "./use-bundled-audio-library";
 import { useDialogueSplit } from "./use-dialogue-split";
+import {
+  captureAssistantReferences,
+  assistantReferencesCurrent,
+  referenceCandidates,
+  referenceTaskScope,
+  type ReferenceCapture,
+  type ReferenceCandidate,
+  type ReferenceScope,
+  type ReferenceErrorCode,
+} from "./actions/assistant-references";
 import { useSceneAudioSuggestions } from "./use-scene-audio-suggestions";
 import { useShotAudioSuggestions } from "./use-shot-audio-suggestions";
 import { exportProjectArchive } from "./actions/project-archive";
@@ -286,8 +296,18 @@ import {
 type Stage = "script" | "cast" | "board" | "edit";
 type Role = "writer" | "director" | "action" | "performance" | "art" | "prompter" | "qc";
 
-type StoryDraft = { transaction: StoryConfirmation; origin: EditorSelection };
+type StoryDraft = {
+  transaction: StoryConfirmation;
+  origin: EditorSelection;
+  references?: ReferenceCapture;
+};
+type ReferenceView = {
+  labels: readonly string[];
+  taskScope: ReferenceScope;
+  code?: ReferenceErrorCode;
+};
 type RoleCard = {
+  references?: ReferenceCapture;
   storyDraft?: StoryDraft;
   directionDiff?: ShotDirectionTransaction;
   directionCardId?: string;
@@ -642,6 +662,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     context: string;
     instruction: string;
     origin?: EditorSelection;
+    references?: ReferenceCapture;
   } | null>(null);
   const [confirmSignIn, setConfirmSignIn] = useState(false);
   const [range, setRange] = useState(false);
@@ -700,6 +721,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const castEpoch = useRef(0);
   const requestSequences = useRef(new RequestSequences());
   const activeTurn = useRef("");
+  const turnReferences = useRef(new Map<string, ReferenceCapture>());
+  const invalidReferences = useRef(new WeakSet<ReferenceCapture>());
+  const referenceMounted = useRef(true);
+  useEffect(() => {
+    referenceMounted.current = true;
+    return () => {
+      referenceMounted.current = false;
+    };
+  }, []);
+  const transactionReferences = useRef(new WeakMap<object, ReferenceCapture>());
   const unassignedDraft = useRef<NonNullable<FilmProject["unassignedBeats"]>>([]);
   const supplementWarnings = useRef<string[]>([]);
   const stillProgress = workOwners.progress("still:");
@@ -1482,6 +1513,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     .slice()
     .sort((a, b) => a.no - b.no);
   openShotRef.current = shownShots[shot]?.id ?? "";
+  const referencePreview = film
+    ? captureAssistantReferences(film, referenceSelection(referenceTaskScope(role)), chat, role)
+    : null;
+  const assistantReferenceInfo: ReferenceView = {
+    taskScope: referenceTaskScope(role),
+    labels: referencePreview?.ok ? referencePreview.capture.labels : [],
+    ...(referencePreview && !referencePreview.ok ? { code: referencePreview.code } : {}),
+  };
+  useEffect(() => {
+    for (const capture of turnReferences.current.values()) referenceStillCurrent(capture);
+  }, [film, stage, scene, selectedEditorShot?.id]);
 
   async function completeDirectorPlan(
     base: FilmProject,
@@ -1489,6 +1531,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     shots: FilmShot[],
     valid: () => boolean,
     control?: AgentRequestControl,
+    request: typeof completeAgent = completeAgent,
   ) {
     return enrichDirectorPlan(base, sceneId, shots, {
       valid,
@@ -1496,7 +1539,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       progress: (message) => {
         if (valid()) setNotice(message);
       },
-      request: completeAgent,
+      request,
       warning: (text) => {
         if (valid()) supplementWarnings.current.push(text);
       },
@@ -1514,21 +1557,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const base = structuredClone(filmRef.current ?? film);
     const origin = structuredClone(editorSelection.current);
+    const references = manualReferenceSession("director", asked, base);
+    if (!references) return;
     storyDraft.current = null;
     const scope = scopeRef.current;
     supplementWarnings.current = [];
     unassignedDraft.current = [];
     const turn = pushTurn("director", asked.trim() || "把这一场拆成镜头");
+    references.bind(turn);
     let result: DirectorDraftResult;
     try {
       result = await planDirectorDraft(base, scene, asked, {
         connected: connected && Boolean(grokBridge()),
-        request: completeAgent,
+        request: references.request,
         progress: setNotice,
         notify: emitNotice,
         current: () =>
-          scope === scopeRef.current && isTurnCurrent(turn) && filmRef.current?.id === base.id,
-        enrich: completeDirectorPlan,
+          scope === scopeRef.current && references.current() && filmRef.current?.id === base.id,
+        enrich: (f, id, shots, valid, control) =>
+          completeDirectorPlan(
+            f,
+            id,
+            shots,
+            () => valid() && references.current(),
+            control,
+            references.request,
+          ),
         warnings: () => supplementWarnings.current,
       });
     } finally {
@@ -1537,10 +1591,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         setAsking(false);
       }
     }
-    if (scope !== scopeRef.current || !isTurnCurrent(turn) || result.status === "stale") return;
+    if (scope !== scopeRef.current || !references.current() || result.status === "stale") return;
     const next = result.shots;
     const text = result.notice;
-    if (result.retry) setPendingRetry({ ...result.retry, origin });
+    if (result.retry) setPendingRetry({ ...result.retry, origin, references: references.capture });
     if (result.event === "rejected") noteAgent("director", "rejected", text);
     if (result.coverageNotice) emitNotice(result.coverageNotice);
     if (!next) {
@@ -1552,6 +1606,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const draft: StoryDraft = {
       transaction: prepareDirectorConfirmation(base, next, unassignedDraft.current),
       origin,
+      references: references.capture,
     };
     storyDraft.current = draft;
     setPending(next);
@@ -1577,15 +1632,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   async function retryPending() {
     supplementWarnings.current = [];
     const job = pendingRetry;
-    if (!job) return;
+    if (!job || !allowForwardReferences(job.references)) return;
     setPendingRetry(null);
     const turn = pushTurn(job.role, "再问一次");
     const base = filmRef.current ? structuredClone(filmRef.current) : null;
     const origin = structuredClone(editorSelection.current);
+    const references = base
+      ? manualReferenceSession(job.role, "再问一次", base, job.references)
+      : null;
+    references?.bind(turn);
     storyDraft.current = null;
     const scope = scopeRef.current;
     const valid = () =>
-      isTurnCurrent(turn) && filmRef.current?.id === base?.id && scopeRef.current === scope;
+      isTurnCurrent(turn) &&
+      (!references || references.current()) &&
+      filmRef.current?.id === base?.id &&
+      scopeRef.current === scope;
     try {
       if (job.role === "director" && base) {
         const sceneId = origin.sceneId;
@@ -1598,17 +1660,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           return;
         }
         const result = await retryDirectorDraft(base, sceneId, job, {
-          request: completeAgent,
+          request: references?.request ?? completeAgent,
           progress: setNotice,
           notify: emitNotice,
           current: valid,
-          enrich: completeDirectorPlan,
+          enrich: (f, id, shots, current, control) =>
+            completeDirectorPlan(
+              f,
+              id,
+              shots,
+              () => current() && valid(),
+              control,
+              references?.request ?? completeAgent,
+            ),
         });
         if (!valid() || result.kind === "stale") return;
         if (result.kind === "ready") {
           const draft: StoryDraft = {
             transaction: prepareDirectorConfirmation(base, result.shots, unassignedDraft.current),
             origin,
+            references: references?.capture,
           };
           storyDraft.current = draft;
           publishCard("director", {
@@ -1636,7 +1707,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         } else finishTurn(turn, `${result.detail} 这次没有修改分镜。`);
         return;
       }
-      const reply = await completeAgent(job.role, job.context, job.instruction);
+      const reply = await (references?.request ?? completeAgent)(
+        job.role,
+        job.context,
+        job.instruction,
+      );
       if (valid()) finishTurn(turn, `${reply.detail || "这次回复用不了。"} 这次没有修改分镜。`);
     } catch {
       if (valid()) finishTurn(turn, "这次没有写完，没有修改分镜。");
@@ -1656,6 +1731,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             scopedDirectionFieldCard?.directionDiff?.role === role
           ? scopedDirectionFieldCard
           : roleCards[role];
+    if (card && !card.applied && !allowForwardReferences(card.references)) return;
     if (
       (role === "action" || role === "performance") &&
       card?.directionCardId &&
@@ -1713,6 +1789,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       if (!draft) setNotice("镜头已变更，请重新生成建议。");
       return;
     }
+    if (!allowForwardReferences(draft.references)) return;
     const current = editorSelection.current,
       origin = draft.origin;
     if (
@@ -1868,6 +1945,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     context: string,
     user: string,
     control?: AgentRequestControl,
+    referenceCurrent: () => boolean = () => true,
   ): Promise<AgentReply> {
     const bridge = grokBridge();
     if (!film)
@@ -1889,10 +1967,108 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       modelIds,
       billingProject: ensureBillingProject,
       captureFilm: () => filmRef.current,
-      current: () => filmRef.current?.id === requestProjectId && activeTurn.current === requestTurn,
+      current: () =>
+        filmRef.current?.id === requestProjectId &&
+        activeTurn.current === requestTurn &&
+        referenceCurrent(),
       modelsChanged: setModelIds,
       control,
     });
+  }
+
+  function referenceSelection(scope: ReferenceScope): EditorSelection {
+    const selected = editorSelection.current;
+    return scope === "shot" && openShotRef.current
+      ? { ...selected, shotId: openShotRef.current }
+      : { ...selected };
+  }
+  function referenceStillCurrent(capture: ReferenceCapture) {
+    // Ordinary requests retain their existing lifecycle. Only explicit references get a
+    // one-way forward invalidation; applied-card undo uses its original receipt instead.
+    if (!capture.targets.length) return true;
+    if (invalidReferences.current.has(capture)) return false;
+    const valid = assistantReferencesCurrent(
+      capture,
+      filmRef.current,
+      referenceSelection(capture.taskScope),
+    );
+    if (!valid) invalidReferences.current.add(capture);
+    return valid;
+  }
+  function validateReferenceInput(nextRole: Role, asked = chat) {
+    const live = filmRef.current;
+    if (!live) return true;
+    const result = captureAssistantReferences(
+      live,
+      referenceSelection(referenceTaskScope(nextRole)),
+      asked,
+      nextRole,
+    );
+    if (result.ok) return true;
+    emitNotice({ code: result.code, text: NOTICE_TEXT[result.code] });
+    return false;
+  }
+  function manualReferenceSession(
+    nextRole: Role,
+    asked: string,
+    base: FilmProject,
+    retained?: ReferenceCapture,
+  ) {
+    if (retained && !allowForwardReferences(retained)) return null;
+    const result = retained
+      ? { ok: true as const, capture: retained }
+      : captureAssistantReferences(
+          base,
+          referenceSelection(referenceTaskScope(nextRole)),
+          asked,
+          nextRole,
+        );
+    if (!result.ok) {
+      emitNotice({ code: result.code, text: NOTICE_TEXT[result.code] });
+      return null;
+    }
+    const capture = result.capture;
+    let turn = "";
+    const current = () =>
+      referenceMounted.current && !!turn && isTurnCurrent(turn) && referenceStillCurrent(capture);
+    const stale = (): AgentReply => {
+      if (turn && isTurnCurrent(turn))
+        emitNotice({
+          code: "ASSISTANT_REFERENCE_STALE",
+          text: NOTICE_TEXT.ASSISTANT_REFERENCE_STALE,
+        });
+      return { text: null, code: "REQUEST_STALE", detail: NOTICE_TEXT.ASSISTANT_REFERENCE_STALE };
+    };
+    return {
+      capture,
+      current,
+      bind: (id: string) => {
+        turn = id;
+        turnReferences.current.set(id, capture);
+        if (turnReferences.current.size > 32)
+          turnReferences.current.delete(turnReferences.current.keys().next().value!);
+      },
+      request: async (
+        agent: Role,
+        context: string,
+        instruction: string,
+        control?: AgentRequestControl,
+      ): Promise<AgentReply> => {
+        if (!current()) return stale();
+        const supplemented =
+          capture.targets.length || asked.trim()
+            ? `${context}\n\n已解析的参考与本次实际修改范围（参考不改变目标）：\n${capture.context}`
+            : context;
+        const reply = await completeAgent(agent, supplemented, instruction, control, current);
+        return current() ? reply : stale();
+      },
+    };
+  }
+  function allowForwardReferences(capture?: ReferenceCapture) {
+    if (!referenceMounted.current) return false;
+    if (!capture || referenceStillCurrent(capture)) return true;
+    emitNotice({ code: "ASSISTANT_REFERENCE_STALE", text: NOTICE_TEXT.ASSISTANT_REFERENCE_STALE });
+    return false;
   }
 
   const turnsRef = useRef<{ id: string; role: Role; who: "user" | "agent"; text: string }[]>([]);
@@ -1971,7 +2147,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   function publishCard(nextRole: Role, card: RoleCard) {
     if (assistantScope !== scopeRef.current) return;
-    setRoleCards((prev) => ({ ...prev, [nextRole]: card }));
+    const references = card.references ?? turnReferences.current.get(activeTurn.current);
+    setRoleCards((prev) => ({
+      ...prev,
+      [nextRole]: { ...card, ...(references ? { references } : {}) },
+    }));
   }
 
   function markApplied(nextRole: Role) {
@@ -2092,7 +2272,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const base = structuredClone(filmRef.current ?? film);
     const origin = structuredClone(editorSelection.current);
-    const scoped = globalEditorRequest(base, origin, completeAgent);
+    const references = manualReferenceSession("writer", chat, base);
+    if (!references) return;
+    const scoped = globalEditorRequest(base, origin, references.request);
     if (!scoped.ok) {
       emitNotice({ code: scoped.code, text: "选中内容已失效，请重新选择。" });
       return;
@@ -2101,6 +2283,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const input = writerDraftInput(base, kind, chat);
     const scope = scopeRef.current;
     const turn = pushTurn("writer", input.asked);
+    references.bind(turn);
     setPendingScenes(null);
     let result: WriterDraftResult;
     try {
@@ -2111,13 +2294,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         setAsking(false);
       }
     }
-    if (scope !== scopeRef.current || !isTurnCurrent(turn)) return;
+    if (scope !== scopeRef.current || !references.current()) return;
     const { scenes, notice: text } = result;
     setPendingScenes(scenes);
     if (scenes) {
       const draft: StoryDraft = {
         transaction: prepareWriterTransaction(base, scenes, result.writerPlan),
         origin,
+        references: references.capture,
       };
       storyDraft.current = draft;
       publishCard("writer", {
@@ -2200,6 +2384,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function planAction() {
+    if (!validateReferenceInput("action")) return Promise.resolve();
     return withForeground(planActionWork, "PLANACTION_FAILED");
   }
 
@@ -2233,6 +2418,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const turn = pushTurn("action", chat.trim() || "请给这一镜设计动作，标出难度。");
     const current = shownShots[shot];
     const base = structuredClone(filmRef.current ?? film);
+    const references = manualReferenceSession("action", chat, base);
+    if (!references) return;
+    references.bind(turn);
     const selection = {
       ...editorSelection.current,
       sceneId: current?.sceneId,
@@ -2249,12 +2437,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       base,
       current ? base.shots.find((row) => row.id === current.id) : undefined,
       {
-        request: completeAgent,
-        current: () => isTurnCurrent(turn),
+        request: references.request,
+        current: references.current,
         connected,
       },
     );
-    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (!references.current() || result.status === "stale") return;
     if (result.status === "rejected") {
       finishTurn(turn, result.notice);
       if (result.logRejection) noteAgent("action", "rejected", result.notice);
@@ -2273,8 +2461,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       result.actionState,
       result.unassigned,
     );
+    transactionReferences.current.set(directionDiff, references.capture);
     const fieldRows = projectActionFields(directionDiff, selection);
     const card: RoleCard = {
+      references: references.capture,
       directionDiff,
       ...(fieldRows !== null ? { fieldRows, directionCardId: turn } : {}),
       title: `动作设计 · 镜头 ${actionShot.no}`,
@@ -2305,6 +2495,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function planPerformance() {
+    if (!validateReferenceInput("performance")) return Promise.resolve();
     return withForeground(planPerformanceWork, "PLANPERFORMANCE_FAILED");
   }
 
@@ -2321,6 +2512,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const base = structuredClone(filmRef.current ?? film);
+    const references = manualReferenceSession("performance", chat, base);
+    if (!references) return;
+    references.bind(turn);
     const selection = { ...editorSelection.current, sceneId: current.sceneId, shotId: current.id };
     const capturedShot = base.shots.find(
       (row) => row.id === current.id && row.sceneId === current.sceneId,
@@ -2330,11 +2524,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const result = await planPerformanceDraft(capturedShot, {
-      request: completeAgent,
-      current: () => isTurnCurrent(turn),
+      request: references.request,
+      current: references.current,
       connected,
     });
-    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (!references.current() || result.status === "stale") return;
     if (result.status === "rejected") {
       finishTurn(turn, result.notice);
       return;
@@ -2351,8 +2545,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       "performance",
       result.performanceState,
     );
+    transactionReferences.current.set(directionDiff, references.capture);
     const fieldRows = projectPerformanceFields(directionDiff, selection);
     const card: RoleCard = {
+      references: references.capture,
       directionDiff,
       ...(fieldRows !== null ? { fieldRows, directionCardId: turn } : {}),
       title: `表演 · 镜头 ${current.no}`,
@@ -2383,6 +2579,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   ) {
     const live = filmRef.current;
     if (!transaction || !live || applyingDirection.current) return;
+    if (!allowForwardReferences(transactionReferences.current.get(transaction))) return;
     const fieldCard = directionFieldCardRef.current;
     if (
       cardId &&
@@ -2554,6 +2751,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const transaction = cardId ? fixed?.transaction : artDraft.current;
     const live = filmRef.current;
     if (!transaction || !live || applyingArt.current) return;
+    if (
+      !allowForwardReferences(
+        transactionReferences.current.get(transaction) ??
+          (roleCards.art?.artDiff === transaction ? roleCards.art.references : undefined),
+      )
+    )
+      return;
     const selection = editorSelection.current;
     const expected = transaction.selection;
     if (
@@ -2741,6 +2945,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function planArt() {
+    if (!validateReferenceInput("art")) return Promise.resolve();
     return withForeground(planArtWork, "PLANART_FAILED");
   }
 
@@ -2748,17 +2953,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const base = structuredClone(filmRef.current ?? film);
     const selection = structuredClone(editorSelection.current);
-    const scoped = globalEditorRequest(base, selection, completeAgent);
+    const references = manualReferenceSession("art", chat, base);
+    if (!references) return;
+    const scoped = globalEditorRequest(base, selection, references.request);
     if (!scoped.ok) {
       emitNotice({ code: scoped.code, text: "选中内容已失效，请重新选择。" });
       return;
     }
     const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
+    references.bind(turn);
     const result = await planArtDraft(base, {
       request: scoped.request,
-      current: () => isTurnCurrent(turn),
+      current: references.current,
     });
-    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (!references.current() || result.status === "stale") return;
     if (result.status === "rejected") {
       setStructured([]);
       finishTurn(turn, result.structuredNotice);
@@ -2768,9 +2976,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const transaction = prepareArtTransaction(base, result.draft, selection);
     const review = prepareArtFieldReview(base, transaction);
+    transactionReferences.current.set(transaction, references.capture);
     artDraft.current = transaction;
     setStructured(result.lines);
     const card: RoleCard = {
+      references: references.capture,
       artDiff: transaction,
       ...(review !== null ? { fieldRows: review.fieldRows, artCardId: turn } : {}),
       title: "美术 · 画风和外貌",
@@ -2922,6 +3132,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function planPrompter() {
+    if (!validateReferenceInput("prompter")) return Promise.resolve();
     return withForeground(planPrompterWork, "PLANPROMPTER_FAILED");
   }
 
@@ -2965,6 +3176,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       promptApplyBusy.current
     )
       return;
+    if (!allowForwardReferences(card.references)) return;
     promptApplyBusy.current = true;
     setPromptApplying(true);
     try {
@@ -3008,11 +3220,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("prompter", "rejected", "先拆出镜头，再请提示词工程师。");
       return;
     }
+    const references = manualReferenceSession("prompter", chat, request.base);
+    if (!references) return;
+    references.bind(turn);
     const result = await planPrompterDraft(request.base, current, {
-      request: completeAgent,
-      current: () => isTurnCurrent(turn),
+      request: references.request,
+      current: references.current,
     });
-    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (!references.current() || result.status === "stale") return;
     if (result.status === "rejected") {
       finishTurn(turn, result.structuredNotice);
       setNotice(result.structuredNotice);
@@ -3078,6 +3293,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function planQc() {
+    if (!validateReferenceInput("qc")) return Promise.resolve();
     return withForeground(planQcWork, "PLANQC_FAILED");
   }
 
@@ -3085,13 +3301,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const turn = pushTurn("qc", chat.trim() || "请审这一镜的文字。你看不到画面。");
     const current = shownShots[shot];
+    const references = manualReferenceSession("qc", chat, film);
+    if (!references) return;
+    references.bind(turn);
     const result = await reviewShotText(film, current, {
-      request: completeAgent,
-      valid: () => isTurnCurrent(turn),
+      request: references.request,
+      valid: references.current,
       current: () => filmRef.current,
       apply: rememberFilm,
     });
-    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (!references.current() || result.status === "stale") return;
     if (result.status === "rejected") {
       setStructured([]);
       finishTurn(turn, result.notice);
@@ -3311,6 +3530,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   function sendChat() {
     const asked = chat.trim();
+    if (!validateReferenceInput(role, asked)) return;
     if (role === "writer") void planWriter("write");
     else if (role === "action") void planAction();
     else if (role === "performance") void planPerformance();
@@ -5134,17 +5354,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     promptCard.editorDiff?.selection.projectId === film?.id &&
     promptCard.editorDiff?.selection.shotId === shownShots[shot]?.id &&
     promptCard.editorDiff?.selection.sceneId === scene ? (
-      <SuggestionCard
-        unit="shot"
-        current={[]}
-        proposed={[]}
-        fieldRows={promptCard.fieldRows}
-        applied={promptCard.applied}
-        busy={asking || promptApplying}
-        onApply={() => void applyPendingPrompt()}
-        onAnother={() => void planPrompter()}
-        onReject={rejectPendingPrompt}
-      />
+      <>
+        {promptCard.references && (
+          <div className="reference-summary" aria-label="画面说明的参考与修改范围">
+            参考：{promptCard.references.labels.join("、") || "未指定"}；修改范围：当前镜头。
+            引用不切换编辑目标。
+          </div>
+        )}
+        <SuggestionCard
+          unit="shot"
+          current={[]}
+          proposed={[]}
+          fieldRows={promptCard.fieldRows}
+          applied={promptCard.applied}
+          busy={asking || promptApplying}
+          onApply={() => void applyPendingPrompt()}
+          onAnother={() => void planPrompter()}
+          onReject={rejectPendingPrompt}
+        />
+      </>
     ) : null;
   const shotPromptSuggestions = (
     <>
@@ -5156,6 +5384,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const shotAssistant = (
     <div className="shot-assistant-scroll">
       <Assistant
+        referenceInfo={assistantReferenceInfo}
         role={role}
         onRole={chooseRole}
         pending={pendingRole === role ? pending : null}
@@ -5632,6 +5861,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <>
               {stage === "script" && (
                 <ScriptPage
+                  referenceInfo={assistantReferenceInfo}
                   quiet={exportView.lead}
                   onNext={() => setStage("cast")}
                   onReject={rejectPendingSuggestion}
@@ -5686,6 +5916,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "cast" && (
                 <CastPage
+                  referenceInfo={assistantReferenceInfo}
                   quiet={exportView.lead}
                   onNext={() => setStage("board")}
                   film={film}
@@ -5718,6 +5949,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               )}
               {stage === "board" && !bench && (
                 <BoardPage
+                  referenceInfo={assistantReferenceInfo}
                   assistantBusy={asking || directionCardBusy || artCardBusy}
                   onCleanCopy={(ids) => void repairCleanCopies(ids)}
                   cleanCopyBusy={cleanCopyBusy}
@@ -7092,11 +7324,8 @@ function scopeOf(film: FilmProject, sceneId: string, shot?: FilmShot | null): st
 }
 
 /** 4C-U08: what can be named with @: the people, then this scene's shots. */
-function mentionsOf(film: FilmProject, shots: readonly FilmShot[]): string[] {
-  return [
-    ...film.characters.map((person) => `@${person.name}`).filter((name) => name.length > 1),
-    ...shots.slice(0, 12).map((item) => `@镜头 ${item.no}`),
-  ];
+function mentionsOf(film: FilmProject, shots: readonly FilmShot[]): ReferenceCandidate[] {
+  return referenceCandidates(film, shots);
 }
 
 /** A shot as one line of a suggestion: who is in it, the picture, its length. */
@@ -7115,6 +7344,7 @@ function sceneItem(scene: FilmScene): SuggestionItem {
 }
 
 function Assistant({
+  referenceInfo,
   role,
   onRole,
   pending,
@@ -7141,6 +7371,7 @@ function Assistant({
   scope = "",
   mentions = [],
 }: {
+  referenceInfo?: ReferenceView;
   role: Role;
   onRole: (role: Role) => void;
   pending: FilmShot[] | null;
@@ -7171,7 +7402,7 @@ function Assistant({
   /** 4C-U08: what the assistant is looking at, like 「第 2 场第 3 个镜头」. */
   scope?: string;
   /** 4C-U08: what can be named with @ in the message: people, then this scene's shots. */
-  mentions?: string[];
+  mentions?: ReferenceCandidate[];
 }) {
   const [mentioning, setMentioning] = useState(false);
   useDismiss(mentioning, () => setMentioning(false), "[data-mention]");
@@ -7254,6 +7485,19 @@ function Assistant({
             </button>
           </div>
         ) : null}
+        {card?.references && (
+          <div className="reference-summary">
+            <p>
+              建议生成时参考：{card.references.labels.join("、") || "未指定"}；修改范围：
+              {card.references.taskScope === "project"
+                ? "全项目"
+                : card.references.taskScope === "scene"
+                  ? "当前场"
+                  : "当前镜头"}
+              。
+            </p>
+          </div>
+        )}
         {card?.fieldRows !== undefined &&
         (card.mode === "art" ||
           card.directionDiff?.role === "performance" ||
@@ -7411,17 +7655,18 @@ function Assistant({
                 <div className="menu mention-menu" role="menu" aria-label="提到谁">
                   {mentions.map((item) => (
                     <button
-                      key={item}
+                      key={item.token}
+                      disabled={item.disabled}
                       type="button"
                       role="menuitem"
                       onClick={() => {
                         const gap = chat && !/\s$/.test(chat) ? " " : "";
-                        onChat(`${chat}${gap}${item} `);
+                        onChat(`${chat}${gap}${item.token} `);
                         setMentioning(false);
                         input.current?.focus();
                       }}
                     >
-                      {item}
+                      {item.label}
                     </button>
                   ))}
                 </div>
@@ -7430,6 +7675,22 @@ function Assistant({
           ) : null}
         </div>
       ) : null}
+      <div className="reference-summary" aria-label="引用与修改范围">
+        <p>
+          参考：{referenceInfo?.labels.length ? referenceInfo.labels.join("、") : "未指定"}
+          。引用只作参考，不切换编辑目标。
+        </p>
+        <p>
+          本次修改范围：
+          {(referenceInfo?.taskScope ?? referenceTaskScope(role)) === "project"
+            ? "全项目"
+            : (referenceInfo?.taskScope ?? referenceTaskScope(role)) === "scene"
+              ? "当前场"
+              : "当前正在处理的镜头"}
+          。
+        </p>
+        {referenceInfo?.code && <p role="status">{NOTICE_TEXT[referenceInfo.code]}</p>}
+      </div>
       <div className="composer">
         <textarea
           ref={input}
@@ -7557,6 +7818,7 @@ function sceneMeta(scene: FilmScene, shots: readonly FilmShot[]): string {
 }
 
 function ScriptPage({
+  referenceInfo,
   quiet = false,
   onNext,
   onReject,
@@ -7593,6 +7855,7 @@ function ScriptPage({
   onOneClick,
   onRetry,
 }: {
+  referenceInfo?: ReferenceView;
   film: FilmProject;
   scene: string;
   onScene: (id: string) => void;
@@ -7775,6 +8038,7 @@ function ScriptPage({
           <span className="tab-only">AI 助手</span>
         </div>
         <Assistant
+          referenceInfo={referenceInfo}
           solo
           scope={current ? scopeOf(film, current.id) : ""}
           mentions={mentionsOf(
@@ -7832,6 +8096,7 @@ function ScriptPage({
 }
 
 function CastPage({
+  referenceInfo,
   quiet = false,
   onNext,
   film,
@@ -7856,6 +8121,7 @@ function CastPage({
   onReject,
   onQuick,
 }: {
+  referenceInfo?: ReferenceView;
   film: FilmProject;
   onFilm: (film: FilmProject) => void;
   role: Role;
@@ -8635,6 +8901,7 @@ function CastPage({
         </div>
         {/* 5-3-15: it says who or which place is on show, and @ offers the people and places. */}
         <Assistant
+          referenceInfo={referenceInfo}
           solo
           role={role}
           onRole={onRole}
@@ -8658,10 +8925,7 @@ function CastPage({
                   : ""
                 : "道具"
           }
-          mentions={[
-            ...film.characters.map((person) => `@${person.name}`),
-            ...film.locations.map((item) => `@${item.name}`),
-          ].filter((name) => name.length > 1)}
+          mentions={referenceCandidates(film, [])}
         />
       </section>
     </>
@@ -8726,6 +8990,7 @@ function ShotView({ one, onAll, onOne }: { one: boolean; onAll: () => void; onOn
 }
 
 function BoardPage({
+  referenceInfo,
   onBatchShots,
   quiet = false,
   onNext,
@@ -8773,6 +9038,7 @@ function BoardPage({
   onRetry,
   onFixCoverage,
 }: {
+  referenceInfo?: ReferenceView;
   film: FilmProject;
   onCleanCopy: (ids: readonly string[]) => void;
   cleanCopyBusy: boolean;
@@ -9289,6 +9555,7 @@ function BoardPage({
         </div>
         {tab === "ai" ? (
           <Assistant
+            referenceInfo={referenceInfo}
             busy={assistantBusy}
             role={role}
             onRole={onRole}

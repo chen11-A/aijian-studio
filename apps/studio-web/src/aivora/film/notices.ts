@@ -361,6 +361,11 @@ const PREVIOUS_NOTICE_TEXT = {
 
 /** Preserve existing plain-text aliases when distinct codes share newly approved wording. */
 export const NOTICE_TEXT = {
+  ASSISTANT_REFERENCE_UNKNOWN: "引用没有对上当前作品和场次，请从 @ 菜单重新选择。",
+  ASSISTANT_REFERENCE_AMBIGUOUS: "引用有重名或重复镜号，请先核对，暂未发送。",
+  ASSISTANT_REFERENCE_SYNTAX: "引用写法还没完整，请从 @ 菜单重新选择。",
+  ASSISTANT_REFERENCE_STALE: "引用内容或当前范围已变化，请重新检查后再发送。",
+
   HISTORY_SAVED: "当前版本已保存到历史。",
   HISTORY_READ_FAILED: "历史版本暂时无法读取，请重试。",
   HISTORY_RESTORED: "已恢复历史版本，恢复前的作品已另存。",
