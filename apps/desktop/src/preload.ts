@@ -1,4 +1,5 @@
 import type {
+  FilmGenerationExecutionGateway,
   FilmGenerationStillExecution,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
@@ -611,6 +612,16 @@ contextBridge.exposeInMainWorld("aijian", {
   configureGenerationFailurePolicy: (projectId: string, input: ConfigureGenerationFailurePolicy) =>
     ipcRenderer.invoke("story-film:configure-failure-policy", projectId, input),
   getStoryFilmPlan: (projectId: string) => ipcRenderer.invoke("story-film:plan", projectId),
+  prepareFilmGenerationExecution: ((input) =>
+    ipcRenderer.invoke(
+      "film:generation-execution-prepare",
+      input,
+    )) as FilmGenerationExecutionGateway["prepareFilmGenerationExecution"],
+  retireFilmGenerationExecution: ((input) =>
+    ipcRenderer.invoke(
+      "film:generation-execution-retire",
+      input,
+    )) as FilmGenerationExecutionGateway["retireFilmGenerationExecution"],
   supportsStoryFilmLocalScope: true,
   createStoryFilm: (
     projectId: string,

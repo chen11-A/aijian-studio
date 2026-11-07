@@ -1,3 +1,6 @@
+import { createNativeFilmGenerationExecutions } from "./film-generation-execution";
+import { registerFilmGenerationExecutions } from "./film-generation-execution-ipc";
+import type { GenerationExecutionOwner } from "./film-generation-execution-registry";
 import { createFilmRiskTrials } from "./film-risk-trial";
 import { registerFilmRiskTrials } from "./film-risk-trial-ipc";
 import { registerFilmAssemblies } from "./film-assembly-ipc";
@@ -363,6 +366,7 @@ function createMainWindow(): BrowserWindow {
     if (isMainFrame && !isSameDocument) {
       dialogueLimits.disposeOwner(dialogueLimitOwner);
       riskTrials.disposeOwner(dialogueLimitOwner);
+      void generationExecutions.disposeOwner(dialogueLimitOwner).catch(() => undefined);
       nativePreviewDocumentEpoch += 1;
       nativePreviewHost.invalidateAll();
     }
@@ -400,6 +404,7 @@ function createMainWindow(): BrowserWindow {
     nativePreviewHost.invalidateAll();
     dialogueLimits.disposeOwner(dialogueLimitOwner);
     riskTrials.disposeOwner(dialogueLimitOwner);
+    void generationExecutions.disposeOwner(dialogueLimitOwner).catch(() => undefined);
     mainWindow = null;
   });
 
@@ -844,6 +849,36 @@ ipcMain.handle("projects:create", (event, input: CreateProjectInput) => {
   }
   return clientFor(event).createProject(input);
 });
+function generationExecutionOwner(event: IpcMainInvokeEvent): GenerationExecutionOwner {
+  const epoch = nativePreviewDocumentEpoch;
+  return {
+    id: event.sender.id,
+    current: () => nativePreviewDocumentEpoch === epoch && nativePreviewAuthorized(event),
+  };
+}
+const generationExecutions = createNativeFilmGenerationExecutions({
+  filmsRoot: () => join(app.getPath("userData"), "films"),
+  storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
+  session: () => {
+    if (!sidecar) throw Error("EXECUTION_UNAVAILABLE");
+    return sidecar.session;
+  },
+  mediaDispatchLease: () => getGrokRuntime().mediaDispatchLease(),
+  storySourceOwner: async (project, path, sha) =>
+    storyFilmQcOwner(
+      join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+      project,
+      path,
+      sha,
+    ),
+  fetcher: globalThis.fetch,
+});
+registerFilmGenerationExecutions<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  nativePreviewAuthorized,
+  generationExecutionOwner,
+  generationExecutions,
+);
 const dialogueLimits = createDialogueLimitRegistry({
   filmsRoot: join(app.getPath("userData"), "films"),
 });
@@ -914,6 +949,8 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
     return id;
   },
   (event) => dialogueLimits.guardOwner(event.sender.id),
+  (event, projectId, body, scope, execution) =>
+    generationExecutions.video(generationExecutionOwner(event), projectId, body, scope, execution),
 );
 registerTaskProgressHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -1364,6 +1401,19 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     event.sender === mainWindow.webContents &&
     event.senderFrame === mainWindow.webContents.mainFrame,
   {
+    protectedGeneration: {
+      still: async () => ({
+        path: "",
+        reason: "当前自动前置图输入暂不支持。",
+        code: "UNSUPPORTED_SCOPE",
+      }),
+      lastFrame: async () => ({
+        path: "",
+        sourceVideoPath: "",
+        code: "UNSUPPORTED_SCOPE",
+        text: "当前连续镜输入暂不支持。",
+      }),
+    },
     publishedPaths: checkedPublishedPaths,
     filmsRoot: () => join(app.getPath("userData"), "films"),
     storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),

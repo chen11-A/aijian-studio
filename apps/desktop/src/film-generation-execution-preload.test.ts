@@ -68,3 +68,24 @@ it("preserves legacy arities but never downgrades an explicit null protected arg
     ["story-film:create", "project", body, undefined, null],
   ]);
 });
+
+it("uses only the two fixed prepare/retire channels and preserves the exact public scope", async () => {
+  const { bridge, invoke } = fixture();
+  const executionBridge = bridge as typeof bridge & {
+    prepareFilmGenerationExecution: (input: unknown) => Promise<unknown>;
+    retireFilmGenerationExecution: (input: unknown) => Promise<unknown>;
+  };
+  const input = {
+    projectId: "film",
+    expectedProjectHash: "a".repeat(64),
+    mode: "video",
+    targets: [{ shotId: "shot", versions: 1 }],
+  };
+  const retired = { executionId: "issued", videoSlotId: "slot" };
+  await executionBridge.prepareFilmGenerationExecution(input);
+  await executionBridge.retireFilmGenerationExecution(retired);
+  expect(invoke.mock.calls).toEqual([
+    ["film:generation-execution-prepare", input],
+    ["film:generation-execution-retire", retired],
+  ]);
+});
