@@ -11,6 +11,8 @@ import { createServer } from "vite";
 import {
   installEvidenceLegacyBridge,
   seedEvidenceLegacyProject,
+  measureEvidenceControl,
+  readEvidencePointer,
 } from "./pro-evidence-legacy-fixture.mjs";
 import { evidenceLegacyStates } from "./pro-evidence-legacy-cases.mjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -247,6 +249,85 @@ test("local waveform refusal validates exact canonical source keys and clip/sele
   assert.deepEqual(f.audit.forbidden, ["waveform-key", "waveform-scope"]);
 });
 
+test("read-only reach and pointer diagnostics retain full clipping checks and never return source text or addresses", () => {
+  const rect = (x, y, width, height) => ({
+    x,
+    y,
+    width,
+    height,
+    left: x,
+    top: y,
+    right: x + width,
+    bottom: y + height,
+  });
+  const pane = {
+    css: { overflowX: "hidden", overflowY: "hidden" },
+    classList: { contains: (name) => name === "pane" },
+    getBoundingClientRect: () => rect(0, 0, 340, 720),
+    parentElement: null,
+  };
+  let menuHeight = 100;
+  const menu = {
+    css: { overflowX: "hidden", overflowY: "auto", position: "absolute", top: "40px", left: "0px" },
+    classList: { contains: (name) => name === "mention-menu" },
+    getBoundingClientRect: () => rect(10, 10, 180, menuHeight),
+    parentElement: pane,
+  };
+  const element = {
+    getBoundingClientRect: () => rect(20, 20, 100, 30),
+    parentElement: menu,
+    closest: () => menu,
+    contains: () => false,
+  };
+  globalThis.window = {
+    innerWidth: 1280,
+    innerHeight: 800,
+    getComputedStyle: (p) => p.css,
+    document: { elementFromPoint: () => element },
+  };
+  const full = measureEvidenceControl(element);
+  assert.equal(full.complete, true);
+  assert.equal(full.menuPosition, "absolute");
+  assert.equal(full.menuTop, 40);
+  menuHeight = 20;
+  window.document.elementFromPoint = () => pane;
+  const clipped = measureEvidenceControl(element);
+  assert.equal(clipped.complete, false);
+  assert.equal(clipped.hitSelf, false);
+  assert.equal(clipped.clipKind, "mention-menu");
+  const path = "/synthetic/assembly/one.mp4",
+    video = {
+      isConnected: true,
+      src: `aivora-media://film?path=${encodeURIComponent(path)}&token=PRIVATE_TOKEN`,
+      currentSrc: "https://PRIVATE_ADDRESS/",
+      readyState: 0,
+      currentTime: 1,
+    };
+  const button = { textContent: "声音" },
+    hit = { closest: (s) => (s === "button" ? button : s === ".monitor-tabs" ? {} : null) };
+  window.URL = URL;
+  window.__assemblyAudit = { artifacts: [{ path }] };
+  window.document = {
+    querySelector: (s) =>
+      s === ".pro-root"
+        ? { getAttribute: () => "edit" }
+        : s === ".preview-player video.frame"
+          ? video
+          : s.includes(".monitor-tabs")
+            ? { textContent: "声音" }
+            : null,
+    querySelectorAll: () => [video],
+    elementFromPoint: () => hit,
+  };
+  const observed = readEvidencePointer({ x: 100, y: 60 });
+  assert.equal(observed.monitor, "sound");
+  assert.equal(observed.hit, "sound-tab");
+  assert.equal(observed.attribute, true);
+  assert.equal(observed.current, false);
+  assert.equal(observed.time, 1);
+  assert(!JSON.stringify(observed).includes("PRIVATE"));
+});
+
 test("CLI declares thirty-two and rejects unsafe flags/output without printing private argument values", async () => {
   const entry = path.join(root, "apps/studio-web/e2e/pro-evidence-legacy-audit.mjs");
   const help = spawnSync(process.execPath, [entry, "--help"], { cwd: root, encoding: "utf8" });
@@ -281,6 +362,49 @@ test("public annotations double-filter states/controls/geometry and bounded line
           combination: i ? "PRIVATE_PATH" : `1280x800-16x9-${evidenceLegacyStates[0]}`,
           checkLine: i ? Infinity : 88,
           error: "PRIVATE_TOKEN",
+          reachability: i
+            ? {
+                complete: "PRIVATE",
+                hitSelf: "PRIVATE",
+                menuPosition: "PRIVATE",
+                menuTop: Infinity,
+                clipKind: "PRIVATE",
+                box: { x: "PRIVATE", y: NaN, width: Infinity, height: 1 },
+              }
+            : {
+                complete: false,
+                hitSelf: false,
+                menuPosition: "absolute",
+                menuTop: 40,
+                menuLeft: 0,
+                clipKind: "pane",
+                box: { x: 20, y: 30, width: 100, height: 30 },
+                visible: { x: 0, y: 0, width: 340, height: 720 },
+              },
+          dragBefore: { hit: i ? "PRIVATE" : "ruler" },
+          dragAfter: i
+            ? {
+                stage: "PRIVATE",
+                monitor: "PRIVATE",
+                videos: Infinity,
+                attached: "PRIVATE",
+                hit: "PRIVATE",
+                x: "PRIVATE",
+                y: NaN,
+              }
+            : {
+                stage: "edit",
+                monitor: "sound",
+                videos: 0,
+                attached: false,
+                current: false,
+                attribute: false,
+                ready: 0,
+                time: 1,
+                hit: "sound-tab",
+                x: 100,
+                y: 60,
+              },
           geometry: {
             issues: [
               {
@@ -304,6 +428,11 @@ test("public annotations double-filter states/controls/geometry and bounded line
   assert(lines[0].includes("checkLine=88"));
   assert(lines[0].includes("control1=delivery-technical"));
   assert(lines.every((line) => !/PRIVATE|NaN|Infinity/.test(line)));
+  assert(lines[0].includes("menuPosition=absolute menuTop=40 menuLeft=0"));
+  assert(lines[0].includes("dragStage=edit dragMonitor=sound dragVideos=0"));
+  assert(lines[0].includes("dragFromHit=ruler dragToHit=sound-tab"));
+  assert(lines[1].includes("menuPosition=unknown"));
+  assert(lines[1].includes("dragStage=unknown"));
   const start = source.indexOf("    const expected =\n"),
     end = source.indexOf("    report.expectedResults = expected;");
   assert.equal(

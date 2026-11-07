@@ -356,3 +356,94 @@ export function seedEvidenceLegacyProject({ state }) {
     person: film.characters.at(-1).name,
   };
 }
+
+/** Read-only real rectangles; the original full-box clipping rule is unchanged. */
+export function measureEvidenceControl(element) {
+  const r = element.getBoundingClientRect();
+  let l = 0,
+    t = 0,
+    right = window.innerWidth,
+    bottom = window.innerHeight,
+    clip = null;
+  for (let p = element.parentElement; p; p = p.parentElement) {
+    const css = window.getComputedStyle(p),
+      b = p.getBoundingClientRect();
+    if (/hidden|clip|auto|scroll/.test(css.overflowX)) {
+      if (b.left > l || b.right < right) clip = p;
+      l = Math.max(l, b.left);
+      right = Math.min(right, b.right);
+    }
+    if (/hidden|clip|auto|scroll/.test(css.overflowY)) {
+      if (b.top > t || b.bottom < bottom) clip = p;
+      t = Math.max(t, b.top);
+      bottom = Math.min(bottom, b.bottom);
+    }
+  }
+  const bounds = (b) => ({ x: b.x, y: b.y, width: b.width, height: b.height });
+  const menu = element.closest(".mention-menu"),
+    style = menu ? window.getComputedStyle(menu) : null;
+  const hit = window.document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  const kinds = ["mention-menu", "mention-wrap", "chat-context", "pane", "pro-root"];
+  return {
+    complete:
+      r.width > 2 &&
+      r.height > 2 &&
+      r.left >= l - 1 &&
+      r.right <= right + 1 &&
+      r.top >= t - 1 &&
+      r.bottom <= bottom + 1,
+    box: bounds(r),
+    visible: { x: l, y: t, width: Math.max(0, right - l), height: Math.max(0, bottom - t) },
+    clipKind: clip ? (kinds.find((name) => clip.classList.contains(name)) ?? "other") : "other",
+    clipBox: clip ? bounds(clip.getBoundingClientRect()) : null,
+    hitSelf: !!hit && (hit === element || element.contains(hit)),
+    menuPosition: ["absolute", "fixed", "relative", "static"].includes(style?.position)
+      ? style.position
+      : "unknown",
+    menuTop: style ? Number.parseFloat(style.top) : null,
+    menuLeft: style ? Number.parseFloat(style.left) : null,
+    menuBox: menu ? bounds(menu.getBoundingClientRect()) : null,
+  };
+}
+/** Closed DOM observations, not source strings, React state or fabricated clock values. */
+export function readEvidencePointer({ x, y }) {
+  const root = window.document.querySelector(".pro-root"),
+    video = window.document.querySelector(".preview-player video.frame"),
+    active = window.document.querySelector(".pane.monitor .monitor-tabs .on")?.textContent.trim();
+  const stages = ["script", "cast", "board", "edit"],
+    stage = root?.getAttribute("data-stage");
+  const declared = (source) => {
+    try {
+      const url = new window.URL(source);
+      return (
+        url.protocol === "aivora-media:" &&
+        window.__assemblyAudit.artifacts.some((a) => a.path === url.searchParams.get("path"))
+      );
+    } catch {
+      return false;
+    }
+  };
+  const hit = window.document.elementFromPoint(x, y),
+    button = hit?.closest("button"),
+    text = button?.textContent.trim();
+  const target = hit?.closest(".ruler")
+    ? "ruler"
+    : hit?.closest(".monitor-tabs")
+      ? ({ 预览: "preview-tab", 声音: "sound-tab", 字幕: "subtitles-tab" }[text] ?? "other")
+      : hit?.closest(".track-area")
+        ? "track-area"
+        : "other";
+  return {
+    stage: stages.includes(stage) ? stage : "unknown",
+    monitor: { 预览: "preview", 声音: "sound", 字幕: "subtitles" }[active] ?? "unknown",
+    videos: window.document.querySelectorAll(".preview-player video.frame").length,
+    attached: video?.isConnected === true,
+    current: declared(video?.currentSrc),
+    attribute: declared(video?.src),
+    ready: video?.readyState ?? null,
+    time: video?.currentTime ?? null,
+    hit: target,
+    x,
+    y,
+  };
+}
