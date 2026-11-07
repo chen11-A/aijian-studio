@@ -16,6 +16,7 @@ import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
 import { NOTICE_COPY } from "../next/wiring/noticeCopy";
 import * as directionTransactions from "./actions/shot-direction-transaction";
+import * as artTransactions from "./actions/art-transaction";
 import { ProWorkspace } from "./ProWorkspace";
 
 const PROJECT_ID = `prj_${"a".repeat(32)}`;
@@ -1619,6 +1620,8 @@ it("keeps a focused duration field, a full shot list, and a typed export path", 
 }, 20_000);
 
 it("runs the seven agents, confirms a portrait, and times a shot from the line", async () => {
+  const artSpy = vi.spyOn(artTransactions, "prepareArtTransaction");
+  onTestFinished(() => artSpy.mockRestore());
   const { completeText } = installDesktop();
   const speak = vi.fn(async () => ({
     kind: "OK",
@@ -1709,9 +1712,51 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     ]);
     pickHelper("美术");
     fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
-    expect(await screen.findByText(/美术写好了/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "放进分镜" }));
-    expect(await screen.findByText(/画风、外貌、场景和道具已放进去/)).toBeInTheDocument();
+    await screen.findByRole("button", { name: "确认修改" });
+    const art = artSpy.mock.results.filter((result) => result.type === "return").at(-1)!.value;
+    const base = artSpy.mock.calls.at(-1)![0];
+    const pure = artTransactions.applyArtTransaction(base, art);
+    expect(pure.receipt).not.toBeNull();
+    const risks = Number(
+      art.recomputeCostumes &&
+        JSON.stringify(base.costumeRisks) !== JSON.stringify(pure.film.costumeRisks),
+    );
+    expect(
+      within(screen.getByRole("list", { name: "字段改动" })).getAllByRole("listitem"),
+    ).toHaveLength(art.changes.length + art.additions.length + risks);
+    const saved = () =>
+      vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.map(([value]) => value as FilmProject)
+        .filter((value) => value.id === base.id)
+        .at(-1)!;
+    await waitFor(() => {
+      expect(saved()).toBeDefined();
+      for (const change of art.changes) {
+        const target = change.target;
+        const row =
+          target.collection === "project"
+            ? saved()
+            : saved()[target.collection].find((item) => item.id === target.id)!;
+        expect(Object.hasOwn(row, change.field)).toBe(change.before.present);
+        expect((row as unknown as Record<string, unknown>)[change.field]).toEqual(
+          change.before.value,
+        );
+      }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
+    expect(await screen.findByText("全项目美术字段已修改。")).toBeInTheDocument();
+    for (const change of art.changes) {
+      const target = change.target;
+      const row =
+        target.collection === "project"
+          ? saved()
+          : saved()[target.collection].find((item) => item.id === target.id)!;
+      expect(Object.hasOwn(row, change.field)).toBe(change.after.present);
+      expect((row as unknown as Record<string, unknown>)[change.field]).toEqual(change.after.value);
+    }
+    for (const addition of art.additions)
+      expect(saved()[addition.collection]).toContainEqual(addition.row);
     openBoardTools();
     fireEvent.click(screen.getByRole("button", { name: "写英文画面说明" }));
     fireEvent.click(await screen.findByRole("button", { name: "确认修改" }));

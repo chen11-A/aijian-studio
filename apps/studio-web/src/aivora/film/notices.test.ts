@@ -76,6 +76,12 @@ describe("structured business notices", () => {
       "EXPORT_QC_STALE",
       "EXPORT_QC_BLOCKED",
     ]);
+    const referenceCodes = new Set([
+      "ASSISTANT_REFERENCE_UNKNOWN",
+      "ASSISTANT_REFERENCE_AMBIGUOUS",
+      "ASSISTANT_REFERENCE_SYNTAX",
+      "ASSISTANT_REFERENCE_STALE",
+    ]);
     const directorStructureCodes = new Set([
       "DIRECTOR_STRUCTURE_READY",
       "DIRECTOR_STRUCTURE_APPLIED",
@@ -103,6 +109,7 @@ describe("structured business notices", () => {
     ]);
     const legacyRows = rows.filter(
       (row) =>
+        !referenceCodes.has(row[1]!) &&
         !directorStructureCodes.has(row[1]!) &&
         !artFieldCodes.has(row[1]!) &&
         !actionFieldCodes.has(row[1]!) &&
@@ -114,6 +121,16 @@ describe("structured business notices", () => {
         !historyCodes.has(row[1]!) &&
         !assemblyCodes.has(row[1]!),
     );
+    const referenceRows = rows.filter((row) => referenceCodes.has(row[1]!));
+    expect(referenceRows).toHaveLength(4);
+    expect(new Set(referenceRows.map((row) => row[1]))).toEqual(referenceCodes);
+    for (const [, code, fallback, copy] of referenceRows) {
+      expect(NOTICE_TEXT[code as keyof typeof NOTICE_TEXT]).toBe(fallback!.trim());
+      expect(normalizeNotice({ code: code!, text: fallback!.trim() })).toEqual({
+        code,
+        text: copy!.trim(),
+      });
+    }
     const addedRows = rows.filter((row) => addedCodes.has(row[1]!));
     const takeoverRows = rows.filter((row) => takeoverCodes.has(row[1]!));
     const promptFieldRows = rows.filter((row) => promptFieldCodes.has(row[1]!));
