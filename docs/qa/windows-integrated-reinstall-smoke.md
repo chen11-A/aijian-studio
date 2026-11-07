@@ -19,3 +19,9 @@
 - 最终 Linux 可执行结果：Windows packaging guard 集 **46项运行，45通过/1跳过**（跳过项沿原平台条件），新 Node proof **4/4**。目标 Ruff、mypy、JS ESLint、Prettier、node check、Python compile 和 diff 检查通过。最终日志：`/tmp/integrated-reinstall-windows-guards-final.log`、`/tmp/integrated-reinstall-proof-tests-final.log`、`/tmp/integrated-reinstall-py-{lint,format}.log`、`/tmp/integrated-reinstall-js-{lint,format}.log`。这些是 guard/helper 证据，不是 Windows 二进制执行证据。
 
 Windows workflow 在原 smoke 前持续执行新 helper/Node 回归，再运行同候选重装；实际 Windows candidate 正向由 root 后续单独触发和记录。未覆盖真实标准用户干净机器人工验收、签名、SmartScreen 免提示、不同版本迁移、会员/付费或人工完整视听。
+
+## 总控真实 Windows 联合验证（2026-11-07 14:34 UTC）
+
+ca303与29140联合固定fe3991b450a0bd45ea761e312f31f9e866562a4f已根独立原runtime9、proof4、Pythonpackaging/collector50pass/1原skip/36subtests、正式静态/全format、actualcollector/保留production builder全部0（`/tmp/aivora-runtime-closure-root-*`，1673817 completed0/冻结树clean）。
+
+[run42380766815](https://github.com/chen11-A/aijian-studio/actions/runs/42380766815)/job128427699490 **Success /7分49秒**、唯一commit fe399。真实core/media14:22:05、FFmpeg14:22:08、字幕14:22:09、普通用户安装14:22:25、helper14:22:26、fresh/reinstall/restart原完整样本与settings/原媒体SHA及ffprobe/卸载保留14:23:24全0，unsigned installer artifact14:23:28上传成功，tag发布skipped。artifact需登录，未下载或目视；不冒不同版本migration、人工干净机器或会员/完整视听，也不把旧包证明用于未来54/f7产物。

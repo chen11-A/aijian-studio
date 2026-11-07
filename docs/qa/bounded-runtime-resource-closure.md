@@ -22,3 +22,9 @@
 - 旧可执行 readiness 指引已补真实 `--resources-root`，不保留无效命令。没有改 API/native业务源，未重跑全库；SDK 与 builder 不替代真正 Windows候选安装/升级/人工观看听验。
 
 Git 树冻结后再用同一实际 collector根重建独立 production app，以该固定 HEAD/receipt 为最终可复核产物；root随后独立复核。Windows候选尚未触发，集成 reinstall 实机验证为下一独立片，不拿旧 media-free升级收据替代。
+
+## 总控真实 Windows 联合验证（2026-11-07 14:34 UTC）
+
+ca303与29140联合固定fe3991b450a0bd45ea761e312f31f9e866562a4f已根独立原runtime9、proof4、Pythonpackaging/collector50pass/1原skip/36subtests、正式静态/全format、actualcollector/保留production builder全部0（`/tmp/aivora-runtime-closure-root-*`，1673817 completed0/冻结树clean）。
+
+[run42380766815](https://github.com/chen11-A/aijian-studio/actions/runs/42380766815)/job128427699490 **Success /7分49秒**、唯一commit fe399。真实core/media14:22:05、FFmpeg14:22:08、字幕14:22:09、普通用户安装14:22:25、helper14:22:26、fresh/reinstall/restart原完整样本与settings/原媒体SHA及ffprobe/卸载保留14:23:24全0，unsigned installer artifact14:23:28上传成功，tag发布skipped。artifact需登录，未下载或目视；不冒不同版本migration、人工干净机器或会员/完整视听，也不把旧包证明用于未来54/f7产物。
