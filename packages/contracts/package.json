@@ -5,6 +5,10 @@
   "type": "module",
   "types": "./src/generated.ts",
   "exports": {
+    "./film-generation-execution": {
+      "types": "./src/film-generation-execution.ts",
+      "default": "./src/film-generation-execution.ts"
+    },
     "./film-delivery-evidence": {
       "types": "./src/film-delivery-evidence.ts",
       "default": "./src/film-delivery-evidence.ts"

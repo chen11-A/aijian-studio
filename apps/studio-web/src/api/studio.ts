@@ -1,5 +1,10 @@
 import type { FilmRiskTrialGateway } from "@aijian/contracts/film-risk-trial";
 import type {
+  FilmGenerationExecutionGateway,
+  FilmGenerationStillExecution,
+  FilmGenerationVideoExecution,
+} from "@aijian/contracts/film-generation-execution";
+import type {
   GenerationVideoRecoveryListResult,
   GenerationVideoRecoveryResult,
   SaveRecoveredGenerationVideoResult,
@@ -1009,6 +1014,7 @@ export interface AijianDesktopBridge
       }>;
     },
     scope?: StoryFilmLocalScope,
+    execution?: FilmGenerationVideoExecution,
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   getStoryFilmProgress?(projectId: string): Promise<{
     data: {
@@ -1090,7 +1096,9 @@ export interface AijianDesktopBridge
     prompt: string,
     aspectRatio?: "9:16" | "16:9",
     references?: string[],
+    execution?: FilmGenerationStillExecution,
   ) => Promise<{ path: string; reason: string }>;
+  prepareFilmGenerationExecution?: FilmGenerationExecutionGateway["prepareFilmGenerationExecution"];
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;
   verifyFilmDialogueSplitBackup?: FilmDialogueSplitGateway["verifyFilmDialogueSplitBackup"];
