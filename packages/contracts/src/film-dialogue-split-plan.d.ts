@@ -1,3 +1,4 @@
+import type { DialogueSplitSource } from "./film-dialogue-split.js";
 export type DialogueSplitLine = { speaker: string; text: string };
 export type DialogueSplitInput = {
   lines: DialogueSplitLine[];
@@ -65,6 +66,4 @@ export function dialogueSplitContext(
   semantic: Record<string, unknown>;
   request: DialogueSplitInput;
 } | null;
-export function normalizeDialogueSplitSource(
-  value: unknown,
-): import("./film-dialogue-split.js").DialogueSplitSource | null;
+export function normalizeDialogueSplitSource(value: unknown): DialogueSplitSource | null;
