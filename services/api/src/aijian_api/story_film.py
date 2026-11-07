@@ -1165,6 +1165,14 @@ class StoryFilmService:
                 )
             except (GenerationFailureError, ValueError) as error:
                 raise StoryFilmError(str(error), "视频失败保护未通过，没有提交视频。") from error
+            try:
+                # SQLite reservation may have waited after the earlier cancel check.
+                # This is still before transport.send: no request has been issued.
+                self._ensure_running(project_id)
+            except StoryFilmError:
+                self._failure_store.discard_before_transport(project_id, self._video_reservation)
+                self._video_reservation = None
+                raise
 
         client = XaiMediaClient(transport, token=media_token, before_video_submit=before_submit)
         self._partial_note = None

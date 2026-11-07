@@ -126,6 +126,21 @@ class GenerationFailureStore:
             )
             return FailureReservation(identifier, input_sha256)
 
+    def discard_before_transport(self, project_id: str, reservation: FailureReservation) -> None:
+        """Only the synchronous pre-send gate can prove this hold never entered HTTP.
+
+        An UNKNOWN or terminal attempt is never eligible, including after restart.
+        The original task ledger still retains the canceled task/idempotency key.
+        """
+        with self._transaction() as connection:
+            result = connection.execute(
+                "DELETE FROM generation_failure_attempt WHERE id=? AND project_id=? "
+                "AND input_sha256=? AND status='PENDING'",
+                (reservation.attempt_id, project_id, reservation.input_sha256),
+            )
+            if result.rowcount != 1:
+                raise GenerationFailureError("ATTEMPT_NOT_UNSUBMITTED")
+
     def settle(
         self,
         project_id: str,
