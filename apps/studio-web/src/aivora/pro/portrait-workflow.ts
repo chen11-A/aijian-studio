@@ -1,3 +1,4 @@
+import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
 import { portraitPrompts } from "../film/operations";
 import type { FilmProject } from "../film/project";
 import { beginTaskBatch, runTask } from "../film/task-progress";
@@ -163,6 +164,7 @@ export async function makeAllPortraits(
           saved = true;
           break;
         } catch (error) {
+          if (error instanceof ProtectedGenerationFailure) throw error;
           reason = error instanceof Error ? error.message : "PORTRAIT_FAILED";
           code =
             error instanceof Error && "code" in error && typeof error.code === "string"

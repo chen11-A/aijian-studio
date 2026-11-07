@@ -11,3 +11,15 @@ Pipeline按完整有序filmPipelineTargets(video)请求，PREPARED仅允许nativ
 阶段证据：原core3文件43过；补protected pipeline默认能力/缺桥负例后2文件24过；actualPro3+core43+pipeline24联合6文件70过（`/tmp/generation-execution-joint-stage.log`）。后来actualPro新增TaskCenter单slot即时退/余queued保留，与原run新增取消双侧共2文件36过（`/tmp/generation-execution-cancel-after.log`）；它们有重叠，不能相加。阶段正式web类型和目标静态0见`/tmp/generation-execution-checkpoint-{types,eslint}.log`，不是最终联合验收。
 
 未解/待合同：protected cache preparation/continuity local-stage真实契约待backend checkpoint，native/API54消费者尚未冻结。原pipeline顺序writer→art→portraits→director；fresh无shots时第一个portrait前完整video scope为空，现严格失败关闭，已向总控/后端报告，不自行重排步骤/造未来shot/借估计数或空scope派发。最终需真实native及实际Pro跨层、旧生成/pipeline/保存/历史/取消兼容与正常Chrome新门，当前合成ABI不能证明原子父预算、文件可信性或付费实际结果。
+
+## fresh/缓存/未知的可审检查点
+
+真实再合6385bb5/b8e03de合同：每target必有`preparation`，只有native明确`STORYFILM_CACHE`才跳client images；缺stage不能推成缓存。`continuity-frame`按后镜与真实紧邻前镜ID精确定位，protected调用即使旧continuityFrame字段吻合也重新走第三参native本地校验；无新provider取帧。固定still code/传输未知品牌化穿透旧portrait/location retry；返回已有path同时WRITE_UNCONFIRMED也不采用为可继续首帧，原私有文件不删除，不宣称0POST/没图片或即时重做。普通非protected已知失败的原一次retry保留。
+
+执行依赖仅controller指定writer/art→director/action/performance/prompter→首媒体数量/会员确认→portraits/stills→原review/video/assembly；schemaVersion1存储steps数组及旧done/queued事实未改。首媒体确认不设continued；后续人工review和video继续仍独立。完整实际shot scope的视频数量为上界，不能把纯path筛得的estimatedRequests=0当缺文件新增请求许可。一次性重试intent仅内存绑定project/fingerprint/checkpoint，真实“重试→首媒体确认→继续”保留原唯一target，不给兄弟失败项授权；改稿/跨工程/新run失效。
+
+实际Pro fresh空shots正例：受控文字agent返回真实结构后才显示首媒体确认，默认0prepare/0图/0video；点击真实“继续生成”才用canonical完整非空scope prepare并写两张前置图，随后停原review needs-input且continued=false、0video。保其他消费者不变，仅暂换回HEAD原controller的同一测试before失败（无可继续首媒体确认），恢复文件逐字核同；`/tmp/generation-execution-fresh-pro-before.log`→`/tmp/generation-execution-fresh-pro-first.log`。这是合成ABI/受控文字agent的Pro/队列/UI证据，不是主进程原子预算或Grok实费证明。
+
+最终此检查点定向15文件306项0：`/tmp/generation-execution-fresh-checkpoint-joint-final.log`（9.56秒）。最后只把issued image/local-stage失效也品牌化阻止旧retry，独立core10再过`/tmp/generation-execution-stage-failure-after.log`，不与306相加。正式web类型阶段0、目标ESLint/Prettier/diff0；旧Pro139/其余生成宿主尚待全部补真实新能力后联合，不能用306称整库通过。
+
+仍非最终冻结交付：backend API54/ledger/plan/source/client/lineage尚在收尾。我下一步拥有native registry/IPC/preload/main/film-library sink hooks，等待真实helper checkpoint合入；不复制WIP/HTTP协议、prompt、源验证。正常Chrome新UI16的后续两处测试消费者失败由另一QA分支独立处理，本树在该叶期间保检查点。

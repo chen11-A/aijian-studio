@@ -4,7 +4,9 @@ import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-gene
 import { sampleFilm, type FilmProject } from "../film/project";
 import { sceneLocationTargets } from "../film/location-reference";
 import { historyRecordHash } from "./actions/persistent-history";
+import { runPipelineAgentAction } from "./pipeline-agent-actions";
 import { ProWorkspace } from "./ProWorkspace";
+vi.mock("./pipeline-agent-actions", () => ({ runPipelineAgentAction: vi.fn() }));
 const projectId = `prj_${"a".repeat(32)}`;
 function fixture() {
   const film = sampleFilm();
@@ -54,6 +56,7 @@ function fixture() {
         projectHash: input.expectedProjectHash,
         targets: input.targets.map((t) => ({
           shotId: t.shotId,
+          preparation: "CLIENT_IMAGES" as const,
           videoSlotIds: Array.from({ length: t.versions }, (_, i) => `slot-${t.shotId}-${i}`),
         })),
         stages: [
@@ -130,6 +133,7 @@ beforeEach(() => {
   window.localStorage.clear();
   delete window.aijian;
   delete window.aijianGrok;
+  vi.mocked(runPipelineAgentAction).mockReset();
 });
 afterEach(cleanup);
 it("prepares only after explicit confirmation and real canonical backup, then forwards the issued image and video contexts", async () => {
@@ -226,4 +230,143 @@ it("TaskCenter retires the running slot immediately, then preserves the paused s
   } finally {
     release?.({ data: { status: "SUCCEEDED", output_path: "/tmp/late-cancelled.mp4" } });
   }
+});
+
+it("only explicit native STORYFILM_CACHE skips all client images, without treating missing stages as cache", async () => {
+  const f = fixture();
+  const original = f.prepare.getMockImplementation()!;
+  f.prepare.mockImplementation(async (input) => {
+    const reply = await original(input);
+    if (reply.kind !== "PREPARED") return reply;
+    return {
+      ...reply,
+      stages: [],
+      targets: reply.targets.map((t) => ({ ...t, preparation: "STORYFILM_CACHE" })),
+    };
+  });
+  delete window.aijian!.generateFilmStill;
+  await open();
+  submit();
+  await waitFor(() => expect(f.video).toHaveBeenCalledTimes(1));
+  expect(f.still).not.toHaveBeenCalled();
+  await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
+});
+it("CLIENT_IMAGES with a missing issued stage cannot silently use an unprotected image path", async () => {
+  const f = fixture();
+  const original = f.prepare.getMockImplementation()!;
+  f.prepare.mockImplementation(async (input) => {
+    const reply = await original(input);
+    return reply.kind === "PREPARED" ? { ...reply, stages: [] } : reply;
+  });
+  await open();
+  submit();
+  await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
+  expect(f.still).not.toHaveBeenCalled();
+  expect(f.video).not.toHaveBeenCalled();
+});
+it.each(["fixed-result", "transport"])(
+  "protected image %s uncertainty stops without retry or later video, preserving the existing work",
+  async (mode) => {
+    const f = fixture();
+    if (mode === "transport") f.still.mockRejectedValueOnce(Error("PRIVATE-DO-NOT-DISPLAY"));
+    else
+      f.still.mockResolvedValueOnce(
+        Object.assign(
+          { path: "/tmp/kept-native-image.png", reason: "PRIVATE-DO-NOT-DISPLAY" },
+          { code: "WRITE_UNCONFIRMED" },
+        ),
+      );
+    await open();
+    submit();
+    await screen.findAllByText("生成记录尚未确认，已停后续请求，请先核对任务和素材。");
+    await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
+    expect(f.still).toHaveBeenCalledTimes(1);
+    expect(f.video).not.toHaveBeenCalled();
+    expect(f.stored().shots[0]!.poster).toBe("");
+    expect(f.stored().locations.some((p) => p.referenceImage?.includes("kept-native-image"))).toBe(
+      false,
+    );
+    expect(screen.queryByText(/PRIVATE-DO-NOT-DISPLAY/)).toBeNull();
+  },
+);
+
+it("fresh real Pro runs text structure first and waits for explicit complete media scope confirmation before native preparation", async () => {
+  const f = fixture();
+  const template = { ...f.film.shots[0]!, picture: "雨落。", action: "雨落。", seconds: 3 };
+  const fresh = {
+    ...f.film,
+    sourceText: "雨落。",
+    unassignedBeats: [],
+    shots: [],
+    scenes: [{ ...f.film.scenes[0]!, text: "雨落。", title: "书店", tags: [] }],
+  };
+  await window.aijian!.writeFilmProject!(fresh);
+  const textOrder: string[] = [];
+  vi.mocked(runPipelineAgentAction).mockImplementation(async (film, target) => {
+    textOrder.push(target.step);
+    return {
+      status: "done",
+      code: "STEP_COMPLETE",
+      film:
+        target.step === "director"
+          ? { ...film, shots: [{ ...template, sceneId: target.targetId }] }
+          : film,
+    };
+  });
+  f.prepare.mockImplementation(async (input) => {
+    expect(f.capture).toHaveBeenCalledTimes(2);
+    expect(input.mode).toBe("pipeline");
+    expect(input.targets).toEqual([{ shotId: template.id, versions: 1 }]);
+    expect(input.expectedProjectHash).toBe(await historyRecordHash(f.stored()));
+    expect(f.stored().shots[0]!.takes).toEqual([]);
+    return {
+      kind: "PREPARED",
+      executionId: "native-execution",
+      projectId: input.projectId,
+      projectHash: input.expectedProjectHash,
+      targets: [
+        { shotId: template.id, videoSlotIds: ["fresh-slot"], preparation: "CLIENT_IMAGES" },
+      ],
+      stages: [
+        ...sceneLocationTargets(f.stored()).map((p) => ({
+          stageId: `location-${p.id}`,
+          kind: "location-reference" as const,
+          targetId: p.id,
+        })),
+        { stageId: "native-frame", kind: "shot-frame", targetId: template.id },
+      ],
+    };
+  });
+  render(<ProWorkspace projectId={projectId} />);
+  await screen.findByRole("navigation", { name: "创作阶段" });
+  await waitFor(() =>
+    expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
+  const progress = await screen.findByRole("region", { name: "一键成片进度" });
+  await waitFor(() =>
+    expect(within(progress).getByRole("button", { name: "继续生成" })).toBeEnabled(),
+  );
+  expect(textOrder).toEqual(["writer", "writer", "art", "director", "prompter"]);
+  expect(progress.textContent).toContain("视频最多 1 次生成");
+  expect(f.prepare).not.toHaveBeenCalled();
+  expect(f.still).not.toHaveBeenCalled();
+  expect(f.video).not.toHaveBeenCalled();
+  expect(f.stored().productionPipeline).toMatchObject({
+    status: "checkpoint",
+    current: "portraits",
+    continued: false,
+  });
+  fireEvent.click(within(progress).getByRole("button", { name: "继续生成" }));
+  await waitFor(() =>
+    expect(f.stored().productionPipeline).toMatchObject({
+      status: "needs-input",
+      current: "review",
+      continued: false,
+    }),
+  );
+  expect(f.prepare).toHaveBeenCalledTimes(1);
+  expect(f.still).toHaveBeenCalledTimes(2);
+  expect(f.video).not.toHaveBeenCalled();
+  expect(JSON.stringify(f.stored())).not.toContain("native-execution");
 });

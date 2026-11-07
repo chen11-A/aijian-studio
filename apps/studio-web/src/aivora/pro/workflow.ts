@@ -1,3 +1,8 @@
+import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
+import {
+  generationExecutionNotice,
+  protectedGenerationFailure,
+} from "./actions/generation-execution";
 import type { FilmGenerationStillExecution } from "@aijian/contracts/film-generation-execution";
 import {
   assemblyRenderKey,
@@ -184,6 +189,7 @@ export async function requestStill(
     const result = execution
       ? await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references, execution)
       : await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
+    if (execution && result.code) throw protectedGenerationFailure(result.code);
     if (!result.path) {
       const providerReason = result.reason || "";
       return {
@@ -194,6 +200,8 @@ export async function requestStill(
     const url = fileMediaUrl(result.path);
     return { url: url || result.path, reason: "画面已生成。" };
   } catch (error) {
+    if (error instanceof ProtectedGenerationFailure) throw error;
+    if (execution) throw protectedGenerationFailure("WRITE_UNCONFIRMED");
     return { url: "", reason: stillFailureNotice(error).text };
   }
 }
@@ -550,6 +558,7 @@ export async function assembleCurrentFilm(
 
 /** Status copy is one canonical sentence; provider/selection diagnostics stay separate. */
 export function stillFailureNotice(error: unknown): UiNotice {
+  if (error instanceof ProtectedGenerationFailure) return generationExecutionNotice(error);
   if (
     error instanceof Error &&
     "code" in error &&

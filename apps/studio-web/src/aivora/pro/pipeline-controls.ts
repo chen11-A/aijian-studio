@@ -60,6 +60,7 @@ export function createPipelineControls(host: {
         steps: view.kind === "ready" ? view.steps : [],
         overall: view.kind === "ready" ? view.status : undefined,
         checkpoint: view.kind === "ready" ? view.checkpoint : null,
+        checkpointPhase: view.kind === "ready" ? view.checkpointPhase : undefined,
         busy: active || (view.kind === "ready" && view.busy),
         canContinue: !active && view.kind === "ready" && view.canContinue,
         canAcceptReview: !active && view.kind === "ready" && view.canAcceptReview,
@@ -76,6 +77,7 @@ export function createPipelineControls(host: {
           if (
             latest?.kind !== "ready" ||
             !latest.canContinue ||
+            latest.checkpointPhase !== "video" ||
             !/^rtd_[a-f0-9]{32}$/.test(decisionId)
           ) {
             notice("CHECKPOINT_INVALID");

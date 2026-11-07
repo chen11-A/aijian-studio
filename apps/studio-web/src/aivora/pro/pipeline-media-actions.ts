@@ -1,3 +1,4 @@
+import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
 import {
   ensureSceneReferences,
   makeLocationReferences,
@@ -134,6 +135,7 @@ export async function makePipelineStill(
       ? { status: "done", film: context.current(), code: "STILL_DONE" }
       : stale();
   } catch (error) {
+    if (error instanceof ProtectedGenerationFailure) throw error;
     if (error instanceof Error && error.message === "TASK_TIMEOUT")
       return { status: "uncertain", code: "TASK_TIMEOUT" };
     return valid(context) ? { status: "failed", code: "STILL_FAILED" } : stale();

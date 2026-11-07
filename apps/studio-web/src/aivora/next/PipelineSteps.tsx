@@ -51,6 +51,7 @@ export type PipelineStepsProps = {
   /** The state of the whole run, including 「checkpoint」 and 「cancelled」. */
   overall?: PipelineStatus | "checkpoint" | "cancelled";
   checkpoint?: PipelineCheckpoint | null;
+  checkpointPhase?: "before-media" | "video";
   /** Something is being made right now; nothing else can start. */
   busy?: boolean;
   /** From pipelineView: only then is 「继续生成」 enabled. */
@@ -182,7 +183,9 @@ export function PipelineSteps(props: PipelineStepsProps) {
         ) : null}
         {checkpoint ? (
           <span className="nx-pipeline-summary">
-            停在分镜：{checkpoint.shotCount} 个镜头 · 约 {Math.round(checkpoint.seconds)} 秒 · 约需{" "}
+            {props.checkpointPhase === "before-media" ? "自动生成前确认" : "停在分镜"}：
+            {checkpoint.shotCount} 个镜头 · 约 {Math.round(checkpoint.seconds)} 秒 ·{" "}
+            {props.checkpointPhase === "before-media" ? "视频最多" : "约需"}{" "}
             {checkpoint.estimatedRequests} 次生成 · 用会员额度
           </span>
         ) : null}

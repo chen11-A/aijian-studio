@@ -1,3 +1,10 @@
+import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
+import {
+  isGenerationExecutionFailureCode,
+  protectedGenerationFailure,
+} from "./actions/generation-execution";
+import type { GenerationExecutionSession } from "./actions/generation-execution";
+import type { FilmGenerationExtractionExecution } from "@aijian/contracts/film-generation-execution";
 import type { FilmProject, FilmShot } from "../film/project";
 
 export type ContinuityFrame = NonNullable<FilmShot["continuityFrame"]>;
@@ -9,11 +16,16 @@ type ExtractionResult = {
   text?: string;
 };
 export type ContinuityFrameHost = {
+  execution?: GenerationExecutionSession;
   current: () => FilmProject | null;
   valid: () => boolean;
   /** Await persistence before the caller submits the video. */
   apply: (film: FilmProject) => void | Promise<void>;
-  extract?: (seriesId: string, videoPath: string) => Promise<ExtractionResult>;
+  extract?: (
+    seriesId: string,
+    videoPath: string,
+    execution?: FilmGenerationExtractionExecution,
+  ) => Promise<ExtractionResult>;
 };
 class ContinuityFrameError extends Error {
   constructor(
@@ -69,6 +81,7 @@ export async function ensureContinuityFrame(
     return fail("CONTINUITY_SOURCE_NOT_READY", "前镜尚无已选定的本地视频，请先完成前镜。");
   const prior = currentShot.continuityFrame;
   if (
+    !host.execution &&
     prior &&
     prior.sourceShotId === source.id &&
     prior.sourceTakeId === take.id &&
@@ -84,13 +97,23 @@ export async function ensureContinuityFrame(
     host.valid() && host.current() === captured && JSON.stringify(captured) === snapshot;
   let result: ExtractionResult;
   try {
-    result = await extract(captured.seriesId, take.videoPath);
-  } catch {
+    result = host.execution
+      ? await extract(
+          captured.seriesId,
+          take.videoPath,
+          host.execution.continuity(shot.id, source.id),
+        )
+      : await extract(captured.seriesId, take.videoPath);
+  } catch (error) {
+    if (error instanceof ProtectedGenerationFailure) throw error;
+    if (host.execution) throw protectedGenerationFailure("WRITE_UNCONFIRMED");
     return fail(
       valid() ? "CONTINUITY_EXTRACTION_FAILED" : "CONTINUITY_REQUEST_STALE",
       "末帧提取未完成，请重试。",
     );
   }
+  if (host.execution && isGenerationExecutionFailureCode(result.code))
+    throw protectedGenerationFailure(result.code);
   if (!valid()) return fail("CONTINUITY_REQUEST_STALE", "镜头内容已变化，本次末帧未写入。");
   if (
     !localPath(result.path, /\.png$/i) ||

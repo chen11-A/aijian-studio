@@ -1160,7 +1160,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     continuation: (decisionId) => {
       const props = pipelineWorkspace.props(),
         live = filmRef.current;
-      return live && props.canContinue ? (
+      return live && props.canContinue && props.checkpointPhase === "video" ? (
         <PipelineSteps
           {...props}
           onContinue={() => void pipelineWorkspace.props().onContinueAfterTrial(decisionId)}
@@ -4216,7 +4216,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       await applyGeneration(next);
       try {
         try {
-          await prepareSceneMedia(next, selected, valid, pipeline, execution);
+          const imageTargets = selected.filter(
+            (row) => execution?.preparation(row.id) === "CLIENT_IMAGES",
+          );
+          if (imageTargets.length)
+            await prepareSceneMedia(next, imageTargets, valid, pipeline, execution);
         } catch (error) {
           if (!valid()) return;
           if (

@@ -285,16 +285,17 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
         apply: host.apply,
         execution: host.execution,
       };
-      const connectedShot = await (host.continuity ?? ensureContinuityFrame)(
-        current,
-        targetShot,
-        frameHost,
-      );
-      const shotNow = await (host.frame ?? ensureShotFrame)(
-        host.current() ?? current,
-        connectedShot,
-        frameHost,
-      );
+      const cached = host.execution?.preparation(group.shot.id) === "STORYFILM_CACHE";
+      const connectedShot = cached
+        ? targetShot
+        : await (host.continuity ?? ensureContinuityFrame)(current, targetShot, frameHost);
+      const shotNow = cached
+        ? connectedShot
+        : await (host.frame ?? ensureShotFrame)(
+            host.current() ?? current,
+            connectedShot,
+            frameHost,
+          );
       if (!host.valid()) return;
       const beforeSend = host.current() ?? current;
       if (host.cancelled(jobId)) {

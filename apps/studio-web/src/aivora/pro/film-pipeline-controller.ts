@@ -1,3 +1,4 @@
+import { MEDIA_EXECUTION_ORDER } from "../film/production-pipeline";
 import {
   locationAssociationUnique,
   locationImageCurrent,
@@ -419,6 +420,22 @@ export function createFilmPipelineController(host: FilmPipelineHost) {
             inputVersion: current() ? inputVersion : "stale",
           }),
           targets: (step) => filmPipelineTargets(expected, step),
+          executionOrder: MEDIA_EXECUTION_ORDER,
+          beforeMediaCheckpoint: () => ({
+            ...filmPipelineCheckpoint(expected),
+            // Full confirmed scope is the upper bound. Native, not path strings, decides cache reuse.
+            estimatedRequests: filmPipelineTargets(expected, "video").length,
+            risks: [
+              ...filmPipelineCheckpoint(expected).risks.filter(
+                (r) => r.code !== "VIDEO_SUBMISSIONS_ESTIMATE",
+              ),
+              {
+                code: "MEDIA_SCOPE_UPPER_BOUND",
+                text: "视频次数按完整镜头范围给出上限，本机核实可复用素材后可能减少；自动前置图与配音另占会员额度。",
+                severity: "info" as const,
+              },
+            ],
+          }),
           checkpoint: () => filmPipelineCheckpoint(expected),
           save: async (state, context) => {
             const completed = context.completion?.result.data as { film?: FilmProject } | undefined;

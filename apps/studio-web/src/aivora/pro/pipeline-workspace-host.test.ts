@@ -132,6 +132,7 @@ function setup(initial = fixture()) {
         targets: input.targets.map((t) => ({
           shotId: t.shotId,
           videoSlotIds: [`video-${t.shotId}`],
+          preparation: "CLIENT_IMAGES" as const,
         })),
       };
     }),
@@ -464,4 +465,39 @@ it("does not replace the existing manual continuation or treat metadata recordin
   await env.adapter.continue();
   expect(env.host.checkTrialDecision).not.toHaveBeenCalled();
   expect(env.host.submitGeneration).toHaveBeenCalledOnce();
+});
+
+it("retains only the explicit failed-target retry across the separate first-media confirmation", async () => {
+  const film = fixture();
+  film.shots.push({ ...structuredClone(film.shots[0]!), id: "other-shot" });
+  const initial = await prime(film, "stills");
+  const step = initial.productionPipeline!.steps.find((s) => s.id === "stills")!;
+  Object.assign(step, {
+    planned: true,
+    status: "failed",
+    done: 0,
+    total: 2,
+    targets: film.shots.map((s) => ({
+      id: s.id,
+      status: "failed",
+      attempt: 1,
+      code: "STILL_FAILED",
+    })),
+  });
+  initial.productionPipeline!.status = "failed";
+  initial.productionPipeline!.current = "stills";
+  const f = setup(initial);
+  const checkpoint = await f.adapter.retry([`stills/${film.shots[0]!.id}`]);
+  expect(checkpoint).toMatchObject({ status: "checkpoint", current: "stills", continued: false });
+  expect(checkpoint.checkpoint!.estimatedRequests).toBe(2);
+  expect(checkpoint.steps.find((s) => s.id === "stills")!.targets.map((t) => t.attempt)).toEqual([
+    1, 1,
+  ]);
+  const completed = await f.adapter.continue();
+  const actual = completed.steps.find((s) => s.id === "stills")!.targets;
+  expect(actual[0]).toMatchObject({ status: "done", attempt: 2 });
+  expect(actual[1]).toMatchObject({ status: "failed", attempt: 1 });
+  expect(f.host.submitGeneration).not.toHaveBeenCalled();
+  const again = await f.adapter.continue();
+  expect(again.steps.find((s) => s.id === "stills")!.targets).toEqual(actual);
 });

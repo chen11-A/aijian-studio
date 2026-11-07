@@ -53,7 +53,13 @@ async function fixture() {
         projectId: input.projectId,
         projectHash: input.expectedProjectHash,
         stages,
-        targets: [{ shotId: film.shots[0]!.id, videoSlotIds: ["video"] }],
+        targets: [
+          {
+            shotId: film.shots[0]!.id,
+            videoSlotIds: ["video"],
+            preparation: "CLIENT_IMAGES" as const,
+          },
+        ],
       }),
       retireFilmGenerationExecution: async () => ({ kind: "RETIRED" }),
     },
@@ -372,4 +378,24 @@ it("does not dispatch an automatic image when the protected execution context is
   );
   expect(result.status).not.toBe("done");
   expect(generate).not.toHaveBeenCalled();
+});
+
+it("does not use the old automatic portrait retry for an unconfirmed protected image result", async () => {
+  const { film, context } = await fixture();
+  const previous = window.aijian;
+  const generateFilmStill = vi.fn(async () => ({
+    path: "/media/preserved-private.png",
+    reason: "PRIVATE",
+    code: "WRITE_UNCONFIRMED" as const,
+  }));
+  window.aijian = { ...previous, generateFilmStill } as Window["aijian"];
+  try {
+    await expect(
+      makePipelinePortraits(film, `${film.characters[0]!.id}@脸部`, context),
+    ).rejects.toMatchObject({ code: "WRITE_UNCONFIRMED" });
+    expect(generateFilmStill).toHaveBeenCalledTimes(1);
+    expect(context.current().characters[0]!.portraits).toEqual([]);
+  } finally {
+    window.aijian = previous;
+  }
 });

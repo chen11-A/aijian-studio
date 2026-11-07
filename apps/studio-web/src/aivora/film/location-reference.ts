@@ -1,3 +1,4 @@
+import { ProtectedGenerationFailure } from "./generation-execution-failure";
 import type { FilmLocation, FilmProject, FilmShot } from "./project";
 import { withStyleBible } from "./style-bible";
 
@@ -308,7 +309,8 @@ export async function makeLocationReferences(
         response = host.generateFor
           ? await host.generateFor(place.id, prompt, [])
           : await generate(prompt, []);
-      } catch {
+      } catch (error) {
+        if (error instanceof ProtectedGenerationFailure) throw error;
         continue;
       }
       if (!active()) {

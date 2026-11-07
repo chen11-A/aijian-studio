@@ -1,4 +1,5 @@
 import type { FilmProject } from "../../film/project";
+import { ProtectedGenerationFailure } from "../../film/generation-execution-failure";
 import { NOTICE_TEXT } from "../../film/notices";
 import type { UiNotice } from "../../film/contracts3j";
 import { historyRecordHash } from "./persistent-history";
@@ -8,6 +9,7 @@ import type {
   FilmGenerationExecutionResult,
   FilmGenerationImageStage,
   FilmGenerationStillExecution,
+  FilmGenerationExtractionExecution,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
 
@@ -35,6 +37,8 @@ const failures = new Set([
   "CREATION_ATTEMPT_ALREADY_RESERVED",
   "WRITE_UNCONFIRMED",
 ]);
+export const isGenerationExecutionFailureCode = (code: unknown): code is string =>
+  typeof code === "string" && failures.has(code);
 const fail = (code: string): never => {
   throw Object.assign(new Error(code), { code });
 };
@@ -65,7 +69,9 @@ export function generationExecutionNotice(error: unknown): UiNotice {
                 ? "GENERATION_EXECUTION_SCOPE_UNSUPPORTED"
                 : raw === "BUSY"
                   ? "GENERATION_EXECUTION_BUSY"
-                  : "GENERATION_EXECUTION_UNCONFIRMED";
+                  : raw === "WRITE_UNCONFIRMED"
+                    ? "GENERATION_EXECUTION_WRITE_UNCONFIRMED"
+                    : "GENERATION_EXECUTION_UNCONFIRMED";
   return { code, text: NOTICE_TEXT[code as keyof typeof NOTICE_TEXT] };
 }
 
@@ -97,8 +103,9 @@ export function validGenerationExecution(
     const wanted = input.targets[nextInput++];
     if (!wanted) return false;
     if (
-      !exact(target, ["shotId", "videoSlotIds"]) ||
+      !exact(target, ["shotId", "videoSlotIds", "preparation"]) ||
       target.shotId !== wanted.shotId ||
+      !["CLIENT_IMAGES", "STORYFILM_CACHE"].includes(String(target.preparation)) ||
       !Array.isArray(target.videoSlotIds) ||
       target.videoSlotIds.length !== wanted.versions
     )
@@ -117,14 +124,32 @@ export function validGenerationExecution(
       ids.has(stage.stageId)
     )
       return false;
-    const portrait = stage.kind === "portrait";
+    const portrait = stage.kind === "portrait",
+      continuity = stage.kind === "continuity-frame";
     if (
       !exact(
         stage,
-        portrait ? ["stageId", "kind", "targetId", "view"] : ["stageId", "kind", "targetId"],
+        continuity
+          ? ["stageId", "kind", "targetId", "sourceShotId"]
+          : portrait
+            ? ["stageId", "kind", "targetId", "view"]
+            : ["stageId", "kind", "targetId"],
       ) ||
-      !["portrait", "shot-frame", "location-reference"].includes(String(stage.kind)) ||
-      (portrait && !["正面", "侧面", "背面", "脸部"].includes(String(stage.view)))
+      !["portrait", "shot-frame", "location-reference", "continuity-frame"].includes(
+        String(stage.kind),
+      ) ||
+      (portrait && !["正面", "侧面", "背面", "脸部"].includes(String(stage.view))) ||
+      (continuity && (!locator(stage.sourceShotId) || stage.sourceShotId === stage.targetId))
+    )
+      return false;
+    if (
+      (stage.kind === "shot-frame" || continuity) &&
+      !value.targets.some(
+        (target: unknown) =>
+          record(target) &&
+          target.shotId === stage.targetId &&
+          target.preparation === "CLIENT_IMAGES",
+      )
     )
       return false;
     const key = JSON.stringify([stage.kind, stage.targetId, stage.view ?? null]);
@@ -186,17 +211,54 @@ export function createGenerationExecutionSession(
         return fail("GENERATION_EXECUTION_STALE");
       }
     },
+    preparation(shotId: string): "CLIENT_IMAGES" | "STORYFILM_CACHE" {
+      return (
+        alive().targets.find((t) => t.shotId === shotId)?.preparation ??
+        fail("GENERATION_EXECUTION_SLOT_UNAVAILABLE")
+      );
+    },
+    continuity(targetId: string, sourceShotId: string): FilmGenerationExtractionExecution {
+      try {
+        const plan = alive(),
+          matches = plan.stages.filter(
+            (s) =>
+              s.kind === "continuity-frame" &&
+              s.targetId === targetId &&
+              s.sourceShotId === sourceShotId,
+          );
+        if (matches.length !== 1) return fail("GENERATION_EXECUTION_STAGE_UNAVAILABLE");
+        return { executionId: plan.executionId, stageId: matches[0]!.stageId };
+      } catch (error) {
+        const code =
+          error && typeof error === "object" && "code" in error && typeof error.code === "string"
+            ? error.code
+            : "GENERATION_EXECUTION_STAGE_UNAVAILABLE";
+        throw protectedGenerationFailure(code);
+      }
+    },
     image(
       kind: FilmGenerationImageStage["kind"],
       targetId: string,
       view?: string,
     ): FilmGenerationStillExecution {
-      const plan = alive(),
-        matches = plan.stages.filter(
-          (s) => s.kind === kind && s.targetId === targetId && s.view === view,
-        );
-      if (matches.length !== 1) return fail("GENERATION_EXECUTION_STAGE_UNAVAILABLE");
-      return { executionId: plan.executionId, stageId: matches[0]!.stageId };
+      try {
+        const plan = alive(),
+          matches = plan.stages.filter(
+            (s) =>
+              s.kind !== "continuity-frame" &&
+              s.kind === kind &&
+              s.targetId === targetId &&
+              s.view === view,
+          );
+        if (matches.length !== 1) return fail("GENERATION_EXECUTION_STAGE_UNAVAILABLE");
+        return { executionId: plan.executionId, stageId: matches[0]!.stageId };
+      } catch (error) {
+        const code =
+          error && typeof error === "object" && "code" in error && typeof error.code === "string"
+            ? error.code
+            : "GENERATION_EXECUTION_STAGE_UNAVAILABLE";
+        throw protectedGenerationFailure(code);
+      }
     },
     video(shotId: string, index: number, takeId: string): FilmGenerationVideoExecution {
       const plan = alive(),
@@ -249,4 +311,8 @@ export async function prepareCurrentGenerationExecution(
   ]);
   if (!guard() || acceptedKey !== rawKey) return fail("GENERATION_EXECUTION_STALE");
   await session.prepare({ projectId: base.id, expectedProjectHash, ...scope }, guard);
+}
+
+export function protectedGenerationFailure(code: string) {
+  return new ProtectedGenerationFailure(code, generationExecutionNotice({ code }).text);
 }
