@@ -1,0 +1,21 @@
+{
+  "source": "50a6a3ea9299c0bf0f68dca45f62febad1adf054",
+  "run": "42417256290",
+  "job": "128537925528",
+  "platform": "ubuntu-latest",
+  "step": "Test",
+  "completedAt": "2026-11-07T21:59:30Z",
+  "failedFiles": 1,
+  "failedTests": 1,
+  "file": "apps/studio-web/src/aivora/pro/ProWorkspace.test.tsx",
+  "line": 1129,
+  "case": "refuses a draft the catalog does not list and a page without a project",
+  "assertion": "find /网页里不能直接出片/ after explicit generation",
+  "observedRootAttributes": {
+    "generate": "on",
+    "sample": "open",
+    "stage": "board"
+  },
+  "cause": "UNDER_INVESTIGATION; full DOM truncated before relevant button; no invented cause",
+  "status": "PRESERVED; minimal acceptance fix pending"
+}
