@@ -1,5 +1,8 @@
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
-import { compileCanonicalGenerationTarget } from "./film-generation-compiler";
+import {
+  compileCanonicalGenerationTarget,
+  compileQueuedCanonicalGenerationTarget,
+} from "./film-generation-compiler";
 import type { GenerationImageSources } from "./film-generation-sources";
 import {
   generationObject as object,
@@ -135,6 +138,7 @@ export async function restoreGenerationIntent(
   targetIds: readonly string[],
   sources: GenerationImageSources,
   facts: readonly unknown[],
+  queuedTarget?: { originalShot: Record<string, unknown>; firstNewTakeId: string },
 ): Promise<Record<string, unknown>> {
   const result = structuredClone(record),
     proofs = lineages(facts);
@@ -310,7 +314,17 @@ export async function restoreGenerationIntent(
   }
   // Exercise the actual complete producer before returning a supposedly restorable
   // intent. It remains authoritative for all creative fields and review guards.
-  for (const target of targetIds) compileCanonicalGenerationTarget(producer, result, target);
+  if (queuedTarget && !targetIds.includes(String(queuedTarget.originalShot.id))) return fail();
+  for (const target of targetIds) {
+    if (queuedTarget?.originalShot.id === target)
+      compileQueuedCanonicalGenerationTarget(
+        producer,
+        result,
+        queuedTarget.originalShot,
+        queuedTarget.firstNewTakeId,
+      );
+    else compileCanonicalGenerationTarget(producer, result, target);
+  }
   return result;
 }
 

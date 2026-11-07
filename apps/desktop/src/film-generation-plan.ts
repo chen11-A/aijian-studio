@@ -62,6 +62,9 @@ export type PlannedGenerationStage = {
 export type CanonicalGenerationPlan = {
   targets: PlannedGenerationTarget[];
   stages: PlannedGenerationStage[];
+  /** Identity-only prerequisite view, including proven automatic outputs restored
+   * to their original intent. Never an issued dispatch stage table. */
+  intentStages?: PlannedGenerationStage[];
 };
 const opaque = (prefix: string) => `${prefix}_${randomBytes(16).toString("hex")}`;
 
@@ -277,7 +280,17 @@ export function compileCanonicalGenerationPlan(
     });
   }
   if (stages.length > 1024 || places.length > 1024) return fail();
-  return { targets, stages };
+  const intentStages =
+    record === intentRecord
+      ? stages
+      : compileCanonicalGenerationPlan(
+          producer,
+          intentRecord,
+          intentRecord,
+          input,
+          pendingPipelineShots,
+        ).stages;
+  return { targets, stages, intentStages };
 }
 
 /** Expected current client image recipe, before the original sink's normalization.

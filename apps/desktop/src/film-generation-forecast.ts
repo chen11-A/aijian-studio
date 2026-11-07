@@ -76,14 +76,22 @@ export function forecastGenerationReferences(
   if (!view) return fail();
   const stages: ForecastStageInput[] = [];
   const plannedSources = new Map<string, ForecastImageCreator>();
+  const rememberStage = (stage: PlannedGenerationStage, creator: ForecastImageCreator) => {
+    const actual = plan.stages.filter(
+      (candidate) =>
+        candidate.public.kind === stage.public.kind &&
+        candidate.public.targetId === stage.public.targetId &&
+        (candidate.public.kind !== "portrait" ||
+          (stage.public.kind === "portrait" && candidate.public.view === stage.public.view)),
+    );
+    if (actual.length > 1) return fail();
+    if (actual[0]) stages.push({ stageId: actual[0].public.stageId, creator });
+  };
   const apply = (stage: PlannedGenerationStage, index: number) => {
     const descriptor = stage.public;
     if (descriptor.kind === "continuity-frame") return fail();
     if (descriptor.kind === "shot-frame") {
-      stages.push({
-        stageId: descriptor.stageId,
-        creator: shotFrame(producer, view!, descriptor.targetId),
-      });
+      rememberStage(stage, shotFrame(producer, view!, descriptor.targetId));
       return;
     }
     const marker = `https://aivora-planned.invalid/internal-${index}.png`;
@@ -120,9 +128,9 @@ export function forecastGenerationReferences(
       else person.portraits.push({ view: descriptor.view, url: marker });
     }
     plannedSources.set(marker, creator);
-    stages.push({ stageId: descriptor.stageId, creator });
+    rememberStage(stage, creator);
   };
-  for (const [index, stage] of plan.stages.entries()) apply(stage, index);
+  for (const [index, stage] of (plan.intentStages ?? plan.stages).entries()) apply(stage, index);
   const targets = plan.targets.map((target): ForecastGenerationTarget => ({
     key: target.key,
     body: compileCanonicalGenerationTarget(producer, view!, target.shotId),
