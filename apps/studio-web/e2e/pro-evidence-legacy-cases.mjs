@@ -73,6 +73,7 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
         const record = (id) => page.evaluate((id) => window.__proCreationAudit.record(id), id);
         const calls = () =>
           page.evaluate(() => ({
+            waveforms: window.__proEvidenceLegacyAudit.waveforms,
             prepares: window.__proEvidenceLegacyAudit.prepares,
             publishes: window.__proEvidenceLegacyAudit.publishes,
             results: window.__proEvidenceLegacyAudit.results,
@@ -468,8 +469,10 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
             await confirm.waitFor();
             assert.equal(await confirm.locator("tbody tr").count(), 2);
             const names = await confirm.locator("tbody tr td:first-child").allTextContents();
-            assert(names[0].includes("镜头 1"));
-            assert(names[1].includes("镜头 3"));
+            assert.deepEqual(
+              names,
+              [1, 3].map((no) => `第 ${before.scenes[0].no} 场第 ${no} 个镜头`),
+            );
             assert.equal(await confirm.locator("button.primary").count(), 1);
             await geometry("batch-scope-no-submit");
             await reachable(confirm.getByRole("button", { name: "先不生成", exact: true }));
@@ -496,6 +499,12 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
             const ruler = page.getByRole("slider", { name: "播放位置", exact: true });
             await ruler.focus();
             await page.keyboard.press("ArrowRight");
+            // The synthetic protocol has no decoder metadata. Deliver the real DOM event
+            // after the real seek effect registers, as in the existing B08 request spy.
+            await frame();
+            await video.evaluate((element) =>
+              element.dispatchEvent(new window.Event("loadedmetadata")),
+            );
             await page.waitForFunction(
               () =>
                 Math.abs(document.querySelector(".preview-player video.frame").currentTime - 1) <
@@ -515,6 +524,10 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
                 steps: 6,
               });
               await page.mouse.up();
+              await frame();
+              await video.evaluate((element) =>
+                element.dispatchEvent(new window.Event("loadedmetadata")),
+              );
               await frame();
             }
             await drag(0.2);
@@ -580,7 +593,19 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
             assert.equal(await page.locator(".scene .t").count(), 12);
             await search.fill("12");
             assert.equal(await page.locator(".scene .t").count(), 1);
-            await page.getByText(seed.person, { exact: true }).click();
+            const personRow = page.locator(".pb.scenes button.scene");
+            assert.equal(await personRow.count(), 1);
+            assert.equal(
+              await personRow.locator(".t").evaluate((element) =>
+                [...element.childNodes]
+                  .filter((node) => node.nodeType === 3)
+                  .map((node) => node.textContent)
+                  .join("")
+                  .trim(),
+              ),
+              seed.person,
+            );
+            await personRow.click();
             assert.equal(
               await page.getByLabel("人物名字", { exact: true }).inputValue(),
               seed.person,
@@ -611,6 +636,35 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
             await geometry("search-and-reference-only");
           }
           const final = await calls();
+          if (["legacy-timeline-range", "legacy-empty-fullscreen"].includes(state)) {
+            assert.equal(final.waveforms.length, 6);
+            const expected = await page.evaluate(
+              async ({ projectModuleUrl, projectId }) => {
+                const { audioSourceKey } = await import(
+                  new window.URL("../pro/actions/audio-waveforms.ts", projectModuleUrl).href
+                );
+                const film = window.__proCreationAudit.record(projectId);
+                return Promise.all(
+                  film.audioClips.map(async (clip) => ({
+                    projectId,
+                    clipId: clip.id,
+                    expectedSourceKey: await audioSourceKey(film, clip),
+                  })),
+                );
+              },
+              { projectModuleUrl, projectId: seed.projectId },
+            );
+            assert.deepEqual(
+              final.waveforms.map((call) => call.input),
+              expected,
+            );
+            assert(
+              final.waveforms.every(
+                (call) =>
+                  call.matched && ["TOOLS_UNAVAILABLE", "SOURCE_CHANGED"].includes(call.code),
+              ),
+            );
+          } else assert.deepEqual(final.waveforms, []);
           assertAssemblyRequests(final.assembly, expectedAssembly);
           assert.deepEqual(final.cancels, []);
           assert.deepEqual(final.forbidden, []);

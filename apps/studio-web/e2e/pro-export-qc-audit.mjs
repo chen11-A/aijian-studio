@@ -825,6 +825,8 @@ async function run(config, profile) {
                 "apps/studio-web/src/aivora/pro/PreviewFullscreen.tsx",
                 "apps/studio-web/src/aivora/pro/edit-timeline.ts",
                 "apps/studio-web/src/aivora/film/operations.ts",
+                "apps/studio-web/src/aivora/film/audio-waveform-data.ts",
+                "apps/studio-web/src/aivora/pro/actions/audio-waveforms.ts",
                 "apps/studio-web/e2e/pro-evidence-legacy-cases.mjs",
                 "apps/studio-web/e2e/pro-evidence-legacy-fixture.mjs",
               ]
