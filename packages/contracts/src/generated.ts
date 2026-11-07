@@ -1435,6 +1435,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/generation-failure-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["getGenerationFailurePolicy"];
+        /** Configure */
+        put: operations["configureGenerationFailurePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/invalidation-operations": {
         parameters: {
             query?: never;
@@ -3432,6 +3450,13 @@ export interface components {
             request_hash: string;
             /** Text */
             text: string;
+        };
+        /** ConfigureGenerationFailure */
+        ConfigureGenerationFailure: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Failure Limit */
+            failure_limit: number;
         };
         /** @enum {string} */
         ContextEntryKind: "ROLE_INVARIANTS" | "SKILL_INSTRUCTIONS" | "APPROVED_ARTIFACT" | "SOURCE_SPAN" | "TASK_OUTPUT_SCHEMA";
@@ -5622,6 +5647,24 @@ export interface components {
             outcome: string;
         };
         FixtureRef: string;
+        /** GenerationFailurePolicyData */
+        GenerationFailurePolicyData: {
+            /** Failure Limit */
+            failure_limit: number | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Scope
+             * @default GROK_VIDEO_SUBMIT_FAILURES
+             * @constant
+             */
+            scope: "GROK_VIDEO_SUBMIT_FAILURES";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "UNCONFIGURED" | "CONFIGURED";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -17843,6 +17886,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getGenerationFailurePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationFailurePolicyData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configureGenerationFailurePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigureGenerationFailure"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationFailurePolicyData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import pytest
 from aijian_api.draft_export_runtime import DraftExportRuntime
+from aijian_api.generation_failure_store import GenerationFailureStore
 from aijian_api.local_media_toolchain import LocalMediaToolchainService
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
@@ -47,6 +48,26 @@ def _project(tmp_path):
         source_language="zh-CN",
     )
     return repository, project.id
+
+
+def _configured_project(tmp_path):
+    """Existing live protocol fixtures opt in explicitly; this is not a product default."""
+    repository, project_id = _project(tmp_path)
+    GenerationFailureStore(repository).configure(
+        project_id,
+        expected_revision=0,
+        failure_limit=10,
+    )
+    return repository, project_id
+
+
+def _byte_image(label=""):
+    # Real immutable test bytes, not an unverifiable mutable HTTPS reference.
+    return "data:image/png;base64," + base64.b64encode(_PNG + label.encode()).decode()
+
+
+def _byte_references(references):
+    return tuple(_byte_image(f"reference-{index}") for index, _ in enumerate(references))
 
 
 def _request(provider="stub", **overrides) -> StoryFilmRequest:
@@ -88,7 +109,7 @@ def test_live_media_stays_disabled_without_an_explicit_allow(monkeypatch):
 
 
 def test_metered_and_chatgpt_stop_before_a_task_or_a_call(tmp_path):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
     metered = service.produce(project_id, _request("xai_api_key"))
     assert metered.status == "BLOCKED"
@@ -117,13 +138,15 @@ def test_metered_and_chatgpt_stop_before_a_task_or_a_call(tmp_path):
 
 
 def test_subscription_without_live_permission_does_not_call_or_store_a_token(tmp_path):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     secret = "grok-token-should-not-be-stored"
     service = StoryFilmService(repository, toolchain)
     missing = service.produce(project_id, _request("grok_subscription"))
     assert missing.status == "BLOCKED"
     assert "登录" in missing.message
-    result = service.produce(project_id, _request("grok_subscription"), media_token=secret)
+    result = service.produce(
+        project_id, _request("grok_subscription"), media_token=secret, dispatch_account="a" * 64
+    )
     assert result.status == "BLOCKED"
     assert result.live_call is False
     assert "本地占位" in (result.fix or "")
@@ -132,7 +155,7 @@ def test_subscription_without_live_permission_does_not_call_or_store_a_token(tmp
 
 
 def test_stub_pipeline_writes_a_playable_mp4_with_picture_and_sound(tmp_path):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
     result = service.produce(project_id, _request())
     assert result.status == "SUCCEEDED", result.message
@@ -208,7 +231,7 @@ def test_missing_font_saves_srt_and_still_makes_the_film(tmp_path, monkeypatch):
     monkeypatch.setattr("aijian_api.draft_subtitles._font_root", lambda: empty)
     monkeypatch.setattr("aijian_api.draft_subtitles._font_candidates", lambda: [empty])
     monkeypatch.setattr("aijian_api.draft_subtitles._system_cjk_font", lambda: None)
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     result = StoryFilmService(repository, toolchain).produce(project_id, _request())
     assert result.status == "SUCCEEDED", result.message
     assert "字幕没能压进视频，已单独保存为字幕文件" in (result.message or "")
@@ -223,7 +246,7 @@ def test_missing_font_saves_srt_and_still_makes_the_film(tmp_path, monkeypatch):
 
 def test_clean_copy_uses_its_own_export_runtime(tmp_path, monkeypatch):
     """The subtitled film's runtime must still accept work after the clean copy (4B-B09)."""
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
     shared = DraftExportRuntime(repository, toolchain, None)
     used: list[object] = []
@@ -260,7 +283,7 @@ def test_export_cues_take_the_wrapping_back_out_and_use_seconds():
 
 
 def test_story_film_route_explains_the_provider_before_any_call(tmp_path):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     app = create_app(
         repository=repository,
         local_media_toolchain=LocalMediaToolchainService(None, fallback=toolchain),
@@ -366,7 +389,7 @@ def _media_bytes(tmp_path):
 
 
 def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, monkeypatch):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     log_path = tmp_path / "grok-login.log"
     _allow_live(monkeypatch, log_path)
     clip, voice = _media_bytes(tmp_path)
@@ -388,7 +411,9 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
     service._sleep = lambda _seconds: None
-    result = service.produce(project_id, _request("grok_subscription"), media_token=token)
+    result = service.produce(
+        project_id, _request("grok_subscription"), media_token=token, dispatch_account="a" * 64
+    )
     assert result.status == "SUCCEEDED", result.message
     assert result.live_call is True
     assert result.has_video and result.has_audio
@@ -412,7 +437,7 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
 
 
 def test_subscription_keeps_the_image_and_voice_when_video_fails(tmp_path, monkeypatch):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     _allow_live(monkeypatch, tmp_path / "grok-login.log")
     _clip, voice = _media_bytes(tmp_path)
     transport = _ScriptedTransport(
@@ -425,7 +450,12 @@ def test_subscription_keeps_the_image_and_voice_when_video_fails(tmp_path, monke
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
     service._sleep = lambda _seconds: None
-    result = service.produce(project_id, _request("grok_subscription"), media_token="token-value")
+    result = service.produce(
+        project_id,
+        _request("grok_subscription"),
+        media_token="token-value",
+        dispatch_account="a" * 64,
+    )
     assert result.status == "SUCCEEDED", result.message
     assert "画面" in result.message or "视频没有生成成功" in result.message
     assert result.suggested_provider is None
@@ -750,7 +780,7 @@ def test_quiet_narration_is_lifted_and_not_cut_off(tmp_path):
 def test_two_shots_hold_a_character_still_and_join(tmp_path):
     from aijian_api.story_film import StoryShot
 
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
     shots = (
         StoryShot("林夏把阿凯推进巷口。", "雨夜巷口，全景，低机位。", 5, "林夏把阿凯推进巷口"),
@@ -784,7 +814,7 @@ def test_style_block_and_loudness_numbers_stay_plain() -> None:
 def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monkeypatch):
     from aijian_api.story_film import StoryShot
 
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     _allow_live(monkeypatch, tmp_path / "grok-login.log")
     clip, voice = _media_bytes(tmp_path)
     done = {"status": "done", "video": {"url": "https://vidgen.x.ai/live.mp4"}}
@@ -812,6 +842,7 @@ def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monke
         project_id,
         _request(narration="雨夜巷战", subtitle=None, shots=shots, provider="grok_subscription"),
         media_token="grok-subscription-token",
+        dispatch_account="a" * 64,
     )
     assert result.status == "SUCCEEDED", result.message
     bodies = []
@@ -965,7 +996,7 @@ def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkey
     )
     with pytest.raises(StoryFilmError, match="没有读到可以合成的画面"):
         _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, voice, voice)
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
     request = _request()
     assert service._saved_bundle(project_id, request) is None
@@ -1193,7 +1224,7 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
     assert reference_image_url(media(portrait)) == "data:image/png;base64," + base64.b64encode(
         portrait.read_bytes()
     ).decode("ascii")
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     _allow_live(monkeypatch, tmp_path / "grok-login.log")
     clip, voice = _media_bytes(tmp_path)
     transport = _ScriptedTransport(
@@ -1229,6 +1260,7 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
             provider="grok_subscription",
         ),
         media_token="grok-subscription-token",
+        dispatch_account="a" * 64,
     )
     assert result.status == "SUCCEEDED", result.message
     video = next(
@@ -1248,7 +1280,7 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
 
 def test_clean_copy_reports_why_the_export_did_not_finish(tmp_path, monkeypatch):
     """4B-B11: a failed clean copy says why, so the take is not mistaken for an older one."""
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
 
     def failed(_project, _episode, _content, _output, _runtime):
@@ -1269,7 +1301,7 @@ def test_clean_copy_reports_why_the_export_did_not_finish(tmp_path, monkeypatch)
 
 
 def test_film_is_kept_and_says_why_its_clean_copy_is_missing(tmp_path, monkeypatch):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
     monkeypatch.setattr(
         service,
@@ -1289,7 +1321,7 @@ def test_film_is_kept_and_says_why_its_clean_copy_is_missing(tmp_path, monkeypat
 
 
 def test_film_with_a_clean_copy_reports_no_clean_copy_error(tmp_path):
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     result = StoryFilmService(repository, toolchain).produce(project_id, _request())
     assert result.status == "SUCCEEDED", result.message
     assert result.clean_output_path
@@ -1298,7 +1330,7 @@ def test_film_with_a_clean_copy_reports_no_clean_copy_error(tmp_path):
 
 def _film_without_clean_copy(tmp_path, monkeypatch):
     """A film made with burned subtitles and no clean copy, like one from before 4B-B09."""
-    repository, project_id = _project(tmp_path)
+    repository, project_id = _configured_project(tmp_path)
     service = StoryFilmService(repository, toolchain)
     with monkeypatch.context() as patched:
         patched.setattr(service, "_export_clean_copy", lambda *_args: (None, "MEDIA_ENCODE_FAILED"))

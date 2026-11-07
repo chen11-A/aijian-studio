@@ -23,7 +23,17 @@ from aijian_api.story_film_routes import StoryDialogueBody
 from aijian_api.xai_media import XaiHttpResponse
 from pydantic import ValidationError
 from test_draft_export_runtime import toolchain
-from test_story_film import _allow_live, _media_bytes, _project, _request, _ScriptedTransport
+from test_story_film import (
+    _allow_live,
+    _byte_image,
+    _byte_references,
+    _media_bytes,
+    _request,
+    _ScriptedTransport,
+)
+from test_story_film import (
+    _configured_project as _project,
+)
 
 
 def wav(value, rate=16000):
@@ -168,6 +178,7 @@ def test_member_two_voices_export_full_audio_beyond_requested_duration(
         ]
     )
     service = StoryFilmService(repository, toolchain, transport=transport)
+    service._dispatch_account = "a" * 64
     service._sleep = lambda _: None
     lines = (
         StoryDialogue("甲", "第一句。第二句。", "rex"),
@@ -178,14 +189,15 @@ def test_member_two_voices_export_full_audio_beyond_requested_duration(
         "书店",
         planned,
         "第一句。第二句。最后一句。",
-        still="https://example.invalid/start.png",
+        still=_byte_image("start"),
         lines=lines,
-        references=references,
+        references=_byte_references(references),
     )
     result = service.produce(
         project,
         _request(provider="grok_subscription", video_model=model, shots=(shot,)),
         media_token="synthetic",
+        dispatch_account="a" * 64,
     )
     assert result.status == "SUCCEEDED", result.message
     assert result.voice_path and result.output_path
@@ -237,14 +249,15 @@ def test_dialogue_over_video_cap_fails_before_video_submission(
         "书店",
         2,
         lines[0].text,
-        still="https://example.invalid/start.png",
+        still=_byte_image("start"),
         lines=lines,
-        references=references,
+        references=_byte_references(references),
     )
     result = service.produce(
         project,
         _request(provider="grok_subscription", video_model=model, shots=(shot,)),
         media_token="synthetic",
+        dispatch_account="a" * 64,
     )
     assert result.status == "FAILED"
     assert result.user_message["code"] == "DIALOGUE_VIDEO_LIMIT"
@@ -263,6 +276,7 @@ def test_dialogue_over_video_cap_fails_before_video_submission(
         project,
         _request(provider="grok_subscription", video_model=model, shots=(shot,), regenerate=True),
         media_token="synthetic",
+        dispatch_account="a" * 64,
     )
     assert retry.user_message["code"] == "DIALOGUE_VIDEO_LIMIT"
     assert len(transport.requests) == 1
