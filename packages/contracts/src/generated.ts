@@ -5869,6 +5869,43 @@ export interface components {
             outcome: string;
         };
         FixtureRef: string;
+        /** ForecastByteIdentity */
+        ForecastByteIdentity: {
+            /**
+             * Mime
+             * @enum {string}
+             */
+            mime: "image/png" | "image/jpeg" | "image/webp";
+            /** Sha256 */
+            sha256: string;
+        };
+        /** ForecastCreator */
+        ForecastCreator: {
+            /**
+             * Aspectratio
+             * @enum {string}
+             */
+            aspectRatio: "9:16" | "16:9";
+            /**
+             * Model
+             * @constant
+             */
+            model: "grok-imagine-image-2.0";
+            /** Prompt */
+            prompt: string;
+            /** References */
+            references: (components["schemas"]["ForecastByteIdentity"] | components["schemas"]["ForecastPlannedIdentity"])[];
+        };
+        /** ForecastPlannedIdentity */
+        ForecastPlannedIdentity: {
+            plannedImage: components["schemas"]["ForecastCreator"];
+        };
+        /** ForecastSource */
+        ForecastSource: {
+            identity: components["schemas"]["ForecastPlannedIdentity"];
+            /** Source */
+            source: string;
+        };
         /** GenerationFailurePolicyData */
         GenerationFailurePolicyData: {
             /** Failure Limit */
@@ -7451,6 +7488,13 @@ export interface components {
             /** References */
             references: string[];
         };
+        /** PreparedForecast */
+        PreparedForecast: {
+            body: components["schemas"]["CreateStoryFilmBody"];
+            client_frame?: components["schemas"]["PreparedClientFrame"] | null;
+            /** Sources */
+            sources: components["schemas"]["ForecastSource"][];
+        };
         /** PreparedImageDispatch */
         PreparedImageDispatch: {
             /** Body Sha256 */
@@ -7515,6 +7559,7 @@ export interface components {
              * @default false
              */
             first_regenerate: boolean;
+            forecast?: components["schemas"]["PreparedForecast"] | null;
             /** Key */
             key: string;
             /** Sources */

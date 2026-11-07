@@ -9982,6 +9982,110 @@
         "minLength": 1,
         "type": "string"
       },
+      "ForecastByteIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "mime": {
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ],
+            "title": "Mime",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "mime"
+        ],
+        "title": "ForecastByteIdentity",
+        "type": "object"
+      },
+      "ForecastCreator": {
+        "additionalProperties": false,
+        "properties": {
+          "aspectRatio": {
+            "enum": [
+              "9:16",
+              "16:9"
+            ],
+            "title": "Aspectratio",
+            "type": "string"
+          },
+          "model": {
+            "const": "grok-imagine-image-2.0",
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ForecastByteIdentity"
+                },
+                {
+                  "$ref": "#/components/schemas/ForecastPlannedIdentity"
+                }
+              ]
+            },
+            "maxItems": 13,
+            "title": "References",
+            "type": "array"
+          }
+        },
+        "required": [
+          "model",
+          "prompt",
+          "aspectRatio",
+          "references"
+        ],
+        "title": "ForecastCreator",
+        "type": "object"
+      },
+      "ForecastPlannedIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "plannedImage": {
+            "$ref": "#/components/schemas/ForecastCreator"
+          }
+        },
+        "required": [
+          "plannedImage"
+        ],
+        "title": "ForecastPlannedIdentity",
+        "type": "object"
+      },
+      "ForecastSource": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/ForecastPlannedIdentity"
+          },
+          "source": {
+            "pattern": "^https://aivora-planned\\.invalid/internal-[0-9]{1,4}\\.png$",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "identity"
+        ],
+        "title": "ForecastSource",
+        "type": "object"
+      },
       "GenerationFailurePolicyData": {
         "properties": {
           "failure_limit": {
@@ -14541,6 +14645,39 @@
         "title": "PreparedClientFrame",
         "type": "object"
       },
+      "PreparedForecast": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CreateStoryFilmBody"
+          },
+          "client_frame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreparedClientFrame"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastSource"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "body",
+          "sources"
+        ],
+        "title": "PreparedForecast",
+        "type": "object"
+      },
       "PreparedImageDispatch": {
         "additionalProperties": false,
         "properties": {
@@ -14750,6 +14887,16 @@
             "default": false,
             "title": "First Regenerate",
             "type": "boolean"
+          },
+          "forecast": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreparedForecast"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "key": {
             "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
