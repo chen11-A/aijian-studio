@@ -60,6 +60,14 @@ async function open() {
     rejectNative: ((error: Error) => void) | undefined,
     nativeWrites = 0;
   let onRelease: (() => void) | undefined;
+  let otherInitialSave:
+    | {
+        admitted: ReturnType<typeof deferred<void>>;
+        released: ReturnType<typeof deferred<void>>;
+        completed: ReturnType<typeof deferred<FilmProject>>;
+        started: boolean;
+      }
+    | undefined;
   vi.spyOn(editor, "createEditorHost").mockImplementation((options) => {
     host = options;
     return originalHost(options);
@@ -69,7 +77,18 @@ async function open() {
     persistence = p;
     return {
       ...p,
-      save: (...args: Parameters<typeof p.save>) => track(p.save(...args)),
+      save: (...args: Parameters<typeof p.save>) => {
+        const pending = track(p.save(...args)),
+          gate = otherInitialSave;
+        if (gate && args[0].id === other.id)
+          void pending.then(
+            (stored) => {
+              if (stored) gate.completed.resolve(stored);
+            },
+            (error) => gate.completed.reject(error),
+          );
+        return pending;
+      },
       flushAll: () => track(p.flushAll()),
       acquire: async (id) => {
         const lease = await track(p.acquire(id));
@@ -95,6 +114,12 @@ async function open() {
     | { admitted: ReturnType<typeof deferred<void>>; released: ReturnType<typeof deferred<void>> }
     | undefined;
   const write = vi.fn(async (value: FilmProject) => {
+    if (otherInitialSave && value.id === other.id && !otherInitialSave.started) {
+      const gate = otherInitialSave;
+      gate.started = true;
+      gate.admitted.resolve();
+      await gate.released.promise;
+    }
     if (heldWrite) {
       const held = heldWrite;
       heldWrite = undefined;
@@ -241,6 +266,16 @@ async function open() {
     },
     failWrites: () => {
       failWrites = true;
+    },
+    holdOtherInitialSave: () => {
+      const gate = {
+        admitted: deferred<void>(),
+        released: deferred<void>(),
+        completed: deferred<FilmProject>(),
+        started: false,
+      };
+      otherInitialSave = gate;
+      return gate;
     },
     holdNextWrite: () => {
       const held = { admitted: deferred<void>(), released: deferred<void>() };
@@ -427,11 +462,22 @@ it("late safe foreign rebase saves only the original draft and never adopts or w
   await act(async () => {
     f.adopt({ ...f.current(), title: "原工程保留新稿" });
   });
+  const otherSave = f.holdOtherInitialSave();
   fireEvent.click(screen.getByRole("button", { name: "作品" }));
   fireEvent.click(await screen.findByRole("button", { name: "配声另一集" }));
   await waitFor(() => expect(f.current().id).toBe(f.other.id));
+  // Opening a work normalizes continuity before its normal initial save.
+  // Capture the complete readback baseline only after that real queue/write settles.
+  await otherSave.admitted.promise;
+  await act(async () => {
+    otherSave.released.resolve();
+    await otherSave.completed.promise;
+  });
   const other = structuredClone(f.current()),
-    otherRaw = structuredClone(f.disk.get(f.other.id));
+    otherRaw = structuredClone(f.disk.get(f.other.id)),
+    otherWrites = f.write.mock.calls.filter(([value]) => value.id === f.other.id).length;
+  expect(document.querySelector(".topbar .ep")).toHaveTextContent(f.other.episodeTitle);
+  expect(otherRaw).toEqual(other);
   await act(async () => {
     await f.finish();
   });
@@ -443,6 +489,7 @@ it("late safe foreign rebase saves only the original draft and never adopts or w
   );
   expect(f.current()).toEqual(other);
   expect(f.disk.get(f.other.id)).toEqual(otherRaw);
+  expect(f.write.mock.calls.filter(([value]) => value.id === f.other.id)).toHaveLength(otherWrites);
   expect(f.disk.get(f.film.id)!.title).toBe("原工程保留新稿");
   expect(f.disk.get(f.film.id)!.audioClips).toHaveLength(f.film.audioClips.length + 2);
   expect(f.apply).toHaveBeenCalledOnce();
