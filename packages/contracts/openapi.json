@@ -23124,6 +23124,46 @@
         "title": "StoryBibleVersionSummaryData",
         "type": "object"
       },
+      "StoryCreationFailurePolicyData": {
+        "properties": {
+          "failure_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Limit"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scope": {
+            "const": "GROK_STORY_CREATION_FAILURES",
+            "default": "GROK_STORY_CREATION_FAILURES",
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "UNCONFIGURED",
+              "CONFIGURED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "revision",
+          "failure_limit"
+        ],
+        "title": "StoryCreationFailurePolicyData",
+        "type": "object"
+      },
       "StoryDialogueBody": {
         "additionalProperties": false,
         "properties": {
@@ -39859,6 +39899,94 @@
           }
         },
         "summary": "Get Story Bible Version"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-creation-failure-policy": {
+      "get": {
+        "operationId": "getStoryCreationFailurePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryCreationFailurePolicyData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Creation"
+      },
+      "put": {
+        "operationId": "configureStoryCreationFailurePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureGenerationFailure"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryCreationFailurePolicyData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configure Creation"
       }
     },
     "/api/v1/projects/{project_id}/story-film": {

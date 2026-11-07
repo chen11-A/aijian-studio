@@ -46,7 +46,11 @@ from aijian_api.episode_media_assembly_contracts import (
     EpisodeMediaAssemblyVersionData,
 )
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
-from aijian_api.generation_dispatch_identity import video_input_identity
+from aijian_api.generation_dispatch_identity import (
+    story_creation_input_identity,
+    story_reference_identity,
+    video_input_identity,
+)
 from aijian_api.generation_failure_store import (
     FailureReservation,
     GenerationFailureError,
@@ -80,6 +84,7 @@ from aijian_api.xai_media import (
     XaiMediaError,
     XaiTransport,
     _image_reference,
+    image_prompt,
     valid_image_reference,
 )
 
@@ -391,6 +396,16 @@ class StoryFilmService:
         self._toolchain_provider = toolchain_provider
         self._transport = transport
         self._failure_store = GenerationFailureStore(repository)
+        self._creation_store = GenerationFailureStore(repository, scope="story_creation")
+        self._creation_reservation: FailureReservation | None = None
+        self._creation_request: StoryFilmRequest | None = None
+        self._creation_single_still = ""
+        self._creation_single_references: tuple[str, ...] = ()
+        self._creation_input: str | None = None
+        self._creation_verified: set[int | None] = set()
+        self._creation_videos: set[int | None] = set()
+        self._creation_sent = False
+        self._creation_video_expected: tuple[int | None, dict[str, str], int] | None = None
         self._dispatch_account: str | None = None
         self._video_reservation: FailureReservation | None = None
         self._video_recovery_lock: VideoRecoveryLock | None = None
@@ -409,6 +424,7 @@ class StoryFilmService:
         dispatch_account: str | None = None,
     ) -> StoryFilmResult:
         self._dispatch_account = dispatch_account
+        self._begin_creation(request)
         self._partial_note = None
         self._reuse_note = None
         self._shot_captions = None
@@ -509,6 +525,7 @@ class StoryFilmService:
                 max_seconds=chosen,
             )
         except Exception as error:
+            self._settle_creation_unknown(project_id)
             try:
                 self._ledger.fail_local_task(running, error_code="STORY_FILM_FAILED")
             except Exception:
@@ -569,6 +586,25 @@ class StoryFilmService:
                     ),
                 )
             if isinstance(error, StoryFilmError) and error.code in {
+                "CREATION_UNCONFIGURED",
+                "CREATION_INPUT_UNVERIFIABLE",
+                "CREATION_INPUT_FAILURE_LIMIT",
+                "CREATION_ATTEMPT_ALREADY_RESERVED",
+            }:
+                texts = {
+                    "CREATION_UNCONFIGURED": "请先设置创作链失败上限，再新增生成。",
+                    "CREATION_INPUT_UNVERIFIABLE": "这一步的创作输入无法核验，未提交本次请求。",
+                    "CREATION_INPUT_FAILURE_LIMIT": (
+                        "同一创作链失败或未决已达上限，未提交这一步。"
+                    ),
+                    "CREATION_ATTEMPT_ALREADY_RESERVED": "这次创作链已有提交记录，请先核对原任务。",
+                }
+                return replace(
+                    failed,
+                    message=texts[error.code],
+                    user_message=user_message(error.code, texts[error.code]),
+                )
+            if isinstance(error, StoryFilmError) and error.code in {
                 "DIALOGUE_VIDEO_LIMIT",
                 "VIDEO_TOO_SHORT",
                 "DIALOGUE_VIDEO_REQUIRED",
@@ -593,6 +629,7 @@ class StoryFilmService:
                     dialogue_limit=error.dialogue_limit,
                 )
             return failed
+        self._settle_creation_unknown(project_id)
         self._ledger.complete_local_task(
             running, output_version_id=result.artifact_version_id or ""
         )
@@ -1137,6 +1174,9 @@ class StoryFilmService:
                 image_saved=True,
                 preview_image=preview,
             )
+            if self._verified_video_bytes(saved_clip):
+                self._creation_verified.add(request.shot_index)
+                self._settle_creation_success(project_id)
             return image_bytes, saved_clip, saved_speech
         self._check_video_failure_policy(project_id)
         if prepared_image is not None and not prepared_image.data:
@@ -1150,6 +1190,7 @@ class StoryFilmService:
             raise StoryFilmError(
                 "INPUT_UNVERIFIABLE", "参考图片的实际内容无法核验，尚未发起新的生成。"
             )
+        self._check_creation_policy(project_id)
         if self._transport is None:
             from aijian_api.xai_media_transport import urllib_xai_transport
 
@@ -1182,7 +1223,14 @@ class StoryFilmService:
                 self._video_recovery_lock = None
                 raise
 
-        client = XaiMediaClient(transport, token=media_token, before_video_submit=before_submit)
+        client = XaiMediaClient(
+            transport,
+            token=media_token,
+            before_video_submit=before_submit,
+            before_generation_submit=lambda http, event: self._before_creation_submit(
+                project_id, request, http, event
+            ),
+        )
         self._partial_note = None
         self._ensure_running(project_id)
         saved = None if request.regenerate else self._find_saved_image(project_id, request)
@@ -1314,6 +1362,9 @@ class StoryFilmService:
             mark_film_progress(project_id, "assemble", "正在合成。", image_saved=True)
         picture = image.data or _FALLBACK_PNG
         if real_clip:
+            if request.shot_index in self._creation_videos and self._verified_speech_bytes(speech):
+                self._creation_verified.add(request.shot_index)
+                self._settle_creation_success(project_id)
             self._store_part(project_id, request, clip, "-clip.mp4")
             self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
         return picture, clip, speech
@@ -1502,6 +1553,309 @@ class StoryFilmService:
         path.write_bytes(image)
         return path
 
+    def _begin_creation(
+        self,
+        request: StoryFilmRequest,
+        *,
+        single_still: str = "",
+        single_references: tuple[str, ...] = (),
+    ) -> None:
+        """Initialize the original trusted producer recipe, not an authorization.
+
+        The HTTP production entry always supplies its full StoryFilm request.
+        Internal direct single-media callers can declare the same prepared source
+        arguments that are supplied to _live_media; all real budget/send gates run.
+        """
+        self._creation_request = request
+        self._creation_single_still = single_still
+        self._creation_single_references = single_references
+        self._creation_input = None
+        self._creation_reservation = None
+        self._creation_verified = set()
+        self._creation_videos = set()
+        self._creation_sent = False
+        self._creation_video_expected = None
+
+    def _creation_targets(self) -> list[dict[str, object]]:
+        request = self._creation_request
+        if request is None:
+            raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "原始创作输入无法核验。")
+        targets = []
+        if request.shots:
+            for shot in request.shots:
+                still = keyframe_prompt(
+                    shot.prompt,
+                    style_zh=request.style_block,
+                    identity=shot.identity,
+                    size=shot.size,
+                    angle=shot.angle,
+                    move=shot.move,
+                    action=shot.action,
+                    performance=shot.performance,
+                )
+                child = replace(
+                    request,
+                    shots=(),
+                    scene_label=shot.prompt or request.scene_label,
+                    visual_prompt=still,
+                    narration=shot.narration,
+                    move=shot.move,
+                    voice_id=shot.voice_id or request.voice_id,
+                    delivery=shot.delivery,
+                    dialogue_lines=shot.lines,
+                )
+                targets.append(
+                    self._creation_target(
+                        child,
+                        max(1, min(int(shot.duration_seconds), 15)),
+                        shot.still,
+                        tuple(_shot_references(shot)),
+                    )
+                )
+        else:
+            targets.append(
+                self._creation_target(
+                    request,
+                    2,
+                    self._creation_single_still,
+                    self._creation_single_references,
+                )
+            )
+        return targets
+
+    @staticmethod
+    def _creation_target(
+        request: StoryFilmRequest, duration: int, still: str, references: tuple[str, ...]
+    ) -> dict[str, object]:
+        references = tuple(dict.fromkeys(references))
+        prepared = prepared_reference_image(still) if still else None
+        lines = tuple(line for line in request.dialogue_lines if line.text.strip())
+        speech = []
+        if lines:
+            multiple = len({line.speaker for line in lines}) > 1
+            for line in lines:
+                text, speed = directed_speech(line.text, request.delivery)
+                speech.append(
+                    {
+                        "text": text,
+                        "speed": speed,
+                        "voice": line.voice_id or ("" if multiple else request.voice_id),
+                    }
+                )
+        elif _spoken_line(request.narration):
+            text, speed = directed_speech(_spoken_line(request.narration), request.delivery)
+            speech.append({"text": text, "speed": speed, "voice": request.voice_id or "eve"})
+        return {
+            "image_prompt": (
+                _styled(request.visual_prompt or request.scene_label, request.style_block)
+                if prepared is None
+                else None
+            ),
+            "image_model": (request.image_model or IMAGE_MODEL) if prepared is None else None,
+            "prepared_image": (
+                story_reference_identity(_image_reference(prepared)["url"])
+                if prepared is not None
+                else None
+            ),
+            "image_references": (
+                [story_reference_identity(ref) for ref in references[:5]]
+                if prepared is None
+                else []
+            ),
+            "video_prompt": _styled(
+                video_prompt(
+                    request.visual_prompt or request.scene_label,
+                    move=request.move or "固定",
+                    line=_spoken_line(request.narration),
+                ),
+                request.style_block,
+            ),
+            "video_model": request.video_model or VIDEO_MODEL,
+            "video_references": [
+                story_reference_identity(ref)
+                for ref in references_for_model(request.video_model or VIDEO_MODEL, references)
+            ],
+            "requested_seconds": min(duration, _video_cap(request.video_model, references)),
+            "cap": _video_cap(request.video_model, references),
+            "resolution": "720p" if references else None,
+            "aspect_ratio": request.aspect_ratio or "9:16",
+            "speech": speech,
+            "speech_window": "head-0.4-tail-0.6" if _uses_speech_window(request) else None,
+        }
+
+    def _check_creation_policy(self, project_id: str) -> None:
+        policy = self._creation_store.policy(project_id)
+        if policy is None:
+            raise StoryFilmError("CREATION_UNCONFIGURED", "请先设置创作链失败上限。")
+        if policy.failure_limit == 0:
+            raise StoryFilmError("CREATION_INPUT_FAILURE_LIMIT", "创作链失败上限为零。")
+        try:
+            identity = story_creation_input_identity(
+                self._dispatch_account or "", self._creation_targets()
+            )
+        except (ValueError, UnicodeError) as error:
+            raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "原始创作输入无法核验。") from error
+        if self._creation_input is not None and self._creation_input != identity:
+            raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "原始创作输入已变化。")
+        self._creation_input = identity
+
+    def _before_creation_submit(
+        self, project_id: str, request: StoryFilmRequest, http: XaiHttpRequest, event: str
+    ) -> None:
+        # Runs after local/child-budget checks, immediately before transport.send.
+        try:
+            self._check_creation_policy(project_id)
+            self._check_creation_body(request, http, event)
+            if self._creation_reservation is None:
+                self._creation_reservation = self._creation_store.reserve(
+                    project_id,
+                    input_sha256=self._creation_input or "",
+                    attempt_key=request.idempotency_key,
+                )
+            self._ensure_running(project_id)
+        except (GenerationFailureError, StoryFilmError) as error:
+            if not self._creation_sent and self._creation_reservation is not None:
+                self._creation_store.discard_before_transport(
+                    project_id, self._creation_reservation
+                )
+                self._creation_reservation = None
+            # The old video callback reserved before this synchronous parent gate.
+            # No child HTTP has entered transport when this callback rejects.
+            if event == "video_submit" and self._video_reservation is not None:
+                self._failure_store.discard_before_transport(project_id, self._video_reservation)
+                self._video_reservation = None
+                if self._video_recovery_lock is not None:
+                    self._video_recovery_lock.close()
+                    self._video_recovery_lock = None
+            if isinstance(error, GenerationFailureError):
+                raise StoryFilmError(f"CREATION_{error}", "创作链失败保护未通过。") from error
+            raise
+        self._creation_sent = True
+
+    def _check_creation_body(
+        self, request: StoryFilmRequest, http: XaiHttpRequest, event: str
+    ) -> None:
+        """Verify the actual outgoing body against the original effective recipe.
+
+        Only auto-produced first-frame bytes and speech-adaptive video seconds
+        differ from the parent recipe; both remain bound by the video child ledger.
+        """
+        try:
+            body = json.loads(http.body or b"")
+            target = self._creation_targets()[(request.shot_index or 1) - 1]
+            if not isinstance(body, dict) or http.method != "POST":
+                raise ValueError("INPUT_UNVERIFIABLE")
+            aspect = target["aspect_ratio"]
+            if event == "image":
+                if target["prepared_image"] is not None:
+                    raise ValueError("INPUT_UNVERIFIABLE")
+                wanted: dict[str, object] = {
+                    "model": target["image_model"],
+                    "prompt": image_prompt(str(target["image_prompt"])),
+                    "n": 1,
+                    "response_format": "url",
+                    "quality": "medium",
+                }
+                if aspect in {"9:16", "16:9", "1:1"}:
+                    wanted["aspect_ratio"] = aspect
+                images = body.pop("images", [])
+                if not isinstance(images, list) or any(
+                    not isinstance(row, dict)
+                    or set(row) != {"type", "url"}
+                    or row["type"] != "image_url"
+                    for row in images
+                ):
+                    raise ValueError("INPUT_UNVERIFIABLE")
+                if [story_reference_identity(row["url"]) for row in images] != target[
+                    "image_references"
+                ]:
+                    raise ValueError("INPUT_UNVERIFIABLE")
+                if body != wanted:
+                    raise ValueError("INPUT_UNVERIFIABLE")
+            elif event == "tts":
+                options = target["speech"]
+                assert isinstance(options, list)
+                allowed = []
+                for option in options:
+                    wanted = {
+                        "text": option["text"],
+                        "voice_id": option["voice"],
+                        "language": "zh",
+                        "output_format": {"codec": "mp3", "sample_rate": 24000, "bit_rate": 128000},
+                    }
+                    if option["speed"] != 1:
+                        wanted["speed"] = option["speed"]
+                    allowed.append(wanted)
+                if body not in allowed:
+                    raise ValueError("INPUT_UNVERIFIABLE")
+            elif event == "video_submit":
+                # Also proves all outgoing image references are actual immutable bytes.
+                video_input_identity(self._dispatch_account or "", http.body or b"")
+                image = body.pop("image", None)
+                expected = self._creation_video_expected
+                if (
+                    expected is None
+                    or expected[0] != request.shot_index
+                    or not isinstance(image, dict)
+                    or story_reference_identity(image.get("url", "")) != expected[1]
+                ):
+                    raise ValueError("INPUT_UNVERIFIABLE")
+                if target["prepared_image"] is not None and (
+                    not isinstance(image, dict)
+                    or story_reference_identity(image.get("url", "")) != target["prepared_image"]
+                ):
+                    raise ValueError("INPUT_UNVERIFIABLE")
+                seconds = body.pop("duration", None)
+                if (
+                    type(seconds) is not int
+                    or seconds != expected[2]
+                    or not 1 <= seconds <= int(str(target["cap"]))
+                ):
+                    raise ValueError("INPUT_UNVERIFIABLE")
+                refs = body.pop("reference_images", [])
+                if (
+                    not isinstance(refs, list)
+                    or [story_reference_identity(row["url"]) for row in refs]
+                    != target["video_references"]
+                ):
+                    raise ValueError("INPUT_UNVERIFIABLE")
+                wanted = {
+                    "model": target["video_model"],
+                    "prompt": target["video_prompt"],
+                    "generate_audio": False,
+                }
+                if aspect in {"9:16", "16:9", "1:1"}:
+                    wanted["aspect_ratio"] = aspect
+                if target["resolution"]:
+                    wanted["resolution"] = target["resolution"]
+                if body != wanted:
+                    raise ValueError("INPUT_UNVERIFIABLE")
+            else:
+                raise ValueError("INPUT_UNVERIFIABLE")
+        except (ValueError, KeyError, TypeError, IndexError) as error:
+            raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "实际生成输入无法核验。") from error
+
+    def _settle_creation_success(self, project_id: str) -> None:
+        root = self._creation_request
+        expected = set(range(1, len(root.shots) + 1)) if root and root.shots else {None}
+        if self._creation_reservation is not None and self._creation_verified == expected:
+            self._creation_store.settle(project_id, self._creation_reservation, "SUCCEEDED")
+            self._creation_reservation = None
+
+    def _settle_creation_unknown(self, project_id: str) -> None:
+        if self._creation_reservation is not None:
+            self._creation_store.settle(project_id, self._creation_reservation, "UNKNOWN")
+            self._creation_reservation = None
+
+    def _verified_speech_bytes(self, data: bytes) -> bool:
+        try:
+            with tempfile.TemporaryDirectory(prefix="aivora-creation-audio-") as temporary:
+                source = Path(temporary) / f"voice{_audio_suffix(data)}"
+                source.write_bytes(data)
+                return _media_duration(self._tools().ffprobe_path, source) > 0
+        except (OSError, StoryFilmError, ValueError):
+            return False
+
     def _check_video_failure_policy(self, project_id: str) -> None:
         policy = self._failure_store.policy(project_id)
         if policy is None:
@@ -1596,6 +1950,21 @@ class StoryFilmService:
     ) -> tuple[bytes | None, str | None]:
         if not isinstance(image, XaiImage):
             raise StoryFilmError("IMAGE_RESPONSE_INVALID", "画面没有保存下来。")
+        video_image = replace(image, source_url=None) if image.data else image
+        video_seconds = max(
+            1,
+            min(
+                duration,
+                10
+                if (request.video_model or VIDEO_MODEL) == "grok-imagine-video" and reference_images
+                else 15,
+            ),
+        )
+        self._creation_video_expected = (
+            request.shot_index,
+            story_reference_identity(_image_reference(video_image)["url"]),
+            video_seconds,
+        )
         try:
             submitted = client.submit_video(
                 prompt=_styled(
@@ -1606,18 +1975,9 @@ class StoryFilmService:
                     ),
                     request.style_block,
                 ),
-                image=replace(image, source_url=None) if image.data else image,
+                image=video_image,
                 model=request.video_model or VIDEO_MODEL,
-                duration=max(
-                    1,
-                    min(
-                        duration,
-                        10
-                        if (request.video_model or VIDEO_MODEL) == "grok-imagine-video"
-                        and reference_images
-                        else 15,
-                    ),
-                ),
+                duration=video_seconds,
                 generate_audio=False,
                 reference_images=references_for_model(
                     request.video_model or VIDEO_MODEL, reference_images
@@ -1643,6 +2003,7 @@ class StoryFilmService:
                     if self._video_reservation is not None and self._verified_video_bytes(
                         downloaded
                     ):
+                        self._creation_videos.add(request.shot_index)
                         self._settle_video_attempt(project_id, succeeded=True)
                     return downloaded, None
                 except XaiMediaError:

@@ -157,6 +157,11 @@ def test_padding_over_cap_keeps_raw_voice_and_retry_does_not_submit_video_or_tts
     service = StoryFilmService(repository, toolchain, transport=transport)
     service._dispatch_account = "a" * 64
     request = _request(provider="grok_subscription", video_model=model)
+    service._begin_creation(
+        request,
+        single_still=_byte_image(),
+        single_references=_byte_references(references),
+    )
     image_file = service._persist_image(project, request, _PNG)
     from aijian_api.xai_media import XaiImage
 
@@ -336,6 +341,11 @@ def test_exact_cap_auto_duration_and_raw_cache_reuse_never_add_another_video(
     service._dispatch_account = "a" * 64
     service._sleep = lambda _: None
     request = _request(provider="grok_subscription", video_model=model)
+    service._begin_creation(
+        request,
+        single_still=_byte_image(),
+        single_references=_byte_references(references),
+    )
     service._persist_image(project, request, _PNG)
     image = XaiImage(_PNG, None, "fixture")
     first = service._live_media(

@@ -37,8 +37,15 @@ class FailureReservation:
 
 
 class GenerationFailureStore:
-    def __init__(self, repository: StudioRepository) -> None:
+    def __init__(
+        self, repository: StudioRepository, *, scope: Literal["video", "story_creation"] = "video"
+    ) -> None:
         self._database = repository.database_path
+        if scope not in {"video", "story_creation"}:
+            raise ValueError("INVALID_FAILURE_SCOPE")
+        prefix = "generation_failure" if scope == "video" else "story_creation_failure"
+        self._policy_table = f"{prefix}_policy"
+        self._attempt_table = f"{prefix}_attempt"
 
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Connection]:
@@ -63,7 +70,7 @@ class GenerationFailureStore:
         with self._transaction() as connection:
             self._project(connection, project_id)
             row = connection.execute(
-                "SELECT revision,failure_limit FROM generation_failure_policy WHERE project_id=?",
+                f"SELECT revision,failure_limit FROM {self._policy_table} WHERE project_id=?",
                 (project_id,),
             ).fetchone()
             return None if row is None else FailurePolicy(int(row[0]), int(row[1]))
@@ -78,14 +85,14 @@ class GenerationFailureStore:
         with self._transaction() as connection:
             self._project(connection, project_id)
             row = connection.execute(
-                "SELECT revision FROM generation_failure_policy WHERE project_id=?", (project_id,)
+                f"SELECT revision FROM {self._policy_table} WHERE project_id=?", (project_id,)
             ).fetchone()
             current = 0 if row is None else int(row[0])
             if current != expected_revision:
                 raise GenerationFailureError("POLICY_CHANGED")
             revision = current + 1
             connection.execute(
-                "INSERT INTO generation_failure_policy VALUES(?,?,?) "
+                f"INSERT INTO {self._policy_table} VALUES(?,?,?) "
                 "ON CONFLICT(project_id) DO UPDATE SET "
                 "revision=excluded.revision,failure_limit=excluded.failure_limit",
                 (project_id, revision, failure_limit),
@@ -101,19 +108,18 @@ class GenerationFailureStore:
         with self._transaction() as connection:
             self._project(connection, project_id)
             policy = connection.execute(
-                "SELECT revision,failure_limit FROM generation_failure_policy WHERE project_id=?",
+                f"SELECT revision,failure_limit FROM {self._policy_table} WHERE project_id=?",
                 (project_id,),
             ).fetchone()
             if policy is None:
                 raise GenerationFailureError("UNCONFIGURED")
             if connection.execute(
-                "SELECT 1 FROM generation_failure_attempt "
-                "WHERE project_id=? AND attempt_key_sha256=?",
+                f"SELECT 1 FROM {self._attempt_table} WHERE project_id=? AND attempt_key_sha256=?",
                 (project_id, key),
             ).fetchone():
                 raise GenerationFailureError("ATTEMPT_ALREADY_RESERVED")
             used = connection.execute(
-                "SELECT COUNT(*) FROM generation_failure_attempt "
+                f"SELECT COUNT(*) FROM {self._attempt_table} "
                 "WHERE project_id=? AND input_sha256=? AND status!='SUCCEEDED'",
                 (project_id, input_sha256),
             ).fetchone()
@@ -121,7 +127,7 @@ class GenerationFailureStore:
                 raise GenerationFailureError("INPUT_FAILURE_LIMIT")
             identifier = uuid4().hex
             connection.execute(
-                "INSERT INTO generation_failure_attempt VALUES(?,?,?,?,?,'PENDING')",
+                f"INSERT INTO {self._attempt_table} VALUES(?,?,?,?,?,'PENDING')",
                 (identifier, project_id, input_sha256, key, int(policy[0])),
             )
             return FailureReservation(identifier, input_sha256)
@@ -134,7 +140,7 @@ class GenerationFailureStore:
         """
         with self._transaction() as connection:
             result = connection.execute(
-                "DELETE FROM generation_failure_attempt WHERE id=? AND project_id=? "
+                f"DELETE FROM {self._attempt_table} WHERE id=? AND project_id=? "
                 "AND input_sha256=? AND status='PENDING'",
                 (reservation.attempt_id, project_id, reservation.input_sha256),
             )
@@ -152,7 +158,7 @@ class GenerationFailureStore:
         with self._transaction() as connection:
             # Terminal evidence cannot be overwritten by an old callback.
             result = connection.execute(
-                "UPDATE generation_failure_attempt SET status=? "
+                f"UPDATE {self._attempt_table} SET status=? "
                 "WHERE id=? AND project_id=? AND input_sha256=? "
                 "AND status IN ('PENDING','UNKNOWN')",
                 (status, reservation.attempt_id, project_id, reservation.input_sha256),

@@ -2,6 +2,7 @@ import { canonicalLoopbackOrigin } from "./sidecar-origin";
 
 import type {
   GenerationFailurePolicy,
+  StoryCreationFailurePolicyResult,
   ConfigureGenerationFailurePolicy,
   GenerationFailurePolicyResult,
 } from "@aijian/contracts/generation-failure-policy";
@@ -28,17 +29,30 @@ export function parseGenerationFailureConfiguration(
   return row as ConfigureGenerationFailurePolicy;
 }
 
-export async function generationFailurePolicy(
+type FailureScope = "GROK_VIDEO_SUBMIT_FAILURES" | "GROK_STORY_CREATION_FAILURES";
+type FailurePolicyFor<S extends FailureScope> = Omit<GenerationFailurePolicy, "scope"> & {
+  scope: S;
+};
+type FailureResultFor<S extends FailureScope> =
+  | { kind: "POLICY"; policy: FailurePolicyFor<S> }
+  | Exclude<GenerationFailurePolicyResult, { kind: "POLICY" }>;
+
+async function failurePolicy<S extends FailureScope>(
   fetcher: typeof fetch,
   session: { token: string; origin: string },
   projectId: string,
-  update?: ConfigureGenerationFailurePolicy,
-): Promise<GenerationFailurePolicyResult> {
+  update: ConfigureGenerationFailurePolicy | undefined,
+  scope: S,
+): Promise<FailureResultFor<S>> {
   if (!project.test(projectId)) throw new Error("Invalid failure policy project");
+  const route =
+    scope === "GROK_VIDEO_SUBMIT_FAILURES"
+      ? "generation-failure-policy"
+      : "story-creation-failure-policy";
   let response: Response;
   try {
     response = await fetcher(
-      `${canonicalLoopbackOrigin(session.origin)}/api/v1/projects/${projectId}/generation-failure-policy`,
+      `${canonicalLoopbackOrigin(session.origin)}/api/v1/projects/${projectId}/${route}`,
       {
         method: update ? "PUT" : "GET",
         headers: {
@@ -80,7 +94,7 @@ export async function generationFailurePolicy(
     !Object.keys(row).every((key) =>
       ["state", "revision", "failure_limit", "scope"].includes(key),
     ) ||
-    row.scope !== "GROK_VIDEO_SUBMIT_FAILURES" ||
+    row.scope !== scope ||
     !Number.isSafeInteger(row.revision) ||
     (row.state === "UNCONFIGURED"
       ? row.revision !== 0 || row.failure_limit !== null
@@ -99,5 +113,23 @@ export async function generationFailurePolicy(
   ) {
     return { kind: "FAILED", code: "WRITE_UNCONFIRMED" };
   }
-  return { kind: "POLICY", policy: row as GenerationFailurePolicy };
+  return { kind: "POLICY", policy: row as FailurePolicyFor<S> };
+}
+
+export function generationFailurePolicy(
+  fetcher: typeof fetch,
+  session: { token: string; origin: string },
+  projectId: string,
+  update?: ConfigureGenerationFailurePolicy,
+): Promise<GenerationFailurePolicyResult> {
+  return failurePolicy(fetcher, session, projectId, update, "GROK_VIDEO_SUBMIT_FAILURES");
+}
+
+export function storyCreationFailurePolicy(
+  fetcher: typeof fetch,
+  session: { token: string; origin: string },
+  projectId: string,
+  update?: ConfigureGenerationFailurePolicy,
+): Promise<StoryCreationFailurePolicyResult> {
+  return failurePolicy(fetcher, session, projectId, update, "GROK_STORY_CREATION_FAILURES");
 }

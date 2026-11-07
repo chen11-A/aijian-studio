@@ -87,7 +87,7 @@ def test_existing_stored_landscape_gets_do_not_migrate_or_rewrite_any_db_bytes(t
     )
     before = hashlib.sha256(repository.database_path.read_bytes()).hexdigest()
     with repository._connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 52
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
         new_tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")

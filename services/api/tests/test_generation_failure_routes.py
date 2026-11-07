@@ -39,18 +39,27 @@ def assertion(project, attempt, body, bearer):
     )
 
 
-def test_explicit_configuration_is_authenticated_closed_and_revisioned_without_reset(tmp_path):
+@pytest.mark.parametrize(
+    "path,scope",
+    [
+        ("generation-failure-policy", "GROK_VIDEO_SUBMIT_FAILURES"),
+        ("story-creation-failure-policy", "GROK_STORY_CREATION_FAILURES"),
+    ],
+)
+def test_explicit_configuration_is_authenticated_closed_and_revisioned_without_reset(
+    tmp_path, path, scope
+):
     repository, project = _project(tmp_path)
     app = create_app(repository=repository, sidecar_security=SidecarSecurity(TOKEN, HOST))
     headers = {"Authorization": f"Bearer {TOKEN}", "Origin": "app://aijian"}
-    endpoint = f"/api/v1/projects/{project}/generation-failure-policy"
+    endpoint = f"/api/v1/projects/{project}/{path}"
     with TestClient(app, base_url=f"http://{HOST}", client=("127.0.0.1", 12345)) as client:
         assert client.get(endpoint).status_code == 401
         assert client.get(endpoint, headers=headers).json() == {
             "state": "UNCONFIGURED",
             "revision": 0,
             "failure_limit": None,
-            "scope": "GROK_VIDEO_SUBMIT_FAILURES",
+            "scope": scope,
         }
         for body in [
             {"expected_revision": 0, "failure_limit": True},

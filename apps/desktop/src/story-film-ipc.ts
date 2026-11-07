@@ -1,6 +1,7 @@
 import { generationVideoRecovery } from "./generation-video-recovery";
 import {
   generationFailurePolicy,
+  storyCreationFailurePolicy,
   parseGenerationFailureConfiguration,
 } from "./generation-failure-policy";
 import type { GenerationDispatchAccount } from "./generation-dispatch-account";
@@ -128,6 +129,24 @@ export function registerStoryFilmHandlers<TEvent>(
     if (args.length !== 2 || typeof args[0] !== "string")
       throw new Error("Invalid failure policy arguments");
     return generationFailurePolicy(
+      fetcher,
+      sessionFor(),
+      args[0],
+      parseGenerationFailureConfiguration(args[1]),
+    );
+  });
+
+  handle("story-film:creation-failure-policy", async (event, ...args) => {
+    if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+    if (args.length !== 1 || typeof args[0] !== "string")
+      throw new Error("Invalid failure policy arguments");
+    return storyCreationFailurePolicy(fetcher, sessionFor(), args[0]);
+  });
+  handle("story-film:configure-creation-failure-policy", async (event, ...args) => {
+    if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+    if (args.length !== 2 || typeof args[0] !== "string")
+      throw new Error("Invalid failure policy arguments");
+    return storyCreationFailurePolicy(
       fetcher,
       sessionFor(),
       args[0],

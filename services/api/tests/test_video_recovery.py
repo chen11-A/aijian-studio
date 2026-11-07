@@ -198,6 +198,11 @@ def test_original_producer_persists_accepted_id_and_later_recovery_never_resubmi
             XaiHttpResponse(503, b"{}"),
         ]
     )
+    GenerationFailureStore(repo, scope="story_creation").configure(
+        project,
+        expected_revision=0,
+        failure_limit=1,
+    )
     producer = StoryFilmService(repo, toolchain, transport=original)
     request = _request("grok_subscription")
     producer.produce(project, request, media_token="synthetic", dispatch_account=ACCOUNT)
@@ -303,7 +308,10 @@ def test_migration_52_preserves_existing_policy_attempt_rows_and_old_table_sql(t
     held = store.reserve(project, input_sha256="e" * 64, attempt_key="legacy-unknown")
     store.settle(project, held, "UNKNOWN")
     with sqlite3.connect(repo.database_path) as connection:
+        # Reconstruct actual v51, without either later migration's tables.
         connection.execute("DROP TABLE generation_video_recovery")
+        connection.execute("DROP TABLE story_creation_failure_attempt")
+        connection.execute("DROP TABLE story_creation_failure_policy")
         connection.execute("PRAGMA user_version=51")
         old_sql = connection.execute(
             "SELECT name,sql FROM sqlite_master WHERE type='table' ORDER BY name"
@@ -312,11 +320,12 @@ def test_migration_52_preserves_existing_policy_attempt_rows_and_old_table_sql(t
         old_policies = connection.execute("SELECT * FROM generation_failure_policy").fetchall()
     restarted = StudioRepository(repo.database_path)
     with sqlite3.connect(restarted.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 52
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
         assert (
             connection.execute(
                 "SELECT name,sql FROM sqlite_master WHERE type='table' "
-                "AND name!='generation_video_recovery' ORDER BY name"
+                "AND name NOT IN ('generation_video_recovery', 'story_creation_failure_policy', "
+                "'story_creation_failure_attempt') ORDER BY name"
             ).fetchall()
             == old_sql
         )

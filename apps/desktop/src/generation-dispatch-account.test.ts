@@ -1,4 +1,4 @@
-import { generationFailurePolicy } from "./generation-failure-policy";
+import { generationFailurePolicy, storyCreationFailurePolicy } from "./generation-failure-policy";
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { attestGenerationAccount, stableGenerationAccount } from "./generation-dispatch-account";
@@ -179,4 +179,46 @@ it.each([
     kind: "POLICY",
     policy,
   });
+});
+
+it("keeps the parent scope separate and validates its exact config ACK through main", async () => {
+  const update = { expected_revision: 3, failure_limit: 0 };
+  const valid = {
+    state: "CONFIGURED",
+    revision: 4,
+    failure_limit: 0,
+    scope: "GROK_STORY_CREATION_FAILURES",
+  };
+  const fetcher = vi.fn(async () => new Response(JSON.stringify(valid))) as unknown as typeof fetch;
+  const handlers = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+  registerStoryFilmHandlers<boolean>(
+    (channel, fn) => handlers.set(channel, fn),
+    (event) => event,
+    () => session,
+    async () => null,
+    fetcher,
+  );
+  const configure = handlers.get("story-film:configure-creation-failure-policy")!;
+  await expect(configure(false, project, update)).rejects.toThrow("authorized");
+  await expect(configure(true, project, { ...update, scope: "forged" })).rejects.toThrow();
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(await configure(true, project, update)).toEqual({ kind: "POLICY", policy: valid });
+  expect(String(vi.mocked(fetcher).mock.calls[0]![0])).toBe(
+    `${session.origin}/api/v1/projects/${project}/story-creation-failure-policy`,
+  );
+  for (const policy of [
+    { ...valid, revision: 3 },
+    { ...valid, revision: 5 },
+    { ...valid, failure_limit: 1 },
+    { ...valid, state: "UNCONFIGURED", revision: 0, failure_limit: null },
+    { ...valid, scope: "GROK_VIDEO_SUBMIT_FAILURES" },
+  ]) {
+    const reply = vi.fn(
+      async () => new Response(JSON.stringify(policy)),
+    ) as unknown as typeof fetch;
+    expect(await storyCreationFailurePolicy(reply, session, project, update)).toEqual({
+      kind: "FAILED",
+      code: "WRITE_UNCONFIRMED",
+    });
+  }
 });
