@@ -108,6 +108,7 @@ from aijian_api.source_manifest import (
     SourceManifestDocumentV1,
 )
 from aijian_api.sub2api_source_extract_schema import migration_23_statements
+from aijian_api.video_recovery_schema import VIDEO_RECOVERY_MIGRATION
 from aijian_api.visual_bible_schema import VISUAL_BIBLE_MIGRATION
 from aijian_api.workflow_schema import (
     MIGRATION_4,
@@ -124,7 +125,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 51
+SCHEMA_VERSION = 52
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -872,6 +873,7 @@ _MIGRATIONS = {
     49: DISPATCH_BILLING_MIGRATION,
     50: DESKTOP_SUBSCRIPTION_MIGRATION,
     51: GENERATION_FAILURE_MIGRATION,
+    52: VIDEO_RECOVERY_MIGRATION,
 }
 
 
