@@ -24,3 +24,11 @@
 首失败保留：`delivery-evidence-native-types-stage.log`（新测试 seriesId/NodeNext 类型引用）；`final-native-targets.log`（39过/1失败：PARTIAL catch 漏证据已修）；`cleanup-before.log`（rm 被忽略的诊断）。清理诊断的最初测试曾把两维合并要求 FAILED，review 后改为保真实 WRITTEN＋独立 cleanup 标记，未把公开文件真实存在说成不存在。
 
 未调用真实会员/付费提供方。所有媒体为本机合成；实际全长人工观看/试听、Windows 用户窗口与最终 UI 联合门由总控另验。
+
+## Windows 临时目录别名夹具（source 517b8c2 后独立修正）
+
+真实 publish 在 `film-export-qc.ts` 先 `realpath` 用户选择的目录，再派生输出文件并交给清单函数。清单拒绝非 canonical 目录的门保持不变。原单元夹具只 `resolve(mkdtemp/output)`；Windows 临时根可能包含 DOS 8.3 名称，不能把这串当 canonical 输入。
+
+正常夹具现在创建后按实际 main 流程 `realpath`。新增真实目录 alias/junction 对照：旧 `resolve` 输入得到 `EVIDENCE_UNAVAILABLE/files:[]`，未进入最终 current guard；同一文件由 BigInt dev/ino/size 和完整 bytes 证明身份后，canonical 目录输入成功写出，清单 SHA、视频 SHA/bytes 与原字节保持。原部分 sidecar、排他提交、不覆盖、取消、cleanup-unconfirmed 断言全保留；未改产品/工具/阈值/timeout。Linux 受控十项通过仅证明该差异，真正 Windows 正常 CI 仍须复验；另一个 ownership 五秒超时未在本片定位或修复。
+
+快速 Windows 复验在原 `speech-window-windows` 的原 17 项步骤之后安装 frozen JS 依赖，固定 `pnpm test:delivery-manifest:ci` 只跑原清单/ownership 两完整文件。Linux 实际 launcher 为两文件 11 项（清单 10、ownership 1）通过；另清单+curated 投影两文件 14 项、正式 desktop 类型通过。诊断 self-test 28 项保留原默认/speech/library 行为，并验证固定 argv、真实 child 0/23 透传、额外参数 0 spawn、安全注释不含私有参数；原 streams、全 quality/coverage、原 timeout 均未改变。新增 CLI 首次测试自身在建 pnpm fixture 前解析它导致 ENOENT 的失败保留在 `/tmp/windows-manifest-diagnostics.log`，只修 test setup 顺序后 self-test 全过，不是生产故障。

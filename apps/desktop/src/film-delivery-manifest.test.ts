@@ -1,6 +1,16 @@
 import { createExportOperations } from "./film-export-operation";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink, lstat } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  lstat,
+  realpath,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -27,8 +37,11 @@ const id = () => "01234567-89ab-4cde-8fab-0123456789ab";
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "delivery-io-"));
   roots.push(root);
-  const directory = resolve(root, "output");
-  await mkdir(directory);
+  const requestedDirectory = resolve(root, "output");
+  await mkdir(requestedDirectory);
+  // The actual publish consumer canonicalizes the picked directory before it
+  // derives output paths. Windows temporary roots may use DOS 8.3 aliases.
+  const directory = await realpath(requestedDirectory);
   const data = Buffer.from("known checked final bytes");
   const path = join(directory, "成片.mp4");
   await writeFile(path, data);
@@ -277,5 +290,55 @@ it("keeps an accepted stop unconfirmed if owned JSON staging cannot be cleaned",
   expect(views.at(-1)?.cancelState).toBe("unavailable");
   expect(views.some((view) => view.cancelState === "stopped")).toBe(false);
   expect((await readdir(f.input.directory)).filter((name) => name.endsWith(".json"))).toEqual([]);
+  expect(await readFile(f.path)).toEqual(f.data);
+});
+
+it("mirrors main canonicalization for a real directory alias without relaxing the noncanonical gate", async () => {
+  const f = await fixture();
+  const alias = join(f.root, "output-alias");
+  await symlink(f.input.directory, alias, "junction");
+  const aliasFile = join(alias, "成片.mp4");
+  const before = await lstat(f.path, { bigint: true });
+  const aliasIdentity = await lstat(aliasFile, { bigint: true });
+  expect([aliasIdentity.dev, aliasIdentity.ino, aliasIdentity.size]).toEqual([
+    before.dev,
+    before.ino,
+    before.size,
+  ]);
+  expect(await readFile(aliasFile)).toEqual(f.data);
+  // This is the pre-fix fixture shape: resolve() alone does not establish
+  // the canonical directory required by the main-only manifest function.
+  expect(
+    await writeDeliveryManifest(
+      {
+        ...f.input,
+        directory: resolve(alias),
+        published: [{ aspectRatio: "16:9", path: aliasFile }],
+      },
+      id,
+    ),
+  ).toEqual({
+    kind: "FAILED",
+    code: "EVIDENCE_UNAVAILABLE",
+    files: [],
+  });
+  expect(await realpath(resolve(alias))).not.toBe(resolve(alias));
+  expect(f.input.assertCurrent).not.toHaveBeenCalled();
+  const canonical = await realpath(alias);
+  const result = await writeDeliveryManifest(
+    {
+      ...f.input,
+      directory: canonical,
+      published: [{ aspectRatio: "16:9", path: join(canonical, "成片.mp4") }],
+    },
+    id,
+  );
+  expect(result.kind).toBe("WRITTEN");
+  if (result.kind !== "WRITTEN") throw new Error("actual canonical evidence required");
+  expect(result.manifest.files).toHaveLength(1);
+  expect(result.manifest.files[0]).toMatchObject({ sha256: hash(f.data), bytes: f.data.length });
+  expect(hash(await readFile(join(canonical, result.fileName)))).toBe(result.manifestSha256);
+  const after = await lstat(aliasFile, { bigint: true });
+  expect([after.dev, after.ino, after.size]).toEqual([before.dev, before.ino, before.size]);
   expect(await readFile(f.path)).toEqual(f.data);
 });

@@ -13,6 +13,9 @@ import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-asserti
 import {
   installEvidenceLegacyBridge,
   seedEvidenceLegacyProject,
+  measureEvidenceControl,
+  readEvidencePointer,
+  observeEvidenceRangeDrag,
 } from "./pro-evidence-legacy-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
 export const evidenceLegacyStates = [
@@ -103,34 +106,8 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
         async function reachable(control) {
           await control.scrollIntoViewIfNeeded();
           await frame();
-          const complete = await control.evaluate((element) => {
-            const r = element.getBoundingClientRect();
-            let l = 0,
-              t = 0,
-              right = window.innerWidth,
-              bottom = window.innerHeight;
-            for (let p = element.parentElement; p; p = p.parentElement) {
-              const css = window.getComputedStyle(p),
-                b = p.getBoundingClientRect();
-              if (/hidden|clip|auto|scroll/.test(css.overflowX)) {
-                l = Math.max(l, b.left);
-                right = Math.min(right, b.right);
-              }
-              if (/hidden|clip|auto|scroll/.test(css.overflowY)) {
-                t = Math.max(t, b.top);
-                bottom = Math.min(bottom, b.bottom);
-              }
-            }
-            return (
-              r.width > 2 &&
-              r.height > 2 &&
-              r.left >= l - 1 &&
-              r.right <= right + 1 &&
-              r.top >= t - 1 &&
-              r.bottom <= bottom + 1
-            );
-          });
-          assert.equal(complete, true, "Control must scroll fully into view");
+          result.reachability = await control.evaluate(measureEvidenceControl);
+          assert.equal(result.reachability.complete, true, "Control must scroll fully into view");
           await control.click({ trial: true });
         }
         async function review() {
@@ -514,27 +491,115 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
               element.dispatchEvent(new window.Event("timeupdate")),
             );
             assert.equal(Number(await ruler.getAttribute("aria-valuenow")), 1);
-            async function drag(fraction) {
+            async function drag(fraction, comparing = false) {
               const clip = await page.locator(".clip.v").nth(1).boundingBox(),
                 box = await ruler.boundingBox();
               assert(clip && box);
-              await page.mouse.move(clip.x + clip.width * 0.3, box.y + box.height / 2);
+              const from = { x: clip.x + clip.width * 0.3, y: box.y + box.height / 2 },
+                to = { x: clip.x + clip.width * fraction, y: box.y + box.height / 2 };
+              await page.mouse.move(from.x, from.y);
+              result.dragBefore = await page.evaluate(readEvidencePointer, from);
+              if (comparing) await page.evaluate(observeEvidenceRangeDrag, "start");
               await page.mouse.down();
               await page.mouse.move(clip.x + clip.width * fraction, box.y + box.height / 2, {
                 steps: 6,
               });
               await page.mouse.up();
               await frame();
-              await video.evaluate((element) =>
-                element.dispatchEvent(new window.Event("loadedmetadata")),
-              );
+              result.dragAfter = await page.evaluate(readEvidencePointer, to);
+              if (comparing) {
+                result.rangeEvents = await page.evaluate(observeEvidenceRangeDrag, "read");
+                assert.equal(await page.locator(".preview-player video.frame").count(), 0);
+                assert.equal(
+                  await page.getByRole("heading", { name: "对比", exact: true }).count(),
+                  1,
+                );
+                const sources = await page
+                  .locator(".cmp-takes video")
+                  .evaluateAll((rows) => rows.map((row) => row.getAttribute("src")));
+                assert.deepEqual(
+                  sources,
+                  before.shots[1].takes.map((take) => take.videoUrl),
+                );
+              } else {
+                await video.evaluate((element) =>
+                  element.dispatchEvent(new window.Event("loadedmetadata")),
+                );
+              }
               await frame();
             }
             await drag(0.2);
             const globalIn = Number(await ruler.getAttribute("aria-valuenow"));
             assert(globalIn > artifact.shots[1].startSeconds);
             await button("设入点").click();
-            await drag(0.8);
+            await drag(0.8, true);
+            const globalOut = Number(await ruler.getAttribute("aria-valuenow"));
+            result.rangeClock = await page.evaluate(
+              ({ observed, expected, sourceStart, sourceDuration, first }) => {
+                const number = (value) =>
+                  typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 200000
+                    ? value
+                    : null;
+                const rect = (element) => {
+                  const box = element?.getBoundingClientRect();
+                  return box
+                    ? {
+                        x: number(box.x),
+                        y: number(box.y),
+                        width: number(box.width),
+                        height: number(box.height),
+                      }
+                    : null;
+                };
+                const clip = document.querySelectorAll(".clip.v")[1],
+                  area = document.querySelector(".track-area"),
+                  ruler = document.querySelector('.ruler[role="slider"]'),
+                  tracks = document.querySelector(".tracks");
+                return {
+                  observed: number(observed),
+                  expected: number(expected),
+                  first: number(first),
+                  sourceStart: number(sourceStart),
+                  sourceDuration: number(sourceDuration),
+                  clip: rect(clip),
+                  area: rect(area),
+                  ruler: rect(ruler),
+                  scrollLeft: number(tracks?.scrollLeft),
+                  logicalLeft: number(parseFloat(clip?.style.left)),
+                  logicalWidth: number(parseFloat(clip?.style.width)),
+                  max: number(Number(ruler?.getAttribute("aria-valuemax"))),
+                };
+              },
+              {
+                observed: globalOut,
+                expected: artifact.shots[1].startSeconds + artifact.shots[1].durationSeconds * 0.8,
+                sourceStart: artifact.shots[1].startSeconds,
+                sourceDuration: artifact.shots[1].durationSeconds,
+                first: globalIn,
+              },
+            );
+            assert(
+              Math.abs(
+                globalOut -
+                  (artifact.shots[1].startSeconds + artifact.shots[1].durationSeconds * 0.8),
+              ) < 0.1,
+            );
+            await button("关掉对比").click();
+            await page.locator(".preview-player video.frame").waitFor();
+            await frame();
+            await page
+              .locator(".preview-player video.frame")
+              .evaluate((element) => element.dispatchEvent(new window.Event("loadedmetadata")));
+            await page.waitForFunction(
+              (expected) =>
+                Math.abs(
+                  document.querySelector(".preview-player video.frame").currentTime - expected,
+                ) < 0.1,
+              globalOut,
+            );
+            // The range toolbar has no mark-out control. Its explicit close preserves the
+            // recorded in-point and playhead, making the real mark-out button available.
+            await button("取消选择").click();
             await button("设出点").click();
             await button("重新生成").click();
             await page.getByLabel("局部重做入点", { exact: true }).waitFor();
@@ -673,6 +738,9 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
           result.calls = final;
           result.passed = true;
         } catch (error) {
+          result.geometry = await page
+            .evaluate(probeProLayout, { scopeSelector })
+            .catch(() => null);
           const line = Number(
             error.stack?.match(/[\\/]pro-evidence-legacy-cases\.mjs:(\d{1,6}):\d{1,6}/)?.[1],
           );

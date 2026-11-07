@@ -45,6 +45,25 @@ export function libraryWriteInvocation(entry, executable = process.execPath) {
   };
 }
 
+/** Two fixed Windows media regressions, never caller-selected files. */
+export function deliveryManifestInvocation(entry, executable = process.execPath) {
+  const launcher = pnpmInvocation(entry, executable);
+  return {
+    command: launcher.command,
+    args: [
+      launcher.args[0],
+      "--filter",
+      "@aijian/desktop",
+      "exec",
+      "vitest",
+      "run",
+      "src/film-delivery-manifest.test.ts",
+      "src/film-export-qc-ownership.test.ts",
+    ],
+    phase: "TypeScript / desktop / delivery-manifest",
+  };
+}
+
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 /** Only declared top-level test names in this checkout are safe node metadata.
  * Never emit pytest parameter IDs, exception messages or an absolute path. */
@@ -414,7 +433,9 @@ try {
 if (direct) {
   try {
     if (
-      ["--speech-window-test", "--audio-library-write-test"].includes(process.argv[2]) &&
+      ["--speech-window-test", "--audio-library-write-test", "--delivery-manifest-test"].includes(
+        process.argv[2],
+      ) &&
       process.argv.length !== 3
     )
       throw new Error("UNEXPECTED_TARGET_ARGUMENTS");
@@ -436,7 +457,9 @@ if (direct) {
             }
           : process.argv[2] === "--audio-library-write-test"
             ? libraryWriteInvocation(process.env.npm_execpath)
-            : pnpmInvocation(process.env.npm_execpath);
+            : process.argv[2] === "--delivery-manifest-test"
+              ? deliveryManifestInvocation(process.env.npm_execpath)
+              : pnpmInvocation(process.env.npm_execpath);
     if (process.argv[2] === "--check-launcher")
       process.stdout.write("CI launcher verified: JavaScript entry, shell disabled.\n");
     else process.exitCode = await runTestDiagnostics(invocation);
