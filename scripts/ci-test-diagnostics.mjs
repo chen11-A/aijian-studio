@@ -263,6 +263,25 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
     const libraryPhase = libraryWritePhaseSummary(diagnostic);
     if (libraryPhase && libraryPhases.size < 6)
       libraryPhases.set(libraryPhase, { phase: "TypeScript / desktop", message: libraryPhase });
+    // Exact check_python_coverage.py output only; successful metrics are not failures.
+    const pythonCoverage = text.match(
+      /^Python coverage: line=(\d{1,3}\.\d{2})% \(min (\d{1,3}\.\d)%\), branch=(\d{1,3}\.\d{2})% \(min (\d{1,3}\.\d)%\)\r?$/u,
+    );
+    if (
+      pythonCoverage?.[0] === text &&
+      pythonCoverage.slice(1).every((value) => Number(value) <= 100)
+    ) {
+      phase = "Python";
+      for (const [metric, actual, minimum] of [
+        ["lines", pythonCoverage[1], pythonCoverage[2]],
+        ["branches", pythonCoverage[3], pythonCoverage[4]],
+      ]) {
+        if (Number(actual) < Number(minimum)) {
+          failureBlock = true;
+          add(`Coverage ${metric}: ${actual}%, required ${minimum}%.`);
+        }
+      }
+    }
     // Fixed upstream runtime phrases only: never append their file list, cause or stack.
     const workerExit = /^\s*(?:Error:\s*)?Worker exited unexpectedly(?:[.\s]|$)/u.test(diagnostic);
     const pool = diagnostic.match(
