@@ -1,3 +1,8 @@
+import type {
+  FilmGenerationStillExecution,
+  FilmGenerationExtractionExecution,
+  FilmGenerationStillResult,
+} from "@aijian/contracts/film-generation-execution";
 import {
   exportFilmFile,
   filmExportOptions,
@@ -34,7 +39,23 @@ import {
 
 const idPattern = /^film_[a-z0-9]{16,40}$/;
 
-export type FilmLibraryHost = {
+export type FilmLibraryHost<Event = unknown> = {
+  protectedGeneration?: {
+    still: (
+      event: Event,
+      input: {
+        seriesId: string;
+        prompt: string;
+        aspectRatio: "9:16" | "16:9";
+        references: readonly string[];
+        execution: FilmGenerationStillExecution;
+      },
+    ) => Promise<FilmGenerationStillResult>;
+    lastFrame: (
+      event: Event,
+      input: { seriesId: string; videoPath: string; execution: FilmGenerationExtractionExecution },
+    ) => Promise<{ path: string; sourceVideoPath: string; code?: string; text?: string }>;
+  };
   /** Main-only allowlist shared with checked publication; never supplied by the renderer. */
   publishedPaths?: Set<string>;
   filmsRoot: () => string;
@@ -66,6 +87,24 @@ export type FilmLibraryHost = {
   ) => void;
 };
 
+function issuedStage(value: unknown): FilmGenerationStillExecution | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  if (Object.keys(row).sort().join() !== "executionId,stageId") return null;
+  if (
+    ![row.executionId, row.stageId].every(
+      (id) =>
+        typeof id === "string" &&
+        id.length > 0 &&
+        id.length <= 256 &&
+        id.trim() === id &&
+        !id.includes("\0"),
+    )
+  )
+    return null;
+  return { executionId: row.executionId as string, stageId: row.stageId as string };
+}
+
 function oneId(args: unknown[]): string {
   if (args.length !== 1 || typeof args[0] !== "string" || !idPattern.test(args[0])) {
     throw new Error("Invalid film");
@@ -79,7 +118,7 @@ export function registerFilmLibraryHandlers<TEvent>(
     callback: (event: TEvent, ...args: unknown[]) => Promise<unknown>,
   ) => void,
   authorized: (event: TEvent) => boolean,
-  host: FilmLibraryHost,
+  host: FilmLibraryHost<TEvent>,
 ): void {
   const exported = host.publishedPaths ?? new Set<string>();
   const exportsInProgress = new Map<string, { cancelled: boolean }>();
@@ -159,7 +198,7 @@ export function registerFilmLibraryHandlers<TEvent>(
     guard(event);
     const failed = (code: string, text: string) => ({ path: "", sourceVideoPath: "", code, text });
     if (
-      args.length !== 2 ||
+      (args.length !== 2 && args.length !== 3) ||
       typeof args[0] !== "string" ||
       !idPattern.test(args[0]) ||
       typeof args[1] !== "string" ||
@@ -168,6 +207,17 @@ export function registerFilmLibraryHandlers<TEvent>(
       args[1].includes("\0")
     )
       return failed("CONTINUITY_REQUEST_INVALID", "末帧提取参数不完整。");
+    if (args.length === 3) {
+      const execution = issuedStage(args[2]);
+      if (!execution) return failed("CONTINUITY_REQUEST_INVALID", "末帧提取参数不完整。");
+      if (!host.protectedGeneration)
+        return failed("EXECUTION_UNAVAILABLE", "当前无法核验受保护的末帧准备。");
+      return host.protectedGeneration.lastFrame(event, {
+        seriesId: args[0],
+        videoPath: args[1],
+        execution,
+      });
+    }
     if (!host.probeDuration)
       return failed("CONTINUITY_PROBE_UNAVAILABLE", "当前无法读取视频时长。");
     try {
@@ -283,7 +333,7 @@ export function registerFilmLibraryHandlers<TEvent>(
     guard(event);
     if (
       args.length < 2 ||
-      args.length > 4 ||
+      args.length > 5 ||
       typeof args[0] !== "string" ||
       typeof args[1] !== "string" ||
       !idPattern.test(args[0]) ||
@@ -294,6 +344,23 @@ export function registerFilmLibraryHandlers<TEvent>(
           args[3].some((item: unknown) => typeof item !== "string")))
     ) {
       throw new Error("Invalid film");
+    }
+    if (args.length === 5) {
+      const execution = issuedStage(args[4]);
+      if (!execution) throw new Error("Invalid film");
+      if (!host.protectedGeneration)
+        return {
+          path: "",
+          reason: "当前无法核验受保护的画面准备。",
+          code: "EXECUTION_UNAVAILABLE",
+        };
+      return host.protectedGeneration.still(event, {
+        seriesId: args[0],
+        prompt: args[1],
+        aspectRatio: args[2] === "16:9" ? "16:9" : "9:16",
+        references: Array.isArray(args[3]) ? (args[3] as string[]) : [],
+        execution,
+      });
     }
     const references: string[] = [];
     if (Array.isArray(args[3])) {

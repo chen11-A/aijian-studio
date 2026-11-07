@@ -15,10 +15,13 @@ function setup() {
     current: () => documentCurrent,
   }));
   const service: FilmGenerationExecutionService = {
-    prepare: vi.fn(async () => ({ kind: "FAILED", code: "EXECUTION_UNAVAILABLE" })),
-    retire: vi.fn(async () => ({ kind: "RETIRED" })),
+    prepare: vi.fn<FilmGenerationExecutionService["prepare"]>(async () => ({
+      kind: "FAILED",
+      code: "EXECUTION_UNAVAILABLE",
+    })),
+    retire: vi.fn<FilmGenerationExecutionService["retire"]>(async () => ({ kind: "RETIRED" })),
   };
-  registerFilmGenerationExecutions(
+  registerFilmGenerationExecutions<{ authorized: boolean; id: number }>(
     (channel, run) => {
       handlers.set(channel, run);
     },

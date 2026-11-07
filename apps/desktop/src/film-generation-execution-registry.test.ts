@@ -188,7 +188,7 @@ it("does not revive an old document by replacing the caller's mutable owner call
   const f = setup();
   const lease = f.registry.stage(f.owner, f.stage(), "image");
   f.changeDocument();
-  f.owner.current = () => true;
+  Object.assign(f.owner, { current: () => true });
   f.registration.accountCurrent = () => true;
   expect(lease.current()).toBe(false);
   expect(() => f.registry.stage(f.owner, f.stage(), "image")).toThrow("EXECUTION_UNAVAILABLE");

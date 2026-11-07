@@ -6,7 +6,7 @@ import type {
 } from "@aijian/contracts/film-generation-execution";
 
 type Prepared = Extract<FilmGenerationExecutionResult, { kind: "PREPARED" }>;
-export type GenerationExecutionOwner = { id: number; current: () => boolean };
+export type GenerationExecutionOwner = Readonly<{ id: number; current: () => boolean }>;
 export class GenerationExecutionRegistryError extends Error {
   constructor(readonly code: "BUSY" | "INVALID_INPUT" | "EXECUTION_UNAVAILABLE") {
     super(code);
