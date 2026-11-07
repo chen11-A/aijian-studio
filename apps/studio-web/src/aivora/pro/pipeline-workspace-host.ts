@@ -23,6 +23,17 @@ import {
   type GenerationExecutionSession,
 } from "./actions/generation-execution";
 
+class PipelineExecutionPreparationError extends Error {
+  readonly code: string;
+  constructor(
+    readonly notice: ReturnType<typeof generationExecutionNotice>,
+    cause: unknown,
+  ) {
+    super(notice.code, { cause });
+    this.code = notice.code;
+  }
+}
+
 export type PipelineSaveLease = {
   save: FilmPipelineHost["save"];
   release: () => Promise<void>;
@@ -160,7 +171,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
             },
           ).catch((cause: unknown) => {
             const notice = generationExecutionNotice(cause);
-            throw Object.assign(new Error(notice.code, { cause }), { code: notice.code });
+            throw new PipelineExecutionPreparationError(notice, cause);
           });
         }
         await preparation;
@@ -190,6 +201,35 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
         notify: host.notify,
         labels: host.labels,
         verifyMedia: host.verifyMedia,
+        reuseLocalSelectedMedia: async (_film, _targetId, ctx) => {
+          try {
+            const execution = await ensureExecution();
+            if (!current() || !ctx.isCurrent())
+              return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
+            return execution.noNewMedia()
+              ? {
+                  status: "done",
+                  film: ctx.current(),
+                  detail: "本轮沿用所选本地视频，未新增前置图；仍需人工检查。",
+                }
+              : null;
+          } catch (cause) {
+            const notice =
+              cause instanceof PipelineExecutionPreparationError
+                ? cause.notice
+                : generationExecutionNotice(cause);
+            return {
+              status: [
+                "GENERATION_EXECUTION_UNCONFIRMED",
+                "GENERATION_EXECUTION_WRITE_UNCONFIRMED",
+              ].includes(notice.code)
+                ? "uncertain"
+                : "blocked",
+              code: notice.code,
+              detail: notice.text,
+            };
+          }
+        },
         generatePortraits: async (film, targetId, ctx) => {
           const execution = await ensureExecution();
           return protectedMedia(() => makePipelinePortraits(film, targetId, { ...ctx, execution }));
@@ -241,6 +281,12 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
           const execution = await ensureExecution();
           if (!current() || !ctx.isCurrent())
             return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
+          if (execution.noNewMedia())
+            return {
+              status: "blocked",
+              code: "GENERATION_SELECTION_STALE",
+              detail: "所选本地视频已变化，请重新核对。",
+            };
           await host.submitGeneration([shot], {
             execution,
             current: () => current() && ctx.isCurrent(),

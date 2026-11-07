@@ -16,6 +16,7 @@ import {
   createGenerationExecutionSession,
   prepareCurrentGenerationExecution,
   validGenerationExecution,
+  validNoNewMediaExecution,
   generationExecutionNotice,
   isGenerationExecutionFailureCode,
 } from "./generation-execution";
@@ -438,4 +439,70 @@ it("preserves video policy gates separately from creator policy and ignores unkn
     expect(isGenerationExecutionFailureCode(code)).toBe(false);
     expect(generationExecutionNotice({ code }).code).toBe("GENERATION_EXECUTION_UNCONFIRMED");
   }
+});
+
+it("accepts only a complete current pipeline local selection and grants no image/video locators", async () => {
+  const request = { ...input, mode: "pipeline" as const },
+    selected = [
+      { shotId: "shot1", takeId: "take1" },
+      { shotId: "shot2", takeId: "take2" },
+    ];
+  const local = {
+    kind: "NOT_NEEDED" as const,
+    projectId: input.projectId,
+    projectHash: input.expectedProjectHash,
+    reason: "LOCAL_SELECTED_MEDIA" as const,
+    selected,
+  };
+  const prepare = vi.fn(async () => local),
+    retire = vi.fn(async () => ({ kind: "RETIRED" as const }));
+  const session = createGenerationExecutionSession(
+    { prepareFilmGenerationExecution: prepare, retireFilmGenerationExecution: retire },
+    () => true,
+  );
+  expect(prepare).not.toHaveBeenCalled();
+  expect(validNoNewMediaExecution(local, request, selected)).toBe(true);
+  for (const changed of [
+    { ...local, projectHash: "b".repeat(64) },
+    { ...local, selected: selected.slice(1) },
+    { ...local, selected: [{ shotId: "shot1", takeId: "wrong" }, selected[1]] },
+    { ...local, path: "PRIVATE_PATH" },
+  ])
+    expect(validNoNewMediaExecution(changed, request, selected)).toBe(false);
+  expect(validNoNewMediaExecution(local, input, selected)).toBe(false);
+  await session.prepare(request, () => true, selected);
+  expect(session.noNewMedia()).toBe(true);
+  expect(() => session.image("shot-frame", "shot1")).toThrowError(
+    expect.objectContaining({ code: "GENERATION_EXECUTION_UNAVAILABLE" }),
+  );
+  expect(() => session.video("shot1", 0, "take")).toThrowError();
+  session.retire();
+  expect(retire).not.toHaveBeenCalled();
+});
+it("discards a late local receipt after scope retirement without retiring an invented execution", async () => {
+  let resolve!: (value: FilmGenerationExecutionResult) => void;
+  const pending = new Promise<FilmGenerationExecutionResult>((done) => {
+    resolve = done;
+  });
+  const retire = vi.fn(async () => ({ kind: "RETIRED" as const }));
+  const session = createGenerationExecutionSession(
+    { prepareFilmGenerationExecution: async () => pending, retireFilmGenerationExecution: retire },
+    () => true,
+  );
+  const request = { ...input, mode: "pipeline" as const },
+    selected = [
+      { shotId: "shot1", takeId: "take1" },
+      { shotId: "shot2", takeId: "take2" },
+    ];
+  const work = session.prepare(request, () => true, selected);
+  session.retire();
+  resolve({
+    kind: "NOT_NEEDED",
+    projectId: input.projectId,
+    projectHash: input.expectedProjectHash,
+    reason: "LOCAL_SELECTED_MEDIA",
+    selected,
+  });
+  await expect(work).rejects.toMatchObject({ code: "GENERATION_EXECUTION_STALE" });
+  expect(retire).not.toHaveBeenCalled();
 });

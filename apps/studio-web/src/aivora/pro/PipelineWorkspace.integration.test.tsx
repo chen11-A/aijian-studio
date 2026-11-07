@@ -1,3 +1,6 @@
+import * as workspaceHostModule from "./pipeline-workspace-host";
+import { createProductionPipeline } from "../film/production-pipeline";
+import { filmPipelineFingerprint, filmPipelineTargets } from "./film-pipeline-controller";
 import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
 import { sceneLocationTargets } from "../film/location-reference";
 import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
@@ -6,7 +9,7 @@ import type { FilmHistoryEntry, FilmHistoryReason } from "@aijian/contracts/film
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { blankFilm, type FilmProject } from "../film/project";
+import { blankFilm, sampleFilm, upgradeFilm, type FilmProject } from "../film/project";
 import { ProWorkspace } from "./ProWorkspace";
 const projectId = `prj_${"b".repeat(32)}`;
 beforeEach(() => {
@@ -243,9 +246,13 @@ function fixture(partial = false, count = 1) {
     history,
     order,
     saved: () => structuredClone(saved),
+    seed: (value: FilmProject) => {
+      Object.assign(film, value);
+      saved = structuredClone(film);
+    },
   };
 }
-async function confirmFirstMedia(f: ReturnType<typeof fixture>) {
+async function confirmFirstMedia(f: ReturnType<typeof fixture>, beforeContinue?: () => void) {
   const progress = await screen.findByRole("region", { name: "一键成片进度" });
   await waitFor(() =>
     expect(within(progress).getByRole("button", { name: "继续生成" })).toBeEnabled(),
@@ -259,6 +266,7 @@ async function confirmFirstMedia(f: ReturnType<typeof fixture>) {
   expect(f.video).not.toHaveBeenCalled();
   expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
   expect(progress.textContent).toContain(`视频最多 ${f.saved().shots.length} 次生成`);
+  beforeContinue?.();
   fireEvent.click(within(progress).getByRole("button", { name: "继续生成" }));
 }
 it("runs the real host to human review and a persisted checkpoint before any video", async () => {
@@ -387,3 +395,161 @@ it.each([false, true])(
     expect(f.legacyAssemble).not.toHaveBeenCalled();
   },
 );
+
+it("keeps the actual Pro confirmation/review/assembly path while local-selected receipt skips missing unconsumed images", async () => {
+  const f = fixture();
+  let film = structuredClone(f.film);
+  const template = sampleFilm().shots[0]!;
+  film.shots = [
+    {
+      ...template,
+      id: "local-shot",
+      sceneId: film.scenes[0]!.id,
+      picture: film.sourceText,
+      action: film.sourceText,
+      line: "",
+      lines: [],
+      speaker: "",
+      characters: [],
+      poster: "",
+      stills: [],
+      selectedTakeId: "local-take",
+      takes: [
+        {
+          id: "local-take",
+          shotId: "local-shot",
+          index: 1,
+          status: "done",
+          stillUrl: "",
+          videoPath: "/tmp/local-existing.mp4",
+          videoUrl: "/tmp/local-existing.mp4",
+          prompt: "既有版本",
+          createdAt: "",
+          reason: "",
+        },
+      ],
+    },
+  ];
+  const canonical = upgradeFilm(film);
+  if (!canonical) throw Error("INVALID_LOCAL_PIPELINE_FIXTURE");
+  film = canonical;
+  film.backendProjectId = projectId;
+  const hash = await filmPipelineFingerprint(film),
+    pipeline = createProductionPipeline(film.id, hash);
+  for (const step of pipeline.steps)
+    if (["writer", "art", "director", "action", "performance", "prompter"].includes(step.id)) {
+      step.targets = filmPipelineTargets(film, step.id).map((id) => ({
+        id,
+        status: "done",
+        attempt: 1,
+      }));
+      Object.assign(step, {
+        planned: true,
+        status: "done",
+        total: step.targets.length,
+        done: step.targets.length,
+      });
+    }
+  film.productionPipeline = pipeline;
+  film.productionInputFingerprint = hash;
+  f.seed(film);
+  f.prepare.mockImplementation(async (input) => {
+    const raw = f.saved();
+    expect(input.mode).toBe("pipeline");
+    expect(input.projectId).toBe(raw.id);
+    expect(input.expectedProjectHash).toBe(await historyRecordHash(raw));
+    expect(input.targets).toEqual(raw.shots.map((shot) => ({ shotId: shot.id, versions: 1 })));
+    return {
+      kind: "NOT_NEEDED",
+      projectId: input.projectId,
+      projectHash: input.expectedProjectHash,
+      reason: "LOCAL_SELECTED_MEDIA",
+      selected: raw.shots.map((shot) => ({ shotId: shot.id, takeId: shot.selectedTakeId })),
+    };
+  });
+  // Observe the actual automatic recovery through its existing save-lease release.
+  // Account readiness alone is not a completed pipeline recovery checkpoint.
+  let recovered!: () => void, recoveryFailed!: (error: unknown) => void;
+  const recovery = new Promise<void>((done, failed) => {
+    recovered = done;
+    recoveryFailed = failed;
+  });
+  let operation = Promise.resolve();
+  const originalWorkspaceHost = workspaceHostModule.createPipelineWorkspaceHost;
+  const observe = <T,>(promise: Promise<T>) => {
+    operation = promise.then(() => undefined);
+    return promise;
+  };
+  const hostSpy = vi
+    .spyOn(workspaceHostModule, "createPipelineWorkspaceHost")
+    .mockImplementation((host) => {
+      const actual = originalWorkspaceHost(host);
+      return {
+        ...actual,
+        recover: () => {
+          const promise = observe(actual.recover());
+          void promise.then(recovered, recoveryFailed);
+          return promise;
+        },
+        start: () => observe(actual.start()),
+        continue: () => observe(actual.continue()),
+        acceptReview: (reason) => observe(actual.acceptReview(reason)),
+      };
+    });
+  try {
+    render(<ProWorkspace projectId={projectId} />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "账号" })).toHaveAttribute(
+        "title",
+        "Grok 会员 · 已连接",
+      ),
+    );
+    await recovery;
+    expect(f.prepare).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "一键成片" }));
+    await operation;
+    expect({
+      status: f.saved().productionPipeline?.status,
+      code: f.saved().productionPipeline?.code,
+      hashMatches:
+        f.saved().productionInputFingerprint === (await filmPipelineFingerprint(f.saved())),
+    }).toMatchObject({ status: "checkpoint", hashMatches: true });
+    let mediaBefore: FilmProject["shots"] = [];
+    await confirmFirstMedia(f, () => {
+      mediaBefore = f.saved().shots;
+    });
+    await operation;
+    await waitFor(() =>
+      expect(
+        `${f.saved().productionPipeline?.status}/${f.saved().productionPipeline?.current}`,
+      ).toBe("needs-input/review"),
+    );
+    expect(f.prepare).toHaveBeenCalledOnce();
+    expect(f.completeText).not.toHaveBeenCalled();
+    expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+    expect(f.video).not.toHaveBeenCalled();
+    expect(f.saved().shots).toEqual(mediaBefore);
+    expect(f.saved().locations).toEqual([]);
+    const progress = screen.getByRole("region", { name: "一键成片进度" });
+    fireEvent.click(within(progress).getByRole("button", { name: /要处理的/ }));
+    fireEvent.change(within(progress).getByRole("textbox"), {
+      target: { value: "人工检查结论仍由用户明确填写。" },
+    });
+    fireEvent.click(within(progress).getByRole("button", { name: "记下审片结论" }));
+    await operation;
+    await waitFor(() => expect(f.saved().productionPipeline?.status).toBe("checkpoint"));
+    expect(f.assemble).not.toHaveBeenCalled();
+    fireEvent.click(within(progress).getByRole("button", { name: "继续生成" }));
+    await operation;
+    await waitFor(() => expect(f.saved().productionPipeline?.status).toBe("accepted"));
+    expect(f.assemble).toHaveBeenCalledOnce();
+    expect(f.legacyAssemble).not.toHaveBeenCalled();
+    expect(f.video).not.toHaveBeenCalled();
+    expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
+    expect(window.aijian!.retireFilmGenerationExecution).not.toHaveBeenCalled();
+    expect(f.saved().shots).toEqual(mediaBefore);
+    expect(f.saved().shots[0]!.poster).toBe("");
+  } finally {
+    hostSpy.mockRestore();
+  }
+});

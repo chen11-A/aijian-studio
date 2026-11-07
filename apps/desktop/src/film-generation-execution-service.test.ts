@@ -157,3 +157,44 @@ it("returns only trusted fixed failure codes and never provider or diagnostic te
   expect(f.prepare).toHaveBeenCalledTimes(2);
   expect(f.retire).not.toHaveBeenCalled();
 });
+
+it("publishes a curated pipeline local receipt without granting a stage/video execution or cleanup", async () => {
+  const local = {
+    kind: "NOT_NEEDED" as const,
+    projectId: input.projectId,
+    projectHash: input.expectedProjectHash,
+    reason: "LOCAL_SELECTED_MEDIA" as const,
+    selected: [{ shotId: "shot", takeId: "selected" }],
+  };
+  const retire = vi.fn(async () => undefined);
+  const service = createFilmGenerationExecutionService({ prepare: async () => local, retire });
+  const owner = { id: 1, current: () => true };
+  await expect(service.prepare(owner, { ...input, mode: "pipeline" })).resolves.toEqual(local);
+  expect(() =>
+    service.stage(owner, { executionId: "not-issued", stageId: "not-issued" }, "image"),
+  ).toThrowError();
+  await service.disposeOwner(owner.id);
+  expect(retire).not.toHaveBeenCalled();
+});
+it.each(["ordinary", "hash", "empty", "extra"])(
+  "rejects a local receipt with invalid %s scope or leaked private fields",
+  async (change) => {
+    const local = {
+      kind: "NOT_NEEDED" as const,
+      projectId: input.projectId,
+      projectHash: change === "hash" ? "b".repeat(64) : input.expectedProjectHash,
+      reason: "LOCAL_SELECTED_MEDIA" as const,
+      selected: change === "empty" ? [] : [{ shotId: "shot", takeId: "selected" }],
+    };
+    const result = change === "extra" ? { ...local, path: "PRIVATE_PATH" } : local;
+    const retire = vi.fn(async () => undefined);
+    const service = createFilmGenerationExecutionService({ prepare: async () => result, retire });
+    await expect(
+      service.prepare(
+        { id: 1, current: () => true },
+        { ...input, mode: change === "ordinary" ? "video" : "pipeline" },
+      ),
+    ).resolves.toEqual({ kind: "FAILED", code: "EXECUTION_UNAVAILABLE" });
+    expect(retire).not.toHaveBeenCalled();
+  },
+);

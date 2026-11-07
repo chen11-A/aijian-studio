@@ -863,6 +863,28 @@ const generationExecutions = createNativeFilmGenerationExecutions({
     if (!sidecar) throw Error("EXECUTION_UNAVAILABLE");
     return sidecar.session;
   },
+  selectedMediaHost: async (current) => ({
+    filmsRoot: join(app.getPath("userData"), "films"),
+    storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
+    tools: await verifiedQcTools(
+      process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT ?? join(process.resourcesPath, "media"),
+      process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK ??
+        join(process.resourcesPath, "config", "media-toolchain-lock.json"),
+    ),
+    run: async (binary, args, options) => {
+      if (!current()) throw Error("EXECUTION_UNAVAILABLE");
+      const run = await loadQcRunner(qcResourceRoot());
+      if (!current()) throw Error("EXECUTION_UNAVAILABLE");
+      return run(binary, args, options);
+    },
+    videoOwner: async (project, path, sha) =>
+      storyFilmQcOwner(
+        join(app.getPath("userData"), "workspace", "workspace.sqlite3"),
+        project,
+        path,
+        sha,
+      ),
+  }),
   mediaDispatchLease: () => getGrokRuntime().mediaDispatchLease(),
   storySourceOwner: async (project, path, sha) =>
     storyFilmQcOwner(

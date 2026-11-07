@@ -1,6 +1,7 @@
 import type {
   FilmGenerationExecutionInput,
   FilmGenerationExecutionFailure,
+  FilmGenerationExecutionResult,
 } from "@aijian/contracts/film-generation-execution";
 import {
   createFilmGenerationExecutionRegistry,
@@ -65,7 +66,10 @@ export function createFilmGenerationExecutionService<State>(host: {
   prepare: (
     input: FilmGenerationExecutionInput,
     owner: GenerationExecutionOwner,
-  ) => Promise<GenerationExecutionRegistration<State>>;
+  ) => Promise<
+    | GenerationExecutionRegistration<State>
+    | Extract<FilmGenerationExecutionResult, { kind: "NOT_NEEDED" }>
+  >;
   retire: (state: State, slot?: { shotId: string; index: number }) => Promise<void>;
 }) {
   const registry = createFilmGenerationExecutionRegistry<State>();
@@ -97,7 +101,35 @@ export function createFilmGenerationExecutionService<State>(host: {
       try {
         release = registry.beginPreparation(capturedOwner, input.projectId);
         // Preserve the captured native owner predicate across every adapter await.
-        registration = await host.prepare(input, capturedOwner);
+        const result = await host.prepare(input, capturedOwner);
+        if ("kind" in result) {
+          if (
+            input.mode !== "pipeline" ||
+            result.kind !== "NOT_NEEDED" ||
+            !exact(result, ["kind", "projectId", "projectHash", "reason", "selected"]) ||
+            result.projectId !== input.projectId ||
+            result.projectHash !== input.expectedProjectHash ||
+            result.reason !== "LOCAL_SELECTED_MEDIA" ||
+            !Array.isArray(result.selected) ||
+            result.selected.length !== input.targets.length ||
+            !result.selected.every(
+              (selection, index) =>
+                object(selection) &&
+                exact(selection, ["shotId", "takeId"]) &&
+                selection.shotId === input.targets[index]?.shotId &&
+                typeof selection.takeId === "string" &&
+                selection.takeId.length > 0 &&
+                selection.takeId.length <= 160 &&
+                selection.takeId.trim() === selection.takeId &&
+                !selection.takeId.includes("\0"),
+            )
+          )
+            throw new GenerationExecutionServiceError("EXECUTION_UNAVAILABLE");
+          if (!capturedOwner.current())
+            throw new GenerationExecutionServiceError("EXECUTION_UNAVAILABLE");
+          return structuredClone(result);
+        }
+        registration = result;
         const published = registration.public;
         let cursor = 0;
         if (
