@@ -251,6 +251,7 @@ from aijian_api.timeline_routes import (
     TimelineRevisionConflictError,
     create_timeline_router,
 )
+from aijian_api.video_recovery_routes import create_video_recovery_router
 from aijian_api.visual_bible_routes import (
     create_visual_bible_internal_router,
     create_visual_bible_public_router,
@@ -1271,6 +1272,13 @@ def create_app(
             create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))
         )
         app.include_router(create_generation_failure_router(get_repository))
+        app.include_router(
+            create_video_recovery_router(
+                get_repository,
+                get_media_probe_toolchain,
+                sidecar_security.token if sidecar_security is not None else None,
+            )
+        )
         app.include_router(
             create_story_film_router(
                 get_repository,
