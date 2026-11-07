@@ -98,7 +98,11 @@ export function useShotAudioSuggestions(
     const selected = hostRef.current.selection();
     const candidates =
       film?.audioClips.filter(
-        (c) => c.shotId === selected?.shotId && c.takeId === selected?.takeId && c.suggestionGroup,
+        (c) =>
+          c.shotId === selected?.shotId &&
+          c.takeId === selected?.takeId &&
+          c.suggestionGroup &&
+          !c.sceneAudioBinding,
       ) ?? [];
     const ids = [...new Set(candidates.map((c) => c.suggestionGroup!.groupId))];
     setGroups(

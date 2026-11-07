@@ -289,3 +289,23 @@ it("distinguishes a prepared prompt proposal from confirmed field application", 
     expect(statusLine(text!, notice)).toEqual({ code, text, detail: "" });
   }
 });
+
+it("distinguishes whole-project art review from applied art fields", () => {
+  for (const [code, text] of [
+    ["ART_SUGGESTION_READY", "全项目美术建议已准备好，确认后才修改。"],
+    ["ART_FIELDS_APPLIED", "全项目美术字段已修改。"],
+  ]) {
+    const notice = normalizeNotice({ code: code!, text: text! });
+    expect(statusLine(text!, notice)).toEqual({ code, text, detail: "" });
+  }
+});
+
+it("distinguishes current-scene director structure review from actual application", () => {
+  for (const [code, text] of [
+    ["DIRECTOR_STRUCTURE_READY", "本场导演结构建议已准备好，确认后才修改。"],
+    ["DIRECTOR_STRUCTURE_APPLIED", "本场导演镜头结构已修改。"],
+  ]) {
+    const notice = normalizeNotice({ code: code!, text: text! });
+    expect(statusLine(text!, notice)).toEqual({ code, text, detail: "" });
+  }
+});

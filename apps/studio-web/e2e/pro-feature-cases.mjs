@@ -235,7 +235,12 @@ export async function runFeatureCases({ browser, config, report, media, persist 
             assert.equal(await card.locator(".nx-suggest-apply").count(), 1);
             const fields = card.getByRole("list", { name: "字段改动" });
             assert.equal(await fields.locator(".nx-field-row").count(), 1);
-            await fields.getByText("画风说明", { exact: true }).waitFor();
+            await fields.getByText("全项目 · 画风说明", { exact: true }).waitFor();
+            await page
+              .getByText("本次美术建议作用于全项目；当前选中对象仅供参考，不代表只修改该对象。", {
+                exact: true,
+              })
+              .waitFor();
             assert.equal(await fields.locator("dd").first().innerText(), before.styleZh);
             const proposed = await fields.locator("dd").last().innerText();
             assert.notEqual(proposed, before.styleZh);

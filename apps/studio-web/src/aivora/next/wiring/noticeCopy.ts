@@ -8,6 +8,11 @@ import type { UiNotice } from "../../film/contracts3j";
  * GPT adds a code that has no line here yet.
  */
 export const NOTICE_COPY: Readonly<Record<string, string>> = {
+  ASSISTANT_REFERENCE_UNKNOWN: "引用没有对上当前作品和场次，请从 @ 菜单重新选择。",
+  ASSISTANT_REFERENCE_AMBIGUOUS: "引用有重名或重复镜号，请先核对，暂未发送。",
+  ASSISTANT_REFERENCE_SYNTAX: "引用写法还没完整，请从 @ 菜单重新选择。",
+  ASSISTANT_REFERENCE_STALE: "引用内容或当前范围已变化，请重新检查后再发送。",
+
   HISTORY_SAVED: "当前版本已保存到历史。",
   HISTORY_READ_FAILED: "历史版本暂时无法读取，请重试。",
   HISTORY_RESTORED: "已恢复历史版本，恢复前的作品已另存。",
@@ -26,6 +31,14 @@ export const NOTICE_COPY: Readonly<Record<string, string>> = {
   ASSEMBLY_CLOCK_REQUIRED: "粗剪时钟尚未核验，请重新合成后再按镜头跳转或标记范围。",
   PROMPTER_SUGGESTION_READY: "画面说明已准备好，确认后才修改。",
   PROMPTER_FIELDS_APPLIED: "画面说明已修改。",
+  PERFORMANCE_SUGGESTION_READY: "表演建议已准备好，确认后才修改。",
+  PERFORMANCE_FIELDS_APPLIED: "表演字段已修改。",
+  ACTION_SUGGESTION_READY: "动作建议已准备好，确认后才修改。",
+  ACTION_FIELDS_APPLIED: "动作字段已修改。",
+  ART_SUGGESTION_READY: "全项目美术建议已准备好，确认后才修改。",
+  ART_FIELDS_APPLIED: "全项目美术字段已修改。",
+  DIRECTOR_STRUCTURE_READY: "本场导演结构建议已准备好，确认后才修改。",
+  DIRECTOR_STRUCTURE_APPLIED: "本场导演镜头结构已修改。",
   GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
   GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
   CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",

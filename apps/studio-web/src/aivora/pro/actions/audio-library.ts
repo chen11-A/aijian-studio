@@ -316,9 +316,31 @@ export async function settleLibraryWrite(
     external.unknown(saved);
     return { kind: "unknown", message: "本页又有变化，请重新核对保存状态。", pending };
   }
+  const sceneSourcesRetained =
+    pending.kind !== "group" ||
+    pending.plan.kind !== "SCENE_SUGGESTED" ||
+    pending.plan.clock.shots.every((row) => {
+      const prior = pending.canonicalBefore.shots.filter((s) => s.id === row.shotId);
+      const currentShots = editing.shots.filter((s) => s.id === row.shotId);
+      if (
+        prior.length !== 1 ||
+        currentShots.length !== 1 ||
+        prior[0]!.sceneId !== currentShots[0]!.sceneId
+      )
+        return false;
+      const previousTakes = prior[0]!.takes.filter((t) => t.id === row.takeId);
+      const currentTakes = currentShots[0]!.takes.filter((t) => t.id === row.takeId);
+      return (
+        previousTakes.length === 1 &&
+        currentTakes.length === 1 &&
+        previousTakes[0]!.videoPath === currentTakes[0]!.videoPath &&
+        previousTakes[0]!.cleanVideoPath === currentTakes[0]!.cleanVideoPath
+      );
+    });
   if (
     added &&
-    (!shot ||
+    (!sceneSourcesRetained ||
+      !shot ||
       !take ||
       !oldTake ||
       take.videoPath !== oldTake.videoPath ||
