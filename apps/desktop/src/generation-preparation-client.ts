@@ -73,6 +73,7 @@ export function generationPreparationClient(host: {
         code = value?.detail;
       if (response.status === 403) throw Error("ACCOUNT_UNAVAILABLE");
       if (response.status >= 500) throw Error("WRITE_UNCONFIRMED");
+      if (code === "VIDEO_UNCONFIGURED" || code === "VIDEO_INPUT_FAILURE_LIMIT") throw Error(code);
       if (code === "UNCONFIGURED") throw Error("CREATION_UNCONFIGURED");
       if (code === "INPUT_FAILURE_LIMIT") throw Error("CREATION_INPUT_FAILURE_LIMIT");
       if (code === "ATTEMPT_ALREADY_RESERVED") throw Error("CREATION_ATTEMPT_ALREADY_RESERVED");

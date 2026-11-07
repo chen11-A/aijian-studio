@@ -26,6 +26,7 @@ from aijian_api.remote_execution_authorization import RemoteDispatchSnapshotDraf
 from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import timestamp
+from prepared_generation_test_schema import assert_prepared_tables_empty
 from test_migrations import create_v1_database, migrate_through
 
 NOW = datetime(2026, 10, 21, 8, 0, tzinfo=UTC)
@@ -608,7 +609,8 @@ def test_billing_records_are_immutable_and_migration_49_is_additive(tmp_path: Pa
         assert "media_budget_reservations" in names
     StudioRepository(legacy)
     with sqlite3.connect(legacy) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert_prepared_tables_empty(connection)
         new_tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")

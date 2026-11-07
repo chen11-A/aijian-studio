@@ -10,6 +10,11 @@ from aijian_api.generation_failure_store import GenerationFailureError, Generati
 from aijian_api.repository import StudioRepository
 from aijian_api.story_film import StoryFilmService, StoryShot
 from aijian_api.xai_media import XaiMediaClient
+from prepared_generation_test_schema import (
+    PREPARED_TABLES,
+    assert_prepared_tables_empty,
+    remove_empty_prepared_tables,
+)
 from test_draft_export_runtime import toolchain
 from test_story_film import _allow_live, _byte_image, _project, _request
 
@@ -424,6 +429,7 @@ def test_additive_53_preserves_all_52_sql_rows_and_creates_no_allowance(tmp_path
     VideoRecoveryStore(repo).attach(project, attempt, ACCOUNT, "actual-original-request")
     video.settle(project, attempt, "UNKNOWN")
     with sqlite3.connect(repo.database_path) as connection:
+        remove_empty_prepared_tables(connection)
         connection.execute("DROP TABLE story_creation_failure_attempt")
         connection.execute("DROP TABLE story_creation_failure_policy")
         connection.execute("PRAGMA user_version=52")
@@ -434,13 +440,14 @@ def test_additive_53_preserves_all_52_sql_rows_and_creates_no_allowance(tmp_path
         recovery_before = connection.execute("SELECT * FROM generation_video_recovery").fetchall()
     reopened = StudioRepository(repo.database_path)
     with sqlite3.connect(reopened.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert_prepared_tables_empty(connection)
         after = connection.execute(
             "SELECT type,name,tbl_name,sql FROM sqlite_master "
             "WHERE tbl_name NOT IN ('story_creation_failure_policy', "
             "'story_creation_failure_attempt') ORDER BY type,name"
         ).fetchall()
-        assert after == before
+        assert [row for row in after if row[2] not in PREPARED_TABLES] == before
         assert (
             connection.execute("SELECT * FROM generation_failure_attempt").fetchall()
             == video_before

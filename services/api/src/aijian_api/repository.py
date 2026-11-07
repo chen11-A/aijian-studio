@@ -90,6 +90,7 @@ from aijian_api.media_budget_schema import MEDIA_BUDGET_MIGRATION
 from aijian_api.media_preparation_schema import MEDIA_PREPARATION_MIGRATION
 from aijian_api.official_director_schema import OFFICIAL_DIRECTOR_MIGRATION
 from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
+from aijian_api.prepared_generation_schema import PREPARED_GENERATION_MIGRATION
 from aijian_api.product_export_schema import PRODUCT_EXPORT_MIGRATION
 from aijian_api.production_brief import ProductionBriefContentV1
 from aijian_api.project_creative_library_schema import PROJECT_CREATIVE_LIBRARY_MIGRATION
@@ -128,7 +129,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 53
+SCHEMA_VERSION = 54
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -878,6 +879,7 @@ _MIGRATIONS = {
     51: GENERATION_FAILURE_MIGRATION,
     52: VIDEO_RECOVERY_MIGRATION,
     53: STORY_CREATION_FAILURE_MIGRATION,
+    54: PREPARED_GENERATION_MIGRATION,
 }
 
 

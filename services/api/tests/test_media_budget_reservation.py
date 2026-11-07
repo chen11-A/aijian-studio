@@ -18,6 +18,7 @@ from aijian_api.media_budget_store import (
     _text,
 )
 from aijian_api.repository import SCHEMA_VERSION, StudioRepository
+from prepared_generation_test_schema import assert_prepared_tables_empty
 from test_migrations import create_v1_database, migrate_through
 
 NOW = datetime(2026, 10, 12, 8, 0, tzinfo=UTC)
@@ -656,7 +657,8 @@ def test_migration_48_adds_the_budget_ledger_without_rewriting_projects(tmp_path
         assert "media_budget_revisions" not in names
     StudioRepository(database)
     with sqlite3.connect(database) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 53
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert_prepared_tables_empty(connection)
         new_tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
