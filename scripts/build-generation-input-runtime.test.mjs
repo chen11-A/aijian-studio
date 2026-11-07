@@ -188,7 +188,11 @@ test("actual closed native producer preserves the editor's effective request, vo
       [
         {
           output_sha256: captured.sha256,
-          stage: { kind: "shot-frame", target_id: frame.public.targetId, origin: frame.origin },
+          stage: {
+            kind: "shot-frame",
+            target_id: frame.public.targetId,
+            origin: { ...frame.origin, references: [] },
+          },
         },
       ],
     );
@@ -237,14 +241,18 @@ test("actual closed native producer preserves the editor's effective request, vo
       [
         {
           output_sha256: captured.sha256,
-          stage: { kind: "shot-frame", target_id: frame.public.targetId, origin: frame.origin },
+          stage: {
+            kind: "shot-frame",
+            target_id: frame.public.targetId,
+            origin: { ...frame.origin, references: [] },
+          },
         },
         {
           output_sha256: locationCapture.sha256,
           stage: {
             kind: "location-reference",
             target_id: locationStage.public.targetId,
-            origin: locationStage.origin,
+            origin: { ...locationStage.origin, references: [] },
           },
         },
       ],
@@ -272,7 +280,11 @@ test("actual closed native producer preserves the editor's effective request, vo
       [
         {
           output_sha256: captured.sha256,
-          stage: { kind: "shot-frame", target_id: frame.public.targetId, origin: frame.origin },
+          stage: {
+            kind: "shot-frame",
+            target_id: frame.public.targetId,
+            origin: { ...frame.origin, references: [] },
+          },
         },
       ],
     );
@@ -281,6 +293,73 @@ test("actual closed native producer preserves the editor's effective request, vo
       json(exports.storyFilmBatches(notRestored, [notRestored.shots[0]], false)),
       json(exports.storyFilmBatches(intent, [intent.shots[0]], false)),
     );
+    const registrationModule = await source.ssrLoadModule(
+      "/apps/desktop/src/film-generation-registration.ts",
+    );
+    await assert.rejects(
+      () => registrationModule.buildGenerationRegistration(exports, plan, intent, sources),
+      /UNSUPPORTED_SCOPE/,
+    ); // Consumed missing automatic references await the full intent compiler.
+    const fixed = exports.prepareSceneLocations(json(intent));
+    const fixedPlace = fixed.locations.find((row) => row.id === locationStage.public.targetId);
+    Object.assign(fixedPlace, exports.locationImageFields(fixed, fixedPlace, locationImage));
+    const fixedPlan = planModule.compileCanonicalGenerationPlan(
+      exports,
+      fixed,
+      fixed,
+      scope,
+      new Set(),
+    );
+    const registration = await registrationModule.buildGenerationRegistration(
+      exports,
+      fixedPlan,
+      fixed,
+      sources,
+    );
+    assert.equal(registration.targets[0].first_regenerate, false);
+    assert.equal(registration.targets[0].versions, 1);
+    const registeredFrame = registration.stages.find((stage) => stage.kind === "shot-frame");
+    assert.deepEqual(json(registeredFrame.origin.references), [
+      { sha256: locationCapture.sha256, mime: "image/png" },
+    ]);
+    assert.deepEqual(registration.targets[0].sources, [
+      { source: locationImage, sha256: locationCapture.sha256 },
+    ]);
+    assert.equal(
+      exports.generationHadTakes({ ...fixed.shots[0], takes: [{ ...oldTake, status: "failed" }] }),
+      false,
+    );
+    assert.equal(exports.generationHadTakes({ ...fixed.shots[0], takes: [oldTake] }), true);
+    const freshPool = await sourceModule.generationImageSources({
+      filmsRoot: films,
+      storyFilmsRoot: story,
+      seriesId: "series",
+      projectId: "project",
+      backendProjectId: "prj_bound",
+      storySourceOwner: async () => false,
+    });
+    await freshPool.capture(image);
+    await writeFile(locationImage, "user actually replaced the fixed reference bytes");
+    await freshPool.capture(locationImage);
+    const changedReference = json(fixed);
+    changedReference.shots[0].poster = image;
+    const refusedProjection = await lineageModule.restoreGenerationIntent(
+      exports,
+      changedReference,
+      [changedReference.shots[0].id],
+      freshPool,
+      [
+        {
+          output_sha256: captured.sha256,
+          stage: {
+            kind: "shot-frame",
+            target_id: registeredFrame.target_id,
+            origin: registeredFrame.origin,
+          },
+        },
+      ],
+    );
+    assert.equal(refusedProjection.shots[0].poster, image);
     for (const row of receipt.sources) {
       assert.equal(
         createHash("sha256")

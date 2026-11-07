@@ -14,4 +14,7 @@ export {
   sceneLocationTargets,
   locationImageCurrent,
   locationGenerationPrompt,
+  locationImageFields,
 } from "../../../apps/studio-web/src/aivora/film/location-reference";
+
+export { generationHadTakes } from "../../../apps/studio-web/src/aivora/film/generation-queue";

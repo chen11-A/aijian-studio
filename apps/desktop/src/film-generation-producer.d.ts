@@ -20,3 +20,6 @@ export function shotStillInput(film: unknown, shot: unknown, prompt: string): un
 export function shotReference(shot: unknown, film: unknown): unknown;
 export function withStyleBible(prompt: string, style: string, maxLength?: number): string;
 export function withIdentityLocks(...args: unknown[]): unknown;
+
+export function locationImageFields(film: unknown, place: unknown, url: string): unknown;
+export function generationHadTakes(shot: unknown): boolean;
