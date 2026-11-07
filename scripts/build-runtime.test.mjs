@@ -5,6 +5,9 @@ import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  cpSync,
+  renameSync,
+  symlinkSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -19,6 +22,8 @@ import { dirname, join, resolve, win32 } from "node:path";
 import { runInNewContext } from "node:vm";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { verifyDesktopRuntime } from "./desktop-runtime-closure.mjs";
+import { resourceImports } from "./desktop-runtime-resources.mjs";
 import { asarManifestPath } from "./e2e/asar-manifest-path.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -159,19 +164,213 @@ test("builder retains only the explicit contract declaration exceptions", async 
   }
 });
 
-test("production application has complete isolated exports, hashes and no test artifacts", () => {
+test("production application has complete isolated exports, hashes and no test artifacts", async (context) => {
   const temporary = mkdtempSync(join(tmpdir(), "aivora-runtime-test-"));
   try {
     const output = join(temporary, "app");
     const script = join(root, "scripts/build-desktop-runtime.mjs");
-    const result = spawnSync(process.execPath, [script, "--out-dir", output], {
-      cwd: root,
-      encoding: "utf8",
-      timeout: 120_000,
-    });
+    const resources = join(temporary, "resources");
+    mkdirSync(resources);
+    const collection = spawnSync(
+      "uv",
+      [
+        "run",
+        "--frozen",
+        "python",
+        "-c",
+        `
+import importlib.util, pathlib, sys
+spec=importlib.util.spec_from_file_location("real_collector", sys.argv[2])
+module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+root=pathlib.Path(sys.argv[1])
+module.stage_qc_resources(root/"qc")
+module.stage_project_archive_resources(root/"project-archive")
+module.stage_audio_library_resources(root/"audio-library")
+`,
+        resources,
+        "packaging/windows/freeze-sidecar.py",
+      ],
+      { cwd: root, encoding: "utf8", shell: false },
+    );
+    assert.equal(collection.status, 0, collection.stderr);
+    for (const args of [
+      ["--out-dir", join(temporary, "missing-flag-app")],
+      [
+        "--out-dir",
+        join(temporary, "missing-root-app"),
+        "--resources-root",
+        join(temporary, "not-collected"),
+      ],
+    ]) {
+      const rejected = spawnSync(process.execPath, [script, ...args], {
+        cwd: root,
+        encoding: "utf8",
+        shell: false,
+      });
+      assert.notEqual(rejected.status, 0);
+      assert.equal(existsSync(args[1]), false);
+    }
+    const result = spawnSync(
+      process.execPath,
+      [script, "--out-dir", output, "--resources-root", resources],
+      {
+        cwd: root,
+        encoding: "utf8",
+        timeout: 120_000,
+      },
+    );
     assert.equal(result.status, 0, result.stderr || result.stdout);
     const receipt = JSON.parse(result.stdout);
     assert.equal(receipt.release_approved, false);
+    assert.equal(receipt.bundled_resource_closure.reviewedImportSites, 6);
+    assert.equal(receipt.bundled_resource_closure.modules.length, 9);
+    assert.equal(receipt.bundled_resource_closure.files.length, 470);
+    assert.equal(receipt.bundled_resource_closure.authorization, false);
+    await context.test(
+      "known closure rejects self-consistent replacement code and its rewritten index",
+      () => {
+        const module = join(resources, "audio-library/audio-picker.mjs"),
+          index = join(resources, "audio-library/resource-index.json");
+        const original = readFileSync(module),
+          originalIndex = readFileSync(index);
+        try {
+          const changed = Buffer.concat([
+            original,
+            Buffer.from('\nimport "caller-selected-package";\n'),
+          ]);
+          writeFileSync(module, changed);
+          const rewritten = JSON.parse(originalIndex);
+          rewritten.pickerSha256 = createHash("sha256").update(changed).digest("hex");
+          writeFileSync(index, JSON.stringify(rewritten));
+          assert.equal(
+            JSON.parse(readFileSync(index)).pickerSha256,
+            createHash("sha256").update(readFileSync(module)).digest("hex"),
+          );
+          assert.throws(() => verifyDesktopRuntime(output, resources), /closure needs review/);
+        } finally {
+          writeFileSync(module, original);
+          writeFileSync(index, originalIndex);
+        }
+      },
+    );
+    await context.test(
+      "known loader filename cannot authorize a changed entry or a new dynamic import",
+      () => {
+        const loader = join(output, "dist/film-export-qc-runtime.js"),
+          original = readFileSync(loader);
+        try {
+          writeFileSync(
+            loader,
+            original.toString().replace('"index.mjs"', '"unreviewed-entry.mjs"'),
+          );
+          assert.throws(() => verifyDesktopRuntime(output, resources), /closure needs review/);
+        } finally {
+          writeFileSync(loader, original);
+        }
+        const main = join(output, "dist/main.js"),
+          mainBytes = readFileSync(main);
+        try {
+          writeFileSync(
+            main,
+            Buffer.concat([
+              mainBytes,
+              Buffer.from("\n(async()=>import(globalThis.CALLER_SELECTED_MODULE))();\n"),
+            ]),
+          );
+          assert.throws(() => verifyDesktopRuntime(output, resources), /closure needs review/);
+        } finally {
+          writeFileSync(main, mainBytes);
+        }
+      },
+    );
+    await context.test(
+      "missing, unlisted and junction-escaped actual resources remain rejected",
+      () => {
+        const module = join(resources, "qc/index.mjs"),
+          original = readFileSync(module);
+        try {
+          rmSync(module);
+          assert.throws(() => verifyDesktopRuntime(output, resources));
+        } finally {
+          writeFileSync(module, original);
+        }
+        for (const name of ["unreviewed.mjs", "private-cache.json"]) {
+          const extra = join(resources, "qc", name);
+          try {
+            writeFileSync(extra, "SYNTHETIC_UNLISTED_INPUT");
+            assert.throws(() => verifyDesktopRuntime(output, resources), /closure needs review/);
+          } finally {
+            rmSync(extra, { force: true });
+          }
+        }
+        const qc = join(resources, "qc"),
+          outside = join(temporary, "outside-qc");
+        renameSync(qc, outside);
+        try {
+          symlinkSync(outside, qc, "junction");
+          assert.throws(() => verifyDesktopRuntime(output, resources), /closure needs review/);
+          assert.deepEqual(readFileSync(join(outside, "index.mjs")), original);
+        } finally {
+          rmSync(qc, { recursive: true, force: true });
+          renameSync(outside, qc);
+        }
+      },
+    );
+    await context.test(
+      "resource dependency parser rejects arbitrary bare, escaped and nonliteral imports",
+      () => {
+        for (const text of [
+          'import "unreviewed-package";',
+          'export * from "../outside.mjs";',
+          "import(globalThis.USER_PATH);",
+          "require(process.env.MODULE);",
+          'import "https://example.invalid/module.mjs";',
+        ])
+          assert.throws(() => resourceImports(text), /closure needs review/);
+        assert.deepEqual(resourceImports('import "node:fs";import "./media.mjs";'), [
+          "node:fs",
+          "./media.mjs",
+        ]);
+      },
+    );
+    await context.test(
+      "both existing Linux collectors produce a real compatible portable closure",
+      () => {
+        for (const collector of [
+          "scripts/package-native-linux-checkpoint.py",
+          "packaging/linux/package-desktop.py",
+        ]) {
+          const portable = join(
+              temporary,
+              collector.includes("checkpoint") ? "checkpoint" : "linux",
+            ),
+            app = join(portable, "apps/desktop");
+          mkdirSync(dirname(app), { recursive: true });
+          cpSync(output, app, { recursive: true });
+          const code = `import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("actual_collector",sys.argv[2])
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+root=pathlib.Path(sys.argv[1])
+module.stage_qc_resources(root/"qc")
+module.stage_project_archive_resources(root/"project-archive")
+module.stage_audio_library_resources(root/"audio-library")
+`;
+          const collected = spawnSync(
+            "uv",
+            ["run", "--frozen", "python", "-c", code, portable, collector],
+            { cwd: root, encoding: "utf8", shell: false },
+          );
+          assert.equal(collected.status, 0, collected.stderr);
+          const checked = verifyDesktopRuntime(app, portable);
+          assert.equal(checked.bundled_resource_closure.modules.length, 9);
+          assert.deepEqual(
+            checked.bundled_resource_closure.files,
+            receipt.bundled_resource_closure.files,
+          );
+        }
+      },
+    );
+
     assert.equal(receipt.windows_execution, "NOT_RUN");
     assert.ok(receipt.reachable_js_files > 2);
     for (const file of receipt.files) {
@@ -214,7 +413,30 @@ test("production application has complete isolated exports, hashes and no test a
     );
     const smoke = spawnSync(process.execPath, [probe], { cwd: temporary, encoding: "utf8" });
     assert.equal(smoke.status, 0, smoke.stderr);
-    const again = spawnSync(process.execPath, [script, "--out-dir", output], { encoding: "utf8" });
+    const resourceProbe = join(output, "resource-probe.cjs");
+    writeFileSync(
+      resourceProbe,
+      `const assert=require('node:assert/strict');const root=${JSON.stringify(resources)};
+      (async()=>{const qc=require('./dist/film-export-qc-runtime.js');assert.equal(typeof await qc.loadQcEngine(root+'/qc'),'function');assert.equal(typeof await qc.loadQcRunner(root+'/qc'),'function');
+      assert.equal(typeof (await require('./dist/film-audio-normalize.js').loadAudioNormalizer(root+'/qc')).audioNormalizationFilter,'function');
+      assert.equal(typeof (await require('./dist/film-project-archive-runtime.js').loadProjectArchiveEngine(root+'/project-archive')).archiveProject,'function');
+      const audio=require('./dist/film-audio-library-runtime.js');assert.equal((await audio.loadTrustedAudioLibrary(root+'/audio-library')).assets.length,206);
+      assert.equal(typeof (await audio.loadTrustedAudioPicker(root+'/audio-library')).pickAudio,'function');
+      console.log('PINNED_RESOURCE_IMPORTS_PASS');})().catch(()=>process.exitCode=1);`,
+    );
+    const loaded = spawnSync(process.execPath, [resourceProbe], {
+      cwd: temporary,
+      encoding: "utf8",
+      shell: false,
+    });
+    assert.equal(loaded.status, 0, loaded.stderr);
+    assert.match(loaded.stdout, /PINNED_RESOURCE_IMPORTS_PASS/);
+
+    const again = spawnSync(
+      process.execPath,
+      [script, "--out-dir", output, "--resources-root", resources],
+      { encoding: "utf8" },
+    );
     assert.notEqual(again.status, 0);
     assert.match(again.stderr, /output must not exist/);
     assert.equal(readFileSync(probe, "utf8").includes("await import(name)"), true);

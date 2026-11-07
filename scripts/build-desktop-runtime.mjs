@@ -15,20 +15,32 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { createRequire, isBuiltin } from "node:module";
+import { verifyDesktopRuntime } from "./desktop-runtime-closure.mjs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
-if (args.length !== 2 || args[0] !== "--out-dir" || !isAbsolute(args[1])) {
+if (
+  args.length !== 4 ||
+  args[0] !== "--out-dir" ||
+  !isAbsolute(args[1]) ||
+  args[2] !== "--resources-root" ||
+  !isAbsolute(args[3])
+) {
   throw new Error(
-    "Usage: node scripts/build-desktop-runtime.mjs --out-dir <absolute new directory>",
+    "Usage: node scripts/build-desktop-runtime.mjs --out-dir <absolute new directory> --resources-root <actual collector directory>",
   );
 }
 const output = resolve(args[1]);
+const resourcesRoot = resolve(args[3]);
+if (
+  !existsSync(resourcesRoot) ||
+  !lstatSync(resourcesRoot).isDirectory() ||
+  lstatSync(resourcesRoot).isSymbolicLink()
+)
+  throw new Error("Actual collected runtime resources are required");
 if (existsSync(output)) throw new Error("Desktop runtime output must not exist");
 for (let parent = dirname(output); ; parent = dirname(parent)) {
   if (
@@ -83,6 +95,9 @@ function sourceFingerprint() {
       "pnpm-lock.yaml",
       "scripts/build-contracts-runtime.mjs",
       "scripts/build-desktop-runtime.mjs",
+      "scripts/desktop-runtime-closure.mjs",
+      "scripts/desktop-runtime-resources.mjs",
+      "config/desktop-runtime-resources.json",
     ].map((path) => join(root, path)),
   ].sort();
   return Object.fromEntries(
@@ -141,51 +156,9 @@ if (app.dependencies[contracts.name] !== contracts.version) {
   throw new Error("Desktop and contracts runtime versions differ");
 }
 
-// Resolve the emitted CommonJS dependency graph without executing main/preload.
-// Only Electron itself and Node built-ins may come from outside this app tree.
-const pending = [join(output, app.main), join(output, "dist/preload.js")];
-const visited = new Set();
-const external = new Set();
-while (pending.length) {
-  const path = pending.pop();
-  if (visited.has(path)) continue;
-  visited.add(path);
-  const source = ts.createSourceFile(
-    path,
-    readFileSync(path, "utf8"),
-    ts.ScriptTarget.ES2022,
-    true,
-    ts.ScriptKind.JS,
-  );
-  const requireFromFile = createRequire(path);
-  function visit(node) {
-    if (
-      ts.isCallExpression(node) &&
-      ((ts.isIdentifier(node.expression) && node.expression.text === "require") ||
-        node.expression.kind === ts.SyntaxKind.ImportKeyword)
-    ) {
-      if (node.arguments.length !== 1 || !ts.isStringLiteral(node.arguments[0])) {
-        throw new Error(`Unbounded runtime import needs review: ${relative(output, path)}`);
-      }
-      const specifier = node.arguments[0].text;
-      if (specifier === "electron" || isBuiltin(specifier)) {
-        external.add(specifier);
-      } else {
-        const target = realpathSync(requireFromFile.resolve(specifier));
-        const inside = relative(output, target);
-        if (isAbsolute(inside) || inside === ".." || inside.startsWith(`..${sep}`)) {
-          throw new Error(`Runtime import escaped application tree: ${specifier}`);
-        }
-        if (target.endsWith(".js")) pending.push(target);
-        else if (!target.endsWith(".json")) {
-          throw new Error(`Unexpected runtime dependency needs review: ${specifier}`);
-        }
-      }
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(source);
-}
+// Static dependencies retain the original containment rules; nonliteral imports
+// must additionally bind the reviewed code and actual collector resource closure.
+const closure = verifyDesktopRuntime(output, resourcesRoot);
 
 const files = paths.map((path) => ({
   path: relative(output, path).split(sep).join("/"),
@@ -206,10 +179,9 @@ process.stdout.write(
       result: "PRODUCTION_APP_TREE_ONLY",
       candidate_head: candidateHead,
       source_files: sources,
-      runtime_resolution: "STATIC_NODE_CJS_RESOLUTION_PASS",
+      runtime_resolution: "STATIC_CJS_AND_REVIEWED_RESOURCE_CLOSURE_PASS",
       files,
-      reachable_js_files: visited.size,
-      host_modules: [...external].sort(),
+      ...closure,
       electron_execution: "NOT_RUN",
       windows_execution: "NOT_RUN",
       installer: "NOT_BUILT",

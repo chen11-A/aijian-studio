@@ -147,8 +147,14 @@ From the repository root, with existing pinned tools:
 node --test scripts/build-runtime.test.mjs
 python -m unittest discover -s packaging/windows -p 'test_*.py' -v
 python packaging/windows/audit-readiness.py --cache /workspace/shared/aivora-windows-toolchain
-node scripts/build-desktop-runtime.mjs --out-dir /absolute/new/preparation/app
+node scripts/build-desktop-runtime.mjs --out-dir /absolute/new/preparation/app --resources-root /absolute/verified/collected/resources
 ```
+
+The current builder requires the actual same-candidate collector output as
+`--resources-root`: Windows frozen `resources/`, or the Linux staged root with
+`qc/`, `project-archive/`, and compiled `audio-library/`. A raw repository source
+folder or a self-written index is not a fallback. Missing or unreviewed resources
+fail the closure gate; this dependency check does not grant release approval.
 
 The audit prints JSON without modifying anything. The builder's stdout provides
 hashes and proposed `app/` destinations; keep it outside the application tree.

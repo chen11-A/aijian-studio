@@ -116,6 +116,8 @@ def main() -> None:
                 str(ROOT / "scripts/build-desktop-runtime.mjs"),
                 "--out-dir",
                 str(stage / "app"),
+                "--resources-root",
+                str(args.frozen / "resources"),
             ],
             cwd=ROOT,
             stdout=stream,
@@ -251,6 +253,20 @@ def main() -> None:
         "ucrt_resolution": "OPERATING_SYSTEM",
     }
     (stage / "resources/config/build-profile.json").write_text(json.dumps(profile, indent=2) + "\n")
+    with (args.evidence / "STAGED-RUNTIME-CLOSURE.json").open("w", encoding="utf-8") as receipt:
+        subprocess.run(
+            [
+                "node",
+                str(ROOT / "scripts/verify-desktop-runtime.mjs"),
+                "--app-dir",
+                str(stage / "app"),
+                "--resources-root",
+                str(stage / "resources"),
+            ],
+            cwd=ROOT,
+            stdout=receipt,
+            check=True,
+        )
     assert_core_tree(stage)
     manifest = {
         **profile,
