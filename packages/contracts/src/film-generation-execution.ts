@@ -38,6 +38,13 @@ export type FilmGenerationExecutionFailure =
   | "CREATION_ATTEMPT_ALREADY_RESERVED"
   | "WRITE_UNCONFIRMED";
 
+/** Exactly one native-issued fact per video slot, in videoSlotIds order. A cached
+ * slot cannot lend cache eligibility to a new-version/regenerate slot. */
+export type FilmGenerationSlotPreparation = {
+  videoSlotId: string;
+  preparation: "CLIENT_IMAGES" | "STORYFILM_CACHE";
+};
+
 export type FilmGenerationExecutionResult =
   | {
       kind: "PREPARED";
@@ -48,9 +55,13 @@ export type FilmGenerationExecutionResult =
       targets: readonly {
         shotId: string;
         videoSlotIds: readonly string[];
-        /** Cache eligibility is a native observed fact, not permission to generate
-         * if the cache later disappears or fails the original final checks. */
+        /** Conservative target summary: CACHE only if every slot is CACHE.
+         * Consumers select an individual slot from slotPreparations, never infer
+         * eligibility from its index or use this summary to skip all versions. */
         preparation: "CLIENT_IMAGES" | "STORYFILM_CACHE";
+        /** Cache eligibility is observed from the actual original regenerate path,
+         * full input and readable bundle. Late loss never permits a new POST. */
+        slotPreparations: readonly FilmGenerationSlotPreparation[];
       }[];
     }
   | { kind: "FAILED"; code: FilmGenerationExecutionFailure };
