@@ -80,3 +80,45 @@ describe("private preparation facts client", () => {
     ).toEqual({ target_key: null, slot_index: null });
   });
 });
+
+it("pins a private arm with an exact ACK without treating it as transport admission", async () => {
+  const fetcher = vi.fn(async () => new Response(JSON.stringify({ arm_id: "e".repeat(32) })));
+  const client = generationPreparationClient({ session: () => session, fetcher });
+  expect(
+    await client.armVideo(
+      project,
+      execution,
+      "target",
+      2,
+      "queued-take",
+      "d".repeat(64),
+      account,
+      () => true,
+    ),
+  ).toBe("e".repeat(32));
+  const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+  expect(url).toBe(
+    `${session.origin}/api/v1/projects/${project}/prepared-generation-executions/${execution}/video-arm`,
+  );
+  expect(JSON.parse(init.body as string)).toEqual({
+    target_key: "target",
+    slot_index: 2,
+    take_key: "queued-take",
+    body_sha256: "d".repeat(64),
+  });
+  fetcher.mockImplementation(
+    async () => new Response(JSON.stringify({ arm_id: "e".repeat(32), admitted: true })),
+  );
+  await expect(
+    client.armVideo(
+      project,
+      execution,
+      "target",
+      2,
+      "queued-take",
+      "d".repeat(64),
+      account,
+      () => true,
+    ),
+  ).rejects.toThrow("WRITE_UNCONFIRMED");
+});
