@@ -256,6 +256,27 @@ function beats(value: unknown, scope: EditorSelection) {
   );
 }
 /** Every actual field, scene state and unassigned beat change, or the whole legacy card. */
+/** Formatting only: structural cards keep their own original story transaction and receipt. */
+export function formatActionFieldValue(
+  field: string,
+  value: unknown,
+  scope: EditorSelection,
+  beforePlan: unknown = undefined,
+  after = true,
+): string {
+  if (field === "actionPlan")
+    return actionPlan(value, scope, beforePlan === undefined ? [] : nodeIds(beforePlan), after);
+  if (field === "actionBeats")
+    return bounded(
+      list(value, 128)
+        .map((item) => safeText(item, scope))
+        .join("\n") || "无",
+    );
+  if (field === "sound") return sound(value, scope);
+  if (field === "source") return source(value);
+  if (field === "action") return safeText(value, scope);
+  return reject();
+}
 export function projectActionFields(
   tx: ShotDirectionTransaction | undefined,
   origin: EditorSelection,

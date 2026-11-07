@@ -200,6 +200,17 @@ function state(value: unknown, scope: EditorSelection): string {
   return `未分配表演：无\n声音核对：${reviews}`;
 }
 /** Full supported transaction or no field mode. Never pretty-print raw objects or recompute a live baseline. */
+/** Safe value formatting shared with a structural review; this never creates a direction transaction. */
+export function formatPerformanceFieldValue(
+  field: string,
+  value: unknown,
+  scope: EditorSelection,
+): string {
+  if (field === "performancePlan") return plan(value, scope);
+  if (["source", "performanceSource"].includes(field)) return source(value);
+  if (["performance", "delivery"].includes(field)) return safeText(value, scope);
+  return reject();
+}
 export function projectPerformanceFields(
   tx: ShotDirectionTransaction | undefined,
   origin: EditorSelection,
@@ -256,12 +267,7 @@ export function projectPerformanceFields(
         rows.has(change.field)
       )
         reject();
-      const format = (v: unknown) =>
-        change.field === "performancePlan"
-          ? plan(v, origin)
-          : ["source", "performanceSource"].includes(change.field)
-            ? source(v)
-            : safeText(v, origin);
+      const format = (v: unknown) => formatPerformanceFieldValue(change.field, v, origin);
       rows.set(change.field, {
         key: `performance-${change.field}`,
         label: labels[change.field]!,
