@@ -1,5 +1,5 @@
 {
-  "accepted_product_source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c",
+  "accepted_product_source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
   "checkpoints": [
     {
       "name": "frontend-auto-source",
@@ -21,5 +21,6 @@
       "sha256": "263ca0bbc9a507413f33f0373a8ba342432359c15ce49e91ef9894db564c96bc",
       "status": "CHECKPOINT_ONLY_NOT_ACCEPTED_NOT_ENABLED"
     }
-  ]
+  ],
+  "runtime_equivalent_source": "de2cb0629e4934ae9bbfd09e2da6f77a772cb97c"
 }

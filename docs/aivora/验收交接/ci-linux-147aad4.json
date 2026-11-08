@@ -4,7 +4,7 @@
   "job": "128543304013",
   "platform": "ubuntu-latest",
   "status": "SUCCESS",
-  "scope": "Previous test source complete Linux quality. Does not replace final-source CI or Windows.",
+  "scope": "Previous test source complete Linux quality; completed both-platform run in ci-147aad4.json.",
   "steps": [
     {
       "name": "Set up job",

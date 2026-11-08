@@ -14,5 +14,12 @@
   "actual": "这次改动不能安全撤销，已保留当前内容。",
   "contentPreserved": true,
   "cause": "UNDER_INVESTIGATION; no invented hydration diagnosis",
-  "status": "PRESERVED"
+  "status": "PRESERVED",
+  "finalGateClosure": {
+    "source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+    "run": "42420151861",
+    "status": "SUCCESS_20_OF_20",
+    "observedAt": "2026-11-08T00:04:40.650862+00:00",
+    "note": "Original failure and causality limits preserved; final full regression closes gate."
+  }
 }

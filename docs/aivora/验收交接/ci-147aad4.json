@@ -1,0 +1,467 @@
+{
+  "source": "147aad4111a4a9765ad7b78c2445d53dbc29f7cf",
+  "run": "42419046672",
+  "status": "SUCCESS",
+  "jobsPassed": 20,
+  "scope": "Previous test source complete CI. Final babefa9 Windows still pending; source-qualified proof retained.",
+  "jobs": [
+    {
+      "job": "128543303945",
+      "name": "pro-layout (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303990",
+      "name": "pro-creation (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304088",
+      "name": "pro-audio-mix (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303960",
+      "name": "pro-audio-library (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304021",
+      "name": "pro-shot-audio (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303822",
+      "name": "pro-audio-groups (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304196",
+      "name": "speech-window (windows, targeted)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304138",
+      "name": "pro-dialogue-split (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304254",
+      "name": "audio-library-write (windows, targeted)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304171",
+      "name": "pro-assembly (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304281",
+      "name": "pro-scene-audio (ubuntu)",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304156",
+      "name": "Pro assistant references UI audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304243",
+      "name": "Pro trial review and video failure policy audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304078",
+      "name": "Pro delivery evidence and existing UI interaction audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543303981",
+      "name": "Pro explicit original video recovery audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304113",
+      "name": "Pro explicit actual-version trial review audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304192",
+      "name": "Pro explicit story creation failure policy audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304001",
+      "name": "Pro existing editor interaction audit",
+      "status": "succeeded"
+    },
+    {
+      "job": "128543304013",
+      "name": "quality (ubuntu-latest)",
+      "status": "succeeded",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:06:47Z",
+          "completed-at": "2026-11-07T22:06:48Z"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:06:48Z",
+          "completed-at": "2026-11-07T22:06:51Z"
+        },
+        {
+          "name": "Prepare Debian test container and pinned development media tools",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:06:51Z",
+          "completed-at": "2026-11-07T22:07:13Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:13Z",
+          "completed-at": "2026-11-07T22:07:17Z"
+        },
+        {
+          "name": "Bind container Git trust to this workspace only",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:17Z",
+          "completed-at": "2026-11-07T22:07:17Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:17Z",
+          "completed-at": "2026-11-07T22:07:22Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:22Z",
+          "completed-at": "2026-11-07T22:07:22Z"
+        },
+        {
+          "name": "Set up Python",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:07:22Z",
+          "completed-at": "2026-11-07T22:07:22Z"
+        },
+        {
+          "name": "Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:22Z",
+          "completed-at": "2026-11-07T22:07:24Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:24Z",
+          "completed-at": "2026-11-07T22:07:28Z"
+        },
+        {
+          "name": "Install Python dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:28Z",
+          "completed-at": "2026-11-07T22:07:30Z"
+        },
+        {
+          "name": "Verify exact Linux development media binaries",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:30Z",
+          "completed-at": "2026-11-07T22:07:31Z"
+        },
+        {
+          "name": "Prepare exact Windows development media binaries",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:07:31Z",
+          "completed-at": "2026-11-07T22:07:31Z"
+        },
+        {
+          "name": "Verify generated contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:31Z",
+          "completed-at": "2026-11-07T22:07:40Z"
+        },
+        {
+          "name": "Lint",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:40Z",
+          "completed-at": "2026-11-07T22:08:47Z"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:08:47Z",
+          "completed-at": "2026-11-07T22:09:35Z"
+        },
+        {
+          "name": "Verify CI test diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:09:35Z",
+          "completed-at": "2026-11-07T22:09:36Z"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:09:36Z",
+          "completed-at": "2026-11-07T23:11:46Z"
+        },
+        {
+          "name": "Fault injection",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:11:46Z",
+          "completed-at": "2026-11-07T23:11:54Z"
+        },
+        {
+          "name": "Reproduce fault-injection evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:11:54Z",
+          "completed-at": "2026-11-07T23:11:55Z"
+        },
+        {
+          "name": "Reproduce media contract evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:11:55Z",
+          "completed-at": "2026-11-07T23:11:59Z"
+        },
+        {
+          "name": "Verify evidence hashes",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:11:59Z",
+          "completed-at": "2026-11-07T23:12:00Z"
+        },
+        {
+          "name": "Audit production JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:00Z",
+          "completed-at": "2026-11-07T23:12:01Z"
+        },
+        {
+          "name": "Build",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:01Z",
+          "completed-at": "2026-11-07T23:12:14Z"
+        },
+        {
+          "name": "Verify clean generated state",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:14Z",
+          "completed-at": "2026-11-07T23:12:14Z"
+        },
+        {
+          "name": "Post Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:14Z",
+          "completed-at": "2026-11-07T23:12:21Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:21Z",
+          "completed-at": "2026-11-07T23:12:21Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:21Z",
+          "completed-at": "2026-11-07T23:12:22Z"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:22Z",
+          "completed-at": "2026-11-07T23:12:25Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:12:25Z",
+          "completed-at": "2026-11-07T23:12:25Z"
+        }
+      ]
+    },
+    {
+      "job": "128543304146",
+      "name": "quality (windows-latest)",
+      "status": "succeeded",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:06:48Z",
+          "completed-at": "2026-11-07T22:06:49Z"
+        },
+        {
+          "name": "Prepare Debian test container and pinned development media tools",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:06:49Z",
+          "completed-at": "2026-11-07T22:06:49Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:06:49Z",
+          "completed-at": "2026-11-07T22:07:00Z"
+        },
+        {
+          "name": "Bind container Git trust to this workspace only",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:07:00Z",
+          "completed-at": "2026-11-07T22:07:00Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:00Z",
+          "completed-at": "2026-11-07T22:07:08Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:08Z",
+          "completed-at": "2026-11-07T22:07:08Z"
+        },
+        {
+          "name": "Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:08Z",
+          "completed-at": "2026-11-07T22:07:08Z"
+        },
+        {
+          "name": "Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:08Z",
+          "completed-at": "2026-11-07T22:07:14Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:14Z",
+          "completed-at": "2026-11-07T22:07:24Z"
+        },
+        {
+          "name": "Install Python dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:24Z",
+          "completed-at": "2026-11-07T22:07:25Z"
+        },
+        {
+          "name": "Verify exact Linux development media binaries",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:07:25Z",
+          "completed-at": "2026-11-07T22:07:25Z"
+        },
+        {
+          "name": "Prepare exact Windows development media binaries",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:25Z",
+          "completed-at": "2026-11-07T22:07:51Z"
+        },
+        {
+          "name": "Verify generated contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:07:51Z",
+          "completed-at": "2026-11-07T22:08:00Z"
+        },
+        {
+          "name": "Lint",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:08:00Z",
+          "completed-at": "2026-11-07T22:09:06Z"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:09:06Z",
+          "completed-at": "2026-11-07T22:09:46Z"
+        },
+        {
+          "name": "Verify CI test diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:09:46Z",
+          "completed-at": "2026-11-07T22:09:48Z"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:09:48Z",
+          "completed-at": "2026-11-07T23:45:54Z"
+        },
+        {
+          "name": "Fault injection",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:45:54Z",
+          "completed-at": "2026-11-07T23:46:15Z"
+        },
+        {
+          "name": "Reproduce fault-injection evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:15Z",
+          "completed-at": "2026-11-07T23:46:16Z"
+        },
+        {
+          "name": "Reproduce media contract evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:16Z",
+          "completed-at": "2026-11-07T23:46:19Z"
+        },
+        {
+          "name": "Verify evidence hashes",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:19Z",
+          "completed-at": "2026-11-07T23:46:20Z"
+        },
+        {
+          "name": "Audit production JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:20Z",
+          "completed-at": "2026-11-07T23:46:21Z"
+        },
+        {
+          "name": "Build",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:21Z",
+          "completed-at": "2026-11-07T23:46:32Z"
+        },
+        {
+          "name": "Verify clean generated state",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:32Z",
+          "completed-at": "2026-11-07T23:46:32Z"
+        },
+        {
+          "name": "Post Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:32Z",
+          "completed-at": "2026-11-07T23:46:33Z"
+        },
+        {
+          "name": "Post Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:33Z",
+          "completed-at": "2026-11-07T23:46:33Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:33Z",
+          "completed-at": "2026-11-07T23:46:33Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:33Z",
+          "completed-at": "2026-11-07T23:46:35Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:46:35Z",
+          "completed-at": "2026-11-07T23:46:35Z"
+        }
+      ]
+    }
+  ]
+}

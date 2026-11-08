@@ -1,0 +1,28 @@
+{
+  "observedAt": "2026-11-07T23:48:04.096346+00:00",
+  "finalCode": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+  "checkpoints": [
+    {
+      "name": "frontend-auto-source",
+      "commit": "939b4c975f38568d825d3d5e89a0a83106813ec0",
+      "bytes": 6490,
+      "sha256": "6b1d400cee1ce70a5dd93d6034cdc3cfe97e894a8539cb48629561ecec8f09e5",
+      "bundleVerifyExit": 0,
+      "advertisedRefExact": true,
+      "localCheckpointRefPreserved": true,
+      "baseInFinalCodeHistory": true,
+      "unfinishedCommitNotMerged": true
+    },
+    {
+      "name": "backend-cache55",
+      "commit": "166dc89d35d3cfab6f220a409b34a0874f38ee08",
+      "bytes": 30663,
+      "sha256": "263ca0bbc9a507413f33f0373a8ba342432359c15ce49e91ef9894db564c96bc",
+      "bundleVerifyExit": 0,
+      "advertisedRefExact": true,
+      "localCheckpointRefPreserved": true,
+      "baseInFinalCodeHistory": true,
+      "unfinishedCommitNotMerged": true
+    }
+  ]
+}

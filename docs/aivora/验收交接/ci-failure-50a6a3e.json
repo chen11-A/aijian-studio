@@ -17,5 +17,12 @@
     "stage": "board"
   },
   "cause": "UNDER_INVESTIGATION; full DOM truncated before relevant button; no invented cause",
-  "status": "PRESERVED; minimal acceptance fix pending"
+  "status": "PRESERVED; minimal acceptance fix pending",
+  "finalGateClosure": {
+    "source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+    "run": "42420151861",
+    "status": "SUCCESS_20_OF_20",
+    "observedAt": "2026-11-08T00:04:40.650862+00:00",
+    "note": "Original failure and causality limits preserved; final full regression closes gate."
+  }
 }

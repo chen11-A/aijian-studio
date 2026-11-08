@@ -1,0 +1,1794 @@
+{
+  "source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+  "run": "42420151861",
+  "url": "https://github.com/chen11-A/aijian-studio/actions/runs/42420151861",
+  "observedAt": "2026-11-08T00:02:39.025693+00:00",
+  "status": "SUCCESS",
+  "duration": "1h 41m 21s",
+  "jobsPassed": 20,
+  "browserJobs": 16,
+  "originalBrowserCombinations": 484,
+  "windowsTargetedJobs": 2,
+  "completeQualityPlatforms": ["ubuntu-latest", "windows-latest"],
+  "originalThresholdsTimeoutsAndAssertionsPreserved": true,
+  "jobs": [
+    {
+      "job": "128546619389",
+      "name": "pro-layout (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:12Z",
+          "completed-at": "2026-11-07T22:22:13Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:13Z",
+          "completed-at": "2026-11-07T22:22:18Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:18Z",
+          "completed-at": "2026-11-07T22:22:22Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:22Z",
+          "completed-at": "2026-11-07T22:22:22Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:22Z",
+          "completed-at": "2026-11-07T22:22:26Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace layout",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:26Z",
+          "completed-at": "2026-11-07T22:23:14Z"
+        },
+        {
+          "name": "Audit extended actual ProWorkspace pages",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:14Z",
+          "completed-at": "2026-11-07T22:25:31Z"
+        },
+        {
+          "name": "Audit core using a separately owned Vite URL",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:25:31Z",
+          "completed-at": "2026-11-07T22:26:09Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace export QC review",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:26:09Z",
+          "completed-at": "2026-11-07T22:27:25Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace export progress and stop requests",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:27:25Z",
+          "completed-at": "2026-11-07T22:28:41Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace art, waveform and history states",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:28:41Z",
+          "completed-at": "2026-11-07T22:30:02Z"
+        },
+        {
+          "name": "Upload ProWorkspace layout evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:30:02Z",
+          "completed-at": "2026-11-07T22:30:04Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:30:04Z",
+          "completed-at": "2026-11-07T22:30:04Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:30:04Z",
+          "completed-at": "2026-11-07T22:30:05Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:30:05Z",
+          "completed-at": "2026-11-07T22:30:05Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619319",
+      "name": "pro-creation (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:39Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:39Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Verify creation fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:47Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace seven-part review and project packages",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:47Z",
+          "completed-at": "2026-11-07T22:23:25Z"
+        },
+        {
+          "name": "Upload seven-part and project-package UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:25Z",
+          "completed-at": "2026-11-07T22:23:27Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:27Z",
+          "completed-at": "2026-11-07T22:23:27Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:27Z",
+          "completed-at": "2026-11-07T22:23:27Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:27Z",
+          "completed-at": "2026-11-07T22:23:27Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619324",
+      "name": "pro-audio-mix (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:31Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Verify audio mix fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:47Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace four-lane audio mix controls",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:47Z",
+          "completed-at": "2026-11-07T22:22:43Z"
+        },
+        {
+          "name": "Upload four-lane audio mix UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:43Z",
+          "completed-at": "2026-11-07T22:22:44Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:44Z",
+          "completed-at": "2026-11-07T22:22:44Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:44Z",
+          "completed-at": "2026-11-07T22:22:45Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:45Z",
+          "completed-at": "2026-11-07T22:22:45Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619102",
+      "name": "pro-audio-library (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:39Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:39Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Verify local library fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:49Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace local audio library and save recovery",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:49Z",
+          "completed-at": "2026-11-07T22:22:35Z"
+        },
+        {
+          "name": "Upload local audio library UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:35Z",
+          "completed-at": "2026-11-07T22:22:36Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:36Z",
+          "completed-at": "2026-11-07T22:22:36Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:36Z",
+          "completed-at": "2026-11-07T22:22:36Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:36Z",
+          "completed-at": "2026-11-07T22:22:36Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619302",
+      "name": "pro-shot-audio (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:45Z"
+        },
+        {
+          "name": "Verify shot audio fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:45Z",
+          "completed-at": "2026-11-07T22:20:48Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace read-only shot audio suggestions",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:48Z",
+          "completed-at": "2026-11-07T22:22:36Z"
+        },
+        {
+          "name": "Upload shot audio suggestions UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:36Z",
+          "completed-at": "2026-11-07T22:22:37Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:37Z",
+          "completed-at": "2026-11-07T22:22:37Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:37Z",
+          "completed-at": "2026-11-07T22:22:38Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:38Z",
+          "completed-at": "2026-11-07T22:22:38Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619461",
+      "name": "pro-audio-groups (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:24Z",
+          "completed-at": "2026-11-07T22:22:24Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:24Z",
+          "completed-at": "2026-11-07T22:22:28Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:28Z",
+          "completed-at": "2026-11-07T22:22:32Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:32Z",
+          "completed-at": "2026-11-07T22:22:32Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:32Z",
+          "completed-at": "2026-11-07T22:22:35Z"
+        },
+        {
+          "name": "Verify audio groups fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:35Z",
+          "completed-at": "2026-11-07T22:22:38Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace complete-lane audio group execution",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:38Z",
+          "completed-at": "2026-11-07T22:24:31Z"
+        },
+        {
+          "name": "Upload audio groups execution UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:31Z",
+          "completed-at": "2026-11-07T22:24:33Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:33Z",
+          "completed-at": "2026-11-07T22:24:33Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:33Z",
+          "completed-at": "2026-11-07T22:24:33Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:33Z",
+          "completed-at": "2026-11-07T22:24:33Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619275",
+      "name": "speech-window (windows, targeted)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:46Z"
+        },
+        {
+          "name": "Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:46Z",
+          "completed-at": "2026-11-07T22:20:47Z"
+        },
+        {
+          "name": "Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:47Z",
+          "completed-at": "2026-11-07T22:20:51Z"
+        },
+        {
+          "name": "Install Python dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:51Z",
+          "completed-at": "2026-11-07T22:20:51Z"
+        },
+        {
+          "name": "Prepare exact Windows development media binaries",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:51Z",
+          "completed-at": "2026-11-07T22:21:25Z"
+        },
+        {
+          "name": "Verify CI test diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:25Z",
+          "completed-at": "2026-11-07T22:21:27Z"
+        },
+        {
+          "name": "Run original speech-window tests with safe failure diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:27Z",
+          "completed-at": "2026-11-07T22:23:41Z"
+        },
+        {
+          "name": "Run original video recovery files with safe identity diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:41Z",
+          "completed-at": "2026-11-07T22:24:03Z"
+        },
+        {
+          "name": "Enable pinned pnpm for targeted desktop regressions",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:03Z",
+          "completed-at": "2026-11-07T22:24:04Z"
+        },
+        {
+          "name": "Install frozen JavaScript dependencies for targeted desktop regressions",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:04Z",
+          "completed-at": "2026-11-07T22:24:13Z"
+        },
+        {
+          "name": "Run original delivery manifest and ownership files with safe failure diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:13Z",
+          "completed-at": "2026-11-07T22:24:15Z"
+        },
+        {
+          "name": "Post Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:15Z",
+          "completed-at": "2026-11-07T22:24:16Z"
+        },
+        {
+          "name": "Post Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:16Z",
+          "completed-at": "2026-11-07T22:24:16Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:16Z",
+          "completed-at": "2026-11-07T22:24:16Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:16Z",
+          "completed-at": "2026-11-07T22:24:18Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:18Z",
+          "completed-at": "2026-11-07T22:24:18Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619369",
+      "name": "pro-dialogue-split (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:41Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:41Z",
+          "completed-at": "2026-11-07T22:20:45Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:45Z",
+          "completed-at": "2026-11-07T22:20:45Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:45Z",
+          "completed-at": "2026-11-07T22:20:50Z"
+        },
+        {
+          "name": "Verify dialogue split fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:50Z",
+          "completed-at": "2026-11-07T22:20:55Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace native dialogue split review and acceptance",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:55Z",
+          "completed-at": "2026-11-07T22:22:56Z"
+        },
+        {
+          "name": "Upload dialogue split execution UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:56Z",
+          "completed-at": "2026-11-07T22:22:59Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:59Z",
+          "completed-at": "2026-11-07T22:22:59Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:59Z",
+          "completed-at": "2026-11-07T22:23:00Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:00Z",
+          "completed-at": "2026-11-07T22:23:00Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619415",
+      "name": "audio-library-write (windows, targeted)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:41Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:41Z",
+          "completed-at": "2026-11-07T22:20:47Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:47Z",
+          "completed-at": "2026-11-07T22:20:48Z"
+        },
+        {
+          "name": "Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:48Z",
+          "completed-at": "2026-11-07T22:20:48Z"
+        },
+        {
+          "name": "Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:48Z",
+          "completed-at": "2026-11-07T22:20:57Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:57Z",
+          "completed-at": "2026-11-07T22:21:29Z"
+        },
+        {
+          "name": "Install Python dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:29Z",
+          "completed-at": "2026-11-07T22:21:29Z"
+        },
+        {
+          "name": "Prepare exact Windows development media binaries",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:29Z",
+          "completed-at": "2026-11-07T22:22:05Z"
+        },
+        {
+          "name": "Verify CI test diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:05Z",
+          "completed-at": "2026-11-07T22:22:07Z"
+        },
+        {
+          "name": "Run original six library write regressions with safe failure diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:07Z",
+          "completed-at": "2026-11-07T22:22:24Z"
+        },
+        {
+          "name": "Post Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:24Z",
+          "completed-at": "2026-11-07T22:22:24Z"
+        },
+        {
+          "name": "Post Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:24Z",
+          "completed-at": "2026-11-07T22:22:24Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:24Z",
+          "completed-at": "2026-11-07T22:22:24Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:24Z",
+          "completed-at": "2026-11-07T22:22:26Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:26Z",
+          "completed-at": "2026-11-07T22:22:26Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619354",
+      "name": "pro-assembly (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:37Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:37Z",
+          "completed-at": "2026-11-07T22:20:42Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:42Z",
+          "completed-at": "2026-11-07T22:20:42Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:42Z",
+          "completed-at": "2026-11-07T22:20:47Z"
+        },
+        {
+          "name": "Verify common assembly fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:47Z",
+          "completed-at": "2026-11-07T22:20:51Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace shared assembly actual clocks and cancellation",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:51Z",
+          "completed-at": "2026-11-07T22:22:07Z"
+        },
+        {
+          "name": "Upload common assembly execution UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:07Z",
+          "completed-at": "2026-11-07T22:22:08Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:08Z",
+          "completed-at": "2026-11-07T22:22:08Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:08Z",
+          "completed-at": "2026-11-07T22:22:09Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:09Z",
+          "completed-at": "2026-11-07T22:22:09Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619268",
+      "name": "pro-scene-audio (ubuntu)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:37Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:37Z",
+          "completed-at": "2026-11-07T22:20:42Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:42Z",
+          "completed-at": "2026-11-07T22:20:42Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:42Z",
+          "completed-at": "2026-11-07T22:20:46Z"
+        },
+        {
+          "name": "Verify scene audio fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:46Z",
+          "completed-at": "2026-11-07T22:20:50Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace complete-scene suggestions and group recovery",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:50Z",
+          "completed-at": "2026-11-07T22:22:49Z"
+        },
+        {
+          "name": "Upload scene audio execution UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:49Z",
+          "completed-at": "2026-11-07T22:22:52Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:52Z",
+          "completed-at": "2026-11-07T22:22:52Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:52Z",
+          "completed-at": "2026-11-07T22:22:52Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:52Z",
+          "completed-at": "2026-11-07T22:22:52Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619312",
+      "name": "Pro assistant references UI audit",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:31Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Verify assistant reference fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:48Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace references and director own inverse",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:48Z",
+          "completed-at": "2026-11-07T22:21:52Z"
+        },
+        {
+          "name": "Upload assistant reference UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:52Z",
+          "completed-at": "2026-11-07T22:21:54Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:54Z",
+          "completed-at": "2026-11-07T22:21:54Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:54Z",
+          "completed-at": "2026-11-07T22:21:54Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:54Z",
+          "completed-at": "2026-11-07T22:21:54Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619421",
+      "name": "Pro trial review and video failure policy audit",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:31Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:43Z"
+        },
+        {
+          "name": "Verify trial review and failure policy fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:43Z",
+          "completed-at": "2026-11-07T22:20:45Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace trial candidates and failure policy configuration",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:45Z",
+          "completed-at": "2026-11-07T22:22:38Z"
+        },
+        {
+          "name": "Upload trial review and failure policy evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:38Z",
+          "completed-at": "2026-11-07T22:22:40Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:40Z",
+          "completed-at": "2026-11-07T22:22:40Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:40Z",
+          "completed-at": "2026-11-07T22:22:40Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:40Z",
+          "completed-at": "2026-11-07T22:22:40Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619377",
+      "name": "Pro delivery evidence and existing UI interaction audit",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Verify delivery evidence and existing UI fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:48Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace delivery evidence and existing UI interactions",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:48Z",
+          "completed-at": "2026-11-07T22:23:15Z"
+        },
+        {
+          "name": "Upload delivery evidence and existing UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:15Z",
+          "completed-at": "2026-11-07T22:23:16Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:16Z",
+          "completed-at": "2026-11-07T22:23:17Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:17Z",
+          "completed-at": "2026-11-07T22:23:17Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:17Z",
+          "completed-at": "2026-11-07T22:23:17Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619313",
+      "name": "Pro explicit original video recovery audit",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:37Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:37Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:49Z"
+        },
+        {
+          "name": "Verify original video recovery fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:49Z",
+          "completed-at": "2026-11-07T22:20:51Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace original video recovery and guarded native save",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:51Z",
+          "completed-at": "2026-11-07T22:22:16Z"
+        },
+        {
+          "name": "Upload original video recovery UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:16Z",
+          "completed-at": "2026-11-07T22:22:19Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:19Z",
+          "completed-at": "2026-11-07T22:22:19Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:19Z",
+          "completed-at": "2026-11-07T22:22:19Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:19Z",
+          "completed-at": "2026-11-07T22:22:19Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619323",
+      "name": "Pro explicit actual-version trial review audit",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:31Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:41Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:41Z",
+          "completed-at": "2026-11-07T22:20:44Z"
+        },
+        {
+          "name": "Verify actual trial fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:44Z",
+          "completed-at": "2026-11-07T22:20:47Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace explicit trial decisions and guarded continuation",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:47Z",
+          "completed-at": "2026-11-07T22:22:05Z"
+        },
+        {
+          "name": "Upload actual trial UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:05Z",
+          "completed-at": "2026-11-07T22:22:07Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:07Z",
+          "completed-at": "2026-11-07T22:22:07Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:07Z",
+          "completed-at": "2026-11-07T22:22:07Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:07Z",
+          "completed-at": "2026-11-07T22:22:07Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619360",
+      "name": "Pro explicit story creation failure policy audit",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:59Z",
+          "completed-at": "2026-11-07T22:21:59Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:59Z",
+          "completed-at": "2026-11-07T22:22:05Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:05Z",
+          "completed-at": "2026-11-07T22:22:09Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:09Z",
+          "completed-at": "2026-11-07T22:22:09Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:09Z",
+          "completed-at": "2026-11-07T22:22:14Z"
+        },
+        {
+          "name": "Verify story policy fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:14Z",
+          "completed-at": "2026-11-07T22:22:18Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace explicit story creation failure policy",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:18Z",
+          "completed-at": "2026-11-07T22:23:48Z"
+        },
+        {
+          "name": "Upload story policy UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:48Z",
+          "completed-at": "2026-11-07T22:23:51Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:51Z",
+          "completed-at": "2026-11-07T22:23:51Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:51Z",
+          "completed-at": "2026-11-07T22:23:51Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:51Z",
+          "completed-at": "2026-11-07T22:23:51Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619332",
+      "name": "Pro existing editor interaction audit",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:36Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:36Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:40Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:40Z",
+          "completed-at": "2026-11-07T22:20:45Z"
+        },
+        {
+          "name": "Verify existing UI interaction fixture, CLI and safety contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:45Z",
+          "completed-at": "2026-11-07T22:20:49Z"
+        },
+        {
+          "name": "Audit actual ProWorkspace context/title/properties/transport interactions",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:49Z",
+          "completed-at": "2026-11-07T22:23:03Z"
+        },
+        {
+          "name": "Upload existing UI interaction UI evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:03Z",
+          "completed-at": "2026-11-07T22:23:05Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:05Z",
+          "completed-at": "2026-11-07T22:23:05Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:05Z",
+          "completed-at": "2026-11-07T22:23:05Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:05Z",
+          "completed-at": "2026-11-07T22:23:05Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619436",
+      "name": "quality (ubuntu-latest)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:12Z",
+          "completed-at": "2026-11-07T22:22:13Z"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:13Z",
+          "completed-at": "2026-11-07T22:22:19Z"
+        },
+        {
+          "name": "Prepare Debian test container and pinned development media tools",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:19Z",
+          "completed-at": "2026-11-07T22:22:46Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:46Z",
+          "completed-at": "2026-11-07T22:22:52Z"
+        },
+        {
+          "name": "Bind container Git trust to this workspace only",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:52Z",
+          "completed-at": "2026-11-07T22:22:52Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:52Z",
+          "completed-at": "2026-11-07T22:22:57Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:57Z",
+          "completed-at": "2026-11-07T22:22:58Z"
+        },
+        {
+          "name": "Set up Python",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:22:58Z",
+          "completed-at": "2026-11-07T22:22:58Z"
+        },
+        {
+          "name": "Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:58Z",
+          "completed-at": "2026-11-07T22:23:00Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:00Z",
+          "completed-at": "2026-11-07T22:23:06Z"
+        },
+        {
+          "name": "Install Python dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:06Z",
+          "completed-at": "2026-11-07T22:23:13Z"
+        },
+        {
+          "name": "Verify exact Linux development media binaries",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:13Z",
+          "completed-at": "2026-11-07T22:23:13Z"
+        },
+        {
+          "name": "Prepare exact Windows development media binaries",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:23:13Z",
+          "completed-at": "2026-11-07T22:23:13Z"
+        },
+        {
+          "name": "Verify generated contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:13Z",
+          "completed-at": "2026-11-07T22:23:20Z"
+        },
+        {
+          "name": "Lint",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:20Z",
+          "completed-at": "2026-11-07T22:24:18Z"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:18Z",
+          "completed-at": "2026-11-07T22:24:55Z"
+        },
+        {
+          "name": "Verify CI test diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:55Z",
+          "completed-at": "2026-11-07T22:24:56Z"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:24:56Z",
+          "completed-at": "2026-11-07T23:18:29Z"
+        },
+        {
+          "name": "Fault injection",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:29Z",
+          "completed-at": "2026-11-07T23:18:43Z"
+        },
+        {
+          "name": "Reproduce fault-injection evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:43Z",
+          "completed-at": "2026-11-07T23:18:43Z"
+        },
+        {
+          "name": "Reproduce media contract evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:43Z",
+          "completed-at": "2026-11-07T23:18:46Z"
+        },
+        {
+          "name": "Verify evidence hashes",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:46Z",
+          "completed-at": "2026-11-07T23:18:47Z"
+        },
+        {
+          "name": "Audit production JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:47Z",
+          "completed-at": "2026-11-07T23:18:48Z"
+        },
+        {
+          "name": "Build",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:48Z",
+          "completed-at": "2026-11-07T23:18:58Z"
+        },
+        {
+          "name": "Verify clean generated state",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:58Z",
+          "completed-at": "2026-11-07T23:18:58Z"
+        },
+        {
+          "name": "Post Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:18:58Z",
+          "completed-at": "2026-11-07T23:19:04Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:19:04Z",
+          "completed-at": "2026-11-07T23:19:04Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:19:04Z",
+          "completed-at": "2026-11-07T23:19:04Z"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:19:04Z",
+          "completed-at": "2026-11-07T23:19:09Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T23:19:09Z",
+          "completed-at": "2026-11-07T23:19:09Z"
+        }
+      ]
+    },
+    {
+      "job": "128546619453",
+      "name": "quality (windows-latest)",
+      "status": "SUCCESS",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:31Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Prepare Debian test container and pinned development media tools",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:32Z"
+        },
+        {
+          "name": "Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:32Z",
+          "completed-at": "2026-11-07T22:20:42Z"
+        },
+        {
+          "name": "Bind container Git trust to this workspace only",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:20:42Z",
+          "completed-at": "2026-11-07T22:20:42Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:42Z",
+          "completed-at": "2026-11-07T22:20:51Z"
+        },
+        {
+          "name": "Enable pinned pnpm",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:51Z",
+          "completed-at": "2026-11-07T22:20:51Z"
+        },
+        {
+          "name": "Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:51Z",
+          "completed-at": "2026-11-07T22:20:51Z"
+        },
+        {
+          "name": "Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:51Z",
+          "completed-at": "2026-11-07T22:20:57Z"
+        },
+        {
+          "name": "Install JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:20:57Z",
+          "completed-at": "2026-11-07T22:21:09Z"
+        },
+        {
+          "name": "Install Python dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:09Z",
+          "completed-at": "2026-11-07T22:21:09Z"
+        },
+        {
+          "name": "Verify exact Linux development media binaries",
+          "conclusion": "skipped",
+          "started-at": "2026-11-07T22:21:09Z",
+          "completed-at": "2026-11-07T22:21:09Z"
+        },
+        {
+          "name": "Prepare exact Windows development media binaries",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:09Z",
+          "completed-at": "2026-11-07T22:21:34Z"
+        },
+        {
+          "name": "Verify generated contracts",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:34Z",
+          "completed-at": "2026-11-07T22:21:42Z"
+        },
+        {
+          "name": "Lint",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:21:42Z",
+          "completed-at": "2026-11-07T22:22:48Z"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:22:48Z",
+          "completed-at": "2026-11-07T22:23:28Z"
+        },
+        {
+          "name": "Verify CI test diagnostics",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:28Z",
+          "completed-at": "2026-11-07T22:23:31Z"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success",
+          "started-at": "2026-11-07T22:23:31Z",
+          "completed-at": "2026-11-08T00:00:54Z"
+        },
+        {
+          "name": "Fault injection",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:00:54Z",
+          "completed-at": "2026-11-08T00:01:25Z"
+        },
+        {
+          "name": "Reproduce fault-injection evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:25Z",
+          "completed-at": "2026-11-08T00:01:26Z"
+        },
+        {
+          "name": "Reproduce media contract evidence",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:26Z",
+          "completed-at": "2026-11-08T00:01:30Z"
+        },
+        {
+          "name": "Verify evidence hashes",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:30Z",
+          "completed-at": "2026-11-08T00:01:31Z"
+        },
+        {
+          "name": "Audit production JavaScript dependencies",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:31Z",
+          "completed-at": "2026-11-08T00:01:32Z"
+        },
+        {
+          "name": "Build",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:32Z",
+          "completed-at": "2026-11-08T00:01:44Z"
+        },
+        {
+          "name": "Verify clean generated state",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:44Z",
+          "completed-at": "2026-11-08T00:01:44Z"
+        },
+        {
+          "name": "Post Set up uv",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:44Z",
+          "completed-at": "2026-11-08T00:01:45Z"
+        },
+        {
+          "name": "Post Set up Python",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:45Z",
+          "completed-at": "2026-11-08T00:01:45Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:45Z",
+          "completed-at": "2026-11-08T00:01:45Z"
+        },
+        {
+          "name": "Post Check out repository",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:45Z",
+          "completed-at": "2026-11-08T00:01:47Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "started-at": "2026-11-08T00:01:47Z",
+          "completed-at": "2026-11-08T00:01:47Z"
+        }
+      ]
+    }
+  ]
+}

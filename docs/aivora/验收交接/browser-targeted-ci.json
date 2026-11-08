@@ -4,7 +4,7 @@
   "browserJobs": 16,
   "originalBrowserCombinations": 484,
   "windowsTargetedJobs": 2,
-  "fullQuality": "LINUX_FAILED_WEB_TRIAL_SAVE_BUTTON_2_CASES; WINDOWS_RUNNING",
+  "fullQuality": "FAILURE_BOTH_PLATFORMS_ON_DE2; FINAL_BABEFA9_SUCCESS_SEE_CI_JSON",
   "jobs": [
     {
       "job": "128531463817",

@@ -27,5 +27,12 @@
     "case": "does not continue from accepted record or ended event",
     "observed": "ready=false; alert 当前编辑还没保存上，请先核对保存状态，再准备试片。; missing 2.25s duration",
     "cause": "UNDER_INVESTIGATION; not attributed to button readiness without evidence"
+  },
+  "finalGateClosure": {
+    "source": "babefa9af3e3fff0ad49cea93c70b3f1abeb80a4",
+    "run": "42420151861",
+    "status": "SUCCESS_20_OF_20",
+    "observedAt": "2026-11-08T00:04:40.650862+00:00",
+    "note": "Original failure and causality limits preserved; final full regression closes gate."
   }
 }

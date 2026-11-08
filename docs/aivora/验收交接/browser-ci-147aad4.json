@@ -4,7 +4,7 @@
   "browserJobsPassed": 16,
   "browserJobsTotal": 16,
   "windowsTargetedJobsPassed": 2,
-  "fullQuality": "PENDING",
+  "fullQuality": "SUCCESS_BOTH_PLATFORMS",
   "jobs": [
     {
       "job": "128543303945",

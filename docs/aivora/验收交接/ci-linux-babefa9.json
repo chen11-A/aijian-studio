@@ -4,7 +4,7 @@
   "job": "128546619436",
   "platform": "ubuntu-latest",
   "status": "SUCCESS",
-  "scope": "Final source complete Linux quality. Windows complete quality still pending.",
+  "scope": "Final-source complete Linux quality; completed both-platform run in ci.json.",
   "steps": [
     {
       "name": "Set up job",

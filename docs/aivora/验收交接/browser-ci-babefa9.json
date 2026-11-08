@@ -5,7 +5,7 @@
   "browserJobsTotal": 16,
   "originalBrowserCombinations": 484,
   "windowsTargetedJobsPassed": 2,
-  "fullQuality": "LINUX_SUCCESS; WINDOWS_PENDING",
+  "fullQuality": "SUCCESS_BOTH_PLATFORMS",
   "jobs": [
     {
       "job": "128546619389",
