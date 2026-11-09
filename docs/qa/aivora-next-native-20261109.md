@@ -73,6 +73,4 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 
 ## 提交
 
-实现与本文一起提交。完整 SHA：
-
-`PENDING_HEAD`
+产品实现提交是 `806fa7e6df4d37338a473c78e128418442ca53f5`。若其后还有只改本文的补记，以 `git log --oneline` 的分支尖端为准，不把补记当成新的产品行为。
