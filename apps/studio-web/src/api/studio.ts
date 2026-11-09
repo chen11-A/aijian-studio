@@ -1100,7 +1100,15 @@ export interface AijianDesktopBridge
     aspectRatio?: "9:16" | "16:9",
     references?: string[],
     execution?: FilmGenerationStillExecution,
-  ) => Promise<FilmGenerationStillResult>;
+  ) => Promise<FilmGenerationStillResult & { fixedInputOfferId?: string }>;
+  /** Desktop-local explicit choice. Not a shared PREPARED or slot-table field. */
+  confirmFixedInput?: (
+    projectId: string,
+    offerId: string,
+  ) => Promise<{ ok: true; path: string } | { ok: false; code: "UNSUPPORTED_SCOPE" | "CANCELLED" }>;
+  importFixedInput?: (
+    projectId: string,
+  ) => Promise<{ ok: true; path: string } | { ok: false; code: "UNSUPPORTED_SCOPE" | "CANCELLED" }>;
   prepareFilmGenerationExecution?: FilmGenerationExecutionGateway["prepareFilmGenerationExecution"];
   retireFilmGenerationExecution?: FilmGenerationExecutionGateway["retireFilmGenerationExecution"];
   pickFilmFolder?: () => Promise<string | null>;

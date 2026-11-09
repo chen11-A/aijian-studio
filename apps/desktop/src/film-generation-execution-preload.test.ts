@@ -8,6 +8,8 @@ function fixture() {
     createStoryFilm: (...args: unknown[]) => Promise<unknown>;
     generateFilmStill: (...args: unknown[]) => Promise<unknown>;
     extractFilmLastFrame: (...args: unknown[]) => Promise<unknown>;
+    confirmFixedInput: (projectId: string, offerId: string) => Promise<unknown>;
+    importFixedInput: (projectId: string) => Promise<unknown>;
   };
   const invoke = vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({
     kind: "controlled",
@@ -87,5 +89,17 @@ it("uses only the two fixed prepare/retire channels and preserves the exact publ
   expect(invoke.mock.calls).toEqual([
     ["film:generation-execution-prepare", input],
     ["film:generation-execution-retire", retired],
+  ]);
+});
+
+it("forwards fixed-input confirm and import with only the explicit project and offer", async () => {
+  const { bridge, invoke } = fixture();
+  const projectId = `film_${"a".repeat(16)}`;
+  const offerId = `fio_${"01234567-89ab-cdef-0123-456789abcdef"}`;
+  await bridge.confirmFixedInput(projectId, offerId);
+  await bridge.importFixedInput(projectId);
+  expect(invoke.mock.calls).toEqual([
+    ["film:confirm-fixed-input", projectId, offerId],
+    ["film:import-fixed-input", projectId],
   ]);
 });

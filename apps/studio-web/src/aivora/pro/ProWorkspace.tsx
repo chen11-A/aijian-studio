@@ -3,6 +3,7 @@ import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./acti
 import { audioTimelineBox } from "./audio-mix-timeline";
 import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
 import { AudioMixPreview } from "./AudioMixPreview";
+import { FixedInputImportButton } from "./FixedInputImportButton";
 import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
@@ -10621,6 +10622,12 @@ function BoardPage({
                   </div>
                 ) : null}
               </div>
+              <FixedInputImportButton
+                film={film}
+                shot={current}
+                onFilm={onFilm}
+                onNotice={onNotice}
+              />
               {fourArmed === current.id ? (
                 <button className="btn" type="button" onClick={onFour}>
                   确认这 4 张

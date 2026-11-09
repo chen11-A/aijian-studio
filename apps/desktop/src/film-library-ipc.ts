@@ -71,6 +71,8 @@ export type FilmLibraryHost<Event = unknown> = {
   copyFile: (source: string, destination: string) => Promise<void>;
   reveal: (path: string) => void;
   open: (path: string) => Promise<string>;
+  /** Main observes its own manual still write. The returned offer is not a receipt. */
+  noteManualStill?: (seriesId: string, path: string) => Promise<string | null>;
   logStill?: (
     detail: StyleDiagnostics & {
       ok: boolean;
@@ -403,7 +405,14 @@ export function registerFilmLibraryHandlers<TEvent>(
       ok: Boolean(made.path),
       detail: made.path ? "定妆或起始画面已保存。" : made.reason || "出图没有成功。",
     });
-    return made;
+    if (!made.path || !host.noteManualStill) return made;
+    let fixedInputOfferId: string | null = null;
+    try {
+      fixedInputOfferId = await host.noteManualStill(args[0], made.path);
+    } catch {
+      fixedInputOfferId = null;
+    }
+    return fixedInputOfferId ? { ...made, fixedInputOfferId } : made;
   });
 
   handle("film:pick-folder", async (event) => {
