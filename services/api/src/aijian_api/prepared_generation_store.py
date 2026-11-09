@@ -12,6 +12,7 @@ import re
 import sqlite3
 import time
 from dataclasses import dataclass
+from typing import Literal
 from uuid import uuid4
 
 from aijian_api.generation_dispatch_identity import story_creation_input_identity
@@ -21,6 +22,7 @@ from aijian_api.generation_failure_store import (
     GenerationFailureStore,
 )
 from aijian_api.repository import StudioRepository
+from aijian_api.story_creation_cache import StoryCreationCacheError, validate_cache_snapshot
 
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _KEY = re.compile(r"[a-zA-Z0-9_:@.-]{1,160}\Z")
@@ -40,6 +42,25 @@ class PreparedStage:
     key: str
     native_specification: dict[str, object]
     target_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedCacheChoice:
+    target_key: str
+    slot_index: int
+    preparation: Literal["CLIENT_IMAGES", "STORYFILM_CACHE"]
+    snapshot: dict[str, object] | None = None
+    request: dict[str, object] | None = None
+    sources: tuple[dict[str, object], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedCacheTarget:
+    key: str
+    versions: int
+    first_regenerate: bool
+    recipe: dict[str, object]
+    request: dict[str, object]
 
 
 def _json(value: object) -> str:
@@ -131,6 +152,259 @@ class PreparedGenerationStore:
                     [(identifier, stage.key, key) for key in stage.target_keys],
                 )
         return identifier
+
+    def verify_preparation_registration(
+        self,
+        project_id: str,
+        execution_id: str,
+        *,
+        account: str,
+        execution_key: str,
+        targets: tuple[PreparedTarget, ...],
+    ) -> None:
+        with self._ledger._transaction() as connection:
+            self._execution(connection, project_id, execution_id, account)
+            key = connection.execute(
+                "SELECT execution_key_sha256 FROM prepared_generation_execution WHERE id=?",
+                (execution_id,),
+            ).fetchone()
+            expected = sorted(
+                (
+                    row.key,
+                    _json(row.recipe),
+                    row.versions,
+                    int(row.first_regenerate),
+                    _json(row.body or {}),
+                )
+                for row in targets
+            )
+            actual = connection.execute(
+                "SELECT target_key,original_recipe_json,slot_count,first_regenerate,"
+                "original_body_json FROM prepared_generation_target WHERE execution_id=? "
+                "ORDER BY target_key",
+                (execution_id,),
+            ).fetchall()
+            if (
+                key is None
+                or key[0] != hashlib.sha256(execution_key.encode()).hexdigest()
+                or actual != expected
+            ):
+                raise GenerationFailureError("INPUT_UNVERIFIABLE")
+
+    def preparation_targets(
+        self, project_id: str, execution_id: str, *, account: str
+    ) -> tuple[PreparedCacheTarget, ...]:
+        with self._ledger._transaction() as connection:
+            self._execution(connection, project_id, execution_id, account)
+            result = []
+            for key, count, regenerate, recipe, body in connection.execute(
+                "SELECT target_key,slot_count,first_regenerate,original_recipe_json,"
+                "original_body_json "
+                "FROM prepared_generation_target WHERE execution_id=? ORDER BY target_key",
+                (execution_id,),
+            ):
+                try:
+                    recipe_value, request_value = json.loads(recipe), json.loads(body)
+                    if not isinstance(recipe_value, dict) or not isinstance(request_value, dict):
+                        raise ValueError("shape")
+                except (TypeError, ValueError) as error:
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE") from error
+                result.append(
+                    PreparedCacheTarget(key, count, bool(regenerate), recipe_value, request_value)
+                )
+            if not 1 <= len(result) <= 256:
+                raise GenerationFailureError("INPUT_UNVERIFIABLE")
+            return tuple(result)
+
+    @staticmethod
+    def _preparation_rows(
+        connection: sqlite3.Connection, execution_id: str
+    ) -> tuple[PreparedCacheChoice, ...] | None:
+        rows = connection.execute(
+            "SELECT p.target_key,p.slot_index,p.preparation,p.cache_snapshot_json,"
+            "p.cache_snapshot_sha256,t.original_recipe_json,t.slot_count,t.first_regenerate "
+            "FROM prepared_generation_slot_preparation p "
+            "JOIN prepared_generation_target t ON t.execution_id=p.execution_id "
+            "AND t.target_key=p.target_key WHERE p.execution_id=? "
+            "ORDER BY p.target_key,p.slot_index",
+            (execution_id,),
+        ).fetchall()
+        if not rows:
+            return None
+        expected = {
+            (key, index)
+            for key, count in connection.execute(
+                "SELECT target_key,slot_count FROM prepared_generation_target WHERE execution_id=?",
+                (execution_id,),
+            )
+            for index in range(count)
+        }
+        if len(rows) > 768 or {(row[0], row[1]) for row in rows} != expected:
+            raise GenerationFailureError("INPUT_UNVERIFIABLE")
+        choices = []
+        total = 0
+        for key, slot, kind, raw, digest, recipe, _, regenerate in rows:
+            snapshot = None
+            request = None
+            sources: tuple[dict[str, object], ...] = ()
+            if kind == "STORYFILM_CACHE":
+                try:
+                    if regenerate or slot != 0 or not isinstance(raw, str):
+                        raise ValueError("slot")
+                    total += len(raw)
+                    if (
+                        total > 8 * 1024 * 1024
+                        or hashlib.sha256(raw.encode()).hexdigest() != digest
+                    ):
+                        raise ValueError("digest")
+                    goal = hashlib.sha256(
+                        json.dumps(
+                            json.loads(recipe),
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            allow_nan=False,
+                        ).encode()
+                    ).hexdigest()
+                    envelope = json.loads(raw)
+                    if not isinstance(envelope, dict) or set(envelope) != {
+                        "snapshot",
+                        "request",
+                        "sources",
+                    }:
+                        raise ValueError("envelope")
+                    request = envelope["request"]
+                    source_rows = envelope["sources"]
+                    if not isinstance(request, dict) or not isinstance(source_rows, list):
+                        raise ValueError("shape")
+                    from aijian_api.prepared_generation_sources import validate_intent_sources
+
+                    sources = validate_intent_sources(source_rows)
+                    snapshot = validate_cache_snapshot(envelope["snapshot"], goal)
+                except (StoryCreationCacheError, ValueError, TypeError) as error:
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE") from error
+            elif kind != "CLIENT_IMAGES" or raw is not None or digest is not None:
+                raise GenerationFailureError("INPUT_UNVERIFIABLE")
+            choices.append(PreparedCacheChoice(key, slot, kind, snapshot, request, sources))
+        return tuple(choices)
+
+    def preparations(
+        self, project_id: str, execution_id: str, *, account: str
+    ) -> tuple[PreparedCacheChoice, ...] | None:
+        with self._ledger._transaction() as connection:
+            self._execution(connection, project_id, execution_id, account)
+            return self._preparation_rows(connection, execution_id)
+
+    def freeze_preparations(
+        self,
+        project_id: str,
+        execution_id: str,
+        *,
+        account: str,
+        choices: tuple[PreparedCacheChoice, ...],
+    ) -> tuple[PreparedCacheChoice, ...]:
+        """Freeze the entire native-derived slot table before any image or video work."""
+        with self._ledger._transaction() as connection:
+            self._execution(connection, project_id, execution_id, account)
+            existing = self._preparation_rows(connection, execution_id)
+            if existing is not None:
+                if existing != choices:
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE")
+                return existing
+            if connection.execute(
+                "SELECT 1 FROM prepared_generation_stage WHERE execution_id=? AND status<>'UNSENT' "
+                "UNION ALL SELECT 1 FROM prepared_generation_slot WHERE execution_id=? "
+                "UNION ALL SELECT 1 FROM prepared_generation_video_arm "
+                "WHERE execution_id=? LIMIT 1",
+                (execution_id, execution_id, execution_id),
+            ).fetchone():
+                raise GenerationFailureError("EXECUTION_UNAVAILABLE")
+            expected = {
+                (key, index): bool(regenerate)
+                for key, count, regenerate in connection.execute(
+                    "SELECT target_key,slot_count,first_regenerate FROM prepared_generation_target "
+                    "WHERE execution_id=?",
+                    (execution_id,),
+                )
+                for index in range(count)
+            }
+            actual = {(row.target_key, row.slot_index) for row in choices}
+            if (
+                not 1 <= len(choices) <= 768
+                or len(actual) != len(choices)
+                or actual != set(expected)
+            ):
+                raise GenerationFailureError("INPUT_UNVERIFIABLE")
+            for row in choices:
+                raw = (
+                    _json(
+                        {
+                            "snapshot": row.snapshot,
+                            "request": row.request,
+                            "sources": list(row.sources),
+                        }
+                    )
+                    if row.snapshot is not None
+                    else None
+                )
+                if (
+                    (row.preparation == "CLIENT_IMAGES" and raw is not None)
+                    or (
+                        row.preparation == "STORYFILM_CACHE"
+                        and (
+                            raw is None
+                            or expected[(row.target_key, row.slot_index)]
+                            or row.slot_index != 0
+                        )
+                    )
+                    or row.preparation not in {"CLIENT_IMAGES", "STORYFILM_CACHE"}
+                ):
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE")
+                connection.execute(
+                    "INSERT INTO prepared_generation_slot_preparation VALUES(?,?,?,?,?,?)",
+                    (
+                        execution_id,
+                        row.target_key,
+                        row.slot_index,
+                        row.preparation,
+                        raw,
+                        hashlib.sha256(raw.encode()).hexdigest() if raw is not None else None,
+                    ),
+                )
+            frozen = self._preparation_rows(connection, execution_id)
+            if frozen is None:
+                raise GenerationFailureError("INPUT_UNVERIFIABLE")
+            return frozen
+
+    def preparation_for_arm(
+        self,
+        project_id: str,
+        *,
+        account: str,
+        arm_id: str,
+        body_sha256: str,
+    ) -> PreparedCacheChoice | None:
+        self.video_context(
+            project_id, account=account, arm_id=arm_id, body_sha256=body_sha256, require_ready=False
+        )
+        with self._ledger._transaction() as connection:
+            arm = connection.execute(
+                "SELECT execution_id,target_key,slot_index FROM prepared_generation_video_arm "
+                "WHERE id=?",
+                (arm_id,),
+            ).fetchone()
+            if arm is None:
+                raise GenerationFailureError("EXECUTION_UNAVAILABLE")
+            self._execution(connection, project_id, arm[0], account)
+            choices = self._preparation_rows(connection, arm[0])
+            if choices is None:
+                return None  # Older non-opted-in executions preserve their original behavior.
+            found = [
+                row for row in choices if row.target_key == arm[1] and row.slot_index == arm[2]
+            ]
+            if len(found) != 1:
+                raise GenerationFailureError("INPUT_UNVERIFIABLE")
+            return found[0]
 
     @staticmethod
     def _execution(
@@ -302,7 +576,17 @@ class PreparedGenerationStore:
                 (execution_id, target_key),
             )
         }
-        return next((index for index in range(row[0]) if index not in retired | consumed), None)
+        cached = {
+            value[0]
+            for value in connection.execute(
+                "SELECT slot_index FROM prepared_generation_slot_preparation "
+                "WHERE execution_id=? AND target_key=? AND preparation='STORYFILM_CACHE'",
+                (execution_id, target_key),
+            )
+        }
+        return next(
+            (index for index in range(row[0]) if index not in retired | consumed | cached), None
+        )
 
     def arm_video(
         self,
@@ -399,7 +683,12 @@ class PreparedGenerationStore:
                 "AND s.status<>'READABLE' LIMIT 1",
                 (row[0], row[1]),
             ).fetchone()
-            if require_ready and incomplete:
+            cached = connection.execute(
+                "SELECT 1 FROM prepared_generation_slot_preparation WHERE execution_id=? "
+                "AND target_key=? AND slot_index=? AND preparation='STORYFILM_CACHE'",
+                (row[0], row[1], row[2]),
+            ).fetchone()
+            if require_ready and incomplete and cached is None:
                 raise GenerationFailureError("EXECUTION_UNAVAILABLE")
             return str(
                 connection.execute(
@@ -518,6 +807,12 @@ class PreparedGenerationStore:
             execution, target, slot, take, _, _, old_key = row
             self._execution(connection, project_id, execution, account)
             self._video_slot(connection, execution, target, slot)
+            if connection.execute(
+                "SELECT 1 FROM prepared_generation_slot_preparation WHERE execution_id=? "
+                "AND target_key=? AND slot_index=? AND preparation='STORYFILM_CACHE'",
+                (execution, target, slot),
+            ).fetchone():
+                raise GenerationFailureError("EXECUTION_UNAVAILABLE")
             if old_key is not None:
                 # Even the same request cannot dispatch again. Its existing
                 # idempotency/task GET path must return the stored observation.

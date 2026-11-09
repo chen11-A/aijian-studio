@@ -609,7 +609,7 @@ def test_billing_records_are_immutable_and_migration_49_is_additive(tmp_path: Pa
         assert "media_budget_reservations" in names
     StudioRepository(legacy)
     with sqlite3.connect(legacy) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 55
         assert_prepared_tables_empty(connection)
         new_tables = {
             row[0]

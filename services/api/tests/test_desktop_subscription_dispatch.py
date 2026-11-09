@@ -68,7 +68,7 @@ def test_grok_and_chatgpt_logins_record_subscription_without_a_money_hold(tmp_pa
     )
     assert chat.account_kind == "gpt_login"
     with sqlite3.connect(repository.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 55
         assert_prepared_tables_empty(connection)
         new_tables = {
             row[0]
