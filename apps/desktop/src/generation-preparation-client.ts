@@ -7,6 +7,7 @@ import {
 } from "./generation-dispatch-account";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 import { generationObject } from "./film-generation-plan";
+import { parseGenerationSlotPreparations } from "./generation-cache-preparation";
 
 type Session = { token: string; origin: string };
 const id = (value: unknown): value is string =>
@@ -108,6 +109,24 @@ export function generationPreparationClient(host: {
       if (!value || !exact(value, ["execution_id"]) || !id(value.execution_id))
         throw Error("WRITE_UNCONFIRMED");
       return value.execution_id;
+    },
+    async prepareSlots(
+      project: string,
+      execution: string,
+      input: GenerationRegistrationInput,
+      account: GenerationDispatchAccount,
+      current: () => boolean,
+    ) {
+      if (!id(execution)) throw Error("EXECUTION_UNAVAILABLE");
+      return parseGenerationSlotPreparations(
+        await post(
+          project,
+          `/${execution}/cache-preparations`,
+          { registration: input },
+          account,
+          current,
+        ),
+      );
     },
     async lineages(
       project: string,

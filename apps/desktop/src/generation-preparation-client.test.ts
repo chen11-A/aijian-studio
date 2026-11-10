@@ -147,3 +147,32 @@ it("pins a private arm with an exact ACK without treating it as transport admiss
     ),
   ).rejects.toThrow("WRITE_UNCONFIRMED");
 });
+
+it("posts the original registration to cache-preparations and keeps INPUT_UNVERIFIABLE on the existing code", async () => {
+  const fetcher = vi.fn(
+    async () => new Response(JSON.stringify({ detail: "INPUT_UNVERIFIABLE" }), { status: 409 }),
+  );
+  const client = generationPreparationClient({ session: () => session, fetcher });
+  await expect(
+    client.prepareSlots(project, execution, registration, account, () => true),
+  ).rejects.toThrow("CREATION_INPUT_UNVERIFIABLE");
+  const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+  expect(url).toBe(
+    `${session.origin}/api/v1/projects/${project}/prepared-generation-executions/${execution}/cache-preparations`,
+  );
+  expect(JSON.parse(init.body as string)).toEqual({ registration });
+  fetcher.mockImplementationOnce(
+    async () =>
+      new Response(
+        JSON.stringify({
+          kind: "PREPARATIONS",
+          items: [
+            { target_key: "target", slot_index: 1, preparation: "CLIENT_IMAGES", cache: null },
+          ],
+        }),
+      ),
+  );
+  const facts = await client.prepareSlots(project, execution, registration, account, () => true);
+  expect(facts.items[0]?.cache).toBeNull();
+  expect(JSON.stringify(facts)).not.toContain("canonical_path");
+});
