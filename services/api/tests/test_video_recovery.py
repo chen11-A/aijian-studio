@@ -329,7 +329,7 @@ def test_migration_52_preserves_existing_policy_attempt_rows_and_old_table_sql(t
         old_policies = connection.execute("SELECT * FROM generation_failure_policy").fetchall()
     restarted = StudioRepository(repo.database_path)
     with sqlite3.connect(restarted.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 55
         assert_prepared_tables_empty(connection)
         assert [
             row

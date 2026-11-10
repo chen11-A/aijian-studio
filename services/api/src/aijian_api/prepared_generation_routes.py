@@ -26,7 +26,7 @@ from aijian_api.prepared_generation_store import (
     PreparedTarget,
 )
 from aijian_api.repository import StudioRepository
-from aijian_api.story_film import StoryFilmService
+from aijian_api.story_film import StoryFilmError, StoryFilmService
 from aijian_api.story_film_routes import CreateStoryFilmBody, story_film_request
 
 _KEY = r"^[a-zA-Z0-9_:@.-]{1,160}$"
@@ -156,6 +156,49 @@ class ArmedPreparedVideo(BaseModel):
     arm_id: str = Field(pattern=r"^[a-f0-9]{32}$")
 
 
+class PrepareCacheSlots(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    registration: RegisterPreparedExecution
+
+
+class PreparedCachePart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sha256: str = Field(pattern=_SHA)
+    bytes: int = Field(strict=True, ge=1, le=80 * 1024 * 1024)
+
+
+class PreparedPrivateCache(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_version: Literal[1] = 1
+    snapshot_sha256: str = Field(pattern=_SHA)
+    input_sha256: str = Field(pattern=_SHA)
+    request: CreateStoryFilmBody
+    sources: list[dict[str, Any]]
+    runtime_recipe: dict[str, Any]
+    parts: dict[Literal["image", "video", "voice"], PreparedCachePart]
+
+
+class PreparedSlotCacheFact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target_key: str = Field(pattern=_KEY)
+    slot_index: int = Field(strict=True, ge=0, le=2)
+    preparation: Literal["CLIENT_IMAGES", "STORYFILM_CACHE"]
+    cache: PreparedPrivateCache | None = None
+
+
+class PreparedSlotCacheFacts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["PREPARATIONS"] = "PREPARATIONS"
+    items: list[PreparedSlotCacheFact] = Field(min_length=1, max_length=768)
+
+
+class CachePreparationRejection(BaseModel):
+    """The only cache-preparations failure body. Not a new client error code."""
+
+    model_config = ConfigDict(extra="forbid")
+    detail: Literal["INPUT_UNVERIFIABLE"]
+
+
 class PreparedRetirement(BaseModel):
     model_config = ConfigDict(extra="forbid")
     target_key: str | None = Field(default=None, pattern=_KEY)
@@ -227,6 +270,7 @@ def original_prepared_recipes(
     tools: Callable[[], MediaToolchain],
     payload: RegisterPreparedExecution,
     immutable_sources: dict[str, str] | None = None,
+    captured_sources: dict[str, tuple[dict[str, object], ...]] | None = None,
 ) -> tuple[PreparedTarget, ...]:
     """Use the existing request/recipe producers on byte-verified immutable images.
 
@@ -237,6 +281,7 @@ def original_prepared_recipes(
     service = StoryFilmService(repository, tools)
     cache: dict[tuple[str, str], str] = {}
     total = 0
+    facts: dict[str, dict[str, object]] = {}
     result = []
     for target in payload.targets:
         body = target.body
@@ -259,7 +304,13 @@ def original_prepared_recipes(
             known = cache.get(key)
             if known is not None:
                 return known
-            converted = (immutable_sources or {}).get(source) or bounded_reference(source)
+            if immutable_sources is not None and source in immutable_sources:
+                converted = immutable_sources[source]
+                canonical = None
+                if captured_sources is not None:
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE")
+            else:
+                converted, canonical = reference_snapshot(source)
             if converted is None:
                 raise GenerationFailureError("INPUT_UNVERIFIABLE")
             try:
@@ -272,6 +323,12 @@ def original_prepared_recipes(
             if total > 96 * 1024 * 1024:
                 raise GenerationFailureError("INPUT_UNVERIFIABLE")
             cache[key] = converted
+            facts[source] = {
+                "source": source,
+                "canonical_path": canonical,
+                "sha256": identity["sha256"],
+                "mime": identity["mime"],
+            }
             return converted
 
         forecast = target.forecast
@@ -328,6 +385,8 @@ def original_prepared_recipes(
             raise GenerationFailureError("INPUT_UNVERIFIABLE")
         if used != set(declared):
             raise GenerationFailureError("INPUT_UNVERIFIABLE")
+        if captured_sources is not None:
+            captured_sources[target.key] = tuple(facts[source] for source in sorted(used))
         result.append(
             PreparedTarget(
                 target.key, recipe, target.versions, target.first_regenerate, body.model_dump()
@@ -353,6 +412,20 @@ def runtime_recipe_from_wire(
     service = StoryFilmService(repository, tools)
     service._begin_creation(immutable)
     return service._creation_targets()[0]
+
+
+def _snapshot_numbers(value: Any) -> Any:
+    """Curated snapshot digest agrees with native JSON for integral producer speeds.
+
+    This is a private snapshot identifier, never the original failure-input digest.
+    """
+    if isinstance(value, list):
+        return [_snapshot_numbers(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _snapshot_numbers(item) for key, item in value.items()}
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
 
 
 def create_prepared_generation_router(
@@ -430,6 +503,84 @@ def create_prepared_generation_router(
         except GenerationFailureError as error:
             raise HTTPException(409, "INPUT_UNVERIFIABLE") from error
 
+    @router.post(
+        prefix + "/{execution_id}/cache-preparations",
+        response_model=PreparedSlotCacheFacts,
+        responses={409: {"model": CachePreparationRejection}},
+    )
+    def prepare_cache_slots(
+        project_id: str,
+        execution_id: Annotated[str, Path(pattern=r"^[a-f0-9]{32}$")],
+        payload: PrepareCacheSlots,
+        identity: str = Depends(account),
+    ) -> PreparedSlotCacheFacts:
+        from aijian_api.prepared_generation_cache import PreparedGenerationCache
+        from aijian_api.story_creation_cache import StoryCreationCacheError
+
+        try:
+            repo = repository()
+            # Reject wrong account/project/retired contexts before touching submitted sources.
+            PreparedGenerationStore(repo).preparation_targets(
+                project_id, execution_id, account=identity
+            )
+            sources: dict[str, tuple[dict[str, object], ...]] = {}
+            verified = original_prepared_recipes(
+                repo, tools, payload.registration, captured_sources=sources
+            )
+            service = PreparedGenerationCache(repo, tools)
+            service.store.verify_preparation_registration(
+                project_id,
+                execution_id,
+                account=identity,
+                execution_key=payload.registration.key,
+                targets=verified,
+            )
+            choices = service.prepare(project_id, execution_id, identity, sources)
+            items = []
+            for choice in choices:
+                cache = None
+                if choice.snapshot is not None:
+                    encoded = json.dumps(
+                        _snapshot_numbers(
+                            {
+                                "snapshot": choice.snapshot,
+                                "request": choice.request,
+                                "sources": list(choice.sources),
+                            }
+                        ),
+                        sort_keys=True,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        allow_nan=False,
+                    )
+                    cache = PreparedPrivateCache.model_validate(
+                        {
+                            "schema_version": 1,
+                            "snapshot_sha256": hashlib.sha256(encoded.encode()).hexdigest(),
+                            "input_sha256": choice.snapshot["input_sha256"],
+                            "request": choice.request,
+                            "sources": list(choice.sources),
+                            "runtime_recipe": choice.snapshot["runtime_recipe"],
+                            "parts": choice.snapshot["parts"],
+                        }
+                    )
+                items.append(
+                    PreparedSlotCacheFact(
+                        target_key=choice.target_key,
+                        slot_index=choice.slot_index,
+                        preparation=choice.preparation,
+                        cache=cache,
+                    )
+                )
+            return PreparedSlotCacheFacts(items=items)
+        except (
+            GenerationFailureError,
+            StoryCreationCacheError,
+            StoryFilmError,
+            ValueError,
+        ) as error:
+            raise HTTPException(409, "INPUT_UNVERIFIABLE") from error
+
     @router.post(prefix + "/{execution_id}/video-arm", response_model=ArmedPreparedVideo)
     def arm_video(
         project_id: str,
@@ -440,6 +591,38 @@ def create_prepared_generation_router(
         try:
             repo = repository()
             runtime_recipe = runtime_recipe_from_wire(repo, tools, payload)
+            frozen = PreparedGenerationStore(repo).preparations(
+                project_id, execution_id, account=identity
+            )
+            if frozen is not None:
+                choice = next(
+                    (
+                        row
+                        for row in frozen
+                        if row.target_key == payload.target_key
+                        and row.slot_index == payload.slot_index
+                    ),
+                    None,
+                )
+                if choice is None:
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE")
+                body = CreateStoryFilmBody.model_validate_json(payload.wire_body)
+                targets = PreparedGenerationStore(repo).preparation_targets(
+                    project_id, execution_id, account=identity
+                )
+                target = next(row for row in targets if row.key == payload.target_key)
+                expected_regenerate = target.first_regenerate or payload.slot_index > 0
+                if any(
+                    (body.regenerate or shot.regenerate) != expected_regenerate
+                    for shot in body.shots
+                ):
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE")
+                if choice.preparation == "STORYFILM_CACHE":
+                    from aijian_api.prepared_generation_sources import verify_intent_sources
+
+                    if body.model_dump() != choice.request:
+                        raise GenerationFailureError("INPUT_UNVERIFIABLE")
+                    verify_intent_sources(choice.sources)
             identifier = PreparedGenerationStore(repo).arm_video(
                 project_id,
                 execution_id,

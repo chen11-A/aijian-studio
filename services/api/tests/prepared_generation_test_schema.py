@@ -1,6 +1,7 @@
-"""Explicit additive-54 test fixtures; never remove or filter any older schema object."""
+"""Explicit additive-54/55 test fixtures; never remove or filter any older schema object."""
 
 PREPARED_TABLES = (
+    "prepared_generation_slot_preparation",
     "prepared_generation_video_arm",
     "prepared_generation_retired_slot",
     "prepared_generation_slot",

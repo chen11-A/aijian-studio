@@ -159,3 +159,39 @@ def materialize_request(
             ),
         ),
     )
+
+
+def validate_intent_sources(rows: object) -> tuple[dict[str, object], ...]:
+    """Closed, bounded original-reference facts; not permission to open a new source."""
+    if not isinstance(rows, list) or len(rows) > 20:
+        raise ValueError("INPUT_UNVERIFIABLE")
+    result = []
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {"source", "canonical_path", "sha256", "mime"}:
+            raise ValueError("INPUT_UNVERIFIABLE")
+        # Reuse the same role-format parser rather than a second path/hash grammar.
+        parsed = parse_sources([{**row, "role": "reference", "index": 0}])[0]
+        if parsed.source in seen:
+            raise ValueError("INPUT_UNVERIFIABLE")
+        seen.add(parsed.source)
+        result.append(dict(row))
+    return tuple(result)
+
+
+def verify_intent_sources(rows: object) -> None:
+    if not isinstance(rows, (tuple, list)):
+        raise ValueError("INPUT_UNVERIFIABLE")
+    parsed = validate_intent_sources(list(rows))
+    total = 0
+    for row in parsed:
+        source = row["source"]
+        assert isinstance(source, str)
+        uri, canonical = reference_snapshot(source)
+        total += len(uri)
+        if (
+            total > 96 * 1024 * 1024
+            or canonical != row["canonical_path"]
+            or story_reference_identity(uri) != {"sha256": row["sha256"], "mime": row["mime"]}
+        ):
+            raise ValueError("INPUT_UNVERIFIABLE")

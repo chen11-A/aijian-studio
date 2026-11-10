@@ -1590,6 +1590,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/cache-preparations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare Cache Slots */
+        post: operations["prepare_cache_slots_api_v1_projects__project_id__prepared_generation_executions__execution_id__cache_preparations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-dispatch": {
         parameters: {
             query?: never;
@@ -3510,6 +3527,17 @@ export interface components {
             retry_increment_limit_micros: number;
             /** Soft Limit Micros */
             soft_limit_micros: number;
+        };
+        /**
+         * CachePreparationRejection
+         * @description The only cache-preparations failure body. Not a new client error code.
+         */
+        CachePreparationRejection: {
+            /**
+             * Detail
+             * @constant
+             */
+            detail: "INPUT_UNVERIFIABLE";
         };
         /** @enum {string} */
         CanonCertainty: "certain" | "likely" | "ambiguous" | "intentionally_unreliable";
@@ -7456,6 +7484,10 @@ export interface components {
             /** Num */
             num: number;
         };
+        /** PrepareCacheSlots */
+        PrepareCacheSlots: {
+            registration: components["schemas"]["RegisterPreparedExecution"];
+        };
         /** PrepareOfficialDirectorRequest */
         PrepareOfficialDirectorRequest: {
             /** Authority */
@@ -7470,6 +7502,13 @@ export interface components {
             /** Profile Id */
             profile_id: string;
             storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
+        };
+        /** PreparedCachePart */
+        PreparedCachePart: {
+            /** Bytes */
+            bytes: number;
+            /** Sha256 */
+            sha256: string;
         };
         /** PreparedClientFrame */
         PreparedClientFrame: {
@@ -7523,12 +7562,62 @@ export interface components {
             /** Output Sha256S */
             output_sha256s: string[];
         };
+        /** PreparedPrivateCache */
+        PreparedPrivateCache: {
+            /** Input Sha256 */
+            input_sha256: string;
+            /** Parts */
+            parts: {
+                [key: string]: components["schemas"]["PreparedCachePart"];
+            };
+            request: components["schemas"]["CreateStoryFilmBody"];
+            /** Runtime Recipe */
+            runtime_recipe: {
+                [key: string]: unknown;
+            };
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Snapshot Sha256 */
+            snapshot_sha256: string;
+            /** Sources */
+            sources: {
+                [key: string]: unknown;
+            }[];
+        };
         /** PreparedRetirement */
         PreparedRetirement: {
             /** Slot Index */
             slot_index?: number | null;
             /** Target Key */
             target_key?: string | null;
+        };
+        /** PreparedSlotCacheFact */
+        PreparedSlotCacheFact: {
+            cache?: components["schemas"]["PreparedPrivateCache"] | null;
+            /**
+             * Preparation
+             * @enum {string}
+             */
+            preparation: "CLIENT_IMAGES" | "STORYFILM_CACHE";
+            /** Slot Index */
+            slot_index: number;
+            /** Target Key */
+            target_key: string;
+        };
+        /** PreparedSlotCacheFacts */
+        PreparedSlotCacheFacts: {
+            /** Items */
+            items: components["schemas"]["PreparedSlotCacheFact"][];
+            /**
+             * Kind
+             * @default PREPARATIONS
+             * @constant
+             */
+            kind: "PREPARATIONS";
         };
         /** PreparedStageBody */
         PreparedStageBody: {
@@ -18845,6 +18934,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreparedLineageFacts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_cache_slots_api_v1_projects__project_id__prepared_generation_executions__execution_id__cache_preparations_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareCacheSlots"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreparedSlotCacheFacts"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CachePreparationRejection"];
                 };
             };
             /** @description Validation Error */

@@ -63,7 +63,7 @@ from aijian_api.media_budget_policy import BudgetAmount, evaluate_media_budget
 from aijian_api.media_budget_store import MediaBudgetStore
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.prepared_generation_sources import materialize_request, parse_sources
-from aijian_api.prepared_generation_store import PreparedGenerationStore
+from aijian_api.prepared_generation_store import PreparedCacheChoice, PreparedGenerationStore
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
 from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
@@ -412,6 +412,7 @@ class StoryFilmService:
         self._dispatch_account: str | None = None
         self._prepared_generation: tuple[str, str] | None = None
         self._production_cache = False
+        self._prepared_cache_choice: PreparedCacheChoice | None = None
         self._pending_cache_image: bytes | None = None
         self._cache_image_saved = False
         self._video_reservation: FailureReservation | None = None
@@ -435,6 +436,7 @@ class StoryFilmService:
         self._begin_creation(request)
         self._prepared_generation = prepared_generation
         self._production_cache = prepared_generation is not None
+        self._prepared_cache_choice = None
         self._pending_cache_image = None
         self._cache_image_saved = False
         self._partial_note = None
@@ -479,6 +481,24 @@ class StoryFilmService:
                         )
                     ),
                 )
+                self._prepared_cache_choice = PreparedGenerationStore(
+                    self._repository
+                ).preparation_for_arm(
+                    project_id,
+                    account=dispatch_account or "",
+                    arm_id=arm,
+                    body_sha256=body_sha,
+                )
+                if (
+                    self._prepared_cache_choice is not None
+                    and self._prepared_cache_choice.preparation == "STORYFILM_CACHE"
+                    and (request.regenerate or any(shot.regenerate for shot in request.shots))
+                ):
+                    raise GenerationFailureError("INPUT_UNVERIFIABLE")
+                if self._prepared_cache_choice is not None:
+                    from aijian_api.prepared_generation_sources import verify_intent_sources
+
+                    verify_intent_sources(self._prepared_cache_choice.sources)
                 self._begin_creation(request)
                 self._assert_prepared_runtime(project_id)
             except (GenerationFailureError, ValueError, StoryFilmError):
@@ -494,7 +514,23 @@ class StoryFilmService:
                         "CREATION_INPUT_UNVERIFIABLE", "实际生成输入无法核验，没有发起新的生成。"
                     ),
                 )
-        blocked = self._preflight(project_id, request, media_token)
+        try:
+            blocked = self._preflight(project_id, request, media_token)
+        except StoryFilmError:
+            if self._prepared_cache_choice is None:
+                raise
+            return replace(
+                _blocked(
+                    "缓存的完整文件无法核验，没有发起新的生成。",
+                    provider_label,
+                    billing_label,
+                    None,
+                    None,
+                ),
+                user_message=user_message(
+                    "CREATION_INPUT_UNVERIFIABLE", "缓存的完整文件无法核验，没有发起新的生成。"
+                ),
+            )
         if blocked is not None:
             return blocked
         if request.provider == "grok_subscription":
@@ -547,11 +583,11 @@ class StoryFilmService:
                 and not any(shot.lines for shot in request.shots)
                 else (
                     sum(
-                        _video_cap(request.video_model, _shot_references(shot))
+                        self._effective_video_cap(request, _shot_references(shot))
                         for shot in request.shots
                     )
                     if request.shots
-                    else _video_cap(request.video_model)
+                    else self._effective_video_cap(request)
                 )
                 if request.provider == "grok_subscription"
                 else None
@@ -575,7 +611,12 @@ class StoryFilmService:
             progress = film_progress(project_id)
             saved = bool(progress.get("image_saved"))
             stage = str(progress.get("stage") or "image")
-            made = self._saved_bundle(project_id, request) is not None
+            try:
+                made = self._saved_bundle(project_id, request) is not None
+            except StoryFilmError:
+                if self._prepared_cache_choice is None:
+                    raise
+                made = False  # An unreadable frozen cache is not a completed output.
             message = _failure_message(error, stage, saved, made)
             mark_film_progress(project_id, "failed", message)
             preview = progress.get("preview_image")
@@ -956,30 +997,7 @@ class StoryFilmService:
             for index, shot in enumerate(request.shots, start=1):
                 label = f"正在生成第 {index} 个镜头的起始画面，共 {total} 个。"
                 mark_film_progress(project_id, "image", label)
-                still = keyframe_prompt(
-                    shot.prompt,
-                    style_zh=request.style_block,
-                    identity=shot.identity,
-                    size=shot.size,
-                    angle=shot.angle,
-                    move=shot.move,
-                    action=shot.action,
-                    performance=shot.performance,
-                )
-                child = replace(
-                    request,
-                    scene_label=shot.prompt or request.scene_label,
-                    narration=shot.narration,
-                    subtitle=shot.subtitle or None,
-                    visual_prompt=still,
-                    move=shot.move,
-                    voice_id=shot.voice_id or request.voice_id,
-                    regenerate=request.regenerate or shot.regenerate,
-                    delivery=shot.delivery,
-                    dialogue_lines=shot.lines,
-                    shot_index=index,
-                    shots=(),
-                )
+                child = story_shot_request(request, shot, index)
                 if request.provider == "grok_subscription":
                     prepared = prepared_reference_image(shot.still)
                     linked = _shot_references(shot)
@@ -1003,7 +1021,7 @@ class StoryFilmService:
                 audio_path.write_bytes(speech)
                 if _uses_speech_window(child):
                     required = _speech_window_seconds(tools.ffmpeg_path, audio_path)
-                    cap = _video_cap(request.video_model, linked)
+                    cap = self._effective_video_cap(request, linked)
                     _check_speech_window(required, cap, index)
                     # Retain a longer returned action inside the real model cap. The
                     # mandatory tail is a minimum, not a reason to trim to raw+1.
@@ -1017,7 +1035,7 @@ class StoryFilmService:
                         ),
                     )
                 if request.provider == "grok_subscription":
-                    chosen = min(chosen, _video_cap(request.video_model, linked))
+                    chosen = min(chosen, self._effective_video_cap(request, linked))
                 source_dir = Path(self._repository.database_path).parent / "story-films"
                 source_dir.mkdir(parents=True, exist_ok=True)
                 stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
@@ -1166,6 +1184,55 @@ class StoryFilmService:
                 )
             raise
 
+    def validate_cached_bundle(
+        self,
+        request: StoryFilmRequest,
+        project_id: str,
+        bundle: tuple[bytes, bytes, bytes],
+        cap: int,
+        *,
+        strict: bool = False,
+    ) -> None:
+        """Original cached voice-window/video checks, also used before issuing a cache fact."""
+        _, saved_clip, saved_speech = bundle
+        with tempfile.TemporaryDirectory(prefix="aivora-cache-duration-") as temporary:
+            cached_video = Path(temporary) / "video.mp4"
+            cached_voice = Path(temporary) / f"voice{_audio_suffix(saved_speech)}"
+            cached_video.write_bytes(saved_clip)
+            cached_voice.write_bytes(saved_speech)
+            tools = self._tools()
+            required = (
+                _speech_window_seconds(tools.ffmpeg_path, cached_voice)
+                if _uses_speech_window(request)
+                else _media_duration(tools.ffprobe_path, cached_voice)
+            )
+            if _uses_speech_window(request):
+                self._check_before_target_video(request, project_id, saved_speech, required, cap)
+            if required > _media_duration(tools.ffprobe_path, cached_video) + 1:
+                raise StoryFilmError(
+                    "VIDEO_TOO_SHORT", "已保存的视频不够长，请重新生成更长的视频。"
+                )
+        if strict and (
+            not self._verified_video_bytes(saved_clip)
+            or not self._verified_speech_bytes(saved_speech)
+        ):
+            raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "缓存媒体无法完整核验。")
+
+    def _effective_video_cap(
+        self, request: StoryFilmRequest, references: tuple[str, ...] | list[str] = ()
+    ) -> int:
+        choice = self._prepared_cache_choice
+        if choice is not None and choice.preparation == "STORYFILM_CACHE":
+            if choice.snapshot is None:
+                raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "缓存时长无法核验。")
+            runtime = choice.snapshot["runtime_recipe"]
+            assert isinstance(runtime, dict)
+            cap = runtime["cap"]
+            if type(cap) is not int or cap not in {10, 15}:
+                raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "缓存时长无法核验。")
+            return cap
+        return _video_cap(request.video_model, references)
+
     def _live_media(
         self,
         request: StoryFilmRequest,
@@ -1180,31 +1247,13 @@ class StoryFilmService:
     ) -> tuple[bytes, bytes, bytes]:
         if not media_token or not live_media_enabled():
             raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
-        cap = _video_cap(
-            request.video_model, (*reference_images, *((reference_url,) if reference_url else ()))
+        cap = self._effective_video_cap(
+            request, (*reference_images, *((reference_url,) if reference_url else ()))
         )
         bundle = None if request.regenerate else self._saved_bundle(project_id, request)
         if bundle is not None:
             image_bytes, saved_clip, saved_speech = bundle
-            with tempfile.TemporaryDirectory(prefix="aivora-cache-duration-") as temporary:
-                cached_video = Path(temporary) / "video.mp4"
-                cached_voice = Path(temporary) / f"voice{_audio_suffix(saved_speech)}"
-                cached_video.write_bytes(saved_clip)
-                cached_voice.write_bytes(saved_speech)
-                tools = self._tools()
-                required = (
-                    _speech_window_seconds(tools.ffmpeg_path, cached_voice)
-                    if _uses_speech_window(request)
-                    else _media_duration(tools.ffprobe_path, cached_voice)
-                )
-                if _uses_speech_window(request):
-                    self._check_before_target_video(
-                        request, project_id, saved_speech, required, cap
-                    )
-                if required > _media_duration(tools.ffprobe_path, cached_video) + 1:
-                    raise StoryFilmError(
-                        "VIDEO_TOO_SHORT", "已保存的视频不够长，请重新生成更长的视频。"
-                    )
+            self.validate_cached_bundle(request, project_id, bundle, cap)
             append_grok_status("image_saved", code="reused")
             append_grok_status("video_submit", code="reused")
             append_grok_status("video_poll", code="reused")
@@ -1435,11 +1484,28 @@ class StoryFilmService:
             mark_film_progress(project_id, "assemble", "正在合成。", image_saved=True)
         picture = image.data or _FALLBACK_PNG
         if real_clip:
-            if request.shot_index in self._creation_videos and self._verified_speech_bytes(speech):
+            verified = request.shot_index in self._creation_videos and self._verified_speech_bytes(
+                speech
+            )
+            if verified:
                 self._creation_verified.add(request.shot_index)
                 self._settle_creation_success(project_id)
             if self._production_cache:
-                self._creation_cache(project_id, request).put_bundle(picture, clip, speech)
+                cache = self._creation_cache(project_id, request)
+                if verified and self._creation_video_expected is not None:
+                    index, actual_image, actual_seconds = self._creation_video_expected
+                    if index != request.shot_index:
+                        raise StoryFilmError(
+                            "CREATION_INPUT_UNVERIFIABLE", "缓存的实际视频输入无法核验。"
+                        )
+                    runtime = dict(self._creation_targets()[(request.shot_index or 1) - 1])
+                    runtime["actual_video"] = {"image": actual_image, "seconds": actual_seconds}
+                    cache.put_bundle(picture, clip, speech, runtime_recipe=runtime)
+                else:
+                    # Keep paid raw artifacts, but do not issue a coherent video cache
+                    # for an unreadable/uncertain remote result or a local fallback.
+                    cache.put("image", picture)
+                    cache.put("voice", speech)
             else:
                 self._store_part(project_id, request, clip, "-clip.mp4")
                 self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
@@ -1589,6 +1655,15 @@ class StoryFilmService:
     ) -> tuple[bytes, bytes, bytes] | None:
         if self._production_cache:
             try:
+                if self._prepared_cache_choice is not None:
+                    if self._prepared_cache_choice.preparation == "CLIENT_IMAGES":
+                        # Later cache output cannot replace this confirmed fresh slot.
+                        return None
+                    if self._prepared_cache_choice.snapshot is None:
+                        raise StoryCreationCacheError("CACHE_UNVERIFIABLE")
+                    return self._creation_cache(project_id, request).read_snapshot(
+                        self._prepared_cache_choice.snapshot
+                    )
                 result = self._creation_cache(project_id, request).bundle()
                 if result is None and self._find_saved_image(project_id, request) is not None:
                     raise StoryCreationCacheError("LEGACY_CACHE_UNVERIFIABLE")
@@ -1718,28 +1793,8 @@ class StoryFilmService:
             raise StoryFilmError("CREATION_INPUT_UNVERIFIABLE", "原始创作输入无法核验。")
         targets = []
         if request.shots:
-            for shot in request.shots:
-                still = keyframe_prompt(
-                    shot.prompt,
-                    style_zh=request.style_block,
-                    identity=shot.identity,
-                    size=shot.size,
-                    angle=shot.angle,
-                    move=shot.move,
-                    action=shot.action,
-                    performance=shot.performance,
-                )
-                child = replace(
-                    request,
-                    shots=(),
-                    scene_label=shot.prompt or request.scene_label,
-                    visual_prompt=still,
-                    narration=shot.narration,
-                    move=shot.move,
-                    voice_id=shot.voice_id or request.voice_id,
-                    delivery=shot.delivery,
-                    dialogue_lines=shot.lines,
-                )
+            for index, shot in enumerate(request.shots, start=1):
+                child = story_shot_request(request, shot, index)
                 targets.append(
                     self._creation_target(
                         child,
@@ -3061,6 +3116,34 @@ def _loudnorm_filter(measured: dict[str, str] | None) -> str:
 
 def _video_cap(model: str, references: tuple[str, ...] | list[str] = ()) -> int:
     return 10 if (model or VIDEO_MODEL) == "grok-imagine-video" and references else 15
+
+
+def story_shot_request(request: StoryFilmRequest, shot: StoryShot, index: int) -> StoryFilmRequest:
+    """The original effective child producer shared by generation and cache inspection."""
+    still = keyframe_prompt(
+        shot.prompt,
+        style_zh=request.style_block,
+        identity=shot.identity,
+        size=shot.size,
+        angle=shot.angle,
+        move=shot.move,
+        action=shot.action,
+        performance=shot.performance,
+    )
+    return replace(
+        request,
+        scene_label=shot.prompt or request.scene_label,
+        narration=shot.narration,
+        subtitle=shot.subtitle or None,
+        visual_prompt=still,
+        move=shot.move,
+        voice_id=shot.voice_id or request.voice_id,
+        regenerate=request.regenerate or shot.regenerate,
+        delivery=shot.delivery,
+        dialogue_lines=shot.lines,
+        shot_index=index,
+        shots=(),
+    )
 
 
 def _shot_references(shot: StoryShot) -> list[str]:

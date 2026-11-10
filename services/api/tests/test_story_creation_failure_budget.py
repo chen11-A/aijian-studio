@@ -440,7 +440,7 @@ def test_additive_53_preserves_all_52_sql_rows_and_creates_no_allowance(tmp_path
         recovery_before = connection.execute("SELECT * FROM generation_video_recovery").fetchall()
     reopened = StudioRepository(repo.database_path)
     with sqlite3.connect(reopened.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 55
         assert_prepared_tables_empty(connection)
         after = connection.execute(
             "SELECT type,name,tbl_name,sql FROM sqlite_master "

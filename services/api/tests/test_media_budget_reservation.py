@@ -657,7 +657,7 @@ def test_migration_48_adds_the_budget_ledger_without_rewriting_projects(tmp_path
         assert "media_budget_revisions" not in names
     StudioRepository(database)
     with sqlite3.connect(database) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 54
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 55
         assert_prepared_tables_empty(connection)
         new_tables = {
             row[0]
