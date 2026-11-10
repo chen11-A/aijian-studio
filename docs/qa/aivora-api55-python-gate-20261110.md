@@ -427,3 +427,16 @@ uv run pytest -q --tb=line services/api/tests/test_prepared_generation_cache.py:
 这个候选不能落地。通过依赖于 `inotify_init1`。没有该观察时，安全规则是不复用缓存；那会第二次哈希，打破单次预算断言。退回 stat 缓存就是接受陈旧 VERIFIED。同进程文件租约能看见写入，但写入方会停在内核租约打断上（这次约 45 秒），属于盲等，不用。
 
 安全停止边界：没有写生命周期观察时，不得把缓存的 stat 身份当成 VERIFIED。本片不改产品代码，所以当前函数仍会返回陈旧 VERIFIED。这是未关闭的门，不是接受该结果。不改 desktop 共享文件。已订阅的本分支 CI watch 还没有交付，不轮询。原生远端 Linux/Windows quality 的日志分类不在这里重复。
+
+## 原件复用修复（代码 `dd55bbc4402489ab73654491a3e32f820d606f00`）
+
+同 stat 的快速覆写不再从缓存返回 `VERIFIED`。Linux 只在 `inotify` 观察保持安静时复用这一次哈希。观察无法建立、队列溢出、写入/替换/关闭，或读取期间出现事件，都返回已有的 `UNKNOWN_MEDIA_CHANGED`，不退回信任 stat，也不再读一遍。没有使用文件租约，写入不会被堵住。
+
+支持平台：带 `inotify_init1` 的 Linux。本机 ext4 上定向通过，不是所有 Linux 发行版都跑过。未验证平台：Windows。那里没有已验证的观察器，缓存复用关闭，不能写成 Windows 可用。同一次 scope 里的第一次哈希仍可返回 `VERIFIED`；同 scope 的下一次调用在 Windows 上会拒绝，而且不会第二次哈希。
+
+定向，原断言、超时和阈值未改：
+
+- `test_local_media_original_identity.py` 与 `test_assembly_media_boundaries.py`：`56 passed in 0.78s`。其中新增观察失败、溢出、读取期间变化和 `os.replace` 替换四项。
+- 原单次哈希预算与 scope/失败不退款：`5 passed in 2.95s`。
+
+完整 Python 门仍是 `143 failed / 5204 passed / 6 skipped / 100 errors`，退出码 1。最终集成候选必须重跑。API55 主片仍未审合。本批未验收。没有改 desktop 文件，没有收费调用。
