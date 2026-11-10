@@ -32,6 +32,7 @@ export function useSceneAudioSuggestions(
   const applyingRef = useRef(false);
   const confirmed = useRef<FilmProject | null>(null);
   const invalidated = useRef(false);
+  const unsettled = useRef<string | null>(null);
   const generation = useRef(0),
     working = useRef(false);
   const [open, setOpen] = useState(false),
@@ -59,9 +60,16 @@ export function useSceneAudioSuggestions(
     setPlan(null);
     setBusy(false);
     if (last.scope !== scope || !enabled) {
+      unsettled.current = null;
       invalidated.current = false;
       setOpen(false);
       setMessage("");
+      return;
+    }
+    if (unsettled.current) {
+      confirmed.current = null;
+      setPlan(null);
+      setBusy(false);
       return;
     }
     if (ours) {
@@ -81,6 +89,7 @@ export function useSceneAudioSuggestions(
   function dropSettlement() {
     confirmed.current = null;
     invalidated.current = false;
+    unsettled.current = null;
   }
   async function read() {
     dropSettlement();
@@ -180,29 +189,37 @@ export function useSceneAudioSuggestions(
       const result = await controllerRef.current.runGroupOperation(base.id, () =>
         applySceneAudioGroup(h, captured, planKey.current, selectedLanes),
       );
-      const live = h.current();
-      const liveKey = sceneAudioInputKey(live, h.sceneSelection());
-      const persisted =
-        result.kind === "added" &&
-        !!live &&
-        liveKey !== null &&
-        liveKey !== capturedKey &&
-        JSON.stringify(h.sceneSelection()) === applyScope;
-      if (invalidated.current || JSON.stringify(h.sceneSelection()) !== applyScope) {
+      const scopeHeld = JSON.stringify(h.sceneSelection()) === applyScope;
+      if (!scopeHeld) {
+        confirmed.current = null;
+      } else if (result.kind === "unknown" || result.kind === "failed") {
+        confirmed.current = null;
+        unsettled.current = result.message;
+        setPlan(null);
+        setSelectedLanes([]);
+        setMessage(result.message);
+        noteSceneSettlement("write-other");
+      } else if (invalidated.current) {
         confirmed.current = null;
       } else {
+        const settled = result.kind === "added" ? (result.adopted ?? null) : null;
+        const settledKey = sceneAudioInputKey(settled, h.sceneSelection());
         setPlan(null);
         setSelectedLanes([]);
         setMessage(result.message);
         noteSceneSettlement(
           result.message.includes("声音已加入并保存") ? "write-success" : "write-other",
         );
-        confirmed.current = persisted ? live : null;
+        confirmed.current =
+          settled && settledKey !== null && settledKey !== capturedKey ? settled : null;
       }
     } catch {
       confirmed.current = null;
-      if (JSON.stringify(hostRef.current.sceneSelection()) === applyScope && !invalidated.current)
-        setMessage("本次声音保存结果还需核对，请查看本地素材保存状态。");
+      if (JSON.stringify(hostRef.current.sceneSelection()) === applyScope) {
+        const text = "本次声音保存结果还需核对，请查看本地素材保存状态。";
+        unsettled.current = text;
+        setMessage(text);
+      }
     } finally {
       applyingRef.current = false;
       setApplying(false);

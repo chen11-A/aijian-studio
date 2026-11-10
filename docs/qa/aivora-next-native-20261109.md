@@ -162,3 +162,5 @@ PR22 [42738189561](https://github.com/chen11-A/aijian-studio/actions/runs/427381
 修前「选用未完成时的真实画风」看不到刷新提示。修后同一异步结算能等到这句，并且没有「声音已加入并保存」。成功之后再改画风仍出现刷新提示。transport 失败显示「尚未确认」，没有成功句，随后的画风变化仍提示刷新；关闭再打开不留下成功句或刷新句。离开剪辑会关掉对话框。原 10 秒未改。这是 Linux 对照。
 
 source/clean 的 `host.run` 包装能看到库内部调用：source 在 Linux 上 `library` 大于测试自己的 encode，且 `closed === started`，说明 `QcRunner` 的 `onProcess(done)` 有回调。source 的探测会因替换字节失败一次，这个 `failed` 计数是真实失败，不是未退出。`42748976378` 的 audio-library-write 6 过、30 跳过、before 3920ms，没有跑 source/clean，不能销旧挂点。
+
+`f67e0fcf` 复审后补了一处：选用过程中作品已变、结果又是 unknown/failed 时，不再用「请刷新后重新核对」盖住「不要重复加入」。成功句改绑 settle 返回的 `adopted`，不绑返回后的任意 `current()`。修前该用例只剩刷新句；修后能等到「不要重复」，刷新句不在。`ProWorkspace.scene-audio-suggestions.test.tsx` 17 项通过。原 10 秒未改。Windows before/ownership/source-clean 仍是已登记的继承时序，这次不加新诊断。

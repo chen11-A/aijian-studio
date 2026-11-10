@@ -319,6 +319,22 @@ it("does not hide a real edit that arrives before the saved group is confirmed",
   expect(within(dialog).queryByText(/声音已加入并保存/)).toBeNull();
   expect(f.current().styleZh).toBe("选用未完成时的真实画风");
 });
+it("keeps the unsettled warning when the work changes before an unknown apply finishes", async () => {
+  const f = await open();
+  f.mode("hold");
+  const dialog = await view();
+  choose(dialog);
+  fireEvent.click(confirm(dialog));
+  await f.admitted.promise;
+  f.change({ ...f.current(), styleZh: "未结算时的真实画风" });
+  await act(async () => {
+    f.rejectNative();
+  });
+  expect(await within(dialog).findByText(/不要重复/)).toBeInTheDocument();
+  expect(within(dialog).queryByText("场次、选版或素材已变化，请刷新后重新核对。")).toBeNull();
+  expect(within(dialog).queryByText(/声音已加入并保存/)).toBeNull();
+  expect(f.current().styleZh).toBe("未结算时的真实画风");
+});
 it("does not retain a success notice after a failed apply or across close and reopen", async () => {
   const f = await open();
   f.mode("transport");
@@ -328,9 +344,9 @@ it("does not retain a success notice after a failed apply or across close and re
   await within(dialog).findByText(/尚未确认/);
   expect(within(dialog).queryByText(/声音已加入并保存/)).toBeNull();
   f.change({ ...f.current(), styleZh: "失败之后的真实画风" });
-  expect(
-    await within(dialog).findByText("场次、选版或素材已变化，请刷新后重新核对。"),
-  ).toBeInTheDocument();
+  expect(within(dialog).getByText(/不要重复/)).toBeInTheDocument();
+  expect(within(dialog).queryByText("场次、选版或素材已变化，请刷新后重新核对。")).toBeNull();
+  expect(f.current().styleZh).toBe("失败之后的真实画风");
   fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "本场声音建议" })).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "查看本场声音建议" }));
