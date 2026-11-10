@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from aijian_api.generation_failure_store import GenerationFailureError
+from aijian_api.prepared_generation_cache import _MATCHED_RUNTIME_FIELDS
 from aijian_api.prepared_generation_routes import (
     RegisterPreparedExecution,
     original_prepared_recipes,
@@ -858,51 +859,105 @@ def _rewrite_bundle(cache, mutate):
     path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
 
 
+def _runtime(cache):
+    return json.loads((cache.directory / "bundle.json").read_text())["runtime_recipe"]
+
+
+def _recipe(repo, registration):
+    return original_prepared_recipes(
+        repo, toolchain, RegisterPreparedExecution.model_validate(registration)
+    )[0].recipe
+
+
+def _assert_unverifiable(reply):
+    assert reply.status_code == 409
+    assert reply.json() == {"detail": "INPUT_UNVERIFIABLE"}
+
+
+def _assert_no_freeze_arm_or_budget(repo, project, execution):
+    """Provider transport is not on this route, so no provider mock is consulted."""
+    assert PreparedGenerationStore(repo).preparations(project, execution, account=ACCOUNT) is None
+    with repo._connection() as connection:
+        arms = connection.execute("SELECT COUNT(*) FROM prepared_generation_video_arm").fetchone()
+    assert arms[0] == 0
+    assert_no_attempt(repo)
+
+
+def _assert_no_new_arm_or_budget(repo):
+    with repo._connection() as connection:
+        arms = connection.execute("SELECT COUNT(*) FROM prepared_generation_video_arm").fetchone()
+    assert arms[0] == 0
+    assert_no_attempt(repo)
+
+
 def test_changed_runtime_prompt_never_freezes_a_cache_table(actual_cache):
     repo, project, registration, cache, _ = actual_cache
+    goal = _recipe(repo, registration)
     _rewrite_bundle(cache, lambda runtime: runtime.__setitem__("video_prompt", "不是冻结配方"))
+    runtime = _runtime(cache)
+    assert runtime["video_prompt"] != goal["video_prompt"]
+    assert all(
+        runtime[field] == goal[field]
+        for field in _MATCHED_RUNTIME_FIELDS
+        if field != "video_prompt"
+    )
     with app_for(repo) as client:
         execution, reply = prepared(client, project, registration)
-    assert reply.status_code == 409 and reply.json()["detail"] == "INPUT_UNVERIFIABLE"
-    assert PreparedGenerationStore(repo).preparations(project, execution, account=ACCOUNT) is None
+    _assert_unverifiable(reply)
+    _assert_no_freeze_arm_or_budget(repo, project, execution)
 
 
 def test_runtime_still_identity_must_match_the_frozen_recipe(actual_cache):
     repo, project, registration, cache, _ = actual_cache
-
-    def mutate(runtime):
-        runtime["prepared_image"] = {"sha256": "ab" * 32, "mime": "image/png"}
-
-    _rewrite_bundle(cache, mutate)
+    goal = _recipe(repo, registration)
+    _rewrite_bundle(
+        cache,
+        lambda runtime: runtime.__setitem__(
+            "prepared_image", {"sha256": "ab" * 32, "mime": "image/png"}
+        ),
+    )
+    runtime = _runtime(cache)
+    assert runtime["actual_video"]["image"] == goal["prepared_image"]
+    assert runtime["prepared_image"] != goal["prepared_image"]
+    assert all(runtime[field] == goal[field] for field in _MATCHED_RUNTIME_FIELDS)
     with app_for(repo) as client:
-        _, reply = prepared(client, project, registration)
-    assert reply.status_code == 409 and reply.json()["detail"] == "INPUT_UNVERIFIABLE"
+        execution, reply = prepared(client, project, registration)
+    _assert_unverifiable(reply)
+    _assert_no_freeze_arm_or_budget(repo, project, execution)
 
 
 def test_runtime_video_reference_count_must_match(actual_cache):
     repo, project, registration, cache, _ = actual_cache
+    goal = _recipe(repo, registration)
     _rewrite_bundle(
         cache,
         lambda runtime: runtime.__setitem__(
             "video_references", [{"sha256": "cd" * 32, "mime": "image/png"}]
         ),
     )
+    runtime = _runtime(cache)
+    assert len(runtime["video_references"]) != len(goal["video_references"])
+    assert all(runtime[field] == goal[field] for field in _MATCHED_RUNTIME_FIELDS)
     with app_for(repo) as client:
-        _, reply = prepared(client, project, registration)
-    assert reply.status_code == 409 and reply.json()["detail"] == "INPUT_UNVERIFIABLE"
+        execution, reply = prepared(client, project, registration)
+    _assert_unverifiable(reply)
+    _assert_no_freeze_arm_or_budget(repo, project, execution)
 
 
-def test_non_byte_video_reference_is_not_a_cache_lineage(actual_cache):
-    repo, project, registration, cache, _ = actual_cache
-    recipe = original_prepared_recipes(
-        repo, toolchain, RegisterPreparedExecution.model_validate(registration)
-    )[0].recipe
-    wanted = recipe["video_references"]
-    bad = ["not-bytes"] if not wanted else ["not-bytes"] * len(wanted)
-    _rewrite_bundle(cache, lambda runtime: runtime.__setitem__("video_references", bad))
-    with app_for(repo) as client:
-        _, reply = prepared(client, project, registration)
-    assert reply.status_code == 409 and reply.json()["detail"] == "INPUT_UNVERIFIABLE"
+def test_non_byte_reference_does_not_match_a_byte_identity(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    from aijian_api.prepared_generation_cache import PreparedGenerationCache, byte_identity
+
+    goal = _recipe(repo, registration)
+    assert byte_identity(goal["prepared_image"])
+    # A prepared local reference is rewritten to a data URL before shot linking,
+    # so the public recipe does not currently carry a non-byte video reference.
+    assert (
+        PreparedGenerationCache(repo, toolchain)._reference_matches(
+            project, ACCOUNT, goal["prepared_image"], "not-bytes"
+        )
+        is False
+    )
 
 
 def test_planned_image_without_lineage_does_not_freeze(actual_cache):
@@ -937,15 +992,41 @@ def test_planned_image_without_lineage_does_not_freeze(actual_cache):
             "actual_video": {"image": image, "seconds": 3},
         },
     )
+    runtime = json.loads(
+        (
+            StoryCreationCache(
+                Path(repo.database_path).parent / "story-films", project, recipe, repo.database_path
+            ).directory
+            / "bundle.json"
+        ).read_text()
+    )["runtime_recipe"]
+    assert runtime["prepared_image"] == image
+    assert runtime["actual_video"]["image"] == image
+    assert all(runtime[field] == recipe[field] for field in _MATCHED_RUNTIME_FIELDS)
+    assert (
+        PreparedGenerationStore(repo).lineages(
+            project, account=ACCOUNT, output_sha256s=(image["sha256"],)
+        )
+        == []
+    )
     with app_for(repo) as client:
         execution, reply = prepared(client, project, planned)
-    assert reply.status_code == 409 and reply.json()["detail"] == "INPUT_UNVERIFIABLE"
-    assert PreparedGenerationStore(repo).preparations(project, execution, account=ACCOUNT) is None
-    assert PreparedGenerationStore(repo).preparations(project, execution, account=ACCOUNT) is None
+    _assert_unverifiable(reply)
+    _assert_no_freeze_arm_or_budget(repo, project, execution)
 
 
-def test_shared_still_is_verified_once_across_targets(actual_cache):
+def test_shared_still_is_verified_once_across_targets(actual_cache, monkeypatch):
     repo, _, registration, _, _ = actual_cache
+    import aijian_api.prepared_generation_routes as routes
+
+    calls = {"n": 0}
+    real = routes.reference_snapshot
+
+    def counting(source):
+        calls["n"] += 1
+        return real(source)
+
+    monkeypatch.setattr(routes, "reference_snapshot", counting)
     second = deepcopy(registration["targets"][0])
     second["key"] = "two"
     paired = deepcopy(registration)
@@ -953,8 +1034,8 @@ def test_shared_still_is_verified_once_across_targets(actual_cache):
     recipes = original_prepared_recipes(
         repo, toolchain, RegisterPreparedExecution.model_validate(paired)
     )
+    assert calls["n"] == 1
     assert recipes[0].recipe["prepared_image"] == recipes[1].recipe["prepared_image"]
-    assert recipes[0].recipe["prepared_image"]["mime"] == "image/png"
 
 
 def test_preconverted_source_cannot_also_be_captured(actual_cache):
@@ -991,7 +1072,8 @@ def test_arm_rejects_a_slot_outside_the_frozen_table(actual_cache):
         assert observed.status_code == 200, observed.text
         body = observed.json()["items"][0]["cache"]["request"]
         rejected = arm(client, project, execution, body, slot=1)
-    assert rejected.status_code == 409 and rejected.json()["detail"] == "INPUT_UNVERIFIABLE"
+    _assert_unverifiable(rejected)
+    _assert_no_new_arm_or_budget(repo)
 
 
 def test_cache_slot_rejects_a_regenerate_flag(actual_cache):
@@ -1002,7 +1084,8 @@ def test_cache_slot_rejects_a_regenerate_flag(actual_cache):
         body = deepcopy(observed.json()["items"][0]["cache"]["request"])
         body["shots"][0]["regenerate"] = True
         rejected = arm(client, project, execution, body)
-    assert rejected.status_code == 409 and rejected.json()["detail"] == "INPUT_UNVERIFIABLE"
+    _assert_unverifiable(rejected)
+    _assert_no_new_arm_or_budget(repo)
 
 
 @pytest.mark.parametrize("mutation", ["digest", "envelope", "shape"])
@@ -1032,6 +1115,24 @@ def test_damaged_frozen_cache_row_cannot_be_read(actual_cache, mutation):
         connection.commit()
     with pytest.raises(GenerationFailureError, match="INPUT_UNVERIFIABLE"):
         PreparedGenerationStore(repo).preparations(project, execution, account=ACCOUNT)
+
+
+def test_damaged_frozen_cache_row_rejects_arm_without_writing_one(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    with app_for(repo) as client:
+        execution, observed = prepared(client, project, registration)
+        assert observed.status_code == 200
+        body = observed.json()["items"][0]["cache"]["request"]
+        with repo._connection() as connection:
+            connection.execute(
+                "UPDATE prepared_generation_slot_preparation SET cache_snapshot_sha256=? "
+                "WHERE preparation='STORYFILM_CACHE'",
+                ("0" * 64,),
+            )
+            connection.commit()
+        rejected = arm(client, project, execution, body)
+    _assert_unverifiable(rejected)
+    _assert_no_new_arm_or_budget(repo)
 
 
 def test_unreadable_reference_is_absent_from_the_cache_contract():

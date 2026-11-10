@@ -27,6 +27,18 @@ def same(left: object, right: object) -> bool:
     )
 
 
+_MATCHED_RUNTIME_FIELDS = (
+    "video_prompt",
+    "video_model",
+    "requested_seconds",
+    "cap",
+    "resolution",
+    "aspect_ratio",
+    "speech",
+    "speech_window",
+)
+
+
 def byte_identity(value: object) -> bool:
     return (
         isinstance(value, dict)
@@ -104,16 +116,7 @@ class PreparedGenerationCache:
         runtime = snapshot["runtime_recipe"]
         assert isinstance(runtime, dict)
         goal = target.recipe
-        for field in (
-            "video_prompt",
-            "video_model",
-            "requested_seconds",
-            "cap",
-            "resolution",
-            "aspect_ratio",
-            "speech",
-            "speech_window",
-        ):
+        for field in _MATCHED_RUNTIME_FIELDS:
             if not same(runtime.get(field), goal.get(field)):
                 raise StoryCreationCacheError("CACHE_UNVERIFIABLE")
         actual = runtime["actual_video"]
