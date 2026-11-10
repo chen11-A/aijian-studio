@@ -162,3 +162,50 @@
 `NOT_NEEDED` 停在第 1 步之前。PR 23 的 fixed-input / shot-frame 只覆盖第 1 步的一部分；offer 接线与 toolchain 验证仍未完成，不能写成已验收。第 3 步还没有接到 main factory。公共 `PREPARED` 目前仍固定为 `CLIENT_IMAGES`，把真实 `STORYFILM_CACHE` 标签交到公共面是冻结后的接线，不是本提交。
 
 本地连续帧和明确 FAILED 后的下一版本不在本轮。
+
+## 当前头核对与下一片接线（不在本轮接）
+
+核对头 `33269cef109493c621088865f5103b4455e3da0d`，分支 `cursor/aivora-api55-cache-boundary-93a6`，PR 22 未合入。这一节只整理已有证据和冻结合同，不接 main，不等待总控 diff 结论之外的实现。
+
+### 已有 CI
+
+`33269cef` 的检查在本次核对时仍是 `QUEUED` 或 `IN_PROGRESS`，没有终态，不能写成通过。上一头 `4064b34754dea43e554544997574bce09a0a20ee` 的 [run 42735239857](https://github.com/chen11-A/aijian-studio/actions/runs/42735239857) 与 [run 42735232732](https://github.com/chen11-A/aijian-studio/actions/runs/42735232732) 都是 quality（ubuntu-latest、windows-latest）在 Lint 失败，签名是 Prettier 四个文档。`33269cef` 只重排这四个文件。这不是原生测试结论，也不是完整门通过。`babefa9` 的 CI 42420151861 只证明上一批，不借给本头。
+
+### 已有 API55 定向证据
+
+两组缓存测试不相加：新增用例前 `57 passed in 31.24s`；只跑 6 个新用例加已扩展 UNKNOWN，候选 `1227af51`，`7 passed in 20.15s`。完整 Python 门仍是 `143 failed, 5204 passed, 6 skipped, 100 errors in 1960.27s`，退出码 1，覆盖脚本没进。身份门在 `6bb54bb` 与 `1227af5` 上同断言失败，本头已 revert `dd55bbc4`，补丁在 PR 24，未合入，不能写成 Windows 已修。
+
+### 下一片可调用的已生成类型
+
+生成物已在本头，操作名 `prepare_cache_slots_api_v1_projects__project_id__prepared_generation_executions__execution_id__cache_preparations_post`。
+
+| 生成名                   | 角色                                                     |
+| ------------------------ | -------------------------------------------------------- |
+| `PrepareCacheSlots`      | 请求。唯一字段 `registration: RegisterPreparedExecution` |
+| `PreparedSlotCacheFacts` | 200 响应。`kind` 常量 `PREPARATIONS`                     |
+| `PreparedSlotCacheFact`  | `target_key`、`slot_index`、`preparation`、`cache`       |
+| `PreparedPrivateCache`   | 仅 `STORYFILM_CACHE` 的 slot 0。`schema_version` 常量 1  |
+| `PreparedCachePart`      | `parts` 里 `sha256` 与 `bytes`                           |
+
+生成 schema 只列 200 与 422。线上 409 `INPUT_UNVERIFIABLE` 不在生成响应里，接线仍走现有 client 的 `CREATION_INPUT_UNVERIFIABLE`。请求头沿用 `Idempotency-Key`（`story-film:v1:` 加 36 位）和 `X-Aivora-Generation-Account`。服务端实现是 `prepare_cache_slots`，响应模型 `PreparedSlotCacheFacts`。
+
+### 调用顺序与兼容
+
+1. `NOT_NEEDED` 在注册前结束，零 execution，不调用 `prepareSlots`。
+2. 注册 `POST .../prepared-generation-executions`，体为 `RegisterPreparedExecution`。
+3. `prepareSlots` 把同一份登记 POST 到 `.../{execution_id}/cache-preparations`，整表冻结。失败停在 `CREATION_INPUT_UNVERIFIABLE`，不能改走未冻结路径。
+4. 之后才 image-dispatch、video-arm 和额度。arm 仍是 `EXECUTION_UNAVAILABLE` / `ATTEMPT_ALREADY_RESERVED`。缓存槽 `claim_video` 仍变成 `CREATION_EXECUTION_UNAVAILABLE`。
+
+从未调用过 `cache-preparations` 的旧 execution 仍走原 image/arm。这不免除新 main 的顺序。
+
+### 文件归属
+
+| 归属                              | 文件                                                                                                                                               | 本头状态                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 后端，已在本头                    | `prepared_generation_routes.py`、`prepared_generation_cache.py`、`prepared_generation_store.py`、`prepared_generation_sources.py`、`story_film.py` | 可审，未接 main                                   |
+| 后端，已生成                      | `packages/contracts/openapi.json`、`packages/contracts/src/generated.ts`                                                                           | 已发布                                            |
+| 界面，本头未实现                  | `apps/desktop/src/generation-cache-preparation.ts` 与其测试                                                                                        | 检查点有对照，本头没有这两个文件                  |
+| 界面，本头已有但无 `prepareSlots` | `apps/desktop/src/generation-preparation-client.ts`                                                                                                | 现有 `post` 已映射 `CREATION_INPUT_UNVERIFIABLE`  |
+| 界面，下一片才接                  | `apps/desktop/src/film-generation-execution.ts`                                                                                                    | 本头不接。公共 `PREPARED` 仍不携带私有 cache 字段 |
+
+等总控 diff 结论后再接线。本轮不改 desktop，不合 PR 22，不合 PR 24。
