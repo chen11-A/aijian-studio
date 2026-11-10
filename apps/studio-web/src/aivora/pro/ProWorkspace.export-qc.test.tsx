@@ -104,7 +104,11 @@ async function open(options: { pending?: boolean; legacy?: boolean } = {}) {
     },
   };
 }
-const check = () => fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+const check = () => {
+  const silent = screen.queryByRole("button", { name: "本片静音" });
+  if (silent) fireEvent.click(silent);
+  fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
+};
 afterEach(() => vi.restoreAllMocks());
 beforeEach(() => {
   localStorage.clear();

@@ -144,7 +144,7 @@ export type StillAcceptance = {
   at: string;
   stillUrl: string;
   adopted: boolean;
-  checklist: { id: string; verdict: StillVerdict }[];
+  checklist: { id: string; text: string; verdict: StillVerdict }[];
 };
 
 export type FilmStill = {
@@ -347,7 +347,8 @@ export type FilmProject = {
    * Export-time sound choice. SILENT_BY_USER records the decision only;
    * writing the silent AAC track is a later slice.
    */
-  audioDecision?: "SILENT_BY_USER";
+  /** Explicit export sound choice. Unset means the choice is still open. */
+  audioDecision?: "SILENT_BY_USER" | "WITH_AUDIO";
   /** Persisted overall lane controls; per-clip gain stays independent. */
   audioMix?: AudioMixSettings;
   /** Backend ledger id. Empty until the desktop creates a project for this film. */

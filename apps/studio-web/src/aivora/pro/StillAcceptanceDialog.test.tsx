@@ -58,7 +58,7 @@ it("blocks video until every checklist row matches, and a mismatch cannot adopt"
   fireEvent.click(screen.getByRole("button", { name: "去核对镜头 2" }));
   expect(screen.getByRole("dialog", { name: "核对并采用 · 镜头 2" })).toBeInTheDocument();
   expect(screen.getByText("画面里没有人物")).toBeInTheDocument();
-  fireEvent.click(screen.getAllByRole("button", { name: "符合" })[0]!);
+  for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
   fireEvent.click(screen.getAllByRole("button", { name: "不符合" })[1]!);
   expect(screen.getByRole("button", { name: "采用" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "重出这一镜" }));

@@ -109,6 +109,10 @@ describe("4B-U09 workspace clean copy repair", () => {
     const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
     expect(dialog.queryByRole("button", { name: /一键补做/ })).toBeNull();
     fireEvent.click(dialog.getByRole("radio", { name: "不要" }));
+    {
+      const silentChoice = dialog.queryByRole("button", { name: "本片静音" });
+      if (silentChoice) fireEvent.click(silentChoice);
+    }
     fireEvent.click(dialog.getByRole("button", { name: "检查成片" }));
     fireEvent.click(await dialog.findByRole("button", { name: "一键补做这 2 镜" }));
     expect(dialog.getByRole("button", { name: "正在补做无字幕版本…" })).toBeDisabled();

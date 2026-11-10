@@ -153,6 +153,10 @@ async function open() {
     event,
     emit,
     start: async () => {
+      {
+        const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+        if (silentChoice) fireEvent.click(silentChoice);
+      }
       fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
       await waitFor(() => expect(prepare).toHaveBeenCalled());
     },

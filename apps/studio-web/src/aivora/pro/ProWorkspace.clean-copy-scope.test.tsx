@@ -155,6 +155,10 @@ describe("4B-B12 workspace repair ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
     fireEvent.click(dialog.getByRole("radio", { name: "不要" }));
+    {
+      const silentChoice = dialog.queryByRole("button", { name: "本片静音" });
+      if (silentChoice) fireEvent.click(silentChoice);
+    }
     fireEvent.click(dialog.getByRole("button", { name: "检查成片" }));
     fireEvent.click(await dialog.findByRole("button", { name: "一键补做这 2 镜" }));
     await waitFor(() => expect(remake).toHaveBeenCalledTimes(2));
@@ -254,6 +258,10 @@ describe("4B-B12 workspace repair ownership", () => {
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     const dialog = within(screen.getByRole("dialog", { name: "导出成片" }));
     fireEvent.click(dialog.getByRole("radio", { name: "不要" }));
+    {
+      const silentChoice = dialog.queryByRole("button", { name: "本片静音" });
+      if (silentChoice) fireEvent.click(silentChoice);
+    }
     fireEvent.click(dialog.getByRole("button", { name: "检查成片" }));
     fireEvent.click(await dialog.findByRole("button", { name: "一键补做这 2 镜" }));
     await waitFor(() => expect(status()).toContain("补做中断，已经保存的版本会保留"));

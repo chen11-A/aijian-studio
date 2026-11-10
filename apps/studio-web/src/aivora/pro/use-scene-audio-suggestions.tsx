@@ -11,6 +11,7 @@ import {
   type SceneAudioPlan,
   type SceneAudioHost,
 } from "./actions/scene-audio-suggestions";
+import { soundRowLabel, UNGENERATED_SOUND_LABEL } from "./sound-export-decision";
 export function useSceneAudioSuggestions(
   film: FilmProject | null,
   enabled: boolean,
@@ -244,7 +245,9 @@ export function useSceneAudioSuggestions(
         >
           查看本场声音建议
         </button>
-        <p className="role-desc">建议 · 未生成</p>
+        {film?.audioClips.some((clip) => soundRowLabel(clip) === UNGENERATED_SOUND_LABEL) ? (
+          <p className="role-desc">{UNGENERATED_SOUND_LABEL}</p>
+        ) : null}
         {enabled && !key && (
           <p className="role-desc">
             全片已选视频或当前场次尚不完整，请先核对后再查看整场声音建议。

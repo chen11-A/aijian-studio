@@ -74,6 +74,7 @@ describe("still checklist", () => {
       "外貌：猫 · 年龄段：青年",
       "道具 围巾：红格",
       "地点：旧书店",
+      "画面：未写",
     ]);
   });
 
@@ -82,6 +83,7 @@ describe("still checklist", () => {
     expect(stillChecklist(film, film.shots[0]!).map((item) => item.text)).toEqual([
       "画面里没有人物",
       "地点：旧书店",
+      "画面：未写",
     ]);
   });
 
@@ -90,7 +92,7 @@ describe("still checklist", () => {
     const blocked = saveStillReview(
       film,
       "s1",
-      { "no-people": "match", location: "mismatch" },
+      { "no-people": "match", location: "mismatch", picture: "match" },
       "2026-11-10T00:00:00.000Z",
     );
     expect(blocked.adopted).toBe(false);
@@ -103,7 +105,7 @@ describe("still checklist", () => {
     const adopted = saveStillReview(
       blocked.film,
       "s1",
-      { "no-people": "match", location: "match" },
+      { "no-people": "match", location: "match", picture: "match" },
       "2026-11-10T00:00:01.000Z",
     );
     expect(adopted.adopted).toBe(true);
@@ -119,5 +121,51 @@ describe("still checklist", () => {
     };
     expect(stillAccepted(moved, moved.shots[0]!)).toBe(false);
     expect(firstUnacceptedStill(moved)?.id).toBe("s1");
+    expect(adopted.film.shots[0]!.stills[0]!.id).not.toBe("still-s1");
+  });
+
+  it("drops adoption when the place changes, and keeps a saved mismatch across a reload", () => {
+    const film = filmWith(shot({ id: "s1", no: 1, characters: [], poster: "/empty.png" }));
+    const saved = saveStillReview(
+      film,
+      "s1",
+      { "no-people": "match", location: "mismatch", picture: "match" },
+      "2026-11-10T00:00:00.000Z",
+    );
+    const reopened = JSON.parse(JSON.stringify(saved.film)) as typeof saved.film;
+    expect(stillAccepted(reopened, reopened.shots[0]!)).toBe(false);
+    expect(
+      reopened.shots[0]!.stills[0]!.acceptance?.checklist.find((row) => row.id === "location")
+        ?.verdict,
+    ).toBe("mismatch");
+    const adopted = saveStillReview(
+      reopened,
+      "s1",
+      { "no-people": "match", location: "match", picture: "match" },
+      "2026-11-10T00:00:01.000Z",
+    );
+    expect(stillAccepted(adopted.film, adopted.film.shots[0]!)).toBe(true);
+    const movedPlace = {
+      ...adopted.film,
+      scenes: adopted.film.scenes.map((scene) =>
+        scene.id === "scene-1" ? { ...scene, where: "新地点" } : scene,
+      ),
+    };
+    expect(stillAccepted(movedPlace, movedPlace.shots[0]!)).toBe(false);
+    expect(videoGate(movedPlace, movedPlace.shots[0]!).enabled).toBe(false);
+  });
+
+  it("treats a damaged acceptance record as not adopted", () => {
+    const film = filmWith(shot({ id: "s1", no: 1, characters: [], poster: "/empty.png" }));
+    film.shots[0]!.stills = [
+      {
+        id: "broken",
+        prompt: "",
+        url: "/empty.png",
+        acceptance: { adopted: "yes" } as never,
+      },
+    ];
+    expect(stillAccepted(film, film.shots[0]!)).toBe(false);
+    expect(videoGate(film, film.shots[0]!).reason).toBe("镜头 1 的画面还没核对");
   });
 });

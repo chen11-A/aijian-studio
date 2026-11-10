@@ -36,8 +36,8 @@ export const AUDIO_LANE_GAIN_DB: Record<AudioLaneId, number> = {
   score: -14,
 };
 
-/** 0–100 on the sound panel. 100 is full, 70 is −3 dB, 50 is −6 dB, 20 is −14 dB. */
-const VOLUME_STOPS = [
+/** 0–100 on the sound panel. 100 is full, 70 is −3 dB, 50 is −6 dB, 20 is −14 dB. The last stop is the lowest gain, not a measured loudness. */
+export const VOLUME_STOPS = [
   { percent: 100, db: 0 },
   { percent: 70, db: -3 },
   { percent: 50, db: -6 },

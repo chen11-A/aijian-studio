@@ -17,13 +17,13 @@ export function StillAcceptanceControls({
   const gate = videoGate(film, shot);
   const reasonId = `still-gate-${shot.id}`;
   return (
-    <>
+    <div className="still-gate">
       <button className="btn" type="button" onClick={() => setOpen(true)}>
         核对并采用
       </button>
       {!gate.enabled ? (
-        <p id={reasonId}>
-          {gate.reason}
+        <p id={reasonId} className="still-gate-reason">
+          <span>{gate.reason}</span>
           <button className="btn sm" type="button" onClick={() => setOpen(true)}>
             去核对镜头 {shot.no}
           </button>
@@ -41,7 +41,7 @@ export function StillAcceptanceControls({
           }}
         />
       ) : null}
-    </>
+    </div>
   );
 }
 

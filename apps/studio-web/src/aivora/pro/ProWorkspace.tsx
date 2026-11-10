@@ -6,7 +6,8 @@ import { AudioMixPreview } from "./AudioMixPreview";
 import { ExportSoundChoice, exportCheckBlocked } from "./ExportSoundChoice";
 import { FixedInputImportButton } from "./FixedInputImportButton";
 import { StillAcceptanceControls, guardBlockedVideo } from "./StillAcceptanceDialog";
-import { videoGate } from "./still-acceptance";
+import { soundRowLabel, UNGENERATED_SOUND_LABEL } from "./sound-export-decision";
+import { stillAccepted, videoGate } from "./still-acceptance";
 import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
@@ -4105,6 +4106,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("先在剧本里拆镜头。");
       return;
     }
+    const project = live;
+    if (!project) return;
+    const unaccepted = resume
+      ? undefined
+      : selected
+          .map((item) => project.shots.find((shot) => shot.id === item.id) ?? item)
+          .find((shot) => !stillAccepted(project, shot));
+    if (unaccepted) {
+      setNotice(`镜头 ${unaccepted.no} 的画面还没核对`);
+      setStage("board");
+      const index = project.shots.findIndex((item) => item.id === unaccepted.id);
+      if (index >= 0) setShot(index);
+      return;
+    }
     setNotice(generationEstimate(selected.length, requestedVersions, duration));
     if (preflight.kind === "stopped") {
       setNotice(preflight.notice);
@@ -6533,6 +6548,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ),
                     });
                   }}
+                  onRestill={() => void makeShotStill()}
                   onCreate={() => {
                     const current = shownShots[shot];
                     if (!current) return;
@@ -7805,6 +7821,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     <ExportSoundChoice
                       film={film}
                       onSilent={() => setFilm({ ...film, audioDecision: "SILENT_BY_USER" })}
+                      onWithAudio={() => setFilm({ ...film, audioDecision: "WITH_AUDIO" })}
                       onMakeSound={() => {
                         setExportOpen(false);
                         setStage("edit");
@@ -8301,7 +8318,12 @@ function exportLine(film: FilmProject): string {
   const seconds = film.shots.reduce((sum, item) => sum + item.seconds, 0);
   const length = seconds >= 90 ? `约 ${Math.round(seconds / 60)} 分钟` : `约 ${seconds} 秒`;
   const missing = chosenExport(film).missing.length;
-  const gap = missing === 0 ? "都做好了" : `还有 ${missing} 个镜头没做好`;
+  const gap =
+    missing > 0
+      ? `还有 ${missing} 个镜头没做好`
+      : film.audioDecision === "SILENT_BY_USER" || film.audioDecision === "WITH_AUDIO"
+        ? "都做好了"
+        : "还没决定这部片子有没有声音";
   return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · ${length} · ${gap}`;
 }
 
@@ -10629,6 +10651,14 @@ function BoardPage({
                 </div>
               </PropGroup>
             </div>
+            {!videoGate(film, current).enabled ? (
+              <StillAcceptanceControls
+                film={film}
+                shot={current}
+                onFilm={onFilm}
+                onRestill={onStills}
+              />
+            ) : null}
             <div className="pfoot2 one">
               <div className="more-wrap">
                 <button
@@ -10685,12 +10715,6 @@ function BoardPage({
                 </button>
               ) : (
                 <>
-                  <StillAcceptanceControls
-                    film={film}
-                    shot={current}
-                    onFilm={onFilm}
-                    onRestill={onStills}
-                  />
                   <button
                     className="btn"
                     type="button"
@@ -10799,6 +10823,7 @@ function GeneratePage({
   duration,
   onDuration,
   onCreate,
+  onRestill,
   onBack,
   playing,
   onPlaying,
@@ -10816,6 +10841,7 @@ function GeneratePage({
   duration: number;
   onDuration: (seconds: number) => void;
   onCreate: () => void;
+  onRestill: () => void;
   onBack: () => void;
   playing: boolean;
   onPlaying: (value: boolean) => void;
@@ -11109,7 +11135,7 @@ function GeneratePage({
                   film={film}
                   shot={current}
                   onFilm={onFilm}
-                  onRestill={() => undefined}
+                  onRestill={onRestill}
                 />
               ) : null}
               <button
@@ -12460,6 +12486,13 @@ function EditPage({
                 actualMixPlan?.tracks.some((track) => track.native) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
                 )}
+                {film.audioClips
+                  .filter((item) => soundRowLabel(item) === UNGENERATED_SOUND_LABEL)
+                  .map((item) => (
+                    <span key={item.id} className="lane-empty">
+                      {UNGENERATED_SOUND_LABEL}
+                    </span>
+                  ))}
                 {film.audioClips
                   .filter(
                     (item) =>

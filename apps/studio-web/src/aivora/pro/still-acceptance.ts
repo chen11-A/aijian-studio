@@ -41,6 +41,7 @@ export function stillChecklist(film: FilmProject, shot: FilmShot): StillCheckIte
     return [
       { id: "no-people", text: "画面里没有人物" },
       { id: "location", text: location },
+      { id: "picture", text: `画面：${shot.picture.trim() || "未写"}` },
     ];
   }
   const cast = film.characters.filter((item) => shot.characters.includes(item.name));
@@ -72,6 +73,7 @@ export function stillChecklist(film: FilmProject, shot: FilmShot): StillCheckIte
     });
   }
   items.push({ id: "location", text: location });
+  items.push({ id: "picture", text: `画面：${shot.picture.trim() || "未写"}` });
   return items;
 }
 
@@ -79,20 +81,38 @@ function stillFor(shot: FilmShot, url: string): FilmStill | undefined {
   return shot.stills.find((item) => item.url === url);
 }
 
+/** A broken record is simply not adopted. It does not throw. */
+export function readStillAcceptance(value: unknown, url: string): StillAcceptance | null {
+  if (!value || typeof value !== "object") return null;
+  const saved = value as Partial<StillAcceptance>;
+  if (saved.by !== "user" || typeof saved.at !== "string" || saved.stillUrl !== url) return null;
+  if (saved.adopted !== true && saved.adopted !== false) return null;
+  if (!Array.isArray(saved.checklist)) return null;
+  for (const row of saved.checklist) {
+    if (!row || typeof row !== "object") return null;
+    if (typeof row.id !== "string" || typeof row.text !== "string") return null;
+    if (row.verdict !== "match" && row.verdict !== "mismatch") return null;
+  }
+  return saved as StillAcceptance;
+}
+
 export function stillAccepted(film: FilmProject, shot: FilmShot): boolean {
   const url = currentStillUrl(shot);
-  if (!url) return false;
-  const saved = stillFor(shot, url)?.acceptance;
-  if (!saved?.adopted || saved.stillUrl !== url) return false;
+  const saved = readStillAcceptance(stillFor(shot, url)?.acceptance, url);
+  if (!saved?.adopted) return false;
   const items = stillChecklist(film, shot);
-  if (saved.checklist.length !== items.length) return false;
-  return items.every((item) =>
-    saved.checklist.some((row) => row.id === item.id && row.verdict === "match"),
+  return (
+    saved.checklist.length === items.length &&
+    items.every((item) =>
+      saved.checklist.some(
+        (row) => row.id === item.id && row.text === item.text && row.verdict === "match",
+      ),
+    )
   );
 }
 
 export function videoGate(film: FilmProject, shot: FilmShot): { enabled: boolean; reason: string } {
-  if (!currentStillUrl(shot) || stillAccepted(film, shot)) return { enabled: true, reason: "" };
+  if (stillAccepted(film, shot)) return { enabled: true, reason: "" };
   return { enabled: false, reason: `镜头 ${shot.no} 的画面还没核对` };
 }
 
@@ -102,10 +122,15 @@ export function firstUnacceptedStill(film: FilmProject): FilmShot | null {
 
 export function savedVerdicts(film: FilmProject, shot: FilmShot): Record<string, StillVerdict> {
   const url = currentStillUrl(shot);
-  const saved = url ? stillFor(shot, url)?.acceptance : undefined;
+  const saved = readStillAcceptance(stillFor(shot, url)?.acceptance, url);
   const items = stillChecklist(film, shot);
   if (!saved || saved.checklist.length !== items.length) return {};
-  if (!items.every((item) => saved.checklist.some((row) => row.id === item.id))) return {};
+  if (
+    !items.every((item) =>
+      saved.checklist.some((row) => row.id === item.id && row.text === item.text),
+    )
+  )
+    return {};
   return Object.fromEntries(saved.checklist.map((row) => [row.id, row.verdict]));
 }
 
@@ -119,7 +144,6 @@ export function saveStillReview(
   const shot = film.shots.find((item) => item.id === shotId);
   if (!shot) return { film, adopted: false, error: "没有这一镜" };
   const url = currentStillUrl(shot);
-  if (!url) return { film, adopted: false, error: "还没有画面" };
   const items = stillChecklist(film, shot);
   if (items.some((item) => verdicts[item.id] !== "match" && verdicts[item.id] !== "mismatch"))
     return { film, adopted: false, error: "还没逐项核对" };
@@ -129,11 +153,15 @@ export function saveStillReview(
     at,
     stillUrl: url,
     adopted,
-    checklist: items.map((item) => ({ id: item.id, verdict: verdicts[item.id]! })),
+    checklist: items.map((item) => ({
+      id: item.id,
+      text: item.text,
+      verdict: verdicts[item.id]!,
+    })),
   };
   const stills = shot.stills.some((item) => item.url === url)
     ? shot.stills.map((item) => (item.url === url ? { ...item, acceptance } : item))
-    : [...shot.stills, { id: `still-${shot.id}`, prompt: "", url, acceptance }];
+    : [...shot.stills, { id: `still_${crypto.randomUUID()}`, prompt: "", url, acceptance }];
   return {
     adopted,
     error: adopted ? "" : "有一项不符合，不能采用",

@@ -10,6 +10,7 @@ import {
   shotAudioInputKey,
   type ShotAudioPlan,
 } from "./actions/shot-audio-suggestions";
+import { soundRowLabel, UNGENERATED_SOUND_LABEL } from "./sound-export-decision";
 export function useShotAudioSuggestions(
   film: FilmProject | null,
   enabled: boolean,
@@ -183,7 +184,9 @@ export function useShotAudioSuggestions(
         >
           查看本镜声音建议
         </button>
-        <p className="role-desc">建议 · 未生成</p>
+        {film?.audioClips.some((clip) => soundRowLabel(clip) === UNGENERATED_SOUND_LABEL) ? (
+          <p className="role-desc">{UNGENERATED_SOUND_LABEL}</p>
+        ) : null}
         <AudioSuggestionGroups
           groups={groups}
           busy={controller.busy || (!!film && controller.pendingFor(film.id))}
