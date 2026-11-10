@@ -242,6 +242,7 @@ export async function runAudioMixCases({ browser, config, report, media, persist
                 .isChecked(),
               false,
             );
+            await dialog.getByRole("button", { name: "确认有声导出", exact: true }).click();
             const prepare = dialog.getByRole("button", { name: "检查成片", exact: true });
             assert.equal(await dialog.locator("button.primary:visible").count(), 1);
             await reachable(prepare);

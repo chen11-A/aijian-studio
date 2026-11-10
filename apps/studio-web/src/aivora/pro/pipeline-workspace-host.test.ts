@@ -15,6 +15,7 @@ import {
   filmPipelineTargets,
 } from "./film-pipeline-controller";
 import { createPipelineWorkspaceHost, type PipelineWorkspaceHost } from "./pipeline-workspace-host";
+import { saveStillReview, stillAccepted, stillChecklist } from "./still-acceptance";
 vi.mock("../film/library", () => ({
   prepareFilmSnapshot: vi.fn(async (film: FilmProject) => structuredClone(film)),
 }));
@@ -239,7 +240,17 @@ it("recovers running work as uncertain without billing or dispatch", async () =>
 });
 
 it("keeps human review and video continuation separate and rejects a resolved submission without a take", async () => {
-  const env = setup(await prime(fixture(), "review"));
+  const base = fixture();
+  const shot = base.shots[0]!;
+  const verdicts = Object.fromEntries(
+    stillChecklist(base, shot).map((item) => [item.id, "match" as const]),
+  );
+  const env = setup(
+    await prime(
+      saveStillReview(base, shot.id, verdicts, "2026-11-10T00:00:00.000Z").film,
+      "review",
+    ),
+  );
   expect((await env.adapter.start()).status).toBe("needs-input");
   await expect(env.adapter.acceptReview(" ")).rejects.toMatchObject({
     code: "REVIEW_REASON_REQUIRED",
@@ -255,6 +266,22 @@ it("keeps human review and video continuation separate and rejects a resolved su
   const [, generation] = vi.mocked(env.host.submitGeneration).mock.calls[0]!;
   expect(generation.versions).toBe(1);
   expect(generation.billingProjectId).toBe("billing-before");
+});
+
+it("blocks one-click video before any provider call when the still is not adopted", async () => {
+  const provider = vi.fn();
+  const env = setup(await prime(fixture(), "review"));
+  expect((await env.adapter.start()).status).toBe("needs-input");
+  expect((await env.adapter.acceptReview("已逐镜检查构图和人物")).status).toBe("checkpoint");
+  vi.mocked(env.host.submitGeneration).mockImplementation(async (shots) => {
+    const live = env.live();
+    const shot = live.shots.find((item) => item.id === shots[0]!.id);
+    if (shot && stillAccepted(live, shot)) provider();
+  });
+  const result = await env.adapter.continue();
+  expect(provider).not.toHaveBeenCalled();
+  expect(result.status).toBe("blocked");
+  expect(JSON.stringify(result)).toContain(`镜头 ${env.live().shots[0]!.no} 的画面还没核对`);
 });
 
 it("releases a drained lease after cancellation and never dispatches from a stale capture", async () => {

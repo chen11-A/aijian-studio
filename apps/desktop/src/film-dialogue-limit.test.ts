@@ -328,6 +328,7 @@ it("runs the real generation queue persist → IPC reply → failure reducer →
     >;
   const project = await load("aivora/film/project.ts"),
     generation = await load("aivora/pro/actions/generation-run.ts"),
+    acceptance = await load("aivora/pro/still-acceptance.ts"),
     queues = await load("aivora/film/generation-queue.ts"),
     session = await load("aivora/pro/actions/dialogue-limit-session.ts"),
     actions = await load("aivora/pro/actions/dialogue-split.ts");
@@ -358,6 +359,25 @@ it("runs the real generation queue persist → IPC reply → failure reducer →
   const frame = join(f.root, "film_bbbbbbbbbbbbbbbb", "episodes", f.id, "frame.png");
   await writeFile(frame, Buffer.from("png-fixture"));
   shot.poster = frame;
+  const checklist = (
+    acceptance.stillChecklist as (
+      film: FilmRecord,
+      shot: Record<string, unknown>,
+    ) => { id: string }[]
+  )(base, shot);
+  const adopted = (
+    acceptance.saveStillReview as (
+      film: FilmRecord,
+      shotId: string,
+      verdicts: Record<string, "match">,
+      at: string,
+    ) => { film: FilmRecord }
+  )(
+    base,
+    "shot",
+    Object.fromEntries(checklist.map((item) => [item.id, "match" as const])),
+    "2026-11-10T00:00:00.000Z",
+  ).film;
   const queue = (
     queues.prepareVideoQueue as (
       film: FilmRecord,
@@ -365,7 +385,7 @@ it("runs the real generation queue persist → IPC reply → failure reducer →
       versions: number,
       draft: boolean,
     ) => { film: FilmRecord }
-  )(base, [shot], 1, false);
+  )(adopted, [(adopted.shots as unknown[])[0]], 1, false);
   let live = queue.film;
   const events: string[] = [];
   const handlers = new Map<string, (event: number, ...args: unknown[]) => Promise<unknown>>();

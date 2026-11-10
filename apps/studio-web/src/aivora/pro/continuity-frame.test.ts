@@ -229,9 +229,104 @@ it("a protected run reuses an unchanged continuity frame and still resolves its 
     targets: [{ shotId: "current", versions: 1 }],
   });
   env.host.execution = execution;
+  const resolveStage = vi.spyOn(execution, "continuity");
   const again = await ensureContinuityFrame(env.film(), env.shot(), env.host);
+  expect(resolveStage).toHaveBeenCalledExactlyOnceWith("current", "previous");
   expect(env.extract).not.toHaveBeenCalled();
   expect(env.apply).not.toHaveBeenCalled();
   expect(again.poster).toBe("/films/tail.png");
-  expect(again.continuityFrame?.path).toBe("/films/tail.png");
+  expect(again.continuityFrame).toEqual({
+    sourceShotId: "previous",
+    sourceTakeId: "take-1",
+    sourceVideoPath: "/story/one.mp4",
+    path: "/films/tail.png",
+  });
+});
+
+it("a protected first extract uses the issued stage and records continuity provenance", async () => {
+  const env = setup();
+  const execution = createGenerationExecutionSession(
+    {
+      prepareFilmGenerationExecution: async (input) => ({
+        kind: "PREPARED",
+        executionId: "protected",
+        projectId: input.projectId,
+        projectHash: input.expectedProjectHash,
+        targets: [
+          {
+            shotId: "current",
+            videoSlotIds: ["slot"],
+            slotPreparations: [{ videoSlotId: "slot", preparation: "CLIENT_IMAGES" as const }],
+            preparation: "CLIENT_IMAGES",
+          },
+        ],
+        stages: [
+          {
+            kind: "continuity-frame",
+            stageId: "local-frame",
+            targetId: "current",
+            sourceShotId: "previous",
+          },
+        ],
+      }),
+      retireFilmGenerationExecution: async () => ({ kind: "RETIRED" }),
+    },
+    () => true,
+  );
+  await execution.prepare({
+    projectId: env.film().id,
+    expectedProjectHash: "a".repeat(64),
+    mode: "video",
+    targets: [{ shotId: "current", versions: 1 }],
+  });
+  env.host.execution = execution;
+  const next = await ensureContinuityFrame(env.film(), env.shot(), env.host);
+  expect(env.extract).toHaveBeenCalledExactlyOnceWith(env.film().seriesId, "/story/one.mp4", {
+    executionId: "protected",
+    stageId: "local-frame",
+  });
+  expect(next.continuityFrame).toEqual({
+    sourceShotId: "previous",
+    sourceTakeId: "take-1",
+    sourceVideoPath: "/story/one.mp4",
+    path: "/films/tail.png",
+  });
+});
+
+it("reuse throws when the protected continuity stage is missing", async () => {
+  const env = setup();
+  await ensureContinuityFrame(env.film(), env.shot(), env.host);
+  env.extract.mockClear();
+  const execution = createGenerationExecutionSession(
+    {
+      prepareFilmGenerationExecution: async (input) => ({
+        kind: "PREPARED",
+        executionId: "protected",
+        projectId: input.projectId,
+        projectHash: input.expectedProjectHash,
+        targets: [
+          {
+            shotId: "current",
+            videoSlotIds: ["slot"],
+            slotPreparations: [{ videoSlotId: "slot", preparation: "CLIENT_IMAGES" as const }],
+            preparation: "CLIENT_IMAGES",
+          },
+        ],
+        stages: [],
+      }),
+      retireFilmGenerationExecution: async () => ({ kind: "RETIRED" }),
+    },
+    () => true,
+  );
+  await execution.prepare({
+    projectId: env.film().id,
+    expectedProjectHash: "a".repeat(64),
+    mode: "video",
+    targets: [{ shotId: "current", versions: 1 }],
+  });
+  env.host.execution = execution;
+  await expect(ensureContinuityFrame(env.film(), env.shot(), env.host)).rejects.toMatchObject({
+    code: "GENERATION_EXECUTION_STAGE_UNAVAILABLE",
+  });
+  expect(env.extract).not.toHaveBeenCalled();
 });

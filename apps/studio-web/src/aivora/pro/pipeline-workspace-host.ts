@@ -20,6 +20,7 @@ import {
   makePipelinePortraits,
   makePipelineStill,
 } from "./pipeline-media-actions";
+import { stillAccepted } from "./still-acceptance";
 
 import {
   generationExecutionNotice,
@@ -335,6 +336,16 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
           });
           if (!current() || !ctx.isCurrent())
             return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
+          const after = ctx.current();
+          const row = after.shots.find((item) => item.id === shot.id);
+          const produced = row?.takes.some((take) => take.status === "done" && take.videoPath);
+          if (row && !produced && !stillAccepted(after, row))
+            return {
+              status: "blocked",
+              code: "STILL_NOT_ACCEPTED",
+              detail: `镜头 ${row.no} 的画面还没核对`,
+              film: after,
+            };
           // A resolved submission is not evidence of a completed video. The controller verifies
           // an actual done take and saved path in this returned film before advancing.
           return { status: "done", film: ctx.current() };

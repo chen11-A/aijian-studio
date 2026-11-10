@@ -173,6 +173,23 @@ it("rejects late results after the run loses its project or abort owner", async 
   expect(host.current()?.shots[0]?.takes[0]?.videoPath).not.toBe("/films/late.mp4");
 });
 
+it("writes a successful preview onto the poster when the picture is not adopted", () => {
+  const { queue } = setup();
+  const shot = {
+    ...queue.film.shots[0]!,
+    poster: "/films/unadopted.png",
+    stills: [],
+  };
+  const film = { ...queue.film, shots: [shot] };
+  const result = applyVideoResponse(film, shot, shot.takes[0]!, {
+    status: "SUCCEEDED",
+    output_path: "/films/video.mp4",
+    preview_image: "https://example.com/preview.png",
+  });
+  expect(result.film.shots[0]?.poster).toBe("https://example.com/preview.png");
+  expect(result.film.shots[0]?.takes[0]?.stillUrl).toBe("https://example.com/preview.png");
+});
+
 it("sends both versions with the adopted still when the preview is only an http thumbnail", async () => {
   const { queue, host } = setup(2);
   const adopted = "/films/frame.png";
