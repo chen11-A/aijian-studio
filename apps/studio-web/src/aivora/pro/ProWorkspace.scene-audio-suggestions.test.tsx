@@ -266,6 +266,7 @@ it("reviews all cross-shot segments and notes without writing clips, then explic
   choose(dialog);
   fireEvent.click(confirm(dialog));
   await within(dialog).findByText(/本次 2 段声音已加入并保存/);
+  expect(within(dialog).queryByText("场次、选版或素材已变化，请刷新后重新核对。")).toBeNull();
   expect(f.apply).toHaveBeenCalledOnce();
   expect(f.single).not.toHaveBeenCalled();
   expect(f.provider).not.toHaveBeenCalled();

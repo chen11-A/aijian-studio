@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { FilmProject } from "../film/project";
 import { AudioSuggestionGroups, type AudioGroupView } from "./AudioSuggestionGroups";
 import { verifiedAudioGroup } from "./actions/audio-suggestion-proof";
+import { noteSceneSettlement, type LibraryOutcome } from "./actions/audio-library";
 import { applySceneAudioGroup, removeSceneAudioGroup } from "./actions/scene-audio-apply";
-import type { LibraryOutcome } from "./actions/audio-library";
 import { ShotAudioSuggestionDialog } from "./ShotAudioSuggestionDialog";
 import {
   readSceneAudioSuggestions,
@@ -30,6 +30,7 @@ export function useSceneAudioSuggestions(
     [groups, setGroups] = useState<AudioGroupView[]>([]);
   const planKey = useRef("");
   const applyingRef = useRef(false);
+  const settlement = useRef(false);
   const generation = useRef(0),
     working = useRef(false);
   const [open, setOpen] = useState(false),
@@ -44,13 +45,24 @@ export function useSceneAudioSuggestions(
     const last = previous.current;
     previous.current = { scope, key, enabled };
     if (last.scope === scope && last.key === key && last.enabled === enabled) return;
+    if (last.scope === scope && last.key !== key && settlement.current) {
+      settlement.current = false;
+      noteSceneSettlement("keep-result");
+      generation.current++;
+      setPlan(null);
+      setBusy(false);
+      return;
+    }
     generation.current++;
     setPlan(null);
     setBusy(false);
     if (last.scope !== scope || !enabled) {
       setOpen(false);
       setMessage("");
-    } else if (!applyingRef.current) setMessage("场次、选版或素材已变化，请刷新后重新核对。");
+    } else if (!applyingRef.current) {
+      noteSceneSettlement("invalidate");
+      setMessage("场次、选版或素材已变化，请刷新后重新核对。");
+    }
   }, [scope, key, enabled]);
   useEffect(
     () => () => {
@@ -145,8 +157,11 @@ export function useSceneAudioSuggestions(
     if (!base || !captured || applyingRef.current || controllerRef.current.busy || working.current)
       return;
     applyingRef.current = true;
+    settlement.current = true;
     setApplying(true);
+    noteSceneSettlement("clear");
     setMessage("");
+    noteSceneSettlement("call");
     try {
       const result = await controllerRef.current.runGroupOperation(base.id, () =>
         applySceneAudioGroup(h, captured, planKey.current, selectedLanes),
@@ -155,8 +170,13 @@ export function useSceneAudioSuggestions(
         setPlan(null);
         setSelectedLanes([]);
         setMessage(result.message);
-      }
+        noteSceneSettlement(
+          result.message.includes("声音已加入并保存") ? "write-success" : "write-other",
+        );
+        if (result.kind !== "added") settlement.current = false;
+      } else settlement.current = false;
     } catch {
+      settlement.current = false;
       if (JSON.stringify(hostRef.current.sceneSelection()) === applyScope)
         setMessage("本次声音保存结果还需核对，请查看本地素材保存状态。");
     } finally {

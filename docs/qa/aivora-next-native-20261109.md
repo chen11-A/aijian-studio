@@ -153,4 +153,8 @@ PR 的 `pro-scene-audio (ubuntu)` job `129557595459` 16 项里只失败 `1280x80
 
 本机 Linux 只作对照，不代替 Windows：`before` 这一条 2.34s 通过；ownership 14ms 通过，阶段是 db 1ms、rows 9ms、owner 10ms、done 11ms。原 5 秒、断言和这两个 CI 入口都没改。没有全量重跑。两项仍未定位。
 
-诊断提交 `7083b7009e51958b1e617a528a7406e0d3ed4816` 只让下一次既有 Windows 定向门多记：`before` 的 `commit-return`、子进程 open/closed/failed、最后工具名、heap 和 free；ownership 的 db/rows/owner/done/cleanup。不记录路径。这次提交本身还没有新的 Windows 结果。
+诊断提交 `7083b7009e51958b1e617a528a7406e0d3ed4816` 只让下一次既有 Windows 定向门多记：`before` 的 `commit-return`、子进程 open/closed/failed、最后工具名、heap 和 free；ownership 的 db/rows/owner/done/cleanup。不记录路径。这次提交本身还没有新的 Windows 结果。`67681bf` 上这两道既有 Windows 入口的 push 与 PR 都通过。那是后绿，不是 `0388182` 的根因销案。ownership 失败日志仍然没有阶段。
+
+## 场景声音成功反馈
+
+PR22 [42738189561](https://github.com/chen11-A/aijian-studio/actions/runs/42738189561) job `129572483003` 复现同一失败。失败图里对话框没有成功句，显示的是「场次、选版或素材已变化，请刷新后重新核对。」原生回复已经是 `ADDED`，保存定时器和待写都是 0。原因是选用写入新的声音片段后，输入键变化被当成外部变更，在结算标记结束后盖掉成功句。修复：这次结算自己造成的键变化保留成功句；真正的场次或选版变化仍提示刷新。原 10 秒不改。定向 `ProWorkspace.scene-audio-suggestions.test.tsx` 里「reviews all cross-shot segments」通过，并确认没有那句刷新提示。这是 Linux 对照，不是该 ubuntu 审计的替代。

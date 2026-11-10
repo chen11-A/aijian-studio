@@ -17,6 +17,7 @@ import {
   recoveryIdentitySummary,
   libraryWritePhaseSummary,
   qcOwnerPhaseSummary,
+  libraryMutationPhaseSummary,
   libraryWriteInvocation,
   deliveryManifestInvocation,
   pnpmInvocation,
@@ -827,6 +828,32 @@ test("rejects private strings, unknown shape, nonfinite and unbounded library-wr
       JSON.stringify(valid).replace('"elapsedMs":100', '"elapsedMs":Infinity'),
   ])
     assert.equal(libraryWritePhaseSummary(row), null);
+});
+
+test("accepts only closed source and clean mutation phases", () => {
+  const valid = {
+    v: 1,
+    mode: "clean",
+    stage: "encode",
+    elapsedMs: 4900,
+    completed: [{ stage: "commit", elapsedMs: 20 }],
+    open: 1,
+    closed: 4,
+    failed: 0,
+    last: "ffmpeg",
+    heapMb: 70,
+    freeMb: 800,
+  };
+  assert.match(
+    libraryMutationPhaseSummary("CI_LIBRARY_MUTATION_PHASE " + JSON.stringify(valid)),
+    /variant=clean; stage=encode; elapsed=4900ms; completed=commit:20ms; open=1; closed=4; failed=0; last=ffmpeg/,
+  );
+  assert.equal(
+    libraryMutationPhaseSummary(
+      "CI_LIBRARY_MUTATION_PHASE " + JSON.stringify({ ...valid, mode: "before", path: "PRIVATE" }),
+    ),
+    null,
+  );
 });
 
 test("accepts only closed export-ownership phases and drops paths", () => {

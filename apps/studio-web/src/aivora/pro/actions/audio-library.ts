@@ -476,6 +476,25 @@ function libraryReleaseFailure(host: LibraryHost, pending?: PendingLibraryWrite)
     ...(pending?.expectedClipId ? { clipId: pending.expectedClipId } : {}),
   };
 }
+const sceneSettlementStages = new Set([
+  "clear",
+  "call",
+  "lease",
+  "lease-none",
+  "write-success",
+  "write-other",
+  "keep-result",
+  "invalidate",
+]);
+/** Closed renderer stages for the scene-audio audit. No paths, hashes or lease bodies. */
+export function noteSceneSettlement(stage: string) {
+  if (!sceneSettlementStages.has(stage)) return;
+  const audit = (globalThis as { __sceneSettleAudit?: { stages?: string[] } }).__sceneSettleAudit;
+  if (!audit) return;
+  if (!Array.isArray(audit.stages)) audit.stages = [];
+  if (audit.stages.length >= 12) return;
+  audit.stages.push(stage);
+}
 export async function withAudioWriteCleanup(
   host: LibraryHost,
   run: () => Promise<LibraryOutcome>,
@@ -488,6 +507,7 @@ export async function withAudioWriteCleanup(
   } catch {
     outcome = libraryReleaseFailure(host, getPending());
   }
+  noteSceneSettlement(getLease() ? "lease" : "lease-none");
   try {
     await getLease()?.release();
   } catch {
