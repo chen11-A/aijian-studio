@@ -14536,6 +14536,19 @@
         "title": "PositiveRationalData",
         "type": "object"
       },
+      "PrepareCacheSlots": {
+        "additionalProperties": false,
+        "properties": {
+          "registration": {
+            "$ref": "#/components/schemas/RegisterPreparedExecution"
+          }
+        },
+        "required": [
+          "registration"
+        ],
+        "title": "PrepareCacheSlots",
+        "type": "object"
+      },
       "PrepareOfficialDirectorRequest": {
         "additionalProperties": false,
         "properties": {
@@ -14603,6 +14616,28 @@
           "options"
         ],
         "title": "PrepareOfficialDirectorRequest",
+        "type": "object"
+      },
+      "PreparedCachePart": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "maximum": 83886080.0,
+            "minimum": 1.0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "bytes"
+        ],
+        "title": "PreparedCachePart",
         "type": "object"
       },
       "PreparedClientFrame": {
@@ -14770,6 +14805,67 @@
         "title": "PreparedLineageQuery",
         "type": "object"
       },
+      "PreparedPrivateCache": {
+        "additionalProperties": false,
+        "properties": {
+          "input_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Input Sha256",
+            "type": "string"
+          },
+          "parts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PreparedCachePart"
+            },
+            "propertyNames": {
+              "enum": [
+                "image",
+                "video",
+                "voice"
+              ]
+            },
+            "title": "Parts",
+            "type": "object"
+          },
+          "request": {
+            "$ref": "#/components/schemas/CreateStoryFilmBody"
+          },
+          "runtime_recipe": {
+            "additionalProperties": true,
+            "title": "Runtime Recipe",
+            "type": "object"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "snapshot_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshot Sha256",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshot_sha256",
+          "input_sha256",
+          "request",
+          "sources",
+          "runtime_recipe",
+          "parts"
+        ],
+        "title": "PreparedPrivateCache",
+        "type": "object"
+      },
       "PreparedRetirement": {
         "additionalProperties": false,
         "properties": {
@@ -14800,6 +14896,72 @@
           }
         },
         "title": "PreparedRetirement",
+        "type": "object"
+      },
+      "PreparedSlotCacheFact": {
+        "additionalProperties": false,
+        "properties": {
+          "cache": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreparedPrivateCache"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preparation": {
+            "enum": [
+              "CLIENT_IMAGES",
+              "STORYFILM_CACHE"
+            ],
+            "title": "Preparation",
+            "type": "string"
+          },
+          "slot_index": {
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Slot Index",
+            "type": "integer"
+          },
+          "target_key": {
+            "pattern": "^[a-zA-Z0-9_:@.-]{1,160}$",
+            "title": "Target Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "slot_index",
+          "preparation"
+        ],
+        "title": "PreparedSlotCacheFact",
+        "type": "object"
+      },
+      "PreparedSlotCacheFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PreparedSlotCacheFact"
+            },
+            "maxItems": 768,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "PREPARATIONS",
+            "default": "PREPARATIONS",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PreparedSlotCacheFacts",
         "type": "object"
       },
       "PreparedStageBody": {
@@ -38282,6 +38444,76 @@
           }
         },
         "summary": "Lineages"
+      }
+    },
+    "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/cache-preparations": {
+      "post": {
+        "operationId": "prepare_cache_slots_api_v1_projects__project_id__prepared_generation_executions__execution_id__cache_preparations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{32}$",
+              "title": "Execution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f-]{36}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareCacheSlots"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedSlotCacheFacts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Cache Slots"
       }
     },
     "/api/v1/projects/{project_id}/prepared-generation-executions/{execution_id}/image-dispatch": {
