@@ -2423,6 +2423,22 @@
         "title": "BudgetPolicyV1",
         "type": "object"
       },
+      "CachePreparationRejection": {
+        "additionalProperties": false,
+        "description": "The only cache-preparations failure body. Not a new client error code.",
+        "properties": {
+          "detail": {
+            "const": "INPUT_UNVERIFIABLE",
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "CachePreparationRejection",
+        "type": "object"
+      },
       "CanonCertainty": {
         "enum": [
           "certain",
@@ -38501,6 +38517,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CachePreparationRejection"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

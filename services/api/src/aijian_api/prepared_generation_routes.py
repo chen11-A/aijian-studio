@@ -192,6 +192,13 @@ class PreparedSlotCacheFacts(BaseModel):
     items: list[PreparedSlotCacheFact] = Field(min_length=1, max_length=768)
 
 
+class CachePreparationRejection(BaseModel):
+    """The only cache-preparations failure body. Not a new client error code."""
+
+    model_config = ConfigDict(extra="forbid")
+    detail: Literal["INPUT_UNVERIFIABLE"]
+
+
 class PreparedRetirement(BaseModel):
     model_config = ConfigDict(extra="forbid")
     target_key: str | None = Field(default=None, pattern=_KEY)
@@ -499,6 +506,7 @@ def create_prepared_generation_router(
     @router.post(
         prefix + "/{execution_id}/cache-preparations",
         response_model=PreparedSlotCacheFacts,
+        responses={409: {"model": CachePreparationRejection}},
     )
     def prepare_cache_slots(
         project_id: str,

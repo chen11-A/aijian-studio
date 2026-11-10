@@ -3528,6 +3528,17 @@ export interface components {
             /** Soft Limit Micros */
             soft_limit_micros: number;
         };
+        /**
+         * CachePreparationRejection
+         * @description The only cache-preparations failure body. Not a new client error code.
+         */
+        CachePreparationRejection: {
+            /**
+             * Detail
+             * @constant
+             */
+            detail: "INPUT_UNVERIFIABLE";
+        };
         /** @enum {string} */
         CanonCertainty: "certain" | "likely" | "ambiguous" | "intentionally_unreliable";
         /** @enum {string} */
@@ -18961,6 +18972,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreparedSlotCacheFacts"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CachePreparationRejection"];
                 };
             };
             /** @description Validation Error */

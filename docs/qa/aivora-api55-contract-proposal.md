@@ -187,7 +187,7 @@
 | `PreparedPrivateCache`   | 仅 `STORYFILM_CACHE` 的 slot 0。`schema_version` 常量 1  |
 | `PreparedCachePart`      | `parts` 里 `sha256` 与 `bytes`                           |
 
-生成 schema 只列 200 与 422。线上 409 `INPUT_UNVERIFIABLE` 不在生成响应里，接线仍走现有 client 的 `CREATION_INPUT_UNVERIFIABLE`。请求头沿用 `Idempotency-Key`（`story-film:v1:` 加 36 位）和 `X-Aivora-Generation-Account`。服务端实现是 `prepare_cache_slots`，响应模型 `PreparedSlotCacheFacts`。
+`cache-preparations` 的生成响应现已包含 409，`detail` 常量 `INPUT_UNVERIFIABLE`，并保留 200 与 422。接线仍走现有 client 的 `CREATION_INPUT_UNVERIFIABLE`，不新增客户端错误码。请求头沿用 `Idempotency-Key`（`story-film:v1:` 加 36 位）和 `X-Aivora-Generation-Account`。服务端实现是 `prepare_cache_slots`，成功模型 `PreparedSlotCacheFacts`，拒绝模型 `CachePreparationRejection`。
 
 ### 调用顺序与兼容
 
