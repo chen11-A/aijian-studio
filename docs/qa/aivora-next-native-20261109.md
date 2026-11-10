@@ -107,3 +107,30 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 仅格式提交是 `676be73d1d22725b97cc061868d502a7b4c1ccb2`，父提交就是代码候选 `1642bb6437abedcd4a36a06f08a4b2fb6535cd77`。该格式提交只含上述两份进度文档。
 
 `pnpm exec prettier --check .` 在 `676be73d` 的工作树上退出 0，输出 `All matched files use Prettier code style!`。本记录提交不再改源码，也不改那两份进度文档。分支尖端若只比 `676be73d` 多出本 QA 记录，仍然不是新的代码候选。
+
+## 已有 CI 归因（head 0de5e4b）
+
+总控核验的是已有 CI，不是新门。head `0de5e4b377d6d153c1d1f6ae9096b1663fc58b33` 上读取的失败日志：
+
+- push [42728215212](https://github.com/chen11-A/aijian-studio/actions/runs/42728215212) Linux quality job `129539223531`
+- PR [42728221961](https://github.com/chen11-A/aijian-studio/actions/runs/42728221961) Linux quality job `129539247406`，以及 Windows quality job `129539246965`
+
+push 与 PR 的 Linux 是同一签名，只分析一次。Lint、typecheck 和合约校验在这三份 job 里都已通过，失败都在 Test。
+
+本片回归：`ProWorkspace.test.tsx` 的 “shows the manual still offer for an explicit confirm and leaves the saved draft on cancel or refusal”。三份日志都是 `expected 3 to be 2`，栈在第 3236 行。前两次写入计数已经相等，多出的一次发生在导入取消的等待期间。画面 `applyLive` 仍走原来的 400ms `saveFilm`；确认、拒绝和取消本身不调用 `apply`。测试在计数前等到含 `manual-still.png` 的那次保存落地，并核对最后一次保存的稿没有变化。
+
+定向命令，没有重跑已通过的 desktop 2515 或 web 5638：
+
+```text
+pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
+  src/aivora/pro/ProWorkspace.test.tsx \
+  -t "shows the manual still offer|does not let a late import"
+```
+
+exit 0。1 file，2 passed，141 skipped，4.63s。这次修复提交是 `06ccc2e532cdedc659e9f82079d9cb35861ca359`。它只改这个测试。代码候选因此从 `1642bb6437abedcd4a36a06f08a4b2fb6535cd77` 移到该提交；不能用 `0de5e4b` 或本地完整 TS 通过代替远端结果。
+
+继承基线：Windows 另有 `film-audio-library.test.ts:847` 的 `source` 与 `clean` 两条 `Test timed out in 5000ms`。没有产品断言失败。本片没有改这个文件，Linux 同一文件通过。公开记录里该文件已有同样的 5000ms 超时：`42334708295` 的第 914 行，以及 root `4b77` 的第 950 行。不提高 timeout，不删断言，这道 Windows 门仍未关闭。
+
+不是后端 `test_real_original_changed_with_restored_size_and_mtime_is_not_reused`。那条签名是同长覆写、SHA 不同、全部 stat 含 ctime 不变、identity cache 误报 `VERIFIED`，20ms 后 ctime 变化才拒绝，记录在 `c1a70020`。这三份 job 的 annotations 没有该测试名，本片不重复调查，也不把那道门当成通过。
+
+`prepareSlots` 仍未接。不自行合并。
