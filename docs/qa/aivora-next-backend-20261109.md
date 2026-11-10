@@ -55,9 +55,7 @@
 
 总控已把本文上一节的请求和响应冻成 v1。`uv run python scripts/export_openapi.py` 与 `openapi-typescript@7.13.0` 生成了 `packages/contracts/openapi.json`（+232）和 `packages/contracts/src/generated.ts`（+116）。第二次生成没有再产生 diff。`uv run ruff check services/api` 与 `uv run ruff format --check services/api` 通过，586 个文件已是格式化状态。`uv run mypy` 为 329 个源文件、退出码 0，没有依赖生成的 TypeScript。
 
-`pnpm test:py` 停在 Corepack 对 `pnpm@11.9.0` 的下载确认，没有进入测试。随后用该脚本本体跑完整门，日志 `/tmp/aivora-api55-full-python.log`：
-
-`143 failed, 5204 passed, 6 skipped, 100 errors in 1960.27s`，退出码 1。覆盖检查脚本没有运行。日志里 206 次是 `ffmpeg returned an invalid version banner`。实际首行是 `/usr/bin/ffmpeg: /exec-daemon/tmux-root/lib/libncursesw.so.6: no version information available`，因为这道门在 tmux 会话里启动，stderr 被并进版本输出。另有 58 条断言失败，抽样是 `TOOLCHAIN_UNAVAILABLE`、`DRAFT_TOOLCHAIN_UNAVAILABLE` 和随之而来的 `FILM_FAILED`。4 条是 `node scripts/build-audio-library-resources.mjs` 退出码 1。这道门的结果保留。没有新的源码变化就不再重跑。它不是最终验收，也不代替最终集成候选上的完整重型门。
+`pnpm test:py` 停在 Corepack 对 `pnpm@11.9.0` 的下载确认，没有进入测试。随后用该脚本本体跑完整门。结果 `143 failed, 5204 passed, 6 skipped, 100 errors in 1960.27s`，退出码 1。覆盖检查没有运行。243 个 nodeid 的签名、日志 SHA256 和干净环境复跑见 [Python 门分类](aivora-api55-python-gate-20261110.md)。这道门的结果保留。没有新的源码变化就不再重跑。它不是最终验收，也不代替最终集成候选上的完整重型门。
 
 账号、额度、UNKNOWN 和来源拒绝仍由 `services/api/tests/test_prepared_generation_cache.py` 里的真实 TestClient + SQLite 用例覆盖，包括重读来源字节/canonical/MIME、跨账号与跨项目 lineage、image/arm 先于冻结则不写表、冻结后 image 只占用 CLIENT 槽、并发 prepare 与 image-dispatch，以及 UNKNOWN 不被缓存读取结算。原断言没有放宽。
 
