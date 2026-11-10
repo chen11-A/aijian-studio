@@ -126,7 +126,7 @@ export function createFixedInputLedger() {
     stillCurrent?: () => Promise<boolean>,
   ): Promise<FixedInputChannelResult> {
     if (receipts.size >= 256) return ledgerFull();
-    let current = true;
+    let current: boolean;
     try {
       current = stillCurrent ? await stillCurrent() : true;
     } catch {
@@ -187,7 +187,7 @@ export function createFixedInputLedger() {
         image.path !== offer.canonicalPath
       )
         return refuse();
-      let automatic = true;
+      let automatic: boolean;
       try {
         automatic = await input.isAutomaticOutput(image.sha256);
       } catch {
@@ -245,7 +245,7 @@ export function createFixedInputLedger() {
       const mime = sniff(bytes);
       if (!mime) return refuse();
       const digest = sha256(bytes);
-      let automatic = true;
+      let automatic: boolean;
       try {
         automatic = await input.isAutomaticOutput(digest);
       } catch {

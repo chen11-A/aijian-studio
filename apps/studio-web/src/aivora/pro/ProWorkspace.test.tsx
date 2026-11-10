@@ -3204,10 +3204,12 @@ it("shows the manual still offer for an explicit confirm and leaves the saved dr
     reason: "",
     fixedInputOfferId: offerId,
   });
-  const confirmFixedInput = vi.fn(async (...args: unknown[]) => {
-    expect(args).toHaveLength(2);
-    return { ok: true as const, path: "/tmp/aivora/manual-still.png" };
-  });
+  const confirmFixedInput = vi.fn<NonNullable<NonNullable<Window["aijian"]>["confirmFixedInput"]>>(
+    async (...args) => {
+      expect(args).toHaveLength(2);
+      return { ok: true, path: "/tmp/aivora/manual-still.png" };
+    },
+  );
   const importFixedInput = vi.fn(async (projectId: string) => {
     expect(typeof projectId).toBe("string");
     return { ok: false as const, code: "CANCELLED" as const };
@@ -3239,12 +3241,10 @@ it("does not let a late import replace a newer draft through the save queue", as
   let resolveImport!: (
     value: { ok: true; path: string } | { ok: false; code: "CANCELLED" },
   ) => void;
-  window.aijian!.importFixedInput = vi.fn(
-    () =>
-      new Promise((resolve) => {
-        resolveImport = resolve;
-      }),
-  );
+  window.aijian!.importFixedInput = () =>
+    new Promise((resolve) => {
+      resolveImport = resolve;
+    });
   await openSample();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));

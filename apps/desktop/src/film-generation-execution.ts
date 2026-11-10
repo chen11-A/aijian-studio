@@ -226,6 +226,7 @@ export function createNativeFilmGenerationExecutions(host: {
           !/^prj_[a-f0-9]{32}$/.test(record.backendProjectId)
         )
           return fail("UNSUPPORTED_SCOPE");
+        const backendProjectId = record.backendProjectId;
         const producer = await (host.producer ?? loadCanonicalGenerationProducer)();
         const sources = await generationImageSources({
           filmsRoot: host.filmsRoot(),
@@ -284,7 +285,7 @@ export function createNativeFilmGenerationExecutions(host: {
             return !host.fixedInputs?.matches({
               accountSha256: accountLease.account.accountSha256,
               projectId: record.id,
-              backendProjectId: record.backendProjectId,
+              backendProjectId,
               seriesId: record.seriesId,
               role: "still",
               canonicalPath: source.path,

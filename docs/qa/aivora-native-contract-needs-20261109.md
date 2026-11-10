@@ -23,13 +23,13 @@
 
 本片没有改、总控确认前继续不移植：
 
-| 文件 | 归属 | 本分支状态 |
-| --- | --- | --- |
-| `apps/desktop/src/generation-cache-preparation.ts` | 界面/原生，后端已同意交出 | 不存在，未从检查点移植 |
-| `apps/desktop/src/generation-cache-preparation.test.ts` | 同上 | 不存在，未移植 |
-| `apps/desktop/src/generation-preparation-client.ts` | 同上；现有 `post`/`lineages`/`register`/`armVideo` 继续只读使用 | 未改，未加 `prepareSlots` |
-| `packages/contracts/**` | 后端生成 | 未改 |
-| `services/api/**` | 后端 | 未改 |
+| 文件                                                    | 归属                                                            | 本分支状态                |
+| ------------------------------------------------------- | --------------------------------------------------------------- | ------------------------- |
+| `apps/desktop/src/generation-cache-preparation.ts`      | 界面/原生，后端已同意交出                                       | 不存在，未从检查点移植    |
+| `apps/desktop/src/generation-cache-preparation.test.ts` | 同上                                                            | 不存在，未移植            |
+| `apps/desktop/src/generation-preparation-client.ts`     | 同上；现有 `post`/`lineages`/`register`/`armVideo` 继续只读使用 | 未改，未加 `prepareSlots` |
+| `packages/contracts/**`                                 | 后端生成                                                        | 未改                      |
+| `services/api/**`                                       | 后端                                                            | 未改                      |
 
 `generation-preparation-client.ts` 仍是 main 私有签名客户端。renderer 不 import 它。
 

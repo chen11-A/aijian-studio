@@ -54,7 +54,11 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 
 `film-generation-execution.test.ts` 里本片新增并通过的是：编译后的 fixed-input 模块被工厂消费、未确认的手工 still 拒绝、回执不能降格自动输出、READABLE shot-frame 的新 execution 保持同一个 `input_sha256`、creative/account/bytes 三则拒绝。sidecar 为真实 `uv run` TestClient，`input_sha256` 读的是该进程写下的 `workspace.db`，没有改 Python sidecar。
 
-`confirmOrImport` 在 `pickImage`、读文件和 `isAutomaticOutput` 之后再读当前账号租约、backend project、series 和 canonical 项目哈希。任一变化都不写入回执。`isAutomaticOutput` 里的 `current()` 只覆盖租约中途失效，不覆盖账号 SHA 或原稿变化，所以末门是后加的复读，不是假设旧 callback 已经足够。
+真实租约 `mediaDispatchLease().current()` 是同步谓词：session 对象、access token、过期、inferenceDenied，以及 subject 算出的账号 SHA 必须仍等于捕获的 `account.accountSha256`。登出或换账号会让旧租约的 `current()` 变成 false。`stillCurrent` 原先在 `await readProject` 之前检查租约和账号，读完后只比较原稿。读文件期间登出或改账号 SHA，回执仍可能按读之前的 scope 写下。现在 canonical 读完后再检查 `authorized`、`lease.current()` 和账号 SHA，不过才比较原稿。回归把第二次 `readProject` 堵住，在堵住期间登出或改账号 SHA，确认被拒绝；租约恢复后同一个 offer 仍可明确确认。
+
+`importShotFixedInput` 原先在对话框返回后对捕获的旧 `film` 调 `updateShot` 再 `onFilm`。切项目、改稿或删镜头会把旧稿写回。现在只在当前作品 id 相同且镜头还在时，把 poster 打到当前稿上。取消、拒绝、换作品、删镜头都不调用 apply。保存走 `createFilmPersistence`：当前对象已换成新稿时，旧对象入队会被 guard 丢掉，不写盘。
+
+64 个未确认 offer 满了之后，新的手工画面不再发 offer，已有 offer 仍可确认；此时导入仍可增加回执。256 条回执满了之后，再导入或确认都是 `LEDGER_FULL`，重新选择不会再增加回执。提示写明这一点。重启是新的空账本，旧回执不再匹配，不能当成持久授权。
 
 ## 工具
 
@@ -64,11 +68,26 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 
 安装锁定工具后，`src/film-generation-execution.test.ts` 33 项全部通过。其中包括原签名视频（`sent == ["tts"]`）、planned-location、原 4 个 NOT_NEEDED / 迟到校验，以及回执不得打开 NOT_NEEDED。此前在未换工具时，原基线 `6bb54bbc` 的签名视频用例同样得到空的 `sent`；换上锁定二进制后新候选不再跳过这些断言。
 
-随后 `film-generation-fixed-input.test.ts` 5 项通过，覆盖异步末门、64 个 offer、256 条回执和重启后的空账本。`ProWorkspace.test.tsx` 中「shows the manual still offer」1 项通过：生成后才出现确认按钮，确认前不调用，拒绝和取消不增加保存。`FixedInputImportButton.test.tsx`、`shot-still.test.ts`、`workflow.test.ts` 共 38 项通过。
+本轮定向（合入集成分支记录并修好末门之后）：
 
-账本上限和重启是内存限制：满额会明确拒绝，重启不会带回旧回执。这不是磁盘上的授权。
+- `pnpm --filter @aijian/desktop exec vitest run --coverage=false` 上述 6 个文件：exit 0，6 files，63 tests。其中 `film-generation-fixed-input.test.ts` 7 项，含读边界登出/换账号。
+- `pnpm --filter @aijian/studio-web exec vitest run --coverage=false` 五个相关文件并按名称过滤：exit 0，4 passed / 178 skipped。通过的是 offer 确认、晚到导入不覆盖新稿、满额提示、保存队列。`shot-still` 与 `workflow` 被过滤跳过，随后进入完整 web 门。
 
-未跑：`pnpm typecheck`、`pnpm lint`、desktop/web 全量、`pnpm test:py`、正常 Chrome。这些留给总控串行门。本片定向结果不是最终同源完整验收。
+## 本轮完整 TypeScript 门
+
+串行，没有 skip ci，没有跑 Python 完整套件。
+
+| 命令                                    | 退出 | 结果                                                                                                                                                              |
+| --------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck:ts`                     | 0    | contracts、desktop、studio-web 均完成。中途 desktop `backendProjectId` 与 web 测试 mock 类型曾 exit 2/1，已收窄后重跑通过。                                       |
+| `pnpm lint:ts`                          | 0    | `eslint .`。中途 4 个 no-useless-assignment exit 1，去掉无用初值后重跑通过。                                                                                      |
+| `pnpm exec prettier --check .`          | 1    | 只剩合并进来的 `docs/aivora/云端执行队列.md`、`docs/aivora/当前进度.md`。这两份是集成分支记录提交原样，本候选没有改它们。本片自己的测试和 QA 已按 Prettier 写过。 |
+| `pnpm --filter @aijian/desktop test`    | 0    | 176 files，2515 tests，140.55s。原覆盖门 statements 90.68、branches 91.29、functions 93.36、lines 92.21。                                                         |
+| `pnpm --filter @aijian/studio-web test` | 0    | 474 files，5638 tests。覆盖 statements 90.31、branches 86.79、functions 92.62、lines 93.07。                                                                      |
+
+没有跑 `pnpm test:py`、`pnpm typecheck:py`、`pnpm lint:py`。不是最终同源完整验收，也没有正常 Chrome。
+
+账本上限和重启是内存限制。256 条回执已满时，重新选择不能解锁。
 
 没有把检查点的 `services/api` sidecar 字段移植过来。`input_sha256` 用 SQLite 读取证明，而不是改后端测试工具。
 
@@ -77,6 +96,8 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 - 总控合同 v1 已写入 `aivora-native-contract-needs-20261109.md`。本片 closed 并审合之前，不把 `prepareSlots` 接到 main，也不移植三个私有 desktop client/parser。
 - portrait/location 跨 execution、pending pipeline、连续帧、FAILED 下一版本不在本片。
 
+已用普通 merge 接上 `origin/grok/aivora-next-integration-20261109` 的记录提交 `f59affe2`，merge 提交 `74d25599`。没有改写历史。`prepareSlots` 和连续帧没有叠加。原 bundle 未改。
+
 ## 提交
 
-闭环前的实现提交是 `806fa7e6df4d37338a473c78e128418442ca53f5`。本片闭环提交以分支尖端为准。
+末门产品提交 `c25b94d884df8775ff0f046b3b73a13d1788b60a`。类型、lint 修正和本记录提交后的尖端以 `git rev-parse HEAD` 为准。
