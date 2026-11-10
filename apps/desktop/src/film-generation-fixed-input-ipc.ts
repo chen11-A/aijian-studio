@@ -1,5 +1,5 @@
 import { filmHistoryRecordHash } from "./film-history";
-import { readProject } from "./film-library";
+import { readProject as readStoredProject, type FilmRecord } from "./film-library";
 import type { GenerationDispatchAccount } from "./generation-dispatch-account";
 import type { FixedInputChannelResult, FixedInputLedger } from "./film-generation-fixed-input";
 
@@ -13,6 +13,8 @@ export type FixedInputIpcHost<Event> = {
   } | null>;
   /** Main dialog only. The renderer never supplies this path. */
   pickImage: () => Promise<string | null>;
+  /** Test seam for the canonical read. Production uses the real project reader. */
+  readProject?: (root: string, id: string) => Promise<FilmRecord | null>;
   /** True when the digest is a known automatic output. Fail closed on uncertainty. */
   isAutomaticOutput: (input: {
     backendProjectId: string;
@@ -79,7 +81,8 @@ async function confirmOrImport<Event>(
   if (!host.authorized(event) || !projectPattern.test(rawProjectId)) return refused;
   const lease = await host.mediaDispatchLease();
   if (!lease?.current() || !host.authorized(event)) return refused;
-  const record = await readProject(host.filmsRoot(), rawProjectId);
+  const read = host.readProject ?? readStoredProject;
+  const record = await read(host.filmsRoot(), rawProjectId);
   if (
     !record ||
     record.id !== rawProjectId ||
@@ -106,9 +109,11 @@ async function confirmOrImport<Event>(
         current: () => host.authorized(event) && lease.current(),
       }),
     async () => {
+      // The live lease predicate is rechecked after the canonical read. A logout
+      // or account switch during that await must not seal the scope captured before it.
+      const fresh = await read(host.filmsRoot(), rawProjectId);
       if (!host.authorized(event) || !lease.current()) return false;
       if (lease.account.accountSha256 !== accountSha256) return false;
-      const fresh = await readProject(host.filmsRoot(), rawProjectId);
       return (
         fresh?.id === rawProjectId &&
         fresh.backendProjectId === backendProjectId &&

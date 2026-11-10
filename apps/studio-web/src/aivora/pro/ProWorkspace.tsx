@@ -6452,6 +6452,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ? manualStillOffers[`${film.id}:${shownShots[shot].id}`]
                       : undefined
                   }
+                  liveFilm={() => filmRef.current}
                   stillProgress={stillProgress}
                   onPickStill={(picture) => {
                     const current = shownShots[shot];
@@ -9555,6 +9556,7 @@ function BoardPage({
   stills,
   onStills,
   manualStillOfferId,
+  liveFilm,
   stillProgress,
   onFour,
   fourArmed,
@@ -9602,6 +9604,7 @@ function BoardPage({
   stills: string[];
   onStills: () => void;
   manualStillOfferId?: string;
+  liveFilm: () => FilmProject | null;
   onFour: () => void;
   fourArmed: string;
   stillProgress: Record<string, string>;
@@ -10643,6 +10646,7 @@ function BoardPage({
                 film={film}
                 shot={current}
                 offerId={manualStillOfferId}
+                liveFilm={liveFilm}
                 onFilm={onFilm}
                 onNotice={onNotice}
               />

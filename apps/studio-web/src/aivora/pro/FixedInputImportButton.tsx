@@ -6,12 +6,14 @@ export function FixedInputImportButton({
   film,
   shot,
   offerId,
+  liveFilm,
   onFilm,
   onNotice,
 }: {
   film: FilmProject;
   shot: FilmShot;
   offerId?: string;
+  liveFilm: () => FilmProject | null;
   onFilm: (film: FilmProject) => void;
   onNotice: (text: string) => void;
 }) {
@@ -20,7 +22,9 @@ export function FixedInputImportButton({
       <button
         className="btn"
         type="button"
-        onClick={() => void importShotFixedInput(film, shot, onFilm, onNotice)}
+        onClick={() =>
+          void importShotFixedInput(film, shot, { current: liveFilm, apply: onFilm, onNotice })
+        }
       >
         导入为固定输入
       </button>

@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { afterEach, expect, it } from "vitest";
 import ts from "typescript";
 import { registerFixedInputHandlers } from "./film-generation-fixed-input-ipc";
-import { writeProject } from "./film-library";
+import { readProject, writeProject } from "./film-library";
 import type { FixedInputLedger } from "./film-generation-fixed-input";
 
 const png = Buffer.from(
@@ -368,4 +368,57 @@ it("refuses another receipt after 256 and does not seal an import once the canon
       knownAutomaticOutput: false,
     }),
   ).toBe(false);
+  expect(await ledger.importPickedFile(scope)).toEqual({ ok: false, code: "LEDGER_FULL" });
 });
+
+it.each(["logout", "account"] as const)(
+  "does not seal a receipt when the lease changes during the canonical read: %s",
+  async (change) => {
+    const ledger = await compiledLedger();
+    const env = await project();
+    const still = join(env.filmsRoot, env.seriesId, "stills", "manual.png");
+    await mkdir(join(env.filmsRoot, env.seriesId, "stills"), { recursive: true });
+    await writeFile(still, png);
+    const noted = await ledger.noteManualStill(env.filmsRoot, env.seriesId, still);
+    if (noted.kind !== "offer") throw Error("EXPECTED_OFFER");
+    const account = { bearer: "native-bearer", accountSha256: "d".repeat(64) };
+    let live = true;
+    let release: () => void = () => undefined;
+    let entered: () => void = () => undefined;
+    const hold = new Promise<void>((done) => {
+      release = done;
+    });
+    const enteredGate = new Promise<void>((done) => {
+      entered = done;
+    });
+    const map = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+    let reads = 0;
+    registerFixedInputHandlers((channel, run) => map.set(channel, run), {
+      filmsRoot: () => env.filmsRoot,
+      ledger,
+      authorized: () => true,
+      mediaDispatchLease: async () => ({ account, current: () => live }),
+      pickImage: async () => null,
+      readProject: async (root, id) => {
+        reads += 1;
+        if (reads === 2) {
+          entered();
+          await hold;
+        }
+        return readProject(root, id);
+      },
+      isAutomaticOutput: async () => false,
+    });
+    const pending = map.get("film:confirm-fixed-input")!(true, env.id, noted.offerId);
+    await enteredGate;
+    if (change === "logout") live = false;
+    else account.accountSha256 = "e".repeat(64);
+    release();
+    await expect(pending).resolves.toEqual({ ok: false, code: "UNSUPPORTED_SCOPE" });
+    live = true;
+    account.accountSha256 = "d".repeat(64);
+    await expect(
+      map.get("film:confirm-fixed-input")!(true, env.id, noted.offerId),
+    ).resolves.toMatchObject({ ok: true });
+  },
+);

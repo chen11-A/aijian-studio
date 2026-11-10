@@ -23,7 +23,15 @@ it("imports through the explicit project id and assigns only the main-returned f
     return { ok: true as const, path: "/films/series/stills/picked.png" };
   });
   window.aijian = { importFixedInput } as unknown as Window["aijian"];
-  render(<FixedInputImportButton film={film} shot={shot} onFilm={onFilm} onNotice={onNotice} />);
+  render(
+    <FixedInputImportButton
+      film={film}
+      shot={shot}
+      liveFilm={() => film}
+      onFilm={onFilm}
+      onNotice={onNotice}
+    />,
+  );
   fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
   await vi.waitFor(() => expect(onFilm).toHaveBeenCalledTimes(1));
   expect(importFixedInput).toHaveBeenCalledTimes(1);
@@ -43,7 +51,15 @@ it("does not change the shot when import is cancelled or refused", async () => {
     .mockResolvedValueOnce({ ok: false, code: "CANCELLED" })
     .mockResolvedValueOnce({ ok: false, code: "UNSUPPORTED_SCOPE" });
   window.aijian = { importFixedInput } as unknown as Window["aijian"];
-  render(<FixedInputImportButton film={film} shot={shot} onFilm={onFilm} onNotice={onNotice} />);
+  render(
+    <FixedInputImportButton
+      film={film}
+      shot={shot}
+      liveFilm={() => film}
+      onFilm={onFilm}
+      onNotice={onNotice}
+    />,
+  );
   fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
   await vi.waitFor(() => expect(onNotice).toHaveBeenCalledWith("已取消导入固定输入。"));
   fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
@@ -64,6 +80,7 @@ it("confirms a main-issued offer without sending path, origin, metadata or cache
       film={film}
       shot={shot}
       offerId={offerId}
+      liveFilm={() => film}
       onFilm={onFilm}
       onNotice={onNotice}
     />,
@@ -84,6 +101,7 @@ it("tells the user when the in-memory confirm limit is full and does not change 
       film={film}
       shot={shot}
       offerId="fio_01234567-89ab-cdef-0123-456789abcdef"
+      liveFilm={() => film}
       onFilm={onFilm}
       onNotice={onNotice}
     />,
@@ -91,7 +109,7 @@ it("tells the user when the in-memory confirm limit is full and does not change 
   fireEvent.click(screen.getByRole("button", { name: "确认这张手工画面为固定输入" }));
   await vi.waitFor(() =>
     expect(onNotice).toHaveBeenCalledWith(
-      "这一轮可确认的手工画面已满。没有把它当作固定输入。可以重新选择；重启后需要再次明确确认，旧确认不会保留。",
+      "这一轮固定输入确认已满，重新选择也不能再增加。重启后这些确认不会保留，需要再次明确确认。",
     ),
   );
   expect(onFilm).not.toHaveBeenCalled();

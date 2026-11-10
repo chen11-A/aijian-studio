@@ -3234,6 +3234,41 @@ it("shows the manual still offer for an explicit confirm and leaves the saved dr
   expect(vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length).toBe(writesAfterStill);
 });
 
+it("does not let a late import replace a newer draft through the save queue", async () => {
+  installDesktop();
+  let resolveImport!: (
+    value: { ok: true; path: string } | { ok: false; code: "CANCELLED" },
+  ) => void;
+  window.aijian!.importFixedInput = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        resolveImport = resolve;
+      }),
+  );
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
+  const picture = screen.getByLabelText("分镜画面");
+  fireEvent.change(picture, { target: { value: "新稿不能被旧导入覆盖" } });
+  resolveImport({ ok: false, code: "CANCELLED" });
+  expect(await screen.findByText("已取消导入固定输入。")).toBeInTheDocument();
+  expect(screen.getByLabelText("分镜画面")).toHaveValue("新稿不能被旧导入覆盖");
+  fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
+  fireEvent.change(screen.getByLabelText("分镜画面"), {
+    target: { value: "更新后的稿仍要保留" },
+  });
+  resolveImport({ ok: true, path: "/tmp/aivora/imported-fixed.png" });
+  expect(await screen.findByText(/已导入这张画面为固定输入/)).toBeInTheDocument();
+  expect(screen.getByLabelText("分镜画面")).toHaveValue("更新后的稿仍要保留");
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as {
+      shots: { picture: string; poster?: string }[];
+    };
+    expect(saved.shots[0]?.picture).toBe("更新后的稿仍要保留");
+    expect(saved.shots[0]?.poster).toContain("imported-fixed.png");
+  });
+});
+
 it("continues one-click storyboarding and retries the director into shots", async () => {
   const { completeText } = installDesktop();
   let plainDirector = 0;
