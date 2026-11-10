@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import shutil
 from copy import deepcopy
 from pathlib import Path
 
@@ -1048,6 +1049,90 @@ def test_first_regenerate_does_not_publish_the_saved_bundle(actual_cache):
     items = reply.json()["items"]
     assert items
     assert all(item["preparation"] == "CLIENT_IMAGES" and item["cache"] is None for item in items)
+
+
+def test_saved_still_without_a_snapshot_is_not_a_cache_grant(actual_cache):
+    repo, project, registration, cache, _ = actual_cache
+    from aijian_api.story_film import StoryFilmService, story_shot_request
+    from aijian_api.story_film_routes import CreateStoryFilmBody, story_film_request
+
+    shutil.rmtree(cache.directory)
+    service = StoryFilmService(repo, toolchain)
+    body = CreateStoryFilmBody.model_validate(registration["targets"][0]["body"])
+    request = story_film_request(body, "cache-observation")
+    child = story_shot_request(request, request.shots[0], 1)
+    key_image = service._image_directory() / f"{service._image_stem(project, child)}-key.png"
+    key_image.write_bytes(b"png")
+    with app_for(repo) as client:
+        execution, reply = prepared(client, project, registration)
+    _assert_unverifiable(reply)
+    _assert_no_freeze_arm_or_budget(repo, project, execution)
+
+
+def test_matching_lineage_publishes_the_planned_cache_slot(actual_cache):
+    repo, project, registration, _, bundle = actual_cache
+    planned = deepcopy(registration)
+    planned["key"] = "lineage-cache-execution"
+    planned["targets"][0]["key"] = "planned"
+    planned["targets"][0]["body"]["shots"][0]["still"] = ""
+    planned["targets"][0]["sources"] = []
+    planned["stages"][0]["target_id"] = "planned"
+    planned["stages"][0]["target_keys"] = ["planned"]
+    recipe = _recipe(repo, planned)
+    from aijian_api.generation_dispatch_identity import story_reference_identity
+    from aijian_api.xai_media import IMAGE_MODEL, XaiImage, _image_reference
+
+    image_bytes, video, voice = bundle
+    image = story_reference_identity(
+        _image_reference(XaiImage(data=image_bytes, source_url=None, model=IMAGE_MODEL))["url"]
+    )
+    StoryCreationCache(
+        Path(repo.database_path).parent / "story-films", project, recipe, repo.database_path
+    ).put_bundle(
+        image_bytes,
+        video,
+        voice,
+        runtime_recipe={
+            **recipe,
+            "prepared_image": image,
+            "actual_video": {"image": image, "seconds": 3},
+        },
+    )
+    stage = json.dumps(
+        {
+            "kind": "shot-frame",
+            "target_id": "planned",
+            "origin": {
+                "imageModel": recipe["image_model"],
+                "prompt": recipe["image_prompt"],
+                "aspectRatio": recipe["aspect_ratio"],
+                "references": recipe["image_references"],
+            },
+        },
+        ensure_ascii=False,
+    )
+    donor = deepcopy(planned)
+    donor["key"] = "lineage-donor"
+    with app_for(repo) as client:
+        # Freeze refuses a non-UNSENT stage on the execution being prepared, so the
+        # matching READABLE lineage lives on a different execution in the same project.
+        donor_id = post(client, project, PREFIX, donor).json()["execution_id"]
+        with repo._connection() as connection:
+            connection.execute(
+                "UPDATE prepared_generation_stage SET status='READABLE', output_sha256=?, "
+                "native_stage_json=? WHERE execution_id=?",
+                (image["sha256"], stage, donor_id),
+            )
+            connection.commit()
+        execution = post(client, project, PREFIX, planned).json()["execution_id"]
+        reply = post(
+            client, project, f"{PREFIX}/{execution}/cache-preparations", {"registration": planned}
+        )
+    assert reply.status_code == 200, reply.text
+    table = sorted((item["slot_index"], item["preparation"]) for item in reply.json()["items"])
+    assert table == [(0, "STORYFILM_CACHE"), (1, "CLIENT_IMAGES"), (2, "CLIENT_IMAGES")]
+    slot_zero = next(item for item in reply.json()["items"] if item["slot_index"] == 0)
+    assert slot_zero["cache"]["snapshot_sha256"]
 
 
 def test_planned_image_without_lineage_does_not_freeze(actual_cache):
