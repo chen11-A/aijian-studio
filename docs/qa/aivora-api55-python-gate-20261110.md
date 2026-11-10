@@ -329,9 +329,11 @@ tmux 全局环境把 `LD_LIBRARY_PATH=/exec-daemon/tmux-root/lib` 传给测试�
 
 ### `assert-verified-vs-unknown-media-changed`（1）
 
-模块相对 `6bb54bb` 无 diff。这台文件系统上 `os.utime(..., ns=(原 atime, 原 mtime))` 之后 `st_ctime_ns` 也回到原值，缓存的 stat identity 仍匹配，所以返回 VERIFIED。不是 API55 改动。产品校验没有放宽。
+同环境对照见下方「原件身份对照」。无 diff 不是免责。快速覆写时 ctime 没有被改回，它根本没有前进，缓存仍返回 VERIFIED。这是继承的未关闭原完整性门。产品代码本片没有改。
 
-- `ERROR services/api/tests/test_draft_export_encoder.py::test_safe_process_arguments_and_probe_output_bound`
+- `FAILED services/api/tests/test_local_media_original_identity.py::test_real_original_changed_with_restored_size_and_mtime_is_not_reused`
+
+此前列在这里的 `test_draft_export_encoder.py::test_safe_process_arguments_and_probe_output_bound` 是夹具设置时的 ncurses 横幅，不是这条断言。
 
 ## 环境修复
 
@@ -349,7 +351,7 @@ tmux 全局环境把 `LD_LIBRARY_PATH=/exec-daemon/tmux-root/lib` 传给测试�
 
 对齐 libvpx/libopus 后只复跑仍失败的四条：`1 failed, 3 passed in 27.60s`。三条 FFmpeg 生成用例通过。仍失败的是 `test_real_original_changed_with_restored_size_and_mtime_is_not_reused`。
 
-`local_media_original.py` 相对 `6bb54bb` 没有 diff。在这台文件系统上，同长度覆写后再 `os.utime(..., ns=(原 atime, 原 mtime))`，`st_ctime_ns` 也回到原值，缓存 identity 仍匹配，函数返回 VERIFIED。这不是 API55 回归，产品校验没有改松。
+`local_media_original.py` 相对 `6bb54bb` 没有 diff。这只说明两边源码相同，不能代替下面的两次 pytest。失败原因不是 ctime 被 `utime` 改回。
 
 ## 缓存目标测试数量
 
@@ -372,3 +374,39 @@ uv run pytest -q --tb=line services/api/tests/test_prepared_generation_cache.py:
 结果：`7 passed in 20.15s`。
 
 `ruff` 与 `mypy`、合同生成沿用上一轮结果，这次没有重跑。没有接 main，没有新功能。
+
+## 原件身份对照（2026-11-10 01:01 UTC）
+
+只跑 `test_real_original_changed_with_restored_size_and_mtime_is_not_reused` 各一次。同一云环境，`LD_LIBRARY_PATH` 未设置，锁定的 `/usr/bin/ffmpeg` 首行是 `ffmpeg version 7.1.5-0+deb13u1`。该测试本身不调用 ffmpeg。工作区 pytest 会把 `pythonpath` 指到 `/workspace`，所以两次都在对应 worktree 里用 `/workspace/.venv/bin/pytest`，并 `--override-ini addopts=`。没有改断言、锁或超时。没有重跑 5453 项全套。
+
+| 对照 | SHA | 结果 |
+| --- | --- | --- |
+| handoff 基线 | `6bb54bbcce5e4051454a9fa0a17ab4dd72472167` | `1 failed in 0.56s`。`assert 'VERIFIED' == 'UNKNOWN_MEDIA_CHANGED'` |
+| 代码候选 | `1227af513b72cf20cb9d054bcb6a2aba1f5338d0` | `1 failed in 0.44s`。同一断言 |
+
+`local_media_original.py` 两边 `diff` 退出码 0。这只记录源码相同。基线同样失败，所以这是继承的未关闭原完整性门，不是本批 API55 新引入后被无 diff 放过。
+
+候选模块按测试同一顺序实测。文件系统是 `ext4 /dev/vdc rw,relatime`。
+
+| 时点 | dev | ino | size | mtime_ns | ctime_ns | SHA256 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 创建 `b"owned bounded original"` | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | `5bfb616357df8c4a0222dacfe5e891dced7bddacbfdbe96a14ede06186996a37` |
+| 第一次核验后 | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | 同上 |
+| 覆写为 22 个 `x` 后 | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | `ec4a4fcd915a7672085936bb477cc50561660015653ad41616c8419727e97ff1` |
+| `os.utime(ns=(原 atime, 原 mtime))` 后 | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | 同上 |
+
+覆写前后 SHA 不同，字节确实变了。第一次返回 `VERIFIED`，`used_bytes` 为 22，identity cache 写入 `(dev, ino, size, mtime_ns, ctime_ns)`。覆写并调用 `utime` 之后，缓存的 named identity 与 held identity 都等于当前 identity。第二次仍返回 `VERIFIED`，`used_bytes` 仍是 22，没有再次哈希。这是可触发的陈旧核验复用，不是读错了 ctime。`utime` 在这条快速路径上是空操作，因为时间戳从未变化。
+
+同一卷上，`statx` 请求掩码 `0x7fff`、返回掩码 `0x6fff`，快速覆写前后 256 字节 statx 缓冲区没有差异。`FS_IOC_GETVERSION` 读到的是创建代际，覆写后也不变。没有可用的元数据字段能区分这两份载荷。
+
+正向对照仍用候选模块，覆写前先 `sleep(0.02)`。写入把 ctime 从 `1794272451648381309` 改到 `1794272451672381714`。随后的 `utime` 只把 mtime 设回原值，ctime 保持新值。第二次返回 `UNKNOWN_MEDIA_CHANGED`，文件 SHA 仍是覆写后的 `ec4a4fcd...`。文件系统真正更新 ctime 时，现有检查会拒绝缓存。失败的 pytest 没有等待，覆写落在同一次时间戳采样里。
+
+缓存命中路径补做一次完整哈希、不第二次计入 `used_bytes`、哈希不符时返回 `UNKNOWN_MEDIA_CHANGED` 的试验，能使身份文件里 7 个测试通过，包括这条目标测试。它同时打破未改的单次哈希预算断言：
+
+- `test_recursive_duplicate_originals_hash_once_and_independent_request_resets`：实际 552 与 414，期望各 138
+- `test_recursive_candidate_and_g5_originals_share_direct_read_allowance[False]`：实际 138，期望 69
+- `test_recursive_candidate_and_g5_originals_share_direct_read_allowance[True]`：实际 207，期望 69
+
+未打补丁时，hash-once 测试函数体内对两个摘要分别调用 `_availability` 14 次和 9 次；两次 inspect 合计，每个摘要的物理读取仍是两倍文件大小，也就是每个 inspect 一次。缓存命中补读会把这份读取放大。断言、锁和超时都没有改。试验已撤回，`local_media_original.py` 再次与 `6bb54bb` 相同。没有改 desktop 共享文件。
+
+因此本片不落地产品修改。原件核验在时间戳不动时仍会信任同 size/mtime/ctime 的缓存。这道门保持未关闭。完整 Python 门仍是 `143 failed / 5204 passed / 6 skipped / 100 errors`，退出码 1。最终集成候选必须重跑那道门。本批未验收。
