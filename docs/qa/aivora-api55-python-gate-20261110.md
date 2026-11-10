@@ -410,3 +410,20 @@ uv run pytest -q --tb=line services/api/tests/test_prepared_generation_cache.py:
 未打补丁时，hash-once 测试函数体内对两个摘要分别调用 `_availability` 14 次和 9 次；两次 inspect 合计，每个摘要的物理读取仍是两倍文件大小，也就是每个 inspect 一次。缓存命中补读会把这份读取放大。断言、锁和超时都没有改。试验已撤回，`local_media_original.py` 再次与 `6bb54bb` 相同。没有改 desktop 共享文件。
 
 因此本片不落地产品修改。原件核验在时间戳不动时仍会信任同 size/mtime/ctime 的缓存。这道门保持未关闭。完整 Python 门仍是 `143 failed / 5204 passed / 6 skipped / 100 errors`，退出码 1。最终集成候选必须重跑那道门。本批未验收。
+
+## 单次哈希预算内的修复候选（2026-11-10 01:10 UTC）
+
+没有用等待，没有加大读取预算，没有改断言、锁或超时。产品文件已退回，与 `6bb54bb` 的 `local_media_original.py` 仍然相同。本批未验收。
+
+现有机制单独不能满足「拒绝陈旧 VERIFIED」和「同 scope 内每个原件只哈希一次」。
+
+- 内容寻址硬链接是导入路径上的稳定私有副本（`media_asset_store` 的 `os.link`）。实测同 inode，`st_nlink` 覆写前后都是 2，stat 五元组不变。硬链接读到的是新字节 SHA `58bee62c5730617e6ef0be833bfbf58220bdab3283ff67085380d7249fe83232`，和活动路径一样。它看不见覆写。
+- 另存的私有副本保住了旧 SHA `5bfb6163...`。`_availability` 判断的是活动路径。信任这份副本就会对已经改变的活动字节返回 VERIFIED。
+- `story_creation_cache` 的私有文件每次 `_read` 都重新哈希。把这个模式用到缓存命中上，就是上一次已经证明会放大 69/138 字节断言的第二次全量读取。
+- 现有生命周期身份就是 `(dev, ino, size, mtime_ns, ctime_ns)`。这条快速覆写不改变它，statx 也不改变。
+
+写生命周期观察可以同时满足两条约束，但不是仓库里的现有机制。本机试验：`inotify_init1` 对快速覆写给出 `IN_MODIFY | IN_CLOSE_WRITE | IN_ATTRIB`，完整读取和只读重开不产生事件。缓存只在该 watch 仍安静时复用；有事件就返回 `UNKNOWN_MEDIA_CHANGED`，不读第二遍。定向结果 `12 passed in 2.86s`，包含身份文件全部 7 项，以及未改的 hash-once / allowance 字节断言、scope 重置和失败哈希不退款。试验代码已撤回。
+
+这个候选不能落地。通过依赖于 `inotify_init1`。没有该观察时，安全规则是不复用缓存；那会第二次哈希，打破单次预算断言。退回 stat 缓存就是接受陈旧 VERIFIED。同进程文件租约能看见写入，但写入方会停在内核租约打断上（这次约 45 秒），属于盲等，不用。
+
+安全停止边界：没有写生命周期观察时，不得把缓存的 stat 身份当成 VERIFIED。本片不改产品代码，所以当前函数仍会返回陈旧 VERIFIED。这是未关闭的门，不是接受该结果。不改 desktop 共享文件。已订阅的本分支 CI watch 还没有交付，不轮询。原生远端 Linux/Windows quality 的日志分类不在这里重复。
