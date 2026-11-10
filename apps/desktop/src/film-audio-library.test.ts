@@ -21,6 +21,7 @@ import {
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { delimiter, dirname, basename, isAbsolute, join, resolve } from "node:path";
+import { freemem } from "node:os";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
@@ -924,6 +925,12 @@ it.each([
       stageAt = begin,
       probes = () => 0;
     const completed: { stage: string; elapsedMs: number }[] = [];
+    const media: {
+      started: number;
+      closed: number;
+      failed: number;
+      last: "none" | "ffmpeg" | "ffprobe" | "other";
+    } = { started: 0, closed: 0, failed: 0, last: "none" };
     const snapshot = () => ({
       v: 1,
       mode,
@@ -931,6 +938,12 @@ it.each([
       elapsedMs: Math.round(performance.now() - begin),
       completed: [...completed],
       probes: probes(),
+      open: Math.max(0, media.started - media.closed),
+      closed: media.closed,
+      failed: media.failed,
+      last: media.last,
+      heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
+      freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
     });
     let gateObservation: ReturnType<typeof snapshot> | undefined;
     // Observation only: no cancellation, retry, deadline or change to the original 5s gate.
@@ -951,13 +964,40 @@ it.each([
     });
     try {
       const f = await fixture();
-      probes = () => f.host.run.mock.calls.length;
+      const counted = f.host.run;
+      f.host.run = vi.fn(async (binary: string, args: string[], options?: object) => {
+        media.started += 1;
+        const name = basename(binary)
+          .toLowerCase()
+          .replace(/\.exe$/, "");
+        media.last = name === "ffmpeg" ? "ffmpeg" : name === "ffprobe" ? "ffprobe" : "other";
+        let closed = false;
+        try {
+          return await counted(binary, args, {
+            ...(options ?? {}),
+            onProcess: (pid: number, done: boolean) => {
+              if (done && !closed) {
+                closed = true;
+                media.closed += 1;
+              }
+              (
+                options as { onProcess?: (pid: number, done: boolean) => void } | undefined
+              )?.onProcess?.(pid, done);
+            },
+          });
+        } catch (error) {
+          media.failed += 1;
+          throw error;
+        }
+      });
+      probes = () => media.started;
       advance("suggest");
       const { request } = await suggested(f);
       advance("apply");
       fault.observe = advance;
       f.host.beforeCommit = async () => {
         advance("commit");
+        advance("commit-return");
       };
       fault.mode = mode;
       expect(await f.library.applyBundledFilmShotAudio(request)).toMatchObject({

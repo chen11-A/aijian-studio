@@ -16,6 +16,7 @@ import {
   emptySpeechPcmSummary,
   recoveryIdentitySummary,
   libraryWritePhaseSummary,
+  qcOwnerPhaseSummary,
   libraryWriteInvocation,
   deliveryManifestInvocation,
   pnpmInvocation,
@@ -752,6 +753,12 @@ test("accepts only bounded closed library-write phases and retains the six-annot
       { stage: "suggest", elapsedMs: 300 },
     ],
     probes: 12,
+    open: 0,
+    closed: 12,
+    failed: 0,
+    last: "ffprobe",
+    heapMb: 80,
+    freeMb: 1024,
   };
   for (const mode of [
     "before",
@@ -787,6 +794,12 @@ test("rejects private strings, unknown shape, nonfinite and unbounded library-wr
     elapsedMs: 100,
     completed: [{ stage: "fixture", elapsedMs: 50 }],
     probes: 0,
+    open: 0,
+    closed: 0,
+    failed: 0,
+    last: "none",
+    heapMb: 1,
+    freeMb: 1,
   };
   for (const row of [
     { ...valid, path: "PRIVATE_PATH" },
@@ -796,6 +809,9 @@ test("rejects private strings, unknown shape, nonfinite and unbounded library-wr
     { ...valid, elapsedMs: 120001 },
     { ...valid, elapsedMs: "100" },
     { ...valid, probes: 4097 },
+    { ...valid, last: "PRIVATE_TOOL" },
+    { ...valid, open: -1 },
+    { ...valid, freeMb: 1048577 },
     { ...valid, probes: NaN },
     { ...valid, completed: [null] },
     { ...valid, completed: [{ stage: "fixture", elapsedMs: 120 }] },
@@ -813,6 +829,29 @@ test("rejects private strings, unknown shape, nonfinite and unbounded library-wr
     assert.equal(libraryWritePhaseSummary(row), null);
 });
 
+test("accepts only closed export-ownership phases and drops paths", () => {
+  const valid = { v: 1, stage: "owner", elapsedMs: 4200, heapMb: 40, freeMb: 700 };
+  assert.match(
+    qcOwnerPhaseSummary("CI_QC_OWNER_PHASE " + JSON.stringify(valid)),
+    /stage=owner; elapsed=4200ms; heap=40MiB; free=700MiB/,
+  );
+  const summary = failureSummary();
+  summary.line("CI_QC_OWNER_PHASE " + JSON.stringify(valid));
+  summary.line("FAIL src/film-export-qc-ownership.test.ts > PRIVATE");
+  assert.match(summary.entries()[0].message, /Export ownership phase: stage=owner/);
+  for (const row of [
+    { ...valid, path: "PRIVATE_PATH" },
+    { ...valid, stage: "PRIVATE" },
+    { ...valid, elapsedMs: -1 },
+    { ...valid, heapMb: 65537 },
+  ])
+    assert.equal(qcOwnerPhaseSummary("CI_QC_OWNER_PHASE " + JSON.stringify(row)), null);
+  assert.equal(
+    qcOwnerPhaseSummary("CI_QC_OWNER_PHASE " + JSON.stringify(valid) + " PRIVATE_PATH"),
+    null,
+  );
+});
+
 test("fixed library-write CLI selects the exact original six variants, disables shell and preserves child 0/23 without leaking parameters", async () => {
   const directory = await mkdtemp(join(tmpdir(), "library-write-cli-"));
   try {
@@ -828,6 +867,12 @@ test("fixed library-write CLI selects the exact original six variants, disables 
       elapsedMs: 4900,
       completed: [{ stage: "fixture", elapsedMs: 400 }],
       probes: 12,
+      open: 1,
+      closed: 11,
+      failed: 0,
+      last: "ffmpeg",
+      heapMb: 90,
+      freeMb: 512,
     };
     const line =
       "CI_LIBRARY_WRITE_PHASE " +
