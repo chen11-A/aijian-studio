@@ -100,4 +100,10 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 
 ## 提交
 
-末门产品提交 `c25b94d884df8775ff0f046b3b73a13d1788b60a`。类型、lint 修正和本记录提交后的尖端以 `git rev-parse HEAD` 为准。
+代码候选是 `1642bb6437abedcd4a36a06f08a4b2fb6535cd77`。该提交之后没有再改源码，已通过的 desktop 2515 与 web 5638 不重跑。
+
+合入前只格式化 Prettier 点名的 `docs/aivora/云端执行队列.md` 与 `docs/aivora/当前进度.md`。diff 只是两张表的列对齐，历史事实未改。`docs/aivora/验收与交接.md` 未动。
+
+仅格式提交是 `676be73d1d22725b97cc061868d502a7b4c1ccb2`，父提交就是代码候选 `1642bb6437abedcd4a36a06f08a4b2fb6535cd77`。该格式提交只含上述两份进度文档。
+
+`pnpm exec prettier --check .` 在 `676be73d` 的工作树上退出 0，输出 `All matched files use Prettier code style!`。本记录提交不再改源码，也不改那两份进度文档。分支尖端若只比 `676be73d` 多出本 QA 记录，仍然不是新的代码候选。
