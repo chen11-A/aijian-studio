@@ -875,7 +875,12 @@ def _assert_unverifiable(reply):
 
 
 def _assert_no_freeze_arm_or_budget(repo, project, execution):
-    """Provider transport is not on this route, so no provider mock is consulted."""
+    """No frozen table and no video arm.
+
+    Budget here is only story_creation_failure_attempt and
+    generation_failure_attempt. It is not every ledger. This route does not
+    reach provider transport, so that absence is not proved with a mock.
+    """
     assert PreparedGenerationStore(repo).preparations(project, execution, account=ACCOUNT) is None
     with repo._connection() as connection:
         arms = connection.execute("SELECT COUNT(*) FROM prepared_generation_video_arm").fetchone()
@@ -884,6 +889,7 @@ def _assert_no_freeze_arm_or_budget(repo, project, execution):
 
 
 def _assert_no_new_arm_or_budget(repo):
+    """No video arm. Budget check is only the two failure-attempt tables."""
     with repo._connection() as connection:
         arms = connection.execute("SELECT COUNT(*) FROM prepared_generation_video_arm").fetchone()
     assert arms[0] == 0
@@ -950,8 +956,7 @@ def test_non_byte_reference_does_not_match_a_byte_identity(actual_cache):
 
     goal = _recipe(repo, registration)
     assert byte_identity(goal["prepared_image"])
-    # A prepared local reference is rewritten to a data URL before shot linking,
-    # so the public recipe does not currently carry a non-byte video reference.
+    # Helper boundary only. Not a public cache-preparations request.
     assert (
         PreparedGenerationCache(repo, toolchain)._reference_matches(
             project, ACCOUNT, goal["prepared_image"], "not-bytes"
@@ -1036,6 +1041,7 @@ def test_shared_still_is_verified_once_across_targets(actual_cache, monkeypatch)
     )
     assert calls["n"] == 1
     assert recipes[0].recipe["prepared_image"] == recipes[1].recipe["prepared_image"]
+    assert recipes[0].recipe["prepared_image"]["mime"] == "image/png"
 
 
 def test_preconverted_source_cannot_also_be_captured(actual_cache):
