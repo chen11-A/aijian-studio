@@ -3,6 +3,7 @@
 import hashlib
 import json
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 from aijian_api.generation_failure_store import GenerationFailureError
@@ -574,5 +575,305 @@ def test_cache_read_does_not_settle_unknown_or_unlock_it_with_new_limit_or_execu
         borrowed = arm(client, project, newer, body, slot=1, take="borrowed-cache-request")
         assert borrowed.status_code == 409, borrowed.text
         assert borrowed.json()["detail"] == "INPUT_UNVERIFIABLE"
+        cached_arm = arm(client, project, newer, body, slot=0, take="cache-slot-not-quota")
+        assert cached_arm.status_code == 200, cached_arm.text
+        with pytest.raises(GenerationFailureError, match="EXECUTION_UNAVAILABLE"):
+            PreparedGenerationStore(repo).claim_video(
+                project,
+                account=ACCOUNT,
+                arm_id=cached_arm.json()["arm_id"],
+                body_sha256=hashlib.sha256(
+                    json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
+                ).hexdigest(),
+                idempotency_key="story-film:v1:00000000-0000-0000-0000-000000000001",
+            )
         assert attempts() == before
         assert calls == []
+
+
+def _enable_budgets(repo, project):
+    from aijian_api.generation_failure_store import GenerationFailureStore
+
+    GenerationFailureStore(repo).configure(project, expected_revision=0, failure_limit=3)
+    GenerationFailureStore(repo, scope="story_creation").configure(
+        project, expected_revision=0, failure_limit=3
+    )
+
+
+def _preparation_rows(repo, execution):
+    with repo._connection() as connection:
+        return connection.execute(
+            "SELECT slot_index,preparation FROM prepared_generation_slot_preparation "
+            "WHERE execution_id=? ORDER BY slot_index",
+            (execution,),
+        ).fetchall()
+
+
+def _held_slots(repo, execution):
+    with repo._connection() as connection:
+        return [
+            row[0]
+            for row in connection.execute(
+                "SELECT slot_index FROM prepared_generation_slot WHERE execution_id=? "
+                "ORDER BY slot_index",
+                (execution,),
+            )
+        ]
+
+
+def test_reread_rejects_changed_source_bytes_canonical_and_mime(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    source = Path(registration["targets"][0]["sources"][0]["source"])
+    with app_for(repo) as client:
+        execution, first = prepared(client, project, registration)
+        assert first.status_code == 200, first.text
+        cached = first.json()["items"][0]["cache"]
+        original_sources = cached["sources"]
+        original_canonical = str(source.resolve())
+        assert original_sources[0]["mime"] == "image/png"
+        assert original_sources[0]["canonical_path"] == original_canonical
+        assert original_sources[0]["sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+        intact = post(
+            client,
+            project,
+            f"{PREFIX}/{execution}/cache-preparations",
+            {"registration": registration},
+        )
+        assert intact.status_code == 200, intact.text
+        assert intact.json()["items"][0]["cache"]["sources"] == original_sources
+        assert intact.json()["items"][0]["cache"]["snapshot_sha256"] == cached["snapshot_sha256"]
+
+        original = source.read_bytes()
+        source.write_bytes(b"\xff\xd8\xff" + original)
+        changed = post(
+            client,
+            project,
+            f"{PREFIX}/{execution}/cache-preparations",
+            {"registration": registration},
+        )
+        assert changed.status_code == 409 and changed.json()["detail"] == "INPUT_UNVERIFIABLE"
+        source.write_bytes(original)
+        claimed = deepcopy(registration)
+        jpeg = b"\xff\xd8\xff\xd9"
+        source.write_bytes(jpeg)
+        claimed["targets"][0]["sources"][0]["sha256"] = hashlib.sha256(jpeg).hexdigest()
+        retargeted = post(
+            client,
+            project,
+            f"{PREFIX}/{execution}/cache-preparations",
+            {"registration": claimed},
+        )
+        assert retargeted.status_code == 409 and retargeted.json()["detail"] == "INPUT_UNVERIFIABLE"
+        source.write_bytes(original)
+        moved = source.with_name("relocated-owned.png")
+        source.rename(moved)
+        source.symlink_to(moved)
+        relinked = post(
+            client,
+            project,
+            f"{PREFIX}/{execution}/cache-preparations",
+            {"registration": registration},
+        )
+        assert relinked.status_code == 409 and relinked.json()["detail"] == "INPUT_UNVERIFIABLE"
+        stored = PreparedGenerationStore(repo).preparations(project, execution, account=ACCOUNT)
+        assert stored is not None
+        assert stored[0].sources[0]["mime"] == "image/png"
+        assert stored[0].sources[0]["sha256"] == hashlib.sha256(original).hexdigest()
+        assert stored[0].sources[0]["canonical_path"] == original_canonical
+        assert [tuple(row) for row in _preparation_rows(repo, execution)] == [
+            (0, "STORYFILM_CACHE"),
+            (1, "CLIENT_IMAGES"),
+            (2, "CLIENT_IMAGES"),
+        ]
+    assert_no_attempt(repo)
+
+
+def test_lineage_does_not_cross_account_or_project(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    _enable_budgets(repo, project)
+    other = repo.create_project(
+        name="另一项目",
+        aspect_ratio="16:9",
+        target_duration_seconds=30,
+        source_language="zh-CN",
+    )
+    output = "d" * 64
+    with app_for(repo) as client:
+        execution = post(client, project, PREFIX, registration).json()["execution_id"]
+        fact = {"stage_key": "frame", "body_sha256": "b" * 64}
+        assert (
+            post(client, project, f"{PREFIX}/{execution}/image-dispatch", fact).status_code == 200
+        )
+        assert (
+            post(
+                client,
+                project,
+                f"{PREFIX}/{execution}/image-observation",
+                {**fact, "output_sha256": output},
+            ).status_code
+            == 200
+        )
+        facts = post(client, project, f"{PREFIX}/lineages", {"output_sha256s": [output]})
+        assert facts.status_code == 200, facts.text
+        assert len(facts.json()["items"]) == 1
+        assert facts.json()["items"][0]["output_sha256"] == output
+        wrong_account = post(
+            client,
+            project,
+            f"{PREFIX}/lineages",
+            {"output_sha256s": [output]},
+            account="b" * 64,
+        )
+        assert wrong_account.status_code == 200, wrong_account.text
+        assert wrong_account.json()["items"] == []
+        wrong_project = post(client, other.id, f"{PREFIX}/lineages", {"output_sha256s": [output]})
+        assert wrong_project.status_code == 200, wrong_project.text
+        assert wrong_project.json()["items"] == []
+        blocked = post(
+            client,
+            project,
+            f"{PREFIX}/{execution}/cache-preparations",
+            {"registration": registration},
+        )
+        assert blocked.status_code == 409 and blocked.json()["detail"] == "INPUT_UNVERIFIABLE"
+        assert _preparation_rows(repo, execution) == []
+
+
+def test_image_or_arm_before_freeze_leaves_no_table_and_freeze_skips_cache_quota(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    _enable_budgets(repo, project)
+    body = registration["targets"][0]["body"]
+    with app_for(repo) as client:
+        started = post(client, project, PREFIX, registration).json()["execution_id"]
+        assert (
+            post(
+                client,
+                project,
+                f"{PREFIX}/{started}/image-dispatch",
+                {"stage_key": "frame", "body_sha256": "b" * 64},
+            ).status_code
+            == 200
+        )
+        denied = post(
+            client,
+            project,
+            f"{PREFIX}/{started}/cache-preparations",
+            {"registration": registration},
+        )
+        assert denied.status_code == 409 and denied.json()["detail"] == "INPUT_UNVERIFIABLE"
+        assert _preparation_rows(repo, started) == []
+        assert _held_slots(repo, started) == [0]
+
+        armed_execution = post(
+            client,
+            project,
+            PREFIX,
+            {**registration, "key": "arm-before-freeze"},
+        ).json()["execution_id"]
+        assert arm(client, project, armed_execution, body).status_code == 200
+        denied_arm = post(
+            client,
+            project,
+            f"{PREFIX}/{armed_execution}/cache-preparations",
+            {"registration": {**registration, "key": "arm-before-freeze"}},
+        )
+        assert denied_arm.status_code == 409 and denied_arm.json()["detail"] == "INPUT_UNVERIFIABLE"
+        assert _preparation_rows(repo, armed_execution) == []
+        assert _held_slots(repo, armed_execution) == []
+
+
+def test_freeze_before_image_dispatch_holds_only_client_slots(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    _enable_budgets(repo, project)
+    with app_for(repo) as client:
+        execution, observed = prepared(client, project, registration)
+        assert observed.status_code == 200, observed.text
+        allowed = post(
+            client,
+            project,
+            f"{PREFIX}/{execution}/image-dispatch",
+            {"stage_key": "frame", "body_sha256": "b" * 64},
+        )
+        assert allowed.status_code == 200, allowed.text
+        assert [tuple(row) for row in _preparation_rows(repo, execution)] == [
+            (0, "STORYFILM_CACHE"),
+            (1, "CLIENT_IMAGES"),
+            (2, "CLIENT_IMAGES"),
+        ]
+        assert _held_slots(repo, execution) == [1]
+
+
+def test_concurrent_prepare_and_image_dispatch_never_hold_a_cached_slot(actual_cache):
+    from concurrent.futures import ThreadPoolExecutor
+
+    repo, project, registration, _, _ = actual_cache
+    _enable_budgets(repo, project)
+    with app_for(repo) as client:
+        execution = post(client, project, PREFIX, registration).json()["execution_id"]
+
+    def prepare_table():
+        with app_for(repo) as client:
+            return post(
+                client,
+                project,
+                f"{PREFIX}/{execution}/cache-preparations",
+                {"registration": registration},
+            )
+
+    def dispatch_image():
+        with app_for(repo) as client:
+            return post(
+                client,
+                project,
+                f"{PREFIX}/{execution}/image-dispatch",
+                {"stage_key": "frame", "body_sha256": "b" * 64},
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        prepared_reply, image_reply = (
+            future.result()
+            for future in (
+                executor.submit(prepare_table),
+                executor.submit(dispatch_image),
+            )
+        )
+    table = [tuple(row) for row in _preparation_rows(repo, execution)]
+    held = _held_slots(repo, execution)
+    if prepared_reply.status_code == 200:
+        assert image_reply.status_code == 200, image_reply.text
+        assert table == [(0, "STORYFILM_CACHE"), (1, "CLIENT_IMAGES"), (2, "CLIENT_IMAGES")]
+        assert held == [1]
+    else:
+        assert prepared_reply.status_code == 409
+        assert prepared_reply.json()["detail"] == "INPUT_UNVERIFIABLE"
+        assert table == []
+        assert image_reply.status_code == 200, image_reply.text
+        assert held == [0]
+
+
+def test_concurrent_prepares_publish_one_identical_table(actual_cache):
+    from concurrent.futures import ThreadPoolExecutor
+
+    repo, project, registration, _, _ = actual_cache
+    with app_for(repo) as client:
+        execution = post(client, project, PREFIX, registration).json()["execution_id"]
+
+    def prepare_table():
+        with app_for(repo) as client:
+            return post(
+                client,
+                project,
+                f"{PREFIX}/{execution}/cache-preparations",
+                {"registration": registration},
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        replies = list(executor.map(lambda _: prepare_table(), (0, 1)))
+    assert [reply.status_code for reply in replies] == [200, 200]
+    assert replies[0].json() == replies[1].json()
+    assert [tuple(row) for row in _preparation_rows(repo, execution)] == [
+        (0, "STORYFILM_CACHE"),
+        (1, "CLIENT_IMAGES"),
+        (2, "CLIENT_IMAGES"),
+    ]
+    assert_no_attempt(repo)
