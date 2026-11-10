@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vitest";
 import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
 import { sampleFilm, type FilmProject } from "../film/project";
 import { sceneLocationTargets } from "../film/location-reference";
@@ -424,6 +424,7 @@ it("keeps a native cached first slot separate from the later explicitly issued c
     };
   });
   const continuity = vi.spyOn(continuityFrame, "ensureContinuityFrame");
+  onTestFinished(() => continuity.mockRestore());
   const clientImagesAtVideo: number[] = [];
   f.video.mockImplementation(async () => {
     const frameCalls = (f.still.mock.calls as unknown as unknown[][]).filter(
@@ -462,7 +463,6 @@ it("keeps a native cached first slot separate from the later explicitly issued c
     f.video.mock.invocationCallOrder[0]!,
   );
   expect(continuity.mock.invocationCallOrder[0]).toBeLessThan(f.video.mock.invocationCallOrder[1]!);
-  continuity.mockRestore();
   expect(f.prepare).toHaveBeenCalledTimes(1);
   await waitFor(() =>
     expect(f.stored().shots[0]!.takes.filter((take) => take.status === "done")).toHaveLength(2),

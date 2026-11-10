@@ -7823,55 +7823,59 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   ) : (
                     exportDelivery.view
                   )}
-                  {film && !exportQc && !exporting ? (
-                    <ExportSoundChoice
-                      film={film}
-                      onSilent={() => setFilm({ ...film, audioDecision: "SILENT_BY_USER" })}
-                      onWithAudio={() => setFilm({ ...film, audioDecision: "WITH_AUDIO" })}
-                      onMakeSound={() => {
-                        setExportOpen(false);
-                        setStage("edit");
-                      }}
-                    />
-                  ) : null}
-                  <div className="acts">
-                    <button className="btn" onClick={() => setExportOpen(false)}>
-                      关闭
-                    </button>
-                    {exportDelivery.available ? (
-                      <>
-                        <button
-                          className="btn"
-                          title="打开导出的文件夹"
-                          onClick={exportDelivery.onReveal}
-                        >
-                          打开文件夹
-                        </button>
-                        <button
-                          className="btn"
-                          title="播放导出的文件"
-                          onClick={exportDelivery.onOpen}
-                        >
-                          播放
-                        </button>
-                      </>
-                    ) : null}
-                    <span className="sp" />
-                    {!exportQc ? (
-                      <button
-                        className="btn primary"
-                        disabled={
-                          exporting || cleanCopyBusy || exportQcBusy || exportCheckBlocked(film)
-                        }
-                        aria-describedby={exportCheckBlocked(film) ? "export-sound-why" : undefined}
-                        onClick={() => {
-                          if (exportCheckBlocked(film)) return;
-                          void startExport();
+                  <div className="export-dock">
+                    {film && !exportQc && !exporting ? (
+                      <ExportSoundChoice
+                        film={film}
+                        onSilent={() => setFilm({ ...film, audioDecision: "SILENT_BY_USER" })}
+                        onWithAudio={() => setFilm({ ...film, audioDecision: "WITH_AUDIO" })}
+                        onMakeSound={() => {
+                          setExportOpen(false);
+                          setStage("edit");
                         }}
-                      >
-                        检查成片
-                      </button>
+                      />
                     ) : null}
+                    <div className="acts">
+                      <button className="btn" onClick={() => setExportOpen(false)}>
+                        关闭
+                      </button>
+                      {exportDelivery.available ? (
+                        <>
+                          <button
+                            className="btn"
+                            title="打开导出的文件夹"
+                            onClick={exportDelivery.onReveal}
+                          >
+                            打开文件夹
+                          </button>
+                          <button
+                            className="btn"
+                            title="播放导出的文件"
+                            onClick={exportDelivery.onOpen}
+                          >
+                            播放
+                          </button>
+                        </>
+                      ) : null}
+                      <span className="sp" />
+                      {!exportQc ? (
+                        <button
+                          className="btn primary"
+                          disabled={
+                            exporting || cleanCopyBusy || exportQcBusy || exportCheckBlocked(film)
+                          }
+                          aria-describedby={
+                            exportCheckBlocked(film) ? "export-sound-why" : undefined
+                          }
+                          onClick={() => {
+                            if (exportCheckBlocked(film)) return;
+                            void startExport();
+                          }}
+                        >
+                          检查成片
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </>
               )}
