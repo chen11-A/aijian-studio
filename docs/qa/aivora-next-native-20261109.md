@@ -134,3 +134,11 @@ exit 0。1 file，2 passed，141 skipped，4.63s。这次修复提交是 `06ccc2
 不是后端 `test_real_original_changed_with_restored_size_and_mtime_is_not_reused`。那条签名是同长覆写、SHA 不同、全部 stat 含 ctime 不变、identity cache 误报 `VERIFIED`，20ms 后 ctime 变化才拒绝，记录在 `c1a70020`。这三份 job 的 annotations 没有该测试名，本片不重复调查，也不把那道门当成通过。
 
 `prepareSlots` 仍未接。不自行合并。
+
+## 新 head 6dede4f 的已有 CI
+
+`6dede4f76c6618453a9d06eb6b5ea14fcb3e9a59` 的 push [42733662667](https://github.com/chen11-A/aijian-studio/actions/runs/42733662667) 与 PR [42733670872](https://github.com/chen11-A/aijian-studio/actions/runs/42733670872) 都在 Typecheck 失败，签名相同，只看一次。`ProWorkspace.test.tsx` 第 3229 行把 `writeFilmProject` 的参数当成 `unknown`，`shots`、`item`、`still` 因此报错。Vitest 不跑 `tsc`，所以上一轮定向没有拦住。现已把这次保存标成 `FilmProject | undefined`。该修复是 `5f0b169cbdae47de3046319c35f037a6b6ddbc27`。
+
+定向仍是上一条过滤命令，exit 0，2 passed / 141 skipped，4.56s。`pnpm --filter @aijian/studio-web typecheck`（`tsc -b --pretty false`）exit 0。没有重跑 desktop 类型检查、desktop 2515 或 web 5638。
+
+PR 的 `pro-scene-audio (ubuntu)` job `129557595459` 16 项里只失败 `1280x800-16x9-scene-audio-confirm-remove`，停在 `pro-scene-audio-cases.mjs:255` 等待「声音已加入并保存」。摘要是 `sceneReply=ADDED`、`sceneSaved=0`。同一提交的 push job `129557565894` 整项通过，其余 15 个组合也通过。本片没有改这场审计或场景声音产品代码。不把这一次单独失败当成通过，也不改断言。
