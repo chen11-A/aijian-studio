@@ -252,6 +252,26 @@ function fixture(partial = false, count = 1) {
     },
   };
 }
+async function adoptGeneratedPictures() {
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "创作阶段" })).getByRole("button", {
+      name: /分镜/,
+    }),
+  );
+  const rows = () =>
+    screen.getAllByRole("button").filter((button) => button.classList.contains("card"));
+  await waitFor(() => expect(rows().length).toBeGreaterThan(0));
+  const count = rows().length;
+  for (let index = 0; index < count; index++) {
+    fireEvent.click(rows()[index]!);
+    fireEvent.click(await screen.findByRole("button", { name: "核对并采用" }));
+    const dialog = await screen.findByRole("dialog");
+    for (const match of within(dialog).getAllByRole("button", { name: "符合" }))
+      fireEvent.click(match);
+    fireEvent.click(within(dialog).getByRole("button", { name: "采用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  }
+}
 async function confirmFirstMedia(f: ReturnType<typeof fixture>, beforeContinue?: () => void) {
   const progress = await screen.findByRole("region", { name: "一键成片进度" });
   await waitFor(() =>
@@ -302,6 +322,7 @@ it("runs the real host to human review and a persisted checkpoint before any vid
   await waitFor(() => expect(f.saved().productionPipeline?.status).toBe("checkpoint"));
   expect(f.saved().productionPipeline?.checkpoint?.coverage.every((scene) => scene.ok)).toBe(true);
   expect(f.video).not.toHaveBeenCalled();
+  await adoptGeneratedPictures();
   fireEvent.click(within(progress).getByRole("button", { name: "继续生成" }));
   await waitFor(() => expect(f.video).toHaveBeenCalledOnce());
   expect(screen.queryByRole("button", { name: "开始生成" })).not.toBeInTheDocument();
@@ -360,6 +381,7 @@ it.each([false, true])(
     });
     fireEvent.click(within(progress).getByRole("button", { name: "记下审片结论" }));
     await waitFor(() => expect(f.saved().productionPipeline?.status).toBe("checkpoint"));
+    await adoptGeneratedPictures();
     fireEvent.click(within(progress).getByRole("button", { name: "继续生成" }));
     await waitFor(() =>
       expect(

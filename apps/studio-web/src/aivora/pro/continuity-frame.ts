@@ -81,15 +81,18 @@ export async function ensureContinuityFrame(
     return fail("CONTINUITY_SOURCE_NOT_READY", "前镜尚无已选定的本地视频，请先完成前镜。");
   const prior = currentShot.continuityFrame;
   if (
-    !host.execution &&
     prior &&
     prior.sourceShotId === source.id &&
     prior.sourceTakeId === take.id &&
     prior.sourceVideoPath === sourcePath &&
     prior.path === currentShot.poster &&
     localPath(prior.path, /\.png$/i)
-  )
+  ) {
+    // The desktop writes a new stills/<random>.png on every extract. Reuse the
+    // adopted frame, and still resolve the protected stage so a missing stage fails.
+    if (host.execution) host.execution.continuity(currentShot.id, source.id);
     return currentShot;
+  }
   const extract = host.extract ?? window.aijian?.extractFilmLastFrame;
   if (!extract) return fail("CONTINUITY_DESKTOP_REQUIRED", "需要桌面端提取前镜末帧。");
   const snapshot = JSON.stringify(captured);

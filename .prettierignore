@@ -17,6 +17,8 @@ LICENSE
 NOTICE
 packages/contracts/openapi.json
 packages/contracts/src/generated.ts
+# Frozen product text. Do not reflow.
+docs/aivora/product/
 # 音效库和本地模块（gpt/aivora-modules）原样合入，还没接进主程序；后端接入时再统一排版 [M-02]
 assets/audio-library/
 packages/aivora-modules/

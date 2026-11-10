@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { sampleFilm, writeFilm, readFilm, type FilmProject } from "../../film/project";
 import { prepareVideoQueue } from "../../film/generation-queue";
+import { saveStillReview, stillChecklist } from "../still-acceptance";
 import {
   applyVideoResponse,
   runPreparedGeneration,
@@ -19,7 +20,16 @@ function setup(versions = 1) {
       lines: [],
     },
   ];
-  const queue = prepareVideoQueue(base, base.shots, versions, false);
+  const verdicts = Object.fromEntries(
+    stillChecklist(base, base.shots[0]!).map((item) => [item.id, "match" as const]),
+  );
+  const adopted = saveStillReview(
+    base,
+    base.shots[0]!.id,
+    verdicts,
+    "2026-11-10T00:00:00.000Z",
+  ).film;
+  const queue = prepareVideoQueue(adopted, adopted.shots, versions, false);
   let live: FilmProject | null = queue.film;
   const events: string[] = [];
   const host: GenerationRunHost = {
@@ -63,6 +73,30 @@ function setup(versions = 1) {
     },
   };
 }
+
+it("does not dispatch when the adopted picture is replaced or a first frame is generated", async () => {
+  const swapped = setup();
+  swapped.host.continuity = vi.fn(async (_film, shot) => ({
+    ...shot,
+    poster: "/films/other-frame.png",
+  }));
+  await runPreparedGeneration(swapped.queue, swapped.host);
+  expect(swapped.host.request).not.toHaveBeenCalled();
+  expect(swapped.host.notice).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "镜头 1 的画面还没核对" }),
+  );
+
+  const generated = setup();
+  generated.host.frame = vi.fn(async (_film, shot) => ({
+    ...shot,
+    poster: "/films/generated-frame.png",
+  }));
+  await runPreparedGeneration(generated.queue, generated.host);
+  expect(generated.host.request).not.toHaveBeenCalled();
+  expect(generated.host.notice).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "镜头 1 的画面还没核对" }),
+  );
+});
 
 it("persists queued and running states before dispatch and prepares continuity before the first frame", async () => {
   const { queue, host, events } = setup();
@@ -137,6 +171,46 @@ it("rejects late results after the run loses its project or abort owner", async 
   expect(host.current()?.id).toBe("other");
   expect(host.completed).not.toHaveBeenCalled();
   expect(host.current()?.shots[0]?.takes[0]?.videoPath).not.toBe("/films/late.mp4");
+});
+
+it("writes a successful preview onto the poster when the picture is not adopted", () => {
+  const { queue } = setup();
+  const shot = {
+    ...queue.film.shots[0]!,
+    poster: "/films/unadopted.png",
+    stills: [],
+  };
+  const film = { ...queue.film, shots: [shot] };
+  const result = applyVideoResponse(film, shot, shot.takes[0]!, {
+    status: "SUCCEEDED",
+    output_path: "/films/video.mp4",
+    preview_image: "https://example.com/preview.png",
+  });
+  expect(result.film.shots[0]?.poster).toBe("https://example.com/preview.png");
+  expect(result.film.shots[0]?.takes[0]?.stillUrl).toBe("https://example.com/preview.png");
+});
+
+it("sends both versions with the adopted still when the preview is only an http thumbnail", async () => {
+  const { queue, host } = setup(2);
+  const adopted = "/films/frame.png";
+  host.request = vi.fn<GenerationRunHost["request"]>().mockImplementation(async () => ({
+    data: {
+      status: "SUCCEEDED",
+      output_path: "/films/video.mp4",
+      preview_image: "https://example.com/preview.png",
+    },
+    request_id: "test",
+  }));
+  await runPreparedGeneration(queue, host);
+  expect(host.request).toHaveBeenCalledTimes(2);
+  for (const [body] of vi.mocked(host.request).mock.calls) {
+    expect((body.shots?.[0] as { still?: string } | undefined)?.still).toBe(adopted);
+  }
+  expect(host.current()?.shots[0]?.poster).toBe(adopted);
+  expect(host.current()?.shots[0]?.takes.map((take) => take.stillUrl)).toEqual([
+    "https://example.com/preview.png",
+    "https://example.com/preview.png",
+  ]);
 });
 
 it("executes versions sequentially and retains the first selected successful version", async () => {
@@ -257,9 +331,10 @@ it("retains unrelated audio while applying successful narration and measured dur
   });
   expect(result.film.shots[0]).toMatchObject({
     seconds: 8,
-    poster: "data:image/png;base64,AA==",
+    poster: "/films/frame.png",
     sound: { source: "dub" },
   });
+  expect(result.film.shots[0]?.takes[0]?.stillUrl).toBe("data:image/png;base64,AA==");
   expect(result.film.audioClips).toEqual(expect.arrayContaining(prior));
   expect(result.film.audioClips).toContainEqual(
     expect.objectContaining({

@@ -80,6 +80,10 @@ async function open() {
   render(<ProWorkspace />);
   await screen.findByLabelText("这一场");
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  {
+    const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+    if (silentChoice) fireEvent.click(silentChoice);
+  }
   fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
   const button = await screen.findByRole("button", {
     name: /第 1 场第 1 个镜头：重建可核验的无字幕副本/,

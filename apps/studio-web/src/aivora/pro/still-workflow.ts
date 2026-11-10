@@ -64,6 +64,10 @@ export async function makeFourStills(base: FilmProject, shot: FilmShot, host: St
   };
 }
 
+/**
+ * Pipeline stills still call this (`makePipelineStill`). Video generation does not:
+ * a missing first frame stops at the adoption gate instead of being invented here.
+ */
 export async function ensureShotFrame(
   base: FilmProject,
   shot: FilmShot,

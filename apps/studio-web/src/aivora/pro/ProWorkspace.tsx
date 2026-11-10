@@ -3,7 +3,11 @@ import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./acti
 import { audioTimelineBox } from "./audio-mix-timeline";
 import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
 import { AudioMixPreview } from "./AudioMixPreview";
+import { ExportSoundChoice, exportCheckBlocked } from "./ExportSoundChoice";
 import { FixedInputImportButton } from "./FixedInputImportButton";
+import { StillAcceptanceControls, guardBlockedVideo } from "./StillAcceptanceDialog";
+import { soundRowLabel, UNGENERATED_SOUND_LABEL } from "./sound-export-decision";
+import { currentStillUrl, stillAccepted, videoGate } from "./still-acceptance";
 import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
@@ -4054,12 +4058,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
-  ) {
+  ): Promise<"STILL_NOT_ACCEPTED" | void> {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id) || persistentHistoryBusyRef.current) return;
     generationRuns.current.add(id);
     try {
-      await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
+      return await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
     } finally {
       generationRuns.current.delete(id);
     }
@@ -4075,7 +4079,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
-  ) {
+  ): Promise<"STILL_NOT_ACCEPTED" | void> {
     const mine = ++runToken.current;
     const requestedVersions = pipeline?.versions ?? versions;
     const applyGeneration = async (next: FilmProject) => {
@@ -4102,6 +4106,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("先在剧本里拆镜头。");
       return;
     }
+    const project = live;
+    if (!project) return;
+    const unaccepted = selected
+      .map((item) => project.shots.find((shot) => shot.id === item.id) ?? item)
+      .find((shot) => !stillAccepted(project, shot));
+    if (unaccepted) {
+      setNotice(`镜头 ${unaccepted.no} 的画面还没核对`);
+      setStage("board");
+      const index = project.shots.findIndex((item) => item.id === unaccepted.id);
+      if (index >= 0) setShot(index);
+      return "STILL_NOT_ACCEPTED";
+    }
     setNotice(generationEstimate(selected.length, requestedVersions, duration));
     if (preflight.kind === "stopped") {
       setNotice(preflight.notice);
@@ -4124,6 +4140,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     selected = latestTargets.filter((target): target is FilmShot => Boolean(target));
+    const unacceptedNow = selected.find((shot) => !stillAccepted(latestGeneration, shot));
+    if (unacceptedNow) {
+      setNotice(`镜头 ${unacceptedNow.no} 的画面还没核对`);
+      setStage("board");
+      const index = latestGeneration.shots.findIndex((item) => item.id === unacceptedNow.id);
+      if (index >= 0) setShot(index);
+      return "STILL_NOT_ACCEPTED";
+    }
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     if (canSubmit) {
@@ -6530,6 +6554,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ),
                     });
                   }}
+                  onRestill={() => void makeShotStill()}
                   onCreate={() => {
                     const current = shownShots[shot];
                     if (!current) return;
@@ -7798,38 +7823,59 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   ) : (
                     exportDelivery.view
                   )}
-                  <div className="acts">
-                    <button className="btn" onClick={() => setExportOpen(false)}>
-                      关闭
-                    </button>
-                    {exportDelivery.available ? (
-                      <>
-                        <button
-                          className="btn"
-                          title="打开导出的文件夹"
-                          onClick={exportDelivery.onReveal}
-                        >
-                          打开文件夹
-                        </button>
-                        <button
-                          className="btn"
-                          title="播放导出的文件"
-                          onClick={exportDelivery.onOpen}
-                        >
-                          播放
-                        </button>
-                      </>
+                  <div className="export-dock">
+                    {film && !exportQc && !exporting ? (
+                      <ExportSoundChoice
+                        film={film}
+                        onSilent={() => setFilm({ ...film, audioDecision: "SILENT_BY_USER" })}
+                        onWithAudio={() => setFilm({ ...film, audioDecision: "WITH_AUDIO" })}
+                        onMakeSound={() => {
+                          setExportOpen(false);
+                          setStage("edit");
+                        }}
+                      />
                     ) : null}
-                    <span className="sp" />
-                    {!exportQc ? (
-                      <button
-                        className="btn primary"
-                        disabled={exporting || cleanCopyBusy || exportQcBusy}
-                        onClick={() => void startExport()}
-                      >
-                        检查成片
+                    <div className="acts">
+                      <button className="btn" onClick={() => setExportOpen(false)}>
+                        关闭
                       </button>
-                    ) : null}
+                      {exportDelivery.available ? (
+                        <>
+                          <button
+                            className="btn"
+                            title="打开导出的文件夹"
+                            onClick={exportDelivery.onReveal}
+                          >
+                            打开文件夹
+                          </button>
+                          <button
+                            className="btn"
+                            title="播放导出的文件"
+                            onClick={exportDelivery.onOpen}
+                          >
+                            播放
+                          </button>
+                        </>
+                      ) : null}
+                      <span className="sp" />
+                      {!exportQc ? (
+                        <button
+                          className="btn primary"
+                          disabled={
+                            exporting || cleanCopyBusy || exportQcBusy || exportCheckBlocked(film)
+                          }
+                          aria-describedby={
+                            exportCheckBlocked(film) ? "export-sound-why" : undefined
+                          }
+                          onClick={() => {
+                            if (exportCheckBlocked(film)) return;
+                            void startExport();
+                          }}
+                        >
+                          检查成片
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </>
               )}
@@ -8282,7 +8328,14 @@ function exportLine(film: FilmProject): string {
   const seconds = film.shots.reduce((sum, item) => sum + item.seconds, 0);
   const length = seconds >= 90 ? `约 ${Math.round(seconds / 60)} 分钟` : `约 ${seconds} 秒`;
   const missing = chosenExport(film).missing.length;
-  const gap = missing === 0 ? "都做好了" : `还有 ${missing} 个镜头没做好`;
+  const gap =
+    missing > 0
+      ? `还有 ${missing} 个镜头没做好`
+      : film.audioDecision === "SILENT_BY_USER"
+        ? "本片静音"
+        : film.audioDecision === "WITH_AUDIO"
+          ? "都做好了"
+          : "还没决定这部片子有没有声音";
   return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · ${length} · ${gap}`;
 }
 
@@ -10610,6 +10663,14 @@ function BoardPage({
                 </div>
               </PropGroup>
             </div>
+            {currentStillUrl(current) ? (
+              <StillAcceptanceControls
+                film={film}
+                shot={current}
+                onFilm={onFilm}
+                onRestill={onStills}
+              />
+            ) : null}
             <div className="pfoot2 one">
               <div className="more-wrap">
                 <button
@@ -10665,9 +10726,18 @@ function BoardPage({
                   生成画面
                 </button>
               ) : (
-                <button className="btn" type="button" onClick={onGenerate}>
-                  生成视频
-                </button>
+                <>
+                  <button
+                    className="btn"
+                    type="button"
+                    aria-describedby={
+                      videoGate(film, current).enabled ? undefined : `still-gate-${current.id}`
+                    }
+                    {...guardBlockedVideo(videoGate(film, current).enabled, onGenerate)}
+                  >
+                    生成视频
+                  </button>
+                </>
               )}
             </div>
           </>
@@ -10765,6 +10835,7 @@ function GeneratePage({
   duration,
   onDuration,
   onCreate,
+  onRestill,
   onBack,
   playing,
   onPlaying,
@@ -10782,6 +10853,7 @@ function GeneratePage({
   duration: number;
   onDuration: (seconds: number) => void;
   onCreate: () => void;
+  onRestill: () => void;
   onBack: () => void;
   playing: boolean;
   onPlaying: (value: boolean) => void;
@@ -11070,7 +11142,33 @@ function GeneratePage({
                 <span>Grok 会员</span>
                 <small title={GENERATE_MODEL}>成片</small>
               </div>
-              <button className={quiet ? "btn block" : "btn primary block"} onClick={onCreate}>
+              {current && !currentStillUrl(current) ? (
+                <div className="still-gate">
+                  <p id={`still-gate-${current.id}`} className="still-gate-reason">
+                    <span>{videoGate(film, current).reason}</span>
+                  </p>
+                  <button className="btn" type="button" onClick={onRestill}>
+                    生成画面
+                  </button>
+                </div>
+              ) : current && currentStillUrl(current) ? (
+                <StillAcceptanceControls
+                  film={film}
+                  shot={current}
+                  onFilm={onFilm}
+                  onRestill={onRestill}
+                />
+              ) : null}
+              <button
+                className={quiet ? "btn block" : "btn primary block"}
+                type="button"
+                aria-describedby={
+                  current && !videoGate(film, current).enabled
+                    ? `still-gate-${current.id}`
+                    : undefined
+                }
+                {...guardBlockedVideo(!current || videoGate(film, current).enabled, onCreate)}
+              >
                 <Ic name="video" size={16} />
                 生成 {versions} 个版本
               </button>
@@ -12409,6 +12507,20 @@ function EditPage({
                 actualMixPlan?.tracks.some((track) => track.native) ? null : (
                   <span className="lane-empty">这一轨还没有内容</span>
                 )}
+                {film.audioClips
+                  .filter((item) => soundRowLabel(item) === UNGENERATED_SOUND_LABEL)
+                  .map((item) => (
+                    <span key={item.id} className="lane-empty">
+                      {UNGENERATED_SOUND_LABEL}
+                    </span>
+                  ))}
+                {film.audioClips
+                  .filter((item) => soundRowLabel(item).startsWith("增益在最低档"))
+                  .map((item) => (
+                    <span key={`${item.id}-gain`} className="lane-empty">
+                      {soundRowLabel(item)}
+                    </span>
+                  ))}
                 {film.audioClips
                   .filter(
                     (item) =>

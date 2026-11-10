@@ -121,6 +121,10 @@ async function open() {
   await screen.findByLabelText("这一场");
   await firstWrite.promise;
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  {
+    const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+    if (silentChoice) fireEvent.click(silentChoice);
+  }
   fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "审核后发布" })).toBeEnabled());
   const publishNow = () => fireEvent.click(screen.getByRole("button", { name: "审核后发布" }));
@@ -263,6 +267,10 @@ it("retires retained file actions synchronously on project change and when a new
   expect(f.reveal).not.toHaveBeenCalled();
   expect(screen.queryByRole("region", { name: "交付证据" })).not.toBeInTheDocument();
   act(() => f.host().applyLive(original));
+  {
+    const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+    if (silentChoice) fireEvent.click(silentChoice);
+  }
   fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
   act(() => {
     old.onOpen();

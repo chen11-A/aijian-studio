@@ -143,8 +143,13 @@ export async function filmPipelineFingerprint(film: FilmProject): Promise<string
   const upgraded = upgradeFilm(structuredClone(film));
   if (!upgraded) throw new Error("PIPELINE_INPUT_INVALID");
   const normalized = applyContinuityChecks(upgraded);
+  // Adopting the current poster only records a human checklist. It does not change the
+  // picture or the script, so a one-click run can continue after 核对并采用.
   normalized.shots = normalized.shots.map((shot) => ({
     ...shot,
+    stills: shot.stills
+      .filter((item) => item.prompt.trim() || item.url !== shot.poster)
+      .map((item) => ({ ...item, acceptance: undefined })),
     takes: shot.takes.map((take) => ({
       ...take,
       videoUrl:

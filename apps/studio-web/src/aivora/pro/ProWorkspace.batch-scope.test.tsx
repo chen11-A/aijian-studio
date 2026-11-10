@@ -5,6 +5,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
 import { ProWorkspace } from "./ProWorkspace";
+import { saveStillReview, stillChecklist } from "./still-acceptance";
 
 const PROJECT_ID = `prj_${"a".repeat(32)}`;
 const success = { data: { status: "SUCCEEDED", output_path: "/tmp/batch-new.mp4" } };
@@ -38,6 +39,14 @@ function fixture() {
       },
     ],
   }));
+  film.shots = film.shots.map((shot) => {
+    const verdicts = Object.fromEntries(
+      stillChecklist(film, shot).map((item) => [item.id, "match" as const]),
+    );
+    return saveStillReview(film, shot.id, verdicts, "2026-11-10T00:00:00.000Z").film.shots.find(
+      (item) => item.id === shot.id,
+    )!;
+  });
   return film;
 }
 

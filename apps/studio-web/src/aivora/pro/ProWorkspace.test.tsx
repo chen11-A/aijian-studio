@@ -1,4 +1,3 @@
-import type { FilmGenerationExecutionResult } from "@aijian/contracts/film-generation-execution";
 import { generationExecutionFixture } from "./generation-execution.test-fixture";
 import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
 import { historyRecordHash } from "./actions/persistent-history";
@@ -14,12 +13,14 @@ import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
+import * as filmProject from "../film/project";
 import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
 import { NOTICE_COPY } from "../next/wiring/noticeCopy";
 import * as directionTransactions from "./actions/shot-direction-transaction";
 import * as artTransactions from "./actions/art-transaction";
 import { ProWorkspace } from "./ProWorkspace";
+import { saveStillReview, stillChecklist } from "./still-acceptance";
 
 const PROJECT_ID = `prj_${"a".repeat(32)}`;
 
@@ -136,119 +137,152 @@ describe("professional workspace", () => {
     );
   });
 
-  it.each([false, true])(
-    "uses the preceding selected video last frame (regenerate source: %s)",
-    async (regenerateSource) => {
-      const sourcePath = regenerateSource ? "/tmp/new-source.mp4" : "/tmp/source.mp4";
-      let completed = 0;
-      const video = vi.fn(async () => ({
-        data: {
-          status: "SUCCEEDED",
-          output_path: regenerateSource && ++completed === 1 ? sourcePath : "/tmp/next-video.mp4",
-        },
-      }));
-      installDesktop(video);
-      const film = sampleFilm();
-      const source = {
-        ...film.shots[0]!,
-        line: "",
-        lines: [],
-        speaker: "",
-        selectedTakeId: "source-take",
-        poster: "/tmp/source.png",
-      };
-      source.takes = [
-        {
-          id: "source-take",
-          shotId: source.id,
-          index: 1,
-          status: regenerateSource ? "failed" : "done",
-          stillUrl: source.poster,
-          videoPath: regenerateSource ? "" : sourcePath,
-          videoUrl: "",
-          prompt: "",
-          createdAt: "",
-          reason: "",
-        },
-      ];
-      const next = {
-        ...source,
-        id: "next-linked-shot",
-        no: 2,
-        takes: [],
-        selectedTakeId: "",
-        poster: "/tmp/preview.png",
-        continuityFromShotId: source.id,
-      };
-      film.shots = [source, next];
-      const extract = vi.fn(async () => ({
-        path: "/tmp/last-frame.png",
-        sourceVideoPath: sourcePath,
-      }));
-      window.aijian!.extractFilmLastFrame = extract;
-      vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
-        const writes = vi
-          .mocked(window.aijian!.writeFilmProject!)
-          .mock.calls.map(([value]) => value)
-          .filter((value) => value.id === id);
-        return structuredClone(writes.at(-1) ?? film);
-      });
-      window.localStorage.setItem("aivora.film.activeId", film.id);
-      render(<ProWorkspace projectId={PROJECT_ID} />);
-      await screen.findAllByText(film.title);
-      // Loading the title does not imply that asynchronous account/model checks finished.
-      await waitFor(() =>
-        expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
-      );
-
+  it("uses the preceding selected video last frame after that frame is adopted", async () => {
+    let frameCount = 0;
+    const extract = vi.fn(async (_series: string, videoPath: string) => ({
+      path: `/tmp/last-frame-${++frameCount}.png`,
+      sourceVideoPath: videoPath,
+    }));
+    let videoCount = 0;
+    const video = vi.fn(async () => ({
+      data: { status: "SUCCEEDED", output_path: `/tmp/made-${++videoCount}.mp4` },
+    }));
+    installDesktop(video);
+    const film = sampleFilm();
+    const source = {
+      ...film.shots[0]!,
+      characters: [],
+      line: "",
+      lines: [],
+      speaker: "",
+      selectedTakeId: "source-take",
+      poster: "/tmp/source.png",
+    };
+    source.takes = [
+      {
+        id: "source-take",
+        shotId: source.id,
+        index: 1,
+        status: "done" as const,
+        stillUrl: source.poster,
+        videoPath: "/tmp/source.mp4",
+        videoUrl: "",
+        prompt: "",
+        createdAt: "",
+        reason: "",
+      },
+    ];
+    const linked = {
+      ...source,
+      id: "next-linked-shot",
+      no: 2,
+      takes: [],
+      selectedTakeId: "",
+      poster: "/tmp/preview.png",
+      continuityFromShotId: source.id,
+    };
+    film.shots = [source, linked];
+    window.aijian!.extractFilmLastFrame = extract;
+    vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
+      const writes = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.map(([value]) => value)
+        .filter((value) => value.id === id);
+      return structuredClone(writes.at(-1) ?? film);
+    });
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    await screen.findAllByText(film.title);
+    await waitFor(() =>
+      expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
+    );
+    const openShot = (label: RegExp) => {
+      const row = screen.queryByRole("button", { name: label });
+      if (row) {
+        fireEvent.click(row);
+        return;
+      }
+      const back = screen.queryByRole("button", { name: "全部镜头" });
+      if (back) fireEvent.click(back);
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(
         screen.getByRole("button", {
           name: new RegExp(film.scenes.find((scene) => scene.id === source.sceneId)!.title),
         }),
       );
-      fireEvent.click(screen.getByRole("button", { name: /镜头 2/ }));
-      if (regenerateSource) fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
-      else {
-        fireEvent.click(screen.getByRole("button", { name: "生成视频" }));
-        fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
-      }
+      fireEvent.click(screen.getByRole("button", { name: label }));
+    };
+    const adopt = () => {
+      fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+      for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+      fireEvent.click(screen.getByRole("button", { name: "采用" }));
+    };
+    const startOne = () => {
+      const open = screen.queryByRole("button", { name: "生成视频" });
+      if (open) fireEvent.click(open);
+      fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
-      await waitFor(() => expect(video).toHaveBeenCalledTimes(regenerateSource ? 2 : 1));
-      const prepared: FilmGenerationExecutionResult = await vi.mocked(
-        window.aijian!.prepareFilmGenerationExecution!,
-      ).mock.results[0]!.value;
-      expect(prepared.kind).toBe("PREPARED");
-      if (prepared.kind !== "PREPARED") throw Error("expected protected preparation");
-      const stage = prepared.stages.find(
-        (stage) => stage.kind === "continuity-frame" && stage.targetId === next.id,
-      );
-      expect(stage).toMatchObject({ sourceShotId: source.id });
-      expect(extract).toHaveBeenCalledExactlyOnceWith(film.seriesId, sourcePath, {
-        executionId: prepared.executionId,
-        stageId: stage!.stageId,
-      });
-      const body = (
-        video.mock.calls.at(-1) as unknown as [string, { shots: { still: string }[] }]
-      )[1];
-      expect(body.shots[0]!.still).toBe("/tmp/last-frame.png");
-      expect(window.aijian!.generateFilmStill).toHaveBeenCalledTimes(1);
-      expect(JSON.stringify(vi.mocked(window.aijian!.generateFilmStill!).mock.calls[0])).toContain(
-        "空镜，没有人物",
-      );
-      await waitFor(() => {
-        const saved = vi
-          .mocked(window.aijian!.writeFilmProject!)
-          .mock.calls.at(-1)![0] as FilmProject;
-        if (regenerateSource) expect(saved.shots[0]!.selectedTakeId).not.toBe("source-take");
-        expect(saved.shots[1]!.continuityFrame).toMatchObject({
+    };
+    const sentStill = () =>
+      (video.mock.calls.at(-1) as unknown as [string, { shots: { still?: string }[] }])[1].shots[0]
+        ?.still;
+    const preparedStages = async () => {
+      const prepared = await vi
+        .mocked(window.aijian!.prepareFilmGenerationExecution!)
+        .mock.results.at(-1)!.value;
+      if (prepared.kind !== "PREPARED") throw new Error(prepared.kind);
+      return prepared.stages;
+    };
+
+    await openShot(/镜头 2/);
+    adopt();
+    startOne();
+    await waitFor(() => expect(extract).toHaveBeenCalledTimes(1));
+    expect(video).not.toHaveBeenCalled();
+    expect((await screen.findAllByText(/镜头 2 的画面还没核对/)).length).toBeGreaterThan(0);
+
+    adopt();
+    startOne();
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(1));
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect(sentStill()).toBe("/tmp/last-frame-1.png");
+    expect(await preparedStages()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "continuity-frame",
+          targetId: linked.id,
           sourceShotId: source.id,
-          sourceTakeId: saved.shots[0]!.selectedTakeId,
-          path: "/tmp/last-frame.png",
-        });
-      });
-    },
-  );
+        }),
+      ]),
+    );
+
+    await openShot(/镜头 1/);
+    adopt();
+    startOne();
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "用第 2 版" }));
+
+    await openShot(/镜头 2/);
+    startOne();
+    await waitFor(() => expect(extract).toHaveBeenCalledTimes(2));
+    expect(video).toHaveBeenCalledTimes(2);
+    expect((await screen.findAllByText(/镜头 2 的画面还没核对/)).length).toBeGreaterThan(0);
+
+    adopt();
+    startOne();
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(3));
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(sentStill()).toBe("/tmp/last-frame-2.png");
+    expect(await preparedStages()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "continuity-frame",
+          targetId: linked.id,
+          sourceShotId: source.id,
+        }),
+      ]),
+    );
+  });
 
   it("keeps the real imported novel across pages and after synchronous offline cast extraction", async () => {
     const source = readFileSync(
@@ -444,7 +478,17 @@ describe("professional workspace", () => {
     }));
     installDesktop(video);
     const film = sampleFilm();
-    const prepared = prepareVideoQueue(film, [film.shots[0]!], 2, false).film;
+    film.shots[0] = { ...film.shots[0]!, poster: "/tmp/aivora/shot-0.png" };
+    const verdicts = Object.fromEntries(
+      stillChecklist(film, film.shots[0]!).map((item) => [item.id, "match" as const]),
+    );
+    const adopted = saveStillReview(
+      film,
+      film.shots[0]!.id,
+      verdicts,
+      "2026-11-10T00:00:00.000Z",
+    ).film;
+    const prepared = prepareVideoQueue(adopted, [adopted.shots[0]!], 2, false).film;
     const takes = prepared.shots[0]!.takes;
     const stored = setVideoTaskState(prepared, takes[0]!.id, "running");
     vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
@@ -468,6 +512,52 @@ describe("professional workspace", () => {
       expect(saved.shots[0]!.takes.map((take) => take.id)).toEqual(takes.map((take) => take.id));
       expect(saved.shots[0]!.takes.map((take) => take.status)).toEqual(["failed", "done"]);
     });
+  });
+
+  it("blocks 继续排队 on an old project that has no adopted still", async () => {
+    const { prepareVideoQueue, setVideoTaskState } = await import("../film/generation-queue");
+    const video = vi.fn(async () => ({
+      data: { status: "SUCCEEDED", output_path: "/tmp/resumed.mp4" },
+    }));
+    installDesktop(video);
+    const film = sampleFilm();
+    const prepared = prepareVideoQueue(film, [film.shots[0]!], 2, false).film;
+    const takes = prepared.shots[0]!.takes;
+    const stored = setVideoTaskState(prepared, takes[0]!.id, "running");
+    vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
+      const writes = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.map(([film]) => film)
+        .filter((item) => item.id === id);
+      return structuredClone(writes.at(-1) ?? stored);
+    });
+    window.localStorage.setItem("aivora.film.activeId", stored.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    fireEvent.click(await screen.findByRole("button", { name: /后台生成/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "继续排队" }));
+    expect(video).not.toHaveBeenCalled();
+    expect((await screen.findAllByText(/镜头 \d+ 的画面还没核对/)).length).toBeGreaterThan(0);
+  });
+
+  it("blocks a failed retry after the adopted picture description changes", async () => {
+    const createStoryFilm = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    installDesktop(createStoryFilm);
+    await openSample();
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    await adoptOpenStill();
+    fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+    expect((await screen.findAllByText("没有生成成功，可以重试。")).length).toBeGreaterThan(0);
+    const calls = createStoryFilm.mock.calls.length;
+    fireEvent.change(screen.getByLabelText("画面描述"), { target: { value: "改过的画面" } });
+    fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
+    fireEvent.click(screen.getByRole("button", { name: /失败的全部重试/ }));
+    expect(createStoryFilm).toHaveBeenCalledTimes(calls);
+    expect(screen.getAllByText(/镜头 \d+ 的画面还没核对/).length).toBeGreaterThan(0);
   });
 
   it("shows and repairs the selected scene even when it has no shots", async () => {
@@ -714,6 +804,10 @@ describe("professional workspace", () => {
         .find((item) => item.className.includes("tab"))!,
     );
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+    {
+      const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+      if (silentChoice) fireEvent.click(silentChoice);
+    }
     fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
     expect(screen.getByText(/导出前检查没有完成/)).toBeInTheDocument();
     expect(screen.queryByText(/D:\\/)).toBeNull();
@@ -950,12 +1044,14 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("画面描述"), { target: { value: "雨停了" } });
     const counts = screen.getAllByRole("button", { name: "2" });
     fireEvent.click(counts[counts.length - 1]!);
+    await adoptOpenStill();
     fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText("这一版已经生成。", {}, { timeout: 5_000 })).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /^用第 \d+ 版$/ })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
+    await adoptListedShots();
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     await waitFor(() => expect(createStoryFilm.mock.calls.length).toBeGreaterThanOrEqual(8));
@@ -983,6 +1079,10 @@ describe("professional workspace", () => {
       await checkHold;
       return checked;
     });
+    {
+      const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+      if (silentChoice) fireEvent.click(silentChoice);
+    }
     fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
     await waitFor(() => expect(desktop.prepareFilmExport).toHaveBeenCalledOnce());
     const publishReady = await screen.findByRole("button", { name: "审核后发布" });
@@ -1003,6 +1103,10 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "审核后发布" }));
     expect(await screen.findByText(qcFailureText.PUBLISH_FAILED)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "取消本次导出" }));
+    {
+      const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+      if (silentChoice) fireEvent.click(silentChoice);
+    }
     fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
     fireEvent.click(await screen.findByRole("button", { name: "审核后发布" }));
     expect(await screen.findByText(/成片已导出。/)).toBeInTheDocument();
@@ -1030,6 +1134,7 @@ describe("professional workspace", () => {
     fireEvent.click(stageTab("分镜"));
     fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "1" }));
+    await adoptOpenStill();
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect((await screen.findAllByText("没有生成成功，可以重试。")).length).toBeGreaterThan(0);
@@ -1047,6 +1152,7 @@ describe("professional workspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "关上后台生成" }));
     fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
+    await adoptListedShots();
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     await waitFor(() => expect(statusDetail()).toMatch(/已暂停。点继续再生成剩下的/));
@@ -1100,6 +1206,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "较快的一版" }));
     fireEvent.click(screen.getByRole("button", { name: "1" }));
+    await adoptOpenStill();
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
     expect(
       screen.getByText("快速试做不参考定妆照，人物的脸可能和定妆照不一样。"),
@@ -1137,6 +1244,8 @@ describe("professional workspace", () => {
         .filter((item) => item.className.includes("tab") && item.textContent?.includes("分镜"))[0]!,
     );
     fireEvent.click(screen.getAllByRole("button", { name: "单个镜头" })[0]!);
+    await adoptOpenStill();
+    vi.mocked(window.aijian!.generateFilmStill!).mockClear();
     fireEvent.click(screen.getAllByRole("button", { name: "生成 1 个版本" })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: "开始生成" })[0]!);
     expect(await screen.findByText(/模型列表里还没有成片用的视频模型/)).toBeInTheDocument();
@@ -1363,6 +1472,12 @@ describe("professional workspace", () => {
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
+      if (screen.queryByRole("button", { name: "核对并采用" })) {
+        fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+        for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+        fireEvent.click(screen.getByRole("button", { name: "采用" }));
+      }
+      await adoptOpenStill();
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       generationOrder.length = 0;
       // Backup and canonical saves legitimately precede the provider. Wait for the
@@ -1393,6 +1508,10 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
       expect(screen.queryByLabelText("导出文件夹")).toBeNull();
       expect(screen.getByText(/审核后选择保存位置/)).toBeInTheDocument();
+      {
+        const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+        if (silentChoice) fireEvent.click(silentChoice);
+      }
       fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
       expect(await screen.findByRole("button", { name: "审核后发布" })).toBeDisabled();
       expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
@@ -1602,6 +1721,7 @@ describe("professional workspace", () => {
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "1" }));
+      await adoptOpenStill();
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
       await waitFor(() => expect(play).toHaveBeenCalled());
@@ -2598,6 +2718,7 @@ it("asks for the selected shot again after the confirm table", async () => {
   // 4A-U10: one shot's 重新生成 opens its 单镜 panel, the one place videos are made.
   fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
   expect(screen.getByRole("button", { name: "全部镜头" })).toBeInTheDocument();
+  await adoptOpenStill();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   expect(screen.getByTestId("confirm-table")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -2879,10 +3000,15 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   fireEvent.click(screen.getByRole("button", { name: "1" }));
+  await adoptOpenStill();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  {
+    const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+    if (silentChoice) fireEvent.click(silentChoice);
+  }
   fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
   expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "审核后发布" })).toBeDisabled();
@@ -2906,6 +3032,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
       }) as FilmAssemblyResult,
   );
   fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
+  await adoptListedShots();
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   // Observe the whole original generation queue and its saved result before editing.
@@ -2926,6 +3053,10 @@ it("names the shots that are not ready instead of exporting an empty cut", async
   const desktop = installDesktop();
   await openSample();
   fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  {
+    const silentChoice = screen.queryByRole("button", { name: "本片静音" });
+    if (silentChoice) fireEvent.click(silentChoice);
+  }
   fireEvent.click(screen.getByRole("button", { name: "检查成片" }));
   expect(await screen.findByText(qcFailureText.MISSING_MEDIA)).toBeInTheDocument();
   expect(desktop.exportFilmCut).not.toHaveBeenCalled();
@@ -3190,11 +3321,117 @@ async function openSample() {
   );
   await waitForGenerationCatalog();
 }
+async function adoptOpenStill(options?: { stayOnBoard?: boolean }) {
+  const onBench = Boolean(screen.queryByRole("button", { name: /生成 \d+ 个版本/ }));
+  if (
+    onBench &&
+    !screen.queryByRole("button", { name: "核对并采用" }) &&
+    !screen.queryByRole("button", { name: "生成画面" })
+  ) {
+    const back = screen.queryByRole("button", { name: "全部镜头" });
+    if (back) fireEvent.click(back);
+  }
+  if (!screen.queryByRole("button", { name: "核对并采用" })) {
+    const make = screen.queryByRole("button", { name: "生成画面" });
+    if (make) {
+      fireEvent.click(make);
+      await screen.findByRole("button", { name: "核对并采用" });
+    }
+  }
+  const open = screen.queryByRole("button", { name: "核对并采用" });
+  if (!open) return;
+  fireEvent.click(open);
+  for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+  const adopt = screen.getByRole("button", { name: "采用" }) as HTMLButtonElement;
+  if (!adopt.disabled) fireEvent.click(adopt);
+  else {
+    const close = screen.queryByRole("button", { name: "关闭" });
+    if (close) fireEvent.click(close);
+  }
+  if (onBench && !options?.stayOnBoard) {
+    const video = screen.queryByRole("button", { name: "生成视频" });
+    if (video) fireEvent.click(video);
+  }
+}
+
+function filmWithAdoptedStills(film: FilmProject): FilmProject {
+  let next = film;
+  for (const shot of film.shots) {
+    next = {
+      ...next,
+      shots: next.shots.map((item) =>
+        item.id === shot.id
+          ? { ...item, poster: `/tmp/aivora/adopted-${item.id}.png`, stills: [] }
+          : item,
+      ),
+    };
+    const current = next.shots.find((item) => item.id === shot.id)!;
+    const verdicts = Object.fromEntries(
+      stillChecklist(next, current).map((item) => [item.id, "match" as const]),
+    );
+    const saved = saveStillReview(next, shot.id, verdicts, "2026-11-10T00:00:00.000Z");
+    if (!saved.adopted) throw new Error(saved.error);
+    next = saved.film;
+  }
+  return next;
+}
+
+async function openAdoptedSample() {
+  const realSample = filmProject.sampleFilm;
+  const spy = vi
+    .spyOn(filmProject, "sampleFilm")
+    .mockImplementation(() => filmWithAdoptedStills(realSample()));
+  try {
+    await openSample();
+  } finally {
+    spy.mockRestore();
+  }
+}
+
+async function adoptListedShots() {
+  const cards = screen
+    .getAllByRole("button")
+    .filter(
+      (button) => button.classList.contains("card") && /镜头 \d+/.test(button.textContent ?? ""),
+    );
+  for (const card of cards) {
+    fireEvent.click(card);
+    await adoptOpenStill({ stayOnBoard: true });
+  }
+}
+
 async function waitForGenerationCatalog() {
   await waitFor(() =>
     expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
   );
 }
+
+it("does not call the provider for 生成这一场 while the still is unadopted", async () => {
+  const createStoryFilm = vi.fn();
+  installDesktop(createStoryFilm);
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  expect(createStoryFilm).not.toHaveBeenCalled();
+  expect(screen.getAllByText(/镜头 \d+ 的画面还没核对/).length).toBeGreaterThan(0);
+  expect(screen.getAllByRole("button", { name: "生成画面" }).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: "核对并采用" })).toBeNull();
+});
+
+it("does not call the provider for 生成这一场 when a picture exists but is not adopted", async () => {
+  const createStoryFilm = vi.fn();
+  installDesktop(createStoryFilm);
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  await screen.findByRole("button", { name: "核对并采用" });
+  fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  expect(createStoryFilm).not.toHaveBeenCalled();
+  expect(screen.getAllByText(/镜头 \d+ 的画面还没核对/).length).toBeGreaterThan(0);
+  expect(screen.getByRole("button", { name: /去核对镜头/ })).toBeInTheDocument();
+});
 
 it("shows the manual still offer for an explicit confirm and leaves the saved draft on cancel or refusal", async () => {
   const offerId = "fio_01234567-89ab-cdef-0123-456789abcdef";
@@ -3367,9 +3604,20 @@ it("stops the rest of a batch when a newer batch starts", async () => {
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   const counts = screen.getAllByRole("button", { name: "2" });
   fireEvent.click(counts[counts.length - 1]!);
+  await adoptOpenStill();
+  if (screen.queryByRole("button", { name: "核对并采用" })) {
+    fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+    for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "采用" }));
+  }
   fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
+  if (screen.queryByRole("button", { name: "核对并采用" })) {
+    fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+    for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "采用" }));
+  }
   fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
   fireEvent.click(screen.getAllByRole("button", { name: "开始生成" }).at(-1)!);
   releaseFirst(succeeded);
@@ -3443,6 +3691,12 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /候选画面/ }));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  if (screen.queryByRole("button", { name: "核对并采用" })) {
+    fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+    for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "采用" }));
+  }
+  await adoptOpenStill();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
@@ -3519,6 +3773,7 @@ it("keeps pre-recorded voice and explicitly reuses it after normal generation ad
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  await adoptOpenStill();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await screen.findByText("这一版已经生成。");
@@ -3566,6 +3821,7 @@ it("puts the spoken file on the dialogue lane and leaves a finished job alone", 
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  await adoptOpenStill();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
@@ -3836,6 +4092,7 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
     expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
   );
   fireEvent.click(stageTab("分镜"));
+  await adoptListedShots();
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
@@ -4173,6 +4430,7 @@ it("keeps one filled primary button per page; 导出成片 leads only when it ca
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   expect(primaries()).toEqual(["生成 1 个版本"]);
+  await adoptOpenStill();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
@@ -5221,18 +5479,22 @@ it("opens the task center from 后台生成 with nothing to do yet, and goes to 
 });
 
 it("names each shot's job in the task center and counts the ones still going", async () => {
-  let release: (value: unknown) => void = () => undefined;
-  const createStoryFilm = vi.fn(
-    () =>
-      new Promise((resolve) => {
-        release = resolve;
-      }),
-  );
+  let releaseVideo: (value: unknown) => void = () => undefined;
+  const videoPending = new Promise((resolve) => {
+    releaseVideo = resolve;
+  });
+  const createStoryFilm = vi.fn(() => videoPending);
   installDesktop(createStoryFilm);
-  await openSample();
+  onTestFinished(() => {
+    releaseVideo({
+      data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
+    });
+  });
+  await openAdoptedSample();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
   await waitFor(() =>
     expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent(/正在做 \d+ 个/),
   );
@@ -5240,7 +5502,6 @@ it("names each shot's job in the task center and counts the ones still going", a
   const center = screen.getByRole("dialog", { name: "后台生成" });
   expect(within(center).getAllByText(/第 2 场第 1 个镜头/).length).toBeGreaterThan(0);
   expect(within(center).queryByText("生成视频")).toBeNull();
-  release({ data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" } });
 });
 
 it("discards a late art draft after leaving its assistant scope", async () => {
@@ -6026,8 +6287,16 @@ it("3JR-B08 failed scene reference stops the first-click shot request", async ()
 it("3JR-B08 terminates this batch's queued videos when scene preparation fails", async () => {
   const video = vi.fn();
   installDesktop(video);
+  vi.mocked(window.aijian!.generateFilmStill!).mockResolvedValue({
+    path: "/tmp/aivora/still.png",
+    reason: "",
+  });
+  await openAdoptedSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(stageTab("角色与场景"));
+  fireEvent.click(screen.getByRole("button", { name: "场景" }));
+  fireEvent.change(screen.getByLabelText("里面怎么摆"), { target: { value: "柜台换到左侧" } });
   vi.mocked(window.aijian!.generateFilmStill!).mockResolvedValue({ path: "", reason: "失败" });
-  await openSample();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));

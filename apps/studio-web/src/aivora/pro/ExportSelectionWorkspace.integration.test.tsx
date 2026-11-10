@@ -124,6 +124,10 @@ async function openExport(aspectRatio: "16:9" | "9:16", failSecond = false) {
   };
 }
 async function checkAndPublish(f: Awaited<ReturnType<typeof openExport>>) {
+  {
+    const silentChoice = within(f.dialog).queryByRole("button", { name: "本片静音" });
+    if (silentChoice) fireEvent.click(silentChoice);
+  }
   fireEvent.click(within(f.dialog).getByRole("button", { name: "检查成片" }));
   const publish = await within(f.dialog).findByRole("button", { name: "审核后发布" });
   await waitFor(() => expect(publish).toBeEnabled());

@@ -136,10 +136,22 @@ export type FilmPortrait = {
   url: string;
 };
 
+export type StillVerdict = "match" | "mismatch";
+
+/** Human checklist for one still. No cache, path, or SHA. */
+export type StillAcceptance = {
+  by: "user";
+  at: string;
+  stillUrl: string;
+  adopted: boolean;
+  checklist: { id: string; text: string; verdict: StillVerdict }[];
+};
+
 export type FilmStill = {
   id: string;
   prompt: string;
   url: string;
+  acceptance?: StillAcceptance;
 };
 
 /** 4B-B09: one subtitle burned into a take, in seconds from the start of that take. */
@@ -331,6 +343,12 @@ export type FilmProject = {
   narrationVoiceId: string;
   /** Phase 3 timeline audio. Empty until 剪辑 writes clips. */
   audioClips: AudioClip[];
+  /**
+   * Export-time sound choice. SILENT_BY_USER records the decision only;
+   * writing the silent AAC track is a later slice.
+   */
+  /** Explicit export sound choice. Unset means the choice is still open. */
+  audioDecision?: "SILENT_BY_USER" | "WITH_AUDIO";
   /** Persisted overall lane controls; per-clip gain stays independent. */
   audioMix?: AudioMixSettings;
   /** Backend ledger id. Empty until the desktop creates a project for this film. */

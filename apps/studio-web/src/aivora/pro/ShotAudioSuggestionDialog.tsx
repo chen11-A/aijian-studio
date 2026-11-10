@@ -121,6 +121,7 @@ export function ShotAudioSuggestionDialog({
                         <h4>
                           {index + 1}. {a.name}
                         </h4>
+                        <p>建议 · 未生成</p>
                         {scenePlan && "shotId" in clip && "takeId" in clip && (
                           <p>
                             全片第{" "}

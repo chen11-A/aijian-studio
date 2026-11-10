@@ -223,6 +223,7 @@ export async function auditFullPages({ browser, config, report, media, persist }
                 dialog.getByRole("button", { name: "关闭", exact: true }),
                 "关闭导出",
               );
+              await dialog.getByRole("button", { name: "确认有声导出", exact: true }).click();
               // Check reachability only: never dispatch an export/provider call.
               await reachable(
                 dialog.getByRole("button", { name: "检查成片", exact: true }),

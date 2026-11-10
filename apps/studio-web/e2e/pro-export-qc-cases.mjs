@@ -114,6 +114,7 @@ export async function runQcCases({ browser, config, report, media, persist }) {
           await dialog.waitFor();
           if (state === "other-block")
             await dialog.getByLabel("比例", { exact: true }).selectOption("both");
+          await dialog.getByRole("button", { name: "确认有声导出", exact: true }).click();
           await dialog.getByRole("button", { name: "检查成片", exact: true }).click();
           await dialog.getByRole("heading", { name: "导出前检查", exact: true }).waitFor();
           await page.waitForFunction(() => window.__exportQcAudit.prepare.length === 1);

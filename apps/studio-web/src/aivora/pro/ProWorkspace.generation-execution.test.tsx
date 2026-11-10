@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vitest";
 import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
 import { sampleFilm, type FilmProject } from "../film/project";
 import { sceneLocationTargets } from "../film/location-reference";
 import { historyRecordHash } from "./actions/persistent-history";
 import { runPipelineAgentAction } from "./pipeline-agent-actions";
 import { ProWorkspace } from "./ProWorkspace";
+import { saveStillReview, stillChecklist } from "./still-acceptance";
+import * as continuityFrame from "./continuity-frame";
 vi.mock("./pipeline-agent-actions", () => ({ runPipelineAgentAction: vi.fn() }));
 const projectId = `prj_${"a".repeat(32)}`;
 function fixture() {
@@ -21,12 +23,19 @@ function fixture() {
       line: "",
       lines: [],
       speaker: "",
-      poster: "",
+      poster: "/tmp/adopted-frame.png",
       stills: [],
       takes: [],
       selectedTakeId: "",
     },
   ];
+  const shot = film.shots[0]!;
+  const verdicts = Object.fromEntries(
+    stillChecklist(film, shot).map((item) => [item.id, "match" as const]),
+  );
+  const reviewed = saveStillReview(film, shot.id, verdicts, "2026-11-10T00:00:00.000Z");
+  if (!reviewed.adopted) throw new Error(reviewed.error);
+  film.shots = reviewed.film.shots;
   let stored = structuredClone(film);
   const video = vi.fn(async () => ({
     data: { status: "SUCCEEDED", output_path: "/tmp/new-execution.mp4" },
@@ -155,7 +164,7 @@ it("prepares only after explicit confirmation and real canonical backup, then fo
       (c) => c.length === 5 && (c[4] as { executionId: string }).executionId === "native-execution",
     ),
   ).toBe(true);
-  expect(calls.some((c) => (c[4] as { stageId: string }).stageId === "native-frame")).toBe(true);
+  expect(calls.some((c) => (c[4] as { stageId: string }).stageId === "native-frame")).toBe(false);
   const video = f.video.mock.calls as unknown as unknown[][];
   expect(video[0]![3]).toEqual({
     executionId: "native-execution",
@@ -293,7 +302,7 @@ it.each(["fixed-result", "transport"])(
     await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
     expect(f.still).toHaveBeenCalledTimes(1);
     expect(f.video).not.toHaveBeenCalled();
-    expect(f.stored().shots[0]!.poster).toBe("");
+    expect(f.stored().shots[0]!.poster).toBe("/tmp/adopted-frame.png");
     expect(f.stored().locations.some((p) => p.referenceImage?.includes("kept-native-image"))).toBe(
       false,
     );
@@ -303,7 +312,14 @@ it.each(["fixed-result", "transport"])(
 
 it("fresh real Pro runs text structure first and waits for explicit complete media scope confirmation before native preparation", async () => {
   const f = fixture();
-  const template = { ...f.film.shots[0]!, picture: "雨落。", action: "雨落。", seconds: 3 };
+  const template = {
+    ...f.film.shots[0]!,
+    picture: "雨落。",
+    action: "雨落。",
+    seconds: 3,
+    poster: "",
+    stills: [],
+  };
   const fresh = {
     ...f.film,
     sourceText: "雨落。",
@@ -407,13 +423,20 @@ it("keeps a native cached first slot separate from the later explicitly issued c
       })),
     };
   });
-  let calls = 0;
+  const continuity = vi.spyOn(continuityFrame, "ensureContinuityFrame");
+  onTestFinished(() => continuity.mockRestore());
+  const clientImagesAtVideo: number[] = [];
   f.video.mockImplementation(async () => {
     const frameCalls = (f.still.mock.calls as unknown as unknown[][]).filter(
       (call) => (call[4] as { stageId: string }).stageId === "native-frame",
     );
-    expect(frameCalls).toHaveLength(calls === 0 ? 0 : 1);
-    calls++;
+    expect(frameCalls).toHaveLength(0);
+    clientImagesAtVideo.push(
+      (f.still.mock.calls as unknown as unknown[][]).filter((call) => {
+        const stage = call[4] as { executionId?: string; stageId?: string };
+        return stage.executionId === "native-execution" && stage.stageId?.startsWith("location-");
+      }).length,
+    );
     return { data: { status: "SUCCEEDED", output_path: "/tmp/new-execution.mp4" } };
   });
   await open();
@@ -428,6 +451,18 @@ it("keeps a native cached first slot separate from the later explicitly issued c
     false,
     true,
   ]);
+  expect(contexts[1]![3]).toEqual({
+    executionId: "native-execution",
+    videoSlotId: `slot-${f.film.shots[0]!.id}-1`,
+    shotId: f.film.shots[0]!.id,
+    takeId: expect.any(String),
+  });
+  expect(clientImagesAtVideo[0]).toBeGreaterThan(0);
+  expect(continuity.mock.calls).toHaveLength(1);
+  expect(continuity.mock.invocationCallOrder[0]).toBeGreaterThan(
+    f.video.mock.invocationCallOrder[0]!,
+  );
+  expect(continuity.mock.invocationCallOrder[0]).toBeLessThan(f.video.mock.invocationCallOrder[1]!);
   expect(f.prepare).toHaveBeenCalledTimes(1);
   await waitFor(() =>
     expect(f.stored().shots[0]!.takes.filter((take) => take.status === "done")).toHaveLength(2),

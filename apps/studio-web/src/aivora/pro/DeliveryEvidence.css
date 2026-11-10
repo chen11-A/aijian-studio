@@ -38,8 +38,3 @@
 .pro-root .delivery-evidence summary {
   cursor: pointer;
 }
-
-.pro-root .dialog.export:has(.delivery-evidence) > .acts {
-  position: static;
-  bottom: auto;
-}

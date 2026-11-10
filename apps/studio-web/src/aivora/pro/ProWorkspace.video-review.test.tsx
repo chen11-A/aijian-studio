@@ -193,6 +193,9 @@ it("real Board entry previews one field without editing/generating, confirms via
   fireEvent.click(within(scrollHost!).getByRole("button", { name: "关闭说明" }));
   expect(screen.queryByRole("region", { name: "七段视频说明" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "属性" }));
+  fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+  for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+  fireEvent.click(screen.getByRole("button", { name: "采用" }));
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(env.provider).toHaveBeenCalledOnce(), { timeout: 5000 });
@@ -316,6 +319,9 @@ it("can generate again after importing only failed/cancelled history with no sel
   expect(env.host().current()!.shots[0]!.selectedTakeId).toBe("");
   const old = structuredClone(env.host().current()!.shots[0]!.takes[0]);
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+  for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+  fireEvent.click(screen.getByRole("button", { name: "采用" }));
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(env.provider).toHaveBeenCalledOnce(), { timeout: 5000 });

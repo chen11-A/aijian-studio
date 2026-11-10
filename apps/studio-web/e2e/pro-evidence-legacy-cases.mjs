@@ -122,6 +122,7 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
               .getAttribute("aria-checked"),
             "true",
           );
+          await dialog.getByRole("button", { name: "确认有声导出", exact: true }).click();
           await dialog.getByRole("button", { name: "检查成片", exact: true }).click();
           await dialog.getByRole("button", { name: "审核后发布", exact: true }).waitFor();
           assert.equal(
