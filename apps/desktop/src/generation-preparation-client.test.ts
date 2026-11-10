@@ -167,7 +167,7 @@ it("posts the original registration to cache-preparations and keeps INPUT_UNVERI
         JSON.stringify({
           kind: "PREPARATIONS",
           items: [
-            { target_key: "target", slot_index: 1, preparation: "CLIENT_IMAGES", cache: null },
+            { target_key: "target", slot_index: 0, preparation: "CLIENT_IMAGES", cache: null },
           ],
         }),
       ),

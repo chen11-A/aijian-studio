@@ -186,6 +186,14 @@ export function createNativeFilmGenerationExecutions(host: {
         }
       }
       let state: State | undefined;
+      let registered:
+        | {
+            api: ReturnType<typeof generationPreparationClient>;
+            backendProjectId: string;
+            apiExecutionId: string;
+            account: AccountLease["account"];
+          }
+        | undefined;
       try {
         const accountLease = await host.mediaDispatchLease();
         if (!accountLease) return fail("ACCOUNT_UNAVAILABLE");
@@ -272,6 +280,12 @@ export function createNativeFilmGenerationExecutions(host: {
           accountLease.account,
           current,
         );
+        registered = {
+          api,
+          backendProjectId: record.backendProjectId,
+          apiExecutionId,
+          account: accountLease.account,
+        };
         const frozen = await api.prepareSlots(
           record.backendProjectId,
           apiExecutionId,
@@ -345,9 +359,23 @@ export function createNativeFilmGenerationExecutions(host: {
           accountCurrent: current,
         };
       } catch (error) {
-        if (state)
-          await state.api
-            .retire(state.backendProjectId, state.apiExecutionId, null, null, state.account)
+        const retiring = state
+          ? {
+              api: state.api,
+              backendProjectId: state.backendProjectId,
+              apiExecutionId: state.apiExecutionId,
+              account: state.account,
+            }
+          : registered;
+        if (retiring)
+          await retiring.api
+            .retire(
+              retiring.backendProjectId,
+              retiring.apiExecutionId,
+              null,
+              null,
+              retiring.account,
+            )
             .catch(() => undefined);
         throw fixed(error, "EXECUTION_UNAVAILABLE");
       }

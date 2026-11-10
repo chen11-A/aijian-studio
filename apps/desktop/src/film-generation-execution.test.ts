@@ -189,7 +189,8 @@ async function createFixture(
   const registrations: unknown[] = [],
     preparations: unknown[] = [],
     arms: unknown[] = [],
-    submissions: string[] = [];
+    submissions: string[] = [],
+    retires: unknown[] = [];
   let refusePreparations = false,
     truncatePreparations = false,
     cacheSlot0 = false;
@@ -257,7 +258,10 @@ async function createFixture(
       throw Error("controlled lost observation acknowledgement");
     if (path.endsWith("/image-unsent") || path.endsWith("/image-observation"))
       return Response.json({ kind: "RECORDED" });
-    if (path.endsWith("/retire")) return Response.json({ kind: "RECORDED" });
+    if (path.endsWith("/retire")) {
+      retires.push(JSON.parse(raw));
+      return Response.json({ kind: "RECORDED" });
+    }
     if (path.endsWith("/cache-preparations")) {
       if (refusePreparations)
         return Response.json({ detail: "INPUT_UNVERIFIABLE" }, { status: 409 });
@@ -359,6 +363,7 @@ async function createFixture(
     input,
     registrations,
     preparations,
+    retires,
     refusePreparations: () => {
       refusePreparations = true;
     },
@@ -690,6 +695,7 @@ it("does not arm or open another execution when cache preparation is unverifiabl
     code: "CREATION_INPUT_UNVERIFIABLE",
   });
   expect(f.registrations).toHaveLength(1);
+  expect(f.retires).toEqual([{ target_key: null, slot_index: null }]);
   expect(f.arms).toHaveLength(0);
   expect(f.submissions).toHaveLength(0);
 });
@@ -702,6 +708,7 @@ it("stops a missing frozen slot before image, arm, or budget", async () => {
     code: "CREATION_INPUT_UNVERIFIABLE",
   });
   expect(f.registrations).toHaveLength(1);
+  expect(f.retires).toEqual([{ target_key: null, slot_index: null }]);
   expect(f.arms).toHaveLength(0);
   expect(f.submissions).toHaveLength(0);
 });

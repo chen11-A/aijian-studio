@@ -51,6 +51,38 @@ describe("private cache preparation parser", () => {
     ).toThrow("CREATION_INPUT_UNVERIFIABLE");
   });
 
+  it("rejects a frozen row that is not in the registered plan", () => {
+    const expected = [
+      { targetKey: "target", slotIndex: 0 },
+      { targetKey: "target", slotIndex: 1 },
+    ];
+    expect(() =>
+      parseGenerationSlotPreparations(
+        {
+          kind: "PREPARATIONS",
+          items: [
+            { target_key: "target", slot_index: 0, preparation: "CLIENT_IMAGES", cache: null },
+            { target_key: "target", slot_index: 1, preparation: "CLIENT_IMAGES", cache: null },
+            { target_key: "other", slot_index: 0, preparation: "CLIENT_IMAGES", cache: null },
+          ],
+        },
+        expected,
+      ),
+    ).toThrow("CREATION_INPUT_UNVERIFIABLE");
+    expect(
+      parseGenerationSlotPreparations(
+        {
+          kind: "PREPARATIONS",
+          items: [
+            { target_key: "target", slot_index: 0, preparation: "CLIENT_IMAGES", cache: null },
+            { target_key: "target", slot_index: 1, preparation: "CLIENT_IMAGES", cache: null },
+          ],
+        },
+        expected,
+      ).items,
+    ).toHaveLength(2);
+  });
+
   it("rejects a public kind, a short table, and a duplicate slot", () => {
     for (const payload of [
       { kind: "PREPARED", items: [] },

@@ -94,8 +94,13 @@ function cache(input: unknown): PreparedPrivateCache {
   };
 }
 
+export type ExpectedPreparationSlot = { targetKey: string; slotIndex: number };
+
 /** Private main parser for the generated PREPARATIONS body. Cache stays out of the renderer. */
-export function parseGenerationSlotPreparations(input: unknown): PreparedSlotCacheFacts {
+export function parseGenerationSlotPreparations(
+  input: unknown,
+  expected?: readonly ExpectedPreparationSlot[],
+): PreparedSlotCacheFacts {
   const payload = asRecord(input);
   if (!exact(payload, ["kind", "items"]) || payload.kind !== "PREPARATIONS") fail();
   const rows = payload.items;
@@ -130,5 +135,10 @@ export function parseGenerationSlotPreparations(input: unknown): PreparedSlotCac
       cache: cache(item.cache),
     };
   });
+  if (expected) {
+    const wanted = new Set(expected.map((slot) => `${slot.targetKey}:${slot.slotIndex}`));
+    if (wanted.size !== expected.length || wanted.size !== items.length) fail();
+    for (const item of items) if (!wanted.has(`${item.targetKey}:${item.slotIndex}`)) fail();
+  }
   return { kind: "PREPARATIONS", items };
 }

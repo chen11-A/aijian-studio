@@ -126,6 +126,12 @@ export function generationPreparationClient(host: {
           account,
           current,
         ),
+        input.targets.flatMap((target) =>
+          Array.from({ length: target.versions }, (_, slotIndex) => ({
+            targetKey: target.key,
+            slotIndex,
+          })),
+        ),
       );
     },
     async lineages(
