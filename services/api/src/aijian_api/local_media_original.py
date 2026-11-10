@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ctypes
 import hashlib
 import os
 import re
@@ -20,127 +19,15 @@ from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _StatIdentity = tuple[int, int, int, int, int]
-# inotify masks. IN_CLOSE_NOWRITE is intentionally absent: the verifying read
-# must not look like a writer. Overflow and watch removal are reported by the
-# kernel without being requested.
-_IN_MODIFY = 0x00000002
-_IN_ATTRIB = 0x00000004
-_IN_CLOSE_WRITE = 0x00000008
-_IN_DELETE_SELF = 0x00000400
-_IN_MOVE_SELF = 0x00000800
-_IN_Q_OVERFLOW = 0x00004000
-_IN_IGNORED = 0x00008000
-_IN_WATCH = _IN_MODIFY | _IN_ATTRIB | _IN_CLOSE_WRITE | _IN_DELETE_SELF | _IN_MOVE_SELF
-
-
-class _InotifyEvent(ctypes.Structure):
-    _fields_ = (
-        ("wd", ctypes.c_int),
-        ("mask", ctypes.c_uint32),
-        ("cookie", ctypes.c_uint32),
-        ("length", ctypes.c_uint32),
-    )
-
-
-class _WriteObservation:
-    """Scope-lifetime write observation. Linux only; Windows never reports quiet.
-
-    A quiet watch is the only permission to reuse a hash. Stat identity is not
-    a substitute: a same-size rewrite can leave dev, ino, size, mtime and ctime
-    unchanged. This object does not take a file lease, so writers are not blocked.
-    """
-
-    def __init__(self) -> None:
-        self.fd: int | None = None
-        self.dirty: set[int] = set()
-        self.overflow = False
-        self.unavailable = os.name != "posix"
-
-    def close(self) -> None:
-        fd, self.fd = self.fd, None
-        if fd is not None:
-            os.close(fd)
-
-    def arm(self, path: Path) -> int | None:
-        if self.unavailable or self.overflow:
-            return None
-        if self.fd is None and not self._open():
-            self.unavailable = True
-            return None
-        assert self.fd is not None
-        try:
-            libc = _libc()
-            add = libc.inotify_add_watch
-            add.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32)
-            add.restype = ctypes.c_int
-            watch = add(self.fd, os.fsencode(path), _IN_WATCH)
-        except (AttributeError, OSError):
-            self.unavailable = True
-            return None
-        if watch < 0:
-            self.unavailable = True
-            return None
-        return watch
-
-    def quiet(self, watch: int) -> bool:
-        self._poll()
-        return not self.overflow and watch not in self.dirty
-
-    def _open(self) -> bool:
-        try:
-            libc = _libc()
-            init = libc.inotify_init1
-            init.argtypes = (ctypes.c_int,)
-            init.restype = ctypes.c_int
-            flags = getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
-            fd = init(flags)
-        except (AttributeError, OSError):
-            return False
-        if fd < 0:
-            return False
-        self.fd = fd
-        return True
-
-    def _poll(self) -> None:
-        fd = self.fd
-        if fd is None:
-            return
-        header = ctypes.sizeof(_InotifyEvent)
-        while True:
-            try:
-                chunk = os.read(fd, 4096)
-            except BlockingIOError:
-                return
-            except OSError:
-                self.overflow = True
-                return
-            if not chunk:
-                return
-            offset = 0
-            while offset + header <= len(chunk):
-                event = _InotifyEvent.from_buffer_copy(chunk[offset : offset + header])
-                offset += header + int(event.length)
-                if event.mask & _IN_Q_OVERFLOW or event.wd < 0:
-                    self.overflow = True
-                elif event.mask & (_IN_WATCH | _IN_IGNORED):
-                    self.dirty.add(int(event.wd))
-                else:
-                    self.overflow = True
-
-
-def _libc() -> ctypes.CDLL:
-    return ctypes.CDLL(None, use_errno=True)
 
 
 @dataclass
 class _AvailabilityReadBudget:
     max_bytes: int
     used_bytes: int = 0
-    verified: dict[tuple[str, str, int], tuple[_StatIdentity, _StatIdentity, int]] = field(
+    verified: dict[tuple[str, str, int], tuple[_StatIdentity, _StatIdentity]] = field(
         default_factory=dict
     )
-    reuse_blocked: set[tuple[str, str, int]] = field(default_factory=set)
-    lifecycle: _WriteObservation = field(default_factory=_WriteObservation)
 
 
 _READ_BUDGET: ContextVar[_AvailabilityReadBudget | None] = ContextVar(
@@ -160,12 +47,10 @@ def availability_read_scope(max_bytes: int) -> Iterator[None]:
     if _READ_BUDGET.get() is not None:
         yield
         return
-    budget = _AvailabilityReadBudget(max_bytes)
-    token = _READ_BUDGET.set(budget)
+    token = _READ_BUDGET.set(_AvailabilityReadBudget(max_bytes))
     try:
         yield
     finally:
-        budget.lifecycle.close()
         _READ_BUDGET.reset(token)
 
 
@@ -224,18 +109,16 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
         return "UNVERIFIED_SIZE_LIMIT"
     budget = _READ_BUDGET.get()
     key = (str(workspace), digest, byte_size)
-    watch: int | None = None
     if budget is not None:
-        if key in budget.reuse_blocked or budget.lifecycle.overflow:
-            return "UNKNOWN_MEDIA_CHANGED"
         cached = budget.verified.get(key)
         if cached is not None:
-            named_identity, held_identity, watch = cached
-            if not budget.lifecycle.quiet(watch) or named_identity != _stat_identity(file_stat):
+            named_identity, held_identity = cached
+            if named_identity != _stat_identity(file_stat):
                 return "UNKNOWN_MEDIA_CHANGED"
             try:
                 # Windows stat and fstat can expose different ctime semantics.
-                # Keep both observation domains when a write watch is still quiet.
+                # Keep both observation domains, including handle change time,
+                # so a same-size rewrite with restored mtime cannot hit cache.
                 with _open_local_source(io_path) as stream:
                     first = os.fstat(stream.fileno())
                     if io_path.is_symlink():
@@ -245,8 +128,7 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
             except (OSError, ValueError):
                 return "UNKNOWN_MEDIA_READ"
             if (
-                not budget.lifecycle.quiet(watch)
-                or named_identity != _stat_identity(named)
+                named_identity != _stat_identity(named)
                 or held_identity != _stat_identity(first)
                 or held_identity != _stat_identity(last)
             ):
@@ -257,7 +139,6 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
         # Failed or changed reads still consume the allowance. Never refund a
         # hash attempt or let repeated invalid originals multiply physical I/O.
         budget.used_bytes += byte_size
-        watch = budget.lifecycle.arm(io_path)
     try:
         with _open_local_source(io_path) as stream:
             first = os.fstat(stream.fileno())
@@ -302,14 +183,6 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
         return "UNKNOWN_MEDIA_CHANGED"
     if total != byte_size or hasher.hexdigest() != digest:
         return "CORRUPT"
-    if budget is None:
-        return "VERIFIED"
-    if watch is None or not budget.lifecycle.quiet(watch):
-        # The hash above is this call's own read. Later calls must not hash
-        # again and must not trust an unchanged stat tuple.
-        budget.reuse_blocked.add(key)
-        if watch is None:
-            return "VERIFIED"
-        return "UNKNOWN_MEDIA_CHANGED"
-    budget.verified[key] = (_stat_identity(named), _stat_identity(last), watch)
+    if budget is not None:
+        budget.verified[key] = (_stat_identity(named), _stat_identity(last))
     return "VERIFIED"
