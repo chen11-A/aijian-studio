@@ -244,6 +244,7 @@ export function useSceneAudioSuggestions(
         >
           查看本场声音建议
         </button>
+        <p className="role-desc">建议 · 未生成</p>
         {enabled && !key && (
           <p className="role-desc">
             全片已选视频或当前场次尚不完整，请先核对后再查看整场声音建议。

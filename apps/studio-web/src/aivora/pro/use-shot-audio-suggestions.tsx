@@ -183,6 +183,7 @@ export function useShotAudioSuggestions(
         >
           查看本镜声音建议
         </button>
+        <p className="role-desc">建议 · 未生成</p>
         <AudioSuggestionGroups
           groups={groups}
           busy={controller.busy || (!!film && controller.pendingFor(film.id))}

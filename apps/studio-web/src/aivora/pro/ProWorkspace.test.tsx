@@ -210,6 +210,9 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: /镜头 2/ }));
       if (regenerateSource) fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
       else {
+        fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+        for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+        fireEvent.click(screen.getByRole("button", { name: "采用" }));
         fireEvent.click(screen.getByRole("button", { name: "生成视频" }));
         fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       }
@@ -1363,6 +1366,11 @@ describe("professional workspace", () => {
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
       fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
+      if (screen.queryByRole("button", { name: "核对并采用" })) {
+        fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+        for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+        fireEvent.click(screen.getByRole("button", { name: "采用" }));
+      }
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       generationOrder.length = 0;
       // Backup and canonical saves legitimately precede the provider. Wait for the
@@ -3367,9 +3375,19 @@ it("stops the rest of a batch when a newer batch starts", async () => {
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
   const counts = screen.getAllByRole("button", { name: "2" });
   fireEvent.click(counts[counts.length - 1]!);
+  if (screen.queryByRole("button", { name: "核对并采用" })) {
+    fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+    for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "采用" }));
+  }
   fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
+  if (screen.queryByRole("button", { name: "核对并采用" })) {
+    fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+    for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "采用" }));
+  }
   fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
   fireEvent.click(screen.getAllByRole("button", { name: "开始生成" }).at(-1)!);
   releaseFirst(succeeded);
@@ -3443,6 +3461,11 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /候选画面/ }));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  if (screen.queryByRole("button", { name: "核对并采用" })) {
+    fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+    for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+    fireEvent.click(screen.getByRole("button", { name: "采用" }));
+  }
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();

@@ -3,7 +3,10 @@ import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./acti
 import { audioTimelineBox } from "./audio-mix-timeline";
 import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
 import { AudioMixPreview } from "./AudioMixPreview";
+import { ExportSoundChoice, exportCheckBlocked } from "./ExportSoundChoice";
 import { FixedInputImportButton } from "./FixedInputImportButton";
+import { StillAcceptanceControls, guardBlockedVideo } from "./StillAcceptanceDialog";
+import { videoGate } from "./still-acceptance";
 import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
@@ -7798,6 +7801,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   ) : (
                     exportDelivery.view
                   )}
+                  {film && !exportQc && !exporting ? (
+                    <ExportSoundChoice
+                      film={film}
+                      onSilent={() => setFilm({ ...film, audioDecision: "SILENT_BY_USER" })}
+                      onMakeSound={() => {
+                        setExportOpen(false);
+                        setStage("edit");
+                      }}
+                    />
+                  ) : null}
                   <div className="acts">
                     <button className="btn" onClick={() => setExportOpen(false)}>
                       关闭
@@ -7824,8 +7837,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {!exportQc ? (
                       <button
                         className="btn primary"
-                        disabled={exporting || cleanCopyBusy || exportQcBusy}
-                        onClick={() => void startExport()}
+                        disabled={
+                          exporting || cleanCopyBusy || exportQcBusy || exportCheckBlocked(film)
+                        }
+                        aria-describedby={exportCheckBlocked(film) ? "export-sound-why" : undefined}
+                        onClick={() => {
+                          if (exportCheckBlocked(film)) return;
+                          void startExport();
+                        }}
                       >
                         检查成片
                       </button>
@@ -10665,9 +10684,24 @@ function BoardPage({
                   生成画面
                 </button>
               ) : (
-                <button className="btn" type="button" onClick={onGenerate}>
-                  生成视频
-                </button>
+                <>
+                  <StillAcceptanceControls
+                    film={film}
+                    shot={current}
+                    onFilm={onFilm}
+                    onRestill={onStills}
+                  />
+                  <button
+                    className="btn"
+                    type="button"
+                    aria-describedby={
+                      videoGate(film, current).enabled ? undefined : `still-gate-${current.id}`
+                    }
+                    {...guardBlockedVideo(videoGate(film, current).enabled, onGenerate)}
+                  >
+                    生成视频
+                  </button>
+                </>
               )}
             </div>
           </>
@@ -11070,7 +11104,24 @@ function GeneratePage({
                 <span>Grok 会员</span>
                 <small title={GENERATE_MODEL}>成片</small>
               </div>
-              <button className={quiet ? "btn block" : "btn primary block"} onClick={onCreate}>
+              {current && !videoGate(film, current).enabled ? (
+                <StillAcceptanceControls
+                  film={film}
+                  shot={current}
+                  onFilm={onFilm}
+                  onRestill={() => undefined}
+                />
+              ) : null}
+              <button
+                className={quiet ? "btn block" : "btn primary block"}
+                type="button"
+                aria-describedby={
+                  current && !videoGate(film, current).enabled
+                    ? `still-gate-${current.id}`
+                    : undefined
+                }
+                {...guardBlockedVideo(!current || videoGate(film, current).enabled, onCreate)}
+              >
                 <Ic name="video" size={16} />
                 生成 {versions} 个版本
               </button>
