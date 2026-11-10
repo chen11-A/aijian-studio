@@ -16,7 +16,6 @@ import {
 import { updateShot } from "../../film/operations";
 import { ensureContinuityFrame } from "../continuity-frame";
 import { stillAccepted } from "../still-acceptance";
-import { type ensureShotFrame } from "../still-workflow";
 import { fileMediaUrl, isVoiceFile } from "../workflow";
 import { NOTICE_TEXT, presentNotice } from "../../film/notices";
 import { awaitVideoResult } from "../video-request";
@@ -43,7 +42,16 @@ export type GenerationRunHost = {
   notice: (notice: UiNotice) => void;
   completed: (result: { shotId: string; done: boolean; message: string }) => void;
   continuity?: typeof ensureContinuityFrame;
-  frame?: typeof ensureShotFrame;
+  frame?: (
+    film: FilmProject,
+    shot: FilmShot,
+    host: {
+      execution?: GenerationExecutionSession;
+      current: () => FilmProject | null;
+      valid: () => boolean;
+      apply: (film: FilmProject) => void | Promise<void>;
+    },
+  ) => Promise<FilmShot>;
 };
 
 /** Match the existing pipeline's local-video shape check. Filesystem trust and existence
@@ -189,7 +197,9 @@ export function applyVideoResponse(
       item.id === shot.id ? { ...item, takes, selectedTakeId: selected } : item,
     ),
   };
-  if (done && frame) saved = updateShot(saved, shot.id, { poster: frame });
+  const kept = saved.shots.find((item) => item.id === shot.id);
+  if (done && frame && kept && !stillAccepted(saved, kept))
+    saved = updateShot(saved, shot.id, { poster: frame });
   const voicePath = typeof data.voice_path === "string" ? data.voice_path : "";
   if (done && isVoiceFile(voicePath) && shotLines(shot).length) {
     saved = {

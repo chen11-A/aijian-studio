@@ -173,6 +173,29 @@ it("rejects late results after the run loses its project or abort owner", async 
   expect(host.current()?.shots[0]?.takes[0]?.videoPath).not.toBe("/films/late.mp4");
 });
 
+it("sends both versions with the adopted still when the preview is only an http thumbnail", async () => {
+  const { queue, host } = setup(2);
+  const adopted = "/films/frame.png";
+  host.request = vi.fn<GenerationRunHost["request"]>().mockImplementation(async () => ({
+    data: {
+      status: "SUCCEEDED",
+      output_path: "/films/video.mp4",
+      preview_image: "https://example.com/preview.png",
+    },
+    request_id: "test",
+  }));
+  await runPreparedGeneration(queue, host);
+  expect(host.request).toHaveBeenCalledTimes(2);
+  for (const [body] of vi.mocked(host.request).mock.calls) {
+    expect((body.shots?.[0] as { still?: string } | undefined)?.still).toBe(adopted);
+  }
+  expect(host.current()?.shots[0]?.poster).toBe(adopted);
+  expect(host.current()?.shots[0]?.takes.map((take) => take.stillUrl)).toEqual([
+    "https://example.com/preview.png",
+    "https://example.com/preview.png",
+  ]);
+});
+
 it("executes versions sequentially and retains the first selected successful version", async () => {
   const { queue, host } = setup(2);
   await runPreparedGeneration(queue, host);
@@ -291,9 +314,10 @@ it("retains unrelated audio while applying successful narration and measured dur
   });
   expect(result.film.shots[0]).toMatchObject({
     seconds: 8,
-    poster: "data:image/png;base64,AA==",
+    poster: "/films/frame.png",
     sound: { source: "dub" },
   });
+  expect(result.film.shots[0]?.takes[0]?.stillUrl).toBe("data:image/png;base64,AA==");
   expect(result.film.audioClips).toEqual(expect.arrayContaining(prior));
   expect(result.film.audioClips).toContainEqual(
     expect.objectContaining({

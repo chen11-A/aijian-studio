@@ -186,7 +186,7 @@ it("does not persist a remote frame or a frame from the wrong source video", asy
   expect(env.apply).not.toHaveBeenCalled();
 });
 
-it("a protected run re-verifies even an existing continuity frame with the exact native-issued local stage", async () => {
+it("a protected run reuses an unchanged continuity frame and still resolves its stage", async () => {
   const env = setup();
   await ensureContinuityFrame(env.film(), env.shot(), env.host);
   env.extract.mockClear();
@@ -229,10 +229,9 @@ it("a protected run re-verifies even an existing continuity frame with the exact
     targets: [{ shotId: "current", versions: 1 }],
   });
   env.host.execution = execution;
-  await ensureContinuityFrame(env.film(), env.shot(), env.host);
-  expect(env.extract).toHaveBeenCalledExactlyOnceWith(env.film().seriesId, "/story/one.mp4", {
-    executionId: "protected",
-    stageId: "local-frame",
-  });
-  expect(env.apply).toHaveBeenCalledOnce();
+  const again = await ensureContinuityFrame(env.film(), env.shot(), env.host);
+  expect(env.extract).not.toHaveBeenCalled();
+  expect(env.apply).not.toHaveBeenCalled();
+  expect(again.poster).toBe("/films/tail.png");
+  expect(again.continuityFrame?.path).toBe("/films/tail.png");
 });

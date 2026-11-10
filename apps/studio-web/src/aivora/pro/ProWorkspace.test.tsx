@@ -1,4 +1,3 @@
-import type { FilmGenerationExecutionResult } from "@aijian/contracts/film-generation-execution";
 import { generationExecutionFixture } from "./generation-execution.test-fixture";
 import type { FilmAssemblyInput, FilmAssemblyResult } from "@aijian/contracts/film-assembly";
 import { historyRecordHash } from "./actions/persistent-history";
@@ -137,134 +136,127 @@ describe("professional workspace", () => {
     );
   });
 
-  it.each([false, true])(
-    "uses the preceding selected video last frame (regenerate source: %s)",
-    async (regenerateSource) => {
-      const sourcePath = regenerateSource ? "/tmp/new-source.mp4" : "/tmp/source.mp4";
-      let completed = 0;
-      const video = vi.fn(async () => ({
-        data: {
-          status: "SUCCEEDED",
-          output_path: regenerateSource && ++completed === 1 ? sourcePath : "/tmp/next-video.mp4",
-        },
-      }));
-      installDesktop(video);
-      const film = sampleFilm();
-      const source = {
-        ...film.shots[0]!,
-        line: "",
-        lines: [],
-        speaker: "",
-        selectedTakeId: "source-take",
-        poster: "/tmp/source.png",
-      };
-      source.takes = [
-        {
-          id: "source-take",
-          shotId: source.id,
-          index: 1,
-          status: regenerateSource ? "failed" : "done",
-          stillUrl: source.poster,
-          videoPath: regenerateSource ? "" : sourcePath,
-          videoUrl: "",
-          prompt: "",
-          createdAt: "",
-          reason: "",
-        },
-      ];
-      const next = {
-        ...source,
-        id: "next-linked-shot",
-        no: 2,
-        takes: [],
-        selectedTakeId: "",
-        poster: "/tmp/preview.png",
-        continuityFromShotId: source.id,
-      };
-      film.shots = [source, next];
-      const extract = vi.fn(async () => ({
-        path: "/tmp/last-frame.png",
-        sourceVideoPath: sourcePath,
-      }));
-      window.aijian!.extractFilmLastFrame = extract;
-      vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
-        const writes = vi
-          .mocked(window.aijian!.writeFilmProject!)
-          .mock.calls.map(([value]) => value)
-          .filter((value) => value.id === id);
-        return structuredClone(writes.at(-1) ?? film);
-      });
-      window.localStorage.setItem("aivora.film.activeId", film.id);
-      render(<ProWorkspace projectId={PROJECT_ID} />);
-      await screen.findAllByText(film.title);
-      // Loading the title does not imply that asynchronous account/model checks finished.
-      await waitFor(() =>
-        expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
-      );
-
+  it("uses the preceding selected video last frame after that frame is adopted", async () => {
+    let frameCount = 0;
+    const extract = vi.fn(async (_series: string, videoPath: string) => ({
+      path: `/tmp/last-frame-${++frameCount}.png`,
+      sourceVideoPath: videoPath,
+    }));
+    let videoCount = 0;
+    const video = vi.fn(async () => ({
+      data: { status: "SUCCEEDED", output_path: `/tmp/made-${++videoCount}.mp4` },
+    }));
+    installDesktop(video);
+    const film = sampleFilm();
+    const source = {
+      ...film.shots[0]!,
+      characters: [],
+      line: "",
+      lines: [],
+      speaker: "",
+      selectedTakeId: "source-take",
+      poster: "/tmp/source.png",
+    };
+    source.takes = [
+      {
+        id: "source-take",
+        shotId: source.id,
+        index: 1,
+        status: "done" as const,
+        stillUrl: source.poster,
+        videoPath: "/tmp/source.mp4",
+        videoUrl: "",
+        prompt: "",
+        createdAt: "",
+        reason: "",
+      },
+    ];
+    const linked = {
+      ...source,
+      id: "next-linked-shot",
+      no: 2,
+      takes: [],
+      selectedTakeId: "",
+      poster: "/tmp/preview.png",
+      continuityFromShotId: source.id,
+    };
+    film.shots = [source, linked];
+    window.aijian!.extractFilmLastFrame = extract;
+    vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
+      const writes = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.map(([value]) => value)
+        .filter((value) => value.id === id);
+      return structuredClone(writes.at(-1) ?? film);
+    });
+    window.localStorage.setItem("aivora.film.activeId", film.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    await screen.findAllByText(film.title);
+    await waitFor(() =>
+      expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
+    );
+    const openShot = (label: RegExp) => {
+      const row = screen.queryByRole("button", { name: label });
+      if (row) {
+        fireEvent.click(row);
+        return;
+      }
+      const back = screen.queryByRole("button", { name: "全部镜头" });
+      if (back) fireEvent.click(back);
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(
         screen.getByRole("button", {
           name: new RegExp(film.scenes.find((scene) => scene.id === source.sceneId)!.title),
         }),
       );
-      fireEvent.click(screen.getByRole("button", { name: /镜头 2/ }));
-      if (regenerateSource) {
-        for (const label of [/镜头 1/, /镜头 2/]) {
-          fireEvent.click(screen.getByRole("button", { name: label }));
-          fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
-          for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
-          fireEvent.click(screen.getByRole("button", { name: "采用" }));
-        }
-        await adoptListedShots();
-        fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
-      } else {
-        fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
-        for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
-        fireEvent.click(screen.getByRole("button", { name: "采用" }));
-        fireEvent.click(screen.getByRole("button", { name: "生成视频" }));
-        await adoptOpenStill();
-        fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
-      }
+      fireEvent.click(screen.getByRole("button", { name: label }));
+    };
+    const adopt = () => {
+      fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
+      for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+      fireEvent.click(screen.getByRole("button", { name: "采用" }));
+    };
+    const startOne = () => {
+      const open = screen.queryByRole("button", { name: "生成视频" });
+      if (open) fireEvent.click(open);
+      fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
-      if (regenerateSource) await waitFor(() => expect(video).toHaveBeenCalledTimes(1));
-      else {
-        expect(video).not.toHaveBeenCalled();
-        expect((await screen.findAllByText(/镜头 \d+ 的画面还没核对/)).length).toBeGreaterThan(0);
-      }
-      const prepared: FilmGenerationExecutionResult = await vi.mocked(
-        window.aijian!.prepareFilmGenerationExecution!,
-      ).mock.results[0]!.value;
-      expect(prepared.kind).toBe("PREPARED");
-      if (prepared.kind !== "PREPARED") throw Error("expected protected preparation");
-      const stage = prepared.stages.find(
-        (stage) => stage.kind === "continuity-frame" && stage.targetId === next.id,
-      );
-      expect(stage).toMatchObject({ sourceShotId: source.id });
-      expect(extract).toHaveBeenCalledExactlyOnceWith(film.seriesId, sourcePath, {
-        executionId: prepared.executionId,
-        stageId: stage!.stageId,
-      });
-      expect(
-        video.mock.calls.some((call) => JSON.stringify(call).includes("/tmp/last-frame.png")),
-      ).toBe(false);
-      expect(window.aijian!.generateFilmStill).toHaveBeenCalledTimes(1);
-      expect(JSON.stringify(vi.mocked(window.aijian!.generateFilmStill!).mock.calls[0])).toContain(
-        "空镜，没有人物",
-      );
-      await waitFor(() => {
-        const saved = vi
-          .mocked(window.aijian!.writeFilmProject!)
-          .mock.calls.at(-1)![0] as FilmProject;
-        if (regenerateSource) expect(saved.shots[0]!.selectedTakeId).not.toBe("source-take");
-        expect(saved.shots[1]!.continuityFrame).toMatchObject({
-          sourceShotId: source.id,
-          sourceTakeId: saved.shots[0]!.selectedTakeId,
-          path: "/tmp/last-frame.png",
-        });
-      });
-    },
-  );
+    };
+    const sentStill = () =>
+      (video.mock.calls.at(-1) as unknown as [string, { shots: { still?: string }[] }])[1].shots[0]
+        ?.still;
+
+    await openShot(/镜头 2/);
+    adopt();
+    startOne();
+    await waitFor(() => expect(extract).toHaveBeenCalledTimes(1));
+    expect(video).not.toHaveBeenCalled();
+    expect((await screen.findAllByText(/镜头 2 的画面还没核对/)).length).toBeGreaterThan(0);
+
+    adopt();
+    startOne();
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(1));
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect(sentStill()).toBe("/tmp/last-frame-1.png");
+
+    await openShot(/镜头 1/);
+    adopt();
+    startOne();
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "用第 2 版" }));
+
+    await openShot(/镜头 2/);
+    startOne();
+    await waitFor(() => expect(extract).toHaveBeenCalledTimes(2));
+    expect(video).toHaveBeenCalledTimes(2);
+    expect((await screen.findAllByText(/镜头 2 的画面还没核对/)).length).toBeGreaterThan(0);
+
+    adopt();
+    startOne();
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(3));
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(sentStill()).toBe("/tmp/last-frame-2.png");
+  });
 
   it("keeps the real imported novel across pages and after synchronous offline cast extraction", async () => {
     const source = readFileSync(
