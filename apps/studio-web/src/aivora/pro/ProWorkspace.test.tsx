@@ -3221,19 +3221,31 @@ it("shows the manual still offer for an explicit confirm and leaves the saved dr
   fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
   const confirmButton = await screen.findByRole("button", { name: "确认这张手工画面为固定输入" });
   expect(confirmFixedInput).not.toHaveBeenCalled();
-  const writesAfterStill = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length;
+  const writeFilmProject = vi.mocked(window.aijian!.writeFilmProject!);
+  // The still apply uses the existing 400ms save. Count only after that write lands.
+  await waitFor(() => {
+    const saved = writeFilmProject.mock.calls.at(-1)?.[0];
+    expect(
+      saved?.shots.some((item) =>
+        item.stills.some((still) => still.url.includes("manual-still.png")),
+      ),
+    ).toBe(true);
+  });
+  const writesAfterStill = writeFilmProject.mock.calls.length;
+  const draftAfterStill = JSON.stringify(writeFilmProject.mock.calls.at(-1)?.[0]);
   fireEvent.click(confirmButton);
   await waitFor(() => expect(confirmFixedInput).toHaveBeenCalledTimes(1));
   expect(confirmFixedInput.mock.calls[0]?.[1]).toBe(offerId);
-  expect(vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length).toBe(writesAfterStill);
+  expect(writeFilmProject.mock.calls.length).toBe(writesAfterStill);
   confirmFixedInput.mockResolvedValueOnce({ ok: false, code: "UNSUPPORTED_SCOPE" });
   fireEvent.click(screen.getByRole("button", { name: "确认这张手工画面为固定输入" }));
   expect(await screen.findByText("这张手工画面还不能当作固定输入。")).toBeInTheDocument();
-  expect(vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length).toBe(writesAfterStill);
+  expect(writeFilmProject.mock.calls.length).toBe(writesAfterStill);
   fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
   expect(await screen.findByText("已取消导入固定输入。")).toBeInTheDocument();
   expect(importFixedInput.mock.calls[0]).toHaveLength(1);
-  expect(vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length).toBe(writesAfterStill);
+  expect(writeFilmProject.mock.calls.length).toBe(writesAfterStill);
+  expect(JSON.stringify(writeFilmProject.mock.calls.at(-1)?.[0])).toBe(draftAfterStill);
 });
 
 it("does not let a late import replace a newer draft through the save queue", async () => {
