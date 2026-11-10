@@ -1,3 +1,4 @@
+import { dispatchStillUrl } from "../film/operations";
 import type {
   FilmProject,
   FilmShot,
@@ -11,13 +12,9 @@ export type StillCheckItem = {
   text: string;
 };
 
-/** The picture a person can adopt. A take path is not a still. */
+/** The first frame that would be sent. A take preview is not a still. */
 export function currentStillUrl(shot: FilmShot): string {
-  if (shot.poster) return shot.poster;
-  const still = shot.stills.find((item) => item.url);
-  if (still) return still.url;
-  const take = shot.takes.find((item) => item.id === shot.selectedTakeId) ?? shot.takes[0];
-  return take?.stillUrl || "";
+  return dispatchStillUrl(shot);
 }
 
 function lookPoints(identity: string, gender: string, ageBand: string): string[] {

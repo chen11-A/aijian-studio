@@ -1607,6 +1607,13 @@ function usableImage(url: string): boolean {
   return Boolean(url) && !url.startsWith("blob:") && !url.startsWith("data:");
 }
 
+/** The first frame a video request would send. A take preview is not this picture. */
+export function dispatchStillUrl(shot: Pick<FilmShot, "poster" | "stills">): string {
+  return (
+    [shot.poster, ...shot.stills.map((item) => item.url)].find((url) => usableImage(url)) ?? ""
+  );
+}
+
 /** Front views first, with the speaker ahead of other visible characters. */
 export function firstFrameReferences(film: FilmProject, shot: FilmShot): string[] {
   const speakers = new Set([shot.speaker ?? "", ...(shot.lines ?? []).map((line) => line.speaker)]);
@@ -1636,8 +1643,7 @@ export function shotReference(
   still: string;
   references: { url: string; who: string; kind?: "location" }[];
 } {
-  const picked =
-    [shot.poster, ...shot.stills.map((item) => item.url)].find((url) => usableImage(url)) ?? "";
+  const picked = dispatchStillUrl(shot);
   const people = onScreenCharacters(film, shot);
   const ranked = people.flatMap((person) =>
     person.portraits

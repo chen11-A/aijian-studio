@@ -3,6 +3,7 @@ import { sampleFilm, type FilmProject, type FilmShot } from "../../film/project"
 import { prepareVideoQueue } from "../../film/generation-queue";
 import { compileSevenPartVideo } from "../../film/seven-part-video";
 import { runPreparedGeneration, type GenerationRunHost } from "./generation-run";
+import { saveStillReview, stillChecklist } from "../still-acceptance";
 function fixture(existing: boolean | "failed" | "cancelled" = false, versions = 1) {
   const film = sampleFilm();
   film.characters = [];
@@ -42,7 +43,12 @@ function fixture(existing: boolean | "failed" | "cancelled" = false, versions = 
     ];
   film.shots = [shot];
   shot.reviewedVideoPrompt = compileSevenPartVideo(film, shot).draft;
-  const queue = prepareVideoQueue(film, [shot], versions, false);
+  const verdicts = Object.fromEntries(
+    stillChecklist(film, shot).map((item) => [item.id, "match" as const]),
+  );
+  const adopted = saveStillReview(film, shot.id, verdicts, "2026-11-10T00:00:00.000Z").film;
+  const adoptedShot = adopted.shots[0]!;
+  const queue = prepareVideoQueue(adopted, [adoptedShot], versions, false);
   let current: FilmProject = queue.film;
   const request = vi.fn<GenerationRunHost["request"]>(async () => ({
     data: { status: "SUCCEEDED", output_path: "/media/new.mp4" },
@@ -65,8 +71,8 @@ function fixture(existing: boolean | "failed" | "cancelled" = false, versions = 
     frame: vi.fn(async (_film, shot) => shot),
   };
   return {
-    film,
-    shot,
+    film: adopted,
+    shot: adoptedShot,
     queue,
     host,
     request,
@@ -105,7 +111,14 @@ it.each(["selection", "picture", "removed-review"])(
       f.set({ ...f.current(), shots: [changed] });
       return changed;
     };
-    await expect(runPreparedGeneration(f.queue, f.host)).rejects.toThrow(/重新整理/);
+    if (mode === "picture") {
+      await runPreparedGeneration(f.queue, f.host);
+      expect(f.host.notice).toHaveBeenCalledWith(
+        expect.objectContaining({ text: "镜头 1 的画面还没核对" }),
+      );
+    } else {
+      await expect(runPreparedGeneration(f.queue, f.host)).rejects.toThrow(/重新整理/);
+    }
     expect(f.request).not.toHaveBeenCalled();
   },
 );

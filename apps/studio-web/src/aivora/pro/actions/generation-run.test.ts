@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { sampleFilm, writeFilm, readFilm, type FilmProject } from "../../film/project";
 import { prepareVideoQueue } from "../../film/generation-queue";
+import { saveStillReview, stillChecklist } from "../still-acceptance";
 import {
   applyVideoResponse,
   runPreparedGeneration,
@@ -19,7 +20,16 @@ function setup(versions = 1) {
       lines: [],
     },
   ];
-  const queue = prepareVideoQueue(base, base.shots, versions, false);
+  const verdicts = Object.fromEntries(
+    stillChecklist(base, base.shots[0]!).map((item) => [item.id, "match" as const]),
+  );
+  const adopted = saveStillReview(
+    base,
+    base.shots[0]!.id,
+    verdicts,
+    "2026-11-10T00:00:00.000Z",
+  ).film;
+  const queue = prepareVideoQueue(adopted, adopted.shots, versions, false);
   let live: FilmProject | null = queue.film;
   const events: string[] = [];
   const host: GenerationRunHost = {
@@ -63,6 +73,30 @@ function setup(versions = 1) {
     },
   };
 }
+
+it("does not dispatch when the adopted picture is replaced or a first frame is generated", async () => {
+  const swapped = setup();
+  swapped.host.continuity = vi.fn(async (_film, shot) => ({
+    ...shot,
+    poster: "/films/other-frame.png",
+  }));
+  await runPreparedGeneration(swapped.queue, swapped.host);
+  expect(swapped.host.request).not.toHaveBeenCalled();
+  expect(swapped.host.notice).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "镜头 1 的画面还没核对" }),
+  );
+
+  const generated = setup();
+  generated.host.frame = vi.fn(async (_film, shot) => ({
+    ...shot,
+    poster: "/films/generated-frame.png",
+  }));
+  await runPreparedGeneration(generated.queue, generated.host);
+  expect(generated.host.request).not.toHaveBeenCalled();
+  expect(generated.host.notice).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "镜头 1 的画面还没核对" }),
+  );
+});
 
 it("persists queued and running states before dispatch and prepares continuity before the first frame", async () => {
   const { queue, host, events } = setup();

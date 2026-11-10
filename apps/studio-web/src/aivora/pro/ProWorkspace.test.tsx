@@ -20,6 +20,7 @@ import { NOTICE_COPY } from "../next/wiring/noticeCopy";
 import * as directionTransactions from "./actions/shot-direction-transaction";
 import * as artTransactions from "./actions/art-transaction";
 import { ProWorkspace } from "./ProWorkspace";
+import { saveStillReview, stillChecklist } from "./still-acceptance";
 
 const PROJECT_ID = `prj_${"a".repeat(32)}`;
 
@@ -226,7 +227,11 @@ describe("professional workspace", () => {
         fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       }
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
-      await waitFor(() => expect(video).toHaveBeenCalledTimes(regenerateSource ? 2 : 1));
+      if (regenerateSource) await waitFor(() => expect(video).toHaveBeenCalledTimes(1));
+      else {
+        expect(video).not.toHaveBeenCalled();
+        expect((await screen.findAllByText(/镜头 \d+ 的画面还没核对/)).length).toBeGreaterThan(0);
+      }
       const prepared: FilmGenerationExecutionResult = await vi.mocked(
         window.aijian!.prepareFilmGenerationExecution!,
       ).mock.results[0]!.value;
@@ -240,10 +245,9 @@ describe("professional workspace", () => {
         executionId: prepared.executionId,
         stageId: stage!.stageId,
       });
-      const body = (
-        video.mock.calls.at(-1) as unknown as [string, { shots: { still: string }[] }]
-      )[1];
-      expect(body.shots[0]!.still).toBe("/tmp/last-frame.png");
+      expect(
+        video.mock.calls.some((call) => JSON.stringify(call).includes("/tmp/last-frame.png")),
+      ).toBe(false);
       expect(window.aijian!.generateFilmStill).toHaveBeenCalledTimes(1);
       expect(JSON.stringify(vi.mocked(window.aijian!.generateFilmStill!).mock.calls[0])).toContain(
         "空镜，没有人物",
@@ -456,7 +460,17 @@ describe("professional workspace", () => {
     }));
     installDesktop(video);
     const film = sampleFilm();
-    const prepared = prepareVideoQueue(film, [film.shots[0]!], 2, false).film;
+    film.shots[0] = { ...film.shots[0]!, poster: "/tmp/aivora/shot-0.png" };
+    const verdicts = Object.fromEntries(
+      stillChecklist(film, film.shots[0]!).map((item) => [item.id, "match" as const]),
+    );
+    const adopted = saveStillReview(
+      film,
+      film.shots[0]!.id,
+      verdicts,
+      "2026-11-10T00:00:00.000Z",
+    ).film;
+    const prepared = prepareVideoQueue(adopted, [adopted.shots[0]!], 2, false).film;
     const takes = prepared.shots[0]!.takes;
     const stored = setVideoTaskState(prepared, takes[0]!.id, "running");
     vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
@@ -472,8 +486,39 @@ describe("professional workspace", () => {
     const resume = await screen.findByRole("button", { name: "继续排队" });
     expect(video).not.toHaveBeenCalled();
     fireEvent.click(resume);
+    await waitFor(() => expect(video).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      const saved = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.at(-1)![0] as FilmProject;
+      expect(saved.shots[0]!.takes.map((take) => take.id)).toEqual(takes.map((take) => take.id));
+      expect(saved.shots[0]!.takes.map((take) => take.status)).toEqual(["failed", "done"]);
+    });
+  });
+
+  it("blocks 继续排队 on an old project that has no adopted still", async () => {
+    const { prepareVideoQueue, setVideoTaskState } = await import("../film/generation-queue");
+    const video = vi.fn(async () => ({
+      data: { status: "SUCCEEDED", output_path: "/tmp/resumed.mp4" },
+    }));
+    installDesktop(video);
+    const film = sampleFilm();
+    const prepared = prepareVideoQueue(film, [film.shots[0]!], 2, false).film;
+    const takes = prepared.shots[0]!.takes;
+    const stored = setVideoTaskState(prepared, takes[0]!.id, "running");
+    vi.mocked(window.aijian!.readFilmProject!).mockImplementation(async (id) => {
+      const writes = vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.map(([film]) => film)
+        .filter((item) => item.id === id);
+      return structuredClone(writes.at(-1) ?? stored);
+    });
+    window.localStorage.setItem("aivora.film.activeId", stored.id);
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    fireEvent.click(await screen.findByRole("button", { name: /后台生成/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "继续排队" }));
     expect(video).not.toHaveBeenCalled();
-    expect(await screen.findAllByText(/镜头 \d+ 的画面还没核对/)).not.toHaveLength(0);
+    expect((await screen.findAllByText(/镜头 \d+ 的画面还没核对/)).length).toBeGreaterThan(0);
   });
 
   it("blocks a failed retry after the adopted picture description changes", async () => {
@@ -3320,6 +3365,20 @@ it("does not call the provider for 生成这一场 while the still is unadopted"
   expect(screen.getAllByText(/镜头 \d+ 的画面还没核对/).length).toBeGreaterThan(0);
   expect(screen.getAllByRole("button", { name: "生成画面" }).length).toBeGreaterThan(0);
   expect(screen.queryByRole("button", { name: "核对并采用" })).toBeNull();
+});
+
+it("does not call the provider for 生成这一场 when a picture exists but is not adopted", async () => {
+  const createStoryFilm = vi.fn();
+  installDesktop(createStoryFilm);
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  await screen.findByRole("button", { name: "核对并采用" });
+  fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  expect(createStoryFilm).not.toHaveBeenCalled();
+  expect(screen.getAllByText(/镜头 \d+ 的画面还没核对/).length).toBeGreaterThan(0);
+  expect(screen.getByRole("button", { name: /去核对镜头/ })).toBeInTheDocument();
 });
 
 it("shows the manual still offer for an explicit confirm and leaves the saved draft on cancel or refusal", async () => {

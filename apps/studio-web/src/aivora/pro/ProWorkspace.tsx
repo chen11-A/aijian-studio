@@ -11138,7 +11138,16 @@ function GeneratePage({
                 <span>Grok 会员</span>
                 <small title={GENERATE_MODEL}>成片</small>
               </div>
-              {current && currentStillUrl(current) ? (
+              {current && !currentStillUrl(current) ? (
+                <div className="still-gate">
+                  <p id={`still-gate-${current.id}`} className="still-gate-reason">
+                    <span>{videoGate(film, current).reason}</span>
+                  </p>
+                  <button className="btn" type="button" onClick={onRestill}>
+                    生成画面
+                  </button>
+                </div>
+              ) : current && currentStillUrl(current) ? (
                 <StillAcceptanceControls
                   film={film}
                   shot={current}

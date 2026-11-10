@@ -15,7 +15,8 @@ import {
 } from "../../film/generation-queue";
 import { updateShot } from "../../film/operations";
 import { ensureContinuityFrame } from "../continuity-frame";
-import { ensureShotFrame } from "../still-workflow";
+import { stillAccepted } from "../still-acceptance";
+import { type ensureShotFrame } from "../still-workflow";
 import { fileMediaUrl, isVoiceFile } from "../workflow";
 import { NOTICE_TEXT, presentNotice } from "../../film/notices";
 import { awaitVideoResult } from "../video-request";
@@ -291,11 +292,9 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
         : await (host.continuity ?? ensureContinuityFrame)(current, targetShot, frameHost);
       const shotNow = cached
         ? connectedShot
-        : await (host.frame ?? ensureShotFrame)(
-            host.current() ?? current,
-            connectedShot,
-            frameHost,
-          );
+        : host.frame
+          ? await host.frame(host.current() ?? current, connectedShot, frameHost)
+          : connectedShot;
       if (!host.valid()) return;
       const beforeSend = host.current() ?? current;
       if (host.cancelled(jobId)) {
@@ -303,6 +302,13 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
         continue;
       }
       if (await queueStopped()) return;
+      if (!stillAccepted(beforeSend, shotNow)) {
+        host.notice({
+          code: "STILL_NOT_ACCEPTED",
+          text: `镜头 ${shotNow.no} 的画面还没核对`,
+        });
+        return;
+      }
       const dispatched = setVideoTaskState(beforeSend, take.id, "running");
       await host.apply(dispatched);
       await host.persist(dispatched);
