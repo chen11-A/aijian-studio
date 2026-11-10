@@ -3224,7 +3224,7 @@ it("shows the manual still offer for an explicit confirm and leaves the saved dr
   const writeFilmProject = vi.mocked(window.aijian!.writeFilmProject!);
   // The still apply uses the existing 400ms save. Count only after that write lands.
   await waitFor(() => {
-    const saved = writeFilmProject.mock.calls.at(-1)?.[0];
+    const saved = writeFilmProject.mock.calls.at(-1)?.[0] as FilmProject | undefined;
     expect(
       saved?.shots.some((item) =>
         item.stills.some((still) => still.url.includes("manual-still.png")),
