@@ -44,6 +44,8 @@ export type LibraryOutcome = {
   message: string;
   pending?: PendingLibraryWrite;
   clipId?: string;
+  /** The film object settle actually adopted, not a later current(). */
+  adopted?: FilmProject;
 };
 const sameSelection = (a: LibrarySelection | null, b: LibrarySelection) =>
   !!a &&
@@ -287,6 +289,7 @@ export async function settleLibraryWrite(
       ? {
           kind: "added",
           clipId: added.id,
+          adopted,
           message:
             pending.kind === "group"
               ? `本次 ${additions!.length} 段声音已加入并保存；移除整组只移除本次引用，素材文件仍保留。`
@@ -409,6 +412,7 @@ export async function settleLibraryWrite(
     ? {
         kind: "added",
         clipId: added.id,
+        adopted,
         message: "素材已加入原版本，保留了本页后来的编辑；请核对当前版本的素材列表。",
       }
     : { kind: "failed", message: "没有找到本次添加，已保留并保存本页编辑。" };
@@ -476,6 +480,25 @@ function libraryReleaseFailure(host: LibraryHost, pending?: PendingLibraryWrite)
     ...(pending?.expectedClipId ? { clipId: pending.expectedClipId } : {}),
   };
 }
+const sceneSettlementStages = new Set([
+  "clear",
+  "call",
+  "lease",
+  "lease-none",
+  "write-success",
+  "write-other",
+  "keep-result",
+  "invalidate",
+]);
+/** Closed renderer stages for the scene-audio audit. No paths, hashes or lease bodies. */
+export function noteSceneSettlement(stage: string) {
+  if (!sceneSettlementStages.has(stage)) return;
+  const audit = (globalThis as { __sceneSettleAudit?: { stages?: string[] } }).__sceneSettleAudit;
+  if (!audit) return;
+  if (!Array.isArray(audit.stages)) audit.stages = [];
+  if (audit.stages.length >= 12) return;
+  audit.stages.push(stage);
+}
 export async function withAudioWriteCleanup(
   host: LibraryHost,
   run: () => Promise<LibraryOutcome>,
@@ -488,6 +511,7 @@ export async function withAudioWriteCleanup(
   } catch {
     outcome = libraryReleaseFailure(host, getPending());
   }
+  noteSceneSettlement(getLease() ? "lease" : "lease-none");
   try {
     await getLease()?.release();
   } catch {

@@ -1,7 +1,8 @@
 import { generationSelectedMedia } from "./film-generation-selected-media";
 import { forecastGenerationReferences } from "./film-generation-forecast";
 import { createHash, randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { realpath } from "node:fs/promises";
+import { isAbsolute, join, relative, sep } from "node:path";
 import type {
   FilmGenerationExecutionFailure,
   FilmGenerationVideoExecution,
@@ -25,14 +26,17 @@ import {
 } from "./film-generation-compiler";
 import {
   compileCanonicalGenerationPlan,
+  generationObject,
   generationRows,
   type CanonicalGenerationPlan,
 } from "./film-generation-plan";
 import { dispatchProtectedGenerationStill } from "./film-generation-still-dispatch";
 import {
   buildGenerationRegistration,
+  type GenerationReferenceIdentity,
   type GenerationRegistrationInput,
 } from "./film-generation-registration";
+import type { FixedInputLedger } from "./film-generation-fixed-input";
 import {
   generationBodyIdentity,
   restoreGenerationIntent,
@@ -115,6 +119,10 @@ type State = {
 
 /** A current-input guard over the one shared forecast compiler, not a budget hash
  * or permission. Opaque keys only bind the same already-issued native plan. */
+function insideWriterStills(root: string, file: string): boolean {
+  const value = relative(root, file);
+  return value !== "" && value !== ".." && !value.startsWith(`..${sep}`) && !isAbsolute(value);
+}
 function forecastKey(
   producer: CanonicalGenerationProducer,
   plan: CanonicalGenerationPlan,
@@ -134,6 +142,8 @@ export function createNativeFilmGenerationExecutions(host: {
   mediaDispatchLease: () => Promise<AccountLease | null>;
   storySourceOwner: (projectId: string, path: string, sha256: string) => Promise<boolean>;
   fetcher: typeof fetch;
+  /** Explicit main-private fixed-input receipts. Absence grants nothing. */
+  fixedInputs?: Pick<FixedInputLedger, "matches">;
   producer?: () => Promise<CanonicalGenerationProducer>;
   selectedMediaHost?: (
     current: () => boolean,
@@ -216,6 +226,7 @@ export function createNativeFilmGenerationExecutions(host: {
           !/^prj_[a-f0-9]{32}$/.test(record.backendProjectId)
         )
           return fail("UNSUPPORTED_SCOPE");
+        const backendProjectId = record.backendProjectId;
         const producer = await (host.producer ?? loadCanonicalGenerationProducer)();
         const sources = await generationImageSources({
           filmsRoot: host.filmsRoot(),
@@ -225,7 +236,8 @@ export function createNativeFilmGenerationExecutions(host: {
           backendProjectId: record.backendProjectId,
           storySourceOwner: host.storySourceOwner,
         });
-        const plan = compileCanonicalGenerationPlan(producer, record, record, input, new Set());
+        let intent: Record<string, unknown> = record;
+        let plan = compileCanonicalGenerationPlan(producer, record, intent, input, new Set());
         // Never infer cache misses from metadata or file existence. This narrow branch
         // consumes the original queue's explicit regenerate instruction only.
         if (
@@ -240,27 +252,95 @@ export function createNativeFilmGenerationExecutions(host: {
           )
         )
           return fail("UNSUPPORTED_SCOPE");
-        const planned = plan.stages.some((stage) => stage.public.kind === "location-reference");
-        const registration = await buildGenerationRegistration(
+        let planned = plan.stages.some((stage) => stage.public.kind === "location-reference");
+        let registration = await buildGenerationRegistration(
           producer,
           plan,
-          record,
+          intent,
           sources,
           planned ? { plannedReferences: true } : {},
         );
+        const api = generationPreparationClient({ session: () => session, fetcher: host.fetcher });
+        const hashes = [...new Set(sources.identities().map((source) => source.sha256))];
+        const facts = hashes.length
+          ? await api.lineages(record.backendProjectId, hashes, accountLease.account, current)
+          : [];
+        const knownOutputs = new Set(
+          facts.flatMap((fact) => {
+            const output = generationObject(fact)?.output_sha256;
+            return typeof output === "string" ? [output] : [];
+          }),
+        );
+        const writerRoot = await realpath(join(host.filmsRoot(), record.seriesId, "stills")).catch(
+          () => null,
+        );
+        // series/stills only rejects a consumed file that has neither a READABLE
+        // automatic output fact nor an explicit fixed-input receipt. The directory
+        // itself proves nothing and grants nothing.
+        if (
+          writerRoot &&
+          sources.identities().some((source) => {
+            if (!source.path || !insideWriterStills(writerRoot, source.path)) return false;
+            if (knownOutputs.has(source.sha256)) return false;
+            return !host.fixedInputs?.matches({
+              accountSha256: accountLease.account.accountSha256,
+              projectId: record.id,
+              backendProjectId,
+              seriesId: record.seriesId,
+              role: "still",
+              canonicalPath: source.path,
+              sha256: source.sha256,
+              mime: source.mime,
+              knownAutomaticOutput: knownOutputs.has(source.sha256),
+            });
+          })
+        )
+          return fail("UNSUPPORTED_SCOPE");
+        if (facts.length) {
+          // Proven same-account/project READABLE shot-frames restore the original
+          // creator view. Portrait, location and unknown automatic output stay closed.
+          if (
+            facts.some(
+              (fact) => generationObject(generationObject(fact)?.stage)?.kind !== "shot-frame",
+            )
+          )
+            return fail("UNSUPPORTED_SCOPE");
+          intent = await restoreGenerationIntent(
+            producer,
+            record,
+            input.targets.map((target) => target.shotId),
+            sources,
+            facts,
+          );
+          plan = compileCanonicalGenerationPlan(producer, record, intent, input, new Set());
+          if (
+            plan.stages.some(
+              (stage) =>
+                stage.public.kind !== "shot-frame" && stage.public.kind !== "location-reference",
+            )
+          )
+            return fail("UNSUPPORTED_SCOPE");
+          registration = await buildGenerationRegistration(producer, plan, intent, sources, {
+            plannedReferences: true,
+          });
+          const fixedOutput = (reference: GenerationReferenceIdentity): boolean =>
+            "sha256" in reference
+              ? knownOutputs.has(reference.sha256)
+              : reference.plannedImage.references.some(fixedOutput);
+          // A restored creator must not keep its old automatic output as a new
+          // fixed input. Output SHA, path and execution id are not a new bucket.
+          if (
+            registration.targets.some((target) =>
+              target.sources.some((source) => knownOutputs.has(source.sha256)),
+            ) ||
+            registration.stages.some((stage) => stage.origin.references.some(fixedOutput))
+          )
+            return fail("UNSUPPORTED_SCOPE");
+          planned = true;
+        }
         const identities = new Map<string, string>();
         for (const target of plan.targets)
           identities.set(target.key, await generationBodyIdentity(target.originalBody, sources));
-        const api = generationPreparationClient({ session: () => session, fetcher: host.fetcher });
-        const hashes = [...new Set(sources.identities().map((source) => source.sha256))];
-        // Owned automatic outputs require the full original-intent adapter; do not
-        // accidentally treat them as a new user-created input/budget bucket here.
-        if (
-          hashes.length &&
-          (await api.lineages(record.backendProjectId, hashes, accountLease.account, current))
-            .length
-        )
-          return fail("UNSUPPORTED_SCOPE");
         await sources.verify();
         const fresh = await readProject(host.filmsRoot(), input.projectId);
         if (!fresh || filmHistoryRecordHash(fresh) !== input.expectedProjectHash)
@@ -285,7 +365,7 @@ export function createNativeFilmGenerationExecutions(host: {
           account: accountLease.account,
           session,
           current,
-          plannedKey: planned ? forecastKey(producer, plan, record) : null,
+          plannedKey: planned ? forecastKey(producer, plan, intent) : null,
           attemptedSlots: new Set(),
           attemptedStages: new Set(),
           stageOrigins: new Map(registration.stages.map((stage) => [stage.key, stage.origin])),

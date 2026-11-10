@@ -12,6 +12,7 @@ export function installSceneAudioBridge({ catalog }) {
     readonly = window.__shotAudioAudit;
   const audit = { calls: [], forbidden: [] };
   window.__sceneAudioAudit = audit;
+  window.__sceneSettleAudit = { stages: [] };
   window.aijian.suggestBundledFilmSceneAudio = async (input) => {
     const raw = creation.record(input.projectId),
       rows = raw?.shots.map((s) => ({ shotId: s.id, takeId: s.selectedTakeId }));
@@ -133,9 +134,24 @@ export function readSceneAudioApplyState() {
     pending: group?.pending.length ?? 0,
     saved: text.includes("声音已加入并保存"),
     rebased: text.includes("素材已加入原版本，保留了本页后来的编辑"),
-    stale: text.includes("本场内容已变化，本次没有选用") || text.includes("当前编辑又有变化"),
+    stale:
+      text.includes("本场内容已变化，本次没有选用") ||
+      text.includes("当前编辑又有变化") ||
+      text.includes("场次、选版或素材已变化，请刷新后重新核对。"),
     unknown: [...window.document.querySelectorAll("button")].some((button) =>
       /^本地素材保存待核对（[1-9]\d{0,3}）$/.test(button.textContent.trim()),
+    ),
+    settle: (window.__sceneSettleAudit?.stages ?? []).filter((stage) =>
+      [
+        "clear",
+        "call",
+        "lease",
+        "lease-none",
+        "write-success",
+        "write-other",
+        "keep-result",
+        "invalidate",
+      ].includes(stage),
     ),
   };
 }
