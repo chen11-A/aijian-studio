@@ -4,14 +4,14 @@
 
 ## 位置
 
-| 项 | 值 |
-| --- | --- |
-| 任务分支 | `cursor/aivora-api55-cache-boundary-93a6` |
-| 实现提交 | `74704d0a6df0f0b450ade19f04fa1f39e4d1f799` |
-| 基线 | `grok/aivora-next-integration-20261109@6bb54bbcce5e4051454a9fa0a17ab4dd72472167` |
-| 检查点 | `166dc89d35d3cfab6f220a409b34a0874f38ee08` |
-| 检查点 base | `d658377cd866c6acbf89bf06f86399a619717df1` |
-| 隔离 ref | 本地 `refs/heads/handoff/backend-cache55-isolated`，未推送 |
+| 项          | 值                                                                               |
+| ----------- | -------------------------------------------------------------------------------- |
+| 任务分支    | `cursor/aivora-api55-cache-boundary-93a6`                                        |
+| 实现提交    | `74704d0a6df0f0b450ade19f04fa1f39e4d1f799`                                       |
+| 基线        | `grok/aivora-next-integration-20261109@6bb54bbcce5e4051454a9fa0a17ab4dd72472167` |
+| 检查点      | `166dc89d35d3cfab6f220a409b34a0874f38ee08`                                       |
+| 检查点 base | `d658377cd866c6acbf89bf06f86399a619717df1`                                       |
+| 隔离 ref    | 本地 `refs/heads/handoff/backend-cache55-isolated`，未推送                       |
 
 恢复入口仍是原档案 `docs/aivora/checkpoints/backend-cache55.bundle`。本片没有整包合并，没有覆盖原 bundle，没有改 `packages/contracts`、`apps/desktop` 或 `apps/studio-web`。
 
@@ -32,11 +32,11 @@
 
 ## 检查点里未改的桌面文件
 
-| 文件 | 相对 `d658377` |
-| --- | --- |
-| `apps/desktop/src/generation-cache-preparation.ts` | 新增 258 行 |
-| `apps/desktop/src/generation-cache-preparation.test.ts` | 新增 184 行 |
-| `apps/desktop/src/generation-preparation-client.ts` | 修改 +19 行，`prepareSlots` |
+| 文件                                                    | 相对 `d658377`              |
+| ------------------------------------------------------- | --------------------------- |
+| `apps/desktop/src/generation-cache-preparation.ts`      | 新增 258 行                 |
+| `apps/desktop/src/generation-cache-preparation.test.ts` | 新增 184 行                 |
+| `apps/desktop/src/generation-preparation-client.ts`     | 修改 +19 行，`prepareSlots` |
 
 未发布：`packages/contracts/openapi.json`（检查点约 +232 行）、`packages/contracts/src/generated.ts`（检查点约 +116 行）。
 

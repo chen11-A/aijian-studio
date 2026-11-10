@@ -379,21 +379,21 @@ uv run pytest -q --tb=line services/api/tests/test_prepared_generation_cache.py:
 
 只跑 `test_real_original_changed_with_restored_size_and_mtime_is_not_reused` 各一次。同一云环境，`LD_LIBRARY_PATH` 未设置，锁定的 `/usr/bin/ffmpeg` 首行是 `ffmpeg version 7.1.5-0+deb13u1`。该测试本身不调用 ffmpeg。工作区 pytest 会把 `pythonpath` 指到 `/workspace`，所以两次都在对应 worktree 里用 `/workspace/.venv/bin/pytest`，并 `--override-ini addopts=`。没有改断言、锁或超时。没有重跑 5453 项全套。
 
-| 对照 | SHA | 结果 |
-| --- | --- | --- |
+| 对照         | SHA                                        | 结果                                                                |
+| ------------ | ------------------------------------------ | ------------------------------------------------------------------- |
 | handoff 基线 | `6bb54bbcce5e4051454a9fa0a17ab4dd72472167` | `1 failed in 0.56s`。`assert 'VERIFIED' == 'UNKNOWN_MEDIA_CHANGED'` |
-| 代码候选 | `1227af513b72cf20cb9d054bcb6a2aba1f5338d0` | `1 failed in 0.44s`。同一断言 |
+| 代码候选     | `1227af513b72cf20cb9d054bcb6a2aba1f5338d0` | `1 failed in 0.44s`。同一断言                                       |
 
 `local_media_original.py` 两边 `diff` 退出码 0。这只记录源码相同。基线同样失败，所以这是继承的未关闭原完整性门，不是本批 API55 新引入后被无 diff 放过。
 
 候选模块按测试同一顺序实测。文件系统是 `ext4 /dev/vdc rw,relatime`。
 
-| 时点 | dev | ino | size | mtime_ns | ctime_ns | SHA256 |
-| --- | --- | --- | --- | --- | --- | --- |
-| 创建 `b"owned bounded original"` | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | `5bfb616357df8c4a0222dacfe5e891dced7bddacbfdbe96a14ede06186996a37` |
-| 第一次核验后 | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | 同上 |
-| 覆写为 22 个 `x` 后 | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | `ec4a4fcd915a7672085936bb477cc50561660015653ad41616c8419727e97ff1` |
-| `os.utime(ns=(原 atime, 原 mtime))` 后 | 65056 | 772118 | 22 | 1794272263957547757 | 1794272263957547757 | 同上 |
+| 时点                                   | dev   | ino    | size | mtime_ns            | ctime_ns            | SHA256                                                             |
+| -------------------------------------- | ----- | ------ | ---- | ------------------- | ------------------- | ------------------------------------------------------------------ |
+| 创建 `b"owned bounded original"`       | 65056 | 772118 | 22   | 1794272263957547757 | 1794272263957547757 | `5bfb616357df8c4a0222dacfe5e891dced7bddacbfdbe96a14ede06186996a37` |
+| 第一次核验后                           | 65056 | 772118 | 22   | 1794272263957547757 | 1794272263957547757 | 同上                                                               |
+| 覆写为 22 个 `x` 后                    | 65056 | 772118 | 22   | 1794272263957547757 | 1794272263957547757 | `ec4a4fcd915a7672085936bb477cc50561660015653ad41616c8419727e97ff1` |
+| `os.utime(ns=(原 atime, 原 mtime))` 后 | 65056 | 772118 | 22   | 1794272263957547757 | 1794272263957547757 | 同上                                                               |
 
 覆写前后 SHA 不同，字节确实变了。第一次返回 `VERIFIED`，`used_bytes` 为 22，identity cache 写入 `(dev, ino, size, mtime_ns, ctime_ns)`。覆写并调用 `utime` 之后，缓存的 named identity 与 held identity 都等于当前 identity。第二次仍返回 `VERIFIED`，`used_bytes` 仍是 22，没有再次哈希。这是可触发的陈旧核验复用，不是读错了 ctime。`utime` 在这条快速路径上是空操作，因为时间戳从未变化。
 

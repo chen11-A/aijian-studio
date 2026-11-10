@@ -44,12 +44,12 @@
 
 每个 `PreparedSlotCacheFact`：
 
-| 字段 | 约束 |
-| --- | --- |
-| `target_key` | 原 target key |
-| `slot_index` | 整数 0、1 或 2 |
-| `preparation` | `CLIENT_IMAGES` 或 `STORYFILM_CACHE` |
-| `cache` | `CLIENT_IMAGES` 必须为 `null`；`STORYFILM_CACHE` 必须为下面的私有对象 |
+| 字段          | 约束                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| `target_key`  | 原 target key                                                         |
+| `slot_index`  | 整数 0、1 或 2                                                        |
+| `preparation` | `CLIENT_IMAGES` 或 `STORYFILM_CACHE`                                  |
+| `cache`       | `CLIENT_IMAGES` 必须为 `null`；`STORYFILM_CACHE` 必须为下面的私有对象 |
 
 `STORYFILM_CACHE` 只允许 slot 0，且仅当该 target 的原 `first_regenerate` 为 false。slot 1 和 slot 2 即使当时或之后写出完整 bundle，仍是 `CLIENT_IMAGES`，`cache` 为 `null`。已冻结的 `CLIENT_IMAGES` 不因后续新缓存改成 `CACHE`。
 
@@ -57,14 +57,14 @@
 
 `PreparedPrivateCache`，`schema_version` 常量 1，`additionalProperties: false`：
 
-| 字段 | 含义 |
-| --- | --- |
-| `snapshot_sha256` | 规范化快照信封的完整性摘要，不是授权 |
-| `input_sha256` | 原输入桶 |
-| `request` | 冻结的原 `CreateStoryFilmBody` |
-| `sources` | 原意图来源行，每行且仅有 `source`、`canonical_path`、`sha256`、`mime` |
-| `runtime_recipe` | 冻结的实际运行配方，含原 `cap` 与 `actual_video` |
-| `parts` | 恰好 `image`、`video`、`voice`；每项 `{ "sha256", "bytes" }`，`bytes` 为 1 到 80 MiB |
+| 字段              | 含义                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `snapshot_sha256` | 规范化快照信封的完整性摘要，不是授权                                                 |
+| `input_sha256`    | 原输入桶                                                                             |
+| `request`         | 冻结的原 `CreateStoryFilmBody`                                                       |
+| `sources`         | 原意图来源行，每行且仅有 `source`、`canonical_path`、`sha256`、`mime`                |
+| `runtime_recipe`  | 冻结的实际运行配方，含原 `cap` 与 `actual_video`                                     |
+| `parts`           | 恰好 `image`、`video`、`voice`；每项 `{ "sha256", "bytes" }`，`bytes` 为 1 到 80 MiB |
 
 来源 SHA、运行配方、三个产品的 SHA 与字节数必须与冻结时的原请求和实际文件一致。替换可变 `bundle.json` 不改变已选快照。晚缺、损坏、同长度替换或链接替换在消费时停止。
 
@@ -90,12 +90,12 @@
 
 既有 image/arm 路由保持原错误码，不把它们折叠进缓存成功：
 
-| 码 | 何时保留 |
-| --- | --- |
-| `INPUT_UNVERIFIABLE` | 缓存槽借用原请求、来源或 regenerate 事实不符 |
-| `EXECUTION_UNAVAILABLE` | 错账号、错 body、退役，或对已冻结缓存槽申请新的 transport admission |
-| `ATTEMPT_ALREADY_RESERVED` | 同输入桶已有 PENDING/UNKNOWN；提高 N 或新 execution 不能解开 |
-| `UNCONFIGURED` / `INPUT_FAILURE_LIMIT` / `VIDEO_UNCONFIGURED` / `VIDEO_INPUT_FAILURE_LIMIT` | 原额度门 |
+| 码                                                                                          | 何时保留                                                            |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `INPUT_UNVERIFIABLE`                                                                        | 缓存槽借用原请求、来源或 regenerate 事实不符                        |
+| `EXECUTION_UNAVAILABLE`                                                                     | 错账号、错 body、退役，或对已冻结缓存槽申请新的 transport admission |
+| `ATTEMPT_ALREADY_RESERVED`                                                                  | 同输入桶已有 PENDING/UNKNOWN；提高 N 或新 execution 不能解开        |
+| `UNCONFIGURED` / `INPUT_FAILURE_LIMIT` / `VIDEO_UNCONFIGURED` / `VIDEO_INPUT_FAILURE_LIMIT` | 原额度门                                                            |
 
 缓存晚缺没有付费回退。`CACHE` 声称不能在核验失败后改走新生成。读取缓存不得把已有 `UNKNOWN` 结算成 `SUCCEEDED` 或 `FAILED`，也不得借提高 N 或新 execution 解锁。后续版本不得借用缓存槽的请求或额度；slot 1/2 使用冻结缓存请求去 arm 时拒绝。
 
@@ -129,11 +129,11 @@
 
 检查点里的桌面私有 client，本分支未改，留给界面代理：
 
-| 文件 | 检查点相对 `d658377` | 接入点 |
-| --- | --- | --- |
-| `apps/desktop/src/generation-cache-preparation.ts` | 新增 258 行 | `parseGenerationSlotPreparations`；类型 `GenerationCacheSource`、`GenerationPrivateCache`、`GenerationSlotPreparation` |
-| `apps/desktop/src/generation-cache-preparation.test.ts` | 新增 184 行 | 私有 parser 定向测试 |
-| `apps/desktop/src/generation-preparation-client.ts` | 修改，+19 行 | `generationPreparationClient.prepareSlots` 把原登记 POST 到 `cache-preparations`，再交给 parser |
+| 文件                                                    | 检查点相对 `d658377` | 接入点                                                                                                                 |
+| ------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `apps/desktop/src/generation-cache-preparation.ts`      | 新增 258 行          | `parseGenerationSlotPreparations`；类型 `GenerationCacheSource`、`GenerationPrivateCache`、`GenerationSlotPreparation` |
+| `apps/desktop/src/generation-cache-preparation.test.ts` | 新增 184 行          | 私有 parser 定向测试                                                                                                   |
+| `apps/desktop/src/generation-preparation-client.ts`     | 修改，+19 行         | `generationPreparationClient.prepareSlots` 把原登记 POST 到 `cache-preparations`，再交给 parser                        |
 
 冻结后由本分支发布的生成合同：
 
