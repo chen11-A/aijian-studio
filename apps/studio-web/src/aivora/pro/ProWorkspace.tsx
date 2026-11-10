@@ -7,7 +7,7 @@ import { ExportSoundChoice, exportCheckBlocked } from "./ExportSoundChoice";
 import { FixedInputImportButton } from "./FixedInputImportButton";
 import { StillAcceptanceControls, guardBlockedVideo } from "./StillAcceptanceDialog";
 import { soundRowLabel, UNGENERATED_SOUND_LABEL } from "./sound-export-decision";
-import { stillAccepted, videoGate } from "./still-acceptance";
+import { currentStillUrl, stillAccepted, videoGate } from "./still-acceptance";
 import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
@@ -4108,11 +4108,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const project = live;
     if (!project) return;
-    const unaccepted = resume
-      ? undefined
-      : selected
-          .map((item) => project.shots.find((shot) => shot.id === item.id) ?? item)
-          .find((shot) => !stillAccepted(project, shot));
+    const unaccepted = selected
+      .map((item) => project.shots.find((shot) => shot.id === item.id) ?? item)
+      .find((shot) => !stillAccepted(project, shot));
     if (unaccepted) {
       setNotice(`镜头 ${unaccepted.no} 的画面还没核对`);
       setStage("board");
@@ -4142,6 +4140,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     selected = latestTargets.filter((target): target is FilmShot => Boolean(target));
+    const unacceptedNow = selected.find((shot) => !stillAccepted(latestGeneration, shot));
+    if (unacceptedNow) {
+      setNotice(`镜头 ${unacceptedNow.no} 的画面还没核对`);
+      setStage("board");
+      const index = latestGeneration.shots.findIndex((item) => item.id === unacceptedNow.id);
+      if (index >= 0) setShot(index);
+      return;
+    }
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     if (canSubmit) {
@@ -8321,9 +8327,11 @@ function exportLine(film: FilmProject): string {
   const gap =
     missing > 0
       ? `还有 ${missing} 个镜头没做好`
-      : film.audioDecision === "SILENT_BY_USER" || film.audioDecision === "WITH_AUDIO"
-        ? "都做好了"
-        : "还没决定这部片子有没有声音";
+      : film.audioDecision === "SILENT_BY_USER"
+        ? "本片静音"
+        : film.audioDecision === "WITH_AUDIO"
+          ? "都做好了"
+          : "还没决定这部片子有没有声音";
   return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · ${length} · ${gap}`;
 }
 
@@ -10651,7 +10659,7 @@ function BoardPage({
                 </div>
               </PropGroup>
             </div>
-            {!videoGate(film, current).enabled ? (
+            {currentStillUrl(current) ? (
               <StillAcceptanceControls
                 film={film}
                 shot={current}
@@ -11130,7 +11138,7 @@ function GeneratePage({
                 <span>Grok 会员</span>
                 <small title={GENERATE_MODEL}>成片</small>
               </div>
-              {current && !videoGate(film, current).enabled ? (
+              {current && currentStillUrl(current) ? (
                 <StillAcceptanceControls
                   film={film}
                   shot={current}
@@ -12491,6 +12499,13 @@ function EditPage({
                   .map((item) => (
                     <span key={item.id} className="lane-empty">
                       {UNGENERATED_SOUND_LABEL}
+                    </span>
+                  ))}
+                {film.audioClips
+                  .filter((item) => soundRowLabel(item).startsWith("增益在最低档"))
+                  .map((item) => (
+                    <span key={`${item.id}-gain`} className="lane-empty">
+                      {soundRowLabel(item)}
                     </span>
                   ))}
                 {film.audioClips

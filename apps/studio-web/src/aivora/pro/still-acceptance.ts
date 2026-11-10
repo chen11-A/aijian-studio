@@ -98,6 +98,7 @@ export function readStillAcceptance(value: unknown, url: string): StillAcceptanc
 
 export function stillAccepted(film: FilmProject, shot: FilmShot): boolean {
   const url = currentStillUrl(shot);
+  if (!url) return false;
   const saved = readStillAcceptance(stillFor(shot, url)?.acceptance, url);
   if (!saved?.adopted) return false;
   const items = stillChecklist(film, shot);
@@ -144,6 +145,7 @@ export function saveStillReview(
   const shot = film.shots.find((item) => item.id === shotId);
   if (!shot) return { film, adopted: false, error: "没有这一镜" };
   const url = currentStillUrl(shot);
+  if (!url) return { film, adopted: false, error: "还没有画面" };
   const items = stillChecklist(film, shot);
   if (items.some((item) => verdicts[item.id] !== "match" && verdicts[item.id] !== "mismatch"))
     return { film, adopted: false, error: "还没逐项核对" };

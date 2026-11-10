@@ -155,6 +155,20 @@ describe("still checklist", () => {
     expect(videoGate(movedPlace, movedPlace.shots[0]!).enabled).toBe(false);
   });
 
+  it("refuses to adopt a shot that has no picture", () => {
+    const film = filmWith(shot({ id: "s1", no: 1, characters: [], poster: "" }));
+    const saved = saveStillReview(
+      film,
+      "s1",
+      { "no-people": "match", location: "match", picture: "match" },
+      "2026-11-10T00:00:00.000Z",
+    );
+    expect(saved.error).toBe("还没有画面");
+    expect(saved.film.shots[0]!.stills).toEqual([]);
+    expect(stillAccepted(saved.film, saved.film.shots[0]!)).toBe(false);
+    expect(videoGate(saved.film, saved.film.shots[0]!).enabled).toBe(false);
+  });
+
   it("treats a damaged acceptance record as not adopted", () => {
     const film = filmWith(shot({ id: "s1", no: 1, characters: [], poster: "/empty.png" }));
     film.shots[0]!.stills = [
