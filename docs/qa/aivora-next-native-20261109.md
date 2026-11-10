@@ -142,3 +142,15 @@ exit 0。1 file，2 passed，141 skipped，4.63s。这次修复提交是 `06ccc2
 定向仍是上一条过滤命令，exit 0，2 passed / 141 skipped，4.56s。`pnpm --filter @aijian/studio-web typecheck`（`tsc -b --pretty false`）exit 0。没有重跑 desktop 类型检查、desktop 2515 或 web 5638。
 
 PR 的 `pro-scene-audio (ubuntu)` job `129557595459` 16 项里只失败 `1280x800-16x9-scene-audio-confirm-remove`，停在 `pro-scene-audio-cases.mjs:255` 等待「声音已加入并保存」。摘要是 `sceneReply=ADDED`、`sceneSaved=0`。同一提交的 push job `129557565894` 整项通过，其余 15 个组合也通过。本片没有改这场审计或场景声音产品代码。不把这一次单独失败当成通过，也不改断言。
+
+## 0388182 的 Windows 定向失败
+
+同一 head `0388182b876f8a455461eb2d6fcb75322d788de0` 的 push [42735977747](https://github.com/chen11-A/aijian-studio/actions/runs/42735977747) 上，两道已有 Windows 定向门失败。同一次提交的 PR run [42735983478](https://github.com/chen11-A/aijian-studio/actions/runs/42735983478) 里，`audio-library-write` job `129565212318` 和 `speech-window` job `129565212006` 是成功的。这不是销案。
+
+`audio-library-write (windows, targeted)` job [129565192807](https://github.com/chen11-A/aijian-studio/actions/runs/42735977747/job/129565192807)，runner `GitHub Actions 1000003182`。`film-audio-library.test.ts:919` 的 `before` 在原 5000ms 超时。已有诊断：`elapsed=4902ms`，`fixture:1312ms|suggest:1419ms|apply:1124ms`，`stage=commit`，`probes=12`。`commit` 只标在 `beforeCommit` 入口；钩子本身没有后续工作，`write` 观察点没有出现。挂点在钩子返回之后、项目写入之前的那段库内核对，包括混音解析和媒体子进程。当时没有子进程退出数，也没有内存数字。
+
+`speech-window (windows, targeted)` job [129565192815](https://github.com/chen11-A/aijian-studio/actions/runs/42735977747/job/129565192815) 的交付清单步骤失败。`film-export-qc-ownership.test.ts:7` 整段 5000ms 超时，1 failed。这个用例是进程内 SQLite 和 `realpathSync`，没有 ffmpeg。日志没有阶段，挂点未定位。
+
+本机 Linux 只作对照，不代替 Windows：`before` 这一条 2.34s 通过；ownership 14ms 通过，阶段是 db 1ms、rows 9ms、owner 10ms、done 11ms。原 5 秒、断言和这两个 CI 入口都没改。没有全量重跑。两项仍未定位。
+
+诊断提交 `7083b7009e51958b1e617a528a7406e0d3ed4816` 只让下一次既有 Windows 定向门多记：`before` 的 `commit-return`、子进程 open/closed/failed、最后工具名、heap 和 free；ownership 的 db/rows/owner/done/cleanup。不记录路径。这次提交本身还没有新的 Windows 结果。
