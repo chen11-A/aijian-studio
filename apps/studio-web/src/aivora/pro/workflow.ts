@@ -180,7 +180,12 @@ export async function requestStill(
   aspectRatio: "9:16" | "16:9" = "9:16",
   references: string[] = [],
   execution?: FilmGenerationStillExecution,
-): Promise<{ url: string; reason: string }> {
+): Promise<{
+  url: string;
+  reason: string;
+  fixedInputOfferId?: string;
+  fixedInputLimit?: boolean;
+}> {
   const bridge = window.aijian;
   if (!seriesId || !bridge?.generateFilmStill) {
     return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
@@ -198,7 +203,16 @@ export async function requestStill(
       };
     }
     const url = fileMediaUrl(result.path);
-    return { url: url || result.path, reason: "画面已生成。" };
+    return {
+      url: url || result.path,
+      reason: result.fixedInputLimit
+        ? "画面已保存。这一轮可确认的手工画面已满，没有自动当作固定输入。可以重新选择导入；重启后需要再次明确确认。"
+        : "画面已生成。",
+      ...(!execution && result.fixedInputOfferId
+        ? { fixedInputOfferId: result.fixedInputOfferId }
+        : {}),
+      ...(result.fixedInputLimit ? { fixedInputLimit: true } : {}),
+    };
   } catch (error) {
     if (error instanceof ProtectedGenerationFailure) throw error;
     if (execution) throw protectedGenerationFailure("WRITE_UNCONFIRMED");
@@ -282,6 +296,8 @@ export async function requestShotStill(
   url: string;
   reason: string;
   diagnostics: { referenceCount: number; imageLimit: number; videoReferenceLimit: number };
+  fixedInputOfferId?: string;
+  fixedInputLimit?: boolean;
 }> {
   const input = shotStillInput(film, shot, prompt);
   if (input.kind === "FAILED")

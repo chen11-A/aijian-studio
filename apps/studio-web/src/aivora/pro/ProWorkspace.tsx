@@ -3,6 +3,7 @@ import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./acti
 import { audioTimelineBox } from "./audio-mix-timeline";
 import { AUDIO_LANE_GAIN_DB, AUDIO_LANE_LABEL } from "../film/audio";
 import { AudioMixPreview } from "./AudioMixPreview";
+import { FixedInputImportButton } from "./FixedInputImportButton";
 import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
@@ -779,6 +780,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   );
   const [roleCards, setRoleCards] = useState<Partial<Record<Role, RoleCard>>>({});
   const [stillArmed, setStillArmed] = useState("");
+  const [manualStillOffers, setManualStillOffers] = useState<Record<string, string>>({});
   const selectedEditorShot =
     stage === "board" || stage === "edit"
       ? film?.shots
@@ -4002,7 +4004,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           apply: applyLive,
         },
       );
-      if (valid()) setNotice(result.notice);
+      if (valid()) {
+        setNotice(result.notice);
+        const key = `${base.id}:${current.id}`;
+        setManualStillOffers((offers) => {
+          const next = { ...offers };
+          if (result.fixedInputOfferId) next[key] = result.fixedInputOfferId;
+          else delete next[key];
+          return next;
+        });
+      }
     } catch (error) {
       if (valid()) {
         if (error instanceof Error && "code" in error && error.code === "SHOT_STILL_INPUT_CHANGED")
@@ -6436,6 +6447,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   fourArmed={stillArmed}
                   onFour={generateFourStills}
                   onStills={() => void makeShotStill()}
+                  manualStillOfferId={
+                    shownShots[shot]
+                      ? manualStillOffers[`${film.id}:${shownShots[shot].id}`]
+                      : undefined
+                  }
+                  liveFilm={() => filmRef.current}
                   stillProgress={stillProgress}
                   onPickStill={(picture) => {
                     const current = shownShots[shot];
@@ -9538,6 +9555,8 @@ function BoardPage({
   activeSceneId,
   stills,
   onStills,
+  manualStillOfferId,
+  liveFilm,
   stillProgress,
   onFour,
   fourArmed,
@@ -9584,6 +9603,8 @@ function BoardPage({
   activeSceneId: string;
   stills: string[];
   onStills: () => void;
+  manualStillOfferId?: string;
+  liveFilm: () => FilmProject | null;
   onFour: () => void;
   fourArmed: string;
   stillProgress: Record<string, string>;
@@ -10621,6 +10642,14 @@ function BoardPage({
                   </div>
                 ) : null}
               </div>
+              <FixedInputImportButton
+                film={film}
+                shot={current}
+                offerId={manualStillOfferId}
+                liveFilm={liveFilm}
+                onFilm={onFilm}
+                onNotice={onNotice}
+              />
               {fourArmed === current.id ? (
                 <button className="btn" type="button" onClick={onFour}>
                   确认这 4 张

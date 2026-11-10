@@ -1,4 +1,7 @@
 import { createNativeFilmGenerationExecutions } from "./film-generation-execution";
+import { createFixedInputLedger } from "./film-generation-fixed-input";
+import { registerFixedInputHandlers } from "./film-generation-fixed-input-ipc";
+import { generationPreparationClient } from "./generation-preparation-client";
 import { registerFilmGenerationExecutions } from "./film-generation-execution-ipc";
 import type { GenerationExecutionOwner } from "./film-generation-execution-registry";
 import { createFilmRiskTrials } from "./film-risk-trial";
@@ -856,7 +859,9 @@ function generationExecutionOwner(event: IpcMainInvokeEvent): GenerationExecutio
     current: () => nativePreviewDocumentEpoch === epoch && nativePreviewAuthorized(event),
   };
 }
+const fixedInputs = createFixedInputLedger();
 const generationExecutions = createNativeFilmGenerationExecutions({
+  fixedInputs,
   filmsRoot: () => join(app.getPath("userData"), "films"),
   storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
   session: () => {
@@ -895,6 +900,36 @@ const generationExecutions = createNativeFilmGenerationExecutions({
     ),
   fetcher: globalThis.fetch,
 });
+registerFixedInputHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  {
+    filmsRoot: () => join(app.getPath("userData"), "films"),
+    ledger: fixedInputs,
+    authorized: nativePreviewAuthorized,
+    mediaDispatchLease: () => getGrokRuntime().mediaDispatchLease(),
+    pickImage: async () => {
+      if (mainWindow === null) return null;
+      const selected = await dialog.showOpenDialog(mainWindow, {
+        title: "选择要作为固定输入的画面",
+        properties: ["openFile"],
+        filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg", "webp"] }],
+      });
+      if (selected.canceled) return null;
+      return selected.filePaths[0] ?? null;
+    },
+    isAutomaticOutput: async ({ backendProjectId, sha256, account, current }) => {
+      if (!sidecar) return true;
+      const api = generationPreparationClient({
+        session: () => {
+          if (!sidecar) throw Error("EXECUTION_UNAVAILABLE");
+          return sidecar.session;
+        },
+        fetcher: globalThis.fetch,
+      });
+      return (await api.lineages(backendProjectId, [sha256], account, current)).length > 0;
+    },
+  },
+);
 registerFilmGenerationExecutions<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   nativePreviewAuthorized,
@@ -1490,6 +1525,8 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
           resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : 0);
         });
       }),
+    noteManualStill: (seriesId, path) =>
+      fixedInputs.noteManualStill(join(app.getPath("userData"), "films"), seriesId, path),
     mediaToken: async () => {
       try {
         return await getGrokRuntime().mediaAccessToken();

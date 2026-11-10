@@ -21,6 +21,7 @@ import {
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { delimiter, dirname, basename, isAbsolute, join, resolve } from "node:path";
+import { freemem } from "node:os";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
@@ -847,66 +848,156 @@ it("selects a complete lane subset while preserving existing clips, and rejects 
 it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] as const)(
   "rejects late %s mutation before the sole CAS and removes only private unreferenced copies",
   async (mode) => {
-    const f = await fixture();
-    const clean = join(f.media, "actual-clean.mp4");
-    if (mode === "clean") {
-      await copyFile(f.video, clean);
-      (f.record.shots![0] as { takes: Record<string, unknown>[] }).takes[0]!.cleanVideoPath = clean;
-    }
-    const { request } = await suggested(f);
-    // Each test owns its modified bundle; do not mutate the shared module fixture.
-    const own = join(f.root, "bundle");
-    await (await import("node:fs/promises")).cp(bundle, own, { recursive: true });
-    f.host.libraryRoot = () => own;
-    const before = await readFile(f.video);
-    let called = false;
-    f.host.beforeCommit = async () => {
-      called = true;
-      if (mode === "project" || mode === "take") {
-        const current = (await readProject(f.filmsRoot, f.record.id))!;
-        if (mode === "project") current.title = "new edit";
-        else {
-          const shot = current.shots![0] as {
-            takes: Record<string, unknown>[];
-            selectedTakeId: string;
-          };
-          shot.takes.push({ id: "other", shotId: "shot", status: "done", videoPath: f.video });
-          shot.selectedTakeId = "other";
-        }
-        await writeProject(f.filmsRoot, current);
-      } else if (mode === "source") await writeFile(f.video, "new bytes");
-      else if (mode === "clean") {
-        const oldSha = sha(await readFile(clean));
-        await run(tools.ffmpegPath, [
-          "-v",
-          "error",
-          "-y",
-          "-f",
-          "lavfi",
-          "-i",
-          "color=c=blue:s=160x90:r=24:d=2",
-          "-c:v",
-          "libx264",
-          "-an",
-          clean,
-        ]);
-        expect(sha(await readFile(clean))).not.toBe(oldSha);
-      } else if (mode === "library") await writeFile(join(own, "manifest.json"), "{}");
-      else
-        await writeFile(
-          join(own, mode === "picker" ? "audio-picker.mjs" : "audio-picker-synonyms.mjs"),
-          "export const changed=true;",
-        );
+    const watched = mode === "source" || mode === "clean";
+    const startedAt = performance.now();
+    let stage = "fixture";
+    let stageAt = startedAt;
+    const completed: { stage: string; elapsedMs: number }[] = [];
+    const media = { started: 0, closed: 0, failed: 0, last: "none", library: 0, encode: 0 };
+    let inApply = false;
+    const advance = (next: string) => {
+      if (!watched) return;
+      const now = performance.now();
+      if (completed.length < 12) completed.push({ stage, elapsedMs: Math.round(now - stageAt) });
+      stage = next;
+      stageAt = now;
     };
-    const result = await f.library.applyBundledFilmShotAudio(request);
-    expect(called).toBe(true);
-    expect(result.kind).toBe("FAILED");
-    expect(result).toMatchObject({ unchanged: true });
-    expect((await readProject(f.filmsRoot, f.record.id))!.audioClips).toEqual([]);
-    expect(
-      (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
-    ).toEqual([]);
-    if (mode !== "source") expect(await readFile(f.video)).toEqual(before);
+    let gate: ReturnType<typeof mutationSnapshot> | undefined;
+    function mutationSnapshot() {
+      return {
+        v: 1,
+        mode,
+        stage,
+        elapsedMs: Math.round(performance.now() - startedAt),
+        completed: [...completed],
+        open: Math.max(0, media.started - media.closed),
+        closed: media.closed,
+        failed: media.failed,
+        last: media.last,
+        heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
+        freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
+      };
+    }
+    const observer = watched
+      ? setTimeout(() => {
+          gate = mutationSnapshot();
+        }, 4900)
+      : undefined;
+    observer?.unref();
+    if (watched)
+      onTestFailed(() => {
+        process.stderr.write(
+          `CI_LIBRARY_MUTATION_PHASE ${JSON.stringify(gate ?? mutationSnapshot())}\n`,
+        );
+      });
+    const f = await fixture();
+    if (watched) {
+      const counted = f.host.run;
+      f.host.run = vi.fn(async (binary: string, args: string[], options?: object) => {
+        media.started += 1;
+        if (inApply) media.library += 1;
+        const name = basename(binary)
+          .toLowerCase()
+          .replace(/\.exe$/, "");
+        media.last = name === "ffmpeg" ? "ffmpeg" : name === "ffprobe" ? "ffprobe" : "other";
+        let closed = false;
+        try {
+          return await counted(binary, args, {
+            ...(options ?? {}),
+            onProcess: (pid: number, done: boolean) => {
+              if (done && !closed) {
+                closed = true;
+                media.closed += 1;
+              }
+              (
+                options as { onProcess?: (pid: number, done: boolean) => void } | undefined
+              )?.onProcess?.(pid, done);
+            },
+          });
+        } catch (error) {
+          media.failed += 1;
+          throw error;
+        }
+      });
+    }
+    try {
+      advance("suggest");
+      const clean = join(f.media, "actual-clean.mp4");
+      if (mode === "clean") {
+        await copyFile(f.video, clean);
+        (f.record.shots![0] as { takes: Record<string, unknown>[] }).takes[0]!.cleanVideoPath =
+          clean;
+      }
+      const { request } = await suggested(f);
+      advance("bundle");
+      // Each test owns its modified bundle; do not mutate the shared module fixture.
+      const own = join(f.root, "bundle");
+      await (await import("node:fs/promises")).cp(bundle, own, { recursive: true });
+      f.host.libraryRoot = () => own;
+      const before = await readFile(f.video);
+      let called = false;
+      f.host.beforeCommit = async () => {
+        called = true;
+        advance("commit");
+        if (mode === "project" || mode === "take") {
+          const current = (await readProject(f.filmsRoot, f.record.id))!;
+          if (mode === "project") current.title = "new edit";
+          else {
+            const shot = current.shots![0] as {
+              takes: Record<string, unknown>[];
+              selectedTakeId: string;
+            };
+            shot.takes.push({ id: "other", shotId: "shot", status: "done", videoPath: f.video });
+            shot.selectedTakeId = "other";
+          }
+          await writeProject(f.filmsRoot, current);
+        } else if (mode === "source") await writeFile(f.video, "new bytes");
+        else if (mode === "clean") {
+          advance("encode");
+          const oldSha = sha(await readFile(clean));
+          const encodeAt = media.started;
+          await f.host.run(tools.ffmpegPath, [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=160x90:r=24:d=2",
+            "-c:v",
+            "libx264",
+            "-an",
+            clean,
+          ]);
+          media.encode += media.started - encodeAt;
+          expect(sha(await readFile(clean))).not.toBe(oldSha);
+        } else if (mode === "library") await writeFile(join(own, "manifest.json"), "{}");
+        else
+          await writeFile(
+            join(own, mode === "picker" ? "audio-picker.mjs" : "audio-picker-synonyms.mjs"),
+            "export const changed=true;",
+          );
+      };
+      advance("apply");
+      inApply = true;
+      const result = await f.library.applyBundledFilmShotAudio(request);
+      inApply = false;
+      advance("done");
+      expect(called).toBe(true);
+      expect(result.kind).toBe("FAILED");
+      expect(result).toMatchObject({ unchanged: true });
+      expect((await readProject(f.filmsRoot, f.record.id))!.audioClips).toEqual([]);
+      expect(
+        (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
+      ).toEqual([]);
+      if (mode !== "source") expect(await readFile(f.video)).toEqual(before);
+      if (watched) {
+        expect(media.library - media.encode).toBeGreaterThan(0);
+        expect(media.closed).toBe(media.started);
+      }
+    } finally {
+      if (observer) clearTimeout(observer);
+    }
   },
 );
 it.each([
@@ -924,6 +1015,12 @@ it.each([
       stageAt = begin,
       probes = () => 0;
     const completed: { stage: string; elapsedMs: number }[] = [];
+    const media: {
+      started: number;
+      closed: number;
+      failed: number;
+      last: "none" | "ffmpeg" | "ffprobe" | "other";
+    } = { started: 0, closed: 0, failed: 0, last: "none" };
     const snapshot = () => ({
       v: 1,
       mode,
@@ -931,6 +1028,12 @@ it.each([
       elapsedMs: Math.round(performance.now() - begin),
       completed: [...completed],
       probes: probes(),
+      open: Math.max(0, media.started - media.closed),
+      closed: media.closed,
+      failed: media.failed,
+      last: media.last,
+      heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
+      freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
     });
     let gateObservation: ReturnType<typeof snapshot> | undefined;
     // Observation only: no cancellation, retry, deadline or change to the original 5s gate.
@@ -951,13 +1054,40 @@ it.each([
     });
     try {
       const f = await fixture();
-      probes = () => f.host.run.mock.calls.length;
+      const counted = f.host.run;
+      f.host.run = vi.fn(async (binary: string, args: string[], options?: object) => {
+        media.started += 1;
+        const name = basename(binary)
+          .toLowerCase()
+          .replace(/\.exe$/, "");
+        media.last = name === "ffmpeg" ? "ffmpeg" : name === "ffprobe" ? "ffprobe" : "other";
+        let closed = false;
+        try {
+          return await counted(binary, args, {
+            ...(options ?? {}),
+            onProcess: (pid: number, done: boolean) => {
+              if (done && !closed) {
+                closed = true;
+                media.closed += 1;
+              }
+              (
+                options as { onProcess?: (pid: number, done: boolean) => void } | undefined
+              )?.onProcess?.(pid, done);
+            },
+          });
+        } catch (error) {
+          media.failed += 1;
+          throw error;
+        }
+      });
+      probes = () => media.started;
       advance("suggest");
       const { request } = await suggested(f);
       advance("apply");
       fault.observe = advance;
       f.host.beforeCommit = async () => {
         advance("commit");
+        advance("commit-return");
       };
       fault.mode = mode;
       expect(await f.library.applyBundledFilmShotAudio(request)).toMatchObject({
