@@ -225,6 +225,13 @@ describe("professional workspace", () => {
     const sentStill = () =>
       (video.mock.calls.at(-1) as unknown as [string, { shots: { still?: string }[] }])[1].shots[0]
         ?.still;
+    const preparedStages = async () => {
+      const prepared = await vi
+        .mocked(window.aijian!.prepareFilmGenerationExecution!)
+        .mock.results.at(-1)!.value;
+      if (prepared.kind !== "PREPARED") throw new Error(prepared.kind);
+      return prepared.stages;
+    };
 
     await openShot(/镜头 2/);
     adopt();
@@ -238,6 +245,15 @@ describe("professional workspace", () => {
     await waitFor(() => expect(video).toHaveBeenCalledTimes(1));
     expect(extract).toHaveBeenCalledTimes(1);
     expect(sentStill()).toBe("/tmp/last-frame-1.png");
+    expect(await preparedStages()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "continuity-frame",
+          targetId: linked.id,
+          sourceShotId: source.id,
+        }),
+      ]),
+    );
 
     await openShot(/镜头 1/);
     adopt();
@@ -256,6 +272,15 @@ describe("professional workspace", () => {
     await waitFor(() => expect(video).toHaveBeenCalledTimes(3));
     expect(extract).toHaveBeenCalledTimes(2);
     expect(sentStill()).toBe("/tmp/last-frame-2.png");
+    expect(await preparedStages()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "continuity-frame",
+          targetId: linked.id,
+          sourceShotId: source.id,
+        }),
+      ]),
+    );
   });
 
   it("keeps the real imported novel across pages and after synchronous offline cast extraction", async () => {

@@ -20,8 +20,6 @@ import {
   makePipelinePortraits,
   makePipelineStill,
 } from "./pipeline-media-actions";
-import { stillAccepted } from "./still-acceptance";
-
 import {
   generationExecutionNotice,
   createGenerationExecutionSession,
@@ -62,7 +60,10 @@ export type PipelineWorkspaceHost = {
   bridge: () => GrokLoginBridge | null;
   modelIds: () => string[];
   modelsChanged: (ids: string[]) => void;
-  submitGeneration: (shots: FilmShot[], host: PipelineVideoHost) => Promise<void>;
+  submitGeneration: (
+    shots: FilmShot[],
+    host: PipelineVideoHost,
+  ) => Promise<"STILL_NOT_ACCEPTED" | void>;
   beforeRun?: (lease: PipelineSaveLease) => Promise<void>;
   /** Explicit human-trial path only; not provider, quantity or membership authorization. */
   checkTrialDecision?: (
@@ -326,7 +327,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
               code: "GENERATION_SELECTION_STALE",
               detail: "所选本地视频已变化，请重新核对。",
             };
-          await host.submitGeneration([shot], {
+          const submitted = await host.submitGeneration([shot], {
             execution,
             current: () => current() && ctx.isCurrent(),
             apply: ctx.commitPartial,
@@ -336,16 +337,16 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
           });
           if (!current() || !ctx.isCurrent())
             return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
-          const after = ctx.current();
-          const row = after.shots.find((item) => item.id === shot.id);
-          const produced = row?.takes.some((take) => take.status === "done" && take.videoPath);
-          if (row && !produced && !stillAccepted(after, row))
+          if (submitted === "STILL_NOT_ACCEPTED") {
+            const after = ctx.current();
+            const row = after.shots.find((item) => item.id === shot.id) ?? shot;
             return {
               status: "blocked",
               code: "STILL_NOT_ACCEPTED",
               detail: `镜头 ${row.no} 的画面还没核对`,
               film: after,
             };
+          }
           // A resolved submission is not evidence of a completed video. The controller verifies
           // an actual done take and saved path in this returned film before advancing.
           return { status: "done", film: ctx.current() };

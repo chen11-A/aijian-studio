@@ -277,11 +277,58 @@ it("blocks one-click video before any provider call when the still is not adopte
     const live = env.live();
     const shot = live.shots.find((item) => item.id === shots[0]!.id);
     if (shot && stillAccepted(live, shot)) provider();
+    return "STILL_NOT_ACCEPTED";
   });
   const result = await env.adapter.continue();
   expect(provider).not.toHaveBeenCalled();
   expect(result.status).toBe("blocked");
   expect(JSON.stringify(result)).toContain(`镜头 ${env.live().shots[0]!.no} 的画面还没核对`);
+});
+
+it("blocks an explicit still refusal when an older finished version is still on the shot", async () => {
+  const film = fixture();
+  const shot = film.shots[0]!;
+  shot.stills = [];
+  shot.selectedTakeId = "queued-next";
+  shot.takes = [
+    {
+      id: "old-finished",
+      shotId: shot.id,
+      index: 1,
+      status: "done",
+      stillUrl: shot.poster,
+      videoPath: "/tmp/old-finished.mp4",
+      videoUrl: "",
+      prompt: "旧版",
+      createdAt: "",
+      reason: "",
+    },
+    {
+      id: "queued-next",
+      shotId: shot.id,
+      index: 2,
+      status: "queued",
+      stillUrl: "",
+      videoPath: "",
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+    },
+  ];
+  const provider = vi.fn();
+  const env = setup(await prime(film, "review"));
+  expect((await env.adapter.start()).status).toBe("needs-input");
+  expect((await env.adapter.acceptReview("已逐镜检查构图和人物")).status).toBe("checkpoint");
+  vi.mocked(env.host.submitGeneration).mockImplementation(async () => "STILL_NOT_ACCEPTED");
+  const result = await env.adapter.continue();
+  expect(provider).not.toHaveBeenCalled();
+  expect(env.host.submitGeneration).toHaveBeenCalledOnce();
+  expect(result.status).toBe("blocked");
+  expect(result.steps.find((step) => step.id === "video")?.targets[0]?.code).toBe(
+    "STILL_NOT_ACCEPTED",
+  );
+  expect(JSON.stringify(result)).toContain(`镜头 ${shot.no} 的画面还没核对`);
 });
 
 it("releases a drained lease after cancellation and never dispatches from a stale capture", async () => {

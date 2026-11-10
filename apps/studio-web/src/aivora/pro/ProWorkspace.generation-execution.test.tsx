@@ -6,6 +6,7 @@ import { sceneLocationTargets } from "../film/location-reference";
 import { historyRecordHash } from "./actions/persistent-history";
 import { runPipelineAgentAction } from "./pipeline-agent-actions";
 import { ProWorkspace } from "./ProWorkspace";
+import { saveStillReview, stillChecklist } from "./still-acceptance";
 vi.mock("./pipeline-agent-actions", () => ({ runPipelineAgentAction: vi.fn() }));
 const projectId = `prj_${"a".repeat(32)}`;
 function fixture() {
@@ -21,12 +22,19 @@ function fixture() {
       line: "",
       lines: [],
       speaker: "",
-      poster: "",
+      poster: "/tmp/adopted-frame.png",
       stills: [],
       takes: [],
       selectedTakeId: "",
     },
   ];
+  const shot = film.shots[0]!;
+  const verdicts = Object.fromEntries(
+    stillChecklist(film, shot).map((item) => [item.id, "match" as const]),
+  );
+  const reviewed = saveStillReview(film, shot.id, verdicts, "2026-11-10T00:00:00.000Z");
+  if (!reviewed.adopted) throw new Error(reviewed.error);
+  film.shots = reviewed.film.shots;
   let stored = structuredClone(film);
   const video = vi.fn(async () => ({
     data: { status: "SUCCEEDED", output_path: "/tmp/new-execution.mp4" },
@@ -155,7 +163,7 @@ it("prepares only after explicit confirmation and real canonical backup, then fo
       (c) => c.length === 5 && (c[4] as { executionId: string }).executionId === "native-execution",
     ),
   ).toBe(true);
-  expect(calls.some((c) => (c[4] as { stageId: string }).stageId === "native-frame")).toBe(true);
+  expect(calls.some((c) => (c[4] as { stageId: string }).stageId === "native-frame")).toBe(false);
   const video = f.video.mock.calls as unknown as unknown[][];
   expect(video[0]![3]).toEqual({
     executionId: "native-execution",
@@ -293,7 +301,7 @@ it.each(["fixed-result", "transport"])(
     await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
     expect(f.still).toHaveBeenCalledTimes(1);
     expect(f.video).not.toHaveBeenCalled();
-    expect(f.stored().shots[0]!.poster).toBe("");
+    expect(f.stored().shots[0]!.poster).toBe("/tmp/adopted-frame.png");
     expect(f.stored().locations.some((p) => p.referenceImage?.includes("kept-native-image"))).toBe(
       false,
     );
@@ -303,7 +311,14 @@ it.each(["fixed-result", "transport"])(
 
 it("fresh real Pro runs text structure first and waits for explicit complete media scope confirmation before native preparation", async () => {
   const f = fixture();
-  const template = { ...f.film.shots[0]!, picture: "雨落。", action: "雨落。", seconds: 3 };
+  const template = {
+    ...f.film.shots[0]!,
+    picture: "雨落。",
+    action: "雨落。",
+    seconds: 3,
+    poster: "",
+    stills: [],
+  };
   const fresh = {
     ...f.film,
     sourceText: "雨落。",
@@ -407,13 +422,11 @@ it("keeps a native cached first slot separate from the later explicitly issued c
       })),
     };
   });
-  let calls = 0;
   f.video.mockImplementation(async () => {
     const frameCalls = (f.still.mock.calls as unknown as unknown[][]).filter(
       (call) => (call[4] as { stageId: string }).stageId === "native-frame",
     );
-    expect(frameCalls).toHaveLength(calls === 0 ? 0 : 1);
-    calls++;
+    expect(frameCalls).toHaveLength(0);
     return { data: { status: "SUCCEEDED", output_path: "/tmp/new-execution.mp4" } };
   });
   await open();

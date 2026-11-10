@@ -5,6 +5,7 @@ import type { FilmHistoryEntry, FilmHistoryGateway } from "@aijian/contracts/fil
 import { sampleFilm, type FilmProject } from "../film/project";
 import { historyRecordHash } from "./actions/persistent-history";
 import { ProWorkspace } from "./ProWorkspace";
+import { saveStillReview, stillChecklist } from "./still-acceptance";
 function gate() {
   let resolve!: () => void;
   const promise = new Promise<void>((done) => {
@@ -41,6 +42,13 @@ function fixture() {
     ],
   }));
   film.audioClips = [];
+  const shot = film.shots[0]!;
+  const verdicts = Object.fromEntries(
+    stillChecklist(film, shot).map((item) => [item.id, "match" as const]),
+  );
+  const reviewed = saveStillReview(film, shot.id, verdicts, "2026-11-10T00:00:00.000Z");
+  if (!reviewed.adopted) throw new Error(reviewed.error);
+  film.shots = reviewed.film.shots;
   const other = structuredClone(film);
   other.id = "film_historyother001";
   other.episodeNo = 2;

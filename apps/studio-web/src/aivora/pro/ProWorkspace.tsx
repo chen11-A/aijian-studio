@@ -4058,12 +4058,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
-  ) {
+  ): Promise<"STILL_NOT_ACCEPTED" | void> {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id) || persistentHistoryBusyRef.current) return;
     generationRuns.current.add(id);
     try {
-      await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
+      return await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
     } finally {
       generationRuns.current.delete(id);
     }
@@ -4079,7 +4079,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
-  ) {
+  ): Promise<"STILL_NOT_ACCEPTED" | void> {
     const mine = ++runToken.current;
     const requestedVersions = pipeline?.versions ?? versions;
     const applyGeneration = async (next: FilmProject) => {
@@ -4116,7 +4116,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setStage("board");
       const index = project.shots.findIndex((item) => item.id === unaccepted.id);
       if (index >= 0) setShot(index);
-      return;
+      return "STILL_NOT_ACCEPTED";
     }
     setNotice(generationEstimate(selected.length, requestedVersions, duration));
     if (preflight.kind === "stopped") {
@@ -4146,7 +4146,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setStage("board");
       const index = latestGeneration.shots.findIndex((item) => item.id === unacceptedNow.id);
       if (index >= 0) setShot(index);
-      return;
+      return "STILL_NOT_ACCEPTED";
     }
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;

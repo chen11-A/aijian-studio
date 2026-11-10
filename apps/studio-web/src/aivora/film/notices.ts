@@ -595,6 +595,7 @@ export const NOTICE_TEXT = {
   PORTRAITS_INCOMPLETE: "定妆照还没出全，请补上。",
   MEDIA_CAPABILITY_REQUIRED: "现在出不了画面和视频，请检查登录和网络。",
   MEDIA_RESULT_MISSING: "没拿到生成的画面或视频，请看一下后台生成。",
+  STILL_NOT_ACCEPTED: "画面还没核对，请先采用这一镜再出视频。",
   VIDEO_COVERAGE_INCOMPLETE: "有的镜头还没有视频，请补上。",
   VIDEO_FILE_MISSING: "找不到视频文件，请检查保存的地方。",
   ASSEMBLY_CAPABILITY_REQUIRED: "网页版接不了成片，请在电脑上装好的 AIVORA 里继续。",
