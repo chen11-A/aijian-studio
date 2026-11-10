@@ -441,6 +441,21 @@ it("keeps a native cached first slot separate from the later explicitly issued c
     false,
     true,
   ]);
+  expect(contexts[1]![3]).toEqual({
+    executionId: "native-execution",
+    videoSlotId: `slot-${f.film.shots[0]!.id}-1`,
+    shotId: f.film.shots[0]!.id,
+    takeId: expect.any(String),
+  });
+  const prepared = await f.prepare.mock.results[0]!.value;
+  expect(prepared).toMatchObject({
+    kind: "PREPARED",
+    targets: [
+      {
+        slotPreparations: [{ preparation: "STORYFILM_CACHE" }, { preparation: "CLIENT_IMAGES" }],
+      },
+    ],
+  });
   expect(f.prepare).toHaveBeenCalledTimes(1);
   await waitFor(() =>
     expect(f.stored().shots[0]!.takes.filter((take) => take.status === "done")).toHaveLength(2),

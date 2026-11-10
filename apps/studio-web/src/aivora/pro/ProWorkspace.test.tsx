@@ -13,6 +13,7 @@ import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { sampleFilm, type FilmProject } from "../film/project";
+import * as filmProject from "../film/project";
 import { activeFilmId, readSaved } from "../film/library";
 import { BEAT_DRAG_TYPE } from "../next/SceneAlerts";
 import { NOTICE_COPY } from "../next/wiring/noticeCopy";
@@ -3353,6 +3354,40 @@ async function adoptOpenStill(options?: { stayOnBoard?: boolean }) {
   }
 }
 
+function filmWithAdoptedStills(film: FilmProject): FilmProject {
+  let next = film;
+  for (const shot of film.shots) {
+    next = {
+      ...next,
+      shots: next.shots.map((item) =>
+        item.id === shot.id
+          ? { ...item, poster: `/tmp/aivora/adopted-${item.id}.png`, stills: [] }
+          : item,
+      ),
+    };
+    const current = next.shots.find((item) => item.id === shot.id)!;
+    const verdicts = Object.fromEntries(
+      stillChecklist(next, current).map((item) => [item.id, "match" as const]),
+    );
+    const saved = saveStillReview(next, shot.id, verdicts, "2026-11-10T00:00:00.000Z");
+    if (!saved.adopted) throw new Error(saved.error);
+    next = saved.film;
+  }
+  return next;
+}
+
+async function openAdoptedSample() {
+  const realSample = filmProject.sampleFilm;
+  const spy = vi
+    .spyOn(filmProject, "sampleFilm")
+    .mockImplementation(() => filmWithAdoptedStills(realSample()));
+  try {
+    await openSample();
+  } finally {
+    spy.mockRestore();
+  }
+}
+
 async function adoptListedShots() {
   const cards = screen
     .getAllByRole("button")
@@ -5452,7 +5487,7 @@ it("names each shot's job in the task center and counts the ones still going", a
       }),
   );
   installDesktop(createStoryFilm);
-  await openSample();
+  await openAdoptedSample();
   fireEvent.click(stageTab("分镜"));
   await adoptListedShots();
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
@@ -6254,7 +6289,7 @@ it("3JR-B08 terminates this batch's queued videos when scene preparation fails",
     path: "/tmp/aivora/still.png",
     reason: "",
   });
-  await openSample();
+  await openAdoptedSample();
   fireEvent.click(stageTab("分镜"));
   await adoptListedShots();
   fireEvent.click(stageTab("角色与场景"));

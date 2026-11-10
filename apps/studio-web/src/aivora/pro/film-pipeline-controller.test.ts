@@ -1,6 +1,7 @@
 import { webcrypto } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sampleFilm, upgradeFilm, type FilmProject } from "../film/project";
+import { saveStillReview, stillChecklist } from "./still-acceptance";
 import { readSaved, saveFilm } from "../film/library";
 import { fileMediaUrl, hydrateFilm } from "./workflow";
 import {
@@ -215,6 +216,33 @@ describe("film pipeline controller", () => {
       }),
     ).toBe(hash);
     expect(await filmPipelineFingerprint({ ...film, title: "edited" })).not.toBe(hash);
+  });
+  it("keeps the fingerprint when the current poster is adopted and changes it when the picture changes", async () => {
+    const film = fixture();
+    const before = await filmPipelineFingerprint(film);
+    const shot = film.shots[0]!;
+    const verdicts = Object.fromEntries(
+      stillChecklist(film, shot).map((item) => [item.id, "match" as const]),
+    );
+    const adopted = saveStillReview(film, shot.id, verdicts, "2026-11-10T00:00:00.000Z");
+    expect(adopted.adopted).toBe(true);
+    expect(await filmPipelineFingerprint(adopted.film)).toBe(before);
+    expect(
+      await filmPipelineFingerprint({
+        ...adopted.film,
+        shots: adopted.film.shots.map((item) =>
+          item.id === shot.id ? { ...item, poster: "/media/other-start.png" } : item,
+        ),
+      }),
+    ).not.toBe(before);
+    expect(
+      await filmPipelineFingerprint({
+        ...film,
+        shots: film.shots.map((item) =>
+          item.id === shot.id ? { ...item, picture: "雨停了。" } : item,
+        ),
+      }),
+    ).not.toBe(before);
   });
   it("saves returned text artifacts and terminal target state together before next dispatch", async () => {
     const env = setup();
