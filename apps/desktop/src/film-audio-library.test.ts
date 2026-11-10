@@ -853,7 +853,8 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
     let stage = "fixture";
     let stageAt = startedAt;
     const completed: { stage: string; elapsedMs: number }[] = [];
-    const media = { started: 0, closed: 0, failed: 0, last: "none" };
+    const media = { started: 0, closed: 0, failed: 0, last: "none", library: 0, encode: 0 };
+    let inApply = false;
     const advance = (next: string) => {
       if (!watched) return;
       const now = performance.now();
@@ -894,6 +895,7 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
       const counted = f.host.run;
       f.host.run = vi.fn(async (binary: string, args: string[], options?: object) => {
         media.started += 1;
+        if (inApply) media.library += 1;
         const name = basename(binary)
           .toLowerCase()
           .replace(/\.exe$/, "");
@@ -953,6 +955,7 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
         else if (mode === "clean") {
           advance("encode");
           const oldSha = sha(await readFile(clean));
+          const encodeAt = media.started;
           await f.host.run(tools.ffmpegPath, [
             "-v",
             "error",
@@ -966,6 +969,7 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
             "-an",
             clean,
           ]);
+          media.encode += media.started - encodeAt;
           expect(sha(await readFile(clean))).not.toBe(oldSha);
         } else if (mode === "library") await writeFile(join(own, "manifest.json"), "{}");
         else
@@ -975,7 +979,9 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
           );
       };
       advance("apply");
+      inApply = true;
       const result = await f.library.applyBundledFilmShotAudio(request);
+      inApply = false;
       advance("done");
       expect(called).toBe(true);
       expect(result.kind).toBe("FAILED");
@@ -985,6 +991,10 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
         (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
       ).toEqual([]);
       if (mode !== "source") expect(await readFile(f.video)).toEqual(before);
+      if (watched) {
+        expect(media.library - media.encode).toBeGreaterThan(0);
+        expect(media.closed).toBe(media.started);
+      }
     } finally {
       if (observer) clearTimeout(observer);
     }

@@ -217,6 +217,10 @@ async function open(fixtureOptions: { ordinarySaveGate?: Promise<void> } = {}) {
     ordinarySaves: () => ordinarySaves,
     suggestionReads,
     rejectNative: () => heldNative.reject(Error("PRIVATE_LATE_TRANSPORT")),
+    releaseNative: async () => {
+      if (!pendingInput) throw Error("missing input");
+      heldNative.resolve(await commit(pendingInput));
+    },
     current: () => host.current()!,
     change: (f: FilmProject) =>
       act(() => {
@@ -284,6 +288,65 @@ it("reviews all cross-shot segments and notes without writing clips, then explic
   await waitFor(() => expect(f.disk.get(f.film.id)!.audioClips).toEqual(before.audioClips));
   expect([...f.files]).toEqual(files);
   expect(f.apply).toHaveBeenCalledOnce();
+});
+it("warns on a real edit after the saved group instead of keeping the success notice", async () => {
+  const f = await open(),
+    dialog = await view();
+  choose(dialog);
+  fireEvent.click(confirm(dialog));
+  await within(dialog).findByText(/本次 2 段声音已加入并保存/);
+  f.change({ ...f.current(), styleZh: "选用之后的真实画风" });
+  expect(
+    await within(dialog).findByText("场次、选版或素材已变化，请刷新后重新核对。"),
+  ).toBeInTheDocument();
+  expect(within(dialog).queryByText(/声音已加入并保存/)).toBeNull();
+  expect(f.current().styleZh).toBe("选用之后的真实画风");
+});
+it("does not hide a real edit that arrives before the saved group is confirmed", async () => {
+  const f = await open();
+  f.mode("hold");
+  const dialog = await view();
+  choose(dialog);
+  fireEvent.click(confirm(dialog));
+  await f.admitted.promise;
+  f.change({ ...f.current(), styleZh: "选用未完成时的真实画风" });
+  await act(async () => {
+    await f.releaseNative();
+  });
+  expect(
+    await within(dialog).findByText("场次、选版或素材已变化，请刷新后重新核对。"),
+  ).toBeInTheDocument();
+  expect(within(dialog).queryByText(/声音已加入并保存/)).toBeNull();
+  expect(f.current().styleZh).toBe("选用未完成时的真实画风");
+});
+it("does not retain a success notice after a failed apply or across close and reopen", async () => {
+  const f = await open();
+  f.mode("transport");
+  const dialog = await view();
+  choose(dialog);
+  fireEvent.click(confirm(dialog));
+  await within(dialog).findByText(/尚未确认/);
+  expect(within(dialog).queryByText(/声音已加入并保存/)).toBeNull();
+  f.change({ ...f.current(), styleZh: "失败之后的真实画风" });
+  expect(
+    await within(dialog).findByText("场次、选版或素材已变化，请刷新后重新核对。"),
+  ).toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "本场声音建议" })).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "查看本场声音建议" }));
+  const reopened = await screen.findByRole("dialog", { name: "本场声音建议" });
+  expect(within(reopened).queryByText(/声音已加入并保存/)).toBeNull();
+  expect(within(reopened).queryByText("场次、选版或素材已变化，请刷新后重新核对。")).toBeNull();
+});
+it("closes the scene suggestion dialog when editing is disabled", async () => {
+  await open();
+  await view();
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "创作阶段" })).getByRole("button", {
+      name: /分镜/,
+    }),
+  );
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "本场声音建议" })).toBeNull());
 });
 it("does not request suggestions when the real persistence preflight fails", async () => {
   const f = await open();
