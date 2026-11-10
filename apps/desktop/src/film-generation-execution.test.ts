@@ -196,8 +196,13 @@ async function createFixture(
     session = { origin: "http://127.0.0.1:51234", token: "s".repeat(43) },
     account = { bearer: "native-bearer", accountSha256: "d".repeat(64) };
   const registrations: unknown[] = [],
+    preparations: unknown[] = [],
     arms: unknown[] = [],
-    submissions: string[] = [];
+    submissions: string[] = [],
+    retires: unknown[] = [];
+  let refusePreparations = false,
+    truncatePreparations = false,
+    cacheSlot0 = false;
   let holdArm: (() => Promise<void>) | undefined;
   let observationFailure = false;
   let reservationFailure: string | undefined;
@@ -262,7 +267,51 @@ async function createFixture(
       throw Error("controlled lost observation acknowledgement");
     if (path.endsWith("/image-unsent") || path.endsWith("/image-observation"))
       return Response.json({ kind: "RECORDED" });
-    if (path.endsWith("/retire")) return Response.json({ kind: "RECORDED" });
+    if (path.endsWith("/retire")) {
+      retires.push(JSON.parse(raw));
+      return Response.json({ kind: "RECORDED" });
+    }
+    if (path.endsWith("/cache-preparations")) {
+      if (refusePreparations)
+        return Response.json({ detail: "INPUT_UNVERIFIABLE" }, { status: 409 });
+      const body = JSON.parse(raw) as {
+        registration?: { targets?: { key: string; versions: number }[] };
+      };
+      const items = truncatePreparations
+        ? []
+        : (body.registration?.targets ?? []).flatMap((target) =>
+            Array.from({ length: target.versions }, (_, slot) => ({
+              target_key: target.key,
+              slot_index: slot,
+              preparation: cacheSlot0 && slot === 0 ? "STORYFILM_CACHE" : "CLIENT_IMAGES",
+              cache:
+                cacheSlot0 && slot === 0
+                  ? {
+                      schema_version: 1,
+                      snapshot_sha256: "a".repeat(64),
+                      input_sha256: "b".repeat(64),
+                      request: { scene_label: "私有" },
+                      sources: [
+                        {
+                          source: "owned",
+                          canonical_path: "/private/cache",
+                          sha256: "c".repeat(64),
+                          mime: "video/mp4",
+                        },
+                      ],
+                      runtime_recipe: { cap: 10 },
+                      parts: {
+                        image: { sha256: "d".repeat(64), bytes: 1 },
+                        video: { sha256: "e".repeat(64), bytes: 2 },
+                        voice: { sha256: "f".repeat(64), bytes: 3 },
+                      },
+                    }
+                  : null,
+            })),
+          );
+      preparations.push(body);
+      return Response.json({ kind: "PREPARATIONS", items });
+    }
     if (path.endsWith("/prepared-generation-executions")) {
       registrations.push(JSON.parse(raw));
       return Response.json({ execution_id: "e".repeat(32) });
@@ -326,6 +375,17 @@ async function createFixture(
     factory,
     input,
     registrations,
+    preparations,
+    retires,
+    refusePreparations: () => {
+      refusePreparations = true;
+    },
+    truncatePreparations: () => {
+      truncatePreparations = true;
+    },
+    cacheSlot0: () => {
+      cacheSlot0 = true;
+    },
     arms,
     submissions,
     fetcher,
@@ -623,6 +683,49 @@ it.each(["VIDEO_UNCONFIGURED", "VIDEO_INPUT_FAILURE_LIMIT"])(
   },
 );
 
+it("publishes only the neutral cache label from the frozen table", async () => {
+  const f = await fixture();
+  f.cacheSlot0();
+  const made = await f.factory.prepare(f.owner, f.input);
+  expect(made.kind).toBe("PREPARED");
+  if (made.kind !== "PREPARED") return;
+  expect(made.targets[0]?.preparation).toBe("STORYFILM_CACHE");
+  expect(made.targets[0]?.slotPreparations[0]?.preparation).toBe("STORYFILM_CACHE");
+  const text = JSON.stringify(made);
+  expect(text).not.toContain("snapshot_sha256");
+  expect(text).not.toContain("canonical_path");
+  expect(text).not.toContain("runtime_recipe");
+  expect(f.preparations).toHaveLength(1);
+  expect(f.arms).toHaveLength(0);
+  expect(f.submissions).toHaveLength(0);
+});
+
+it("does not arm or open another execution when cache preparation is unverifiable", async () => {
+  const f = await fixture();
+  f.refusePreparations();
+  await expect(f.factory.prepare(f.owner, f.input)).resolves.toMatchObject({
+    kind: "FAILED",
+    code: "CREATION_INPUT_UNVERIFIABLE",
+  });
+  expect(f.registrations).toHaveLength(1);
+  expect(f.retires).toEqual([{ target_key: null, slot_index: null }]);
+  expect(f.arms).toHaveLength(0);
+  expect(f.submissions).toHaveLength(0);
+});
+
+it("stops a missing frozen slot before image, arm, or budget", async () => {
+  const f = await fixture();
+  f.truncatePreparations();
+  await expect(f.factory.prepare(f.owner, f.input)).resolves.toMatchObject({
+    kind: "FAILED",
+    code: "CREATION_INPUT_UNVERIFIABLE",
+  });
+  expect(f.registrations).toHaveLength(1);
+  expect(f.retires).toEqual([{ target_key: null, slot_index: null }]);
+  expect(f.arms).toHaveLength(0);
+  expect(f.submissions).toHaveLength(0);
+});
+
 async function createSignedSidecar() {
   const root = await mkdtemp(join(tmpdir(), "native-prepared-sidecar-"));
   roots.push(root);
@@ -718,7 +821,9 @@ async function createSignedSidecar() {
   child.stdin.write(JSON.stringify({ kind: "serve" }) + "\n");
   const actualProjectId = await ready.promise;
   const replies: Reply[] = [];
+  const paths: string[] = [];
   const fetcher: typeof fetch = async (url, init) => {
+    paths.push(new URL(String(url)).pathname);
     const item = responsePromise<Reply>();
     const requestId = ++sequence;
     const body = String(init?.body);
@@ -736,7 +841,7 @@ async function createSignedSidecar() {
     replies.push(reply);
     return Response.json(reply.body, { status: reply.status });
   };
-  return { projectId: actualProjectId, replies, fetcher, root };
+  return { projectId: actualProjectId, replies, paths, fetcher, root };
 }
 
 function signedSidecar() {
@@ -746,10 +851,11 @@ function signedSidecar() {
 it.skipIf(!ffmpegOnPath()).each([false, true])(
   `crosses actual Python signed routes and original consumer with fixed frame stage=%s (${ffmpegSkipReason})`,
   async (frameStage) => {
-    const { projectId, replies, fetcher: realFetch } = await signedSidecar();
+    const { projectId, replies, paths, fetcher: realFetch } = await signedSidecar();
     const f = await fixture(undefined, { projectId, fetcher: realFetch }, frameStage),
       p = await preparedVideo(f);
-    expect(replies.map((reply) => reply.status)).toEqual([200, 200]);
+    expect(paths.filter((path) => path.endsWith("/cache-preparations"))).toHaveLength(1);
+    expect(replies.map((reply) => reply.status)).toEqual([200, 200, 200]);
     if (frameStage) {
       const shot = generationRows(p.canonical.shots)[0]!;
       const actual = producer.shotStillInput(
@@ -797,13 +903,13 @@ it.skipIf(!ffmpegOnPath()).each([false, true])(
         attempts: replies.at(-1)?.attempts,
       }),
     ).toBe("FAILED");
-    expect(replies.map((reply) => reply.status)).toEqual(Array(frameStage ? 9 : 4).fill(200));
+    expect(replies.map((reply) => reply.status)).toEqual(Array(frameStage ? 10 : 5).fill(200));
     expect(replies.flatMap((reply) => reply.sent)).toEqual(["tts"]);
     expect(replies.at(-1)!.attempts).toEqual(["UNKNOWN"]);
     await expect(
       f.factory.video(f.owner, projectId, p.body, undefined, p.execution),
     ).rejects.toMatchObject({ code: "CREATION_ATTEMPT_ALREADY_RESERVED" });
-    expect(replies).toHaveLength(frameStage ? 9 : 4);
+    expect(replies).toHaveLength(frameStage ? 10 : 5);
     expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
   },
   30_000,

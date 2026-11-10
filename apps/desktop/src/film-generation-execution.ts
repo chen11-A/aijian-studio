@@ -196,6 +196,14 @@ export function createNativeFilmGenerationExecutions(host: {
         }
       }
       let state: State | undefined;
+      let registered:
+        | {
+            api: ReturnType<typeof generationPreparationClient>;
+            backendProjectId: string;
+            apiExecutionId: string;
+            account: AccountLease["account"];
+          }
+        | undefined;
       try {
         const accountLease = await host.mediaDispatchLease();
         if (!accountLease) return fail("ACCOUNT_UNAVAILABLE");
@@ -352,6 +360,27 @@ export function createNativeFilmGenerationExecutions(host: {
           accountLease.account,
           current,
         );
+        registered = {
+          api,
+          backendProjectId: record.backendProjectId,
+          apiExecutionId,
+          account: accountLease.account,
+        };
+        const frozen = await api.prepareSlots(
+          record.backendProjectId,
+          apiExecutionId,
+          registration,
+          accountLease.account,
+          current,
+        );
+        const slotFacts = new Map(
+          frozen.items.map((item) => [`${item.targetKey}:${item.slotIndex}`, item.preparation]),
+        );
+        const slotPreparation = (targetKey: string, index: number) => {
+          const preparation = slotFacts.get(`${targetKey}:${index}`);
+          if (!preparation) throw Error("CREATION_INPUT_UNVERIFIABLE");
+          return preparation;
+        };
         state = {
           projectId: record.id,
           seriesId: record.seriesId,
@@ -381,15 +410,22 @@ export function createNativeFilmGenerationExecutions(host: {
             projectId: record.id,
             projectHash: input.expectedProjectHash,
             stages: plan.stages.map((stage) => stage.public),
-            targets: plan.targets.map((target) => ({
-              shotId: target.shotId,
-              videoSlotIds: target.videoSlots.map((slot) => slot.id),
-              preparation: "CLIENT_IMAGES" as const,
-              slotPreparations: target.videoSlots.map((slot) => ({
+            targets: plan.targets.map((target) => {
+              const slotPreparations = target.videoSlots.map((slot) => ({
                 videoSlotId: slot.id,
-                preparation: "CLIENT_IMAGES" as const,
-              })),
-            })),
+                preparation: slotPreparation(target.key, slot.index),
+              }));
+              return {
+                shotId: target.shotId,
+                videoSlotIds: target.videoSlots.map((slot) => slot.id),
+                preparation: slotPreparations.every(
+                  (slot) => slot.preparation === "STORYFILM_CACHE",
+                )
+                  ? ("STORYFILM_CACHE" as const)
+                  : ("CLIENT_IMAGES" as const),
+                slotPreparations,
+              };
+            }),
           },
           stageSlots: new Map(
             plan.stages.map((stage) => [
@@ -403,9 +439,23 @@ export function createNativeFilmGenerationExecutions(host: {
           accountCurrent: current,
         };
       } catch (error) {
-        if (state)
-          await state.api
-            .retire(state.backendProjectId, state.apiExecutionId, null, null, state.account)
+        const retiring = state
+          ? {
+              api: state.api,
+              backendProjectId: state.backendProjectId,
+              apiExecutionId: state.apiExecutionId,
+              account: state.account,
+            }
+          : registered;
+        if (retiring)
+          await retiring.api
+            .retire(
+              retiring.backendProjectId,
+              retiring.apiExecutionId,
+              null,
+              null,
+              retiring.account,
+            )
             .catch(() => undefined);
         throw fixed(error, "EXECUTION_UNAVAILABLE");
       }
