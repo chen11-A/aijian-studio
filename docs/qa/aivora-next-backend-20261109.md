@@ -49,13 +49,20 @@
 3. 把锁定二进制放到 `/usr/bin` 后，若只靠 `LD_LIBRARY_PATH`，第二次目标 pytest：`2 failed, 55 passed in 28.65s`。失败是 `test_cache_only_actual_storyfilm_consumes_saved_video_without_provider_or_policy` 和 `test_cache_read_does_not_settle_unknown_or_unlock_it_with_new_limit_or_execution`。两者都得到 `FAILED` / `FILM_FAILED`，草稿导出日志为 `PROBE_FAILED`。原因是草稿编码器启动 ffprobe 时不继承 `LD_LIBRARY_PATH`，锁定的 `libavutil.so.59` 在默认链接路径上找不到 `vaMapBuffer2`。这不是把成功改成失败的产品改动。
 4. 把同一 Debian 7.1.5 的缺失库装进默认链接路径后，同一组目标 pytest：`57 passed in 31.24s`。包含迁移、混合槽、晚缺、UNKNOWN，以及原缓存守卫。没有降低超时或放宽匹配。
 
-未跑：`pnpm test:py` 原完整覆盖门、`pnpm typecheck`、`pnpm lint`、desktop/web 测试、mypy 全库。这些留给总控串行安排。检查点自述的 5390/6 skip 与 83.59% 只属于当时的 schema 54 源，不证明本提交。
-
 没有调用真实会员额度或收费供应商。缓存消费测试用抛错的假 transport，调用列表保持为空。
+
+## 2026-11-10 合同冻结与这一轮完整 Python 门
+
+总控已把本文上一节的请求和响应冻成 v1。`uv run python scripts/export_openapi.py` 与 `openapi-typescript@7.13.0` 生成了 `packages/contracts/openapi.json`（+232）和 `packages/contracts/src/generated.ts`（+116）。第二次生成没有再产生 diff。`uv run ruff check services/api` 与 `uv run ruff format --check services/api` 通过，586 个文件已是格式化状态。`uv run mypy` 为 329 个源文件、退出码 0，没有依赖生成的 TypeScript。
+
+`pnpm test:py` 停在 Corepack 对 `pnpm@11.9.0` 的下载确认，没有进入测试。随后用该脚本本体跑完整门，日志 `/tmp/aivora-api55-full-python.log`：
+
+`143 failed, 5204 passed, 6 skipped, 100 errors in 1960.27s`，退出码 1。覆盖检查脚本没有运行。日志里 206 次是 `ffmpeg returned an invalid version banner`。实际首行是 `/usr/bin/ffmpeg: /exec-daemon/tmux-root/lib/libncursesw.so.6: no version information available`，因为这道门在 tmux 会话里启动，stderr 被并进版本输出。另有 58 条断言失败，抽样是 `TOOLCHAIN_UNAVAILABLE`、`DRAFT_TOOLCHAIN_UNAVAILABLE` 和随之而来的 `FILM_FAILED`。4 条是 `node scripts/build-audio-library-resources.mjs` 退出码 1。这道门的结果保留。没有新的源码变化就不再重跑。它不是最终验收，也不代替最终集成候选上的完整重型门。
+
+账号、额度、UNKNOWN 和来源拒绝仍由 `services/api/tests/test_prepared_generation_cache.py` 里的真实 TestClient + SQLite 用例覆盖，包括重读来源字节/canonical/MIME、跨账号与跨项目 lineage、image/arm 先于冻结则不写表、冻结后 image 只占用 CLIENT 槽、并发 prepare 与 image-dispatch，以及 UNKNOWN 不被缓存读取结算。原断言没有放宽。
 
 ## 未完成与下一依赖
 
-- 合同未冻结。`packages/contracts` 与桌面 `prepareSlots` / `parseGenerationSlotPreparations` 不能由本分支单方发布。
-- `prepareSlots` 未接 main execution factory，公共 PREPARED issuance 未改。
-- 本地连续帧、明确 FAILED 后的下一版本、完整 pending pipeline 不在本片。
-- 下一依赖：总控审本提案和 `74704d0a` 的 diff；冻结请求、响应、错误码和 private/public 划界；然后才做真实 main 接线。界面代理按冻结后的形状接桌面 parser，不把私有 path/descriptor 当成 renderer 授权。
+- 桌面三个私有 parser/client 仍由界面代理按生成 schema 实现。`prepareSlots` 未接 main。PR 23 head `0de5e4b377d6d153c1d1f6ae9096b1663fc58b33` 的本地 TS 与格式已过，远端 CI 排队，未合入。
+- 本地连续帧和明确 FAILED 后的下一版本不在本轮。
+- 最终集成候选才集中跑完整重型门。本片不循环查询 CI。
