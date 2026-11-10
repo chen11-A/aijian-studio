@@ -26,6 +26,11 @@
 /* AIVORA layout mockup — design tokens */
 .pro-root {
   --bg: #0e1014; /* window background / gutters */
+  --export-dock-pad: 12px;
+  --export-sound-gap: 6px;
+  --export-sound-row: 30px;
+  --export-sound-copy: 18px;
+  --export-action-row: 30px;
   --panel: #15181d; /* panel surface */
   --panel-2: #1b1f25; /* raised: inputs, cards */
   --panel-3: #232830; /* hover / selected row */
@@ -1899,7 +1904,7 @@ body:has(.pro-root) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: var(--export-sound-gap);
   flex: none;
   width: 100%;
   min-width: 0;
@@ -1908,8 +1913,13 @@ body:has(.pro-root) {
 .pro-root .still-gate .btn {
   width: 100%;
   height: auto;
-  min-height: 30px;
+  min-height: var(--export-sound-row);
   white-space: normal;
+}
+.pro-root .dialog.export .still-gate > p {
+  margin: 0;
+  min-height: var(--export-sound-copy);
+  line-height: var(--export-sound-copy);
 }
 .pro-root .still-gate-reason {
   display: flex;
@@ -4051,18 +4061,23 @@ body:has(.pro-root) {
   max-height: calc(100% - 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  scroll-padding-bottom: 96px;
+  /* Undecided dock: padding, one line of copy, three sound buttons, the action row. */
+  scroll-padding-bottom: calc(
+    var(--export-dock-pad) * 2 + var(--export-sound-copy) + var(--export-sound-gap) * 3 +
+      var(--export-sound-row) * 3 + var(--export-action-row)
+  );
 }
 .pro-root .dialog.export > .export-dock {
   position: sticky;
   bottom: -16px;
   z-index: 1;
   background: var(--panel);
-  padding-block: 12px;
+  padding-block: var(--export-dock-pad);
 }
 .pro-root .dialog.export > .export-dock > .acts {
   position: static;
   margin-top: 0;
+  min-height: var(--export-action-row);
   background: transparent;
 }
 .pro-root .dialog.export .nx-export {

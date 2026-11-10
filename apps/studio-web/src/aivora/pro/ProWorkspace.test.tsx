@@ -5485,16 +5485,7 @@ it("names each shot's job in the task center and counts the ones still going", a
   });
   const createStoryFilm = vi.fn(() => videoPending);
   installDesktop(createStoryFilm);
-  const releaseStills: Array<(value: { path: string; reason: string }) => void> = [];
-  vi.mocked(window.aijian!.generateFilmStill!).mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        releaseStills.push(resolve);
-      }),
-  );
   onTestFinished(() => {
-    for (const resolve of releaseStills)
-      resolve({ path: "/tmp/aivora/referenced-still.png", reason: "" });
     releaseVideo({
       data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
     });
@@ -5503,6 +5494,7 @@ it("names each shot's job in the task center and counts the ones still going", a
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
   await waitFor(() =>
     expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent(/正在做 \d+ 个/),
   );
