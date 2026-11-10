@@ -4051,16 +4051,18 @@ body:has(.pro-root) {
   max-height: calc(100% - 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scroll-padding-bottom: 96px;
 }
 .pro-root .dialog.export > .export-dock {
   position: sticky;
   bottom: -16px;
   z-index: 1;
   background: var(--panel);
+  padding-block: 12px;
 }
 .pro-root .dialog.export > .export-dock > .acts {
   position: static;
-  margin-top: 12px;
+  margin-top: 0;
   background: transparent;
 }
 .pro-root .dialog.export .nx-export {
@@ -4069,7 +4071,8 @@ body:has(.pro-root) {
 }
 
 /* The review card owns publish/cancel; the host close row must follow, never cover it. */
-.pro-root .dialog.export:has(.nx-export) > .export-dock {
+.pro-root .dialog.export:has(.nx-export) > .export-dock,
+.pro-root .dialog.export:has(.delivery-evidence) > .export-dock {
   position: static;
 }
 

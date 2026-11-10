@@ -5479,14 +5479,26 @@ it("opens the task center from 后台生成 with nothing to do yet, and goes to 
 });
 
 it("names each shot's job in the task center and counts the ones still going", async () => {
-  let release: (value: unknown) => void = () => undefined;
-  const createStoryFilm = vi.fn(
+  let releaseVideo: (value: unknown) => void = () => undefined;
+  const videoPending = new Promise((resolve) => {
+    releaseVideo = resolve;
+  });
+  const createStoryFilm = vi.fn(() => videoPending);
+  installDesktop(createStoryFilm);
+  const releaseStills: Array<(value: { path: string; reason: string }) => void> = [];
+  vi.mocked(window.aijian!.generateFilmStill!).mockImplementation(
     () =>
       new Promise((resolve) => {
-        release = resolve;
+        releaseStills.push(resolve);
       }),
   );
-  installDesktop(createStoryFilm);
+  onTestFinished(() => {
+    for (const resolve of releaseStills)
+      resolve({ path: "/tmp/aivora/referenced-still.png", reason: "" });
+    releaseVideo({
+      data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
+    });
+  });
   await openAdoptedSample();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
@@ -5498,7 +5510,6 @@ it("names each shot's job in the task center and counts the ones still going", a
   const center = screen.getByRole("dialog", { name: "后台生成" });
   expect(within(center).getAllByText(/第 2 场第 1 个镜头/).length).toBeGreaterThan(0);
   expect(within(center).queryByText("生成视频")).toBeNull();
-  release({ data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" } });
 });
 
 it("discards a late art draft after leaving its assistant scope", async () => {
