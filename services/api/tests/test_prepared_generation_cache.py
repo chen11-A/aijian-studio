@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import shutil
 from copy import deepcopy
 from pathlib import Path
 
@@ -854,13 +855,14 @@ def test_concurrent_prepare_and_image_dispatch_never_hold_a_cached_slot(actual_c
 
 def _rewrite_bundle(cache, mutate):
     path = cache.directory / "bundle.json"
-    document = json.loads(path.read_text())
+    document = json.loads(path.read_text(encoding="utf-8"))
     mutate(document["runtime_recipe"])
     path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
 
 
 def _runtime(cache):
-    return json.loads((cache.directory / "bundle.json").read_text())["runtime_recipe"]
+    document = json.loads((cache.directory / "bundle.json").read_text(encoding="utf-8"))
+    return document["runtime_recipe"]
 
 
 def _recipe(repo, registration):
@@ -965,6 +967,174 @@ def test_non_byte_reference_does_not_match_a_byte_identity(actual_cache):
     )
 
 
+def test_reference_match_rejects_a_non_object(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    from aijian_api.prepared_generation_cache import PreparedGenerationCache
+
+    goal = _recipe(repo, registration)
+    assert (
+        PreparedGenerationCache(repo, toolchain)._reference_matches(
+            project, ACCOUNT, "not-an-image", goal["prepared_image"]
+        )
+        is False
+    )
+
+
+def test_reference_match_rejects_a_planned_image_missing_creator_fields(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    from aijian_api.prepared_generation_cache import PreparedGenerationCache
+
+    goal = _recipe(repo, registration)
+    assert (
+        PreparedGenerationCache(repo, toolchain)._reference_matches(
+            project,
+            ACCOUNT,
+            {"plannedImage": {"model": "grok-imagine-image-2.0"}},
+            goal["prepared_image"],
+        )
+        is False
+    )
+
+
+def test_cached_video_longer_than_its_cap_is_not_verified(actual_cache):
+    repo, project, registration, cache, bundle = actual_cache
+    from aijian_api.prepared_generation_cache import PreparedGenerationCache
+    from aijian_api.prepared_generation_store import PreparedCacheTarget
+    from aijian_api.story_creation_cache import StoryCreationCacheError
+
+    goal = {**_recipe(repo, registration), "cap": 10}
+    runtime = _runtime(cache)
+    runtime = {
+        **runtime,
+        "cap": 10,
+        "actual_video": {**runtime["actual_video"], "seconds": 15},
+    }
+    target = PreparedCacheTarget("one", 3, False, goal, registration["targets"][0]["body"])
+    with pytest.raises(StoryCreationCacheError, match="CACHE_UNVERIFIABLE"):
+        PreparedGenerationCache(repo, toolchain)._verify_runtime(
+            project, ACCOUNT, target, {"runtime_recipe": runtime}, bundle
+        )
+
+
+def test_video_reference_identity_mismatch_is_not_verified(actual_cache):
+    repo, project, registration, cache, bundle = actual_cache
+    from aijian_api.prepared_generation_cache import PreparedGenerationCache
+    from aijian_api.prepared_generation_store import PreparedCacheTarget
+    from aijian_api.story_creation_cache import StoryCreationCacheError
+
+    goal = _recipe(repo, registration)
+    frozen = goal["prepared_image"]
+    goal = {**goal, "video_references": [frozen]}
+    runtime = _runtime(cache)
+    runtime = {
+        **runtime,
+        "video_references": [{"sha256": "ab" * 32, "mime": "image/png"}],
+    }
+    assert len(goal["video_references"]) == len(runtime["video_references"])
+    target = PreparedCacheTarget("one", 3, False, goal, registration["targets"][0]["body"])
+    with pytest.raises(StoryCreationCacheError, match="CACHE_UNVERIFIABLE"):
+        PreparedGenerationCache(repo, toolchain)._verify_runtime(
+            project, ACCOUNT, target, {"runtime_recipe": runtime}, bundle
+        )
+
+
+def test_first_regenerate_does_not_publish_the_saved_bundle(actual_cache):
+    repo, project, registration, _, _ = actual_cache
+    regen = deepcopy(registration)
+    regen["key"] = "first-regenerate-cache"
+    regen["targets"][0]["first_regenerate"] = True
+    with app_for(repo) as client:
+        _, reply = prepared(client, project, regen)
+    assert reply.status_code == 200
+    items = reply.json()["items"]
+    assert items
+    assert all(item["preparation"] == "CLIENT_IMAGES" and item["cache"] is None for item in items)
+
+
+def test_saved_still_without_a_snapshot_is_not_a_cache_grant(actual_cache):
+    repo, project, registration, cache, _ = actual_cache
+    from aijian_api.story_film import StoryFilmService, story_shot_request
+    from aijian_api.story_film_routes import CreateStoryFilmBody, story_film_request
+
+    shutil.rmtree(cache.directory)
+    service = StoryFilmService(repo, toolchain)
+    body = CreateStoryFilmBody.model_validate(registration["targets"][0]["body"])
+    request = story_film_request(body, "cache-observation")
+    child = story_shot_request(request, request.shots[0], 1)
+    key_image = service._image_directory() / f"{service._image_stem(project, child)}-key.png"
+    key_image.write_bytes(b"png")
+    with app_for(repo) as client:
+        execution, reply = prepared(client, project, registration)
+    _assert_unverifiable(reply)
+    _assert_no_freeze_arm_or_budget(repo, project, execution)
+
+
+def test_matching_lineage_publishes_the_planned_cache_slot(actual_cache):
+    repo, project, registration, _, bundle = actual_cache
+    planned = deepcopy(registration)
+    planned["key"] = "lineage-cache-execution"
+    planned["targets"][0]["key"] = "planned"
+    planned["targets"][0]["body"]["shots"][0]["still"] = ""
+    planned["targets"][0]["sources"] = []
+    planned["stages"][0]["target_id"] = "planned"
+    planned["stages"][0]["target_keys"] = ["planned"]
+    recipe = _recipe(repo, planned)
+    from aijian_api.generation_dispatch_identity import story_reference_identity
+    from aijian_api.xai_media import IMAGE_MODEL, XaiImage, _image_reference
+
+    image_bytes, video, voice = bundle
+    image = story_reference_identity(
+        _image_reference(XaiImage(data=image_bytes, source_url=None, model=IMAGE_MODEL))["url"]
+    )
+    StoryCreationCache(
+        Path(repo.database_path).parent / "story-films", project, recipe, repo.database_path
+    ).put_bundle(
+        image_bytes,
+        video,
+        voice,
+        runtime_recipe={
+            **recipe,
+            "prepared_image": image,
+            "actual_video": {"image": image, "seconds": 3},
+        },
+    )
+    stage = json.dumps(
+        {
+            "kind": "shot-frame",
+            "target_id": "planned",
+            "origin": {
+                "imageModel": recipe["image_model"],
+                "prompt": recipe["image_prompt"],
+                "aspectRatio": recipe["aspect_ratio"],
+                "references": recipe["image_references"],
+            },
+        },
+        ensure_ascii=False,
+    )
+    donor = deepcopy(planned)
+    donor["key"] = "lineage-donor"
+    with app_for(repo) as client:
+        # Freeze refuses a non-UNSENT stage on the execution being prepared, so the
+        # matching READABLE lineage lives on a different execution in the same project.
+        donor_id = post(client, project, PREFIX, donor).json()["execution_id"]
+        with repo._connection() as connection:
+            connection.execute(
+                "UPDATE prepared_generation_stage SET status='READABLE', output_sha256=?, "
+                "native_stage_json=? WHERE execution_id=?",
+                (image["sha256"], stage, donor_id),
+            )
+            connection.commit()
+        execution = post(client, project, PREFIX, planned).json()["execution_id"]
+        reply = post(
+            client, project, f"{PREFIX}/{execution}/cache-preparations", {"registration": planned}
+        )
+    assert reply.status_code == 200, reply.text
+    table = sorted((item["slot_index"], item["preparation"]) for item in reply.json()["items"])
+    assert table == [(0, "STORYFILM_CACHE"), (1, "CLIENT_IMAGES"), (2, "CLIENT_IMAGES")]
+    slot_zero = next(item for item in reply.json()["items"] if item["slot_index"] == 0)
+    assert slot_zero["cache"]["snapshot_sha256"]
+
+
 def test_planned_image_without_lineage_does_not_freeze(actual_cache):
     repo, project, registration, _, bundle = actual_cache
     planned = deepcopy(registration)
@@ -1003,7 +1173,7 @@ def test_planned_image_without_lineage_does_not_freeze(actual_cache):
                 Path(repo.database_path).parent / "story-films", project, recipe, repo.database_path
             ).directory
             / "bundle.json"
-        ).read_text()
+        ).read_text(encoding="utf-8")
     )["runtime_recipe"]
     assert runtime["prepared_image"] == image
     assert runtime["actual_video"]["image"] == image

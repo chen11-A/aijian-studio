@@ -801,6 +801,16 @@ contextBridge.exposeInMainWorld("aijian", {
     execution !== undefined
       ? ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references, execution)
       : ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
+  confirmFixedInput: (projectId: string, offerId: string) =>
+    ipcRenderer.invoke("film:confirm-fixed-input", projectId, offerId) as Promise<
+      | { ok: true; path: string }
+      | { ok: false; code: "UNSUPPORTED_SCOPE" | "CANCELLED" | "LEDGER_FULL" }
+    >,
+  importFixedInput: (projectId: string) =>
+    ipcRenderer.invoke("film:import-fixed-input", projectId) as Promise<
+      | { ok: true; path: string }
+      | { ok: false; code: "UNSUPPORTED_SCOPE" | "CANCELLED" | "LEDGER_FULL" }
+    >,
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
   exportFilmProjectArchive: (input: FilmProjectArchiveInput) =>

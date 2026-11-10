@@ -1,11 +1,37 @@
-import { expect, it } from "vitest";
+import { expect, it, onTestFailed } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { freemem, tmpdir } from "node:os";
 import { join } from "node:path";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 it("requires exact read-only project, digest and successful path evidence, failing closed on missing schema", async () => {
+  const begin = performance.now();
+  let stage = "temp";
+  const mark = (next: string) => {
+    stage = next;
+    process.stderr.write(
+      `CI_QC_OWNER_PHASE ${JSON.stringify({
+        v: 1,
+        stage,
+        elapsedMs: Math.min(120000, Math.round(performance.now() - begin)),
+        heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
+        freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
+      })}\n`,
+    );
+  };
+  onTestFailed(() => {
+    process.stderr.write(
+      `CI_QC_OWNER_PHASE ${JSON.stringify({
+        v: 1,
+        stage,
+        elapsedMs: Math.min(120000, Math.round(performance.now() - begin)),
+        heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
+        freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
+      })}\n`,
+    );
+  });
   const root = await mkdtemp(join(tmpdir(), "qc-owner-"));
+  mark("db");
   try {
     const path = join(root, "workspace.sqlite3"),
       project = `prj_${"a".repeat(32)}`,
@@ -39,7 +65,9 @@ it("requires exact read-only project, digest and successful path evidence, faili
       JSON.stringify({ output_sha256: "f".repeat(64), assembly_version_id: "absent" }),
       "bad-story",
     );
+    mark("rows");
     db.close();
+    mark("owner");
     expect(storyFilmQcOwner(path, project, "/trusted/clean.mp4", sha)).toBe(true);
     expect(storyFilmQcOwner(path, project, "/trusted/source.mp4", "e".repeat(64))).toBe(true);
     expect(storyFilmQcOwner(path, project, "/trusted/source.mp4", "f".repeat(64))).toBe(false);
@@ -49,7 +77,9 @@ it("requires exact read-only project, digest and successful path evidence, faili
     expect(storyFilmQcOwner(join(root, "absent.sqlite3"), project, "/trusted/clean.mp4", sha)).toBe(
       false,
     );
+    mark("done");
   } finally {
+    mark("cleanup");
     await rm(root, { recursive: true, force: true });
   }
 });

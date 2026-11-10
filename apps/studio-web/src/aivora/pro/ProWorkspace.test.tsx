@@ -3196,6 +3196,91 @@ async function waitForGenerationCatalog() {
   );
 }
 
+it("shows the manual still offer for an explicit confirm and leaves the saved draft on cancel or refusal", async () => {
+  const offerId = "fio_01234567-89ab-cdef-0123-456789abcdef";
+  installDesktop();
+  vi.mocked(window.aijian!.generateFilmStill!).mockResolvedValue({
+    path: "/tmp/aivora/manual-still.png",
+    reason: "",
+    fixedInputOfferId: offerId,
+  });
+  const confirmFixedInput = vi.fn<NonNullable<NonNullable<Window["aijian"]>["confirmFixedInput"]>>(
+    async (...args) => {
+      expect(args).toHaveLength(2);
+      return { ok: true, path: "/tmp/aivora/manual-still.png" };
+    },
+  );
+  const importFixedInput = vi.fn(async (projectId: string) => {
+    expect(typeof projectId).toBe("string");
+    return { ok: false as const, code: "CANCELLED" as const };
+  });
+  window.aijian!.confirmFixedInput = confirmFixedInput;
+  window.aijian!.importFixedInput = importFixedInput;
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  const confirmButton = await screen.findByRole("button", { name: "确认这张手工画面为固定输入" });
+  expect(confirmFixedInput).not.toHaveBeenCalled();
+  const writeFilmProject = vi.mocked(window.aijian!.writeFilmProject!);
+  // The still apply uses the existing 400ms save. Count only after that write lands.
+  await waitFor(() => {
+    const saved = writeFilmProject.mock.calls.at(-1)?.[0] as FilmProject | undefined;
+    expect(
+      saved?.shots.some((item) =>
+        item.stills.some((still) => still.url.includes("manual-still.png")),
+      ),
+    ).toBe(true);
+  });
+  const writesAfterStill = writeFilmProject.mock.calls.length;
+  const draftAfterStill = JSON.stringify(writeFilmProject.mock.calls.at(-1)?.[0]);
+  fireEvent.click(confirmButton);
+  await waitFor(() => expect(confirmFixedInput).toHaveBeenCalledTimes(1));
+  expect(confirmFixedInput.mock.calls[0]?.[1]).toBe(offerId);
+  expect(writeFilmProject.mock.calls.length).toBe(writesAfterStill);
+  confirmFixedInput.mockResolvedValueOnce({ ok: false, code: "UNSUPPORTED_SCOPE" });
+  fireEvent.click(screen.getByRole("button", { name: "确认这张手工画面为固定输入" }));
+  expect(await screen.findByText("这张手工画面还不能当作固定输入。")).toBeInTheDocument();
+  expect(writeFilmProject.mock.calls.length).toBe(writesAfterStill);
+  fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
+  expect(await screen.findByText("已取消导入固定输入。")).toBeInTheDocument();
+  expect(importFixedInput.mock.calls[0]).toHaveLength(1);
+  expect(writeFilmProject.mock.calls.length).toBe(writesAfterStill);
+  expect(JSON.stringify(writeFilmProject.mock.calls.at(-1)?.[0])).toBe(draftAfterStill);
+});
+
+it("does not let a late import replace a newer draft through the save queue", async () => {
+  installDesktop();
+  let resolveImport!: (
+    value: { ok: true; path: string } | { ok: false; code: "CANCELLED" },
+  ) => void;
+  window.aijian!.importFixedInput = () =>
+    new Promise((resolve) => {
+      resolveImport = resolve;
+    });
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
+  const picture = screen.getByLabelText("分镜画面");
+  fireEvent.change(picture, { target: { value: "新稿不能被旧导入覆盖" } });
+  resolveImport({ ok: false, code: "CANCELLED" });
+  expect(await screen.findByText("已取消导入固定输入。")).toBeInTheDocument();
+  expect(screen.getByLabelText("分镜画面")).toHaveValue("新稿不能被旧导入覆盖");
+  fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
+  fireEvent.change(screen.getByLabelText("分镜画面"), {
+    target: { value: "更新后的稿仍要保留" },
+  });
+  resolveImport({ ok: true, path: "/tmp/aivora/imported-fixed.png" });
+  expect(await screen.findByText(/已导入这张画面为固定输入/)).toBeInTheDocument();
+  expect(screen.getByLabelText("分镜画面")).toHaveValue("更新后的稿仍要保留");
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as {
+      shots: { picture: string; poster?: string }[];
+    };
+    expect(saved.shots[0]?.picture).toBe("更新后的稿仍要保留");
+    expect(saved.shots[0]?.poster).toContain("imported-fixed.png");
+  });
+});
+
 it("continues one-click storyboarding and retries the director into shots", async () => {
   const { completeText } = installDesktop();
   let plainDirector = 0;

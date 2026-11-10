@@ -185,6 +185,7 @@ const libraryWriteStages = new Set([
   "suggest",
   "apply",
   "commit",
+  "commit-return",
   "write",
   "write-ack",
   "readback",
@@ -193,6 +194,7 @@ const libraryWriteStages = new Set([
   "hash-check",
   "done",
 ]);
+const libraryWriteTools = new Set(["none", "ffmpeg", "ffprobe", "other"]);
 /** Closed test-local timing only. No parameters, identifiers, paths or exception text. */
 export function libraryWritePhaseSummary(line) {
   const prefix = "CI_LIBRARY_WRITE_PHASE ";
@@ -203,7 +205,8 @@ export function libraryWritePhaseSummary(line) {
     const milliseconds = (value) => Number.isInteger(value) && value >= 0 && value <= 120000;
     if (
       !object(row) ||
-      Object.keys(row).sort().join() !== "completed,elapsedMs,mode,probes,stage,v" ||
+      Object.keys(row).sort().join() !==
+        "closed,completed,elapsedMs,failed,freeMb,heapMb,last,mode,open,probes,stage,v" ||
       row.v !== 1 ||
       ![
         "before",
@@ -214,10 +217,26 @@ export function libraryWritePhaseSummary(line) {
         "readback-wrong",
       ].includes(row.mode) ||
       !libraryWriteStages.has(row.stage) ||
+      !libraryWriteTools.has(row.last) ||
       !milliseconds(row.elapsedMs) ||
       !Number.isInteger(row.probes) ||
       row.probes < 0 ||
       row.probes > 4096 ||
+      !Number.isInteger(row.open) ||
+      row.open < 0 ||
+      row.open > 4096 ||
+      !Number.isInteger(row.closed) ||
+      row.closed < 0 ||
+      row.closed > 4096 ||
+      !Number.isInteger(row.failed) ||
+      row.failed < 0 ||
+      row.failed > 4096 ||
+      !Number.isInteger(row.heapMb) ||
+      row.heapMb < 0 ||
+      row.heapMb > 65536 ||
+      !Number.isInteger(row.freeMb) ||
+      row.freeMb < 0 ||
+      row.freeMb > 1048576 ||
       !Array.isArray(row.completed) ||
       row.completed.length > 16 ||
       row.completed.some(
@@ -230,7 +249,89 @@ export function libraryWritePhaseSummary(line) {
       row.completed.reduce((total, value) => total + value.elapsedMs, 0) > row.elapsedMs + 16
     )
       return null;
-    return `Audio library write phase: variant=${row.mode}; stage=${row.stage}; elapsed=${row.elapsedMs}ms; completed=${row.completed.map((value) => `${value.stage}:${value.elapsedMs}ms`).join("|") || "none"}; probes=${row.probes}.`;
+    return `Audio library write phase: variant=${row.mode}; stage=${row.stage}; elapsed=${row.elapsedMs}ms; completed=${row.completed.map((value) => `${value.stage}:${value.elapsedMs}ms`).join("|") || "none"}; probes=${row.probes}; open=${row.open}; closed=${row.closed}; failed=${row.failed}; last=${row.last}; heap=${row.heapMb}MiB; free=${row.freeMb}MiB.`;
+  } catch {
+    return null;
+  }
+}
+
+const mutationStages = new Set([
+  "fixture",
+  "suggest",
+  "bundle",
+  "commit",
+  "encode",
+  "apply",
+  "done",
+]);
+/** Closed source/clean timing. No file paths or command arguments. */
+export function libraryMutationPhaseSummary(line) {
+  const prefix = "CI_LIBRARY_MUTATION_PHASE ";
+  if (!line.startsWith(prefix) || line.length > 2048) return null;
+  try {
+    const row = JSON.parse(line.slice(prefix.length));
+    const object = (value) => value && typeof value === "object" && !Array.isArray(value);
+    const milliseconds = (value) => Number.isInteger(value) && value >= 0 && value <= 120000;
+    if (
+      !object(row) ||
+      Object.keys(row).sort().join() !==
+        "closed,completed,elapsedMs,failed,freeMb,heapMb,last,mode,open,stage,v" ||
+      row.v !== 1 ||
+      !["source", "clean"].includes(row.mode) ||
+      !mutationStages.has(row.stage) ||
+      !libraryWriteTools.has(row.last) ||
+      !milliseconds(row.elapsedMs) ||
+      [row.open, row.closed, row.failed].some(
+        (value) => !Number.isInteger(value) || value < 0 || value > 4096,
+      ) ||
+      !Number.isInteger(row.heapMb) ||
+      row.heapMb < 0 ||
+      row.heapMb > 65536 ||
+      !Number.isInteger(row.freeMb) ||
+      row.freeMb < 0 ||
+      row.freeMb > 1048576 ||
+      !Array.isArray(row.completed) ||
+      row.completed.length > 12 ||
+      row.completed.some(
+        (value) =>
+          !object(value) ||
+          Object.keys(value).sort().join() !== "elapsedMs,stage" ||
+          !mutationStages.has(value.stage) ||
+          !milliseconds(value.elapsedMs),
+      )
+    )
+      return null;
+    return `Audio library mutation phase: variant=${row.mode}; stage=${row.stage}; elapsed=${row.elapsedMs}ms; completed=${row.completed.map((value) => `${value.stage}:${value.elapsedMs}ms`).join("|") || "none"}; open=${row.open}; closed=${row.closed}; failed=${row.failed}; last=${row.last}; heap=${row.heapMb}MiB; free=${row.freeMb}MiB.`;
+  } catch {
+    return null;
+  }
+}
+
+const qcOwnerStages = new Set(["temp", "db", "rows", "owner", "done", "cleanup"]);
+/** Closed ownership timing only. No database paths, digests or SQL. */
+export function qcOwnerPhaseSummary(line) {
+  const prefix = "CI_QC_OWNER_PHASE ";
+  if (!line.startsWith(prefix) || line.length > 512) return null;
+  try {
+    const row = JSON.parse(line.slice(prefix.length));
+    const object = (value) => value && typeof value === "object" && !Array.isArray(value);
+    if (
+      !object(row) ||
+      Object.keys(row).sort().join() !== "elapsedMs,freeMb,heapMb,stage,v" ||
+      row.v !== 1 ||
+      !qcOwnerStages.has(row.stage) ||
+      !Number.isInteger(row.elapsedMs) ||
+      row.elapsedMs < 0 ||
+      row.elapsedMs > 120000 ||
+      !Number.isInteger(row.heapMb) ||
+      row.heapMb < 0 ||
+      row.heapMb > 65536 ||
+      !Number.isInteger(row.freeMb) ||
+      row.freeMb < 0 ||
+      row.freeMb > 1048576
+    )
+      return null;
+    return `Export ownership phase: stage=${row.stage}; elapsed=${row.elapsedMs}ms; heap=${row.heapMb}MiB; free=${row.freeMb}MiB.`;
   } catch {
     return null;
   }
@@ -243,6 +344,8 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
   let pytestFailures = false;
   const entries = new Map();
   const libraryPhases = new Map();
+  const ownerPhases = new Map();
+  const mutationPhases = new Map();
   const add = (message) => {
     const key = `${phase}: ${message}`;
     if (entries.size < 6) entries.set(key, { phase, message });
@@ -263,6 +366,12 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
     const libraryPhase = libraryWritePhaseSummary(diagnostic);
     if (libraryPhase && libraryPhases.size < 6)
       libraryPhases.set(libraryPhase, { phase: "TypeScript / desktop", message: libraryPhase });
+    const ownerPhase = qcOwnerPhaseSummary(diagnostic);
+    if (ownerPhase && ownerPhases.size < 6)
+      ownerPhases.set(ownerPhase, { phase: "TypeScript / desktop", message: ownerPhase });
+    const mutationPhase = libraryMutationPhaseSummary(diagnostic);
+    if (mutationPhase && mutationPhases.size < 6)
+      mutationPhases.set(mutationPhase, { phase: "TypeScript / desktop", message: mutationPhase });
     // Exact check_python_coverage.py output only; successful metrics are not failures.
     const pythonCoverage = text.match(
       /^Python coverage: line=(\d{1,3}\.\d{2})% \(min (\d{1,3}\.\d)%\), branch=(\d{1,3}\.\d{2})% \(min (\d{1,3}\.\d)%\)\r?$/u,
@@ -410,7 +519,12 @@ export function failureSummary(initialPhase = "pnpm test", sourceRoot = reposito
     line,
     entries: () =>
       failureBlock
-        ? [...libraryPhases.values(), ...entries.values()].slice(0, 6)
+        ? [
+            ...libraryPhases.values(),
+            ...ownerPhases.values(),
+            ...mutationPhases.values(),
+            ...entries.values(),
+          ].slice(0, 6)
         : [...entries.values()],
     phase: () => phase,
   };

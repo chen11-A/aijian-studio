@@ -229,7 +229,20 @@ function sceneApplyCopy(row, profile) {
   ].includes(value.reply)
     ? value.reply
     : "UNKNOWN";
-  return ` sceneApplyCalls=${count(value.calls)} sceneMatched=${bit(value.matched)} sceneCas=${bit(value.casMatched)} sceneReview=${bit(value.reviewMatched)} sceneInitialCas=${bit(value.initialCas)} sceneFinalCas=${bit(value.finalCas)} sceneReply=${reply} sceneNativeWrites=${count(value.nativeWrites)} scenePending=${count(value.pending)} sceneSaved=${bit(value.saved)} sceneRebased=${bit(value.rebased)} sceneStale=${bit(value.stale)} sceneUnknown=${bit(value.unknown)}`;
+  const settleStages = [
+    "clear",
+    "call",
+    "lease",
+    "lease-none",
+    "write-success",
+    "write-other",
+    "keep-result",
+    "invalidate",
+  ];
+  const settle = Array.isArray(value.settle)
+    ? value.settle.filter((stage) => settleStages.includes(stage)).slice(0, 12)
+    : [];
+  return ` sceneApplyCalls=${count(value.calls)} sceneMatched=${bit(value.matched)} sceneCas=${bit(value.casMatched)} sceneReview=${bit(value.reviewMatched)} sceneInitialCas=${bit(value.initialCas)} sceneFinalCas=${bit(value.finalCas)} sceneReply=${reply} sceneNativeWrites=${count(value.nativeWrites)} scenePending=${count(value.pending)} sceneSaved=${bit(value.saved)} sceneRebased=${bit(value.rebased)} sceneStale=${bit(value.stale)} sceneUnknown=${bit(value.unknown)}${settle.length ? ` settle=${settle.join(">")}` : ""}`;
 }
 
 function evidenceLegacyInteractionCopy(row, profile) {

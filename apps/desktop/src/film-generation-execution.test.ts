@@ -4,6 +4,7 @@ import { verifiedQcTools, type QcRunner } from "./film-export-qc-runtime";
 import type { generationSelectedMedia } from "./film-generation-selected-media";
 import { createHash, createHmac } from "node:crypto";
 import { createRequire } from "node:module";
+import ts from "typescript";
 import { mkdtemp, mkdir, readFile, realpath, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
@@ -12,7 +13,14 @@ import { createInterface } from "node:readline";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
 import { createNativeFilmGenerationExecutions } from "./film-generation-execution";
-import { readProject, writeProject as writeProjectNative, type FilmRecord } from "./film-library";
+import type { FixedInputLedger } from "./film-generation-fixed-input";
+import { registerFilmLibraryHandlers } from "./film-library-ipc";
+import {
+  readProject,
+  transactFilmProject,
+  writeProject as writeProjectNative,
+  type FilmRecord,
+} from "./film-library";
 import { filmHistoryRecordHash } from "./film-history";
 import { generationRows } from "./film-generation-plan";
 import { parseStoryFilmCreate } from "./story-film-client";
@@ -74,9 +82,10 @@ function responsePromise<T>() {
 const sha = (raw: string) => createHash("sha256").update(raw).digest("hex");
 async function createFixture(
   privateFailure?: string,
-  real?: { projectId: string; fetcher: typeof fetch },
+  real?: { projectId: string; fetcher: typeof fetch; uniqueImage?: boolean },
   frameStage = false,
   plannedLocation = false,
+  extras?: { fixedInputs?: Pick<FixedInputLedger, "matches">; lineageItems?: unknown[] },
 ) {
   const epoch = testEpoch;
   const root = await mkdtemp(join(tmpdir(), "native-execution-factory-"));
@@ -208,7 +217,7 @@ async function createFixture(
       return Response.json({
         data: [
           {
-            b64_json: (plannedLocation
+            b64_json: (plannedLocation || real?.uniqueImage
               ? Buffer.concat([bytes, Buffer.from(String(imageCalls))])
               : bytes
             ).toString("base64"),
@@ -242,7 +251,7 @@ async function createFixture(
     );
     if (real) return real.fetcher(url, init);
     if (privateFailure) return Response.json({ detail: privateFailure }, { status: 409 });
-    if (path.endsWith("/lineages")) return Response.json({ items: [] });
+    if (path.endsWith("/lineages")) return Response.json({ items: extras?.lineageItems ?? [] });
     if (path.endsWith("/video-arm")) {
       arms.push(JSON.parse(raw));
       await holdArm?.();
@@ -328,6 +337,7 @@ async function createFixture(
     storySourceOwner: async () => false,
     fetcher,
     producer: async () => producer,
+    ...(extras?.fixedInputs ? { fixedInputs: extras.fixedInputs } : {}),
   };
   const implementation = createNativeFilmGenerationExecutions(factoryHost);
   const factory = {
@@ -354,6 +364,9 @@ async function createFixture(
     storyRoot,
     frame,
     mediaDispatchLease,
+    useOtherAccount: () => {
+      account.accountSha256 = "e".repeat(64);
+    },
     useLocalMedia: (host: Parameters<typeof generationSelectedMedia>[3]) => {
       factoryHost.selectedMediaHost = async () => host;
     },
@@ -828,7 +841,7 @@ async function createSignedSidecar() {
     replies.push(reply);
     return Response.json(reply.body, { status: reply.status });
   };
-  return { projectId: actualProjectId, replies, paths, fetcher };
+  return { projectId: actualProjectId, replies, paths, fetcher, root };
 }
 
 function signedSidecar() {
@@ -1263,6 +1276,313 @@ it.skipIf(!ffmpegOnPath()).each(["owner", "canonical"] as const)(
     const final = (await readProject(f.filmsRoot, f.record.id))!;
     if (change === "owner") expect(final).toEqual(local.stored);
     else expect(final.title).toBe("late creative edit");
+  },
+  30_000,
+);
+
+async function compiledFixedInputLedger(): Promise<FixedInputLedger> {
+  const source = await readFile(resolve("src/film-generation-fixed-input.ts"), "utf8");
+  const js = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const file = join(tmpdir(), `fixed-input-${sha(js).slice(0, 12)}.cjs`);
+  await writeFile(file, js);
+  return createRequire(file)(file).createFixedInputLedger() as FixedInputLedger;
+}
+
+function targetInputHashes(database: string): string[] {
+  const script = [
+    "import json, sqlite3, sys",
+    "con = sqlite3.connect(sys.argv[1], timeout=5)",
+    "rows = [row[0] for row in con.execute(",
+    "'SELECT input_sha256 FROM prepared_generation_target ORDER BY rowid')]",
+    "print(json.dumps(rows))",
+  ].join("\n");
+  const result = spawnSync("python3", ["-c", script, database], { encoding: "utf8" });
+  expect(result.status, result.stderr).toBe(0);
+  const rows = JSON.parse(result.stdout) as unknown;
+  if (!Array.isArray(rows) || rows.some((row) => typeof row !== "string"))
+    throw Error("INPUT_HASH_QUERY_INVALID");
+  return rows as string[];
+}
+
+it.skipIf(!ffmpegOnPath())(
+  "keeps an explicit fixed-input receipt from opening the accepted NOT_NEEDED path",
+  async () => {
+    const ledger = await compiledFixedInputLedger();
+    const f = await fixture(undefined, undefined, false, false, { fixedInputs: ledger });
+    const picked = join(f.root, "picked.png");
+    await writeFile(picked, await readFile(f.frame));
+    const imported = await ledger.importPickedFile({
+      pickedPath: picked,
+      accountSha256: "d".repeat(64),
+      projectId: f.record.id,
+      backendProjectId: String(f.record.backendProjectId),
+      seriesId: String(f.record.seriesId),
+      filmsRoot: f.filmsRoot,
+      isAutomaticOutput: async () => false,
+    });
+    expect(imported.ok).toBe(true);
+    const local = await localSelectedFixture(f);
+    const made = await f.factory.prepare(f.owner, local.input);
+    expect(made).toEqual({
+      kind: "NOT_NEEDED",
+      projectId: f.record.id,
+      projectHash: local.input.expectedProjectHash,
+      reason: "LOCAL_SELECTED_MEDIA",
+      selected: [{ shotId: "shot-one", takeId: "old" }],
+    });
+    expect(f.mediaDispatchLease).not.toHaveBeenCalled();
+    expect(f.fetcher).not.toHaveBeenCalled();
+    expect(f.imageCalls()).toBe(0);
+    expect(f.registrations).toHaveLength(0);
+    expect(f.submissions).toHaveLength(0);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(local.stored);
+  },
+  30_000,
+);
+
+async function manualStill(f: Awaited<ReturnType<typeof fixture>>, ledger?: FixedInputLedger) {
+  const handlers = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+  registerFilmLibraryHandlers(
+    (channel, callback) => handlers.set(channel, callback),
+    (event: boolean) => event,
+    {
+      filmsRoot: () => f.filmsRoot,
+      storyFilmsRoot: () => f.storyRoot,
+      mediaToken: async () => "native-manual-token",
+      fetcher: f.fetcher,
+      ...(ledger
+        ? {
+            noteManualStill: (seriesId: string, path: string) =>
+              ledger.noteManualStill(f.filmsRoot, seriesId, path),
+          }
+        : {}),
+      runFfmpeg: async () => undefined,
+      pickDirectory: async () => null,
+      copyFile: async () => undefined,
+      reveal: () => undefined,
+      open: async () => "",
+    },
+  );
+  const before = await readFile(
+    join(f.filmsRoot, String(f.record.seriesId), "episodes", f.record.id, "project.json"),
+  );
+  const made = (await handlers.get("film:still")!(
+    true,
+    f.record.seriesId,
+    "用户明确手工出图",
+    "16:9",
+    [],
+  )) as { path: string; fixedInputOfferId?: string };
+  expect(made.path).not.toBe("");
+  expect(await readFile(made.path)).toEqual(await readFile(f.frame));
+  expect(
+    await readFile(
+      join(f.filmsRoot, String(f.record.seriesId), "episodes", f.record.id, "project.json"),
+    ),
+  ).toEqual(before);
+  return made;
+}
+
+it.skipIf(!ffmpegOnPath())(
+  "accepts a compiled fixed-input confirm for a real manual still and still refuses the unconfirmed file",
+  async () => {
+    const unconfirmed = await fixture(undefined, undefined, true);
+    const bare = await manualStill(unconfirmed);
+    expect(bare.fixedInputOfferId).toBeUndefined();
+    const updated = structuredClone(unconfirmed.record);
+    generationRows(updated.shots)[0]!.poster = bare.path;
+    await writeProject(unconfirmed.filmsRoot, updated);
+    const raw = (await readProject(unconfirmed.filmsRoot, unconfirmed.record.id))!;
+    await expect(
+      unconfirmed.factory.prepare(unconfirmed.owner, {
+        ...unconfirmed.input,
+        expectedProjectHash: filmHistoryRecordHash(raw),
+      }),
+    ).resolves.toEqual({ kind: "FAILED", code: "UNSUPPORTED_SCOPE" });
+    expect(unconfirmed.registrations).toHaveLength(0);
+    expect(unconfirmed.imageCalls()).toBe(1);
+    expect(unconfirmed.submissions).toHaveLength(0);
+    expect(await readProject(unconfirmed.filmsRoot, unconfirmed.record.id)).toEqual(raw);
+
+    const confirmedLedger = await compiledFixedInputLedger();
+    const f = await fixture(undefined, undefined, true, false, { fixedInputs: confirmedLedger });
+    const made = await manualStill(f, confirmedLedger);
+    if (!made.fixedInputOfferId) throw Error("EXPECTED_OFFER");
+    expect(made.fixedInputOfferId).toMatch(/^fio_/);
+    const saved = await readFile(
+      join(f.filmsRoot, String(f.record.seriesId), "episodes", f.record.id, "project.json"),
+    );
+    const confirmed = await confirmedLedger.confirmOffer({
+      offerId: made.fixedInputOfferId,
+      accountSha256: "d".repeat(64),
+      projectId: f.record.id,
+      backendProjectId: String(f.record.backendProjectId),
+      seriesId: String(f.record.seriesId),
+      filmsRoot: f.filmsRoot,
+      isAutomaticOutput: async () => false,
+    });
+    expect(confirmed.ok).toBe(true);
+    if (!confirmed.ok) throw Error("EXPECTED_CONFIRM");
+    expect(
+      await readFile(
+        join(f.filmsRoot, String(f.record.seriesId), "episodes", f.record.id, "project.json"),
+      ),
+    ).toEqual(saved);
+    const stored = await transactFilmProject(f.filmsRoot, f.record.id, async (current, write) => {
+      if (!current) throw Error("MISSING_PROJECT");
+      const next = structuredClone(current);
+      generationRows(next.shots)[0]!.poster = confirmed.path;
+      return write(next);
+    });
+    const prepared = await f.factory.prepare(f.owner, {
+      ...f.input,
+      expectedProjectHash: filmHistoryRecordHash(stored),
+    });
+    expect(prepared.kind).toBe("PREPARED");
+    if (prepared.kind !== "PREPARED") throw Error("EXPECTED_PREPARED");
+    expect(prepared.stages).toEqual([]);
+    expect(f.registrations).toHaveLength(1);
+    expect(JSON.stringify(f.registrations)).not.toContain(made.fixedInputOfferId);
+    expect(f.imageCalls()).toBe(1);
+    expect(f.submissions).toHaveLength(0);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(stored);
+  },
+  30_000,
+);
+
+it.skipIf(!ffmpegOnPath())(
+  "does not let a fixed-input receipt downgrade a known automatic output",
+  async () => {
+    const lineageItems: unknown[] = [];
+    const ledger = await compiledFixedInputLedger();
+    const f = await fixture(undefined, undefined, true, false, {
+      fixedInputs: ledger,
+      lineageItems,
+    });
+    const made = await manualStill(f, ledger);
+    if (!made.fixedInputOfferId) throw Error("EXPECTED_OFFER");
+    const confirmed = await ledger.confirmOffer({
+      offerId: made.fixedInputOfferId,
+      accountSha256: "d".repeat(64),
+      projectId: f.record.id,
+      backendProjectId: String(f.record.backendProjectId),
+      seriesId: String(f.record.seriesId),
+      filmsRoot: f.filmsRoot,
+      isAutomaticOutput: async () => false,
+    });
+    expect(confirmed.ok).toBe(true);
+    const next = structuredClone(f.record);
+    generationRows(next.shots)[0]!.poster = made.path;
+    await writeProject(f.filmsRoot, next);
+    const raw = (await readProject(f.filmsRoot, f.record.id))!;
+    lineageItems.push({
+      output_sha256: createHash("sha256")
+        .update(await readFile(made.path))
+        .digest("hex"),
+      stage: {
+        kind: "shot-frame",
+        target_id: "shot-one",
+        origin: {
+          imageModel: "grok-imagine-image-2.0",
+          aspectRatio: "16:9",
+          prompt: "not-the-live-frame-prompt",
+          previousPoster: "",
+          references: [],
+        },
+      },
+    });
+    await expect(
+      f.factory.prepare(f.owner, {
+        ...f.input,
+        expectedProjectHash: filmHistoryRecordHash(raw),
+      }),
+    ).resolves.toEqual({ kind: "FAILED", code: "UNSUPPORTED_SCOPE" });
+    expect(f.registrations).toHaveLength(0);
+    expect(f.submissions).toHaveLength(0);
+    expect(f.imageCalls()).toBe(1);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(raw);
+  },
+  30_000,
+);
+
+async function readableAutomaticFrame() {
+  const { projectId, replies, fetcher, root } = await signedSidecar();
+  const f = await fixture(undefined, { projectId, fetcher, uniqueImage: true }, true);
+  const first = await f.factory.prepare(f.owner, f.input);
+  expect(first.kind).toBe("PREPARED");
+  if (first.kind !== "PREPARED") throw Error("EXPECTED_PREPARED");
+  const stage = first.stages.find((item) => item.kind === "shot-frame");
+  if (!stage) throw Error("EXPECTED_FRAME");
+  const shot = generationRows(f.record.shots)[0]!;
+  const frame = producer.shotStillInput(
+    f.record,
+    shot,
+    producer.keyframePrompt(shot, f.record),
+  ) as { prompt: string; references: string[] };
+  const made = await f.factory.still(f.owner, {
+    seriesId: String(f.record.seriesId),
+    prompt: frame.prompt,
+    references: frame.references,
+    aspectRatio: "16:9",
+    execution: { executionId: first.executionId, stageId: stage.stageId },
+  });
+  expect(made.code).toBeUndefined();
+  expect(made.path).not.toBe("");
+  const updated = structuredClone(f.record);
+  generationRows(updated.shots)[0]!.poster = made.path;
+  await writeProject(f.filmsRoot, updated);
+  const raw = (await readProject(f.filmsRoot, f.record.id))!;
+  await f.factory.retire(f.owner, { executionId: first.executionId });
+  return { f, replies, first, raw, root };
+}
+
+it.skipIf(!ffmpegOnPath())(
+  "restores a readable automatic frame to the same original input hash on a new execution",
+  async () => {
+    const { f, replies, first, raw, root } = await readableAutomaticFrame();
+    const again = await f.factory.prepare(f.owner, {
+      ...f.input,
+      expectedProjectHash: filmHistoryRecordHash(raw),
+    });
+    expect(again.kind, JSON.stringify(again)).toBe("PREPARED");
+    if (again.kind !== "PREPARED") throw Error("EXPECTED_RESTORED_PREPARED");
+    expect(again.executionId).not.toBe(first.executionId);
+    expect(again.stages).toEqual([]);
+    const inputHashes = targetInputHashes(join(root, "workspace.db"));
+    expect(inputHashes).toHaveLength(2);
+    expect(new Set(inputHashes).size).toBe(1);
+    expect(f.imageCalls()).toBe(1);
+    expect(replies.flatMap((reply) => reply.sent)).toEqual([]);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(raw);
+  },
+  30_000,
+);
+
+it.skipIf(!ffmpegOnPath()).each(["creative", "account", "bytes"] as const)(
+  "never reclassifies old automatic output as a fixed new input after %s changes",
+  async (change) => {
+    const { f, replies, raw, root } = await readableAutomaticFrame();
+    const updated = structuredClone(raw);
+    if (change === "creative") generationRows(updated.shots)[0]!.picture += " real changed intent";
+    if (change === "account") f.useOtherAccount();
+    if (change === "bytes") {
+      const path = String(generationRows(updated.shots)[0]!.poster);
+      await writeFile(path, Buffer.concat([await readFile(path), Buffer.from("replaced bytes")]));
+    }
+    await writeProject(f.filmsRoot, updated);
+    const before = (await readProject(f.filmsRoot, f.record.id))!;
+    const count = targetInputHashes(join(root, "workspace.db")).length;
+    const result = await f.factory.prepare(f.owner, {
+      ...f.input,
+      expectedProjectHash: filmHistoryRecordHash(before),
+    });
+    expect(result).toEqual({ kind: "FAILED", code: "UNSUPPORTED_SCOPE" });
+    expect(targetInputHashes(join(root, "workspace.db"))).toHaveLength(count);
+    expect(f.imageCalls()).toBe(1);
+    expect(replies.flatMap((reply) => reply.sent)).toEqual([]);
+    expect(await readProject(f.filmsRoot, f.record.id)).toEqual(before);
   },
   30_000,
 );
