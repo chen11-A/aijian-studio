@@ -427,3 +427,7 @@ uv run pytest -q --tb=line services/api/tests/test_prepared_generation_cache.py:
 这个候选不能落地。通过依赖于 `inotify_init1`。没有该观察时，安全规则是不复用缓存；那会第二次哈希，打破单次预算断言。退回 stat 缓存就是接受陈旧 VERIFIED。同进程文件租约能看见写入，但写入方会停在内核租约打断上（这次约 45 秒），属于盲等，不用。
 
 安全停止边界：没有写生命周期观察时，不得把缓存的 stat 身份当成 VERIFIED。本片不改产品代码，所以当前函数仍会返回陈旧 VERIFIED。这是未关闭的门，不是接受该结果。不改 desktop 共享文件。已订阅的本分支 CI watch 还没有交付，不轮询。原生远端 Linux/Windows quality 的日志分类不在这里重复。
+
+## 2026-11-10 01:21 UTC 从本分支隔离
+
+`dd55bbc4402489ab73654491a3e32f820d606f00` 曾写上本分支，总控不批准集成。无观察器重跑原有同 scope 用例：`6 failed, 5 passed in 1.97s`。Windows 正常重复读取会被拒绝，装配就绪不能保持 `CURRENT`。`NOT_NEEDED`、`original_for_hash`、审阅 `original()`、`video_recovery` 不进入 `availability_read_scope` 的复用。本分支已 revert 该提交，历史保留。补丁在 `cursor/aivora-original-identity-reuse-93a6` / [PR #24](https://github.com/chen11-A/aijian-studio/pull/24)。完整性未关闭。API55 私有接口不因此写成跨平台完成。
