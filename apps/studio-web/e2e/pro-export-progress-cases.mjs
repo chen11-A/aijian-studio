@@ -155,6 +155,7 @@ export async function runProgressCases({ browser, config, report, media, persist
           await page.reload({ waitUntil: "domcontentloaded" });
           await page.locator("nav.tabs").waitFor();
           await page.getByRole("button", { name: "导出成片", exact: true }).click();
+          await dialog.getByRole("button", { name: "确认有声导出", exact: true }).click();
           await dialog.getByRole("button", { name: "检查成片", exact: true }).click();
           await page.waitForFunction(() => window.__exportProgressAudit.prepare.length === 1);
           const op = (await calls()).prepare[0];

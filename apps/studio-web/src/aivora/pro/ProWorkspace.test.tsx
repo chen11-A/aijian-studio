@@ -5489,7 +5489,6 @@ it("names each shot's job in the task center and counts the ones still going", a
   installDesktop(createStoryFilm);
   await openAdoptedSample();
   fireEvent.click(stageTab("分镜"));
-  await adoptListedShots();
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() =>
@@ -6291,7 +6290,6 @@ it("3JR-B08 terminates this batch's queued videos when scene preparation fails",
   });
   await openAdoptedSample();
   fireEvent.click(stageTab("分镜"));
-  await adoptListedShots();
   fireEvent.click(stageTab("角色与场景"));
   fireEvent.click(screen.getByRole("button", { name: "场景" }));
   fireEvent.change(screen.getByLabelText("里面怎么摆"), { target: { value: "柜台换到左侧" } });

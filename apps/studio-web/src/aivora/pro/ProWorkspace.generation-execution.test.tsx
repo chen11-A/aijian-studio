@@ -7,6 +7,7 @@ import { historyRecordHash } from "./actions/persistent-history";
 import { runPipelineAgentAction } from "./pipeline-agent-actions";
 import { ProWorkspace } from "./ProWorkspace";
 import { saveStillReview, stillChecklist } from "./still-acceptance";
+import * as continuityFrame from "./continuity-frame";
 vi.mock("./pipeline-agent-actions", () => ({ runPipelineAgentAction: vi.fn() }));
 const projectId = `prj_${"a".repeat(32)}`;
 function fixture() {
@@ -422,11 +423,19 @@ it("keeps a native cached first slot separate from the later explicitly issued c
       })),
     };
   });
+  const continuity = vi.spyOn(continuityFrame, "ensureContinuityFrame");
+  const clientImagesAtVideo: number[] = [];
   f.video.mockImplementation(async () => {
     const frameCalls = (f.still.mock.calls as unknown as unknown[][]).filter(
       (call) => (call[4] as { stageId: string }).stageId === "native-frame",
     );
     expect(frameCalls).toHaveLength(0);
+    clientImagesAtVideo.push(
+      (f.still.mock.calls as unknown as unknown[][]).filter((call) => {
+        const stage = call[4] as { executionId?: string; stageId?: string };
+        return stage.executionId === "native-execution" && stage.stageId?.startsWith("location-");
+      }).length,
+    );
     return { data: { status: "SUCCEEDED", output_path: "/tmp/new-execution.mp4" } };
   });
   await open();
@@ -447,15 +456,13 @@ it("keeps a native cached first slot separate from the later explicitly issued c
     shotId: f.film.shots[0]!.id,
     takeId: expect.any(String),
   });
-  const prepared = await f.prepare.mock.results[0]!.value;
-  expect(prepared).toMatchObject({
-    kind: "PREPARED",
-    targets: [
-      {
-        slotPreparations: [{ preparation: "STORYFILM_CACHE" }, { preparation: "CLIENT_IMAGES" }],
-      },
-    ],
-  });
+  expect(clientImagesAtVideo[0]).toBeGreaterThan(0);
+  expect(continuity.mock.calls).toHaveLength(1);
+  expect(continuity.mock.invocationCallOrder[0]).toBeGreaterThan(
+    f.video.mock.invocationCallOrder[0]!,
+  );
+  expect(continuity.mock.invocationCallOrder[0]).toBeLessThan(f.video.mock.invocationCallOrder[1]!);
+  continuity.mockRestore();
   expect(f.prepare).toHaveBeenCalledTimes(1);
   await waitFor(() =>
     expect(f.stored().shots[0]!.takes.filter((take) => take.status === "done")).toHaveLength(2),
