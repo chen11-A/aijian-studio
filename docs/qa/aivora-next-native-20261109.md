@@ -24,7 +24,9 @@
 - 公共 `PREPARED` 仍只写 `CLIENT_IMAGES`。`prepareSlots` 未接。
 - `NOT_NEEDED` 分支没有改。原保存队列函数 `dispatchGenerationOnProjectQueue` 没有改。确认/导入不写项目 JSON。
 
-画面上的「导入为固定输入」只把 `projectId` 交给 main。带 offer 时，组件上的确认按钮只交 `projectId` 和 `offerId`。`ProWorkspace` 目前只挂导入按钮，还没有把刚生成的 offer id 传进去。确认通道本身已由 IPC 和组件测试覆盖。
+`ProWorkspace` 在手工 `film:still` 返回 `fixedInputOfferId` 后，把该 offer 交给「确认这张手工画面为固定输入」。生成本身不会自动确认。旧素材仍用「导入为固定输入」，只把 `projectId` 交给 main 对话框。取消或拒绝不改已保存的稿。确认后的首帧写入走原来的 `transactFilmProject` 保存队列，然后再 `prepare`。
+
+账本只在内存里：未确认 offer 最多 64 个，回执最多 256 条。达到上限返回桌面本地的 `LEDGER_FULL`，界面说明可以重新选择，重启后旧确认不会保留，也不能当成持久授权。已有 offer 在名额已满时仍可明确确认。进程重启等于新账本，旧回执不再匹配。
 
 ## 实际命令
 
@@ -52,12 +54,19 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 
 `film-generation-execution.test.ts` 里本片新增并通过的是：编译后的 fixed-input 模块被工厂消费、未确认的手工 still 拒绝、回执不能降格自动输出、READABLE shot-frame 的新 execution 保持同一个 `input_sha256`、creative/account/bytes 三则拒绝。sidecar 为真实 `uv run` TestClient，`input_sha256` 读的是该进程写下的 `workspace.db`，没有改 Python sidecar。
 
+`confirmOrImport` 在 `pickImage`、读文件和 `isAutomaticOutput` 之后再读当前账号租约、backend project、series 和 canonical 项目哈希。任一变化都不写入回执。`isAutomaticOutput` 里的 `current()` 只覆盖租约中途失效，不覆盖账号 SHA 或原稿变化，所以末门是后加的复读，不是假设旧 callback 已经足够。
+
+## 工具
+
+云机器原是 Ubuntu ffmpeg 6.1.1。按 lock 安装 Debian `7:7.1.5-0+deb13u1` 的 `/usr/bin/ffmpeg` 与 `ffprobe`，摘要分别为 `e8a8d46f5225f3062cec7c07fb145d58ae73c603cb740dcd5bad34bfb54e455a` 和 `cefc5f81c0b18429cdbf8fa5a89e1e9c759235e10f93f9b329ff1b2fdff26f46`。配套库放进默认链接路径，不靠 `LD_LIBRARY_PATH`。没有改 lock 或断言。
+
 ## 失败与限制
 
-以下失败在未改产品逻辑的 `film-generation-execution.ts` 上同样出现，不是本片断言被放宽：
+安装锁定工具后，`src/film-generation-execution.test.ts` 33 项全部通过。其中包括原签名视频（`sent == ["tts"]`）、planned-location、原 4 个 NOT_NEEDED / 迟到校验，以及回执不得打开 NOT_NEEDED。此前在未换工具时，原基线 `6bb54bbc` 的签名视频用例同样得到空的 `sent`；换上锁定二进制后新候选不再跳过这些断言。
 
-- `crosses actual Python signed routes...` 与 planned-location 视频用例期望 `sent == ["tts"]`，本环境得到 `[]`。对照命令是把该文件临时还原到 `6bb54bbc` 后只跑 frame stage=false，结果仍是 `expected [] to deeply equal ['tts']`。随后已把本片文件拷回。
-- 原 4 个 NOT_NEEDED / 迟到校验用例，以及本片新增的“回执不得打开 NOT_NEEDED”用例，都在 `verifiedQcTools` 抛 `TOOLS_UNAVAILABLE`。系统 ffmpeg/ffprobe 在 PATH 上，但不是 `config/draft-media-toolchain-linux-dev-lock.json` 里的 Debian 7.1.5 摘要。没有改这些断言，也没有跳过。因此本环境没有完成“真实 ffprobe 下 NOT_NEEDED 零请求”的复跑；代码路径仍停在 pipeline 早返回，定向测试未能走到断言。
+随后 `film-generation-fixed-input.test.ts` 5 项通过，覆盖异步末门、64 个 offer、256 条回执和重启后的空账本。`ProWorkspace.test.tsx` 中「shows the manual still offer」1 项通过：生成后才出现确认按钮，确认前不调用，拒绝和取消不增加保存。`FixedInputImportButton.test.tsx`、`shot-still.test.ts`、`workflow.test.ts` 共 38 项通过。
+
+账本上限和重启是内存限制：满额会明确拒绝，重启不会带回旧回执。这不是磁盘上的授权。
 
 未跑：`pnpm typecheck`、`pnpm lint`、desktop/web 全量、`pnpm test:py`、正常 Chrome。这些留给总控串行门。本片定向结果不是最终同源完整验收。
 
@@ -65,12 +74,9 @@ pnpm --filter @aijian/studio-web exec vitest run --coverage=false \
 
 ## 下一依赖
 
-- 总控冻结 `docs/qa/aivora-api55-contract-proposal.md` 的缺口，见 `aivora-native-contract-needs-20261109.md`。冻结前不移植 `generation-cache-preparation.ts`、其测试，以及 `generation-preparation-client.ts` 的 `prepareSlots`。
-- 冻结后才把私有 `PREPARATIONS` 接到 main，并保持公共 `PREPARED` 不带 cache 事实。
-- `ProWorkspace` 尚未把新的手工 still offer 交给确认按钮。
+- 总控合同 v1 已写入 `aivora-native-contract-needs-20261109.md`。本片 closed 并审合之前，不把 `prepareSlots` 接到 main，也不移植三个私有 desktop client/parser。
 - portrait/location 跨 execution、pending pipeline、连续帧、FAILED 下一版本不在本片。
-- 需要带锁定 Debian ffmpeg 的环境，才能复跑原 NOT_NEEDED 零请求探针。
 
 ## 提交
 
-产品实现提交是 `806fa7e6df4d37338a473c78e128418442ca53f5`。若其后还有只改本文的补记，以 `git log --oneline` 的分支尖端为准，不把补记当成新的产品行为。
+闭环前的实现提交是 `806fa7e6df4d37338a473c78e128418442ca53f5`。本片闭环提交以分支尖端为准。

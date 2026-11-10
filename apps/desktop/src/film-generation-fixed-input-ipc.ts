@@ -1,3 +1,4 @@
+import { filmHistoryRecordHash } from "./film-history";
 import { readProject } from "./film-library";
 import type { GenerationDispatchAccount } from "./generation-dispatch-account";
 import type { FixedInputChannelResult, FixedInputLedger } from "./film-generation-fixed-input";
@@ -33,19 +34,20 @@ export function registerFixedInputHandlers<Event>(
     if (!host.authorized(event)) throw Error("Unauthorized fixed input sender");
     if (args.length !== 2 || typeof args[0] !== "string" || typeof args[1] !== "string")
       return refused;
-    return confirmOrImport(host, event, args[0], async (scope, automatic) =>
+    return confirmOrImport(host, event, args[0], async (scope, automatic, stillCurrent) =>
       host.ledger.confirmOffer({
         offerId: args[1] as string,
         ...scope,
         filmsRoot: host.filmsRoot(),
         isAutomaticOutput: automatic,
+        stillCurrent,
       }),
     );
   });
   handle("film:import-fixed-input", async (event, ...args) => {
     if (!host.authorized(event)) throw Error("Unauthorized fixed input sender");
     if (args.length !== 1 || typeof args[0] !== "string") return refused;
-    return confirmOrImport(host, event, args[0], async (scope, automatic) => {
+    return confirmOrImport(host, event, args[0], async (scope, automatic, stillCurrent) => {
       const picked = await host.pickImage();
       if (!picked) return { ok: false, code: "CANCELLED" };
       return host.ledger.importPickedFile({
@@ -53,6 +55,7 @@ export function registerFixedInputHandlers<Event>(
         ...scope,
         filmsRoot: host.filmsRoot(),
         isAutomaticOutput: automatic,
+        stillCurrent,
       });
     });
   });
@@ -70,6 +73,7 @@ async function confirmOrImport<Event>(
       seriesId: string;
     },
     isAutomaticOutput: (digest: string) => Promise<boolean>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<FixedInputChannelResult>,
 ): Promise<FixedInputChannelResult> {
   if (!host.authorized(event) || !projectPattern.test(rawProjectId)) return refused;
@@ -85,9 +89,11 @@ async function confirmOrImport<Event>(
     return refused;
   const backendProjectId = record.backendProjectId;
   const seriesId = record.seriesId;
+  const accountSha256 = lease.account.accountSha256;
+  const opened = filmHistoryRecordHash(record);
   return run(
     {
-      accountSha256: lease.account.accountSha256,
+      accountSha256,
       projectId: record.id,
       backendProjectId,
       seriesId,
@@ -99,5 +105,16 @@ async function confirmOrImport<Event>(
         account: lease.account,
         current: () => host.authorized(event) && lease.current(),
       }),
+    async () => {
+      if (!host.authorized(event) || !lease.current()) return false;
+      if (lease.account.accountSha256 !== accountSha256) return false;
+      const fresh = await readProject(host.filmsRoot(), rawProjectId);
+      return (
+        fresh?.id === rawProjectId &&
+        fresh.backendProjectId === backendProjectId &&
+        fresh.seriesId === seriesId &&
+        filmHistoryRecordHash(fresh) === opened
+      );
+    },
   );
 }

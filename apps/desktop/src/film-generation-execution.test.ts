@@ -15,7 +15,12 @@ import type { CanonicalGenerationProducer } from "./film-generation-compiler";
 import { createNativeFilmGenerationExecutions } from "./film-generation-execution";
 import type { FixedInputLedger } from "./film-generation-fixed-input";
 import { registerFilmLibraryHandlers } from "./film-library-ipc";
-import { readProject, writeProject as writeProjectNative, type FilmRecord } from "./film-library";
+import {
+  readProject,
+  transactFilmProject,
+  writeProject as writeProjectNative,
+  type FilmRecord,
+} from "./film-library";
 import { filmHistoryRecordHash } from "./film-history";
 import { generationRows } from "./film-generation-plan";
 import { parseStoryFilmCreate } from "./story-film-client";
@@ -1319,10 +1324,12 @@ it.skipIf(!ffmpegOnPath())(
         join(f.filmsRoot, String(f.record.seriesId), "episodes", f.record.id, "project.json"),
       ),
     ).toEqual(saved);
-    const next = structuredClone(f.record);
-    generationRows(next.shots)[0]!.poster = confirmed.path;
-    await writeProject(f.filmsRoot, next);
-    const stored = (await readProject(f.filmsRoot, f.record.id))!;
+    const stored = await transactFilmProject(f.filmsRoot, f.record.id, async (current, write) => {
+      if (!current) throw Error("MISSING_PROJECT");
+      const next = structuredClone(current);
+      generationRows(next.shots)[0]!.poster = confirmed.path;
+      return write(next);
+    });
     const prepared = await f.factory.prepare(f.owner, {
       ...f.input,
       expectedProjectHash: filmHistoryRecordHash(stored),

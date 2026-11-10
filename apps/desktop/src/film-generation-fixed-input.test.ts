@@ -90,7 +90,10 @@ it("compiled ledger confirms a real manual still and refuses renderer-shaped ext
   const still = join(env.filmsRoot, env.seriesId, "stills", "manual.png");
   await mkdir(join(env.filmsRoot, env.seriesId, "stills"), { recursive: true });
   await writeFile(still, png);
-  const offerId = await ledger.noteManualStill(env.filmsRoot, env.seriesId, still);
+  const noted = await ledger.noteManualStill(env.filmsRoot, env.seriesId, still);
+  expect(noted.kind).toBe("offer");
+  if (noted.kind !== "offer") throw Error("EXPECTED_OFFER");
+  const offerId = noted.offerId;
   expect(offerId).toMatch(/^fio_[0-9a-f-]{36}$/);
   const { map, calls } = handlers(ledger, env);
   const metadata = {
@@ -206,4 +209,163 @@ it("keeps a cancelled dialog and an unauthorized sender away from the project sa
   expect(
     await readFile(join(env.filmsRoot, env.seriesId, "episodes", env.id, "project.json")),
   ).toEqual(env.raw);
+});
+
+it("drops a stale scope after the async gate and refuses a full in-memory ledger without persisting it", async () => {
+  const ledger = await compiledLedger();
+  const env = await project();
+  const still = join(env.filmsRoot, env.seriesId, "stills", "manual.png");
+  await mkdir(join(env.filmsRoot, env.seriesId, "stills"), { recursive: true });
+  await writeFile(still, png);
+  const noted = await ledger.noteManualStill(env.filmsRoot, env.seriesId, still);
+  if (noted.kind !== "offer") throw Error("EXPECTED_OFFER");
+  const account = { bearer: "native-bearer", accountSha256: "d".repeat(64) };
+  let live = true;
+  let release: () => void = () => undefined;
+  let entered: () => void = () => undefined;
+  const hold = new Promise<void>((done) => {
+    release = done;
+  });
+  const enteredGate = new Promise<void>((done) => {
+    entered = done;
+  });
+  const map = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+  registerFixedInputHandlers((channel, run) => map.set(channel, run), {
+    filmsRoot: () => env.filmsRoot,
+    ledger,
+    authorized: (event: boolean) => event,
+    mediaDispatchLease: async () => ({ account, current: () => live }),
+    pickImage: async () => still,
+    isAutomaticOutput: async () => {
+      entered();
+      await hold;
+      return false;
+    },
+  });
+  const pending = map.get("film:confirm-fixed-input")!(true, env.id, noted.offerId);
+  await enteredGate;
+  account.accountSha256 = "e".repeat(64);
+  release();
+  await expect(pending).resolves.toEqual({ ok: false, code: "UNSUPPORTED_SCOPE" });
+  const digest = createHash("sha256").update(png).digest("hex");
+  const identity = {
+    accountSha256: "d".repeat(64),
+    projectId: env.id,
+    backendProjectId: env.backendProjectId,
+    seriesId: env.seriesId,
+    role: "still" as const,
+    canonicalPath: still,
+    sha256: digest,
+    mime: "image/png",
+    knownAutomaticOutput: false,
+  };
+  expect(ledger.matches(identity)).toBe(false);
+  account.accountSha256 = "d".repeat(64);
+  const projectPath = join(env.filmsRoot, env.seriesId, "episodes", env.id, "project.json");
+  for (const change of ["backend", "series", "canonical", "lease"] as const) {
+    const again = await ledger.noteManualStill(env.filmsRoot, env.seriesId, still);
+    if (again.kind !== "offer") throw Error("EXPECTED_OFFER");
+    let open: () => void = () => undefined;
+    let mark: () => void = () => undefined;
+    const wait = new Promise<void>((done) => {
+      open = done;
+    });
+    const marked = new Promise<void>((done) => {
+      mark = done;
+    });
+    const gate = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+    registerFixedInputHandlers((channel, run) => gate.set(channel, run), {
+      filmsRoot: () => env.filmsRoot,
+      ledger,
+      authorized: () => true,
+      mediaDispatchLease: async () => ({ account, current: () => live }),
+      pickImage: async () => null,
+      isAutomaticOutput: async () => {
+        mark();
+        await wait;
+        return false;
+      },
+    });
+    const attempt = gate.get("film:confirm-fixed-input")!(true, env.id, again.offerId);
+    await marked;
+    const current = JSON.parse((await readFile(projectPath)).toString()) as {
+      backendProjectId: string;
+      seriesId: string;
+      title: string;
+    };
+    if (change === "backend") current.backendProjectId = `prj_${"d".repeat(32)}`;
+    if (change === "series") current.seriesId = `film_${"c".repeat(16)}`;
+    if (change === "canonical") current.title = "已经换过的原稿";
+    if (change === "lease") live = false;
+    if (change !== "lease") await writeFile(projectPath, JSON.stringify(current));
+    open();
+    await expect(attempt).resolves.toEqual({ ok: false, code: "UNSUPPORTED_SCOPE" });
+    if (change !== "lease") await writeFile(projectPath, env.raw);
+    live = true;
+    expect(ledger.matches(identity)).toBe(false);
+  }
+  let filled = false;
+  for (let index = 0; index < 70 && !filled; index += 1) {
+    const extra = await ledger.noteManualStill(env.filmsRoot, env.seriesId, still);
+    filled = extra.kind === "full";
+  }
+  expect(filled).toBe(true);
+  expect(await ledger.noteManualStill(env.filmsRoot, env.seriesId, still)).toEqual({
+    kind: "full",
+  });
+  const retry = handlers(ledger, env);
+  await expect(
+    retry.map.get("film:confirm-fixed-input")!(true, env.id, noted.offerId),
+  ).resolves.toMatchObject({
+    ok: true,
+  });
+  const restarted = await compiledLedger();
+  expect(restarted.matches(identity)).toBe(false);
+});
+
+it("refuses another receipt after 256 and does not seal an import once the canonical project changed", async () => {
+  const ledger = await compiledLedger();
+  const env = await project();
+  const outside = join(env.filmsRoot, "picked.png");
+  await mkdir(env.filmsRoot, { recursive: true });
+  await writeFile(outside, png);
+  const scope = {
+    pickedPath: outside,
+    accountSha256: "d".repeat(64),
+    projectId: env.id,
+    backendProjectId: env.backendProjectId,
+    seriesId: env.seriesId,
+    filmsRoot: env.filmsRoot,
+    isAutomaticOutput: async () => false,
+  };
+  const blocked = await ledger.importPickedFile({
+    ...scope,
+    stillCurrent: async () => false,
+  });
+  expect(blocked).toEqual({ ok: false, code: "UNSUPPORTED_SCOPE" });
+  let last: { ok: true; path: string } | { ok: false; code: string } = {
+    ok: false,
+    code: "UNSUPPORTED_SCOPE",
+  };
+  for (let index = 0; index < 256; index += 1) {
+    const made = await ledger.importPickedFile(scope);
+    if (!made.ok) throw Error(made.code);
+    last = made;
+  }
+  expect(await ledger.importPickedFile(scope)).toEqual({ ok: false, code: "LEDGER_FULL" });
+  if (!last.ok) throw Error("EXPECTED_RECEIPT");
+  const restarted = await compiledLedger();
+  expect(
+    restarted.matches({
+      accountSha256: scope.accountSha256,
+      projectId: env.id,
+      backendProjectId: env.backendProjectId,
+      seriesId: env.seriesId,
+      role: "still",
+      canonicalPath: last.path,
+      sha256: createHash("sha256").update(png).digest("hex"),
+      mime: "image/png",
+      knownAutomaticOutput: false,
+    }),
+  ).toBe(false);
 });

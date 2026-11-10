@@ -73,3 +73,26 @@ it("confirms a main-issued offer without sending path, origin, metadata or cache
   expect(confirmFixedInput).toHaveBeenCalledTimes(1);
   expect(onFilm).not.toHaveBeenCalled();
 });
+
+it("tells the user when the in-memory confirm limit is full and does not change the shot", async () => {
+  const { film, shot, onFilm, onNotice } = setup();
+  window.aijian = {
+    confirmFixedInput: vi.fn(async () => ({ ok: false, code: "LEDGER_FULL" })),
+  } as unknown as Window["aijian"];
+  render(
+    <FixedInputImportButton
+      film={film}
+      shot={shot}
+      offerId="fio_01234567-89ab-cdef-0123-456789abcdef"
+      onFilm={onFilm}
+      onNotice={onNotice}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "确认这张手工画面为固定输入" }));
+  await vi.waitFor(() =>
+    expect(onNotice).toHaveBeenCalledWith(
+      "这一轮可确认的手工画面已满。没有把它当作固定输入。可以重新选择；重启后需要再次明确确认，旧确认不会保留。",
+    ),
+  );
+  expect(onFilm).not.toHaveBeenCalled();
+});

@@ -780,6 +780,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   );
   const [roleCards, setRoleCards] = useState<Partial<Record<Role, RoleCard>>>({});
   const [stillArmed, setStillArmed] = useState("");
+  const [manualStillOffers, setManualStillOffers] = useState<Record<string, string>>({});
   const selectedEditorShot =
     stage === "board" || stage === "edit"
       ? film?.shots
@@ -4003,7 +4004,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           apply: applyLive,
         },
       );
-      if (valid()) setNotice(result.notice);
+      if (valid()) {
+        setNotice(result.notice);
+        const key = `${base.id}:${current.id}`;
+        setManualStillOffers((offers) => {
+          const next = { ...offers };
+          if (result.fixedInputOfferId) next[key] = result.fixedInputOfferId;
+          else delete next[key];
+          return next;
+        });
+      }
     } catch (error) {
       if (valid()) {
         if (error instanceof Error && "code" in error && error.code === "SHOT_STILL_INPUT_CHANGED")
@@ -6437,6 +6447,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   fourArmed={stillArmed}
                   onFour={generateFourStills}
                   onStills={() => void makeShotStill()}
+                  manualStillOfferId={
+                    shownShots[shot]
+                      ? manualStillOffers[`${film.id}:${shownShots[shot].id}`]
+                      : undefined
+                  }
                   stillProgress={stillProgress}
                   onPickStill={(picture) => {
                     const current = shownShots[shot];
@@ -9539,6 +9554,7 @@ function BoardPage({
   activeSceneId,
   stills,
   onStills,
+  manualStillOfferId,
   stillProgress,
   onFour,
   fourArmed,
@@ -9585,6 +9601,7 @@ function BoardPage({
   activeSceneId: string;
   stills: string[];
   onStills: () => void;
+  manualStillOfferId?: string;
   onFour: () => void;
   fourArmed: string;
   stillProgress: Record<string, string>;
@@ -10625,6 +10642,7 @@ function BoardPage({
               <FixedInputImportButton
                 film={film}
                 shot={current}
+                offerId={manualStillOfferId}
                 onFilm={onFilm}
                 onNotice={onNotice}
               />

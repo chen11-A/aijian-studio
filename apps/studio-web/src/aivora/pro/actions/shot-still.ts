@@ -56,7 +56,10 @@ export async function generateShotStill(base: FilmProject, shot: FilmShot, host:
           stills: [...latest.stills, { id: crypto.randomUUID(), prompt, url: made.url }],
         }),
       );
-      return { notice: selectedChanged ? "画面已加入候选，保留了你选择的首帧。" : made.reason };
+      return {
+        notice: selectedChanged ? "画面已加入候选，保留了你选择的首帧。" : made.reason,
+        fixedInputOfferId: made.fixedInputOfferId,
+      };
     },
   );
 }

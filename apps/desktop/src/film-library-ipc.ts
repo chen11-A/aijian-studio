@@ -72,7 +72,10 @@ export type FilmLibraryHost<Event = unknown> = {
   reveal: (path: string) => void;
   open: (path: string) => Promise<string>;
   /** Main observes its own manual still write. The returned offer is not a receipt. */
-  noteManualStill?: (seriesId: string, path: string) => Promise<string | null>;
+  noteManualStill?: (
+    seriesId: string,
+    path: string,
+  ) => Promise<{ kind: "offer"; offerId: string } | { kind: "full" } | { kind: "unavailable" }>;
   logStill?: (
     detail: StyleDiagnostics & {
       ok: boolean;
@@ -406,13 +409,17 @@ export function registerFilmLibraryHandlers<TEvent>(
       detail: made.path ? "定妆或起始画面已保存。" : made.reason || "出图没有成功。",
     });
     if (!made.path || !host.noteManualStill) return made;
-    let fixedInputOfferId: string | null = null;
+    let noted: { kind: "offer"; offerId: string } | { kind: "full" } | { kind: "unavailable" } = {
+      kind: "unavailable",
+    };
     try {
-      fixedInputOfferId = await host.noteManualStill(args[0], made.path);
+      noted = await host.noteManualStill(args[0], made.path);
     } catch {
-      fixedInputOfferId = null;
+      noted = { kind: "unavailable" };
     }
-    return fixedInputOfferId ? { ...made, fixedInputOfferId } : made;
+    if (noted.kind === "offer") return { ...made, fixedInputOfferId: noted.offerId };
+    if (noted.kind === "full") return { ...made, fixedInputLimit: true };
+    return made;
   });
 
   handle("film:pick-folder", async (event) => {

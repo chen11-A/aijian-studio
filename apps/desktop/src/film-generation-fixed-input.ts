@@ -4,7 +4,8 @@ import { extname, isAbsolute, join, relative, sep } from "node:path";
 
 /** Desktop-local offer/receipt channel. Not a shared PREPARED protocol field. */
 export type FixedInputChannelResult =
-  { ok: true; path: string } | { ok: false; code: "UNSUPPORTED_SCOPE" | "CANCELLED" };
+  | { ok: true; path: string }
+  | { ok: false; code: "UNSUPPORTED_SCOPE" | "CANCELLED" | "LEDGER_FULL" };
 
 export type FixedInputMime = "image/png" | "image/jpeg" | "image/webp";
 export type FixedInputRole = "still";
@@ -42,6 +43,7 @@ type Offer = {
 };
 
 const refuse = (): FixedInputChannelResult => ({ ok: false, code: "UNSUPPORTED_SCOPE" });
+const ledgerFull = (): FixedInputChannelResult => ({ ok: false, code: "LEDGER_FULL" });
 const projectId = (value: string) => /^film_[a-z0-9]{16,40}$/.test(value);
 const backendId = (value: string) => /^prj_[a-f0-9]{32}$/.test(value);
 const accountId = (value: string) => /^[a-f0-9]{64}$/.test(value);
@@ -119,16 +121,32 @@ export function createFixedInputLedger() {
     return { path: canonical, sha256: sha256(bytes), mime };
   }
 
+  async function seal(
+    receipt: Receipt,
+    stillCurrent?: () => Promise<boolean>,
+  ): Promise<FixedInputChannelResult> {
+    if (receipts.size >= 256) return ledgerFull();
+    let current = true;
+    try {
+      current = stillCurrent ? await stillCurrent() : true;
+    } catch {
+      current = false;
+    }
+    if (!current || receipts.size >= 256) return current ? ledgerFull() : refuse();
+    receipts.set(receiptKey(receipt), receipt);
+    return { ok: true, path: receipt.canonicalPath };
+  }
+
   return {
     /** Record the file this process just wrote. The offer is not a receipt. */
     async noteManualStill(
       filmsRoot: string,
       seriesId: string,
       filePath: string,
-    ): Promise<string | null> {
-      if (offers.size >= 64) return null;
+    ): Promise<{ kind: "offer"; offerId: string } | { kind: "full" } | { kind: "unavailable" }> {
+      if (offers.size >= 64) return { kind: "full" };
       const image = await readCanonical(filmsRoot, seriesId, filePath);
-      if (!image) return null;
+      if (!image) return { kind: "unavailable" };
       const id = `fio_${randomUUID()}`;
       offers.set(id, {
         id,
@@ -137,7 +155,7 @@ export function createFixedInputLedger() {
         sha256: image.sha256,
         mime: image.mime,
       });
-      return id;
+      return { kind: "offer", offerId: id };
     },
     async confirmOffer(input: {
       offerId: string;
@@ -147,16 +165,18 @@ export function createFixedInputLedger() {
       seriesId: string;
       filmsRoot: string;
       isAutomaticOutput: (digest: string) => Promise<boolean>;
+      /** Re-read after the awaits. A stale scope must not become a receipt. */
+      stillCurrent?: () => Promise<boolean>;
     }): Promise<FixedInputChannelResult> {
       if (
         !offerId(input.offerId) ||
         !accountId(input.accountSha256) ||
         !projectId(input.projectId) ||
         !backendId(input.backendProjectId) ||
-        !projectId(input.seriesId) ||
-        receipts.size >= 256
+        !projectId(input.seriesId)
       )
         return refuse();
+      if (receipts.size >= 256) return ledgerFull();
       const offer = offers.get(input.offerId);
       if (!offer || offer.seriesId !== input.seriesId) return refuse();
       const image = await readCanonical(input.filmsRoot, input.seriesId, offer.canonicalPath);
@@ -174,19 +194,21 @@ export function createFixedInputLedger() {
         automatic = true;
       }
       if (automatic) return refuse();
-      offers.delete(offer.id);
-      const receipt: Receipt = {
-        accountSha256: input.accountSha256,
-        projectId: input.projectId,
-        backendProjectId: input.backendProjectId,
-        seriesId: input.seriesId,
-        role: "still",
-        canonicalPath: image.path,
-        sha256: image.sha256,
-        mime: image.mime,
-      };
-      receipts.set(receiptKey(receipt), receipt);
-      return { ok: true, path: image.path };
+      const sealed = await seal(
+        {
+          accountSha256: input.accountSha256,
+          projectId: input.projectId,
+          backendProjectId: input.backendProjectId,
+          seriesId: input.seriesId,
+          role: "still",
+          canonicalPath: image.path,
+          sha256: image.sha256,
+          mime: image.mime,
+        },
+        input.stillCurrent,
+      );
+      if (sealed.ok) offers.delete(offer.id);
+      return sealed;
     },
     async importPickedFile(input: {
       pickedPath: string;
@@ -196,6 +218,7 @@ export function createFixedInputLedger() {
       seriesId: string;
       filmsRoot: string;
       isAutomaticOutput: (digest: string) => Promise<boolean>;
+      stillCurrent?: () => Promise<boolean>;
     }): Promise<FixedInputChannelResult> {
       if (
         !input.pickedPath ||
@@ -203,10 +226,10 @@ export function createFixedInputLedger() {
         !accountId(input.accountSha256) ||
         !projectId(input.projectId) ||
         !backendId(input.backendProjectId) ||
-        !projectId(input.seriesId) ||
-        receipts.size >= 256
+        !projectId(input.seriesId)
       )
         return refuse();
+      if (receipts.size >= 256) return ledgerFull();
       let source: string;
       try {
         source = await realpath(input.pickedPath);
@@ -236,18 +259,19 @@ export function createFixedInputLedger() {
       await writeFile(destination, bytes);
       const image = await readCanonical(input.filmsRoot, input.seriesId, destination);
       if (!image || image.sha256 !== digest || image.mime !== mime) return refuse();
-      const receipt: Receipt = {
-        accountSha256: input.accountSha256,
-        projectId: input.projectId,
-        backendProjectId: input.backendProjectId,
-        seriesId: input.seriesId,
-        role: "still",
-        canonicalPath: image.path,
-        sha256: image.sha256,
-        mime: image.mime,
-      };
-      receipts.set(receiptKey(receipt), receipt);
-      return { ok: true, path: image.path };
+      return seal(
+        {
+          accountSha256: input.accountSha256,
+          projectId: input.projectId,
+          backendProjectId: input.backendProjectId,
+          seriesId: input.seriesId,
+          role: "still",
+          canonicalPath: image.path,
+          sha256: image.sha256,
+          mime: image.mime,
+        },
+        input.stillCurrent,
+      );
     },
     matches(input: FixedInputMatch): boolean {
       if (input.knownAutomaticOutput || input.role !== "still") return false;

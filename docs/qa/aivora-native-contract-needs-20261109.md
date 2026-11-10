@@ -80,13 +80,19 @@
 6. **`UNKNOWN` 仍只走原失败桶。** 提高 N、新 execution、新 offer、输出 SHA、临时路径都不能解锁。缓存晚缺应停在提案的 `INPUT_UNVERIFIABLE` / 缓存不可核验，不能改走新的 fixed-input 回执。
 7. **桌面 parser 的形状以冻结后的 OpenAPI 为准。** 检查点里的 `parseGenerationSlotPreparations` 与 `prepareSlots` 在总控冻结前不移植。冻结后只实现提案这一个 `PrepareCacheSlots` / `PreparedSlotCacheFacts`，不在 `packages/contracts` 里并行手写第二份 DTO。
 
-## 与本片 fixed-input 的衔接顺序
+## 总控合同 v1（书面冻结，本片不接线）
 
-总控冻结后，main 的目标顺序是：
+总控已定，界面按此准备，不在未审的 fixed-input 片上实现：
 
-1. 显式 fixed-input 回执或 READABLE shot-frame 恢复；未知自动输出在注册前拒绝。
-2. 注册原 execution。
-3. `prepareSlots` 冻结整表。
-4. 才允许 image、arm 和额度。
+- `PRIVATE PREPARATIONS` 和 cache 细节只给签名后的 main。公共 `PREPARED` 只带中性标签，不带 cache 对象。
+- `cache-preparations` 的 HTTP 409 `INPUT_UNVERIFIABLE` 映射到既有 client 的 `CREATION_INPUT_UNVERIFIABLE`。
+- arm 保留既有 `EXECUTION_UNAVAILABLE` / `ATTEMPT_ALREADY_RESERVED`。
+- StoryFilm 消费保留 `CREATION_EXECUTION_UNAVAILABLE`。不新造枚举，也不把这些码降格。
+- `UNKNOWN` 仍按原输入桶拒绝。
+- `NOT_NEEDED` 零账号、零 API，没有 execution，就不调用 `prepareSlots`。
+- 新的 main 路径必须在 register 之后完整验证冻结表，然后才允许任何 image/arm。冻结失败不得退回旧的未冻结路径。
+- 服务端对旧 execution 的兼容保留，不默认强迫全部迁移。
+- `generation-cache-preparation.ts`、其测试和 `generation-preparation-client.ts` 归界面。`packages/contracts` 仍由后端生成。
+- 等本片 fixed-input 闭合并审合后，再做真实 main 接线。
 
-`NOT_NEEDED` 停在第 1 步之前。本片只做了第 1 步里的 fixed-input 和 shot-frame 恢复，没有做第 3 步。
+目标顺序仍是：fixed-input 或 READABLE shot-frame，注册，`prepareSlots` 冻结整表，然后 image/arm。`NOT_NEEDED` 停在注册之前。本片只完成 fixed-input 与 shot-frame 恢复。

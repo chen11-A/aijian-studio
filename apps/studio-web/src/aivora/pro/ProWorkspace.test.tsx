@@ -3196,6 +3196,44 @@ async function waitForGenerationCatalog() {
   );
 }
 
+it("shows the manual still offer for an explicit confirm and leaves the saved draft on cancel or refusal", async () => {
+  const offerId = "fio_01234567-89ab-cdef-0123-456789abcdef";
+  installDesktop();
+  vi.mocked(window.aijian!.generateFilmStill!).mockResolvedValue({
+    path: "/tmp/aivora/manual-still.png",
+    reason: "",
+    fixedInputOfferId: offerId,
+  });
+  const confirmFixedInput = vi.fn(async (...args: unknown[]) => {
+    expect(args).toHaveLength(2);
+    return { ok: true as const, path: "/tmp/aivora/manual-still.png" };
+  });
+  const importFixedInput = vi.fn(async (projectId: string) => {
+    expect(typeof projectId).toBe("string");
+    return { ok: false as const, code: "CANCELLED" as const };
+  });
+  window.aijian!.confirmFixedInput = confirmFixedInput;
+  window.aijian!.importFixedInput = importFixedInput;
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  const confirmButton = await screen.findByRole("button", { name: "确认这张手工画面为固定输入" });
+  expect(confirmFixedInput).not.toHaveBeenCalled();
+  const writesAfterStill = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length;
+  fireEvent.click(confirmButton);
+  await waitFor(() => expect(confirmFixedInput).toHaveBeenCalledTimes(1));
+  expect(confirmFixedInput.mock.calls[0]?.[1]).toBe(offerId);
+  expect(vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length).toBe(writesAfterStill);
+  confirmFixedInput.mockResolvedValueOnce({ ok: false, code: "UNSUPPORTED_SCOPE" });
+  fireEvent.click(screen.getByRole("button", { name: "确认这张手工画面为固定输入" }));
+  expect(await screen.findByText("这张手工画面还不能当作固定输入。")).toBeInTheDocument();
+  expect(vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length).toBe(writesAfterStill);
+  fireEvent.click(screen.getByRole("button", { name: "导入为固定输入" }));
+  expect(await screen.findByText("已取消导入固定输入。")).toBeInTheDocument();
+  expect(importFixedInput.mock.calls[0]).toHaveLength(1);
+  expect(vi.mocked(window.aijian!.writeFilmProject!).mock.calls.length).toBe(writesAfterStill);
+});
+
 it("continues one-click storyboarding and retries the director into shots", async () => {
   const { completeText } = installDesktop();
   let plainDirector = 0;

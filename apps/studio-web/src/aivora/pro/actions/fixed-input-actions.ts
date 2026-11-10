@@ -16,7 +16,13 @@ export async function importShotFixedInput(
   }
   const result = await bridge(film.id);
   if (!result.ok) {
-    onNotice(result.code === "CANCELLED" ? "已取消导入固定输入。" : "这张图不能当作固定输入。");
+    onNotice(
+      result.code === "CANCELLED"
+        ? "已取消导入固定输入。"
+        : result.code === "LEDGER_FULL"
+          ? "这一轮可确认的手工画面已满。没有把它当作固定输入。可以重新选择；重启后需要再次明确确认，旧确认不会保留。"
+          : "这张图不能当作固定输入。",
+    );
     return;
   }
   const poster = fileMediaUrl(result.path) || result.path;
@@ -36,5 +42,11 @@ export async function confirmShotFixedInput(
     return;
   }
   const result = await bridge(projectId, offerId);
-  onNotice(result.ok ? "已确认这张手工画面为固定输入。" : "这张手工画面还不能当作固定输入。");
+  onNotice(
+    result.ok
+      ? "已确认这张手工画面为固定输入。"
+      : result.code === "LEDGER_FULL"
+        ? "这一轮可确认的手工画面已满。没有把它当作固定输入。可以重新选择；重启后需要再次明确确认，旧确认不会保留。"
+        : "这张手工画面还不能当作固定输入。",
+  );
 }
