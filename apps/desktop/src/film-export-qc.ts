@@ -894,74 +894,87 @@ export function createFilmExportQc(host: FilmQcHost) {
         const mode =
           prepared.input.requestedFileName === undefined ? defaultNameCollision : "error";
         let index = 1;
-        while (outputs.length < prepared.outputs.length) {
-          const present = await directoryNames(target);
-          const { plan, index: chosen } = nextFreeExportPlan(
-            prepared.fileName,
-            prepared.outputs,
-            present,
-            mode,
-            index,
-          );
-          index = chosen;
-          const linked: string[] = [];
-          const announced: string[] = [];
-          try {
-            for (const item of plan) {
-              const output = prepared.outputs.find((row) => row.aspectRatio === item.aspectRatio)!;
-              work?.phase("publishing", {
-                kind: "units",
-                completed: outputs.length,
-                total: prepared.outputs.length,
-                unit: "画幅",
+        const temporaries: string[] = [];
+        const staged: {
+          aspectRatio: "16:9" | "9:16";
+          pending: string;
+          sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[];
+        }[] = [];
+        // Copy once. A default-name link race only retries the link, up to the suffix limit.
+        try {
+          for (const output of prepared.outputs) {
+            await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+            const temporary = await mkdtemp(join(target, ".aivora-qc-"));
+            temporaries.push(temporary);
+            const pending = join(temporary, "film.mp4");
+            await copy(output.path, pending, work);
+            if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
+            const sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[] = [];
+            for (const [kind, path] of Object.entries(output.extras)) {
+              if (!path) continue;
+              const sidePending = join(
+                temporary,
+                kind === "subtitlePath" ? "film.srt" : "cover.png",
+              );
+              await copy(path, sidePending, work);
+              if ((await sha(sidePending, work)) !== output.extraHashes[path])
+                fail("PUBLISH_FAILED");
+              sidecars.push({
+                kind: kind as "subtitlePath" | "coverPath",
+                pending: sidePending,
               });
-              await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
-              const destination = join(target, `${item.stem}.mp4`);
-              const temporary = await mkdtemp(join(target, ".aivora-qc-"));
-              try {
-                const pending = join(temporary, "film.mp4");
-                await copy(output.path, pending, work);
-                if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
-                const sidecars: {
-                  kind: "subtitlePath" | "coverPath";
-                  pending: string;
-                  destination: string;
-                }[] = [];
-                for (const [kind, path] of Object.entries(output.extras)) {
-                  if (!path) continue;
-                  const sideDestination = join(
-                    target,
-                    kind === "subtitlePath" ? `${item.stem}.srt` : `${item.stem}-封面.png`,
-                  );
-                  const sidePending = join(
-                    temporary,
-                    kind === "subtitlePath" ? "film.srt" : "cover.png",
-                  );
-                  await copy(path, sidePending, work);
-                  if ((await sha(sidePending, work)) !== output.extraHashes[path])
-                    fail("PUBLISH_FAILED");
-                  sidecars.push({
-                    kind: kind as "subtitlePath" | "coverPath",
-                    pending: sidePending,
-                    destination: sideDestination,
-                  });
-                }
-                await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+            }
+            staged.push({ aspectRatio: output.aspectRatio, pending, sidecars });
+          }
+          const told = new Set<"16:9" | "9:16">();
+          while (outputs.length < prepared.outputs.length) {
+            const present = await directoryNames(target);
+            const { plan, index: chosen } = nextFreeExportPlan(
+              prepared.fileName,
+              prepared.outputs,
+              present,
+              mode,
+              index,
+            );
+            index = chosen;
+            const linked: string[] = [];
+            const announced: string[] = [];
+            try {
+              for (const item of plan) {
+                const stage = staged.find((row) => row.aspectRatio === item.aspectRatio)!;
+                work?.phase("publishing", {
+                  kind: "units",
+                  completed: outputs.length,
+                  total: prepared.outputs.length,
+                  unit: "画幅",
+                });
                 work?.signal.throwIfAborted();
                 work?.cancellable(false);
-                await linkNewFile(pending, destination);
+                const destination = join(target, `${item.stem}.mp4`);
+                await linkNewFile(stage.pending, destination);
                 linked.push(destination);
                 const saved: {
                   aspectRatio: "16:9" | "9:16";
                   path: string;
                   subtitlePath?: string;
                   coverPath?: string;
-                } = { aspectRatio: output.aspectRatio, path: destination };
+                } = { aspectRatio: item.aspectRatio, path: destination };
                 outputs.push(saved);
-                for (const side of sidecars) {
-                  await linkNewFile(side.pending, side.destination);
-                  linked.push(side.destination);
-                  saved[side.kind] = side.destination;
+                for (const side of stage.sidecars) {
+                  const sideDestination = join(
+                    target,
+                    side.kind === "subtitlePath" ? `${item.stem}.srt` : `${item.stem}-封面.png`,
+                  );
+                  await linkNewFile(side.pending, sideDestination);
+                  linked.push(sideDestination);
+                  saved[side.kind] = sideDestination;
+                }
+                const canonical = realpathSync(saved.path);
+                host.publishedPaths?.add(canonical);
+                announced.push(canonical);
+                if (!told.has(saved.aspectRatio)) {
+                  told.add(saved.aspectRatio);
+                  work?.published(saved.aspectRatio);
                 }
                 work?.phase("publishing", {
                   kind: "units",
@@ -970,31 +983,28 @@ export function createFilmExportQc(host: FilmQcHost) {
                   unit: "画幅",
                 });
                 if (outputs.length < prepared.outputs.length) work?.cancellable(true);
-              } finally {
-                await rm(temporary, { recursive: true, force: true });
               }
+            } catch (error) {
+              // A user stop keeps the aspects already linked. A write failure rolls the set back.
+              if (work?.signal.aborted) throw error;
+              for (const path of announced) host.publishedPaths?.delete(path);
+              try {
+                for (const path of linked) await rm(path, { force: true });
+              } catch {
+                /* A failed delete must not replace the original publish error. */
+              }
+              outputs.length = 0;
+              if (exportNameTaken(error) && mode === "suffix") {
+                index += 1;
+                if (index > EXPORT_NAME_SUFFIX_LIMIT) fail("EXPORT_NAME_EXHAUSTED");
+                continue;
+              }
+              throw error;
             }
-            for (const saved of outputs) {
-              const canonical = realpathSync(saved.path);
-              host.publishedPaths?.add(canonical);
-              announced.push(canonical);
-              work?.published(saved.aspectRatio);
-            }
-          } catch (error) {
-            for (const path of announced) host.publishedPaths?.delete(path);
-            try {
-              for (const path of linked) await rm(path, { force: true });
-            } catch {
-              /* A failed delete must not replace the original publish error. */
-            }
-            outputs.length = 0;
-            if (exportNameTaken(error) && mode === "suffix") {
-              index += 1;
-              if (index > EXPORT_NAME_SUFFIX_LIMIT) fail("EXPORT_NAME_EXHAUSTED");
-              continue;
-            }
-            throw error;
           }
+        } finally {
+          for (const temporary of temporaries)
+            await rm(temporary, { recursive: true, force: true });
         }
         receipts.delete(token);
         consumed = true;
