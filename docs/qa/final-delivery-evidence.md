@@ -2,6 +2,12 @@
 
 本片把 main 私有 Prepared 的真实检查事实接到实际发布文件，不增加检测器、生成服务或收费调用。合同首检查点为 `79295696738f9081b58d8ec4b63a58fe865cf34e`；最终原生提交另含 NodeNext `.js` 类型引用修正和可选 `cleanupUnconfirmed: true`。
 
+## 导出声音决定与过期素材（2026-11-11）
+
+- 清单可选 `audioDecision`，取值只有 `SILENT_BY_USER` 与 `WITH_AUDIO`，与 `sound-export-decision.ts` 相同。缺字段是旧记录，读取为未记录，不从 AAC 轨反推有声。损坏值使导出失败，代码 `AUDIO_DECISION_INVALID`，文案不是「检查请求不完整」。
+- `SILENT_BY_USER` 写入一条 48 kHz 立体声静音 AAC，时长是视频流实测秒数。不设容差门，也不因源音轨超过两声道而拒绝这条静音路径。`WITH_AUDIO` 仍拒绝非单声道/立体声源。
+- `MATERIALS_STALE`：混音计划含 `STALE_CLIP_IGNORED` 或 `SCENE_AUDIO_BINDING_STALE` 时，导出在编码前失败。请求没有确认后仍导出的字段。粗剪和试听仍只把这些情况记成「未混入」，不在这一片改成拦截。
+
 ## 事实与边界
 
 - QC schemaVersion1、原规则、严重度和超时不变。可选 main-only `onMediaInfo` 只投影同一次既有 ffprobe 的尺寸、平均帧率、codec、像素/色彩标记和音轨信息；没有第二次媒体检测。平均帧率不担保 CFR，缺值明确 null/unknown，不从质量设置或计划秒数补值。

@@ -1,6 +1,6 @@
-/** Same two values as studio-web `sound-export-decision.ts`. Absent means an older record. */
-export const EXPORT_AUDIO_DECISIONS = ["SILENT_BY_USER", "WITH_AUDIO"] as const;
-export type ExportAudioDecision = (typeof EXPORT_AUDIO_DECISIONS)[number];
+import type { ExportAudioDecision } from "@aijian/contracts/film-delivery-evidence";
+
+export type { ExportAudioDecision };
 
 /** Expired audio cannot be waived. There is no argument that means "export it anyway". */
 export function exportBlockedByStaleMaterial(limitations: readonly string[]): boolean {

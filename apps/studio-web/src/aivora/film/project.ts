@@ -2,6 +2,7 @@ import type { FilmRiskTrialDecision } from "@aijian/contracts/film-risk-trial";
 import { normalizeDialogueSplitSource } from "@aijian/contracts/film-dialogue-split-plan";
 import type { DialogueSplitSource } from "@aijian/contracts/film-dialogue-split";
 import type { AudioMixSettings } from "@aijian/contracts/film-audio-mix";
+import type { ExportAudioDecision } from "@aijian/contracts/film-delivery-evidence";
 import { reviewedVideoText, type ReviewedVideoPrompt } from "./seven-part-video";
 import type { SceneShotBudget } from "./director-continuity";
 import type { AdultVoiceDefault } from "./adult-voice-default";
@@ -347,7 +348,7 @@ export type FilmProject = {
    * Explicit export sound choice. Unset means the choice is still open.
    * SILENT_BY_USER asks export to write one silent AAC track; WITH_AUDIO keeps the mix.
    */
-  audioDecision?: "SILENT_BY_USER" | "WITH_AUDIO";
+  audioDecision?: ExportAudioDecision;
   /** Persisted overall lane controls; per-clip gain stays independent. */
   audioMix?: AudioMixSettings;
   /** Backend ledger id. Empty until the desktop creates a project for this film. */

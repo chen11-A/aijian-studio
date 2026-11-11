@@ -583,6 +583,13 @@ it("preserves a hash-verified public manifest while reporting cleanup as a parti
   expect(await readdir(f.host.temporaryRoot)).toEqual([]);
 }, 30000);
 
+type ProbeStream = {
+  codec_type: string;
+  codec_name: string;
+  duration?: string;
+  sample_rate?: string;
+  channels?: number;
+};
 async function streamsOf(path: string) {
   const probe = JSON.parse(
     (
@@ -590,14 +597,40 @@ async function streamsOf(path: string) {
         "-v",
         "error",
         "-show_entries",
-        "stream=codec_type,codec_name,duration",
+        "stream=codec_type,codec_name,duration,sample_rate,channels",
         "-of",
         "json",
         path,
       ])
     ).stdout,
-  ) as { streams: { codec_type: string; codec_name: string; duration: string }[] };
+  ) as { streams: ProbeStream[] };
   return probe.streams;
+}
+async function assertSilentAac(path: string) {
+  const streams = await streamsOf(path);
+  const audio = streams.filter((stream) => stream.codec_type === "audio");
+  const picture = streams.find((stream) => stream.codec_type === "video");
+  expect(audio).toHaveLength(1);
+  expect(audio[0]).toMatchObject({ codec_name: "aac", sample_rate: "48000", channels: 2 });
+  expect(picture?.duration).toBeTruthy();
+  expect(Number(audio[0]!.duration)).toBeCloseTo(Number(picture!.duration), 1);
+  const detected = await run(ffmpeg, [
+    "-v",
+    "info",
+    "-i",
+    path,
+    "-map",
+    "0:a:0",
+    "-af",
+    "volumedetect",
+    "-f",
+    "null",
+    "-",
+  ]);
+  const mean = Number(detected.stderr.match(/mean_volume:\s+(-?\d+(?:\.\d+)?) dB/)?.[1]);
+  const peak = Number(detected.stderr.match(/max_volume:\s+(-?\d+(?:\.\d+)?) dB/)?.[1]);
+  expect(peak).toBeLessThanOrEqual(-90);
+  expect(mean).toBe(peak);
 }
 
 it("writes one silent AAC track for an explicit silent film and keeps the decision on the record", async () => {
@@ -613,34 +646,70 @@ it("writes one silent AAC track for an explicit silent film and keeps the decisi
     throw new Error("published required");
   expect(published.deliveryEvidence.manifest.audioDecision).toBe("SILENT_BY_USER");
   expect(published.deliveryEvidence.manifest).not.toHaveProperty("durationToleranceSeconds");
-  const video = published.outputs[0]!.path;
-  const streams = await streamsOf(video);
-  const audio = streams.filter((stream) => stream.codec_type === "audio");
-  const picture = streams.find((stream) => stream.codec_type === "video");
-  expect(audio).toHaveLength(1);
-  expect(audio[0]!.codec_name).toBe("aac");
-  expect(picture?.duration).toBeTruthy();
-  expect(Number(audio[0]!.duration)).toBeCloseTo(Number(picture!.duration), 1);
-  const detected = await run(ffmpeg, [
-    "-v",
-    "info",
-    "-i",
-    video,
-    "-map",
-    "0:a:0",
-    "-af",
-    "volumedetect",
-    "-f",
-    "null",
-    "-",
-  ]);
-  const mean = Number(detected.stderr.match(/mean_volume:\s+(-?\d+(?:\.\d+)?) dB/)?.[1]);
-  const peak = Number(detected.stderr.match(/max_volume:\s+(-?\d+(?:\.\d+)?) dB/)?.[1]);
-  // AAC stores anullsrc as one constant code. A tone does not.
-  expect(mean).toBe(peak);
-  expect(peak).toBeLessThan(0);
+  await assertSilentAac(published.outputs[0]!.path);
   const shown = published.deliveryEvidence.manifest.files.find((file) => file.role === "video");
   expect(shown?.technical?.durationSeconds).toBeGreaterThan(0);
+}, 30000);
+
+it("writes a silent AAC track for both aspects in one export", async () => {
+  const f = await fixture();
+  f.setRecord({ ...f.record(), audioDecision: "SILENT_BY_USER" });
+  const ready = await f.qc.prepare("owner", input);
+  expect(ready.kind).toBe("READY");
+  if (ready.kind !== "READY") throw new Error("ready required");
+  expect(ready.outputs.map((output) => output.aspectRatio)).toEqual(["16:9", "9:16"]);
+  const published = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  if (published.kind !== "PUBLISHED") throw new Error("published required");
+  expect(published.outputs.map((output) => output.aspectRatio)).toEqual(["16:9", "9:16"]);
+  for (const output of published.outputs) await assertSilentAac(output.path);
+}, 30000);
+
+it("replaces a source with more than two channels instead of rejecting the silent export", async () => {
+  const f = await fixture();
+  await run(ffmpeg, [
+    "-v",
+    "error",
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "testsrc2=size=160x90:rate=24:duration=0.4",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=440:duration=0.4",
+    "-filter_complex",
+    "[1:a]pan=5.1|c0=c0|c1=c0|c2=c0|c3=c0|c4=c0|c5=c0[a]",
+    "-map",
+    "0:v",
+    "-map",
+    "[a]",
+    "-c:v",
+    "libx264",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-shortest",
+    f.source,
+  ]);
+  f.setRecord({ ...f.record(), audioDecision: "WITH_AUDIO" });
+  expect(
+    (
+      await f.qc.prepare("owner", {
+        ...input,
+        settings: { ...input.settings, aspects: ["16:9"] },
+      })
+    ).kind,
+  ).toBe("FAILED");
+  f.setRecord({ ...f.record(), audioDecision: "SILENT_BY_USER" });
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  expect(ready.kind).toBe("READY");
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const published = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  if (published.kind !== "PUBLISHED") throw new Error("published required");
+  await assertSilentAac(published.outputs[0]!.path);
 }, 30000);
 
 it("keeps the existing mixed track when the user chose audio", async () => {
@@ -692,6 +761,36 @@ it("blocks export of a stale clip and has no confirm-and-export field", async ()
     ],
   });
   expect(await f.qc.prepare("owner", input)).toEqual({ kind: "FAILED", code: "MATERIALS_STALE" });
+  const scene = await fixture();
+  scene.setRecord({
+    ...scene.record(),
+    audioDecision: "SILENT_BY_USER",
+    audioClips: [
+      {
+        id: "scene-clip",
+        lane: "ambience",
+        shotId: "shot-one",
+        takeId: "take-one",
+        label: "环境",
+        startSeconds: 0,
+        durationSeconds: 0.2,
+        offsetSeconds: 0,
+        gainDb: -6,
+        path: "media/rain.wav",
+        sceneAudioBinding: { schemaVersion: 1 },
+      },
+    ] as FilmRecord["audioClips"],
+  });
+  expect(await scene.qc.prepare("owner", input)).toEqual({
+    kind: "FAILED",
+    code: "MATERIALS_STALE",
+  });
+  const broken = await fixture();
+  broken.setRecord({ ...broken.record(), audioDecision: "QUIET" as "SILENT_BY_USER" });
+  expect(await broken.qc.prepare("owner", input)).toEqual({
+    kind: "FAILED",
+    code: "AUDIO_DECISION_INVALID",
+  });
   expect(await readdir(f.output)).toEqual([]);
   expect(() => qcInput({ ...input, confirmStaleExport: true } as FilmExportQcInput)).toThrow(
     "INVALID_INPUT",

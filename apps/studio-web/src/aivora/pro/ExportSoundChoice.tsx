@@ -13,7 +13,7 @@ export function ExportSoundChoice({
   onMakeSound: () => void;
 }) {
   if (film.audioDecision === "SILENT_BY_USER") {
-    return <p role="status">已选择本片静音。静音音轨还不会在这一片写入导出文件。</p>;
+    return <p role="status">已选择本片静音。导出会写入一条与视频时长一致的静音音轨。</p>;
   }
   if (film.audioDecision === "WITH_AUDIO") {
     return <p role="status">已确认按有声导出。音轨本身不等于已经听过。</p>;

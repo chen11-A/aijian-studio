@@ -1,9 +1,37 @@
-import { probeMixSource } from "./film-audio-mix";
 import type { QcRunner, QcTools } from "./film-export-qc-runtime";
 
 function seconds(value: number) {
-  if (!Number.isFinite(value) || value <= 0) throw new Error("INVALID_AUDIO_SOURCE");
+  if (!Number.isFinite(value) || value <= 0 || value > 36000)
+    throw new Error("INVALID_AUDIO_SOURCE");
   return String(Math.round(value * 1000000) / 1000000);
+}
+
+/** Video-stream duration only. Source channel count is irrelevant to a replacement silence track. */
+async function videoStreamSeconds(
+  video: string,
+  tools: QcTools,
+  run: QcRunner,
+  signal?: AbortSignal,
+) {
+  const { stdout } = await run(
+    tools.ffprobePath,
+    [
+      "-v",
+      "error",
+      "-protocol_whitelist",
+      "file,pipe",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=duration",
+      "-of",
+      "json",
+      video,
+    ],
+    { signal, timeoutMs: 30000, maxBuffer: 65536 },
+  );
+  const data = JSON.parse(stdout) as { streams?: { duration?: unknown }[] };
+  return seconds(Number(data.streams?.[0]?.duration));
 }
 
 /**
@@ -17,8 +45,7 @@ export async function muxSilentAac(
   run: QcRunner,
   signal?: AbortSignal,
 ): Promise<number> {
-  const probed = await probeMixSource(video, tools, run, signal);
-  const durationSeconds = probed.videoDurationSeconds;
+  const durationSeconds = Number(await videoStreamSeconds(video, tools, run, signal));
   await run(
     tools.ffmpegPath,
     [

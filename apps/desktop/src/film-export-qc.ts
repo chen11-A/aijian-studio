@@ -62,6 +62,7 @@ const failure = (error: unknown): FilmExportQcFailure => {
       "SOURCE_UNVERIFIED",
       "BUSY",
       "MATERIALS_STALE",
+      "AUDIO_DECISION_INVALID",
     ].includes(code)
       ? (code as FilmExportQcFailure["code"])
       : "CHECK_FAILED",
@@ -173,6 +174,7 @@ type Snapshot = {
   fingerprint: string;
   coverStill?: string;
   coverData?: string;
+  audioDecision?: FilmDeliveryManifest["audioDecision"];
 };
 type Prepared = {
   input: FilmExportQcInput;
@@ -336,6 +338,12 @@ export function createFilmExportQc(host: FilmQcHost) {
       videoPath: clip.nativePath,
       visualPath: clip.path,
     }));
+    let audioDecision;
+    try {
+      audioDecision = readStoredAudioDecision(record);
+    } catch {
+      fail("AUDIO_DECISION_INVALID");
+    }
     const mix = await resolveAudioMix(record, selection, {
       filmsRoot: host.filmsRoot,
       storyFilmsRoot: host.storyFilmsRoot,
@@ -344,6 +352,7 @@ export function createFilmExportQc(host: FilmQcHost) {
       signal: work?.signal,
       audioOwner: host.audioOwner,
       videoOwner: host.storyOwner,
+      allowWideChannels: audioDecision === "SILENT_BY_USER",
     });
     const content = Object.fromEntries(
       Object.entries(record).filter(([key]) => !["savedAt", "directory"].includes(key)),
@@ -354,6 +363,7 @@ export function createFilmExportQc(host: FilmQcHost) {
       coverStill,
       coverData,
       mix,
+      audioDecision,
       fingerprint: JSON.stringify({
         content,
         hashes,
@@ -411,12 +421,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           fail("CHECK_FAILED");
         work?.phase("preparing");
         const base = await snapshot(input, work);
-        let audioDecision;
-        try {
-          audioDecision = readStoredAudioDecision(base.record);
-        } catch {
-          fail("INVALID_INPUT");
-        }
+        const audioDecision = base.audioDecision;
         if (exportBlockedByStaleMaterial(base.mix.plan.limitations)) fail("MATERIALS_STALE");
         const tools = await host.tools(work?.signal).catch(() => fail("TOOLS_UNAVAILABLE"));
         const engine = await host.engine();

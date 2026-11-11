@@ -13,6 +13,7 @@ export async function probeMixSource(
   tools: QcTools,
   run: QcRunner,
   signal?: AbortSignal,
+  options?: { allowWideChannels?: boolean },
 ): Promise<MixSourceInfo & { videoDurationSeconds: number }> {
   const { stdout } = await run(
     tools.ffprobePath,
@@ -42,7 +43,8 @@ export async function probeMixSource(
     (video && (!Number.isFinite(videoDuration) || videoDuration <= 0))
   )
     throw new Error("INVALID_AUDIO_SOURCE");
-  if (audio && ![1, 2].includes(audio.channels)) throw new Error("UNSUPPORTED_AUDIO_CHANNELS");
+  if (audio && !options?.allowWideChannels && ![1, 2].includes(audio.channels))
+    throw new Error("UNSUPPORTED_AUDIO_CHANNELS");
   return {
     durationSeconds: duration,
     channels: audio?.channels ?? 0,
