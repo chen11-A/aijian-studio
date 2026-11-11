@@ -72,7 +72,7 @@ export async function refreshSeedAdoption() {
   let film = JSON.parse(window.localStorage.getItem(key) || "null");
   if (!film?.shots?.length) throw new Error("refreshSeedAdoption: no saved film");
   const { saveStillReview, stillChecklist } = await import(
-    new URL("/src/aivora/pro/still-acceptance.ts", window.location.origin).href,
+    new URL("/src/aivora/pro/still-acceptance.ts", window.location.origin).href
   );
   let adopted = 0;
   for (const shot of [...film.shots]) {

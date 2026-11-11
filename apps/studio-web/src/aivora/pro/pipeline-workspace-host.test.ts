@@ -290,7 +290,12 @@ it("blocks one-click video before any provider call when an on-screen look is no
   const verdicts = Object.fromEntries(
     stillChecklist(film, film.shots[0]!).map((item) => [item.id, "match" as const]),
   );
-  const adopted = saveStillReview(film, film.shots[0]!.id, verdicts, "2026-11-11T00:00:00.000Z").film;
+  const adopted = saveStillReview(
+    film,
+    film.shots[0]!.id,
+    verdicts,
+    "2026-11-11T00:00:00.000Z",
+  ).film;
   expect(firstLookBlock(adopted, adopted.shots)?.code).toBe("LOOK_NOT_LOCKED");
   const provider = vi.fn();
   const env = setup(await prime(adopted, "review"));
