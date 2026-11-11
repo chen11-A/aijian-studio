@@ -208,3 +208,17 @@ export function publishFilmJobs(film: FilmProject): void {
   }
   publish();
 }
+
+/** Status-bar copy. Queued film jobs count even before the task feed effect publishes them. */
+export function backgroundGenerationCopy(input: {
+  asking: boolean;
+  active: number;
+  unfinished: number;
+  portraitBusy: boolean;
+}): string | null {
+  if (input.asking) return "AI 在写";
+  const doing = input.active > 0 ? input.active : input.unfinished;
+  if (doing > 0) return `正在做 ${doing} 个`;
+  if (input.portraitBusy) return "正在出定妆照";
+  return null;
+}

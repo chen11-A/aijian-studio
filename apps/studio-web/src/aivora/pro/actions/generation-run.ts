@@ -15,6 +15,7 @@ import {
 } from "../../film/generation-queue";
 import { updateShot } from "../../film/operations";
 import { ensureContinuityFrame } from "../continuity-frame";
+import { lookBlock } from "../look-lock";
 import { stillAccepted } from "../still-acceptance";
 import { fileMediaUrl, isVoiceFile } from "../workflow";
 import { NOTICE_TEXT, presentNotice } from "../../film/notices";
@@ -317,6 +318,11 @@ export async function runPreparedGeneration(queue: Queue, host: GenerationRunHos
           code: "STILL_NOT_ACCEPTED",
           text: `镜头 ${shotNow.no} 的画面还没核对`,
         });
+        return;
+      }
+      const unlocked = lookBlock(beforeSend, shotNow);
+      if (unlocked) {
+        host.notice({ code: unlocked.code, text: `镜头 ${shotNow.no}：${unlocked.reason}` });
         return;
       }
       const dispatched = setVideoTaskState(beforeSend, take.id, "running");

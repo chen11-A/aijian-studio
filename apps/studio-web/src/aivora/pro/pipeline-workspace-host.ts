@@ -63,7 +63,7 @@ export type PipelineWorkspaceHost = {
   submitGeneration: (
     shots: FilmShot[],
     host: PipelineVideoHost,
-  ) => Promise<"STILL_NOT_ACCEPTED" | void>;
+  ) => Promise<"STILL_NOT_ACCEPTED" | "LOOK_NOT_LOCKED" | void>;
   beforeRun?: (lease: PipelineSaveLease) => Promise<void>;
   /** Explicit human-trial path only; not provider, quantity or membership authorization. */
   checkTrialDecision?: (
@@ -337,13 +337,16 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
           });
           if (!current() || !ctx.isCurrent())
             return { status: "uncertain", code: "PIPELINE_REQUEST_STALE" };
-          if (submitted === "STILL_NOT_ACCEPTED") {
+          if (submitted === "STILL_NOT_ACCEPTED" || submitted === "LOOK_NOT_LOCKED") {
             const after = ctx.current();
             const row = after.shots.find((item) => item.id === shot.id) ?? shot;
             return {
               status: "blocked",
-              code: "STILL_NOT_ACCEPTED",
-              detail: `镜头 ${row.no} 的画面还没核对`,
+              code: submitted,
+              detail:
+                submitted === "STILL_NOT_ACCEPTED"
+                  ? `镜头 ${row.no} 的画面还没核对`
+                  : `镜头 ${row.no} 的出镜角色还没有锁定定妆`,
               film: after,
             };
           }

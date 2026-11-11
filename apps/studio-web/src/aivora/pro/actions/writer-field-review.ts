@@ -163,7 +163,7 @@ export function prepareWriterFieldReview(
             label = `${collection === "characters" ? "人物" : "地点"} · ${values.text((old ?? next)!.name)}`;
           if (!old || !next) {
             const content = Object.keys(row)
-              .filter((field) => field !== "id")
+              .filter((field) => field !== "id" && field !== "lookLocked")
               .map(
                 (field) =>
                   `${values.assetLabels[field] ?? reject()}：${values.assetValue(collection, field, (row as unknown as Record<string, unknown>)[field])}`,
@@ -184,7 +184,7 @@ export function prepareWriterFieldReview(
                   present: Object.hasOwn(next, field),
                   value: (next as unknown as Record<string, unknown>)[field],
                 };
-              if (equal(a, b)) continue;
+              if (equal(a, b) || field === "lookLocked") continue;
               if (field === "id" || !Object.hasOwn(values.assetLabels, field)) reject();
               add(
                 `${label} · ${values.assetLabels[field]}`,

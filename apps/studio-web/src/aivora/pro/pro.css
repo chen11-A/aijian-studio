@@ -29,7 +29,7 @@
   --export-dock-pad: 12px;
   --export-sound-gap: 6px;
   --export-sound-row: 30px;
-  --export-sound-copy: 18px;
+  --export-sound-copy: calc(1.4em * 3);
   --export-action-row: 30px;
   --panel: #15181d; /* panel surface */
   --panel-2: #1b1f25; /* raised: inputs, cards */
@@ -1918,8 +1918,7 @@ body:has(.pro-root) {
 }
 .pro-root .dialog.export .still-gate > p {
   margin: 0;
-  min-height: var(--export-sound-copy);
-  line-height: var(--export-sound-copy);
+  line-height: 1.4;
 }
 .pro-root .still-gate-reason {
   display: flex;
@@ -4061,7 +4060,7 @@ body:has(.pro-root) {
   max-height: calc(100% - 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Undecided dock: padding, one line of copy, three sound buttons, the action row. */
+  /* Undecided dock: padding, up to three lines of copy, three sound buttons, the action row. */
   scroll-padding-bottom: calc(
     var(--export-dock-pad) * 2 + var(--export-sound-copy) + var(--export-sound-gap) * 3 +
       var(--export-sound-row) * 3 + var(--export-action-row)

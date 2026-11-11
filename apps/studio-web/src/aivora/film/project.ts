@@ -201,6 +201,8 @@ export type FilmCharacter = {
   source: string;
   userFields: string[];
   portraits: FilmPortrait[];
+  /** User locked the current look. Absent means a legacy record: a front portrait counts as locked. */
+  lookLocked?: boolean;
 };
 
 export type FilmScene = {
@@ -452,6 +454,7 @@ export function sampleFilm(): FilmProject {
       source: "sample",
       userFields: [],
       portraits: [],
+      lookLocked: true,
     },
     {
       id: "dao",
@@ -461,6 +464,7 @@ export function sampleFilm(): FilmProject {
       source: "sample",
       userFields: [],
       portraits: [],
+      lookLocked: true,
     },
   ];
   film.scenes = [

@@ -1,3 +1,8 @@
+import { URL, fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+globalThis.__PRO_LAYOUT_FIXTURE_DIR = dirname(fileURLToPath(import.meta.url));
+
 /** Runs inside the page. All data is synthetic; the video is a repository test fixture. */
 export async function seedProProject({
   projectModuleUrl,
@@ -7,7 +12,7 @@ export async function seedProProject({
   mode = "ready",
 }) {
   const { sampleFilm, FILM_KEY } = await import(projectModuleUrl);
-  const film = sampleFilm();
+  let film = sampleFilm();
   film.title = "布局核验合成作品";
   film.seriesTitle = film.title;
   film.aspectRatio = aspect;
@@ -43,8 +48,64 @@ export async function seedProProject({
   if (mode === "interrupted") {
     film.shots[0].takes[0].status = "running";
   }
+  if (mode !== "missing") {
+    const frame = "/synthetic/layout-frame.png";
+    for (const shot of film.shots)
+      shot.stills = [{ id: `layout-still-${shot.id}`, prompt: "合成布局核验", url: frame }];
+    const projectUrl = /^[a-z][a-z0-9+.-]*:/i.test(projectModuleUrl)
+      ? projectModuleUrl
+      : await (async () => {
+          const directory = globalThis.__PRO_LAYOUT_FIXTURE_DIR;
+          if (!directory) throw new Error("seedProProject needs an absolute module URL");
+          const { pathToFileURL } = await import("node:url");
+          const { isAbsolute, resolve } = await import("node:path");
+          const file = isAbsolute(projectModuleUrl)
+            ? projectModuleUrl
+            : resolve(directory, projectModuleUrl);
+          return pathToFileURL(file).href;
+        })();
+    const { saveStillReview, stillChecklist } = await import(
+      new URL("../pro/still-acceptance.ts", projectUrl).href
+    );
+    for (const shot of [...film.shots]) {
+      const verdicts = Object.fromEntries(
+        stillChecklist(film, shot).map((item) => [item.id, "match"]),
+      );
+      const saved = saveStillReview(film, shot.id, verdicts, "2026-11-11T00:00:00.000Z");
+      if (!saved.adopted) throw new Error(saved.error || "layout still was not adopted");
+      film = saved.film;
+    }
+  }
   window.localStorage.clear();
   window.localStorage.setItem(FILM_KEY, JSON.stringify(film));
+}
+
+/** Rewrite adoption after a later seed changes the checklist. Data only; no clicks. */
+export async function refreshSeedAdoption() {
+  const id = window.localStorage.getItem("aivora.film.activeId");
+  const key = `aivora.film.v1.${id}`;
+  let film = JSON.parse(window.localStorage.getItem(key) || "null");
+  if (!film?.shots?.length) throw new Error("refreshSeedAdoption: no saved film");
+  const { saveStillReview, stillChecklist } = await import(
+    new URL("/src/aivora/pro/still-acceptance.ts", window.location.origin).href
+  );
+  let adopted = 0;
+  for (const shot of [...film.shots]) {
+    if (!shot.stills?.some((item) => item.url))
+      throw new Error(`refreshSeedAdoption: 镜头 ${shot.no} 没有可采用的画面`);
+    const verdicts = Object.fromEntries(
+      stillChecklist(film, shot).map((item) => [item.id, "match"]),
+    );
+    const saved = saveStillReview(film, shot.id, verdicts, "2026-11-11T00:00:00.000Z");
+    if (!saved.adopted)
+      throw new Error(saved.error || `refreshSeedAdoption: 镜头 ${shot.no} 没有采用成功`);
+    film = saved.film;
+    adopted += 1;
+  }
+  if (!adopted) throw new Error("refreshSeedAdoption: 没有采用成功");
+  const text = JSON.stringify(film);
+  window.localStorage.setItem(key, text);
+  window.localStorage.setItem("aivora.film.active", text);
 }
 
 /** Runs before any app code; no provider, account or native-file capability is supplied. */
