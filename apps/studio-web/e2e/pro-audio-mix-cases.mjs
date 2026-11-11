@@ -157,7 +157,7 @@ export async function runAudioMixCases({ browser, config, report, media, persist
             videoUrl: mediaUrl,
           });
           await page.evaluate(seedCreationProject, { state });
-          await page.evaluate(refreshSeedAdoption);
+          if (state === "mix-solo-export") await page.evaluate(refreshSeedAdoption);
           result.seed = await page.evaluate(seedAudioMixProject);
           await page.reload({ waitUntil: "networkidle" });
           await page.getByLabel("这一场", { exact: true }).waitFor();

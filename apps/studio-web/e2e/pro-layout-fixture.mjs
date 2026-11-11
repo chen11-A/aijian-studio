@@ -1,3 +1,5 @@
+import { URL } from "node:url";
+
 /** Runs inside the page. All data is synthetic; the video is a repository test fixture. */
 export async function seedProProject({
   projectModuleUrl,
@@ -68,18 +70,24 @@ export async function refreshSeedAdoption() {
   const id = window.localStorage.getItem("aivora.film.activeId");
   const key = `aivora.film.v1.${id}`;
   let film = JSON.parse(window.localStorage.getItem(key) || "null");
-  if (!film) return;
+  if (!film?.shots?.length) throw new Error("refreshSeedAdoption: no saved film");
   const { saveStillReview, stillChecklist } = await import(
     new URL("/src/aivora/pro/still-acceptance.ts", window.location.origin).href,
   );
+  let adopted = 0;
   for (const shot of [...film.shots]) {
-    if (!shot.stills?.some((item) => item.url)) continue;
+    if (!shot.stills?.some((item) => item.url))
+      throw new Error(`refreshSeedAdoption: 镜头 ${shot.no} 没有可采用的画面`);
     const verdicts = Object.fromEntries(
       stillChecklist(film, shot).map((item) => [item.id, "match"]),
     );
     const saved = saveStillReview(film, shot.id, verdicts, "2026-11-11T00:00:00.000Z");
-    if (saved.adopted) film = saved.film;
+    if (!saved.adopted)
+      throw new Error(saved.error || `refreshSeedAdoption: 镜头 ${shot.no} 没有采用成功`);
+    film = saved.film;
+    adopted += 1;
   }
+  if (!adopted) throw new Error("refreshSeedAdoption: 没有采用成功");
   const text = JSON.stringify(film);
   window.localStorage.setItem(key, text);
   window.localStorage.setItem("aivora.film.active", text);

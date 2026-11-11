@@ -17,24 +17,19 @@ function person(patch: Partial<FilmCharacter> = {}): FilmCharacter {
 }
 
 function shot(patch: Partial<FilmShot> = {}): FilmShot {
+  const base = sampleFilm().shots[0]!;
   return {
+    ...base,
     id: "s1",
     sceneId: "01",
     no: 1,
-    size: "中景",
-    angle: "平视",
-    move: "固定",
-    seconds: 3,
     picture: "女孩站住",
     action: "",
     performance: "",
     characters: ["女孩"],
     line: "",
-    sound: { mode: "silent", speech: [], beds: [] },
-    source: "user",
-    userFields: [],
+    lines: [],
     poster: "",
-    posterPosition: "",
     takes: [],
     stills: [],
     selectedTakeId: "",
@@ -65,6 +60,15 @@ it("lets an empty shot and an off-screen person through, and blocks an unlocked 
     [shot({ characters: ["女孩"] })],
   );
   expect(lookBlock(listedOnly, listedOnly.shots[0]!)).toBeNull();
+  const namedOffscreen = film(
+    [
+      person({ lookLocked: true }),
+      person({ id: "elder", name: "老人", identity: "白发", lookLocked: false }),
+    ],
+    [shot({ characters: ["女孩", "老人"], picture: "女孩站住。老人不入画。" })],
+  );
+  expect(namedOffscreen.shots[0]!.characters).toContain("老人");
+  expect(lookBlock(namedOffscreen, namedOffscreen.shots[0]!)).toBeNull();
   const portrait = person({
     portraits: [{ view: "正面", prompt: "", url: "/portraits/girl.png" }],
   });

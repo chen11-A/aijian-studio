@@ -15,6 +15,7 @@ import {
   filmPipelineTargets,
 } from "./film-pipeline-controller";
 import { createPipelineWorkspaceHost, type PipelineWorkspaceHost } from "./pipeline-workspace-host";
+import { firstLookBlock } from "./look-lock";
 import { saveStillReview, stillAccepted, stillChecklist } from "./still-acceptance";
 vi.mock("../film/library", () => ({
   prepareFilmSnapshot: vi.fn(async (film: FilmProject) => structuredClone(film)),
@@ -269,11 +270,42 @@ it("keeps human review and video continuation separate and rejects a resolved su
 });
 
 it("blocks one-click video before any provider call when an on-screen look is not locked", async () => {
-  const env = setup(await prime(fixture(), "review"));
+  const film = fixture();
+  film.characters = [
+    {
+      id: "girl",
+      name: "女孩",
+      identity: "短发",
+      voiceId: "",
+      source: "user",
+      userFields: [],
+      portraits: [],
+      lookLocked: false,
+    },
+  ];
+  film.shots[0] = {
+    ...film.shots[0]!,
+    characters: ["女孩"],
+  };
+  const verdicts = Object.fromEntries(
+    stillChecklist(film, film.shots[0]!).map((item) => [item.id, "match" as const]),
+  );
+  const adopted = saveStillReview(film, film.shots[0]!.id, verdicts, "2026-11-11T00:00:00.000Z").film;
+  expect(firstLookBlock(adopted, adopted.shots)?.code).toBe("LOOK_NOT_LOCKED");
+  const provider = vi.fn();
+  const env = setup(await prime(adopted, "review"));
   expect((await env.adapter.start()).status).toBe("needs-input");
   expect((await env.adapter.acceptReview("已逐镜检查构图和人物")).status).toBe("checkpoint");
-  vi.mocked(env.host.submitGeneration).mockImplementation(async () => "LOOK_NOT_LOCKED");
+  vi.mocked(env.host.submitGeneration).mockImplementation(async (shots) => {
+    const blocked = firstLookBlock(env.live(), shots);
+    if (!blocked) {
+      provider();
+      return;
+    }
+    return blocked.code;
+  });
   const result = await env.adapter.continue();
+  expect(provider).not.toHaveBeenCalled();
   expect(result.status).toBe("blocked");
   expect(result.steps.find((step) => step.id === "video")?.targets[0]?.code).toBe(
     "LOOK_NOT_LOCKED",

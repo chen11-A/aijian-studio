@@ -5501,6 +5501,65 @@ it("disables an unlocked still, and keeps focus on the export check after the so
   expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
 });
 
+it("disables export check while a chosen video is unadopted or its look is unlocked", async () => {
+  const doneTake = (shotId: string) => ({
+    id: "take-1",
+    shotId,
+    index: 1,
+    status: "done" as const,
+    stillUrl: "",
+    videoPath: "/tmp/shot.mp4",
+    videoUrl: "",
+    prompt: "",
+    createdAt: "",
+    reason: "",
+  });
+  const open = (film: FilmProject) => {
+    window.aijian = {
+      listFilmSeries: vi.fn(async () => [
+        { id: film.seriesId, title: film.title, savedAt: "", path: "/tmp/aivora/films" },
+      ]),
+      readFilmProject: vi.fn(async () => film),
+      writeFilmProject: vi.fn(async (value: unknown) => value),
+    } as unknown as Window["aijian"];
+    render(<ProWorkspace />);
+  };
+  const unadopted = sampleFilm();
+  const unadoptedShot = unadopted.shots[0]!;
+  unadoptedShot.poster = "/stills/frame.png";
+  unadoptedShot.selectedTakeId = "take-1";
+  unadoptedShot.takes = [doneTake(unadoptedShot.id)];
+  open(unadopted);
+  await screen.findAllByText(unadopted.title);
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  fireEvent.click(screen.getByRole("button", { name: "本片静音" }));
+  const unadoptedDialog = screen.getByRole("dialog", { name: "导出成片" });
+  expect(within(unadoptedDialog).getByRole("button", { name: "检查成片" })).toBeDisabled();
+  expect(within(unadoptedDialog).getByText(/画面还没核对，还不能导出/)).toBeInTheDocument();
+  cleanup();
+
+  const unlocked = sampleFilm();
+  unlocked.characters = unlocked.characters.map((item) => ({ ...item, lookLocked: false }));
+  const unlockedShot = unlocked.shots[0]!;
+  unlockedShot.poster = "";
+  unlockedShot.stills = [];
+  unlockedShot.selectedTakeId = "take-1";
+  unlockedShot.takes = [doneTake(unlockedShot.id)];
+  open(unlocked);
+  await screen.findAllByText(unlocked.title);
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  fireEvent.click(screen.getByRole("button", { name: "本片静音" }));
+  const unlockedDialog = screen.getByRole("dialog", { name: "导出成片" });
+  expect(within(unlockedDialog).getByRole("button", { name: "检查成片" })).toBeDisabled();
+  expect(within(unlockedDialog).getByText(/还没有锁定定妆/)).toBeInTheDocument();
+  fireEvent.click(within(unlockedDialog).getByRole("button", { name: "关闭" }));
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  expect(screen.getByRole("button", { name: "生成画面" })).toBeDisabled();
+  expect(screen.getByText(/还没有锁定定妆/)).toBeInTheDocument();
+});
+
 it("names each shot's job in the task center and counts the ones still going", async () => {
   let releaseVideo: (value: unknown) => void = () => undefined;
   const videoPending = new Promise((resolve) => {

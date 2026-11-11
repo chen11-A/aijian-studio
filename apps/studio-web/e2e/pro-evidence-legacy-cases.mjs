@@ -196,7 +196,7 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
             videoUrl: mediaUrl,
           });
           result.seed = await page.evaluate(seedEvidenceLegacyProject, { state });
-          await page.evaluate(refreshSeedAdoption);
+          if (state.startsWith("evidence-")) await page.evaluate(refreshSeedAdoption);
           const seed = result.seed;
           await page.reload({ waitUntil: "networkidle" });
           await page.getByLabel("这一场", { exact: true }).waitFor();
