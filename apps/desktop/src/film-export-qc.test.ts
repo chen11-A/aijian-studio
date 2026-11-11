@@ -464,6 +464,11 @@ describe("checked publication ownership and lifecycle", () => {
       if (result.kind !== "PUBLISHED") throw new Error("numbered publish required");
       expect(await readFile(path, "utf8")).toBe("original user bytes");
       expect(basename(result.outputs[0]!.path)).toBe(`${stem}-2.mp4`);
+      expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
+      if (result.deliveryEvidence?.kind !== "WRITTEN") throw new Error("written evidence required");
+      expect(result.deliveryEvidence.manifest.files.map((file) => file.fileName)).not.toContain(
+        basename(path),
+      );
     },
     30000,
   );
@@ -904,6 +909,52 @@ it("rejects an edited name that is already taken and keeps the receipt", async (
   if (moved.kind !== "PUBLISHED") throw new Error("republish required");
   expect(basename(moved.outputs[0]!.path)).toBe("成片终稿.mp4");
 }, 30000);
+
+it.each(["srt", "cover"] as const)(
+  "rejects an edited name when only the %s is taken and keeps the receipt",
+  async (kind) => {
+    const f = await fixture();
+    const record = structuredClone(f.record());
+    const take = (
+      record.shots![0] as {
+        takes: {
+          cleanVideoPath?: string;
+          subtitleCues?: { text: string; start: number; end: number }[];
+        }[];
+      }
+    ).takes[0]!;
+    take.cleanVideoPath = f.source;
+    take.subtitleCues = [{ text: "字幕", start: 0, end: 0.3 }];
+    f.setRecord(record);
+    const request = {
+      ...input,
+      requestedFileName: "成片终稿",
+      settings: {
+        ...input.settings,
+        subtitles: "srt" as const,
+        aspects: ["16:9"] as ("16:9" | "9:16")[],
+      },
+    };
+    const ready = await f.qc.prepare("owner", request);
+    if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
+    const planted = join(f.output, kind === "srt" ? "成片终稿.srt" : "成片终稿-封面.png");
+    await writeFile(planted, "original user bytes");
+    expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+      kind: "FAILED",
+      code: "EXPORT_NAME_TAKEN",
+    });
+    expect(await readFile(planted, "utf8")).toBe("original user bytes");
+    expect((await readdir(f.output)).filter((name) => name.endsWith(".mp4"))).toEqual([]);
+    const elsewhere = join(f.root, "elsewhere");
+    await mkdir(elsewhere);
+    f.picker.mockResolvedValue(elsewhere);
+    const moved = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+    expect(moved.kind).toBe("PUBLISHED");
+    if (moved.kind !== "PUBLISHED") throw new Error("republish required");
+    expect(basename(moved.outputs[0]!.path)).toBe("成片终稿.mp4");
+  },
+  30000,
+);
 
 it("takes the next default-name number when linking races with EEXIST", async () => {
   const f = await fixture();

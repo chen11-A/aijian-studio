@@ -894,15 +894,17 @@ function sliceUtf8(value: string, maxBytes: number): string {
   return out;
 }
 
+/**
+ * Stem budget before `-99-16x9-封面.png` (19 bytes). 200 + 19 stays under the
+ * common 255-byte filename limit, so a long Chinese default name is not cut
+ * down to a shared prefix and then numbered as a collision.
+ */
+const EXPORT_NAME_STEM_BYTES = 200;
+
 /** Usable stem before the empty-name fallback. `/` and `\\` are deleted, not used to take a last segment. */
 export function exportNameStem(name: string): string {
   const cleaned = stripUnsafeFileChars(name).replace(/\s+/g, "").replace(/\.+$/, "");
-  return sliceUtf8(
-    sliceUtf8(cleaned, 80)
-      .replace(/\.mp4$/i, "")
-      .replace(/\.+$/, ""),
-    76,
-  );
+  return sliceUtf8(cleaned.replace(/\.mp4$/i, "").replace(/\.+$/, ""), EXPORT_NAME_STEM_BYTES);
 }
 
 export function safeExportName(name: string): string {

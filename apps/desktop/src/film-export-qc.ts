@@ -40,10 +40,10 @@ import type { QcEngine, QcTools, QcRunner } from "./film-export-qc-runtime";
 const execute = promisify(execFile);
 
 /**
- * Default (no requestedFileName) collisions. The user chose automatic numbering.
- * Edited names always use "error" and do not read this switch.
+ * Compile-time switch, not a runtime setting. Default names number themselves.
+ * Edited names pass "error" at the call site and do not read this constant.
  */
-const defaultNameCollision = "suffix" as "error" | "suffix";
+const defaultNameCollision = "suffix" as const;
 /** Base name is 1. The next free set is -2, then -3, and stops here. */
 const EXPORT_NAME_SUFFIX_LIMIT = 99;
 
@@ -905,6 +905,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           );
           index = chosen;
           const linked: string[] = [];
+          const announced: string[] = [];
           try {
             for (const item of plan) {
               const output = prepared.outputs.find((row) => row.aspectRatio === item.aspectRatio)!;
@@ -950,7 +951,6 @@ export function createFilmExportQc(host: FilmQcHost) {
                 work?.cancellable(false);
                 await linkNewFile(pending, destination);
                 linked.push(destination);
-                host.publishedPaths?.add(realpathSync(destination));
                 const saved: {
                   aspectRatio: "16:9" | "9:16";
                   path: string;
@@ -958,7 +958,6 @@ export function createFilmExportQc(host: FilmQcHost) {
                   coverPath?: string;
                 } = { aspectRatio: output.aspectRatio, path: destination };
                 outputs.push(saved);
-                work?.published(output.aspectRatio);
                 for (const side of sidecars) {
                   await linkNewFile(side.pending, side.destination);
                   linked.push(side.destination);
@@ -975,8 +974,19 @@ export function createFilmExportQc(host: FilmQcHost) {
                 await rm(temporary, { recursive: true, force: true });
               }
             }
+            for (const saved of outputs) {
+              const canonical = realpathSync(saved.path);
+              host.publishedPaths?.add(canonical);
+              announced.push(canonical);
+              work?.published(saved.aspectRatio);
+            }
           } catch (error) {
-            for (const path of linked) await rm(path, { force: true });
+            for (const path of announced) host.publishedPaths?.delete(path);
+            try {
+              for (const path of linked) await rm(path, { force: true });
+            } catch {
+              /* A failed delete must not replace the original publish error. */
+            }
             outputs.length = 0;
             if (exportNameTaken(error) && mode === "suffix") {
               index += 1;
