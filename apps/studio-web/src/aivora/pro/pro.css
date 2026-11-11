@@ -4060,7 +4060,7 @@ body:has(.pro-root) {
   max-height: calc(100% - 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Undecided dock: padding, one line of copy, three sound buttons, the action row. */
+  /* Undecided dock: padding, up to three lines of copy, three sound buttons, the action row. */
   scroll-padding-bottom: calc(
     var(--export-dock-pad) * 2 + var(--export-sound-copy) + var(--export-sound-gap) * 3 +
       var(--export-sound-row) * 3 + var(--export-action-row)

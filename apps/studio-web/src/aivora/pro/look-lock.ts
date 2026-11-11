@@ -10,25 +10,9 @@ export type LookBlock = {
   reason: string;
 };
 
-function frontPortrait(person: FilmCharacter): boolean {
-  return person.portraits.some(
-    (portrait) =>
-      portrait.view === "正面" &&
-      Boolean(portrait.url) &&
-      !portrait.url.startsWith("blob:") &&
-      !portrait.url.startsWith("data:"),
-  );
-}
-
-/**
- * Locked by the user. An explicit false stays blocked until they lock again.
- * Older records with no flag stay ready when a front portrait or a written look already exists.
- */
+/** Only an explicit lock counts. A written look or a front portrait does not. */
 export function lookReady(person: FilmCharacter): boolean {
-  if (person.lookLocked === true) return true;
-  if (person.lookLocked === false) return false;
-  if (frontPortrait(person)) return true;
-  return Boolean(person.identity.trim());
+  return person.lookLocked === true;
 }
 
 /**

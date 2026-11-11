@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
-import { seedProProject } from "./pro-layout-fixture.mjs";
+import { refreshSeedAdoption, seedProProject } from "./pro-layout-fixture.mjs";
 import { probeProLayout } from "./pro-layout-probe.mjs";
 import { assertAssemblyRequests, waitAssemblyIdle } from "./pro-assembly-assertions.mjs";
 import { installAssemblyAuditBridge, readAssemblyReadiness } from "./pro-assembly-fixture.mjs";
@@ -157,6 +157,7 @@ export async function runAudioMixCases({ browser, config, report, media, persist
             videoUrl: mediaUrl,
           });
           await page.evaluate(seedCreationProject, { state });
+          await page.evaluate(refreshSeedAdoption);
           result.seed = await page.evaluate(seedAudioMixProject);
           await page.reload({ waitUntil: "networkidle" });
           await page.getByLabel("这一场", { exact: true }).waitFor();

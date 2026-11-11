@@ -4091,6 +4091,12 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
   await waitFor(() =>
     expect(document.querySelectorAll(".refs4 .slot[data-state=done]")).toHaveLength(4),
   );
+  const people = [...document.querySelectorAll("button.scene:not(.place)")];
+  for (const person of people) {
+    fireEvent.click(person);
+    const lock = screen.queryByRole("button", { name: "锁定外貌" });
+    if (lock && !(lock as HTMLButtonElement).disabled) fireEvent.click(lock);
+  }
   fireEvent.click(stageTab("分镜"));
   await adoptListedShots();
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
@@ -5476,6 +5482,23 @@ it("opens the task center from 后台生成 with nothing to do yet, and goes to 
   fireEvent.click(screen.getByRole("button", { name: "去分镜" }));
   expect(screen.queryByRole("dialog", { name: "后台生成" })).toBeNull();
   expect(stageTab("分镜").className.split(/\s+/)).toContain("on");
+});
+
+it("disables an unlocked still, and keeps focus on the export check after the sound choice", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  fireEvent.click(screen.getByRole("button", { name: "本片静音" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "检查成片" })).toHaveFocus());
+  fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+  fireEvent.click(stageTab("角色与场景"));
+  fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "短发，黑外套，尚未锁定" } });
+  fireEvent.click(stageTab("分镜"));
+  const make = screen.getByRole("button", { name: "生成画面" });
+  expect(make).toBeDisabled();
+  expect(make).toHaveAccessibleDescription(/还没有锁定定妆/);
+  fireEvent.click(make);
+  expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
 });
 
 it("names each shot's job in the task center and counts the ones still going", async () => {

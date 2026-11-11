@@ -268,6 +268,19 @@ it("keeps human review and video continuation separate and rejects a resolved su
   expect(generation.billingProjectId).toBe("billing-before");
 });
 
+it("blocks one-click video before any provider call when an on-screen look is not locked", async () => {
+  const env = setup(await prime(fixture(), "review"));
+  expect((await env.adapter.start()).status).toBe("needs-input");
+  expect((await env.adapter.acceptReview("已逐镜检查构图和人物")).status).toBe("checkpoint");
+  vi.mocked(env.host.submitGeneration).mockImplementation(async () => "LOOK_NOT_LOCKED");
+  const result = await env.adapter.continue();
+  expect(result.status).toBe("blocked");
+  expect(result.steps.find((step) => step.id === "video")?.targets[0]?.code).toBe(
+    "LOOK_NOT_LOCKED",
+  );
+  expect(JSON.stringify(result)).toContain("还没有锁定定妆");
+});
+
 it("blocks one-click video before any provider call when the still is not adopted", async () => {
   const provider = vi.fn();
   const env = setup(await prime(fixture(), "review"));

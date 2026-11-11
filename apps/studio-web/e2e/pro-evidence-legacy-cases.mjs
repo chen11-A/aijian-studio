@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { URL } from "node:url";
-import { seedProProject } from "./pro-layout-fixture.mjs";
+import { refreshSeedAdoption, seedProProject } from "./pro-layout-fixture.mjs";
 import { installExportQcBridge } from "./pro-export-qc-fixture.mjs";
 import { installCreationBridge } from "./pro-creation-fixture.mjs";
 import {
@@ -196,6 +196,7 @@ export async function runEvidenceLegacyCases({ browser, config, report, media, p
             videoUrl: mediaUrl,
           });
           result.seed = await page.evaluate(seedEvidenceLegacyProject, { state });
+          await page.evaluate(refreshSeedAdoption);
           const seed = result.seed;
           await page.reload({ waitUntil: "networkidle" });
           await page.getByLabel("这一场", { exact: true }).waitFor();

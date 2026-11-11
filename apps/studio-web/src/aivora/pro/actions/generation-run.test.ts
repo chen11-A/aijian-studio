@@ -74,6 +74,21 @@ function setup(versions = 1) {
   };
 }
 
+it("does not dispatch a prepared or resumed video when an on-screen look is not locked", async () => {
+  const pending = setup();
+  const live = pending.host.current();
+  if (!live) throw new Error("missing film");
+  pending.setLive({
+    ...live,
+    characters: live.characters.map((item) => ({ ...item, lookLocked: false })),
+  });
+  await runPreparedGeneration(pending.queue, pending.host);
+  expect(pending.host.request).not.toHaveBeenCalled();
+  expect(pending.host.notice).toHaveBeenCalledWith(
+    expect.objectContaining({ code: "LOOK_NOT_LOCKED" }),
+  );
+});
+
 it("does not dispatch when the adopted picture is replaced or a first frame is generated", async () => {
   const swapped = setup();
   swapped.host.continuity = vi.fn(async (_film, shot) => ({

@@ -4726,6 +4726,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [exportNameComposing, setExportNameComposing] = useState(false);
   const shownExportName = exportNameDraft ?? exportNameDefault;
   const exportNameIssue = exportNameComposing ? "" : exportFileIssue(shownExportName);
+  const exportBlocked = film ? exportEntryBlock(film) : null;
   const exportCheckRef = useRef<HTMLButtonElement>(null);
   const exportSoundWas = useRef(film?.audioDecision);
   useEffect(() => {
@@ -7646,7 +7647,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       }}
                       onChange={(event) => setExportNameDraft(event.target.value)}
                     />
-                    <span className="role-desc">{shownExportName}</span>
+                    <p id="export-name-note" className="role-desc">
+                      当前写入名以检查结果为准。输入框里的修改还不会落盘。
+                    </p>
+                    <span className="role-desc">{exportNameDefault}</span>
                     {exportNameIssue ? (
                       <p id="export-name-why" className="role-desc">
                         {exportNameIssue}
@@ -7924,6 +7928,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         </>
                       ) : null}
                       <span className="sp" />
+                      {exportBlocked ? (
+                        <p id="export-entry-why" className="role-desc">
+                          {exportBlocked.text}
+                        </p>
+                      ) : null}
                       {!exportQc ? (
                         <button
                           ref={exportCheckRef}
@@ -7933,17 +7942,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                             cleanCopyBusy ||
                             exportQcBusy ||
                             exportCheckBlocked(film) ||
-                            Boolean(exportNameIssue)
+                            Boolean(exportNameIssue) ||
+                            Boolean(exportBlocked)
                           }
                           aria-describedby={
                             exportNameIssue
                               ? "export-name-why"
-                              : exportCheckBlocked(film)
-                                ? "export-sound-why"
-                                : undefined
+                              : exportBlocked
+                                ? "export-entry-why"
+                                : exportCheckBlocked(film)
+                                  ? "export-sound-why"
+                                  : undefined
                           }
                           onClick={() => {
-                            if (exportCheckBlocked(film) || exportNameIssue) return;
+                            if (exportCheckBlocked(film) || exportNameIssue || exportBlocked)
+                              return;
                             void startExport();
                           }}
                         >
@@ -9287,6 +9300,7 @@ function CastPage({
                                 source: "user",
                                 userFields: ["name"],
                                 portraits: [],
+                                lookLocked: false,
                               },
                             ],
                           });
@@ -10829,6 +10843,7 @@ function BoardPage({
                   <button
                     className="btn"
                     type="button"
+                    disabled={Boolean(lookBlock(film, current))}
                     aria-describedby={
                       lookBlock(film, current) ? `look-gate-${current.id}` : undefined
                     }
@@ -11276,9 +11291,22 @@ function GeneratePage({
                   <p id={`still-gate-${current.id}`} className="still-gate-reason">
                     <span>{videoGate(film, current).reason}</span>
                   </p>
-                  <button className="btn" type="button" onClick={onRestill}>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={Boolean(lookBlock(film, current))}
+                    aria-describedby={
+                      lookBlock(film, current) ? `look-gate-bench-${current.id}` : undefined
+                    }
+                    onClick={onRestill}
+                  >
                     生成画面
                   </button>
+                  {lookBlock(film, current) ? (
+                    <p id={`look-gate-bench-${current.id}`} className="role-desc">
+                      {lookBlock(film, current)?.reason}
+                    </p>
+                  ) : null}
                 </div>
               ) : current && currentStillUrl(current) ? (
                 <StillAcceptanceControls

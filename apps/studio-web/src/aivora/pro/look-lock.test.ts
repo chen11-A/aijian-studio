@@ -60,13 +60,42 @@ it("lets an empty shot and an off-screen person through, and blocks an unlocked 
   expect(firstLookBlock(absent, absent.shots)?.code).toBe("LOOK_NOT_LOCKED");
   const locked = film([person({ lookLocked: true }), elder], [shot()]);
   expect(lookBlock(locked, locked.shots[0]!)).toBeNull();
-  const legacy = person({
+  const listedOnly = film(
+    [person({ lookLocked: true }), person({ id: "elder", name: "老人", identity: "白发" })],
+    [shot({ characters: ["女孩"] })],
+  );
+  expect(lookBlock(listedOnly, listedOnly.shots[0]!)).toBeNull();
+  const portrait = person({
     portraits: [{ view: "正面", prompt: "", url: "/portraits/girl.png" }],
   });
-  expect(lookReady(legacy)).toBe(true);
-  expect(lookReady(person())).toBe(true);
-  expect(lookReady(person({ identity: "  ", lookLocked: undefined }))).toBe(false);
-  expect(lookReady(person({ lookLocked: false, portraits: legacy.portraits }))).toBe(false);
+  expect(lookReady(portrait)).toBe(false);
+  expect(lookReady(person())).toBe(false);
+  expect(lookReady(person({ identity: person().name }))).toBe(false);
+  expect(lookReady(person({ lookLocked: true }))).toBe(true);
+});
+
+it("blocks export when an on-screen look is not locked", () => {
+  const base = sampleFilm();
+  base.characters = base.characters.map((item) => ({ ...item, lookLocked: false }));
+  const row = base.shots[0]!;
+  row.poster = "";
+  row.stills = [];
+  row.selectedTakeId = "take-1";
+  row.takes = [
+    {
+      id: "take-1",
+      shotId: row.id,
+      index: 1,
+      status: "done",
+      stillUrl: "",
+      videoPath: "/tmp/shot.mp4",
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+    },
+  ];
+  expect(exportEntryBlock(base)?.code).toBe("LOOK_NOT_LOCKED");
 });
 
 it("refuses export of a chosen video whose still was not adopted", () => {
