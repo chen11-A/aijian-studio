@@ -163,6 +163,28 @@ it("shows the original producer's retained manual-scene renumbering without repl
   expect(undoStoryConfirmation(applied.film, tx).film.scenes).toEqual(f.base.scenes);
 });
 
+it("keeps a locked look through writer confirmation and does not lock a new person", () => {
+  const f = writerFieldFixture();
+  const locked = f.base.characters.find((person) => person.name === "林骁");
+  expect(locked?.lookLocked).toBe(true);
+  const review = prepareWriterFieldReview(f.base, f.tx, f.origin);
+  expect(review).not.toBeNull();
+  const applied = applyStoryConfirmation(f.base, f.tx);
+  expect(applied.receipt).not.toBeNull();
+  expect(applied.film.characters.find((person) => person.name === "林骁")?.lookLocked).toBe(true);
+  expect(applied.film.characters.find((person) => person.name === "梅子")?.lookLocked).toBe(false);
+});
+
+it("returns null when a character carries an unknown field other than the look lock", () => {
+  const f = writerFieldFixture();
+  const assets = f.tx.writerAssets!;
+  const index = assets.after.characters.findIndex((row) => row.name === "林骁");
+  const row = assets.after.characters[index]!;
+  assets.after.characters[index] = { ...row, secretNote: "不应进入确认" } as typeof row;
+  expect(applyStoryConfirmation(f.base, f.tx).receipt).not.toBeNull();
+  expect(prepareWriterFieldReview(f.base, f.tx, f.origin)).toBeNull();
+});
+
 it("shows writerAssets roster order as well as all member changes, and refuses ambiguous numbering", () => {
   const f = writerFieldFixture();
   f.tx.writerAssets!.after.characters.reverse();
