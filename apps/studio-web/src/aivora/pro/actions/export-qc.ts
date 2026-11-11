@@ -57,5 +57,6 @@ export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
   UNSUPPORTED_AUDIO_CHANNELS:
     "有声导出只接受单声道或立体声源。超过两声道时请改建立体声，或选择本片静音。",
   EXPORT_NAME_INVALID: "导出文件名是空的，或只含不能写入文件名的字符。请改一个名字。",
-  EXPORT_NAME_TAKEN: "这个导出文件名已经存在，没有覆盖原文件。请换一个名字。",
+  EXPORT_NAME_TAKEN: "已有同名文件，请换个名字或换文件夹。",
+  EXPORT_NAME_EXHAUSTED: "默认导出名的序号已经用完，请换个名字或换文件夹。",
 };

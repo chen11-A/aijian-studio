@@ -40,7 +40,8 @@ export type FilmExportQcFailure = {
     | "AUDIO_DECISION_INVALID"
     | "UNSUPPORTED_AUDIO_CHANNELS"
     | "EXPORT_NAME_INVALID"
-    | "EXPORT_NAME_TAKEN";
+    | "EXPORT_NAME_TAKEN"
+    | "EXPORT_NAME_EXHAUSTED";
 };
 export type FilmExportQcPrepared = {
   kind: "READY";
