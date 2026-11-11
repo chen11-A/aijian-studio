@@ -14,6 +14,11 @@ export type FilmExportQcInput = {
   projectId: string;
   expectedSelection: { shotId: string; takeId: string }[];
   settings: FilmExportQcSettings;
+  /**
+   * Optional edited export name. Absent keeps 系列名-集名.
+   * The main process stores `safeExportName` of this string, and echoes that cleaned name.
+   */
+  requestedFileName?: string;
 };
 export type FilmExportQcFailure = {
   kind: "FAILED";
@@ -32,7 +37,10 @@ export type FilmExportQcFailure = {
     | "BUSY"
     | "OPERATION_STOPPED"
     | "MATERIALS_STALE"
-    | "AUDIO_DECISION_INVALID";
+    | "AUDIO_DECISION_INVALID"
+    | "UNSUPPORTED_AUDIO_CHANNELS"
+    | "EXPORT_NAME_INVALID"
+    | "EXPORT_NAME_TAKEN";
 };
 export type FilmExportQcPrepared = {
   kind: "READY";

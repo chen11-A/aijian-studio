@@ -893,3 +893,24 @@ export function safeExportName(name: string): string {
   if (/^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(stem)) stem = `_${stem}`;
   return `${stem}.mp4`;
 }
+
+/** Usable stem before the empty-name fallback. Mirrors `safeExportName` without inventing a name. */
+export function exportNameStem(name: string): string {
+  return stripUnsafeFileChars(basename(name))
+    .replace(/\s+/g, "")
+    .replace(/\.+$/, "")
+    .slice(0, 80)
+    .replace(/\.mp4$/i, "")
+    .replace(/\.+$/, "")
+    .slice(0, 76);
+}
+
+/**
+ * Absent request keeps the series-episode fallback.
+ * An explicit name that cleans to nothing is rejected instead of becoming `aivora-film.mp4`.
+ */
+export function resolveExportFileName(requested: string | undefined, fallback: string): string {
+  if (requested === undefined) return safeExportName(fallback);
+  if (!exportNameStem(requested)) throw new Error("EXPORT_NAME_INVALID");
+  return safeExportName(requested);
+}

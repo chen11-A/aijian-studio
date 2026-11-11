@@ -13,6 +13,10 @@ export async function probeMixSource(
   tools: QcTools,
   run: QcRunner,
   signal?: AbortSignal,
+  /**
+   * Silent export only. Lets a source with more than two channels be measured.
+   * The sound mix does not set this, and still rejects those layouts.
+   */
   options?: { allowWideChannels?: boolean },
 ): Promise<MixSourceInfo & { videoDurationSeconds: number }> {
   const { stdout } = await run(

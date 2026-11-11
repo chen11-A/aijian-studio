@@ -443,7 +443,7 @@ describe("checked publication ownership and lifecycle", () => {
       };
       const ready = await f.qc.prepare("owner", request);
       if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
-      const stem = `${ready.fileName.replace(/\.mp4$/i, "")}-${ready.qcReceipt.slice(0, 8)}-16x9`;
+      const stem = ready.fileName.replace(/\.mp4$/i, "");
       const path = join(
         f.output,
         kind === "mp4" ? `${stem}.mp4` : kind === "srt" ? `${stem}.srt` : `${stem}-封面.png`,
@@ -451,6 +451,7 @@ describe("checked publication ownership and lifecycle", () => {
       await writeFile(path, "original user bytes");
       const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
       expect(result.kind).toBe(kind === "mp4" ? "FAILED" : "PARTIAL");
+      if (kind === "mp4") expect(result).toMatchObject({ code: "EXPORT_NAME_TAKEN" });
       expect(await readFile(path, "utf8")).toBe("original user bytes");
       if (result.kind === "PARTIAL") {
         expect(result.outputs[0]).not.toHaveProperty(kind === "srt" ? "subtitlePath" : "coverPath");
@@ -695,13 +696,11 @@ it("replaces a source with more than two channels instead of rejecting the silen
   ]);
   f.setRecord({ ...f.record(), audioDecision: "WITH_AUDIO" });
   expect(
-    (
-      await f.qc.prepare("owner", {
-        ...input,
-        settings: { ...input.settings, aspects: ["16:9"] },
-      })
-    ).kind,
-  ).toBe("FAILED");
+    await f.qc.prepare("owner", {
+      ...input,
+      settings: { ...input.settings, aspects: ["16:9"] },
+    }),
+  ).toEqual({ kind: "FAILED", code: "UNSUPPORTED_AUDIO_CHANNELS" });
   f.setRecord({ ...f.record(), audioDecision: "SILENT_BY_USER" });
   const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
   const ready = await f.qc.prepare("owner", request);
@@ -801,3 +800,27 @@ it("blocks export of a stale clip and has no confirm-and-export field", async ()
     "INVALID_AUDIO_DECISION",
   );
 });
+
+it("echoes the cleaned requested file name on the check and the published path", async () => {
+  const f = await fixture();
+  const named = { ...input, requestedFileName: "雨夜:重逢?.mp4" };
+  const ready = await f.qc.prepare("owner", named);
+  expect(ready.kind).toBe("READY");
+  if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
+  expect(ready.fileName).toBe("雨夜重逢.mp4");
+  const published = await f.qc.publish("owner", { ...named, qcReceipt: ready.qcReceipt });
+  if (published.kind !== "PUBLISHED") throw new Error(JSON.stringify(published));
+  expect(published.outputs.map((output) => basename(output.path)).sort()).toEqual([
+    "雨夜重逢-16x9.mp4",
+    "雨夜重逢-9x16.mp4",
+  ]);
+  const again = await f.qc.prepare("owner", { ...input, requestedFileName: "???" });
+  expect(again).toEqual({ kind: "FAILED", code: "EXPORT_NAME_INVALID" });
+  const fallback = await f.qc.prepare("owner", {
+    ...input,
+    settings: { ...input.settings, aspects: ["16:9" as const] },
+  });
+  if (fallback.kind !== "READY") throw new Error("fallback required");
+  expect(fallback.fileName).toBe("离线QC-第一集.mp4");
+  expect(() => qcInput({ ...input, requestedFileName: 1 })).toThrow("INVALID_INPUT");
+}, 30000);

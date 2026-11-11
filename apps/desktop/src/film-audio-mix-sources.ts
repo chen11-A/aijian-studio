@@ -51,7 +51,10 @@ export async function resolveAudioMix(
       sha: string,
       selected?: { path: string; sha: string },
     ) => Promise<boolean>;
-    /** Silent export only. The mix path still rejects layouts other than mono or stereo. */
+    /**
+     * Silent export only. The sound mix leaves this unset and still rejects
+     * channel counts other than one or two via `probeMixSource`.
+     */
     allowWideChannels?: boolean;
   },
 ): Promise<{

@@ -54,4 +54,8 @@ export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
   BUSY: "同一工程已有检查或发布正在进行，请等待。",
   MATERIALS_STALE: "有旧版本或已失效的配声/整场配声，请在剪辑里停用或重新选用后再导出。",
   AUDIO_DECISION_INVALID: "作品里的声音决定已损坏，请重新选择本片静音或有声导出。",
+  UNSUPPORTED_AUDIO_CHANNELS:
+    "有声导出只接受单声道或立体声源。超过两声道时请改建立体声，或选择本片静音。",
+  EXPORT_NAME_INVALID: "导出文件名是空的，或只含不能写入文件名的字符。请改一个名字。",
+  EXPORT_NAME_TAKEN: "这个导出文件名已经存在，没有覆盖原文件。请换一个名字。",
 };

@@ -22,7 +22,7 @@ import type {
 } from "@aijian/contracts/film-export-qc";
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, link, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, link, rm, stat, lstat } from "node:fs/promises";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -30,7 +30,7 @@ import {
   joinClips,
   mediaUrlPath,
   readProject,
-  safeExportName,
+  resolveExportFileName,
   trustedMediaPath,
   type FilmRecord,
 } from "./film-library";
@@ -63,6 +63,9 @@ const failure = (error: unknown): FilmExportQcFailure => {
       "BUSY",
       "MATERIALS_STALE",
       "AUDIO_DECISION_INVALID",
+      "UNSUPPORTED_AUDIO_CHANNELS",
+      "EXPORT_NAME_INVALID",
+      "EXPORT_NAME_TAKEN",
     ].includes(code)
       ? (code as FilmExportQcFailure["code"])
       : "CHECK_FAILED",
@@ -74,7 +77,10 @@ export function qcInput(value: unknown): FilmExportQcInput {
   if (
     !input ||
     Object.keys(input).some(
-      (key) => !["projectId", "expectedSelection", "settings", "qcReceipt"].includes(key),
+      (key) =>
+        !["projectId", "expectedSelection", "settings", "qcReceipt", "requestedFileName"].includes(
+          key,
+        ),
     ) ||
     !/^film_[a-z0-9]{16,40}$/.test(text(input.projectId)) ||
     !Array.isArray(input.expectedSelection) ||
@@ -86,7 +92,8 @@ export function qcInput(value: unknown): FilmExportQcInput {
         !["aiMark", "aspects", "quality", "style", "subtitles", "autoAdjustVolume"].includes(key),
     ) ||
     ["aiMark", "aspects", "quality", "style", "subtitles"].some((key) => !(key in settings)) ||
-    (settings.autoAdjustVolume !== undefined && typeof settings.autoAdjustVolume !== "boolean")
+    (settings.autoAdjustVolume !== undefined && typeof settings.autoAdjustVolume !== "boolean") ||
+    (input.requestedFileName !== undefined && typeof input.requestedFileName !== "string")
   )
     fail("INVALID_INPUT");
   if (
@@ -121,6 +128,9 @@ export function qcInput(value: unknown): FilmExportQcInput {
       projectId: input.projectId,
       expectedSelection: input.expectedSelection,
       settings,
+      ...(typeof input.requestedFileName === "string"
+        ? { requestedFileName: input.requestedFileName }
+        : {}),
     }),
   );
 }
@@ -423,6 +433,10 @@ export function createFilmExportQc(host: FilmQcHost) {
         const base = await snapshot(input, work);
         const audioDecision = base.audioDecision;
         if (exportBlockedByStaleMaterial(base.mix.plan.limitations)) fail("MATERIALS_STALE");
+        const fileName = resolveExportFileName(
+          input.requestedFileName,
+          `${text(base.record.seriesTitle) || text(base.record.title)}-${text(base.record.episodeTitle) || "成片"}`,
+        );
         const tools = await host.tools(work?.signal).catch(() => fail("TOOLS_UNAVAILABLE"));
         const engine = await host.engine();
         await current(input, base.fingerprint, owner, ownerGeneration, work);
@@ -653,9 +667,6 @@ export function createFilmExportQc(host: FilmQcHost) {
         }
         await current(input, base.fingerprint, owner, ownerGeneration, work);
         if (epochs.get(input.projectId) !== epoch) fail("PROJECT_CHANGED");
-        const fileName = safeExportName(
-          `${text(base.record.seriesTitle) || text(base.record.title)}-${text(base.record.episodeTitle) || "成片"}`,
-        );
         const unverified: string[] = [
           ...(audioDecision === "SILENT_BY_USER"
             ? ["用户选择本片静音。成片写入一条与视频时长一致的静音 AAC 音轨，不表示内容有声。"]
@@ -804,8 +815,15 @@ export function createFilmExportQc(host: FilmQcHost) {
             unit: "画幅",
           });
           await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
-          const stem = `${prepared.fileName.replace(/\.mp4$/i, "")}-${token.slice(0, 8)}-${output.aspectRatio.replace(":", "x")}`;
+          const stem = `${prepared.fileName.replace(/\.mp4$/i, "")}${
+            prepared.outputs.length > 1 ? `-${output.aspectRatio.replace(":", "x")}` : ""
+          }`;
           const destination = join(target, `${stem}.mp4`);
+          const occupied = await lstat(destination).catch((error: NodeJS.ErrnoException) => {
+            if (error.code === "ENOENT") return null;
+            throw error;
+          });
+          if (occupied) fail("EXPORT_NAME_TAKEN");
           const temporary = await mkdtemp(join(target, ".aivora-qc-"));
           try {
             const pending = join(temporary, "film.mp4");

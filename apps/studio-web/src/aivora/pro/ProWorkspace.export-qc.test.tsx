@@ -214,6 +214,13 @@ describe("QC prepare/review/publish host", () => {
     expect(screen.getByRole("button", { name: "审核后发布" })).toBeDisabled();
     expect(f.publish).not.toHaveBeenCalled();
   });
+  it("shows an unusable export name from the shared failure table", async () => {
+    const f = await open();
+    f.prepare.mockResolvedValue({ kind: "FAILED", code: "EXPORT_NAME_INVALID" });
+    check();
+    expect(await screen.findByText(qcFailureText.EXPORT_NAME_INVALID)).toBeInTheDocument();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
   it("shows the stale-material text from the shared failure table", async () => {
     const f = await open();
     f.prepare.mockResolvedValue({ kind: "FAILED", code: "MATERIALS_STALE" });

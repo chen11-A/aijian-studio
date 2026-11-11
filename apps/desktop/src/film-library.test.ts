@@ -16,6 +16,7 @@ import {
   readProject,
   renameSeries,
   requestStill,
+  resolveExportFileName,
   safeExportName,
   trustedMediaPath,
   writeProject,
@@ -199,6 +200,15 @@ describe("film library", () => {
     expect(safeExportName("巷口重逢:第1集?.mp4")).toBe("巷口重逢第1集.mp4");
     expect(safeExportName(`巷口${String.fromCharCode(0)}重逢.mp4`)).toBe("巷口重逢.mp4");
     expect(safeExportName("")).toBe("aivora-film.mp4");
+    expect(resolveExportFileName(undefined, "离线QC-第一集")).toBe("离线QC-第一集.mp4");
+    expect(resolveExportFileName("雨夜:重逢?.mp4", "unused")).toBe("雨夜重逢.mp4");
+    expect(resolveExportFileName(`雨${String.fromCharCode(0)}夜`, "unused")).toBe("雨夜.mp4");
+    expect(resolveExportFileName("con", "unused")).toBe("_con.mp4");
+    const long = "片".repeat(200);
+    expect(resolveExportFileName(long, "unused")).toBe(safeExportName(long));
+    expect(resolveExportFileName(long, "unused")).toHaveLength(80);
+    for (const illegal of ["", "   ", "???", ':*?"<>|', String.fromCharCode(0)])
+      expect(() => resolveExportFileName(illegal, "unused")).toThrow("EXPORT_NAME_INVALID");
   });
 
   it("copies an imported song into the series and only uses the bundled ffmpeg", async () => {
