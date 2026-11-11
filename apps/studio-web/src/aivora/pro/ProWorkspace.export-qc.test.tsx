@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveFilm, readSaved } from "../film/library";
 import { sampleFilm, type FilmProject } from "../film/project";
 import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/film-export-qc";
+import { qcFailureText } from "./actions/export-qc";
 import { ProWorkspace } from "./ProWorkspace";
 const report = {
   schemaVersion: 1,
@@ -212,6 +213,23 @@ describe("QC prepare/review/publish host", () => {
     await screen.findByRole("button", { name: "审核后发布" });
     expect(screen.getByRole("button", { name: "审核后发布" })).toBeDisabled();
     expect(f.publish).not.toHaveBeenCalled();
+  });
+  it("shows the stale-material text from the shared failure table", async () => {
+    const f = await open();
+    f.prepare.mockResolvedValue({ kind: "FAILED", code: "MATERIALS_STALE" });
+    check();
+    expect(await screen.findByText(qcFailureText.MATERIALS_STALE)).toBeInTheDocument();
+    expect(screen.queryByText(qcFailureText.INVALID_INPUT)).toBeNull();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
+  it("shows a publish failure from the same table", async () => {
+    const f = await open();
+    f.publish.mockResolvedValue({ kind: "FAILED", code: "AUDIO_DECISION_INVALID" });
+    check();
+    const publish = await screen.findByRole("button", { name: "审核后发布" });
+    await waitFor(() => expect(publish).toBeEnabled());
+    fireEvent.click(publish);
+    expect(await screen.findByText(qcFailureText.AUDIO_DECISION_INVALID)).toBeInTheDocument();
   });
 });
 

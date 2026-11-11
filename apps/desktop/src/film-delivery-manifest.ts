@@ -11,6 +11,7 @@ import type {
   FilmDeliveryQcSummary,
 } from "@aijian/contracts/film-delivery-evidence";
 import type { FilmExportQcSettings } from "@aijian/contracts/film-export-qc";
+import type { ExportAudioDecision } from "./film-export-record";
 import type { ExportWork } from "./film-export-operation";
 import { exportFileHash } from "./film-export-io";
 
@@ -34,6 +35,7 @@ type Input = {
   checked: CheckedDeliveryOutput[];
   selection: FilmDeliveryManifest["selection"];
   settings: FilmExportQcSettings;
+  audioDecision?: ExportAudioDecision;
   unverified: string[];
   complete: boolean;
   now: number;
@@ -170,6 +172,7 @@ export async function writeDeliveryManifest(
         aiMark: input.settings.aiMark,
         autoAdjustVolume: input.settings.autoAdjustVolume ?? false,
       },
+      ...(input.audioDecision ? { audioDecision: input.audioDecision } : {}),
       files,
       unverified: [
         ...new Set([

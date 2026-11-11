@@ -10,9 +10,17 @@ describe("main delivery evidence presentation", () => {
     if (view.kind !== "written") throw Error("missing view");
     expect(view.files[0]!.facts).toContainEqual({ label: "存储尺寸", value: "1920 × 1080" });
     expect(view.files[0]!.facts).toContainEqual({ label: "文件时长", value: "2.25 秒" });
+    expect(view.audioDecision).toBeNull();
+    expect(view.files[0]!.facts.some((fact) => fact.label.includes("容差"))).toBe(false);
     expect(view.settings).toContain("导出设置：720p");
     expect(JSON.stringify(view)).not.toMatch(/private-shot-id|private-take-id/);
     expect(raw).toEqual(before);
+    raw.manifest.audioDecision = "SILENT_BY_USER";
+    const chosen = deliveryEvidenceView(raw, "PUBLISHED");
+    if (chosen.kind !== "written") throw Error("missing view");
+    expect(chosen.audioDecision).toBe("SILENT_BY_USER");
+    (raw.manifest as { audioDecision?: string }).audioDecision = "QUIET";
+    expect(deliveryEvidenceView(raw, "PUBLISHED")).toEqual({ kind: "invalid" });
   });
   it("distinguishes unknown audio from an actual empty track inventory", () => {
     const raw = writtenDelivery();

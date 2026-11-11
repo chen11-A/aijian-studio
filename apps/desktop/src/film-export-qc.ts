@@ -10,6 +10,8 @@ import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
 import { normalizeMixedAudio, type AudioNormalizer } from "./film-audio-normalize";
 import { resolveAudioMix } from "./film-audio-mix-sources";
 import { renderAudioMix } from "./film-audio-mix";
+import { exportBlockedByStaleMaterial, readStoredAudioDecision } from "./film-export-record";
+import { muxSilentAac } from "./film-silent-export";
 import type { ExportWork } from "./film-export-operation";
 import { exportFileHash, copyExportFile } from "./film-export-io";
 import type {
@@ -59,6 +61,8 @@ const failure = (error: unknown): FilmExportQcFailure => {
       "QC_BLOCKED",
       "SOURCE_UNVERIFIED",
       "BUSY",
+      "MATERIALS_STALE",
+      "AUDIO_DECISION_INVALID",
     ].includes(code)
       ? (code as FilmExportQcFailure["code"])
       : "CHECK_FAILED",
@@ -170,6 +174,7 @@ type Snapshot = {
   fingerprint: string;
   coverStill?: string;
   coverData?: string;
+  audioDecision?: FilmDeliveryManifest["audioDecision"];
 };
 type Prepared = {
   input: FilmExportQcInput;
@@ -191,6 +196,7 @@ type Prepared = {
   fileName: string;
   selection: FilmDeliveryManifest["selection"];
   unverified: string[];
+  audioDecision?: FilmDeliveryManifest["audioDecision"];
 };
 /** Main's persisted project and selection are authoritative; renderer never supplies media paths. */
 export function createFilmExportQc(host: FilmQcHost) {
@@ -332,6 +338,12 @@ export function createFilmExportQc(host: FilmQcHost) {
       videoPath: clip.nativePath,
       visualPath: clip.path,
     }));
+    let audioDecision;
+    try {
+      audioDecision = readStoredAudioDecision(record);
+    } catch {
+      fail("AUDIO_DECISION_INVALID");
+    }
     const mix = await resolveAudioMix(record, selection, {
       filmsRoot: host.filmsRoot,
       storyFilmsRoot: host.storyFilmsRoot,
@@ -340,6 +352,7 @@ export function createFilmExportQc(host: FilmQcHost) {
       signal: work?.signal,
       audioOwner: host.audioOwner,
       videoOwner: host.storyOwner,
+      allowWideChannels: audioDecision === "SILENT_BY_USER",
     });
     const content = Object.fromEntries(
       Object.entries(record).filter(([key]) => !["savedAt", "directory"].includes(key)),
@@ -350,6 +363,7 @@ export function createFilmExportQc(host: FilmQcHost) {
       coverStill,
       coverData,
       mix,
+      audioDecision,
       fingerprint: JSON.stringify({
         content,
         hashes,
@@ -407,6 +421,8 @@ export function createFilmExportQc(host: FilmQcHost) {
           fail("CHECK_FAILED");
         work?.phase("preparing");
         const base = await snapshot(input, work);
+        const audioDecision = base.audioDecision;
+        if (exportBlockedByStaleMaterial(base.mix.plan.limitations)) fail("MATERIALS_STALE");
         const tools = await host.tools(work?.signal).catch(() => fail("TOOLS_UNAVAILABLE"));
         const engine = await host.engine();
         await current(input, base.fingerprint, owner, ownerGeneration, work);
@@ -497,18 +513,23 @@ export function createFilmExportQc(host: FilmQcHost) {
           return work ? work.track(task) : task;
         };
         const mixed = join(folder, "mixed.mp4");
-        await renderAudioMix(
-          assembled,
-          mixed,
-          base.mix.plan,
-          base.mix.paths,
-          mixTools,
-          mixRunner,
-          work?.signal,
-        );
+        if (audioDecision === "SILENT_BY_USER") {
+          await muxSilentAac(assembled, mixed, mixTools, mixRunner, work?.signal);
+        } else {
+          await renderAudioMix(
+            assembled,
+            mixed,
+            base.mix.plan,
+            base.mix.paths,
+            mixTools,
+            mixRunner,
+            work?.signal,
+          );
+        }
         assembled = mixed;
         let normalizer: AudioNormalizer | undefined;
-        let audioApplicable = base.mix.plan.tracks.length > 0;
+        let audioApplicable =
+          audioDecision === "SILENT_BY_USER" ? false : base.mix.plan.tracks.length > 0;
         if (input.settings.autoAdjustVolume && audioApplicable) {
           if (!host.normalizer) fail("TOOLS_UNAVAILABLE");
           normalizer = await host.normalizer();
@@ -636,11 +657,8 @@ export function createFilmExportQc(host: FilmQcHost) {
           `${text(base.record.seriesTitle) || text(base.record.title)}-${text(base.record.episodeTitle) || "成片"}`,
         );
         const unverified: string[] = [
-          ...(base.mix.plan.limitations.includes("SCENE_AUDIO_BINDING_STALE")
-            ? ["整场配声的选版、实际时钟或完整成员已变化，整组未混入；请重新核对并选用。"]
-            : []),
-          ...(base.mix.plan.limitations.includes("STALE_CLIP_IGNORED")
-            ? ["旧版本或缺少选版绑定的音轨未混入，请核对当前版本。"]
+          ...(audioDecision === "SILENT_BY_USER"
+            ? ["用户选择本片静音。成片写入一条与视频时长一致的静音 AAC 音轨，不表示内容有声。"]
             : []),
           ...(base.mix.plan.limitations.includes("NATIVE_DIALOGUE_UNKNOWN")
             ? ["部分原声尚未分类对白，配乐按整个有声片段保守避让；未做语音识别。"]
@@ -666,6 +684,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           fileName,
           selection: deliverySelection(base.record, base.clips, shots),
           unverified: [...unverified],
+          ...(audioDecision ? { audioDecision } : {}),
           blocked: reports.some(
             (item) =>
               Array.isArray(object(item.report)?.issues) &&
@@ -733,6 +752,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           selection: prepared.selection,
           settings: prepared.input.settings,
           unverified: prepared.unverified,
+          ...(prepared.audioDecision ? { audioDecision: prepared.audioDecision } : {}),
           complete,
           now: now(),
           work,

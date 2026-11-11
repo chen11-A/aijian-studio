@@ -1,6 +1,7 @@
+import type { ExportAudioDecision } from "@aijian/contracts/film-delivery-evidence";
 import { VOLUME_STOPS, type AudioClip } from "../film/audio";
 
-export type SoundExportDecision = "SILENT_BY_USER" | "WITH_AUDIO";
+export type SoundExportDecision = ExportAudioDecision;
 
 /** Lowest panel stop. A diagnostic only; it does not decide whether export is allowed. */
 export const LOWEST_GAIN_DB = VOLUME_STOPS[VOLUME_STOPS.length - 1]!.db;

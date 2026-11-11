@@ -52,4 +52,6 @@ export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
   PUBLISH_FAILED: "发布没有完成，请检查输出文件夹后重新检查。",
   OPERATION_STOPPED: "处理已停止，未发布的文件没有保存。",
   BUSY: "同一工程已有检查或发布正在进行，请等待。",
+  MATERIALS_STALE: "有旧版本或已失效的配声/整场配声，请在剪辑里停用或重新选用后再导出。",
+  AUDIO_DECISION_INVALID: "作品里的声音决定已损坏，请重新选择本片静音或有声导出。",
 };
