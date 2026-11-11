@@ -16,6 +16,7 @@ import {
   readProject,
   renameSeries,
   requestStill,
+  resolveExportFileName,
   safeExportName,
   trustedMediaPath,
   writeProject,
@@ -199,6 +200,25 @@ describe("film library", () => {
     expect(safeExportName("巷口重逢:第1集?.mp4")).toBe("巷口重逢第1集.mp4");
     expect(safeExportName(`巷口${String.fromCharCode(0)}重逢.mp4`)).toBe("巷口重逢.mp4");
     expect(safeExportName("")).toBe("aivora-film.mp4");
+    expect(resolveExportFileName(undefined, "离线QC-第一集")).toBe("离线QC-第一集.mp4");
+    expect(resolveExportFileName("雨夜:重逢?.mp4", "unused")).toBe("雨夜重逢.mp4");
+    expect(resolveExportFileName(`雨${String.fromCharCode(0)}夜`, "unused")).toBe("雨夜.mp4");
+    expect(resolveExportFileName("con", "unused")).toBe("_con.mp4");
+    const long = "片".repeat(200);
+    expect(resolveExportFileName(long, "unused")).toBe(safeExportName(long));
+    expect(
+      Buffer.byteLength(resolveExportFileName(long, "unused").replace(/\.mp4$/i, "")),
+    ).toBeLessThanOrEqual(200);
+    const kept = "片".repeat(50);
+    expect(resolveExportFileName(undefined, kept)).toBe(`${kept}.mp4`);
+    expect(Buffer.byteLength(kept)).toBeLessThanOrEqual(200);
+    expect(resolveExportFileName("🎬".repeat(40), "unused")).toBe(`${"🎬".repeat(40)}.mp4`);
+    expect(resolveExportFileName(`${"a".repeat(75)}🎬`, "unused")).toBe(`${"a".repeat(75)}🎬.mp4`);
+    expect(safeExportName("CONIN$")).toBe("_CONIN$.mp4");
+    expect(safeExportName("CONOUT$.txt")).toBe("_CONOUT$.txt.mp4");
+    expect(resolveExportFileName("目录/成片\\终稿.mp4", "unused")).toBe("目录成片终稿.mp4");
+    for (const illegal of ["", "   ", "???", ':*?"<>|', String.fromCharCode(0)])
+      expect(() => resolveExportFileName(illegal, "unused")).toThrow("EXPORT_NAME_INVALID");
   });
 
   it("copies an imported song into the series and only uses the bundled ffmpeg", async () => {

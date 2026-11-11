@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveFilm, readSaved } from "../film/library";
 import { sampleFilm, type FilmProject } from "../film/project";
 import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/film-export-qc";
-import { qcFailureText } from "./actions/export-qc";
+import { partialAspectNotice, qcFailureText } from "./actions/export-qc";
 import { ProWorkspace } from "./ProWorkspace";
 const report = {
   schemaVersion: 1,
@@ -214,6 +214,27 @@ describe("QC prepare/review/publish host", () => {
     expect(screen.getByRole("button", { name: "审核后发布" })).toBeDisabled();
     expect(f.publish).not.toHaveBeenCalled();
   });
+  it("shows an exhausted default export name from the shared failure table", async () => {
+    const f = await open();
+    f.prepare.mockResolvedValue({ kind: "FAILED", code: "EXPORT_NAME_EXHAUSTED" });
+    check();
+    expect(await screen.findByText(qcFailureText.EXPORT_NAME_EXHAUSTED)).toBeInTheDocument();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
+  it("shows a taken export name from the shared failure table", async () => {
+    const f = await open();
+    f.prepare.mockResolvedValue({ kind: "FAILED", code: "EXPORT_NAME_TAKEN" });
+    check();
+    expect(await screen.findByText(qcFailureText.EXPORT_NAME_TAKEN)).toBeInTheDocument();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
+  it("shows an unusable export name from the shared failure table", async () => {
+    const f = await open();
+    f.prepare.mockResolvedValue({ kind: "FAILED", code: "EXPORT_NAME_INVALID" });
+    check();
+    expect(await screen.findByText(qcFailureText.EXPORT_NAME_INVALID)).toBeInTheDocument();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
   it("shows the stale-material text from the shared failure table", async () => {
     const f = await open();
     f.prepare.mockResolvedValue({ kind: "FAILED", code: "MATERIALS_STALE" });
@@ -221,6 +242,33 @@ describe("QC prepare/review/publish host", () => {
     expect(await screen.findByText(qcFailureText.MATERIALS_STALE)).toBeInTheDocument();
     expect(screen.queryByText(qcFailureText.INVALID_INPUT)).toBeNull();
     expect(f.publish).not.toHaveBeenCalled();
+  });
+  it("shows which aspect was kept when the other aspect could not be written", async () => {
+    const notices: { text?: string; detail?: string }[] = [];
+    const collect = (event: Event) =>
+      notices.push((event as CustomEvent<{ text?: string; detail?: string }>).detail);
+    window.addEventListener("aivora-notice", collect);
+    try {
+      const f = await open();
+      const incomplete = { aspectRatio: "9:16" as const, code: "DISK_FULL" as const };
+      expect(partialAspectNotice(incomplete)).toBe("竖屏没有写完：磁盘空间不足；横屏已保存");
+      f.publish.mockResolvedValue({
+        kind: "PARTIAL",
+        incomplete,
+        outputs: [{ aspectRatio: "16:9", path: "kept.mp4" }],
+      });
+      check();
+      const publish = await screen.findByRole("button", { name: "审核后发布" });
+      await waitFor(() => expect(publish).toBeEnabled());
+      fireEvent.click(publish);
+      await waitFor(() =>
+        expect(
+          notices.some((notice) => notice.detail?.includes(partialAspectNotice(incomplete))),
+        ).toBe(true),
+      );
+    } finally {
+      window.removeEventListener("aivora-notice", collect);
+    }
   });
   it("shows a publish failure from the same table", async () => {
     const f = await open();

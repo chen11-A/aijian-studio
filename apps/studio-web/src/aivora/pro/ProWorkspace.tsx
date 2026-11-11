@@ -61,7 +61,7 @@ import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/
 import { ExportCheck } from "../next/ExportCheck";
 import { useExportDelivery } from "./use-export-delivery";
 import { readQcReport, type QcIssue } from "../next/qcReport";
-import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
+import { filmQcInput, filmQcKey, partialAspectNotice, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
 import {
   prepareArtFieldReview,
@@ -5063,11 +5063,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text: result.kind === "PARTIAL" ? NOTICE_TEXT.EXPORT_FAILED : NOTICE_TEXT.EXPORT_DONE,
         detail:
           result.kind === "PARTIAL"
-            ? result.deliveryEvidence?.cleanupUnconfirmed
-              ? result.deliveryEvidence.kind === "WRITTEN"
-                ? "交付清单已写入，暂存清理尚未确认。"
-                : "已有文件保留，交付清单与暂存清理尚未确认。"
-              : "部分交付尚未完成，已确认写出的文件保留，请核对下方记录。"
+            ? result.incomplete
+              ? partialAspectNotice(result.incomplete)
+              : result.deliveryEvidence?.cleanupUnconfirmed
+                ? result.deliveryEvidence.kind === "WRITTEN"
+                  ? "交付清单已写入，暂存清理尚未确认。"
+                  : "已有文件保留，交付清单与暂存清理尚未确认。"
+                : "部分交付尚未完成，已确认写出的文件保留，请核对下方记录。"
             : !recorded
               ? "文件已发布，工程中的导出记录尚未保存。"
               : undefined,

@@ -1,5 +1,6 @@
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
 import type {
+  FilmExportIncomplete,
   FilmExportQcInput,
   FilmExportQcSettings,
   FilmExportQcFailure,
@@ -54,4 +55,19 @@ export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
   BUSY: "同一工程已有检查或发布正在进行，请等待。",
   MATERIALS_STALE: "有旧版本或已失效的配声/整场配声，请在剪辑里停用或重新选用后再导出。",
   AUDIO_DECISION_INVALID: "作品里的声音决定已损坏，请重新选择本片静音或有声导出。",
+  UNSUPPORTED_AUDIO_CHANNELS:
+    "有声导出只接受单声道或立体声源。超过两声道时请改建立体声，或选择本片静音。",
+  EXPORT_NAME_INVALID: "导出文件名是空的，或只含不能写入文件名的字符。请改一个名字。",
+  EXPORT_NAME_TAKEN: "已有同名文件，请换个名字或换文件夹。",
+  EXPORT_NAME_EXHAUSTED: "默认导出名的序号已经用完，请换个名字或换文件夹。",
 };
+const incompleteReason: Record<FilmExportIncomplete["code"], string> = {
+  DISK_FULL: "磁盘空间不足",
+  PUBLISH_FAILED: "写入失败",
+};
+/** Shared wording for a kept aspect after the other aspect failed to write. */
+export function partialAspectNotice(incomplete: FilmExportIncomplete): string {
+  const failed = incomplete.aspectRatio === "9:16" ? "竖屏" : "横屏";
+  const kept = incomplete.aspectRatio === "9:16" ? "横屏" : "竖屏";
+  return `${failed}没有写完：${incompleteReason[incomplete.code]}；${kept}已保存`;
+}
