@@ -450,19 +450,10 @@ describe("checked publication ownership and lifecycle", () => {
       );
       await writeFile(path, "original user bytes");
       const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
-      expect(result.kind).toBe(kind === "mp4" ? "FAILED" : "PARTIAL");
-      if (kind === "mp4") expect(result).toMatchObject({ code: "EXPORT_NAME_TAKEN" });
+      expect(result).toEqual({ kind: "FAILED", code: "EXPORT_NAME_TAKEN" });
       expect(await readFile(path, "utf8")).toBe("original user bytes");
-      if (result.kind === "PARTIAL") {
-        expect(result.outputs[0]).not.toHaveProperty(kind === "srt" ? "subtitlePath" : "coverPath");
-        expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
-        if (result.deliveryEvidence?.kind !== "WRITTEN")
-          throw new Error("partial evidence required");
-        expect(result.deliveryEvidence.manifest.status).toBe("partial");
-        expect(result.deliveryEvidence.manifest.files.map((file) => file.fileName)).not.toContain(
-          basename(path),
-        );
-      }
+      if (kind !== "mp4")
+        expect((await readdir(f.output)).filter((name) => name.endsWith(".mp4"))).toEqual([]);
     },
     30000,
   );
@@ -823,4 +814,70 @@ it("echoes the cleaned requested file name on the check and the published path",
   if (fallback.kind !== "READY") throw new Error("fallback required");
   expect(fallback.fileName).toBe("离线QC-第一集.mp4");
   expect(() => qcInput({ ...input, requestedFileName: 1 })).toThrow("INVALID_INPUT");
+}, 30000);
+
+it("keeps the receipt when the default name is already in the folder", async () => {
+  const f = await fixture();
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const first = await f.qc.prepare("owner", request);
+  if (first.kind !== "READY") throw new Error("first check required");
+  const published = await f.qc.publish("owner", { ...request, qcReceipt: first.qcReceipt });
+  if (published.kind !== "PUBLISHED") throw new Error("first publish required");
+  const path = published.outputs[0]!.path;
+  const bytes = await readFile(path);
+  const second = await f.qc.prepare("owner", request);
+  if (second.kind !== "READY") throw new Error("second check required");
+  expect(await f.qc.publish("owner", { ...request, qcReceipt: second.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "EXPORT_NAME_TAKEN",
+  });
+  expect(await readFile(path)).toEqual(bytes);
+  const elsewhere = join(f.root, "elsewhere");
+  await mkdir(elsewhere);
+  f.picker.mockResolvedValue(elsewhere);
+  const moved = await f.qc.publish("owner", { ...request, qcReceipt: second.qcReceipt });
+  expect(moved.kind).toBe("PUBLISHED");
+  if (moved.kind !== "PUBLISHED") throw new Error("republish required");
+  expect(basename(moved.outputs[0]!.path)).toBe(second.fileName);
+}, 30000);
+
+it("rejects a dual-aspect publish when only the second aspect's name is taken", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const stem = ready.fileName.replace(/\.mp4$/i, "");
+  await writeFile(join(f.output, `${stem}-9x16.mp4`), "already there");
+  expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "EXPORT_NAME_TAKEN",
+  });
+  expect(await readdir(f.output)).toEqual([`${stem}-9x16.mp4`]);
+  const elsewhere = join(f.root, "elsewhere");
+  await mkdir(elsewhere);
+  f.picker.mockResolvedValue(elsewhere);
+  const moved = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(moved.kind).toBe("PUBLISHED");
+  if (moved.kind !== "PUBLISHED") throw new Error("republish required");
+  expect(moved.outputs.map((output) => basename(output.path)).sort()).toEqual([
+    `${stem}-16x9.mp4`,
+    `${stem}-9x16.mp4`,
+  ]);
+}, 30000);
+
+it("treats a different-cased existing name as the same file", async () => {
+  const f = await fixture();
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  await writeFile(join(f.output, ready.fileName.toLowerCase()), "lower case original");
+  expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "EXPORT_NAME_TAKEN",
+  });
+  expect(await readFile(join(f.output, ready.fileName.toLowerCase()), "utf8")).toBe(
+    "lower case original",
+  );
+  expect((await readdir(f.output)).filter((name) => name !== ready.fileName.toLowerCase())).toEqual(
+    [],
+  );
 }, 30000);

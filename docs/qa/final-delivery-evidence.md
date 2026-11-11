@@ -2,6 +2,14 @@
 
 本片把 main 私有 Prepared 的真实检查事实接到实际发布文件，不增加检测器、生成服务或收费调用。合同首检查点为 `79295696738f9081b58d8ec4b63a58fe865cf34e`；最终原生提交另含 NodeNext `.js` 类型引用修正和可选 `cleanupUnconfirmed: true`。
 
+## 导出文件名（2026-11-11）
+
+- 检查和发布可以带可选 `requestedFileName`。不传时仍是系列名-集名，再经 `safeExportName`。传入时只使用清洗后的名字，检查结果 `fileName` 和发布路径都回显这个实际名，不回显未清洗的输入。
+- `/` 和 `\` 按非法字符删除，不当成路径再取最后一段。空名或洗完没有词干是 `EXPORT_NAME_INVALID`。目标目录里已有同名视频、字幕或封面（大小写不区分）是 `EXPORT_NAME_TAKEN`，不覆盖。有声源超过两声道是 `UNSUPPORTED_AUDIO_CHANNELS`。
+- 单画幅落盘名就是清洗后的 `fileName`。双画幅是 `清洗名-16x9` 和 `清洗名-9x16`，不再把收据号拼进文件名。`film-export-qc.test.ts` 里原先按收据号拼出的预存路径因此改成清洗名本身。
+- 撞名在作废收据和删除渲染目录之前一次查完所有画幅。撞名时渲染结果和收据都还在，可以换文件夹再发。不会先写出一个画幅再返回丢掉错误码的 PARTIAL。`link` 遇到 `EEXIST` 同样返回 `EXPORT_NAME_TAKEN`。
+- 默认名撞名是报错还是自动加序号还没由用户决定。当前开关是报错，两种答案只改 `defaultNameCollision` 这一处。
+
 ## 导出声音决定与过期素材（2026-11-11）
 
 - 清单可选 `audioDecision`，取值只有 `SILENT_BY_USER` 与 `WITH_AUDIO`，与 `sound-export-decision.ts` 相同。缺字段是旧记录，读取为未记录，不从 AAC 轨反推有声。损坏值使导出失败，代码 `AUDIO_DECISION_INVALID`，文案不是「检查请求不完整」。

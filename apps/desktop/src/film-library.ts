@@ -12,7 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, dirname, extname, join, resolve, sep } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
 
 export const IMAGE_MODEL = "grok-imagine-image-2.0";
 const IMAGE_URL = "https://api.x.ai/v1/images/generations";
@@ -869,8 +869,9 @@ export async function requestStill(options: {
 }
 
 const exportIllegal = new Set(["\\", "/", ":", "*", "?", '"', "<", ">", "|"]);
+const reservedExportName = /^(?:con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i;
 
-/** Drop characters a file name cannot keep. Control codes are rejected by code point, not a regex. */
+/** Drop characters a file name cannot keep. Slashes are characters, not path separators. */
 export function stripUnsafeFileChars(name: string): string {
   return Array.from(name)
     .filter((character) => {
@@ -880,29 +881,35 @@ export function stripUnsafeFileChars(name: string): string {
     .join("");
 }
 
-export function safeExportName(name: string): string {
-  const cleaned = stripUnsafeFileChars(basename(name))
-    .replace(/\s+/g, "")
-    .replace(/\.+$/, "")
-    .slice(0, 80);
-  let stem = cleaned
-    .replace(/\.mp4$/i, "")
-    .replace(/\.+$/, "")
-    .slice(0, 76);
-  if (!stem) return "aivora-film.mp4";
-  if (/^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(stem)) stem = `_${stem}`;
-  return `${stem}.mp4`;
+/** Keep whole code points. A surrogate pair or emoji is dropped whole, never split. */
+function sliceUtf8(value: string, maxBytes: number): string {
+  let used = 0;
+  let out = "";
+  for (const character of value) {
+    const bytes = Buffer.byteLength(character);
+    if (used + bytes > maxBytes) break;
+    out += character;
+    used += bytes;
+  }
+  return out;
 }
 
-/** Usable stem before the empty-name fallback. Mirrors `safeExportName` without inventing a name. */
+/** Usable stem before the empty-name fallback. `/` and `\\` are deleted, not used to take a last segment. */
 export function exportNameStem(name: string): string {
-  return stripUnsafeFileChars(basename(name))
-    .replace(/\s+/g, "")
-    .replace(/\.+$/, "")
-    .slice(0, 80)
-    .replace(/\.mp4$/i, "")
-    .replace(/\.+$/, "")
-    .slice(0, 76);
+  const cleaned = stripUnsafeFileChars(name).replace(/\s+/g, "").replace(/\.+$/, "");
+  return sliceUtf8(
+    sliceUtf8(cleaned, 80)
+      .replace(/\.mp4$/i, "")
+      .replace(/\.+$/, ""),
+    76,
+  );
+}
+
+export function safeExportName(name: string): string {
+  let stem = exportNameStem(name);
+  if (!stem) return "aivora-film.mp4";
+  if (reservedExportName.test(stem)) stem = `_${stem}`;
+  return `${stem}.mp4`;
 }
 
 /**

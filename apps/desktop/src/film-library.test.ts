@@ -206,7 +206,14 @@ describe("film library", () => {
     expect(resolveExportFileName("con", "unused")).toBe("_con.mp4");
     const long = "片".repeat(200);
     expect(resolveExportFileName(long, "unused")).toBe(safeExportName(long));
-    expect(resolveExportFileName(long, "unused")).toHaveLength(80);
+    expect(
+      Buffer.byteLength(resolveExportFileName(long, "unused").replace(/\.mp4$/i, "")),
+    ).toBeLessThanOrEqual(76);
+    expect(resolveExportFileName("🎬".repeat(40), "unused")).toBe(`${"🎬".repeat(19)}.mp4`);
+    expect(resolveExportFileName(`${"a".repeat(75)}🎬`, "unused")).toBe(`${"a".repeat(75)}.mp4`);
+    expect(safeExportName("CONIN$")).toBe("_CONIN$.mp4");
+    expect(safeExportName("CONOUT$.txt")).toBe("_CONOUT$.txt.mp4");
+    expect(resolveExportFileName("目录/成片\\终稿.mp4", "unused")).toBe("目录成片终稿.mp4");
     for (const illegal of ["", "   ", "???", ':*?"<>|', String.fromCharCode(0)])
       expect(() => resolveExportFileName(illegal, "unused")).toThrow("EXPORT_NAME_INVALID");
   });

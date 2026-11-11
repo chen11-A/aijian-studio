@@ -22,7 +22,7 @@ import type {
 } from "@aijian/contracts/film-export-qc";
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, link, rm, stat, lstat } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, link, rm, stat, readdir } from "node:fs/promises";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -38,6 +38,60 @@ import { exportFilmFile, type FilmExportExtras } from "./film-export";
 import { subtitleSrt, exportCanvas, validCues, type ExportCue } from "./film-subtitles";
 import type { QcEngine, QcTools, QcRunner } from "./film-export-qc-runtime";
 const execute = promisify(execFile);
+
+/**
+ * Taken default (series-episode) names. The user has not chosen.
+ * "error" rejects the publish. "suffix" would number the file and is not implemented.
+ * Edited names always use "error". Both answers switch only here.
+ */
+const defaultNameCollision = "error" as "error" | "suffix";
+
+function exportStem(fileName: string, aspectRatio: string, multiple: boolean): string {
+  return `${fileName.replace(/\.mp4$/i, "")}${multiple ? `-${aspectRatio.replace(":", "x")}` : ""}`;
+}
+
+function plannedExportNames(
+  fileName: string,
+  outputs: { aspectRatio: "16:9" | "9:16"; extras: FilmExportExtras }[],
+): string[] {
+  const multiple = outputs.length > 1;
+  const names: string[] = [];
+  for (const output of outputs) {
+    const stem = exportStem(fileName, output.aspectRatio, multiple);
+    names.push(`${stem}.mp4`);
+    if (output.extras.subtitlePath) names.push(`${stem}.srt`);
+    if (output.extras.coverPath) names.push(`${stem}-封面.png`);
+  }
+  return names;
+}
+
+/** Case-insensitive, so Windows does not treat `Film.mp4` and `film.mp4` as different files. */
+async function conflictingExportNames(directory: string, names: string[]): Promise<string[]> {
+  const present = new Set((await readdir(directory)).map((name) => name.toLowerCase()));
+  return names.filter((name) => present.has(name.toLowerCase()));
+}
+
+function rejectTakenExportNames(conflicts: string[], mode: "error" | "suffix"): void {
+  if (!conflicts.length) return;
+  if (mode === "suffix") throw new Error("EXPORT_NAME_SUFFIX_UNSET");
+  fail("EXPORT_NAME_TAKEN");
+}
+
+function exportNameTaken(error: unknown): boolean {
+  return (
+    (error instanceof Error && error.message === "EXPORT_NAME_TAKEN") ||
+    (error as NodeJS.ErrnoException).code === "EEXIST"
+  );
+}
+
+async function linkNewFile(from: string, to: string): Promise<void> {
+  try {
+    await link(from, to);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") fail("EXPORT_NAME_TAKEN");
+    throw error;
+  }
+}
 type Row = Record<string, unknown>;
 const object = (value: unknown): Row | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Row) : null;
@@ -797,13 +851,18 @@ export function createFilmExportQc(host: FilmQcHost) {
         if (!directory) return { kind: "CANCELLED" };
         await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
         if (receipts.get(token) !== prepared) fail("RECEIPT_STALE");
-        receipts.delete(token);
-        consumed = true;
-        cleanupFolder = prepared.folder;
         const target = await realpath(directory);
         evidenceDirectory = target;
         if (!(await stat(target)).isDirectory()) fail("PUBLISH_FAILED");
-        // Receipt identity makes each output name unique; existing originals are never overwritten.
+        // Every aspect's video, subtitles and cover are judged together, before the receipt is spent.
+        const names = plannedExportNames(prepared.fileName, prepared.outputs);
+        rejectTakenExportNames(
+          await conflictingExportNames(target, names),
+          prepared.input.requestedFileName === undefined ? defaultNameCollision : "error",
+        );
+        receipts.delete(token);
+        consumed = true;
+        cleanupFolder = prepared.folder;
         for (const output of prepared.outputs) {
           if ((await sha(output.path, work)) !== output.hash) fail("RECEIPT_STALE");
           for (const [path, hash] of Object.entries(output.extraHashes))
@@ -815,15 +874,12 @@ export function createFilmExportQc(host: FilmQcHost) {
             unit: "画幅",
           });
           await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
-          const stem = `${prepared.fileName.replace(/\.mp4$/i, "")}${
-            prepared.outputs.length > 1 ? `-${output.aspectRatio.replace(":", "x")}` : ""
-          }`;
+          const stem = exportStem(
+            prepared.fileName,
+            output.aspectRatio,
+            prepared.outputs.length > 1,
+          );
           const destination = join(target, `${stem}.mp4`);
-          const occupied = await lstat(destination).catch((error: NodeJS.ErrnoException) => {
-            if (error.code === "ENOENT") return null;
-            throw error;
-          });
-          if (occupied) fail("EXPORT_NAME_TAKEN");
           const temporary = await mkdtemp(join(target, ".aivora-qc-"));
           try {
             const pending = join(temporary, "film.mp4");
@@ -848,7 +904,7 @@ export function createFilmExportQc(host: FilmQcHost) {
             await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
             work?.signal.throwIfAborted();
             work?.cancellable(false);
-            await link(pending, destination);
+            await linkNewFile(pending, destination);
             host.publishedPaths?.add(realpathSync(destination));
             const saved: {
               aspectRatio: "16:9" | "9:16";
@@ -859,7 +915,7 @@ export function createFilmExportQc(host: FilmQcHost) {
             outputs.push(saved);
             work?.published(output.aspectRatio);
             for (const side of sidecars) {
-              await link(side.pending, side.destination);
+              await linkNewFile(side.pending, side.destination);
               saved[side.kind] = side.destination;
             }
             work?.phase("publishing", {
@@ -882,6 +938,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           deliveryEvidence: delivered,
         };
       } catch (error) {
+        if (exportNameTaken(error)) return { kind: "FAILED", code: "EXPORT_NAME_TAKEN" };
         const failed = work?.signal.aborted
           ? { kind: "FAILED" as const, code: "OPERATION_STOPPED" as const }
           : failure(error);
