@@ -17,6 +17,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createFilmExportQc, qcInput } from "./film-export-qc";
+import { createExportOperations } from "./film-export-operation";
 import { readStoredAudioDecision } from "./film-export-record";
 import { loadQcEngine, verifiedQcTools } from "./film-export-qc-runtime";
 import type { FilmExportQcInput } from "@aijian/contracts/film-export-qc";
@@ -24,7 +25,7 @@ import type { FilmRecord } from "./film-library";
 const evidenceFault = vi.hoisted(() => ({
   mode: "none" as "none" | "collision" | "changed" | "cleanup",
 }));
-const linkFault = vi.hoisted(() => ({ eexist: 0 }));
+const linkFault = vi.hoisted(() => ({ eexist: 0, eaccesIncludes: "" }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown> & { rm: typeof rm }>();
   const linkFile = actual.link as (from: string, to: string) => Promise<void>;
@@ -40,6 +41,8 @@ vi.mock("node:fs/promises", async (importOriginal) => {
         linkFault.eexist -= 1;
         throw Object.assign(new Error("EEXIST"), { code: "EEXIST" });
       }
+      if (linkFault.eaccesIncludes && String(to).includes(linkFault.eaccesIncludes))
+        throw Object.assign(new Error("EACCES"), { code: "EACCES" });
       return linkFile(from, to);
     },
   };
@@ -138,11 +141,13 @@ async function fixture(loud = false) {
     ],
   };
   const picker = vi.fn(async () => output),
-    tools = vi.fn(() => verifiedQcTools(dirname(ffmpeg), lock));
+    tools = vi.fn(() => verifiedQcTools(dirname(ffmpeg), lock)),
+    publishedPaths = new Set<string>();
   const host = {
     filmsRoot: films,
     storyFilmsRoot: story,
     temporaryRoot: join(root, "staging"),
+    publishedPaths,
     read: async () => record,
     tools,
     engine: () => loadQcEngine(resolve("../../packages/aivora-qc")),
@@ -158,6 +163,7 @@ async function fixture(loud = false) {
     tools,
     qc,
     host,
+    publishedPaths,
     record: () => record,
     setRecord: (next: FilmRecord) => {
       record = next;
@@ -167,6 +173,7 @@ async function fixture(loud = false) {
 afterEach(async () => {
   evidenceFault.mode = "none";
   linkFault.eexist = 0;
+  linkFault.eaccesIncludes = "";
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 describe("trusted checked export", () => {
@@ -983,4 +990,44 @@ it("stops with a clear error when every default-name number races", async () => 
   linkFault.eexist = 0;
   const published = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
   expect(published.kind).toBe("PUBLISHED");
+}, 30000);
+
+it("rolls the whole set back when the second aspect link fails", async () => {
+  const f = await fixture();
+  const events: { published: { aspectRatio: string }[] }[] = [];
+  const operations = createExportOperations((_owner, event) => {
+    events.push(event);
+  });
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eaccesIncludes = "9x16";
+  const operation = operations.begin("owner", input.projectId, "second-link")!;
+  expect(
+    await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt }, operation.work),
+  ).toEqual({ kind: "FAILED", code: "PUBLISH_FAILED" });
+  await operation.finish("failed");
+  expect(await readdir(f.output)).toEqual([]);
+  expect(f.publishedPaths.size).toBe(0);
+  expect(events.at(-1)?.published).toEqual([]);
+}, 30000);
+
+it("does not leave a published progress record when every default-name number races", async () => {
+  const f = await fixture();
+  const events: { published: { aspectRatio: string }[] }[] = [];
+  const operations = createExportOperations((_owner, event) => {
+    events.push(event);
+  });
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 200;
+  const operation = operations.begin("owner", input.projectId, "race-exhausted")!;
+  expect(
+    await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt }, operation.work),
+  ).toEqual({ kind: "FAILED", code: "EXPORT_NAME_EXHAUSTED" });
+  await operation.finish("failed");
+  expect(await readdir(f.output)).toEqual([]);
+  expect(f.publishedPaths.size).toBe(0);
+  expect(events.every((event) => event.published.length === 0)).toBe(true);
+  expect(events.at(-1)?.published).toEqual([]);
 }, 30000);

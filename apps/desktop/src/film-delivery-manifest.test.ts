@@ -199,6 +199,7 @@ it("does not commit a manifest after input changes or accepted cancellation", as
     phase: vi.fn(),
     cancellable: vi.fn(),
     published: vi.fn(),
+    retract: vi.fn(),
     track: <T>(task: Promise<T>) => task,
   };
   const result = await writeDeliveryManifest(
@@ -242,6 +243,7 @@ it("preserves the written file fact but never confirms cleanup after a real owne
     phase: vi.fn(),
     cancellable: vi.fn(),
     published: vi.fn(),
+    retract: vi.fn(),
     track: <T>(task: Promise<T>) => task,
     cleanupUnconfirmed,
   };

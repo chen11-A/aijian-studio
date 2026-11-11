@@ -895,38 +895,17 @@ export function createFilmExportQc(host: FilmQcHost) {
           prepared.input.requestedFileName === undefined ? defaultNameCollision : "error";
         let index = 1;
         const temporaries: string[] = [];
-        const staged: {
-          aspectRatio: "16:9" | "9:16";
-          pending: string;
-          sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[];
-        }[] = [];
-        // Copy once. A default-name link race only retries the link, up to the suffix limit.
-        try {
-          for (const output of prepared.outputs) {
-            await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
-            const temporary = await mkdtemp(join(target, ".aivora-qc-"));
-            temporaries.push(temporary);
-            const pending = join(temporary, "film.mp4");
-            await copy(output.path, pending, work);
-            if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
-            const sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[] = [];
-            for (const [kind, path] of Object.entries(output.extras)) {
-              if (!path) continue;
-              const sidePending = join(
-                temporary,
-                kind === "subtitlePath" ? "film.srt" : "cover.png",
-              );
-              await copy(path, sidePending, work);
-              if ((await sha(sidePending, work)) !== output.extraHashes[path])
-                fail("PUBLISH_FAILED");
-              sidecars.push({
-                kind: kind as "subtitlePath" | "coverPath",
-                pending: sidePending,
-              });
-            }
-            staged.push({ aspectRatio: output.aspectRatio, pending, sidecars });
+        const staged = new Map<
+          "16:9" | "9:16",
+          {
+            pending: string;
+            sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[];
           }
-          const told = new Set<"16:9" | "9:16">();
+        >();
+        const told = new Set<"16:9" | "9:16">();
+        // Copy an aspect the first time it is reached, while cancel stays available.
+        // A later default-name race reuses that copy and only retries the link.
+        try {
           while (outputs.length < prepared.outputs.length) {
             const present = await directoryNames(target);
             const { plan, index: chosen } = nextFreeExportPlan(
@@ -939,15 +918,45 @@ export function createFilmExportQc(host: FilmQcHost) {
             index = chosen;
             const linked: string[] = [];
             const announced: string[] = [];
+            const notified: ("16:9" | "9:16")[] = [];
             try {
               for (const item of plan) {
-                const stage = staged.find((row) => row.aspectRatio === item.aspectRatio)!;
+                const output = prepared.outputs.find(
+                  (row) => row.aspectRatio === item.aspectRatio,
+                )!;
                 work?.phase("publishing", {
                   kind: "units",
                   completed: outputs.length,
                   total: prepared.outputs.length,
                   unit: "画幅",
                 });
+                let stage = staged.get(item.aspectRatio);
+                if (!stage) {
+                  await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+                  const temporary = await mkdtemp(join(target, ".aivora-qc-"));
+                  temporaries.push(temporary);
+                  const pending = join(temporary, "film.mp4");
+                  await copy(output.path, pending, work);
+                  if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
+                  const sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[] = [];
+                  for (const [kind, path] of Object.entries(output.extras)) {
+                    if (!path) continue;
+                    const sidePending = join(
+                      temporary,
+                      kind === "subtitlePath" ? "film.srt" : "cover.png",
+                    );
+                    await copy(path, sidePending, work);
+                    if ((await sha(sidePending, work)) !== output.extraHashes[path])
+                      fail("PUBLISH_FAILED");
+                    sidecars.push({
+                      kind: kind as "subtitlePath" | "coverPath",
+                      pending: sidePending,
+                    });
+                  }
+                  stage = { pending, sidecars };
+                  staged.set(item.aspectRatio, stage);
+                  await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+                }
                 work?.signal.throwIfAborted();
                 work?.cancellable(false);
                 const destination = join(target, `${item.stem}.mp4`);
@@ -974,6 +983,7 @@ export function createFilmExportQc(host: FilmQcHost) {
                 announced.push(canonical);
                 if (!told.has(saved.aspectRatio)) {
                   told.add(saved.aspectRatio);
+                  notified.push(saved.aspectRatio);
                   work?.published(saved.aspectRatio);
                 }
                 work?.phase("publishing", {
@@ -987,6 +997,10 @@ export function createFilmExportQc(host: FilmQcHost) {
             } catch (error) {
               // A user stop keeps the aspects already linked. A write failure rolls the set back.
               if (work?.signal.aborted) throw error;
+              for (const aspect of notified) {
+                told.delete(aspect);
+                work?.retract(aspect);
+              }
               for (const path of announced) host.publishedPaths?.delete(path);
               try {
                 for (const path of linked) await rm(path, { force: true });

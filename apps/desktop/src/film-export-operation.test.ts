@@ -123,6 +123,16 @@ describe("real export operation lifetime", () => {
   });
 });
 
+it("retracts an announced aspect from the published progress list", () => {
+  const events: FilmExportProgressEvent[] = [];
+  const manager = createExportOperations((_owner, event) => events.push(structuredClone(event)));
+  const op = manager.begin("owner", "project", "retract-aspect")!;
+  op.work.published("16:9");
+  expect(events.at(-1)?.published).toEqual([{ aspectRatio: "16:9", label: "横屏成片" }]);
+  op.work.retract("16:9");
+  expect(events.at(-1)?.published).toEqual([]);
+});
+
 it("does not confirm stopped when private cleanup could not be established", async () => {
   const events: FilmExportProgressEvent[] = [];
   const manager = createExportOperations((_owner, event) => events.push(event));
