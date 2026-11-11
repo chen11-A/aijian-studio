@@ -115,7 +115,9 @@ function exportNameTaken(error: unknown): boolean {
   );
 }
 function incompleteCode(error: unknown): FilmExportIncompleteCode {
-  return (error as NodeJS.ErrnoException).code === "ENOSPC" ? "DISK_FULL" : "PUBLISH_FAILED";
+  if ((error as NodeJS.ErrnoException).code === "ENOSPC") return "DISK_FULL";
+  if (error instanceof Error && error.message === "PROJECT_CHANGED") return "PROJECT_CHANGED";
+  return "PUBLISH_FAILED";
 }
 function keptAspect(aspectRatio: "16:9" | "9:16", code: FilmExportIncompleteCode): never {
   throw Object.assign(new Error("KEPT_ASPECT"), { aspectRatio, incompleteCode: code });
@@ -133,6 +135,21 @@ type Row = Record<string, unknown>;
 const object = (value: unknown): Row | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Row) : null;
 const text = (value: unknown) => (typeof value === "string" ? value : "");
+/** The take the export will use: the saved choice, or the only finished take that has video. */
+function chosenTakeId(shot: Row): string {
+  return (
+    text(shot.selectedTakeId) ||
+    (Array.isArray(shot.takes)
+      ? text(
+          shot.takes.map(object).find((take) => take?.status === "done" && text(take.videoPath))
+            ?.id,
+        )
+      : "")
+  );
+}
+function sameShotSelection(shot: Row, expected: { shotId: string; takeId: string }): boolean {
+  return shot.id === expected.shotId && chosenTakeId(shot) === expected.takeId;
+}
 function fail(code: FilmExportQcFailure["code"]): never {
   throw new Error(code);
 }
@@ -340,20 +357,7 @@ export function createFilmExportQc(host: FilmQcHost) {
     for (const [index, unknownShot] of record.shots.entries()) {
       const shot = object(unknownShot),
         expected = input.expectedSelection[index];
-      if (
-        !shot ||
-        !expected ||
-        shot.id !== expected.shotId ||
-        (text(shot.selectedTakeId) ||
-          (Array.isArray(shot.takes)
-            ? text(
-                shot.takes
-                  .map(object)
-                  .find((take) => take?.status === "done" && text(take.videoPath))?.id,
-              )
-            : "")) !== expected.takeId
-      )
-        fail("PROJECT_CHANGED");
+      if (!shot || !expected || !sameShotSelection(shot, expected)) fail("PROJECT_CHANGED");
       const take = Array.isArray(shot.takes)
         ? shot.takes.map(object).find((t) => t?.id === expected.takeId)
         : null;
@@ -505,20 +509,7 @@ export function createFilmExportQc(host: FilmQcHost) {
     for (const [index, unknownShot] of record.shots.entries()) {
       const shot = object(unknownShot),
         expected = input.expectedSelection[index];
-      if (
-        !shot ||
-        !expected ||
-        shot.id !== expected.shotId ||
-        (text(shot.selectedTakeId) ||
-          (Array.isArray(shot.takes)
-            ? text(
-                shot.takes
-                  .map(object)
-                  .find((take) => take?.status === "done" && text(take.videoPath))?.id,
-              )
-            : "")) !== expected.takeId
-      )
-        fail("PROJECT_CHANGED");
+      if (!shot || !expected || !sameShotSelection(shot, expected)) fail("PROJECT_CHANGED");
     }
   }
   async function current(
@@ -1028,12 +1019,12 @@ export function createFilmExportQc(host: FilmQcHost) {
                   linked.push(sideDestination);
                   saved[side.kind] = sideDestination;
                 }
+                for (const path of [saved.path, saved.subtitlePath, saved.coverPath])
+                  if (path) kept.add(path);
                 outputs.push(saved);
                 const canonical = realpathSync(saved.path);
                 host.publishedPaths?.add(canonical);
                 announced.push(canonical);
-                for (const path of [saved.path, saved.subtitlePath, saved.coverPath])
-                  if (path) kept.add(path);
                 if (!told.has(saved.aspectRatio)) {
                   told.add(saved.aspectRatio);
                   notified.push(saved.aspectRatio);
