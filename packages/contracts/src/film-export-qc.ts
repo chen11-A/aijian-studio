@@ -53,7 +53,7 @@ export type FilmExportQcPrepared = {
 };
 export type FilmExportQcPublishInput = FilmExportQcInput & { qcReceipt: string };
 /** Why one aspect of a two-aspect publish was kept and the other was not. */
-export type FilmExportIncompleteCode = "DISK_FULL" | "PUBLISH_FAILED";
+export type FilmExportIncompleteCode = "DISK_FULL" | "PUBLISH_FAILED" | "PROJECT_CHANGED";
 export type FilmExportIncomplete = {
   aspectRatio: "16:9" | "9:16";
   code: FilmExportIncompleteCode;
