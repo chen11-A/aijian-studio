@@ -12,7 +12,7 @@ import {
   symlink,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, delimiter, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { existsSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -25,7 +25,8 @@ import type { FilmRecord } from "./film-library";
 const evidenceFault = vi.hoisted(() => ({
   mode: "none" as "none" | "collision" | "changed" | "cleanup",
 }));
-const linkFault = vi.hoisted(() => ({ eexist: 0, eaccesIncludes: "" }));
+const linkFault = vi.hoisted(() => ({ eexist: 0, eexistIncludes: "", eaccesIncludes: "" }));
+const copyFault = vi.hoisted(() => ({ enospcSource: "" }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown> & { rm: typeof rm }>();
   const linkFile = actual.link as (from: string, to: string) => Promise<void>;
@@ -37,13 +38,30 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       return actual.rm(...args);
     },
     link: async (from: string, to: string) => {
-      if (linkFault.eexist > 0) {
+      const target = String(to);
+      if (
+        linkFault.eexist > 0 &&
+        (!linkFault.eexistIncludes || target.includes(linkFault.eexistIncludes))
+      ) {
         linkFault.eexist -= 1;
         throw Object.assign(new Error("EEXIST"), { code: "EEXIST" });
       }
-      if (linkFault.eaccesIncludes && String(to).includes(linkFault.eaccesIncludes))
+      if (linkFault.eaccesIncludes && target.includes(linkFault.eaccesIncludes))
         throw Object.assign(new Error("EACCES"), { code: "EACCES" });
       return linkFile(from, to);
+    },
+  };
+});
+vi.mock("./film-export-io", async (importOriginal) => {
+  const actual = await importOriginal<{
+    copyExportFile: (source: string, destination: string, signal?: AbortSignal) => Promise<void>;
+  }>();
+  return {
+    ...actual,
+    copyExportFile: async (source: string, destination: string, signal?: AbortSignal) => {
+      if (copyFault.enospcSource && source.includes(copyFault.enospcSource))
+        throw Object.assign(new Error("ENOSPC"), { code: "ENOSPC" });
+      return actual.copyExportFile(source, destination, signal);
     },
   };
 });
@@ -173,7 +191,9 @@ async function fixture(loud = false) {
 afterEach(async () => {
   evidenceFault.mode = "none";
   linkFault.eexist = 0;
+  linkFault.eexistIncludes = "";
   linkFault.eaccesIncludes = "";
+  copyFault.enospcSource = "";
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 describe("trusted checked export", () => {
@@ -992,7 +1012,7 @@ it("stops with a clear error when every default-name number races", async () => 
   expect(published.kind).toBe("PUBLISHED");
 }, 30000);
 
-it("rolls the whole set back when the second aspect link fails", async () => {
+it("keeps the first aspect when the second aspect link fails", async () => {
   const f = await fixture();
   const events: { published: { aspectRatio: string }[] }[] = [];
   const operations = createExportOperations((_owner, event) => {
@@ -1002,13 +1022,95 @@ it("rolls the whole set back when the second aspect link fails", async () => {
   if (ready.kind !== "READY") throw new Error("ready required");
   linkFault.eaccesIncludes = "9x16";
   const operation = operations.begin("owner", input.projectId, "second-link")!;
-  expect(
-    await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt }, operation.work),
-  ).toEqual({ kind: "FAILED", code: "PUBLISH_FAILED" });
-  await operation.finish("failed");
-  expect(await readdir(f.output)).toEqual([]);
-  expect(f.publishedPaths.size).toBe(0);
-  expect(events.at(-1)?.published).toEqual([]);
+  const result = await f.qc.publish(
+    "owner",
+    { ...input, qcReceipt: ready.qcReceipt },
+    operation.work,
+  );
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "PUBLISH_FAILED" });
+  expect(result.outputs.map((output) => output.aspectRatio)).toEqual(["16:9"]);
+  expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
+  await operation.finish("partial");
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16") || name.startsWith(".aivora-qc-"))).toBe(false);
+  expect(names.some((name) => name.includes("16x9") && name.endsWith(".mp4"))).toBe(true);
+  expect([...f.publishedPaths].every((path) => path.includes("16x9"))).toBe(true);
+  expect(f.publishedPaths.size).toBe(1);
+  expect(events.some((event) => event.published.some((item) => item.aspectRatio === "16:9"))).toBe(
+    true,
+  );
+  expect(events.at(-1)?.published).toEqual([{ aspectRatio: "16:9", label: "横屏成片" }]);
+  expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "RECEIPT_STALE",
+  });
+}, 30000);
+
+it("keeps the first aspect when copying the second aspect runs out of disk", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  copyFault.enospcSource = `${sep}9x16${sep}`;
+  const result = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "DISK_FULL" });
+  expect(result.outputs.map((output) => output.aspectRatio)).toEqual(["16:9"]);
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16") || name.startsWith(".aivora-qc-"))).toBe(false);
+  expect(names.filter((name) => name.endsWith(".mp4"))).toEqual([expect.stringContaining("16x9")]);
+}, 30000);
+
+it("deletes the second aspect video when its cover cannot be written", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eaccesIncludes = "9x16-封面";
+  const result = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "PUBLISH_FAILED" });
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16"))).toBe(false);
+  expect(names.some((name) => name.includes("16x9") && name.endsWith(".mp4"))).toBe(true);
+}, 30000);
+
+it("renumbers both aspects when the second aspect name is taken after the first is written", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 1;
+  linkFault.eexistIncludes = "-9x16.mp4";
+  const published = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+  if (published.kind !== "PUBLISHED") throw new Error(JSON.stringify(published));
+  expect(published.outputs.map((output) => basename(output.path)).sort()).toEqual([
+    "离线QC-第一集-2-16x9.mp4",
+    "离线QC-第一集-2-9x16.mp4",
+  ]);
+  expect((await readdir(f.output)).some((name) => name === "离线QC-第一集-16x9.mp4")).toBe(false);
+}, 30000);
+
+it("rolls an edited name back when the second aspect is grabbed", async () => {
+  const f = await fixture();
+  const request = { ...input, requestedFileName: "成片终稿" };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 1;
+  linkFault.eexistIncludes = "-9x16.mp4";
+  expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "EXPORT_NAME_TAKEN",
+  });
+  expect((await readdir(f.output)).filter((name) => name.endsWith(".mp4"))).toEqual([]);
+  const elsewhere = join(f.root, "elsewhere");
+  await mkdir(elsewhere);
+  f.picker.mockResolvedValue(elsewhere);
+  linkFault.eexist = 0;
+  const moved = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(moved.kind).toBe("PUBLISHED");
 }, 30000);
 
 it("does not leave a published progress record when every default-name number races", async () => {

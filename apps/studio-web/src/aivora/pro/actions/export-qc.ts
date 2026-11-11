@@ -1,5 +1,6 @@
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
 import type {
+  FilmExportIncomplete,
   FilmExportQcInput,
   FilmExportQcSettings,
   FilmExportQcFailure,
@@ -60,3 +61,13 @@ export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
   EXPORT_NAME_TAKEN: "已有同名文件，请换个名字或换文件夹。",
   EXPORT_NAME_EXHAUSTED: "默认导出名的序号已经用完，请换个名字或换文件夹。",
 };
+const incompleteReason: Record<FilmExportIncomplete["code"], string> = {
+  DISK_FULL: "磁盘空间不足",
+  PUBLISH_FAILED: "写入失败",
+};
+/** Shared wording for a kept aspect after the other aspect failed to write. */
+export function partialAspectNotice(incomplete: FilmExportIncomplete): string {
+  const failed = incomplete.aspectRatio === "9:16" ? "竖屏" : "横屏";
+  const kept = incomplete.aspectRatio === "9:16" ? "横屏" : "竖屏";
+  return `${failed}没有写完：${incompleteReason[incomplete.code]}；${kept}已保存`;
+}

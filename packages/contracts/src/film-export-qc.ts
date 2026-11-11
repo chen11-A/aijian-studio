@@ -52,11 +52,22 @@ export type FilmExportQcPrepared = {
   unverified: string[];
 };
 export type FilmExportQcPublishInput = FilmExportQcInput & { qcReceipt: string };
+/** Why one aspect of a two-aspect publish was kept and the other was not. */
+export type FilmExportIncompleteCode = "DISK_FULL" | "PUBLISH_FAILED";
+export type FilmExportIncomplete = {
+  aspectRatio: "16:9" | "9:16";
+  code: FilmExportIncompleteCode;
+};
 export type FilmExportQcPublishResult =
   | {
       kind: "PUBLISHED" | "PARTIAL";
       /** Absent means legacy did not provide evidence; never synthesize it in renderer. */
       deliveryEvidence?: FilmDeliveryEvidenceResult;
+      /**
+       * Set when a later aspect failed to write and the earlier aspect was kept.
+       * Absent on a user stop and on a fully published result.
+       */
+      incomplete?: FilmExportIncomplete;
       outputs: {
         aspectRatio: "16:9" | "9:16";
         path: string;

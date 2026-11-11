@@ -15,6 +15,7 @@ import { muxSilentAac } from "./film-silent-export";
 import type { ExportWork } from "./film-export-operation";
 import { exportFileHash, copyExportFile } from "./film-export-io";
 import type {
+  FilmExportIncompleteCode,
   FilmExportQcInput,
   FilmExportQcPrepared,
   FilmExportQcFailure,
@@ -112,6 +113,12 @@ function exportNameTaken(error: unknown): boolean {
     (error instanceof Error && error.message === "EXPORT_NAME_TAKEN") ||
     (error as NodeJS.ErrnoException).code === "EEXIST"
   );
+}
+function incompleteCode(error: unknown): FilmExportIncompleteCode {
+  return (error as NodeJS.ErrnoException).code === "ENOSPC" ? "DISK_FULL" : "PUBLISH_FAILED";
+}
+function keptAspect(aspectRatio: "16:9" | "9:16", code: FilmExportIncompleteCode): never {
+  throw Object.assign(new Error("KEPT_ASPECT"), { aspectRatio, incompleteCode: code });
 }
 
 async function linkNewFile(from: string, to: string): Promise<void> {
@@ -472,6 +479,47 @@ export function createFilmExportQc(host: FilmQcHost) {
     const old = receipts.get(token);
     receipts.delete(token);
     if (old) await rm(old.folder, { recursive: true, force: true });
+  }
+  /** Record identity only. Hashing and ffprobe stay after the folder is chosen. */
+  async function selectionCurrent(
+    input: FilmExportQcInput,
+    owner: string,
+    generation: number,
+    work?: ExportWork,
+  ) {
+    work?.signal.throwIfAborted();
+    if ((ownerEpochs.get(owner) ?? 0) !== generation) fail("PROJECT_CHANGED");
+    const record = await read(input.projectId);
+    if (
+      !record ||
+      record.id !== input.projectId ||
+      !Array.isArray(record.shots) ||
+      record.shots.length !== input.expectedSelection.length
+    )
+      fail("PROJECT_CHANGED");
+    if (
+      (input.settings.autoAdjustVolume ?? false) !==
+      audioMixSettings(record.audioMix).autoAdjustVolume
+    )
+      fail("PROJECT_CHANGED");
+    for (const [index, unknownShot] of record.shots.entries()) {
+      const shot = object(unknownShot),
+        expected = input.expectedSelection[index];
+      if (
+        !shot ||
+        !expected ||
+        shot.id !== expected.shotId ||
+        (text(shot.selectedTakeId) ||
+          (Array.isArray(shot.takes)
+            ? text(
+                shot.takes
+                  .map(object)
+                  .find((take) => take?.status === "done" && text(take.videoPath))?.id,
+              )
+            : "")) !== expected.takeId
+      )
+        fail("PROJECT_CHANGED");
+    }
   }
   async function current(
     input: FilmExportQcInput,
@@ -873,7 +921,7 @@ export function createFilmExportQc(host: FilmQcHost) {
         publishing.add(token);
         publishKey = token;
         if (prepared.blocked) fail("QC_BLOCKED");
-        await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+        await selectionCurrent(input, owner, prepared.ownerGeneration, work);
         work?.phase("publishing");
         work?.cancellable(false);
         const directory = await host.pickDirectory();
@@ -919,8 +967,11 @@ export function createFilmExportQc(host: FilmQcHost) {
             const linked: string[] = [];
             const announced: string[] = [];
             const notified: ("16:9" | "9:16")[] = [];
+            const kept = new Set<string>();
+            let activeAspect: "16:9" | "9:16" = plan[0]?.aspectRatio ?? "16:9";
             try {
               for (const item of plan) {
+                activeAspect = item.aspectRatio;
                 const output = prepared.outputs.find(
                   (row) => row.aspectRatio === item.aspectRatio,
                 )!;
@@ -968,7 +1019,6 @@ export function createFilmExportQc(host: FilmQcHost) {
                   subtitlePath?: string;
                   coverPath?: string;
                 } = { aspectRatio: item.aspectRatio, path: destination };
-                outputs.push(saved);
                 for (const side of stage.sidecars) {
                   const sideDestination = join(
                     target,
@@ -978,9 +1028,12 @@ export function createFilmExportQc(host: FilmQcHost) {
                   linked.push(sideDestination);
                   saved[side.kind] = sideDestination;
                 }
+                outputs.push(saved);
                 const canonical = realpathSync(saved.path);
                 host.publishedPaths?.add(canonical);
                 announced.push(canonical);
+                for (const path of [saved.path, saved.subtitlePath, saved.coverPath])
+                  if (path) kept.add(path);
                 if (!told.has(saved.aspectRatio)) {
                   told.add(saved.aspectRatio);
                   notified.push(saved.aspectRatio);
@@ -995,25 +1048,35 @@ export function createFilmExportQc(host: FilmQcHost) {
                 if (outputs.length < prepared.outputs.length) work?.cancellable(true);
               }
             } catch (error) {
-              // A user stop keeps the aspects already linked. A write failure rolls the set back.
+              // A user stop keeps the aspects already linked.
               if (work?.signal.aborted) throw error;
-              for (const aspect of notified) {
-                told.delete(aspect);
-                work?.retract(aspect);
+              const nameTaken = exportNameTaken(error);
+              // A name clash, including one that appears after the first aspect, rolls the set back.
+              if (nameTaken || outputs.length === 0) {
+                for (const aspect of notified) {
+                  told.delete(aspect);
+                  work?.retract(aspect);
+                }
+                for (const path of announced) host.publishedPaths?.delete(path);
+                try {
+                  for (const path of linked) await rm(path, { force: true });
+                } catch {
+                  /* A failed delete must not replace the original publish error. */
+                }
+                outputs.length = 0;
+                if (nameTaken && mode === "suffix") {
+                  index += 1;
+                  if (index > EXPORT_NAME_SUFFIX_LIMIT) fail("EXPORT_NAME_EXHAUSTED");
+                  continue;
+                }
+                throw error;
               }
-              for (const path of announced) host.publishedPaths?.delete(path);
               try {
-                for (const path of linked) await rm(path, { force: true });
+                for (const path of linked) if (!kept.has(path)) await rm(path, { force: true });
               } catch {
                 /* A failed delete must not replace the original publish error. */
               }
-              outputs.length = 0;
-              if (exportNameTaken(error) && mode === "suffix") {
-                index += 1;
-                if (index > EXPORT_NAME_SUFFIX_LIMIT) fail("EXPORT_NAME_EXHAUSTED");
-                continue;
-              }
-              throw error;
+              keptAspect(activeAspect, incompleteCode(error));
             }
           }
         } finally {
@@ -1032,6 +1095,21 @@ export function createFilmExportQc(host: FilmQcHost) {
           deliveryEvidence: delivered,
         };
       } catch (error) {
+        if (error instanceof Error && error.message === "KEPT_ASPECT") {
+          const detail = error as Error & {
+            aspectRatio: "16:9" | "9:16";
+            incompleteCode: FilmExportIncompleteCode;
+          };
+          receipts.delete(token);
+          consumed = true;
+          cleanupFolder = preparedForEvidence?.folder ?? "";
+          return {
+            kind: "PARTIAL",
+            outputs,
+            incomplete: { aspectRatio: detail.aspectRatio, code: detail.incompleteCode },
+            deliveryEvidence: await evidence(false),
+          };
+        }
         if (exportNameTaken(error)) return { kind: "FAILED", code: "EXPORT_NAME_TAKEN" };
         const failed = work?.signal.aborted
           ? { kind: "FAILED" as const, code: "OPERATION_STOPPED" as const }
