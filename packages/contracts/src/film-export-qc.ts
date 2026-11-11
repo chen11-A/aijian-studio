@@ -30,7 +30,9 @@ export type FilmExportQcFailure = {
     | "QC_BLOCKED"
     | "SOURCE_UNVERIFIED"
     | "BUSY"
-    | "OPERATION_STOPPED";
+    | "OPERATION_STOPPED"
+    | "MATERIALS_STALE"
+    | "AUDIO_DECISION_INVALID";
 };
 export type FilmExportQcPrepared = {
   kind: "READY";

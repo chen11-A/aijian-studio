@@ -51,6 +51,8 @@ export async function resolveAudioMix(
       sha: string,
       selected?: { path: string; sha: string },
     ) => Promise<boolean>;
+    /** Silent export only. The mix path still rejects layouts other than mono or stereo. */
+    allowWideChannels?: boolean;
   },
 ): Promise<{
   plan: AudioMixPlan;
@@ -96,7 +98,9 @@ export async function resolveAudioMix(
       if ((await exportFileHash(path, host.signal)) !== sha) throw new Error("SOURCE_CHANGED");
       return cached;
     }
-    const info = await probeMixSource(path, host.tools, host.run, host.signal);
+    const info = await probeMixSource(path, host.tools, host.run, host.signal, {
+      allowWideChannels: host.allowWideChannels,
+    });
     // A probe may race replacement; do not cache data for unverified bytes.
     if ((await exportFileHash(path, host.signal)) !== sha) throw new Error("SOURCE_CHANGED");
     probes.set(key, info);

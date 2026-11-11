@@ -1,5 +1,9 @@
 import type { FilmExportQcSettings } from "./film-export-qc.js";
 
+/** Same two literals as the export sound choice. Older records omit the field. */
+export const EXPORT_AUDIO_DECISIONS = ["SILENT_BY_USER", "WITH_AUDIO"] as const;
+export type ExportAudioDecision = (typeof EXPORT_AUDIO_DECISIONS)[number];
+
 /** Facts from the checked final file. Null is explicitly unknown, never inferred from settings. */
 export type FilmDeliveryTechnical = {
   durationSeconds: number | null;
@@ -55,6 +59,11 @@ export type FilmDeliveryManifest = {
   schemaVersion: 1;
   createdAt: string;
   status: "complete" | "partial";
+  /**
+   * Same literals as `SoundExportDecision`. Omitted on records written before the field existed.
+   * There is no value that means "export the stale cut anyway".
+   */
+  audioDecision?: ExportAudioDecision;
   selection: {
     shotId: string | null;
     takeId: string | null;

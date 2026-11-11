@@ -32,6 +32,8 @@ export type DeliveryEvidenceView =
       selection: string[];
       settings: string[];
       unverified: string[];
+      /** Null when an older record has no field. Never inferred from an AAC track. */
+      audioDecision: "SILENT_BY_USER" | "WITH_AUDIO" | null;
     };
 const roles = { video: "视频", subtitles: "字幕文件", cover: "封面" } as const;
 const sha = (value: unknown): value is string =>
@@ -291,6 +293,13 @@ export function deliveryEvidenceView(
       )
     )
       return { kind: "invalid" };
+    const audioDecision = Object.hasOwn(manifest, "audioDecision") ? manifest.audioDecision : null;
+    if (
+      audioDecision !== null &&
+      audioDecision !== "SILENT_BY_USER" &&
+      audioDecision !== "WITH_AUDIO"
+    )
+      return { kind: "invalid" };
     const settings = manifest.settings;
     if (
       !settings ||
@@ -319,6 +328,7 @@ export function deliveryEvidenceView(
         (s) =>
           `${s.label}${s.versionLabel ? ` · ${s.versionLabel}` : " · 版本说明未提供"}；${format(s.startSeconds, " 秒")}–${format(s.endSeconds, " 秒")}`,
       ),
+      audioDecision,
       settings: [
         `画幅：${settings.aspects.join("、")}`,
         `导出设置：${settings.quality}`,
