@@ -195,3 +195,22 @@ test("external abort settles immediately even when work ignores the signal; late
   await Promise.resolve();
   expect(taskSnapshot().tasks[0]).toMatchObject({ status: "failed", reason: "已取消" });
 });
+
+test("queued film jobs still read as in progress when the task feed has not caught up", async () => {
+  const { backgroundGenerationCopy } = await import("./task-progress");
+  expect(
+    backgroundGenerationCopy({ asking: false, active: 0, unfinished: 6, portraitBusy: false }),
+  ).toBe("正在做 6 个");
+  expect(
+    backgroundGenerationCopy({ asking: false, active: 2, unfinished: 6, portraitBusy: false }),
+  ).toBe("正在做 2 个");
+  expect(
+    backgroundGenerationCopy({ asking: true, active: 0, unfinished: 6, portraitBusy: false }),
+  ).toBe("AI 在写");
+  expect(
+    backgroundGenerationCopy({ asking: false, active: 0, unfinished: 0, portraitBusy: true }),
+  ).toBe("正在出定妆照");
+  expect(
+    backgroundGenerationCopy({ asking: false, active: 0, unfinished: 0, portraitBusy: false }),
+  ).toBeNull();
+});

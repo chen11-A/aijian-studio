@@ -1256,6 +1256,7 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
         source: "script",
         userFields: [],
         portraits: [],
+        lookLocked: false,
       },
       used,
       sourceText,

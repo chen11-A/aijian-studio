@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FilmExportQcPublishResult } from "@aijian/contracts/film-export-qc";
+import { writtenFileName } from "./export-file-name";
 import { DeliveryEvidence } from "./DeliveryEvidence";
 import { deliveryEvidenceView, type DeliveryEvidenceView } from "./actions/delivery-evidence-view";
 type Published = { projectId: string; path: string; partial: boolean; view: DeliveryEvidenceView };
@@ -47,6 +48,7 @@ export function useExportDelivery(projectId: string | null, currentProject: () =
     clear,
     remember,
     available: !!shown?.path,
+    writtenName: shown?.path ? writtenFileName(shown.path) : "",
     view: shown ? <DeliveryEvidence view={shown.view} partial={shown.partial} /> : null,
     onReveal: () => {
       const value = path();

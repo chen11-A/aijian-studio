@@ -7,6 +7,8 @@ import { ExportSoundChoice, exportCheckBlocked } from "./ExportSoundChoice";
 import { FixedInputImportButton } from "./FixedInputImportButton";
 import { StillAcceptanceControls, guardBlockedVideo } from "./StillAcceptanceDialog";
 import { soundRowLabel, UNGENERATED_SOUND_LABEL } from "./sound-export-decision";
+import { exportFileIssue } from "./export-file-name";
+import { exportEntryBlock, firstLookBlock, lookBlock, LOOK_NOT_LOCKED } from "./look-lock";
 import { currentStillUrl, stillAccepted, videoGate } from "./still-acceptance";
 import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
@@ -262,7 +264,7 @@ import { makeAllPortraits } from "./portrait-workflow";
 import { RequestSequences } from "./director-workflow";
 import { sceneShotBudget, formatShotBudget, sceneDisplayTitle } from "../film/director-continuity";
 import { completeMembershipAgent } from "./agent-workflow";
-import { publishFilmJobs } from "../film/task-progress";
+import { backgroundGenerationCopy, publishFilmJobs } from "../film/task-progress";
 import { TaskCenter } from "../next/TaskCenter";
 import { feedProgress, namedTasks, useTaskFeed } from "../next/wiring/taskFeed";
 import { useCoverageRepair } from "../next/wiring/useCoverageRepair";
@@ -3871,6 +3873,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         ? { ...next, backendProjectId: current.backendProjectId }
         : next;
     filmRef.current = kept;
+    publishFilmJobs(kept);
     setFilm(kept);
   }
 
@@ -3990,6 +3993,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const current = shownShots[shot];
     const base = filmRef.current;
     if (!base || !current || workOwners.has(base.id, `still:${current.id}`)) return;
+    const locked = firstLookBlock(base, [current]);
+    if (locked) {
+      setNotice({ code: locked.code, text: locked.reason });
+      return;
+    }
     const release = workOwners.begin(base.id, `still:${current.id}`, "正在生成画面");
     setNotice("正在生成这一镜的画面。");
     const valid = requestSequences.current.begin(
@@ -4058,7 +4066,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
-  ): Promise<"STILL_NOT_ACCEPTED" | void> {
+  ): Promise<"STILL_NOT_ACCEPTED" | typeof LOOK_NOT_LOCKED | void> {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id) || persistentHistoryBusyRef.current) return;
     generationRuns.current.add(id);
@@ -4079,7 +4087,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
-  ): Promise<"STILL_NOT_ACCEPTED" | void> {
+  ): Promise<"STILL_NOT_ACCEPTED" | typeof LOOK_NOT_LOCKED | void> {
     const mine = ++runToken.current;
     const requestedVersions = pipeline?.versions ?? versions;
     const applyGeneration = async (next: FilmProject) => {
@@ -4118,6 +4126,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       if (index >= 0) setShot(index);
       return "STILL_NOT_ACCEPTED";
     }
+    const unlocked = firstLookBlock(project, selected);
+    if (unlocked) {
+      setNotice({ code: unlocked.code, text: unlocked.reason });
+      setStage("cast");
+      return LOOK_NOT_LOCKED;
+    }
     setNotice(generationEstimate(selected.length, requestedVersions, duration));
     if (preflight.kind === "stopped") {
       setNotice(preflight.notice);
@@ -4147,6 +4161,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const index = latestGeneration.shots.findIndex((item) => item.id === unacceptedNow.id);
       if (index >= 0) setShot(index);
       return "STILL_NOT_ACCEPTED";
+    }
+    const unlockedNow = firstLookBlock(latestGeneration, selected);
+    if (unlockedNow) {
+      setNotice({ code: unlockedNow.code, text: unlockedNow.reason });
+      setStage("cast");
+      return LOOK_NOT_LOCKED;
     }
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
@@ -4569,6 +4589,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function startExport() {
+    const currentExport = filmRef.current;
+    const blockedExport = currentExport ? exportEntryBlock(currentExport) : null;
+    if (blockedExport) {
+      setNotice({ code: blockedExport.code, text: blockedExport.text });
+      return;
+    }
+    if (exportFileIssue(shownExportName)) return;
     if (!window.aijian?.prepareFilmExport) {
       setNotice({
         code: "EXPORT_QC_FAILED",
@@ -4692,6 +4719,28 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   // 4B-U06: how the export is made. GPT's export reads these (next/INTEGRATION.md, 导出对话框).
   const [exportQuality, setExportQuality] = useState<"1080p" | "720p">("1080p");
   const [exportSubs, setExportSubs] = useState<"burn" | "srt" | "none">("burn");
+  const exportNameDefault = film
+    ? filmFileName(film.seriesTitle || film.title, film.episodeTitle || "第1集")
+    : "";
+  const [exportNameDraft, setExportNameDraft] = useState<string | null>(null);
+  const [exportNameComposing, setExportNameComposing] = useState(false);
+  const shownExportName = exportNameDraft ?? exportNameDefault;
+  const exportNameIssue = exportNameComposing ? "" : exportFileIssue(shownExportName);
+  const exportBlocked = film ? exportEntryBlock(film) : null;
+  const exportCheckRef = useRef<HTMLButtonElement>(null);
+  const exportSoundWas = useRef(film?.audioDecision);
+  useEffect(() => {
+    setExportNameDraft(null);
+  }, [film?.id, film?.seriesTitle, film?.episodeTitle, film?.title]);
+  useEffect(() => {
+    const previous = exportSoundWas.current;
+    exportSoundWas.current = film?.audioDecision;
+    if (!exportOpen) return;
+    if (previous === film?.audioDecision) return;
+    if (previous === "SILENT_BY_USER" || previous === "WITH_AUDIO") return;
+    if (film?.audioDecision !== "SILENT_BY_USER" && film?.audioDecision !== "WITH_AUDIO") return;
+    exportCheckRef.current?.focus();
+  }, [exportOpen, film?.audioDecision]);
   const [cleanCopyBlockedAt, setCleanCopyBlockedAt] = useState<{
     projectId: string;
     subtitles: string;
@@ -5163,7 +5212,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (helper) chooseRole(helper);
   }, [stage]);
   // 4C-U08: something is being made, so the status bar shows it in the middle.
-  const busy = asking || feedNow.active > 0 || portraitBusy || finished < tracked.length;
+  const unfinishedJobs = Math.max(0, tracked.length - finished);
+  const taskCopy = backgroundGenerationCopy({
+    asking,
+    active: feedNow.active,
+    unfinished: unfinishedJobs,
+    portraitBusy,
+  });
+  const busy = taskCopy !== null;
   // 4A-U09: one primary button per screen. 导出成片 leads on 剪辑 and once every shot has its
   // video; then each page's own primary button steps back (quiet).
   const exportView = exportLead(
@@ -6907,15 +6963,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             >
               <Ic name="loader" size={12} />
               {busy ? "后台生成：" : null}
-              {!busy
-                ? null
-                : asking
-                  ? "AI 在写"
-                  : feedNow.active > 0
-                    ? `正在做 ${feedNow.active} 个`
-                    : portraitBusy
-                      ? "正在出定妆照"
-                      : "没有在做的"}
+              {taskCopy}
               {/* UIR-04: no bar when nothing is being made; it used to stay full after a failure. */}
               {feedNow.active > 0 || finished < tracked.length ? (
                 <span className="bar">
@@ -7588,12 +7636,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ) : (
                 <>
                   <div className="field">
-                    <label>文件名</label>
-                    <div className="input">
-                      {film
-                        ? filmFileName(film.seriesTitle || film.title, film.episodeTitle || "第1集")
-                        : "未命名"}
-                    </div>
+                    <label htmlFor="export-file-name">文件名</label>
+                    <input
+                      id="export-file-name"
+                      className="input"
+                      aria-label="导出文件名"
+                      value={shownExportName}
+                      onCompositionStart={() => setExportNameComposing(true)}
+                      onCompositionEnd={(event) => {
+                        setExportNameComposing(false);
+                        setExportNameDraft(event.currentTarget.value);
+                      }}
+                      onChange={(event) => setExportNameDraft(event.target.value)}
+                    />
+                    <p id="export-name-note" className="role-desc">
+                      当前写入名以检查结果为准。输入框里的修改还不会落盘。
+                    </p>
+                    <span className="role-desc">{exportNameDefault}</span>
+                    {exportNameIssue ? (
+                      <p id="export-name-why" className="role-desc">
+                        {exportNameIssue}
+                      </p>
+                    ) : null}
+                    {exportQc?.ready?.fileName ? (
+                      <p role="status">实际将写入：{exportQc.ready.fileName}</p>
+                    ) : null}
+                    {exportDelivery.writtenName ? (
+                      <p role="status">实际写入：{exportDelivery.writtenName}</p>
+                    ) : null}
                   </div>
                   {canCropAspect && film ? (
                     <div className="field">
@@ -7860,17 +7930,35 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         </>
                       ) : null}
                       <span className="sp" />
+                      {exportBlocked ? (
+                        <p id="export-entry-why" className="role-desc">
+                          {exportBlocked.text}
+                        </p>
+                      ) : null}
                       {!exportQc ? (
                         <button
+                          ref={exportCheckRef}
                           className="btn primary"
                           disabled={
-                            exporting || cleanCopyBusy || exportQcBusy || exportCheckBlocked(film)
+                            exporting ||
+                            cleanCopyBusy ||
+                            exportQcBusy ||
+                            exportCheckBlocked(film) ||
+                            Boolean(exportNameIssue) ||
+                            Boolean(exportBlocked)
                           }
                           aria-describedby={
-                            exportCheckBlocked(film) ? "export-sound-why" : undefined
+                            exportNameIssue
+                              ? "export-name-why"
+                              : exportBlocked
+                                ? "export-entry-why"
+                                : exportCheckBlocked(film)
+                                  ? "export-sound-why"
+                                  : undefined
                           }
                           onClick={() => {
-                            if (exportCheckBlocked(film)) return;
+                            if (exportCheckBlocked(film) || exportNameIssue || exportBlocked)
+                              return;
                             void startExport();
                           }}
                         >
@@ -9214,6 +9302,7 @@ function CastPage({
                                 source: "user",
                                 userFields: ["name"],
                                 portraits: [],
+                                lookLocked: false,
                               },
                             ],
                           });
@@ -9307,6 +9396,8 @@ function CastPage({
                             ? {
                                 ...item,
                                 identity: event.target.value,
+                                lookLocked:
+                                  event.target.value === item.identity ? item.lookLocked : false,
                                 source: "user",
                                 userFields: [...new Set([...item.userFields, "identity"])],
                               }
@@ -9315,6 +9406,32 @@ function CastPage({
                       });
                     }}
                   />
+                </div>
+                <div className="still-gate">
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={!character?.identity.trim()}
+                    aria-describedby={
+                      character && !character.identity.trim() ? "look-lock-why" : undefined
+                    }
+                    onClick={() => {
+                      if (!character?.identity.trim()) return;
+                      onFilm({
+                        ...film,
+                        characters: film.characters.map((item) =>
+                          item.id === character.id ? { ...item, lookLocked: true } : item,
+                        ),
+                      });
+                    }}
+                  >
+                    {character?.lookLocked ? "外貌已锁定" : "锁定外貌"}
+                  </button>
+                  {character && !character.identity.trim() ? (
+                    <p id="look-lock-why" className="role-desc">
+                      先写下外貌，再锁定定妆。
+                    </p>
+                  ) : null}
                 </div>
                 <div className="sec-t" style={{ marginTop: 12 }}>
                   声音
@@ -10724,21 +10841,48 @@ function BoardPage({
                   {stillProgress[current.id]}
                 </button>
               ) : shotProgress(current) === "未生成" ? (
-                <button className="btn" type="button" onClick={onStills}>
-                  生成画面
-                </button>
+                <>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={Boolean(lookBlock(film, current))}
+                    aria-describedby={
+                      lookBlock(film, current) ? `look-gate-${current.id}` : undefined
+                    }
+                    onClick={onStills}
+                  >
+                    生成画面
+                  </button>
+                  {lookBlock(film, current) ? (
+                    <p id={`look-gate-${current.id}`} className="role-desc">
+                      {lookBlock(film, current)?.reason}
+                    </p>
+                  ) : null}
+                </>
               ) : (
                 <>
                   <button
                     className="btn"
                     type="button"
                     aria-describedby={
-                      videoGate(film, current).enabled ? undefined : `still-gate-${current.id}`
+                      !videoGate(film, current).enabled
+                        ? `still-gate-${current.id}`
+                        : lookBlock(film, current)
+                          ? `look-gate-foot-${current.id}`
+                          : undefined
                     }
-                    {...guardBlockedVideo(videoGate(film, current).enabled, onGenerate)}
+                    {...guardBlockedVideo(
+                      videoGate(film, current).enabled && !lookBlock(film, current),
+                      onGenerate,
+                    )}
                   >
                     生成视频
                   </button>
+                  {videoGate(film, current).enabled && lookBlock(film, current) ? (
+                    <p id={`look-gate-foot-${current.id}`} className="role-desc">
+                      {lookBlock(film, current)?.reason}
+                    </p>
+                  ) : null}
                 </>
               )}
             </div>
@@ -11149,9 +11293,22 @@ function GeneratePage({
                   <p id={`still-gate-${current.id}`} className="still-gate-reason">
                     <span>{videoGate(film, current).reason}</span>
                   </p>
-                  <button className="btn" type="button" onClick={onRestill}>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={Boolean(lookBlock(film, current))}
+                    aria-describedby={
+                      lookBlock(film, current) ? `look-gate-bench-${current.id}` : undefined
+                    }
+                    onClick={onRestill}
+                  >
                     生成画面
                   </button>
+                  {lookBlock(film, current) ? (
+                    <p id={`look-gate-bench-${current.id}`} className="role-desc">
+                      {lookBlock(film, current)?.reason}
+                    </p>
+                  ) : null}
                 </div>
               ) : current && currentStillUrl(current) ? (
                 <StillAcceptanceControls
@@ -11167,13 +11324,23 @@ function GeneratePage({
                 aria-describedby={
                   current && !videoGate(film, current).enabled
                     ? `still-gate-${current.id}`
-                    : undefined
+                    : current && lookBlock(film, current)
+                      ? `look-gate-bench-${current.id}`
+                      : undefined
                 }
-                {...guardBlockedVideo(!current || videoGate(film, current).enabled, onCreate)}
+                {...guardBlockedVideo(
+                  !current || (videoGate(film, current).enabled && !lookBlock(film, current)),
+                  onCreate,
+                )}
               >
                 <Ic name="video" size={16} />
                 生成 {versions} 个版本
               </button>
+              {current && videoGate(film, current).enabled && lookBlock(film, current) ? (
+                <p id={`look-gate-bench-${current.id}`} className="role-desc">
+                  {lookBlock(film, current)?.reason}
+                </p>
+              ) : null}
               {/* 4A-U12: what one click makes, from the length that is selected. */}
               <div className="note" data-testid="generation-estimate">
                 {videoLine(versions, current?.seconds ?? duration)}
