@@ -55,6 +55,11 @@ export type FilmDeliveryManifest = {
   schemaVersion: 1;
   createdAt: string;
   status: "complete" | "partial";
+  /**
+   * Same literals as `SoundExportDecision`. Omitted on records written before the field existed.
+   * There is no value that means "export the stale cut anyway".
+   */
+  audioDecision?: "SILENT_BY_USER" | "WITH_AUDIO";
   selection: {
     shotId: string | null;
     takeId: string | null;

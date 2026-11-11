@@ -344,10 +344,9 @@ export type FilmProject = {
   /** Phase 3 timeline audio. Empty until 剪辑 writes clips. */
   audioClips: AudioClip[];
   /**
-   * Export-time sound choice. SILENT_BY_USER records the decision only;
-   * writing the silent AAC track is a later slice.
+   * Explicit export sound choice. Unset means the choice is still open.
+   * SILENT_BY_USER asks export to write one silent AAC track; WITH_AUDIO keeps the mix.
    */
-  /** Explicit export sound choice. Unset means the choice is still open. */
   audioDecision?: "SILENT_BY_USER" | "WITH_AUDIO";
   /** Persisted overall lane controls; per-clip gain stays independent. */
   audioMix?: AudioMixSettings;

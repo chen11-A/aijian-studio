@@ -17,6 +17,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createFilmExportQc, qcInput } from "./film-export-qc";
+import { readStoredAudioDecision } from "./film-export-record";
 import { loadQcEngine, verifiedQcTools } from "./film-export-qc-runtime";
 import type { FilmExportQcInput } from "@aijian/contracts/film-export-qc";
 import type { FilmRecord } from "./film-library";
@@ -212,6 +213,7 @@ describe("trusted checked export", () => {
     expect(JSON.stringify(delivered)).not.toContain(ready.qcReceipt);
     expect(delivered.manifest.unverified.join()).toContain("未检查");
 
+    expect(delivered.manifest.audioDecision).toBeUndefined();
     expect(await readFile(f.source)).toEqual(original);
     expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
       kind: "FAILED",
@@ -580,3 +582,123 @@ it("preserves a hash-verified public manifest while reporting cleanup as a parti
   expect(await readFile(f.source)).toEqual(original);
   expect(await readdir(f.host.temporaryRoot)).toEqual([]);
 }, 30000);
+
+async function streamsOf(path: string) {
+  const probe = JSON.parse(
+    (
+      await run(tool("ffprobe"), [
+        "-v",
+        "error",
+        "-show_entries",
+        "stream=codec_type,codec_name,duration",
+        "-of",
+        "json",
+        path,
+      ])
+    ).stdout,
+  ) as { streams: { codec_type: string; codec_name: string; duration: string }[] };
+  return probe.streams;
+}
+
+it("writes one silent AAC track for an explicit silent film and keeps the decision on the record", async () => {
+  const f = await fixture();
+  f.setRecord({ ...f.record(), audioDecision: "SILENT_BY_USER" });
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  expect(ready.kind).toBe("READY");
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const published = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+  if (published.kind !== "PUBLISHED" || published.deliveryEvidence?.kind !== "WRITTEN")
+    throw new Error("published required");
+  expect(published.deliveryEvidence.manifest.audioDecision).toBe("SILENT_BY_USER");
+  expect(published.deliveryEvidence.manifest).not.toHaveProperty("durationToleranceSeconds");
+  const video = published.outputs[0]!.path;
+  const streams = await streamsOf(video);
+  const audio = streams.filter((stream) => stream.codec_type === "audio");
+  const picture = streams.find((stream) => stream.codec_type === "video");
+  expect(audio).toHaveLength(1);
+  expect(audio[0]!.codec_name).toBe("aac");
+  expect(picture?.duration).toBeTruthy();
+  expect(Number(audio[0]!.duration)).toBeCloseTo(Number(picture!.duration), 1);
+  const detected = await run(ffmpeg, [
+    "-v",
+    "info",
+    "-i",
+    video,
+    "-map",
+    "0:a:0",
+    "-af",
+    "volumedetect",
+    "-f",
+    "null",
+    "-",
+  ]);
+  const mean = Number(detected.stderr.match(/mean_volume:\s+(-?\d+(?:\.\d+)?) dB/)?.[1]);
+  const peak = Number(detected.stderr.match(/max_volume:\s+(-?\d+(?:\.\d+)?) dB/)?.[1]);
+  // AAC stores anullsrc as one constant code. A tone does not.
+  expect(mean).toBe(peak);
+  expect(peak).toBeLessThan(0);
+  const shown = published.deliveryEvidence.manifest.files.find((file) => file.role === "video");
+  expect(shown?.technical?.durationSeconds).toBeGreaterThan(0);
+}, 30000);
+
+it("keeps the existing mixed track when the user chose audio", async () => {
+  const f = await fixture();
+  f.setRecord({ ...f.record(), audioDecision: "WITH_AUDIO" });
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const published = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  if (published.kind !== "PUBLISHED" || published.deliveryEvidence?.kind !== "WRITTEN")
+    throw new Error("published required");
+  expect(published.deliveryEvidence.manifest.audioDecision).toBe("WITH_AUDIO");
+  const streams = await streamsOf(published.outputs[0]!.path);
+  expect(streams.filter((stream) => stream.codec_type === "audio")).toHaveLength(1);
+  expect(streams.find((stream) => stream.codec_type === "audio")?.codec_name).toBe("aac");
+  const detected = await run(ffmpeg, [
+    "-v",
+    "info",
+    "-i",
+    published.outputs[0]!.path,
+    "-map",
+    "0:a:0",
+    "-af",
+    "volumedetect",
+    "-f",
+    "null",
+    "-",
+  ]);
+  expect(detected.stderr).not.toMatch(/max_volume:\s+-inf dB/);
+}, 30000);
+
+it("blocks export of a stale clip and has no confirm-and-export field", async () => {
+  const f = await fixture();
+  f.setRecord({
+    ...f.record(),
+    audioClips: [
+      {
+        id: "old-clip",
+        lane: "voice",
+        shotId: "shot-one",
+        takeId: "previous",
+        label: "旧配音",
+        startSeconds: 0,
+        durationSeconds: 0.2,
+        offsetSeconds: 0,
+        gainDb: 0,
+        path: "media/old.wav",
+      },
+    ],
+  });
+  expect(await f.qc.prepare("owner", input)).toEqual({ kind: "FAILED", code: "MATERIALS_STALE" });
+  expect(await readdir(f.output)).toEqual([]);
+  expect(() => qcInput({ ...input, confirmStaleExport: true } as FilmExportQcInput)).toThrow(
+    "INVALID_INPUT",
+  );
+  expect(readStoredAudioDecision({})).toBeUndefined();
+  expect(readStoredAudioDecision({ audioDecision: "SILENT_BY_USER" })).toBe("SILENT_BY_USER");
+  expect(() => readStoredAudioDecision({ audioDecision: "QUIET" })).toThrow(
+    "INVALID_AUDIO_DECISION",
+  );
+});
