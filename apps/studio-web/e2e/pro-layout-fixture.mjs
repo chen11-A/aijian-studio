@@ -1,4 +1,7 @@
-import { URL } from "node:url";
+import { URL, fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+globalThis.__PRO_LAYOUT_FIXTURE_DIR = dirname(fileURLToPath(import.meta.url));
 
 /** Runs inside the page. All data is synthetic; the video is a repository test fixture. */
 export async function seedProProject({
@@ -49,8 +52,20 @@ export async function seedProProject({
     const frame = "/synthetic/layout-frame.png";
     for (const shot of film.shots)
       shot.stills = [{ id: `layout-still-${shot.id}`, prompt: "合成布局核验", url: frame }];
+    const projectUrl = /^[a-z][a-z0-9+.-]*:/i.test(projectModuleUrl)
+      ? projectModuleUrl
+      : await (async () => {
+          const directory = globalThis.__PRO_LAYOUT_FIXTURE_DIR;
+          if (!directory) throw new Error("seedProProject needs an absolute module URL");
+          const { pathToFileURL } = await import("node:url");
+          const { isAbsolute, resolve } = await import("node:path");
+          const file = isAbsolute(projectModuleUrl)
+            ? projectModuleUrl
+            : resolve(directory, projectModuleUrl);
+          return pathToFileURL(file).href;
+        })();
     const { saveStillReview, stillChecklist } = await import(
-      new URL("../pro/still-acceptance.ts", projectModuleUrl).href
+      new URL("../pro/still-acceptance.ts", projectUrl).href
     );
     for (const shot of [...film.shots]) {
       const verdicts = Object.fromEntries(
