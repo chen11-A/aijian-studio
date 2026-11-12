@@ -2,11 +2,31 @@
 
 import hashlib
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from aijian_api import local_media_original as originals
+
+
+def _track_reads(monkeypatch):
+    real_open = originals._open_local_source
+    read_bytes = {"n": 0}
+
+    @contextmanager
+    def track(path):
+        with real_open(path) as stream:
+
+            def read(size=-1):
+                chunk = stream.read(size)
+                read_bytes["n"] += len(chunk)
+                return chunk
+
+            yield SimpleNamespace(fileno=stream.fileno, read=read)
+
+    monkeypatch.setattr(originals, "_open_local_source", track)
+    return read_bytes
 
 
 def test_real_original_changed_with_restored_size_and_mtime_is_not_reused(tmp_path):
@@ -112,3 +132,79 @@ def test_original_rejects_metadata_change_during_hash_and_consumes_allowance(
     with originals.availability_read_scope(size):
         assert originals._availability(database, digest, size) == "UNKNOWN_MEDIA_CHANGED"
         assert originals._availability(database, digest, size) == "UNVERIFIED_SIZE_LIMIT"
+
+
+def test_missing_write_watch_does_not_reuse_or_reread(tmp_path, monkeypatch):
+    payload = b"owned bounded original"
+    digest = hashlib.sha256(payload).hexdigest()
+    path = tmp_path / "media-assets" / "blobs" / digest[:2] / digest
+    path.parent.mkdir(parents=True)
+    path.write_bytes(payload)
+    monkeypatch.setattr(originals._WriteObservation, "arm", lambda self, watched: None)
+    read_bytes = _track_reads(monkeypatch)
+    with originals.availability_read_scope(len(payload)):
+        assert (
+            originals._availability(tmp_path / "workspace.db", digest, len(payload)) == "VERIFIED"
+        )
+        assert originals._availability(tmp_path / "workspace.db", digest, len(payload)) == (
+            "UNKNOWN_MEDIA_CHANGED"
+        )
+    assert read_bytes["n"] == len(payload)
+
+
+def test_write_watch_overflow_rejects_reuse_without_reread(tmp_path, monkeypatch):
+    payload = b"owned bounded original"
+    digest = hashlib.sha256(payload).hexdigest()
+    path = tmp_path / "media-assets" / "blobs" / digest[:2] / digest
+    path.parent.mkdir(parents=True)
+    path.write_bytes(payload)
+    read_bytes = _track_reads(monkeypatch)
+    with originals.availability_read_scope(len(payload)):
+        assert (
+            originals._availability(tmp_path / "workspace.db", digest, len(payload)) == "VERIFIED"
+        )
+        budget = originals._READ_BUDGET.get()
+        assert budget is not None
+        budget.lifecycle.overflow = True
+        assert originals._availability(tmp_path / "workspace.db", digest, len(payload)) == (
+            "UNKNOWN_MEDIA_CHANGED"
+        )
+    assert read_bytes["n"] == len(payload)
+
+
+def test_write_during_hash_is_not_reused_or_reread(tmp_path, monkeypatch):
+    payload = b"owned bounded original"
+    digest = hashlib.sha256(payload).hexdigest()
+    path = tmp_path / "media-assets" / "blobs" / digest[:2] / digest
+    path.parent.mkdir(parents=True)
+    path.write_bytes(payload)
+    monkeypatch.setattr(originals._WriteObservation, "quiet", lambda self, watch: False)
+    read_bytes = _track_reads(monkeypatch)
+    with originals.availability_read_scope(len(payload)):
+        assert originals._availability(tmp_path / "workspace.db", digest, len(payload)) == (
+            "UNKNOWN_MEDIA_CHANGED"
+        )
+        assert originals._availability(tmp_path / "workspace.db", digest, len(payload)) == (
+            "UNKNOWN_MEDIA_CHANGED"
+        )
+    assert read_bytes["n"] == len(payload)
+
+
+def test_replaced_original_is_not_reused(tmp_path, monkeypatch):
+    payload = b"owned bounded original"
+    digest = hashlib.sha256(payload).hexdigest()
+    path = tmp_path / "media-assets" / "blobs" / digest[:2] / digest
+    path.parent.mkdir(parents=True)
+    path.write_bytes(payload)
+    read_bytes = _track_reads(monkeypatch)
+    with originals.availability_read_scope(len(payload)):
+        assert (
+            originals._availability(tmp_path / "workspace.db", digest, len(payload)) == "VERIFIED"
+        )
+        replacement = path.with_name(f"{digest}.next")
+        replacement.write_bytes(b"y" * len(payload))
+        os.replace(replacement, path)
+        assert originals._availability(tmp_path / "workspace.db", digest, len(payload)) == (
+            "UNKNOWN_MEDIA_CHANGED"
+        )
+    assert read_bytes["n"] == len(payload)
