@@ -1,5 +1,5 @@
 import { webcrypto } from "node:crypto";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NativePreviewPlanResult } from "@aijian/contracts/native-preview-plan";
 import { NativeAssemblyPreview } from "./NativeAssemblyPreview";
@@ -14,6 +14,25 @@ import { createStudioTransport } from "../api/studio";
 import type { AijianDesktopBridge } from "../api/studio";
 import { EpisodeMediaAssemblyPanel } from "./EpisodeMediaAssemblyPanel";
 import type { AssetLibraryGateway } from "./adapters/assetLibrary";
+
+// The assembly page test only asserts the native panel wired through the desktop bridge.
+// Sibling editors, readiness, review, and export preview are real product surfaces with their
+// own tests; mounting them here makes one accessible-name query approach the 5s test budget on Windows.
+vi.mock("./AssemblyTrackEditor", () => ({ AssemblyTrackEditor: () => null }));
+vi.mock("./AssemblySubtitleEditor", () => ({ AssemblySubtitleEditor: () => null }));
+vi.mock("./AssemblyStoryboardReferences", () => ({ AssemblyStoryboardReferences: () => null }));
+vi.mock("./AssemblyDialogueAudioEditor", () => ({ AssemblyDialogueAudioEditor: () => null }));
+vi.mock("./AssemblyScriptProvenance", () => ({ AssemblyScriptProvenance: () => null }));
+vi.mock("./ScriptConfirmationImpactHistory", () => ({
+  ScriptConfirmationImpactHistory: () => null,
+}));
+vi.mock("./LocalMediaReviewPanel", () => ({ LocalMediaReviewPanel: () => null }));
+vi.mock("./SavedCompositionPreview", () => ({ SavedCompositionPreview: () => null }));
+vi.mock("./AssemblyReadinessPanel", () => ({ AssemblyReadinessPanel: () => null }));
+vi.mock("./AssemblyManualCandidates", () => ({ AssemblyManualCandidates: () => null }));
+vi.mock("./AssemblyProjectTimebase", () => ({ AssemblyProjectTimebase: () => null }));
+vi.mock("./AssemblyMediaPreview", () => ({ AssemblyMediaPreview: () => null }));
+vi.mock("./AudioAssetProbe", () => ({ AudioAssetProbe: () => null }));
 
 beforeEach(() => {
   localStorage.clear();
@@ -417,11 +436,24 @@ describe("saved assembly native preview entry", () => {
         setNavigationGuard={vi.fn()}
       />,
     );
-    await waitFor(() => expect(check()).toBeEnabled());
+    const page = screen.getByRole("region", { name: "成片组装" });
+    await within(page).findByText("已从项目重新读回装配版本。");
+    const native = within(page).getByRole("region", { name: "保存装配的原生预览计划" });
+    const preview = within(native);
+    const checkPlan = preview.getByRole("button", { name: "核对原生预览计划" });
+    expect(checkPlan).toBeEnabled();
     expect(planGateway.getNativeMediaPreviewPlan).not.toHaveBeenCalled();
-    fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
-    expect(screen.getByRole("region", { name: "MLT 原生预览会话" })).toBeInTheDocument();
+    fireEvent.click(checkPlan);
+    expect(planGateway.getNativeMediaPreviewPlan).toHaveBeenCalledTimes(1);
+    const ready = await within(page).findByText(
+      "已核对精确保存版本的只读计划；打开本地窗口仍须单独操作。",
+    );
+    const liveNative = within(page).getByRole("region", { name: "保存装配的原生预览计划" });
+    expect(liveNative.contains(ready)).toBe(true);
+    expect(within(liveNative).getByRole("button", { name: "打开本地预览" })).toBeEnabled();
+    expect(
+      within(liveNative).getByRole("region", { name: "MLT 原生预览会话" }),
+    ).toBeInTheDocument();
     expect(assembly.createVersion).not.toHaveBeenCalled();
     delete window.aijian;
   });
