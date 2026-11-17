@@ -342,24 +342,29 @@ it("invalidates a displayed plan on creative edits without auto-reading or touch
   expect(f.provider).not.toHaveBeenCalled();
 });
 it("retries a real stage autosave metadata race once with the fresh canonical hash, without adding or generating", async () => {
-  const realSetTimeout = window.setTimeout.bind(window),
-    realClearTimeout = window.clearTimeout.bind(window),
-    pendingAutosave = new Set<ReturnType<typeof setTimeout>>();
-  vi.spyOn(window, "setTimeout").mockImplementation(((handler, timeout, ...args) => {
+  type TimerId = ReturnType<typeof globalThis.setTimeout>;
+  const realSetTimeout = globalThis.setTimeout.bind(globalThis) as (
+      handler: (...args: unknown[]) => void,
+      timeout?: number,
+      ...args: unknown[]
+    ) => TimerId,
+    realClearTimeout = globalThis.clearTimeout.bind(globalThis) as (id?: TimerId) => void,
+    pendingAutosave = new Set<TimerId>();
+  vi.spyOn(window, "setTimeout").mockImplementation((handler, timeout, ...args) => {
     const id = realSetTimeout(
-      (...inner: unknown[]) => {
+      (...inner) => {
         pendingAutosave.delete(id);
-        if (typeof handler === "function") handler(...inner);
+        handler(...inner);
       },
-      timeout as number,
+      timeout,
       ...args,
     );
     if (timeout === 400) pendingAutosave.add(id);
     return id;
-  }) as typeof window.setTimeout);
+  });
   vi.spyOn(window, "clearTimeout").mockImplementation((id) => {
-    pendingAutosave.delete(id as ReturnType<typeof setTimeout>);
-    realClearTimeout(id);
+    if (typeof id === "object" && id) pendingAutosave.delete(id);
+    realClearTimeout(id as TimerId | undefined);
   });
   const f = await open(false),
     entered = deferred<void>(),
