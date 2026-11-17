@@ -1,6 +1,6 @@
 import { lstat, mkdtemp, mkdir, readFile, readdir, symlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { constants } from "node:fs";
 import { afterEach, expect, it } from "vitest";
 import { INTERRUPTED_EXPORT_MESSAGE } from "@aijian/contracts/film-export-qc";
@@ -326,6 +326,61 @@ it("puts a file back when its bytes change while the hash is being checked", asy
   });
   expect(result.kind).toBe("CLEARED");
   expect(await readFile(file, "utf8")).toBe("user replaced during hash");
+});
+
+it("keeps the journal when an ancestor of the chosen directory is a file", async () => {
+  const { directory: outer, journal } = await place();
+  const ancestor = join(outer, "project");
+  const directory = join(ancestor, "chosen");
+  const log = createExportWriteLog(journal);
+  await mkdir(directory, { recursive: true });
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  await rm(ancestor, { recursive: true });
+  await writeFile(ancestor, "user ancestor");
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("RETRY");
+  expect(await readdir(journal)).toContain(`${id}.json`);
+  expect(await readFile(ancestor, "utf8")).toBe("user ancestor");
+});
+
+it("clears the journal only after the chosen directory is confirmed missing", async () => {
+  const { directory, journal, log } = await place();
+  const sibling = join(dirname(directory), "sibling.txt");
+  await writeFile(sibling, "stay");
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  await rm(directory, { recursive: true });
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("CLEARED");
+  expect(await readdir(journal)).not.toContain(`${id}.json`);
+  expect(await readFile(sibling, "utf8")).toBe("stay");
+});
+
+it("does not follow a symlink that replaced an ancestor of the chosen directory", async () => {
+  const { directory: outer, journal } = await place();
+  const ancestor = join(outer, "project");
+  const directory = join(ancestor, "chosen");
+  const outside = join(journal, "outside");
+  const log = createExportWriteLog(journal);
+  await mkdir(directory, { recursive: true });
+  await mkdir(outside);
+  await writeFile(join(outside, "keep.txt"), "keep");
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  await rm(ancestor, { recursive: true });
+  await symlink(outside, ancestor, "dir");
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("RETRY");
+  expect(await readdir(journal)).toContain(`${id}.json`);
+  expect(await readFile(join(outside, "keep.txt"), "utf8")).toBe("keep");
+  expect((await lstat(ancestor)).isSymbolicLink()).toBe(true);
 });
 
 it("keeps the journal when an injected read of the chosen directory fails", async () => {

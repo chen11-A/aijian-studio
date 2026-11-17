@@ -235,6 +235,27 @@ async function syncDirectory(
   }
 }
 
+/**
+ * Walk from the root, one real component at a time. lstat of a child whose ancestor
+ * is a file or symlink is ENOENT on Windows and ENOTDIR on Linux; that ENOENT does
+ * not mean the leaf was confirmed absent.
+ */
+async function directoryNode(path: string): Promise<"directory" | "missing" | "retry"> {
+  const parent = dirname(path);
+  if (parent !== path) {
+    const above = await directoryNode(parent);
+    if (above !== "directory") return above;
+  }
+  let info;
+  try {
+    info = await lstat(path, { bigint: true });
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT" ? "missing" : "retry";
+  }
+  if (info.isSymbolicLink() || !info.isDirectory()) return "retry";
+  return "directory";
+}
+
 async function ancestorsReal(
   directory: string,
   target: string,
@@ -249,12 +270,10 @@ async function ancestorsReal(
       return ioStep(error);
     }
   }
-  let current;
-  try {
-    current = await lstat(directory, { bigint: true });
-  } catch (error) {
-    return ioStep(error);
-  }
+  const directoryState = await directoryNode(directory);
+  if (directoryState === "retry") return "retry";
+  if (directoryState === "missing") return "skipped";
+  const current = await lstat(directory, { bigint: true });
   if (current.isSymbolicLink() || !current.isDirectory()) return "retry" as const;
   if (root && (current.dev.toString() !== root.dev || current.ino.toString() !== root.ino))
     return "retry" as const;
@@ -265,13 +284,9 @@ async function ancestorsReal(
     const parent = dirname(cursor);
     if (parent === cursor || seen.has(parent)) return "retry" as const;
     seen.add(parent);
-    let info;
-    try {
-      info = await lstat(parent, { bigint: true });
-    } catch (error) {
-      return ioStep(error);
-    }
-    if (info.isSymbolicLink() || !info.isDirectory()) return "retry" as const;
+    const state = await directoryNode(parent);
+    if (state === "retry") return "retry";
+    if (state === "missing") return "skipped";
     cursor = parent;
   }
   return "ok" as const;
