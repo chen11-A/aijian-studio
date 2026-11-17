@@ -141,6 +141,8 @@ async function awaitTrackedTasks() {
   }
   return rejected;
 }
+const removeRegisteredRoot = (root: string) => rm(root, { recursive: true, force: true });
+let removeRoot = removeRegisteredRoot;
 async function resetAndRemoveRoots() {
   fault.mode = "";
   fault.observe = null;
@@ -150,7 +152,7 @@ async function resetAndRemoveRoots() {
   const errors: unknown[] = [];
   for (const root of roots.splice(0)) {
     try {
-      await rm(root, { recursive: true, force: true });
+      await removeRoot(root);
     } catch (error) {
       errors.push(error);
     }
@@ -171,8 +173,12 @@ async function settleOpenWork() {
   releaseCleanupGates();
   rejected.push(...(await awaitTrackedTasks()));
   checkpoint?.("before-delete");
-  deleteErrors.push(...(await resetAndRemoveRoots()));
-  throwCleanupFailures(rejected, deleteErrors);
+  try {
+    deleteErrors.push(...(await resetAndRemoveRoots()));
+    throwCleanupFailures(rejected, deleteErrors);
+  } finally {
+    removeRoot = removeRegisteredRoot;
+  }
 }
 /** Hardlink the shared bundle. Replacing one file must unlink first so the original inode stays intact. */
 async function linkBundle(from: string, to: string) {
@@ -1187,12 +1193,16 @@ it("deletes the temp root only after a gated real apply settles", async () => {
   expect(fault.entered).toBeNull();
   expect(existsSync(f.root)).toBe(false);
 });
-it("keeps a tracked rejection when removing the temp root also fails", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "音效库 CAS "));
-  const blocked = join(parent, "not-a-directory");
-  await writeFile(blocked, "x");
-  roots.push(join(blocked, "child"));
-  const task = trackTask(Promise.reject(new Error("task failed")));
+it("keeps an injected delete EIO with the tracked rejection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "音效库 CAS "));
+  roots.push(root);
+  const taskError = new Error("task failed");
+  const deleteError = Object.assign(new Error("delete EIO"), { code: "EIO", syscall: "rm" });
+  removeRoot = async (target) => {
+    if (target === root) throw deleteError;
+    await removeRegisteredRoot(target);
+  };
+  const task = trackTask(Promise.reject(taskError));
   void task.catch(() => undefined);
   try {
     const error = await settleOpenWork().then(
@@ -1202,14 +1212,12 @@ it("keeps a tracked rejection when removing the temp root also fails", async () 
       (caught: unknown) => caught,
     );
     expect(error).toBeInstanceOf(AggregateError);
-    const reasons = (error as AggregateError).errors.map((item) =>
-      item instanceof Error ? item.message : String(item),
-    );
-    expect(reasons).toContain("task failed");
-    expect(reasons.some((reason) => reason.includes("ENOTDIR"))).toBe(true);
-    expect((error as AggregateError).errors).toHaveLength(2);
+    const errors = (error as AggregateError).errors;
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).toBe(taskError);
+    expect(errors[1]).toBe(deleteError);
   } finally {
-    await rm(parent, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true });
   }
 });
 it.each([
