@@ -50,8 +50,11 @@ class FakeSkillDeadlinePhase:
         "invocation_index",
         "start_returned_ms",
         "poll_returned_ms",
-        "remaining_ms",
-        "child_alive",
+        "poll_remaining_ms",
+        "poll_child_alive",
+        "check_ms",
+        "check_remaining_ms",
+        "check_child_alive",
     )
 
     def __init__(
@@ -59,14 +62,20 @@ class FakeSkillDeadlinePhase:
         invocation_index: int,
         start_returned_ms: int | None,
         poll_returned_ms: int | None,
-        remaining_ms: int | None,
-        child_alive: bool | None,
+        poll_remaining_ms: int | None,
+        poll_child_alive: bool | None,
+        check_ms: int | None,
+        check_remaining_ms: int | None,
+        check_child_alive: bool | None,
     ) -> None:
         self.invocation_index = invocation_index
         self.start_returned_ms = start_returned_ms
         self.poll_returned_ms = poll_returned_ms
-        self.remaining_ms = remaining_ms
-        self.child_alive = child_alive
+        self.poll_remaining_ms = poll_remaining_ms
+        self.poll_child_alive = poll_child_alive
+        self.check_ms = check_ms
+        self.check_remaining_ms = check_remaining_ms
+        self.check_child_alive = check_child_alive
 
 
 class FakeSkillTimeoutError(TimeoutError):
@@ -80,14 +89,26 @@ class FakeSkillTimeoutError(TimeoutError):
 
 
 class _InvocationClock:
-    __slots__ = ("index", "start_returned", "poll_returned", "remaining", "child_alive")
+    __slots__ = (
+        "index",
+        "start_returned",
+        "poll_returned",
+        "poll_remaining",
+        "poll_child_alive",
+        "check_at",
+        "check_remaining",
+        "check_child_alive",
+    )
 
     def __init__(self, index: int) -> None:
         self.index = index
         self.start_returned: float | None = None
         self.poll_returned: float | None = None
-        self.remaining: float | None = None
-        self.child_alive: bool | None = None
+        self.poll_remaining: float | None = None
+        self.poll_child_alive: bool | None = None
+        self.check_at: float | None = None
+        self.check_remaining: float | None = None
+        self.check_child_alive: bool | None = None
 
 
 class _DeadlineClock:
@@ -275,9 +296,10 @@ class FakeAgentSkillExecutor:
                 now = monotonic()
                 remaining = deadline - now
                 if remaining <= 0:
-                    _mark_remaining(
+                    _mark_check(
                         self._deadline_clock,
                         invocation_index,
+                        now,
                         remaining,
                         _child_alive(process),
                     )
@@ -441,15 +463,16 @@ def _mark_poll(
         if slot is None:
             return
         slot.poll_returned = now
-        slot.remaining = remaining
-        slot.child_alive = child_alive
+        slot.poll_remaining = remaining
+        slot.poll_child_alive = child_alive
     except Exception:
         return
 
 
-def _mark_remaining(
+def _mark_check(
     clock: _DeadlineClock | None,
     invocation_index: int,
+    now: float,
     remaining: float,
     child_alive: bool | None,
 ) -> None:
@@ -459,8 +482,9 @@ def _mark_remaining(
         slot = clock.slot(invocation_index)
         if slot is None:
             return
-        slot.remaining = remaining
-        slot.child_alive = child_alive
+        slot.check_at = now
+        slot.check_remaining = remaining
+        slot.check_child_alive = child_alive
     except Exception:
         return
 
@@ -476,15 +500,18 @@ def _phases(clock: _DeadlineClock | None) -> tuple[FakeSkillDeadlinePhase, ...]:
         return ()
     phases: list[FakeSkillDeadlinePhase] = []
     for slot in clock.invocations:
-        if slot.start_returned is None and slot.poll_returned is None and slot.remaining is None:
+        if slot.start_returned is None and slot.poll_returned is None and slot.check_at is None:
             continue
         phases.append(
             FakeSkillDeadlinePhase(
                 slot.index,
                 _offset_ms(clock.origin, slot.start_returned),
                 _offset_ms(clock.origin, slot.poll_returned),
-                None if slot.remaining is None else int(slot.remaining * 1000),
-                slot.child_alive,
+                None if slot.poll_remaining is None else int(slot.poll_remaining * 1000),
+                slot.poll_child_alive,
+                _offset_ms(clock.origin, slot.check_at),
+                None if slot.check_remaining is None else int(slot.check_remaining * 1000),
+                slot.check_child_alive,
             )
         )
     return tuple(phases)
@@ -494,19 +521,21 @@ def _field(value: int | None) -> str:
     return "none" if value is None else str(value)
 
 
+def _alive_field(value: bool | None) -> str:
+    if value is None:
+        return "none"
+    return "1" if value else "0"
+
+
 def _deadline_note(phases: tuple[FakeSkillDeadlinePhase, ...]) -> str:
     parts = ["fake-skill-deadline", "origin_ms=0"]
     for phase in phases:
-        if phase.child_alive is None:
-            alive = "none"
-        elif phase.child_alive:
-            alive = "1"
-        else:
-            alive = "0"
         parts.append(
-            f"i={phase.invocation_index} start_ms={_field(phase.start_returned_ms)} "
-            f"poll_ms={_field(phase.poll_returned_ms)} "
-            f"remaining_ms={_field(phase.remaining_ms)} child_alive={alive}"
+            f"i={phase.invocation_index} s={_field(phase.start_returned_ms)} "
+            f"p={_field(phase.poll_returned_ms)} pr={_field(phase.poll_remaining_ms)} "
+            f"pa={_alive_field(phase.poll_child_alive)} "
+            f"c={_field(phase.check_ms)} cr={_field(phase.check_remaining_ms)} "
+            f"ca={_alive_field(phase.check_child_alive)}"
         )
     return " ".join(parts)[:_DEADLINE_NOTE_LIMIT]
 

@@ -1441,11 +1441,15 @@ def test_second_invocation_uses_shared_deadline_and_leaves_no_child(
         assert phase.start_returned_ms is not None
         assert phase.start_returned_ms >= previous
         previous = phase.start_returned_ms
+        assert phase.poll_child_alive in (True, False, None)
+        assert phase.check_child_alive in (True, False, None)
         if phase.poll_returned_ms is not None:
             assert phase.start_returned_ms <= phase.poll_returned_ms
+        if phase.check_ms is not None and phase.poll_returned_ms is not None:
+            assert phase.poll_returned_ms <= phase.check_ms
     last = error.phases[-1]
-    assert last.remaining_ms is not None and last.remaining_ms <= 0
-    assert last.child_alive is True
+    decision = last.check_remaining_ms if last.check_ms is not None else last.poll_remaining_ms
+    assert decision is not None and decision <= 0
     notes = getattr(error, "__notes__", ())
     assert len(notes) == 1
     assert notes[0].startswith("fake-skill-deadline origin_ms=0")
@@ -1463,25 +1467,31 @@ def test_deadline_trace_records_both_invocations_without_user_data() -> None:
     assert first is not None and second is not None
     first.start_returned = origin + 0.012
     first.poll_returned = origin + 0.40
-    first.remaining = 1.6
-    first.child_alive = False
-    second.start_returned = origin + 0.41
-    second.poll_returned = origin + 2.0
-    second.remaining = -0.004
-    second.child_alive = True
+    first.poll_remaining = 1.6
+    first.poll_child_alive = False
+    first.check_at = origin + 0.45
+    first.check_remaining = 1.55
+    first.check_child_alive = False
+    second.start_returned = origin + 0.50
+    second.poll_returned = origin + 0.70
+    second.poll_remaining = 1.3
+    second.poll_child_alive = True
+    second.check_at = origin + 2.0
+    second.check_remaining = -0.004
+    second.check_child_alive = True
     phases = _phases(clock)
     assert [phase.invocation_index for phase in phases] == [0, 1]
-    assert phases[0].start_returned_ms == int((first.start_returned - origin) * 1000)
+    assert phases[0].poll_remaining_ms == int(first.poll_remaining * 1000)
     assert phases[0].poll_returned_ms == int((first.poll_returned - origin) * 1000)
-    assert phases[0].remaining_ms == int(first.remaining * 1000)
-    assert phases[0].child_alive is False
-    assert phases[1].start_returned_ms == int((second.start_returned - origin) * 1000)
-    assert phases[1].poll_returned_ms == int((second.poll_returned - origin) * 1000)
-    assert phases[1].remaining_ms == int(second.remaining * 1000)
-    assert phases[1].remaining_ms < 0
-    assert phases[1].child_alive is True
-    assert phases[0].start_returned_ms < phases[0].poll_returned_ms < phases[1].start_returned_ms
-    assert phases[1].start_returned_ms < phases[1].poll_returned_ms
+    assert phases[0].check_remaining_ms == int(first.check_remaining * 1000)
+    assert phases[0].check_ms == int((first.check_at - origin) * 1000)
+    assert phases[0].poll_remaining_ms != phases[0].check_remaining_ms
+    assert phases[1].poll_remaining_ms == int(second.poll_remaining * 1000)
+    assert phases[1].check_remaining_ms == int(second.check_remaining * 1000)
+    assert phases[1].check_remaining_ms < 0
+    assert phases[1].poll_child_alive is True
+    assert phases[1].check_child_alive is True
+    assert phases[1].poll_returned_ms < phases[1].check_ms
     note = _deadline_note(phases)
     assert note.startswith("fake-skill-deadline origin_ms=0")
     assert "i=0" in note and "i=1" in note
@@ -1496,8 +1506,11 @@ def test_deadline_trace_records_both_invocations_without_user_data() -> None:
             phase.invocation_index,
             phase.start_returned_ms,
             phase.poll_returned_ms,
-            phase.remaining_ms,
-            phase.child_alive,
+            phase.poll_remaining_ms,
+            phase.poll_child_alive,
+            phase.check_ms,
+            phase.check_remaining_ms,
+            phase.check_child_alive,
         )
         for phase in error.phases
     ] == [
@@ -1505,12 +1518,70 @@ def test_deadline_trace_records_both_invocations_without_user_data() -> None:
             phase.invocation_index,
             phase.start_returned_ms,
             phase.poll_returned_ms,
-            phase.remaining_ms,
-            phase.child_alive,
+            phase.poll_remaining_ms,
+            phase.poll_child_alive,
+            phase.check_ms,
+            phase.check_remaining_ms,
+            phase.check_child_alive,
         )
         for phase in phases
     ]
     assert tuple(error.__notes__) == (note,)
+
+
+def test_later_deadline_check_keeps_the_poll_sample(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = {"now": 1_000.0}
+
+    def mono() -> float:
+        return clock["now"]
+
+    monkeypatch.setattr("aijian_api.fake_agent_executor.monotonic", mono)
+    database, _, task_clock, ledger, _, task_id = setup_fake_task(tmp_path)
+    original = ledger.heartbeat
+
+    def heartbeat(running: ClaimedTask, *, lease_duration: timedelta, lock_timeout: timedelta):
+        result = original(
+            running,
+            lease_duration=lease_duration,
+            lock_timeout=lock_timeout,
+        )
+        clock["now"] = 1_005.0
+        return result
+
+    monkeypatch.setattr(ledger, "heartbeat", heartbeat)
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: task_clock[0]),
+        worker_id="deadline-sample-worker",
+        lease_duration=timedelta(seconds=30),
+        heartbeat_interval=timedelta(milliseconds=20),
+        handler_timeout=timedelta(seconds=2),
+        handler=permanently_blocked_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
+    )
+    before_children = {process.pid for process in active_children()}
+
+    with pytest.raises(FakeSkillTimeoutError, match="timed out") as caught:
+        executor.run_once(task_id=task_id)
+
+    error = caught.value
+    assert str(error) == "Fake Skill handler timed out"
+    assert {process.pid for process in active_children()} == before_children
+    assert [phase.invocation_index for phase in error.phases] == [0]
+    phase = error.phases[0]
+    assert phase.poll_returned_ms == 0
+    assert phase.poll_remaining_ms == 2000
+    assert phase.poll_child_alive is True
+    assert phase.check_ms == 5000
+    assert phase.check_remaining_ms == -3000
+    assert phase.check_child_alive is True
+    assert phase.poll_returned_ms != phase.check_ms
+    note = error.__notes__[0]
+    assert "pr=2000" in note and "cr=-3000" in note
+    assert "snapshot" not in note and "/" not in note and "\\" not in note
 
 
 def test_deadline_note_failure_still_raises_the_original_timeout(
