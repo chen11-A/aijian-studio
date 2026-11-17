@@ -42,6 +42,7 @@ import { createProjectArchives } from "./film-project-archive";
 import { loadProjectArchiveEngine } from "./film-project-archive-runtime";
 import { resolveAudioMix } from "./film-audio-mix-sources";
 import { renderAudioMix, probeMixSource } from "./film-audio-mix";
+import * as FilmExportIo from "./film-export-io";
 import type { AddBundledFilmAudioInput } from "@aijian/contracts/film-audio-library";
 const fault = vi.hoisted(() => ({
   mode: "",
@@ -745,6 +746,142 @@ it("refuses mutated bundled bytes or an outward source symlink while keeping the
   expect(await readFile(outside)).toEqual(bytes);
   expect(await readFile(join(bundle, String(row.path)))).toEqual(bytes);
   expect(await readdir(f.media)).toEqual(["native.mp4"]);
+});
+
+it("holds the caller guard until in-flight asset checks settle and claims no later asset after a failure", async () => {
+  const root = await mkdtemp(join(tmpdir(), "音效库校验 "));
+  roots.push(root);
+  const touch = Symbol.for("aivora.library-verify-touch");
+  const claims: number[] = [];
+  const mark = (index: number) => {
+    claims.push(index);
+  };
+  (globalThis as Record<symbol, (index: number) => void>)[touch] = mark;
+  const loader = Buffer.from(`const touch = Symbol.for("aivora.library-verify-touch");
+export async function loadAudioLibrary(root) {
+  const { readFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const rows = JSON.parse(await readFile(join(root, "manifest.json"), "utf8"));
+  return rows.map((row, index) => new Proxy(row, {
+    get(target, prop, receiver) {
+      if (prop === "sha256") globalThis[touch]?.(index);
+      return Reflect.get(target, prop, receiver);
+    },
+  }));
+}
+`);
+  const rows = Array.from({ length: 20 }, (_, index) => {
+    const bytes = Buffer.from(`gate-asset-${index}`);
+    return {
+      id: `gate-${String(index).padStart(2, "0")}`,
+      path: `gate-${String(index).padStart(2, "0")}.ogg`,
+      type: "sfx",
+      category: "环境",
+      name: `gate-${index}`,
+      tags: ["环境"],
+      scene: "闸门",
+      duration: 0.5,
+      loop: false,
+      loudness: -20,
+      source: "https://example.com/audio",
+      license: "CC0-1.0",
+      sha256: sha(bytes),
+      author: "gate",
+      bytes,
+    };
+  });
+  for (const row of rows) await writeFile(join(root, row.path), row.bytes);
+  const manifest = Buffer.from(JSON.stringify(rows.map(({ bytes: _bytes, ...row }) => row)));
+  await writeFile(join(root, "manifest.json"), manifest);
+  await writeFile(join(root, "audio-library.mjs"), loader);
+  await writeFile(
+    join(root, "resource-index.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      manifestSha256: sha(manifest),
+      loaderSha256: sha(loader),
+      assetCount: rows.length,
+    }),
+  );
+  const early = new Error("asset 0");
+  const late = new Error("asset 3");
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = releaseOnCleanup(resolve);
+  });
+  let parked = false;
+  let threwLate = false;
+  let noted = false;
+  let observe!: () => void;
+  const observed = new Promise<void>((resolve) => {
+    observe = resolve;
+  });
+  const note = () => {
+    if (!parked || !threwLate || noted) return;
+    noted = true;
+    queueMicrotask(observe);
+  };
+  const originalHash = FilmExportIo.exportFileHash;
+  const hashed = vi.spyOn(FilmExportIo, "exportFileHash").mockImplementation(async (path, signal) => {
+    const match = /gate-(\d+)\.ogg$/.exec(basename(String(path)));
+    if (!match) return originalHash(path, signal);
+    const index = Number(match[1]);
+    if (index === 3) {
+      threwLate = true;
+      note();
+      throw late;
+    }
+    if (index === 0) {
+      parked = true;
+      note();
+      await gate;
+      throw early;
+    }
+    await gate;
+    return originalHash(path, signal);
+  });
+  let guard = true;
+  const pending = (async () => {
+    try {
+      return await loadTrustedAudioLibrary(root);
+    } finally {
+      guard = false;
+    }
+  })();
+  const outcome = pending.then(
+    () => ({ settled: "value" as const }),
+    (error: unknown) => ({ settled: "error" as const, error }),
+  );
+  trackTask(outcome);
+  try {
+    await observed;
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(claims.filter((index) => index >= 16)).toEqual([]);
+    expect([...new Set(claims)].sort((left, right) => left - right)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    ]);
+    expect(guard).toBe(true);
+    let settled = false;
+    void outcome.finally(() => {
+      settled = true;
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(settled).toBe(false);
+    expect(guard).toBe(true);
+    release();
+    await expect(outcome).resolves.toEqual({ settled: "error", error: early });
+    expect(guard).toBe(false);
+    expect(claims.filter((index) => index >= 16)).toEqual([]);
+  } finally {
+    release();
+    delete (globalThis as Record<symbol, unknown>)[touch];
+    hashed.mockRestore();
+    await outcome;
+  }
 });
 
 it("rejects a changed clean visual file after preparation even when the saved record is unchanged", async () => {

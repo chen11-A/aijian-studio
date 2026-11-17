@@ -20,7 +20,10 @@ async function bundleRoot(rawRoot: string) {
   };
   return { root, inside };
 }
-/** Independent file checks. Bounded so one library read cannot open every asset at once. */
+/**
+ * Pull at most `limit` items at a time. The first recorded failure stops new claims.
+ * Work already started still runs to completion, and the smallest index wins.
+ */
 async function mapLimited<T, R>(
   items: readonly T[],
   limit: number,
@@ -28,15 +31,23 @@ async function mapLimited<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let cursor = 0;
+  let stop = false;
+  let failure: { index: number; error: unknown } | undefined;
   await Promise.all(
     Array.from({ length: Math.min(limit, items.length) }, async () => {
-      while (cursor < items.length) {
+      while (!stop && cursor < items.length) {
         const index = cursor;
         cursor += 1;
-        results[index] = await run(items[index]!);
+        try {
+          results[index] = await run(items[index]!);
+        } catch (error) {
+          stop = true;
+          if (!failure || index < failure.index) failure = { index, error };
+        }
       }
     }),
   );
+  if (failure) throw failure.error;
   return results;
 }
 
