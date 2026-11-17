@@ -342,6 +342,25 @@ it("invalidates a displayed plan on creative edits without auto-reading or touch
   expect(f.provider).not.toHaveBeenCalled();
 });
 it("retries a real stage autosave metadata race once with the fresh canonical hash, without adding or generating", async () => {
+  const realSetTimeout = window.setTimeout.bind(window),
+    realClearTimeout = window.clearTimeout.bind(window),
+    pendingAutosave = new Set<ReturnType<typeof setTimeout>>();
+  vi.spyOn(window, "setTimeout").mockImplementation(((handler, timeout, ...args) => {
+    const id = realSetTimeout(
+      (...inner: unknown[]) => {
+        pendingAutosave.delete(id);
+        if (typeof handler === "function") handler(...inner);
+      },
+      timeout as number,
+      ...args,
+    );
+    if (timeout === 400) pendingAutosave.add(id);
+    return id;
+  }) as typeof window.setTimeout);
+  vi.spyOn(window, "clearTimeout").mockImplementation((id) => {
+    pendingAutosave.delete(id as ReturnType<typeof setTimeout>);
+    realClearTimeout(id);
+  });
   const f = await open(false),
     entered = deferred<void>(),
     released = deferred<void>();
@@ -356,13 +375,32 @@ it("retries a real stage autosave metadata race once with the fresh canonical ha
   const dialog = await view();
   await entered.promise;
   const writes = f.write.mock.calls.length;
-  let ordinaryWrite = -1;
-  await waitFor(() => {
-    ordinaryWrite = f.write.mock.calls.findIndex(
-      ([value], index) => index >= writes && value.id === f.film.id,
-    );
-    expect(ordinaryWrite).toBeGreaterThanOrEqual(writes);
-  });
+  let ordinaryWrite = f.write.mock.calls.findIndex(
+    ([value], index) => index >= writes && value.id === f.film.id,
+  );
+  // The stage debounce can already have committed on a slow runner, so the
+  // hash this call captured includes that savedAt and no later write arrives.
+  // A timer that is still pending is the real race. If it already landed,
+  // write the same film through the real save queue while suggest is held.
+  if (ordinaryWrite < 0 && pendingAutosave.size > 0)
+    await waitFor(() => {
+      ordinaryWrite = f.write.mock.calls.findIndex(
+        ([value], index) => index >= writes && value.id === f.film.id,
+      );
+      expect(ordinaryWrite).toBeGreaterThanOrEqual(writes);
+    });
+  if (ordinaryWrite < 0) {
+    const saving = f.queue().save(f.current());
+    await waitFor(() => {
+      ordinaryWrite = f.write.mock.calls.findIndex(
+        ([value], index) => index >= writes && value.id === f.film.id,
+      );
+      expect(ordinaryWrite).toBeGreaterThanOrEqual(writes);
+    });
+    await act(async () => {
+      await saving;
+    });
+  }
   await f.write.mock.results[ordinaryWrite]!.value;
   const latest = f.disk.get(f.film.id)!;
   expect(requestRaw).toBeDefined();
