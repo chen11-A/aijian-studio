@@ -19,7 +19,6 @@ import {
   readdir,
   rename,
   symlink,
-  chmod,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { delimiter, dirname, basename, isAbsolute, join, resolve } from "node:path";
@@ -1189,10 +1188,10 @@ it("deletes the temp root only after a gated real apply settles", async () => {
   expect(existsSync(f.root)).toBe(false);
 });
 it("keeps a tracked rejection when removing the temp root also fails", async () => {
-  const root = await mkdtemp(join(tmpdir(), "音效库 CAS "));
-  await writeFile(join(root, "child.txt"), "x");
-  await chmod(root, 0);
-  roots.push(root);
+  const parent = await mkdtemp(join(tmpdir(), "音效库 CAS "));
+  const blocked = join(parent, "not-a-directory");
+  await writeFile(blocked, "x");
+  roots.push(join(blocked, "child"));
   const task = trackTask(Promise.reject(new Error("task failed")));
   void task.catch(() => undefined);
   try {
@@ -1207,10 +1206,10 @@ it("keeps a tracked rejection when removing the temp root also fails", async () 
       item instanceof Error ? item.message : String(item),
     );
     expect(reasons).toContain("task failed");
-    expect(reasons.some((reason) => reason.includes("EACCES"))).toBe(true);
+    expect(reasons.some((reason) => reason.includes("ENOTDIR"))).toBe(true);
+    expect((error as AggregateError).errors).toHaveLength(2);
   } finally {
-    await chmod(root, 0o700);
-    await rm(root, { recursive: true, force: true });
+    await rm(parent, { recursive: true, force: true });
   }
 });
 it.each([
