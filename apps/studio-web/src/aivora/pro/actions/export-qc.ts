@@ -18,6 +18,7 @@ export function filmQcInput(
   film: FilmProject,
   choice: ExportAspectChoice,
   settings: Omit<FilmExportQcSettings, "aspects">,
+  requestedFileName?: string,
 ): FilmExportQcInput {
   return {
     projectId: film.id,
@@ -30,6 +31,7 @@ export function filmQcInput(
       autoAdjustVolume: audioMixSettings(film.audioMix).autoAdjustVolume,
       ...settings,
     },
+    ...(requestedFileName !== undefined ? { requestedFileName } : {}),
   };
 }
 export function filmQcKey(film: FilmProject | null, input: FilmExportQcInput | null) {

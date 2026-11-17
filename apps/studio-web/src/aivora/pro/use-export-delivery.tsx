@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { FilmExportQcPublishResult } from "@aijian/contracts/film-export-qc";
-import { writtenFileName } from "./export-file-name";
+import { writtenExportNames } from "./export-file-name";
 import { DeliveryEvidence } from "./DeliveryEvidence";
+import { partialAspectNotice } from "./actions/export-qc";
 import { deliveryEvidenceView, type DeliveryEvidenceView } from "./actions/delivery-evidence-view";
-type Published = { projectId: string; path: string; partial: boolean; view: DeliveryEvidenceView };
+type Published = {
+  projectId: string;
+  path: string;
+  names: string;
+  partial: boolean;
+  partialNotice: string;
+  view: DeliveryEvidenceView;
+};
 export function useExportDelivery(projectId: string | null, currentProject: () => string | null) {
   const mounted = useRef(true);
   useEffect(() => {
@@ -26,10 +34,18 @@ export function useExportDelivery(projectId: string | null, currentProject: () =
     result: Extract<FilmExportQcPublishResult, { kind: "PUBLISHED" | "PARTIAL" }>,
   ) {
     if (!mounted.current || current.current() !== id) return;
+    const paths = result.outputs.flatMap((output) =>
+      typeof output.path === "string" && output.path ? [output.path] : [],
+    );
     const value: Published = {
       projectId: id,
-      path: typeof result.outputs[0]?.path === "string" ? result.outputs[0].path : "",
+      path: paths[0] ?? "",
+      names: writtenExportNames(paths),
       partial: result.kind === "PARTIAL",
+      partialNotice:
+        result.kind === "PARTIAL" && result.incomplete
+          ? partialAspectNotice(result.incomplete)
+          : "",
       view: deliveryEvidenceView(result.deliveryEvidence, result.kind),
     };
     active.current = value;
@@ -48,7 +64,8 @@ export function useExportDelivery(projectId: string | null, currentProject: () =
     clear,
     remember,
     available: !!shown?.path,
-    writtenName: shown?.path ? writtenFileName(shown.path) : "",
+    writtenName: shown?.names ?? "",
+    partialNotice: shown?.partialNotice ?? "",
     view: shown ? <DeliveryEvidence view={shown.view} partial={shown.partial} /> : null,
     onReveal: () => {
       const value = path();

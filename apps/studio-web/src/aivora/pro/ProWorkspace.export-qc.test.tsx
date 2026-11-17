@@ -243,6 +243,71 @@ describe("QC prepare/review/publish host", () => {
     expect(screen.queryByText(qcFailureText.INVALID_INPUT)).toBeNull();
     expect(f.publish).not.toHaveBeenCalled();
   });
+  it("omits the export name until it is edited, then sends that same name to check and publish", async () => {
+    const f = await open();
+    expect(screen.getByLabelText("导出文件名")).toHaveValue("雨夜巷战-第1集.mp4");
+    check();
+    const first = await screen.findByRole("button", { name: "审核后发布" });
+    await waitFor(() => expect(first).toBeEnabled());
+    expect(f.prepare.mock.calls[0]![0]).not.toHaveProperty("requestedFileName");
+    fireEvent.click(first);
+    await waitFor(() => expect(f.publish).toHaveBeenCalledTimes(1));
+    expect(f.publish.mock.calls[0]![0]).not.toHaveProperty("requestedFileName");
+    expect(f.publish.mock.calls[0]![0].qcReceipt).toBe(ready.qcReceipt);
+  });
+  it("sends one edited export name through both the check and the publish", async () => {
+    const f = await open();
+    fireEvent.change(screen.getByLabelText("导出文件名"), { target: { value: "成片终稿" } });
+    check();
+    const publish = await screen.findByRole("button", { name: "审核后发布" });
+    expect(f.prepare.mock.calls[0]![0].requestedFileName).toBe("成片终稿");
+    await waitFor(() => expect(publish).toBeEnabled());
+    fireEvent.click(publish);
+    await waitFor(() => expect(f.publish).toHaveBeenCalledTimes(1));
+    expect(f.publish.mock.calls[0]![0].requestedFileName).toBe("成片终稿");
+    expect(f.publish.mock.calls[0]![0].qcReceipt).toBe(ready.qcReceipt);
+  });
+  it("discards the receipt and requires a new check after the export name changes", async () => {
+    const f = await open();
+    check();
+    await screen.findByRole("button", { name: "审核后发布" });
+    fireEvent.change(screen.getByLabelText("导出文件名"), { target: { value: "另一版" } });
+    await waitFor(() => expect(f.discard).toHaveBeenCalledWith(ready.qcReceipt));
+    expect(screen.getByRole("button", { name: "审核后发布" })).toBeDisabled();
+    expect(screen.getByText("作品或导出设置已变化，需要重新检查。")).toBeInTheDocument();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
+  it("notes that the checked name may gain a suffix and echoes every written output name", async () => {
+    const f = await open();
+    f.prepare.mockResolvedValue({ ...ready, fileName: "雨夜巷战-第1集.mp4" });
+    f.publish.mockResolvedValue({
+      kind: "PUBLISHED",
+      outputs: [
+        { aspectRatio: "16:9", path: "/published/雨夜巷战-第1集-16x9.mp4" },
+        { aspectRatio: "9:16", path: "/published/雨夜巷战-第1集-9x16.mp4" },
+      ],
+    });
+    check();
+    await screen.findByText("实际将写入：雨夜巷战-第1集.mp4。发布时可能加上 -N 序号或画幅后缀。");
+    const publish = screen.getByRole("button", { name: "审核后发布" });
+    await waitFor(() => expect(publish).toBeEnabled());
+    fireEvent.click(publish);
+    expect(
+      await screen.findByText("实际写入：雨夜巷战-第1集-16x9.mp4、雨夜巷战-第1集-9x16.mp4"),
+    ).toBeInTheDocument();
+  });
+  it("keeps a taken edited name editable and does not discard the receipt", async () => {
+    const f = await open();
+    fireEvent.change(screen.getByLabelText("导出文件名"), { target: { value: "成片终稿" } });
+    f.publish.mockResolvedValue({ kind: "FAILED", code: "EXPORT_NAME_TAKEN" });
+    check();
+    const publish = await screen.findByRole("button", { name: "审核后发布" });
+    await waitFor(() => expect(publish).toBeEnabled());
+    fireEvent.click(publish);
+    expect(await screen.findByText(qcFailureText.EXPORT_NAME_TAKEN)).toBeInTheDocument();
+    expect(screen.getByLabelText("导出文件名")).toBeEnabled();
+    expect(f.discard).not.toHaveBeenCalled();
+  });
   it("shows which aspect was kept when the other aspect could not be written", async () => {
     const notices: { text?: string; detail?: string }[] = [];
     const collect = (event: Event) =>
@@ -266,6 +331,7 @@ describe("QC prepare/review/publish host", () => {
           notices.some((notice) => notice.detail?.includes(partialAspectNotice(incomplete))),
         ).toBe(true),
       );
+      expect(screen.getByText(partialAspectNotice(incomplete))).toBeInTheDocument();
     } finally {
       window.removeEventListener("aivora-notice", collect);
     }
