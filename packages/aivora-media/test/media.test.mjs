@@ -35,7 +35,9 @@ const shot = {
 };
 async function temporary(t) {
   const dir = await mkdtemp(path.join(tmpdir(), "中文 项目 ' 测试-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  // execFile already waits for the child to exit. Windows can keep a copied exe
+  // mapped for a moment after that, so only EBUSY/EPERM are retried, and only a few times.
+  t.after(() => rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   return dir;
 }
 async function info(file) {

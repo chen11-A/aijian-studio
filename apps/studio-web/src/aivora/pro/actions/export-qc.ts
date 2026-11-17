@@ -64,6 +64,7 @@ export const qcFailureText: Record<FilmExportQcFailure["code"], string> = {
 const incompleteReason: Record<FilmExportIncomplete["code"], string> = {
   DISK_FULL: "磁盘空间不足",
   PUBLISH_FAILED: "写入失败",
+  PROJECT_CHANGED: "工程或选定版本已经变化",
 };
 /** Shared wording for a kept aspect after the other aspect failed to write. */
 export function partialAspectNotice(incomplete: FilmExportIncomplete): string {
