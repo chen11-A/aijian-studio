@@ -266,7 +266,7 @@ it("preserves the written file fact but never confirms cleanup after a real owne
   expect(await readFile(f.path)).toEqual(f.data);
 });
 
-it("keeps an accepted stop unconfirmed if owned JSON staging cannot be cleaned", async () => {
+it("rejects a user stop during delivery evidence when owned JSON staging cannot be cleaned", async () => {
   const f = await fixture();
   const views: { cancelState: string }[] = [];
   const operations = createExportOperations((_owner, value) => views.push(value));
@@ -278,20 +278,29 @@ it("keeps an accepted stop unconfirmed if owned JSON staging cannot be cleaned",
       ...f.input,
       work: operation.work,
       assertCurrent: async () => {
-        expect(operations.cancel("owner", "staging-stop").kind).toBe("REQUESTED");
+        expect(operations.cancel("owner", "staging-stop")).toMatchObject({
+          kind: "UNAVAILABLE",
+        });
+        expect(operation.work.signal.aborted).toBe(false);
       },
     },
     id,
   );
   expect(result).toMatchObject({
-    kind: "FAILED",
-    code: "EVIDENCE_UNAVAILABLE",
+    kind: "WRITTEN",
     cleanupUnconfirmed: true,
   });
-  await operation.finish("partial");
+  await operation.finish("completed");
   expect(views.at(-1)?.cancelState).toBe("unavailable");
+  expect(views.some((view) => view.cancelState === "requested")).toBe(false);
   expect(views.some((view) => view.cancelState === "stopped")).toBe(false);
-  expect((await readdir(f.input.directory)).filter((name) => name.endsWith(".json"))).toEqual([]);
+  if (result.kind !== "WRITTEN") throw new Error("written evidence required");
+  expect(hash(await readFile(join(f.input.directory, result.fileName)))).toBe(
+    result.manifestSha256,
+  );
+  expect(
+    (await readdir(f.input.directory)).filter((name) => name.startsWith(".aivora-delivery-")),
+  ).toHaveLength(1);
   expect(await readFile(f.path)).toEqual(f.data);
 });
 

@@ -921,9 +921,11 @@ export function createFilmExportQc(host: FilmQcHost) {
         if (prepared.blocked) fail("QC_BLOCKED");
         await selectionCurrent(input, owner, prepared.ownerGeneration, work);
         work?.phase("publishing");
+        // Folder selection can return without a directory. The check and the
+        // folder write themselves do not accept a user stop, including the gap
+        // between two aspects.
         work?.cancellable(false);
         const directory = await host.pickDirectory();
-        work?.cancellable(true);
         work?.signal.throwIfAborted();
         if (!directory) return { kind: "CANCELLED" };
         await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
@@ -1058,10 +1060,10 @@ export function createFilmExportQc(host: FilmQcHost) {
                   total: prepared.outputs.length,
                   unit: "画幅",
                 });
-                if (outputs.length < prepared.outputs.length) work?.cancellable(true);
               }
             } catch (error) {
-              // A user stop keeps the aspects already linked.
+              // Owner loss can still abort the signal. That is not a user stop,
+              // and it does not reopen cancellation between aspects.
               if (work?.signal.aborted) throw error;
               const nameTaken = exportNameTaken(error);
               // A name clash, including one that appears after the first aspect, rolls the set back.

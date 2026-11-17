@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, symlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -88,4 +88,59 @@ it("does not follow a journal path that leaves the chosen folder", async () => {
   expect(result.kind).toBe("CLEARED");
   expect(await readFile(outside, "utf8")).toBe("outside");
   expect(await readFile(join(escaped, "film.mp4"), "utf8")).toBe("no");
+});
+
+it("does not delete a same-path file replaced after the journal was written", async () => {
+  const { directory, journal, log } = await place();
+  const ours = join(directory, "half.mp4");
+  await writeFile(ours, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: ours, aspectRatio: "16:9" });
+  await rm(ours);
+  await writeFile(ours, "user replacement");
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("CLEARED");
+  expect(await readFile(ours, "utf8")).toBe("user replacement");
+});
+
+it("does not delete an in-place overwrite of an unfinished export file", async () => {
+  const { directory, journal, log } = await place();
+  const ours = join(directory, "half.mp4");
+  await writeFile(ours, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: ours, aspectRatio: "16:9" });
+  await writeFile(ours, "user overwrite");
+  await recoverInterruptedExports(journal);
+  expect(await readFile(ours, "utf8")).toBe("user overwrite");
+});
+
+it("does not follow a symlink that replaced an unfinished export file", async () => {
+  const { directory, journal, log } = await place();
+  const ours = join(directory, "half.mp4");
+  const outside = join(journal, "precious.mp4");
+  await writeFile(ours, "partial");
+  await writeFile(outside, "keep");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: ours, aspectRatio: "16:9" });
+  await rm(ours);
+  await symlink(outside, ours);
+  await recoverInterruptedExports(journal);
+  expect(await readFile(outside, "utf8")).toBe("keep");
+  expect((await lstat(ours)).isSymbolicLink()).toBe(true);
+});
+
+it("does not remove an outside directory through a temp path that became a symlink", async () => {
+  const { directory, journal, log } = await place();
+  const temp = join(directory, ".aivora-qc-dead");
+  const outside = join(journal, "outside-dir");
+  await mkdir(temp);
+  await mkdir(outside);
+  await writeFile(join(outside, "keep.txt"), "keep");
+  const id = await log.begin(directory);
+  await log.noteTemp(id, temp);
+  await rm(temp, { recursive: true });
+  await symlink(outside, temp, "dir");
+  await recoverInterruptedExports(journal);
+  expect(await readFile(join(outside, "keep.txt"), "utf8")).toBe("keep");
+  expect((await lstat(temp)).isSymbolicLink()).toBe(true);
 });

@@ -102,7 +102,7 @@ export async function writeDeliveryManifest(
   };
   try {
     input.work?.signal.throwIfAborted();
-    input.work?.cancellable(true);
+    input.work?.cancellable(false);
     const directory = resolve(input.directory);
     if ((await realpath(directory)) !== directory || !input.published.length)
       throw new Error("UNAVAILABLE");
@@ -204,7 +204,6 @@ export async function writeDeliveryManifest(
     for (const entry of observed)
       if (!sameFile(entry.stat, await lstat(entry.path, { bigint: true })))
         throw new Error("UNAVAILABLE");
-    // Hash/IO remains cancellable; only the short exclusive final commit cannot stop.
     input.work?.cancellable(false);
     writing = true;
     await link(stage, join(directory, fileName));

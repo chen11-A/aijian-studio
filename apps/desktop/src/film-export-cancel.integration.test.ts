@@ -185,7 +185,7 @@ it("refuses to stop a film check while it is rendering", async () => {
   expect(digest(await readFile(f.source))).toBe(before);
   expect(JSON.stringify(f.events)).not.toContain(f.host.temporaryRoot);
 }, 30000);
-it("keeps picker unavailable, later stops the next aspect and retains only the actual published output", async () => {
+it("keeps a user stop unavailable through the folder picker and both aspect writes", async () => {
   const f = await fixture(),
     before = digest(await readFile(f.source));
   const ready = (await f.handlers.get("film:qc-prepare")!(
@@ -202,14 +202,12 @@ it("keeps picker unavailable, later stops the next aspect and retains only the a
       }),
   );
   let stop: Promise<unknown> | undefined;
+  let asked = false;
   f.onEvent((snapshot) => {
-    if (
-      snapshot.operationId === "publish-op" &&
-      snapshot.published.length === 1 &&
-      snapshot.cancelState === "available" &&
-      !stop
-    )
+    if (snapshot.operationId === "publish-op" && snapshot.published.length === 1 && !asked) {
+      asked = true;
       stop = f.handlers.get("film:qc-cancel")!(f.event, "publish-op");
+    }
   });
   const request = { ...f.input, qcReceipt: ready.qcReceipt };
   const publishing = f.handlers.get("film:qc-publish")!(f.event, request, "publish-op");
@@ -220,23 +218,22 @@ it("keeps picker unavailable, later stops the next aspect and retains only the a
   });
   release(f.output);
   const result = (await publishing) as FilmExportQcPublishResult;
-  expect(result.kind).toBe("PARTIAL");
-  if (result.kind !== "PARTIAL") throw new Error("partial required");
-  expect(result.outputs).toHaveLength(1);
-  expect(result.outputs[0]!.aspectRatio).toBe("16:9");
-  expect(result.deliveryEvidence).toMatchObject({ kind: "FAILED", code: "EVIDENCE_UNAVAILABLE" });
-  if (result.deliveryEvidence?.kind !== "FAILED")
-    throw new Error("stopped evidence must be unavailable");
-  expect(result.deliveryEvidence.files.every((file) => file.aspectRatio === "16:9")).toBe(true);
-  expect(result.deliveryEvidence.files.some((file) => file.role === "video")).toBe(true);
-  expect((await readdir(f.output)).filter((name) => name.endsWith(".json"))).toEqual([]);
-
-  expect((await stat(result.outputs[0]!.path)).size).toBeGreaterThan(0);
-  expect(await stop).toMatchObject({ kind: "REQUESTED" });
+  expect(result.kind).toBe("PUBLISHED");
+  if (result.kind !== "PUBLISHED") throw new Error("published required");
+  expect(result.outputs.map((output) => output.aspectRatio).sort()).toEqual(["16:9", "9:16"]);
+  expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
+  expect((await readdir(f.output)).filter((name) => name.endsWith(".mp4"))).toHaveLength(2);
+  for (const output of result.outputs) expect((await stat(output.path)).size).toBeGreaterThan(0);
+  expect(await stop).toMatchObject({
+    kind: "UNAVAILABLE",
+    snapshot: { cancelState: "unavailable" },
+  });
+  expect(f.qcSignal()?.aborted).toBe(false);
+  expect(f.events.some((snapshot) => snapshot.cancelState === "requested")).toBe(false);
+  expect(f.events.some((snapshot) => snapshot.cancelState === "stopped")).toBe(false);
   expect(f.events.at(-1)).toMatchObject({
-    phase: "partial",
-    cancelState: "stopped",
-    published: [{ aspectRatio: "16:9" }],
+    phase: "completed",
+    cancelState: "unavailable",
   });
   expect(f.live.size).toBe(0);
   expect(await readdir(f.host.temporaryRoot)).toEqual([]);
@@ -247,7 +244,7 @@ it("keeps picker unavailable, later stops the next aspect and retains only the a
   });
 }, 30000);
 
-it("accepts a cancel that arrives on a later turn after the first aspect is published", async () => {
+it("rejects a cancel that arrives on a later turn after the first aspect is published", async () => {
   const f = await fixture(),
     before = digest(await readFile(f.source));
   const ready = (await f.handlers.get("film:qc-prepare")!(
@@ -258,17 +255,13 @@ it("accepts a cancel that arrives on a later turn after the first aspect is publ
   expect(ready.kind).toBe("READY");
   let stop: Promise<unknown> | undefined;
   f.onEvent((snapshot) => {
-    if (
-      snapshot.operationId === "publish-op" &&
-      snapshot.published.length === 1 &&
-      snapshot.cancelState === "available" &&
-      !stop
-    )
+    if (snapshot.operationId === "publish-op" && snapshot.published.length === 1 && !stop) {
       stop = new Promise((resolve) => {
         setTimeout(() => {
           resolve(f.handlers.get("film:qc-cancel")!(f.event, "publish-op"));
         }, 0);
       });
+    }
   });
   const request = { ...f.input, qcReceipt: ready.qcReceipt };
   const result = (await f.handlers.get("film:qc-publish")!(
@@ -276,16 +269,23 @@ it("accepts a cancel that arrives on a later turn after the first aspect is publ
     request,
     "publish-op",
   )) as FilmExportQcPublishResult;
-  expect(result.kind).toBe("PARTIAL");
-  if (result.kind !== "PARTIAL") throw new Error("partial required");
-  expect(result.outputs).toHaveLength(1);
-  expect(result.outputs[0]!.aspectRatio).toBe("16:9");
-  expect((await readdir(f.output)).filter((name) => name.includes("9x16"))).toEqual([]);
-  expect(await stop).toMatchObject({ kind: "REQUESTED" });
+  expect(result.kind).toBe("PUBLISHED");
+  if (result.kind !== "PUBLISHED") throw new Error("published required");
+  expect(result.outputs.map((output) => output.aspectRatio).sort()).toEqual(["16:9", "9:16"]);
+  expect(
+    (await readdir(f.output)).filter((name) => name.includes("9x16") && name.endsWith(".mp4")),
+  ).toHaveLength(1);
+  expect(
+    (await readdir(f.output)).filter((name) => name.includes("16x9") && name.endsWith(".mp4")),
+  ).toHaveLength(1);
+  expect(await stop).toMatchObject({
+    kind: "UNAVAILABLE",
+    snapshot: { cancelState: "unavailable" },
+  });
+  expect(f.qcSignal()?.aborted).toBe(false);
   expect(f.events.at(-1)).toMatchObject({
-    phase: "partial",
-    cancelState: "stopped",
-    published: [{ aspectRatio: "16:9" }],
+    phase: "completed",
+    cancelState: "unavailable",
   });
   expect(digest(await readFile(f.source))).toBe(before);
   expect(await f.handlers.get("film:qc-publish")!(f.event, request, "replay-op")).toEqual({

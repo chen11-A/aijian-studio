@@ -1,15 +1,18 @@
-import { randomUUID } from "node:crypto";
-import { open, readdir, readFile, rename, rm, mkdir } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { lstat, open, readdir, readFile, rename, rm, mkdir } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import {
   INTERRUPTED_EXPORT_MESSAGE,
   type FilmExportRecovery,
 } from "@aijian/contracts/film-export-qc";
 
+type FileIdentity = { dev: string; ino: string; size: string; mtimeNs: string; sha256: string };
 type NotedFile = {
   path: string;
   aspectRatio: "16:9" | "9:16";
   complete: boolean;
+  identity?: FileIdentity;
 };
 type Journal = {
   schemaVersion: 1;
@@ -24,6 +27,25 @@ function contained(directory: string, target: string) {
   const path = resolve(target);
   const part = relative(root, path);
   return !!part && !isAbsolute(part) && part !== ".." && !part.startsWith("..");
+}
+
+async function fileIdentity(path: string): Promise<FileIdentity | undefined> {
+  const info = await lstat(path, { bigint: true });
+  if (info.isSymbolicLink() || !info.isFile()) return undefined;
+  const hash = createHash("sha256");
+  await new Promise<void>((resolveHash, reject) => {
+    const stream = createReadStream(path);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolveHash());
+  });
+  return {
+    dev: info.dev.toString(),
+    ino: info.ino.toString(),
+    size: info.size.toString(),
+    mtimeNs: info.mtimeNs.toString(),
+    sha256: hash.digest("hex"),
+  };
 }
 
 /** Durable list of files this export created. Startup deletes only the unfinished ones. */
@@ -64,7 +86,9 @@ export function createExportWriteLog(root: string) {
     async noteFile(id: string, file: { path: string; aspectRatio: "16:9" | "9:16" }) {
       const journal = live.get(id);
       if (!journal || !contained(journal.directory, file.path)) return;
-      journal.files.push({ ...file, path: resolve(file.path), complete: false });
+      const identity = await fileIdentity(file.path).catch(() => undefined);
+      if (!identity) return;
+      journal.files.push({ ...file, path: resolve(file.path), complete: false, identity });
       await save(journal);
     },
     async completeAspect(id: string, aspectRatio: "16:9" | "9:16") {
@@ -105,11 +129,47 @@ export async function recoverInterruptedExports(root: string): Promise<FilmExpor
         if (file.aspectRatio === "16:9" || file.aspectRatio === "9:16") kept.add(file.aspectRatio);
         continue;
       }
+      let info;
+      try {
+        info = await lstat(file.path, { bigint: true });
+      } catch {
+        continue;
+      }
+      // A symlink, a replacement at the same path, or a content change is the
+      // user's file now. Leave it, and do not follow a link out of the folder.
+      if (
+        info.isSymbolicLink() ||
+        !info.isFile() ||
+        !file.identity ||
+        info.dev.toString() !== file.identity.dev ||
+        info.ino.toString() !== file.identity.ino ||
+        info.size.toString() !== file.identity.size ||
+        info.mtimeNs.toString() !== file.identity.mtimeNs
+      )
+        continue;
+      const hash = createHash("sha256");
+      try {
+        await new Promise<void>((resolveHash, reject) => {
+          const stream = createReadStream(file.path);
+          stream.on("data", (chunk) => hash.update(chunk));
+          stream.on("error", reject);
+          stream.on("end", () => resolveHash());
+        });
+      } catch {
+        continue;
+      }
+      if (hash.digest("hex") !== file.identity.sha256) continue;
       await rm(file.path, { force: true });
     }
     for (const temp of journal.temps ?? []) {
-      if (!contained(journal.directory, temp) || !basename(temp).startsWith(".aivora-qc-"))
+      if (typeof temp !== "string" || !basename(temp).startsWith(".aivora-qc-")) continue;
+      let info;
+      try {
+        info = await lstat(temp);
+      } catch {
         continue;
+      }
+      if (info.isSymbolicLink() || !contained(journal.directory, temp)) continue;
       await rm(temp, { recursive: true, force: true });
     }
     await rm(join(root, name), { force: true });
