@@ -135,7 +135,7 @@ afterEach(async () => {
   fault.entered = null;
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
-async function fixture() {
+async function fixture(duration = 2) {
   const root = await mkdtemp(join(tmpdir(), "音效库 CAS "));
   roots.push(root);
   const filmsRoot = join(root, "films"),
@@ -147,19 +147,21 @@ async function fixture() {
   await mkdir(media, { recursive: true });
   await mkdir(storyFilmsRoot);
   const video = join(media, "native.mp4");
-  await run(tools.ffmpegPath, [
-    "-v",
-    "error",
-    "-f",
-    "lavfi",
-    "-i",
-    "testsrc2=s=160x90:r=24:d=2",
-    "-c:v",
-    "libx264",
-    "-pix_fmt",
-    "yuv420p",
-    video,
-  ]);
+  if (duration > 0)
+    await run(tools.ffmpegPath, [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      `testsrc2=s=160x90:r=24:d=${duration}`,
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      video,
+    ]);
+  else await writeFile(video, Buffer.alloc(64));
   const record = await writeProject(filmsRoot, {
     id,
     seriesId,
@@ -1131,8 +1133,49 @@ it.each([
   },
 );
 it("shares BUSY until apply settles and releases its reservation only after completion", async () => {
-  const f = await fixture(),
-    { request } = await suggested(f);
+  // The reservation is the promise gate below. Probe startup, not that gate, is what
+  // reaches the default 5s limit on a busy Windows runner, so probes answer immediately.
+  const f = await fixture(0);
+  f.host.run = vi.fn(async (binary: string, args: string[]) => {
+    const name = basename(binary)
+      .toLowerCase()
+      .replace(/\.exe$/, "");
+    if (name !== "ffprobe") return { stdout: "", stderr: "" };
+    const target = String(args.at(-1) ?? "");
+    const audio = /\.(ogg|oga|m4a|wav)$/i.test(target);
+    return {
+      stdout: JSON.stringify({
+        streams: [
+          audio
+            ? { codec_type: "audio", duration: "0.4", channels: 2 }
+            : { codec_type: "video", duration: "0.25" },
+        ],
+        format: { duration: audio ? "0.4" : "0.25" },
+      }),
+      stderr: "",
+    };
+  });
+  const record = structuredClone(f.record);
+  Object.assign(record.shots![0] as Record<string, unknown>, {
+    picture: "雨夜街道，手机震动",
+    sound: { musicMood: "", sfx: [{ atSeconds: 0, text: "手机震动" }], ambience: "" },
+  });
+  const stored = await writeProject(f.filmsRoot, record);
+  const input = {
+    projectId: stored.id,
+    expectedProjectHash: filmHistoryRecordHash(stored),
+    shotId: "shot",
+    takeId: "take",
+  };
+  const proposal = await f.library.suggestBundledFilmShotAudio(input);
+  if (proposal.kind !== "SUGGESTED") throw Error(proposal.code);
+  const request = {
+    ...input,
+    catalogSha256: proposal.catalogSha256,
+    pickerSha256: proposal.pickerSha256,
+    planFingerprint: proposal.planFingerprint,
+    lanes: ["sfx"] as ("ambience" | "sfx" | "score")[],
+  };
   let release!: () => void, entered!: () => void;
   const hold = new Promise<void>((yes) => (release = yes)),
     started = new Promise<void>((yes) => (entered = yes));
