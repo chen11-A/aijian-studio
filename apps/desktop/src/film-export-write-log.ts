@@ -66,6 +66,11 @@ type WriteLogOptions = {
    * Production writes do not set it.
    */
   directorySync?: DirectorySyncIO;
+  /**
+   * Test seam for the chosen-directory read. Absent means the real lstat.
+   * Production recovery does not set it.
+   */
+  readChosenDirectory?: (directory: string) => Promise<void>;
 };
 
 type DirectorySyncHandle = {
@@ -230,8 +235,20 @@ async function syncDirectory(
   }
 }
 
-async function ancestorsReal(directory: string, target: string, root: DirIdentity | undefined) {
+async function ancestorsReal(
+  directory: string,
+  target: string,
+  root: DirIdentity | undefined,
+  readChosenDirectory?: (directory: string) => Promise<void>,
+) {
   if (!contained(directory, target)) return "skipped" as const;
+  if (readChosenDirectory) {
+    try {
+      await readChosenDirectory(directory);
+    } catch (error) {
+      return ioStep(error);
+    }
+  }
   let current;
   try {
     current = await lstat(directory, { bigint: true });
@@ -619,7 +636,12 @@ async function removeTemp(
   temp: TempRecord,
   options: WriteLogOptions,
 ): Promise<Step> {
-  const gate = await ancestorsReal(journal.directory, temp.path, journal.directoryIdentity);
+  const gate = await ancestorsReal(
+    journal.directory,
+    temp.path,
+    journal.directoryIdentity,
+    options.readChosenDirectory,
+  );
   if (gate !== "ok") return gate === "skipped" ? "skipped" : "retry";
   let info;
   try {
@@ -728,6 +750,7 @@ export async function recoverInterruptedExports(
       journal.directory,
       join(journal.directory, "x"),
       journal.directoryIdentity,
+      options.readChosenDirectory,
     );
     if (gate === "retry") {
       retry = true;
@@ -735,7 +758,12 @@ export async function recoverInterruptedExports(
     }
     for (const file of journal.files) {
       if (!file?.path) continue;
-      const ancestry = await ancestorsReal(journal.directory, file.path, journal.directoryIdentity);
+      const ancestry = await ancestorsReal(
+        journal.directory,
+        file.path,
+        journal.directoryIdentity,
+        options.readChosenDirectory,
+      );
       if (ancestry === "retry") {
         failed = true;
         continue;

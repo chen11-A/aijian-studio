@@ -328,18 +328,16 @@ it("puts a file back when its bytes change while the hash is being checked", asy
   expect(await readFile(file, "utf8")).toBe("user replaced during hash");
 });
 
-it("keeps the journal when the chosen directory cannot be read", async () => {
+it("keeps the journal when an injected read of the chosen directory fails", async () => {
   const { directory, journal, log } = await place();
   const file = join(directory, "half.mp4");
   await writeFile(file, "partial");
   const id = await log.begin(directory);
   await log.noteFile(id, { path: file, aspectRatio: "16:9" });
-  const stored = JSON.parse(await readFile(join(journal, `${id}.json`), "utf8")) as {
-    directory: string;
-  };
-  stored.directory = join(file, "blocked");
-  await writeFile(join(journal, `${id}.json`), JSON.stringify(stored));
-  const result = await recoverInterruptedExports(journal);
+  const readError = Object.assign(new Error("read EIO"), { code: "EIO", syscall: "stat" });
+  const result = await recoverInterruptedExports(journal, {
+    readChosenDirectory: () => Promise.reject(readError),
+  });
   expect(result.kind).toBe("RETRY");
   expect(await readdir(journal)).toContain(`${id}.json`);
   expect(await readFile(file, "utf8")).toBe("partial");
