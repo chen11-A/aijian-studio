@@ -822,24 +822,26 @@ export async function loadAudioLibrary(root) {
     queueMicrotask(observe);
   };
   const originalHash = FilmExportIo.exportFileHash;
-  const hashed = vi.spyOn(FilmExportIo, "exportFileHash").mockImplementation(async (path, signal) => {
-    const match = /gate-(\d+)\.ogg$/.exec(basename(String(path)));
-    if (!match) return originalHash(path, signal);
-    const index = Number(match[1]);
-    if (index === 3) {
-      threwLate = true;
-      note();
-      throw late;
-    }
-    if (index === 0) {
-      parked = true;
-      note();
+  const hashed = vi
+    .spyOn(FilmExportIo, "exportFileHash")
+    .mockImplementation(async (path, signal) => {
+      const match = /gate-(\d+)\.ogg$/.exec(basename(String(path)));
+      if (!match) return originalHash(path, signal);
+      const index = Number(match[1]);
+      if (index === 3) {
+        threwLate = true;
+        note();
+        throw late;
+      }
+      if (index === 0) {
+        parked = true;
+        note();
+        await gate;
+        throw early;
+      }
       await gate;
-      throw early;
-    }
-    await gate;
-    return originalHash(path, signal);
-  });
+      return originalHash(path, signal);
+    });
   let guard = true;
   const pending = (async () => {
     try {
