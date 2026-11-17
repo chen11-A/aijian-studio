@@ -35,8 +35,9 @@ const shot = {
 };
 async function temporary(t) {
   const dir = await mkdtemp(path.join(tmpdir(), "中文 项目 ' 测试-"));
-  // execFile already waits for the child to exit. Windows can keep a copied exe
-  // mapped for a moment after that, so only EBUSY/EPERM are retried, and only a few times.
+  // execFile already waits for the child to exit. Windows can still lock the copied
+  // exe briefly. Node's rm retries EBUSY, EMFILE, ENFILE, ENOTEMPTY, and EPERM when
+  // maxRetries is set; it is not limited to EBUSY/EPERM. Five tries, then it fails.
   t.after(() => rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   return dir;
 }

@@ -28,9 +28,11 @@ import type {
 import type { FilmFlushAck, FilmFlushRequest } from "@aijian/contracts/quit-save";
 import type { CleanCopyRecoveryInput } from "@aijian/contracts/clean-copy-recovery";
 import type {
+  FilmExportActivity,
   FilmExportQcInput,
   FilmExportQcPublishInput,
   FilmExportProgressEvent,
+  FilmExportRecovery,
 } from "@aijian/contracts/film-export-qc";
 import type { TaskListener, TaskSnapshot } from "@aijian/contracts/task-progress";
 import type {
@@ -846,6 +848,13 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.on("film:qc-progress", handler);
     return () => ipcRenderer.removeListener("film:qc-progress", handler);
   },
+  onFilmExportActivity: (listener: (activity: FilmExportActivity) => void) => {
+    const handler = (_event: unknown, activity: FilmExportActivity) => listener(activity);
+    ipcRenderer.on("film:export-activity", handler);
+    return () => ipcRenderer.removeListener("film:export-activity", handler);
+  },
+  readFilmExportRecovery: () =>
+    ipcRenderer.invoke("film:export-recovery") as Promise<FilmExportRecovery>,
   discardFilmExport: (qcReceipt: string) => ipcRenderer.invoke("film:qc-discard", qcReceipt),
   exportFilmCut: (source: string, directory: string, name?: string, options?: FilmExportOptions) =>
     ipcRenderer.invoke("film:export", source, directory, name, options),
