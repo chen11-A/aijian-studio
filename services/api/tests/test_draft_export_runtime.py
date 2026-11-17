@@ -1,5 +1,6 @@
 """Real saved assembly boundary and durable cancellation/recovery tests."""
 
+import hashlib
 import json
 import struct
 import sys
@@ -7,6 +8,7 @@ import threading
 import time
 import zlib
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -197,6 +199,75 @@ def test_real_encode_receipt_reopen_original_provenance_and_no_overwrite(tmp_pat
         )
     Path(result.output_path).unlink()
     assert reopened.get(project, episode, request.operation_id).status == "FAILED"
+
+
+def test_active_worker_stays_busy_and_finished_cleanup_keeps_overwrite(tmp_path, monkeypatch):
+    from aijian_api import draft_export_encoder
+    from aijian_api.product_export_output_verify import VerifiedProductOutput
+
+    repository, project, episode, _asset, assembly = fixture(tmp_path)
+    tools = SimpleNamespace(
+        profile_id="synthetic",
+        version="0",
+        ffmpeg_sha256="a" * 64,
+        ffprobe_sha256="b" * 64,
+        distribution_status="DEVELOPMENT_ONLY",
+    )
+    runtime = DraftExportRuntime(repository, lambda: tools)
+    entered = threading.Event()
+    release_encode = threading.Event()
+
+    def blocked_encode(*_args, stop_requested, **_kwargs):
+        entered.set()
+        assert release_encode.wait(5)
+        raise DraftExportError("CANCELLED", "Cancelled synthetic operation")
+
+    monkeypatch.setattr(draft_export_encoder, "encode_draft", blocked_encode)
+    running = request_for(assembly, tmp_path / "RUNNING.mp4")
+    runtime.submit(project, episode, running)
+    assert entered.wait(5)
+    with pytest.raises(DraftExportError, match="Wait for or cancel"):
+        runtime.submit(project, episode, request_for(assembly, tmp_path / "OTHER.mp4"))
+    release_encode.set()
+    runtime._workers[running.operation_id].join(5)
+    assert not runtime._workers[running.operation_id].is_alive()
+
+    cleanup = threading.Event()
+    release_cleanup = threading.Event()
+    original_remove = DraftExportRuntime._remove_reservation
+
+    def hold_cleanup(self, target, operation):
+        if not cleanup.is_set():
+            cleanup.set()
+            assert release_cleanup.wait(5)
+        return original_remove(target, operation)
+
+    monkeypatch.setattr(DraftExportRuntime, "_remove_reservation", hold_cleanup)
+
+    def finished_encode(_assembly, _sources, temporary, _tools, **_kwargs):
+        payload = b"\x00\x00\x00\x14ftypisom\x00\x00\x02\x00"
+        Path(temporary).write_bytes(payload)
+        return VerifiedProductOutput(
+            str(temporary),
+            hashlib.sha256(payload).hexdigest(),
+            len(payload),
+            "{}",
+            "sha256:" + "ab" * 32,
+            "now",
+        )
+
+    monkeypatch.setattr(draft_export_encoder, "encode_draft", finished_encode)
+    done = request_for(assembly, tmp_path / "DRAFT.mp4")
+    runtime.submit(project, episode, done)
+    result = wait_final(runtime, project, episode, done.operation_id)
+    assert result.status == "SUCCEEDED", result
+    assert cleanup.wait(5)
+    assert runtime._workers[done.operation_id].is_alive()
+    with pytest.raises(DraftExportError, match="new filename"):
+        runtime.submit(project, episode, request_for(assembly, tmp_path / "DRAFT.mp4"))
+    release_cleanup.set()
+    runtime._workers[done.operation_id].join(5)
+    assert not runtime._workers[done.operation_id].is_alive()
 
 
 def test_cancel_is_durable_and_never_publishes(tmp_path, monkeypatch):
