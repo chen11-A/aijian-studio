@@ -380,6 +380,57 @@ it("reports retry instead of none when the journal directory itself cannot be li
   await expect(recoverInterruptedExports(blocked)).resolves.toMatchObject({ kind: "RETRY" });
 });
 
+it.each(["mkdir", "open", "write", "fsync", "close", "rename"] as const)(
+  "does not commit when %s fails with ENOSPC",
+  async (step) => {
+    const { directory, journal } = await place();
+    let armed = false;
+    const log = createExportWriteLog(journal, {
+      fault: (stored) => (armed && stored.outcome === "partial" ? step : undefined),
+    });
+    const first = join(directory, "片-16x9.mp4");
+    await writeFile(first, "kept");
+    const id = await log.begin(directory);
+    await log.noteFile(id, { path: first, aspectRatio: "16:9" });
+    armed = true;
+    const error = await log.commit(id, "partial").then(
+      () => {
+        throw new Error("commit should fail");
+      },
+      (caught: unknown) => caught,
+    );
+    expect(error).toMatchObject({ name: "ExportJournalError", code: "ENOSPC" });
+    expect((error as { cause?: { code?: string; syscall?: string } }).cause).toMatchObject({
+      code: "ENOSPC",
+      syscall: step,
+    });
+    expect(JSON.parse(await readFile(join(journal, `${id}.json`), "utf8")).outcome).toBe("open");
+    expect(await readFile(first, "utf8")).toBe("kept");
+  },
+);
+
+it("does not treat a directory sync failure as a committed partial", async () => {
+  const { directory, journal } = await place();
+  let armed = false;
+  const log = createExportWriteLog(journal, {
+    fault: (stored) => (armed && stored.outcome === "partial" ? "dirsync" : undefined),
+  });
+  const first = join(directory, "片-16x9.mp4");
+  await writeFile(first, "kept");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: first, aspectRatio: "16:9" });
+  armed = true;
+  const error = await log.commit(id, "partial").then(
+    () => {
+      throw new Error("commit should fail");
+    },
+    (caught: unknown) => caught,
+  );
+  expect(error).toMatchObject({ name: "ExportJournalError", code: "EIO" });
+  expect((error as { cause?: { syscall?: string } }).cause).toMatchObject({ syscall: "fsync" });
+  expect(await readFile(first, "utf8")).toBe("kept");
+});
+
 it("treats only unsupported Windows directory codes as skippable", async () => {
   expect(directorySyncMaySkip("win32", "EINVAL")).toBe(true);
   expect(directorySyncMaySkip("win32", "EISDIR")).toBe(true);
@@ -440,6 +491,24 @@ it("deletes a claim left when recovery itself stops after the rename", async () 
   expect(after.some((name) => name.startsWith(".aivora-claim-"))).toBe(false);
   expect(after).not.toContain("final.mp4");
   expect(await readFile(source, "utf8")).toBe("ours");
+});
+
+it("removes its claim when the user has taken the original path before the next recovery", async () => {
+  const { directory, journal, log } = await place();
+  const source = join(directory, "staged.mp4");
+  const destination = join(directory, "final.mp4");
+  await writeFile(source, "ours");
+  const id = await log.begin(directory);
+  await log.planLink(id, { path: destination, aspectRatio: "16:9", sourcePath: source });
+  const { link } = await import("node:fs/promises");
+  await link(source, destination);
+  expect((await recoverInterruptedExports(journal, { crashAfterClaim: true })).kind).toBe("RETRY");
+  await writeFile(destination, "user now");
+  const second = await recoverInterruptedExports(journal);
+  expect(second.kind).toBe("CLEARED");
+  expect(await readFile(destination, "utf8")).toBe("user now");
+  expect((await readdir(directory)).some((name) => name.startsWith(".aivora-claim-"))).toBe(false);
+  expect(await readdir(journal)).toEqual([]);
 });
 
 it("does not move a claim onto a user file that appeared at the original path", async () => {

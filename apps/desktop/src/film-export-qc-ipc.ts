@@ -11,6 +11,25 @@ export function registerFilmExportQc<T>(
   send?: (event: T, snapshot: FilmExportProgressEvent) => void,
 ) {
   const qc = createFilmExportQc(host);
+  const inflight = new Map<string, number>();
+  const lost = new Map<string, () => void>();
+  host.noteOwnerLost = (owner, dispose) => {
+    lost.set(owner, dispose);
+    if ((inflight.get(owner) ?? 0) === 0) {
+      lost.delete(owner);
+      dispose();
+    }
+  };
+  function settle(owner: string) {
+    const left = (inflight.get(owner) ?? 1) - 1;
+    if (left > 0) inflight.set(owner, left);
+    else inflight.delete(owner);
+    if (left > 0) return;
+    const dispose = lost.get(owner);
+    if (!dispose) return;
+    lost.delete(owner);
+    dispose();
+  }
   const watched = new Set<string>();
   const senders = new Map<string, T>();
   const operations = createExportOperations((owner, snapshot) => {
@@ -55,6 +74,7 @@ export function registerFilmExportQc<T>(
         }
         const operation = operations.begin(id, input.projectId, args[1]);
         if (!operation) return { kind: "FAILED", code: "BUSY" };
+        inflight.set(id, (inflight.get(id) ?? 0) + 1);
         operation.work.cancellable(false);
         let phase: "waitingReview" | "completed" | "partial" | "failed" = "failed";
         try {
@@ -76,11 +96,14 @@ export function registerFilmExportQc<T>(
                   : "failed";
           return result;
         } finally {
-          await operation.finish(phase);
           try {
-            host.reclaimLostOwner?.();
-          } catch {
-            /* Reclaim must not hide the task result or abort it after it finished. */
+            await operation.finish(phase);
+          } finally {
+            try {
+              settle(id);
+            } catch {
+              /* Reclaim must not hide the task result or abort another of this owner's tasks. */
+            }
           }
         }
       }

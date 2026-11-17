@@ -281,8 +281,8 @@ export type FilmQcHost = {
   exportWrites?: string;
   /** Test hook for journal fsync, rename, directory sync, and finish failures. */
   exportWriteFault?: (journal: { outcome: string }) => ExportWriteFault | undefined;
-  /** Runs after a film task has finished, so a disconnected owner can be reclaimed. */
-  reclaimLostOwner?: () => void;
+  /** Remember a disconnected owner until that owner has no film task left. */
+  noteOwnerLost?: (owner: string, dispose: () => void) => void;
   read?: (id: string) => Promise<FilmRecord | null>;
   now?: () => number;
   normalizer?: () => Promise<AudioNormalizer>;

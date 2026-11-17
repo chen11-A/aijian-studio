@@ -25,6 +25,7 @@ import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 import { registerFilmExportQc } from "./film-export-qc-ipc";
+import type { FilmQcHost } from "./film-export-qc";
 import { createExportWriteGuard, isExportReloadShortcut } from "./film-export-quit-guard";
 import { recoverInterruptedExports } from "./film-export-write-log";
 import {
@@ -175,11 +176,13 @@ let sidecar: SidecarHandle | null = null;
 let quitting = false;
 const approvedWindowClose = new Set<number>();
 let requestSafeQuit: (intent: "window" | "application") => void = () => undefined;
+const filmExportHost: {
+  noteOwnerLost?: (owner: string, dispose: () => void) => void;
+} = {};
 const exportWriteGuard = createExportWriteGuard((activity) => {
   if (mainWindow && !mainWindow.isDestroyed())
     mainWindow.webContents.send("film:export-activity", activity);
 });
-const lostFilmOwners: Array<() => void> = [];
 let exportRecovery: FilmExportRecovery = { kind: "NONE" };
 let nativePreviewDocumentEpoch = 0;
 
@@ -1424,7 +1427,7 @@ registerFilmExportQc<IpcMainInvokeEvent>(
     event.sender === mainWindow.webContents &&
     event.senderFrame === mainWindow.webContents.mainFrame,
   (event) => String(event.sender.id),
-  {
+  Object.assign(filmExportHost, {
     publishedPaths: checkedPublishedPaths,
     filmsRoot: join(app.getPath("userData"), "films"),
     storyFilmsRoot: join(app.getPath("userData"), "workspace", "story-films"),
@@ -1471,9 +1474,6 @@ registerFilmExportQc<IpcMainInvokeEvent>(
       }),
     holdWriting: (id) => exportWriteGuard.hold(id),
     releaseWriting: (id) => exportWriteGuard.release(id),
-    reclaimLostOwner: () => {
-      for (const reclaim of lostFilmOwners.splice(0)) reclaim();
-    },
     exportWrites: join(app.getPath("userData"), "export-writes"),
     pickDirectory: async () => {
       if (!mainWindow) return null;
@@ -1483,7 +1483,7 @@ registerFilmExportQc<IpcMainInvokeEvent>(
       });
       return picked.canceled ? null : (picked.filePaths[0] ?? null);
     },
-  },
+  } satisfies FilmQcHost),
   (event, dispose) => {
     const sender = event.sender;
     let done = false;
@@ -1492,22 +1492,18 @@ registerFilmExportQc<IpcMainInvokeEvent>(
       sender.removeListener("render-process-gone", onCrash);
       sender.removeListener("destroyed", onCrash);
     };
-    // A renderer crash is not a user cancel. Reclaim the owner only after the task ends.
-    const onCrash = () => {
+    // A renderer crash is not a user cancel. This owner is reclaimed only after
+    // every one of their film tasks has settled, so another project keeps writing.
+    const disconnect = () => {
       if (done) return;
-      detach();
-      lostFilmOwners.push(() => {
-        if (done) return;
-        done = true;
-        dispose();
-      });
-    };
-    const navigate = (details: WebContentsDidStartNavigationEventParams) => {
-      if (!details.isMainFrame || details.isSameDocument || done) return;
-      if (exportWriteGuard.writing()) return;
       done = true;
       detach();
-      dispose();
+      filmExportHost.noteOwnerLost?.(String(sender.id), dispose);
+    };
+    const onCrash = () => disconnect();
+    const navigate = (details: WebContentsDidStartNavigationEventParams) => {
+      if (!details.isMainFrame || details.isSameDocument) return;
+      disconnect();
     };
     sender.on("did-start-navigation", navigate);
     sender.once("render-process-gone", onCrash);

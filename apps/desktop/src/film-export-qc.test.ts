@@ -1074,19 +1074,23 @@ it("holds the write guard through evidence and releases it if journal finish thr
   expect(held).toBe(false);
 }, 30000);
 
-it("does not return a partial result when the partial journal cannot be stored", async () => {
-  const f = await fixture();
-  journalFault.current = (stored) => (stored.outcome === "partial" ? "fsync" : undefined);
-  linkFault.eaccesIncludes = "9x16";
-  const ready = await f.qc.prepare("owner", input);
-  if (ready.kind !== "READY") throw new Error("ready required");
-  const result = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
-  expect(result).toEqual({ kind: "FAILED", code: "PUBLISH_FAILED" });
-  const name = (await readdir(f.host.exportWrites!)).find((item) => item.endsWith(".json"));
-  expect(JSON.parse(await readFile(join(f.host.exportWrites!, name!), "utf8")).outcome).toBe(
-    "open",
-  );
-}, 30000);
+it.each(["mkdir", "open", "write", "fsync", "close", "rename", "dirsync"] as const)(
+  "does not publish or return partial when journal %s fails",
+  async (step) => {
+    const f = await fixture();
+    journalFault.current = (stored) => (stored.outcome === "partial" ? step : undefined);
+    linkFault.eaccesIncludes = "9x16";
+    const ready = await f.qc.prepare("owner", input);
+    if (ready.kind !== "READY") throw new Error("ready required");
+    const result = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+    expect(result).toEqual({ kind: "FAILED", code: "PUBLISH_FAILED" });
+    const name = (await readdir(f.host.exportWrites!)).find((item) => item.endsWith(".json"));
+    const outcome = JSON.parse(await readFile(join(f.host.exportWrites!, name!), "utf8")).outcome;
+    if (step === "dirsync") expect(["open", "partial"]).toContain(outcome);
+    else expect(outcome).toBe("open");
+  },
+  30000,
+);
 
 it("keeps the first aspect when the second aspect link fails", async () => {
   const f = await fixture();

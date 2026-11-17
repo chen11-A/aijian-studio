@@ -47,7 +47,8 @@ type Journal = {
   temps: TempRecord[];
 };
 type Step = "deleted" | "skipped" | "retry";
-export type ExportWriteFault = "fsync" | "rename" | "dirsync" | "diropen" | "finish";
+export type ExportWriteFault =
+  "mkdir" | "open" | "write" | "fsync" | "close" | "rename" | "dirsync" | "diropen" | "finish";
 type WriteLogOptions = {
   fault?: (journal: { outcome: string }) => ExportWriteFault | undefined;
   /** Test hook. Runs after the file is claimed and before its hash is trusted. */
@@ -78,16 +79,17 @@ const MARKER = ".aivora-owner";
 
 export class ExportJournalError extends Error {
   readonly code: string;
-  constructor(code = "JOURNAL_FAILED") {
+  constructor(code = "JOURNAL_FAILED", cause?: unknown) {
     super("导出记录没有写稳");
     this.name = "ExportJournalError";
     this.code = code;
+    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
   }
 }
 
 function persistError(error: unknown) {
   if (error instanceof ExportJournalError) return error;
-  return new ExportJournalError((error as NodeJS.ErrnoException).code || "JOURNAL_FAILED");
+  return new ExportJournalError((error as NodeJS.ErrnoException).code || "JOURNAL_FAILED", error);
 }
 
 function contained(directory: string, target: string) {
@@ -238,27 +240,31 @@ async function restore(claim: string, path: string): Promise<"restored" | "confl
 export function createExportWriteLog(root: string, options: WriteLogOptions = {}) {
   const live = new Map<string, Journal>();
   async function save(journal: Journal) {
-    await mkdir(root, { recursive: true });
-    const finalPath = join(root, `${journal.id}.json`);
-    const temporary = `${finalPath}.${process.pid}.${randomUUID()}.tmp`;
     const fault = options.fault?.(journal);
-    const handle = await open(temporary, "w");
+    let temporary = "";
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
     try {
+      // mkdir, open, write, fsync, close, rename, and directory sync share one boundary.
+      if (fault === "mkdir") throw rawIo("ENOSPC", "mkdir");
+      await mkdir(root, { recursive: true });
+      const finalPath = join(root, `${journal.id}.json`);
+      temporary = `${finalPath}.${process.pid}.${randomUUID()}.tmp`;
+      if (fault === "open") throw rawIo("ENOSPC", "open");
+      handle = await open(temporary, "w");
+      if (fault === "write") throw rawIo("ENOSPC", "write");
       await handle.writeFile(JSON.stringify(journal));
       if (fault === "fsync") throw rawIo("ENOSPC", "fsync");
       await handle.sync();
-    } catch (error) {
-      await handle.close().catch(() => undefined);
-      await rm(temporary, { force: true }).catch(() => undefined);
-      throw persistError(error);
-    }
-    await handle.close();
-    try {
+      if (fault === "close") throw rawIo("ENOSPC", "close");
+      await handle.close();
+      handle = undefined;
       if (fault === "rename") throw rawIo("ENOSPC", "rename");
       await rename(temporary, finalPath);
+      temporary = "";
       await syncDirectory(root, fault);
     } catch (error) {
-      await rm(temporary, { force: true }).catch(() => undefined);
+      if (handle) await handle.close().catch(() => undefined);
+      if (temporary) await rm(temporary, { force: true }).catch(() => undefined);
       throw persistError(error);
     }
   }
@@ -527,6 +533,7 @@ async function safeDeleteFile(
   }
 }
 
+/** Deletes only a `.aivora-claim-` file whose recorded identity still matches. Not a scan of unknown user contents, and not an atomic guarantee against a replacement in the last unlink. */
 async function deleteClaimedCopy(
   directory: string,
   identity: FileIdentity,
@@ -690,42 +697,28 @@ export async function recoverInterruptedExports(
       }
       if (ancestry === "skipped") continue;
       const identity = file.phase === "linking" ? undefined : file.identity;
-      if (file.phase === "linking" && file.source) {
-        let info;
-        try {
-          info = await lstat(file.path, { bigint: true });
-        } catch (error) {
-          if (ioStep(error) === "retry") {
-            failed = true;
-            continue;
-          }
-          const claim = await deleteClaimedCopy(journal.directory, file.source, options);
-          if (claim === "retry") failed = true;
-          continue;
-        }
-        if (
-          info.isSymbolicLink() ||
-          !info.isFile() ||
-          info.dev.toString() !== file.source.dev ||
-          info.ino.toString() !== file.source.ino
-        )
-          continue;
-        const step = await safeDeleteFile(file.path, file.source, options);
-        if (step === "retry") failed = true;
+      const recorded = file.phase === "linking" ? file.source : identity;
+      if (!recorded) continue;
+      // Claims are ours even when the original path now belongs to the user.
+      // Only names this export created are considered, and only when the identity matches.
+      const claim = await deleteClaimedCopy(journal.directory, recorded, options);
+      if (claim === "retry") failed = true;
+      let info;
+      try {
+        info = await lstat(file.path, { bigint: true });
+      } catch (error) {
+        if (ioStep(error) === "retry") failed = true;
         continue;
       }
-      if (!identity) continue;
-      let present: Step;
-      try {
-        await lstat(file.path, { bigint: true });
-        present = await safeDeleteFile(file.path, identity, options);
-      } catch (error) {
-        present = ioStep(error);
-      }
-      if (present === "skipped") {
-        const claim = await deleteClaimedCopy(journal.directory, identity, options);
-        if (claim === "retry") failed = true;
-      } else if (present === "retry") failed = true;
+      const ours =
+        !info.isSymbolicLink() &&
+        info.isFile() &&
+        info.dev.toString() === recorded.dev &&
+        info.ino.toString() === recorded.ino &&
+        (file.phase === "linking" || sameFile(info, recorded));
+      if (!ours) continue;
+      const step = await safeDeleteFile(file.path, recorded, options);
+      if (step === "retry") failed = true;
     }
     for (const temp of journal.temps) {
       if ((await removeTemp(journal, temp, options)) === "retry") failed = true;
