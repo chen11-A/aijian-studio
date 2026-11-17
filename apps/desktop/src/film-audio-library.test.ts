@@ -15,6 +15,7 @@ import {
   writeFile,
   rm,
   copyFile,
+  link,
   readdir,
   rename,
   symlink,
@@ -90,7 +91,115 @@ vi.mock("./film-library", async (original) => {
   };
 });
 const execute = promisify(execFile),
-  roots: string[] = [];
+  roots: string[] = [],
+  tasks = new Set<Promise<unknown>>(),
+  cleanupReleases: Array<() => void> = [];
+let sharedDigest = "",
+  cleanupCheckpoint: ((where: "before-release" | "before-delete") => void) | null = null;
+function trackTask<T>(work: Promise<T>) {
+  const tracked = work.finally(() => tasks.delete(tracked));
+  tasks.add(tracked);
+  return tracked;
+}
+function releaseOnCleanup(release: () => void) {
+  let used = false;
+  const once = () => {
+    if (used) return;
+    used = true;
+    release();
+  };
+  cleanupReleases.push(once);
+  return once;
+}
+async function digestTree(root: string) {
+  const rows: string[] = [];
+  async function walk(dir: string, prefix: string) {
+    const entries = await readdir(dir, { withFileTypes: true });
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) await walk(path, rel);
+      else rows.push(`${rel}:${sha(await readFile(path))}`);
+    }
+  }
+  await walk(root, "");
+  return rows.join("\n");
+}
+function releaseCleanupGates() {
+  for (const release of cleanupReleases.splice(0)) release();
+}
+async function awaitTrackedTasks() {
+  const rejected: unknown[] = [];
+  const seen = new Set<Promise<unknown>>();
+  while (tasks.size) {
+    const batch = [...tasks].filter((task) => !seen.has(task));
+    if (!batch.length) break;
+    for (const task of batch) seen.add(task);
+    const settled = await Promise.allSettled(batch);
+    for (const item of settled) if (item.status === "rejected") rejected.push(item.reason);
+  }
+  return rejected;
+}
+const removeRegisteredRoot = (root: string) => rm(root, { recursive: true, force: true });
+let removeRoot = removeRegisteredRoot;
+async function resetAndRemoveRoots() {
+  fault.mode = "";
+  fault.observe = null;
+  fault.applied = false;
+  fault.hold = null;
+  fault.entered = null;
+  const errors: unknown[] = [];
+  for (const root of roots.splice(0)) {
+    try {
+      await removeRoot(root);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  return errors;
+}
+function throwCleanupFailures(rejected: unknown[], deleteErrors: unknown[]) {
+  const errors = [...rejected, ...deleteErrors];
+  if (errors.length > 1) throw new AggregateError(errors, "film audio cleanup failed");
+  if (errors.length === 1) throw errors[0];
+}
+async function settleOpenWork() {
+  const checkpoint = cleanupCheckpoint;
+  cleanupCheckpoint = null;
+  const rejected: unknown[] = [];
+  const deleteErrors: unknown[] = [];
+  checkpoint?.("before-release");
+  releaseCleanupGates();
+  rejected.push(...(await awaitTrackedTasks()));
+  checkpoint?.("before-delete");
+  try {
+    deleteErrors.push(...(await resetAndRemoveRoots()));
+    throwCleanupFailures(rejected, deleteErrors);
+  } finally {
+    removeRoot = removeRegisteredRoot;
+  }
+}
+/** Hardlink the shared bundle. Replacing one file must unlink first so the original inode stays intact. */
+async function linkBundle(from: string, to: string) {
+  await mkdir(to, { recursive: true });
+  for (const entry of await readdir(from, { withFileTypes: true })) {
+    const source = join(from, entry.name);
+    const target = join(to, entry.name);
+    if (entry.isDirectory()) await linkBundle(source, target);
+    else {
+      try {
+        await link(source, target);
+      } catch {
+        await copyFile(source, target);
+      }
+    }
+  }
+}
+async function replaceLinkedFile(path: string, contents: string) {
+  await rm(path, { force: true });
+  await writeFile(path, contents);
+}
 let tools: QcTools,
   run: QcRunner,
   bundle = "",
@@ -123,18 +232,12 @@ beforeAll(async () => {
     "--out-dir",
     bundle,
   ]);
+  sharedDigest = await digestTree(bundle);
 });
 afterAll(async () => {
   if (bundleParent) await rm(bundleParent, { recursive: true, force: true });
 });
-afterEach(async () => {
-  fault.mode = "";
-  fault.observe = null;
-  fault.applied = false;
-  fault.hold = null;
-  fault.entered = null;
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
-});
+afterEach(settleOpenWork);
 async function fixture(duration = 2) {
   const root = await mkdtemp(join(tmpdir(), "音效库 CAS "));
   roots.push(root);
@@ -148,19 +251,21 @@ async function fixture(duration = 2) {
   await mkdir(storyFilmsRoot);
   const video = join(media, "native.mp4");
   if (duration > 0)
-    await run(tools.ffmpegPath, [
-      "-v",
-      "error",
-      "-f",
-      "lavfi",
-      "-i",
-      `testsrc2=s=160x90:r=24:d=${duration}`,
-      "-c:v",
-      "libx264",
-      "-pix_fmt",
-      "yuv420p",
-      video,
-    ]);
+    await trackTask(
+      run(tools.ffmpegPath, [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        `testsrc2=s=160x90:r=24:d=${duration}`,
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        video,
+      ]),
+    );
   else await writeFile(video, Buffer.alloc(64));
   const record = await writeProject(filmsRoot, {
     id,
@@ -182,7 +287,30 @@ async function fixture(duration = 2) {
     ],
     audioClips: [],
   });
-  const counted = vi.fn(run),
+  const counted = vi.fn(
+      async (
+        binary: string,
+        args: string[],
+        options?: { onProcess?: (pid: number, done: boolean) => void },
+      ) => {
+        let close = () => undefined as void;
+        const settled = new Promise<void>((resolve) => {
+          close = resolve;
+        });
+        trackTask(settled);
+        try {
+          return await run(binary, args, {
+            ...(options ?? {}),
+            onProcess: (pid, done) => {
+              if (done) close();
+              options?.onProcess?.(pid, done);
+            },
+          });
+        } finally {
+          close();
+        }
+      },
+    ),
     pinned = vi.fn(async () => tools);
   const host = {
     filmsRoot,
@@ -429,10 +557,10 @@ it("keeps the first in-flight import busy even after multiple duplicate calls ar
   f.host.beforeCommit = async () => {
     started();
     await new Promise<void>((resolve) => {
-      release = resolve;
+      release = releaseOnCleanup(resolve);
     });
   };
-  const first = f.library.addBundledFilmAudio(f.request);
+  const first = trackTask(f.library.addBundledFilmAudio(f.request));
   await ready;
   for (let count = 0; count < 2; count++)
     expect(await f.library.addBundledFilmAudio(f.request)).toMatchObject({
@@ -850,158 +978,248 @@ it("selects a complete lane subset while preserving existing clips, and rejects 
 it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] as const)(
   "rejects late %s mutation before the sole CAS and removes only private unreferenced copies",
   async (mode) => {
-    const watched = mode === "source" || mode === "clean";
-    const startedAt = performance.now();
-    let stage = "fixture";
-    let stageAt = startedAt;
-    const completed: { stage: string; elapsedMs: number }[] = [];
-    const media = { started: 0, closed: 0, failed: 0, last: "none", library: 0, encode: 0 };
-    let inApply = false;
-    const advance = (next: string) => {
-      if (!watched) return;
-      const now = performance.now();
-      if (completed.length < 12) completed.push({ stage, elapsedMs: Math.round(now - stageAt) });
-      stage = next;
-      stageAt = now;
-    };
-    let gate: ReturnType<typeof mutationSnapshot> | undefined;
-    function mutationSnapshot() {
-      return {
-        v: 1,
-        mode,
-        stage,
-        elapsedMs: Math.round(performance.now() - startedAt),
-        completed: [...completed],
-        open: Math.max(0, media.started - media.closed),
-        closed: media.closed,
-        failed: media.failed,
-        last: media.last,
-        heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
-        freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
-      };
-    }
-    const observer = watched
-      ? setTimeout(() => {
-          gate = mutationSnapshot();
-        }, 4900)
-      : undefined;
-    observer?.unref();
-    if (watched)
-      onTestFailed(() => {
-        process.stderr.write(
-          `CI_LIBRARY_MUTATION_PHASE ${JSON.stringify(gate ?? mutationSnapshot())}\n`,
-        );
-      });
-    const f = await fixture();
-    if (watched) {
-      const counted = f.host.run;
-      f.host.run = vi.fn(async (binary: string, args: string[], options?: object) => {
-        media.started += 1;
-        if (inApply) media.library += 1;
-        const name = basename(binary)
-          .toLowerCase()
-          .replace(/\.exe$/, "");
-        media.last = name === "ffmpeg" ? "ffmpeg" : name === "ffprobe" ? "ffprobe" : "other";
-        let closed = false;
-        try {
-          return await counted(binary, args, {
-            ...(options ?? {}),
-            onProcess: (pid: number, done: boolean) => {
-              if (done && !closed) {
-                closed = true;
-                media.closed += 1;
-              }
-              (
-                options as { onProcess?: (pid: number, done: boolean) => void } | undefined
-              )?.onProcess?.(pid, done);
-            },
-          });
-        } catch (error) {
-          media.failed += 1;
-          throw error;
+    await trackTask(
+      (async () => {
+        const watched = mode === "source" || mode === "clean";
+        const startedAt = performance.now();
+        let stage = "fixture";
+        let stageAt = startedAt;
+        const completed: { stage: string; elapsedMs: number }[] = [];
+        const media = { started: 0, closed: 0, failed: 0, last: "none", library: 0, encode: 0 };
+        let inApply = false;
+        const advance = (next: string) => {
+          if (!watched) return;
+          const now = performance.now();
+          if (completed.length < 12)
+            completed.push({ stage, elapsedMs: Math.round(now - stageAt) });
+          stage = next;
+          stageAt = now;
+        };
+        let gate: ReturnType<typeof mutationSnapshot> | undefined;
+        function mutationSnapshot() {
+          return {
+            v: 1,
+            mode,
+            stage,
+            elapsedMs: Math.round(performance.now() - startedAt),
+            completed: [...completed],
+            open: Math.max(0, media.started - media.closed),
+            closed: media.closed,
+            failed: media.failed,
+            last: media.last,
+            heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
+            freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
+          };
         }
-      });
-    }
-    try {
-      advance("suggest");
-      const clean = join(f.media, "actual-clean.mp4");
-      if (mode === "clean") {
-        await copyFile(f.video, clean);
-        (f.record.shots![0] as { takes: Record<string, unknown>[] }).takes[0]!.cleanVideoPath =
-          clean;
-      }
-      const { request } = await suggested(f);
-      advance("bundle");
-      // Each test owns its modified bundle; do not mutate the shared module fixture.
-      const own = join(f.root, "bundle");
-      await (await import("node:fs/promises")).cp(bundle, own, { recursive: true });
-      f.host.libraryRoot = () => own;
-      const before = await readFile(f.video);
-      let called = false;
-      f.host.beforeCommit = async () => {
-        called = true;
-        advance("commit");
-        if (mode === "project" || mode === "take") {
-          const current = (await readProject(f.filmsRoot, f.record.id))!;
-          if (mode === "project") current.title = "new edit";
-          else {
-            const shot = current.shots![0] as {
-              takes: Record<string, unknown>[];
-              selectedTakeId: string;
-            };
-            shot.takes.push({ id: "other", shotId: "shot", status: "done", videoPath: f.video });
-            shot.selectedTakeId = "other";
+        const observer = watched
+          ? setTimeout(() => {
+              gate = mutationSnapshot();
+            }, 4900)
+          : undefined;
+        observer?.unref();
+        if (watched)
+          onTestFailed(() => {
+            process.stderr.write(
+              `CI_LIBRARY_MUTATION_PHASE ${JSON.stringify(gate ?? mutationSnapshot())}\n`,
+            );
+          });
+        const f = await fixture();
+        if (watched) {
+          const counted = f.host.run;
+          f.host.run = vi.fn(async (binary: string, args: string[], options?: object) => {
+            media.started += 1;
+            if (inApply) media.library += 1;
+            const name = basename(binary)
+              .toLowerCase()
+              .replace(/\.exe$/, "");
+            media.last = name === "ffmpeg" ? "ffmpeg" : name === "ffprobe" ? "ffprobe" : "other";
+            let closed = false;
+            try {
+              return await counted(binary, args, {
+                ...(options ?? {}),
+                onProcess: (pid: number, done: boolean) => {
+                  if (done && !closed) {
+                    closed = true;
+                    media.closed += 1;
+                  }
+                  (
+                    options as { onProcess?: (pid: number, done: boolean) => void } | undefined
+                  )?.onProcess?.(pid, done);
+                },
+              });
+            } catch (error) {
+              media.failed += 1;
+              throw error;
+            }
+          });
+        }
+        try {
+          advance("suggest");
+          const clean = join(f.media, "actual-clean.mp4");
+          if (mode === "clean") {
+            await copyFile(f.video, clean);
+            (f.record.shots![0] as { takes: Record<string, unknown>[] }).takes[0]!.cleanVideoPath =
+              clean;
           }
-          await writeProject(f.filmsRoot, current);
-        } else if (mode === "source") await writeFile(f.video, "new bytes");
-        else if (mode === "clean") {
-          advance("encode");
-          const oldSha = sha(await readFile(clean));
-          const encodeAt = media.started;
-          await f.host.run(tools.ffmpegPath, [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "color=c=blue:s=160x90:r=24:d=2",
-            "-c:v",
-            "libx264",
-            "-an",
-            clean,
-          ]);
-          media.encode += media.started - encodeAt;
-          expect(sha(await readFile(clean))).not.toBe(oldSha);
-        } else if (mode === "library") await writeFile(join(own, "manifest.json"), "{}");
-        else
-          await writeFile(
-            join(own, mode === "picker" ? "audio-picker.mjs" : "audio-picker-synonyms.mjs"),
-            "export const changed=true;",
-          );
-      };
-      advance("apply");
-      inApply = true;
-      const result = await f.library.applyBundledFilmShotAudio(request);
-      inApply = false;
-      advance("done");
-      expect(called).toBe(true);
-      expect(result.kind).toBe("FAILED");
-      expect(result).toMatchObject({ unchanged: true });
-      expect((await readProject(f.filmsRoot, f.record.id))!.audioClips).toEqual([]);
-      expect(
-        (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
-      ).toEqual([]);
-      if (mode !== "source") expect(await readFile(f.video)).toEqual(before);
-      if (watched) {
-        expect(media.library - media.encode).toBeGreaterThan(0);
-        expect(media.closed).toBe(media.started);
-      }
-    } finally {
-      if (observer) clearTimeout(observer);
-    }
+          const { request } = await suggested(f);
+          advance("bundle");
+          // Modes that rewrite a bundle file need a private tree. Hardlinks avoid
+          // copying every media file again; the shared bundle is not mutated.
+          const mutatesBundle = mode === "library" || mode === "picker" || mode === "synonyms";
+          const own = join(f.root, "bundle");
+          if (mutatesBundle) {
+            await trackTask(linkBundle(bundle, own));
+            f.host.libraryRoot = () => own;
+          }
+          const before = await readFile(f.video);
+          let called = false;
+          f.host.beforeCommit = async () => {
+            called = true;
+            advance("commit");
+            if (mode === "project" || mode === "take") {
+              const current = (await readProject(f.filmsRoot, f.record.id))!;
+              if (mode === "project") current.title = "new edit";
+              else {
+                const shot = current.shots![0] as {
+                  takes: Record<string, unknown>[];
+                  selectedTakeId: string;
+                };
+                shot.takes.push({
+                  id: "other",
+                  shotId: "shot",
+                  status: "done",
+                  videoPath: f.video,
+                });
+                shot.selectedTakeId = "other";
+              }
+              await writeProject(f.filmsRoot, current);
+            } else if (mode === "source") await writeFile(f.video, "new bytes");
+            else if (mode === "clean") {
+              advance("encode");
+              const oldSha = sha(await readFile(clean));
+              const encodeAt = media.started;
+              await f.host.run(tools.ffmpegPath, [
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=blue:s=64x64:r=10:d=0.2",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-pix_fmt",
+                "yuv420p",
+                "-an",
+                clean,
+              ]);
+              media.encode += media.started - encodeAt;
+              expect(sha(await readFile(clean))).not.toBe(oldSha);
+            } else if (mode === "library")
+              await replaceLinkedFile(join(own, "manifest.json"), "{}");
+            else
+              await replaceLinkedFile(
+                join(own, mode === "picker" ? "audio-picker.mjs" : "audio-picker-synonyms.mjs"),
+                "export const changed=true;",
+              );
+          };
+          advance("apply");
+          inApply = true;
+          const result = await f.library.applyBundledFilmShotAudio(request);
+          inApply = false;
+          advance("done");
+          expect(called).toBe(true);
+          expect(result.kind).toBe("FAILED");
+          expect(result).toMatchObject({ unchanged: true });
+          expect((await readProject(f.filmsRoot, f.record.id))!.audioClips).toEqual([]);
+          expect(
+            (await readdir(f.media)).filter((name) => name.startsWith(".audio-suggestion-")),
+          ).toEqual([]);
+          if (mode !== "source") expect(await readFile(f.video)).toEqual(before);
+          if (watched) {
+            expect(media.library - media.encode).toBeGreaterThan(0);
+            expect(media.closed).toBe(media.started);
+          }
+          expect(await digestTree(bundle)).toBe(sharedDigest);
+        } finally {
+          if (observer) clearTimeout(observer);
+        }
+      })(),
+    );
   },
 );
+it("deletes the temp root only after a gated real apply settles", async () => {
+  const f = await fixture();
+  const { request } = await suggested(f);
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  f.host.beforeCommit = async () => {
+    fault.entered = entered;
+    entered();
+    await new Promise<void>((resolve) => {
+      releaseOnCleanup(resolve);
+    });
+  };
+  let settled = false;
+  const pending = trackTask(
+    f.library.applyBundledFilmShotAudio(request).finally(() => {
+      settled = true;
+    }),
+  );
+  await started;
+  let beforeRelease = false;
+  let beforeDelete = false;
+  cleanupCheckpoint = (where) => {
+    if (where === "before-release") {
+      beforeRelease = true;
+      expect(settled).toBe(false);
+      expect(existsSync(f.root)).toBe(true);
+      expect(existsSync(f.video)).toBe(true);
+      return;
+    }
+    beforeDelete = true;
+    expect(settled).toBe(true);
+    expect(existsSync(f.root)).toBe(true);
+    expect(fault.entered).toBe(entered);
+  };
+  await settleOpenWork();
+  expect(beforeRelease).toBe(true);
+  expect(beforeDelete).toBe(true);
+  expect((await pending).kind).toBe("ADDED");
+  expect(fault.entered).toBeNull();
+  expect(existsSync(f.root)).toBe(false);
+});
+it("keeps an injected delete EIO with the tracked rejection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "音效库 CAS "));
+  roots.push(root);
+  const taskError = new Error("task failed");
+  const deleteError = Object.assign(new Error("delete EIO"), { code: "EIO", syscall: "rm" });
+  removeRoot = async (target) => {
+    if (target === root) throw deleteError;
+    await removeRegisteredRoot(target);
+  };
+  const task = trackTask(Promise.reject(taskError));
+  void task.catch(() => undefined);
+  try {
+    const error = await settleOpenWork().then(
+      () => {
+        throw new Error("cleanup should fail");
+      },
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(AggregateError);
+    const errors = (error as AggregateError).errors;
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).toBe(taskError);
+    expect(errors[1]).toBe(deleteError);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 it.each([
   "before",
   "after",
@@ -1177,13 +1395,15 @@ it("shares BUSY until apply settles and releases its reservation only after comp
     lanes: ["sfx"] as ("ambience" | "sfx" | "score")[],
   };
   let release!: () => void, entered!: () => void;
-  const hold = new Promise<void>((yes) => (release = yes)),
+  const hold = new Promise<void>((yes) => {
+      release = releaseOnCleanup(yes);
+    }),
     started = new Promise<void>((yes) => (entered = yes));
   f.host.beforeCommit = async () => {
     entered();
     await hold;
   };
-  const pending = f.library.applyBundledFilmShotAudio(request);
+  const pending = trackTask(f.library.applyBundledFilmShotAudio(request));
   try {
     await Promise.race([
       started,
@@ -1280,11 +1500,13 @@ it("keeps the same-factory barrier until the actual queued write settles, even w
   const f = await fixture(),
     { request } = await suggested(f);
   let release!: () => void, entered!: () => void;
-  fault.hold = new Promise<void>((yes) => (release = yes));
+  fault.hold = new Promise<void>((yes) => {
+    release = releaseOnCleanup(yes);
+  });
   const started = new Promise<void>((yes) => (entered = yes));
   fault.entered = entered;
   fault.mode = "pending";
-  const work = f.library.applyBundledFilmShotAudio(request);
+  const work = trackTask(f.library.applyBundledFilmShotAudio(request));
   let settled = false;
   void work.then(() => {
     settled = true;
@@ -1388,20 +1610,22 @@ it("keeps the same scene reservation until an acknowledged write actually settle
   if (proposal.kind !== "SCENE_SUGGESTED") throw Error("SCENE_NOT_READY");
   let release!: () => void, entered!: () => void;
   fault.hold = new Promise<void>((resolve) => {
-    release = resolve;
+    release = releaseOnCleanup(resolve);
   });
   const started = new Promise<void>((resolve) => {
     entered = resolve;
   });
   fault.entered = entered;
   fault.mode = "pending";
-  const pending = f.library.applyBundledFilmSceneAudio({
-    ...input,
-    catalogSha256: proposal.catalogSha256,
-    pickerSha256: proposal.pickerSha256,
-    planFingerprint: proposal.planFingerprint,
-    lanes: ["sfx"],
-  });
+  const pending = trackTask(
+    f.library.applyBundledFilmSceneAudio({
+      ...input,
+      catalogSha256: proposal.catalogSha256,
+      pickerSha256: proposal.pickerSha256,
+      planFingerprint: proposal.planFingerprint,
+      lanes: ["sfx"],
+    }),
+  );
   try {
     await started;
     expect(await f.library.suggestBundledFilmSceneAudio(input)).toMatchObject({
