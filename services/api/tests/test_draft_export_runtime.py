@@ -201,6 +201,67 @@ def test_real_encode_receipt_reopen_original_provenance_and_no_overwrite(tmp_pat
     assert reopened.get(project, episode, request.operation_id).status == "FAILED"
 
 
+class _CleanupResource:
+    def unlink(self, missing_ok: bool = False) -> None:
+        raise OSError("cleanup unlink failed")
+
+
+class DraftGuardSession:
+    """Release every gate, then join every worker actually registered on the runtime.
+
+    Cleanup errors keep a body assertion as the primary error and attach a note.
+    With no body error, a cleanup failure is raised and not swallowed.
+    """
+
+    def __init__(self, runtime: DraftExportRuntime) -> None:
+        self.runtime = runtime
+        self.gates: list[threading.Event] = []
+        self.resources: list[object] = []
+
+    def gate(self) -> tuple[threading.Event, threading.Event]:
+        entered = threading.Event()
+        release = threading.Event()
+        self.gates.append(release)
+        return entered, release
+
+    def __enter__(self) -> "DraftGuardSession":
+        return self
+
+    def __exit__(self, exc_type: object, exc: BaseException | None, tb: object) -> bool:
+        errors: list[BaseException] = []
+
+        def guard(action) -> None:
+            try:
+                action()
+            except Exception as error:
+                errors.append(error)
+
+        for gate in self.gates:
+            guard(gate.set)
+
+        def snapshot_and_join() -> None:
+            with self.runtime._lock:
+                workers = tuple(self.runtime._workers.values())
+            for worker in workers:
+                worker.join()
+
+        guard(snapshot_and_join)
+        for resource in self.resources:
+            guard(lambda resource=resource: resource.unlink(missing_ok=True))
+        if exc is not None:
+            for error in errors:
+                try:
+                    exc.add_note(f"draft test cleanup: {type(error).__name__}: {error}")
+                except Exception:
+                    pass
+            return False
+        if len(errors) == 1:
+            raise errors[0]
+        if errors:
+            raise ExceptionGroup("draft test cleanup failed", errors)
+        return False
+
+
 def _mp4_payload() -> bytes:
     return b"\x00\x00\x00\x14ftypisom\x00\x00\x02\x00"
 
@@ -232,37 +293,26 @@ def test_live_cleanup_keeps_other_targets_busy_and_existing_names_exact(tmp_path
     runtime = DraftExportRuntime(repository, lambda: tools)
     busy = "Wait for or cancel the current local draft export"
     exists = "Choose a new filename; draft export never overwrites files"
-    entered = threading.Event()
-    release_encode = threading.Event()
+    with DraftGuardSession(runtime) as session:
+        entered, release_encode = session.gate()
 
-    gates: list[threading.Event] = [release_encode]
-    started: list[threading.Thread] = []
-    resources: list[Path] = []
+        def blocked_encode(*_args, stop_requested, **_kwargs):
+            entered.set()
+            release_encode.wait()
+            raise DraftExportError("CANCELLED", "Cancelled synthetic operation")
 
-    def release_join_and_delete() -> None:
-        for gate in gates:
-            gate.set()
-        for worker in started:
-            worker.join()
-        for path in resources:
-            path.unlink(missing_ok=True)
-
-    def blocked_encode(*_args, stop_requested, **_kwargs):
-        entered.set()
-        release_encode.wait()
-        raise DraftExportError("CANCELLED", "Cancelled synthetic operation")
-
-    try:
         monkeypatch.setattr(draft_export_encoder, "encode_draft", blocked_encode)
         running = request_for(assembly, tmp_path / "RUNNING.mp4")
+        session.resources.append(tmp_path / "RUNNING.mp4")
         runtime.submit(project, episode, running)
-        started.append(runtime._workers[running.operation_id])
         assert entered.wait(5)
         with pytest.raises(DraftExportError, match=f"^{busy}$"):
             runtime.submit(project, episode, request_for(assembly, tmp_path / "OTHER.mp4"))
         release_encode.set()
-        started[-1].join()
-        assert not started[-1].is_alive()
+        with runtime._lock:
+            running_worker = runtime._workers[running.operation_id]
+        running_worker.join()
+        assert not running_worker.is_alive()
 
         def assert_cleanup_isolation(operation: str, final_name: str, status: str) -> None:
             final_path = tmp_path / final_name
@@ -271,7 +321,7 @@ def test_live_cleanup_keeps_other_targets_busy_and_existing_names_exact(tmp_path
             try:
                 assert worker.is_alive()
                 other = tmp_path / f"other-{status}.mp4"
-                resources.append(other)
+                session.resources.append(other)
                 with pytest.raises(DraftExportError, match=f"^{busy}$"):
                     runtime.submit(project, episode, request_for(assembly, other))
                 assert not other.exists()
@@ -289,10 +339,13 @@ def test_live_cleanup_keeps_other_targets_busy_and_existing_names_exact(tmp_path
                         runtime.submit(project, episode, request_for(assembly, final_path))
             finally:
                 release_cleanup.set()
-                worker.join()
+            with runtime._lock:
+                current = tuple(runtime._workers.values())
+            for current_worker in current:
+                current_worker.join()
             marker = b"owned-after-cleanup"
             temp_path.write_bytes(marker)
-            resources.append(temp_path)
+            session.resources.append(temp_path)
             assert temp_path.read_bytes() == marker
 
         def fail_encode(*_args, **_kwargs):
@@ -302,31 +355,26 @@ def test_live_cleanup_keeps_other_targets_busy_and_existing_names_exact(tmp_path
             raise DraftExportError("CANCELLED", "Draft export was cancelled")
 
         for status, encode in (("FAILED", fail_encode), ("CANCELLED", cancel_encode)):
-            cleanup_entered = threading.Event()
-            release_cleanup = threading.Event()
+            cleanup_entered, release_cleanup = session.gate()
 
             def hold_cleanup(cleanup_entered=cleanup_entered, release_cleanup=release_cleanup):
                 cleanup_entered.set()
                 release_cleanup.wait()
 
-            gates.append(release_cleanup)
             monkeypatch.setattr(draft_export_runtime, "_before_draft_cleanup", hold_cleanup)
             monkeypatch.setattr(draft_export_encoder, "encode_draft", encode)
             request = request_for(assembly, tmp_path / f"{status}.mp4")
-            resources.append(tmp_path / f"{status}.mp4")
+            session.resources.append(tmp_path / f"{status}.mp4")
             runtime.submit(project, episode, request)
-            started.append(runtime._workers[request.operation_id])
             result = wait_final(runtime, project, episode, request.operation_id)
             assert result.status == status, result
             assert cleanup_entered.wait(5)
-            # Leave a private temporary file for the still-running cleanup to own.
             temp_path = tmp_path / f".{request.operation_id}.partial.mp4"
             temp_path.write_bytes(b"still-owned-by-cleanup")
-            resources.append(temp_path)
+            session.resources.append(temp_path)
             assert_cleanup_isolation(request.operation_id, f"{status}.mp4", status)
 
-        cleanup_entered = threading.Event()
-        release_cleanup = threading.Event()
+        cleanup_entered, release_cleanup = session.gate()
 
         def hold_success_cleanup() -> None:
             cleanup_entered.set()
@@ -337,20 +385,17 @@ def test_live_cleanup_keeps_other_targets_busy_and_existing_names_exact(tmp_path
             Path(temporary).write_bytes(payload)
             return _verified(Path(temporary), payload)
 
-        gates.append(release_cleanup)
         monkeypatch.setattr(draft_export_runtime, "_before_draft_cleanup", hold_success_cleanup)
         monkeypatch.setattr(draft_export_encoder, "encode_draft", finished_encode)
         done = request_for(assembly, tmp_path / "DRAFT.mp4")
-        resources.append(tmp_path / "DRAFT.mp4")
+        session.resources.append(tmp_path / "DRAFT.mp4")
         runtime.submit(project, episode, done)
-        started.append(runtime._workers[done.operation_id])
         result = wait_final(runtime, project, episode, done.operation_id)
         assert result.status == "SUCCEEDED", result
         assert cleanup_entered.wait(5)
         assert_cleanup_isolation(done.operation_id, "DRAFT.mp4", "SUCCEEDED")
 
-        interrupted = threading.Event()
-        release_interrupted = threading.Event()
+        interrupted, release_interrupted = session.gate()
 
         def hold_interrupted_cleanup() -> None:
             interrupted.set()
@@ -364,24 +409,20 @@ def test_live_cleanup_keeps_other_targets_busy_and_existing_names_exact(tmp_path
                 raise DraftExportError("OUTPUT_CHANGED", "Published output changed before receipt")
             return digest, size
 
-        gates.append(release_interrupted)
         monkeypatch.setattr(draft_export_runtime, "_before_draft_cleanup", hold_interrupted_cleanup)
         monkeypatch.setattr(draft_export_runtime, "_guarded_file_hash", interrupted_hash)
         monkeypatch.setattr(draft_export_encoder, "encode_draft", finished_encode)
         broken = request_for(assembly, tmp_path / "INTERRUPTED.mp4")
-        resources.append(tmp_path / "INTERRUPTED.mp4")
+        session.resources.append(tmp_path / "INTERRUPTED.mp4")
         runtime.submit(project, episode, broken)
-        started.append(runtime._workers[broken.operation_id])
         result = wait_final(runtime, project, episode, broken.operation_id)
         assert result.status == "INTERRUPTED", result
         assert interrupted.wait(5)
         release_cleanup = release_interrupted
         assert_cleanup_isolation(broken.operation_id, "INTERRUPTED.mp4", "INTERRUPTED")
-    finally:
-        release_join_and_delete()
 
 
-def test_cleanup_gate_failure_still_runs_production_cleanup(tmp_path, monkeypatch):
+def _guarded_failed_export(tmp_path, monkeypatch):
     from aijian_api import draft_export_encoder, draft_export_runtime
 
     repository, project, episode, _asset, assembly = fixture(tmp_path)
@@ -393,38 +434,123 @@ def test_cleanup_gate_failure_still_runs_production_cleanup(tmp_path, monkeypatc
         distribution_status="DEVELOPMENT_ONLY",
     )
     runtime = DraftExportRuntime(repository, lambda: tools)
-    entered = threading.Event()
-    release = threading.Event()
-
-    def hold() -> None:
-        entered.set()
-        release.wait()
 
     def fail_encode(*_args, **_kwargs):
         raise DraftExportError("SOURCE_UNAVAILABLE", "Selected media version no longer exists")
 
-    monkeypatch.setattr(draft_export_runtime, "_before_draft_cleanup", hold)
     monkeypatch.setattr(draft_export_encoder, "encode_draft", fail_encode)
-    request = request_for(assembly, tmp_path / "FAILPATH.mp4")
-    runtime.submit(project, episode, request)
-    worker = runtime._workers[request.operation_id]
-    result = wait_final(runtime, project, episode, request.operation_id)
-    assert result.status == "FAILED", result
-    assert entered.wait(5)
-    owned = tmp_path / f".{request.operation_id}.partial.mp4"
-    owned.write_bytes(b"owned-during-cleanup")
-    original: AssertionError | None = None
+    return draft_export_runtime, runtime, project, episode, assembly
+
+
+def test_cleanup_failure_before_gate_enter_still_joins(tmp_path, monkeypatch):
+    module, runtime, project, episode, assembly = _guarded_failed_export(tmp_path, monkeypatch)
+    request = request_for(assembly, tmp_path / "BEFORE.mp4")
+    saved: BaseException | None = None
     try:
-        try:
-            raise AssertionError("contract failed")
-        finally:
-            release.set()
-            worker.join()
+        with DraftGuardSession(runtime) as session:
+            entered, release = session.gate()
+
+            def hold(entered=entered, release=release) -> None:
+                entered.set()
+                release.wait()
+
+            monkeypatch.setattr(module, "_before_draft_cleanup", hold)
+            runtime.submit(project, episode, request)
+            raise AssertionError("before entered")
     except AssertionError as error:
-        original = error
-    assert original is not None and str(original) == "contract failed"
-    assert not worker.is_alive()
+        saved = error
+    assert saved is not None and str(saved) == "before entered"
+    assert not runtime._workers[request.operation_id].is_alive()
+
+
+def test_cleanup_write_failure_still_joins(tmp_path, monkeypatch):
+    module, runtime, project, episode, assembly = _guarded_failed_export(tmp_path, monkeypatch)
+    request = request_for(assembly, tmp_path / "WRITE.mp4")
+    saved: BaseException | None = None
+    try:
+        with DraftGuardSession(runtime) as session:
+            entered, release = session.gate()
+
+            def hold(entered=entered, release=release) -> None:
+                entered.set()
+                release.wait()
+
+            monkeypatch.setattr(module, "_before_draft_cleanup", hold)
+            runtime.submit(project, episode, request)
+            assert entered.wait(5)
+            blocker = tmp_path / "not-a-directory"
+            blocker.write_bytes(b"x")
+            (blocker / "owned").write_bytes(b"data")
+    except OSError as error:
+        saved = error
+    assert saved is not None and isinstance(saved, OSError)
+    assert not runtime._workers[request.operation_id].is_alive()
+
+
+def test_unexpected_submit_worker_is_joined_from_runtime(tmp_path, monkeypatch):
+    module, runtime, project, episode, assembly = _guarded_failed_export(tmp_path, monkeypatch)
+    request = request_for(assembly, tmp_path / "EXTRA.mp4")
+    saved: BaseException | None = None
+    try:
+        with DraftGuardSession(runtime) as session:
+            entered, release = session.gate()
+
+            def hold(entered=entered, release=release) -> None:
+                entered.set()
+                release.wait()
+
+            monkeypatch.setattr(module, "_before_draft_cleanup", hold)
+            with pytest.raises(DraftExportError, match="^absent$"):
+                runtime.submit(project, episode, request)
+    except BaseException as error:
+        saved = error
+    assert saved is not None and "DID NOT RAISE" in str(saved)
+    assert not runtime._workers[request.operation_id].is_alive()
+
+
+def test_cleanup_unlink_note_keeps_the_assertion_and_production_unlink(tmp_path, monkeypatch):
+    module, runtime, project, episode, assembly = _guarded_failed_export(tmp_path, monkeypatch)
+    request = request_for(assembly, tmp_path / "NOTE.mp4")
+    saved: BaseException | None = None
+    owned = tmp_path / f".{request.operation_id}.partial.mp4"
+    try:
+        with DraftGuardSession(runtime) as session:
+            entered, release = session.gate()
+
+            def hold(entered=entered, release=release) -> None:
+                entered.set()
+                release.wait()
+
+            monkeypatch.setattr(module, "_before_draft_cleanup", hold)
+            runtime.submit(project, episode, request)
+            assert entered.wait(5)
+            owned.write_bytes(b"owned-during-cleanup")
+            session.resources.append(_CleanupResource())
+            raise AssertionError("contract failed")
+    except AssertionError as error:
+        saved = error
+    assert saved is not None and str(saved) == "contract failed"
+    assert any("cleanup unlink failed" in note for note in saved.__notes__)
+    assert not runtime._workers[request.operation_id].is_alive()
     assert not owned.exists()
+
+
+def test_cleanup_unlink_failure_raises_when_the_body_succeeds(tmp_path, monkeypatch):
+    module, runtime, project, episode, assembly = _guarded_failed_export(tmp_path, monkeypatch)
+    request = request_for(assembly, tmp_path / "SUCCESS.mp4")
+    with pytest.raises(OSError, match="cleanup unlink failed"):
+        with DraftGuardSession(runtime) as session:
+            entered, release = session.gate()
+
+            def hold(entered=entered, release=release) -> None:
+                entered.set()
+                release.wait()
+
+            monkeypatch.setattr(module, "_before_draft_cleanup", hold)
+            runtime.submit(project, episode, request)
+            assert entered.wait(5)
+            session.resources.append(_CleanupResource())
+    assert not runtime._workers[request.operation_id].is_alive()
 
 
 def test_cancel_is_durable_and_never_publishes(tmp_path, monkeypatch):
