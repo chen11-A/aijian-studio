@@ -55,6 +55,7 @@ export function registerFilmExportQc<T>(
         }
         const operation = operations.begin(id, input.projectId, args[1]);
         if (!operation) return { kind: "FAILED", code: "BUSY" };
+        if (action === "prepare") operation.work.cancellable(false);
         let phase: "waitingReview" | "completed" | "partial" | "failed" = "failed";
         try {
           const result =

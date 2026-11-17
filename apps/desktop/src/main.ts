@@ -25,6 +25,9 @@ import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 import { registerFilmExportQc } from "./film-export-qc-ipc";
+import { createExportWriteGuard } from "./film-export-quit-guard";
+import { recoverInterruptedExports } from "./film-export-write-log";
+import type { FilmExportRecovery } from "@aijian/contracts/film-export-qc";
 import { verifiedQcTools, loadQcEngine, loadQcRunner } from "./film-export-qc-runtime";
 import { registerTaskProgressHandlers } from "./task-progress-ipc";
 import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
@@ -168,6 +171,11 @@ let sidecar: SidecarHandle | null = null;
 let quitting = false;
 const approvedWindowClose = new Set<number>();
 let requestSafeQuit: (intent: "window" | "application") => void = () => undefined;
+const exportWriteGuard = createExportWriteGuard((activity) => {
+  if (mainWindow && !mainWindow.isDestroyed())
+    mainWindow.webContents.send("film:export-activity", activity);
+});
+let exportRecovery: FilmExportRecovery = { kind: "NONE" };
 let nativePreviewDocumentEpoch = 0;
 
 function pinPackagedUserData(): void {
@@ -382,6 +390,8 @@ function createMainWindow(): BrowserWindow {
       if (bounds.width < 1280 || bounds.height < 800) window.setSize(1440, 920);
     }
     window.show();
+    if (exportRecovery.kind === "CLEARED")
+      window.webContents.send("film:export-recovery", exportRecovery);
   });
   const remember = () => {
     if (window.isDestroyed()) return;
@@ -392,6 +402,10 @@ function createMainWindow(): BrowserWindow {
     );
   };
   window.on("close", (event) => {
+    if (exportWriteGuard.refuseQuit()) {
+      event.preventDefault();
+      return;
+    }
     if (!quitting && !approvedWindowClose.has(window.id)) {
       event.preventDefault();
       requestSafeQuit(process.platform === "darwin" ? "window" : "application");
@@ -1422,6 +1436,8 @@ registerFilmExportQc<IpcMainInvokeEvent>(
         execPath: process.execPath,
         repositoryRoot: resolve(__dirname, "../../.."),
       }),
+    setWriting: (writing) => exportWriteGuard.setWriting(writing),
+    exportWrites: join(app.getPath("userData"), "export-writes"),
     pickDirectory: async () => {
       if (!mainWindow) return null;
       const picked = await dialog.showOpenDialog(mainWindow, {
@@ -1744,6 +1760,7 @@ async function startApplication(): Promise<void> {
     },
   ]);
   await app.whenReady();
+  exportRecovery = await recoverInterruptedExports(join(app.getPath("userData"), "export-writes"));
   protocol.handle("aivora-media", (request) => {
     try {
       const filePath = new URL(request.url).searchParams.get("path") ?? "";
@@ -1897,6 +1914,15 @@ const quitSave = createQuitSaveCoordinator({
 requestSafeQuit = (intent) => {
   void quitSave.request(intent).catch(() => undefined);
 };
+ipcMain.handle("film:export-recovery", (event) => {
+  if (
+    !mainWindow ||
+    event.sender !== mainWindow.webContents ||
+    event.senderFrame !== mainWindow.webContents.mainFrame
+  )
+    return { kind: "NONE" as const };
+  return exportRecovery;
+});
 ipcMain.handle("film:flushed", (event, value: unknown) => {
   if (
     !mainWindow ||
@@ -1907,6 +1933,10 @@ ipcMain.handle("film:flushed", (event, value: unknown) => {
   quitSave.acknowledge(event.sender.id, value);
 });
 app.on("before-quit", (event) => {
+  if (exportWriteGuard.refuseQuit()) {
+    event.preventDefault();
+    return;
+  }
   if (quitting) return;
   event.preventDefault();
   requestSafeQuit("application");

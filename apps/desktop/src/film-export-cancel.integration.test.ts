@@ -171,19 +171,18 @@ async function fixture(stopQc = false) {
   };
 }
 const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
-it("passes signal into the original QC engine, kills actual FFmpeg and confirms stop only after cleanup", async () => {
+it("refuses to stop a film check while it is rendering", async () => {
   const f = await fixture(true),
     before = digest(await readFile(f.source));
   const result = await f.handlers.get("film:qc-prepare")!(f.event, f.input, "prepare-op");
-  expect(result).toEqual({ kind: "FAILED", code: "OPERATION_STOPPED" });
-  expect((await Promise.all(f.cancellation))[0]).toMatchObject({ kind: "REQUESTED" });
-  expect(f.qcSignal()?.aborted).toBe(true);
+  expect(result).toMatchObject({ kind: "READY" });
+  expect((await Promise.all(f.cancellation))[0]).toMatchObject({ kind: "UNAVAILABLE" });
+  expect(f.qcSignal()?.aborted).toBe(false);
   expect(f.live.size).toBe(0);
   for (const pid of f.spawned) expect(() => process.kill(pid, 0)).toThrow();
-  expect(await readdir(f.host.temporaryRoot)).toEqual([]);
-  expect(f.events.at(-1)).toMatchObject({ phase: "failed", cancelState: "stopped", published: [] });
+  expect(f.events.at(-1)).toMatchObject({ phase: "waitingReview", cancelState: "unavailable" });
+  expect(f.events.some((snapshot) => snapshot.cancelState === "requested")).toBe(false);
   expect(digest(await readFile(f.source))).toBe(before);
-  expect(f.events.some((snapshot) => snapshot.cancelState === "requested")).toBe(true);
   expect(JSON.stringify(f.events)).not.toContain(f.host.temporaryRoot);
 }, 30000);
 it("keeps picker unavailable, later stops the next aspect and retains only the actual published output", async () => {

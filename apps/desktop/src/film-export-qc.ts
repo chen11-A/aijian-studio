@@ -14,6 +14,7 @@ import { exportBlockedByStaleMaterial, readStoredAudioDecision } from "./film-ex
 import { muxSilentAac } from "./film-silent-export";
 import type { ExportWork } from "./film-export-operation";
 import { exportFileHash, copyExportFile } from "./film-export-io";
+import { createExportWriteLog } from "./film-export-write-log";
 import type {
   FilmExportIncompleteCode,
   FilmExportQcInput,
@@ -135,7 +136,7 @@ type Row = Record<string, unknown>;
 const object = (value: unknown): Row | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Row) : null;
 const text = (value: unknown) => (typeof value === "string" ? value : "");
-/** The take the export will use: the saved choice, or the only finished take that has video. */
+/** Saved choice when present, otherwise the first finished take that has a video path. */
 function chosenTakeId(shot: Row): string {
   return (
     text(shot.selectedTakeId) ||
@@ -266,6 +267,10 @@ export type FilmQcHost = {
   engine: () => Promise<QcEngine>;
   font: () => string | undefined;
   pickDirectory: () => Promise<string | null>;
+  /** True only while files are copied or linked into the chosen folder. */
+  setWriting?: (writing: boolean) => void;
+  /** Directory that remembers an unfinished write so the next launch can clean it. */
+  exportWrites?: string;
   read?: (id: string) => Promise<FilmRecord | null>;
   now?: () => number;
   normalizer?: () => Promise<AudioNormalizer>;
@@ -326,6 +331,7 @@ export function createFilmExportQc(host: FilmQcHost) {
   const ownerEpochs = new Map<string, number>();
   const now = host.now ?? Date.now;
   const read = host.read ?? ((id: string) => readProject(host.filmsRoot, id));
+  const writes = host.exportWrites ? createExportWriteLog(host.exportWrites) : null;
   async function snapshot(input: FilmExportQcInput, work?: ExportWork): Promise<Snapshot> {
     const record = await read(input.projectId);
     if (
@@ -554,6 +560,7 @@ export function createFilmExportQc(host: FilmQcHost) {
         if ([...receipts.values()].filter((item) => item.owner === owner).length >= 4)
           fail("CHECK_FAILED");
         work?.phase("preparing");
+        work?.cancellable(false);
         const base = await snapshot(input, work);
         const audioDecision = base.audioDecision;
         if (exportBlockedByStaleMaterial(base.mix.plan.limitations)) fail("MATERIALS_STALE");
@@ -944,7 +951,10 @@ export function createFilmExportQc(host: FilmQcHost) {
         const told = new Set<"16:9" | "9:16">();
         // Copy an aspect the first time it is reached, while cancel stays available.
         // A later default-name race reuses that copy and only retries the link.
+        host.setWriting?.(true);
+        let writeId = "";
         try {
+          writeId = writes ? await writes.begin(target) : "";
           while (outputs.length < prepared.outputs.length) {
             const present = await directoryNames(target);
             const { plan, index: chosen } = nextFreeExportPlan(
@@ -977,6 +987,7 @@ export function createFilmExportQc(host: FilmQcHost) {
                   await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
                   const temporary = await mkdtemp(join(target, ".aivora-qc-"));
                   temporaries.push(temporary);
+                  if (writeId) await writes?.noteTemp(writeId, temporary);
                   const pending = join(temporary, "film.mp4");
                   await copy(output.path, pending, work);
                   if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
@@ -1004,6 +1015,11 @@ export function createFilmExportQc(host: FilmQcHost) {
                 const destination = join(target, `${item.stem}.mp4`);
                 await linkNewFile(stage.pending, destination);
                 linked.push(destination);
+                if (writeId)
+                  await writes?.noteFile(writeId, {
+                    path: destination,
+                    aspectRatio: item.aspectRatio,
+                  });
                 const saved: {
                   aspectRatio: "16:9" | "9:16";
                   path: string;
@@ -1018,9 +1034,15 @@ export function createFilmExportQc(host: FilmQcHost) {
                   await linkNewFile(side.pending, sideDestination);
                   linked.push(sideDestination);
                   saved[side.kind] = sideDestination;
+                  if (writeId)
+                    await writes?.noteFile(writeId, {
+                      path: sideDestination,
+                      aspectRatio: item.aspectRatio,
+                    });
                 }
                 for (const path of [saved.path, saved.subtitlePath, saved.coverPath])
                   if (path) kept.add(path);
+                if (writeId) await writes?.completeAspect(writeId, item.aspectRatio);
                 outputs.push(saved);
                 const canonical = realpathSync(saved.path);
                 host.publishedPaths?.add(canonical);
@@ -1071,6 +1093,8 @@ export function createFilmExportQc(host: FilmQcHost) {
             }
           }
         } finally {
+          if (writeId) await writes?.finish(writeId);
+          host.setWriting?.(false);
           for (const temporary of temporaries)
             await rm(temporary, { recursive: true, force: true });
         }
