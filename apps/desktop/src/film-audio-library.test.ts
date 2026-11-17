@@ -15,6 +15,7 @@ import {
   writeFile,
   rm,
   copyFile,
+  link,
   readdir,
   rename,
   symlink,
@@ -90,7 +91,33 @@ vi.mock("./film-library", async (original) => {
   };
 });
 const execute = promisify(execFile),
-  roots: string[] = [];
+  roots: string[] = [],
+  pendingCopies = new Set<Promise<unknown>>();
+function trackCopy<T>(work: Promise<T>) {
+  const tracked = work.finally(() => pendingCopies.delete(tracked));
+  pendingCopies.add(tracked);
+  return tracked;
+}
+/** Hardlink the shared bundle. Replacing one file must unlink first so the original inode stays intact. */
+async function linkBundle(from: string, to: string) {
+  await mkdir(to, { recursive: true });
+  for (const entry of await readdir(from, { withFileTypes: true })) {
+    const source = join(from, entry.name);
+    const target = join(to, entry.name);
+    if (entry.isDirectory()) await linkBundle(source, target);
+    else {
+      try {
+        await link(source, target);
+      } catch {
+        await copyFile(source, target);
+      }
+    }
+  }
+}
+async function replaceLinkedFile(path: string, contents: string) {
+  await rm(path, { force: true });
+  await writeFile(path, contents);
+}
 let tools: QcTools,
   run: QcRunner,
   bundle = "",
@@ -133,6 +160,7 @@ afterEach(async () => {
   fault.applied = false;
   fault.hold = null;
   fault.entered = null;
+  await Promise.allSettled([...pendingCopies]);
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 async function fixture(duration = 2) {
@@ -932,10 +960,14 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
       }
       const { request } = await suggested(f);
       advance("bundle");
-      // Each test owns its modified bundle; do not mutate the shared module fixture.
+      // Modes that rewrite a bundle file need a private tree. Hardlinks avoid
+      // copying every media file again; the shared bundle is not mutated.
+      const mutatesBundle = mode === "library" || mode === "picker" || mode === "synonyms";
       const own = join(f.root, "bundle");
-      await (await import("node:fs/promises")).cp(bundle, own, { recursive: true });
-      f.host.libraryRoot = () => own;
+      if (mutatesBundle) {
+        await trackCopy(linkBundle(bundle, own));
+        f.host.libraryRoot = () => own;
+      }
       const before = await readFile(f.video);
       let called = false;
       f.host.beforeCommit = async () => {
@@ -965,17 +997,21 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
             "-f",
             "lavfi",
             "-i",
-            "color=c=blue:s=160x90:r=24:d=2",
+            "color=c=blue:s=64x64:r=10:d=0.2",
             "-c:v",
             "libx264",
+            "-preset",
+            "ultrafast",
+            "-pix_fmt",
+            "yuv420p",
             "-an",
             clean,
           ]);
           media.encode += media.started - encodeAt;
           expect(sha(await readFile(clean))).not.toBe(oldSha);
-        } else if (mode === "library") await writeFile(join(own, "manifest.json"), "{}");
+        }         else if (mode === "library") await replaceLinkedFile(join(own, "manifest.json"), "{}");
         else
-          await writeFile(
+          await replaceLinkedFile(
             join(own, mode === "picker" ? "audio-picker.mjs" : "audio-picker-synonyms.mjs"),
             "export const changed=true;",
           );
