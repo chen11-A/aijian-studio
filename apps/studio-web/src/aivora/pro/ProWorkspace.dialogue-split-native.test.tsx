@@ -468,6 +468,19 @@ const accept = (d: HTMLElement) => {
   fireEvent.click(within(d).getByRole("checkbox"));
   fireEvent.click(within(d).getByRole("button", { name: "接受这份拆镜结构" }));
 };
+function splitPendingButton() {
+  const bar = document.querySelector(".statusbar .sb-mid");
+  if (!bar) return null;
+  return within(bar as HTMLElement).queryByRole("button", { name: "拆镜保存待核对（1）" });
+}
+/** Recovery deletes the pending entry only after its save lease releases. */
+async function settleCheckedSplit(f: Awaited<ReturnType<typeof fixture>>) {
+  const before = f.releaseSerial();
+  await act(async () => {
+    await f.waitForLeaseRelease(before);
+    await Promise.resolve();
+  });
+}
 async function acceptSettled(d: HTMLElement, f: Awaited<ReturnType<typeof fixture>>) {
   const before = f.releaseSerial();
   accept(d);
@@ -578,9 +591,8 @@ it("retains unknown during actual native pending, then fresh full structure and 
     expect((await f.disk())!.shots as unknown[]).toHaveLength(f.film.shots.length + 2),
   );
   fireEvent.click(within(p).getByRole("button", { name: "核对拆镜保存结果" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull(),
-  );
+  await settleCheckedSplit(f);
+  expect(splitPendingButton()).toBeNull();
   expect(f.apply).toHaveBeenCalledOnce();
   expect(f.current().shots).toHaveLength(f.film.shots.length + 2);
   expect(f.paid).not.toHaveBeenCalled();
@@ -629,9 +641,8 @@ it("keeps a late original draft until the user explicitly adopts the fully verif
     "必须保留并展示的后来描述",
   );
   fireEvent.click(within(p).getByRole("button", { name: "采用已核对的拆镜版并放弃这份保留稿" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull(),
-  );
+  await settleCheckedSplit(f);
+  expect(splitPendingButton()).toBeNull();
   expect(f.current().shots).toHaveLength(f.film.shots.length + 2);
   expect(f.apply).toHaveBeenCalledOnce();
   expect(f.paid).not.toHaveBeenCalled();
@@ -674,9 +685,8 @@ it("late recovery verifies the original record without applying or writing the o
   fireEvent.click(screen.getByRole("button", { name: "拆镜保存待核对（1）" }));
   const p = await screen.findByRole("dialog", { name: "拆镜保存状态" });
   fireEvent.click(within(p).getByRole("button", { name: "核对拆镜保存结果" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull(),
-  );
+  await settleCheckedSplit(f);
+  expect(splitPendingButton()).toBeNull();
   expect(f.current()).toBe(other);
   expect(await f.disk(f.other.id)).toEqual(raw);
   expect(f.write.mock.calls.filter(([v]) => v.id === f.other.id)).toHaveLength(writes);

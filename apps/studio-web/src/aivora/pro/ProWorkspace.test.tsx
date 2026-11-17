@@ -197,31 +197,38 @@ describe("professional workspace", () => {
       expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
     );
     const openShot = (label: RegExp) => {
-      const row = screen.queryByRole("button", { name: label });
+      const work = workspaceMain();
+      const row = work.queryByRole("button", { name: label });
       if (row) {
         fireEvent.click(row);
         return;
       }
-      const back = screen.queryByRole("button", { name: "全部镜头" });
+      const back = work.queryByRole("button", { name: "全部镜头" });
       if (back) fireEvent.click(back);
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(
-        screen.getByRole("button", {
+        workspaceMain().getByRole("button", {
           name: new RegExp(film.scenes.find((scene) => scene.id === source.sceneId)!.title),
         }),
       );
-      fireEvent.click(screen.getByRole("button", { name: label }));
+      fireEvent.click(workspaceMain().getByRole("button", { name: label }));
     };
     const adopt = () => {
-      fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
-      for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
-      fireEvent.click(screen.getByRole("button", { name: "采用" }));
+      const work = workspaceMain();
+      fireEvent.click(work.getByRole("button", { name: "核对并采用" }));
+      for (const row of work.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+      fireEvent.click(work.getByRole("button", { name: "采用" }));
     };
     const startOne = () => {
-      const open = screen.queryByRole("button", { name: "生成视频" });
+      const work = workspaceMain();
+      const open = work.queryByRole("button", { name: "生成视频" });
       if (open) fireEvent.click(open);
-      fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
-      fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+      fireEvent.click(work.getByRole("button", { name: "生成 1 个版本" }));
+      fireEvent.click(
+        within(screen.getByRole("dialog", { name: "生成前确认" })).getByRole("button", {
+          name: "开始生成",
+        }),
+      );
     };
     const sentStill = () =>
       (video.mock.calls.at(-1) as unknown as [string, { shots: { still?: string }[] }])[1].shots[0]
@@ -1238,16 +1245,16 @@ describe("professional workspace", () => {
       ),
     );
     expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "off");
-    fireEvent.click(
-      screen
-        .getAllByRole("button")
-        .filter((item) => item.className.includes("tab") && item.textContent?.includes("分镜"))[0]!,
-    );
-    fireEvent.click(screen.getAllByRole("button", { name: "单个镜头" })[0]!);
+    fireEvent.click(stageTab("分镜"));
+    fireEvent.click(workspaceMain().getAllByRole("button", { name: "单个镜头" })[0]!);
     await adoptOpenStill();
     vi.mocked(window.aijian!.generateFilmStill!).mockClear();
-    fireEvent.click(screen.getAllByRole("button", { name: "生成 1 个版本" })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "开始生成" })[0]!);
+    fireEvent.click(workspaceMain().getAllByRole("button", { name: "生成 1 个版本" })[0]!);
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "生成前确认" })).getByRole("button", {
+        name: "开始生成",
+      }),
+    );
     expect(await screen.findByText(/模型列表里还没有成片用的视频模型/)).toBeInTheDocument();
     expect(provider).not.toHaveBeenCalled();
     expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
@@ -1258,8 +1265,12 @@ describe("professional workspace", () => {
     expect(provider).not.toHaveBeenCalled();
     expect(window.aijian!.generateFilmStill).not.toHaveBeenCalled();
     expect(screen.queryByText(/网页里不能直接出片/)).toBeNull();
-    fireEvent.click(screen.getAllByRole("button", { name: "生成 1 个版本" })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "开始生成" })[0]!);
+    fireEvent.click(workspaceMain().getAllByRole("button", { name: "生成 1 个版本" })[0]!);
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "生成前确认" })).getByRole("button", {
+        name: "开始生成",
+      }),
+    );
     expect(await screen.findByText(/网页里不能直接出片/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
     expect(screen.getAllByText(/网页里不能直接出片/).length).toBeGreaterThan(0);
@@ -2659,9 +2670,10 @@ function openGroup(name: string) {
 
 function openBoardTools() {
   fireEvent.click(stageTab("分镜"));
-  const props = screen.queryByRole("button", { name: "属性" });
+  const work = workspaceMain();
+  const props = work.queryByRole("button", { name: "属性" });
   if (props) fireEvent.click(props);
-  if (!screen.queryByRole("button", { name: "写英文画面说明" })) {
+  if (!work.queryByRole("button", { name: "写英文画面说明" })) {
     openGroup("高级");
   }
 }
@@ -2672,11 +2684,19 @@ function statusDetail() {
 }
 
 function stageTab(name: string) {
-  const found = screen
-    .getAllByRole("button", { name: new RegExp(name) })
-    .find((item) => item.className.includes("tab"));
+  const nav = document.querySelector('nav[aria-label="创作阶段"]');
+  const found = nav
+    ? within(nav as HTMLElement)
+        .getAllByRole("button", { name: new RegExp(name) })
+        .find((item) => item.className.includes("tab"))
+    : undefined;
   if (!found) throw new Error(`missing tab ${name}`);
   return found;
+}
+function workspaceMain() {
+  const node = document.querySelector("main");
+  if (!node) throw new Error("missing workspace");
+  return within(node as HTMLElement);
 }
 
 it("shows Grok sign-in on a clean profile and signs out through the bridge", async () => {
@@ -3322,34 +3342,35 @@ async function openSample() {
   await waitForGenerationCatalog();
 }
 async function adoptOpenStill(options?: { stayOnBoard?: boolean }) {
-  const onBench = Boolean(screen.queryByRole("button", { name: /生成 \d+ 个版本/ }));
+  const work = () => workspaceMain();
+  const onBench = Boolean(work().queryByRole("button", { name: /生成 \d+ 个版本/ }));
   if (
     onBench &&
-    !screen.queryByRole("button", { name: "核对并采用" }) &&
-    !screen.queryByRole("button", { name: "生成画面" })
+    !work().queryByRole("button", { name: "核对并采用" }) &&
+    !work().queryByRole("button", { name: "生成画面" })
   ) {
-    const back = screen.queryByRole("button", { name: "全部镜头" });
+    const back = work().queryByRole("button", { name: "全部镜头" });
     if (back) fireEvent.click(back);
   }
-  if (!screen.queryByRole("button", { name: "核对并采用" })) {
-    const make = screen.queryByRole("button", { name: "生成画面" });
+  if (!work().queryByRole("button", { name: "核对并采用" })) {
+    const make = work().queryByRole("button", { name: "生成画面" });
     if (make) {
       fireEvent.click(make);
-      await screen.findByRole("button", { name: "核对并采用" });
+      await work().findByRole("button", { name: "核对并采用" });
     }
   }
-  const open = screen.queryByRole("button", { name: "核对并采用" });
+  const open = work().queryByRole("button", { name: "核对并采用" });
   if (!open) return;
   fireEvent.click(open);
-  for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
-  const adopt = screen.getByRole("button", { name: "采用" }) as HTMLButtonElement;
+  for (const row of work().getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+  const adopt = work().getByRole("button", { name: "采用" }) as HTMLButtonElement;
   if (!adopt.disabled) fireEvent.click(adopt);
   else {
-    const close = screen.queryByRole("button", { name: "关闭" });
+    const close = work().queryByRole("button", { name: "关闭" });
     if (close) fireEvent.click(close);
   }
   if (onBench && !options?.stayOnBoard) {
-    const video = screen.queryByRole("button", { name: "生成视频" });
+    const video = work().queryByRole("button", { name: "生成视频" });
     if (video) fireEvent.click(video);
   }
 }
@@ -3389,11 +3410,9 @@ async function openAdoptedSample() {
 }
 
 async function adoptListedShots() {
-  const cards = screen
-    .getAllByRole("button")
-    .filter(
-      (button) => button.classList.contains("card") && /镜头 \d+/.test(button.textContent ?? ""),
-    );
+  const cards = [...document.querySelectorAll("main button.card")].filter((button) =>
+    /镜头 \d+/.test(button.textContent ?? ""),
+  );
   for (const card of cards) {
     fireEvent.click(card);
     await adoptOpenStill({ stayOnBoard: true });
@@ -3686,23 +3705,28 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
   }));
   Object.assign(window.aijianGrok ?? {}, { speak });
   await openSample();
+  const work = () => workspaceMain();
   fireEvent.click(stageTab("分镜"));
-  fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+  fireEvent.click(work().getByRole("button", { name: "生成画面" }));
   expect(await screen.findByText(/画面出好了。/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /候选画面/ }));
-  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
-  if (screen.queryByRole("button", { name: "核对并采用" })) {
-    fireEvent.click(screen.getByRole("button", { name: "核对并采用" }));
-    for (const row of screen.getAllByRole("button", { name: "符合" })) fireEvent.click(row);
-    fireEvent.click(screen.getByRole("button", { name: "采用" }));
+  fireEvent.click(work().getByRole("button", { name: /候选画面/ }));
+  fireEvent.click(work().getByRole("button", { name: "单个镜头" }));
+  if (work().queryByRole("button", { name: "核对并采用" })) {
+    fireEvent.click(work().getByRole("button", { name: "核对并采用" }));
+    for (const row of work().getAllByRole("button", { name: "符合" })) fireEvent.click(row);
+    fireEvent.click(work().getByRole("button", { name: "采用" }));
   }
   await adoptOpenStill();
-  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
-  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  fireEvent.click(work().getByRole("button", { name: "生成 1 个版本" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "生成前确认" })).getByRole("button", {
+      name: "开始生成",
+    }),
+  );
   expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
   fireEvent.click(stageTab("剪辑"));
-  fireEvent.click(screen.getByRole("button", { name: /镜头 4/ }));
-  fireEvent.click(screen.getByRole("button", { name: "换配音" }));
+  fireEvent.click(work().getByRole("button", { name: /镜头 4/ }));
+  fireEvent.click(work().getByRole("button", { name: "换配音" }));
   expect(await screen.findByText("这一句已重配，画面没有重新生成。")).toBeInTheDocument();
   expect(document.querySelector("[data-voice='1'][data-voice-binding='pending']")).toBeTruthy();
   expect(screen.getByText(/生成画面后可免费绑定/)).toBeInTheDocument();
@@ -3721,13 +3745,13 @@ it("shows a saved still again and uses lane mute, solo, and volume", async () =>
     target: { files: [new File(["song"], "bed.mp3", { type: "audio/mpeg" })] },
   });
   expect(await screen.findByText(/已导入音乐/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "静音对白" }));
+  fireEvent.click(work().getByRole("button", { name: "静音对白" }));
   expect(screen.getByText("这一轨已静音。")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "静音对白" }));
-  fireEvent.click(screen.getByRole("button", { name: "单听对白" }));
-  fireEvent.click(screen.getByRole("button", { name: "静音配乐" }));
-  fireEvent.click(screen.getByRole("button", { name: "静音配乐" }));
-  fireEvent.click(screen.getByRole("button", { name: "单听配乐" }));
+  fireEvent.click(work().getByRole("button", { name: "静音对白" }));
+  fireEvent.click(work().getByRole("button", { name: "单听对白" }));
+  fireEvent.click(work().getByRole("button", { name: "静音配乐" }));
+  fireEvent.click(work().getByRole("button", { name: "静音配乐" }));
+  fireEvent.click(work().getByRole("button", { name: "单听配乐" }));
   expect(screen.getByText("只听配乐。音量没有改。")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("配乐音量"), { target: { value: "50" } });
   expect(screen.getByText("音量已记下，导出时用这个音量。")).toBeInTheDocument();
