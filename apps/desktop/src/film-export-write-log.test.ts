@@ -1,6 +1,7 @@
 import { lstat, mkdtemp, mkdir, readFile, readdir, symlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { constants } from "node:fs";
 import { afterEach, expect, it } from "vitest";
 import { INTERRUPTED_EXPORT_MESSAGE } from "@aijian/contracts/film-export-qc";
 import {
@@ -430,6 +431,124 @@ it("treats only unsupported Windows directory codes as skippable", async () => {
   const { directory, journal } = await place();
   const log = createExportWriteLog(journal, { fault: () => "diropen" });
   await expect(log.begin(directory)).rejects.toMatchObject({ code: "EACCES" });
+});
+
+it("runs directory flush through writable open, narrow fallback, and fail-closed errors", async () => {
+  const unsupported = ["EISDIR", "EINVAL", "ENOTSUP", "EOPNOTSUPP"] as const;
+  const failClosed = ["EPERM", "EACCES", "EIO", "ENOSPC"] as const;
+  function ioError(code: string, syscall: string) {
+    return Object.assign(new Error(`${syscall} ${code}`), { code, syscall });
+  }
+  async function drive(
+    platform: string,
+    behavior: {
+      failOpen?: (flags: string | number) => string | undefined;
+      failSync?: string;
+    } = {},
+  ) {
+    const flags: Array<string | number> = [];
+    let closes = 0;
+    const { directory, journal } = await place();
+    const log = createExportWriteLog(journal, {
+      directorySync: {
+        platform,
+        open: async (_path, flag) => {
+          flags.push(flag);
+          const code = behavior.failOpen?.(flag);
+          if (code) throw ioError(code, "open");
+          return {
+            async sync() {
+              if (behavior.failSync) throw ioError(behavior.failSync, "fsync");
+            },
+            async close() {
+              closes += 1;
+            },
+          };
+        },
+      },
+    });
+    return {
+      flags,
+      closed: () => closes,
+      directory,
+      journal,
+      log,
+    };
+  }
+  async function keptOpen(journal: string) {
+    const names = (await readdir(journal)).filter((name) => name.endsWith(".json"));
+    expect(names).toHaveLength(1);
+    expect(JSON.parse(await readFile(join(journal, names[0]!), "utf8")).outcome).toBe("open");
+  }
+
+  const real = await place();
+  const realId = await real.log.begin(real.directory);
+  expect(JSON.parse(await readFile(join(real.journal, `${realId}.json`), "utf8")).outcome).toBe(
+    "open",
+  );
+
+  const writable = await drive("win32");
+  await writable.log.begin(writable.directory);
+  expect(writable.flags).toEqual([constants.O_RDWR]);
+  expect(writable.closed()).toBe(1);
+  await keptOpen(writable.journal);
+
+  for (const code of unsupported) {
+    const fallback = await drive("win32", {
+      failOpen: (flags) => (flags === constants.O_RDWR ? code : undefined),
+    });
+    await fallback.log.begin(fallback.directory);
+    expect(fallback.flags).toEqual([constants.O_RDWR, "r"]);
+    expect(fallback.closed()).toBe(1);
+    await keptOpen(fallback.journal);
+  }
+
+  for (const code of failClosed) {
+    const denied = await drive("win32", { failOpen: () => code });
+    await expect(denied.log.begin(denied.directory)).rejects.toMatchObject({
+      name: "ExportJournalError",
+      code,
+    });
+    expect(denied.flags).toEqual([constants.O_RDWR]);
+    expect(denied.closed()).toBe(0);
+    await keptOpen(denied.journal);
+
+    const synced = await drive("win32", { failSync: code });
+    await expect(synced.log.begin(synced.directory)).rejects.toMatchObject({
+      name: "ExportJournalError",
+      code,
+    });
+    expect(synced.flags).toEqual([constants.O_RDWR]);
+    expect(synced.closed()).toBe(1);
+    await keptOpen(synced.journal);
+  }
+
+  const afterFallback = await drive("win32", {
+    failOpen: (flags) => (flags === constants.O_RDWR ? "EISDIR" : undefined),
+    failSync: "EPERM",
+  });
+  await expect(afterFallback.log.begin(afterFallback.directory)).rejects.toMatchObject({
+    name: "ExportJournalError",
+    code: "EPERM",
+  });
+  expect(afterFallback.flags).toEqual([constants.O_RDWR, "r"]);
+  expect(afterFallback.closed()).toBe(1);
+  await keptOpen(afterFallback.journal);
+
+  const skipped = await drive("win32", { failSync: "EINVAL" });
+  await skipped.log.begin(skipped.directory);
+  expect(skipped.flags).toEqual([constants.O_RDWR]);
+  expect(skipped.closed()).toBe(1);
+  await keptOpen(skipped.journal);
+
+  const linux = await drive("linux", { failSync: "EINVAL" });
+  await expect(linux.log.begin(linux.directory)).rejects.toMatchObject({
+    name: "ExportJournalError",
+    code: "EINVAL",
+  });
+  expect(linux.flags).toEqual(["r"]);
+  expect(linux.closed()).toBe(1);
+  await keptOpen(linux.journal);
 });
 
 it("keeps the journal when a planned link or temp has not been cleaned", async () => {

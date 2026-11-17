@@ -61,6 +61,20 @@ type WriteLogOptions = {
   beforeRestore?: (path: string) => Promise<void>;
   /** Stops recovery after the claim rename, leaving that claim for the next start. */
   crashAfterClaim?: boolean;
+  /**
+   * Test seam for directory flush. Absent means the real filesystem and this process.
+   * Production writes do not set it.
+   */
+  directorySync?: DirectorySyncIO;
+};
+
+type DirectorySyncHandle = {
+  sync: () => Promise<void>;
+  close: () => Promise<void>;
+};
+type DirectorySyncIO = {
+  platform: string;
+  open: (path: string, flags: string | number) => Promise<DirectorySyncHandle>;
 };
 
 /**
@@ -82,14 +96,18 @@ export function directorySyncMaySkip(platform: string, code: string | undefined)
  * call. If Windows rejects FILE_WRITE_DATA on a directory as an invalid open, fall
  * back to the read handle and still require the flush to succeed.
  */
-async function openDirectoryForSync(dir: string) {
-  if (process.platform !== "win32") return open(dir, "r");
+const directorySyncReadFlags = "r";
+function realDirectorySync(): DirectorySyncIO {
+  return { platform: process.platform, open };
+}
+async function openDirectoryForSync(dir: string, io: DirectorySyncIO) {
+  if (io.platform !== "win32") return io.open(dir, directorySyncReadFlags);
   try {
-    return await open(dir, constants.O_RDWR);
+    return await io.open(dir, constants.O_RDWR);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "EISDIR" || code === "EINVAL" || code === "ENOTSUP" || code === "EOPNOTSUPP")
-      return open(dir, "r");
+      return io.open(dir, directorySyncReadFlags);
     throw error;
   }
 }
@@ -187,24 +205,28 @@ function sameDir(
 }
 
 /** Directory fsync makes the rename durable where the platform allows it. It is not a power-loss proof. */
-async function syncDirectory(dir: string, fault?: ExportWriteFault) {
+async function syncDirectory(
+  dir: string,
+  fault: ExportWriteFault | undefined,
+  io: DirectorySyncIO,
+) {
   if (fault === "diropen") throw rawIo("EACCES", "open");
-  let handle;
+  let opened: DirectorySyncHandle;
   try {
-    handle = await openDirectoryForSync(dir);
+    opened = await openDirectoryForSync(dir, io);
   } catch (error) {
-    if (directorySyncMaySkip(process.platform, (error as NodeJS.ErrnoException).code)) return;
+    if (directorySyncMaySkip(io.platform, (error as NodeJS.ErrnoException).code)) return;
     throw error;
   }
   try {
     if (fault === "dirsync") throw rawIo("EIO", "fsync");
-    await handle.sync();
+    await opened.sync();
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    if (directorySyncMaySkip(process.platform, code)) return;
+    if (directorySyncMaySkip(io.platform, code)) return;
     throw error;
   } finally {
-    await handle.close();
+    await opened.close();
   }
 }
 
@@ -284,7 +306,7 @@ export function createExportWriteLog(root: string, options: WriteLogOptions = {}
       if (fault === "rename") throw rawIo("ENOSPC", "rename");
       await rename(temporary, finalPath);
       temporary = "";
-      await syncDirectory(root, fault);
+      await syncDirectory(root, fault, options.directorySync ?? realDirectorySync());
     } catch (error) {
       if (handle) await handle.close().catch(() => undefined);
       if (temporary) await rm(temporary, { force: true }).catch(() => undefined);
