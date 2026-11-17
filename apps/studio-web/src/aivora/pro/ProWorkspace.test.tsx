@@ -1058,7 +1058,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /^用第 \d+ 版$/ })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
-    await adoptListedShots();
+    await adoptListedShots(sampleFilm().shots.length);
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     await waitFor(() => expect(createStoryFilm.mock.calls.length).toBeGreaterThanOrEqual(8));
@@ -1159,7 +1159,7 @@ describe("professional workspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "关上后台生成" }));
     fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
-    await adoptListedShots();
+    await adoptListedShots(sampleFilm().shots.length);
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     await waitFor(() => expect(statusDetail()).toMatch(/已暂停。点继续再生成剩下的/));
@@ -3052,7 +3052,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
       }) as FilmAssemblyResult,
   );
   fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
-  await adoptListedShots();
+  await adoptListedShots(sampleFilm().shots.length);
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   // Observe the whole original generation queue and its saved result before editing.
@@ -3409,11 +3409,15 @@ async function openAdoptedSample() {
   }
 }
 
-async function adoptListedShots() {
-  const cards = [...document.querySelectorAll("main button.card")].filter((button) =>
-    /镜头 \d+/.test(button.textContent ?? ""),
-  );
+async function adoptListedShots(expected: number) {
+  const cards = workspaceMain()
+    .getAllByRole("button", { name: /镜头 \d+/ })
+    .filter((button) => button.classList.contains("card"));
+  expect(expected).toBeGreaterThan(0);
+  expect(cards).toHaveLength(expected);
   for (const card of cards) {
+    expect(card.hidden).toBe(false);
+    expect(card.getAttribute("aria-hidden")).not.toBe("true");
     fireEvent.click(card);
     await adoptOpenStill({ stayOnBoard: true });
   }
@@ -4122,7 +4126,7 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
     if (lock && !(lock as HTMLButtonElement).disabled) fireEvent.click(lock);
   }
   fireEvent.click(stageTab("分镜"));
-  await adoptListedShots();
+  await adoptListedShots(2);
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
   await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
