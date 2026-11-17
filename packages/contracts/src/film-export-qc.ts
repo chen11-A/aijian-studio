@@ -105,6 +105,8 @@ export type FilmExportActivity = {
 
 /** Shown after startup removes an export that did not finish. */
 export const INTERRUPTED_EXPORT_MESSAGE = "上次导出未完成已清理，请重新导出";
+/** Shown when startup could not finish cleaning and will try again. The journal stays. */
+export const INTERRUPTED_EXPORT_RETRY_MESSAGE = "上次导出清理没有完成，下次启动会再试";
 export type FilmExportRecovery =
   | { kind: "NONE" }
   | {
@@ -112,7 +114,8 @@ export type FilmExportRecovery =
       message: typeof INTERRUPTED_EXPORT_MESSAGE;
       /** Crash recovery removes the whole unfinished set, so this is empty. A committed PARTIAL is not a crash. */
       kept: { aspectRatio: "16:9" | "9:16" }[];
-    };
+    }
+  | { kind: "RETRY"; message: typeof INTERRUPTED_EXPORT_RETRY_MESSAGE };
 
 /** Independent execution feed; these values never enter receipt/semantic-input hashing. */
 export type FilmExportPhase =

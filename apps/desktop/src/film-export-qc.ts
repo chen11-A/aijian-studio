@@ -14,7 +14,12 @@ import { exportBlockedByStaleMaterial, readStoredAudioDecision } from "./film-ex
 import { muxSilentAac } from "./film-silent-export";
 import type { ExportWork } from "./film-export-operation";
 import { exportFileHash, copyExportFile } from "./film-export-io";
-import { createExportWriteLog } from "./film-export-write-log";
+import {
+  createExportWriteLog,
+  ExportJournalError,
+  writeOwnerMarker,
+  type ExportWriteFault,
+} from "./film-export-write-log";
 import type {
   FilmExportIncompleteCode,
   FilmExportQcInput,
@@ -267,10 +272,15 @@ export type FilmQcHost = {
   engine: () => Promise<QcEngine>;
   font: () => string | undefined;
   pickDirectory: () => Promise<string | null>;
-  /** True only while files are copied or linked into the chosen folder. */
-  setWriting?: (writing: boolean) => void;
+  /** Held from the first folder byte through evidence and cleanup. One id per export. */
+  holdWriting?: (id: string) => void;
+  releaseWriting?: (id: string) => void;
+  /** Test hook. Runs while the write hold is still taken. */
+  duringEvidence?: () => void;
   /** Directory that remembers an unfinished write so the next launch can clean it. */
   exportWrites?: string;
+  /** Test hook for journal fsync, rename, directory sync, and finish failures. */
+  exportWriteFault?: (journal: { outcome: string }) => ExportWriteFault | undefined;
   read?: (id: string) => Promise<FilmRecord | null>;
   now?: () => number;
   normalizer?: () => Promise<AudioNormalizer>;
@@ -327,11 +337,14 @@ export function createFilmExportQc(host: FilmQcHost) {
   const receipts = new Map<string, Prepared>();
   const active = new Map<string, { owner: string; projectId: string }>();
   const publishing = new Set<string>();
+  const guarded = new Set<string>();
   const epochs = new Map<string, number>();
   const ownerEpochs = new Map<string, number>();
   const now = host.now ?? Date.now;
   const read = host.read ?? ((id: string) => readProject(host.filmsRoot, id));
-  const writes = host.exportWrites ? createExportWriteLog(host.exportWrites) : null;
+  const writes = host.exportWrites
+    ? createExportWriteLog(host.exportWrites, { fault: host.exportWriteFault })
+    : null;
   async function snapshot(input: FilmExportQcInput, work?: ExportWork): Promise<Snapshot> {
     const record = await read(input.projectId);
     if (
@@ -859,6 +872,7 @@ export function createFilmExportQc(host: FilmQcHost) {
       work?: ExportWork,
     ): Promise<FilmExportQcPublishResult> {
       let token = "";
+      let holding = "";
       let consumed = false;
       let cleanupFolder = "";
       let publishKey = "";
@@ -872,6 +886,7 @@ export function createFilmExportQc(host: FilmQcHost) {
       let evidenceDirectory = "";
       let deliveryEvidence: FilmDeliveryEvidenceResult | undefined;
       const evidence = async (complete: boolean): Promise<FilmDeliveryEvidenceResult> => {
+        host.duringEvidence?.();
         if (deliveryEvidence) return deliveryEvidence;
         const prepared = preparedForEvidence;
         if (!prepared || !evidenceDirectory)
@@ -928,6 +943,9 @@ export function createFilmExportQc(host: FilmQcHost) {
         const directory = await host.pickDirectory();
         work?.signal.throwIfAborted();
         if (!directory) return { kind: "CANCELLED" };
+        holding = token;
+        guarded.add(token);
+        host.holdWriting?.(token);
         await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
         if (receipts.get(token) !== prepared) fail("RECEIPT_STALE");
         const target = await realpath(directory);
@@ -954,7 +972,6 @@ export function createFilmExportQc(host: FilmQcHost) {
         // Copy an aspect the first time it is reached. A later default-name race
         // reuses that copy and only retries the link. The journal stays open until
         // this process commits partial or published.
-        host.setWriting?.(true);
         let writeId = "";
         try {
           writeId = writes ? await writes.begin(target) : "";
@@ -988,9 +1005,16 @@ export function createFilmExportQc(host: FilmQcHost) {
                 let stage = staged.get(item.aspectRatio);
                 if (!stage) {
                   await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
-                  const temporary = await mkdtemp(join(target, ".aivora-qc-"));
+                  let temporary: string;
+                  if (writeId && writes) {
+                    const reserved = await writes.reserveTemp(writeId);
+                    if (!reserved) throw new ExportJournalError();
+                    await mkdir(reserved.path);
+                    await writeOwnerMarker(reserved.path, reserved.nonce);
+                    await writes.claimTemp(writeId, reserved.path);
+                    temporary = reserved.path;
+                  } else temporary = await mkdtemp(join(target, ".aivora-qc-"));
                   temporaries.push(temporary);
-                  if (writeId) await writes?.noteTemp(writeId, temporary);
                   const pending = join(temporary, "film.mp4");
                   await copy(output.path, pending, work);
                   if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
@@ -1016,13 +1040,16 @@ export function createFilmExportQc(host: FilmQcHost) {
                 work?.signal.throwIfAborted();
                 work?.cancellable(false);
                 const destination = join(target, `${item.stem}.mp4`);
-                await linkNewFile(stage.pending, destination);
-                linked.push(destination);
-                if (writeId)
-                  await writes?.noteFile(writeId, {
+                if (writeId) {
+                  await writes?.planLink(writeId, {
                     path: destination,
                     aspectRatio: item.aspectRatio,
+                    sourcePath: stage.pending,
                   });
+                }
+                await linkNewFile(stage.pending, destination);
+                linked.push(destination);
+                if (writeId) await writes?.claimLink(writeId, destination);
                 const saved: {
                   aspectRatio: "16:9" | "9:16";
                   path: string;
@@ -1034,14 +1061,17 @@ export function createFilmExportQc(host: FilmQcHost) {
                     target,
                     side.kind === "subtitlePath" ? `${item.stem}.srt` : `${item.stem}-封面.png`,
                   );
+                  if (writeId) {
+                    await writes?.planLink(writeId, {
+                      path: sideDestination,
+                      aspectRatio: item.aspectRatio,
+                      sourcePath: side.pending,
+                    });
+                  }
                   await linkNewFile(side.pending, sideDestination);
                   linked.push(sideDestination);
                   saved[side.kind] = sideDestination;
-                  if (writeId)
-                    await writes?.noteFile(writeId, {
-                      path: sideDestination,
-                      aspectRatio: item.aspectRatio,
-                    });
+                  if (writeId) await writes?.claimLink(writeId, sideDestination);
                 }
                 for (const path of [saved.path, saved.subtitlePath, saved.coverPath])
                   if (path) kept.add(path);
@@ -1064,7 +1094,7 @@ export function createFilmExportQc(host: FilmQcHost) {
             } catch (error) {
               // Owner loss can still abort the signal. That is not a user stop,
               // and it does not reopen cancellation between aspects.
-              if (work?.signal.aborted) throw error;
+              if (work?.signal.aborted || error instanceof ExportJournalError) throw error;
               const nameTaken = exportNameTaken(error);
               // A name clash, including one that appears after the first aspect, rolls the set back.
               if (nameTaken || outputs.length === 0) {
@@ -1097,10 +1127,18 @@ export function createFilmExportQc(host: FilmQcHost) {
           }
           if (writeId) await writes?.commit(writeId, "published");
         } finally {
-          if (writeId) await writes?.finish(writeId);
-          host.setWriting?.(false);
-          for (const temporary of temporaries)
-            await rm(temporary, { recursive: true, force: true });
+          try {
+            if (writeId) await writes?.finish(writeId);
+          } catch {
+            /* A journal finish failure must not skip the write hold or the temp cleanup. */
+          }
+          for (const temporary of temporaries) {
+            try {
+              await rm(temporary, { recursive: true, force: true });
+            } catch {
+              /* The journal still names the temp when this delete fails. */
+            }
+          }
         }
         receipts.delete(token);
         consumed = true;
@@ -1114,6 +1152,7 @@ export function createFilmExportQc(host: FilmQcHost) {
           deliveryEvidence: delivered,
         };
       } catch (error) {
+        if (error instanceof ExportJournalError) return { kind: "FAILED", code: "PUBLISH_FAILED" };
         if (error instanceof Error && error.message === "KEPT_ASPECT") {
           const detail = error as Error & {
             aspectRatio: "16:9" | "9:16";
@@ -1139,13 +1178,26 @@ export function createFilmExportQc(host: FilmQcHost) {
             ? { kind: "FAILED", code: "PUBLISH_FAILED" }
             : failed;
       } finally {
-        if (work?.signal.aborted && token) {
-          await remove(token);
-        }
         if (publishKey) publishing.delete(publishKey);
-        if (consumed) {
-          receipts.delete(token);
-          if (cleanupFolder) await rm(cleanupFolder, { recursive: true, force: true });
+        try {
+          if (work?.signal.aborted && token) await remove(token);
+        } catch {
+          /* Receipt cleanup must not skip the write hold. */
+        }
+        if (consumed && cleanupFolder) {
+          try {
+            await rm(cleanupFolder, { recursive: true, force: true });
+          } catch {
+            /* The rendered folder can be removed on a later launch. */
+          }
+        }
+        if (holding) {
+          guarded.delete(holding);
+          try {
+            host.releaseWriting?.(holding);
+          } catch {
+            /* The hold itself is cleared by the guard even when notify throws. */
+          }
         }
       }
     },
@@ -1154,10 +1206,15 @@ export function createFilmExportQc(host: FilmQcHost) {
       for (const state of active.values())
         if (state.owner === owner)
           epochs.set(state.projectId, (epochs.get(state.projectId) ?? 0) + 1);
-      for (const [token, entry] of receipts) if (entry.owner === owner) await remove(token);
+      for (const [token, entry] of receipts) {
+        if (entry.owner !== owner || guarded.has(token)) continue;
+        await remove(token);
+      }
     },
     async discard(owner: string, token: string) {
+      if (publishing.has(token)) return { kind: "FAILED" as const, code: "BUSY" as const };
       if (receipts.get(token)?.owner === owner) await remove(token);
+      return { kind: "DISCARDED" as const };
     },
   };
 }

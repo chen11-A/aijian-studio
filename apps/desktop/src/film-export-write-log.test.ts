@@ -1,9 +1,24 @@
-import { lstat, mkdtemp, mkdir, readFile, readdir, symlink, writeFile, rm } from "node:fs/promises";
+import {
+  lstat,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  symlink,
+  writeFile,
+  rm,
+  chmod,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { INTERRUPTED_EXPORT_MESSAGE } from "@aijian/contracts/film-export-qc";
-import { createExportWriteLog, recoverInterruptedExports } from "./film-export-write-log";
+import {
+  createExportWriteLog,
+  ExportJournalError,
+  recoverInterruptedExports,
+  writeOwnerMarker,
+} from "./film-export-write-log";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -174,4 +189,186 @@ it("does not remove an outside directory through a temp path that became a symli
   await recoverInterruptedExports(journal);
   expect(await readFile(join(outside, "keep.txt"), "utf8")).toBe("keep");
   expect((await lstat(temp)).isSymbolicLink()).toBe(true);
+});
+
+it("does not delete a user directory that appears at a reserved temp path before this export creates it", async () => {
+  const { directory, journal, log } = await place();
+  const id = await log.begin(directory);
+  const reserved = await log.reserveTemp(id);
+  if (!reserved) throw new Error("reservation required");
+  await mkdir(reserved.path);
+  await writeFile(join(reserved.path, "user.txt"), "mine");
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("CLEARED");
+  expect(await readFile(join(reserved.path, "user.txt"), "utf8")).toBe("mine");
+});
+
+it("removes a temp directory whose owner marker was written before the claim was saved", async () => {
+  const { directory, journal, log } = await place();
+  const id = await log.begin(directory);
+  const reserved = await log.reserveTemp(id);
+  if (!reserved) throw new Error("reservation required");
+  await mkdir(reserved.path);
+  await writeOwnerMarker(reserved.path, reserved.nonce);
+  await writeFile(join(reserved.path, "film.mp4"), "temp");
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("CLEARED");
+  await expect(readFile(join(reserved.path, "film.mp4"))).rejects.toThrow();
+});
+
+it("does not delete a different file that occupies a planned link path", async () => {
+  const { directory, journal, log } = await place();
+  const source = join(directory, "staged.mp4");
+  const destination = join(directory, "final.mp4");
+  await writeFile(source, "ours");
+  await writeFile(destination, "user already here");
+  const id = await log.begin(directory);
+  await log.planLink(id, { path: destination, aspectRatio: "16:9", sourcePath: source });
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("CLEARED");
+  expect(await readFile(destination, "utf8")).toBe("user already here");
+});
+
+it("deletes a hardlink that was created after the plan and before the claim", async () => {
+  const { directory, journal, log } = await place();
+  const source = join(directory, "staged.mp4");
+  const destination = join(directory, "final.mp4");
+  await writeFile(source, "ours");
+  const id = await log.begin(directory);
+  await log.planLink(id, { path: destination, aspectRatio: "16:9", sourcePath: source });
+  const { link } = await import("node:fs/promises");
+  await link(source, destination);
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("CLEARED");
+  await expect(readFile(destination)).rejects.toThrow();
+  expect(await readFile(source, "utf8")).toBe("ours");
+});
+
+it("keeps the open journal and the first file when committing partial cannot be stored", async () => {
+  const { directory, journal } = await place();
+  let armed = false;
+  const log = createExportWriteLog(journal, {
+    fault: (stored) => (armed && stored.outcome === "partial" ? "fsync" : undefined),
+  });
+  const first = join(directory, "片-16x9.mp4");
+  await writeFile(first, "kept");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: first, aspectRatio: "16:9" });
+  armed = true;
+  await expect(log.commit(id, "partial")).rejects.toBeInstanceOf(ExportJournalError);
+  const stored = JSON.parse(await readFile(join(journal, `${id}.json`), "utf8")) as {
+    outcome: string;
+  };
+  expect(stored.outcome).toBe("open");
+  expect(await readFile(first, "utf8")).toBe("kept");
+});
+
+it("rejects a rename failure without marking the export partial", async () => {
+  const { directory, journal } = await place();
+  const log = createExportWriteLog(journal, { fault: () => "rename" });
+  await expect(log.begin(directory)).rejects.toBeInstanceOf(ExportJournalError);
+  expect(await readdir(journal)).toEqual([]);
+});
+
+it("rejects a directory sync failure without treating the in-memory journal as committed", async () => {
+  const { directory, journal } = await place();
+  let armed = false;
+  const log = createExportWriteLog(journal, {
+    fault: (stored) => (armed && stored.outcome === "published" ? "dirsync" : undefined),
+  });
+  const file = join(directory, "片.mp4");
+  await writeFile(file, "done");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  armed = true;
+  await expect(log.commit(id, "published")).rejects.toBeInstanceOf(ExportJournalError);
+  expect(await recoverInterruptedExports(journal)).toEqual({ kind: "NONE" });
+  expect(await readFile(file, "utf8")).toBe("done");
+});
+
+it("does not follow a symlink that replaced the chosen directory", async () => {
+  const { directory, journal, log } = await place();
+  const file = join(directory, "half.mp4");
+  const outside = join(journal, "outside-dir");
+  await writeFile(file, "partial");
+  await mkdir(outside);
+  await writeFile(join(outside, "keep.txt"), "keep");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  await rm(directory, { recursive: true });
+  await symlink(outside, directory, "dir");
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("RETRY");
+  expect(await readFile(join(outside, "keep.txt"), "utf8")).toBe("keep");
+});
+
+it("does not delete a temp directory the user replaced at the same path", async () => {
+  const { directory, journal, log } = await place();
+  const temp = join(directory, ".aivora-qc-dead");
+  await mkdir(temp);
+  const id = await log.begin(directory);
+  await log.noteTemp(id, temp);
+  await rm(temp, { recursive: true });
+  await mkdir(temp);
+  await writeFile(join(temp, "user.txt"), "keep");
+  await recoverInterruptedExports(journal);
+  expect(await readFile(join(temp, "user.txt"), "utf8")).toBe("keep");
+});
+
+it("puts a file back when its bytes change while the hash is being checked", async () => {
+  const { directory, journal, log } = await place();
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  const result = await recoverInterruptedExports(journal, {
+    beforeHash: async (claim) => {
+      await writeFile(claim, "user replaced during hash");
+    },
+  });
+  expect(result.kind).toBe("CLEARED");
+  expect(await readFile(file, "utf8")).toBe("user replaced during hash");
+});
+
+it("keeps the journal when the chosen directory cannot be read", async () => {
+  const { directory, journal, log } = await place();
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  await chmod(directory, 0);
+  try {
+    const result = await recoverInterruptedExports(journal);
+    expect(result.kind).toBe("RETRY");
+    expect(await readdir(journal)).toContain(`${id}.json`);
+  } finally {
+    await chmod(directory, 0o700);
+  }
+  expect(await readFile(file, "utf8")).toBe("partial");
+});
+
+it("does not report a cleared export when deleting the file is denied", async () => {
+  const { directory, journal, log } = await place();
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  await chmod(file, 0o444);
+  await chmod(directory, 0o555);
+  try {
+    await expect(recoverInterruptedExports(journal)).resolves.toMatchObject({ kind: "RETRY" });
+    expect(await readdir(journal)).toContain(`${id}.json`);
+  } finally {
+    await chmod(directory, 0o700);
+    await chmod(file, 0o644);
+  }
+  expect(await readFile(file, "utf8")).toBe("partial");
+});
+
+it("reports retry instead of none when the journal directory itself cannot be listed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "export-writes-"));
+  roots.push(root);
+  const blocked = join(root, "not-a-directory");
+  await writeFile(blocked, "file");
+  await expect(recoverInterruptedExports(blocked)).resolves.toMatchObject({ kind: "RETRY" });
 });

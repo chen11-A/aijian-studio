@@ -25,9 +25,12 @@ import { registerCleanCopyRecovery } from "./clean-copy-recovery-ipc";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 import { storyFilmQcOwner } from "./film-export-qc-ownership";
 import { registerFilmExportQc } from "./film-export-qc-ipc";
-import { createExportWriteGuard } from "./film-export-quit-guard";
+import { createExportWriteGuard, isExportReloadShortcut } from "./film-export-quit-guard";
 import { recoverInterruptedExports } from "./film-export-write-log";
-import type { FilmExportRecovery } from "@aijian/contracts/film-export-qc";
+import {
+  INTERRUPTED_EXPORT_RETRY_MESSAGE,
+  type FilmExportRecovery,
+} from "@aijian/contracts/film-export-qc";
 import { verifiedQcTools, loadQcEngine, loadQcRunner } from "./film-export-qc-runtime";
 import { registerTaskProgressHandlers } from "./task-progress-ipc";
 import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
@@ -89,6 +92,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   net,
   protocol,
   safeStorage,
@@ -383,6 +387,34 @@ function createMainWindow(): BrowserWindow {
     }
   });
   window.webContents.on("will-navigate", (event) => event.preventDefault());
+  window.webContents.on("before-input-event", (event, input) => {
+    if (exportWriteGuard.writing() && isExportReloadShortcut(input)) event.preventDefault();
+  });
+  const reloadWhileIdle = (force: boolean) => () => {
+    if (exportWriteGuard.writing() || window.isDestroyed()) return;
+    if (force) window.webContents.reloadIgnoringCache();
+    else window.webContents.reload();
+  };
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      { role: "fileMenu" },
+      { role: "editMenu" },
+      {
+        label: "View",
+        submenu: [
+          { label: "Reload", accelerator: "CmdOrCtrl+R", click: reloadWhileIdle(false) },
+          {
+            label: "Force Reload",
+            accelerator: "Shift+CmdOrCtrl+R",
+            click: reloadWhileIdle(true),
+          },
+          { type: "separator" },
+          { role: "toggleDevTools" },
+        ],
+      },
+      { role: "windowMenu" },
+    ]),
+  );
   window.once("ready-to-show", () => {
     if (!saved || saved.maximized) window.maximize();
     else {
@@ -390,7 +422,7 @@ function createMainWindow(): BrowserWindow {
       if (bounds.width < 1280 || bounds.height < 800) window.setSize(1440, 920);
     }
     window.show();
-    if (exportRecovery.kind === "CLEARED")
+    if (exportRecovery.kind === "CLEARED" || exportRecovery.kind === "RETRY")
       window.webContents.send("film:export-recovery", exportRecovery);
   });
   const remember = () => {
@@ -1436,7 +1468,8 @@ registerFilmExportQc<IpcMainInvokeEvent>(
         execPath: process.execPath,
         repositoryRoot: resolve(__dirname, "../../.."),
       }),
-    setWriting: (writing) => exportWriteGuard.setWriting(writing),
+    holdWriting: (id) => exportWriteGuard.hold(id),
+    releaseWriting: (id) => exportWriteGuard.release(id),
     exportWrites: join(app.getPath("userData"), "export-writes"),
     pickDirectory: async () => {
       if (!mainWindow) return null;
@@ -1450,20 +1483,27 @@ registerFilmExportQc<IpcMainInvokeEvent>(
   (event, dispose) => {
     const sender = event.sender;
     let done = false;
-    const invalidate = () => {
+    const detach = () => {
+      sender.removeListener("did-start-navigation", navigate);
+      sender.removeListener("render-process-gone", onCrash);
+      sender.removeListener("destroyed", onCrash);
+    };
+    // A renderer crash is not a user cancel. The main-process export keeps running.
+    const onCrash = () => {
       if (done) return;
       done = true;
-      sender.removeListener("did-start-navigation", navigate);
-      sender.removeListener("render-process-gone", invalidate);
-      sender.removeListener("destroyed", invalidate);
-      dispose();
+      detach();
     };
     const navigate = (details: WebContentsDidStartNavigationEventParams) => {
-      if (details.isMainFrame && !details.isSameDocument) invalidate();
+      if (!details.isMainFrame || details.isSameDocument || done) return;
+      if (exportWriteGuard.writing()) return;
+      done = true;
+      detach();
+      dispose();
     };
     sender.on("did-start-navigation", navigate);
-    sender.once("render-process-gone", invalidate);
-    sender.once("destroyed", invalidate);
+    sender.once("render-process-gone", onCrash);
+    sender.once("destroyed", onCrash);
   },
   (event, snapshot) => event.sender.send("film:qc-progress", snapshot),
 );
@@ -1760,7 +1800,13 @@ async function startApplication(): Promise<void> {
     },
   ]);
   await app.whenReady();
-  exportRecovery = await recoverInterruptedExports(join(app.getPath("userData"), "export-writes"));
+  try {
+    exportRecovery = await recoverInterruptedExports(
+      join(app.getPath("userData"), "export-writes"),
+    );
+  } catch {
+    exportRecovery = { kind: "RETRY", message: INTERRUPTED_EXPORT_RETRY_MESSAGE };
+  }
   protocol.handle("aivora-media", (request) => {
     try {
       const filePath = new URL(request.url).searchParams.get("path") ?? "";

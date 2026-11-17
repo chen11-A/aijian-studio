@@ -16,13 +16,17 @@ import { basename, dirname, delimiter, isAbsolute, join, resolve, sep } from "no
 import { existsSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { createFilmExportQc, qcInput } from "./film-export-qc";
-import { recoverInterruptedExports } from "./film-export-write-log";
+import { createFilmExportQc, qcInput, type FilmQcHost } from "./film-export-qc";
+import { recoverInterruptedExports, type ExportWriteFault } from "./film-export-write-log";
 import { createExportOperations } from "./film-export-operation";
 import { readStoredAudioDecision } from "./film-export-record";
 import { loadQcEngine, verifiedQcTools } from "./film-export-qc-runtime";
 import type { FilmExportQcInput } from "@aijian/contracts/film-export-qc";
 import type { FilmRecord } from "./film-library";
+const journalFault = vi.hoisted(() => ({
+  current: undefined as
+    ((journal: { outcome: string }) => ExportWriteFault | undefined) | undefined,
+}));
 const evidenceFault = vi.hoisted(() => ({
   mode: "none" as "none" | "collision" | "changed" | "cleanup",
 }));
@@ -159,16 +163,17 @@ async function fixture(loud = false) {
       },
     ],
   };
-  const picker = vi.fn(async () => output),
+  const picker = vi.fn(async (): Promise<string | null> => output),
     tools = vi.fn(() => verifiedQcTools(dirname(ffmpeg), lock)),
     publishedPaths = new Set<string>(),
     exportWrites = join(root, "export-writes");
   await mkdir(exportWrites);
-  const host = {
+  const host: FilmQcHost = {
     filmsRoot: films,
     storyFilmsRoot: story,
     temporaryRoot: join(root, "staging"),
     exportWrites,
+    exportWriteFault: (journal: { outcome: string }) => journalFault.current?.(journal),
     publishedPaths,
     read: async () => record,
     tools,
@@ -193,6 +198,7 @@ async function fixture(loud = false) {
   };
 }
 afterEach(async () => {
+  journalFault.current = undefined;
   evidenceFault.mode = "none";
   linkFault.eexist = 0;
   linkFault.eexistIncludes = "";
@@ -1025,6 +1031,63 @@ it("stops with a clear error when every default-name number races", async () => 
   expect(published.kind).toBe("PUBLISHED");
 }, 30000);
 
+it("refuses to discard the staging folder while a publish is still using the receipt", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  let release!: (value: string | null) => void;
+  f.picker.mockImplementationOnce(
+    () =>
+      new Promise<string | null>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const publishing = f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+  const before = await readdir(f.host.temporaryRoot);
+  expect(await f.qc.discard("owner", ready.qcReceipt)).toEqual({ kind: "FAILED", code: "BUSY" });
+  expect(await readdir(f.host.temporaryRoot)).toEqual(before);
+  release(null);
+  expect(await publishing).toEqual({ kind: "CANCELLED" });
+  expect(await f.qc.discard("owner", ready.qcReceipt)).toEqual({ kind: "DISCARDED" });
+}, 30000);
+
+it("holds the write guard through evidence and releases it if journal finish throws", async () => {
+  const f = await fixture();
+  let held = false;
+  let evidenceSawHold = false;
+  f.host.holdWriting = () => {
+    held = true;
+  };
+  f.host.releaseWriting = () => {
+    held = false;
+  };
+  f.host.duringEvidence = () => {
+    evidenceSawHold = held;
+  };
+  journalFault.current = () => "finish";
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const published = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+  expect(evidenceSawHold).toBe(true);
+  expect(held).toBe(false);
+}, 30000);
+
+it("does not return a partial result when the partial journal cannot be stored", async () => {
+  const f = await fixture();
+  journalFault.current = (stored) => (stored.outcome === "partial" ? "fsync" : undefined);
+  linkFault.eaccesIncludes = "9x16";
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const result = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(result).toEqual({ kind: "FAILED", code: "PUBLISH_FAILED" });
+  const name = (await readdir(f.host.exportWrites!)).find((item) => item.endsWith(".json"));
+  expect(JSON.parse(await readFile(join(f.host.exportWrites!, name!), "utf8")).outcome).toBe(
+    "open",
+  );
+}, 30000);
+
 it("keeps the first aspect when the second aspect link fails", async () => {
   const f = await fixture();
   const events: { published: { aspectRatio: string }[] }[] = [];
@@ -1118,7 +1181,7 @@ it("keeps the first aspect and reports PROJECT_CHANGED when the project moves be
   const f = await fixture();
   const read = f.host.read!;
   f.host.read = async () => {
-    const record = await read();
+    const record = await read(input.projectId);
     if (!record) return record;
     const names = await readdir(f.output).catch(() => [] as string[]);
     return names.some((name) => name.endsWith(".mp4"))
