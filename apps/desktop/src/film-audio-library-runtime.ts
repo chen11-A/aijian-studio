@@ -20,6 +20,26 @@ async function bundleRoot(rawRoot: string) {
   };
   return { root, inside };
 }
+/** Independent file checks. Bounded so one library read cannot open every asset at once. */
+async function mapLimited<T, R>(
+  items: readonly T[],
+  limit: number,
+  run: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (cursor < items.length) {
+        const index = cursor;
+        cursor += 1;
+        results[index] = await run(items[index]!);
+      }
+    }),
+  );
+  return results;
+}
+
 /** Fixed main-owned root only. Public catalog projection deliberately omits executable/file paths. */
 export async function loadTrustedAudioLibrary(rawRoot: string): Promise<TrustedAudioLibrary> {
   const { root, inside } = await bundleRoot(rawRoot);
@@ -51,8 +71,7 @@ export async function loadTrustedAudioLibrary(rawRoot: string): Promise<TrustedA
     throw Error("LIBRARY_UNAVAILABLE");
   const rows: Record<string, unknown>[] = await runtime.loadAudioLibrary(root);
   if (rows.length !== pin.assetCount || rows.length > 1000) throw Error("LIBRARY_UNAVAILABLE");
-  const assets: Entry[] = [];
-  for (const row of rows) {
+  const assets = await mapLimited(rows, 16, async (row) => {
     if (
       !/^[a-f0-9]{64}$/.test(String(row.sha256)) ||
       typeof row.author !== "string" ||
@@ -81,7 +100,7 @@ export async function loadTrustedAudioLibrary(rawRoot: string): Promise<TrustedA
         ? { processingGainDb: row.gainDb }
         : {}),
     };
-    assets.push({
+    return {
       id: String(row.id),
       name: String(row.name),
       type: row.type as "music" | "sfx",
@@ -97,8 +116,8 @@ export async function loadTrustedAudioLibrary(rawRoot: string): Promise<TrustedA
       sha256: provenance.sha256,
       file,
       provenance,
-    });
-  }
+    };
+  });
   if (
     hash(await readFile(manifest)) !== pin.manifestSha256 ||
     (await exportFileHash(modulePath)) !== pin.loaderSha256
