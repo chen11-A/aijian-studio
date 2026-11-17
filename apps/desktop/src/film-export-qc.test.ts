@@ -17,6 +17,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createFilmExportQc, qcInput } from "./film-export-qc";
+import { recoverInterruptedExports } from "./film-export-write-log";
 import { createExportOperations } from "./film-export-operation";
 import { readStoredAudioDecision } from "./film-export-record";
 import { loadQcEngine, verifiedQcTools } from "./film-export-qc-runtime";
@@ -160,11 +161,14 @@ async function fixture(loud = false) {
   };
   const picker = vi.fn(async () => output),
     tools = vi.fn(() => verifiedQcTools(dirname(ffmpeg), lock)),
-    publishedPaths = new Set<string>();
+    publishedPaths = new Set<string>(),
+    exportWrites = join(root, "export-writes");
+  await mkdir(exportWrites);
   const host = {
     filmsRoot: films,
     storyFilmsRoot: story,
     temporaryRoot: join(root, "staging"),
+    exportWrites,
     publishedPaths,
     read: async () => record,
     tools,
@@ -252,6 +256,15 @@ describe("trusted checked export", () => {
 
     expect(delivered.manifest.audioDecision).toBeUndefined();
     expect(await readFile(f.source)).toEqual(original);
+    const journalName = (await readdir(f.host.exportWrites!)).find((name) =>
+      name.endsWith(".json"),
+    );
+    expect(
+      JSON.parse(await readFile(join(f.host.exportWrites!, journalName!), "utf8")).outcome,
+    ).toBe("published");
+    expect(await recoverInterruptedExports(f.host.exportWrites!)).toEqual({ kind: "NONE" });
+    for (const output of published.outputs)
+      expect((await readFile(output.path)).length).toBeGreaterThan(0);
     expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
       kind: "FAILED",
       code: "RECEIPT_STALE",
@@ -1036,6 +1049,13 @@ it("keeps the first aspect when the second aspect link fails", async () => {
   const names = await readdir(f.output);
   expect(names.some((name) => name.includes("9x16") || name.startsWith(".aivora-qc-"))).toBe(false);
   expect(names.some((name) => name.includes("16x9") && name.endsWith(".mp4"))).toBe(true);
+  const journalName = (await readdir(f.host.exportWrites!)).find((name) => name.endsWith(".json"));
+  expect(JSON.parse(await readFile(join(f.host.exportWrites!, journalName!), "utf8")).outcome).toBe(
+    "partial",
+  );
+  const keptFile = names.find((name) => name.includes("16x9") && name.endsWith(".mp4"))!;
+  expect(await recoverInterruptedExports(f.host.exportWrites!)).toEqual({ kind: "NONE" });
+  expect(await readFile(join(f.output, keptFile))).toBeTruthy();
   expect([...f.publishedPaths].every((path) => path.includes("16x9"))).toBe(true);
   expect(f.publishedPaths.size).toBe(1);
   expect(events.some((event) => event.published.some((item) => item.aspectRatio === "16:9"))).toBe(

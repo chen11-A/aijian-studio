@@ -11,13 +11,15 @@ type FileIdentity = { dev: string; ino: string; size: string; mtimeNs: string; s
 type NotedFile = {
   path: string;
   aspectRatio: "16:9" | "9:16";
-  complete: boolean;
   identity?: FileIdentity;
 };
+/** open: the process died before a final result. partial/published: the running process committed one. */
+type Outcome = "open" | "partial" | "published";
 type Journal = {
   schemaVersion: 1;
   id: string;
   directory: string;
+  outcome: Outcome;
   files: NotedFile[];
   temps: string[];
 };
@@ -29,9 +31,7 @@ function contained(directory: string, target: string) {
   return !!part && !isAbsolute(part) && part !== ".." && !part.startsWith("..");
 }
 
-async function fileIdentity(path: string): Promise<FileIdentity | undefined> {
-  const info = await lstat(path, { bigint: true });
-  if (info.isSymbolicLink() || !info.isFile()) return undefined;
+async function digest(path: string) {
   const hash = createHash("sha256");
   await new Promise<void>((resolveHash, reject) => {
     const stream = createReadStream(path);
@@ -39,16 +39,44 @@ async function fileIdentity(path: string): Promise<FileIdentity | undefined> {
     stream.on("error", reject);
     stream.on("end", () => resolveHash());
   });
+  return hash.digest("hex");
+}
+
+async function fileIdentity(path: string): Promise<FileIdentity | undefined> {
+  const info = await lstat(path, { bigint: true });
+  if (info.isSymbolicLink() || !info.isFile()) return undefined;
   return {
     dev: info.dev.toString(),
     ino: info.ino.toString(),
     size: info.size.toString(),
     mtimeNs: info.mtimeNs.toString(),
-    sha256: hash.digest("hex"),
+    sha256: await digest(path),
   };
 }
 
-/** Durable list of files this export created. Startup deletes only the unfinished ones. */
+function sameIdentity(
+  info: {
+    dev: bigint;
+    ino: bigint;
+    size: bigint;
+    mtimeNs: bigint;
+    isSymbolicLink: () => boolean;
+    isFile: () => boolean;
+  },
+  identity: FileIdentity | undefined,
+) {
+  return (
+    !!identity &&
+    !info.isSymbolicLink() &&
+    info.isFile() &&
+    info.dev.toString() === identity.dev &&
+    info.ino.toString() === identity.ino &&
+    info.size.toString() === identity.size &&
+    info.mtimeNs.toString() === identity.mtimeNs
+  );
+}
+
+/** Durable list of one export. Startup deletes an open set, and leaves a committed one. */
 export function createExportWriteLog(root: string) {
   const live = new Map<string, Journal>();
   async function save(journal: Journal) {
@@ -70,6 +98,7 @@ export function createExportWriteLog(root: string) {
         schemaVersion: 1,
         id: randomUUID(),
         directory: resolve(directory),
+        outcome: "open",
         files: [],
         temps: [],
       };
@@ -79,29 +108,59 @@ export function createExportWriteLog(root: string) {
     },
     async noteTemp(id: string, path: string) {
       const journal = live.get(id);
-      if (!journal || !contained(journal.directory, path)) return;
+      if (!journal || journal.outcome !== "open" || !contained(journal.directory, path)) return;
       journal.temps.push(resolve(path));
       await save(journal);
     },
     async noteFile(id: string, file: { path: string; aspectRatio: "16:9" | "9:16" }) {
       const journal = live.get(id);
-      if (!journal || !contained(journal.directory, file.path)) return;
+      if (!journal || journal.outcome !== "open" || !contained(journal.directory, file.path))
+        return;
       const identity = await fileIdentity(file.path).catch(() => undefined);
       if (!identity) return;
-      journal.files.push({ ...file, path: resolve(file.path), complete: false, identity });
+      journal.files.push({ ...file, path: resolve(file.path), identity });
       await save(journal);
     },
-    async completeAspect(id: string, aspectRatio: "16:9" | "9:16") {
+    /** Persist the running process's final result. An open journal is still a crash. */
+    async commit(id: string, outcome: "partial" | "published") {
       const journal = live.get(id);
-      if (!journal) return;
-      for (const file of journal.files) if (file.aspectRatio === aspectRatio) file.complete = true;
+      if (!journal || journal.outcome !== "open") return;
+      journal.outcome = outcome;
       await save(journal);
     },
     async finish(id: string) {
+      const journal = live.get(id);
       live.delete(id);
+      if (!journal || journal.outcome !== "open") return;
+      // A handled rollback already removed its files. Leave a journal that still
+      // matches files on disk, so a death before this call is cleaned next start.
+      for (const file of journal.files) {
+        if (!file.identity || !contained(journal.directory, file.path)) continue;
+        try {
+          const info = await lstat(file.path, { bigint: true });
+          if (!sameIdentity(info, file.identity)) continue;
+          if ((await digest(file.path)) === file.identity.sha256) return;
+        } catch {
+          /* Already gone. */
+        }
+      }
       await rm(join(root, `${id}.json`), { force: true });
     },
   };
+}
+
+async function removeTemps(journal: Journal) {
+  for (const temp of journal.temps ?? []) {
+    if (typeof temp !== "string" || !basename(temp).startsWith(".aivora-qc-")) continue;
+    let info;
+    try {
+      info = await lstat(temp);
+    } catch {
+      continue;
+    }
+    if (info.isSymbolicLink() || !contained(journal.directory, temp)) continue;
+    await rm(temp, { recursive: true, force: true });
+  }
 }
 
 export async function recoverInterruptedExports(root: string): Promise<FilmExportRecovery> {
@@ -111,7 +170,6 @@ export async function recoverInterruptedExports(root: string): Promise<FilmExpor
   } catch {
     return { kind: "NONE" };
   }
-  const kept = new Set<"16:9" | "9:16">();
   let interrupted = false;
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
@@ -122,13 +180,16 @@ export async function recoverInterruptedExports(root: string): Promise<FilmExpor
       continue;
     }
     if (journal?.schemaVersion !== 1 || typeof journal.directory !== "string") continue;
+    const outcome = journal.outcome ?? "open";
+    if (outcome === "partial" || outcome === "published") {
+      await removeTemps(journal);
+      await rm(join(root, name), { force: true });
+      continue;
+    }
+    if (outcome !== "open") continue;
     interrupted = true;
     for (const file of journal.files ?? []) {
       if (!file?.path || !contained(journal.directory, file.path)) continue;
-      if (file.complete) {
-        if (file.aspectRatio === "16:9" || file.aspectRatio === "9:16") kept.add(file.aspectRatio);
-        continue;
-      }
       let info;
       try {
         info = await lstat(file.path, { bigint: true });
@@ -137,47 +198,21 @@ export async function recoverInterruptedExports(root: string): Promise<FilmExpor
       }
       // A symlink, a replacement at the same path, or a content change is the
       // user's file now. Leave it, and do not follow a link out of the folder.
-      if (
-        info.isSymbolicLink() ||
-        !info.isFile() ||
-        !file.identity ||
-        info.dev.toString() !== file.identity.dev ||
-        info.ino.toString() !== file.identity.ino ||
-        info.size.toString() !== file.identity.size ||
-        info.mtimeNs.toString() !== file.identity.mtimeNs
-      )
-        continue;
-      const hash = createHash("sha256");
+      if (!sameIdentity(info, file.identity)) continue;
       try {
-        await new Promise<void>((resolveHash, reject) => {
-          const stream = createReadStream(file.path);
-          stream.on("data", (chunk) => hash.update(chunk));
-          stream.on("error", reject);
-          stream.on("end", () => resolveHash());
-        });
+        if ((await digest(file.path)) !== file.identity?.sha256) continue;
       } catch {
         continue;
       }
-      if (hash.digest("hex") !== file.identity.sha256) continue;
       await rm(file.path, { force: true });
     }
-    for (const temp of journal.temps ?? []) {
-      if (typeof temp !== "string" || !basename(temp).startsWith(".aivora-qc-")) continue;
-      let info;
-      try {
-        info = await lstat(temp);
-      } catch {
-        continue;
-      }
-      if (info.isSymbolicLink() || !contained(journal.directory, temp)) continue;
-      await rm(temp, { recursive: true, force: true });
-    }
+    await removeTemps(journal);
     await rm(join(root, name), { force: true });
   }
   if (!interrupted) return { kind: "NONE" };
   return {
     kind: "CLEARED",
     message: INTERRUPTED_EXPORT_MESSAGE,
-    kept: [...kept].map((aspectRatio) => ({ aspectRatio })),
+    kept: [],
   };
 }

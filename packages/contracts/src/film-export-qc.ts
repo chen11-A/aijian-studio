@@ -110,6 +110,7 @@ export type FilmExportRecovery =
   | {
       kind: "CLEARED";
       message: typeof INTERRUPTED_EXPORT_MESSAGE;
+      /** Crash recovery removes the whole unfinished set, so this is empty. A committed PARTIAL is not a crash. */
       kept: { aspectRatio: "16:9" | "9:16" }[];
     };
 

@@ -951,8 +951,9 @@ export function createFilmExportQc(host: FilmQcHost) {
           }
         >();
         const told = new Set<"16:9" | "9:16">();
-        // Copy an aspect the first time it is reached, while cancel stays available.
-        // A later default-name race reuses that copy and only retries the link.
+        // Copy an aspect the first time it is reached. A later default-name race
+        // reuses that copy and only retries the link. The journal stays open until
+        // this process commits partial or published.
         host.setWriting?.(true);
         let writeId = "";
         try {
@@ -1044,7 +1045,6 @@ export function createFilmExportQc(host: FilmQcHost) {
                 }
                 for (const path of [saved.path, saved.subtitlePath, saved.coverPath])
                   if (path) kept.add(path);
-                if (writeId) await writes?.completeAspect(writeId, item.aspectRatio);
                 outputs.push(saved);
                 const canonical = realpathSync(saved.path);
                 host.publishedPaths?.add(canonical);
@@ -1091,9 +1091,11 @@ export function createFilmExportQc(host: FilmQcHost) {
               } catch {
                 /* A failed delete must not replace the original publish error. */
               }
+              if (writeId) await writes?.commit(writeId, "partial");
               keptAspect(activeAspect, incompleteCode(error));
             }
           }
+          if (writeId) await writes?.commit(writeId, "published");
         } finally {
           if (writeId) await writes?.finish(writeId);
           host.setWriting?.(false);

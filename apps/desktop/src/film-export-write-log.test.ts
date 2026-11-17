@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, mkdir, readFile, symlink, writeFile, rm } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, readdir, symlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -43,7 +43,7 @@ it("removes an interrupted file and a temp directory, and leaves a file this exp
   await expect(readFile(join(temp, "film.mp4"))).rejects.toThrow();
 });
 
-it("keeps a finished aspect and removes only the unfinished one after a crash", async () => {
+it("clears the whole set when the first aspect was written and the process died during the second", async () => {
   const { directory, journal, log } = await place();
   const first = join(directory, "片-16x9.mp4");
   const sameName = join(directory, "片-16x9.mp4.user");
@@ -53,17 +53,48 @@ it("keeps a finished aspect and removes only the unfinished one after a crash", 
   await writeFile(second, "torn");
   const id = await log.begin(directory);
   await log.noteFile(id, { path: first, aspectRatio: "16:9" });
-  await log.completeAspect(id, "16:9");
   await log.noteFile(id, { path: second, aspectRatio: "9:16" });
   const result = await recoverInterruptedExports(journal);
   expect(result).toEqual({
     kind: "CLEARED",
     message: INTERRUPTED_EXPORT_MESSAGE,
-    kept: [{ aspectRatio: "16:9" }],
+    kept: [],
   });
-  expect(await readFile(first, "utf8")).toBe("done");
+  await expect(readFile(first)).rejects.toThrow();
   expect(await readFile(sameName, "utf8")).toBe("user-owned");
   await expect(readFile(second)).rejects.toThrow();
+});
+
+it("keeps the first aspect after a committed partial result, including across a restart", async () => {
+  const { directory, journal, log } = await place();
+  const first = join(directory, "片-16x9.mp4");
+  const second = join(directory, "片-9x16.mp4");
+  await writeFile(first, "kept");
+  await writeFile(second, "torn");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: first, aspectRatio: "16:9" });
+  await log.noteFile(id, { path: second, aspectRatio: "9:16" });
+  await rm(second);
+  await log.commit(id, "partial");
+  const result = await recoverInterruptedExports(journal);
+  expect(result).toEqual({ kind: "NONE" });
+  expect(await readFile(first, "utf8")).toBe("kept");
+  expect(await readdir(journal)).toEqual([]);
+});
+
+it("leaves both files after a committed published result", async () => {
+  const { directory, journal, log } = await place();
+  const first = join(directory, "片-16x9.mp4");
+  const second = join(directory, "片-9x16.mp4");
+  await writeFile(first, "wide");
+  await writeFile(second, "tall");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: first, aspectRatio: "16:9" });
+  await log.noteFile(id, { path: second, aspectRatio: "9:16" });
+  await log.commit(id, "published");
+  expect(await recoverInterruptedExports(journal)).toEqual({ kind: "NONE" });
+  expect(await readFile(first, "utf8")).toBe("wide");
+  expect(await readFile(second, "utf8")).toBe("tall");
 });
 
 it("does not follow a journal path that leaves the chosen folder", async () => {
