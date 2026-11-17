@@ -71,6 +71,14 @@ type WriteLogOptions = {
    * Production recovery does not set it.
    */
   readChosenDirectory?: (directory: string) => Promise<void>;
+  /**
+   * Test seam for one path component. Absent means the real lstat.
+   * Not an IPC channel. Production recovery does not set it.
+   */
+  componentStat?: (path: string) => Promise<{
+    isSymbolicLink: () => boolean;
+    isDirectory: () => boolean;
+  }>;
 };
 
 type DirectorySyncHandle = {
@@ -240,17 +248,23 @@ async function syncDirectory(
  * is a file or symlink is ENOENT on Windows and ENOTDIR on Linux; that ENOENT does
  * not mean the leaf was confirmed absent.
  */
-async function directoryNode(path: string): Promise<"directory" | "missing" | "retry"> {
+async function directoryNode(
+  path: string,
+  stat: NonNullable<WriteLogOptions["componentStat"]>,
+): Promise<"directory" | "missing" | "retry"> {
   const parent = dirname(path);
   if (parent !== path) {
-    const above = await directoryNode(parent);
+    const above = await directoryNode(parent, stat);
     if (above !== "directory") return above;
   }
   let info;
   try {
-    info = await lstat(path, { bigint: true });
+    info = await stat(path);
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT" ? "missing" : "retry";
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "retry";
+    // A drive or UNC root has no verified parent. ENOENT there does not prove the volume is empty.
+    if (parent === path) return "retry";
+    return "missing";
   }
   if (info.isSymbolicLink() || !info.isDirectory()) return "retry";
   return "directory";
@@ -261,6 +275,7 @@ async function ancestorsReal(
   target: string,
   root: DirIdentity | undefined,
   readChosenDirectory?: (directory: string) => Promise<void>,
+  stat: NonNullable<WriteLogOptions["componentStat"]> = lstat,
 ) {
   if (!contained(directory, target)) return "skipped" as const;
   if (readChosenDirectory) {
@@ -270,7 +285,7 @@ async function ancestorsReal(
       return ioStep(error);
     }
   }
-  const directoryState = await directoryNode(directory);
+  const directoryState = await directoryNode(directory, stat);
   if (directoryState === "retry") return "retry";
   if (directoryState === "missing") return "skipped";
   const current = await lstat(directory, { bigint: true });
@@ -284,7 +299,7 @@ async function ancestorsReal(
     const parent = dirname(cursor);
     if (parent === cursor || seen.has(parent)) return "retry" as const;
     seen.add(parent);
-    const state = await directoryNode(parent);
+    const state = await directoryNode(parent, stat);
     if (state === "retry") return "retry";
     if (state === "missing") return "skipped";
     cursor = parent;
@@ -656,6 +671,7 @@ async function removeTemp(
     temp.path,
     journal.directoryIdentity,
     options.readChosenDirectory,
+    options.componentStat,
   );
   if (gate !== "ok") return gate === "skipped" ? "skipped" : "retry";
   let info;
@@ -766,6 +782,7 @@ export async function recoverInterruptedExports(
       join(journal.directory, "x"),
       journal.directoryIdentity,
       options.readChosenDirectory,
+      options.componentStat,
     );
     if (gate === "retry") {
       retry = true;
@@ -778,6 +795,7 @@ export async function recoverInterruptedExports(
         file.path,
         journal.directoryIdentity,
         options.readChosenDirectory,
+        options.componentStat,
       );
       if (ancestry === "retry") {
         failed = true;

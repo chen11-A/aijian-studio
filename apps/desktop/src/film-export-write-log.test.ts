@@ -383,6 +383,26 @@ it("does not follow a symlink that replaced an ancestor of the chosen directory"
   expect((await lstat(ancestor)).isSymbolicLink()).toBe(true);
 });
 
+it("keeps the journal when the path root cannot be confirmed", async () => {
+  for (const code of ["ENOENT", "EIO"] as const) {
+    const { directory, journal, log } = await place();
+    const file = join(directory, "half.mp4");
+    await writeFile(file, "partial");
+    const id = await log.begin(directory);
+    await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+    const result = await recoverInterruptedExports(journal, {
+      componentStat: async (path) => {
+        if (dirname(path) === path)
+          throw Object.assign(new Error(`root ${code}`), { code, syscall: "lstat" });
+        return lstat(path);
+      },
+    });
+    expect(result.kind).toBe("RETRY");
+    expect(await readdir(journal)).toContain(`${id}.json`);
+    expect(await readFile(file, "utf8")).toBe("partial");
+  }
+});
+
 it("keeps the journal when an injected read of the chosen directory fails", async () => {
   const { directory, journal, log } = await place();
   const file = join(directory, "half.mp4");
