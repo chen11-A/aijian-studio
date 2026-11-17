@@ -77,6 +77,11 @@ export function registerFilmExportQc<T>(
           return result;
         } finally {
           await operation.finish(phase);
+          try {
+            host.reclaimLostOwner?.();
+          } catch {
+            /* Reclaim must not hide the task result or abort it after it finished. */
+          }
         }
       }
       if (typeof args[0] !== "string" || args[0].length > 128)

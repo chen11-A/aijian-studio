@@ -179,6 +179,7 @@ const exportWriteGuard = createExportWriteGuard((activity) => {
   if (mainWindow && !mainWindow.isDestroyed())
     mainWindow.webContents.send("film:export-activity", activity);
 });
+const lostFilmOwners: Array<() => void> = [];
 let exportRecovery: FilmExportRecovery = { kind: "NONE" };
 let nativePreviewDocumentEpoch = 0;
 
@@ -1470,6 +1471,9 @@ registerFilmExportQc<IpcMainInvokeEvent>(
       }),
     holdWriting: (id) => exportWriteGuard.hold(id),
     releaseWriting: (id) => exportWriteGuard.release(id),
+    reclaimLostOwner: () => {
+      for (const reclaim of lostFilmOwners.splice(0)) reclaim();
+    },
     exportWrites: join(app.getPath("userData"), "export-writes"),
     pickDirectory: async () => {
       if (!mainWindow) return null;
@@ -1488,11 +1492,15 @@ registerFilmExportQc<IpcMainInvokeEvent>(
       sender.removeListener("render-process-gone", onCrash);
       sender.removeListener("destroyed", onCrash);
     };
-    // A renderer crash is not a user cancel. The main-process export keeps running.
+    // A renderer crash is not a user cancel. Reclaim the owner only after the task ends.
     const onCrash = () => {
       if (done) return;
-      done = true;
       detach();
+      lostFilmOwners.push(() => {
+        if (done) return;
+        done = true;
+        dispose();
+      });
     };
     const navigate = (details: WebContentsDidStartNavigationEventParams) => {
       if (!details.isMainFrame || details.isSameDocument || done) return;

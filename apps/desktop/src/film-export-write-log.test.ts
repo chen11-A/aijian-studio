@@ -15,6 +15,7 @@ import { afterEach, expect, it } from "vitest";
 import { INTERRUPTED_EXPORT_MESSAGE } from "@aijian/contracts/film-export-qc";
 import {
   createExportWriteLog,
+  directorySyncMaySkip,
   ExportJournalError,
   recoverInterruptedExports,
   writeOwnerMarker,
@@ -255,7 +256,10 @@ it("keeps the open journal and the first file when committing partial cannot be 
   const id = await log.begin(directory);
   await log.noteFile(id, { path: first, aspectRatio: "16:9" });
   armed = true;
-  await expect(log.commit(id, "partial")).rejects.toBeInstanceOf(ExportJournalError);
+  await expect(log.commit(id, "partial")).rejects.toMatchObject({
+    name: "ExportJournalError",
+    code: "ENOSPC",
+  });
   const stored = JSON.parse(await readFile(join(journal, `${id}.json`), "utf8")) as {
     outcome: string;
   };
@@ -266,7 +270,10 @@ it("keeps the open journal and the first file when committing partial cannot be 
 it("rejects a rename failure without marking the export partial", async () => {
   const { directory, journal } = await place();
   const log = createExportWriteLog(journal, { fault: () => "rename" });
-  await expect(log.begin(directory)).rejects.toBeInstanceOf(ExportJournalError);
+  await expect(log.begin(directory)).rejects.toMatchObject({
+    name: "ExportJournalError",
+    code: "ENOSPC",
+  });
   expect(await readdir(journal)).toEqual([]);
 });
 
@@ -371,4 +378,122 @@ it("reports retry instead of none when the journal directory itself cannot be li
   const blocked = join(root, "not-a-directory");
   await writeFile(blocked, "file");
   await expect(recoverInterruptedExports(blocked)).resolves.toMatchObject({ kind: "RETRY" });
+});
+
+it("treats only unsupported Windows directory codes as skippable", async () => {
+  expect(directorySyncMaySkip("win32", "EINVAL")).toBe(true);
+  expect(directorySyncMaySkip("win32", "EISDIR")).toBe(true);
+  expect(directorySyncMaySkip("win32", "ENOTSUP")).toBe(true);
+  expect(directorySyncMaySkip("win32", "EACCES")).toBe(false);
+  expect(directorySyncMaySkip("win32", "EIO")).toBe(false);
+  expect(directorySyncMaySkip("linux", "EINVAL")).toBe(false);
+  const { directory, journal } = await place();
+  const log = createExportWriteLog(journal, { fault: () => "diropen" });
+  await expect(log.begin(directory)).rejects.toMatchObject({ code: "EACCES" });
+});
+
+it("keeps the journal when a planned link or temp has not been cleaned", async () => {
+  const { directory, journal, log } = await place();
+  const source = join(directory, "staged.mp4");
+  const destination = join(directory, "final.mp4");
+  const temp = join(directory, ".aivora-qc-live");
+  await writeFile(source, "ours");
+  await mkdir(temp);
+  const id = await log.begin(directory);
+  await log.planLink(id, { path: destination, aspectRatio: "16:9", sourcePath: source });
+  const { link } = await import("node:fs/promises");
+  await link(source, destination);
+  await log.noteTemp(id, temp);
+  await log.finish(id);
+  expect(await readdir(journal)).toContain(`${id}.json`);
+});
+
+it("drops the journal only after the owned file and temp are confirmed gone", async () => {
+  const { directory, journal, log } = await place();
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  await rm(file);
+  await log.finish(id);
+  expect(await readdir(journal)).toEqual([]);
+});
+
+it("deletes a claim left when recovery itself stops after the rename", async () => {
+  const { directory, journal, log } = await place();
+  const source = join(directory, "staged.mp4");
+  const destination = join(directory, "final.mp4");
+  await writeFile(source, "ours");
+  const id = await log.begin(directory);
+  await log.planLink(id, { path: destination, aspectRatio: "16:9", sourcePath: source });
+  const { link } = await import("node:fs/promises");
+  await link(source, destination);
+  const first = await recoverInterruptedExports(journal, { crashAfterClaim: true });
+  expect(first.kind).toBe("RETRY");
+  expect(await readdir(journal)).toContain(`${id}.json`);
+  const names = await readdir(directory);
+  expect(names.some((name) => name.startsWith(".aivora-claim-"))).toBe(true);
+  expect(names).not.toContain("final.mp4");
+  const second = await recoverInterruptedExports(journal);
+  expect(second.kind).toBe("CLEARED");
+  const after = await readdir(directory);
+  expect(after.some((name) => name.startsWith(".aivora-claim-"))).toBe(false);
+  expect(after).not.toContain("final.mp4");
+  expect(await readFile(source, "utf8")).toBe("ours");
+});
+
+it("does not move a claim onto a user file that appeared at the original path", async () => {
+  const { directory, journal, log } = await place();
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  const result = await recoverInterruptedExports(journal, {
+    beforeHash: async (claim) => {
+      await writeFile(claim, "changed isolated bytes");
+    },
+    beforeRestore: async (original) => {
+      await writeFile(original, "user arrived");
+    },
+  });
+  expect(result.kind).toBe("RETRY");
+  expect(await readFile(file, "utf8")).toBe("user arrived");
+  expect(await readdir(journal)).toContain(`${id}.json`);
+  expect((await readdir(directory)).some((name) => name.startsWith(".aivora-claim-"))).toBe(true);
+});
+
+it("does not delete a file swapped in after the identity check", async () => {
+  const { directory, journal, log } = await place();
+  const file = join(directory, "half.mp4");
+  await writeFile(file, "partial");
+  const id = await log.begin(directory);
+  await log.noteFile(id, { path: file, aspectRatio: "16:9" });
+  const result = await recoverInterruptedExports(journal, {
+    afterVerifiedFile: async (claim) => {
+      await rm(claim);
+      await writeFile(claim, "user after check");
+    },
+  });
+  expect(result.kind).toBe("RETRY");
+  const claim = (await readdir(directory)).find((name) => name.startsWith(".aivora-claim-"));
+  expect(claim).toBeTruthy();
+  expect(await readFile(join(directory, claim!), "utf8")).toBe("user after check");
+});
+
+it("does not recursively delete a temp directory swapped in after the marker check", async () => {
+  const { directory, journal, log } = await place();
+  const temp = join(directory, ".aivora-qc-live");
+  await mkdir(temp);
+  const id = await log.begin(directory);
+  await log.noteTemp(id, temp);
+  const result = await recoverInterruptedExports(journal, {
+    afterVerifiedTemp: async (found) => {
+      await rm(found, { recursive: true });
+      await mkdir(found);
+      await writeFile(join(found, "user.txt"), "keep");
+    },
+  });
+  expect(result.kind).toBe("RETRY");
+  expect(await readFile(join(temp, "user.txt"), "utf8")).toBe("keep");
+  expect(await readdir(journal)).toContain(`${id}.json`);
 });

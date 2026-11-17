@@ -1,6 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, open, readdir, readFile, rename, rm, mkdir, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  open,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  mkdir,
+  writeFile,
+  link,
+} from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   INTERRUPTED_EXPORT_MESSAGE,
@@ -37,21 +47,47 @@ type Journal = {
   temps: TempRecord[];
 };
 type Step = "deleted" | "skipped" | "retry";
-export type ExportWriteFault = "fsync" | "rename" | "dirsync" | "finish";
+export type ExportWriteFault = "fsync" | "rename" | "dirsync" | "diropen" | "finish";
 type WriteLogOptions = {
   fault?: (journal: { outcome: string }) => ExportWriteFault | undefined;
   /** Test hook. Runs after the file is claimed and before its hash is trusted. */
   beforeHash?: (path: string) => Promise<void>;
+  /** Runs after identity and hash match, immediately before delete. */
+  afterVerifiedFile?: (path: string) => Promise<void>;
+  /** Runs after a temp marker matches, immediately before the directory is removed. */
+  afterVerifiedTemp?: (path: string) => Promise<void>;
+  /** Plants a file at the original path before a claim is moved back. */
+  beforeRestore?: (path: string) => Promise<void>;
+  /** Stops recovery after the claim rename, leaving that claim for the next start. */
+  crashAfterClaim?: boolean;
 };
+
+/** Windows may reject directory fsync. Permission and I/O failures are not that case. */
+export function directorySyncMaySkip(platform: string, code: string | undefined) {
+  return (
+    platform === "win32" &&
+    (code === "EINVAL" || code === "ENOTSUP" || code === "EOPNOTSUPP" || code === "EISDIR")
+  );
+}
+
+function rawIo(code: string, syscall: string) {
+  return Object.assign(new Error(`${syscall} ${code}`), { code, syscall });
+}
 
 const MARKER = ".aivora-owner";
 
 export class ExportJournalError extends Error {
-  readonly code = "JOURNAL_FAILED";
-  constructor(message = "导出记录没有写稳") {
-    super(message);
+  readonly code: string;
+  constructor(code = "JOURNAL_FAILED") {
+    super("导出记录没有写稳");
     this.name = "ExportJournalError";
+    this.code = code;
   }
+}
+
+function persistError(error: unknown) {
+  if (error instanceof ExportJournalError) return error;
+  return new ExportJournalError((error as NodeJS.ErrnoException).code || "JOURNAL_FAILED");
 }
 
 function contained(directory: string, target: string) {
@@ -125,26 +161,22 @@ function sameDir(
   );
 }
 
-/** Directory fsync makes the rename durable where the platform allows it. Windows often rejects it. */
-async function syncDirectory(dir: string) {
+/** Directory fsync makes the rename durable where the platform allows it. It is not a power-loss proof. */
+async function syncDirectory(dir: string, fault?: ExportWriteFault) {
+  if (fault === "diropen") throw rawIo("EACCES", "open");
   let handle;
   try {
     handle = await open(dir, "r");
   } catch (error) {
-    if (process.platform === "win32") return;
+    if (directorySyncMaySkip(process.platform, (error as NodeJS.ErrnoException).code)) return;
     throw error;
   }
   try {
+    if (fault === "dirsync") throw rawIo("EIO", "fsync");
     await handle.sync();
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    // A directory handle on Windows commonly fails here. File fsync plus rename
-    // is what this process can do; it is not a power-loss proof.
-    if (
-      process.platform === "win32" &&
-      (code === "EPERM" || code === "EINVAL" || code === "ENOTSUP" || code === "EISDIR")
-    )
-      return;
+    if (directorySyncMaySkip(process.platform, code)) return;
     throw error;
   } finally {
     await handle.close();
@@ -181,12 +213,25 @@ async function ancestorsReal(directory: string, target: string, root: DirIdentit
   return "ok" as const;
 }
 
-async function restore(claim: string, path: string) {
+/** Link back only when the original path is absent. A new file there stays, and so does the claim. */
+async function restore(claim: string, path: string): Promise<"restored" | "conflict" | "retry"> {
   try {
-    await rename(claim, path);
-  } catch {
-    /* The claim file stays. A later start matches it by identity and does not delete a different file. */
+    await lstat(path);
+    return "conflict";
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "retry";
   }
+  try {
+    await link(claim, path);
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EEXIST" ? "conflict" : "retry";
+  }
+  try {
+    await rm(claim, { force: true });
+  } catch {
+    return "retry";
+  }
+  return "restored";
 }
 
 /** Durable list of one export. Startup deletes an open set, and leaves a committed one. */
@@ -200,23 +245,22 @@ export function createExportWriteLog(root: string, options: WriteLogOptions = {}
     const handle = await open(temporary, "w");
     try {
       await handle.writeFile(JSON.stringify(journal));
-      if (fault === "fsync")
-        throw Object.assign(new ExportJournalError("fsync"), { code: "ENOSPC" });
+      if (fault === "fsync") throw rawIo("ENOSPC", "fsync");
       await handle.sync();
     } catch (error) {
       await handle.close().catch(() => undefined);
       await rm(temporary, { force: true }).catch(() => undefined);
-      throw error;
+      throw persistError(error);
     }
     await handle.close();
-    if (fault === "rename") {
+    try {
+      if (fault === "rename") throw rawIo("ENOSPC", "rename");
+      await rename(temporary, finalPath);
+      await syncDirectory(root, fault);
+    } catch (error) {
       await rm(temporary, { force: true }).catch(() => undefined);
-      throw Object.assign(new ExportJournalError("rename"), { code: "ENOSPC" });
+      throw persistError(error);
     }
-    await rename(temporary, finalPath);
-    if (fault === "dirsync")
-      throw Object.assign(new ExportJournalError("dirsync"), { code: "EIO" });
-    await syncDirectory(root);
   }
   function adopt(journal: Journal, next: Journal) {
     journal.outcome = next.outcome;
@@ -362,26 +406,74 @@ export function createExportWriteLog(root: string, options: WriteLogOptions = {}
         throw new ExportJournalError("finish");
       live.delete(id);
       if (!journal || journal.outcome !== "open") return;
-      for (const file of journal.files) {
-        if (file.phase !== "owned" || !file.identity || !contained(journal.directory, file.path))
-          continue;
-        try {
-          const info = await lstat(file.path, { bigint: true });
-          if (!sameFile(info, file.identity)) continue;
-          if ((await digest(file.path)) === file.identity.sha256) return;
-        } catch (error) {
-          if (ioStep(error) === "retry") return;
-        }
-      }
+      if (await cleanupUnconfirmed(journal)) return;
       await rm(join(root, `${id}.json`), { force: true });
     },
   };
 }
 
+async function claimStillThere(directory: string, identity: FileIdentity) {
+  let names: string[];
+  try {
+    names = await readdir(directory);
+  } catch (error) {
+    return ioStep(error) === "retry";
+  }
+  for (const name of names) {
+    if (!name.startsWith(".aivora-claim-")) continue;
+    try {
+      const info = await lstat(join(directory, name), { bigint: true });
+      if (sameFile(info, identity)) return true;
+    } catch (error) {
+      if (ioStep(error) === "retry") return true;
+    }
+  }
+  return false;
+}
+
+/** True when a plan, claim, or temp is still ours, or when we could not check. */
+async function cleanupUnconfirmed(journal: Journal) {
+  for (const file of journal.files) {
+    if (!file?.path || !contained(journal.directory, file.path)) continue;
+    const identity = file.phase === "linking" ? file.source : file.identity;
+    if (!identity) continue;
+    try {
+      const info = await lstat(file.path, { bigint: true });
+      if (!info.isSymbolicLink() && info.isFile()) {
+        if (
+          file.phase === "linking" &&
+          info.dev.toString() === identity.dev &&
+          info.ino.toString() === identity.ino
+        )
+          return true;
+        if (file.phase !== "linking" && sameFile(info, identity)) return true;
+      }
+    } catch (error) {
+      if (ioStep(error) === "retry") return true;
+    }
+    if (await claimStillThere(journal.directory, identity)) return true;
+  }
+  for (const temp of journal.temps) {
+    if (!temp?.path || temp.phase === "legacy" || !contained(journal.directory, temp.path))
+      continue;
+    try {
+      const info = await lstat(temp.path, { bigint: true });
+      if (info.isSymbolicLink() || !info.isDirectory()) continue;
+      if (temp.phase === "owned" && temp.identity && !sameDir(info, temp.identity)) continue;
+      const marker = await readFile(join(temp.path, MARKER), "utf8");
+      if (temp.nonce && marker === temp.nonce) return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 async function safeDeleteFile(
   path: string,
   identity: FileIdentity,
-  beforeHash?: (path: string) => Promise<void>,
+  options: WriteLogOptions,
 ): Promise<Step> {
   let info;
   try {
@@ -396,28 +488,50 @@ async function safeDeleteFile(
   } catch (error) {
     return ioStep(error);
   }
+  if (options.crashAfterClaim) {
+    options.crashAfterClaim = false;
+    return "retry";
+  }
   try {
     const claimed = await lstat(claim, { bigint: true });
-    if (!sameFile(claimed, identity)) {
-      await restore(claim, path);
-      return "skipped";
-    }
-    if (beforeHash) await beforeHash(claim);
+    if (
+      claimed.isSymbolicLink() ||
+      claimed.dev.toString() !== identity.dev ||
+      claimed.ino.toString() !== identity.ino
+    )
+      return "retry";
+    if (options.beforeHash) await options.beforeHash(claim);
     const hash = await digest(claim);
     const after = await lstat(claim, { bigint: true });
-    if (hash !== identity.sha256 || !sameFile(after, identity)) {
-      await restore(claim, path);
-      return "skipped";
+    if (
+      after.dev.toString() !== identity.dev ||
+      after.ino.toString() !== identity.ino ||
+      hash !== identity.sha256 ||
+      !sameFile(after, identity)
+    ) {
+      if (after.dev.toString() !== identity.dev || after.ino.toString() !== identity.ino)
+        return "retry";
+      if (options.beforeRestore) await options.beforeRestore(path);
+      const restored = await restore(claim, path);
+      return restored === "restored" ? "skipped" : "retry";
     }
+    if (options.afterVerifiedFile) await options.afterVerifiedFile(claim);
+    const finalInfo = await lstat(claim, { bigint: true });
+    if (!sameFile(finalInfo, identity)) return "retry";
     await rm(claim, { force: true });
     return "deleted";
   } catch (error) {
-    await restore(claim, path);
-    return ioStep(error);
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "retry";
+    const restored = await restore(claim, path);
+    return restored === "restored" ? ioStep(error) : "retry";
   }
 }
 
-async function deleteClaimedCopy(directory: string, identity: FileIdentity): Promise<Step> {
+async function deleteClaimedCopy(
+  directory: string,
+  identity: FileIdentity,
+  options: WriteLogOptions,
+): Promise<Step> {
   let names: string[];
   try {
     names = await readdir(directory);
@@ -436,6 +550,9 @@ async function deleteClaimedCopy(directory: string, identity: FileIdentity): Pro
     if (!sameFile(info, identity)) continue;
     try {
       if ((await digest(path)) !== identity.sha256) continue;
+      if (options.afterVerifiedFile) await options.afterVerifiedFile(path);
+      const again = await lstat(path, { bigint: true });
+      if (!sameFile(again, identity)) return "retry";
       await rm(path, { force: true });
       return "deleted";
     } catch (error) {
@@ -445,7 +562,11 @@ async function deleteClaimedCopy(directory: string, identity: FileIdentity): Pro
   return "skipped";
 }
 
-async function removeTemp(journal: Journal, temp: TempRecord): Promise<Step> {
+async function removeTemp(
+  journal: Journal,
+  temp: TempRecord,
+  options: WriteLogOptions,
+): Promise<Step> {
   const gate = await ancestorsReal(journal.directory, temp.path, journal.directoryIdentity);
   if (gate !== "ok") return gate === "skipped" ? "skipped" : "retry";
   let info;
@@ -464,11 +585,20 @@ async function removeTemp(journal: Journal, temp: TempRecord): Promise<Step> {
       return (error as NodeJS.ErrnoException).code === "ENOENT" ? "skipped" : ioStep(error);
     }
     if (marker !== temp.nonce) return "skipped";
+    if (options.afterVerifiedTemp) await options.afterVerifiedTemp(temp.path);
+    let again;
     try {
-      await rm(temp.path, { recursive: true, force: true });
-      return "deleted";
+      again = await lstat(temp.path, { bigint: true });
     } catch (error) {
       return ioStep(error);
+    }
+    if (!sameDir(again, temp.identity)) return "retry";
+    try {
+      if ((await readFile(join(temp.path, MARKER), "utf8")) !== temp.nonce) return "retry";
+      await rm(temp.path, { recursive: true, force: true });
+      return "deleted";
+    } catch {
+      return "retry";
     }
   }
   if (temp.phase !== "creating" || !info.isDirectory()) return "skipped";
@@ -479,11 +609,15 @@ async function removeTemp(journal: Journal, temp: TempRecord): Promise<Step> {
     return (error as NodeJS.ErrnoException).code === "ENOENT" ? "skipped" : ioStep(error);
   }
   if (marker !== temp.nonce) return "skipped";
+  if (options.afterVerifiedTemp) await options.afterVerifiedTemp(temp.path);
   try {
+    if ((await readFile(join(temp.path, MARKER), "utf8")) !== temp.nonce) return "retry";
+    const again = await lstat(temp.path, { bigint: true });
+    if (again.isSymbolicLink() || !again.isDirectory()) return "retry";
     await rm(temp.path, { recursive: true, force: true });
     return "deleted";
   } catch (error) {
-    return ioStep(error);
+    return (error as NodeJS.ErrnoException).code === "ENOENT" ? "retry" : ioStep(error);
   }
 }
 
@@ -522,7 +656,7 @@ export async function recoverInterruptedExports(
     if (outcome === "partial" || outcome === "published") {
       let failed = false;
       for (const temp of journal.temps) {
-        if ((await removeTemp(journal, temp)) === "retry") failed = true;
+        if ((await removeTemp(journal, temp, options)) === "retry") failed = true;
       }
       if (failed) {
         retry = true;
@@ -561,7 +695,12 @@ export async function recoverInterruptedExports(
         try {
           info = await lstat(file.path, { bigint: true });
         } catch (error) {
-          if (ioStep(error) === "retry") failed = true;
+          if (ioStep(error) === "retry") {
+            failed = true;
+            continue;
+          }
+          const claim = await deleteClaimedCopy(journal.directory, file.source, options);
+          if (claim === "retry") failed = true;
           continue;
         }
         if (
@@ -571,7 +710,7 @@ export async function recoverInterruptedExports(
           info.ino.toString() !== file.source.ino
         )
           continue;
-        const step = await safeDeleteFile(file.path, file.source, options.beforeHash);
+        const step = await safeDeleteFile(file.path, file.source, options);
         if (step === "retry") failed = true;
         continue;
       }
@@ -579,17 +718,17 @@ export async function recoverInterruptedExports(
       let present: Step;
       try {
         await lstat(file.path, { bigint: true });
-        present = await safeDeleteFile(file.path, identity, options.beforeHash);
+        present = await safeDeleteFile(file.path, identity, options);
       } catch (error) {
         present = ioStep(error);
       }
       if (present === "skipped") {
-        const claim = await deleteClaimedCopy(journal.directory, identity);
+        const claim = await deleteClaimedCopy(journal.directory, identity, options);
         if (claim === "retry") failed = true;
       } else if (present === "retry") failed = true;
     }
     for (const temp of journal.temps) {
-      if ((await removeTemp(journal, temp)) === "retry") failed = true;
+      if ((await removeTemp(journal, temp, options)) === "retry") failed = true;
     }
     if (failed) {
       retry = true;

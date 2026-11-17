@@ -281,6 +281,8 @@ export type FilmQcHost = {
   exportWrites?: string;
   /** Test hook for journal fsync, rename, directory sync, and finish failures. */
   exportWriteFault?: (journal: { outcome: string }) => ExportWriteFault | undefined;
+  /** Runs after a film task has finished, so a disconnected owner can be reclaimed. */
+  reclaimLostOwner?: () => void;
   read?: (id: string) => Promise<FilmRecord | null>;
   now?: () => number;
   normalizer?: () => Promise<AudioNormalizer>;
@@ -1127,17 +1129,17 @@ export function createFilmExportQc(host: FilmQcHost) {
           }
           if (writeId) await writes?.commit(writeId, "published");
         } finally {
-          try {
-            if (writeId) await writes?.finish(writeId);
-          } catch {
-            /* A journal finish failure must not skip the write hold or the temp cleanup. */
-          }
           for (const temporary of temporaries) {
             try {
               await rm(temporary, { recursive: true, force: true });
             } catch {
-              /* The journal still names the temp when this delete fails. */
+              /* finish keeps the journal while this temp is still on disk. */
             }
+          }
+          try {
+            if (writeId) await writes?.finish(writeId);
+          } catch {
+            /* A journal finish failure must not skip the write hold. */
           }
         }
         receipts.delete(token);
