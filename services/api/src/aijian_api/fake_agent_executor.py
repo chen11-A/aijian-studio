@@ -43,8 +43,66 @@ _SUBPROCESS_ENVIRONMENT_KEYS = (
 )
 
 
+class FakeSkillDeadlinePhase:
+    """One invocation's spawn observations, measured from the shared deadline."""
+
+    __slots__ = (
+        "invocation_index",
+        "start_returned_ms",
+        "poll_returned_ms",
+        "remaining_ms",
+        "child_alive",
+    )
+
+    def __init__(
+        self,
+        invocation_index: int,
+        start_returned_ms: int | None,
+        poll_returned_ms: int | None,
+        remaining_ms: int | None,
+        child_alive: bool | None,
+    ) -> None:
+        self.invocation_index = invocation_index
+        self.start_returned_ms = start_returned_ms
+        self.poll_returned_ms = poll_returned_ms
+        self.remaining_ms = remaining_ms
+        self.child_alive = child_alive
+
+
 class FakeSkillTimeoutError(TimeoutError):
     """The bounded Fake Skill handler did not finish before its trusted timeout."""
+
+    phases: tuple[FakeSkillDeadlinePhase, ...]
+
+    def __init__(self, message: str = "Fake Skill handler timed out") -> None:
+        super().__init__(message)
+        self.phases = ()
+
+
+class _InvocationClock:
+    __slots__ = ("index", "start_returned", "poll_returned", "remaining", "child_alive")
+
+    def __init__(self, index: int) -> None:
+        self.index = index
+        self.start_returned: float | None = None
+        self.poll_returned: float | None = None
+        self.remaining: float | None = None
+        self.child_alive: bool | None = None
+
+
+class _DeadlineClock:
+    """Fixed two slots. Offsets use the same monotonic() value that built the deadline."""
+
+    __slots__ = ("origin", "invocations")
+
+    def __init__(self, origin: float) -> None:
+        self.origin = origin
+        self.invocations = (_InvocationClock(0), _InvocationClock(1))
+
+    def slot(self, invocation_index: int) -> _InvocationClock | None:
+        if invocation_index not in (0, 1):
+            return None
+        return self.invocations[invocation_index]
 
 
 class FakeSkillExecutionError(RuntimeError):
@@ -104,6 +162,7 @@ class FakeAgentSkillExecutor:
             raise PermissionError("Fake execution requires an explicit local budget")
         self._delegation = delegation
         self._skill_definition = delegation.skill_definition
+        self._deadline_clock: _DeadlineClock | None = None
 
     def run_once(self, *, task_id: str | None = None) -> bool:
         self._raise_if_stopping()
@@ -124,31 +183,36 @@ class FakeAgentSkillExecutor:
             None if self._input_builder is None else self._input_builder(snapshot, running)
         )
         retry_budget = self._retry_budget(snapshot)
-        deadline = monotonic() + self._handler_timeout.total_seconds()
-        proposal, running = self._execute_handler(
-            snapshot,
-            running,
-            invocation_index=0,
-            deadline=deadline,
-            handler_input=handler_input,
-        )
-        if _requires_qc_retry(proposal) and _retry_is_budgeted(proposal, retry_budget):
-            self._raise_if_stopping()
-            retried, running = self._execute_handler(
+        origin = monotonic()
+        deadline = origin + self._handler_timeout.total_seconds()
+        self._deadline_clock = _DeadlineClock(origin)
+        try:
+            proposal, running = self._execute_handler(
                 snapshot,
                 running,
-                invocation_index=1,
+                invocation_index=0,
                 deadline=deadline,
                 handler_input=handler_input,
             )
-            proposal = _with_cumulative_cost(proposal, retried, retry_budget)
-        self._raise_if_stopping()
-        persisted = self._proposal_store.persist(running, proposal)
-        self._ledger.complete_local_proposal_task(
-            running,
-            proposal_id=persisted.proposal.proposal_id,
-        )
-        return True
+            if _requires_qc_retry(proposal) and _retry_is_budgeted(proposal, retry_budget):
+                self._raise_if_stopping()
+                retried, running = self._execute_handler(
+                    snapshot,
+                    running,
+                    invocation_index=1,
+                    deadline=deadline,
+                    handler_input=handler_input,
+                )
+                proposal = _with_cumulative_cost(proposal, retried, retry_budget)
+            self._raise_if_stopping()
+            persisted = self._proposal_store.persist(running, proposal)
+            self._ledger.complete_local_proposal_task(
+                running,
+                proposal_id=persisted.proposal.proposal_id,
+            )
+            return True
+        finally:
+            self._deadline_clock = None
 
     def _raise_if_stopping(self) -> None:
         if self._stop_requested():
@@ -204,12 +268,20 @@ class FakeAgentSkillExecutor:
             send.close()
             raise
         send.close()
+        _mark_start(self._deadline_clock, invocation_index)
         try:
             while True:
                 self._raise_if_stopping()
-                remaining = deadline - monotonic()
+                now = monotonic()
+                remaining = deadline - now
                 if remaining <= 0:
-                    raise FakeSkillTimeoutError("Fake Skill handler timed out")
+                    _mark_remaining(
+                        self._deadline_clock,
+                        invocation_index,
+                        remaining,
+                        _child_alive(process),
+                    )
+                    _raise_deadline(self._deadline_clock)
                 wait_seconds = min(self._heartbeat_interval.total_seconds(), remaining)
                 try:
                     message_ready = receive.poll(wait_seconds)
@@ -218,6 +290,14 @@ class FakeAgentSkillExecutor:
                         "Fake Skill process exited without a result"
                     ) from error
                 if message_ready:
+                    now = monotonic()
+                    _mark_poll(
+                        self._deadline_clock,
+                        invocation_index,
+                        now,
+                        deadline - now,
+                        _child_alive(process),
+                    )
                     try:
                         message = receive.recv()
                     except (EOFError, OSError) as error:
@@ -230,9 +310,11 @@ class FakeAgentSkillExecutor:
                     raise FakeSkillExecutionError(
                         f"Fake Skill process exited without a result ({process.exitcode})"
                     )
-                remaining = deadline - monotonic()
+                now = monotonic()
+                remaining = deadline - now
+                _mark_poll(self._deadline_clock, invocation_index, now, remaining, True)
                 if remaining <= 0:
-                    raise FakeSkillTimeoutError("Fake Skill handler timed out")
+                    _raise_deadline(self._deadline_clock)
                 running = self._ledger.heartbeat(
                     running,
                     lease_duration=self._lease_duration,
@@ -321,6 +403,124 @@ class FakeAgentSkillExecutor:
             if remaining > 0:
                 sleep(min(0.01, remaining))
         return done()
+
+
+_DEADLINE_NOTE_LIMIT = 240
+
+
+def _child_alive(process: BaseProcess) -> bool | None:
+    try:
+        return bool(process.is_alive())
+    except Exception:
+        return None
+
+
+def _mark_start(clock: _DeadlineClock | None, invocation_index: int) -> None:
+    try:
+        if clock is None:
+            return
+        slot = clock.slot(invocation_index)
+        if slot is None or slot.start_returned is not None:
+            return
+        slot.start_returned = monotonic()
+    except Exception:
+        return
+
+
+def _mark_poll(
+    clock: _DeadlineClock | None,
+    invocation_index: int,
+    now: float,
+    remaining: float,
+    child_alive: bool | None,
+) -> None:
+    try:
+        if clock is None:
+            return
+        slot = clock.slot(invocation_index)
+        if slot is None:
+            return
+        slot.poll_returned = now
+        slot.remaining = remaining
+        slot.child_alive = child_alive
+    except Exception:
+        return
+
+
+def _mark_remaining(
+    clock: _DeadlineClock | None,
+    invocation_index: int,
+    remaining: float,
+    child_alive: bool | None,
+) -> None:
+    try:
+        if clock is None:
+            return
+        slot = clock.slot(invocation_index)
+        if slot is None:
+            return
+        slot.remaining = remaining
+        slot.child_alive = child_alive
+    except Exception:
+        return
+
+
+def _offset_ms(origin: float, stamp: float | None) -> int | None:
+    if stamp is None:
+        return None
+    return int((stamp - origin) * 1000)
+
+
+def _phases(clock: _DeadlineClock | None) -> tuple[FakeSkillDeadlinePhase, ...]:
+    if clock is None:
+        return ()
+    phases: list[FakeSkillDeadlinePhase] = []
+    for slot in clock.invocations:
+        if slot.start_returned is None and slot.poll_returned is None and slot.remaining is None:
+            continue
+        phases.append(
+            FakeSkillDeadlinePhase(
+                slot.index,
+                _offset_ms(clock.origin, slot.start_returned),
+                _offset_ms(clock.origin, slot.poll_returned),
+                None if slot.remaining is None else int(slot.remaining * 1000),
+                slot.child_alive,
+            )
+        )
+    return tuple(phases)
+
+
+def _field(value: int | None) -> str:
+    return "none" if value is None else str(value)
+
+
+def _deadline_note(phases: tuple[FakeSkillDeadlinePhase, ...]) -> str:
+    parts = ["fake-skill-deadline", "origin_ms=0"]
+    for phase in phases:
+        if phase.child_alive is None:
+            alive = "none"
+        elif phase.child_alive:
+            alive = "1"
+        else:
+            alive = "0"
+        parts.append(
+            f"i={phase.invocation_index} start_ms={_field(phase.start_returned_ms)} "
+            f"poll_ms={_field(phase.poll_returned_ms)} "
+            f"remaining_ms={_field(phase.remaining_ms)} child_alive={alive}"
+        )
+    return " ".join(parts)[:_DEADLINE_NOTE_LIMIT]
+
+
+def _raise_deadline(clock: _DeadlineClock | None) -> None:
+    error = FakeSkillTimeoutError("Fake Skill handler timed out")
+    try:
+        error.phases = _phases(clock)
+        note = _deadline_note(error.phases)
+        if note:
+            error.add_note(note)
+    except Exception:
+        pass
+    raise error
 
 
 def _run_isolated_handler(
