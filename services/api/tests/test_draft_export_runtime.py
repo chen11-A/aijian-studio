@@ -201,9 +201,25 @@ def test_real_encode_receipt_reopen_original_provenance_and_no_overwrite(tmp_pat
     assert reopened.get(project, episode, request.operation_id).status == "FAILED"
 
 
-def test_active_worker_stays_busy_and_finished_cleanup_keeps_overwrite(tmp_path, monkeypatch):
-    from aijian_api import draft_export_encoder
+def _mp4_payload() -> bytes:
+    return b"\x00\x00\x00\x14ftypisom\x00\x00\x02\x00"
+
+
+def _verified(temporary: Path, payload: bytes):
     from aijian_api.product_export_output_verify import VerifiedProductOutput
+
+    return VerifiedProductOutput(
+        str(temporary),
+        hashlib.sha256(payload).hexdigest(),
+        len(payload),
+        "{}",
+        "sha256:" + "ab" * 32,
+        "now",
+    )
+
+
+def test_live_cleanup_keeps_other_targets_busy_and_existing_names_exact(tmp_path, monkeypatch):
+    from aijian_api import draft_export_encoder, draft_export_runtime
 
     repository, project, episode, _asset, assembly = fixture(tmp_path)
     tools = SimpleNamespace(
@@ -214,6 +230,8 @@ def test_active_worker_stays_busy_and_finished_cleanup_keeps_overwrite(tmp_path,
         distribution_status="DEVELOPMENT_ONLY",
     )
     runtime = DraftExportRuntime(repository, lambda: tools)
+    busy = "Wait for or cancel the current local draft export"
+    exists = "Choose a new filename; draft export never overwrites files"
     entered = threading.Event()
     release_encode = threading.Event()
 
@@ -226,48 +244,115 @@ def test_active_worker_stays_busy_and_finished_cleanup_keeps_overwrite(tmp_path,
     running = request_for(assembly, tmp_path / "RUNNING.mp4")
     runtime.submit(project, episode, running)
     assert entered.wait(5)
-    with pytest.raises(DraftExportError, match="Wait for or cancel"):
+    with pytest.raises(DraftExportError, match=f"^{busy}$"):
         runtime.submit(project, episode, request_for(assembly, tmp_path / "OTHER.mp4"))
     release_encode.set()
     runtime._workers[running.operation_id].join(5)
     assert not runtime._workers[running.operation_id].is_alive()
 
-    cleanup = threading.Event()
+    def assert_cleanup_isolation(operation: str, final_name: str, status: str) -> None:
+        final_path = tmp_path / final_name
+        temp_path = tmp_path / f".{operation}.partial.mp4"
+        worker = runtime._workers[operation]
+        assert worker.is_alive()
+        other = tmp_path / f"other-{status}.mp4"
+        with pytest.raises(DraftExportError, match=f"^{busy}$"):
+            runtime.submit(project, episode, request_for(assembly, other))
+        assert not other.exists()
+        if temp_path.exists():
+            before = temp_path.read_bytes()
+            with pytest.raises(DraftExportError, match=f"^{exists}$"):
+                runtime.submit(project, episode, request_for(assembly, temp_path))
+            assert temp_path.read_bytes() == before
+        else:
+            with pytest.raises(DraftExportError, match=f"^{busy}$"):
+                runtime.submit(project, episode, request_for(assembly, temp_path))
+            assert not temp_path.exists()
+        if final_path.exists():
+            with pytest.raises(DraftExportError, match=f"^{exists}$"):
+                runtime.submit(project, episode, request_for(assembly, final_path))
+        release_cleanup.set()
+        worker.join(5)
+        assert not worker.is_alive()
+        marker = b"owned-after-cleanup"
+        temp_path.write_bytes(marker)
+        assert temp_path.read_bytes() == marker
+
+    def fail_encode(*_args, **_kwargs):
+        raise DraftExportError("SOURCE_UNAVAILABLE", "Selected media version no longer exists")
+
+    def cancel_encode(*_args, **_kwargs):
+        raise DraftExportError("CANCELLED", "Draft export was cancelled")
+
+    for status, encode in (("FAILED", fail_encode), ("CANCELLED", cancel_encode)):
+        cleanup_entered = threading.Event()
+        release_cleanup = threading.Event()
+
+        def hold_cleanup(cleanup_entered=cleanup_entered, release_cleanup=release_cleanup):
+            if not cleanup_entered.is_set():
+                cleanup_entered.set()
+                assert release_cleanup.wait(5)
+
+        monkeypatch.setattr(draft_export_runtime, "_before_draft_cleanup", hold_cleanup)
+        monkeypatch.setattr(draft_export_encoder, "encode_draft", encode)
+        request = request_for(assembly, tmp_path / f"{status}.mp4")
+        runtime.submit(project, episode, request)
+        result = wait_final(runtime, project, episode, request.operation_id)
+        assert result.status == status, result
+        assert cleanup_entered.wait(5)
+        # Leave a private temporary file for the still-running cleanup to own.
+        temp_path = tmp_path / f".{request.operation_id}.partial.mp4"
+        temp_path.write_bytes(b"still-owned-by-cleanup")
+        assert_cleanup_isolation(request.operation_id, f"{status}.mp4", status)
+
+    cleanup_entered = threading.Event()
     release_cleanup = threading.Event()
-    original_remove = DraftExportRuntime._remove_reservation
 
-    def hold_cleanup(self, target, operation):
-        if not cleanup.is_set():
-            cleanup.set()
+    def hold_success_cleanup() -> None:
+        if not cleanup_entered.is_set():
+            cleanup_entered.set()
             assert release_cleanup.wait(5)
-        return original_remove(target, operation)
-
-    monkeypatch.setattr(DraftExportRuntime, "_remove_reservation", hold_cleanup)
 
     def finished_encode(_assembly, _sources, temporary, _tools, **_kwargs):
-        payload = b"\x00\x00\x00\x14ftypisom\x00\x00\x02\x00"
+        payload = _mp4_payload()
         Path(temporary).write_bytes(payload)
-        return VerifiedProductOutput(
-            str(temporary),
-            hashlib.sha256(payload).hexdigest(),
-            len(payload),
-            "{}",
-            "sha256:" + "ab" * 32,
-            "now",
-        )
+        return _verified(Path(temporary), payload)
 
+    monkeypatch.setattr(draft_export_runtime, "_before_draft_cleanup", hold_success_cleanup)
     monkeypatch.setattr(draft_export_encoder, "encode_draft", finished_encode)
     done = request_for(assembly, tmp_path / "DRAFT.mp4")
     runtime.submit(project, episode, done)
     result = wait_final(runtime, project, episode, done.operation_id)
     assert result.status == "SUCCEEDED", result
-    assert cleanup.wait(5)
-    assert runtime._workers[done.operation_id].is_alive()
-    with pytest.raises(DraftExportError, match="new filename"):
-        runtime.submit(project, episode, request_for(assembly, tmp_path / "DRAFT.mp4"))
-    release_cleanup.set()
-    runtime._workers[done.operation_id].join(5)
-    assert not runtime._workers[done.operation_id].is_alive()
+    assert cleanup_entered.wait(5)
+    assert_cleanup_isolation(done.operation_id, "DRAFT.mp4", "SUCCEEDED")
+
+    interrupted = threading.Event()
+    release_interrupted = threading.Event()
+
+    def hold_interrupted_cleanup() -> None:
+        if not interrupted.is_set():
+            interrupted.set()
+            assert release_interrupted.wait(5)
+
+    def interrupted_hash(path: Path):
+        from aijian_api.product_export_output_verify import _guarded_file_hash
+
+        digest, size = _guarded_file_hash(path)
+        if path.name == "INTERRUPTED.mp4":
+            raise DraftExportError("OUTPUT_CHANGED", "Published output changed before receipt")
+        return digest, size
+
+    monkeypatch.setattr(draft_export_runtime, "_before_draft_cleanup", hold_interrupted_cleanup)
+    monkeypatch.setattr(draft_export_runtime, "_guarded_file_hash", interrupted_hash)
+    monkeypatch.setattr(draft_export_encoder, "encode_draft", finished_encode)
+    broken = request_for(assembly, tmp_path / "INTERRUPTED.mp4")
+    runtime.submit(project, episode, broken)
+    result = wait_final(runtime, project, episode, broken.operation_id)
+    assert result.status == "INTERRUPTED", result
+    assert interrupted.wait(5)
+    release_cleanup = release_interrupted
+    assert_cleanup_isolation(broken.operation_id, "INTERRUPTED.mp4", "INTERRUPTED")
 
 
 def test_cancel_is_durable_and_never_publishes(tmp_path, monkeypatch):

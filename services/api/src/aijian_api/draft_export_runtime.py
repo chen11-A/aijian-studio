@@ -80,6 +80,11 @@ def _temporary(target: Path, operation_id: str) -> Path:
     return target.parent / f".{operation_id}.partial.mp4"
 
 
+def _before_draft_cleanup() -> None:
+    """Boundary before this operation deletes its own temporary paths."""
+    return
+
+
 def _snapshot(
     source: Path,
     destination: Path | None,
@@ -349,14 +354,18 @@ class DraftExportRuntime:
                         "OPERATION_CONFLICT", "Operation ID belongs to a different request"
                     )
                 return self.get(project, episode, request.operation_id)
-            if self._live_worker_blocks_new_export():
+            target = _target(request.output_path)
+            target_io = managed_local_io_path(target.parent, target)
+            if target_io.exists():
+                raise DraftExportError(
+                    "OUTPUT_EXISTS", "Choose a new filename; draft export never overwrites files"
+                )
+            if any(worker.is_alive() for worker in self._workers.values()):
                 raise DraftExportError(
                     "EXPORT_BUSY", "Wait for or cancel the current local draft export"
                 )
             assembly = self._read_assembly(project, episode, request)
             toolchain = self._tools()
-            target = _target(request.output_path)
-            target_io = managed_local_io_path(target.parent, target)
             if target_io.exists():
                 raise DraftExportError(
                     "OUTPUT_EXISTS", "Choose a new filename; draft export never overwrites files"
@@ -449,28 +458,6 @@ class DraftExportRuntime:
                 self._remove_reservation(target, request.operation_id)
                 raise
             return queued
-
-    def _live_worker_blocks_new_export(self) -> bool:
-        """A live thread blocks a new export only while its receipt is still active.
-
-        Success is committed before temporary cleanup. That cleanup thread is not an
-        in-flight encode, so it must not report EXPORT_BUSY for a finished receipt.
-        """
-        for operation_id, worker in self._workers.items():
-            try:
-                alive = worker.is_alive()
-            except Exception:
-                return True
-            if not alive:
-                continue
-            with self.repository._connection() as connection:
-                row = connection.execute(
-                    "SELECT status FROM draft_export_jobs WHERE operation_id=?",
-                    (operation_id,),
-                ).fetchone()
-            if row is None or row["status"] in ACTIVE:
-                return True
-        return False
 
     def cancel(self, project: str, episode: str, operation: str) -> DraftExportJob:
         with self._lock:
@@ -633,6 +620,7 @@ class DraftExportRuntime:
             logging.getLogger(__name__).warning("Draft export %s ended: %s", operation, code)
         finally:
             # Remove only our unique temporary/snapshot names; never delete the final file.
+            _before_draft_cleanup()
             for path in [temporary, *created]:
                 try:
                     managed_local_io_path(path.parent, path).unlink(missing_ok=True)
