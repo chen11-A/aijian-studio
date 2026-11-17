@@ -19,6 +19,7 @@ import {
   readdir,
   rename,
   symlink,
+  chmod,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { delimiter, dirname, basename, isAbsolute, join, resolve } from "node:path";
@@ -94,8 +95,8 @@ const execute = promisify(execFile),
   roots: string[] = [],
   tasks = new Set<Promise<unknown>>(),
   cleanupReleases: Array<() => void> = [];
-let cleanupPhase: "idle" | "draining" = "idle",
-  sharedDigest = "";
+let sharedDigest = "",
+  cleanupCheckpoint: ((where: "before-release" | "before-delete") => void) | null = null;
 function trackTask<T>(work: Promise<T>) {
   const tracked = work.finally(() => tasks.delete(tracked));
   tasks.add(tracked);
@@ -126,29 +127,53 @@ async function digestTree(root: string) {
   await walk(root, "");
   return rows.join("\n");
 }
-async function settleOpenWork() {
-  cleanupPhase = "draining";
+function releaseCleanupGates() {
+  for (const release of cleanupReleases.splice(0)) release();
+}
+async function awaitTrackedTasks() {
   const rejected: unknown[] = [];
-  try {
-    for (const release of cleanupReleases.splice(0)) release();
-    const seen = new Set<Promise<unknown>>();
-    while (tasks.size) {
-      const batch = [...tasks].filter((task) => !seen.has(task));
-      if (!batch.length) break;
-      for (const task of batch) seen.add(task);
-      const settled = await Promise.allSettled(batch);
-      for (const item of settled) if (item.status === "rejected") rejected.push(item.reason);
-    }
-    fault.mode = "";
-    fault.observe = null;
-    fault.applied = false;
-    fault.hold = null;
-    fault.entered = null;
-    for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
-  } finally {
-    cleanupPhase = "idle";
+  const seen = new Set<Promise<unknown>>();
+  while (tasks.size) {
+    const batch = [...tasks].filter((task) => !seen.has(task));
+    if (!batch.length) break;
+    for (const task of batch) seen.add(task);
+    const settled = await Promise.allSettled(batch);
+    for (const item of settled) if (item.status === "rejected") rejected.push(item.reason);
   }
-  if (rejected.length) throw rejected[0];
+  return rejected;
+}
+async function resetAndRemoveRoots() {
+  fault.mode = "";
+  fault.observe = null;
+  fault.applied = false;
+  fault.hold = null;
+  fault.entered = null;
+  const errors: unknown[] = [];
+  for (const root of roots.splice(0)) {
+    try {
+      await rm(root, { recursive: true, force: true });
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  return errors;
+}
+function throwCleanupFailures(rejected: unknown[], deleteErrors: unknown[]) {
+  const errors = [...rejected, ...deleteErrors];
+  if (errors.length > 1) throw new AggregateError(errors, "film audio cleanup failed");
+  if (errors.length === 1) throw errors[0];
+}
+async function settleOpenWork() {
+  const checkpoint = cleanupCheckpoint;
+  cleanupCheckpoint = null;
+  const rejected: unknown[] = [];
+  const deleteErrors: unknown[] = [];
+  checkpoint?.("before-release");
+  releaseCleanupGates();
+  rejected.push(...(await awaitTrackedTasks()));
+  checkpoint?.("before-delete");
+  deleteErrors.push(...(await resetAndRemoveRoots()));
+  throwCleanupFailures(rejected, deleteErrors);
 }
 /** Hardlink the shared bundle. Replacing one file must unlink first so the original inode stays intact. */
 async function linkBundle(from: string, to: string) {
@@ -1120,25 +1145,73 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
     );
   },
 );
-it("does not write after cleanup starts while a gated task is still open", async () => {
+it("deletes the temp root only after a gated real apply settles", async () => {
   const f = await fixture();
-  let wrote = false;
-  const gate = new Promise<void>((resolve) => {
-    releaseOnCleanup(resolve);
+  const { request } = await suggested(f);
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
   });
-  const task = trackTask(
-    (async () => {
-      await gate;
-      if (cleanupPhase === "idle") {
-        wrote = true;
-        await writeFile(join(f.media, "late.txt"), "x");
-      }
-    })(),
+  f.host.beforeCommit = async () => {
+    fault.entered = entered;
+    entered();
+    await new Promise<void>((resolve) => {
+      releaseOnCleanup(resolve);
+    });
+  };
+  let settled = false;
+  const pending = trackTask(
+    f.library.applyBundledFilmShotAudio(request).finally(() => {
+      settled = true;
+    }),
   );
+  await started;
+  let beforeRelease = false;
+  let beforeDelete = false;
+  cleanupCheckpoint = (where) => {
+    if (where === "before-release") {
+      beforeRelease = true;
+      expect(settled).toBe(false);
+      expect(existsSync(f.root)).toBe(true);
+      expect(existsSync(f.video)).toBe(true);
+      return;
+    }
+    beforeDelete = true;
+    expect(settled).toBe(true);
+    expect(existsSync(f.root)).toBe(true);
+    expect(fault.entered).toBe(entered);
+  };
   await settleOpenWork();
-  expect(wrote).toBe(false);
-  await expect(task).resolves.toBeUndefined();
-  await expect(readFile(join(f.media, "late.txt"))).rejects.toThrow();
+  expect(beforeRelease).toBe(true);
+  expect(beforeDelete).toBe(true);
+  expect((await pending).kind).toBe("ADDED");
+  expect(fault.entered).toBeNull();
+  expect(existsSync(f.root)).toBe(false);
+});
+it("keeps a tracked rejection when removing the temp root also fails", async () => {
+  const root = await mkdtemp(join(tmpdir(), "音效库 CAS "));
+  await writeFile(join(root, "child.txt"), "x");
+  await chmod(root, 0);
+  roots.push(root);
+  const task = trackTask(Promise.reject(new Error("task failed")));
+  void task.catch(() => undefined);
+  try {
+    const error = await settleOpenWork().then(
+      () => {
+        throw new Error("cleanup should fail");
+      },
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(AggregateError);
+    const reasons = (error as AggregateError).errors.map((item) =>
+      item instanceof Error ? item.message : String(item),
+    );
+    expect(reasons).toContain("task failed");
+    expect(reasons.some((reason) => reason.includes("EACCES"))).toBe(true);
+  } finally {
+    await chmod(root, 0o700);
+    await rm(root, { recursive: true, force: true });
+  }
 });
 it.each([
   "before",
