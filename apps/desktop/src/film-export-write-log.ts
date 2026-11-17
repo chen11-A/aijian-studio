@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { constants, createReadStream } from "node:fs";
 import {
   lstat,
   open,
@@ -63,12 +63,35 @@ type WriteLogOptions = {
   crashAfterClaim?: boolean;
 };
 
-/** Windows may reject directory fsync. Permission and I/O failures are not that case. */
+/**
+ * Windows can reject the directory-flush call shape itself. A real access or disk
+ * error is not that shape: EPERM, EACCES, EIO and ENOSPC stay fail-closed, including
+ * when they come from the file write, file fsync, or rename.
+ */
 export function directorySyncMaySkip(platform: string, code: string | undefined) {
   return (
     platform === "win32" &&
     (code === "EINVAL" || code === "ENOTSUP" || code === "EOPNOTSUPP" || code === "EISDIR")
   );
+}
+
+/**
+ * FlushFileBuffers requires GENERIC_WRITE. libuv maps "r" to FILE_GENERIC_READ and
+ * still sets FILE_FLAG_BACKUP_SEMANTICS, so syncing that handle returns EPERM even
+ * when this process can rename into the directory. A writable open is the documented
+ * call. If Windows rejects FILE_WRITE_DATA on a directory as an invalid open, fall
+ * back to the read handle and still require the flush to succeed.
+ */
+async function openDirectoryForSync(dir: string) {
+  if (process.platform !== "win32") return open(dir, "r");
+  try {
+    return await open(dir, constants.O_RDWR);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EISDIR" || code === "EINVAL" || code === "ENOTSUP" || code === "EOPNOTSUPP")
+      return open(dir, "r");
+    throw error;
+  }
 }
 
 function rawIo(code: string, syscall: string) {
@@ -168,7 +191,7 @@ async function syncDirectory(dir: string, fault?: ExportWriteFault) {
   if (fault === "diropen") throw rawIo("EACCES", "open");
   let handle;
   try {
-    handle = await open(dir, "r");
+    handle = await openDirectoryForSync(dir);
   } catch (error) {
     if (directorySyncMaySkip(process.platform, (error as NodeJS.ErrnoException).code)) return;
     throw error;

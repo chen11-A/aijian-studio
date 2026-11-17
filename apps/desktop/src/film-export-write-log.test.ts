@@ -1,14 +1,4 @@
-import {
-  lstat,
-  mkdtemp,
-  mkdir,
-  readFile,
-  readdir,
-  symlink,
-  writeFile,
-  rm,
-  chmod,
-} from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, readdir, symlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -343,14 +333,14 @@ it("keeps the journal when the chosen directory cannot be read", async () => {
   await writeFile(file, "partial");
   const id = await log.begin(directory);
   await log.noteFile(id, { path: file, aspectRatio: "16:9" });
-  await chmod(directory, 0);
-  try {
-    const result = await recoverInterruptedExports(journal);
-    expect(result.kind).toBe("RETRY");
-    expect(await readdir(journal)).toContain(`${id}.json`);
-  } finally {
-    await chmod(directory, 0o700);
-  }
+  const stored = JSON.parse(await readFile(join(journal, `${id}.json`), "utf8")) as {
+    directory: string;
+  };
+  stored.directory = join(file, "blocked");
+  await writeFile(join(journal, `${id}.json`), JSON.stringify(stored));
+  const result = await recoverInterruptedExports(journal);
+  expect(result.kind).toBe("RETRY");
+  expect(await readdir(journal)).toContain(`${id}.json`);
   expect(await readFile(file, "utf8")).toBe("partial");
 });
 
@@ -360,15 +350,12 @@ it("does not report a cleared export when deleting the file is denied", async ()
   await writeFile(file, "partial");
   const id = await log.begin(directory);
   await log.noteFile(id, { path: file, aspectRatio: "16:9" });
-  await chmod(file, 0o444);
-  await chmod(directory, 0o555);
-  try {
-    await expect(recoverInterruptedExports(journal)).resolves.toMatchObject({ kind: "RETRY" });
-    expect(await readdir(journal)).toContain(`${id}.json`);
-  } finally {
-    await chmod(directory, 0o700);
-    await chmod(file, 0o644);
-  }
+  await expect(
+    recoverInterruptedExports(journal, {
+      afterVerifiedFile: () => Promise.reject(Object.assign(new Error("rm EIO"), { code: "EIO" })),
+    }),
+  ).resolves.toMatchObject({ kind: "RETRY" });
+  expect(await readdir(journal)).toContain(`${id}.json`);
   expect(await readFile(file, "utf8")).toBe("partial");
 });
 
@@ -436,7 +423,9 @@ it("treats only unsupported Windows directory codes as skippable", async () => {
   expect(directorySyncMaySkip("win32", "EISDIR")).toBe(true);
   expect(directorySyncMaySkip("win32", "ENOTSUP")).toBe(true);
   expect(directorySyncMaySkip("win32", "EACCES")).toBe(false);
+  expect(directorySyncMaySkip("win32", "EPERM")).toBe(false);
   expect(directorySyncMaySkip("win32", "EIO")).toBe(false);
+  expect(directorySyncMaySkip("win32", "ENOSPC")).toBe(false);
   expect(directorySyncMaySkip("linux", "EINVAL")).toBe(false);
   const { directory, journal } = await place();
   const log = createExportWriteLog(journal, { fault: () => "diropen" });
