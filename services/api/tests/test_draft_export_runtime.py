@@ -209,20 +209,31 @@ class _CleanupResource:
 class DraftGuardSession:
     """Release every gate, then join every worker actually registered on the runtime.
 
-    Cleanup errors keep a body assertion as the primary error and attach a note.
-    With no body error, a cleanup failure is raised and not swallowed.
+    Each join is isolated: one failure is recorded and the remaining workers are still
+    waited on. A resource is removed only after its worker's exit is confirmed. Unscoped
+    fixture resources stay when any worker is unconfirmed. Cleanup errors keep a body
+    assertion as the primary error and attach a note. With no body error, a cleanup
+    failure is raised and not swallowed.
     """
 
     def __init__(self, runtime: DraftExportRuntime) -> None:
         self.runtime = runtime
         self.gates: list[threading.Event] = []
         self.resources: list[object] = []
+        self._bound: list[tuple[int, object]] = []
+        self._join_faults: dict[int, BaseException] = {}
 
     def gate(self) -> tuple[threading.Event, threading.Event]:
         entered = threading.Event()
         release = threading.Event()
         self.gates.append(release)
         return entered, release
+
+    def bind(self, worker: threading.Thread, resource: object) -> None:
+        self._bound.append((id(worker), resource))
+
+    def fail_join(self, worker: threading.Thread, error: BaseException) -> None:
+        self._join_faults[id(worker)] = error
 
     def __enter__(self) -> "DraftGuardSession":
         return self
@@ -238,16 +249,30 @@ class DraftGuardSession:
 
         for gate in self.gates:
             guard(gate.set)
+        with self.runtime._lock:
+            workers = tuple(self.runtime._workers.values())
+        confirmed: set[int] = set()
+        for worker in workers:
 
-        def snapshot_and_join() -> None:
-            with self.runtime._lock:
-                workers = tuple(self.runtime._workers.values())
-            for worker in workers:
+            def join_one(worker: threading.Thread = worker) -> None:
+                fault = self._join_faults.get(id(worker))
+                if fault is not None:
+                    raise fault
                 worker.join()
+                if worker.is_alive():
+                    raise RuntimeError("draft worker still alive after join")
 
-        guard(snapshot_and_join)
-        for resource in self.resources:
+            before = len(errors)
+            guard(join_one)
+            if len(errors) == before:
+                confirmed.add(id(worker))
+        for owner, resource in self._bound:
+            if owner not in confirmed:
+                continue
             guard(lambda resource=resource: resource.unlink(missing_ok=True))
+        if len(confirmed) == len(workers):
+            for resource in self.resources:
+                guard(lambda resource=resource: resource.unlink(missing_ok=True))
         if exc is not None:
             for error in errors:
                 try:
@@ -551,6 +576,61 @@ def test_cleanup_unlink_failure_raises_when_the_body_succeeds(tmp_path, monkeypa
             assert entered.wait(5)
             session.resources.append(_CleanupResource())
     assert not runtime._workers[request.operation_id].is_alive()
+
+
+def test_join_error_settles_the_next_worker_and_keeps_unconfirmed_files(tmp_path, monkeypatch):
+    module, runtime, project, episode, assembly = _guarded_failed_export(tmp_path, monkeypatch)
+    first = request_for(assembly, tmp_path / "FIRST.mp4")
+    second = request_for(assembly, tmp_path / "SECOND.mp4")
+    owned = tmp_path / f".{second.operation_id}.partial.mp4"
+    first_file = tmp_path / "first-fixture"
+    second_file = tmp_path / "second-fixture"
+    kept = tmp_path / "unscoped-fixture"
+    saved: BaseException | None = None
+    try:
+        with DraftGuardSession(runtime) as session:
+            entered, release = session.gate()
+
+            def hold(entered=entered, release=release) -> None:
+                entered.set()
+                release.wait()
+
+            monkeypatch.setattr(module, "_before_draft_cleanup", hold)
+            runtime.submit(project, episode, first)
+            assert entered.wait(5)
+            release.set()
+            first_worker = runtime._workers[first.operation_id]
+            first_worker.join()
+            assert not first_worker.is_alive()
+
+            entered_next, release_next = session.gate()
+
+            def hold_next(entered_next=entered_next, release_next=release_next) -> None:
+                entered_next.set()
+                release_next.wait()
+
+            monkeypatch.setattr(module, "_before_draft_cleanup", hold_next)
+            runtime.submit(project, episode, second)
+            assert entered_next.wait(5)
+            owned.write_bytes(b"owned-during-cleanup")
+            first_file.write_bytes(b"first")
+            second_file.write_bytes(b"second")
+            kept.write_bytes(b"kept")
+            second_worker = runtime._workers[second.operation_id]
+            session.bind(first_worker, first_file)
+            session.bind(second_worker, second_file)
+            session.resources.append(kept)
+            session.fail_join(first_worker, OSError("join failed"))
+            raise AssertionError("contract failed")
+    except AssertionError as error:
+        saved = error
+    assert saved is not None and str(saved) == "contract failed"
+    assert any("join failed" in note for note in saved.__notes__)
+    assert not runtime._workers[second.operation_id].is_alive()
+    assert not owned.exists()
+    assert first_file.read_bytes() == b"first"
+    assert not second_file.exists()
+    assert kept.read_bytes() == b"kept"
 
 
 def test_cancel_is_durable_and_never_publishes(tmp_path, monkeypatch):
