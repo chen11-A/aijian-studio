@@ -193,6 +193,14 @@ async function fixture() {
     releaseSerial > after
       ? Promise.resolve()
       : new Promise<void>((resolve) => releaseWaiters.push({ after, resolve }));
+  const recoveryReleaseWatches: {
+    projectId: string;
+    resolve: () => void;
+  }[] = [];
+  const watchNextRecoveryRelease = (projectId: string) =>
+    new Promise<void>((resolve) => {
+      recoveryReleaseWatches.push({ projectId, resolve });
+    });
   let dropReceipt = false,
     staleSecondRead = false,
     readNumber = 0;
@@ -209,29 +217,35 @@ async function fixture() {
     persistence = p;
     const lease = async (id: string, recovery: boolean) => {
       const l = await tracked(recovery ? p.acquireExternalRecovery(id) : p.acquire(id));
+      const watchIndex = recovery
+        ? recoveryReleaseWatches.findIndex((watch) => watch.projectId === id)
+        : -1;
+      const watch = watchIndex >= 0 ? recoveryReleaseWatches.splice(watchIndex, 1)[0] : undefined;
+      const release = () =>
+        tracked(
+          (async () => {
+            if (onRelease && !p.externalWriteState(id)) {
+              const task = onRelease;
+              onRelease = undefined;
+              task();
+            }
+            try {
+              await l.release();
+            } finally {
+              releaseSerial++;
+              for (let i = releaseWaiters.length - 1; i >= 0; i--) {
+                if (releaseWaiters[i]!.after < releaseSerial)
+                  releaseWaiters.splice(i, 1)[0]!.resolve();
+              }
+              watch?.resolve();
+            }
+          })(),
+        );
       return {
         ...l,
         save: (...a: Parameters<typeof l.save>) =>
           tracked(l.save(...a).then((stored) => (dropReceipt ? undefined : stored))),
-        release: () =>
-          tracked(
-            (async () => {
-              if (onRelease && !p.externalWriteState(id)) {
-                const task = onRelease;
-                onRelease = undefined;
-                task();
-              }
-              try {
-                await l.release();
-              } finally {
-                releaseSerial++;
-                for (let i = releaseWaiters.length - 1; i >= 0; i--) {
-                  if (releaseWaiters[i]!.after < releaseSerial)
-                    releaseWaiters.splice(i, 1)[0]!.resolve();
-                }
-              }
-            })(),
-          ),
+        release,
       };
     };
     return {
@@ -366,6 +380,7 @@ async function fixture() {
     flush: () => flush?.({ requestId: "split-quit" }),
     releaseSerial: () => releaseSerial,
     waitForLeaseRelease,
+    watchNextRecoveryRelease,
     holdAcknowledgedApply: () => {
       hold = true;
     },
@@ -468,6 +483,13 @@ const accept = (d: HTMLElement) => {
   fireEvent.click(within(d).getByRole("checkbox"));
   fireEvent.click(within(d).getByRole("button", { name: "接受这份拆镜结构" }));
 };
+/** The named recovery lease has released; then the pending button is committed away. */
+async function settleCheckedSplit(recovered: Promise<void>) {
+  await act(async () => {
+    await recovered;
+    await Promise.resolve();
+  });
+}
 async function acceptSettled(d: HTMLElement, f: Awaited<ReturnType<typeof fixture>>) {
   const before = f.releaseSerial();
   accept(d);
@@ -577,10 +599,10 @@ it("retains unknown during actual native pending, then fresh full structure and 
   await waitFor(async () =>
     expect((await f.disk())!.shots as unknown[]).toHaveLength(f.film.shots.length + 2),
   );
+  const recovered = f.watchNextRecoveryRelease(f.film.id);
   fireEvent.click(within(p).getByRole("button", { name: "核对拆镜保存结果" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull(),
-  );
+  await settleCheckedSplit(recovered);
+  expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull();
   expect(f.apply).toHaveBeenCalledOnce();
   expect(f.current().shots).toHaveLength(f.film.shots.length + 2);
   expect(f.paid).not.toHaveBeenCalled();
@@ -628,10 +650,10 @@ it("keeps a late original draft until the user explicitly adopts the fully verif
   expect((within(p).getByLabelText("拆镜保留稿文字备忘") as HTMLTextAreaElement).value).toContain(
     "必须保留并展示的后来描述",
   );
+  const recovered = f.watchNextRecoveryRelease(f.film.id);
   fireEvent.click(within(p).getByRole("button", { name: "采用已核对的拆镜版并放弃这份保留稿" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull(),
-  );
+  await settleCheckedSplit(recovered);
+  expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull();
   expect(f.current().shots).toHaveLength(f.film.shots.length + 2);
   expect(f.apply).toHaveBeenCalledOnce();
   expect(f.paid).not.toHaveBeenCalled();
@@ -673,10 +695,10 @@ it("late recovery verifies the original record without applying or writing the o
   );
   fireEvent.click(screen.getByRole("button", { name: "拆镜保存待核对（1）" }));
   const p = await screen.findByRole("dialog", { name: "拆镜保存状态" });
+  const recovered = f.watchNextRecoveryRelease(f.film.id);
   fireEvent.click(within(p).getByRole("button", { name: "核对拆镜保存结果" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull(),
-  );
+  await settleCheckedSplit(recovered);
+  expect(screen.queryByRole("button", { name: "拆镜保存待核对（1）" })).toBeNull();
   expect(f.current()).toBe(other);
   expect(await f.disk(f.other.id)).toEqual(raw);
   expect(f.write.mock.calls.filter(([v]) => v.id === f.other.id)).toHaveLength(writes);
