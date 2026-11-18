@@ -255,16 +255,38 @@ export function libraryWritePhaseSummary(line) {
   }
 }
 
+const mutationModes = new Set([
+  "project",
+  "take",
+  "source",
+  "clean",
+  "library",
+  "picker",
+  "synonyms",
+]);
 const mutationStages = new Set([
+  "not-started",
   "fixture",
   "suggest",
-  "bundle",
-  "commit",
-  "encode",
+  "linkBundle",
   "apply",
+  "beforeCommit",
+  "after-beforeCommit",
+  "assert",
   "done",
 ]);
-/** Closed source/clean timing. No file paths or command arguments. */
+const mutationMarks = new Set(["not-reached", "in-progress", "reached", "not-applicable"]);
+const mutationBoundaryKeys = [
+  "after-beforeCommit",
+  "apply",
+  "assert",
+  "beforeCommit",
+  "done",
+  "fixture",
+  "linkBundle",
+  "suggest",
+];
+/** Closed late-mutation timing. Inner recompile/load/hash/CAS/cleanup are explicitly unsampled. */
 export function libraryMutationPhaseSummary(line) {
   const prefix = "CI_LIBRARY_MUTATION_PHASE ";
   if (!line.startsWith(prefix) || line.length > 2048) return null;
@@ -272,18 +294,41 @@ export function libraryMutationPhaseSummary(line) {
     const row = JSON.parse(line.slice(prefix.length));
     const object = (value) => value && typeof value === "object" && !Array.isArray(value);
     const milliseconds = (value) => Number.isInteger(value) && value >= 0 && value <= 120000;
+    const probes =
+      row.probes === "not-sampled" ||
+      (object(row.probes) &&
+        Object.keys(row.probes).sort().join() === "closed,failed,last,open" &&
+        libraryWriteTools.has(row.probes.last) &&
+        [row.probes.open, row.probes.closed, row.probes.failed].every(
+          (value) => Number.isInteger(value) && value >= 0 && value <= 4096,
+        ));
+    const boundaryOk =
+      object(row.boundary) &&
+      Object.keys(row.boundary).sort().join() === mutationBoundaryKeys.join() &&
+      mutationBoundaryKeys.every((key) => mutationMarks.has(row.boundary[key])) &&
+      (row.stage === "not-started"
+        ? mutationBoundaryKeys.every((key) => row.boundary[key] !== "in-progress")
+        : row.boundary[row.stage] === "in-progress") &&
+      ((["project", "take", "source", "clean"].includes(row.mode) &&
+        row.boundary.linkBundle === "not-applicable") ||
+        (["library", "picker", "synonyms"].includes(row.mode) &&
+          row.boundary.linkBundle !== "not-applicable"));
     if (
       !object(row) ||
       Object.keys(row).sort().join() !==
-        "closed,completed,elapsedMs,failed,freeMb,heapMb,last,mode,open,stage,v" ||
+        "boundary,completed,elapsedMs,freeMb,heapMb,mode,monoMs,notSampled,probes,sample,stage,v" ||
       row.v !== 1 ||
-      !["source", "clean"].includes(row.mode) ||
+      !mutationModes.has(row.mode) ||
       !mutationStages.has(row.stage) ||
-      !libraryWriteTools.has(row.last) ||
+      !["near-deadline", "at-failure"].includes(row.sample) ||
       !milliseconds(row.elapsedMs) ||
-      [row.open, row.closed, row.failed].some(
-        (value) => !Number.isInteger(value) || value < 0 || value > 4096,
-      ) ||
+      !Number.isInteger(row.monoMs) ||
+      row.monoMs < 0 ||
+      row.monoMs > 3600000 ||
+      !boundaryOk ||
+      !Array.isArray(row.notSampled) ||
+      row.notSampled.join() !== "recompile,load,hash,cas,cleanup" ||
+      !probes ||
       !Number.isInteger(row.heapMb) ||
       row.heapMb < 0 ||
       row.heapMb > 65536 ||
@@ -297,11 +342,16 @@ export function libraryMutationPhaseSummary(line) {
           !object(value) ||
           Object.keys(value).sort().join() !== "elapsedMs,stage" ||
           !mutationStages.has(value.stage) ||
+          value.stage === "not-started" ||
           !milliseconds(value.elapsedMs),
       )
     )
       return null;
-    return `Audio library mutation phase: variant=${row.mode}; stage=${row.stage}; elapsed=${row.elapsedMs}ms; completed=${row.completed.map((value) => `${value.stage}:${value.elapsedMs}ms`).join("|") || "none"}; open=${row.open}; closed=${row.closed}; failed=${row.failed}; last=${row.last}; heap=${row.heapMb}MiB; free=${row.freeMb}MiB.`;
+    const probeText =
+      row.probes === "not-sampled"
+        ? "not-sampled"
+        : `open=${row.probes.open}; closed=${row.probes.closed}; failed=${row.probes.failed}; last=${row.probes.last}`;
+    return `Audio library mutation phase: variant=${row.mode}; sample=${row.sample}; stage=${row.stage}; elapsed=${row.elapsedMs}ms; mono=${row.monoMs}; boundary=${mutationBoundaryKeys.map((key) => `${key}:${row.boundary[key]}`).join(",")}; notSampled=recompile|load|hash|cas|cleanup; completed=${row.completed.map((value) => `${value.stage}:${value.elapsedMs}ms`).join("|") || "none"}; probes=${probeText}; heap=${row.heapMb}MiB; free=${row.freeMb}MiB.`;
   } catch {
     return null;
   }
