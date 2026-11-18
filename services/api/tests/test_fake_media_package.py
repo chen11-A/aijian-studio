@@ -294,7 +294,7 @@ def test_two_spawned_processes_converge_on_one_complete_package(tmp_path: Path) 
         process.join(timeout=120)
         assert process.exitcode == 0
 
-    assert all(result[0] == "ok" for result in results)
+    assert all(result[0] == "ok" for result in results), results
     assert results[0][1:] == results[1][1:]
     final = Path(results[0][1])
     assert final.is_dir()
