@@ -29,6 +29,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
 import { createFilmAudioLibrary } from "./film-audio-library";
+import { openMutationPhase } from "./film-audio-library-mutation-phase";
 import { loadTrustedAudioLibrary, publicAudioCatalog } from "./film-audio-library-runtime";
 import { readMedia, readProject, writeProject, type FilmRecord } from "./film-library";
 import { filmHistoryRecordHash } from "./film-history";
@@ -978,51 +979,32 @@ it("selects a complete lane subset while preserving existing clips, and rejects 
 it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] as const)(
   "rejects late %s mutation before the sole CAS and removes only private unreferenced copies",
   async (mode) => {
-    await trackTask(
-      (async () => {
-        const watched = mode === "source" || mode === "clean";
-        const startedAt = performance.now();
-        let stage = "fixture";
-        let stageAt = startedAt;
-        const completed: { stage: string; elapsedMs: number }[] = [];
-        const media = { started: 0, closed: 0, failed: 0, last: "none", library: 0, encode: 0 };
-        let inApply = false;
-        const advance = (next: string) => {
-          if (!watched) return;
-          const now = performance.now();
-          if (completed.length < 12)
-            completed.push({ stage, elapsedMs: Math.round(now - stageAt) });
-          stage = next;
-          stageAt = now;
-        };
-        let gate: ReturnType<typeof mutationSnapshot> | undefined;
-        function mutationSnapshot() {
-          return {
-            v: 1,
-            mode,
-            stage,
-            elapsedMs: Math.round(performance.now() - startedAt),
-            completed: [...completed],
+    const linksBundle = mode === "library" || mode === "picker" || mode === "synonyms";
+    const watched = mode === "source" || mode === "clean";
+    const media: {
+      started: number;
+      closed: number;
+      failed: number;
+      last: "none" | "ffmpeg" | "ffprobe" | "other";
+      library: number;
+      encode: number;
+    } = { started: 0, closed: 0, failed: 0, last: "none", library: 0, encode: 0 };
+    const phase = openMutationPhase({
+      mode,
+      linksBundle,
+      probes: watched
+        ? () => ({
             open: Math.max(0, media.started - media.closed),
             closed: media.closed,
             failed: media.failed,
             last: media.last,
-            heapMb: Math.min(65536, Math.round(process.memoryUsage().heapUsed / 1048576)),
-            freeMb: Math.min(1048576, Math.round(freemem() / 1048576)),
-          };
-        }
-        const observer = watched
-          ? setTimeout(() => {
-              gate = mutationSnapshot();
-            }, 4900)
-          : undefined;
-        observer?.unref();
-        if (watched)
-          onTestFailed(() => {
-            process.stderr.write(
-              `CI_LIBRARY_MUTATION_PHASE ${JSON.stringify(gate ?? mutationSnapshot())}\n`,
-            );
-          });
+          })
+        : undefined,
+    });
+    await trackTask(
+      (async () => {
+        let inApply = false;
+        phase.enter("fixture");
         const f = await fixture();
         if (watched) {
           const counted = f.host.run;
@@ -1054,7 +1036,7 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
           });
         }
         try {
-          advance("suggest");
+          phase.enter("suggest");
           const clean = join(f.media, "actual-clean.mp4");
           if (mode === "clean") {
             await copyFile(f.video, clean);
@@ -1062,12 +1044,11 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
               clean;
           }
           const { request } = await suggested(f);
-          advance("bundle");
           // Modes that rewrite a bundle file need a private tree. Hardlinks avoid
           // copying every media file again; the shared bundle is not mutated.
-          const mutatesBundle = mode === "library" || mode === "picker" || mode === "synonyms";
           const own = join(f.root, "bundle");
-          if (mutatesBundle) {
+          if (linksBundle) {
+            phase.enter("linkBundle");
             await trackTask(linkBundle(bundle, own));
             f.host.libraryRoot = () => own;
           }
@@ -1075,7 +1056,7 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
           let called = false;
           f.host.beforeCommit = async () => {
             called = true;
-            advance("commit");
+            phase.enter("beforeCommit");
             if (mode === "project" || mode === "take") {
               const current = (await readProject(f.filmsRoot, f.record.id))!;
               if (mode === "project") current.title = "new edit";
@@ -1095,7 +1076,6 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
               await writeProject(f.filmsRoot, current);
             } else if (mode === "source") await writeFile(f.video, "new bytes");
             else if (mode === "clean") {
-              advance("encode");
               const oldSha = sha(await readFile(clean));
               const encodeAt = media.started;
               await f.host.run(tools.ffmpegPath, [
@@ -1124,12 +1104,13 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
                 join(own, mode === "picker" ? "audio-picker.mjs" : "audio-picker-synonyms.mjs"),
                 "export const changed=true;",
               );
+            phase.enter("after-beforeCommit");
           };
-          advance("apply");
+          phase.enter("apply");
           inApply = true;
           const result = await f.library.applyBundledFilmShotAudio(request);
           inApply = false;
-          advance("done");
+          phase.enter("assert");
           expect(called).toBe(true);
           expect(result.kind).toBe("FAILED");
           expect(result).toMatchObject({ unchanged: true });
@@ -1143,8 +1124,9 @@ it.each(["project", "take", "source", "clean", "library", "picker", "synonyms"] 
             expect(media.closed).toBe(media.started);
           }
           expect(await digestTree(bundle)).toBe(sharedDigest);
+          phase.enter("done");
         } finally {
-          if (observer) clearTimeout(observer);
+          phase.close();
         }
       })(),
     );
