@@ -248,6 +248,53 @@ it("keeps picker unavailable, later stops the next aspect and retains only the a
   });
 }, 30000);
 
+it("accepts a cancel that arrives on a later turn after the first aspect is published", async () => {
+  const f = await fixture(),
+    before = digest(await readFile(f.source));
+  const ready = (await f.handlers.get("film:qc-prepare")!(
+    f.event,
+    f.input,
+    "prepare-op",
+  )) as FilmExportQcPrepared;
+  expect(ready.kind).toBe("READY");
+  let stop: Promise<unknown> | undefined;
+  f.onEvent((snapshot) => {
+    if (
+      snapshot.operationId === "publish-op" &&
+      snapshot.published.length === 1 &&
+      snapshot.cancelState === "available" &&
+      !stop
+    )
+      stop = new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(f.handlers.get("film:qc-cancel")!(f.event, "publish-op"));
+        }, 0);
+      });
+  });
+  const request = { ...f.input, qcReceipt: ready.qcReceipt };
+  const result = (await f.handlers.get("film:qc-publish")!(
+    f.event,
+    request,
+    "publish-op",
+  )) as FilmExportQcPublishResult;
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error("partial required");
+  expect(result.outputs).toHaveLength(1);
+  expect(result.outputs[0]!.aspectRatio).toBe("16:9");
+  expect((await readdir(f.output)).filter((name) => name.includes("9x16"))).toEqual([]);
+  expect(await stop).toMatchObject({ kind: "REQUESTED" });
+  expect(f.events.at(-1)).toMatchObject({
+    phase: "partial",
+    cancelState: "stopped",
+    published: [{ aspectRatio: "16:9" }],
+  });
+  expect(digest(await readFile(f.source))).toBe(before);
+  expect(await f.handlers.get("film:qc-publish")!(f.event, request, "replay-op")).toEqual({
+    kind: "FAILED",
+    code: "RECEIPT_STALE",
+  });
+}, 30000);
+
 it("returns the actual written evidence through authorized export IPC after managed work settles", async () => {
   const f = await fixture(),
     original = digest(await readFile(f.source));

@@ -14,6 +14,11 @@ export type FilmExportQcInput = {
   projectId: string;
   expectedSelection: { shotId: string; takeId: string }[];
   settings: FilmExportQcSettings;
+  /**
+   * Optional edited export name. Absent keeps 系列名-集名.
+   * The main process stores `safeExportName` of this string, and echoes that cleaned name.
+   */
+  requestedFileName?: string;
 };
 export type FilmExportQcFailure = {
   kind: "FAILED";
@@ -32,7 +37,11 @@ export type FilmExportQcFailure = {
     | "BUSY"
     | "OPERATION_STOPPED"
     | "MATERIALS_STALE"
-    | "AUDIO_DECISION_INVALID";
+    | "AUDIO_DECISION_INVALID"
+    | "UNSUPPORTED_AUDIO_CHANNELS"
+    | "EXPORT_NAME_INVALID"
+    | "EXPORT_NAME_TAKEN"
+    | "EXPORT_NAME_EXHAUSTED";
 };
 export type FilmExportQcPrepared = {
   kind: "READY";
@@ -43,11 +52,22 @@ export type FilmExportQcPrepared = {
   unverified: string[];
 };
 export type FilmExportQcPublishInput = FilmExportQcInput & { qcReceipt: string };
+/** Why one aspect of a two-aspect publish was kept and the other was not. */
+export type FilmExportIncompleteCode = "DISK_FULL" | "PUBLISH_FAILED";
+export type FilmExportIncomplete = {
+  aspectRatio: "16:9" | "9:16";
+  code: FilmExportIncompleteCode;
+};
 export type FilmExportQcPublishResult =
   | {
       kind: "PUBLISHED" | "PARTIAL";
       /** Absent means legacy did not provide evidence; never synthesize it in renderer. */
       deliveryEvidence?: FilmDeliveryEvidenceResult;
+      /**
+       * Set when a later aspect failed to write and the earlier aspect was kept.
+       * Absent on a user stop and on a fully published result.
+       */
+      incomplete?: FilmExportIncomplete;
       outputs: {
         aspectRatio: "16:9" | "9:16";
         path: string;

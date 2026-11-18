@@ -15,6 +15,7 @@ import { muxSilentAac } from "./film-silent-export";
 import type { ExportWork } from "./film-export-operation";
 import { exportFileHash, copyExportFile } from "./film-export-io";
 import type {
+  FilmExportIncompleteCode,
   FilmExportQcInput,
   FilmExportQcPrepared,
   FilmExportQcFailure,
@@ -22,7 +23,7 @@ import type {
 } from "@aijian/contracts/film-export-qc";
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, link, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, link, rm, stat, readdir } from "node:fs/promises";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -30,7 +31,7 @@ import {
   joinClips,
   mediaUrlPath,
   readProject,
-  safeExportName,
+  resolveExportFileName,
   trustedMediaPath,
   type FilmRecord,
 } from "./film-library";
@@ -38,6 +39,96 @@ import { exportFilmFile, type FilmExportExtras } from "./film-export";
 import { subtitleSrt, exportCanvas, validCues, type ExportCue } from "./film-subtitles";
 import type { QcEngine, QcTools, QcRunner } from "./film-export-qc-runtime";
 const execute = promisify(execFile);
+
+/**
+ * Compile-time switch, not a runtime setting. Default names number themselves.
+ * Edited names pass "error" at the call site and do not read this constant.
+ */
+const defaultNameCollision = "suffix" as const;
+/** Base name is 1. The next free set is -2, then -3, and stops here. */
+const EXPORT_NAME_SUFFIX_LIMIT = 99;
+
+type PlannedExport = {
+  aspectRatio: "16:9" | "9:16";
+  extras: FilmExportExtras;
+  stem: string;
+};
+
+function numberedBase(fileName: string, index: number): string {
+  const base = fileName.replace(/\.mp4$/i, "");
+  return index <= 1 ? base : `${base}-${index}`;
+}
+
+/** One sequence number covers every aspect. mp4, subtitles and cover move together. */
+function planExportNames(
+  fileName: string,
+  outputs: { aspectRatio: "16:9" | "9:16"; extras: FilmExportExtras }[],
+  index: number,
+): PlannedExport[] {
+  const multiple = outputs.length > 1;
+  const base = numberedBase(fileName, index);
+  return outputs.map((output) => ({
+    aspectRatio: output.aspectRatio,
+    extras: output.extras,
+    stem: multiple ? `${base}-${output.aspectRatio.replace(":", "x")}` : base,
+  }));
+}
+
+function plannedFileNames(plan: PlannedExport[]): string[] {
+  const names: string[] = [];
+  for (const item of plan) {
+    names.push(`${item.stem}.mp4`);
+    if (item.extras.subtitlePath) names.push(`${item.stem}.srt`);
+    if (item.extras.coverPath) names.push(`${item.stem}-封面.png`);
+  }
+  return names;
+}
+
+/** Case-insensitive, so Windows does not treat `Film.mp4` and `film.mp4` as different files. */
+async function directoryNames(directory: string): Promise<Set<string>> {
+  return new Set((await readdir(directory)).map((name) => name.toLowerCase()));
+}
+
+function namesCollide(present: Set<string>, names: string[]): boolean {
+  return names.some((name) => present.has(name.toLowerCase()));
+}
+
+function nextFreeExportPlan(
+  fileName: string,
+  outputs: { aspectRatio: "16:9" | "9:16"; extras: FilmExportExtras }[],
+  present: Set<string>,
+  mode: "error" | "suffix",
+  start = 1,
+): { plan: PlannedExport[]; index: number } {
+  const last = mode === "suffix" ? EXPORT_NAME_SUFFIX_LIMIT : 1;
+  for (let index = start; index <= last; index += 1) {
+    const plan = planExportNames(fileName, outputs, index);
+    if (!namesCollide(present, plannedFileNames(plan))) return { plan, index };
+  }
+  fail(mode === "suffix" ? "EXPORT_NAME_EXHAUSTED" : "EXPORT_NAME_TAKEN");
+}
+
+function exportNameTaken(error: unknown): boolean {
+  return (
+    (error instanceof Error && error.message === "EXPORT_NAME_TAKEN") ||
+    (error as NodeJS.ErrnoException).code === "EEXIST"
+  );
+}
+function incompleteCode(error: unknown): FilmExportIncompleteCode {
+  return (error as NodeJS.ErrnoException).code === "ENOSPC" ? "DISK_FULL" : "PUBLISH_FAILED";
+}
+function keptAspect(aspectRatio: "16:9" | "9:16", code: FilmExportIncompleteCode): never {
+  throw Object.assign(new Error("KEPT_ASPECT"), { aspectRatio, incompleteCode: code });
+}
+
+async function linkNewFile(from: string, to: string): Promise<void> {
+  try {
+    await link(from, to);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") fail("EXPORT_NAME_TAKEN");
+    throw error;
+  }
+}
 type Row = Record<string, unknown>;
 const object = (value: unknown): Row | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Row) : null;
@@ -63,6 +154,10 @@ const failure = (error: unknown): FilmExportQcFailure => {
       "BUSY",
       "MATERIALS_STALE",
       "AUDIO_DECISION_INVALID",
+      "UNSUPPORTED_AUDIO_CHANNELS",
+      "EXPORT_NAME_INVALID",
+      "EXPORT_NAME_TAKEN",
+      "EXPORT_NAME_EXHAUSTED",
     ].includes(code)
       ? (code as FilmExportQcFailure["code"])
       : "CHECK_FAILED",
@@ -74,7 +169,10 @@ export function qcInput(value: unknown): FilmExportQcInput {
   if (
     !input ||
     Object.keys(input).some(
-      (key) => !["projectId", "expectedSelection", "settings", "qcReceipt"].includes(key),
+      (key) =>
+        !["projectId", "expectedSelection", "settings", "qcReceipt", "requestedFileName"].includes(
+          key,
+        ),
     ) ||
     !/^film_[a-z0-9]{16,40}$/.test(text(input.projectId)) ||
     !Array.isArray(input.expectedSelection) ||
@@ -86,7 +184,8 @@ export function qcInput(value: unknown): FilmExportQcInput {
         !["aiMark", "aspects", "quality", "style", "subtitles", "autoAdjustVolume"].includes(key),
     ) ||
     ["aiMark", "aspects", "quality", "style", "subtitles"].some((key) => !(key in settings)) ||
-    (settings.autoAdjustVolume !== undefined && typeof settings.autoAdjustVolume !== "boolean")
+    (settings.autoAdjustVolume !== undefined && typeof settings.autoAdjustVolume !== "boolean") ||
+    (input.requestedFileName !== undefined && typeof input.requestedFileName !== "string")
   )
     fail("INVALID_INPUT");
   if (
@@ -121,6 +220,9 @@ export function qcInput(value: unknown): FilmExportQcInput {
       projectId: input.projectId,
       expectedSelection: input.expectedSelection,
       settings,
+      ...(typeof input.requestedFileName === "string"
+        ? { requestedFileName: input.requestedFileName }
+        : {}),
     }),
   );
 }
@@ -378,6 +480,47 @@ export function createFilmExportQc(host: FilmQcHost) {
     receipts.delete(token);
     if (old) await rm(old.folder, { recursive: true, force: true });
   }
+  /** Record identity only. Hashing and ffprobe stay after the folder is chosen. */
+  async function selectionCurrent(
+    input: FilmExportQcInput,
+    owner: string,
+    generation: number,
+    work?: ExportWork,
+  ) {
+    work?.signal.throwIfAborted();
+    if ((ownerEpochs.get(owner) ?? 0) !== generation) fail("PROJECT_CHANGED");
+    const record = await read(input.projectId);
+    if (
+      !record ||
+      record.id !== input.projectId ||
+      !Array.isArray(record.shots) ||
+      record.shots.length !== input.expectedSelection.length
+    )
+      fail("PROJECT_CHANGED");
+    if (
+      (input.settings.autoAdjustVolume ?? false) !==
+      audioMixSettings(record.audioMix).autoAdjustVolume
+    )
+      fail("PROJECT_CHANGED");
+    for (const [index, unknownShot] of record.shots.entries()) {
+      const shot = object(unknownShot),
+        expected = input.expectedSelection[index];
+      if (
+        !shot ||
+        !expected ||
+        shot.id !== expected.shotId ||
+        (text(shot.selectedTakeId) ||
+          (Array.isArray(shot.takes)
+            ? text(
+                shot.takes
+                  .map(object)
+                  .find((take) => take?.status === "done" && text(take.videoPath))?.id,
+              )
+            : "")) !== expected.takeId
+      )
+        fail("PROJECT_CHANGED");
+    }
+  }
   async function current(
     input: FilmExportQcInput,
     fingerprint: string,
@@ -423,6 +566,10 @@ export function createFilmExportQc(host: FilmQcHost) {
         const base = await snapshot(input, work);
         const audioDecision = base.audioDecision;
         if (exportBlockedByStaleMaterial(base.mix.plan.limitations)) fail("MATERIALS_STALE");
+        const fileName = resolveExportFileName(
+          input.requestedFileName,
+          `${text(base.record.seriesTitle) || text(base.record.title)}-${text(base.record.episodeTitle) || "成片"}`,
+        );
         const tools = await host.tools(work?.signal).catch(() => fail("TOOLS_UNAVAILABLE"));
         const engine = await host.engine();
         await current(input, base.fingerprint, owner, ownerGeneration, work);
@@ -653,9 +800,6 @@ export function createFilmExportQc(host: FilmQcHost) {
         }
         await current(input, base.fingerprint, owner, ownerGeneration, work);
         if (epochs.get(input.projectId) !== epoch) fail("PROJECT_CHANGED");
-        const fileName = safeExportName(
-          `${text(base.record.seriesTitle) || text(base.record.title)}-${text(base.record.episodeTitle) || "成片"}`,
-        );
         const unverified: string[] = [
           ...(audioDecision === "SILENT_BY_USER"
             ? ["用户选择本片静音。成片写入一条与视频时长一致的静音 AAC 音轨，不表示内容有声。"]
@@ -777,7 +921,7 @@ export function createFilmExportQc(host: FilmQcHost) {
         publishing.add(token);
         publishKey = token;
         if (prepared.blocked) fail("QC_BLOCKED");
-        await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+        await selectionCurrent(input, owner, prepared.ownerGeneration, work);
         work?.phase("publishing");
         work?.cancellable(false);
         const directory = await host.pickDirectory();
@@ -786,75 +930,162 @@ export function createFilmExportQc(host: FilmQcHost) {
         if (!directory) return { kind: "CANCELLED" };
         await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
         if (receipts.get(token) !== prepared) fail("RECEIPT_STALE");
-        receipts.delete(token);
-        consumed = true;
-        cleanupFolder = prepared.folder;
         const target = await realpath(directory);
         evidenceDirectory = target;
         if (!(await stat(target)).isDirectory()) fail("PUBLISH_FAILED");
-        // Receipt identity makes each output name unique; existing originals are never overwritten.
         for (const output of prepared.outputs) {
           if ((await sha(output.path, work)) !== output.hash) fail("RECEIPT_STALE");
           for (const [path, hash] of Object.entries(output.extraHashes))
             if ((await sha(path, work)) !== hash) fail("RECEIPT_STALE");
-          work?.phase("publishing", {
-            kind: "units",
-            completed: outputs.length,
-            total: prepared.outputs.length,
-            unit: "画幅",
-          });
-          await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
-          const stem = `${prepared.fileName.replace(/\.mp4$/i, "")}-${token.slice(0, 8)}-${output.aspectRatio.replace(":", "x")}`;
-          const destination = join(target, `${stem}.mp4`);
-          const temporary = await mkdtemp(join(target, ".aivora-qc-"));
-          try {
-            const pending = join(temporary, "film.mp4");
-            await copy(output.path, pending, work);
-            if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
-            const sidecars: {
-              kind: "subtitlePath" | "coverPath";
-              pending: string;
-              destination: string;
-            }[] = [];
-            for (const [kind, path] of Object.entries(output.extras)) {
-              if (!path) continue;
-              const destination = join(
-                target,
-                kind === "subtitlePath" ? `${stem}.srt` : `${stem}-封面.png`,
-              );
-              const pending = join(temporary, kind === "subtitlePath" ? "film.srt" : "cover.png");
-              await copy(path, pending, work);
-              if ((await sha(pending, work)) !== output.extraHashes[path]) fail("PUBLISH_FAILED");
-              sidecars.push({ kind: kind as "subtitlePath" | "coverPath", pending, destination });
-            }
-            await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
-            work?.signal.throwIfAborted();
-            work?.cancellable(false);
-            await link(pending, destination);
-            host.publishedPaths?.add(realpathSync(destination));
-            const saved: {
-              aspectRatio: "16:9" | "9:16";
-              path: string;
-              subtitlePath?: string;
-              coverPath?: string;
-            } = { aspectRatio: output.aspectRatio, path: destination };
-            outputs.push(saved);
-            work?.published(output.aspectRatio);
-            for (const side of sidecars) {
-              await link(side.pending, side.destination);
-              saved[side.kind] = side.destination;
-            }
-            work?.phase("publishing", {
-              kind: "units",
-              completed: outputs.length,
-              total: prepared.outputs.length,
-              unit: "画幅",
-            });
-            if (outputs.length < prepared.outputs.length) work?.cancellable(true);
-          } finally {
-            await rm(temporary, { recursive: true, force: true });
-          }
         }
+        // Names are chosen before the receipt is spent. A collision keeps the render.
+        const mode =
+          prepared.input.requestedFileName === undefined ? defaultNameCollision : "error";
+        let index = 1;
+        const temporaries: string[] = [];
+        const staged = new Map<
+          "16:9" | "9:16",
+          {
+            pending: string;
+            sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[];
+          }
+        >();
+        const told = new Set<"16:9" | "9:16">();
+        // Copy an aspect the first time it is reached, while cancel stays available.
+        // A later default-name race reuses that copy and only retries the link.
+        try {
+          while (outputs.length < prepared.outputs.length) {
+            const present = await directoryNames(target);
+            const { plan, index: chosen } = nextFreeExportPlan(
+              prepared.fileName,
+              prepared.outputs,
+              present,
+              mode,
+              index,
+            );
+            index = chosen;
+            const linked: string[] = [];
+            const announced: string[] = [];
+            const notified: ("16:9" | "9:16")[] = [];
+            const kept = new Set<string>();
+            let activeAspect: "16:9" | "9:16" = plan[0]?.aspectRatio ?? "16:9";
+            try {
+              for (const item of plan) {
+                activeAspect = item.aspectRatio;
+                const output = prepared.outputs.find(
+                  (row) => row.aspectRatio === item.aspectRatio,
+                )!;
+                work?.phase("publishing", {
+                  kind: "units",
+                  completed: outputs.length,
+                  total: prepared.outputs.length,
+                  unit: "画幅",
+                });
+                let stage = staged.get(item.aspectRatio);
+                if (!stage) {
+                  await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+                  const temporary = await mkdtemp(join(target, ".aivora-qc-"));
+                  temporaries.push(temporary);
+                  const pending = join(temporary, "film.mp4");
+                  await copy(output.path, pending, work);
+                  if ((await sha(pending, work)) !== output.hash) fail("PUBLISH_FAILED");
+                  const sidecars: { kind: "subtitlePath" | "coverPath"; pending: string }[] = [];
+                  for (const [kind, path] of Object.entries(output.extras)) {
+                    if (!path) continue;
+                    const sidePending = join(
+                      temporary,
+                      kind === "subtitlePath" ? "film.srt" : "cover.png",
+                    );
+                    await copy(path, sidePending, work);
+                    if ((await sha(sidePending, work)) !== output.extraHashes[path])
+                      fail("PUBLISH_FAILED");
+                    sidecars.push({
+                      kind: kind as "subtitlePath" | "coverPath",
+                      pending: sidePending,
+                    });
+                  }
+                  stage = { pending, sidecars };
+                  staged.set(item.aspectRatio, stage);
+                  await current(input, prepared.fingerprint, owner, prepared.ownerGeneration, work);
+                }
+                work?.signal.throwIfAborted();
+                work?.cancellable(false);
+                const destination = join(target, `${item.stem}.mp4`);
+                await linkNewFile(stage.pending, destination);
+                linked.push(destination);
+                const saved: {
+                  aspectRatio: "16:9" | "9:16";
+                  path: string;
+                  subtitlePath?: string;
+                  coverPath?: string;
+                } = { aspectRatio: item.aspectRatio, path: destination };
+                for (const side of stage.sidecars) {
+                  const sideDestination = join(
+                    target,
+                    side.kind === "subtitlePath" ? `${item.stem}.srt` : `${item.stem}-封面.png`,
+                  );
+                  await linkNewFile(side.pending, sideDestination);
+                  linked.push(sideDestination);
+                  saved[side.kind] = sideDestination;
+                }
+                outputs.push(saved);
+                const canonical = realpathSync(saved.path);
+                host.publishedPaths?.add(canonical);
+                announced.push(canonical);
+                for (const path of [saved.path, saved.subtitlePath, saved.coverPath])
+                  if (path) kept.add(path);
+                if (!told.has(saved.aspectRatio)) {
+                  told.add(saved.aspectRatio);
+                  notified.push(saved.aspectRatio);
+                  work?.published(saved.aspectRatio);
+                }
+                work?.phase("publishing", {
+                  kind: "units",
+                  completed: outputs.length,
+                  total: prepared.outputs.length,
+                  unit: "画幅",
+                });
+                if (outputs.length < prepared.outputs.length) work?.cancellable(true);
+              }
+            } catch (error) {
+              // A user stop keeps the aspects already linked.
+              if (work?.signal.aborted) throw error;
+              const nameTaken = exportNameTaken(error);
+              // A name clash, including one that appears after the first aspect, rolls the set back.
+              if (nameTaken || outputs.length === 0) {
+                for (const aspect of notified) {
+                  told.delete(aspect);
+                  work?.retract(aspect);
+                }
+                for (const path of announced) host.publishedPaths?.delete(path);
+                try {
+                  for (const path of linked) await rm(path, { force: true });
+                } catch {
+                  /* A failed delete must not replace the original publish error. */
+                }
+                outputs.length = 0;
+                if (nameTaken && mode === "suffix") {
+                  index += 1;
+                  if (index > EXPORT_NAME_SUFFIX_LIMIT) fail("EXPORT_NAME_EXHAUSTED");
+                  continue;
+                }
+                throw error;
+              }
+              try {
+                for (const path of linked) if (!kept.has(path)) await rm(path, { force: true });
+              } catch {
+                /* A failed delete must not replace the original publish error. */
+              }
+              keptAspect(activeAspect, incompleteCode(error));
+            }
+          }
+        } finally {
+          for (const temporary of temporaries)
+            await rm(temporary, { recursive: true, force: true });
+        }
+        receipts.delete(token);
+        consumed = true;
+        cleanupFolder = prepared.folder;
         const delivered = await evidence(true);
         await rm(prepared.folder, { recursive: true, force: true });
         return {
@@ -864,6 +1095,22 @@ export function createFilmExportQc(host: FilmQcHost) {
           deliveryEvidence: delivered,
         };
       } catch (error) {
+        if (error instanceof Error && error.message === "KEPT_ASPECT") {
+          const detail = error as Error & {
+            aspectRatio: "16:9" | "9:16";
+            incompleteCode: FilmExportIncompleteCode;
+          };
+          receipts.delete(token);
+          consumed = true;
+          cleanupFolder = preparedForEvidence?.folder ?? "";
+          return {
+            kind: "PARTIAL",
+            outputs,
+            incomplete: { aspectRatio: detail.aspectRatio, code: detail.incompleteCode },
+            deliveryEvidence: await evidence(false),
+          };
+        }
+        if (exportNameTaken(error)) return { kind: "FAILED", code: "EXPORT_NAME_TAKEN" };
         const failed = work?.signal.aborted
           ? { kind: "FAILED" as const, code: "OPERATION_STOPPED" as const }
           : failure(error);

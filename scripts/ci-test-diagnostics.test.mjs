@@ -830,30 +830,59 @@ test("rejects private strings, unknown shape, nonfinite and unbounded library-wr
     assert.equal(libraryWritePhaseSummary(row), null);
 });
 
-test("accepts only closed source and clean mutation phases", () => {
+test("accepts only closed late-mutation phases and keeps unsampled steps explicit", () => {
+  const boundary = {
+    fixture: "reached",
+    suggest: "reached",
+    linkBundle: "reached",
+    apply: "in-progress",
+    beforeCommit: "not-reached",
+    "after-beforeCommit": "not-reached",
+    assert: "not-reached",
+    done: "not-reached",
+  };
   const valid = {
     v: 1,
-    mode: "clean",
-    stage: "encode",
+    mode: "synonyms",
+    stage: "apply",
+    sample: "near-deadline",
     elapsedMs: 4900,
-    completed: [{ stage: "commit", elapsedMs: 20 }],
-    open: 1,
-    closed: 4,
-    failed: 0,
-    last: "ffmpeg",
+    monoMs: 120000,
+    boundary,
+    notSampled: ["recompile", "load", "hash", "cas", "cleanup"],
+    completed: [{ stage: "fixture", elapsedMs: 800 }],
+    probes: "not-sampled",
     heapMb: 70,
     freeMb: 800,
   };
   assert.match(
     libraryMutationPhaseSummary("CI_LIBRARY_MUTATION_PHASE " + JSON.stringify(valid)),
-    /variant=clean; stage=encode; elapsed=4900ms; completed=commit:20ms; open=1; closed=4; failed=0; last=ffmpeg/,
+    /variant=synonyms; sample=near-deadline; stage=apply; elapsed=4900ms;.*notSampled=recompile\|load\|hash\|cas\|cleanup;.*probes=not-sampled/,
   );
-  assert.equal(
-    libraryMutationPhaseSummary(
-      "CI_LIBRARY_MUTATION_PHASE " + JSON.stringify({ ...valid, mode: "before", path: "PRIVATE" }),
-    ),
-    null,
+  const clean = {
+    ...valid,
+    mode: "clean",
+    boundary: { ...boundary, linkBundle: "not-applicable" },
+    probes: { open: 1, closed: 4, failed: 0, last: "ffmpeg" },
+  };
+  assert.match(
+    libraryMutationPhaseSummary("CI_LIBRARY_MUTATION_PHASE " + JSON.stringify(clean)),
+    /variant=clean;.*open=1; closed=4; failed=0; last=ffmpeg/,
   );
+  for (const row of [
+    { ...valid, path: "PRIVATE" },
+    { ...valid, mode: "before" },
+    { ...valid, stage: "encode" },
+    { ...valid, sample: "live" },
+    { ...valid, notSampled: ["hash"] },
+    { ...valid, monoMs: 3600001 },
+    { ...valid, boundary: { ...boundary, linkBundle: "not-applicable" } },
+    { ...clean, boundary },
+  ])
+    assert.equal(
+      libraryMutationPhaseSummary("CI_LIBRARY_MUTATION_PHASE " + JSON.stringify(row)),
+      null,
+    );
 });
 
 test("accepts only closed export-ownership phases and drops paths", () => {

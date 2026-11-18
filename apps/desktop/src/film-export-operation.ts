@@ -10,6 +10,8 @@ export type ExportWork = {
   phase: (phase: FilmExportPhase, progress?: FilmExportProgressMeasure) => void;
   cancellable: (value: boolean) => void;
   published: (aspectRatio: "16:9" | "9:16") => void;
+  /** Drop one announced aspect after its files were removed. */
+  retract: (aspectRatio: "16:9" | "9:16") => void;
   track: <T>(work: Promise<T>) => Promise<T>;
   /** Main-only: a stopped process is not cleanly stopped if private cleanup failed. */
   cleanupUnconfirmed?: () => void;
@@ -86,6 +88,12 @@ export function createExportOperations(
             aspectRatio,
             label: aspectRatio === "16:9" ? "横屏成片" : "竖屏成片",
           });
+          emit(entry);
+        },
+        retract: (aspectRatio) => {
+          entry.view.published = entry.view.published.filter(
+            (item) => item.aspectRatio !== aspectRatio,
+          );
           emit(entry);
         },
         cleanupUnconfirmed: () => {

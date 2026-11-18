@@ -107,12 +107,22 @@ async function open(state) {
     raw: (id) => window.__proCreationAudit.record(id ?? seed.projectId),
   };
 }
+async function recordDecision(dialog, name, { attest = false } = {}) {
+  const radio = () => within(dialog).getByRole("radio", { name });
+  await waitFor(() => assert.equal(radio().disabled, false));
+  fireEvent.click(radio());
+  if (attest)
+    fireEvent.click(
+      within(dialog).getByRole("checkbox", { name: "我已人工核对本次素材，接受决定由我作出" }),
+    );
+  const save = within(dialog).getByRole("button", { name: "保存本次人工决定" });
+  await waitFor(() => assert.equal(save.disabled, false));
+  fireEvent.click(save);
+}
 it("the default accepted fixture reaches the real checkpoint and closes final main check with one record and no provider", async () => {
   const f = await open("trial-accepted-checkpoint");
   assert.equal(f.audit.records.length, 0);
-  fireEvent.click(within(f.dialog).getByRole("radio", { name: "接受这个实际版本" }));
-  fireEvent.click(within(f.dialog).getByRole("checkbox"));
-  fireEvent.click(within(f.dialog).getByRole("button", { name: "保存本次人工决定" }));
+  await recordDecision(f.dialog, "接受这个实际版本", { attest: true });
   await within(f.dialog).findByText("人工决定已记录：接受。");
   assert.equal(f.audit.records.length, 1);
   assert.equal(f.audit.checks.length, 0);
@@ -137,8 +147,7 @@ it("the default needs-changes fixture preserves the untrimmed decision and compl
     before = f.raw(),
     note = "  人工原文🙂\n保留空白  ";
   fireEvent.change(within(f.dialog).getByRole("textbox"), { target: { value: note } });
-  fireEvent.click(within(f.dialog).getByRole("radio", { name: "这个实际版本需要修改" }));
-  fireEvent.click(within(f.dialog).getByRole("button", { name: "保存本次人工决定" }));
+  await recordDecision(f.dialog, "这个实际版本需要修改");
   await within(f.dialog).findByText("人工决定已记录：需修改。");
   const saved = f.raw();
   assert.equal(saved.riskTrialDecisions.length, 1);
@@ -168,9 +177,7 @@ it("the default held media fixture can close and discard its late reply without 
 it("the default lost-ACK fixture keeps real Pro unknown until one explicit BUSY then settled global recovery", async () => {
   const f = await open("trial-unknown-global"),
     before = f.raw();
-  fireEvent.click(within(f.dialog).getByRole("radio", { name: "接受这个实际版本" }));
-  fireEvent.click(within(f.dialog).getByRole("checkbox"));
-  fireEvent.click(within(f.dialog).getByRole("button", { name: "保存本次人工决定" }));
+  await recordDecision(f.dialog, "接受这个实际版本", { attest: true });
   // First observe the real queue's unknown-write accounting after the lost native ACK.
   await waitFor(() =>
     assert.equal(queues.at(-1).externalWriteState(f.seed.projectId)?.status, "unknown"),

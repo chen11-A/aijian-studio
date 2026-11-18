@@ -223,6 +223,17 @@ describe("ExportProgress", () => {
     expect(onRequestCancel).toHaveBeenCalledTimes(1);
   });
 
+  it("hides the published list after the host retracts every aspect", () => {
+    const { rerender } = show({
+      phase: "publishing",
+      published: [{ aspectRatio: "16:9", label: "横屏成片" }],
+    });
+    expect(screen.getByRole("region", { name: "已发布文件" })).toHaveTextContent("横屏 16:9");
+    rerender(<ExportProgress {...base} phase="failed" cancelState="unavailable" published={[]} />);
+    expect(screen.queryByRole("region", { name: "已发布文件" })).toBeNull();
+    expect(screen.queryByText("这些部分已经发布，会保留在保存位置。")).toBeNull();
+  });
+
   it("only shows stopped when the host confirms it, keeping published results", () => {
     const published = [{ aspectRatio: "16:9" as const, label: "第一部分" }];
     const { rerender } = show({ cancelState: "requested", published });

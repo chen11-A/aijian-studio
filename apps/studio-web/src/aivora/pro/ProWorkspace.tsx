@@ -7,7 +7,7 @@ import { ExportSoundChoice, exportCheckBlocked } from "./ExportSoundChoice";
 import { FixedInputImportButton } from "./FixedInputImportButton";
 import { StillAcceptanceControls, guardBlockedVideo } from "./StillAcceptanceDialog";
 import { soundRowLabel, UNGENERATED_SOUND_LABEL } from "./sound-export-decision";
-import { exportFileIssue } from "./export-file-name";
+import { exportFileIssue, requestedExportFileName } from "./export-file-name";
 import { exportEntryBlock, firstLookBlock, lookBlock, LOOK_NOT_LOCKED } from "./look-lock";
 import { currentStillUrl, stillAccepted, videoGate } from "./still-acceptance";
 import { AudioLaneControls } from "./AudioLaneControls";
@@ -61,7 +61,7 @@ import type { FilmExportQcInput, FilmExportQcPrepared } from "@aijian/contracts/
 import { ExportCheck } from "../next/ExportCheck";
 import { useExportDelivery } from "./use-export-delivery";
 import { readQcReport, type QcIssue } from "../next/qcReport";
-import { filmQcInput, filmQcKey, qcFailureText } from "./actions/export-qc";
+import { filmQcInput, filmQcKey, partialAspectNotice, qcFailureText } from "./actions/export-qc";
 import { prepareShotSceneReferences } from "./actions/scene-references";
 import {
   prepareArtFieldReview,
@@ -4761,13 +4761,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const exportExecutionScope = useRef<ExportProgressScope | null>(null);
 
   const exportQcEpoch = useRef(0);
+  const requestedFileName = requestedExportFileName(exportNameDraft, exportNameDefault);
   const exportQcInput = film
-    ? filmQcInput(film, exportAspects, {
-        quality: exportQuality,
-        subtitles: exportSubs,
-        style: film.subtitleStyle ?? "white",
-        aiMark: prefs.aiMark,
-      })
+    ? filmQcInput(
+        film,
+        exportAspects,
+        {
+          quality: exportQuality,
+          subtitles: exportSubs,
+          style: film.subtitleStyle ?? "white",
+          aiMark: prefs.aiMark,
+        },
+        requestedFileName,
+      )
     : null;
   const exportQcKey = filmQcKey(film, exportQcInput);
   const exportQcCurrent = useRef({ key: exportQcKey, input: exportQcInput });
@@ -5063,11 +5069,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text: result.kind === "PARTIAL" ? NOTICE_TEXT.EXPORT_FAILED : NOTICE_TEXT.EXPORT_DONE,
         detail:
           result.kind === "PARTIAL"
-            ? result.deliveryEvidence?.cleanupUnconfirmed
-              ? result.deliveryEvidence.kind === "WRITTEN"
-                ? "交付清单已写入，暂存清理尚未确认。"
-                : "已有文件保留，交付清单与暂存清理尚未确认。"
-              : "部分交付尚未完成，已确认写出的文件保留，请核对下方记录。"
+            ? result.incomplete
+              ? partialAspectNotice(result.incomplete)
+              : result.deliveryEvidence?.cleanupUnconfirmed
+                ? result.deliveryEvidence.kind === "WRITTEN"
+                  ? "交付清单已写入，暂存清理尚未确认。"
+                  : "已有文件保留，交付清单与暂存清理尚未确认。"
+                : "部分交付尚未完成，已确认写出的文件保留，请核对下方记录。"
             : !recorded
               ? "文件已发布，工程中的导出记录尚未保存。"
               : undefined,
@@ -7648,7 +7656,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       onChange={(event) => setExportNameDraft(event.target.value)}
                     />
                     <p id="export-name-note" className="role-desc">
-                      当前写入名以检查结果为准。输入框里的修改还不会落盘。
+                      没改过名字时按系列和集名检查。改过的名字会用于这次检查和发布；检查后再改名字，需要重新检查。
                     </p>
                     <span className="role-desc">{exportNameDefault}</span>
                     {exportNameIssue ? (
@@ -7656,11 +7664,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         {exportNameIssue}
                       </p>
                     ) : null}
-                    {exportQc?.ready?.fileName ? (
-                      <p role="status">实际将写入：{exportQc.ready.fileName}</p>
+                    {exportQc?.ready?.fileName && !exportQcStale ? (
+                      <p role="status">
+                        实际将写入：{exportQc.ready.fileName}。发布时可能加上 -N 序号或画幅后缀。
+                      </p>
                     ) : null}
                     {exportDelivery.writtenName ? (
                       <p role="status">实际写入：{exportDelivery.writtenName}</p>
+                    ) : null}
+                    {exportDelivery.partialNotice ? (
+                      <p role="status">{exportDelivery.partialNotice}</p>
                     ) : null}
                   </div>
                   {canCropAspect && film ? (

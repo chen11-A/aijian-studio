@@ -23,15 +23,29 @@ async function videoStreamSeconds(
       "-select_streams",
       "v:0",
       "-show_entries",
-      "stream=duration",
+      "stream=duration:format=duration",
       "-of",
       "json",
       video,
     ],
     { signal, timeoutMs: 30000, maxBuffer: 65536 },
   );
-  const data = JSON.parse(stdout) as { streams?: { duration?: unknown }[] };
-  return seconds(Number(data.streams?.[0]?.duration));
+  const data = JSON.parse(stdout) as {
+    streams?: { duration?: unknown }[];
+    format?: { duration?: unknown };
+  };
+  return String(videoDurationFromProbe(data));
+}
+
+/** Prefer the video stream clock. Fall back to the container when the stream omits duration. */
+export function videoDurationFromProbe(data: {
+  streams?: { duration?: unknown }[];
+  format?: { duration?: unknown };
+}): number {
+  const stream = Number(data.streams?.[0]?.duration);
+  const container = Number(data.format?.duration);
+  const duration = Number.isFinite(stream) && stream > 0 ? stream : container;
+  return Number(seconds(duration));
 }
 
 /**

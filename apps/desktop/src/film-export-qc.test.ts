@@ -12,11 +12,12 @@ import {
   symlink,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, delimiter, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { existsSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createFilmExportQc, qcInput } from "./film-export-qc";
+import { createExportOperations } from "./film-export-operation";
 import { readStoredAudioDecision } from "./film-export-record";
 import { loadQcEngine, verifiedQcTools } from "./film-export-qc-runtime";
 import type { FilmExportQcInput } from "@aijian/contracts/film-export-qc";
@@ -24,14 +25,43 @@ import type { FilmRecord } from "./film-library";
 const evidenceFault = vi.hoisted(() => ({
   mode: "none" as "none" | "collision" | "changed" | "cleanup",
 }));
+const linkFault = vi.hoisted(() => ({ eexist: 0, eexistIncludes: "", eaccesIncludes: "" }));
+const copyFault = vi.hoisted(() => ({ enospcSource: "" }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown> & { rm: typeof rm }>();
+  const linkFile = actual.link as (from: string, to: string) => Promise<void>;
   return {
     ...actual,
     rm: async (...args: Parameters<typeof rm>) => {
       if (evidenceFault.mode === "cleanup" && String(args[0]).includes(".aivora-delivery-"))
         throw new Error("controlled cleanup denial");
       return actual.rm(...args);
+    },
+    link: async (from: string, to: string) => {
+      const target = String(to);
+      if (
+        linkFault.eexist > 0 &&
+        (!linkFault.eexistIncludes || target.includes(linkFault.eexistIncludes))
+      ) {
+        linkFault.eexist -= 1;
+        throw Object.assign(new Error("EEXIST"), { code: "EEXIST" });
+      }
+      if (linkFault.eaccesIncludes && target.includes(linkFault.eaccesIncludes))
+        throw Object.assign(new Error("EACCES"), { code: "EACCES" });
+      return linkFile(from, to);
+    },
+  };
+});
+vi.mock("./film-export-io", async (importOriginal) => {
+  const actual = await importOriginal<{
+    copyExportFile: (source: string, destination: string, signal?: AbortSignal) => Promise<void>;
+  }>();
+  return {
+    ...actual,
+    copyExportFile: async (source: string, destination: string, signal?: AbortSignal) => {
+      if (copyFault.enospcSource && source.includes(copyFault.enospcSource))
+        throw Object.assign(new Error("ENOSPC"), { code: "ENOSPC" });
+      return actual.copyExportFile(source, destination, signal);
     },
   };
 });
@@ -129,11 +159,13 @@ async function fixture(loud = false) {
     ],
   };
   const picker = vi.fn(async () => output),
-    tools = vi.fn(() => verifiedQcTools(dirname(ffmpeg), lock));
+    tools = vi.fn(() => verifiedQcTools(dirname(ffmpeg), lock)),
+    publishedPaths = new Set<string>();
   const host = {
     filmsRoot: films,
     storyFilmsRoot: story,
     temporaryRoot: join(root, "staging"),
+    publishedPaths,
     read: async () => record,
     tools,
     engine: () => loadQcEngine(resolve("../../packages/aivora-qc")),
@@ -149,6 +181,7 @@ async function fixture(loud = false) {
     tools,
     qc,
     host,
+    publishedPaths,
     record: () => record,
     setRecord: (next: FilmRecord) => {
       record = next;
@@ -157,6 +190,10 @@ async function fixture(loud = false) {
 }
 afterEach(async () => {
   evidenceFault.mode = "none";
+  linkFault.eexist = 0;
+  linkFault.eexistIncludes = "";
+  linkFault.eaccesIncludes = "";
+  copyFault.enospcSource = "";
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 describe("trusted checked export", () => {
@@ -443,25 +480,22 @@ describe("checked publication ownership and lifecycle", () => {
       };
       const ready = await f.qc.prepare("owner", request);
       if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
-      const stem = `${ready.fileName.replace(/\.mp4$/i, "")}-${ready.qcReceipt.slice(0, 8)}-16x9`;
+      const stem = ready.fileName.replace(/\.mp4$/i, "");
       const path = join(
         f.output,
         kind === "mp4" ? `${stem}.mp4` : kind === "srt" ? `${stem}.srt` : `${stem}-封面.png`,
       );
       await writeFile(path, "original user bytes");
       const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
-      expect(result.kind).toBe(kind === "mp4" ? "FAILED" : "PARTIAL");
+      expect(result.kind).toBe("PUBLISHED");
+      if (result.kind !== "PUBLISHED") throw new Error("numbered publish required");
       expect(await readFile(path, "utf8")).toBe("original user bytes");
-      if (result.kind === "PARTIAL") {
-        expect(result.outputs[0]).not.toHaveProperty(kind === "srt" ? "subtitlePath" : "coverPath");
-        expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
-        if (result.deliveryEvidence?.kind !== "WRITTEN")
-          throw new Error("partial evidence required");
-        expect(result.deliveryEvidence.manifest.status).toBe("partial");
-        expect(result.deliveryEvidence.manifest.files.map((file) => file.fileName)).not.toContain(
-          basename(path),
-        );
-      }
+      expect(basename(result.outputs[0]!.path)).toBe(`${stem}-2.mp4`);
+      expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
+      if (result.deliveryEvidence?.kind !== "WRITTEN") throw new Error("written evidence required");
+      expect(result.deliveryEvidence.manifest.files.map((file) => file.fileName)).not.toContain(
+        basename(path),
+      );
     },
     30000,
   );
@@ -695,13 +729,11 @@ it("replaces a source with more than two channels instead of rejecting the silen
   ]);
   f.setRecord({ ...f.record(), audioDecision: "WITH_AUDIO" });
   expect(
-    (
-      await f.qc.prepare("owner", {
-        ...input,
-        settings: { ...input.settings, aspects: ["16:9"] },
-      })
-    ).kind,
-  ).toBe("FAILED");
+    await f.qc.prepare("owner", {
+      ...input,
+      settings: { ...input.settings, aspects: ["16:9"] },
+    }),
+  ).toEqual({ kind: "FAILED", code: "UNSUPPORTED_AUDIO_CHANNELS" });
   f.setRecord({ ...f.record(), audioDecision: "SILENT_BY_USER" });
   const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
   const ready = await f.qc.prepare("owner", request);
@@ -801,3 +833,303 @@ it("blocks export of a stale clip and has no confirm-and-export field", async ()
     "INVALID_AUDIO_DECISION",
   );
 });
+
+it("echoes the cleaned requested file name on the check and the published path", async () => {
+  const f = await fixture();
+  const named = { ...input, requestedFileName: "雨夜:重逢?.mp4" };
+  const ready = await f.qc.prepare("owner", named);
+  expect(ready.kind).toBe("READY");
+  if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
+  expect(ready.fileName).toBe("雨夜重逢.mp4");
+  const published = await f.qc.publish("owner", { ...named, qcReceipt: ready.qcReceipt });
+  if (published.kind !== "PUBLISHED") throw new Error(JSON.stringify(published));
+  expect(published.outputs.map((output) => basename(output.path)).sort()).toEqual([
+    "雨夜重逢-16x9.mp4",
+    "雨夜重逢-9x16.mp4",
+  ]);
+  const again = await f.qc.prepare("owner", { ...input, requestedFileName: "???" });
+  expect(again).toEqual({ kind: "FAILED", code: "EXPORT_NAME_INVALID" });
+  const fallback = await f.qc.prepare("owner", {
+    ...input,
+    settings: { ...input.settings, aspects: ["16:9" as const] },
+  });
+  if (fallback.kind !== "READY") throw new Error("fallback required");
+  expect(fallback.fileName).toBe("离线QC-第一集.mp4");
+  expect(() => qcInput({ ...input, requestedFileName: 1 })).toThrow("INVALID_INPUT");
+}, 30000);
+
+it("numbers the second and third default export without touching the first file", async () => {
+  const f = await fixture();
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const publish = async () => {
+    const ready = await f.qc.prepare("owner", request);
+    if (ready.kind !== "READY") throw new Error("check required");
+    const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+    if (result.kind !== "PUBLISHED") throw new Error(JSON.stringify(result));
+    return result;
+  };
+  const first = await publish();
+  const original = await readFile(first.outputs[0]!.path);
+  const second = await publish();
+  const third = await publish();
+  expect(basename(first.outputs[0]!.path)).toBe("离线QC-第一集.mp4");
+  expect(basename(second.outputs[0]!.path)).toBe("离线QC-第一集-2.mp4");
+  expect(basename(third.outputs[0]!.path)).toBe("离线QC-第一集-3.mp4");
+  expect(await readFile(first.outputs[0]!.path)).toEqual(original);
+}, 30000);
+
+it("uses one sequence number for both aspects when the default name is taken", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const stem = ready.fileName.replace(/\.mp4$/i, "");
+  await writeFile(join(f.output, `${stem}-9x16.mp4`), "already there");
+  const published = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+  if (published.kind !== "PUBLISHED") throw new Error(JSON.stringify(published));
+  expect(published.outputs.map((output) => basename(output.path)).sort()).toEqual([
+    `${stem}-2-16x9.mp4`,
+    `${stem}-2-9x16.mp4`,
+  ]);
+  expect(await readFile(join(f.output, `${stem}-9x16.mp4`), "utf8")).toBe("already there");
+  expect((await readdir(f.output)).includes(`${stem}-16x9.mp4`)).toBe(false);
+}, 30000);
+
+it("treats a different-cased default name as taken and writes the next number", async () => {
+  const f = await fixture();
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  await writeFile(join(f.output, ready.fileName.toLowerCase()), "lower case original");
+  const published = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+  if (published.kind !== "PUBLISHED") throw new Error(JSON.stringify(published));
+  expect(basename(published.outputs[0]!.path)).toBe(
+    `${ready.fileName.replace(/\.mp4$/i, "")}-2.mp4`,
+  );
+  expect(await readFile(join(f.output, ready.fileName.toLowerCase()), "utf8")).toBe(
+    "lower case original",
+  );
+}, 30000);
+
+it("rejects an edited name that is already taken and keeps the receipt", async () => {
+  const f = await fixture();
+  const request = {
+    ...input,
+    requestedFileName: "成片终稿",
+    settings: { ...input.settings, aspects: ["16:9" as const] },
+  };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  expect(ready.fileName).toBe("成片终稿.mp4");
+  await writeFile(join(f.output, "成片终稿.mp4"), "keep me");
+  expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "EXPORT_NAME_TAKEN",
+  });
+  expect(await readFile(join(f.output, "成片终稿.mp4"), "utf8")).toBe("keep me");
+  const elsewhere = join(f.root, "elsewhere");
+  await mkdir(elsewhere);
+  f.picker.mockResolvedValue(elsewhere);
+  const moved = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(moved.kind).toBe("PUBLISHED");
+  if (moved.kind !== "PUBLISHED") throw new Error("republish required");
+  expect(basename(moved.outputs[0]!.path)).toBe("成片终稿.mp4");
+}, 30000);
+
+it.each(["srt", "cover"] as const)(
+  "rejects an edited name when only the %s is taken and keeps the receipt",
+  async (kind) => {
+    const f = await fixture();
+    const record = structuredClone(f.record());
+    const take = (
+      record.shots![0] as {
+        takes: {
+          cleanVideoPath?: string;
+          subtitleCues?: { text: string; start: number; end: number }[];
+        }[];
+      }
+    ).takes[0]!;
+    take.cleanVideoPath = f.source;
+    take.subtitleCues = [{ text: "字幕", start: 0, end: 0.3 }];
+    f.setRecord(record);
+    const request = {
+      ...input,
+      requestedFileName: "成片终稿",
+      settings: {
+        ...input.settings,
+        subtitles: "srt" as const,
+        aspects: ["16:9"] as ("16:9" | "9:16")[],
+      },
+    };
+    const ready = await f.qc.prepare("owner", request);
+    if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
+    const planted = join(f.output, kind === "srt" ? "成片终稿.srt" : "成片终稿-封面.png");
+    await writeFile(planted, "original user bytes");
+    expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+      kind: "FAILED",
+      code: "EXPORT_NAME_TAKEN",
+    });
+    expect(await readFile(planted, "utf8")).toBe("original user bytes");
+    expect((await readdir(f.output)).filter((name) => name.endsWith(".mp4"))).toEqual([]);
+    const elsewhere = join(f.root, "elsewhere");
+    await mkdir(elsewhere);
+    f.picker.mockResolvedValue(elsewhere);
+    const moved = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+    expect(moved.kind).toBe("PUBLISHED");
+    if (moved.kind !== "PUBLISHED") throw new Error("republish required");
+    expect(basename(moved.outputs[0]!.path)).toBe("成片终稿.mp4");
+  },
+  30000,
+);
+
+it("takes the next default-name number when linking races with EEXIST", async () => {
+  const f = await fixture();
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 1;
+  const published = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+  if (published.kind !== "PUBLISHED") throw new Error(JSON.stringify(published));
+  expect(basename(published.outputs[0]!.path)).toBe("离线QC-第一集-2.mp4");
+  expect((await readdir(f.output)).includes("离线QC-第一集.mp4")).toBe(false);
+}, 30000);
+
+it("stops with a clear error when every default-name number races", async () => {
+  const f = await fixture();
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 200;
+  expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "EXPORT_NAME_EXHAUSTED",
+  });
+  expect(await readdir(f.output)).toEqual([]);
+  linkFault.eexist = 0;
+  const published = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+}, 30000);
+
+it("keeps the first aspect when the second aspect link fails", async () => {
+  const f = await fixture();
+  const events: { published: { aspectRatio: string }[] }[] = [];
+  const operations = createExportOperations((_owner, event) => {
+    events.push(event);
+  });
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eaccesIncludes = "9x16";
+  const operation = operations.begin("owner", input.projectId, "second-link")!;
+  const result = await f.qc.publish(
+    "owner",
+    { ...input, qcReceipt: ready.qcReceipt },
+    operation.work,
+  );
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "PUBLISH_FAILED" });
+  expect(result.outputs.map((output) => output.aspectRatio)).toEqual(["16:9"]);
+  expect(result.deliveryEvidence?.kind).toBe("WRITTEN");
+  await operation.finish("partial");
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16") || name.startsWith(".aivora-qc-"))).toBe(false);
+  expect(names.some((name) => name.includes("16x9") && name.endsWith(".mp4"))).toBe(true);
+  expect([...f.publishedPaths].every((path) => path.includes("16x9"))).toBe(true);
+  expect(f.publishedPaths.size).toBe(1);
+  expect(events.some((event) => event.published.some((item) => item.aspectRatio === "16:9"))).toBe(
+    true,
+  );
+  expect(events.at(-1)?.published).toEqual([{ aspectRatio: "16:9", label: "横屏成片" }]);
+  expect(await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "RECEIPT_STALE",
+  });
+}, 30000);
+
+it("keeps the first aspect when copying the second aspect runs out of disk", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  copyFault.enospcSource = `${sep}9x16${sep}`;
+  const result = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "DISK_FULL" });
+  expect(result.outputs.map((output) => output.aspectRatio)).toEqual(["16:9"]);
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16") || name.startsWith(".aivora-qc-"))).toBe(false);
+  expect(names.filter((name) => name.endsWith(".mp4"))).toEqual([expect.stringContaining("16x9")]);
+}, 30000);
+
+it("deletes the second aspect video when its cover cannot be written", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eaccesIncludes = "9x16-封面";
+  const result = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "PUBLISH_FAILED" });
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16"))).toBe(false);
+  expect(names.some((name) => name.includes("16x9") && name.endsWith(".mp4"))).toBe(true);
+}, 30000);
+
+it("renumbers both aspects when the second aspect name is taken after the first is written", async () => {
+  const f = await fixture();
+  const ready = await f.qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 1;
+  linkFault.eexistIncludes = "-9x16.mp4";
+  const published = await f.qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(published.kind).toBe("PUBLISHED");
+  if (published.kind !== "PUBLISHED") throw new Error(JSON.stringify(published));
+  expect(published.outputs.map((output) => basename(output.path)).sort()).toEqual([
+    "离线QC-第一集-2-16x9.mp4",
+    "离线QC-第一集-2-9x16.mp4",
+  ]);
+  expect((await readdir(f.output)).some((name) => name === "离线QC-第一集-16x9.mp4")).toBe(false);
+}, 30000);
+
+it("rolls an edited name back when the second aspect is grabbed", async () => {
+  const f = await fixture();
+  const request = { ...input, requestedFileName: "成片终稿" };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 1;
+  linkFault.eexistIncludes = "-9x16.mp4";
+  expect(await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt })).toEqual({
+    kind: "FAILED",
+    code: "EXPORT_NAME_TAKEN",
+  });
+  expect((await readdir(f.output)).filter((name) => name.endsWith(".mp4"))).toEqual([]);
+  const elsewhere = join(f.root, "elsewhere");
+  await mkdir(elsewhere);
+  f.picker.mockResolvedValue(elsewhere);
+  linkFault.eexist = 0;
+  const moved = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(moved.kind).toBe("PUBLISHED");
+}, 30000);
+
+it("does not leave a published progress record when every default-name number races", async () => {
+  const f = await fixture();
+  const events: { published: { aspectRatio: string }[] }[] = [];
+  const operations = createExportOperations((_owner, event) => {
+    events.push(event);
+  });
+  const request = { ...input, settings: { ...input.settings, aspects: ["16:9" as const] } };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  linkFault.eexist = 200;
+  const operation = operations.begin("owner", input.projectId, "race-exhausted")!;
+  expect(
+    await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt }, operation.work),
+  ).toEqual({ kind: "FAILED", code: "EXPORT_NAME_EXHAUSTED" });
+  await operation.finish("failed");
+  expect(await readdir(f.output)).toEqual([]);
+  expect(f.publishedPaths.size).toBe(0);
+  expect(events.every((event) => event.published.length === 0)).toBe(true);
+  expect(events.at(-1)?.published).toEqual([]);
+}, 30000);
