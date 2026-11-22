@@ -3,6 +3,7 @@ import type {
   FilmGenerationExecutionGateway,
   FilmGenerationExtractionExecution,
   FilmGenerationStillExecution,
+  FilmImageModelSelection,
   FilmGenerationStillResult,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
@@ -1100,6 +1101,7 @@ export interface AijianDesktopBridge
     aspectRatio?: "9:16" | "16:9",
     references?: string[],
     execution?: FilmGenerationStillExecution,
+    imageSelection?: FilmImageModelSelection,
   ) => Promise<
     FilmGenerationStillResult & { fixedInputOfferId?: string; fixedInputLimit?: boolean }
   >;

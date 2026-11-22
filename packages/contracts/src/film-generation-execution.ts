@@ -1,3 +1,11 @@
+/** A standalone image choice, not credential/dispatch authority. Native permits only its existing
+ * Grok-login image adapter; absence preserves older saved workflows. */
+export type FilmImageModelSelection = {
+  provider: string;
+  modelId: string;
+  connectionId?: string;
+};
+
 /** Native-owned execution scope for automatic prerequisites of an explicitly confirmed
  * video run. These handles are transient locators, never portable authorization. */
 export type FilmGenerationExecutionInput = {

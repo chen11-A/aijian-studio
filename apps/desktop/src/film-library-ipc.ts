@@ -1,3 +1,4 @@
+import { supportedFilmImageSelection } from "./film-image-selection";
 import type {
   FilmGenerationStillExecution,
   FilmGenerationExtractionExecution,
@@ -338,7 +339,7 @@ export function registerFilmLibraryHandlers<TEvent>(
     guard(event);
     if (
       args.length < 2 ||
-      args.length > 5 ||
+      args.length > 6 ||
       typeof args[0] !== "string" ||
       typeof args[1] !== "string" ||
       !idPattern.test(args[0]) ||
@@ -350,7 +351,13 @@ export function registerFilmLibraryHandlers<TEvent>(
     ) {
       throw new Error("Invalid film");
     }
-    if (args.length === 5) {
+    if (args.length === 6 && !supportedFilmImageSelection(args[5]))
+      return {
+        path: "",
+        reason: "所选图像模型尚未接入出图。请在模型中心选择 Grok 登录的 grok-imagine-image-2.0。",
+        code: "UNSUPPORTED_SCOPE",
+      };
+    if (args[4] !== undefined) {
       const execution = issuedStage(args[4]);
       if (!execution) throw new Error("Invalid film");
       if (!host.protectedGeneration)
@@ -367,6 +374,7 @@ export function registerFilmLibraryHandlers<TEvent>(
         execution,
       });
     }
+    if (args.length === 5) throw new Error("Invalid film");
     const references: string[] = [];
     if (Array.isArray(args[3])) {
       try {

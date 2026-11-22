@@ -1,6 +1,7 @@
 import type {
   FilmGenerationExecutionGateway,
   FilmGenerationStillExecution,
+  FilmImageModelSelection,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
 import type { ConfigureGenerationFailurePolicy } from "@aijian/contracts/generation-failure-policy";
@@ -797,10 +798,21 @@ contextBridge.exposeInMainWorld("aijian", {
     aspectRatio?: "9:16" | "16:9",
     references: string[] = [],
     execution?: FilmGenerationStillExecution,
+    imageSelection?: FilmImageModelSelection,
   ) =>
-    execution !== undefined
-      ? ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references, execution)
-      : ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
+    imageSelection !== undefined
+      ? ipcRenderer.invoke(
+          "film:still",
+          seriesId,
+          prompt,
+          aspectRatio,
+          references,
+          execution,
+          imageSelection,
+        )
+      : execution !== undefined
+        ? ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references, execution)
+        : ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   confirmFixedInput: (projectId: string, offerId: string) =>
     ipcRenderer.invoke("film:confirm-fixed-input", projectId, offerId) as Promise<
       | { ok: true; path: string }
