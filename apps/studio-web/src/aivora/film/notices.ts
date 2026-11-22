@@ -407,6 +407,8 @@ export const NOTICE_TEXT = {
   WRITER_STRUCTURE_APPLIED: "全项目编剧场次结构已修改。",
   GENERATION_EXECUTION_ACCOUNT_UNAVAILABLE: "当前登录身份无法核验，请重新登录后再准备生成。",
   GENERATION_EXECUTION_SOURCE_UNVERIFIABLE: "当前素材或视频输入无法核验，请核对素材后再试。",
+  VIDEO_SELECTION_UNSUPPORTED:
+    "视频模型尚未接入当前会员生成方式，或与成片模式不符。请在模型中心选择 Grok 会员 Video 1.5；较快的一版会明确使用 Lite，不会自动改用其他渠道。",
   GENERATION_EXECUTION_SCOPE_UNSUPPORTED: "这一批暂不支持受保护的自动生成，请重新核对所选范围。",
   GENERATION_EXECUTION_BUSY: "当前作品仍在准备生成，请等处理结束后再试。",
   WRITE_UNCONFIRMED: "写入结果尚未确认，请先核对。",

@@ -75,6 +75,7 @@ const known = new Set<FilmGenerationExecutionFailure>([
   "ACCOUNT_UNAVAILABLE",
   "UNSUPPORTED_SCOPE",
   "EXECUTION_UNAVAILABLE",
+  "VIDEO_SELECTION_UNSUPPORTED",
   "VIDEO_UNCONFIGURED",
   "VIDEO_INPUT_FAILURE_LIMIT",
   "CREATION_UNCONFIGURED",
@@ -205,6 +206,25 @@ export function createNativeFilmGenerationExecutions(host: {
           }
         | undefined;
       try {
+        // This preference is not an account or budget grant. Check it against the
+        // saved mode before a media login/registration, then retain the normal fresh
+        // project and canonical request guards after the lease await below.
+        if (input.videoSelection) {
+          if (!owner.current()) return fail("EXECUTION_UNAVAILABLE");
+          const selectedRecord = await readProject(host.filmsRoot(), input.projectId);
+          if (
+            !selectedRecord ||
+            filmHistoryRecordHash(selectedRecord) !== input.expectedProjectHash
+          )
+            return fail("PROJECT_CHANGED");
+          const { provider, modelId } = input.videoSelection;
+          if (
+            provider !== "GROK_LOGIN" ||
+            (modelId !== "grok-imagine-video-1.5" && modelId !== "grok-imagine-video-1.5-lite") ||
+            (selectedRecord.draft !== true && modelId !== "grok-imagine-video-1.5")
+          )
+            return fail("VIDEO_SELECTION_UNSUPPORTED");
+        }
         const accountLease = await host.mediaDispatchLease();
         if (!accountLease) return fail("ACCOUNT_UNAVAILABLE");
         const session = { ...host.session() };

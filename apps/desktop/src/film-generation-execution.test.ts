@@ -1217,11 +1217,14 @@ async function localSelectedFixture(
   };
 }
 it.skipIf(!ffmpegOnPath())(
-  "returns local NOT_NEEDED from real owned stream/SHA verification without account, slots, API or writes",
+  "returns local NOT_NEEDED despite unsupported VIDEO preference, without account, slots, API or writes",
   async () => {
     const f = await fixture(),
       local = await localSelectedFixture(f);
-    const made = await f.factory.prepare(f.owner, local.input);
+    const made = await f.factory.prepare(f.owner, {
+      ...local.input,
+      videoSelection: { provider: "XAI_API", modelId: "not-supported-by-membership" },
+    });
     expect(made).toEqual({
       kind: "NOT_NEEDED",
       projectId: f.record.id,
@@ -1586,3 +1589,61 @@ it.skipIf(!ffmpegOnPath()).each(["creative", "account", "bytes"] as const)(
   },
   30_000,
 );
+
+it.each([
+  { provider: "XAI_API", modelId: "grok-imagine-video-1.5" },
+  { provider: "CHATGPT_OFFICIAL", modelId: "grok-imagine-video-1.5" },
+  { provider: "CONNECTION", connectionId: "external", modelId: "grok-imagine-video-1.5" },
+  { provider: "GROK_LOGIN", modelId: "grok-imagine-video" },
+  { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5-lite" },
+])(
+  "rejects explicit unsupported VIDEO preference before media login or budget: %j",
+  async (videoSelection) => {
+    const f = await fixture();
+    expect(await f.factory.prepare(f.owner, { ...f.input, videoSelection })).toEqual({
+      kind: "FAILED",
+      code: "VIDEO_SELECTION_UNSUPPORTED",
+    });
+    expect(f.mediaDispatchLease).not.toHaveBeenCalled();
+    expect(f.fetcher).not.toHaveBeenCalled();
+    expect(f.registrations).toEqual([]);
+    expect(f.preparations).toEqual([]);
+    expect(f.arms).toEqual([]);
+    expect(f.submissions).toEqual([]);
+    expect(f.imageCalls()).toBe(0);
+  },
+);
+
+it("keeps matching VIDEO preference inside the existing failure budget, never granting a bypass", async () => {
+  const f = await fixture("VIDEO_INPUT_FAILURE_LIMIT");
+  expect(
+    await f.factory.prepare(f.owner, {
+      ...f.input,
+      videoSelection: {
+        provider: "GROK_LOGIN",
+        modelId: "grok-imagine-video-1.5",
+      },
+    }),
+  ).toEqual({ kind: "FAILED", code: "VIDEO_INPUT_FAILURE_LIMIT" });
+  expect(f.registrations).toEqual([]);
+  expect(f.arms).toEqual([]);
+  expect(f.submissions).toEqual([]);
+  expect(f.imageCalls()).toBe(0);
+});
+
+it("uses the existing explicit draft Lite body even with a supported full VIDEO preference", async () => {
+  const f = await fixture();
+  const record = { ...f.record, draft: true };
+  await writeProject(f.filmsRoot, record);
+  const saved = (await readProject(f.filmsRoot, record.id))!;
+  const prepared = await f.factory.prepare(f.owner, {
+    ...f.input,
+    expectedProjectHash: filmHistoryRecordHash(saved),
+    videoSelection: { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" },
+  });
+  expect(prepared.kind).toBe("PREPARED");
+  expect(f.registrations[0]).toMatchObject({
+    targets: [{ body: { video_model: "grok-imagine-video-1.5-lite" } }],
+  });
+  expect(f.submissions).toEqual([]);
+});

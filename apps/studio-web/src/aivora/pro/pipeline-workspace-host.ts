@@ -1,3 +1,4 @@
+import { snapshotVideoSelection } from "./video-model-selection";
 import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
@@ -125,6 +126,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
     trialDecisionId?: string,
   ) {
     if (active) return stop("PIPELINE_ALREADY_RUNNING");
+    const videoSelection = snapshotVideoSelection();
     const initialBinding = structuredClone(host.current());
     const projectId = initialBinding?.id;
     if (!projectId) return stop("PROJECT_REQUIRED");
@@ -195,6 +197,7 @@ export function createPipelineWorkspaceHost(host: PipelineWorkspaceHost) {
             base,
             {
               mode: "pipeline",
+              ...(videoSelection ? { videoSelection } : {}),
               targets: filmPipelineTargets(base, "video").map((shotId) => ({
                 shotId,
                 versions: 1 as const,

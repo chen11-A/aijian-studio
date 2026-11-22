@@ -198,3 +198,34 @@ it.each(["ordinary", "hash", "empty", "extra"])(
     expect(retire).not.toHaveBeenCalled();
   },
 );
+
+it("strictly parses and freezes VIDEO selection before asynchronous native preparation", async () => {
+  const f = fixture();
+  for (const videoSelection of [
+    null,
+    {},
+    { provider: "GROK_LOGIN", modelId: "bad model" },
+    { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5", extra: true },
+    { provider: "CONNECTION", modelId: "video" },
+    { provider: "GROK_LOGIN", modelId: "video", connectionId: "foreign" },
+  ]) {
+    expect(await f.service.prepare(f.owner, { ...input, videoSelection })).toEqual({
+      kind: "FAILED",
+      code: "INVALID_INPUT",
+    });
+  }
+  expect(f.prepare).not.toHaveBeenCalled();
+  const selection = { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" };
+  const held = deferred();
+  f.prepare.mockImplementation(async () => {
+    await held.promise;
+    return f.registration;
+  });
+  const pending = f.service.prepare(f.owner, { ...input, videoSelection: selection });
+  selection.modelId = "other-model";
+  held.resolve();
+  expect((await pending).kind).toBe("PREPARED");
+  expect((f.prepare.mock.calls as unknown as unknown[][])[0]?.[0]).toMatchObject({
+    videoSelection: { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" },
+  });
+});

@@ -1,3 +1,4 @@
+import { selectCenteredModel } from "../account/model-center";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vitest";
 import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
@@ -471,4 +472,51 @@ it("keeps a native cached first slot separate from the later explicitly issued c
     expect(f.stored().shots[0]!.takes.filter((take) => take.status === "done")).toHaveLength(2),
   );
   expect(JSON.stringify(f.stored())).not.toContain("native-execution");
+});
+
+it("freezes VIDEO at confirmation before the backup await, without persisting it into media", async () => {
+  const f = fixture();
+  selectCenteredModel("VIDEO", { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" });
+  const capture = f.capture.getMockImplementation()!;
+  let release!: () => void;
+  let entered!: () => void;
+  const enteredPromise = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  f.capture.mockImplementation(async (input) => {
+    entered();
+    await hold;
+    return capture(input);
+  });
+  await open();
+  submit();
+  await enteredPromise;
+  selectCenteredModel("VIDEO", {
+    provider: "CONNECTION",
+    connectionId: "new-choice",
+    modelId: "other",
+  });
+  release();
+  await waitFor(() => expect(f.video).toHaveBeenCalledTimes(1));
+  expect(f.prepare.mock.calls[0]?.[0]).toMatchObject({
+    videoSelection: {
+      provider: "GROK_LOGIN",
+      modelId: "grok-imagine-video-1.5",
+    },
+  });
+  expect(JSON.stringify(f.stored())).not.toContain("videoSelection");
+});
+it("does not dispatch images, allocate takes or silently fallback when native rejects VIDEO", async () => {
+  const f = fixture();
+  selectCenteredModel("VIDEO", { provider: "XAI_API", modelId: "grok-imagine-video-1.5" });
+  f.prepare.mockResolvedValue({ kind: "FAILED", code: "VIDEO_SELECTION_UNSUPPORTED" });
+  await open();
+  submit();
+  await screen.findByText(/视频模型尚未接入当前会员生成方式/);
+  expect(f.still).not.toHaveBeenCalled();
+  expect(f.video).not.toHaveBeenCalled();
+  expect(f.stored().shots[0]!.takes).toEqual([]);
 });
