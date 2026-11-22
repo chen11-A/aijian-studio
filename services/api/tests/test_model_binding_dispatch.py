@@ -52,12 +52,13 @@ from test_remote_execution_authorization import (
 
 @pytest.fixture
 def selected_run(tmp_path, monkeypatch):
-    # If a production transport accidentally leaks into this test, fail instead of connecting.
-    monkeypatch.setattr("socket.socket.connect", lambda *_: pytest.fail("network forbidden"))
     now = datetime.now(UTC)
     client, repository = sidecar_client(tmp_path)
     with client:
         source = accepted_source(client)
+    # Windows asyncio opens a loopback socket pair for the in-process TestClient.
+    # Block real connections after that client closes, before exercising dispatch.
+    monkeypatch.setattr("socket.socket.connect", lambda *_: pytest.fail("network forbidden"))
     connections = ProviderConnectionRepository(repository.database_path)
     connection = connections.create(
         provider_kind="CPA_LOOPBACK",
