@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import type { GrokSpeechSelection } from "@aijian/contracts/grok-auth";
 import { promisify } from "node:util";
 import { verifiedQcTools, type QcRunner } from "./film-export-qc-runtime";
 import type { generationSelectedMedia } from "./film-generation-selected-media";
@@ -246,6 +247,7 @@ async function createFixture(
             account.accountSha256,
             assertion.expires,
             ...(arm ? [arm] : []),
+            ...(headers.get("X-Aivora-Deny-New-Speech") === "1" ? ["deny-new-tts"] : []),
           ].join("\n"),
         )
         .digest("hex"),
@@ -415,11 +417,13 @@ async function preparedVideo(
   f: Awaited<ReturnType<typeof fixture>>,
   versions: 1 | 2 = 1,
   imageSelection?: FilmImageModelSelection,
+  speechSelection?: GrokSpeechSelection,
 ) {
   const prepared = await f.factory.prepare(f.owner, {
     ...f.input,
     targets: [{ shotId: "shot-one", versions }],
     ...(imageSelection ? { imageSelection } : {}),
+    ...(speechSelection ? { speechSelection } : {}),
   });
   expect(prepared.kind, "code" in prepared ? prepared.code : "").toBe("PREPARED");
   if (prepared.kind !== "PREPARED")
@@ -495,6 +499,33 @@ it("prepares real canonical fixed-frame bytes and enters the actual signed clien
   expect(f.submissions).toHaveLength(1);
   expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
 });
+it.each(["grok-tts", "eve", "vendor/speech-model:custom".padEnd(200, "x")])(
+  "freezes SPEECH %s without changing the prepared video body",
+  async (modelId) => {
+    const f = await fixture();
+    const selection = { provider: "GROK_LOGIN", modelId };
+    const preparing = preparedVideo(f, 1, undefined, selection);
+    selection.modelId = "mutated-after-submit";
+    const p = await preparing;
+    const result = await f.factory.video(
+      f.owner,
+      String(f.record.backendProjectId),
+      p.body,
+      undefined,
+      p.execution,
+    );
+    expect(result.data.status).toBe("BLOCKED");
+    expect(f.submissions).toHaveLength(1);
+    const submitted = JSON.parse(f.submissions[0]!);
+    expect(submitted).not.toHaveProperty("speechSelection");
+    expect(submitted).not.toHaveProperty("speech_model");
+    const local = f.fetcher.mock.calls.find(([url]) => String(url).endsWith("/story-film"));
+    expect(new Headers(local?.[1]?.headers).get("X-Aivora-Deny-New-Speech")).toBe(
+      modelId === "grok-tts" ? null : "1",
+    );
+    expect(f.arms[0]).toMatchObject({ wire_body: f.submissions[0] });
+  },
+);
 it("retirement while real arm is held prevents the signed StoryFilm request", async () => {
   const f = await fixture(),
     p = await preparedVideo(f),

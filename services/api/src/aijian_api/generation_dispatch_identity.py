@@ -25,6 +25,7 @@ def account_attestation(
     body: bytes,
     bearer: str | None,
     prepared_arm_id: str | None = None,
+    deny_new_speech: bool = False,
 ) -> str | None:
     if not encoded or not key or not bearer or len(encoded) > 2048:
         return None
@@ -51,6 +52,7 @@ def account_attestation(
                 account,
                 str(expires),
                 *((prepared_arm_id,) if prepared_arm_id else ()),
+                *(("deny-new-tts",) if deny_new_speech else ()),
             )
         )
         expected = hmac.new(key.encode(), message.encode(), hashlib.sha256).hexdigest()

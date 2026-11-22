@@ -75,6 +75,12 @@ it("rejects unauthorized, malformed, explicit-null and extra protected fields wi
     await expect(f.run(true, projectId, input, undefined, context)).rejects.toThrow(
       "INVALID_INPUT",
     );
+  await expect(
+    f.run(true, projectId, input, undefined, execution, {
+      provider: "GROK_LOGIN",
+      modelId: "grok-tts",
+    }),
+  ).rejects.toThrow("INVALID_INPUT");
   expect(f.protectedCreate).not.toHaveBeenCalled();
   expect(f.fetcher).not.toHaveBeenCalled();
   expect(f.bearer).not.toHaveBeenCalled();

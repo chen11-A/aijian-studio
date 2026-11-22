@@ -419,6 +419,8 @@ export const NOTICE_TEXT = {
   GENERATION_EXECUTION_WRITE_UNCONFIRMED: "生成记录尚未确认，已停后续请求，请先核对任务和素材。",
   GENERATION_EXECUTION_UNCONFIRMED: "自动生成尚未确认，已停止后续请求；请先核对当前任务和素材。",
   GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
+  SPEECH_MODEL_UNSUPPORTED:
+    "所选配音模型尚未接入。请在模型中心选择 Grok TTS（Grok 登录）；角色声音不会更改。",
   GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
   CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",
   CLEAN_COPY_PROGRESS: "正在补做不带字幕的版本。",

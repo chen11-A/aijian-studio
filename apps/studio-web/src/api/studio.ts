@@ -19,6 +19,7 @@ import type {
 } from "@aijian/contracts/generation-failure-policy";
 import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
+import type { GrokSpeechSelection } from "@aijian/contracts/grok-auth";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
 import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
@@ -1018,6 +1019,7 @@ export interface AijianDesktopBridge
     },
     scope?: StoryFilmLocalScope,
     execution?: FilmGenerationVideoExecution,
+    speechSelection?: GrokSpeechSelection,
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   getStoryFilmProgress?(projectId: string): Promise<{
     data: {

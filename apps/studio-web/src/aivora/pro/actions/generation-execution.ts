@@ -379,7 +379,7 @@ export async function prepareCurrentGenerationExecution(
   base: FilmProject,
   scope: Pick<
     FilmGenerationExecutionInput,
-    "mode" | "targets" | "videoSelection" | "imageSelection"
+    "mode" | "targets" | "videoSelection" | "imageSelection" | "speechSelection"
   >,
   host: {
     current: () => FilmProject | null;

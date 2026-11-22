@@ -1,5 +1,6 @@
 import { supportedFilmImageSelection } from "./film-image-selection";
 import { generationSelectedMedia } from "./film-generation-selected-media";
+import { supportedGrokSpeechSelection } from "./grok-speech-selection";
 import { forecastGenerationReferences } from "./film-generation-forecast";
 import { createHash, randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
@@ -113,6 +114,7 @@ type State = {
   session: Session;
   current: () => boolean;
   plannedKey: string | null;
+  denyNewSpeech: boolean;
   attemptedSlots: Set<string>;
   attemptedStages: Set<string>;
   imageSelectionUnsupported: boolean;
@@ -417,6 +419,9 @@ export function createNativeFilmGenerationExecutions(host: {
           session,
           current,
           plannedKey: planned ? forecastKey(producer, plan, intent) : null,
+          denyNewSpeech:
+            input.speechSelection !== undefined &&
+            !supportedGrokSpeechSelection(input.speechSelection),
           attemptedSlots: new Set(),
           attemptedStages: new Set(),
           imageSelectionUnsupported:
@@ -902,28 +907,35 @@ export function createNativeFilmGenerationExecutions(host: {
       const result = await createStoryFilmClient(submitting, state.session, undefined, [
         host.filmsRoot(),
         host.storyFilmsRoot(),
-      ]).create(projectId, body, state.account.bearer, state.account, {
-        arm: async (wire) => {
-          await validate(await readProject(host.filmsRoot(), state.projectId));
-          const roles = await state.sources.requestSourceRoles(body);
-          await state.sources.verify();
-          lease.assertCurrent();
-          const armId = await state.api.armVideo(
-            state.backendProjectId,
-            state.apiExecutionId,
-            target.key,
-            lease.slotIndex,
-            execution.takeId,
-            wire,
-            roles,
-            state.account,
-            lease.current,
-          );
-          armedWire = wire;
-          lease.assertCurrent();
-          return { armId, current: lease.current };
+      ]).create(
+        projectId,
+        body,
+        state.account.bearer,
+        state.account,
+        {
+          arm: async (wire) => {
+            await validate(await readProject(host.filmsRoot(), state.projectId));
+            const roles = await state.sources.requestSourceRoles(body);
+            await state.sources.verify();
+            lease.assertCurrent();
+            const armId = await state.api.armVideo(
+              state.backendProjectId,
+              state.apiExecutionId,
+              target.key,
+              lease.slotIndex,
+              execution.takeId,
+              wire,
+              roles,
+              state.account,
+              lease.current,
+            );
+            armedWire = wire;
+            lease.assertCurrent();
+            return { armId, current: lease.current };
+          },
         },
-      });
+        state.denyNewSpeech,
+      );
       lease.assertCurrent();
       return result;
     } catch (error) {

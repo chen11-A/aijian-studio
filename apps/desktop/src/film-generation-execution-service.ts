@@ -1,7 +1,6 @@
 import type {
   FilmGenerationExecutionInput,
   FilmGenerationVideoSelection,
-  FilmImageModelSelection,
   FilmGenerationExecutionFailure,
   FilmGenerationExecutionResult,
 } from "@aijian/contracts/film-generation-execution";
@@ -23,32 +22,9 @@ const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 const exact = (value: Record<string, unknown>, keys: readonly string[]) =>
   Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
-function videoSelection(raw: unknown): FilmGenerationVideoSelection | null {
-  if (
-    !object(raw) ||
-    !exact(
-      raw,
-      raw.connectionId === undefined
-        ? ["provider", "modelId"]
-        : ["provider", "modelId", "connectionId"],
-    ) ||
-    !["XAI_API", "CHATGPT_OFFICIAL", "GROK_LOGIN", "CONNECTION"].includes(String(raw.provider)) ||
-    typeof raw.modelId !== "string" ||
-    !/^[A-Za-z0-9._-]{1,80}$/.test(raw.modelId) ||
-    (raw.provider === "CONNECTION"
-      ? typeof raw.connectionId !== "string" || !/^[A-Za-z0-9._-]{1,200}$/.test(raw.connectionId)
-      : raw.connectionId !== undefined)
-  )
-    return null;
-  return {
-    provider: raw.provider as FilmGenerationVideoSelection["provider"],
-    modelId: raw.modelId,
-    ...(typeof raw.connectionId === "string" ? { connectionId: raw.connectionId } : {}),
-  };
-}
 // Match valid model-center IDs, including gateway model names with slashes.
-// This is shape validation only: unsupported preferences are decided at an actual image sink.
-function imageSelection(raw: unknown): FilmImageModelSelection | null {
+// This is shape validation only: unsupported preferences are decided at the relevant native dispatch boundary.
+function mediaPreference(raw: unknown): FilmGenerationVideoSelection | null {
   if (
     !object(raw) ||
     typeof raw.provider !== "string" ||
@@ -68,7 +44,7 @@ function imageSelection(raw: unknown): FilmImageModelSelection | null {
   )
     return null;
   return {
-    provider: raw.provider,
+    provider: raw.provider as FilmGenerationVideoSelection["provider"],
     modelId: raw.modelId,
     ...(typeof raw.connectionId === "string" ? { connectionId: raw.connectionId } : {}),
   };
@@ -83,6 +59,7 @@ function parse(raw: unknown): FilmGenerationExecutionInput | null {
       "targets",
       ...(Object.hasOwn(raw, "videoSelection") ? ["videoSelection"] : []),
       ...(Object.hasOwn(raw, "imageSelection") ? ["imageSelection"] : []),
+      ...(Object.hasOwn(raw, "speechSelection") ? ["speechSelection"] : []),
     ]) ||
     typeof raw.projectId !== "string" ||
     !/^film_[a-z0-9]{16,40}$/.test(raw.projectId) ||
@@ -95,12 +72,15 @@ function parse(raw: unknown): FilmGenerationExecutionInput | null {
   )
     return null;
   const selection = Object.hasOwn(raw, "videoSelection")
-    ? videoSelection(raw.videoSelection)
+    ? mediaPreference(raw.videoSelection)
     : undefined;
   const image = Object.hasOwn(raw, "imageSelection")
-    ? imageSelection(raw.imageSelection)
+    ? mediaPreference(raw.imageSelection)
     : undefined;
-  if (selection === null || image === null) return null;
+  const speech = Object.hasOwn(raw, "speechSelection")
+    ? mediaPreference(raw.speechSelection)
+    : undefined;
+  if (selection === null || image === null || speech === null) return null;
   const ids = new Set<string>(),
     targets: FilmGenerationExecutionInput["targets"][number][] = [];
   for (const target of raw.targets) {
@@ -126,6 +106,7 @@ function parse(raw: unknown): FilmGenerationExecutionInput | null {
     targets,
     ...(selection ? { videoSelection: selection } : {}),
     ...(image ? { imageSelection: image } : {}),
+    ...(speech ? { speechSelection: speech } : {}),
   };
 }
 /** Lifecycle around the trusted canonical/source/cache/ledger compiler, not a replacement

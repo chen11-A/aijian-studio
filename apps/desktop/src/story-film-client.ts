@@ -204,6 +204,7 @@ export function createStoryFilmClient(
       mediaBearer?: string,
       dispatchAccount?: GenerationDispatchAccount,
       prepared?: { arm: (rawBody: string) => Promise<{ armId: string; current: () => boolean }> },
+      denyNewSpeech = false,
     ) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
       const shots =
@@ -217,6 +218,15 @@ export function createStoryFilmClient(
         "Idempotency-Key": idempotencyKey,
       };
       if (mediaBearer) requestHeaders["X-Aivora-Media-Bearer"] = mediaBearer;
+      // A restrictive, authenticated instruction for the sidecar only. No change to
+      // the arm's exact media body, canonical recipe or upstream protocol.
+      const restrictSpeech =
+        denyNewSpeech && input.provider === "grok_subscription" && !!mediaBearer;
+      if (restrictSpeech) {
+        if (!dispatchAccount || dispatchAccount.bearer !== mediaBearer)
+          throw Error("ACCOUNT_UNAVAILABLE");
+        requestHeaders["X-Aivora-Deny-New-Speech"] = "1";
+      }
       const body = JSON.stringify({
         scene_label: input.scene_label,
         narration: input.narration,
@@ -247,6 +257,7 @@ export function createStoryFilmClient(
             body,
             account: dispatchAccount,
             ...(context ? { preparedArmId: context.armId } : {}),
+            ...(restrictSpeech ? { denyNewSpeech: true } : {}),
           });
         }
         if (context) requestHeaders["X-Aivora-Prepared-Generation"] = context.armId;

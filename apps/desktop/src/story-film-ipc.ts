@@ -14,6 +14,7 @@ import { realpathSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { stripUnsafeFileChars } from "./film-library";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
+import { supportedGrokSpeechSelection } from "./grok-speech-selection";
 
 const mediaExtensions = new Set([".mp4", ".png", ".jpg", ".jpeg", ".webp", ".wav", ".mp3"]);
 const maxMediaBytes = 80 * 1024 * 1024;
@@ -194,17 +195,17 @@ export function registerStoryFilmHandlers<TEvent>(
 
   handle("story-film:create", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
-    if (args.length !== 2 && args.length !== 3 && args.length !== 4)
-      throw new Error("Unexpected story film arguments");
+    if (args.length < 2 || args.length > 5) throw new Error("Unexpected story film arguments");
     const projectId = args[0];
     if (typeof projectId !== "string" || !projectIdPattern.test(projectId)) {
       throw new Error("Invalid story film project");
     }
     const body = parseStoryFilmCreate(args[1]);
     const scope =
-      args.length === 3 || (args.length === 4 && args[2] !== undefined)
-        ? parseStoryFilmLocalScope(args[2])
-        : undefined;
+      args.length === 3 || args[2] !== undefined ? parseStoryFilmLocalScope(args[2]) : undefined;
+    // Protected clients can use only the preference frozen by native preparation.
+    if (args.length === 5 && args[3] !== undefined) throw Error("INVALID_INPUT");
+    const denyNewSpeech = args.length === 5 && !supportedGrokSpeechSelection(args[4]);
     let execution: FilmGenerationVideoExecution | undefined;
     if (args.length === 4) {
       const raw = args[3];
@@ -251,6 +252,8 @@ export function registerStoryFilmHandlers<TEvent>(
           body,
           bearer,
           account,
+          undefined,
+          denyNewSpeech,
         );
     // Evidence-only read after the actual result; no new await before dispatch.
     const evidenceId =

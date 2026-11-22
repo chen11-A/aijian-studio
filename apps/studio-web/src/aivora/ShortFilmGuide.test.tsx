@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { DemoApp } from "./DemoApp";
 import { DemoProvider, createAivoraSampleFixture, useDemo } from "./model";
 import { SAMPLE_LINE, SAMPLE_SCENE, ShortFilmGuide } from "./ShortFilmGuide";
+import { selectCenteredModel } from "./account/model-center";
 
 const PROJECT_ID = `prj_${"b".repeat(32)}`;
 
@@ -210,6 +211,8 @@ describe("simple story-to-film navigation", () => {
   });
 
   it("lists subscription voices, shows progress, and stops waiting without switching provider", async () => {
+    const selection = { provider: "GROK_LOGIN" as const, modelId: "grok-tts" };
+    selectCenteredModel("SPEECH", selection);
     const createStoryFilm = vi.fn(() => new Promise(() => undefined));
     const cancelStoryFilm = vi.fn().mockResolvedValue({ data: { stopped: true } });
     const getStoryFilmProgress = vi
@@ -266,6 +269,9 @@ describe("simple story-to-film navigation", () => {
     expect(createStoryFilm).toHaveBeenCalledWith(
       PROJECT_ID,
       expect.objectContaining({ provider: "grok_subscription", voice_id: "ara" }),
+      undefined,
+      undefined,
+      selection,
     );
   });
 

@@ -1,3 +1,5 @@
+import type { GrokSpeechSelection } from "./grok-auth.js";
+
 /** An image preference, not credential/dispatch authority. Native permits only its existing
  * Grok-login image adapter; absence preserves older saved workflows. */
 export type FilmImageModelSelection = {
@@ -19,6 +21,8 @@ export type FilmGenerationVideoSelection = {
 export type FilmGenerationExecutionInput = {
   videoSelection?: FilmGenerationVideoSelection;
   imageSelection?: FilmImageModelSelection;
+  /** Scope preference only; the sidecar checks it only on an actual new TTS POST. */
+  speechSelection?: GrokSpeechSelection;
   projectId: string;
   expectedProjectHash: string;
   mode: "video" | "pipeline";

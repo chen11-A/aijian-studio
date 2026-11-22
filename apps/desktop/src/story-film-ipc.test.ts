@@ -7,7 +7,10 @@ import { registerStoryFilmHandlers, type StoryFilmFiles } from "./story-film-ipc
 const projectId = `prj_${"b".repeat(32)}`;
 const session = { origin: "http://127.0.0.1:56121", token: "s".repeat(43) };
 
-function handlersFor(mediaBearerFor: () => Promise<string | null>, fetcher: typeof fetch) {
+function handlersFor(
+  mediaBearerFor: Parameters<typeof registerStoryFilmHandlers<boolean>>[3],
+  fetcher: typeof fetch,
+) {
   const handlers = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
   registerStoryFilmHandlers(
     (channel, callback) => handlers.set(channel, callback),
@@ -54,6 +57,41 @@ describe("story film IPC", () => {
     expect(bearerFor).not.toHaveBeenCalled();
     const stubHeaders = calls[1]?.[1].headers as Record<string, string>;
     expect(stubHeaders["X-Aivora-Media-Bearer"]).toBeUndefined();
+  });
+
+  it("maps the legacy selection to a restrictive signed header without rewriting the body", async () => {
+    const account = { accountSha256: "a".repeat(64), bearer: "synthetic" };
+    const fetcher = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({ data: { status: "BLOCKED" }, request_id: "synthetic" })),
+    );
+    const create = handlersFor(async () => account, fetcher).get("story-film:create")!;
+    const input = {
+      scene_label: "灯塔夜班",
+      narration: "这句要保留角色声音。",
+      provider: "grok_subscription",
+      confirmed: false,
+      voice_id: "leo",
+    };
+    await create(true, projectId, input);
+    await create(true, projectId, input, undefined, undefined, {
+      provider: "GROK_LOGIN",
+      modelId: "grok-tts",
+    });
+    await create(true, projectId, input, undefined, undefined, {
+      provider: "GROK_LOGIN",
+      modelId: "eve",
+    });
+    const calls = fetcher.mock.calls.map(([, init]) => init!);
+    expect(calls.map((init) => JSON.parse(String(init.body)))).toEqual(
+      Array(3).fill({ ...input, subtitle: null }),
+    );
+    expect(calls.map((init) => new Headers(init.headers).get("X-Aivora-Deny-New-Speech"))).toEqual([
+      null,
+      null,
+      "1",
+    ]);
+    expect(new Headers(calls[2]?.headers).get("X-Aivora-Generation-Account")).toBeTruthy();
   });
 
   it("reads, reveals, and copies only a file inside the story-film folder", async () => {

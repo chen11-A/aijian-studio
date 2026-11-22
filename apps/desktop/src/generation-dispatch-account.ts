@@ -35,6 +35,7 @@ export function attestGenerationAccount(input: {
   account: GenerationDispatchAccount;
   now?: number;
   preparedArmId?: string;
+  denyNewSpeech?: boolean;
 }): string {
   if (!/^[0-9a-f]{64}$/.test(input.account.accountSha256))
     throw new Error("Generation account unavailable");
@@ -50,6 +51,7 @@ export function attestGenerationAccount(input: {
     input.account.accountSha256,
     String(expires),
     ...(input.preparedArmId ? [input.preparedArmId] : []),
+    ...(input.denyNewSpeech ? ["deny-new-tts"] : []),
   ].join("\n");
   const signature = createHmac("sha256", input.sessionKey).update(message).digest("hex");
   return Buffer.from(
