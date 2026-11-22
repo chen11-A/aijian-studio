@@ -519,7 +519,7 @@ it("does not dispatch images, allocate takes or silently fallback when native re
   f.prepare.mockResolvedValue({ kind: "FAILED", code: "VIDEO_SELECTION_UNSUPPORTED" });
   await open();
   submit();
-  await screen.findByText(/视频模型尚未接入当前会员生成方式/);
+  await screen.findByText(/当前选择不适用于这次视频生成.*AI 服务/);
   expect(f.still).not.toHaveBeenCalled();
   expect(f.video).not.toHaveBeenCalled();
   expect(f.stored().shots[0]!.takes).toEqual([]);
@@ -541,7 +541,7 @@ it("stops later video after an issued automatic IMAGE gate refusal and keeps the
   );
   await open();
   submit();
-  await screen.findAllByText(/图像模型尚未接入自动出图/);
+  await screen.findAllByText(/当前选择不能自动出图.*AI 服务/);
   await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
   expect(f.prepare.mock.calls[0]?.[0]).toMatchObject({ imageSelection });
   expect(f.still).toHaveBeenCalledTimes(1);

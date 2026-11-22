@@ -407,10 +407,8 @@ export const NOTICE_TEXT = {
   WRITER_STRUCTURE_APPLIED: "全项目编剧场次结构已修改。",
   GENERATION_EXECUTION_ACCOUNT_UNAVAILABLE: "当前登录身份无法核验，请重新登录后再准备生成。",
   GENERATION_EXECUTION_SOURCE_UNVERIFIABLE: "当前素材或视频输入无法核验，请核对素材后再试。",
-  IMAGE_SELECTION_UNSUPPORTED:
-    "图像模型尚未接入自动出图。请在模型中心选择 Grok 登录的 grok-imagine-image-2.0。",
-  VIDEO_SELECTION_UNSUPPORTED:
-    "视频模型尚未接入当前会员生成方式，或与成片模式不符。请在模型中心选择 Grok 会员 Video 1.5；较快的一版会明确使用 Lite，不会自动改用其他渠道。",
+  IMAGE_SELECTION_UNSUPPORTED: "所选生图模型未接入，请去模型中心更换。",
+  VIDEO_SELECTION_UNSUPPORTED: "所选视频模型不适用，请去模型中心更换。",
   GENERATION_EXECUTION_SCOPE_UNSUPPORTED: "这一批暂不支持受保护的自动生成，请重新核对所选范围。",
   GENERATION_EXECUTION_BUSY: "当前作品仍在准备生成，请等处理结束后再试。",
   WRITE_UNCONFIRMED: "写入结果尚未确认，请先核对。",
@@ -419,8 +417,7 @@ export const NOTICE_TEXT = {
   GENERATION_EXECUTION_WRITE_UNCONFIRMED: "生成记录尚未确认，已停后续请求，请先核对任务和素材。",
   GENERATION_EXECUTION_UNCONFIRMED: "自动生成尚未确认，已停止后续请求；请先核对当前任务和素材。",
   GENERATION_SELECTION_STALE: "所选镜头已经变化，请重新选择后生成。",
-  SPEECH_MODEL_UNSUPPORTED:
-    "所选配音模型尚未接入。请在模型中心选择 Grok TTS（Grok 登录）；角色声音不会更改。",
+  SPEECH_MODEL_UNSUPPORTED: "所选配音模型未接入，请去模型中心更换。",
   GENERATION_ALREADY_RUNNING: "这一批还在生成，请等完成后再试。",
   CLEAN_COPY_NOT_REQUIRED: "没有需要补做的镜头。",
   CLEAN_COPY_PROGRESS: "正在补做不带字幕的版本。",
