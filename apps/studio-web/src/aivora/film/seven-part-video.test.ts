@@ -249,3 +249,22 @@ it("rejects an exact known private media URL without banning unrelated URLs in t
   shot.picture = "招牌上写着 https://example.test。";
   expect(compileSevenPartVideo(film, shot).issues).toEqual([]);
 });
+
+it("recompiles persisted shot-scoped framing guidance after upgrade and rejects stale or unsafe guidance", () => {
+  const { film, shot } = fixture();
+  shot.videoFramingGuidance = "低机位，前景留白。";
+  shot.reviewedVideoPrompt = compileSevenPartVideo(film, shot).draft;
+  const reopened = upgradeFilm(JSON.parse(JSON.stringify(film)))!;
+  const selected = reopened.shots[0]!;
+  expect(selected.videoFramingGuidance).toBe(shot.videoFramingGuidance);
+  expect(compileSevenPartVideo(reopened, selected).draft.text).toBe(shot.reviewedVideoPrompt.text);
+  expect(storyFilmBatches(reopened, [selected], false)[0]!.shots![0]!.prompt).toContain(
+    "低机位，前景留白。",
+  );
+  selected.videoFramingGuidance = "后来修改的构图";
+  expect(() => storyFilmBatches(reopened, [selected], false)).toThrow(/重新整理/);
+  selected.videoFramingGuidance = "/tmp/private-guidance.md";
+  expect(compileSevenPartVideo(reopened, selected).issues).toContain(
+    "镜头中含有不能提交的本机信息，请先清理对应说明。",
+  );
+});

@@ -286,6 +286,8 @@ export type FilmShot = {
   directorVideoPrompt?: string;
   /** Confirmed text facts bound to this shot and selected version, never media approval. */
   reviewedVideoPrompt?: ReviewedVideoPrompt;
+  /** User-selected visual framing prose only; not executable SKILL instructions. */
+  videoFramingGuidance?: string;
   promptZh?: string;
   promptEn?: string;
   source: string;

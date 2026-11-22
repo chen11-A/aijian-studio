@@ -332,3 +332,120 @@ it("can generate again after importing only failed/cancelled history with no sel
       .shots[0]!.prompt,
   ).toContain("雨水沿街面流动");
 });
+
+async function selectSkill(
+  text = "# 自写构图练习\n保持主体在左侧。\n<script>doNotRun()</script>\nhttps://example.invalid/never-fetch",
+) {
+  fireEvent.change(screen.getByLabelText("选择本地 Markdown"), {
+    target: { files: [new File([text], "SKILL.md", { type: "text/markdown" })] },
+  });
+  await screen.findByRole("textbox", { name: "Markdown 原文参考" });
+}
+it("local SKILL text requires deliberate guidance, previews without jobs, persists only this shot inputs, and real undo protects dialogue/audio/media", async () => {
+  const env = await open();
+  const live = structuredClone(env.host().current()!);
+  const shot = live.shots[0]!;
+  live.narrationVoiceId = "leo";
+  shot.line = "雨快停了。";
+  shot.lines = [{ speaker: "", text: shot.line }];
+  shot.delivery = "轻声";
+  shot.sound.ambience = "雨声";
+  shot.selectedTakeId = "protected-take";
+  shot.takes = [
+    {
+      id: "protected-take",
+      shotId: shot.id,
+      index: 1,
+      status: "done",
+      videoPath: "/media/protected.mp4",
+      videoUrl: "",
+      stillUrl: "/media/protected.png",
+      prompt: "原版",
+      reason: "",
+      createdAt: "",
+    },
+  ];
+  live.audioClips = [
+    {
+      id: "protected-voice",
+      shotId: shot.id,
+      takeId: shot.selectedTakeId,
+      lane: "dialogue",
+      label: "已有配音",
+      path: "/media/protected.wav",
+      startSeconds: 0,
+      durationSeconds: 1,
+      offsetSeconds: 0,
+      gainDb: -6,
+    },
+  ];
+  live.shots.push({ ...structuredClone(shot), id: "neighbor-shot", no: 2 });
+  act(() => env.host().applyLive(live));
+  const before = structuredClone(env.host().current()!);
+  await selectSkill();
+  expect(
+    (screen.getByRole("textbox", { name: "Markdown 原文参考" }) as HTMLTextAreaElement).value,
+  ).toContain("<script>");
+  expect(screen.getByRole("textbox", { name: "本镜构图指导" })).toHaveValue("");
+  expect(screen.getByRole("button", { name: "预览本镜构图指导" })).toBeDisabled();
+  expect(env.host().current()).toEqual(before);
+  expect(screen.getByRole("button", { name: "采用选中文字" })).toBeDisabled();
+  const source = screen.getByRole("textbox", { name: "Markdown 原文参考" }) as HTMLTextAreaElement;
+  const snippet = "保持主体在左侧。";
+  source.setSelectionRange(
+    source.value.indexOf(snippet),
+    source.value.indexOf(snippet) + snippet.length,
+  );
+  fireEvent.select(source);
+  fireEvent.click(screen.getByRole("button", { name: "采用选中文字" }));
+  expect(screen.getByRole("textbox", { name: "本镜构图指导" })).toHaveValue(snippet);
+  expect(env.host().current()).toEqual(before);
+  fireEvent.change(screen.getByRole("textbox", { name: "本镜构图指导" }), {
+    target: { value: "低机位，主体位于左侧三分线。" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "预览本镜构图指导" }));
+  expect(review()).toHaveTextContent("低机位，主体位于左侧三分线。");
+  expect(review()).not.toHaveTextContent("doNotRun");
+  expect(review()).not.toHaveTextContent("never-fetch");
+  expect(env.host().current()).toEqual(before);
+  fireEvent.click(within(review()).getByRole("button", { name: "确认视频说明" }));
+  await within(review()).findByText("视频说明已确认并保存。此次确认没有生成媒体。");
+  const saved = env.saved();
+  const { videoFramingGuidance, reviewedVideoPrompt, ...unchanged } = saved.shots[0]!;
+  expect(videoFramingGuidance).toBe("低机位，主体位于左侧三分线。");
+  expect(reviewedVideoPrompt!.text).toContain(videoFramingGuidance!);
+  expect(unchanged).toEqual(before.shots[0]);
+  expect(saved.shots[1]).toEqual(before.shots[1]);
+  expect(saved.audioClips).toEqual(before.audioClips);
+  expect(saved.narrationVoiceId).toBe(before.narrationVoiceId);
+  const submitted = storyFilmBatches(saved, [saved.shots[0]!], saved.draft)[0]!.shots![0]!;
+  expect(submitted.prompt).toContain(videoFramingGuidance!);
+  expect(submitted.narration).toBe(shot.line);
+  fireEvent.click(screen.getByRole("button", { name: "撤销" }));
+  await waitFor(() => expect(env.saved().shots).toEqual(before.shots));
+  expect(env.saved().audioClips).toEqual(before.audioClips);
+  expect(env.provider).not.toHaveBeenCalled();
+  expect(env.text).not.toHaveBeenCalled();
+  expect(env.still).not.toHaveBeenCalled();
+});
+it("invalidates imported preview after draft edits, fact changes, or file replacement, and rejects non-Markdown files", async () => {
+  const env = await open();
+  await selectSkill();
+  const guidance = screen.getByRole("textbox", { name: "本镜构图指导" });
+  fireEvent.change(guidance, { target: { value: "前景留白。" } });
+  fireEvent.click(screen.getByRole("button", { name: "预览本镜构图指导" }));
+  fireEvent.change(guidance, { target: { value: "后景留白。" } });
+  expect(screen.queryByRole("region", { name: "七段视频说明" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "预览本镜构图指导" }));
+  const later = structuredClone(env.host().current()!);
+  later.shots[0]!.selectedTakeId = "changed-version";
+  act(() => env.host().applyLive(later));
+  expect(within(review()).getByRole("button", { name: "确认视频说明" })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("选择本地 Markdown"), {
+    target: { files: [new File(["not markdown"], "script.js")] },
+  });
+  expect(screen.getByRole("alert")).toHaveTextContent("请选择一个不超过 64 KB");
+  expect(screen.queryByRole("region", { name: "七段视频说明" })).toBeNull();
+  expect(env.host().current()!.shots[0]!.videoFramingGuidance).toBeUndefined();
+  expect(env.provider).not.toHaveBeenCalled();
+});

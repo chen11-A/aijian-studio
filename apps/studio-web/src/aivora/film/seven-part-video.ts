@@ -120,12 +120,14 @@ export function compileSevenPartVideo(film: FilmProject, shot: FilmShot): SevenP
     undecided: !value.trim(),
   });
   let unsafe = false;
+  const framing = shot.videoFramingGuidance?.trim() ?? "";
   const camera = [
     shot.size ? `景别：${shot.size}` : "",
     shot.angle ? `角度：${shot.angle}` : "",
     shot.move ? `运镜：${shot.move}` : "",
     Number.isFinite(shot.seconds) ? `${shot.seconds} 秒` : "",
     film.aspectRatio,
+    framing ? `用户确认的构图指导：${framing}` : "",
   ]
     .filter(Boolean)
     .join("；");
@@ -133,7 +135,7 @@ export function compileSevenPartVideo(film: FilmProject, shot: FilmShot): SevenP
     section("风格", [film.styleZh, shot.styleNote].filter(Boolean).join("\n")),
     section(
       "镜头",
-      `景别：${shot.size || "待决定"}；角度：${shot.angle || "待决定"}；运镜：${shot.move || "待决定"}；时长：${Number.isFinite(shot.seconds) ? `${shot.seconds} 秒` : "待决定"}；画幅：${film.aspectRatio || "待决定"}`,
+      `景别：${shot.size || "待决定"}；角度：${shot.angle || "待决定"}；运镜：${shot.move || "待决定"}；时长：${Number.isFinite(shot.seconds) ? `${shot.seconds} 秒` : "待决定"}；画幅：${film.aspectRatio || "待决定"}${framing ? `\n用户确认的构图指导：${framing}` : ""}`,
     ),
     section("布局", layout),
     section("身份", identity),
@@ -164,9 +166,12 @@ export function compileSevenPartVideo(film: FilmProject, shot: FilmShot): SevenP
     place?.referenceImage,
   ].filter((value): value is string => !!value && value.length >= 8);
   for (const entry of sections) {
+    const rawFraming = entry.label === "镜头" ? framing : "";
     // Inspect only selected text facts, not arbitrary serialized metadata. Story URLs and
     // numbers remain legitimate prose; known internal identities/media addresses do not.
     if (
+      /^(?:file|aivora-media|data|blob):\S+$/iu.test(rawFraming) ||
+      /^(?:[A-Z]:[\\/]|\/(?:tmp|home|Users|workspace|var)\/)\S*$/u.test(rawFraming) ||
       internalIds.some((id) => entry.text.includes(id)) ||
       paths.some((path) => entry.text.includes(path)) ||
       /\bBearer\s+[A-Za-z0-9._~-]{20,}|\bsk[-_][A-Za-z0-9_-]{20,}/iu.test(entry.text) ||
@@ -192,7 +197,7 @@ export function compileSevenPartVideo(film: FilmProject, shot: FilmShot): SevenP
     )
   )
     issues.push("出镜人物的对应尚不明确，请先核对人物选择。");
-  const submitVisual = [layout, action, constraints].join("\n");
+  const submitVisual = [layout, action, constraints, framing].join("\n");
   if (
     film.characters.some(
       (person) =>

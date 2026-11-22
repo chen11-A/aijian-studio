@@ -44,6 +44,7 @@ const fields = {
     "promptZh",
     "promptEn",
     "reviewedVideoPrompt",
+    "videoFramingGuidance",
     "source",
     "userFields",
     "selectedTakeId",

@@ -14,12 +14,8 @@ import { AudioLaneControls } from "./AudioLaneControls";
 import { useAudioMixPreview, type AudioPreviewView } from "./use-audio-mix-preview";
 import { audioMixSettings } from "@aijian/contracts/film-audio-mix-plan";
 import type { AudioMixPreviewResult, MixLane } from "@aijian/contracts/film-audio-mix";
-import { SevenPartVideoReview } from "../next/SevenPartVideoReview";
-import {
-  compileSevenPartVideo,
-  reviewedVideoText,
-  VIDEO_FACTS_STALE,
-} from "../film/seven-part-video";
+import { useVideoFactsReview } from "./use-video-facts-review";
+import { VIDEO_FACTS_STALE } from "../film/seven-part-video";
 import { rangeVideoBody } from "./actions/video-prompt-review";
 import { ProjectArchiveDialog } from "./ProjectArchiveDialog";
 import type { LibraryHost } from "./actions/audio-library";
@@ -191,7 +187,6 @@ import {
   ensureLocations,
   chosenExport,
   confirmEstimate,
-  storyFilmBatches,
   filmFileName,
   LOUDNESS_NOTE,
   assignActionBeats,
@@ -3333,125 +3328,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setPendingRole(null);
   }
 
-  const [videoReview, setVideoReview] = useState<{
-    request: NonNullable<ReturnType<typeof editorHost.capture>>;
-    facts: ReturnType<typeof compileSevenPartVideo>;
-    before: string | null;
-    modelText: string;
-    changed: boolean;
-    result: "saved" | "unsaved" | "rejected" | null;
-  } | null>(null);
-  const [videoReviewBusy, setVideoReviewBusy] = useState(false);
-  const videoReviewWorking = useRef(false);
-  function videoReviewMatches(review: NonNullable<typeof videoReview>) {
-    const live = filmRef.current,
-      selected = editorSelection.current;
-    const origin = review.request.selection;
-    const target = live?.shots.find((item) => item.id === origin.shotId);
-    const compiled = live && target ? compileSevenPartVideo(live, target) : null;
-    return !!(
-      live &&
-      target &&
-      live.id === origin.projectId &&
-      selected.page === origin.page &&
-      selected.shotId === origin.shotId &&
-      selected.sceneId === origin.sceneId &&
-      compiled &&
-      compiled.issues.length === 0 &&
-      compiled.draft.factsKey === review.facts.draft.factsKey
-    );
-  }
-  function organizeVideoFacts() {
-    if (videoReviewWorking.current) return;
-    const request = editorHost.capture();
-    const target = request?.base.shots.find((item) => item.id === request.selection.shotId);
-    if (!request || !target) return;
-    const facts = compileSevenPartVideo(request.base, target);
-    const proposed = {
-      ...request.base,
-      shots: request.base.shots.map((item) =>
-        item.id === target.id ? { ...item, reviewedVideoPrompt: facts.draft } : item,
-      ),
-    };
-    let modelText = "";
-    if (!facts.issues.length) {
-      try {
-        modelText =
-          storyFilmBatches(
-            proposed,
-            [proposed.shots.find((item) => item.id === target.id)!],
-            proposed.draft,
-          )[0]?.shots?.[0]?.prompt ?? "";
-      } catch (error) {
-        facts.issues.push(
-          error instanceof Error &&
-            /VOICE_.*REQUIRED/.test(String((error as { code?: string }).code))
-            ? "台词的声音选择尚未完成，请先核对说话人和声音。"
-            : "完整提交文本无法使用；请精简过长的说明，或调整时长、拆分镜头后重新整理。",
-        );
-      }
-    }
-    const diff = editorHost.preview(request, proposed);
-    if (!diff || diff.unsupported.length) return;
-    let before: string | null =
-      target.reviewedVideoPrompt === undefined
-        ? null
-        : "原保存说明已过期或无法核对，暂不展示其内容。";
-    try {
-      const checked = reviewedVideoText(request.base, target);
-      if (checked !== undefined) before = checked;
-    } catch {
-      /* No raw unverified body reaches the display. */
-    }
-    setVideoReview({
-      request,
-      facts,
-      before,
-      modelText,
-      changed: diff.changes.length > 0,
-      result: null,
-    });
-  }
-  async function confirmVideoFacts() {
-    const review = videoReview;
-    if (
-      !review ||
-      !review.changed ||
-      videoReviewWorking.current ||
-      review.result ||
-      review.facts.issues.length
-    )
-      return;
-    if (!videoReviewMatches(review)) {
-      setVideoReview((current) =>
-        current?.request.id === review.request.id ? { ...current, result: "rejected" } : current,
-      );
-      return;
-    }
-    videoReviewWorking.current = true;
-    setVideoReviewBusy(true);
-    try {
-      const result = await editorHost.apply(review.request.id);
-      if (result.completionCurrent === false) return;
-      setVideoReview((current) =>
-        current?.request.id === review.request.id
-          ? {
-              ...current,
-              result:
-                result.status === "saved"
-                  ? "saved"
-                  : result.status === "applied_unsaved"
-                    ? "unsaved"
-                    : "rejected",
-            }
-          : current,
-      );
-    } finally {
-      videoReviewWorking.current = false;
-      setVideoReviewBusy(false);
-    }
-  }
-
   function planPrompter() {
     if (!validateReferenceInput("prompter")) return Promise.resolve();
     return withForeground(planPrompterWork, "PLANPROMPTER_FAILED");
@@ -5867,40 +5743,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setNotice("已记下审片意见。版本仍由你选。");
   };
   const promptCard = roleCards.prompter;
-  const videoFactsSuggestion = (
-    <>
-      <button className="btn" disabled={videoReviewBusy} onClick={organizeVideoFacts}>
-        整理视频说明
-      </button>
-      {videoReview &&
-      videoReview.request.selection.projectId === film?.id &&
-      videoReview.request.selection.shotId === shownShots[shot]?.id ? (
-        <SevenPartVideoReview
-          facts={{
-            sections: videoReview.facts.sections,
-            issues: videoReview.facts.issues,
-            draft: { text: videoReview.facts.draft.text },
-          }}
-          changed={videoReview.changed}
-          before={videoReview.before}
-          modelText={videoReview.modelText}
-          busy={videoReviewBusy}
-          stale={!videoReviewMatches(videoReview)}
-          result={
-            videoReview.result &&
-            videoReview.result !== "rejected" &&
-            shownShots[shot]?.reviewedVideoPrompt?.factsKey !== videoReview.facts.draft.factsKey
-              ? "undone"
-              : videoReview.result
-          }
-          onConfirm={() => void confirmVideoFacts()}
-          onDismiss={() => {
-            if (!videoReviewWorking.current) setVideoReview(null);
-          }}
-        />
-      ) : null}
-    </>
-  );
+  const videoFactsSuggestion = useVideoFactsReview({
+    editorHost,
+    current: () => filmRef.current,
+    selection: () => editorSelection.current,
+    film,
+    target: shownShots[shot],
+  });
   const promptSuggestion =
     promptCard?.fieldRows !== undefined &&
     promptCard.editorDiff?.selection.projectId === film?.id &&
