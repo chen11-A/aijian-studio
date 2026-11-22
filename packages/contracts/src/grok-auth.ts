@@ -1,3 +1,12 @@
+/** Logical adapter ID. The Grok TTS endpoint takes a voice, not a model field. */
+export const GROK_TTS_MODEL = "grok-tts";
+
+export type GrokSpeechSelection = {
+  provider: string;
+  modelId: string;
+  connectionId?: string;
+};
+
 /** Renderer-safe Grok subscription login. Tokens never appear on this surface. */
 export type GrokLoginState =
   "NOT_CONNECTED" | "AWAITING_BROWSER" | "CONNECTED" | "ENTITLEMENT_DENIED" | "REAUTH_REQUIRED";
@@ -16,6 +25,8 @@ export type GrokLoginModel = {
   label: string;
   /** Present when a listing response included output modalities, or when the model came from a media listing. */
   outputModalities?: string[];
+  /** A selectable character voice from /tts/voices, not an inference model. */
+  catalogKind?: "voice";
 };
 
 /** Why a media listing did not add models. HTTP status is for the login log, not the screen. */
@@ -85,6 +96,8 @@ export type GrokLoginBridge = {
   speak?(input: {
     voiceId: string;
     text: string;
+    /** Local adapter choice only. Never included in the vendor request. */
+    speechSelection?: GrokSpeechSelection;
     projectId?: string;
     idempotencyKey?: string;
     /** 0.7 to 1.5. Omitted means the voice's normal speed. */

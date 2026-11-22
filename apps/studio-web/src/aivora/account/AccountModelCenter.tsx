@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { GROK_TTS_MODEL } from "@aijian/contracts/grok-auth";
 import type { CreateProviderConnectionInput, ProviderConnectionData } from "../../api/studio";
 import { Button } from "../Common";
 import { useOfficialConnection } from "../chatgpt-auth/ChatGPTConnectionContext";
@@ -92,12 +93,22 @@ export function AccountModelCenter({
   const xaiSaved = connections.some((connection) => connection.provider_kind === "XAI");
   const chatModels =
     official?.catalogProfileId && official.connection.models ? official.connection.models : [];
+  const listedGrok = grok?.models ?? [];
+  const grokModels = listedGrok.filter(
+    (model) => model.catalogKind !== "voice" && model.id !== GROK_TTS_MODEL,
+  );
+  if (listedGrok.some((model) => model.catalogKind === "voice" || model.id === GROK_TTS_MODEL))
+    grokModels.push({
+      id: GROK_TTS_MODEL,
+      label: "Grok TTS · Grok 登录",
+      outputModalities: ["audio"],
+    });
   const accounts = connectedAccountSlots({
     chatgpt: official?.connection.status,
     chatgptModels: chatModels,
     chatgptLoading: official?.connection.loading,
     grok: grok?.status,
-    grokModels: grok?.models,
+    grokModels,
     grokLoading: grok?.loading,
     xai: session,
   });
@@ -120,7 +131,8 @@ export function AccountModelCenter({
     const push = (value: string, label: string) => {
       if (!options.some((option) => option.value === value)) options.push({ value, label });
     };
-    for (const model of grok?.models ?? []) {
+    for (const model of grokModels) {
+      if (capability === "SPEECH" && model.id !== GROK_TTS_MODEL) continue;
       if (!capabilitiesForListedModel(model).includes(capability)) continue;
       push(choiceValue({ provider: "GROK_LOGIN", modelId: model.id }), model.label);
     }

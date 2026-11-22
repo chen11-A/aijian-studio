@@ -35,6 +35,63 @@ describe("Grok login IPC", () => {
     );
   });
 
+  it("requires the exact speech adapter when supplied and never forwards it to runtime", async () => {
+    const handlers = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+    const speak = vi.fn<NonNullable<GrokLoginBridge["speak"]>>();
+    const runtimeFor = vi.fn((): GrokLoginBridge => ({
+      status: vi.fn(),
+      signIn: vi.fn(),
+      cancel: vi.fn(),
+      signOut: vi.fn(),
+      models: vi.fn(),
+      completeText: vi.fn(),
+      speak,
+    }));
+    registerGrokHandlers(
+      (channel, callback) => handlers.set(channel, callback),
+      (event: boolean) => event,
+      runtimeFor,
+    );
+    const speech = handlers.get("grok-auth:speech")!;
+    const request = {
+      voiceId: "leo",
+      text: "雨太大。",
+      projectId: "prj_example",
+      idempotencyKey: "local-test",
+      speed: 0.85,
+    };
+    const selected = { provider: "GROK_LOGIN", modelId: "grok-tts" };
+    await expect(speech(false, { ...request, speechSelection: selected })).rejects.toThrow(
+      "not authorized",
+    );
+    await expect(speech(true, { ...request, model: "grok-tts" })).rejects.toThrow("Invalid");
+    for (const speechSelection of [
+      { provider: "GROK_LOGIN", modelId: "eve" },
+      { provider: "XAI_API", modelId: "grok-tts" },
+      { provider: "CHATGPT_OFFICIAL", modelId: "grok-tts" },
+      { provider: "CONNECTION", modelId: "grok-tts", connectionId: "conn" },
+      { ...selected, connectionId: "conn" },
+      { ...selected, endpoint: "https://example.invalid" },
+      { ...selected, voiceId: "eve" },
+      null,
+      undefined,
+      [],
+    ]) {
+      await expect(speech(true, { ...request, speechSelection })).resolves.toMatchObject({
+        kind: "ERROR",
+        code: "SPEECH_MODEL_UNSUPPORTED",
+        detail: expect.stringContaining("模型中心"),
+      });
+    }
+    expect(runtimeFor).not.toHaveBeenCalled();
+    expect(speak).not.toHaveBeenCalled();
+
+    await speech(true, request);
+    await speech(true, { ...request, speechSelection: selected });
+    expect(runtimeFor).toHaveBeenCalledTimes(2);
+    expect(speak.mock.calls).toEqual([[request], [request]]);
+  });
+
   it("serves a text-only Grok catalog only for an unpackaged screenshot launch", async () => {
     const handlers = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
     const runtime: GrokLoginBridge = {

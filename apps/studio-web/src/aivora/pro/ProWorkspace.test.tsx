@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { selectCenteredModel } from "../account/model-center";
 import { sampleFilm, type FilmProject } from "../film/project";
 import * as filmProject from "../film/project";
 import { activeFilmId, readSaved } from "../film/library";
@@ -2175,7 +2176,22 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
     // An OK speech response whose audio cannot load is not a generation failure.
     expect(await screen.findByText(/配音文件到了，这一页没有播出来/)).toBeInTheDocument();
     expect(screen.queryByText("配音没有成功，可以重试。")).toBeNull();
+    selectCenteredModel("SPEECH", { provider: "GROK_LOGIN", modelId: "eve" });
+    speak.mockResolvedValueOnce({
+      kind: "ERROR",
+      code: "SPEECH_MODEL_UNSUPPORTED",
+      detail: "请在模型中心选择 Grok TTS（Grok 登录）；角色声音不会更改。",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "试听" }));
+    expect(await screen.findByText(/请在模型中心选择 Grok TTS/)).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        voiceId: "leo",
+        speechSelection: { provider: "GROK_LOGIN", modelId: "eve" },
+      }),
+    );
   } finally {
+    selectCenteredModel("SPEECH", null);
     window.Audio = RealAudio;
     URL.createObjectURL = createUrl;
   }
@@ -2510,9 +2526,9 @@ it("lets the character page set gender and age, and lists only voices of that ge
       models: [
         { id: "grok-imagine-video-1.5", label: "video" },
         { id: "grok-4.7", label: "text" },
-        { id: "leo", label: "leo", outputModalities: ["audio"] },
-        { id: "orion", label: "orion", outputModalities: ["audio"] },
-        { id: "ara", label: "ara", outputModalities: ["audio"] },
+        { id: "leo", label: "leo", outputModalities: ["audio"], catalogKind: "voice" },
+        { id: "orion", label: "orion", outputModalities: ["audio"], catalogKind: "voice" },
+        { id: "ara", label: "ara", outputModalities: ["audio"], catalogKind: "voice" },
       ],
     })),
   } as unknown as Window["aijianGrok"];

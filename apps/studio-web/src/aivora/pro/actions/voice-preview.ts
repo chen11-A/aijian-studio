@@ -1,3 +1,4 @@
+import { snapshotSpeechSelection } from "../../account/model-center";
 import type { GrokLoginBridge } from "../../grok-auth/transport";
 
 export type VoicePreview = {
@@ -18,6 +19,7 @@ export async function prepareVoicePreview(
   text: string,
   host: VoicePreviewHost,
 ): Promise<VoicePreview> {
+  const speechSelection = snapshotSpeechSelection();
   const projectId = await host.billing();
   if (!host.valid()) throw new Error("WORK_STALE");
   if (!projectId) throw new Error("VOICE_PROJECT_REQUIRED");
@@ -26,9 +28,11 @@ export async function prepareVoicePreview(
     text,
     projectId,
     idempotencyKey: crypto.randomUUID(),
+    ...(speechSelection ? { speechSelection } : {}),
   });
   if (!host.valid()) throw new Error("WORK_STALE");
-  if (result.kind !== "OK") throw new Error(result.detail || "配音没有成功。");
+  if (result.kind !== "OK")
+    throw Object.assign(new Error(result.detail || "配音没有成功。"), { code: result.code });
   const binary = atob(result.audioBase64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const url = URL.createObjectURL(new Blob([bytes], { type: result.mime || "audio/mpeg" }));

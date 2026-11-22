@@ -1523,7 +1523,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       });
       if (valid()) setNotice("这一句已重配，画面没有重新生成。");
     } catch (error) {
-      if (valid())
+      if (!valid()) return;
+      if (error instanceof Error && "code" in error && error.code === "SPEECH_MODEL_UNSUPPORTED") {
+        setNotice(error.message);
+      } else {
         emitNotice({
           code:
             error instanceof Error && error.message === "VOICE_TRAITS_REQUIRED"
@@ -1532,6 +1535,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           text: "配音未完成，请确认角色声音后重试。",
           detail: error instanceof Error ? error.message : undefined,
         });
+      }
     } finally {
       if (valid()) setHearing(false);
     }
@@ -3767,6 +3771,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       previewSession.current = null;
       previewAudio.current = null;
       setHearing(false);
+      if (error instanceof Error && "code" in error && error.code === "SPEECH_MODEL_UNSUPPORTED") {
+        setNotice(error.message);
+        return;
+      }
       setNotice(
         error instanceof Error && error.message === "VOICE_METADATA_TIMEOUT"
           ? "配音已生成，但加载超时，还没有播放。可以重试。"

@@ -1,4 +1,5 @@
 import type { GrokLoginBridge, GrokLoginStatus } from "@aijian/contracts/grok-auth";
+import { supportedGrokSpeechSelection } from "./grok-speech-selection";
 
 /**
  * Unpackaged screenshot stand-in for a SuperGrok catalog that only lists a text model.
@@ -40,7 +41,6 @@ export function registerGrokHandlers<TEvent>(
   ] as const) {
     handle(`grok-auth:${action}`, async (event, ...args) => {
       if (!authorized(event)) throw new Error("Grok IPC sender is not authorized");
-      const runtime = runtimeFor();
       if (action === "text") {
         const input = args[0];
         if (
@@ -82,7 +82,7 @@ export function registerGrokHandlers<TEvent>(
           return { kind: "ERROR", code: "SCREENSHOT_ONLY", billingAccountKind: "grok_login" };
         }
         const sender = event as { sender?: { send?: (channel: string, payload: unknown) => void } };
-        const complete = runtime.completeText as (
+        const complete = runtimeFor().completeText as (
           input: Parameters<GrokLoginBridge["completeText"]>[0] & {
             onProgress?: (update: { chars: number; shots: number }) => void;
           },
@@ -118,11 +118,20 @@ export function registerGrokHandlers<TEvent>(
           projectId?: unknown;
           idempotencyKey?: unknown;
           speed?: unknown;
+          speechSelection?: unknown;
         };
         const keys = Object.keys(body);
         if (
           keys.some(
-            (key) => !["voiceId", "text", "projectId", "idempotencyKey", "speed"].includes(key),
+            (key) =>
+              ![
+                "voiceId",
+                "text",
+                "projectId",
+                "idempotencyKey",
+                "speed",
+                "speechSelection",
+              ].includes(key),
           ) ||
           (body.projectId !== undefined && typeof body.projectId !== "string") ||
           (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== "string") ||
@@ -130,6 +139,18 @@ export function registerGrokHandlers<TEvent>(
             (typeof body.speed !== "number" || body.speed < 0.7 || body.speed > 1.5))
         ) {
           throw new Error("Invalid Grok speech request");
+        }
+        if (
+          Object.hasOwn(body, "speechSelection") &&
+          !supportedGrokSpeechSelection(body.speechSelection)
+        ) {
+          return {
+            kind: "ERROR",
+            code: "SPEECH_MODEL_UNSUPPORTED",
+            detail:
+              "所选配音模型尚未接入。请在模型中心选择 Grok TTS（Grok 登录）；角色声音不会更改。",
+            billingAccountKind: "grok_login",
+          };
         }
         if (screenshotGrokCatalog()) {
           return {
@@ -139,6 +160,7 @@ export function registerGrokHandlers<TEvent>(
             billingAccountKind: "grok_login",
           };
         }
+        const runtime = runtimeFor();
         if (!runtime.speak) {
           return {
             kind: "ERROR",
@@ -157,6 +179,7 @@ export function registerGrokHandlers<TEvent>(
           ...(typeof body.speed === "number" ? { speed: body.speed } : {}),
         });
       }
+      const runtime = runtimeFor();
       if (action === "agent-log") {
         const input = args[0];
         if (args.length !== 1 || typeof input !== "object" || input === null) {
