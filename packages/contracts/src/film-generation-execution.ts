@@ -1,4 +1,4 @@
-/** A standalone image choice, not credential/dispatch authority. Native permits only its existing
+/** An image preference, not credential/dispatch authority. Native permits only its existing
  * Grok-login image adapter; absence preserves older saved workflows. */
 export type FilmImageModelSelection = {
   provider: string;
@@ -18,6 +18,7 @@ export type FilmGenerationVideoSelection = {
  * video run. These handles are transient locators, never portable authorization. */
 export type FilmGenerationExecutionInput = {
   videoSelection?: FilmGenerationVideoSelection;
+  imageSelection?: FilmImageModelSelection;
   projectId: string;
   expectedProjectHash: string;
   mode: "video" | "pipeline";
@@ -47,6 +48,7 @@ export type FilmGenerationExecutionFailure =
   | "PROJECT_CHANGED"
   | "SOURCE_UNVERIFIABLE"
   | "ACCOUNT_UNAVAILABLE"
+  | "IMAGE_SELECTION_UNSUPPORTED"
   | "VIDEO_SELECTION_UNSUPPORTED"
   | "VIDEO_UNCONFIGURED"
   | "VIDEO_INPUT_FAILURE_LIMIT"

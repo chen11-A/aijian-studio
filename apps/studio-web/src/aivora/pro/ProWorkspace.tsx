@@ -1,5 +1,6 @@
 import { snapshotVideoSelection } from "./video-model-selection";
-import type { FilmGenerationVideoSelection } from "@aijian/contracts/film-generation-execution";
+import { snapshotImageSelection } from "./image-model-selection";
+import type { FilmGenerationExecutionInput } from "@aijian/contracts/film-generation-execution";
 import { assemblyRenderKey, assemblyClock, assemblyClockState } from "./assembly";
 import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./actions/prepared-voice";
 import { audioTimelineBox } from "./audio-mix-timeline";
@@ -4080,9 +4081,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id) || persistentHistoryBusyRef.current) return;
     const videoSelection = snapshotVideoSelection();
+    const imageSelection = snapshotImageSelection();
     generationRuns.current.add(id);
     try {
-      return await runGeneration(targets, resume, takeIds, blockedIds, pipeline, videoSelection);
+      return await runGeneration(targets, resume, takeIds, blockedIds, pipeline, {
+        ...(videoSelection ? { videoSelection } : {}),
+        ...(imageSelection ? { imageSelection } : {}),
+      });
     } finally {
       generationRuns.current.delete(id);
     }
@@ -4098,7 +4103,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
-    videoSelection?: FilmGenerationVideoSelection,
+    modelSelections?: Pick<FilmGenerationExecutionInput, "videoSelection" | "imageSelection">,
   ): Promise<"STILL_NOT_ACCEPTED" | typeof LOOK_NOT_LOCKED | void> {
     const mine = ++runToken.current;
     const requestedVersions = pipeline?.versions ?? versions;
@@ -4222,7 +4227,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           live,
           {
             mode: "video",
-            ...(videoSelection ? { videoSelection } : {}),
+            ...modelSelections,
             targets: generationExecutionTargets(live, selected, {
               versions: requestedVersions,
               resume,

@@ -1,3 +1,4 @@
+import { supportedFilmImageSelection } from "./film-image-selection";
 import { generationSelectedMedia } from "./film-generation-selected-media";
 import { forecastGenerationReferences } from "./film-generation-forecast";
 import { createHash, randomUUID } from "node:crypto";
@@ -114,6 +115,7 @@ type State = {
   plannedKey: string | null;
   attemptedSlots: Set<string>;
   attemptedStages: Set<string>;
+  imageSelectionUnsupported: boolean;
   stageOrigins: Map<string, GenerationRegistrationInput["stages"][number]["origin"]>;
   queuedBindings: Map<string, readonly string[]>;
 };
@@ -417,6 +419,9 @@ export function createNativeFilmGenerationExecutions(host: {
           plannedKey: planned ? forecastKey(producer, plan, intent) : null,
           attemptedSlots: new Set(),
           attemptedStages: new Set(),
+          imageSelectionUnsupported:
+            input.imageSelection !== undefined &&
+            !supportedFilmImageSelection(input.imageSelection),
           stageOrigins: new Map(registration.stages.map((stage) => [stage.key, stage.origin])),
           queuedBindings: new Map(),
         };
@@ -574,6 +579,15 @@ export function createNativeFilmGenerationExecutions(host: {
         input.seriesId !== state.seriesId
       )
         return fail("UNSUPPORTED_SCOPE");
+      // An actual issued image stage has live CLIENT_IMAGES dependents.
+      // Do not apply IMAGE to video-only or readonly reuse paths. Refuse
+      // before stage source reads, reservation, provider bearer use or dispatch.
+      if (state.imageSelectionUnsupported)
+        return {
+          path: "",
+          reason: "所选图像模型尚未接入自动出图，未提交图像请求。",
+          code: "IMAGE_SELECTION_UNSUPPORTED",
+        };
       const verify = async (record: FilmRecord | null) => {
         lease.assertCurrent();
         if (

@@ -34,6 +34,7 @@ const failures = new Set([
   "ACCOUNT_UNAVAILABLE",
   "UNSUPPORTED_SCOPE",
   "EXECUTION_UNAVAILABLE",
+  "IMAGE_SELECTION_UNSUPPORTED",
   "VIDEO_SELECTION_UNSUPPORTED",
   "VIDEO_UNCONFIGURED",
   "VIDEO_INPUT_FAILURE_LIMIT",
@@ -62,7 +63,8 @@ export function generationExecutionNotice(error: unknown): UiNotice {
     (raw.startsWith("CREATION_") ||
       raw.startsWith("GENERATION_EXECUTION_") ||
       raw === "GENERATION_SELECTION_STALE" ||
-      raw === "VIDEO_SELECTION_UNSUPPORTED") &&
+      raw === "VIDEO_SELECTION_UNSUPPORTED" ||
+      raw === "IMAGE_SELECTION_UNSUPPORTED") &&
     Object.hasOwn(NOTICE_TEXT, raw)
       ? raw
       : raw === "VIDEO_UNCONFIGURED"
@@ -375,7 +377,10 @@ export type GenerationExecutionSession = ReturnType<typeof createGenerationExecu
 export async function prepareCurrentGenerationExecution(
   session: GenerationExecutionSession,
   base: FilmProject,
-  scope: Pick<FilmGenerationExecutionInput, "mode" | "targets" | "videoSelection">,
+  scope: Pick<
+    FilmGenerationExecutionInput,
+    "mode" | "targets" | "videoSelection" | "imageSelection"
+  >,
   host: {
     current: () => FilmProject | null;
     valid: () => boolean;

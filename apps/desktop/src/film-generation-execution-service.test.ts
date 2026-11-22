@@ -229,3 +229,38 @@ it("strictly parses and freezes VIDEO selection before asynchronous native prepa
     videoSelection: { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" },
   });
 });
+
+it("strictly copies IMAGE preference without rejecting unsupported valid model-center IDs or altering VIDEO", async () => {
+  const f = fixture();
+  for (const imageSelection of [
+    null,
+    undefined,
+    [],
+    { provider: "GROK_LOGIN", modelId: "image model" },
+    { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0", token: "private" },
+    { provider: "CONNECTION", modelId: "gateway/image" },
+    { provider: "GROK_LOGIN", modelId: "image", connectionId: "foreign" },
+    { provider: "XAI_API", modelId: "x".repeat(201) },
+  ]) {
+    expect(await f.service.prepare(f.owner, { ...input, imageSelection })).toEqual({
+      kind: "FAILED",
+      code: "INVALID_INPUT",
+    });
+  }
+  expect(f.prepare).not.toHaveBeenCalled();
+  const imageSelection = { provider: "CONNECTION", modelId: "gateway/image", connectionId: "id-1" };
+  const videoSelection = { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" };
+  const held = deferred();
+  f.prepare.mockImplementation(async () => {
+    await held.promise;
+    return f.registration;
+  });
+  const pending = f.service.prepare(f.owner, { ...input, imageSelection, videoSelection });
+  imageSelection.modelId = "later-model";
+  held.resolve();
+  expect((await pending).kind).toBe("PREPARED");
+  expect((f.prepare.mock.calls as unknown as unknown[][])[0]?.[0]).toMatchObject({
+    imageSelection: { ...imageSelection, modelId: "gateway/image" },
+    videoSelection,
+  });
+});

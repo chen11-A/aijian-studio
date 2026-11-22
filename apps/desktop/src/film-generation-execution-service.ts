@@ -1,6 +1,7 @@
 import type {
   FilmGenerationExecutionInput,
   FilmGenerationVideoSelection,
+  FilmImageModelSelection,
   FilmGenerationExecutionFailure,
   FilmGenerationExecutionResult,
 } from "@aijian/contracts/film-generation-execution";
@@ -45,15 +46,44 @@ function videoSelection(raw: unknown): FilmGenerationVideoSelection | null {
     ...(typeof raw.connectionId === "string" ? { connectionId: raw.connectionId } : {}),
   };
 }
+// Match valid model-center IDs, including gateway model names with slashes.
+// This is shape validation only: unsupported preferences are decided at an actual image sink.
+function imageSelection(raw: unknown): FilmImageModelSelection | null {
+  if (
+    !object(raw) ||
+    typeof raw.provider !== "string" ||
+    !["XAI_API", "CHATGPT_OFFICIAL", "GROK_LOGIN", "CONNECTION"].includes(raw.provider)
+  )
+    return null;
+  const id = (value: unknown): value is string =>
+    typeof value === "string" && value.length > 0 && value.length <= 200 && !/\s/u.test(value);
+  const fields =
+    raw.provider === "CONNECTION"
+      ? ["provider", "modelId", "connectionId"]
+      : ["provider", "modelId"];
+  if (
+    !exact(raw, fields) ||
+    !id(raw.modelId) ||
+    (raw.provider === "CONNECTION" && !id(raw.connectionId))
+  )
+    return null;
+  return {
+    provider: raw.provider,
+    modelId: raw.modelId,
+    ...(typeof raw.connectionId === "string" ? { connectionId: raw.connectionId } : {}),
+  };
+}
 function parse(raw: unknown): FilmGenerationExecutionInput | null {
   if (
     !object(raw) ||
-    !exact(
-      raw,
-      Object.hasOwn(raw, "videoSelection")
-        ? ["projectId", "expectedProjectHash", "mode", "targets", "videoSelection"]
-        : ["projectId", "expectedProjectHash", "mode", "targets"],
-    ) ||
+    !exact(raw, [
+      "projectId",
+      "expectedProjectHash",
+      "mode",
+      "targets",
+      ...(Object.hasOwn(raw, "videoSelection") ? ["videoSelection"] : []),
+      ...(Object.hasOwn(raw, "imageSelection") ? ["imageSelection"] : []),
+    ]) ||
     typeof raw.projectId !== "string" ||
     !/^film_[a-z0-9]{16,40}$/.test(raw.projectId) ||
     typeof raw.expectedProjectHash !== "string" ||
@@ -67,7 +97,10 @@ function parse(raw: unknown): FilmGenerationExecutionInput | null {
   const selection = Object.hasOwn(raw, "videoSelection")
     ? videoSelection(raw.videoSelection)
     : undefined;
-  if (selection === null) return null;
+  const image = Object.hasOwn(raw, "imageSelection")
+    ? imageSelection(raw.imageSelection)
+    : undefined;
+  if (selection === null || image === null) return null;
   const ids = new Set<string>(),
     targets: FilmGenerationExecutionInput["targets"][number][] = [];
   for (const target of raw.targets) {
@@ -92,6 +125,7 @@ function parse(raw: unknown): FilmGenerationExecutionInput | null {
     mode: raw.mode,
     targets,
     ...(selection ? { videoSelection: selection } : {}),
+    ...(image ? { imageSelection: image } : {}),
   };
 }
 /** Lifecycle around the trusted canonical/source/cache/ledger compiler, not a replacement

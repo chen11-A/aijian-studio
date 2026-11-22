@@ -474,9 +474,10 @@ it("keeps a native cached first slot separate from the later explicitly issued c
   expect(JSON.stringify(f.stored())).not.toContain("native-execution");
 });
 
-it("freezes VIDEO at confirmation before the backup await, without persisting it into media", async () => {
+it("freezes VIDEO and IMAGE at confirmation before the backup await, without persisting them into media", async () => {
   const f = fixture();
   selectCenteredModel("VIDEO", { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" });
+  selectCenteredModel("IMAGE", { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0" });
   const capture = f.capture.getMockImplementation()!;
   let release!: () => void;
   let entered!: () => void;
@@ -499,6 +500,7 @@ it("freezes VIDEO at confirmation before the backup await, without persisting it
     connectionId: "new-choice",
     modelId: "other",
   });
+  selectCenteredModel("IMAGE", { provider: "XAI_API", modelId: "another-image" });
   release();
   await waitFor(() => expect(f.video).toHaveBeenCalledTimes(1));
   expect(f.prepare.mock.calls[0]?.[0]).toMatchObject({
@@ -506,8 +508,10 @@ it("freezes VIDEO at confirmation before the backup await, without persisting it
       provider: "GROK_LOGIN",
       modelId: "grok-imagine-video-1.5",
     },
+    imageSelection: { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0" },
   });
   expect(JSON.stringify(f.stored())).not.toContain("videoSelection");
+  expect(JSON.stringify(f.stored())).not.toContain("imageSelection");
 });
 it("does not dispatch images, allocate takes or silently fallback when native rejects VIDEO", async () => {
   const f = fixture();
@@ -519,4 +523,29 @@ it("does not dispatch images, allocate takes or silently fallback when native re
   expect(f.still).not.toHaveBeenCalled();
   expect(f.video).not.toHaveBeenCalled();
   expect(f.stored().shots[0]!.takes).toEqual([]);
+});
+
+it("stops later video after an issued automatic IMAGE gate refusal and keeps the already selected frame", async () => {
+  const f = fixture();
+  const imageSelection = {
+    provider: "CONNECTION" as const,
+    modelId: "gateway/image",
+    connectionId: "saved",
+  };
+  selectCenteredModel("IMAGE", imageSelection);
+  f.still.mockResolvedValueOnce(
+    Object.assign(
+      { path: "", reason: "never echo provider reason" },
+      { code: "IMAGE_SELECTION_UNSUPPORTED" },
+    ),
+  );
+  await open();
+  submit();
+  await screen.findAllByText(/图像模型尚未接入自动出图/);
+  await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
+  expect(f.prepare.mock.calls[0]?.[0]).toMatchObject({ imageSelection });
+  expect(f.still).toHaveBeenCalledTimes(1);
+  expect(f.video).not.toHaveBeenCalled();
+  expect(f.stored().shots[0]!.poster).toBe("/tmp/adopted-frame.png");
+  expect(screen.queryByText(/never echo provider reason/)).toBeNull();
 });
