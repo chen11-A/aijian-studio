@@ -138,7 +138,10 @@ async function open() {
 }
 function submit(versions = 1) {
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
-  if (versions === 2) fireEvent.click(screen.getByRole("button", { name: "2" }));
+  if (versions === 2) {
+    fireEvent.click(screen.getByText("生成选项"));
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+  }
   fireEvent.click(screen.getByRole("button", { name: `生成 ${versions} 个版本` }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
 }

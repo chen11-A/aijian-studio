@@ -554,6 +554,7 @@ describe("professional workspace", () => {
     await openSample();
     fireEvent.click(stageTab("分镜"));
     fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+    openGenerationOptions();
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     await adoptOpenStill();
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
@@ -1046,9 +1047,11 @@ describe("professional workspace", () => {
     fireEvent.click(stageTab("分镜"));
     fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
     fireEvent.click(screen.getByRole("button", { name: "5 秒" }));
+    openGenerationOptions();
     fireEvent.click(screen.getByRole("button", { name: "较快的一版" }));
     fireEvent.click(screen.getByRole("button", { name: "直接出成片" }));
     fireEvent.change(screen.getByLabelText("画面描述"), { target: { value: "雨停了" } });
+    openGenerationOptions();
     const counts = screen.getAllByRole("button", { name: "2" });
     fireEvent.click(counts[counts.length - 1]!);
     await adoptOpenStill();
@@ -1056,6 +1059,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText("这一版已经生成。", {}, { timeout: 5_000 })).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /^用第 \d+ 版$/ })[0]!);
+    openGenerationOptions();
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "全部镜头" }));
     await adoptListedShots(sampleFilm().shots.length);
@@ -1140,6 +1144,7 @@ describe("professional workspace", () => {
     await openSample();
     fireEvent.click(stageTab("分镜"));
     fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+    openGenerationOptions();
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     await adoptOpenStill();
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
@@ -1211,7 +1216,9 @@ describe("professional workspace", () => {
     expect(await screen.findByText(/没有能写字的模型/)).toBeInTheDocument();
     fireEvent.click(stageTab("分镜"));
     fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+    openGenerationOptions();
     fireEvent.click(screen.getByRole("button", { name: "较快的一版" }));
+    openGenerationOptions();
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     await adoptOpenStill();
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
@@ -1731,6 +1738,7 @@ describe("professional workspace", () => {
       await openSample();
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+      openGenerationOptions();
       fireEvent.click(screen.getByRole("button", { name: "1" }));
       await adoptOpenStill();
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
@@ -2658,6 +2666,12 @@ function moreAction(name: string) {
   fireEvent.click(screen.getByRole("button", { name }));
 }
 
+/** Expand optional generation controls as a person would, without changing their values. */
+function openGenerationOptions() {
+  const summary = screen.getByText("生成选项");
+  if (!summary.closest("details")?.open) fireEvent.click(summary);
+}
+
 /** Opens 分镜 → 属性 → 高级, where 提示词 and 审片 run. */
 /** 4C-U05: opens a group of a shot's properties (画面, 声音, 高级) if it is folded. */
 function openGroup(name: string) {
@@ -3019,6 +3033,7 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   expect(importMusic).toHaveBeenCalledWith(expect.any(String), "/tmp/song.mp3");
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  openGenerationOptions();
   fireEvent.click(screen.getByRole("button", { name: "1" }));
   await adoptOpenStill();
   fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
@@ -3625,6 +3640,7 @@ it("stops the rest of a batch when a newer batch starts", async () => {
   await openSample();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  openGenerationOptions();
   const counts = screen.getAllByRole("button", { name: "2" });
   fireEvent.click(counts[counts.length - 1]!);
   await adoptOpenStill();
@@ -4582,6 +4598,7 @@ it("says plainly on 单镜 what one click makes, with the long text folded (4A-U
   const estimate = () => screen.getByTestId("generation-estimate").textContent;
   fireEvent.click(screen.getAllByRole("button", { name: "2 秒" })[0]!);
   expect(estimate()).toBe("1 段 2 秒的视频 · 用 Grok 会员额度，不另外收费");
+  openGenerationOptions();
   fireEvent.click(screen.getByRole("button", { name: "2" }));
   expect(estimate()).toBe("2 段 2 秒的视频 · 用 Grok 会员额度，不另外收费");
   expect(screen.getAllByText("不另外收费", { exact: false })).toHaveLength(1);
@@ -6425,4 +6442,101 @@ it("3JR-B08 terminates this batch's queued videos when scene preparation fails",
     ).toBe(true);
   });
   expect(video).not.toHaveBeenCalled();
+});
+
+it("keeps the four production stages and the current shot on repeated navigation", async () => {
+  installDesktop();
+  await openSample();
+  const nav = within(screen.getByRole("navigation", { name: "创作阶段" }));
+  expect(nav.getAllByRole("button")).toHaveLength(4);
+  expect(stageTab("分镜")).toHaveAttribute(
+    "aria-description",
+    expect.stringContaining("调整镜头，生成并选择视频版本"),
+  );
+  expect(screen.queryByRole("button", { name: /简单模式|专业模式/ })).toBeNull();
+  fireEvent.click(stageTab("分镜"));
+  const cards = document.querySelectorAll<HTMLElement>(".pb.grid .card");
+  expect(cards.length).toBeGreaterThan(1);
+  fireEvent.click(cards[1]!);
+  fireEvent.change(screen.getByLabelText("分镜画面"), {
+    target: { value: "用户正在编辑的第二个镜头" },
+  });
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(stageTab("分镜"));
+  expect(cards[1]).toHaveClass("sel");
+  expect(screen.getByLabelText("分镜画面")).toHaveValue("用户正在编辑的第二个镜头");
+  expect(stageTab("分镜")).toHaveAttribute("aria-current", "page");
+  fireEvent.click(stageTab("剪辑"));
+  expect(stageTab("剪辑")).toHaveAttribute("aria-current", "page");
+  fireEvent.click(stageTab("剧本"));
+  expect(stageTab("剧本")).toHaveAttribute("aria-current", "page");
+});
+
+it("folds optional generation controls without changing the visible estimate or acceptance gate", async () => {
+  const video = vi.fn();
+  installDesktop(video);
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  const summary = screen.getByText("生成选项");
+  const options = summary.closest("details")!;
+  expect(options.open).toBe(false);
+  expect(screen.getByRole("button", { name: "直接出成片" })).not.toBeVisible();
+  expect(screen.getByLabelText("画面描述")).toBeVisible();
+  expect(screen.getByRole("button", { name: "5 秒" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeVisible();
+  openGenerationOptions();
+  fireEvent.click(screen.getByRole("button", { name: "2" }));
+  fireEvent.click(screen.getByRole("button", { name: "直接出成片" }));
+  fireEvent.click(summary);
+  expect(options.open).toBe(false);
+  expect(summary).toHaveTextContent("直接出成片 · 2 个版本");
+  expect(screen.getByTestId("generation-estimate")).toHaveTextContent(/^2 段/);
+  expect(screen.getByRole("button", { name: "生成 2 个版本" })).toBeVisible();
+  // Collapsing the extras must not submit a request or bypass the still acceptance workflow.
+  expect(video).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "生成画面" })).toBeVisible();
+  openGenerationOptions();
+  expect(screen.getByRole("button", { name: "2" })).toHaveClass("on");
+  expect(screen.getByRole("button", { name: "直接出成片" })).toHaveClass("on");
+});
+
+it("keeps native takes and the selected version when one-version preference is enabled", async () => {
+  installDesktop();
+  const film = sampleFilm();
+  const shot = film.shots[0]!;
+  shot.takes = [1, 2].map((index) => ({
+    id: `existing-take-${index}`,
+    shotId: shot.id,
+    index,
+    status: "done",
+    videoPath: `/tmp/existing-take-${index}.mp4`,
+    videoUrl: `/tmp/existing-take-${index}.mp4`,
+    stillUrl: `/tmp/existing-take-${index}.png`,
+    prompt: "用户已生成的版本",
+    createdAt: "2026-11-21T00:00:00Z",
+    reason: "",
+  }));
+  shot.selectedTakeId = "existing-take-2";
+  const before = structuredClone(shot.takes);
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(film);
+  window.localStorage.setItem("aivora.film.activeId", film.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await screen.findAllByText(film.title);
+  fireEvent.click(screen.getByRole("button", { name: "账号" }));
+  fireEvent.click(screen.getByRole("button", { name: "设置" }));
+  const settings = within(screen.getByRole("dialog", { name: "设置" }));
+  fireEvent.click(settings.getByRole("checkbox", { name: /新手模式/ }));
+  fireEvent.click(settings.getByRole("button", { name: "关闭" }));
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单个镜头" }));
+  openGenerationOptions();
+  expect(screen.queryByText("一次出几个")).toBeNull();
+  expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeVisible();
+  await waitFor(() => {
+    const saved = vi.mocked(window.aijian!.writeFilmProject!).mock.calls.at(-1)?.[0] as FilmProject;
+    expect(saved.shots.find((item) => item.id === shot.id)?.takes).toEqual(before);
+    expect(saved.shots.find((item) => item.id === shot.id)?.selectedTakeId).toBe("existing-take-2");
+  });
+  expect(JSON.parse(window.localStorage.getItem("aivora.prefs")!).beginner).toBe(true);
 });

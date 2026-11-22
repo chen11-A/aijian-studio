@@ -387,11 +387,11 @@ const FRAME_SECONDS = 1 / 30;
 /** 4A-U11: notices after an assistant's suggestion was put in; the status bar offers 撤销. */
 const APPLIED_CODES = new Set(["SCRIPT_APPLIED", "ART_APPLIED", "SHOT_APPLIED", "SHOTS_APPLIED"]);
 
-const STAGES: { id: Stage; label: string }[] = [
-  { id: "script", label: "剧本" },
-  { id: "cast", label: "角色与场景" },
-  { id: "board", label: "分镜" },
-  { id: "edit", label: "剪辑" },
+const STAGES: { id: Stage; label: string; task: string }[] = [
+  { id: "script", label: "剧本", task: "整理故事，确认每一场的内容" },
+  { id: "cast", label: "角色与场景", task: "确认人物外貌、场景和画风" },
+  { id: "board", label: "分镜", task: "调整镜头，生成并选择视频版本" },
+  { id: "edit", label: "剪辑", task: "组装画面与声音，审片后导出" },
 ];
 
 const SIGN_IN_NOTE = "网页版不能登录，请在电脑上装好的 AIVORA 里登录。";
@@ -6276,10 +6276,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     key={item.id}
                     className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
                     aria-current={on ? "page" : undefined}
+                    aria-description={`${item.task}。${done ? "此阶段已完成。" : progress && progress.total > 0 ? `已完成 ${progress.have}/${progress.total}。` : ""}可返回前面阶段继续编辑。`}
                     title={`${item.label}（按 ${index + 1}）`}
                     onClick={() => {
-                      setStage(item.id);
                       setMenu(null);
+                      // Re-selecting the current stage must not move away from the shot being edited.
+                      if (on && item.id === "board") return;
+                      setStage(item.id);
                       if (item.id === "board") {
                         const current = filmRef.current;
                         const rows =
@@ -7387,6 +7390,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   />
                   新手模式：每个镜头只出 1 个版本
                 </label>
+                <p className="role-desc">
+                  只简化版本数量，不降低成片质量标准；已有版本和当前选用版本都会保留。
+                </p>
               </section>
               <ReplyCaptureSettings getFilm={() => filmRef.current} onNotice={setNotice} />
               <section className="ws-sec" aria-label="快捷键">
@@ -11255,43 +11261,54 @@ function GeneratePage({
                   </div>
                 </div>
               </div>
-              <div className="row2" style={{ marginTop: 10 }}>
-                <div>
-                  <div className="sec-t">清晰度</div>
-                  <div className="seg">
-                    <button
-                      className={film.draft ? "on" : ""}
-                      onClick={() => onFilm({ ...film, draft: true })}
-                    >
-                      较快的一版
-                    </button>
-                    <button
-                      className={film.draft ? "" : "on"}
-                      onClick={() => onFilm({ ...film, draft: false })}
-                    >
-                      直接出成片
-                    </button>
-                  </div>
-                </div>
-                {/* 4C-U03: beginner mode makes one version per shot and does not offer more. */}
-                {beginner ? null : (
+              <details className="full-prompt generation-options">
+                <summary>
+                  生成选项
+                  <span className="generation-options-value">
+                    {film.draft ? "较快的一版" : "直接出成片"} · {versions} 个版本
+                  </span>
+                </summary>
+                <div className="row2" style={{ marginTop: 10 }}>
                   <div>
-                    <div className="sec-t">一次出几个</div>
+                    <div className="sec-t">清晰度</div>
                     <div className="seg">
-                      {[1, 2, 4].map((count) => (
-                        <button
-                          key={count}
-                          type="button"
-                          className={versions === count ? "on" : ""}
-                          onClick={() => onVersions(count)}
-                        >
-                          {count}
-                        </button>
-                      ))}
+                      <button
+                        className={film.draft ? "on" : ""}
+                        aria-pressed={film.draft}
+                        onClick={() => onFilm({ ...film, draft: true })}
+                      >
+                        较快的一版
+                      </button>
+                      <button
+                        className={film.draft ? "" : "on"}
+                        aria-pressed={!film.draft}
+                        onClick={() => onFilm({ ...film, draft: false })}
+                      >
+                        直接出成片
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
+                  {/* 4C-U03: beginner mode makes one version per shot and does not offer more. */}
+                  {beginner ? null : (
+                    <div>
+                      <div className="sec-t">一次出几个</div>
+                      <div className="seg">
+                        {[1, 2, 4].map((count) => (
+                          <button
+                            key={count}
+                            type="button"
+                            className={versions === count ? "on" : ""}
+                            aria-pressed={versions === count}
+                            onClick={() => onVersions(count)}
+                          >
+                            {count}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </details>
             </div>
             <div className="genbar">
               <div className="model">
