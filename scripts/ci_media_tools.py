@@ -20,10 +20,12 @@ if TYPE_CHECKING:
     from aijian_api.media_toolchain import MediaToolchain
 
 ROOT = Path(__file__).resolve().parents[1]
-WINDOWS_ARCHIVE_URL = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-full_build.7z"
-# The publisher lists this release as its official mirror with the same SHA-256.
-WINDOWS_ARCHIVE_MIRROR_URL = (
+# Prefer the publisher's versioned release; it has the same pinned SHA-256.
+WINDOWS_ARCHIVE_URL = (
     "https://github.com/GyanD/codexffmpeg/releases/download/8.1.2/ffmpeg-8.1.2-full_build.7z"
+)
+WINDOWS_ARCHIVE_MIRROR_URL = (
+    "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-full_build.7z"
 )
 WINDOWS_ARCHIVE_SHA256 = "0fff188997a499b5382e0f66e845d4556c48c54f0113ebed4853d556dbdd7059"
 WINDOWS_ARCHIVE_ROOT = "ffmpeg-8.1.2-full_build"
