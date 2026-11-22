@@ -106,7 +106,8 @@ def worker_case(monkeypatch):
         revision=1,
         enabled=True,
         provider_kind="CPA_LOOPBACK",
-        models=(SimpleNamespace(model_id="offline-model"),),
+        base_url="http://127.0.0.1:8317",
+        models=(SimpleNamespace(model_id="offline-model", capabilities=("TEXT",)),),
         credential_ref="synthetic",
     )
     worker._credentials.get.return_value = "synthetic-token"
@@ -219,7 +220,11 @@ def test_changed_dispatch_binding_quarantines_without_transport(worker_case, fie
         ("revision", 2),
         ("enabled", False),
         ("provider_kind", "other"),
+        ("base_url", "https://not-the-approved-origin.invalid"),
         ("models", ()),
+        ("models", (SimpleNamespace(model_id="offline-model", capabilities=("IMAGE",)),)),
+        ("models", (SimpleNamespace(model_id="offline-model", capabilities=("VIDEO",)),)),
+        ("models", (SimpleNamespace(model_id="offline-model", capabilities=("SPEECH",)),)),
     ],
 )
 def test_changed_connection_never_dispatches(worker_case, field, value):
@@ -228,6 +233,7 @@ def test_changed_connection_never_dispatches(worker_case, field, value):
     with pytest.raises(remote.RemoteWorkerBlocked, match="connection changed"):
         execute(case)
     case.worker._transport.dispatch.assert_not_called()
+    case.worker._credentials.get.assert_not_called()
     case.worker._authorizations.quarantine_remote_unknown.assert_called_once()
 
 

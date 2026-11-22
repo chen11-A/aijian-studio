@@ -411,7 +411,8 @@ def test_current_worker_submits_one_bound_fake_gateway_request(settlement_availa
                 revision=1,
                 enabled=True,
                 provider_kind="CPA_LOOPBACK",
-                models=(SimpleNamespace(model_id="offline-model"),),
+                base_url="http://127.0.0.1:8317",
+                models=(SimpleNamespace(model_id="offline-model", capabilities=("TEXT",)),),
             )
         ),
         credentials=SimpleNamespace(get=lambda _: "offline-qa-token"),

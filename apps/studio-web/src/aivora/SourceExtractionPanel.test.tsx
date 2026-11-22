@@ -261,6 +261,35 @@ describe("source extraction panel queue and original read", () => {
     );
     expect(screen.queryByRole("button", { name: /Sub2API/ })).not.toBeInTheDocument();
   });
+  test("uses the eligible text binding from model center without auto-dispatch", async () => {
+    selectCenteredModel("TEXT", { provider: "CONNECTION", connectionId, modelId: "fixture-model" });
+    const h = setup();
+    await screen.findByRole("option", { name: /Test connection/ });
+    expect(screen.getByLabelText("文本连接")).toHaveValue(connectionId);
+    expect(screen.getByLabelText("文本模型")).toHaveValue("fixture-model");
+    expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
+    click("仅入队原来源抽取");
+    await screen.findByText(/服务端已创建待授权任务/);
+    expect(h.api.remoteSourceExtract.create.mock.calls[0]?.[1].input.selection).toMatchObject({
+      connection_id: connectionId,
+      connection_revision: 1,
+      model_id: "fixture-model",
+    });
+  });
+
+  test.each(["missing-model", "grok-4.7"])(
+    "does not fall back when model center selects an unsupported queue binding (%s)",
+    async (modelId) => {
+      selectCenteredModel("TEXT", { provider: "CONNECTION", connectionId, modelId });
+      const h = setup(false, modelId === "grok-4.7" ? "XAI" : "CPA_LOOPBACK");
+      await screen.findByText(/未自动改用其他模型/);
+      fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
+      expect(screen.getByRole("button", { name: "仅入队原来源抽取" })).toBeDisabled();
+      expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
+    },
+  );
+
   test("queues a Grok text connection with grok_login and does not claim a live call", async () => {
     const h = setup(false, "XAI");
     await screen.findByRole("option", { name: /Grok/ });

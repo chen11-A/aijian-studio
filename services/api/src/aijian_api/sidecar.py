@@ -410,7 +410,7 @@ def create_remote_source_extract_runtime(
     worker = RemoteSourceExtractWorker(
         ledger=ledger,
         authorizations=authorizations,
-        invocation_builder=SourceExtractInvocationBuilder(repository.database_path),
+        invocation_builder=SourceExtractInvocationBuilder(repository.database_path, remote=True),
         connections=connections,
         credentials=composition.credentials,
         transport=GatewayTextTransport(),

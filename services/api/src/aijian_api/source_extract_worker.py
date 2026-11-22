@@ -20,7 +20,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from aijian_api.agent_run_store import AgentRunStore
 from aijian_api.agent_skill_builtins import (
     SOURCE_ANALYST_REF,
+    SOURCE_ANALYST_REMOTE_REF,
     SOURCE_EXTRACT_REF,
+    SOURCE_EXTRACT_REMOTE_REF,
     built_in_agent_skill_registry,
 )
 from aijian_api.agent_skill_contracts import ArtifactProposalV1, AttemptSnapshotV1, canonical_sha256
@@ -35,6 +37,7 @@ from aijian_api.fake_agent_executor import (
 from aijian_api.repository import StudioRepository
 from aijian_api.shot_outline_worker import create_shot_outline_executor
 from aijian_api.source_extract_run_factory import (
+    RemoteSourceExtractEnqueueIntentV1,
     SourceExtractEnqueueIntentV1,
     resolve_source_extract_context,
 )
@@ -66,7 +69,9 @@ class FakeSourceExtractInvocationV1(BaseModel):
 
 
 class SourceExtractInvocationBuilder:
-    def __init__(self, database_path: Path) -> None:
+    def __init__(self, database_path: Path, *, remote: bool = False) -> None:
+        # Only the trusted remote composition opts in; local workers stay local-only.
+        self._remote = remote
         self._database_path = database_path.resolve()
         self._repository = StudioRepository(
             self._database_path,
@@ -91,7 +96,13 @@ class SourceExtractInvocationBuilder:
         intent_record = persisted.enqueue_intent
         if intent_record is None:
             raise PermissionError("source.extract enqueue intent is missing")
-        intent = SourceExtractEnqueueIntentV1.model_validate(intent_record.payload)
+        intent: SourceExtractEnqueueIntentV1 | RemoteSourceExtractEnqueueIntentV1 = (
+            RemoteSourceExtractEnqueueIntentV1.model_validate(intent_record.payload)
+            if self._remote
+            else SourceExtractEnqueueIntentV1.model_validate(intent_record.payload)
+        )
+        agent_ref = SOURCE_ANALYST_REMOTE_REF if self._remote else SOURCE_ANALYST_REF
+        skill_ref = SOURCE_EXTRACT_REMOTE_REF if self._remote else SOURCE_EXTRACT_REF
         self._validate_workflow_truth(intent, snapshot, running)
         attempt_template = snapshot.model_dump(mode="json", exclude={"attempt_id"})
         bundle = persisted.bundle
@@ -116,17 +127,17 @@ class SourceExtractInvocationBuilder:
             or bundle.context_manifest.context_manifest_id != intent.context_manifest_id
             or bundle.context_manifest.project_id != snapshot.project_id
             or bundle.skill_run.context_manifest_id != intent.context_manifest_id
-            or bundle.agent_run.agent_definition != SOURCE_ANALYST_REF
-            or bundle.skill_run.skill_definition != SOURCE_EXTRACT_REF
-            or bundle.context_manifest.agent_definition != SOURCE_ANALYST_REF
-            or bundle.context_manifest.skill_definition != SOURCE_EXTRACT_REF
+            or bundle.agent_run.agent_definition != agent_ref
+            or bundle.skill_run.skill_definition != skill_ref
+            or bundle.context_manifest.agent_definition != agent_ref
+            or bundle.context_manifest.skill_definition != skill_ref
         ):
             raise PermissionError("source.extract truth is detached from the Attempt snapshot")
         bindings = intent.input_bindings
         request = CreateProposalRunRequest.model_validate(
             {
-                "agent_definition": SOURCE_ANALYST_REF.model_dump(mode="json"),
-                "skill_definition": SOURCE_EXTRACT_REF.model_dump(mode="json"),
+                "agent_definition": agent_ref.model_dump(mode="json"),
+                "skill_definition": skill_ref.model_dump(mode="json"),
                 "source_manifest_version_id": bindings.get("source_manifest_version_id"),
                 "source_document_id": bindings.get("source_document_id"),
                 "source_block_id": bindings.get("source_block_id"),
@@ -139,10 +150,24 @@ class SourceExtractInvocationBuilder:
             project_id=snapshot.project_id,
             payload=request,
         )
+        remote_binding: dict[str, object] = {}
+        if isinstance(intent, RemoteSourceExtractEnqueueIntentV1):
+            dispatch = intent.dispatch_snapshot
+            if (
+                dispatch.connection_id != snapshot.provider_connection_id
+                or dispatch.approved_model_id != snapshot.model_id
+            ):
+                raise PermissionError("remote source.extract model binding changed")
+            remote_binding = {
+                "remote_connection_id": dispatch.connection_id,
+                "remote_connection_revision": dispatch.connection_revision,
+                "remote_model_id": dispatch.approved_model_id,
+            }
         expected_input_hash = canonical_sha256(
             {
                 "project_id": snapshot.project_id,
                 **request.model_dump(mode="json"),
+                **remote_binding,
                 "context_manifest_hash": bundle.context_manifest.manifest_hash,
             }
         )
@@ -186,7 +211,7 @@ class SourceExtractInvocationBuilder:
 
     def _validate_workflow_truth(
         self,
-        intent: SourceExtractEnqueueIntentV1,
+        intent: SourceExtractEnqueueIntentV1 | RemoteSourceExtractEnqueueIntentV1,
         snapshot: AttemptSnapshotV1,
         running: ClaimedTask,
     ) -> None:
@@ -276,7 +301,7 @@ class SourceExtractInvocationBuilder:
             or str(row["active_attempt_id"]) != running.attempt_id
             or str(row["node_status"]) != "RUNNING"
             or str(row["request_fingerprint"]) != intent.request_fingerprint
-            or str(row["attempt_status"]) != "RUNNING"
+            or str(row["attempt_status"]) != ("SUBMITTING" if self._remote else "RUNNING")
             or str(row["task_id"]) != running.task_id
             or str(row["task_kind"]) != intent.task_kind
             or int(row["priority"]) != intent.priority

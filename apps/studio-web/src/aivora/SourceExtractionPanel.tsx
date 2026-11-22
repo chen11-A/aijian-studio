@@ -67,8 +67,8 @@ export function SourceExtractionPanel({
   sourceApproved,
 }: SourceExtractionPanelProps) {
   const transport = useMemo(createStudioTransport, []);
-  const grokText = useModelCenter().choices.TEXT;
-  const grokModel = grokText?.provider === "GROK_LOGIN" ? grokText.modelId : "";
+  const centeredText = useModelCenter().choices.TEXT;
+  const grokModel = centeredText?.provider === "GROK_LOGIN" ? centeredText.modelId : "";
   const epoch = useRef(0);
   const activeProject = useRef(projectId);
   activeProject.current = projectId;
@@ -168,10 +168,32 @@ export function SourceExtractionPanel({
             item.models.some((model) => model.capabilities.includes("TEXT")),
         )
       : [];
-  const selectedConnection = eligible.find((item) => item.id === connectionId);
+  const centeredConnection =
+    centeredText?.provider === "CONNECTION"
+      ? eligible.find(
+          (item) =>
+            item.id === centeredText.connectionId &&
+            item.provider_kind === "CPA_LOOPBACK" &&
+            item.models.some(
+              (model) =>
+                model.model_id === centeredText.modelId &&
+                model.capabilities.length === 1 &&
+                model.capabilities[0] === "TEXT",
+            ),
+        )
+      : undefined;
+  const connectionValue = connectionId || centeredConnection?.id || (grokModel ? "grok-login" : "");
+  const selectedConnection = eligible.find((item) => item.id === connectionValue);
   const models =
     selectedConnection?.models.filter((item) => item.capabilities.includes("TEXT")) ?? [];
-  const selectedModel = models.find((item) => item.model_id === modelId);
+  const modelValue =
+    modelId ||
+    (!connectionId && centeredConnection && centeredText?.provider === "CONNECTION"
+      ? centeredText.modelId
+      : connectionValue === "grok-login"
+        ? grokModel
+        : "");
+  const selectedModel = models.find((item) => item.model_id === modelValue);
   const operation = journal.kind === "VALID" ? journal.operation : null;
   const acceptedDraftVersionId =
     acceptance.kind === "VALID" ? acceptance.acceptance.draftVersionId : null;
@@ -569,6 +591,12 @@ export function SourceExtractionPanel({
             : "没有可用的文本连接；请先在 AI 服务页选择 Grok 文本模型。"}
         </p>
       )}
+      {connections.kind === "ready" &&
+        centeredText?.provider === "CONNECTION" &&
+        !centeredConnection &&
+        !connectionId && (
+          <p role="status">模型中心选的文本连接不能用于此队列，未自动改用其他模型。</p>
+        )}
       {(journal.kind === "BLOCKED" || sub2Journal.kind === "BLOCKED") && (
         <p role="alert">本地原操作记录无法安全读取，已阻止再次提交。</p>
       )}
@@ -612,15 +640,14 @@ export function SourceExtractionPanel({
         <label>
           文本连接
           <Select
-            value={connectionId || (grokModel ? "grok-login" : "")}
+            value={connectionValue}
             disabled={!!operation || busy || (!document && !grokModel)}
             onChange={(event) => {
-              const value = event.target.value === "grok-login" ? "" : event.target.value;
-              setConnectionId(value);
+              setConnectionId(event.target.value);
               setModelId("");
             }}
           >
-            {!eligible.length && !grokModel && <option value="">还没有文本连接</option>}
+            <option value="">{eligible.length ? "请选择文本连接" : "还没有文本连接"}</option>
             {grokModel && <option value="grok-login">Grok 账号</option>}
             {eligible.map((item) => (
               <option key={item.id} value={item.id}>
@@ -632,12 +659,12 @@ export function SourceExtractionPanel({
         <label>
           文本模型
           <Select
-            value={modelId || (!selectedConnection ? grokModel : "")}
+            value={modelValue}
             disabled={!!operation || busy || (!selectedConnection && !grokModel)}
             onChange={(event) => setModelId(event.target.value)}
           >
-            {!models.length && !grokModel && <option value="">还没有文本模型</option>}
-            {grokModel && !models.some((item) => item.model_id === grokModel) && (
+            <option value="">{models.length ? "请选择文本模型" : "还没有文本模型"}</option>
+            {connectionValue === "grok-login" && grokModel && (
               <option value={grokModel}>{grokModel}</option>
             )}
             {models.map((item) => (

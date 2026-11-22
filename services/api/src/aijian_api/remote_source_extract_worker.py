@@ -37,6 +37,7 @@ from aijian_api.gateway_transport import (
     GatewayTextTransport,
 )
 from aijian_api.provider_connection_repository import ProviderConnectionRepository
+from aijian_api.provider_contracts import CPA_LOOPBACK_BASE_URL
 from aijian_api.remote_execution_authorization import (
     RemoteDispatchPermit,
     RemoteDispatchSnapshotDraft,
@@ -258,7 +259,11 @@ class RemoteSourceExtractWorker:
                 or connection.revision != dispatch.connection_revision
                 or not connection.enabled
                 or connection.provider_kind != "CPA_LOOPBACK"
-                or dispatch.approved_model_id not in {model.model_id for model in connection.models}
+                or connection.base_url != CPA_LOOPBACK_BASE_URL
+                or not any(
+                    model.model_id == dispatch.approved_model_id and model.capabilities == ("TEXT",)
+                    for model in connection.models
+                )
             ):
                 raise RemoteWorkerBlocked("approved provider connection changed")
             if dispatch.scope.get("billing_account_kind") == "grok_login":
