@@ -6,7 +6,12 @@ function open() {
   const onPreview = vi.fn(),
     onDraftChange = vi.fn();
   const view = render(
-    <SkillMarkdownImport disabled={false} onPreview={onPreview} onDraftChange={onDraftChange} />,
+    <SkillMarkdownImport
+      disabled={false}
+      onPreview={onPreview}
+      onDraftChange={onDraftChange}
+      onClose={vi.fn()}
+    />,
   );
   const choose = (files: File[]) =>
     fireEvent.change(screen.getByLabelText("选择本地 Markdown"), { target: { files } });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { URL } from "node:url";
@@ -322,6 +323,46 @@ export async function runCreationCases({ browser, config, report, media, persist
               result.unknownAndSoundBoundaries = true;
               await geometry();
               await reachable(confirm(), "video-confirm");
+            }
+            if (state === "seven-preview") {
+              await card.getByRole("button", { name: "关闭说明", exact: true }).click();
+              const importer = page.getByRole("dialog", { name: "导入本地 SKILL.md 参考" });
+              const opener = page.getByRole("button", { name: "导入 SKILL.md", exact: true });
+              assert.equal(await importer.count(), 0);
+              await opener.click();
+              await importer.waitFor();
+              const file = importer.getByLabel("选择本地 Markdown", { exact: true });
+              await file.press("Escape");
+              await importer.waitFor({ state: "hidden" });
+              await opener.click();
+              scopeSelector = ".skill-import-dialog";
+              const marker = "主体位于左侧三分线。";
+              await file.setInputFiles({
+                name: "SKILL.md",
+                mimeType: "text/markdown",
+                buffer: Buffer.from(`# 原创构图练习\n${marker}\n<script>unselected()</script>`),
+              });
+              const source = importer.getByRole("textbox", { name: "Markdown 原文参考" });
+              assert.match(await source.inputValue(), /<script>/);
+              const guidance = importer.getByRole("textbox", { name: "本镜构图指导" });
+              const preview = importer.getByRole("button", { name: "预览本镜构图指导" });
+              assert.equal(await guidance.inputValue(), "");
+              assert.equal(await preview.isDisabled(), true);
+              await guidance.fill(marker);
+              await geometry();
+              await reachable(preview, "skill-preview");
+              await preview.click();
+              await importer.waitFor({ state: "hidden" });
+              scopeSelector = ".pro-root";
+              assert.ok((await card.innerText()).includes(marker));
+              assert.doesNotMatch(await card.innerText(), /unselected/);
+              assert.deepEqual(
+                await record(before.id),
+                before,
+                "Local SKILL preview must not apply",
+              );
+              await geometry();
+              result.skillPreviewVerified = true;
             }
             assert.deepEqual((await calls()).exports, []);
             assert.deepEqual((await calls()).imports, []);

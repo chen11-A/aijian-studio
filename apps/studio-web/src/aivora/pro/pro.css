@@ -3253,6 +3253,17 @@ body:has(.pro-root) {
   font-size: 14px;
   margin-bottom: 12px;
 }
+.pro-root .video-review-actions {
+  flex-wrap: wrap;
+}
+.pro-root .skill-import-dialog {
+  max-height: calc(100% - 32px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.pro-root .skill-import-dialog .acts {
+  flex-wrap: wrap;
+}
 .pro-root .ws.fix {
   grid-template-rows: minmax(0, 1fr) 272px;
   grid-template-columns: 1fr 330px;

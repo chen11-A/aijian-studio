@@ -333,16 +333,24 @@ it("can generate again after importing only failed/cancelled history with no sel
   ).toContain("雨水沿街面流动");
 });
 
+function openSkill() {
+  fireEvent.click(screen.getByRole("button", { name: "导入 SKILL.md" }));
+  return screen.getByRole("dialog", { name: "导入本地 SKILL.md 参考" });
+}
 async function selectSkill(
   text = "# 自写构图练习\n保持主体在左侧。\n<script>doNotRun()</script>\nhttps://example.invalid/never-fetch",
 ) {
-  fireEvent.change(screen.getByLabelText("选择本地 Markdown"), {
+  const dialog = openSkill();
+  fireEvent.change(within(dialog).getByLabelText("选择本地 Markdown"), {
     target: { files: [new File([text], "SKILL.md", { type: "text/markdown" })] },
   });
   await screen.findByRole("textbox", { name: "Markdown 原文参考" });
 }
 it("local SKILL text requires deliberate guidance, previews without jobs, persists only this shot inputs, and real undo protects dialogue/audio/media", async () => {
   const env = await open();
+  expect(screen.queryByRole("dialog", { name: "导入本地 SKILL.md 参考" })).toBeNull();
+  const advanced = screen.getByText("高级", { selector: ".pgroup > summary" }).parentElement;
+  expect(advanced?.querySelectorAll("summary")).toHaveLength(1);
   const live = structuredClone(env.host().current()!);
   const shot = live.shots[0]!;
   live.narrationVoiceId = "leo";
@@ -404,6 +412,7 @@ it("local SKILL text requires deliberate guidance, previews without jobs, persis
     target: { value: "低机位，主体位于左侧三分线。" },
   });
   fireEvent.click(screen.getByRole("button", { name: "预览本镜构图指导" }));
+  expect(screen.queryByRole("dialog", { name: "导入本地 SKILL.md 参考" })).toBeNull();
   expect(review()).toHaveTextContent("低机位，主体位于左侧三分线。");
   expect(review()).not.toHaveTextContent("doNotRun");
   expect(review()).not.toHaveTextContent("never-fetch");
@@ -431,9 +440,11 @@ it("local SKILL text requires deliberate guidance, previews without jobs, persis
 it("invalidates imported preview after draft edits, fact changes, or file replacement, and rejects non-Markdown files", async () => {
   const env = await open();
   await selectSkill();
-  const guidance = screen.getByRole("textbox", { name: "本镜构图指导" });
+  let guidance = screen.getByRole("textbox", { name: "本镜构图指导" });
   fireEvent.change(guidance, { target: { value: "前景留白。" } });
   fireEvent.click(screen.getByRole("button", { name: "预览本镜构图指导" }));
+  await selectSkill();
+  guidance = screen.getByRole("textbox", { name: "本镜构图指导" });
   fireEvent.change(guidance, { target: { value: "后景留白。" } });
   expect(screen.queryByRole("region", { name: "七段视频说明" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "预览本镜构图指导" }));
@@ -441,11 +452,26 @@ it("invalidates imported preview after draft edits, fact changes, or file replac
   later.shots[0]!.selectedTakeId = "changed-version";
   act(() => env.host().applyLive(later));
   expect(within(review()).getByRole("button", { name: "确认视频说明" })).toBeDisabled();
-  fireEvent.change(screen.getByLabelText("选择本地 Markdown"), {
+  const dialog = openSkill();
+  fireEvent.change(within(dialog).getByLabelText("选择本地 Markdown"), {
     target: { files: [new File(["not markdown"], "script.js")] },
   });
   expect(screen.getByRole("alert")).toHaveTextContent("请选择一个不超过 64 KB");
   expect(screen.queryByRole("region", { name: "七段视频说明" })).toBeNull();
+  expect(env.host().current()!.shots[0]!.videoFramingGuidance).toBeUndefined();
+  expect(env.provider).not.toHaveBeenCalled();
+});
+
+it("closes the single on-demand importer with Escape, restores trigger focus, and does not change the shot", async () => {
+  const env = await open();
+  const trigger = screen.getByRole("button", { name: "导入 SKILL.md" });
+  trigger.focus();
+  const dialog = openSkill();
+  const file = within(dialog).getByLabelText("选择本地 Markdown");
+  expect(file).toHaveFocus();
+  fireEvent.keyDown(file, { key: "Escape" });
+  expect(dialog).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
   expect(env.host().current()!.shots[0]!.videoFramingGuidance).toBeUndefined();
   expect(env.provider).not.toHaveBeenCalled();
 });

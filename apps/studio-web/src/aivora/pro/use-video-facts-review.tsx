@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FilmProject, FilmShot } from "../film/project";
 import { compileSevenPartVideo, reviewedVideoText } from "../film/seven-part-video";
 import { storyFilmBatches } from "../film/operations";
@@ -31,6 +31,9 @@ export function useVideoFactsReview({
   } | null>(null);
   const [videoReviewBusy, setVideoReviewBusy] = useState(false);
   const videoReviewWorking = useRef(false);
+  const [skillOpen, setSkillOpen] = useState(false);
+  const scope = `${film?.id}:${target?.id}:${selection().page}`;
+  useEffect(() => setSkillOpen(false), [scope]);
   function videoReviewMatches(review: NonNullable<typeof videoReview>) {
     const live = current(),
       selected = selection();
@@ -147,28 +150,23 @@ export function useVideoFactsReview({
     }
   }
 
-  return (
+  const tools = (
     <>
-      <button className="btn" disabled={videoReviewBusy} onClick={() => organizeVideoFacts()}>
-        整理视频说明
-      </button>
-      {target && (
-        <SkillMarkdownImport
-          key={`${film?.id}:${target.id}:${selection().page}`}
-          disabled={videoReviewBusy}
-          onPreview={organizeVideoFacts}
-          onDraftChange={() => setVideoReview(null)}
-        />
-      )}
+      <div className="acts video-review-actions">
+        <button className="btn" disabled={videoReviewBusy} onClick={() => organizeVideoFacts()}>
+          整理视频说明
+        </button>
+        {target && (
+          <button className="btn" disabled={videoReviewBusy} onClick={() => setSkillOpen(true)}>
+            导入 SKILL.md
+          </button>
+        )}
+      </div>
       {videoReview &&
       videoReview.request.selection.projectId === film?.id &&
       videoReview.request.selection.shotId === target?.id ? (
         <SevenPartVideoReview
-          facts={{
-            sections: videoReview.facts.sections,
-            issues: videoReview.facts.issues,
-            draft: { text: videoReview.facts.draft.text },
-          }}
+          facts={videoReview.facts}
           changed={videoReview.changed}
           before={videoReview.before}
           modelText={videoReview.modelText}
@@ -189,4 +187,20 @@ export function useVideoFactsReview({
       ) : null}
     </>
   );
+  const closeSkill = () => setSkillOpen(false);
+  const dialog = skillOpen && target && (
+    <div className="dialog-back">
+      <SkillMarkdownImport
+        key={scope}
+        disabled={videoReviewBusy}
+        onPreview={(guidance) => {
+          organizeVideoFacts(guidance);
+          closeSkill();
+        }}
+        onDraftChange={() => setVideoReview(null)}
+        onClose={closeSkill}
+      />
+    </div>
+  );
+  return { tools, dialog };
 }

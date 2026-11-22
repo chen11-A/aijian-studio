@@ -5743,7 +5743,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setNotice("已记下审片意见。版本仍由你选。");
   };
   const promptCard = roleCards.prompter;
-  const videoFactsSuggestion = useVideoFactsReview({
+  const { tools: videoFactsSuggestion, dialog: skillImportDialog } = useVideoFactsReview({
     editorHost,
     current: () => filmRef.current,
     selection: () => editorSelection.current,
@@ -7276,6 +7276,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           </div>
         ) : null}
 
+        {skillImportDialog}
         {archiveMode ? (
           <ProjectArchiveDialog
             mode={archiveMode}
