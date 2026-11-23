@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { selectCenteredModel } from "../../account/model-center";
 import { prepareVoicePreview, type VoicePreviewHost } from "./voice-preview";
 
 function setup(readyState = 1) {
@@ -31,6 +32,7 @@ function setup(readyState = 1) {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  window.localStorage.clear();
 });
 it("uses member speech with billing and exposes an idempotent resource disposer", async () => {
   const { host, audio, revoke } = setup();
@@ -38,12 +40,53 @@ it("uses member speech with billing and exposes an idempotent resource disposer"
   expect(host.speak).toHaveBeenCalledWith(
     expect.objectContaining({ voiceId: "eve", text: "台词", projectId: "prj_test" }),
   );
+  expect(vi.mocked(host.speak).mock.calls[0]?.[0]).not.toHaveProperty("speechSelection");
   expect(result.seconds).toBe(3);
   result.dispose();
   result.dispose();
   expect(audio.pause).toHaveBeenCalledOnce();
   expect(revoke).toHaveBeenCalledOnce();
 });
+it("carries the captured model and original voice unchanged across billing", async () => {
+  const { host } = setup();
+  selectCenteredModel("SPEECH", { provider: "GROK_LOGIN", modelId: "grok-tts" });
+  host.billing = async () => {
+    selectCenteredModel("SPEECH", { provider: "GROK_LOGIN", modelId: "eve" });
+    return "prj_test";
+  };
+  const result = await prepareVoicePreview("leo", "台词", host);
+  expect(host.speak).toHaveBeenCalledWith(
+    expect.objectContaining({
+      voiceId: "leo",
+      text: "台词",
+      speechSelection: { provider: "GROK_LOGIN", modelId: "grok-tts" },
+    }),
+  );
+  result.dispose();
+});
+
+it("reports an unsupported saved model without creating preview audio", async () => {
+  const { host } = setup();
+  selectCenteredModel("SPEECH", { provider: "GROK_LOGIN", modelId: "eve" });
+  vi.mocked(host.speak).mockResolvedValue({
+    kind: "ERROR",
+    code: "SPEECH_MODEL_UNSUPPORTED",
+    detail: "请在模型中心选择 Grok TTS",
+    billingAccountKind: "grok_login",
+  });
+  await expect(prepareVoicePreview("leo", "台词", host)).rejects.toMatchObject({
+    code: "SPEECH_MODEL_UNSUPPORTED",
+    message: "请在模型中心选择 Grok TTS",
+  });
+  expect(host.speak).toHaveBeenCalledWith(
+    expect.objectContaining({
+      voiceId: "leo",
+      speechSelection: { provider: "GROK_LOGIN", modelId: "eve" },
+    }),
+  );
+  expect(URL.createObjectURL).not.toHaveBeenCalled();
+});
+
 it("does not call speech after switching projects during billing", async () => {
   const { host } = setup();
   host.billing = async () => {

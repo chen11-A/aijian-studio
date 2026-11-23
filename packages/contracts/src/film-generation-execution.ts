@@ -1,6 +1,28 @@
+import type { GrokSpeechSelection } from "./grok-auth.js";
+
+/** An image preference, not credential/dispatch authority. Native permits only its existing
+ * Grok-login image adapter; absence preserves older saved workflows. */
+export type FilmImageModelSelection = {
+  provider: string;
+  modelId: string;
+  connectionId?: string;
+};
+
+/** Frozen model-center preference, not provider/account authorization. Explicit draft
+ * mode keeps its existing Lite contract; it never changes references or request shape. */
+export type FilmGenerationVideoSelection = {
+  provider: "XAI_API" | "CHATGPT_OFFICIAL" | "GROK_LOGIN" | "CONNECTION";
+  modelId: string;
+  connectionId?: string;
+};
+
 /** Native-owned execution scope for automatic prerequisites of an explicitly confirmed
  * video run. These handles are transient locators, never portable authorization. */
 export type FilmGenerationExecutionInput = {
+  videoSelection?: FilmGenerationVideoSelection;
+  imageSelection?: FilmImageModelSelection;
+  /** Scope preference only; the sidecar checks it only on an actual new TTS POST. */
+  speechSelection?: GrokSpeechSelection;
   projectId: string;
   expectedProjectHash: string;
   mode: "video" | "pipeline";
@@ -30,6 +52,8 @@ export type FilmGenerationExecutionFailure =
   | "PROJECT_CHANGED"
   | "SOURCE_UNVERIFIABLE"
   | "ACCOUNT_UNAVAILABLE"
+  | "IMAGE_SELECTION_UNSUPPORTED"
+  | "VIDEO_SELECTION_UNSUPPORTED"
   | "VIDEO_UNCONFIGURED"
   | "VIDEO_INPUT_FAILURE_LIMIT"
   | "UNSUPPORTED_SCOPE"

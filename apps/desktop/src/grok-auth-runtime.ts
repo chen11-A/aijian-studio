@@ -2,6 +2,7 @@ import {
   stableGenerationAccount,
   type GenerationDispatchAccount,
 } from "./generation-dispatch-account";
+import { GROK_TTS_MODEL } from "@aijian/contracts/grok-auth";
 import type {
   GrokCatalogNotice,
   GrokLoginActionResult,
@@ -703,7 +704,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         const recorded = await ledger.record({
           projectId: input.projectId,
           accountKind: "grok_login",
-          model: "grok-tts",
+          model: GROK_TTS_MODEL,
           text: line,
           idempotencyKey: input.idempotencyKey,
           connected: true,

@@ -300,3 +300,70 @@ it("protected dispatch still rejects foreign senders and malformed locator extra
   expect(lastFrame).not.toHaveBeenCalled();
   expect(env.host.fetcher).not.toHaveBeenCalled();
 });
+
+it("rejects unsupported standalone image selections before token, source lookup or transport", async () => {
+  const env = lastFrameHost(),
+    still = handlersFor(env.host).get("film:still")!;
+  for (const choice of [
+    { provider: "XAI_API", modelId: "grok-imagine-image-2.0" },
+    { provider: "CONNECTION", modelId: "grok-imagine-image-2.0", connectionId: "saved" },
+    { provider: "GROK_LOGIN", modelId: "unsupported" },
+    {
+      provider: "GROK_LOGIN",
+      modelId: "grok-imagine-image-2.0",
+      baseUrl: "https://unapproved.test",
+    },
+    null,
+    undefined,
+    [],
+  ]) {
+    expect(
+      await still(true, series, "画面", "16:9", ["/must-not-be-read.png"], undefined, choice),
+    ).toMatchObject({ path: "", code: "UNSUPPORTED_SCOPE" });
+  }
+  expect(env.host.mediaToken).not.toHaveBeenCalled();
+  expect(env.host.fetcher).not.toHaveBeenCalled();
+});
+it("uses the unchanged xAI image serializer for the exact selected Grok-login model", async () => {
+  const env = lastFrameHost();
+  const fetcher = vi.fn<typeof fetch>(async () =>
+    Response.json({
+      data: [{ b64_json: Buffer.from("synthetic-image-bytes").toString("base64") }],
+    }),
+  );
+  env.host.fetcher = fetcher;
+  const still = handlersFor(env.host).get("film:still")!;
+  const made = await still(true, series, "画面", "16:9", [], undefined, {
+    provider: "GROK_LOGIN",
+    modelId: "grok-imagine-image-2.0",
+  });
+  expect(made).toMatchObject({ path: expect.stringContaining(env.films), reason: "" });
+  expect(env.host.mediaToken).toHaveBeenCalledOnce();
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(fetcher.mock.calls[0]?.[0]).toBe("https://api.x.ai/v1/images/generations");
+  expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({
+    model: "grok-imagine-image-2.0",
+    aspect_ratio: "16:9",
+  });
+  expect(readFileSync((made as { path: string }).path).toString()).toBe("synthetic-image-bytes");
+});
+
+it("does not overwrite an older image or retry when the selected standalone image request fails", async () => {
+  const env = lastFrameHost(),
+    old = join(env.films, "previous-frame.png");
+  writeFileSync(old, "previous accepted image");
+  const fetcher = vi.fn<typeof fetch>(async () => new Response("rejected", { status: 503 }));
+  env.host.fetcher = fetcher;
+  const made = await handlersFor(env.host).get("film:still")!(
+    true,
+    series,
+    "画面",
+    "16:9",
+    [],
+    undefined,
+    { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0" },
+  );
+  expect(made).toMatchObject({ path: "" });
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(readFileSync(old).toString()).toBe("previous accepted image");
+});

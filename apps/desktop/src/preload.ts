@@ -1,6 +1,7 @@
 import type {
   FilmGenerationExecutionGateway,
   FilmGenerationStillExecution,
+  FilmImageModelSelection,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
 import type { ConfigureGenerationFailurePolicy } from "@aijian/contracts/generation-failure-policy";
@@ -102,7 +103,7 @@ import type {
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 import type { AssistantChatBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
-import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
+import type { GrokLoginBridge, GrokSpeechSelection } from "@aijian/contracts/grok-auth";
 import type { StoryFilmCreateInput } from "./story-film-client";
 import type { FilmExportOptions } from "./film-export";
 import type {
@@ -628,12 +629,15 @@ contextBridge.exposeInMainWorld("aijian", {
     input: StoryFilmCreateInput,
     scope?: StoryFilmLocalScope,
     execution?: FilmGenerationVideoExecution,
+    speechSelection?: GrokSpeechSelection,
   ) =>
-    execution !== undefined
-      ? ipcRenderer.invoke("story-film:create", projectId, input, scope, execution)
-      : scope
-        ? ipcRenderer.invoke("story-film:create", projectId, input, scope)
-        : ipcRenderer.invoke("story-film:create", projectId, input),
+    speechSelection !== undefined
+      ? ipcRenderer.invoke("story-film:create", projectId, input, scope, execution, speechSelection)
+      : execution !== undefined
+        ? ipcRenderer.invoke("story-film:create", projectId, input, scope, execution)
+        : scope
+          ? ipcRenderer.invoke("story-film:create", projectId, input, scope)
+          : ipcRenderer.invoke("story-film:create", projectId, input),
   getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
   prepareFilmDialogueSplit: ((
@@ -797,10 +801,21 @@ contextBridge.exposeInMainWorld("aijian", {
     aspectRatio?: "9:16" | "16:9",
     references: string[] = [],
     execution?: FilmGenerationStillExecution,
+    imageSelection?: FilmImageModelSelection,
   ) =>
-    execution !== undefined
-      ? ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references, execution)
-      : ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
+    imageSelection !== undefined
+      ? ipcRenderer.invoke(
+          "film:still",
+          seriesId,
+          prompt,
+          aspectRatio,
+          references,
+          execution,
+          imageSelection,
+        )
+      : execution !== undefined
+        ? ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references, execution)
+        : ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio, references),
   confirmFixedInput: (projectId: string, offerId: string) =>
     ipcRenderer.invoke("film:confirm-fixed-input", projectId, offerId) as Promise<
       | { ok: true; path: string }

@@ -1,3 +1,4 @@
+import { selectCenteredModel } from "../account/model-center";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vitest";
 import type { FilmGenerationExecutionGateway } from "@aijian/contracts/film-generation-execution";
@@ -471,4 +472,80 @@ it("keeps a native cached first slot separate from the later explicitly issued c
     expect(f.stored().shots[0]!.takes.filter((take) => take.status === "done")).toHaveLength(2),
   );
   expect(JSON.stringify(f.stored())).not.toContain("native-execution");
+});
+
+it("freezes VIDEO and IMAGE at confirmation before the backup await, without persisting them into media", async () => {
+  const f = fixture();
+  selectCenteredModel("VIDEO", { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" });
+  selectCenteredModel("IMAGE", { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0" });
+  const capture = f.capture.getMockImplementation()!;
+  let release!: () => void;
+  let entered!: () => void;
+  const enteredPromise = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  f.capture.mockImplementation(async (input) => {
+    entered();
+    await hold;
+    return capture(input);
+  });
+  await open();
+  submit();
+  await enteredPromise;
+  selectCenteredModel("VIDEO", {
+    provider: "CONNECTION",
+    connectionId: "new-choice",
+    modelId: "other",
+  });
+  selectCenteredModel("IMAGE", { provider: "XAI_API", modelId: "another-image" });
+  release();
+  await waitFor(() => expect(f.video).toHaveBeenCalledTimes(1));
+  expect(f.prepare.mock.calls[0]?.[0]).toMatchObject({
+    videoSelection: {
+      provider: "GROK_LOGIN",
+      modelId: "grok-imagine-video-1.5",
+    },
+    imageSelection: { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0" },
+  });
+  expect(JSON.stringify(f.stored())).not.toContain("videoSelection");
+  expect(JSON.stringify(f.stored())).not.toContain("imageSelection");
+});
+it("does not dispatch images, allocate takes or silently fallback when native rejects VIDEO", async () => {
+  const f = fixture();
+  selectCenteredModel("VIDEO", { provider: "XAI_API", modelId: "grok-imagine-video-1.5" });
+  f.prepare.mockResolvedValue({ kind: "FAILED", code: "VIDEO_SELECTION_UNSUPPORTED" });
+  await open();
+  submit();
+  await screen.findByText(/当前选择不适用于这次视频生成.*AI 服务/);
+  expect(f.still).not.toHaveBeenCalled();
+  expect(f.video).not.toHaveBeenCalled();
+  expect(f.stored().shots[0]!.takes).toEqual([]);
+});
+
+it("stops later video after an issued automatic IMAGE gate refusal and keeps the already selected frame", async () => {
+  const f = fixture();
+  const imageSelection = {
+    provider: "CONNECTION" as const,
+    modelId: "gateway/image",
+    connectionId: "saved",
+  };
+  selectCenteredModel("IMAGE", imageSelection);
+  f.still.mockResolvedValueOnce(
+    Object.assign(
+      { path: "", reason: "never echo provider reason" },
+      { code: "IMAGE_SELECTION_UNSUPPORTED" },
+    ),
+  );
+  await open();
+  submit();
+  await screen.findAllByText(/当前选择不能自动出图.*AI 服务/);
+  await waitFor(() => expect(f.retire).toHaveBeenCalledWith({ executionId: "native-execution" }));
+  expect(f.prepare.mock.calls[0]?.[0]).toMatchObject({ imageSelection });
+  expect(f.still).toHaveBeenCalledTimes(1);
+  expect(f.video).not.toHaveBeenCalled();
+  expect(f.stored().shots[0]!.poster).toBe("/tmp/adopted-frame.png");
+  expect(screen.queryByText(/never echo provider reason/)).toBeNull();
 });

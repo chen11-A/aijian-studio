@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import type { GrokSpeechSelection } from "@aijian/contracts/grok-auth";
 import { promisify } from "node:util";
 import { verifiedQcTools, type QcRunner } from "./film-export-qc-runtime";
 import type { generationSelectedMedia } from "./film-generation-selected-media";
@@ -11,6 +12,7 @@ import { delimiter, dirname, join, resolve } from "node:path";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import type { FilmImageModelSelection } from "@aijian/contracts/film-generation-execution";
 import type { CanonicalGenerationProducer } from "./film-generation-compiler";
 import { createNativeFilmGenerationExecutions } from "./film-generation-execution";
 import type { FixedInputLedger } from "./film-generation-fixed-input";
@@ -245,6 +247,7 @@ async function createFixture(
             account.accountSha256,
             assertion.expires,
             ...(arm ? [arm] : []),
+            ...(headers.get("X-Aivora-Deny-New-Speech") === "1" ? ["deny-new-tts"] : []),
           ].join("\n"),
         )
         .digest("hex"),
@@ -410,10 +413,17 @@ async function createFixture(
 function fixture(...args: Parameters<typeof createFixture>) {
   return track(createFixture(...args));
 }
-async function preparedVideo(f: Awaited<ReturnType<typeof fixture>>, versions: 1 | 2 = 1) {
+async function preparedVideo(
+  f: Awaited<ReturnType<typeof fixture>>,
+  versions: 1 | 2 = 1,
+  imageSelection?: FilmImageModelSelection,
+  speechSelection?: GrokSpeechSelection,
+) {
   const prepared = await f.factory.prepare(f.owner, {
     ...f.input,
     targets: [{ shotId: "shot-one", versions }],
+    ...(imageSelection ? { imageSelection } : {}),
+    ...(speechSelection ? { speechSelection } : {}),
   });
   expect(prepared.kind, "code" in prepared ? prepared.code : "").toBe("PREPARED");
   if (prepared.kind !== "PREPARED")
@@ -489,6 +499,33 @@ it("prepares real canonical fixed-frame bytes and enters the actual signed clien
   expect(f.submissions).toHaveLength(1);
   expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
 });
+it.each(["grok-tts", "eve", "vendor/speech-model:custom".padEnd(200, "x")])(
+  "freezes SPEECH %s without changing the prepared video body",
+  async (modelId) => {
+    const f = await fixture();
+    const selection = { provider: "GROK_LOGIN", modelId };
+    const preparing = preparedVideo(f, 1, undefined, selection);
+    selection.modelId = "mutated-after-submit";
+    const p = await preparing;
+    const result = await f.factory.video(
+      f.owner,
+      String(f.record.backendProjectId),
+      p.body,
+      undefined,
+      p.execution,
+    );
+    expect(result.data.status).toBe("BLOCKED");
+    expect(f.submissions).toHaveLength(1);
+    const submitted = JSON.parse(f.submissions[0]!);
+    expect(submitted).not.toHaveProperty("speechSelection");
+    expect(submitted).not.toHaveProperty("speech_model");
+    const local = f.fetcher.mock.calls.find(([url]) => String(url).endsWith("/story-film"));
+    expect(new Headers(local?.[1]?.headers).get("X-Aivora-Deny-New-Speech")).toBe(
+      modelId === "grok-tts" ? null : "1",
+    );
+    expect(f.arms[0]).toMatchObject({ wire_body: f.submissions[0] });
+  },
+);
 it("retirement while real arm is held prevents the signed StoryFilm request", async () => {
   const f = await fixture(),
     p = await preparedVideo(f),
@@ -1217,11 +1254,19 @@ async function localSelectedFixture(
   };
 }
 it.skipIf(!ffmpegOnPath())(
-  "returns local NOT_NEEDED from real owned stream/SHA verification without account, slots, API or writes",
+  "returns local NOT_NEEDED despite unsupported VIDEO and IMAGE preferences, without account, slots, API or writes",
   async () => {
     const f = await fixture(),
       local = await localSelectedFixture(f);
-    const made = await f.factory.prepare(f.owner, local.input);
+    const made = await f.factory.prepare(f.owner, {
+      ...local.input,
+      videoSelection: { provider: "XAI_API", modelId: "not-supported-by-membership" },
+      imageSelection: {
+        provider: "CONNECTION",
+        modelId: "unwired/device-image",
+        connectionId: "existing",
+      },
+    });
     expect(made).toEqual({
       kind: "NOT_NEEDED",
       projectId: f.record.id,
@@ -1585,4 +1630,156 @@ it.skipIf(!ffmpegOnPath()).each(["creative", "account", "bytes"] as const)(
     expect(await readProject(f.filmsRoot, f.record.id)).toEqual(before);
   },
   30_000,
+);
+
+it.each([
+  { provider: "XAI_API", modelId: "grok-imagine-video-1.5" },
+  { provider: "CHATGPT_OFFICIAL", modelId: "grok-imagine-video-1.5" },
+  { provider: "CONNECTION", connectionId: "external", modelId: "grok-imagine-video-1.5" },
+  { provider: "GROK_LOGIN", modelId: "grok-imagine-video" },
+  { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5-lite" },
+])(
+  "rejects explicit unsupported VIDEO preference before media login or budget: %j",
+  async (videoSelection) => {
+    const f = await fixture();
+    expect(await f.factory.prepare(f.owner, { ...f.input, videoSelection })).toEqual({
+      kind: "FAILED",
+      code: "VIDEO_SELECTION_UNSUPPORTED",
+    });
+    expect(f.mediaDispatchLease).not.toHaveBeenCalled();
+    expect(f.fetcher).not.toHaveBeenCalled();
+    expect(f.registrations).toEqual([]);
+    expect(f.preparations).toEqual([]);
+    expect(f.arms).toEqual([]);
+    expect(f.submissions).toEqual([]);
+    expect(f.imageCalls()).toBe(0);
+  },
+);
+
+it("keeps matching VIDEO preference inside the existing failure budget, never granting a bypass", async () => {
+  const f = await fixture("VIDEO_INPUT_FAILURE_LIMIT");
+  expect(
+    await f.factory.prepare(f.owner, {
+      ...f.input,
+      videoSelection: {
+        provider: "GROK_LOGIN",
+        modelId: "grok-imagine-video-1.5",
+      },
+    }),
+  ).toEqual({ kind: "FAILED", code: "VIDEO_INPUT_FAILURE_LIMIT" });
+  expect(f.registrations).toEqual([]);
+  expect(f.arms).toEqual([]);
+  expect(f.submissions).toEqual([]);
+  expect(f.imageCalls()).toBe(0);
+});
+
+it("uses the existing explicit draft Lite body even with a supported full VIDEO preference", async () => {
+  const f = await fixture();
+  const record = { ...f.record, draft: true };
+  await writeProject(f.filmsRoot, record);
+  const saved = (await readProject(f.filmsRoot, record.id))!;
+  const prepared = await f.factory.prepare(f.owner, {
+    ...f.input,
+    expectedProjectHash: filmHistoryRecordHash(saved),
+    videoSelection: { provider: "GROK_LOGIN", modelId: "grok-imagine-video-1.5" },
+  });
+  expect(prepared.kind).toBe("PREPARED");
+  expect(f.registrations[0]).toMatchObject({
+    targets: [{ body: { video_model: "grok-imagine-video-1.5-lite" } }],
+  });
+  expect(f.submissions).toEqual([]);
+});
+
+const unsupportedImageChoice = {
+  provider: "CONNECTION",
+  modelId: "unwired/device-image",
+  connectionId: "existing",
+};
+const supportedImageChoice = { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0" };
+function protectedFrameInput(
+  f: Awaited<ReturnType<typeof fixture>>,
+  p: Awaited<ReturnType<typeof preparedVideo>>,
+) {
+  const shot = generationRows(p.canonical.shots)[0]!;
+  const actual = producer.shotStillInput(
+    p.canonical,
+    shot,
+    producer.keyframePrompt(shot, p.canonical),
+  ) as { prompt: string; references: string[]; aspectRatio: "16:9" | "9:16" };
+  return {
+    seriesId: String(f.record.seriesId),
+    prompt: actual.prompt,
+    references: actual.references,
+    aspectRatio: actual.aspectRatio,
+    execution: { executionId: p.prepared.executionId, stageId: p.prepared.stages[0]!.stageId },
+  };
+}
+it("rejects unsupported frozen IMAGE only at an issued image stage, without reserving or overwriting", async () => {
+  const f = await fixture(undefined, undefined, true);
+  const choice = { ...unsupportedImageChoice };
+  const p = await preparedVideo(f, 1, choice);
+  const input = protectedFrameInput(f, p);
+  const callsBeforeImage = f.fetcher.mock.calls.length;
+  const frameBefore = await readFile(f.frame);
+  expect(f.mediaDispatchLease).toHaveBeenCalledTimes(1); // Existing video/account preparation, not image dispatch.
+  Object.assign(choice, supportedImageChoice);
+  for (let retry = 0; retry < 2; retry++) {
+    expect(await f.factory.still(f.owner, input)).toMatchObject({
+      path: "",
+      code: "IMAGE_SELECTION_UNSUPPORTED",
+    });
+  }
+  expect(f.fetcher).toHaveBeenCalledTimes(callsBeforeImage); // no source lineage or image reserve/settle/body
+  expect(f.mediaDispatchLease).toHaveBeenCalledTimes(1);
+  expect(f.imageCalls()).toBe(0);
+  expect(f.submissions).toHaveLength(0);
+  expect(await readProject(f.filmsRoot, f.record.id)).toEqual(p.canonical);
+  expect(await readFile(f.frame)).toEqual(frameBefore);
+});
+it("keeps the supported frozen IMAGE on the existing protected model wire with at most one POST", async () => {
+  const f = await fixture(undefined, undefined, true);
+  const choice = { ...supportedImageChoice };
+  const p = await preparedVideo(f, 1, choice);
+  const input = protectedFrameInput(f, p);
+  Object.assign(choice, unsupportedImageChoice);
+  expect(await f.factory.still(f.owner, input)).toMatchObject({
+    path: expect.stringContaining(f.filmsRoot),
+  });
+  expect(await f.factory.still(f.owner, input)).toMatchObject({
+    path: "",
+    code: "CREATION_ATTEMPT_ALREADY_RESERVED",
+  });
+  expect(f.imageCalls()).toBe(1);
+  const calls = f.fetcher.mock.calls;
+  expect(
+    calls.filter(([url]) => new URL(String(url)).pathname.endsWith("/image-dispatch")),
+  ).toHaveLength(1);
+  expect(
+    calls.filter(([url]) => new URL(String(url)).pathname.endsWith("/image-observation")),
+  ).toHaveLength(1);
+  const wire = calls.find(([url]) => new URL(String(url)).hostname === "api.x.ai");
+  expect(JSON.parse(String(wire?.[1]?.body))).toMatchObject({ model: "grok-imagine-image-2.0" });
+});
+it.each([false, true])(
+  "does not apply unsupported IMAGE to fixed-frame or cached video (cache=%s)",
+  async (cache) => {
+    const f = await fixture();
+    if (cache) f.cacheSlot0();
+    const p = await preparedVideo(f, 1, unsupportedImageChoice);
+    expect(p.prepared.stages).toEqual([]);
+    expect(p.prepared.targets[0]?.slotPreparations[0]?.preparation).toBe(
+      cache ? "STORYFILM_CACHE" : "CLIENT_IMAGES",
+    );
+    const made = await f.factory.video(
+      f.owner,
+      String(f.record.backendProjectId),
+      p.body,
+      undefined,
+      p.execution,
+    );
+    expect(made.data.status).toBe("BLOCKED"); // Controlled sidecar callback, not a successful provider.
+    expect(f.arms).toHaveLength(1);
+    expect(f.submissions).toHaveLength(1);
+    expect(f.imageCalls()).toBe(0);
+  },
 );

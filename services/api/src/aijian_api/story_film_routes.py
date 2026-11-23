@@ -437,7 +437,11 @@ def create_story_film_router(
         request.state.prepared_generation = (
             (arm, hashlib.sha256(body).hexdigest()) if arm is not None else None
         )
-        return account_attestation(
+        speech_policy = request.headers.getlist("X-Aivora-Deny-New-Speech")
+        if speech_policy and speech_policy != ["1"]:
+            raise HTTPException(403, "ACCOUNT_UNAVAILABLE")
+        deny_new_speech = bool(speech_policy)
+        account = account_attestation(
             request.headers.get("X-Aivora-Generation-Account"),
             key=dispatch_signing_key,
             project_id=project_id,
@@ -445,7 +449,12 @@ def create_story_film_router(
             body=body,
             bearer=request.headers.get("X-Aivora-Media-Bearer"),
             prepared_arm_id=arm,
+            deny_new_speech=deny_new_speech,
         )
+        if deny_new_speech and account is None:
+            raise HTTPException(403, "ACCOUNT_UNAVAILABLE")
+        request.state.deny_new_speech = deny_new_speech
+        return account
 
     @router.post(
         "/api/v1/projects/{project_id}/story-film",
@@ -474,21 +483,14 @@ def create_story_film_router(
                 token = None
         service = StoryFilmService(repository_provider(), toolchain_provider)
         film_request = story_film_request(payload, idempotency_key)
-        if prepared is None:
-            result = service.produce(
-                project_id,
-                film_request,
-                media_token=token,
-                dispatch_account=dispatch_account,
-            )
-        else:
-            result = service.produce(
-                project_id,
-                film_request,
-                media_token=token,
-                dispatch_account=dispatch_account,
-                prepared_generation=prepared,
-            )
+        result = service.produce(
+            project_id,
+            film_request,
+            media_token=token,
+            dispatch_account=dispatch_account,
+            prepared_generation=prepared,
+            deny_new_speech=request.state.deny_new_speech,
+        )
         return StoryFilmResponse(data=_data(result), request_id=request.state.request_id)
 
     return router

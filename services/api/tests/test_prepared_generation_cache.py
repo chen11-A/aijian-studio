@@ -183,10 +183,12 @@ def test_real_signed_mixed_slots_freeze_cache_zero_and_fresh_later_slots(actual_
     assert_no_attempt(repo)
 
 
+@pytest.mark.parametrize("deny_new_speech", [False, True])
 def test_cache_only_actual_storyfilm_consumes_saved_video_without_provider_or_policy(
     actual_cache,
     tmp_path,
     monkeypatch,
+    deny_new_speech,
 ):
     repo, project, registration, _, _ = actual_cache
     _allow_live(monkeypatch, tmp_path / "status.log")
@@ -207,7 +209,14 @@ def test_cache_only_actual_storyfilm_consumes_saved_video_without_provider_or_po
         body = observed.json()["items"][0]["cache"]["request"]
         armed = arm(client, project, execution, body)
         assert armed.status_code == 200, armed.text
-        result = post(client, project, "story-film", body, arm=armed.json()["arm_id"])
+        result = post(
+            client,
+            project,
+            "story-film",
+            body,
+            arm=armed.json()["arm_id"],
+            deny_new_speech=deny_new_speech,
+        )
         assert result.status_code == 200, result.text
         assert result.json()["data"]["status"] == "SUCCEEDED", result.json()
     assert calls == []

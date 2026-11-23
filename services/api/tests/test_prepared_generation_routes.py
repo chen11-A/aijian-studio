@@ -21,7 +21,17 @@ ACCOUNT = "a" * 64
 BEARER = "synthetic-current-account-bearer"
 
 
-def post(client, project, suffix, value, *, arm=None, account=ACCOUNT, extra_headers=None):
+def post(
+    client,
+    project,
+    suffix,
+    value,
+    *,
+    arm=None,
+    account=ACCOUNT,
+    extra_headers=None,
+    deny_new_speech=False,
+):
     raw = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode()
     key = f"story-film:v1:{uuid4()}"
     expires = int(time.time()) + 60
@@ -35,6 +45,7 @@ def post(client, project, suffix, value, *, arm=None, account=ACCOUNT, extra_hea
             account,
             str(expires),
             *((arm,) if arm else ()),
+            *(("deny-new-tts",) if deny_new_speech else ()),
         )
     )
     signed = (
@@ -63,6 +74,7 @@ def post(client, project, suffix, value, *, arm=None, account=ACCOUNT, extra_hea
             "X-Aivora-Media-Bearer": BEARER,
             "X-Aivora-Generation-Account": signed,
             **({"X-Aivora-Prepared-Generation": arm} if arm else {}),
+            **({"X-Aivora-Deny-New-Speech": "1"} if deny_new_speech else {}),
             **(extra_headers or {}),
         },
     )

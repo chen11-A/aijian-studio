@@ -3,6 +3,7 @@ import type {
   FilmGenerationExecutionGateway,
   FilmGenerationExtractionExecution,
   FilmGenerationStillExecution,
+  FilmImageModelSelection,
   FilmGenerationStillResult,
   FilmGenerationVideoExecution,
 } from "@aijian/contracts/film-generation-execution";
@@ -18,6 +19,7 @@ import type {
 } from "@aijian/contracts/generation-failure-policy";
 import type { FilmAssemblyGateway } from "@aijian/contracts/film-assembly";
 import type { StoryFilmLocalScope } from "@aijian/contracts/film-dialogue-split";
+import type { GrokSpeechSelection } from "@aijian/contracts/grok-auth";
 import type { FilmDialogueSplitGateway } from "@aijian/contracts/film-dialogue-split";
 import type { FilmAudioLibraryGateway } from "@aijian/contracts/film-audio-library";
 import type { AudioMixPreviewGateway } from "@aijian/contracts/film-audio-mix";
@@ -1017,6 +1019,7 @@ export interface AijianDesktopBridge
     },
     scope?: StoryFilmLocalScope,
     execution?: FilmGenerationVideoExecution,
+    speechSelection?: GrokSpeechSelection,
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   getStoryFilmProgress?(projectId: string): Promise<{
     data: {
@@ -1100,6 +1103,7 @@ export interface AijianDesktopBridge
     aspectRatio?: "9:16" | "16:9",
     references?: string[],
     execution?: FilmGenerationStillExecution,
+    imageSelection?: FilmImageModelSelection,
   ) => Promise<
     FilmGenerationStillResult & { fixedInputOfferId?: string; fixedInputLimit?: boolean }
   >;

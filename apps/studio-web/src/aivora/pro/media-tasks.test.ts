@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { selectCenteredModel } from "../account/model-center";
 import { sampleFilm } from "../film/project";
 import { grokBridge } from "../grok-auth/transport";
 import { taskSnapshot } from "../film/task-progress";
@@ -6,6 +7,7 @@ import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 vi.mock("../grok-auth/transport", () => ({ grokBridge: vi.fn() }));
 afterEach(() => {
   delete window.aijian;
+  window.localStorage.clear();
   vi.clearAllMocks();
 });
 const baseFilm = () => {
@@ -93,10 +95,42 @@ it("queues voice before billing and records done only after saving the real resp
     base.audioClips[1],
   );
   expect(speak).toHaveBeenCalledOnce();
+  expect(speak.mock.calls[0]?.[0]).not.toHaveProperty("speechSelection");
   expect(taskSnapshot().tasks.some((task) => task.kind === "voice" && task.status === "done")).toBe(
     true,
   );
 });
+it("reads the speech adapter at revoice submission and preserves the chosen character voice", async () => {
+  const base = baseFilm();
+  const speak = vi.fn().mockResolvedValue({
+    kind: "ERROR",
+    code: "SPEECH_MODEL_UNSUPPORTED",
+    detail: "在模型中心重新选择",
+  });
+  installVoice(speak);
+  selectCenteredModel("SPEECH", { provider: "GROK_LOGIN", modelId: "eve" });
+  const apply = vi.fn();
+  const pending = revoiceFilmShot(base, base.shots[0]!, {
+    current: () => base,
+    valid: () => true,
+    apply,
+    billing: async () => "prj_test",
+  });
+  selectCenteredModel("SPEECH", { provider: "GROK_LOGIN", modelId: "grok-tts" });
+  await expect(pending).rejects.toMatchObject({
+    code: "SPEECH_MODEL_UNSUPPORTED",
+    message: "在模型中心重新选择",
+  });
+  expect(speak).toHaveBeenCalledWith(
+    expect.objectContaining({
+      voiceId: "leo",
+      text: "走吧。",
+      speechSelection: { provider: "GROK_LOGIN", modelId: "eve" },
+    }),
+  );
+  expect(apply).not.toHaveBeenCalled();
+});
+
 it("voice supplier failure is a failed task without a project write", async () => {
   const base = baseFilm(),
     apply = vi.fn();

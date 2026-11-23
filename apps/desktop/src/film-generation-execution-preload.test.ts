@@ -103,3 +103,12 @@ it("forwards fixed-input confirm and import with only the explicit project and o
     ["film:import-fixed-input", projectId],
   ]);
 });
+
+it("forwards the optional standalone image choice without replacing the issued stage position", async () => {
+  const { bridge, invoke } = fixture();
+  const choice = { provider: "GROK_LOGIN", modelId: "grok-imagine-image-2.0" };
+  await bridge.generateFilmStill("series", "画面", "16:9", [], undefined, choice);
+  expect(invoke.mock.calls).toEqual([
+    ["film:still", "series", "画面", "16:9", [], undefined, choice],
+  ]);
+});

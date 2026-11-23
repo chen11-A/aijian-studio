@@ -1,3 +1,7 @@
+import { snapshotVideoSelection } from "./video-model-selection";
+import { snapshotImageSelection } from "./image-model-selection";
+import type { FilmGenerationExecutionInput } from "@aijian/contracts/film-generation-execution";
+import { snapshotSpeechSelection } from "../account/model-center";
 import { assemblyRenderKey, assemblyClock, assemblyClockState } from "./assembly";
 import { bindPreparedVoice, isPreparedVoice, preparedVoiceBinding } from "./actions/prepared-voice";
 import { audioTimelineBox } from "./audio-mix-timeline";
@@ -1521,7 +1525,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       });
       if (valid()) setNotice("这一句已重配，画面没有重新生成。");
     } catch (error) {
-      if (valid())
+      if (!valid()) return;
+      if (error instanceof Error && "code" in error && error.code === "SPEECH_MODEL_UNSUPPORTED") {
+        setNotice(error.message);
+      } else {
         emitNotice({
           code:
             error instanceof Error && error.message === "VOICE_TRAITS_REQUIRED"
@@ -1530,6 +1537,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           text: "配音未完成，请确认角色声音后重试。",
           detail: error instanceof Error ? error.message : undefined,
         });
+      }
     } finally {
       if (valid()) setHearing(false);
     }
@@ -3765,6 +3773,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       previewSession.current = null;
       previewAudio.current = null;
       setHearing(false);
+      if (error instanceof Error && "code" in error && error.code === "SPEECH_MODEL_UNSUPPORTED") {
+        setNotice(error.message);
+        return;
+      }
       setNotice(
         error instanceof Error && error.message === "VOICE_METADATA_TIMEOUT"
           ? "配音已生成，但加载超时，还没有播放。可以重试。"
@@ -4069,9 +4081,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   ): Promise<"STILL_NOT_ACCEPTED" | typeof LOOK_NOT_LOCKED | void> {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id) || persistentHistoryBusyRef.current) return;
+    const videoSelection = snapshotVideoSelection();
+    const imageSelection = snapshotImageSelection();
+    const speechSelection = snapshotSpeechSelection();
     generationRuns.current.add(id);
     try {
-      return await runGeneration(targets, resume, takeIds, blockedIds, pipeline);
+      return await runGeneration(targets, resume, takeIds, blockedIds, pipeline, {
+        ...(videoSelection ? { videoSelection } : {}),
+        ...(imageSelection ? { imageSelection } : {}),
+        ...(speechSelection ? { speechSelection } : {}),
+      });
     } finally {
       generationRuns.current.delete(id);
     }
@@ -4087,6 +4106,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     takeIds?: string[],
     blockedIds?: string[],
     pipeline?: PipelineGenerationHost,
+    modelSelections?: Pick<
+      FilmGenerationExecutionInput,
+      "videoSelection" | "imageSelection" | "speechSelection"
+    >,
   ): Promise<"STILL_NOT_ACCEPTED" | typeof LOOK_NOT_LOCKED | void> {
     const mine = ++runToken.current;
     const requestedVersions = pipeline?.versions ?? versions;
@@ -4099,8 +4122,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!live) return;
     pruneCancelledJobs(live, cancelledJobs.current);
     const generationProject = live.id;
+    const requestedDraft = Boolean(live.draft);
     const valid = () =>
       filmRef.current?.id === generationProject &&
+      Boolean(filmRef.current?.draft) === requestedDraft &&
       runToken.current === mine &&
       (pipeline?.current() ?? true);
     const preflight = generationPreflight(live, {
@@ -4208,6 +4233,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           live,
           {
             mode: "video",
+            ...modelSelections,
             targets: generationExecutionTargets(live, selected, {
               versions: requestedVersions,
               resume,
@@ -7184,6 +7210,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </tbody>
               </table>
               <p data-testid="batch-estimate">{confirmEstimate(pendingBatch, versions)}</p>
+              <p>
+                {film?.draft
+                  ? "本次明确使用 Grok 会员 Video 1.5 Lite（较快的一版），覆盖模型中心的 Video 1.5 偏好；沿用原有草稿参考图规则。"
+                  : "本次使用模型中心的视频偏好；当前会员成片模式仅支持 Grok Video 1.5，不会自动切换渠道。"}
+              </p>
               {draftFaceWarning(Boolean(film?.draft)) ? (
                 <p>{draftFaceWarning(Boolean(film?.draft))}</p>
               ) : null}
@@ -11271,6 +11302,10 @@ function GeneratePage({
                 <div className="row2" style={{ marginTop: 10 }}>
                   <div>
                     <div className="sec-t">清晰度</div>
+                    <p>
+                      较快的一版明确使用会员 Lite，覆盖模型中心的 Video 1.5 偏好；直接出成片使用完整
+                      Video 1.5。
+                    </p>
                     <div className="seg">
                       <button
                         className={film.draft ? "on" : ""}

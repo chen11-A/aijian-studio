@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./Common";
 import { capabilitiesForListedModel } from "./account/model-capabilities";
+import { snapshotSpeechSelection } from "./account/model-center";
 import { grokBridge } from "./grok-auth/transport";
 import { useDemo } from "./model";
 import { Select } from "./Select";
@@ -301,8 +302,10 @@ export function ShortFilmGuide() {
     setStage(0);
     setElapsed(0);
     setNotice("");
+    const speechSelection =
+      provider === "grok_subscription" ? snapshotSpeechSelection() : undefined;
     try {
-      const response = await bridge.createStoryFilm!(projectId, {
+      const input: Parameters<NonNullable<typeof bridge.createStoryFilm>>[1] = {
         scene_label: scene.trim() || SAMPLE_SCENE,
         narration: line.trim() || SAMPLE_LINE,
         subtitle: subtitle.trim(),
@@ -325,7 +328,10 @@ export function ShortFilmGuide() {
               })),
             }
           : {}),
-      });
+      };
+      const response = speechSelection
+        ? await bridge.createStoryFilm!(projectId, input, undefined, undefined, speechSelection)
+        : await bridge.createStoryFilm!(projectId, input);
       const data = (response.data ?? {}) as FilmResult;
       const picture =
         typeof data.preview_image === "string" && data.preview_image.startsWith("data:image/")

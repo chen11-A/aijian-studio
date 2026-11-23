@@ -1,4 +1,6 @@
+import { supportedFilmImageSelection } from "./film-image-selection";
 import { generationSelectedMedia } from "./film-generation-selected-media";
+import { supportedGrokSpeechSelection } from "./grok-speech-selection";
 import { forecastGenerationReferences } from "./film-generation-forecast";
 import { createHash, randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
@@ -75,6 +77,7 @@ const known = new Set<FilmGenerationExecutionFailure>([
   "ACCOUNT_UNAVAILABLE",
   "UNSUPPORTED_SCOPE",
   "EXECUTION_UNAVAILABLE",
+  "VIDEO_SELECTION_UNSUPPORTED",
   "VIDEO_UNCONFIGURED",
   "VIDEO_INPUT_FAILURE_LIMIT",
   "CREATION_UNCONFIGURED",
@@ -111,8 +114,10 @@ type State = {
   session: Session;
   current: () => boolean;
   plannedKey: string | null;
+  denyNewSpeech: boolean;
   attemptedSlots: Set<string>;
   attemptedStages: Set<string>;
+  imageSelectionUnsupported: boolean;
   stageOrigins: Map<string, GenerationRegistrationInput["stages"][number]["origin"]>;
   queuedBindings: Map<string, readonly string[]>;
 };
@@ -205,6 +210,25 @@ export function createNativeFilmGenerationExecutions(host: {
           }
         | undefined;
       try {
+        // This preference is not an account or budget grant. Check it against the
+        // saved mode before a media login/registration, then retain the normal fresh
+        // project and canonical request guards after the lease await below.
+        if (input.videoSelection) {
+          if (!owner.current()) return fail("EXECUTION_UNAVAILABLE");
+          const selectedRecord = await readProject(host.filmsRoot(), input.projectId);
+          if (
+            !selectedRecord ||
+            filmHistoryRecordHash(selectedRecord) !== input.expectedProjectHash
+          )
+            return fail("PROJECT_CHANGED");
+          const { provider, modelId } = input.videoSelection;
+          if (
+            provider !== "GROK_LOGIN" ||
+            (modelId !== "grok-imagine-video-1.5" && modelId !== "grok-imagine-video-1.5-lite") ||
+            (selectedRecord.draft !== true && modelId !== "grok-imagine-video-1.5")
+          )
+            return fail("VIDEO_SELECTION_UNSUPPORTED");
+        }
         const accountLease = await host.mediaDispatchLease();
         if (!accountLease) return fail("ACCOUNT_UNAVAILABLE");
         const session = { ...host.session() };
@@ -395,8 +419,14 @@ export function createNativeFilmGenerationExecutions(host: {
           session,
           current,
           plannedKey: planned ? forecastKey(producer, plan, intent) : null,
+          denyNewSpeech:
+            input.speechSelection !== undefined &&
+            !supportedGrokSpeechSelection(input.speechSelection),
           attemptedSlots: new Set(),
           attemptedStages: new Set(),
+          imageSelectionUnsupported:
+            input.imageSelection !== undefined &&
+            !supportedFilmImageSelection(input.imageSelection),
           stageOrigins: new Map(registration.stages.map((stage) => [stage.key, stage.origin])),
           queuedBindings: new Map(),
         };
@@ -554,6 +584,15 @@ export function createNativeFilmGenerationExecutions(host: {
         input.seriesId !== state.seriesId
       )
         return fail("UNSUPPORTED_SCOPE");
+      // An actual issued image stage has live CLIENT_IMAGES dependents.
+      // Do not apply IMAGE to video-only or readonly reuse paths. Refuse
+      // before stage source reads, reservation, provider bearer use or dispatch.
+      if (state.imageSelectionUnsupported)
+        return {
+          path: "",
+          reason: "所选图像模型尚未接入自动出图，未提交图像请求。",
+          code: "IMAGE_SELECTION_UNSUPPORTED",
+        };
       const verify = async (record: FilmRecord | null) => {
         lease.assertCurrent();
         if (
@@ -868,28 +907,35 @@ export function createNativeFilmGenerationExecutions(host: {
       const result = await createStoryFilmClient(submitting, state.session, undefined, [
         host.filmsRoot(),
         host.storyFilmsRoot(),
-      ]).create(projectId, body, state.account.bearer, state.account, {
-        arm: async (wire) => {
-          await validate(await readProject(host.filmsRoot(), state.projectId));
-          const roles = await state.sources.requestSourceRoles(body);
-          await state.sources.verify();
-          lease.assertCurrent();
-          const armId = await state.api.armVideo(
-            state.backendProjectId,
-            state.apiExecutionId,
-            target.key,
-            lease.slotIndex,
-            execution.takeId,
-            wire,
-            roles,
-            state.account,
-            lease.current,
-          );
-          armedWire = wire;
-          lease.assertCurrent();
-          return { armId, current: lease.current };
+      ]).create(
+        projectId,
+        body,
+        state.account.bearer,
+        state.account,
+        {
+          arm: async (wire) => {
+            await validate(await readProject(host.filmsRoot(), state.projectId));
+            const roles = await state.sources.requestSourceRoles(body);
+            await state.sources.verify();
+            lease.assertCurrent();
+            const armId = await state.api.armVideo(
+              state.backendProjectId,
+              state.apiExecutionId,
+              target.key,
+              lease.slotIndex,
+              execution.takeId,
+              wire,
+              roles,
+              state.account,
+              lease.current,
+            );
+            armedWire = wire;
+            lease.assertCurrent();
+            return { armId, current: lease.current };
+          },
         },
-      });
+        state.denyNewSpeech,
+      );
       lease.assertCurrent();
       return result;
     } catch (error) {

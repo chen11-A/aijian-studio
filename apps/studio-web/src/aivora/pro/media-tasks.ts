@@ -1,3 +1,4 @@
+import { snapshotSpeechSelection } from "../account/model-center";
 import type { FilmProject, FilmShot } from "../film/project";
 import {
   bakedSubtitleNotice,
@@ -30,6 +31,7 @@ export function revoiceFilmShot(
   shot: FilmShot,
   host: MediaHost & { billing: () => Promise<string> },
 ) {
+  const speechSelection = snapshotSpeechSelection();
   return runTask(
     {
       id: `voice:${shot.id}`,
@@ -52,9 +54,13 @@ export function revoiceFilmShot(
         speed: directed.speed,
         projectId,
         idempotencyKey: crypto.randomUUID(),
+        ...(speechSelection ? { speechSelection } : {}),
       });
       const latest = assertCurrent(base, host, signal);
-      if (spoken.kind !== "OK") throw new Error(spoken.detail || "配音没有生成，画面没有动。");
+      if (spoken.kind !== "OK")
+        throw Object.assign(new Error(spoken.detail || "配音没有生成，画面没有动。"), {
+          code: spoken.code,
+        });
       host.apply({
         ...latest,
         audioClips: [

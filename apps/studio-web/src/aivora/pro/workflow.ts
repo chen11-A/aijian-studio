@@ -1,3 +1,4 @@
+import { getModelCenterSnapshot } from "../account/model-center";
 import { ProtectedGenerationFailure } from "../film/generation-execution-failure";
 import {
   generationExecutionNotice,
@@ -191,9 +192,19 @@ export async function requestStill(
     return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
   }
   try {
-    const result = execution
-      ? await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references, execution)
-      : await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
+    // Protected stages retain their existing native-owned recipe; model-center
+    // integration for automatic prerequisites is separate. Standalone stills
+    // capture the current choice once and let native enforce the adapter.
+    const choice = execution ? undefined : getModelCenterSnapshot().choices.IMAGE;
+    const result = choice
+      ? await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references, undefined, {
+          ...choice,
+        })
+      : execution
+        ? await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references, execution)
+        : await bridge.generateFilmStill(seriesId, prompt, aspectRatio, references);
+    if (result.code === "UNSUPPORTED_SCOPE" && !execution)
+      return { url: "", reason: result.reason };
     if (execution && result.code) throw protectedGenerationFailure(result.code);
     if (!result.path) {
       const providerReason = result.reason || "";

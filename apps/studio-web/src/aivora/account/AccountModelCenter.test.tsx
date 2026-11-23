@@ -13,7 +13,7 @@ import {
 } from "./SandboxSurfaces";
 import { CurrentModelLink } from "./CurrentModelLink";
 import { useFollowCenteredChatModel } from "./follow-centered-model";
-import { selectCenteredModel } from "./model-center";
+import { getModelCenterSnapshot, selectCenteredModel } from "./model-center";
 import type { ProviderConnectionData } from "../../api/studio";
 
 afterEach(() => {
@@ -170,6 +170,51 @@ describe("account and model center", () => {
     expect(await screen.findByRole("combobox", { name: "文本模型" })).toHaveValue("grok:grok-4.7");
     await waitFor(() => expect(bridge.models).toHaveBeenCalled());
     delete window.aijianGrok;
+  });
+
+  it("lists one Grok TTS adapter, not the returned character voices", async () => {
+    const signedIn: GrokLoginStatus = {
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: "person@example.test",
+      lastError: null,
+    };
+    selectCenteredModel("SPEECH", { provider: "GROK_LOGIN", modelId: "eve" });
+    const speak = vi.fn();
+    window.aijianGrok = {
+      status: vi.fn(async () => signedIn),
+      signIn: vi.fn(),
+      cancel: vi.fn(),
+      signOut: vi.fn(),
+      models: vi.fn(async () => ({
+        kind: "OK" as const,
+        models: [
+          { id: "eve", label: "Eve", outputModalities: ["audio"], catalogKind: "voice" as const },
+          { id: "leo", label: "Leo", outputModalities: ["audio"], catalogKind: "voice" as const },
+          { id: "tts-other", label: "Other TTS", outputModalities: ["audio"] },
+        ],
+      })),
+      completeText: vi.fn(),
+      speak,
+    };
+    render(
+      <GrokConnectionProvider>
+        <AccountModelCenter />
+      </GrokConnectionProvider>,
+    );
+    const speech = await screen.findByRole("combobox", { name: "配音模型" });
+    expect(screen.getAllByRole("option", { name: "Grok TTS · Grok 登录" })).toHaveLength(1);
+    for (const name of ["Eve", "Leo", "Other TTS"])
+      expect(screen.queryByRole("option", { name })).not.toBeInTheDocument();
+    expect(getModelCenterSnapshot().choices.SPEECH?.modelId).toBe("eve");
+    fireEvent.change(speech, { target: { value: "grok:grok-tts" } });
+    expect(getModelCenterSnapshot().choices.SPEECH).toEqual({
+      provider: "GROK_LOGIN",
+      modelId: "grok-tts",
+    });
+    expect(speak).not.toHaveBeenCalled();
   });
 
   it("says the Grok login is not allowed to list image or video models", async () => {

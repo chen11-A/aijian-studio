@@ -84,6 +84,12 @@ export function getModelCenterSnapshot(): ModelCenterState {
   return cacheValue;
 }
 
+/** Capture the current choice before an asynchronous production action starts. */
+export function snapshotSpeechSelection(): CenterChoice | undefined {
+  const choice = getModelCenterSnapshot().choices.SPEECH;
+  return choice ? { ...choice } : undefined;
+}
+
 export function subscribeModelCenter(listener: () => void): () => void {
   listeners.add(listener);
   const onStorage = (event: StorageEvent) => {

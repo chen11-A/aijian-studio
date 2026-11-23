@@ -412,6 +412,7 @@ class StoryFilmService:
         self._dispatch_account: str | None = None
         self._prepared_generation: tuple[str, str] | None = None
         self._production_cache = False
+        self._deny_new_speech = False
         self._prepared_cache_choice: PreparedCacheChoice | None = None
         self._pending_cache_image: bytes | None = None
         self._cache_image_saved = False
@@ -431,8 +432,10 @@ class StoryFilmService:
         media_token: str | None = None,
         dispatch_account: str | None = None,
         prepared_generation: tuple[str, str] | None = None,
+        deny_new_speech: bool = False,
     ) -> StoryFilmResult:
         self._dispatch_account = dispatch_account
+        self._deny_new_speech = deny_new_speech
         self._begin_creation(request)
         self._prepared_generation = prepared_generation
         self._production_cache = prepared_generation is not None
@@ -685,6 +688,14 @@ class StoryFilmService:
                     failed,
                     message=texts[error.code],
                     user_message=user_message(error.code, texts[error.code]),
+                )
+            if isinstance(error, StoryFilmError) and error.code == "SPEECH_MODEL_UNSUPPORTED":
+                mark_film_progress(project_id, "failed", error.message)
+                return replace(
+                    failed,
+                    message=error.message,
+                    fix="请在模型中心选择 Grok TTS（Grok 登录）。",
+                    user_message=user_message(error.code, error.message),
                 )
             if isinstance(error, StoryFilmError) and error.code in {
                 "DIALOGUE_VIDEO_LIMIT",
@@ -1928,6 +1939,13 @@ class StoryFilmService:
     def _before_creation_submit(
         self, project_id: str, request: StoryFilmRequest, http: XaiHttpRequest, event: str
     ) -> None:
+        # Silent and reused audio never attempt a TTS POST. This is a local restriction,
+        # not a new provider, request field, or reason to change cache/budget identity.
+        if event == "tts" and self._deny_new_speech:
+            raise StoryFilmError(
+                "SPEECH_MODEL_UNSUPPORTED",
+                "所选配音模型尚未接入。请在模型中心选择 Grok TTS（Grok 登录）；角色声音不会更改。",
+            )
         # Runs after local/child-budget checks, immediately before transport.send.
         try:
             self._check_creation_policy(project_id)

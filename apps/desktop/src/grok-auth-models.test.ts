@@ -38,7 +38,7 @@ describe("Grok model catalog", () => {
     ]);
   });
 
-  it("fills image and video from their own lists and offers voices as 配音 choices", async () => {
+  it("fills image and video from their own lists and marks character voices", async () => {
     const calls: string[] = [];
     const fetch: typeof globalThis.fetch = async (input, init) => {
       const url = String(input);
@@ -83,7 +83,7 @@ describe("Grok model catalog", () => {
         label: "Grok Imagine Video 1.5",
         outputModalities: ["video"],
       },
-      { id: "eve", label: "eve", outputModalities: ["audio"] },
+      { id: "eve", label: "eve", outputModalities: ["audio"], catalogKind: "voice" },
     ]);
     expect(listed.notices).toEqual([]);
     expect(listed.reports.find((report) => report.capability === "SPEECH")).toMatchObject({
@@ -166,7 +166,7 @@ describe("Grok model catalog", () => {
       kind: "OK",
       models: [
         { id: "grok-4.7", label: "Grok 4.7" },
-        { id: "ara", label: "ara", outputModalities: ["audio"] },
+        { id: "ara", label: "ara", outputModalities: ["audio"], catalogKind: "voice" },
       ],
       notices: [
         { capability: "IMAGE", reason: "denied", httpStatus: 403 },
@@ -188,12 +188,22 @@ describe("Grok model catalog", () => {
 describe("Grok speech", () => {
   it("keeps audio bytes and reports timestamps when the account sends them", async () => {
     const audio = await speakGrokLine(
-      async () =>
-        new Response(Uint8Array.from([1, 2, 3, 4]), {
+      async (url, init) => {
+        expect(url).toBe(`${endpoints.api}/tts`);
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          text: "雨太大。",
+          voice_id: "leo",
+          language: "zh",
+          with_timestamps: true,
+          speed: 0.85,
+        });
+        return new Response(Uint8Array.from([1, 2, 3, 4]), {
           status: 200,
           headers: { "content-type": "audio/mpeg" },
-        }),
-      { accessToken: "token", voiceId: "leo", text: "雨太大。", endpoints },
+        });
+      },
+      { accessToken: "token", voiceId: "leo", text: "雨太大。", endpoints, speed: 0.85 },
     );
     expect(audio.mime).toBe("audio/mpeg");
     expect(audio.timestamps).toBe(false);

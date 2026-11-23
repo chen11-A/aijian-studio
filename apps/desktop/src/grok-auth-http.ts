@@ -188,7 +188,7 @@ const MEDIA_LISTS = [
 /**
  * Language models come from GET /v1/models and GET /v1/language-models.
  * Image and video models come from their own listing routes. TTS voices from
- * GET /v1/tts/voices become the 配音 choices. This never calls a generation endpoint.
+ * GET /v1/tts/voices remain character voice choices, not model IDs. This never calls generation.
  */
 export async function listGrokCatalog(
   fetch: Fetch,
@@ -328,6 +328,7 @@ function parseListedVoices(body: unknown): GrokLoginModel[] | null {
       id,
       label: safeString(item.name, 200) ? item.name : id,
       outputModalities: ["audio"],
+      catalogKind: "voice",
     });
     if (models.length >= 100) break;
   }
@@ -342,11 +343,7 @@ function mergeModels(into: GrokLoginModel[], extra: readonly GrokLoginModel[], f
       continue;
     }
     if ((forced || !into[index]?.outputModalities) && model.outputModalities) {
-      into[index] = {
-        id: model.id,
-        label: model.label,
-        outputModalities: model.outputModalities,
-      };
+      into[index] = model;
     }
   }
 }
