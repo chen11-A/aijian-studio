@@ -2550,6 +2550,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/xai-connection-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Xai Connection Image */
+        post: operations["create_xai_connection_image_api_v1_projects__project_id__xai_connection_images_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/provider-connections": {
         parameters: {
             query?: never;
@@ -6003,6 +6020,8 @@ export interface components {
             /** Supporting Reference */
             supporting_reference?: string | null;
         };
+        /** @enum {string} */
+        ImageDispatchStatus: "SUCCEEDED" | "CANCELLED" | "BLOCKED" | "FAILED" | "UNKNOWN";
         /** ImportTextSourceRequest */
         ImportTextSourceRequest: {
             /** Content Base64 */
@@ -12370,6 +12389,49 @@ export interface components {
             supersedes_fact_ids?: string[];
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
+        };
+        /** XaiConnectionImageCreatePayload */
+        XaiConnectionImageCreatePayload: {
+            /** Aspect Ratio */
+            aspect_ratio?: ("9:16" | "16:9" | "1:1") | null;
+            /** Connection Id */
+            connection_id: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Model Id */
+            model_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Reference Images */
+            reference_images?: string[];
+        };
+        /** XaiConnectionImageData */
+        XaiConnectionImageData: {
+            /** Asset Path */
+            asset_path?: string | null;
+            /** Asset Sha256 */
+            asset_sha256?: string | null;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Byte Size */
+            byte_size?: number | null;
+            /** Code */
+            code: string;
+            /** Connection Id */
+            connection_id: string;
+            /** Message */
+            message: string;
+            /** Mime Type */
+            mime_type?: string | null;
+            /** Model Id */
+            model_id: string;
+            status: components["schemas"]["ImageDispatchStatus"];
+        };
+        /** XaiConnectionImageResponse */
+        XaiConnectionImageResponse: {
+            data: components["schemas"]["XaiConnectionImageData"];
+            /** Request Id */
+            request_id: string;
         };
     };
     responses: never;
@@ -23087,6 +23149,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_xai_connection_image_api_v1_projects__project_id__xai_connection_images_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["XaiConnectionImageCreatePayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["XaiConnectionImageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -10254,6 +10254,16 @@
         "title": "HumanRightsDecisionInput",
         "type": "object"
       },
+      "ImageDispatchStatus": {
+        "enum": [
+          "SUCCEEDED",
+          "CANCELLED",
+          "BLOCKED",
+          "FAILED",
+          "UNKNOWN"
+        ],
+        "type": "string"
+      },
       "ImportTextSourceRequest": {
         "additionalProperties": false,
         "properties": {
@@ -28959,6 +28969,173 @@
         ],
         "title": "WorldRuleFactV1",
         "type": "object"
+      },
+      "XaiConnectionImageCreatePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "aspect_ratio": {
+            "anyOf": [
+              {
+                "enum": [
+                  "9:16",
+                  "16:9",
+                  "1:1"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aspect Ratio"
+          },
+          "connection_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "model_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "reference_images": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Reference Images",
+            "type": "array"
+          }
+        },
+        "required": [
+          "connection_id",
+          "model_id",
+          "prompt",
+          "idempotency_key"
+        ],
+        "title": "XaiConnectionImageCreatePayload",
+        "type": "object"
+      },
+      "XaiConnectionImageData": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Path"
+          },
+          "asset_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Sha256"
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
+          },
+          "byte_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Byte Size"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ImageDispatchStatus"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message",
+          "connection_id",
+          "model_id"
+        ],
+        "title": "XaiConnectionImageData",
+        "type": "object"
+      },
+      "XaiConnectionImageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/XaiConnectionImageData"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "XaiConnectionImageResponse",
+        "type": "object"
       }
     }
   },
@@ -43988,6 +44165,55 @@
           }
         },
         "summary": "Start"
+      }
+    },
+    "/api/v1/projects/{project_id}/xai-connection-images": {
+      "post": {
+        "operationId": "create_xai_connection_image_api_v1_projects__project_id__xai_connection_images_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/XaiConnectionImageCreatePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XaiConnectionImageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Xai Connection Image"
       }
     },
     "/api/v1/provider-connections": {
