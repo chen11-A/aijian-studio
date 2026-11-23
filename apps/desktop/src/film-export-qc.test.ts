@@ -1063,6 +1063,60 @@ it("keeps the first aspect when copying the second aspect runs out of disk", asy
   expect(names.filter((name) => name.endsWith(".mp4"))).toEqual([expect.stringContaining("16x9")]);
 }, 30000);
 
+it("deletes the second aspect video when its subtitle cannot be written", async () => {
+  const f = await fixture();
+  const record = structuredClone(f.record());
+  const take = (
+    record.shots![0] as {
+      takes: {
+        cleanVideoPath?: string;
+        subtitleCues?: { text: string; start: number; end: number }[];
+      }[];
+    }
+  ).takes[0]!;
+  take.cleanVideoPath = f.source;
+  take.subtitleCues = [{ text: "字幕", start: 0, end: 0.3 }];
+  f.setRecord(record);
+  const request = {
+    ...input,
+    settings: { ...input.settings, subtitles: "srt" as const },
+  };
+  const ready = await f.qc.prepare("owner", request);
+  if (ready.kind !== "READY") throw new Error(JSON.stringify(ready));
+  linkFault.eaccesIncludes = "9x16.srt";
+  const result = await f.qc.publish("owner", { ...request, qcReceipt: ready.qcReceipt });
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "PUBLISH_FAILED" });
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16"))).toBe(false);
+  expect(names.some((name) => name.includes("16x9") && name.endsWith(".mp4"))).toBe(true);
+  expect(names.some((name) => name.includes("16x9") && name.endsWith(".srt"))).toBe(true);
+}, 30000);
+
+it("keeps the first aspect and reports PROJECT_CHANGED when the project moves before the second copy", async () => {
+  const f = await fixture();
+  const read = f.host.read!;
+  f.host.read = async () => {
+    const record = await read();
+    if (!record) return record;
+    const names = await readdir(f.output).catch(() => [] as string[]);
+    return names.some((name) => name.endsWith(".mp4"))
+      ? { ...record, title: "发布中改了" }
+      : record;
+  };
+  const qc = createFilmExportQc(f.host);
+  const ready = await qc.prepare("owner", input);
+  if (ready.kind !== "READY") throw new Error("ready required");
+  const result = await qc.publish("owner", { ...input, qcReceipt: ready.qcReceipt });
+  expect(result.kind).toBe("PARTIAL");
+  if (result.kind !== "PARTIAL") throw new Error(JSON.stringify(result));
+  expect(result.incomplete).toEqual({ aspectRatio: "9:16", code: "PROJECT_CHANGED" });
+  expect(result.outputs.map((output) => output.aspectRatio)).toEqual(["16:9"]);
+  const names = await readdir(f.output);
+  expect(names.some((name) => name.includes("9x16") || name.startsWith(".aivora-qc-"))).toBe(false);
+}, 30000);
+
 it("deletes the second aspect video when its cover cannot be written", async () => {
   const f = await fixture();
   const ready = await f.qc.prepare("owner", input);
