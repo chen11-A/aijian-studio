@@ -1,4 +1,7 @@
-import { supportedFilmImageSelection } from "./film-image-selection";
+import {
+  supportedConnectionFilmImageSelection,
+  supportedFilmImageSelection,
+} from "./film-image-selection";
 import type {
   FilmGenerationStillExecution,
   FilmGenerationExtractionExecution,
@@ -66,6 +69,16 @@ export type FilmLibraryHost<Event = unknown> = {
   /** 4B-B09: the shipped subtitle face, for burned subtitles and the cover's words. */
   subtitleFont?: () => string | undefined;
   mediaToken: () => Promise<string | null>;
+  /** Controlled sidecar-backed adapter for a saved CONNECTION image choice.
+   * Never receives raw keys from renderer and never falls back to Grok OAuth. */
+  xaiConnectionStill?: (input: {
+    seriesId: string;
+    prompt: string;
+    aspectRatio?: "9:16" | "16:9";
+    references: readonly string[];
+    connectionId: string;
+    modelId: string;
+  }) => Promise<{ path: string; reason: string; code?: string }>;
   fetcher?: typeof fetch;
   pickDirectory: () => Promise<string | null>;
   defaultDirectory?: () => Promise<string>;
@@ -351,7 +364,11 @@ export function registerFilmLibraryHandlers<TEvent>(
     ) {
       throw new Error("Invalid film");
     }
-    if (args.length === 6 && !supportedFilmImageSelection(args[5]))
+    const connectionChoice =
+      args.length === 6 && args[4] === undefined && supportedConnectionFilmImageSelection(args[5])
+        ? args[5]
+        : null;
+    if (args.length === 6 && !connectionChoice && !supportedFilmImageSelection(args[5]))
       return {
         path: "",
         reason: "所选图像模型尚未接入出图。请在模型中心选择 Grok 登录的 grok-imagine-image-2.0。",
@@ -375,6 +392,58 @@ export function registerFilmLibraryHandlers<TEvent>(
       });
     }
     if (args.length === 5) throw new Error("Invalid film");
+    if (connectionChoice) {
+      if (!host.xaiConnectionStill)
+        return {
+          path: "",
+          reason: "所选图像模型尚未接入出图。请在模型中心选择 Grok 登录的 grok-imagine-image-2.0。",
+          code: "UNSUPPORTED_SCOPE",
+        };
+      const references: string[] = [];
+      if (Array.isArray(args[3])) {
+        try {
+          for (const source of args[3] as string[]) {
+            references.push(
+              await stillReferenceImage([host.filmsRoot(), host.storyFilmsRoot()], source),
+            );
+          }
+        } catch {
+          return { path: "", reason: "参考图无法读取，请重新选择。" };
+        }
+      }
+      const started = Date.now();
+      const selectedReferenceImageCount = new Set(references).size;
+      const made = await host.xaiConnectionStill({
+        seriesId: args[0],
+        prompt: args[1],
+        references,
+        connectionId: connectionChoice.connectionId,
+        modelId: connectionChoice.modelId,
+        ...(args[2] === "9:16" || args[2] === "16:9" ? { aspectRatio: args[2] } : {}),
+      });
+      host.logStill?.({
+        ...styleDiagnostics(args[1]),
+        referenceImageCount: made.path ? selectedReferenceImageCount : 0,
+        selectedReferenceImageCount,
+        requestDispatched: Boolean(made.path),
+        imageLimit: 5,
+        videoReferenceLimit: 13,
+        durationMs: Date.now() - started,
+        requestChars: args[1].length,
+        ok: Boolean(made.path),
+        detail: made.path ? "定妆或起始画面已保存。" : made.reason || "出图没有成功。",
+      });
+      if (!made.path || !host.noteManualStill) return made;
+      let noted: { kind: "offer"; offerId: string } | { kind: "full" } | { kind: "unavailable" };
+      try {
+        noted = await host.noteManualStill(args[0], made.path);
+      } catch {
+        noted = { kind: "unavailable" };
+      }
+      if (noted.kind === "offer") return { ...made, fixedInputOfferId: noted.offerId };
+      if (noted.kind === "full") return { ...made, fixedInputLimit: true };
+      return made;
+    }
     const references: string[] = [];
     if (Array.isArray(args[3])) {
       try {

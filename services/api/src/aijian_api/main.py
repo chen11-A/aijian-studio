@@ -258,6 +258,7 @@ from aijian_api.visual_bible_routes import (
     create_visual_bible_public_router,
     create_visual_bible_write_router,
 )
+from aijian_api.xai_connection_image_routes import create_xai_connection_image_router
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -1292,6 +1293,12 @@ def create_app(
                 get_repository,
                 get_media_probe_toolchain,
                 sidecar_security.token if sidecar_security is not None else None,
+            )
+        )
+        app.include_router(
+            create_xai_connection_image_router(
+                get_repository,
+                lambda: resolved_credential_vault,
             )
         )
         app.include_router(

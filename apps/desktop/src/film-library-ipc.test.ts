@@ -367,3 +367,57 @@ it("does not overwrite an older image or retry when the selected standalone imag
   expect(fetcher).toHaveBeenCalledOnce();
   expect(readFileSync(old).toString()).toBe("previous accepted image");
 });
+
+it("routes standalone CONNECTION image selection through host.xaiConnectionStill without touching Grok OAuth", async () => {
+  const env = lastFrameHost();
+  const xaiStill = vi.fn<NonNullable<FilmLibraryHost["xaiConnectionStill"]>>(async () => ({
+    path: join(env.films, "xai-saved-still.png"),
+    reason: "",
+  }));
+  const noteManualStill = vi.fn<NonNullable<FilmLibraryHost["noteManualStill"]>>(async () => ({
+    kind: "offer",
+    offerId: "offer-xai-1",
+  }));
+  env.host.xaiConnectionStill = xaiStill;
+  env.host.noteManualStill = noteManualStill;
+  const still = handlersFor(env.host).get("film:still")!;
+
+  const made = await still(true, series, "书店夕阳", "16:9", [], undefined, {
+    provider: "CONNECTION",
+    connectionId: "conn-xai-1",
+    modelId: "grok-imagine-image-2.0",
+  });
+  expect(made).toEqual({
+    path: join(env.films, "xai-saved-still.png"),
+    reason: "",
+    fixedInputOfferId: "offer-xai-1",
+  });
+  expect(xaiStill).toHaveBeenCalledWith({
+    seriesId: series,
+    prompt: "书店夕阳",
+    aspectRatio: "16:9",
+    references: [],
+    connectionId: "conn-xai-1",
+    modelId: "grok-imagine-image-2.0",
+  });
+  expect(env.host.mediaToken).not.toHaveBeenCalled();
+  expect(env.host.fetcher).not.toHaveBeenCalled();
+
+  // Sandbox XAI_API and malformed CONNECTION remain rejected with 0 calls even when adapter is wired.
+  for (const invalid of [
+    { provider: "XAI_API", modelId: "grok-imagine-image-2.0" },
+    {
+      provider: "CONNECTION",
+      connectionId: "conn-xai-1",
+      modelId: "grok-imagine-image-2.0",
+      apiKey: "xai-must-never-pass",
+    },
+    { provider: "CONNECTION", connectionId: "bad id", modelId: "grok-imagine-image-2.0" },
+  ]) {
+    expect(await still(true, series, "书店夕阳", "16:9", [], undefined, invalid)).toMatchObject({
+      path: "",
+      code: "UNSUPPORTED_SCOPE",
+    });
+  }
+  expect(xaiStill).toHaveBeenCalledTimes(1);
+});
